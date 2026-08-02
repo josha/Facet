@@ -315,7 +315,21 @@ export type ErrorBoundarySpec = {
 -- disagree. mount.luau reads this table.
 local PROP_DIRTY: { [string]: { [string]: { string } } } = schema.propDirty()
 
-blueprint.PROP_DIRTY = PROP_DIRTY
+-- FROZEN, because it is PUBLIC (api-architecture-consistency F-34 / ledger
+-- BP-F17). `UI.PROP_DIRTY` is the live map `mount.luau` reads to decide which
+-- dirty classes a reactive prop schedules, so an unfrozen handle on it is a
+-- mutable handle on mount-time subscription behaviour. mount only ever reads it.
+-- The innermost arrays come from the schema and are already frozen, so the walk
+-- checks before freezing (`table.freeze` throws on a frozen table).
+for _, byProp in PROP_DIRTY do
+	for _, classes in byProp do
+		if not table.isfrozen(classes) then
+			table.freeze(classes)
+		end
+	end
+	table.freeze(byProp)
+end
+blueprint.PROP_DIRTY = table.freeze(PROP_DIRTY)
 
 local CONTAINER: { [string]: boolean } = {}
 for name, classSpec in schema.all() do
@@ -349,9 +363,21 @@ local function quoteList(names: { string }): string
 	return table.concat(parts, ", ")
 end
 
-local function unknownPropError(class: string, key: string): string
+-- MODIFIER ATTRIBUTION (api-architecture-consistency F-7 / ledger BP-F4).
+-- `withProps` runs a modifier's writes through the SAME validation a
+-- constructor uses, which is right — but the message it produced named only the
+-- class and the INTERNAL prop the modifier had chosen. `UI.alignment(when,
+-- "center")` reported *"LuauUI UI.When: unknown property 'alignH'"*: a property
+-- the author never typed, on a class they may not have written, followed by
+-- that class's valid properties — none of which is the fix. The two helpers
+-- below therefore take the modifier the author actually called, and every
+-- UI.* modifier passes its own name. A DIRECT constructor error passes nil and
+-- is byte-identical to what it always was.
+local function unknownPropError(class: string, key: string, modifier: string?): string
 	local suggestions = schema.suggest(class, key)
-	local msg = `LuauUI UI.{class}: unknown property '{key}'.`
+	local msg = if modifier == nil
+		then `LuauUI UI.{class}: unknown property '{key}'.`
+		else `LuauUI UI.{modifier} on UI.{class}: UI.{class} has no property '{key}'.`
 	if #suggestions > 0 then
 		msg ..= ` Did you mean {quoteList(suggestions)}?`
 	end
@@ -359,11 +385,21 @@ local function unknownPropError(class: string, key: string): string
 	return msg
 end
 
-local function validateProp(class: string, key: string, value: any, propSpec: schema.PropSpec)
+-- "LuauUI UI.Text.text" for a constructor; "LuauUI UI.frame on UI.When:
+-- UI.When.height" when a modifier wrote it
+local function propErrorHead(class: string, key: string, modifier: string?): string
+	if modifier == nil then
+		return `LuauUI UI.{class}.{key}`
+	end
+	return `LuauUI UI.{modifier} on UI.{class}: UI.{class}.{key}`
+end
+
+local function validateProp(class: string, key: string, value: any, propSpec: schema.PropSpec, modifier: string?)
+	local head = propErrorHead(class, key, modifier)
 	local dep = propSpec.deprecated
 	if dep ~= nil then
 		error(
-			`LuauUI UI.{class}.{key} is not supported (deprecated {dep.since}, removable in {dep.removeNoEarlierThan}). `
+			`{head} is not supported (deprecated {dep.since}, removable in {dep.removeNoEarlierThan}). `
 				.. `Use {dep.replacement}. {dep.note or ""}`,
 			0
 		)
@@ -371,7 +407,7 @@ local function validateProp(class: string, key: string, value: any, propSpec: sc
 	if isReadable(value) then
 		if not propSpec.reactive then
 			error(
-				`LuauUI UI.{class}.{key} does not accept a Signal/Memo (it is read once at mount). `
+				`{head} does not accept a Signal/Memo (it is read once at mount). `
 					.. `Pass a plain value, or rebuild the subtree through UI.When/UI.ForEach.`,
 				0
 			)
@@ -382,7 +418,7 @@ local function validateProp(class: string, key: string, value: any, propSpec: sc
 	if not ok then
 		local expected = table.concat(propSpec.types, " | ")
 		error(
-			`LuauUI UI.{class}.{key} expects {expected}, got {typeof(value)}`
+			`{head} expects {expected}, got {typeof(value)}`
 				.. (if detail ~= nil then ` — {detail}` else "")
 				.. `. ({propSpec.doc})`,
 			0
@@ -437,7 +473,34 @@ local function make(class: string, spec: any): Blueprint
 			error(`LuauUI UI.{class}.{propName} is required ({propSpec.doc})`, 0)
 		end
 	end
-	local node: Blueprint = { class = class, id = id, props = props, children = children }
+	-- `overflow = "clip"` IS a clip host (api-architecture-consistency F-19 /
+	-- ledger BP-F11). `overflow` was accepted on nine container classes and drove
+	-- nothing at all — a second public spelling of `clipChildren` that did not do
+	-- the thing it names. It is normalized HERE, at construction, by the same
+	-- mechanism `UI.ScrollView` already uses to default the flag, so the solver
+	-- and the renderer are untouched. An explicitly authored `clipChildren` (of
+	-- either polarity) always wins, and every other overflow value stays what it
+	-- has always been: declared intent, read by the overflow diagnostic.
+	--
+	-- A BOUND `overflow` implies nothing, deliberately: `clipChildren` is
+	-- construction-only (it decides whether the adapter mounts a clip host), so a
+	-- value that can change later cannot drive it.
+	if props.overflow == "clip" and props.clipChildren == nil and known.clipChildren ~= nil then
+		props.clipChildren = true
+	end
+	-- IMMUTABLE ALL THE WAY DOWN (api-architecture-consistency F-22 / ledger
+	-- BP-F18). api.md says "blueprints are immutable plain tables" and the whole
+	-- modifier-returns-a-new-blueprint contract rests on it, but the freeze was
+	-- one level deep: a shared template reused across rows could be mutated in
+	-- place through `bp.props` or `bp.children`. Every internal builder composes
+	-- its table BEFORE make (mount copies into its own node, the modifiers clone,
+	-- Composition/Region only read), so freezing both is a pure tightening.
+	local node: Blueprint = {
+		class = class,
+		id = id,
+		props = table.freeze(props),
+		children = if children ~= nil then table.freeze(children) else nil,
+	}
 	return table.freeze(node) :: any
 end
 
@@ -817,7 +880,10 @@ end
 -- rendered surface; UI.styleGroup applies the modifier set to EVERY element
 -- of a collection (SwiftUI Group semantics). Token names resolve against
 -- the active style (optional third argument; default: Studio Neutral).
-local function withProps(bp: Blueprint, extra: { [string]: any }): Blueprint
+-- `modifier` is the UI.* name the AUTHOR typed (F-7). Every caller below passes
+-- its own, so an unknown-prop or wrong-type refusal names the call site as well
+-- as the class it landed on.
+local function withProps(bp: Blueprint, extra: { [string]: any }, modifier: string?): Blueprint
 	-- modifiers write through the SAME validation as a constructor. Without this
 	-- they would be a hole straight through Milestone 0's strict authoring:
 	-- `UI.alignment(bp, "middle")` used to freeze an unrecognised value into the
@@ -829,20 +895,28 @@ local function withProps(bp: Blueprint, extra: { [string]: any }): Blueprint
 	for k, v in extra do
 		local propSpec = classSpec.props[k]
 		if propSpec == nil then
-			error(unknownPropError(bp.class, k), 0)
+			error(unknownPropError(bp.class, k, modifier), 0)
 		end
-		validateProp(bp.class, k, v, propSpec)
+		validateProp(bp.class, k, v, propSpec, modifier)
 	end
 	local props = table.clone(bp.props)
 	for k, v in extra do
 		props[k] = v
 	end
-	return table.freeze({ class = bp.class, id = bp.id, props = props, children = bp.children, meta = bp.meta }) :: any
+	-- frozen like `make`'s (F-22): a modifier's output is a blueprint, and a
+	-- blueprint is immutable all the way down
+	return table.freeze({
+		class = bp.class,
+		id = bp.id,
+		props = table.freeze(props),
+		children = bp.children,
+		meta = bp.meta,
+	}) :: any
 end
 
 -- UI.shadow(bp, presetNameOrParams, style?) — UIShadow-backed drop shadow
 function blueprint.shadow(bp: Blueprint, spec: any, style: any?): Blueprint
-	return withProps(bp, { shadow = stylingLib.normalizeShadow(spec, style) })
+	return withProps(bp, { shadow = stylingLib.normalizeShadow(spec, style) }, "shadow")
 end
 
 -- UI.gradient(bp, { colors, rotation?, transparency?, enabled? }, style?) —
@@ -900,13 +974,13 @@ end
 
 function blueprint.gradient(bp: Blueprint, spec: any, style: any?): Blueprint
 	assertGradientable(bp, "UI.gradient")
-	return withProps(bp, { gradient = stylingLib.normalizeGradient(spec, style) })
+	return withProps(bp, { gradient = stylingLib.normalizeGradient(spec, style) }, "gradient")
 end
 
 -- UI.corners(bp, radius|token|{radius}|{topLeft..bottomRight}, style?) —
 -- per-corner UICorner rounding; exactly ONE form per node
 function blueprint.corners(bp: Blueprint, spec: any, style: any?): Blueprint
-	return withProps(bp, { corners = stylingLib.normalizeCorners(spec, style) })
+	return withProps(bp, { corners = stylingLib.normalizeCorners(spec, style) }, "corners")
 end
 
 -- UI.stroke(bp, { thickness?, color?, transparency? }, style?) — a reactive
@@ -921,7 +995,7 @@ end
 -- (ADR-0020 R8, measured live). A node that must show only one border should name
 -- a surface that carries none.
 function blueprint.stroke(bp: Blueprint, spec: any, style: any?): Blueprint
-	return withProps(bp, { stroke = stylingLib.normalizeStroke(spec, style) })
+	return withProps(bp, { stroke = stylingLib.normalizeStroke(spec, style) }, "stroke")
 end
 
 -- UI.strokeData(spec, style?) — the same normalization WITHOUT a blueprint, for
@@ -954,15 +1028,43 @@ function blueprint.dropTarget(bp: Blueprint, spec: dragContract.TargetSpec): Blu
 	return dragContract.attach(bp, dragContract.TARGET_PROP, dragContract.target(spec))
 end
 
--- UI.styleGroup({ shadow?, gradient?, corners? }, blueprints, style?) — Group
--- semantics:
--- the modifier set applies to EACH contained element
+-- UI.styleGroup({ shadow?, gradient?, corners?, stroke? }, blueprints, style?) —
+-- Group semantics: the modifier set applies to EACH contained element.
+--
+-- THE SET IS THE WHOLE FAMILY, AND IT IS CLOSED (api-architecture-consistency
+-- F-4 / ledger BP-F1). This used to read three keys and validate none, so
+-- `stroke` — the fourth member of the style-modifier family — was silently
+-- dropped: an author reaching for the collection form of `UI.stroke` got no
+-- border on any element, with no error, while the singular form worked, so the
+-- bug read as a theme problem. An unknown key was dropped the same way. Both are
+-- now refused at the call site, naming the modifier and the legal set.
+local STYLE_GROUP_KEYS: { string } = { "corners", "gradient", "shadow", "stroke" }
+
 function blueprint.styleGroup(
-	spec: { shadow: any?, corners: any?, gradient: any? },
+	spec: { shadow: any?, corners: any?, gradient: any?, stroke: any? },
 	blueprints: { Blueprint },
 	style: any?
 ): { Blueprint }
+	if type(spec) ~= "table" then
+		error(`LuauUI UI.styleGroup: expected a spec table first, got {typeof(spec)}`, 0)
+	end
+	local legal: { [string]: boolean } = {}
+	for _, key in STYLE_GROUP_KEYS do
+		legal[key] = true
+	end
+	for key in spec :: any do
+		if legal[key] ~= true then
+			error(
+				`LuauUI UI.styleGroup: unknown spec key '{tostring(key)}'. `
+					.. `Valid keys: {table.concat(STYLE_GROUP_KEYS, ", ")}.`,
+				0
+			)
+		end
+	end
 	local extra: { [string]: any } = {}
+	if spec.stroke ~= nil then
+		extra.stroke = stylingLib.normalizeStroke(spec.stroke, style)
+	end
 	if spec.shadow ~= nil then
 		extra.shadow = stylingLib.normalizeShadow(spec.shadow, style)
 	end
@@ -979,7 +1081,7 @@ function blueprint.styleGroup(
 	end
 	local out = {}
 	for _, bp in blueprints do
-		table.insert(out, withProps(bp, extra))
+		table.insert(out, withProps(bp, extra, "styleGroup"))
 	end
 	return out
 end
@@ -1055,7 +1157,7 @@ function blueprint.frame(bp: Blueprint, spec: FrameSpec): Blueprint
 	if h ~= nil then
 		extra.height = h
 	end
-	return withProps(bp, extra)
+	return withProps(bp, extra, "frame")
 end
 
 -- UI.padding(bp, sides) — inner spacing. Only classes whose schema declares
@@ -1071,7 +1173,7 @@ function blueprint.padding(bp: Blueprint, sides: Sides): Blueprint
 			0
 		)
 	end
-	return withProps(bp, { padding = sides })
+	return withProps(bp, { padding = sides }, "padding")
 end
 
 -- UI.offset(bp, x, y) — arrange-only placement offset (no re-measure). Meaningful
@@ -1084,7 +1186,7 @@ function blueprint.offset(bp: Blueprint, x: number?, y: number?): Blueprint
 	if y ~= nil then
 		extra.offsetY = y
 	end
-	return withProps(bp, extra)
+	return withProps(bp, extra, "offset")
 end
 
 -- UI.aspectRatio(bp, ratio) — derive the unconstrained axis from the other.
@@ -1094,7 +1196,7 @@ function blueprint.aspectRatio(bp: Blueprint, ratio: number): Blueprint
 	end
 	-- the solver's `aspect` dim resolves against the resolved other axis; applying
 	-- it to HEIGHT is the common case (a 16:9 media box with a known width)
-	return withProps(bp, { height = { type = "aspect", ratio = ratio } })
+	return withProps(bp, { height = { type = "aspect", ratio = ratio } }, "aspectRatio")
 end
 
 -- UI.alignment(bp, horizontal?, vertical?) — placement inside a ZStack parent.
@@ -1106,7 +1208,7 @@ function blueprint.alignment(bp: Blueprint, horizontal: string?, vertical: strin
 	if vertical ~= nil then
 		extra.alignV = vertical
 	end
-	return withProps(bp, extra)
+	return withProps(bp, extra, "alignment")
 end
 
 -- UI.overlay(bp, content, alignment?) / UI.background(bp, content, alignment?)
@@ -1164,11 +1266,19 @@ function blueprint.background(bp: Blueprint, content: Blueprint, align: string?)
 		local props: { [string]: any } = table.clone(content.props)
 		props.width = props.width or { type = "fill", weight = 1 }
 		props.height = props.height or { type = "fill", weight = 1 }
+		-- `meta` RIDES ALONG (api-architecture-consistency F-3 / ledger BP-F3).
+		-- This rebuild is the only place in the layer that reconstructed a frozen
+		-- node without carrying the framework metadata channel, so a drag
+		-- declaration or an input contribution on the backing plate vanished
+		-- silently — and only in the COMMON case, the one where the author gave the
+		-- plate no dimensions of its own. `withProps` has always carried it; so
+		-- does this now.
 		backing = table.freeze({
 			class = content.class,
 			id = content.id,
-			props = props,
+			props = table.freeze(props),
 			children = content.children,
+			meta = content.meta,
 		}) :: any
 	end
 	return layered(bp, backing, "background", true, align)

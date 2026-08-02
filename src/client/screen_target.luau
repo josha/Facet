@@ -2716,39 +2716,36 @@ function screen_target.new(opts: Opts?)
 			return function() end
 		end
 		local touch_gestures = require(script.Parent.Parent.input.touch_gestures) :: any
+		-- `normalize(kind, args)` reads `args` POSITIONALLY — it is the engine
+		-- callback's argument list, in the engine's order, not a record (SEAM-3:
+		-- passing named keys made a[1]..a[4] nil, so every gesture a device
+		-- delivered normalized to `{ kind, state = "none", positions = {} }` with
+		-- the translation/velocity/scale/rotation/direction dropped). The engine's
+		-- own values go through untouched: the module reads `Vector2`/`EnumItem`
+		-- userdata as well as the headless table fakes.
+		--   TouchTap(positions) · TouchLongPress(positions, state)
+		--   TouchPan(positions, totalTranslation, velocity, state)
+		--   TouchPinch(positions, scale, velocity, state)
+		--   TouchRotate(positions, rotation, velocity, state)
+		--   TouchSwipe(direction, numberOfTouches)
 		local connections = {
 			instance.TouchTap:Connect(function(positions)
-				onGesture(touch_gestures.normalize("tap", { positions = positions }))
+				onGesture(touch_gestures.normalize("tap", { positions }))
 			end),
 			instance.TouchLongPress:Connect(function(positions, state)
-				onGesture(touch_gestures.normalize("longPress", { positions = positions, state = state.Name }))
+				onGesture(touch_gestures.normalize("longPress", { positions, state }))
 			end),
 			instance.TouchPan:Connect(function(positions, totalTranslation, velocity, state)
-				onGesture(touch_gestures.normalize("pan", {
-					positions = positions,
-					totalTranslation = totalTranslation,
-					velocity = velocity,
-					state = state.Name,
-				}))
+				onGesture(touch_gestures.normalize("pan", { positions, totalTranslation, velocity, state }))
 			end),
 			instance.TouchPinch:Connect(function(positions, scale, velocity, state)
-				onGesture(touch_gestures.normalize("pinch", {
-					positions = positions,
-					scale = scale,
-					velocity = velocity,
-					state = state.Name,
-				}))
+				onGesture(touch_gestures.normalize("pinch", { positions, scale, velocity, state }))
 			end),
 			instance.TouchRotate:Connect(function(positions, rotation, velocity, state)
-				onGesture(touch_gestures.normalize("rotate", {
-					positions = positions,
-					rotation = rotation,
-					velocity = velocity,
-					state = state.Name,
-				}))
+				onGesture(touch_gestures.normalize("rotate", { positions, rotation, velocity, state }))
 			end),
-			instance.TouchSwipe:Connect(function(direction, touchCount)
-				onGesture(touch_gestures.normalize("swipe", { direction = direction.Name, touchCount = touchCount }))
+			instance.TouchSwipe:Connect(function(direction, numberOfTouches)
+				onGesture(touch_gestures.normalize("swipe", { direction, numberOfTouches }))
 			end),
 		}
 		return function()

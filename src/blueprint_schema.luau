@@ -1080,12 +1080,16 @@ class("Divider", {
 			channel = "layout",
 			doc = 'explicit orientation — "y" spans horizontally, "x" spans vertically; inferred from the parent stack when absent',
 		}),
+		-- THEME-OWNED LIKE EVERY OTHER NUMBER OF ITS KIND (BP-F12). The default
+		-- IS a metric (`metrics.strokes.hairline`, resolved by the renderer), so
+		-- refusing the metric NAME made this the one theme-owned number an author
+		-- could not track — and the doc claimed a literal default it never had.
 		thickness = p({
-			types = { "number" },
+			types = { "number", "metric" },
 			reactive = true,
 			dirty = { "measure" },
 			channel = "layout",
-			doc = "hairline thickness in px (default 1)",
+			doc = 'hairline thickness: a px number or a theme metric name. Absent = the theme\'s "strokes.hairline"',
 		}),
 	}),
 })
@@ -1548,11 +1552,13 @@ class("Path", {
 			doc = "normalized Path2D control points from LuauUI.pathShapes",
 		}),
 		thickness = p({
-			types = { "number" },
+			-- same ruling as Divider.thickness (BP-F12): a theme-owned number
+			-- accepts the theme's own vocabulary
+			types = { "number", "metric" },
 			reactive = true,
 			dirty = { "paint" },
 			channel = "binding",
-			doc = "stroke thickness in px",
+			doc = "stroke thickness: a px number or a theme metric name",
 		}),
 		closed = p({
 			types = { "boolean" },
@@ -1647,6 +1653,39 @@ class("ErrorBoundary", {
 		}),
 	},
 })
+
+-- ===== the authority tables are FROZEN =====================================
+-- (api-architecture-consistency F-6 / ledger BP-F5.) `schema.all()` and
+-- `schema.forClass()` are a documented tooling seam and they used to hand out
+-- the LIVE tables: `UI.schema.all().Text.props.text.required = false` disabled
+-- framework validation process-wide, and a well-meaning tool that annotated a
+-- ClassSpec mutated the shipped contract. `deprecations()` / `propDirty()` /
+-- `propNames()` already build fresh tables per call, so the seam's only mutable
+-- half was this one.
+--
+-- Nothing internal writes a ClassSpec after build — every reader (blueprint's
+-- `make`/`withProps`/`padding`, `check_prop_parity`, the specs) only looks — so
+-- the freeze is a pure tightening. It is DEEP because one level would leave
+-- every PropSpec, its `types` array and its `enum` set writable, which is the
+-- half that matters.
+--
+-- IDEMPOTENT BY CONSTRUCTION: PropSpec tables are deliberately SHARED between
+-- classes (BOX, CONTAINER_LAYOUT, GAP, TINT …) and `table.freeze` throws on an
+-- already-frozen table, so the walk checks `table.isfrozen` first.
+local function deepFreeze(value: any)
+	if type(value) ~= "table" or table.isfrozen(value) then
+		return
+	end
+	table.freeze(value)
+	for _, entry in value :: any do
+		deepFreeze(entry)
+	end
+end
+
+for _, classSpec in CLASSES do
+	deepFreeze(classSpec)
+end
+table.freeze(CLASSES)
 
 -- ===== accessors ===========================================================
 
@@ -1746,14 +1785,28 @@ local function distance(a: string, b: string): number
 end
 
 -- suggest(class, badProp) -> "did you mean 'x' or 'y'?" style list (may be empty)
+--
+-- THE TWO RESERVED KEYS ARE CANDIDATES TOO (BP-F14). `id` and `children` live
+-- OUTSIDE `spec.props` — `make` handles both before the schema lookup — so the
+-- two most-typed keys in the layer were the two the suggester could not help
+-- with: `UI.Text{ idd = … }` and `UI.VStack{ childern = … }` listed every valid
+-- property and never the one word that was meant. `children` is offered only by
+-- a container, because on a leaf it is not a legal key either.
 function schema.suggest(className: string, bad: string): { string }
 	local spec = CLASSES[className]
 	if spec == nil then
 		return {}
 	end
+	local candidates: { string } = { "id" }
+	if spec.container then
+		table.insert(candidates, "children")
+	end
+	for prop in spec.props do
+		table.insert(candidates, prop)
+	end
 	local lowerBad = string.lower(bad)
 	local scored: { { name: string, d: number } } = {}
-	for prop in spec.props do
+	for _, prop in candidates do
 		local d = distance(lowerBad, string.lower(prop))
 		-- accept close spellings and case/prefix confusions
 		if d <= math.max(2, math.floor(#prop / 3)) then

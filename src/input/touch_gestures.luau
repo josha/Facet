@@ -51,16 +51,25 @@ local STATE_MAP: { [string]: string } = {
 	End = "ended",
 }
 
--- extract a name from an Enum-like value: a raw string, or an { Name = ... }
--- table (how Enum items and our test fakes present). nil-tolerant.
+-- extract a name from an Enum-like value: a raw string, an { Name = ... } table
+-- (our test fakes), or a real `EnumItem` — which, like `Vector2`, is USERDATA
+-- rather than a table (SEAM-3). Read through the same guarded door: anything
+-- without a string `.Name` is simply nameless. nil-tolerant.
 local function nameOf(v: any): string?
-	if type(v) == "string" then
+	local kind = type(v)
+	if kind == "string" then
 		return v
 	end
-	if type(v) == "table" and type(v.Name) == "string" then
-		return v.Name
+	if kind == "table" then
+		return if type(v.Name) == "string" then v.Name else nil
 	end
-	return nil
+	if v == nil or kind == "number" or kind == "boolean" or kind == "function" then
+		return nil
+	end
+	local ok, name = pcall(function()
+		return (v :: any).Name
+	end)
+	return if ok and type(name) == "string" then name else nil
 end
 
 local function mapState(v: any): string
@@ -69,13 +78,30 @@ end
 
 -- normalize a Vector2-like: engine {X=,Y=}, our test {x=,y=}, or a real Vector2.
 -- Missing components read as 0; a nil input returns nil (optional field absent).
+--
+-- A REAL `Vector2` IS USERDATA, not a table (SEAM-3). A table-only reader was
+-- green against every headless `{X=,Y=}` fixture and returned an empty positions
+-- list for every touch a device actually delivered — the "headless shape is not
+-- the engine shape" defect class. So a non-table value object is read through the
+-- same X/Y door, pcall-guarded: an opaque userdata that has no numeric X/Y is
+-- still not a position, and nothing is invented for it.
 local function vec(v: any): Vec?
-	if type(v) ~= "table" then
+	local kind = type(v)
+	if kind == "table" then
+		local x = v.x or v.X or 0
+		local y = v.y or v.Y or 0
+		return { x = x, y = y }
+	end
+	if v == nil or kind == "number" or kind == "string" or kind == "boolean" or kind == "function" then
 		return nil
 	end
-	local x = v.x or v.X or 0
-	local y = v.y or v.Y or 0
-	return { x = x, y = y }
+	local ok, x, y = pcall(function()
+		return (v :: any).X, (v :: any).Y
+	end)
+	if ok and type(x) == "number" and type(y) == "number" then
+		return { x = x, y = y }
+	end
+	return nil
 end
 
 local function vecList(list: any): { Vec }
@@ -174,7 +200,34 @@ export type Arbiter = {
 	reset: (self: Arbiter) -> (),
 }
 
-function touch_gestures.newArbiter(_opts: { [string]: any }?): Arbiter
+-- `opts` is RESERVED: the arbitration policy (RANK above) is fixed, and there is
+-- no option today that changes it. An accepted-and-ignored table is the silent
+-- failure class (SEAM-4) — an author biasing pinch over pan with
+-- `newArbiter({ rank = ... })` would get exactly the default behaviour and no
+-- word about it. So the parameter stays in the signature (the shape is where a
+-- future option lands) and a NON-EMPTY table is refused at construction, naming
+-- the keys it was given. nil and `{}` remain legal.
+function touch_gestures.newArbiter(opts: { [string]: any }?): Arbiter
+	if opts ~= nil then
+		if type(opts) ~= "table" then
+			error(`LuauUI touchGestures.newArbiter: opts must be a table (got {type(opts)})`, 0)
+		end
+		local keys: { string } = {}
+		for key in opts :: any do
+			table.insert(keys, tostring(key))
+		end
+		if #keys > 0 then
+			table.sort(keys)
+			error(
+				`LuauUI touchGestures.newArbiter: options are reserved and none exist yet — got `
+					.. `\{ {table.concat(keys, ", ")} \}. The arbitration policy (pinch/rotate preempt pan; a began `
+					.. "longPress preempts tap; tap and swipe never own) is fixed; pass nil or {} until an option is "
+					.. "declared, or arbitrate yourself with the gesture stream.",
+				0
+			)
+		end
+	end
+
 	local owner: string? = nil
 
 	local arbiter = {}

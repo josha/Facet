@@ -64,9 +64,20 @@ The interesting part is **gap detection**. `ingestPatch` returns `"applied"`,
 - When the full set arrives via `ingestResnapshot`, the adapter catches up and
   resumes accepting patches.
 
+**While a gap is outstanding, an equal revision re-bases.** You are handed the
+client's *current* revision, so the natural answer when nothing has changed since
+the gap is a resnapshot at exactly that revision — and it applies, clears the
+gap, and resumes patching. (Outside a gap the rule is stricter: a resnapshot has
+to be strictly newer, and an equal one is refused as `"stale"`.)
+
 This is also the reconnect path: after any disconnect, feed the client a fresh
 `ingestResnapshot` at whatever revision the server is now at, and it re-bases
 cleanly.
+
+Two failure paths are contained rather than latching. A `requestResnapshot` that
+**throws** does not leave the gap flag set — the next patch asks again, so a
+transient error in your remote-fire path cannot turn a recoverable gap into a
+dead collection.
 
 ## 6.3 Sending a change: the mutation adapter
 
@@ -84,7 +95,13 @@ models this:
   validate ordering; the client does not interpret it.
 - `mutation.confirm(requestId, result)` — call when the server accepts.
 - `mutation.reject(requestId, reason)` — call when the server refuses.
-- `mutation.reset()` — return an idle mutation to a clean state.
+- `mutation.reset()` — abandon whatever is going on and return to `"idle"`. It
+  works **from any state, including pending**, because pending is the state a
+  caller actually needs to escape: a request the server never answered. It rolls
+  back the optimistic presentation (the request may still land server-side, so
+  local state must not keep claiming a success nobody confirmed) and clears the
+  active request id, which is what keeps a late confirm or reject for the
+  abandoned request ignored.
 
 Two safety properties are enforced:
 
@@ -138,6 +155,11 @@ pattern — used by the reference gallery client — is to also observe the snap
 binding and re-apply the draft when authoritative state lands, so the UI always
 ends at the server's truth. The full working example is
 `examples/gallery/client/init.client.luau`.
+
+Both callbacks are **quarantined**. A throwing `apply` degrades that send to an
+un-optimistic one — `restore` runs, the envelope still comes back, and the
+request still goes out — so one bad line in the most consumer-authored code in
+the adapter cannot leave the control permanently stuck.
 
 ## 6.5 What must never replicate
 

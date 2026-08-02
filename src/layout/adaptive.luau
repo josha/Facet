@@ -158,10 +158,20 @@ export type Conditions = {
 	isLandscape: any, -- Readable<boolean>
 }
 
+--[[ THE MOST IMPORTANT ARGUMENT IS NOW IN A TYPE (F-29). `conditions` used to
+	declare an inline intersection `(AxisOpts & { scope: any? })?` and read the
+	scope through two `(opts :: any)` casts, so the one argument that stops a
+	twelve-memo leak was undiscoverable from the exported types and a rename would
+	not have been caught. ]]
+export type ConditionsOpts = {
+	stackAbove: number?, -- AxisOpts: width at or above which the axis becomes "x"
+	scope: any?, -- owns every memo this function creates (see the note below)
+}
+
 -- conditions(core, env, opts?) -> Conditions
 -- Readables the caller owns; they are memos over the environment, so they cost
 -- nothing until read and re-resolve in place when a fact changes.
-function adaptive.conditions(core: any, env: any, opts: (AxisOpts & { scope: any? })?): Conditions
+function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Conditions
 	local viewportRect = env:get("viewportRect")
 	-- delegate to the env memo so the breakpoints have exactly one implementation
 	local sizeClass = env:get("sizeClass")
@@ -174,8 +184,8 @@ function adaptive.conditions(core: any, env: any, opts: (AxisOpts & { scope: any
 	-- the caller; omitted, the caller owns them by hand (§6.3 — every resource
 	-- has exactly one owner either way).
 	local function owned<T>(resource: T): T
-		if opts ~= nil and (opts :: any).scope ~= nil then
-			return (opts :: any).scope:own(resource)
+		if opts ~= nil and opts.scope ~= nil then
+			return opts.scope:own(resource)
 		end
 		return resource
 	end

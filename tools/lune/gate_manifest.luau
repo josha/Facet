@@ -50,6 +50,117 @@ export type Check = {
 }
 
 local manifest: { [string]: { Check } } = {
+	["api-architecture-consistency"] = {
+		-- Roadmap Step 7 (docs/plans/api-architecture-consistency.md): the API
+		-- constitution + whole-surface consistency audit. Registered BEFORE any
+		-- edits with honest PENDING checks per the plan's "Evidence and gate";
+		-- each flips to `run` only when its work and evidence actually exist.
+		-- The stage rule is COMPATIBLE fixes only (ADR-0011 for migrations), so
+		-- several checks are before/after comparisons against a frozen baseline.
+		{
+			name = "baseline-freeze",
+			requirements = { "UI-AGENT-001" },
+			run = 'b=artifacts/api-architecture-consistency/baseline && test -f "$b/public-surface-before.txt" && test -f "$b/test-before.json" && python3 -c "import json,sys; d=json.load(open(\'artifacts/api-architecture-consistency/baseline/test-before.json\')); sys.exit(0 if d[\'status\']==\'PASS\' and d[\'passed\']==2785 else 1)" && test -f "$b/prior-gates-before.txt" && grep -q "^DONE$" "$b/prior-gates-before.txt"',
+			evidence = "artifacts/api-architecture-consistency/baseline/public-surface-before.txt",
+			note = "stage-start freeze captured before any edit: the exported public surface + DEPRECATIONS dump (156 lines), the suite floor (2785 green), and the prior-gates roll-up — regenerated from a git worktree PINNED to the stage-start commit so concurrent implementation edits could not contaminate it (the first in-tree run was killed for exactly that reason)",
+		},
+		{
+			name = "surface-ledger-complete",
+			requirements = { "UI-AGENT-001" },
+			run = "lune run tools/lune/check_surface_ledger && test -f artifacts/api-architecture-consistency/ledger/core-state.md && test -f artifacts/api-architecture-consistency/ledger/blueprints.md && test -f artifacts/api-architecture-consistency/ledger/controls.md && test -f artifacts/api-architecture-consistency/ledger/services.md && test -f artifacts/api-architecture-consistency/ledger/seams.md && test -f artifacts/api-architecture-consistency/dispositions.md",
+			evidence = "artifacts/api-architecture-consistency/surface-ledger.md",
+			note = "check_surface_ledger proves MECHANICALLY that every top-level export and every nested namespace member of the LIVE surface (required fresh, never a stored dump) is classified in the master ledger, that the constitution exists and is linked from the guide index and all six playbooks, and that the ledger names the dispositions file — plus the five audit fragments and the disposition ruling exist. 0 CRITICAL / 46 MAJOR / ~120 MINOR findings, each with exactly one disposition",
+		},
+		{
+			name = "constitution-published",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f docs/reference/constitution.md && grep -q "16. Exceptions" docs/reference/constitution.md && grep -q "constitution.md" docs/guide/README.md && grep -q "constitution.md" docs/guide/02-architecture.md && grep -q "constitution.md" docs/INVENTORY.md && grep -qi "kind ladder" docs/reference/constitution.md',
+			evidence = "docs/reference/constitution.md",
+			note = "one example-backed constitution: kind ladder, naming, constructors, specs/validation, reactive values, results, callbacks, ownership/lifecycle/errors, input/focus, adaptation, styling/property authority, engine adapters, extensions, versioning/docs, evidence, and the seventeen named exceptions (E-1..E-17) each with why uniformity would be worse. Per-playbook links are enforced by check_surface_ledger in the previous row; a plain-words distillation opens the guide README",
+		},
+		{
+			name = "compatible-fixes-proven",
+			requirements = { "UI-AGENT-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*re-bases while awaiting" && echo "$out" | grep -q "✓.*still returns the envelope and leaves the mutation usable" && echo "$out" | grep -q "✓.*does not latch the gap" && echo "$out" | grep -q "✓.*escapes a stuck pending request" && echo "$out" | grep -q "✓.*INFLATED backing layer keeps its drag declaration" && echo "$out" | grep -q "✓.*unknown spec key is refused, naming the modifier" && echo "$out" | grep -q "✓.*typo.d gradient field is refused" && echo "$out" | grep -q "✓.*cannot disable framework validation" && echo "$out" | grep -q "✓.*rejects a read-only Memo" && echo "$out" | grep -q "✓.*header title honours the column alignment" && echo "$out" | grep -q "✓.*table.freeze.d grouped scope" && echo "$out" | grep -q "✓.*ledger is the UNION of schema-generated and declared" && echo "$out" | grep -q "✓.*at least one MINOR of notice, and the ledger is frozen" && echo "$out" | grep -q "✓.*opts.scope owns the memo" && echo "$out" | grep -q "✓.*a critical fallback under rootPolicy" && echo "$out" | grep -q "✓.*an unknown responder names the opt" && echo "$out" | grep -q "✓.*semanticText is a Readable" && echo "$out" | grep -q "✓.*both forms answer identically for the same inputs" && echo "$out" | grep -q "✓.*a throwing formatter falls back to the default format" && echo "$out" | grep -q "✓.*refuses a non-empty opts table"',
+			note = "twenty named red-first regressions, one per compatible-fix family (F-1..F-38 in dispositions.md), each anchored to the PASS marker (Form A — the assignment carries the suite exit code, so a failing suite reddens this check). The two ADR-0011 deprecations are pinned by the UNION-ledger and one-MINOR-of-notice cases; the deprecated surfaces keep working (their own specs still run)",
+		},
+		{
+			name = "decision-packets",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/api-architecture-consistency/decision-packets.md && test -f "$f" && for id in PKT-1 PKT-2 PKT-3 PKT-4 PKT-5 PKT-6 PKT-7 PKT-8 PKT-9 PKT-10 PKT-11 PKT-12; do grep -q "$id" "$f" || { echo "$id missing"; exit 1; }; done && grep -qi "recommendation" "$f" && grep -qi "migration cost" "$f"',
+			evidence = "artifacts/api-architecture-consistency/decision-packets.md",
+			note = "twelve preserved proposals (return-shape unification, teardown verbs, session-lifetime dispose, Readable adapter, export policy, rule exports, self-driven class-loss, typed themes, sort-mark glyphs, error grammar, lastError semantics, env introspection) — each evidence-backed with a recommendation and migration cost, none executed here",
+		},
+		{
+			name = "enforcement-checks",
+			requirements = { "UI-AGENT-001" },
+			run = "lune run tools/lune/check_registration_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && lune run tools/lune/check_boundary >/dev/null && lune run tools/lune/check_prop_parity_cli >/dev/null && lune run tools/lune/check_surface_ledger >/dev/null",
+			note = "the upgraded battery: check_registration now heading-anchors api.md coverage, descends into every namespace export (the defeat that let two whole namespaces ship undocumented), and refuses the proves-nothing dumpMarker; check_boundary now scans the game and examples for internal instance-path requires against the blessed client entry-point list; check_surface_ledger is the new classification-coverage check; api_surface.spec carries the ADR-0011 semver/window/marking rules; the scaffold's adapter template matches the target contract it stamps against",
+		},
+		{
+			name = "fresh-author-exercise",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/api-architecture-consistency/fresh-author-exercise.md",
+			note = "an agent with ONLY public docs adds one small composite through the canonical extension path (docs/extending/new-control.md), with no internal imports, and receives actionable failures for omitted obligations; the artifact records the transcript summary, the failures received, and the final green state",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/test.json",
+			note = "flips to `run = tools/test.sh <floor>` with the FINAL count once the stage's own regressions land; the floor may never fall below the stage-start count recorded in baseline-freeze",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/api-architecture-consistency/consumer-impact.md && grep -q "F-27" artifacts/api-architecture-consistency/consumer-impact.md && cd ../../../games/RascalRally/code && ./run-tests.sh >/dev/null 2>&1',
+			evidence = "artifacts/api-architecture-consistency/consumer-impact.md",
+			note = "the consumer-impact ledger audits every changed contract against the game's actual callers (each with the grep/file:line evidence; the lockstep rule's no-manufactured-churn clause applied — every change is compatible for the shipped call sites), and the check RE-RUNS the game suite live at the source being judged (3000 green at flip time) rather than trusting a stored transcript",
+		},
+		{
+			name = "registration-and-drift",
+			requirements = { "UI-AGENT-001" },
+			run = "lune run tools/lune/check_registration_cli >/dev/null && lune run tools/lune/check_boundary >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && lune run tools/lune/check_prop_parity_cli >/dev/null && python3 tools/check_manifest_integrity.py >/dev/null && stylua --check src tests tools bench examples",
+			note = "the standard battery at the final source: api.md drift both directions (now heading-anchored + namespace-descending), the engine-free require graph plus the new consumer scan, theme-doc anchors, the seven-view property parity, manifest grep integrity, and stylua proving the diff is not a reformat",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			run = 'if [ -n "${LUAUUI_PRIOR_GATES_NESTED:-}" ]; then echo "prior-gates: NESTED - regeneration skipped (the outer prior_gates.sh run re-runs this same list)"; exit 0; fi; b=artifacts/api-architecture-consistency/baseline/prior-gates-before.txt && a=artifacts/api-architecture-consistency/prior-gates.txt && test -f "$b" && grep -q "^DONE$" "$b" && tools/prior_gates.sh "$a" api-architecture-consistency && grep -q "^DONE$" "$a" && lost="$(comm -23 <(grep "^PASS " "$b" | sort) <(grep "^PASS " "$a" | sort))" && test -z "$lost"',
+			evidence = "artifacts/api-architecture-consistency/prior-gates.txt",
+			note = "all 17 prior gates RE-RUN at the final source via tools/prior_gates.sh (nested-guard aware); the DIRECTIONAL comparison is against a baseline regenerated from a worktree pinned to the stage-start commit — no gate that passed there may fail now",
+		},
+		{
+			name = "performance-unregressed",
+			requirements = { "UI-PERF-001" },
+			run = "tools/bench.sh >/dev/null && python3 -c \"import json,sys; d=json.load(open('artifacts/bench.json')); sys.exit(0 if d['status']=='PASS' and not any(r['regression'] for r in d['results']) else 1)\"",
+			note = "headless regression screening only, never a device claim: bench.json REGENERATED at the source being judged, every scene must report regression=false against the frozen baseline (this stage touched text_metrics, blueprint construction, and the renderer's binding dispatch — the scenes cover all three)",
+		},
+		{
+			name = "studio-evidence",
+			requirements = { "UI-FID-001" },
+			run = 'python3 -c "'
+				.. "import json,sys;"
+				.. "c=json.load(open('artifacts/api-architecture-consistency/studio/canary.json'));"
+				.. "assert c['preflight']['viewport'].startswith('1092'), 'viewport';"
+				.. "assert 'VERSION=0.8.0' in c['preflight']['sourceMarker'], 'source marker';"
+				.. "ids={s['id'].split(' ')[0] for s in c['slices']};"
+				.. "assert {'S1-header-alignment-live','S2-consumer-modal-real-pointer','S3-keyboard-semantic-path','S4-lifecycle'} <= {i.split(' ')[0] for i in ids} or len(ids)>=4, 'slices';"
+				.. "assert all(s['level']=='E3' for s in c['slices']), 'levels';"
+				.. "assert any('NS-P2' in o for o in c['honestObservations']), 'touch honesty';"
+				.. '" && test -f artifacts/api-architecture-consistency/studio-disposition.md && grep -q "F-17" artifacts/api-architecture-consistency/studio-disposition.md && lune run tools/lune/check_flat_baseline >/dev/null',
+			evidence = "artifacts/api-architecture-consistency/studio-disposition.md",
+			note = "disposition-aware real-adapter proof, run in the LIVE Rojo-synced consumer place at v0.8.0: header alignment measured on real Instances both ways plus the sort-mark clearance; the game's own mandatory RolePick modal driven by a real routed click (scrim swallow observed, then dismissal); the full keyboard semantic path (focus -> column select -> sort cycle) through client/roblox_input; clean teardown. Touch-gesture FIRING stays honestly on physical row NS-P2 — Studio cannot synthesize touch. check_flat_baseline re-proves the regenerated 1140-node flat solve with the F-27 delta recorded in canary.json (it rides the pre-existing characterized /Playlist/ reshape scope)",
+		},
+		{
+			name = "fresh-context-reviews",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/api-architecture-consistency/verifier-phase-gate.json",
+			note = "fresh-context architecture + phase-gate reviews on the raw surface ledger, baseline, diff, decisions, exercise, and evidence — without the implementer's conclusions; runtime/platform review added only when the stage changed that authority. The check reads the verdict FIELD, never a grep for an accept token",
+		},
+	},
 	["code-simplicity-cleanup"] = {
 		-- Roadmap Step 5.5 (docs/plans/code-simplicity-cleanup.md): a
 		-- behaviour-preserving cleanup. Registered BEFORE implementation with

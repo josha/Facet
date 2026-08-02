@@ -10,23 +10,59 @@ nothing more. Shipped examples: `tests/lib/fake_target.luau` (headless),
 `docs/adr/ADR-0009-billboard-target.md` and the contract module
 `src/render/target_contract.luau`).
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules your addition must follow.
+
 ## 1. Scaffold
 
 ```
 lune run tools/lune/scaffold_cli adapter <lower_snake_name>
 ```
 
-stamps `src/client/<name>.luau` with the six required methods:
-`createRoot`, `create`, `setRect`, `setProp`, `remove`, `destroyRoot`
-(optional capabilities: `setZOrder`, `setActivateHandler`,
-`setFocusVisual`, `setPointerHandlers`, plus your target-specific opts).
+stamps `src/client/<name>.luau` with the six required methods
+(`createRoot`, `create`, `setRect`, `setProp`, `remove`, `destroyRoot`) and
+`tests/<name>.spec.luau` with its contract-conformance stub, plus the
+`tests/run.luau` line that registers it.
+
+Note `create`'s full signature —
+`create(rootHandle, path, class, decorationHint?, createOpts?)`. Those last two
+are CREATION-TIME facts (which decoration slot this node is skinned as; whether
+its engine class must be a CanvasGroup so a subtree can fade as one). Neither
+can arrive as a later prop write, so an adapter that drops them can never skin
+or group, and nothing will tell you.
 
 ## 2. Contract conformance, failing first
 
-`src/render/target_contract.luau` declares the required/optional surface and
+`src/render/target_contract.luau` **is the authority** on the seam, and it
+declares three lists — read its per-method consequence comments, they are the
+specification:
+
+- **REQUIRED** — the six the renderer calls unconditionally. Missing one means
+  the target cannot be mounted.
+- **OPTIONAL** — feature-detected with `~= nil`. Each absence is ONE named
+  degrade, never a crash: `setActivateHandler`, `setFocusVisual`, `enableHover`,
+  `setZOrder`, `setPointerHandlers`, `setTextInputHandlers`, `setScrollRegion`,
+  `setScrollPosition`, `observeScroll`, `getScrollPosition`, `setScrollHandler`,
+  `setEngineSelection`, `setVisible`, `setDragDetector`,
+  `setTouchGestureHandlers`, `setHitRect`, `measureTextWidths`,
+  `setRootVisible`, `setNativeTransitionsEnabled`, `setRootDisplayOrder`.
+  Decide each deliberately — "not implemented yet" is a legal answer, a
+  silently missing method is not. (Five of these were CALLED by the renderer
+  and undeclared until 0.8.0, so a target could pass the checker with
+  `#optionalAbsent == 0` and still ship with no hit-target floor, no wheel
+  channel and no display order.)
+- **THEME** — `nativeStyleInfo`, `themeRootGui`, `setThemePackage`,
+  `relinkThemeSheet`. Without them `theme_controller.install` cannot theme this
+  target: it degrades to fallback paint, and in native mode ERRORS unless the
+  caller passes `opts.rootGui`. Theming is one capability with one consequence,
+  which is why it is its own list.
+
+`target_contract.check(adapter)` reports all three (`missing`,
+`optionalAbsent`, `themeAbsent` / `themeable`).
 `tests/render_target_contract.spec.luau` shows the conformance pattern (the
 FakeTarget satisfies every method; a pixel-canvas fixture renders through
-the full pipeline). Add a spec (register in `tests/run.luau`) that:
+the full pipeline). Grow the stamped spec (already registered in
+`tests/run.luau`) so that it:
 
 1. asserts your adapter satisfies the contract (required methods, optional
    ones declared honestly);
@@ -83,3 +119,12 @@ api.md entry if the target is public; guide paragraph on when to use it;
 `lune run tools/lune/gate phase-4-hardening` all exit 0. Evidence: spec
 transcript (red → green), and a Studio drive artifact under
 `artifacts/studio/` when the target has a visual component.
+
+**Parity-checker caveat.** `lune run tools/lune/check_prop_parity_cli` pins the
+`setProp` chain against **`src/client/screen_target.luau` only** — it reads that
+one file's handler switch and knows nothing about yours. A green parity run is
+therefore not evidence about your target. The prop set your adapter must handle
+is `renderer.EMITTED_PROPS`; pin it yourself the way
+`tests/render_target_contract.spec.luau` does ("every prop the renderer can emit
+is handled"), because a target that silently ignores a written prop is the SF-M9
+defect class — green headless, dead on the device.

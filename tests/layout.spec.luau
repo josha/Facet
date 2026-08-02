@@ -1037,8 +1037,11 @@ describe("solver — a ZStack child that overflows its box is reported", functio
 	end)
 
 	it("`intentionalOverlap` is the opt-out for layouts whose job IS to stack over", function()
-		local result =
-			solver.solve(stack(34, 58, "intentionalOverlap"), { w = 400, h = 400 }, { rootPolicy = "edgeToEdge" })
+		local result = solver.solve(
+			stack(34, 58, "intentionalOverlap"),
+			{ w = 400, h = 400 },
+			{ rootPolicy = "edgeToEdge" }
+		)
 		for _, d in result.diagnostics do
 			expect(`quiet={d.node}`).toBe("quiet=")
 		end

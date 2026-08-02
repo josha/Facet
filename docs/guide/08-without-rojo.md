@@ -54,7 +54,9 @@ Its root is the `LuauUI` ModuleScript with the whole tree beneath it.
    and choose `LuauUI.rbxm`.
 3. Verify: `ReplicatedStorage.LuauUI` must be a **ModuleScript** (not a Folder),
    with `async`, `client`, `controls`, `core`, `env`, `focus`, `input`, `layout`,
-   `present`, `preview`, `render`, `replication`, and `tokens` beneath it.
+   `motion`, `present`, `preview`, `render`, `replication`, `themes`, and
+   `tokens` beneath it. All fifteen: the entry module requires every one of them
+   at load, so an install missing `motion` or `themes` errors on first require.
 
 That is the whole install. If you instead drag the `.rbxm` file onto the 3D
 viewport, Studio parents it to `Workspace` — move it to `ReplicatedStorage` in the
@@ -205,7 +207,7 @@ devices — is in the model you dragged in. There is no Rojo-only code path.
 **What you do give up** is workflow, and only workflow:
 
 - **File-based version control of the library.** The tree lives in your `.rbxl`.
-  Pin a version by recording `LuauUI.VERSION` (currently `0.7.0`) somewhere you
+  Pin a version by recording `LuauUI.VERSION` (currently `0.8.0`) somewhere you
   will see it, and check `LuauUI.DEPRECATIONS` after an upgrade — see
   [ADR-0011](../adr/ADR-0011-semver-and-deprecation.md).
 - **The headless test suite.** `./run-tests.sh` runs the whole suite under Lune

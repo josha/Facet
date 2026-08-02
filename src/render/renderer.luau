@@ -141,6 +141,27 @@ end
 renderer.STYLE_PROPS = STYLE_PROPS
 renderer.BINDING_PROPS = BINDING_PROPS
 
+-- ONE NAME, TWO PROPERTIES. `thickness` is `Path`'s engine stroke width — a real
+-- binding write — and `Divider`'s hairline size, which the SOLVER consumes into
+-- the node's own box and no adapter ever sees (see the Divider branch of
+-- `toLayoutNode`). The binding dispatch below is keyed on the prop NAME, so a
+-- Divider tried to write it too and hit the authority wall: `UI.Divider{
+-- thickness = … }` errored at first render for EVERY value, and always had —
+-- found while giving both props the metric grammar (BP-F12). The name is
+-- therefore restricted to the class that actually emits it; everything else
+-- stays loud (an undeclared write is still an assertWrite error).
+local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
+	thickness = { Path = true },
+}
+
+local function emitsBinding(class: string, prop: string): boolean
+	if not BINDING_PROPS[prop] then
+		return false
+	end
+	local only = BINDING_PROP_CLASSES[prop]
+	return only == nil or only[class] == true
+end
+
 -- EVERY PROP NAME THIS MODULE CAN HAND TO `adapter.setProp`, and the seam each
 -- one rides. The two channel tables above cover most of them; these are the
 -- writes that go out through their own seam instead, so the set is complete.
@@ -581,9 +602,14 @@ local function toLayoutNode(
 		-- stack) draws a horizontal line spanning the cross axis; "x" draws a
 		-- vertical one. Explicit axis wins; otherwise inherit the parent stack's.
 		local axis = props.axis or parentAxis or "y"
-		-- the default hairline is the theme's stroke weight, not a literal 1
-		local thickness = if type(props.thickness) == "number"
-			then math.max(0, props.thickness)
+		-- the default hairline is the theme's stroke weight, not a literal 1 — and
+		-- an AUTHORED thickness may name a metric too (BP-F12): it is the same
+		-- theme-owned number, so it takes the theme's own vocabulary through the
+		-- same resolution `gap`/`lineLimit` use. An unresolvable name cannot reach
+		-- here (the schema refuses it at construction) but still falls back.
+		local resolvedThickness = themeSnapshot.resolveNumber(metrics, props.thickness)
+		local thickness = if type(resolvedThickness) == "number"
+			then math.max(0, resolvedThickness)
 			else metrics.strokes.hairline
 		if axis == "x" then
 			layoutNode.width = layoutNode.width or { type = "fixed", px = thickness }
@@ -846,13 +872,32 @@ local TAPPABLE: { [string]: boolean } = { Button = true, Toggle = true, TextFiel
 -- hover surface (its affordance is the caret/edit handshake, not a hover lift).
 local HOVERABLE: { [string]: boolean } = { Button = true, Toggle = true }
 
+export type RendererAttachOpts = {
+	-- "coreSafeContent" (default) | "deviceSafeContent" | "edgeToEdge"
+	rootPolicy: string?,
+	-- a pointer tap on a mounted path. `meta` carries the tap's geometry
+	-- (`x`/`y`) for the outside-tap policy, and `via` for a detector-driven tap.
+	onNodeTap: ((path: string, meta: any?) -> ())?,
+	-- OPT-IN mirror of logical focus to engine selection (NS-A12); the presenter
+	-- sets it for modal/exclusive surfaces only
+	engineSelectionBridge: boolean?,
+}
+
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
 function renderer.attach(
 	core: any,
 	root: any,
 	env: any,
 	adapter: any,
-	opts: { rootPolicy: string?, onNodeTap: ((string) -> ())? }?
+	--[[ THE DECLARED TYPE IS THE SHIPPED TRUTH (api-architecture-consistency F-29).
+		`engineSelectionBridge` was read through an `(opts :: any)` cast and passed
+		by the presenter for months while the type said this table held two keys —
+		so a strict consumer wanting the bridge on a hand-attached surface got a
+		type error for a supported option, and no checker would have caught the
+		flag's removal. `onNodeTap` was declared one-arg and has always been called
+		with `(path, meta)`; both in-tree consumers already write the two-arg form,
+		and `meta` is where the outside-tap geometry (`x`/`y`) and `via` live. ]]
+	opts: RendererAttachOpts?
 )
 	-- THE ACCEPTED POLICIES, ENUMERATED. `edgeToEdge` was passed by every modal
 	-- scrim for months and read by nothing: it fell through to the default and
@@ -1285,6 +1330,12 @@ function renderer.attach(
 			-- ...and an ICON button's label is semantics too: the drawn mark is the
 			-- semantic glyph. Same seam the measure pass reads (renderer.drawnButtonText).
 			value = renderer.drawnButtonText(node.props)
+		elseif prop == "thickness" and type(value) == "string" then
+			-- A PATH'S STROKE WEIGHT MAY NAME A METRIC (BP-F12), like the Divider's.
+			-- The adapter writes engine pixels, so the name resolves here against
+			-- the live snapshot — the same resolution point every other theme-owned
+			-- number uses.
+			value = themeSnapshot.resolveNumber(currentMetrics(), value)
 		end
 		adapter.setProp(handle, prop, value, "binding")
 		stats.propWrites += 1
@@ -1304,7 +1355,7 @@ function renderer.attach(
 			-- surface written after a tint would overwrite the very property the tint
 			-- claimed, and the node would wear its plain fill for as long as nothing
 			-- else touched it.
-			if BINDING_PROPS[prop] and prop ~= "tint" then
+			if emitsBinding(node.class, prop) and prop ~= "tint" then
 				applyProp(handle, node, prop)
 			end
 		end
@@ -2359,7 +2410,7 @@ function renderer.attach(
 	-- the logical focus path; nil clears
 	local focusedPath: string? = nil
 	local focusRingVisible = true
-	local bridgeEngaged = (opts and (opts :: any).engineSelectionBridge) == true
+	local bridgeEngaged = (opts and opts.engineSelectionBridge) == true
 	-- `visible` (optional, default true) is the RING's own answer, separate from
 	-- the focus path: a pointer/touch-driven focus move tracks focus, drives the
 	-- selection bridge and moves the aim, and paints nothing (focus_graph's
@@ -2486,7 +2537,11 @@ function renderer.attach(
 	-- hidden-subtree roots from the last solve (A-AL1). The presenter consults
 	-- this when rebuilding focus order; an empty table means nothing is hidden.
 	function controller.hiddenRoots(): { [string]: boolean }
-		return hiddenRoots
+		-- A COPY, like `stats()` (F-30). The live set is the renderer's own state
+		-- for the frame; a caller that mutated it corrupted the visibility walk,
+		-- and a caller that cached it held a table the next solve replaced. One
+		-- shallow clone of a small map, on a diagnostic read.
+		return table.clone(hiddenRoots)
 	end
 
 	-- native drag acquisition (B-VAL2; corrections §1): attach a UIDragDetector to
@@ -2929,7 +2984,7 @@ function renderer.attach(
 	end
 
 	function controller.diagnostics()
-		return lastDiagnostics
+		return table.clone(lastDiagnostics) -- a copy, like `stats()` (F-30)
 	end
 
 	-- compositionAt(path) -> the last solve's `luauui-composition-dump/1` for that
@@ -2938,7 +2993,9 @@ function renderer.attach(
 	-- form each region resolved to, and the rule every richer candidate broke.
 	function controller.compositionAt(path: string?): any
 		if path == nil then
-			return lastCompositions
+			-- the SET is a copy (F-30); each dump inside it is the stored dump,
+			-- exactly what the per-path read hands back
+			return table.clone(lastCompositions)
 		end
 		return lastCompositions[path]
 	end

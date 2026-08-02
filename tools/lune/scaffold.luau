@@ -10,7 +10,9 @@
 --             tests/run.luau, the controls registry, src/init.luau export,
 --             and a docs/reference/api.md stub.
 --   adapter — render-target adapter skeleton implementing the §13 target
---             contract (headless-testable; client wiring by hand).
+--             contract (headless-testable; client wiring by hand), plus a
+--             tests/<name>.spec.luau conformance stub and its tests/run.luau
+--             registration.
 -- After applying: implement until tests/run.luau is green, run
 -- tools/lune/check_registration_cli, then the phase gate. The full loop is
 -- docs/extending/new-control.md.
@@ -202,6 +204,22 @@ local ADAPTER_TEMPLATE = [==[
 -- capability detection with a headless fallback; the renderer never learns
 -- about them. Validate with tests against the contract (see
 -- tests/render_target_contract.spec.luau for the conformance pattern).
+--
+-- THREE LISTS, and the contract module is the authority on all three:
+--   REQUIRED  the six below — the renderer calls them unconditionally.
+--   OPTIONAL  feature-detected; each absence is ONE named degrade (hit-target
+--             floor, wheel channel, z-order, pointer capture, native scrolling,
+--             drag detector, touch gestures, text premeasurement, display
+--             order, reduced-motion transitions, root visibility, ...).
+--             Read the consequence comments in target_contract.luau and decide
+--             each one deliberately — "not implemented yet" is a legal answer,
+--             a silently missing method is not.
+--   THEME     nativeStyleInfo / themeRootGui / setThemePackage /
+--             relinkThemeSheet. Without them theme_controller.install cannot
+--             theme this target (it degrades to fallback paint, and in native
+--             mode errors unless the caller passes opts.rootGui).
+-- `target_contract.check(adapter)` reports all three; the stamped spec asserts
+-- REQUIRED is complete and prints the other two so the gaps are on the record.
 
 local %NAME% = {}
 
@@ -213,7 +231,19 @@ function %NAME%.new(opts: any?)
 		return { id = screenId }
 	end
 
-	function adapter.create(rootHandle: any, path: string, class: string): any
+	-- `decorationHint` and `createOpts` are CREATION-TIME facts (ADR-0019 /
+	-- ADR-0022 Decision 2): the decoration slot this node is skinned as, and
+	-- `{ canvasGroup = true }` when the node's engine CLASS must be a group so a
+	-- subtree can fade as one. Neither can arrive as a later prop write. An
+	-- adapter that neither skins nor groups ignores both — but it must still
+	-- ACCEPT them, or every renderer call silently drops two arguments.
+	function adapter.create(
+		rootHandle: any,
+		path: string,
+		class: string,
+		decorationHint: any?,
+		createOpts: { canvasGroup: boolean? }?
+	): any
 		-- TODO: materialize a node for `class`
 		return { path = path, class = class, root = rootHandle }
 	end
@@ -240,6 +270,56 @@ end
 return %NAME%
 ]==]
 
+-- The adapter's stamped spec. HEADLESS on purpose: it constructs the adapter
+-- table and runs the contract checker against it, so the first thing a new
+-- target has is a test that fails the moment a REQUIRED method is missing or
+-- renamed — and a printed record of which OPTIONAL/THEME capabilities it is
+-- choosing to go without. (Engine writes belong behind capability detection and
+-- are proven in a Studio drive; this spec is the part that can run every time.)
+local ADAPTER_SPEC_TEMPLATE = [==[
+--!strict
+-- %DISPLAY% render-target adapter conformance (scaffolded). The contract module
+-- is the authority: src/render/target_contract.luau declares REQUIRED (called
+-- unconditionally), OPTIONAL (feature-detected; each absence is one named
+-- degrade) and THEME (theme_controller's four). Grow this spec into the real
+-- conformance pattern in tests/render_target_contract.spec.luau: render a small
+-- screen through mount -> renderer.attach(yourAdapter) -> initialRender, and
+-- prove destroyRoot releases everything.
+
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+
+local target_contract = require("../src/render/target_contract")
+local %NAME% = require("../src/client/%NAME%")
+
+describe("%DISPLAY% render-target adapter", function()
+	it("implements every REQUIRED method of the RenderTargetAdapter contract", function()
+		local result = target_contract.check(%NAME%.new())
+		if #result.missing > 0 then
+			error(
+				`%DISPLAY% is missing REQUIRED adapter methods: {table.concat(result.missing, ", ")} — `
+					.. "the renderer calls these unconditionally, so the target cannot be mounted",
+				0
+			)
+		end
+		expect(#result.missing).toBe(0)
+	end)
+
+	it("declares which OPTIONAL and THEME capabilities it goes without", function()
+		local result = target_contract.check(%NAME%.new())
+		-- Not a failure — a RECORD. Each absent name is one degrade named in
+		-- target_contract.luau; decide each deliberately, then pin the ones you
+		-- DID implement with a behavioural case of its own.
+		print(`%DISPLAY%: optional absent = {table.concat(result.optionalAbsent, ", ")}`)
+		print(`%DISPLAY%: themeable = {tostring(result.themeable)}`)
+		expect(type(result.themeable)).toBe("boolean")
+	end)
+
+	it("TODO: renders a small screen and releases it on destroyRoot", function()
+		error("unimplemented: mount -> renderer.attach -> initialRender, then prove teardown")
+	end)
+end)]==]
+
 local REGISTRY_ROW_TEMPLATE = [==[
 	{
 		name = "%DISPLAY%",
@@ -249,7 +329,10 @@ local REGISTRY_ROW_TEMPLATE = [==[
 		spec = "tests/%NAME%.spec.luau",
 		conformance = "tests/%NAME%.spec.luau",
 		docsAnchor = "new%DISPLAY%",
-		dumpMarker = "function dump",
+		-- cite the dump DEFINITION exactly (check_registration requires the text to
+		-- exist in the module); a module with no dump surface declares
+		-- `dump = false` with a `reason` instead
+		dumpFunction = "function dump",
 		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
 		-- registered spec. These cite the four stamped cases in tests/%NAME%.spec.luau
 		-- (they FAIL until you implement them — that is the red step).
@@ -301,19 +384,35 @@ local function adapterSource(name: string, display: string): string
 	return fill(ADAPTER_TEMPLATE, name, display)
 end
 
+local function adapterSpec(name: string, display: string): string
+	return fill(ADAPTER_SPEC_TEMPLATE, name, display)
+end
+
 function scaffold.plan(kind: string, name: string): Plan
 	assert(kind == "control" or kind == "adapter", `unknown scaffold kind '{kind}' (control | adapter)`)
 	assert(string.match(name, "^[a-z][a-z0-9_]*$") ~= nil, `unsafe scaffold name '{name}' (lower_snake_case, no paths)`)
 	local display = pascal(name)
 
 	if kind == "adapter" then
+		-- the adapter branch used to stamp ZERO edits (SEAM-25), so unlike the
+		-- control path there was no spec and nothing registered it — and an
+		-- unregistered spec is a silent zero (check_registration rule 3). It now
+		-- stamps the conformance spec AND its runner line, through the same pure
+		-- edit mechanism the control branch uses.
 		return {
 			kind = kind,
 			name = name,
 			files = {
 				{ path = `src/client/{name}.luau`, content = adapterSource(name, display) },
+				{ path = `tests/{name}.spec.luau`, content = adapterSpec(name, display) },
 			},
-			edits = {},
+			edits = {
+				{
+					path = "tests/run.luau",
+					before = "local ok = testkit.run()",
+					insert = `require("./{name}.spec")`,
+				},
+			},
 		}
 	end
 

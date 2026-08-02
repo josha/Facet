@@ -8,6 +8,9 @@ spatial UI, and nothing in it is a support claim. What LuauUI has, as of roadmap
 events, and a declared-but-unimplemented world render target. The gate below is what a
 support claim would first have to pass, and none of it has been run.
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules your addition must follow.
+
 Read
 [`../plans/swiftui-parity-next.md`](../plans/swiftui-parity-next.md) before using this
 playbook. Its cross-platform proof and future-platform milestone governs this work.
@@ -23,7 +26,7 @@ run happens; no emulator, preview profile or headless test can close one.
 | Contracts | Can spatial input and world surfaces be added without rewriting screens? | `presentationSpace` fact + `presentationProfile` policy; `LuauUI.spatial` optional event payload; `capabilities.spatialPointer`; `target_contract.FUTURE.surface` | **Shipped** (contracts only) |
 | Focus | Does logical focus stay coherent when the pointing device is a ray or a hand that can leave the surface entirely? | LuauUI's focus graph is device-agnostic and untested against a spatial pointer | PENDING_PHYSICAL |
 | Hover | Is hover distinguishable from selection at arm's length, and does it stay stable under natural hand tremor? | hover is pointer-class-gated and has no spatial notion | PENDING_PHYSICAL |
-| Occlusion | What does a control do when its surface is behind geometry, edge-on, or off-view? | undefined; one of the ten open questions on the future target | PENDING_PHYSICAL |
+| Occlusion | What does a control do when its surface is behind geometry, edge-on, or off-view? | undefined; one of the eleven open questions on the future target | PENDING_PHYSICAL |
 | Comfort | Does the surface hold a stable frame rate, and is text legible at the distance and angle it is actually viewed from? | Roblox's own VR guidance makes stable frame rate a comfort requirement; LuauUI has no spatial frame measurement at all | PENDING_PHYSICAL |
 | Cancellation | If a ray, hand, controller or headset disappears mid-interaction, does the interaction carry or cancel cleanly, without wedging or losing committed data? | the hot-switch/carry-cancel model exists for pointer/touch/keyboard/gamepad and has never seen a spatial class | PENDING_PHYSICAL |
 | Performance | What does a world surface cost per frame at production node counts on the supported hardware? | no world target exists to measure | PENDING_PHYSICAL |

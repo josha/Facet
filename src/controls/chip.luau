@@ -30,6 +30,20 @@ function chip.build(LuauUI: any, core: any, spec: any)
 	local id = spec.id or "Chip"
 	local scope = core:scope("chip-" .. tostring(id))
 	local selected = spec.selected -- owner-held Signal<boolean>
+	-- AUTHORING IS STRICT: fail at BUILD, not at first render (ADR-0010,
+	-- docs/extending/new-control.md §2). `selected` is required AND is the
+	-- control's single mutation site, so a missing one used to surface as
+	-- "attempt to index nil" on the user's first tap and a read-only Memo as
+	-- "cannot set a memo" from deep inside core — both unattributable. Same
+	-- check, same wording, as Stepper/Slider/Rating/Picker/DisclosureGroup/
+	-- TextInput (CTRL-03).
+	if type(selected) ~= "table" or (selected :: any).kind ~= "signal" then
+		error(
+			`LuauUI newChip('{id}'): \`selected\` must be a SETTABLE Signal<boolean> the caller owns `
+				.. `(the control never creates it, because the selection must outlive the control)`,
+			0
+		)
+	end
 	local label = spec.label or ""
 
 	-- the SINGLE Activate site: every input class routes here through the

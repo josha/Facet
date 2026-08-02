@@ -346,6 +346,54 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(string.match(lengthText.props.text, "^%d+:%d%d$") ~= nil).toBeTruthy()
 	end)
 
+	-- CTRL-05a (api-architecture-consistency F-24). The gallery bootstrap's
+	-- native-scroll auto-bind probed `value.bindNativeScroll` only, which is
+	-- VirtualList's FLAT spelling; Table publishes the same seam under `api`, so
+	-- this shipped example's body-scroll mirror was never bound and its reorder
+	-- drag math went canvas-wrong the moment the body scrolled.
+	it("the bootstrap auto-bind reaches a returned Table's api.bindNativeScroll", function()
+		local core, adapter, presenter, built, handle = playlistWorld()
+		-- the shape the bug was made of: flat on VirtualList, nested on Table
+		expect(built.table_.bindNativeScroll).toBeNil()
+		expect(type(built.table_.api.bindNativeScroll)).toBe("function")
+
+		-- THE SHIPPED LOOP (examples/gallery/client/init.client.luau), run over
+		-- the example's real return table
+		local bound = 0
+		for _, value in built :: any do
+			if type(value) == "table" then
+				local bind = (value :: any).bindNativeScroll
+					or ((value :: any).api ~= nil and (value :: any).api.bindNativeScroll)
+				if type(bind) == "function" then
+					bind(handle.controller)
+					bound += 1
+				end
+			end
+		end
+		expect(bound >= 1).toBe(true)
+
+		-- and the mirror is LIVE: an engine canvas move lands in the control
+		local bodyPath = built.table_.api.scrollPath()
+		expect(bodyPath).toBe("/Playlist/Page/Tracks/Main/Body")
+		adapter.driveScroll(bodyPath :: string, { x = 0, y = 120 })
+		presenter.refresh()
+		expect(built.table_.dump().scrollTop).toBe(120)
+		expect(core:lastError()).toBeNil()
+	end)
+
+	it("the bootstrap's auto-bind probes BOTH spellings, in both loops (the source is the contract)", function()
+		local fs = require("@lune/fs")
+		local source = fs.readFile("examples/gallery/client/init.client.luau")
+		-- the nested spelling is probed at all...
+		expect(string.find(source, "value.api.bindNativeScroll", 1, true) ~= nil).toBe(true)
+		-- ...and ONE binder resolves it for BOTH loops (definition + two calls),
+		-- so a future loop cannot regress to the flat-only probe by copy-paste
+		local _, uses = string.gsub(source, "nativeScrollBinderOf", "")
+		expect(uses >= 3).toBe(true)
+		-- and no loop reaches for the flat spelling on its own any more
+		expect(string.find(source, "value :: any).bindNativeScroll", 1, true)).toBeNil()
+	end)
+
 	it("tapping the rating INSIDE a table cell sets that track's rating and repaints without remount", function()
 		local core, adapter, presenter, built, handle = playlistWorld()
 		local key = built.rows:get()[1].id

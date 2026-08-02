@@ -84,10 +84,16 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 	local scope = core:scope(`popup_button-{id}`)
 
 	assert(type(spec.options) == "table" and #spec.options > 0, `PopupButton '{id}': options must be a non-empty array`)
-	assert(
-		type(spec.value) == "table" and (spec.value.kind == "signal" or spec.value.kind == "memo"),
-		`PopupButton '{id}': value must be a Signal/Memo of the selected option id`
-	)
+	-- a read-only Memo has kind "memo" and a :set that asserts, so accepting one
+	-- here deferred the crash to the user's FIRST selection (`select()` writes
+	-- `value`) — reject it at BUILD, exactly as the six siblings do (CTRL-01)
+	if type(spec.value) ~= "table" or (spec.value :: any).kind ~= "signal" then
+		error(
+			`LuauUI newPopupButton('{id}'): \`value\` must be a SETTABLE Signal<string> the caller owns `
+				.. `(the control never creates it, because the selection must outlive the control)`,
+			0
+		)
+	end
 
 	-- option ids become `Opt-<id>` path segments; a "/" would corrupt routing
 	-- everywhere downstream — fail at BUILD (ADR-0010), not first render

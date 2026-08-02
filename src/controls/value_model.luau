@@ -69,7 +69,24 @@ function value_model.new(spec: Spec): Model
 		error(`LuauUI value control: step must be a positive number (got {tostring(spec.step)})`, 0)
 	end
 	local min, max, step = spec.min, spec.max, spec.step
-	local format = spec.format or defaultFormat
+	local authored = spec.format
+
+	-- QUARANTINED (F-38): `spec.format` is the one user callback in this module,
+	-- and it is called from the RENDER path of Slider and Stepper — a throwing
+	-- formatter used to unwind a whole solve. The core quarantines its equivalent
+	-- (`eq`) for exactly this reason. Containment here is the lowest-risk shape:
+	-- this module owns no diagnostic channel, so a failed format degrades to the
+	-- default formatting of the same value and the frame still paints.
+	local function format(v: number): string
+		if authored == nil then
+			return defaultFormat(v)
+		end
+		local ok, out = pcall(authored, v)
+		if not ok then
+			return defaultFormat(v)
+		end
+		return out
+	end
 
 	local function clamp(v: number): number
 		if not isFinite(v) then

@@ -137,6 +137,12 @@ export type RegionDecl = {
 export type Arrangement = {
 	name: string,
 	lanes: { { string } }, -- lane i absorbs these affinities, in this order
+	-- DECLARED, VALIDATED, READ — and until now untyped (F-29). `arrangementOf`
+	-- type-checks this field and names it in its legal-fields error; `resolve`
+	-- reads it and reports an `ineligible` rejection. At the blueprint boundary a
+	-- Readable<boolean> is accepted and resolves to one boolean per solve, so what
+	-- reaches this type is always the resolved boolean.
+	eligible: boolean?,
 }
 
 export type Declaration = {
@@ -192,6 +198,10 @@ export type Resolution = {
 	regionById: { [string]: RegionResolution },
 	scroller: string?, -- the one region allowed to scroll, when it is mounted
 	rejected: { { arrangement: string, rule: string, detail: string } },
+	-- AUTHORING DIAGNOSTIC, emitted by every resolve and dumped by `dump` — and
+	-- until now absent from this type (F-29). Sorted region ids whose chosen form
+	-- measured the WHOLE offer inside a HUG lane; see the note at its assignment.
+	hugOverflow: { string },
 }
 
 -- ===== the built-in arrangement presets ====================================

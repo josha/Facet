@@ -1113,11 +1113,38 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- world backgrounds — director hand-test 2026-07-20), inset via
 			-- its own margin (the header cell stays unpadded so the resize
 			-- grip sits at the TRUE column boundary), centered like the cells
+			-- ...AND IT HONOURS THE COLUMN'S OWN ALIGNMENT (F-27), through the SAME
+			-- ALIGN_H mapping the cells use: a `alignment = { h = "trailing" }`
+			-- numeric column used to show a left-aligned heading over
+			-- right-aligned numbers — a partially-honoured property, which reads
+			-- as a layout bug rather than an unsupported option.
+			--
+			-- The alignment is spent as a TEXT alignment inside a title box that
+			-- fills the header cell minus the cell inset on both sides, rather
+			-- than as the cells' container `alignH`, for two reasons: the header
+			-- cell itself must stay unpadded (the resize grip sits at the TRUE
+			-- column boundary), and a ZStack child's FAR margin is not spent by
+			-- end-alignment — so a margin-inset hug title would have sat flush
+			-- against the column edge while its cells sat 8px in.
+			--
+			-- ...and a TRAILING title has to clear the sort mark, which lives at
+			-- the same edge of the same ZStack. `sortMarkMargin` is the theme's own
+			-- reserve for that glyph ("keeps the ▲/▼ clear"), so a sortable trailing
+			-- column spends it as the title's trailing inset instead of the cell
+			-- inset — measured, not by luck: at 8px the two were 1px apart under
+			-- Studio Neutral's 11px mark, which is a collision in any package whose
+			-- mark is wider.
+			local headAlignment = column.alignment or {}
+			local titleTrailingInset = if headAlignment.h == "trailing" and isSortable(column)
+				then "controls.table.sortMarkMargin"
+				else cellPadding
 			local title = UI.Text({
 				id = "Title",
 				text = column.title or column.id,
 				textSize = "label",
-				margin = { left = cellPadding },
+				width = { type = "fill", weight = 1 },
+				margin = { left = cellPadding, right = titleTrailingInset },
+				textAlign = ALIGN_H[headAlignment.h or "leading"],
 				-- ONE LINE, ALWAYS. The header is a fixed `headerHeight` box, so a
 				-- two-word title ("Track Name") would wrap out of it exactly as the
 				-- cells did; and a column heading that grows the header out of
@@ -2059,6 +2086,16 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- uniform seam: every composite control exposes dump())
 	local function dump()
 		local sort = spec.sortOrder and spec.sortOrder:get() or nil
+		-- SORTED, because `selectedKeys` is a SET and a set's iteration order is
+		-- not stable across runs: an unsorted array would make the dump
+		-- non-deterministic the moment a second row was selected.
+		local selected: { string } = {}
+		for key, on in selectedKeys:get() do
+			if on then
+				table.insert(selected, key)
+			end
+		end
+		table.sort(selected)
 		return {
 			schema = "luauui-table-dump/1",
 			id = spec.id or "Table",
@@ -2072,6 +2109,17 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			rowCount = #(spec.rows:get() :: { any }),
 			selection = selectionMode,
 			sortOrder = if sort then { column = sort.column, ascending = sort.ascending } else nil,
+			-- THE LIVE INTERACTION STATE A BUG REPORT NEEDS (playbook §2.5).
+			-- VirtualList's dump carried every one of its equivalents; Table's
+			-- carried none, so the largest control in the library described only
+			-- its construction. Additive keys — nothing above moved.
+			selectedKeys = selected,
+			grabbedKey = grabbedKey:get(),
+			editing = editingSignal:get(),
+			scrollTop = scrollTop:get(),
+			dragging = dragging:get(),
+			reorderable = spec.reorderable == true,
+			rootPath = mountedRoot,
 		}
 	end
 

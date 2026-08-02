@@ -1020,3 +1020,55 @@ describe("RS-DIR14: a Grid's ROW gap is its own axis", function()
 		end)).toBe(false)
 	end)
 end)
+
+-- ===========================================================================
+-- F-3 (ledger/blueprints.md BP-F3): UI.background inflated a dimension-less
+-- backing layer by REBUILDING the frozen node — and the rebuild dropped `meta`,
+-- the library's framework channel. A drag declaration or an input contribution
+-- on the backing plate disappeared silently, and only in the COMMON case (no
+-- explicit width AND height). Nothing pinned meta survival through either
+-- structural modifier.
+-- ===========================================================================
+
+describe("F-3: a structural modifier carries the content's meta channel", function()
+	local dragContract = require("../src/input/drag_contract")
+	local contribution = require("../src/input/contribution")
+
+	it("an INFLATED backing layer keeps its drag declaration", function()
+		local plate = UI.draggable(UI.Box({ id = "Plate", surface = "control" }), { payload = 2 })
+		expect(dragContract.readSource(plate) ~= nil).toBe(true)
+
+		local wrapper = UI.background(UI.Text({ id = "Tile", text = "hi" }), plate)
+		local backing = (wrapper.children :: any)[1]
+		expect(backing.id).toBe("Plate")
+		-- it really WAS inflated (this is the path that used to drop meta)
+		expect(backing.props.width.type).toBe("fill")
+		expect(backing.props.height.type).toBe("fill")
+		local source = dragContract.readSource(backing)
+		expect(source ~= nil).toBe(true)
+		expect((source :: any).payload).toBe(2)
+	end)
+
+	it("an input-contribution bundle survives the same inflate", function()
+		local plate = contribution.attach(UI.Box({ id = "Plate" }), { rootPath = "/Tile+background/Plate" } :: any)
+		local wrapper = UI.background(UI.Text({ id = "Tile", text = "hi" }), plate)
+		expect(contribution.read((wrapper.children :: any)[1]) ~= nil).toBe(true)
+	end)
+
+	it("a backing layer with its OWN dimensions is passed through untouched, meta included", function()
+		local plate = UI.draggable(
+			UI.Box({ id = "Plate", width = { type = "fixed", px = 20 }, height = { type = "fixed", px = 20 } }),
+			{ payload = 7 }
+		)
+		local wrapper = UI.background(UI.Text({ id = "Tile", text = "hi" }), plate)
+		local backing = (wrapper.children :: any)[1]
+		expect(backing).toBe(plate)
+		expect((dragContract.readSource(backing) :: any).payload).toBe(7)
+	end)
+
+	it("UI.overlay never rebuilt its content, and still does not", function()
+		local badge = UI.draggable(UI.Box({ id = "Badge" }), { payload = 3 })
+		local wrapper = UI.overlay(UI.Text({ id = "Tile", text = "hi" }), badge)
+		expect((dragContract.readSource((wrapper.children :: any)[2]) :: any).payload).toBe(3)
+	end)
+end)

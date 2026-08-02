@@ -51,7 +51,37 @@ change without notice. Games must not require library-internal modules.
 - `tests/api_surface.spec.luau` enforces the semver shape, the ledger schema,
   and that this ADR names the current version (update BOTH on every bump —
   the test fails otherwise, which is the point).
-- Current version: **0.7.0** — rich skinning v2 (ADR-0020): fully image-driven
+- Current version: **0.8.0** — API and architecture constitution (stage
+  `api-architecture-consistency`, roadmap Step 7). One authoritative rule set now
+  governs the public surface (`docs/reference/constitution.md`); every public item
+  is classified in the stage's surface ledger. MINOR because several compatible
+  repairs convert silent acceptance into construction-time diagnostics under the
+  0.5.0 strict-authoring posture, and two deprecations are declared:
+  - **New construction/present-time refusals** (previously silent misbehavior):
+    PopupButton/Chip reject a non-settable `value`/`selected`; `UI.styleGroup`
+    accepts `stroke` and refuses unknown keys; `UI.shadow`/`UI.gradient` specs
+    refuse unknown keys; `UI.draggable`/`UI.dropTarget` refuse structural nodes;
+    presenter `responder`/`scrim` are validated like `cancelPolicy`;
+    `touchGestures.newArbiter` refuses a non-empty opts table; provider opts and
+    `scope:own` are construction-strict; blueprints and the property schema are
+    deeply frozen.
+  - **Behavior repairs**: replication no longer wedges permanently on an
+    equal-revision resnapshot, a throwing `optimistic.apply`, or a throwing
+    `requestResnapshot`; `mutation.reset()` works from any state;
+    `UI.background` preserves the content's `meta` channel; `presentCritical`
+    carries the caller's opts to the fallback; `newFocusGraph` no longer mutates
+    caller tables; native touch gestures deliver real payloads at the screen
+    adapter; Table header titles honor `column.alignment`; `overflow = "clip"`
+    now implies `clipChildren`; `newLabel.semanticText` is a Readable like its
+    siblings; modifier errors name the modifier.
+  - **Additive**: core contract types re-exported from `src/init.luau`;
+    `text.measure` spec-table form; `Fit.state`; `inputHint` `opts.scope`;
+    metric names on `Divider.thickness`/`Path.thickness`; target-contract THEME
+    method group.
+  - **Deprecated (ledger)**: `newResourceProvider(opts.retryAttempts)` →
+    `opts.retry`; `adaptive.conditions().contentWidth` → `viewportWidth`. Both
+    keep working per the policy above.
+- Previous: **0.7.0** — rich skinning v2 (ADR-0020): fully image-driven
   UI. Layered decoration slots (`fill`/`frame`/`corners`/`edges`/`plaque`/`tile`,
   with the plaque's `text` nameplate sub-slot), per-state asset variants at both
   rungs under one normalizer, image value displays (bar family, stepper plates,

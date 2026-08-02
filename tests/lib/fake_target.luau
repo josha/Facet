@@ -678,6 +678,52 @@ function fake_target.new(opts: Opts?)
 		return handle.scrollPosition
 	end
 
+	-- ── the rest of the declared seam (SEAM-20) ─────────────────────────────
+	-- These four were CALLED by the framework and implemented by the live
+	-- ScreenTarget while the fake had no version at all, so the conformance case
+	-- "satisfies every required and optional method" was true of a list that did
+	-- not name them. Minimal recording implementations: they answer honestly for
+	-- a headless target (it paints nothing natively) and let a test read back
+	-- what the framework asked for.
+
+	-- reduced motion: the renderer suppresses the target's NATIVE transition
+	-- layer. Headless there is no such layer, so this records the request.
+	local nativeTransitions: boolean? = nil
+	function adapter.setNativeTransitionsEnabled(on: boolean)
+		nativeTransitions = on
+		table.insert(ops, `nativetransitions={tostring(on)}`)
+	end
+	function adapter.nativeTransitionsEnabled(): boolean?
+		return nativeTransitions
+	end
+
+	-- native paint report. A headless target has NO native StyleSheet paint, so
+	-- it returns nil — which is the honest answer and keeps theme_controller on
+	-- the explicit-write (fallback) path exactly as it was before this method
+	-- existed. Specs that want the native path override it (see
+	-- tests/theme_controller.spec.luau's `nativeAdapter`).
+	function adapter.nativeStyleInfo(): any
+		return nil
+	end
+
+	-- the root a theme sheet would link at. nil headless: there is no Instance.
+	-- Overridden by the specs that drive native theming.
+	function adapter.themeRootGui(): any
+		return nil
+	end
+
+	-- the DECORATION half of a theme package. Records the pushes (including the
+	-- nil push uninstall makes) and reports `false` = the chrome did not change,
+	-- which is what a target with no decoration surface must say.
+	local themePackagePushes: { any } = {}
+	function adapter.setThemePackage(package: any?, themeName: string?, snapshot: any?): boolean
+		table.insert(themePackagePushes, { package = package, theme = themeName, snapshot = snapshot })
+		return false
+	end
+	function adapter.themePackagePushes(): { any }
+		return themePackagePushes
+	end
+
 	-- test readers for the declared region and the current offset (A-SV1)
 	function adapter.scrollRegionOf(path: string): any
 		local node = nodes[path]

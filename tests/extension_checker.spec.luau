@@ -25,16 +25,34 @@ local function problemsMentioning(result: any, needle: string): number
 	return n
 end
 
+-- ENF-1 raised the api.md coverage bar twice in one pass: a public export now
+-- needs its own `###` heading (a mention no longer counts), and every member of
+-- every namespace export needs a QUALIFIED entry. Both rules immediately found
+-- real, pre-existing documentation gaps, and this suite held the checker to "no
+-- problem OTHER than those fourteen enumerated gaps"
+-- (artifacts/api-architecture-consistency/enforcement-gap-list.txt) — a list
+-- written to shrink and never grow.
+--
+-- It shrank to nothing: the 0.8.0 documentation package closed all fourteen, so
+-- the tolerance is GONE. The live repository must now produce no registration
+-- problem at all, of any shape.
+local function unexpectedProblems(result: any): { string }
+	return table.clone(result.problems :: { string })
+end
+
 describe("registration checker (agentic maintainability)", function()
 	it("the live repository passes every registration rule", function()
 		local result = checker.check()
-		if not result.ok then
-			error("checker problems:\n  " .. table.concat(result.problems, "\n  "))
+		local unexpected = unexpectedProblems(result)
+		if #unexpected > 0 then
+			error("checker problems:\n  " .. table.concat(unexpected, "\n  "))
 		end
+		expect(#unexpected).toBe(0)
 		expect(result.ok).toBe(true)
-		expect(#result.problems).toBe(0)
 		expect(result.counts.controls).toBeGreaterThanOrEqual(2) -- table, virtual_list
 		expect(result.counts.exportsDocumented).toBeGreaterThanOrEqual(10)
+		-- every nested namespace member has a qualified reference entry (ENF-1b)
+		expect(result.counts.nestedDocumented).toBe(result.counts.nestedMembers)
 	end)
 
 	it("reports a control file missing from the registry", function()
@@ -50,6 +68,93 @@ describe("registration checker (agentic maintainability)", function()
 		local ghostDoc = checker.check({ extraDocumented = { "newImaginaryApi" } })
 		expect(ghostDoc.ok).toBe(false)
 		expect(problemsMentioning(ghostDoc, "newImaginaryApi")).toBeGreaterThanOrEqual(1)
+	end)
+
+	-- ---- ENF-1: what the checker could NOT see before ----------------------
+	-- Three holes, each of which let real drift pass: an export "documented" by
+	-- a passing mention, a namespace whose members were never looked at, and a
+	-- dump surface "proved" by any substring at all.
+
+	it("reports a nested namespace member that api.md does not document QUALIFIED", function()
+		local result = checker.check({
+			extraNestedMembers = { { namespace = "motion", member = "ghostNestedMember" } },
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "motion.ghostNestedMember")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("an allowlist entry needs a REASON — an empty one is itself a problem", function()
+		local silenced = checker.check({
+			extraNestedMembers = { { namespace = "motion", member = "ghostNestedMember" } },
+			extraNestedAllow = { ["motion.ghostNestedMember"] = "documented in prose under the clock section" },
+		})
+		expect(problemsMentioning(silenced, "motion.ghostNestedMember")).toBe(0)
+
+		local reasonless = checker.check({
+			extraNestedMembers = { { namespace = "motion", member = "ghostNestedMember" } },
+			extraNestedAllow = { ["motion.ghostNestedMember"] = "" },
+		})
+		expect(reasonless.ok).toBe(false)
+		expect(problemsMentioning(reasonless, "EMPTY reason")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("the live repository's namespace members are actually WALKED (not an empty set)", function()
+		local result = checker.check()
+		-- motion/text/themes/tokens/adaptive/composition/replication/spatial/
+		-- touchGestures/interactionTokens/valueModel — a rule that walked nothing
+		-- would report nothing and look identical from the outside
+		expect(result.counts.nestedMembers).toBeGreaterThanOrEqual(40)
+	end)
+
+	it("reports a dumpFunction that is not defined in the module", function()
+		local result = checker.check({
+			extraDumpRows = {
+				{ name = "GhostBadDump", module = "src/controls/table.luau", dumpFunction = "function ghost.dump" },
+			},
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "GhostBadDump")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("reports a dumpFunction that is not a dump DEFINITION at all (the old substring hole)", function()
+		-- 'async_image' used to pass as this row's dump surface: it is the module's
+		-- own name, present in every line of it
+		local result = checker.check({
+			extraDumpRows = {
+				{ name = "GhostSubstringDump", module = "src/controls/async_image.luau", dumpFunction = "async_image" },
+			},
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "GhostSubstringDump")).toBeGreaterThanOrEqual(1)
+		expect(problemsMentioning(result, "not a dump definition")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("reports a row that declares neither a dumpFunction nor dump = false", function()
+		local result = checker.check({
+			extraDumpRows = { { name = "GhostNoDumpDecl", module = "src/controls/table.luau" } },
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "GhostNoDumpDecl")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("reports dump = false with no reason, and accepts one with a reason", function()
+		local reasonless = checker.check({
+			extraDumpRows = { { name = "GhostMuteDump", module = "src/controls/table.luau", dump = false } },
+		})
+		expect(reasonless.ok).toBe(false)
+		expect(problemsMentioning(reasonless, "GhostMuteDump")).toBeGreaterThanOrEqual(1)
+
+		local declared = checker.check({
+			extraDumpRows = {
+				{
+					name = "GhostMuteDump",
+					module = "src/controls/table.luau",
+					dump = false,
+					reason = "stateless module",
+				},
+			},
+		})
+		expect(problemsMentioning(declared, "GhostMuteDump")).toBe(0)
 	end)
 
 	it("reports a spec file that is not registered in the runner (silent zero)", function()
@@ -125,7 +230,7 @@ describe("registration checker (agentic maintainability)", function()
 
 	it("the live repository proves the four-input story for every interactive control", function()
 		local result = checker.check()
-		expect(result.ok).toBe(true)
+		expect(#unexpectedProblems(result)).toBe(0)
 		expect(result.counts.interactiveControls).toBeGreaterThanOrEqual(7) -- Button, Toggle, TextField, Table, VirtualList, PopupButton, TextInput
 	end)
 
@@ -220,7 +325,7 @@ describe("registration checker (agentic maintainability)", function()
 
 	it("the live repository proves the PARADIGM axis for every interactive control", function()
 		local result = checker.check()
-		expect(result.ok).toBe(true)
+		expect(#unexpectedProblems(result)).toBe(0)
 		expect(result.counts.affordanceControls).toBeGreaterThanOrEqual(7) -- Button, Toggle, TextField, Table, VirtualList, PopupButton, TextInput
 	end)
 end)
@@ -330,9 +435,50 @@ describe("extension scaffold", function()
 		end
 		expect(paths["src/client/surface_target.luau"] ~= nil).toBeTruthy()
 		local source = paths["src/client/surface_target.luau"].content
-		for _, method in { "createRoot", "create", "setRect", "setProp", "remove", "destroyRoot" } do
-			expect(string.find(source, method) ~= nil).toBeTruthy()
+		local target_contract = require("../src/render/target_contract")
+		for _, method in target_contract.REQUIRED do
+			expect(`{method} stamped: {string.find(source, method) ~= nil}`).toBe(`{method} stamped: true`)
 		end
+
+		-- SEAM-25: the stamped `create` used to take THREE arguments while the
+		-- contract takes five, so a scaffolded adapter could never skin a
+		-- decoration slot or make a CanvasGroup and nothing said so. The
+		-- creation-time pair is part of the signature.
+		expect(string.find(source, "decorationHint: any?", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(source, "createOpts: { canvasGroup: boolean? }?", 1, true) ~= nil).toBeTruthy()
+		-- and the author is pointed at the two lists `check` reports beyond REQUIRED
+		expect(string.find(source, "OPTIONAL", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(source, "THEME", 1, true) ~= nil).toBeTruthy()
+	end)
+
+	it("stamps the adapter's conformance spec AND registers it in the runner (SEAM-25)", function()
+		-- the adapter branch used to plan zero edits: no spec, nothing registered,
+		-- and an unregistered spec is a silent zero (checker rule 3)
+		local plan = scaffold.plan("adapter", "surface_target")
+		local paths = {}
+		for _, file in plan.files do
+			paths[file.path] = file
+		end
+		expect(paths["tests/surface_target.spec.luau"] ~= nil).toBeTruthy()
+		local spec = paths["tests/surface_target.spec.luau"].content
+		-- it checks itself against the contract and fails on a REQUIRED gap
+		expect(string.find(spec, "target_contract.check", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(spec, "result.missing", 1, true) ~= nil).toBeTruthy()
+
+		local runnerEdit = nil
+		for _, edit in plan.edits do
+			if edit.path == "tests/run.luau" then
+				runnerEdit = edit
+			end
+		end
+		expect(runnerEdit ~= nil).toBeTruthy()
+		expect((runnerEdit :: any).insert).toBe('require("./surface_target.spec")')
+		-- the runner anchor is real, and the apply is idempotent against it
+		local fs = require("@lune/fs")
+		local runner = fs.readFile("tests/run.luau")
+		local applied = scaffold.applyEdit(runner, runnerEdit :: any)
+		expect(string.find(applied, 'require("./surface_target.spec")', 1, true) ~= nil).toBeTruthy()
+		expect(scaffold.applyEdit(applied, runnerEdit :: any)).toBe(applied)
 	end)
 
 	it("applying the registry edit lands the row INSIDE the registry array (dry-run defect 1)", function()

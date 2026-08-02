@@ -137,21 +137,49 @@ function focus_graph.new(core: any)
 		return out
 	end
 
-	local function normalizeScope(scope: any)
-		if scope == nil then
-			return
+	--[[ THE ARGUMENT IS READ, NEVER CONSUMED (api-architecture-consistency F-14).
+		Normalization used to write back into the CALLER's tables: `order` rewritten
+		in place, `_focusable`/`_lastFocus` injected into a public exported type that
+		declares neither, and every later `remove`/`setOrder`/`setGroupOrder`
+		splicing the caller's own array. Three costs: a `table.freeze`d literal —
+		this library's own idiom for immutable data — was a hard error from inside
+		the graph; one NavigationGroup literal reused across two surfaces gave the
+		two scopes a shared predicate map; and a caller reading its array back after
+		a structural edit read the graph's state, not its own declaration.
+
+		So the graph copies on ingest. `_focusable`, `_lastFocus` and the normalized
+		order live ONLY on these internal copies, and every mutating method below
+		operates on them. The copies are shallow: nested values the graph only ever
+		reads (a group's `exit` map, a predicate closure) stay shared, which is
+		correct — sharing is only a hazard where something writes. ]]
+	local function internalGroups(groups: { any }): { any }
+		local out: { any } = {}
+		for i, group in groups do
+			local sink: { [string]: () -> boolean } = {}
+			local copy: any = table.clone(group)
+			copy.order = normalizeOrder(group.order, sink)
+			copy._focusable = sink
+			out[i] = copy
 		end
+		return out
+	end
+
+	local function internalScope(scope: any): any
+		if scope == nil then
+			return nil
+		end
+		local copy: any = table.clone(scope)
+		copy._lastFocus = nil
 		if scope.groups ~= nil then
-			for _, group in scope.groups do
-				local sink: { [string]: () -> boolean } = {}
-				group.order = normalizeOrder(group.order, sink)
-				group._focusable = sink
-			end
+			copy.groups = internalGroups(scope.groups)
+			copy.order = nil
+			copy._focusable = nil
 		elseif scope.order ~= nil then
 			local sink: { [string]: () -> boolean } = {}
-			scope.order = normalizeOrder(scope.order, sink)
-			scope._focusable = sink
+			copy.order = normalizeOrder(scope.order, sink)
+			copy._focusable = sink
 		end
+		return copy
 	end
 
 	local function predicateFor(scope: any, id: string): (() -> boolean)?
@@ -317,12 +345,13 @@ function focus_graph.new(core: any)
 	-- base scope (screen) or modal push. Modal scopes trap and remember the
 	-- previous focus for restoration on pop.
 	function self.pushScope(scope: FocusScope)
-		normalizeScope(scope)
-		if scope.trap then
+		-- the graph's own copy; the caller's tables are never written (F-14 above)
+		local internal = internalScope(scope)
+		if internal.trap then
 			table.insert(restoreStack, focused:get())
 		end
-		table.insert(scopes, scope)
-		setFocus(entryFocus(scope))
+		table.insert(scopes, internal)
+		setFocus(entryFocus(internal))
 	end
 
 	function self.popScope()
@@ -520,10 +549,10 @@ function focus_graph.new(core: any)
 		for i = #scopes, 1, -1 do
 			local scope = scopes[i]
 			if scope.name == scopeName then
-				scope.groups = groups
+				-- copied on ingest, exactly like pushScope (F-14)
+				scope.groups = internalGroups(groups)
 				scope.order = nil
 				scope._focusable = nil
-				normalizeScope(scope)
 				if scope._lastFocus ~= nil then
 					for groupName, remembered in scope._lastFocus do
 						local group = groupByName(scope, groupName)

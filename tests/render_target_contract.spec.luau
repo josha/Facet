@@ -25,6 +25,76 @@ describe("RenderTargetAdapter contract", function()
 		expect(#result.optionalAbsent).toBe(0)
 	end)
 
+	-- SEAM-20: `check` used to answer a narrower question than the seam. Nine
+	-- methods the framework CALLS — five feature-detected by the renderer, four
+	-- by the theme controller — were on neither list, so an adapter could pass
+	-- with `#optionalAbsent == 0` and still ship with no hit-target floor, no
+	-- wheel channel, no display order, no reduced-motion suppression and no
+	-- theming. The lists are the contract, so the pin is: the nine are declared,
+	-- the fake implements them, and the LIVE adapter names every one.
+	it("the contract DECLARES all nine methods the framework feature-detects", function()
+		local declared: { [string]: string } = {}
+		for _, name in target_contract.OPTIONAL do
+			declared[name] = "OPTIONAL"
+		end
+		for _, name in target_contract.THEME do
+			declared[name] = "THEME"
+		end
+		local expected = {
+			-- renderer-called
+			getScrollPosition = "OPTIONAL",
+			setHitRect = "OPTIONAL",
+			setScrollHandler = "OPTIONAL",
+			setNativeTransitionsEnabled = "OPTIONAL",
+			setRootDisplayOrder = "OPTIONAL",
+			-- theme-controller-called
+			themeRootGui = "THEME",
+			setThemePackage = "THEME",
+			relinkThemeSheet = "THEME",
+			nativeStyleInfo = "THEME",
+		}
+		for name, list in expected do
+			expect(`{name}={declared[name]}`).toBe(`{name}={list}`)
+		end
+	end)
+
+	it("the FakeTarget satisfies the THEME group too (relink rides the opt-in)", function()
+		-- `relinkThemeSheet` is declared ONLY under trackThemeRoots, deliberately:
+		-- a fake that always carried it would never exercise the single-root
+		-- `linkAt` fallback every other target still uses (fake_target.luau:137).
+		-- So the themeable fake is the opted-in one, and the default fake's only
+		-- theme gap is that one method.
+		local themed = target_contract.check(fake_target.new({ trackThemeRoots = true }))
+		expect(#themed.themeAbsent).toBe(0)
+		expect(themed.themeable).toBe(true)
+
+		local plain = target_contract.check(fake_target.new())
+		expect(table.concat(plain.themeAbsent, ",")).toBe("relinkThemeSheet")
+		expect(plain.themeable).toBe(false)
+	end)
+
+	it("the LIVE ScreenTarget implements every declared name (its source is the contract)", function()
+		-- screen_target.luau cannot load headless (engine globals at load), so it
+		-- is read exactly as check_prop_parity reads it
+		local liveSource = fs.readFile("src/client/screen_target.luau")
+		local absent: { string } = {}
+		for _, list in { target_contract.REQUIRED, target_contract.OPTIONAL, target_contract.THEME } do
+			for _, name in list do
+				if string.find(liveSource, `function adapter.{name}(`, 1, true) == nil then
+					table.insert(absent, name)
+				end
+			end
+		end
+		table.sort(absent)
+		if #absent > 0 then
+			error(
+				`src/client/screen_target.luau declares no `
+					.. `{table.concat(absent, ", ")} — a declared contract name the shipped adapter does not implement`,
+				0
+			)
+		end
+	end)
+
 	it("a billboard-sized pixel canvas renders a nameplate and updates paint-only", function()
 		local core = LuauUI.newCore()
 		local env = LuauUI.newEnvironment(core)

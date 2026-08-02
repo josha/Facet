@@ -306,4 +306,35 @@ describe("PopupButton: build-time contract", function()
 		end)
 		expect(ok).toBe(false)
 	end)
+
+	-- CTRL-01 (api-architecture-consistency F-1). A read-only Memo has kind
+	-- "memo" and a `:set` that asserts, so accepting one here deferred the crash
+	-- to the user's FIRST selection (`select()` calls `spec.value:set`). Every
+	-- sibling — Stepper, Slider, Rating, Picker, DisclosureGroup, TextInput —
+	-- rejects exactly this at BUILD.
+	it("rejects a read-only Memo `value` at BUILD, naming the control and the field", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			popup_button.build(LuauUI, core, {
+				id = "Difficulty",
+				options = OPTIONS,
+				value = core:memo(function()
+					return "normal"
+				end),
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "PopupButton", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "value", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("rejects a non-signal `value` at BUILD", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			popup_button.build(LuauUI, core, { id = "Difficulty", options = OPTIONS, value = "normal" :: any })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+	end)
 end)

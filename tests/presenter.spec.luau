@@ -144,3 +144,111 @@ describe("presenter: re-entrant dismiss (phase-2 verifier F-2)", function()
 		expect(pres.focus.focused:get()).toBe("/Settings/Sfx")
 	end)
 end)
+
+--[[ THE STRING-ENUM OPTS ARE VALIDATED AT PRESENT TIME
+	(api-architecture-consistency F-15). `makeHandle` has refused an unknown
+	`cancelPolicy` since it existed, with a comment stating the rule: "a typo that
+	silently kept the default would read as 'the framework ignored my mandatory
+	modal'". Two of the four string enums did not follow it — `responder` was
+	compared by equality (`responder = "Passive"` silently presented an ENGAGED
+	surface that sank nothing) and `scrim` was passed through raw (`scrim = "None"`
+	silently DIMMED the screen). Both now fail at the call site like their sibling. ]]
+describe("presenter: unknown string-enum opts fail at the call site (F-15)", function()
+	it("an unknown responder names the opt and its legal set", function()
+		local _, _, _, _, pres = makeWorld()
+		local ok, err = pcall(function()
+			pres.present(settingsScreen(), { responder = "Passive" } :: any)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "responder", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "Passive", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "passive", 1, true) ~= nil).toBe(true)
+		-- and nothing was presented behind the error
+		expect(pres.depth()).toBe(0)
+	end)
+
+	it("an unknown scrim names the opt and its legal set", function()
+		local _, _, _, _, pres = makeWorld()
+		local ok, err = pcall(function()
+			pres.presentModal(confirmModal(), { scrim = "None" } :: any)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "scrim", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "None", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "none", 1, true) ~= nil).toBe(true)
+		expect(pres.depth()).toBe(0)
+	end)
+
+	it("the legal values still present: responder passive, scrim scrim/none", function()
+		local _, _, _, _, pres = makeWorld()
+		local hud = pres.present(settingsScreen(), { responder = "passive" })
+		expect(hud.responder:get()).toBe("passive")
+		local modal = pres.presentModal(confirmModal(), { scrim = "none" })
+		expect(modal.scrimMode).toBe("none")
+		local plain = pres.presentModal(confirmModal(), { scrim = "scrim" })
+		expect(plain.scrimMode).toBe("scrim")
+		expect(pres.depth()).toBe(3)
+	end)
+end)
+
+--[[ THE FALLBACK IS PRESENTED WITH THE CALLER'S OPTS
+	(api-architecture-consistency F-16). `presentCritical` used to hand the
+	fallback `{ onActivate = opts.onActivate }` and nothing else, so a critical
+	screen declared `rootPolicy = "edgeToEdge"` (or navigationGroups, transition,
+	sinkNavigation, …) lost all of it exactly when things had already gone wrong —
+	the fallback rendered under the wrong root policy, a second failure stacked on
+	the first. ]]
+describe("presenter: presentCritical carries the caller's opts to the fallback (F-16)", function()
+	local function criticalWorld()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		env:set("coreSafeInsets", { top = 36, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		return adapter, presenterLib.new(core, env, adapter, system)
+	end
+
+	local function fallbackScreen()
+		return UI.Screen({
+			id = "SafeMode",
+			children = { UI.Button({ id = "Retry", label = "Retry" }) },
+		})
+	end
+
+	it("a critical fallback under rootPolicy=edgeToEdge resolves the edge-to-edge rect", function()
+		local adapter, pres = criticalWorld()
+		local handle = pres.presentCritical(function()
+			error("screen construction failed")
+		end, {
+			rootPolicy = "edgeToEdge",
+			fallbackScreen = fallbackScreen,
+		})
+		expect(handle.blueprint.id).toBe("SafeMode")
+		-- edgeToEdge clears the 36px CoreGui inset; the default would not
+		expect(adapter.node("/SafeMode/Retry").rect.y).toBe(0)
+	end)
+
+	it("without the opt the fallback keeps the default content inset", function()
+		local adapter, pres = criticalWorld()
+		pres.presentCritical(function()
+			error("screen construction failed")
+		end, { fallbackScreen = fallbackScreen })
+		expect(adapter.node("/SafeMode/Retry").rect.y).toBe(36)
+	end)
+
+	it("the fallback screen is not asked to present itself as its own fallback", function()
+		-- `fallbackScreen` is the one opt that must NOT ride along: the fallback
+		-- presents as an ordinary screen, and its own errors stay hard (§17).
+		local _, pres = criticalWorld()
+		local handle = pres.presentCritical(function()
+			error("boom")
+		end, {
+			responder = "passive",
+			fallbackScreen = fallbackScreen,
+		})
+		expect(handle.blueprint.id).toBe("SafeMode")
+		expect(handle.responder:get()).toBe("passive") -- the caller's opt survived
+		expect((handle.blueprint :: any).fallbackScreen).toBeNil()
+	end)
+end)

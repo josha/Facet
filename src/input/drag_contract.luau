@@ -179,11 +179,31 @@ function drag_contract.target(spec: TargetSpec): TargetSpec
 	}) :: any
 end
 
+-- A STRUCTURAL NODE CANNOT CARRY A DECLARATION (api-architecture-consistency
+-- F-18 / ledger BP-F15). `When` / `ForEach` / `ErrorBoundary` mount as regions,
+-- never as an instance, and the renderer registers a drag source inside the
+-- per-instance branch of `ensureTree` — which a structural node never reaches.
+-- So `UI.draggable(UI.When{ … }, …)` was accepted and INERT, which is a
+-- plausible mistake (wrapping a conditional card) with no symptom at all. Every
+-- other modifier is gated by the schema; these two gate themselves.
+local STRUCTURAL_CLASSES: { [string]: boolean } = { When = true, ForEach = true, ErrorBoundary = true }
+local MODIFIER_FOR_KEY: { [string]: string } = { [SOURCE_PROP] = "UI.draggable", [TARGET_PROP] = "UI.dropTarget" }
+
 -- write a declaration onto a blueprint's metadata channel, returning a NEW
 -- frozen blueprint (blueprints are immutable)
 function drag_contract.attach(bp: any, key: string, decl: any): any
 	if type(bp) ~= "table" or type(bp.class) ~= "string" then
 		error(`LuauUI drag: {key} must be applied to a blueprint`, 0)
+	end
+	if STRUCTURAL_CLASSES[bp.class] then
+		local modifier = MODIFIER_FOR_KEY[key] or key
+		error(
+			`LuauUI drag: {modifier} cannot be applied to a UI.{bp.class} — a structural region mounts no `
+				.. `instance of its own, so the declaration would be accepted and never wired to anything. `
+				.. `Fix: wrap the RENDERED node instead — put {modifier} on the blueprint the region returns, `
+				.. `or on a UI.Box/UI.VStack around the UI.{bp.class}.`,
+			0
+		)
 	end
 	local meta = if type(bp.meta) == "table" then table.clone(bp.meta) else {}
 	meta[key] = decl

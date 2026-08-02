@@ -31,7 +31,11 @@ function actions.newSystem(core: any)
 			bindings = {} :: { any },
 		}
 
-		function action.onPressed(fn: () -> ()): () -> ()
+		-- THE HANDLER IS HANDED THE VALUE (api-architecture-consistency F-29).
+		-- `_deliver` has always called `fn(value)`; the declared arity said
+		-- otherwise, so the boolean a Bool action delivers was invisible to the
+		-- type-checker and to the docs. Same class as `renderer` `onNodeTap`.
+		function action.onPressed(fn: (value: any) -> ()): () -> ()
 			table.insert(action.pressedHandlers, fn)
 			return function()
 				local i = table.find(action.pressedHandlers, fn)
@@ -41,7 +45,7 @@ function actions.newSystem(core: any)
 			end
 		end
 
-		function action.onReleased(fn: () -> ()): () -> ()
+		function action.onReleased(fn: (value: any) -> ()): () -> ()
 			table.insert(action.releasedHandlers, fn)
 			return function()
 				local i = table.find(action.releasedHandlers, fn)

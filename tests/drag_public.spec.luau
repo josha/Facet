@@ -1071,3 +1071,77 @@ describe("UI.draggable `enabled` — acquisition refused, the control still spea
 		expect(string.find(tostring(err), "ACQUISITION only", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+-- ===========================================================================
+-- F-18 (ledger/blueprints.md BP-F15): `UI.draggable` / `UI.dropTarget` applied
+-- NO class gate, so a declaration on `When` / `ForEach` / `ErrorBoundary` was
+-- accepted and inert — the renderer registers a drag source inside the
+-- per-instance branch of `ensureTree`, which a structural node never reaches.
+-- Every other modifier is gated by the schema; these two now gate themselves.
+-- ===========================================================================
+
+describe("F-18: a drag declaration is refused on a structural node", function()
+	local function structural(class: string): any
+		local core = LuauUI.newCore()
+		if class == "When" then
+			return UI.When({
+				id = "W",
+				condition = core:signal(true),
+				thenView = function()
+					return UI.Box({ id = "c" })
+				end,
+			})
+		elseif class == "ForEach" then
+			return UI.ForEach({
+				id = "F",
+				items = core:signal({ 1 }),
+				key = function(item)
+					return tostring(item)
+				end,
+				row = function()
+					return UI.Box({ id = "c" })
+				end,
+			})
+		end
+		return UI.ErrorBoundary({
+			id = "E",
+			view = function()
+				return UI.Box({ id = "c" })
+			end,
+			fallback = function()
+				return UI.Box({ id = "f" })
+			end,
+		})
+	end
+
+	for _, class in { "When", "ForEach", "ErrorBoundary" } do
+		it(`UI.draggable on a UI.{class} names the class and the fix`, function()
+			local ok, err = pcall(function()
+				return UI.draggable(structural(class), { payload = 1 })
+			end)
+			expect(ok).toBe(false)
+			local message = tostring(err)
+			expect(string.find(message, `UI.{class}`, 1, true) ~= nil).toBe(true)
+			expect(string.find(message, "UI.draggable", 1, true) ~= nil).toBe(true)
+			expect(string.find(message, "wrap", 1, true) ~= nil).toBe(true)
+		end)
+
+		it(`UI.dropTarget on a UI.{class} is refused the same way`, function()
+			local ok, err = pcall(function()
+				return UI.dropTarget(structural(class), { onDrop = function() end })
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), `UI.{class}`, 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(err), "UI.dropTarget", 1, true) ~= nil).toBe(true)
+		end)
+	end
+
+	it("a RENDERED node still takes both declarations", function()
+		expect(pcall(function()
+			return UI.draggable(UI.Box({ id = "B" }), { payload = 1 })
+		end)).toBe(true)
+		expect(pcall(function()
+			return UI.dropTarget(UI.VStack({ id = "V", children = {} }), { onDrop = function() end })
+		end)).toBe(true)
+	end)
+end)

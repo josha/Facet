@@ -432,3 +432,112 @@ describe("engine styling: the per-view gradient modifier (rung 2)", function()
 		root.dispose()
 	end)
 end)
+
+-- ===========================================================================
+-- api-architecture-consistency (0.8.0): the two style grammars that skipped the
+-- strict boundary (ledger/blueprints.md BP-F1 / BP-F2).
+-- ===========================================================================
+
+describe("F-4 (BP-F1): UI.styleGroup is the WHOLE style-modifier family, and closed", function()
+	it("carries `stroke`, the fourth family member, like the singular UI.stroke", function()
+		local out = UI.styleGroup({ stroke = { thickness = 2 } }, { UI.Box({ id = "A" }), UI.Box({ id = "B" }) })
+		expect(out[1].props.stroke.thickness).toBe(2)
+		expect(out[2].props.stroke.thickness).toBe(2)
+		-- same normalization path as UI.stroke: the theme's hairline colour + alpha
+		expect(out[1].props.stroke).toEqual(UI.strokeData({ thickness = 2 }))
+	end)
+
+	it("a stroked collection reaches the adapter under the style authority", function()
+		local screen = UI.Screen({
+			id = "S",
+			children = UI.styleGroup({ stroke = { thickness = 3 } }, { UI.Box({ id = "A" }), UI.Box({ id = "B" }) }),
+		})
+		local _, root, _, adapter = present(screen)
+		expect(adapter.node("/S/A").props.stroke.thickness).toBe(3)
+		expect(adapter.node("/S/B").props.stroke.thickness).toBe(3)
+		root.dispose()
+	end)
+
+	it("an unknown spec key is refused, naming the modifier and the legal set", function()
+		local ok, err = pcall(function()
+			return UI.styleGroup({ shadwo = "raised" } :: any, { UI.Box({ id = "A" }) })
+		end)
+		expect(ok).toBe(false)
+		local message = tostring(err)
+		expect(string.find(message, "UI.styleGroup", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "shadwo", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "shadow", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "gradient", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "corners", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "stroke", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("the four legal keys all still pass", function()
+		expect(pcall(function()
+			return UI.styleGroup({
+				shadow = "raised",
+				gradient = { colors = { "accent", "surface" } },
+				corners = 6,
+				stroke = {},
+			}, { UI.Box({ id = "A" }) })
+		end)).toBe(true)
+	end)
+end)
+
+describe("F-5 (BP-F2): the shadow and gradient grammars are closed like the stroke one", function()
+	it("a typo'd gradient field is refused instead of silently producing the default", function()
+		local ok, err = pcall(function()
+			return UI.gradient(UI.Box({ id = "A" }), { colors = { "accent", "surface" }, roation = 45 })
+		end)
+		expect(ok).toBe(false)
+		local message = tostring(err)
+		expect(string.find(message, "roation", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "rotation", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("a typo'd shadow field is refused", function()
+		local ok, err = pcall(function()
+			return UI.shadow(UI.Box({ id = "A" }), {
+				blurRadius = { scale = 0, offset = 12 },
+				transparancy = 0.5,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "transparancy", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "transparency", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("every LEGAL field of both grammars still passes", function()
+		expect(pcall(function()
+			return UI.shadow(UI.Box({ id = "A" }), {
+				blurRadius = { scale = 0, offset = 12 },
+				color = { r = 0, g = 0, b = 0 },
+				transparency = 0.5,
+				offset = { x = { scale = 0, offset = 0 }, y = { scale = 0, offset = 2 } },
+				spread = { x = { scale = 0, offset = 0 }, y = { scale = 0, offset = 0 } },
+				zIndex = -2,
+				enabled = true,
+			})
+		end)).toBe(true)
+		expect(pcall(function()
+			return UI.gradient(UI.Box({ id = "A" }), {
+				colors = { "accent", "surface" },
+				rotation = 45,
+				transparency = { 0, 0.3 },
+				enabled = true,
+			})
+		end)).toBe(true)
+	end)
+
+	it("the preset-NAME form of a shadow still works on both shipped styles", function()
+		expect(pcall(function()
+			return UI.shadow(UI.Box({ id = "A" }), "raised")
+		end)).toBe(true)
+		expect(pcall(function()
+			return UI.shadow(UI.Box({ id = "A" }), "overlay")
+		end)).toBe(true)
+		expect(pcall(function()
+			return UI.shadow(UI.Box({ id = "A" }), "raised", require("../src/tokens/default_light_style"))
+		end)).toBe(true)
+	end)
+end)

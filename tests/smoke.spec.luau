@@ -9,7 +9,7 @@ local LuauUI = require("../src")
 
 describe("LuauUI public surface", function()
 	it("loads headless under lune with the phase-1 API", function()
-		expect(LuauUI.VERSION).toBe("0.7.0") -- ADR-0011; bump alongside the ADR
+		expect(LuauUI.VERSION).toBe("0.8.0") -- ADR-0011; bump alongside the ADR
 		expect(type(LuauUI.newCore)).toBe("function")
 		expect(type(LuauUI.UI.Screen)).toBe("function")
 		expect(type(LuauUI.mount)).toBe("function")

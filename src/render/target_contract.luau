@@ -1,7 +1,13 @@
 --!strict
 -- RenderTargetAdapter contract (design §13, ADR-0003/ADR-0009): the seam every
--- render target implements. The renderer feature-detects OPTIONAL methods with
--- `~= nil`; REQUIRED ones it calls unconditionally. Headless conformance
+-- render target implements. Three lists: REQUIRED (called unconditionally),
+-- OPTIONAL (feature-detected with `~= nil`; each absence is one named degrade)
+-- and THEME (the four `theme_controller` reaches for — without them a target
+-- cannot take a theme package). The lists are the CONTRACT, so a name the
+-- framework calls must appear on one of them: nine did not (SEAM-20), which let
+-- an adapter pass `check` with `#optionalAbsent == 0` and still ship with no
+-- hit-target floor, no wheel scrolling, no display order and no theming at all.
+-- Headless conformance
 -- (tests/render_target_contract.spec.luau) checks the FakeTarget against this
 -- list; engine adapters (ScreenTarget, BillboardTarget) are checked at runtime
 -- during their Studio drives — an adapter missing an optional method degrades
@@ -94,6 +100,57 @@ target_contract.OPTIONAL = {
 	-- without it simply is not gateable — the surface shows immediately, which
 	-- is today's behaviour and always correct, just occasionally jumpy.
 	"setRootVisible", -- (rootHandle, visible: boolean)
+	-- ── the five the RENDERER also feature-detects (SEAM-20) ───────────────
+	-- They were called and undeclared, which made `check` answer a question
+	-- narrower than the seam: an adapter could pass with `#optionalAbsent == 0`
+	-- and still silently drop five channels. Each line names what degrades.
+	--
+	-- WITHOUT IT: no 44 px effective-target floor (src/controls/contract.luau) —
+	-- a small control stays exactly as big as it paints, so touch accuracy is
+	-- whatever the visual happens to be. Layout is unaffected; only the hit area.
+	"setHitRect", -- (handle, rect | nil)
+	-- WITHOUT IT: no wheel channel — `onScrollWheel` never fires, so a pointer
+	-- user cannot scroll a ScrollView with the wheel (drag/keyboard still work).
+	"setScrollHandler", -- (handle, fn(delta: number))
+	-- WITHOUT IT: the framework cannot READ the live engine offset, so
+	-- keep-visible and scroll-position diagnostics work from the last value the
+	-- framework itself wrote rather than where the engine actually is.
+	"getScrollPosition", -- (handle) -> { x, y } | nil
+	-- WITHOUT IT: native transitions cannot be turned off, so a reduced-motion
+	-- environment cannot suppress engine-side animation (LuauUI's own motion
+	-- still honours the policy; only the target's native layer is unreachable).
+	"setNativeTransitionsEnabled", -- (on: boolean)
+	-- WITHOUT IT: no cross-surface paint order — the presenter's base < scrim <
+	-- modal ordering cannot reach the engine, so a modal may paint under the
+	-- screen it is modal over.
+	"setRootDisplayOrder", -- (rootHandle, n: number)
+}
+
+-- THEME (ADR-0019 §7). Not "optional" in the OPTIONAL sense: these four are the
+-- surface `src/client/theme_controller.luau` reaches for, and a target that
+-- lacks them cannot be themed by a package at all —
+-- `theme_controller.install` degrades to fallback paint (nativeStyleInfo
+-- absent/non-table) and, in native mode, ERRORS unless the caller passes
+-- `opts.rootGui` (themeRootGui absent). They are declared as their own list so
+-- an adapter author sees "theming" as one capability with one consequence
+-- rather than four unrelated names, and so `check` can report it separately
+-- from the degrade-quietly optionals.
+target_contract.THEME = {
+	-- WITHOUT IT: `install` reports fallback with the reason "the adapter does
+	-- not report native paint", so the package paints through explicit writes
+	-- and no StyleSheet is ever linked.
+	"nativeStyleInfo", -- () -> { active: boolean, ... } | nil
+	-- WITHOUT IT: native mode has no root to link its sheet at, and `install`
+	-- errors naming both this method and `opts.rootGui`.
+	"themeRootGui", -- () -> Instance?
+	-- WITHOUT IT: the DECORATION half of a package never reaches the target —
+	-- chrome recipes, semantic icons and the focus treatment stay unpainted
+	-- while metrics still change (a package half-applied).
+	"setThemePackage", -- (package?, themeName?, snapshot?) -> chromeChanged: boolean
+	-- WITHOUT IT: the controller falls back to the single-root `linkAt` path, so
+	-- a root created AFTER the install (a modal) keeps the legacy sheet and
+	-- appears Neutral over a themed screen.
+	"relinkThemeSheet", -- (sheet: StyleSheet?)
 }
 
 -- ---------------------------------------------------------------------------
@@ -133,20 +190,38 @@ target_contract.FUTURE = table.freeze({
 	}),
 })
 
-function target_contract.check(adapter: any): { missing: { string }, optionalAbsent: { string } }
-	local missing = {}
-	for _, name in target_contract.REQUIRED do
-		if type(adapter[name]) ~= "function" then
-			table.insert(missing, name)
+-- check(adapter) -> what this adapter does and does not implement.
+--   missing         REQUIRED names absent — the renderer calls these
+--                   unconditionally, so the target cannot be mounted.
+--   optionalAbsent  OPTIONAL names absent — each is one named degrade.
+--   themeAbsent     THEME names absent — theming degrades or refuses.
+--   themeable       every THEME name present.
+-- `missing` and `optionalAbsent` keep their meaning and their names; the theme
+-- fields are additive, so existing callers read exactly what they read before.
+export type Result = {
+	missing: { string },
+	optionalAbsent: { string },
+	themeAbsent: { string },
+	themeable: boolean,
+}
+
+function target_contract.check(adapter: any): Result
+	local function absent(names: { string }): { string }
+		local out: { string } = {}
+		for _, name in names do
+			if type(adapter[name]) ~= "function" then
+				table.insert(out, name)
+			end
 		end
+		return out
 	end
-	local optionalAbsent = {}
-	for _, name in target_contract.OPTIONAL do
-		if type(adapter[name]) ~= "function" then
-			table.insert(optionalAbsent, name)
-		end
-	end
-	return { missing = missing, optionalAbsent = optionalAbsent }
+	local themeAbsent = absent(target_contract.THEME)
+	return {
+		missing = absent(target_contract.REQUIRED),
+		optionalAbsent = absent(target_contract.OPTIONAL),
+		themeAbsent = themeAbsent,
+		themeable = #themeAbsent == 0,
+	}
 end
 
 return target_contract

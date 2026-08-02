@@ -30,7 +30,9 @@
 --
 -- scrollTop is a MIRROR of the engine CanvasPosition, never a hand-managed
 -- offset. It is written ONLY by (i) the presenter/consumer wiring the engine
--- mirror — call api.bindNativeScroll(controller) after present() to feed
+-- mirror — call list.bindNativeScroll(controller) after present() to feed
+-- (VirtualList publishes the seam FLAT on its returned table; there is no `api`
+-- member here — Table is the one that nests it. CTRL-05a)
 -- controller.observeScroll(scrollPath) -> scrollTop; and (ii) headless tests
 -- (scrollTop:set directly, or fake driveScroll through a bound controller). The
 -- windowItems memo derives PURELY from scrollTop (clamped), so windowing stays

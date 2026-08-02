@@ -11,6 +11,9 @@ UIShadow + per-corner UICorner adoption — read these as you go:
 detection), `src/render/style_lint.luau`,
 `docs/research/2026-07-20-uishadow-percorner-engine-facts.md`.
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules your addition must follow.
+
 Also follow
 [`../plans/agent-execution-contract.md`](../plans/agent-execution-contract.md).
 Engine adoption requires both a live property/event probe and an integrated visible
@@ -49,6 +52,14 @@ Add a spec (register it in `tests/run.luau` — see the silent-zero trap in
 
 ## 3. Implement along the one seam
 
+0. **Declare it in the schema** — `src/blueprint_schema.luau`. Since strict
+   authoring (0.5.0, ADR-0011), a public property that is not in the schema is
+   REJECTED at construction with a "did you mean" diagnostic: every `UI.*` call
+   using your new prop errors before any of the work below can run. Declare the
+   property (its class, accepted types, enum values and default) first, or you
+   will implement normalization, authority, renderer and adapter and then watch
+   the feature refuse to be authored at all. `new-control.md` §"Add the prop"
+   states the same obligation from the control side.
 1. **Normalization**: a pure module (or extension of
    `src/tokens/styling.luau`) turning the public spec into frozen,
    validated, engine-true data. Token names resolve against the active
@@ -76,7 +87,12 @@ Add a spec (register it in `tests/run.luau` — see the silent-zero trap in
   checker fails without it), plus a paragraph in `docs/guide/05-styling.md`
   or the relevant guide page.
 - Gates: `./run-tests.sh`, `lune run tools/lune/check_registration_cli`,
-  `lune run tools/lune/gate phase-4-hardening` — all exit 0.
+  `lune run tools/lune/check_prop_parity_cli`,
+  `lune run tools/lune/gate phase-4-hardening` — all exit 0. The parity checker
+  is the one that belongs to THIS playbook specifically: it pins a property's
+  whole chain against itself — schema ↔ dirty class ↔ authority ↔ renderer
+  emission ↔ adapter `setProp` branch ↔ spec type ↔ api.md — so a step skipped
+  above fails here by name instead of shipping as a silent no-op on a device.
 - Evidence: research doc, spec transcript (red then green), Studio probe artifact,
   and an integrated visible gallery artifact that pairs runtime state/geometry with a
   capture. Hardware-only behavior remains an explicitly named pending row until it is

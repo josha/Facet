@@ -19,6 +19,54 @@ properties that shape everything else in this guide:
 This guide is written for a Roblox developer who has never seen this codebase.
 Read it in order.
 
+## The principles, in plain words
+
+Everything in LuauUI follows a small set of ideas. If a rule ever seems strange,
+one of these is usually the reason. (The full rulebook, with every pattern and
+every approved exception, is [`the constitution`](../reference/constitution.md).)
+
+**How it's designed:**
+
+- **You say what, it does how.** You describe the screen. The library builds it,
+  updates it, and cleans it up. You never touch an `Instance` yourself.
+- **The brain works without Roblox.** Every decision (layout math, focus,
+  state, adaptation) runs in plain Luau, so tests can check it exactly. Only the
+  thin adapter edge touches the real engine — and there it uses Roblox's own
+  native mechanisms (real scrolling, real stylesheets) instead of faking them.
+- **The server owns the truth.** Your game's real state lives on the server.
+  The client only shows it, and every change request is validated.
+
+**How the system stays sane:**
+
+- **Every engine property has exactly one owner.** Layout owns geometry, style
+  owns paint, bindings own data, presentation owns motion. Two writers on one
+  property is a bug the framework refuses to allow.
+- **Everything cleaned up, exactly once.** Every subscription and resource
+  belongs to a scope. Close the screen, the scope dies, everything under it is
+  freed. No leaks, no double-frees.
+- **Change means re-solve, never rebuild.** Rotating the phone, swapping a
+  theme, or growing the text re-computes positions. It never throws your screen
+  away — so focus, scrolling, and typing survive.
+- **One broken piece can't take down the screen.** Your callbacks are allowed
+  to fail; the framework contains the error, records it, and keeps running.
+
+**How the API behaves:**
+
+- **Mistakes fail loudly, right away, with the fix in the message.** A typo'd
+  property is an error that says what you meant — never a thing that silently
+  does nothing. Silent is the one thing the API is never allowed to be.
+- **Your data stays yours.** A control never keeps the important state (the
+  chosen value, the sort order). You own the signal; the control reads it and
+  writes it. Throw the control away and your data is still there.
+- **Learn one, know them all.** Controls are built one way
+  (`build(LuauUI, core, spec)` → `{ blueprint, dump, dispose }`), callbacks are
+  named one way (`onChange` while it moves, `onCommit` when it lands), teardown
+  works one way. Where something deliberately breaks the pattern, the
+  constitution names it and says why.
+- **Promises are kept on a schedule.** The version number means something
+  (ADR-0011): nothing public disappears without a ledger entry, a replacement,
+  and at least one minor version of notice.
+
 ## Reading order
 
 | File | What it covers |
@@ -38,12 +86,14 @@ Read it in order.
 ## The public surface at a glance
 
 Everything you use lives on the single table returned by `require`-ing the
-library (`src/init.luau`). This is the entire public API:
+library (`src/init.luau`). This is an **abridged** tour of it — the pieces you
+reach for first. [`../reference/api.md`](../reference/api.md) is the complete
+list, mechanically checked against the exports in both directions:
 
 ```lua
 local LuauUI = require(ReplicatedStorage.LuauUI)
 
-LuauUI.VERSION            -- "0.7.0"
+LuauUI.VERSION            -- "0.8.0"
 LuauUI.newCore()          -- create a reactive runtime
 LuauUI.UI                 -- the screen-description constructors (UI.Screen, UI.Text, ...)
 LuauUI.mount(...)         -- turn a description into a live node graph
@@ -64,8 +114,16 @@ LuauUI.replication        -- adapters for server-owned state
 LuauUI.tokens             -- the design-token compiler
 LuauUI.themes             -- theme packages + the effective metric snapshot
 LuauUI.renderer           -- the low-level render driver (rarely called directly)
-LuauUI.DEPRECATIONS       -- a list of retiring API surfaces (currently empty)
+LuauUI.DEPRECATIONS       -- the retiring-surface ledger: what is on its way out,
+                          --   what replaces it, and the earliest version it may go
 ```
+
+Not shown above: the rest of the composite controls (slider, stepper, rating,
+picker, disclosure group, progress view, label, async image), the pure decision
+modules (`motion`, `text`, `spatial`, `valueModel`, `interactionTokens`,
+`touchGestures`, `contribution`, `pathShapes`) and the drag primitives. Read
+`LuauUI.DEPRECATIONS` rather than assuming it is empty — it is generated plus
+declared, so it grows as surfaces retire, and every entry names its replacement.
 
 The Roblox-specific pieces (the code that actually makes `Instance`s, reads the
 real input device, and reads the real screen size) are **deliberately not on
@@ -77,15 +135,22 @@ the main library safe to `require` from server or shared code — see
 ## Agent-friendly extension and current evidence limits
 
 LuauUI is designed so an agent or a new maintainer can change it without relying on
-unstated repository history. The
-[`new-control` playbook](../extending/new-control.md), the
-[`skinned-control` playbook](../extending/skinned-control.md) and the
-[`new-render-target` playbook](../extending/new-render-target.md) provide scaffolds,
-deliberately failing tests, registration checks, deterministic state dumps, four-input
-proofs, lifecycle checks, and documentation gates. The
-[`platform-capability playbook`](../extending/new-platform-mode.md) explains how to
-extend the same model toward future spatial UI without adding device-specific screen
-branches or claiming untested support.
+unstated repository history. There are **six** extension playbooks, one per kind of
+change, each with scaffolds, deliberately failing tests, registration checks,
+deterministic state dumps, four-input proofs, lifecycle checks and documentation
+gates:
+
+- [`new-control`](../extending/new-control.md) — a new composite control.
+- [`skinned-control`](../extending/skinned-control.md) — making an existing control
+  take image-driven paint from a theme package.
+- [`new-theme`](../extending/new-theme.md) — a new theme package.
+- [`new-engine-feature`](../extending/new-engine-feature.md) — adopting a new Roblox
+  instance class or property without letting engine specifics leak past the adapter.
+- [`new-render-target`](../extending/new-render-target.md) — a new place the solved
+  tree materializes (a new RenderTargetAdapter).
+- [`new-platform-mode`](../extending/new-platform-mode.md) — extending the same model
+  toward future spatial UI without adding device-specific screen branches or claiming
+  untested support.
 
 Two current facts are important when judging generated work:
 

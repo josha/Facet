@@ -64,6 +64,62 @@ describe("ReplicatedCollection", function()
 		expect(col.binding:get().x).toBe(nil)
 		expect(col.binding:get().y).toBe(2)
 	end)
+
+	-- F-8. `requestResnapshot(fromRevision)` is handed the CURRENT revision, so
+	-- "nothing has changed since your gap" answers at exactly that revision. The
+	-- old guard refused it as "stale" and returned BEFORE clearing the flag, so
+	-- the collection asked once, was answered correctly, and then refused every
+	-- patch for the rest of the session with no way back.
+	it("a resnapshot at the CURRENT revision re-bases while awaiting, instead of wedging", function()
+		local core = customFactory.new()
+		local asked = {}
+		local col = adapters.collection(core, 4, { a = 1 }, function(fromRev)
+			table.insert(asked, fromRev)
+		end)
+		expect(col.ingestPatch(9, { set = { z = 9 } })).toBe("gap")
+		expect(asked[1]).toBe(4) -- the hook is handed the current revision
+		-- the server answers at exactly that revision: nothing changed
+		expect(col.ingestResnapshot(4, { a = 1, b = 2 })).toBe("applied")
+		expect(col.revision()).toBe(4)
+		expect(col.binding:get().b).toBe(2)
+		-- and the stream resumes from there
+		expect(col.ingestPatch(5, { set = { c = 3 } })).toBe("applied")
+		expect(col.binding:get().c).toBe(3)
+		expect(#asked).toBe(1)
+	end)
+
+	it("an equal-revision resnapshot is still stale when no gap is outstanding", function()
+		local core = customFactory.new()
+		local col = adapters.collection(core, 4, { a = 1 }, function() end)
+		expect(col.ingestResnapshot(4, { b = 2 })).toBe("stale")
+		expect(col.ingestResnapshot(3, { b = 2 })).toBe("stale")
+		expect(col.binding:get().a).toBe(1)
+		expect(col.binding:get().b).toBe(nil)
+	end)
+
+	-- F-10. The flag was latched BEFORE the unquarantined hook call, so a
+	-- throwing transport turned a recoverable gap into a dead collection: the
+	-- request was never made, and `if not awaitingResnapshot` meant it never
+	-- would be.
+	it("a throwing requestResnapshot does not latch the gap — the next patch asks again", function()
+		local core = customFactory.new()
+		local asked = 0
+		local explode = true
+		local col = adapters.collection(core, 1, { a = 1 }, function()
+			asked += 1
+			if explode then
+				error("remote is down")
+			end
+		end)
+		expect(col.ingestPatch(5, { set = { e = 5 } })).toBe("gap")
+		expect(asked).toBe(1)
+		explode = false
+		-- the second patch RE-INVOKES the hook rather than sitting on a latched flag
+		expect(col.ingestPatch(6, { set = { f = 6 } })).toBe("gap")
+		expect(asked).toBe(2)
+		expect(col.ingestResnapshot(6, { a = 1, e = 5, f = 6 })).toBe("applied")
+		expect(col.ingestPatch(7, { set = { g = 7 } })).toBe("applied")
+	end)
 end)
 
 describe("Mutation", function()
@@ -166,6 +222,96 @@ describe("Mutation", function()
 		local envelope = mutation.send({ v = 1 }, 7)
 		expect(envelope.expectedRevision).toBe(7)
 		expect(type(envelope.requestId)).toBe("number")
+	end)
+
+	-- F-9. `apply` is the most consumer-authored code in the adapter. It used to
+	-- run AFTER the pending bookkeeping and BEFORE the return, unquarantined: one
+	-- bad line and the caller never received the envelope, so it never learned
+	-- the requestId that confirm/reject/reset all match on. The mutation was
+	-- unrecoverable.
+	it("a throwing optimistic apply still returns the envelope and leaves the mutation usable", function()
+		local core = customFactory.new()
+		local draft = core:signal("clean")
+		local restores = 0
+		local mutation = adapters.mutation(core, {
+			optimistic = {
+				apply = function()
+					error("bad draft code")
+				end,
+				restore = function()
+					restores += 1
+					draft:set("clean")
+				end,
+			},
+		})
+		local envelope = mutation.send({ v = 1 }, 3)
+		expect(type(envelope) == "table").toBe(true)
+		expect(type(envelope.requestId)).toBe("number")
+		expect(envelope.expectedRevision).toBe(3)
+		expect(mutation.status:get()).toBe("pending")
+		-- the failed apply already restored, un-optimistically, and the terminal
+		-- verdict still lands on the id the caller now holds
+		expect(restores).toBe(1)
+		mutation.reject(envelope.requestId, "server said no")
+		expect(mutation.status:get()).toBe("rejected")
+		expect(restores).toBe(2)
+		expect(draft:get()).toBe("clean")
+		mutation.reset()
+		expect(mutation.status:get()).toBe("idle")
+		expect(type(mutation.send({ v = 2 }, nil).requestId)).toBe("number")
+	end)
+
+	-- F-11. `reset()` guarded on `status ~= "pending"`, so the one state a caller
+	-- needs to escape was the one state it refused to touch.
+	it("reset() escapes a stuck pending request, restores, and the stale id stays ignored", function()
+		local core = customFactory.new()
+		local draft = core:signal(false)
+		local mutation = adapters.mutation(core, {
+			optimistic = {
+				apply = function(payload)
+					draft:set(payload.on)
+				end,
+				restore = function()
+					draft:set(false)
+				end,
+			},
+		})
+		local stuck = mutation.send({ on = true }, nil)
+		expect(mutation.status:get()).toBe("pending")
+		expect(draft:get()).toBe(true)
+		-- the server never answers; the client escapes
+		mutation.reset()
+		expect(mutation.status:get()).toBe("idle")
+		expect(draft:get()).toBe(false) -- optimistic presentation rolled back
+		-- a late answer to the abandoned request is ignored in both directions
+		mutation.confirm(stuck.requestId, "late ok")
+		expect(mutation.status:get()).toBe("idle")
+		mutation.reject(stuck.requestId, "late no")
+		expect(mutation.status:get()).toBe("idle")
+		-- and the mutation is reusable
+		local fresh = mutation.send({ on = true }, nil)
+		expect(fresh.requestId ~= stuck.requestId).toBe(true)
+		expect(mutation.status:get()).toBe("pending")
+		mutation.confirm(fresh.requestId, "ok")
+		expect(mutation.status:get()).toBe("confirmed")
+		-- reset from a terminal state keeps working exactly as it always did
+		mutation.reset()
+		expect(mutation.status:get()).toBe("idle")
+	end)
+
+	it("a throwing restore cannot unwind reset() either", function()
+		local core = customFactory.new()
+		local mutation = adapters.mutation(core, {
+			optimistic = {
+				apply = function() end,
+				restore = function()
+					error("bad restore")
+				end,
+			},
+		})
+		mutation.send({ v = 1 }, nil)
+		mutation.reset()
+		expect(mutation.status:get()).toBe("idle")
 	end)
 end)
 

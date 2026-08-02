@@ -815,3 +815,25 @@ describe("unified collection: teardown", function()
 		end
 	end)
 end)
+
+-- CTRL-08b (api-architecture-consistency F-25). `virtualization.spec.luau`
+-- compares `root.dump()` — the MOUNT tree — so the CONTROL's dump determinism
+-- and its schema string were unpinned.
+describe("unified collection: the control dump (CTRL-08b)", function()
+	it("list.dump() is deterministic and carries its schema string", function()
+		local serde = require("@lune/serde")
+		local w = world({ count = 40, selection = "single", reorderable = true })
+		expect(w.list.dump().schema).toBe("luauui-virtual-list-dump/1")
+		local d1 = serde.encode("json", w.list.dump(), true)
+		expect(d1).toBe(serde.encode("json", w.list.dump(), true))
+		-- ...and still deterministic once live state has moved
+		w.list.select("r3")
+		w.list.scrollTop:set(200)
+		w.pres.refresh()
+		local d2 = serde.encode("json", w.list.dump(), true)
+		expect(d2).toBe(serde.encode("json", w.list.dump(), true))
+		expect(d2 ~= d1).toBe(true)
+		expect(w.list.dump().selectedKey).toBe("r3")
+		expect(w.list.dump().scrollTop).toBe(200)
+	end)
+end)

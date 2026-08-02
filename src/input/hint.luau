@@ -5,6 +5,8 @@
 --
 -- inputHint(core, env, action, opts?) -> Readable<string>
 --   opts.style = "key" (default, the bare label) | "phrase" ("Tap" / "Press Enter")
+--   opts.scope = the scope that owns the returned memo (see the ownership note
+--     at the foot of this comment)
 --   Tracks env's effectiveInput fact and resolves the action's preferredBinding
 --   for that input class (src/input/actions.luau). The label prefers the
 --   binding's displayName, falling back to its keyCode / uiButton; when no
@@ -12,8 +14,13 @@
 --   engine spike). It is a plain reactive memo — mount it as any Text's `text`
 --   prop; a preferredInput flip re-labels with NO remount.
 --
--- This never injects visible UI on its own. The caller owns the returned memo
--- (dispose it with the rest of the screen's resources, or via a scope).
+-- This never injects visible UI on its own. OWNERSHIP is the same idiom as this
+-- helper's nearest sibling, `adaptive.conditions(core, env, opts?)`
+-- (api-architecture-consistency F-33): pass `opts.scope` and the memo dies with
+-- the scope; omit it and the caller owns the memo by hand (dispose it with the
+-- rest of the screen's resources). One memo instead of twelve is a reason to
+-- care less, not a reason for two calls that look identical to want two
+-- different disposal disciplines.
 
 local hint = {}
 
@@ -34,9 +41,20 @@ end
 -- text. A key label alone could not remove that branch, because touch does not
 -- differ by KEY, it differs by VERB: you tap, you do not press Enter. So the
 -- framework answers the verb too and the consumer writes one template.
-function hint.inputHint(core: any, env: any, action: any, opts: { style: string? }?): any
+export type Opts = {
+	style: string?, -- "key" (default) | "phrase"
+	scope: any?, -- owns the returned memo, like `adaptive.conditions`
+}
+
+function hint.inputHint(core: any, env: any, action: any, opts: Opts?): any
 	local style = if opts ~= nil and opts.style ~= nil then opts.style else "key"
-	return core:memo(function(use)
+	-- an unknown style is refused LOUDLY, the way `rootPolicy` / `cancelPolicy` /
+	-- `responder` / `scrim` are: `style = "Phrase"` used to yield the bare key
+	-- label, which is the silent-default failure this library does not have.
+	if style ~= "key" and style ~= "phrase" then
+		error(`LuauUI inputHint: unknown style '{tostring(style)}'. Valid: key, phrase.`, 0)
+	end
+	local memo = core:memo(function(use)
 		-- the RESOLVED class, not the raw platform report: a phone nobody has
 		-- touched yet still reports KeyboardAndMouse, and this label is exactly the
 		-- kind of affordance that must not say "Enter" on a touchscreen
@@ -54,6 +72,10 @@ function hint.inputHint(core: any, env: any, action: any, opts: { style: string?
 		end
 		return if label ~= "" then `Press {label}` else ""
 	end)
+	if opts ~= nil and opts.scope ~= nil then
+		return opts.scope:own(memo)
+	end
+	return memo
 end
 
 return hint

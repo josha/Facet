@@ -51,7 +51,14 @@
 --   spec        the spec file exercising it
 --   conformance file where its conformance-style coverage lives
 --   docsAnchor  the docs/reference/api.md heading token for it
---   dumpMarker  source text proving the deterministic dump surface (§10.2)
+--   dumpFunction the DEFINITION of the deterministic dump surface (§10.2),
+--               cited exactly: "function <x>.dump" (or "function dump" for a
+--               local one). check_registration requires the text to exist in
+--               the module as a definition — a free substring proved nothing,
+--               which is how a row could cite the module's own name.
+--   dump = false + reason  for a module that HAS no dump surface (a stateless
+--               module, or the caller-scope shape). The reason says why;
+--               silence is a checker failure.
 
 export type InputProofs = {
 	pointer: { string },
@@ -81,7 +88,9 @@ export type Entry = {
 	spec: string?,
 	conformance: string?,
 	docsAnchor: string?,
-	dumpMarker: string?,
+	dumpFunction: string?,
+	dump: boolean?,
+	reason: string?,
 }
 
 local registry: { Entry } = {
@@ -94,7 +103,7 @@ local registry: { Entry } = {
 		spec = "tests/table.spec.luau",
 		conformance = "tests/controls_conformance.spec.luau",
 		docsAnchor = "newTable",
-		dumpMarker = "function dump",
+		dumpFunction = "function dump",
 		-- pointer (mouse) proofs are device-true cases in table.spec.luau;
 		-- tests/table_input.spec.luau owns the touch/keyboard/gamepad device-true
 		-- cases (not the api-direct ones).
@@ -160,7 +169,7 @@ local registry: { Entry } = {
 		spec = "tests/virtualization.spec.luau",
 		conformance = "tests/virtualization.spec.luau",
 		docsAnchor = "newVirtualList",
-		dumpMarker = "function list.dump",
+		dumpFunction = "function list.dump",
 		inputProofs = {
 			pointer = {
 				"VirtualList pointer: an engine scroll (driveScroll) slides the window",
@@ -206,7 +215,7 @@ local registry: { Entry } = {
 		spec = "tests/popup_button.spec.luau",
 		conformance = "tests/popup_button.spec.luau",
 		docsAnchor = "newPopupButton",
-		dumpMarker = "function dump",
+		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
 				"tapping the trigger opens the popup listing every option",
@@ -257,7 +266,7 @@ local registry: { Entry } = {
 		spec = "tests/text_input.spec.luau",
 		conformance = "tests/text_input.spec.luau",
 		docsAnchor = "newTextInput",
-		dumpMarker = "function dump",
+		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = {
 				"tapping the field enters editing (the control-owned handshake)",
@@ -307,7 +316,11 @@ local registry: { Entry } = {
 		spec = "tests/value_controls.spec.luau",
 		conformance = "tests/value_controls.spec.luau",
 		docsAnchor = "valueModel",
-		dumpMarker = "function value_model.new",
+		-- STATELESS MODULE: value_model has no instance and no live state to
+		-- summarize — `new(spec)` returns a pure stepped model whose whole state is
+		-- its arguments. Nothing to dump, said explicitly.
+		dump = false,
+		reason = "stateless module: pure value arithmetic, no instance state to summarize",
 		inputProofs = false,
 		affordanceProofs = false,
 	},
@@ -319,7 +332,7 @@ local registry: { Entry } = {
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
 		docsAnchor = "newProgressView",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		-- NON-INTERACTIVE: progress reports, it does not accept input. Declared
 		-- explicitly rather than being silently absent from conformance.
 		inputProofs = false,
@@ -333,7 +346,7 @@ local registry: { Entry } = {
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
 		docsAnchor = "newLabel",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		-- NON-INTERACTIVE: a Label displays. Put it inside a Button (which takes
 		-- content) when it must be pressable — that keeps ONE activation surface.
 		inputProofs = false,
@@ -347,7 +360,7 @@ local registry: { Entry } = {
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
 		docsAnchor = "newPicker",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		inputProofs = {
 			pointer = { "pointer: tapping an option selects it and reports through onChange" },
 			touch = { "touch: a finger tap selects identically, and every row meets the floor" },
@@ -374,7 +387,7 @@ local registry: { Entry } = {
 		spec = "tests/display_controls.spec.luau",
 		conformance = "tests/display_controls.spec.luau",
 		docsAnchor = "newDisclosureGroup",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		inputProofs = {
 			pointer = { "expanding mounts the content; collapsing unmounts it" },
 			touch = { "touch: a finger tap toggles it, and the header meets the floor" },
@@ -401,7 +414,7 @@ local registry: { Entry } = {
 		spec = "tests/value_controls.spec.luau",
 		conformance = "tests/value_controls.spec.luau",
 		docsAnchor = "newSlider",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch drag or tap the track; keyboard and gamepad
 		-- reach the same arithmetic through the focus-gated Adjust verb.
 		inputProofs = {
@@ -436,7 +449,7 @@ local registry: { Entry } = {
 		spec = "tests/value_controls.spec.luau",
 		conformance = "tests/value_controls.spec.luau",
 		docsAnchor = "newStepper",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch hit the two Buttons; keyboard and gamepad
 		-- reach the SAME arithmetic through the focus-gated Adjust verb.
 		inputProofs = {
@@ -468,7 +481,7 @@ local registry: { Entry } = {
 		spec = "tests/rating.spec.luau",
 		conformance = "tests/rating.spec.luau",
 		docsAnchor = "newRating",
-		dumpMarker = "function api.dump",
+		dumpFunction = "function api.dump",
 		-- REACHABILITY: pointer/touch land on the ONE Grip that covers the run of
 		-- glyphs (tap to set, drag to scrub); keyboard and gamepad reach the SAME
 		-- arithmetic through the focus-gated Adjust verb, at ONE focus stop for
@@ -503,7 +516,7 @@ local registry: { Entry } = {
 		spec = "tests/chip.spec.luau",
 		conformance = "tests/chip.spec.luau",
 		docsAnchor = "newChip",
-		dumpMarker = "function dump",
+		dumpFunction = "function dump",
 		-- Four-input proofs (ui_todo §0): each case name must exist VERBATIM in a
 		-- registered spec. These cite the four stamped cases in tests/chip.spec.luau
 		-- (they FAIL until you implement them — that is the red step).
@@ -544,7 +557,9 @@ local registry: { Entry } = {
 		spec = "tests/path.spec.luau",
 		conformance = "tests/path.spec.luau",
 		docsAnchor = "pathShapes",
-		dumpMarker = "path_shapes",
+		-- STATELESS MODULE: pure shape math, no instance, no live state.
+		dump = false,
+		reason = "stateless module: pure shape math for UI.Path, no instance state to summarize",
 		inputProofs = false,
 		affordanceProofs = false,
 	},
@@ -560,7 +575,12 @@ local registry: { Entry } = {
 		spec = "tests/async_image.spec.luau",
 		conformance = "tests/async_image.spec.luau",
 		docsAnchor = "newAsyncImage",
-		dumpMarker = "async_image",
+		-- CALLER-SCOPE SHAPE (EXC E-8): newAsyncImage owns nothing of its own — its
+		-- provider handle and resources live in the CALLER's scope and die with it,
+		-- which is why it has no dispose() either. There is no object here to hold a
+		-- dump surface; the state a bug report needs is the provider's.
+		dump = false,
+		reason = "caller-scope shape (E-8): resources live in the owner's scope, so the control holds no instance state and exposes no dispose()",
 		inputProofs = false,
 		affordanceProofs = false,
 	},

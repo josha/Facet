@@ -88,6 +88,47 @@ describe("B-VAL1: the shared value model", function()
 		expect(string.find(m.semanticText(0.5), "50%", 1, true) ~= nil).toBe(true)
 	end)
 
+	-- F-38. `spec.format` was the one user callback in this area running raw, and
+	-- it runs from the RENDER path of Slider and Stepper — a throwing formatter
+	-- unwound a whole solve. The core quarantines its equivalent (`eq`) for
+	-- exactly this reason. Containment here is the lowest-risk shape: fall back
+	-- to the default formatting of the clamped value, never unwind.
+	it("a throwing formatter falls back to the default format instead of unwinding a solve", function()
+		local calls = 0
+		local m = valueModel.new({
+			min = 0,
+			max = 10,
+			step = 1,
+			format = function(v)
+				calls += 1
+				error(`no formatter for {v}`)
+			end,
+		})
+		expect(m.format(4)).toBe("4")
+		expect(m.semanticText(4)).toBe("4 of 0 to 10")
+		expect(calls > 0).toBe(true) -- the formatter really was attempted
+		-- and the fallback is of the CLAMPED value, like the healthy path
+		expect(m.format(99)).toBe("10")
+		expect(m.format(-99)).toBe("0")
+	end)
+
+	it("a formatter that throws for ONE value still formats the others", function()
+		local m = valueModel.new({
+			min = 0,
+			max = 10,
+			step = 1,
+			format = function(v)
+				if v == 4 then
+					error("boom")
+				end
+				return `<{v}>`
+			end,
+		})
+		expect(m.format(4)).toBe("4") -- fallback for the bad one only
+		expect(m.format(5)).toBe("<5>")
+		expect(m.semanticText(4)).toBe("4 of <0> to <10>")
+	end)
+
 	it("semantic value text states the value IN ITS RANGE", function()
 		local m = valueModel.new({ min = 0, max = 10, step = 1 })
 		expect(m.semanticText(4)).toBe("4 of 0 to 10")

@@ -965,3 +965,72 @@ describe("renderer — root policy", function()
 		expect(string.find(tostring(err), "unknown rootPolicy", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+--[[ THE READ METHODS HAND BACK COPIES (api-architecture-consistency F-30).
+	`stats()` cloned; `hiddenRoots()`, `diagnostics()` and `compositionAt(nil)`
+	handed out the renderer's live internal tables. Two costs: a caller who
+	mutated one corrupted the renderer's own state for the frame, and a caller who
+	cached one held a table the next solve replaced under it. These are diagnostic
+	reads (a focus rebuild, a test, a debug overlay) — one shallow copy per call is
+	free, and it makes the whole read family answer the same way. ]]
+describe("renderer: diagnostic reads are copies, not the live tables (F-30)", function()
+	local function makeFits()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 400 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.ViewThatFits({
+					id = "Fits",
+					width = { type = "fill", weight = 1 },
+					children = {
+						UI.Box({
+							id = "Wide",
+							width = { type = "fixed", px = 500 },
+							height = { type = "fixed", px = 40 },
+						}),
+						UI.Box({
+							id = "Narrow",
+							width = { type = "fixed", px = 100 },
+							height = { type = "fixed", px = 40 },
+						}),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, bp)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return controller
+	end
+
+	it("mutating the hiddenRoots a caller was handed cannot corrupt the renderer", function()
+		local controller = makeFits()
+		local hidden = controller.hiddenRoots()
+		expect(hidden["/S/Fits/Wide"]).toBe(true) -- the 500px candidate lost
+		hidden["/S/Fits/Wide"] = nil
+		hidden["/S/Fits/Invented"] = true
+		local second = controller.hiddenRoots()
+		expect(second["/S/Fits/Wide"]).toBe(true)
+		expect(second["/S/Fits/Invented"]).toBeNil()
+		expect(second == hidden).toBe(false)
+	end)
+
+	it("diagnostics and the whole composition set are copies too", function()
+		local controller = makeFits()
+		local diagnostics = controller.diagnostics()
+		table.insert(diagnostics, { node = "/S/Invented", issue = "written by the caller" })
+		expect(#controller.diagnostics()).toBe(#diagnostics - 1)
+		expect(controller.diagnostics() == diagnostics).toBe(false)
+
+		local compositions = controller.compositionAt()
+		compositions["/S/Invented"] = { arrangement = "written by the caller" }
+		expect(controller.compositionAt()["/S/Invented"]).toBeNil()
+		expect(controller.compositionAt() == compositions).toBe(false)
+		-- the per-path read still hands back the stored dump itself (unchanged)
+		expect(controller.compositionAt("/S/Fits")).toBeNil()
+	end)
+end)

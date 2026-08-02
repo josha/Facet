@@ -129,8 +129,33 @@ describe("B-DSP1: Label keeps a semantic text fallback", function()
 			icon = "rbxassetid://1",
 			presentation = "iconOnly",
 		})
-		expect(l.semanticText).toBe("Save")
+		expect(l.semanticText:get()).toBe("Save")
 		expect(l.dump().effectivePresentation).toBe("iconOnly")
+	end)
+
+	-- CTRL-06 (api-architecture-consistency F-23). `semanticText` is a Readable
+	-- on ProgressView, Stepper, Slider and Rating; it was a bare string here, so
+	-- an accessibility/readout layer written once for the family errored on the
+	-- one control whose whole reason to exist is the semantic fallback.
+	it("semanticText is a Readable, like every sibling that publishes one", function()
+		local core = customFactory.new()
+		local l = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save changes" })
+		expect(UI.isReadable(l.semanticText)).toBe(true)
+		expect(l.semanticText:get()).toBe("Save changes")
+		-- dump() still carries the STRING value (a dump is data, not a graph node)
+		expect(l.dump().semanticText).toBe("Save changes")
+	end)
+
+	-- CTRL-08d: the dump/dispose pair Picker and DisclosureGroup already pin
+	it("dump is deterministic and dispose is registry-neutral", function()
+		local core = customFactory.new()
+		local baseline = core:counters()
+		local l = LuauUI.newLabel(LuauUI, core, { id = "Save", title = "Save", icon = "rbxassetid://1" })
+		expect(serde.encode("json", l.dump(), true)).toBe(serde.encode("json", l.dump(), true))
+		l.dispose()
+		expect(core:counters().scopes).toBe(baseline.scopes)
+		expect(core:counters().observers).toBe(baseline.observers)
+		expect(core:counters().memos).toBe(baseline.memos)
 	end)
 
 	it("iconOnly DEGRADES to the title when there is no icon (an empty square is worse than a word)", function()

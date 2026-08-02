@@ -102,6 +102,51 @@ describe("Rating: the value model", function()
 		local _, _, _, _, _, control = mount()
 		expect(control.semanticText:get()).toBe("3 of 5")
 	end)
+
+	-- CTRL-08c (api-architecture-consistency F-25). Neither `dump()` nor
+	-- `dispose()` was called by ANY test in this file — the registration gate
+	-- passed on the substring "function api.dump" alone — so both promises were
+	-- unproven while every sibling in the value family has an explicit case.
+	it("dump is deterministic and carries its schema string", function()
+		local serde = require("@lune/serde")
+		local _, adapter, _, pres, _, control = mount()
+		expect(control.dump().schema).toBe("luauui-rating-dump/1")
+		local d1 = serde.encode("json", control.dump(), true)
+		expect(d1).toBe(serde.encode("json", control.dump(), true))
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
+		pres.refresh()
+		local d2 = serde.encode("json", control.dump(), true)
+		expect(d2).toBe(serde.encode("json", control.dump(), true))
+		expect(d2 ~= d1).toBe(true)
+	end)
+
+	it("build/interact/dispose returns the registry to its baseline", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local baseline = core:counters() -- AFTER the long-lived singletons
+
+		local value = core:signal(3)
+		local control = LuauUI.newRating(LuauUI, core, { id = "Stars", value = value, env = env })
+		local handle = pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
+		pres.refresh()
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
+		pres.refresh()
+		control.dump()
+
+		pres.dismiss(handle)
+		control.dispose()
+		value:dispose()
+
+		local after = core:counters()
+		for key, v in baseline :: { [string]: number } do
+			expect((after :: any)[key]).toBe(v)
+		end
+	end)
 end)
 
 describe("Rating: one control, not N buttons", function()

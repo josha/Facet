@@ -246,7 +246,9 @@ describe("tint: emission and application", function()
 		expect(surfaceAt ~= nil and tintAt ~= nil).toBe(true)
 		expect((tintAt :: number) > (surfaceAt :: number)).toBe(true)
 		-- the renderer says why, at the seam
-		expect(contains(rendererSource, 'if BINDING_PROPS[prop] and prop ~= "tint" then')).toBe(true)
+		-- (`emitsBinding` is BINDING_PROPS plus the one class restriction — see the
+		-- renderer's BINDING_PROP_CLASSES; the `prop ~= "tint"` clause is the pin)
+		expect(contains(rendererSource, 'if emitsBinding(node.class, prop) and prop ~= "tint" then')).toBe(true)
 	end)
 
 	--[[ THE TINT'S OWN ALPHA (2026-07-31). The channel exists for the one thing a

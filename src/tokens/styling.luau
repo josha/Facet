@@ -22,6 +22,29 @@ local styling = {}
 
 local CORNER_KEYS = { "topLeft", "topRight", "bottomLeft", "bottomRight" }
 
+-- CLOSED KEY SETS (api-architecture-consistency F-5 / ledger BP-F2).
+-- `normalizeStroke` and `checkTint` refuse an unknown field; `normalizeShadow`
+-- and `normalizeGradient` did not, so `UI.gradient(bp, { colors = {…},
+-- roation = 45 })` constructed happily with the default 90° rotation. That is
+-- exactly the accepted-and-ignored class the whole strict boundary exists to
+-- remove, surviving inside the two grammars that skipped it — and a typo in a
+-- style modifier reads as a theme problem, not an authoring one.
+local function assertKnownKeys(spec: any, what: string, legal: { string })
+	local allowed: { [string]: boolean } = {}
+	for _, key in legal do
+		allowed[key] = true
+	end
+	for key in spec do
+		assert(
+			type(key) == "string" and allowed[key],
+			`unknown {what} field '{tostring(key)}' ({table.concat(legal, " | ")})`
+		)
+	end
+end
+
+local SHADOW_KEYS = { "blurRadius", "color", "enabled", "offset", "spread", "transparency", "zIndex" }
+local GRADIENT_KEYS = { "colors", "enabled", "rotation", "transparency" }
+
 local function udim(value: any, what: string): { scale: number, offset: number }
 	assert(type(value) == "table", what .. " must be a {scale, offset} table")
 	local scale = value.scale or 0
@@ -51,6 +74,9 @@ function styling.normalizeShadow(spec: any, style: any?): any
 		spec = preset
 	end
 	assert(type(spec) == "table", "shadow spec must be a preset name or a parameter table")
+	-- the preset-NAME form resolves ABOVE this line, so a style's own presets are
+	-- held to the same closed set an author is
+	assertKnownKeys(spec, "shadow", SHADOW_KEYS)
 	local blur = udim(spec.blurRadius, "shadow.blurRadius")
 	assert(blur.scale >= 0 and blur.offset >= 0, "shadow.blurRadius is clamped non-negative by the engine")
 	local zIndex = spec.zIndex or -1
@@ -223,6 +249,7 @@ end
 function styling.normalizeGradient(spec: any, style: any?): any
 	local activeStyle: any = style or default_style
 	assert(type(spec) == "table", "gradient spec must be a table with a `colors` ramp")
+	assertKnownKeys(spec, "gradient", GRADIENT_KEYS)
 	local colors = ramp(spec.colors, "gradient.colors", function(entry, t)
 		local value = if type(entry) == "table" and (entry.color ~= nil or entry.t ~= nil) then entry.color else entry
 		local rgbValue = resolveColor(value, activeStyle, "gradient.colors")

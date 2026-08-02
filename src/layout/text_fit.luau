@@ -59,6 +59,13 @@ export type Fit = {
 	lines: number, -- lines the string draws at `size`
 	height: number, -- the height it needs at `size` (`ceil(lines * size * factor)`)
 	exact: boolean, -- false = the font is uncalibrated, so `size` is conservative
+	--[[ THE MEASURE'S OWN STATE, carried through (F-31/F-32). `exact = false`
+		covers two different situations — "the font is uncalibrated and the engine
+		has not answered yet" and "an engine measurement failed" — and a caller that
+		must decide whether to wait or to give up cannot tell them apart from
+		`exact` alone. This is the state of the measure AT THE CHOSEN SIZE, i.e. the
+		measurement the returned `size`/`lines`/`height` actually came from. ]]
+	state: "ready" | "pending" | "failed",
 }
 
 local function fitsAt(spec: FitSpec, size: number): (boolean, text_metrics.Metrics)
@@ -80,12 +87,26 @@ function text_fit.fit(spec: FitSpec): Fit
 	end
 	if spec.text == "" or spec.width <= 0 then
 		local m = text_metrics.measure(spec.text, spec.font, cap, math.max(spec.width, 0), spec.lineHeight, spec.lines)
-		return { size = cap, fits = spec.text == "", lines = m.lines, height = m.height, exact = m.exact }
+		return {
+			size = cap,
+			fits = spec.text == "",
+			lines = m.lines,
+			height = m.height,
+			exact = m.exact,
+			state = m.state,
+		}
 	end
 
 	local capOk, capM = fitsAt(spec, cap)
 	if capOk then
-		return { size = cap, fits = true, lines = capM.lines, height = capM.height, exact = capM.exact }
+		return {
+			size = cap,
+			fits = true,
+			lines = capM.lines,
+			height = capM.height,
+			exact = capM.exact,
+			state = capM.state,
+		}
 	end
 
 	-- binary search the largest fitting size; `lo` is known-not-to-fit + 1
@@ -102,7 +123,7 @@ function text_fit.fit(spec: FitSpec): Fit
 
 	local size = best or floor
 	local _, m = fitsAt(spec, size)
-	return { size = size, fits = best ~= nil, lines = m.lines, height = m.height, exact = m.exact }
+	return { size = size, fits = best ~= nil, lines = m.lines, height = m.height, exact = m.exact, state = m.state }
 end
 
 -- The convenience every caller wanted: just the size.

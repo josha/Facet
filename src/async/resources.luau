@@ -4,8 +4,8 @@
 -- owner cancellation (scope-owned handles), request generation/identity,
 -- retry policy, stale-completion rejection, and placeholder/failure state the
 -- renderer can bind. Engine-free and non-yielding: the TRANSPORT is game- or
--- adapter-owned. It drains provider.pending() (the active window, capped at
--- maxConcurrent) and answers with provider.complete/fail(key, generation, ..).
+-- adapter-owned. It drains provider.pendingRequests() (the active window, capped
+-- at maxConcurrent) and answers with provider.complete/fail(key, generation, ..).
 -- A completion whose generation does not match the CURRENT request for that
 -- key is stale and is rejected ("stale"), never applied — cancelled or
 -- superseded requests cannot resurrect (§10.3, §15.1 async stale completion).
@@ -73,7 +73,38 @@ local function resolveRetry(spec: any, fallback: Retry?): Retry
 	}
 end
 
+-- CONSTRUCTION-STRICT (F-12), like `valueModel.new` four files away in the same
+-- public surface. `maxConcurrent = 0` is truthy in Lua, so it used to be accepted
+-- and then `promote()` could never activate anything: every request queued
+-- silently forever and the UI simply never loaded, with no diagnostic anywhere —
+-- not even `core:lastError()`. An impossible option is a typo, and a typo is
+-- worth an error at the one moment the author is looking at the call site.
+local function requireIntegerAtLeast(value: any, minimum: number, name: string)
+	if value == nil then
+		return
+	end
+	if not isFinite(value) or math.floor(value) ~= value or value < minimum then
+		error(`LuauUI resource provider: {name} must be an integer >= {minimum} (got {tostring(value)})`, 0)
+	end
+end
+
+local function requireNonNegativeNumber(value: any, name: string)
+	if value == nil then
+		return
+	end
+	if not isFinite(value) or value < 0 then
+		error(`LuauUI resource provider: {name} must be a non-negative number (got {tostring(value)})`, 0)
+	end
+end
+
 function resources.newProvider(core: any, opts: ProviderOpts?)
+	requireIntegerAtLeast(opts and opts.maxConcurrent, 1, "maxConcurrent")
+	requireIntegerAtLeast(opts and opts.cacheBudget, 0, "cacheBudget")
+	if opts ~= nil and type(opts.retry) == "table" then
+		local declared = opts.retry :: RetryOpts
+		requireNonNegativeNumber(declared.count, "retry.count")
+		requireNonNegativeNumber(declared.delaySeconds, "retry.delaySeconds")
+	end
 	local maxConcurrent = (opts and opts.maxConcurrent) or 4
 	local cacheBudget = (opts and opts.cacheBudget) or 16
 	local now = (opts and opts.now) or os.clock

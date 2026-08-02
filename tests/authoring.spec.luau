@@ -380,3 +380,262 @@ describe("M0-A2: useful exported public types", function()
 		end
 	end)
 end)
+
+-- ===========================================================================
+-- api-architecture-consistency (0.8.0) — the blueprint-layer repairs.
+-- Each block below pins one ruling from
+-- artifacts/api-architecture-consistency/dispositions.md §A, and every one of
+-- them started as a RED test against the shipped behaviour recorded in
+-- ledger/blueprints.md.
+-- ===========================================================================
+
+describe("F-6 (BP-F5): the schema authority tables are frozen", function()
+	it("a consumer of the tooling seam cannot disable framework validation", function()
+		local all = schema.all()
+		expect(pcall(function()
+			(all.Text.props.text :: any).required = false
+		end)).toBe(false)
+		expect(pcall(function()
+			(all.Text.props :: any).invented = {}
+		end)).toBe(false)
+		expect(pcall(function()
+			(all :: any).Invented = {}
+		end)).toBe(false)
+		-- ...and the rule the mutation was reaching for still bites
+		expect(pcall(function()
+			return UI.Text({})
+		end)).toBe(false)
+	end)
+
+	it("forClass hands out the same deeply frozen spec", function()
+		local spec = schema.forClass("Divider") :: any
+		expect(table.isfrozen(spec)).toBe(true)
+		expect(table.isfrozen(spec.props)).toBe(true)
+		expect(table.isfrozen(spec.props.thickness)).toBe(true)
+		expect(table.isfrozen(spec.props.thickness.types)).toBe(true)
+		expect(table.isfrozen(spec.props.thickness.dirty)).toBe(true)
+		expect(table.isfrozen((schema.forClass("VStack") :: any).props.surface.enum)).toBe(true)
+	end)
+
+	it("the derived accessors still hand out FRESH tables the caller may keep", function()
+		local before = #schema.propNames("Text")
+		local names = schema.propNames("Text")
+		table.insert(names, "invented")
+		expect(#schema.propNames("Text")).toBe(before)
+		local rows = schema.deprecations()
+		local rowsBefore = #rows
+		table.insert(rows, { surface = "x", since = "0", removeNoEarlierThan = "0", replacement = "y" })
+		expect(#schema.deprecations()).toBe(rowsBefore)
+	end)
+end)
+
+describe("F-34 (BP-F17/BP-F19): UI.PROP_DIRTY is frozen", function()
+	it("the published dirty map cannot be rewritten", function()
+		expect(pcall(function()
+			(UI.PROP_DIRTY :: any).Invented = {}
+		end)).toBe(false)
+		expect(pcall(function()
+			(UI.PROP_DIRTY.Text :: any).text = {}
+		end)).toBe(false)
+		expect(pcall(function()
+			table.insert(UI.PROP_DIRTY.Text.text, "measure")
+		end)).toBe(false)
+	end)
+
+	it("mount.luau only READS it", function()
+		local source = require("@lune/fs").readFile("src/mount.luau")
+		expect(string.find(source, "PROP_DIRTY%[[^%]]*%]%s*=[^=]")).toBeNil()
+		expect(string.find(source, "PROP_DIRTY%.%w+%s*=[^=]")).toBeNil()
+		expect(contains(source, "blueprintLib.PROP_DIRTY[bp.class]")).toBe(true)
+	end)
+end)
+
+describe("F-22 (BP-F18): a blueprint is immutable all the way down", function()
+	it("props cannot be rewritten after construction", function()
+		local bp = UI.Box({ id = "B" })
+		expect(pcall(function()
+			(bp.props :: any).surface = "control"
+		end)).toBe(false)
+	end)
+
+	it("children cannot be inserted into after construction", function()
+		local bp = UI.VStack({ id = "V", children = { UI.Box({ id = "B" }) } })
+		expect(pcall(function()
+			table.insert(bp.children :: any, UI.Box({ id = "C" }))
+		end)).toBe(false)
+		expect(pcall(function()
+			(bp.children :: any)[1] = UI.Box({ id = "C" })
+		end)).toBe(false)
+	end)
+
+	it("a modifier's copy is frozen too — a shared template cannot be mutated through it", function()
+		local styled = UI.frame(UI.Box({ id = "B" }), { width = 10 })
+		expect(table.isfrozen(styled.props)).toBe(true)
+		expect(pcall(function()
+			(styled.props :: any).height = { type = "fixed", px = 4 }
+		end)).toBe(false)
+	end)
+
+	it("UI.background's inflated backing layer is frozen too", function()
+		local wrapper = UI.background(UI.Text({ id = "T", text = "hi" }), UI.Box({ id = "P" }))
+		local backing = (wrapper.children :: any)[1]
+		expect(table.isfrozen(backing.props)).toBe(true)
+	end)
+end)
+
+describe("F-7 (BP-F4): a modifier error names the modifier the author typed", function()
+	local function structural()
+		local core = customFactory.new()
+		return UI.When({
+			id = "W",
+			condition = core:signal(true),
+			thenView = function()
+				return UI.Box({ id = "c" })
+			end,
+		})
+	end
+
+	it("UI.alignment on a UI.When names UI.alignment AND UI.When", function()
+		local err = failure(function()
+			return UI.alignment(structural(), "center")
+		end)
+		expect(contains(err, "UI.alignment on UI.When")).toBe(true)
+		expect(contains(err, "alignH")).toBe(true)
+		expect(contains(err, "Valid properties:")).toBe(true)
+	end)
+
+	it("UI.frame on a UI.When names UI.frame", function()
+		local err = failure(function()
+			return UI.frame(structural(), { width = 40 })
+		end)
+		expect(contains(err, "UI.frame on UI.When")).toBe(true)
+		expect(contains(err, "width")).toBe(true)
+	end)
+
+	it("a WRONG-TYPE write through a modifier names the modifier too", function()
+		local err = failure(function()
+			return UI.alignment(UI.Box({ id = "B" }), "middle")
+		end)
+		expect(contains(err, "UI.alignment on UI.Box")).toBe(true)
+		expect(contains(err, "alignH")).toBe(true)
+	end)
+
+	it("a DIRECT constructor error is unchanged — no modifier is named", function()
+		local err = failure(function()
+			return UI.VStack({ id = "V", columns = 3 })
+		end)
+		expect(contains(err, "LuauUI UI.VStack: unknown property 'columns'")).toBe(true)
+		expect(contains(err, " on UI.")).toBe(false)
+	end)
+end)
+
+describe('F-19 (BP-F11): overflow = "clip" implies clipChildren', function()
+	it("a VStack that declares clip becomes a clip host", function()
+		local bp = UI.VStack({ id = "V", overflow = "clip", children = {} })
+		expect(bp.props.clipChildren).toBe(true)
+	end)
+
+	it("an explicitly authored clipChildren always wins", function()
+		local bp = UI.VStack({ id = "V", overflow = "clip", clipChildren = false, children = {} })
+		expect(bp.props.clipChildren).toBe(false)
+	end)
+
+	it("every other overflow value stays declared intent and drives nothing", function()
+		expect(UI.VStack({ id = "V", overflow = "scroll", children = {} }).props.clipChildren).toBeNil()
+		expect(UI.VStack({ id = "V", overflow = "visible", children = {} }).props.clipChildren).toBeNil()
+		expect(UI.VStack({ id = "V", overflow = "intentionalOverlap", children = {} }).props.clipChildren).toBeNil()
+		expect(UI.VStack({ id = "V", children = {} }).props.clipChildren).toBeNil()
+	end)
+
+	it("a BOUND overflow implies nothing — clipChildren is construction-only", function()
+		local core = customFactory.new()
+		local bp = UI.VStack({ id = "V", overflow = core:signal("clip"), children = {} })
+		expect(bp.props.clipChildren).toBeNil()
+	end)
+end)
+
+describe("F-20 (BP-F12): Divider/Path thickness take the metric-name grammar", function()
+	it("UI.Divider takes a theme metric name", function()
+		expect(pcall(function()
+			return UI.Divider({ id = "D", thickness = "strokes.hairline" })
+		end)).toBe(true)
+		expect(pcall(function()
+			return UI.Path({ id = "P", points = { { x = 0, y = 0 }, { x = 1, y = 1 } }, thickness = "strokes.hairline" })
+		end)).toBe(true)
+	end)
+
+	it("a bogus name errors naming the metric vocabulary", function()
+		local err = failure(function()
+			return UI.Divider({ id = "D", thickness = "strokes.hairlin" })
+		end)
+		expect(contains(err, "names no theme metric")).toBe(true)
+		local perr = failure(function()
+			return UI.Path({ id = "P", points = { { x = 0, y = 0 } }, thickness = "nope.nope" })
+		end)
+		expect(contains(perr, "names no theme metric")).toBe(true)
+	end)
+
+	it("a metric-named Divider thickness SOLVES to the theme's number", function()
+		local function heightOf(thickness: any): number
+			local rule = if thickness == nil
+				then UI.Divider({ id = "D" })
+				else UI.Divider({ id = "D", thickness = thickness })
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 300, h = 300 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local root = mountLib.mount(core, UI.Screen({ id = "S", padding = 0, children = { rule } }))
+			local adapter = fake_target.new()
+			local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+			controller.initialRender()
+			return adapter.node("/S/D").rect.h
+		end
+		-- the metric name resolves to exactly what the default (the same metric) is
+		expect(heightOf("strokes.hairline")).toBe(heightOf(nil))
+		expect(heightOf("strokes.hairline") > 0).toBe(true)
+		-- ...and an EXPLICIT number still wins, unresolved
+		expect(heightOf(3)).toBe(3)
+	end)
+
+	it("an authored Divider thickness reaches the solve at all", function()
+		-- found while giving this prop the metric grammar: `thickness` is a BINDING
+		-- prop name (Path's engine stroke width) and the renderer's binding
+		-- dispatch was class-blind, so ANY authored Divider thickness — number or
+		-- name — died at first render on "no declared authority for
+		-- Divider.thickness". The Divider consumes it in the SOLVER; no adapter
+		-- ever sees it.
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 300, h = 300 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local root =
+			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Divider({ id = "D", thickness = 4 }) } }))
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		expect(pcall(controller.initialRender)).toBe(true)
+		expect(adapter.node("/S/D").props.thickness).toBeNil()
+	end)
+
+	it("the schema doc states the TRUTHFUL default, not '1 px'", function()
+		local doc = (schema.forClass("Divider") :: any).props.thickness.doc
+		expect(contains(doc, "strokes.hairline")).toBe(true)
+		expect(contains(doc, "default 1")).toBe(false)
+	end)
+end)
+
+describe("F-21 (BP-F14): the suggester knows the two reserved keys", function()
+	it("a typo'd `id` suggests it", function()
+		local err = failure(function()
+			return UI.Text({ idd = "x", text = "hi" })
+		end)
+		expect(contains(err, "Did you mean")).toBe(true)
+		expect(contains(err, "'id'")).toBe(true)
+	end)
+
+	it("a typo'd `children` suggests it", function()
+		local err = failure(function()
+			return UI.VStack({ id = "V", childern = {} })
+		end)
+		expect(contains(err, "'children'")).toBe(true)
+	end)
+end)

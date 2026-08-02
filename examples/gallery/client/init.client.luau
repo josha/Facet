@@ -56,6 +56,26 @@ motion_driver.bind(pres)
 -- required directly from src/client — see docs/guide/07-input.md §7.3.
 local unbindResponderEffects = responder_effects.bind(core, pres)
 
+-- NATIVE-SCROLL AUTO-BIND (native-substrate NS-A3/NS-A4). A control riding the
+-- engine canvas cannot reach the render controller at build time, so the CONSUMER
+-- binds the mirror after present(). The seam has TWO shipped spellings —
+-- VirtualList publishes `bindNativeScroll` flat, Table publishes it under `api` —
+-- and probing only the flat one left every returned Table unbound, which is
+-- exactly what happened to 02_playlist_table's body scroll (CTRL-05a). Probe both
+-- until the 1.0 return-shape pass unifies them.
+local function nativeScrollBinderOf(value: any): ((controller: any) -> any)?
+	if type(value) ~= "table" then
+		return nil
+	end
+	if type(value.bindNativeScroll) == "function" then
+		return value.bindNativeScroll
+	end
+	if type(value.api) == "table" and type(value.api.bindNativeScroll) == "function" then
+		return value.api.bindNativeScroll
+	end
+	return nil
+end
+
 -- THEME PICKER (director review 2026-07-25: "no idea how to swap themes").
 -- A gallery-only overlay — see examples/gallery/client/theme_picker.luau for
 -- why it is an example and not library code. Mounted for the DEMO and TUTORIAL
@@ -297,8 +317,9 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 			if built.handle == nil and built.screen ~= nil then
 				local presented = pres.present(built.screen, built.present)
 				for _, value in built :: any do
-					if type(value) == "table" and type((value :: any).bindNativeScroll) == "function" then
-						(value :: any).bindNativeScroll(presented.controller)
+					local bind = nativeScrollBinderOf(value)
+					if bind ~= nil then
+						bind(presented.controller)
 					end
 				end
 				built.handle = presented
@@ -677,8 +698,9 @@ if type(selected) == "number" and EXAMPLE_MODULES[selected] ~= nil and EXAMPLES 
 			-- CONSUMER binds after present so engine CanvasPosition feeds
 			-- their windowing/keep-visible mirror
 			for _, value in built :: any do
-				if type(value) == "table" and type((value :: any).bindNativeScroll) == "function" then
-					(value :: any).bindNativeScroll(presented.controller)
+				local bind = nativeScrollBinderOf(value)
+				if bind ~= nil then
+					bind(presented.controller)
 				end
 			end
 			built.handle = presented

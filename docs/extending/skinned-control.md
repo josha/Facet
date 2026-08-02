@@ -15,6 +15,9 @@ need this one.
 > together, and how a theme author finds out — before pressing Play — that their
 > package forgot about you.
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules your addition must follow.
+
 The worked example is
 [`examples/themes/ornate_gauge.luau`](../../examples/themes/ornate_gauge.luau)
 with its art in `assets/themes/ornate-gauge/`. Read it beside this file: it is

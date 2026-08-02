@@ -254,4 +254,36 @@ describe("Chip control", function()
 			expect((after :: any)[key]).toBe(v)
 		end
 	end)
+
+	-- 7. BUILD-TIME CONTRACT (CTRL-03, api-architecture-consistency F-2) -----
+	-- `selected` is the owner's data model and the control's single mutation
+	-- site. A missing one used to error on the first TAP ("attempt to index
+	-- nil"); a read-only Memo used to error with "cannot set a memo" from deep
+	-- inside core. Both are BUILD errors now, exactly like every sibling.
+	it("rejects a missing `selected` at BUILD, naming the control and the field", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			return chip.build(LuauUI, core, { id = "Rain", label = "Rain" })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Chip", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "selected", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("rejects a read-only Memo `selected` at BUILD", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			return chip.build(LuauUI, core, {
+				id = "Rain",
+				label = "Rain",
+				selected = core:memo(function()
+					return false
+				end),
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Chip", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "SETTABLE Signal", 1, true) ~= nil).toBe(true)
+	end)
 end)

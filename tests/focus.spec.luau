@@ -92,3 +92,96 @@ describe("logical focus", function()
 		expect(seen[2]).toBe("Haptics")
 	end)
 end)
+
+--[[ THE ARGUMENT IS READ, NEVER CONSUMED (api-architecture-consistency F-14).
+	`pushScope`/`replaceGroups` used to normalize the CALLER's tables in place:
+	they rewrote `scope.order`, injected `_focusable`/`_lastFocus` into a public
+	exported type, and every later `remove`/`setOrder`/`setGroupOrder` spliced the
+	caller's own array. Three costs, all pinned below: a frozen literal — this
+	library's own idiom for immutable data — was a hard error from inside the
+	graph; one NavigationGroup literal reused across two surfaces shared a
+	predicate map; and a caller reading its own array back after `remove` saw the
+	graph's edits. The graph now normalizes into internal copies. ]]
+describe("focus graph: the caller's tables are never written", function()
+	it("a table.freeze'd flat scope pushes, navigates and removes without erroring", function()
+		local core = customFactory.new()
+		local graph = focus_graph.new(core)
+		local order = table.freeze({ "A", "B", "C" })
+		local scope = table.freeze({ name = "Frozen", trap = false, order = order })
+		graph.pushScope(scope)
+		expect(graph.focused:get()).toBe("A")
+		graph.navigate(1)
+		expect(graph.focused:get()).toBe("B")
+		graph.remove("B")
+		expect(graph.focused:get()).toBe("C")
+		-- the caller's array is untouched: it still holds what it declared
+		expect(#order).toBe(3)
+		expect(order[2]).toBe("B")
+		expect((scope :: any)._focusable).toBeNil()
+	end)
+
+	it("a table.freeze'd grouped scope pushes and navigates, groups included", function()
+		local core = customFactory.new()
+		local graph = focus_graph.new(core)
+		local group = table.freeze({
+			name = "rows",
+			axis = "vertical",
+			wrap = true,
+			order = table.freeze({
+				"R1",
+				{
+					id = "R2",
+					focusable = function()
+						return true
+					end,
+				},
+				"R3",
+			}),
+		})
+		local scope = table.freeze({ name = "Grouped", trap = false, groups = table.freeze({ group }) })
+		graph.pushScope(scope)
+		expect(graph.focused:get()).toBe("R1")
+		graph.navigateDirection("down")
+		expect(graph.focused:get()).toBe("R2")
+		graph.remove("R2")
+		expect(graph.focused:get()).toBe("R3")
+		-- the caller's group is untouched: order still holds the ENTRY table it
+		-- declared (not a normalized string), and no private field was injected
+		expect(#group.order).toBe(3)
+		expect(type(group.order[2])).toBe("table")
+		expect((group :: any)._focusable).toBeNil()
+	end)
+
+	it("one NavigationGroup literal pushed onto two scopes does not share a predicate map", function()
+		local core = customFactory.new()
+		local graph = focus_graph.new(core)
+		local shared = {
+			name = "rows",
+			axis = "vertical",
+			order = { "X", "Y" },
+		}
+		graph.pushScope({ name = "First", trap = false, groups = { shared } })
+		graph.pushScope({ name = "Second", trap = true, groups = { shared } })
+		-- edit the SECOND scope's copy; the first scope must not see it
+		graph.setGroupOrder("Second", "rows", { "X" })
+		graph.popScope()
+		expect(graph.focused:get()).toBe("X")
+		graph.navigate(1)
+		expect(graph.focused:get()).toBe("Y") -- First still has both rows
+		expect(#shared.order).toBe(2) -- and the caller's literal is intact
+	end)
+
+	it("replaceGroups copies too: the caller's array survives a later remove", function()
+		local core = customFactory.new()
+		local graph = focus_graph.new(core)
+		graph.pushScope({ name = "S", trap = false, order = { "A" } })
+		local groups = table.freeze({
+			table.freeze({ name = "g", axis = "vertical", order = table.freeze({ "G1", "G2" }) }),
+		})
+		graph.replaceGroups("S", groups)
+		expect(graph.focused:get()).toBe("G1")
+		graph.remove("G1")
+		expect(graph.focused:get()).toBe("G2")
+		expect(#groups[1].order).toBe(2)
+	end)
+end)

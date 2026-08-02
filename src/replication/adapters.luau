@@ -12,7 +12,54 @@
 --     opt-in and reconciles on confirm / restores on reject;
 --   * local pending state NEVER implies server success.
 
+local contract = require("../core/contract")
+
 local adapters = {}
+
+-- The three factory return shapes, exported so a consumer can NAME what these
+-- factories hand back (a typed helper, a stored field, a game-side wrapper).
+-- Declared against the shipped truth, not an aspiration: `patch`/`data`/results
+-- really are `any` today, and the published Readables really are core Signals.
+
+export type Snapshot<T> = {
+	binding: contract.Signal<T>,
+	-- "applied" | "stale" | "duplicate"
+	ingest: (newRevision: number, data: T) -> string,
+	revision: () -> number,
+}
+
+export type Collection<K, V> = {
+	binding: contract.Signal<{ [K]: V }>,
+	-- "applied" | "stale" | "duplicate" | "gap"
+	ingestPatch: (newRevision: number, patch: any) -> string,
+	-- "applied" | "stale"
+	ingestResnapshot: (newRevision: number, items: { [K]: V }) -> string,
+	revision: () -> number,
+}
+
+-- what `send` hands back for the game transport to put on the wire
+export type Envelope = {
+	requestId: number,
+	payload: any,
+	expectedRevision: number?,
+}
+
+export type MutationOpts = {
+	optimistic: {
+		apply: (any) -> (),
+		restore: () -> (),
+	}?,
+}
+
+export type Mutation = {
+	-- "idle" | "pending" | "confirmed" | "rejected"
+	status: contract.Signal<string>,
+	lastResult: contract.Signal<any>,
+	send: (payload: any, expectedRevision: number?) -> Envelope,
+	confirm: (requestId: number, result: any) -> (),
+	reject: (requestId: number, reason: any) -> (),
+	reset: () -> (),
+}
 
 -- ReplicatedSnapshot<T>: full-state semantic snapshots.
 function adapters.snapshot(core: any, initialRevision: number, initialData: any)
@@ -65,7 +112,14 @@ function adapters.collection(
 		if awaitingResnapshot or newRevision > revision + 1 then
 			if not awaitingResnapshot then
 				awaitingResnapshot = true
-				requestResnapshot(revision)
+				-- QUARANTINED: the flag is latched BEFORE the hook so a
+				-- successful request is asked exactly once — but a hook that
+				-- THROWS never actually sent the request, and the latch would
+				-- then guarantee it is never sent again (the collection dies on
+				-- a transient remote error). Un-latch so the next patch retries.
+				if not (pcall(requestResnapshot, revision)) then
+					awaitingResnapshot = false
+				end
 			end
 			return "gap"
 		end
@@ -81,9 +135,19 @@ function adapters.collection(
 		return "applied"
 	end
 
-	-- full authoritative state at a revision (gap recovery and reconnect)
+	-- full authoritative state at a revision (gap recovery and reconnect).
+	-- returns "applied" | "stale"
+	--
+	-- WHILE AWAITING, AN EQUAL REVISION IS A LEGAL RE-BASE. `requestResnapshot`
+	-- is handed the CURRENT revision, so "nothing has changed since your gap" is
+	-- answered at exactly that revision — the natural reply, and the one the
+	-- guide promises re-bases cleanly. Refusing it as stale returned before the
+	-- flag was cleared, and because a gap only asks `if not awaitingResnapshot`,
+	-- no second request was ever made: the collection returned "gap" forever.
+	-- Outside a gap the rule is unchanged (a resnapshot must be strictly newer).
 	function self.ingestResnapshot(newRevision: number, items: { [any]: any }): string
-		if newRevision <= revision then
+		local acceptable = if awaitingResnapshot then newRevision >= revision else newRevision > revision
+		if not acceptable then
 			return "stale"
 		end
 		revision = newRevision
@@ -120,13 +184,24 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 				0
 			)
 		end
+		-- BOOKKEEPING FIRST, THEN THE USER CALLBACK. `apply` is the most
+		-- consumer-authored code in this adapter; when it ran before the return
+		-- and unquarantined, one bad line meant the caller never received the
+		-- envelope — and confirm/reject/reset all match on the requestId only the
+		-- envelope carries, so the mutation was permanently unrecoverable.
 		nextRequestId += 1
-		activeRequestId = nextRequestId
+		local envelope: Envelope = { requestId = nextRequestId, payload = payload, expectedRevision = expectedRevision }
+		activeRequestId = envelope.requestId
 		status:set("pending")
 		if opts and opts.optimistic then
-			opts.optimistic.apply(payload)
+			-- QUARANTINED: a failed optimistic presentation degrades this send to
+			-- an un-optimistic one (restore, also quarantined, puts the view back)
+			-- and the request still goes out. The server verdict is unaffected.
+			if not (pcall(opts.optimistic.apply, payload)) then
+				pcall(opts.optimistic.restore)
+			end
 		end
-		return { requestId = nextRequestId, payload = payload, expectedRevision = expectedRevision }
+		return envelope
 	end
 
 	-- idempotent: repeated confirmations/rejections of the same request are
@@ -165,11 +240,19 @@ function adapters.mutation(core: any, opts: { optimistic: { apply: (any) -> (), 
 		end)
 	end
 
+	-- RESET WORKS FROM ANY STATE, including the one a caller actually needs to
+	-- escape: a request the server never answered. Guarding on `~= "pending"`
+	-- made the obvious recovery verb a silent no-op exactly when recovery was
+	-- the point. Abandoning a pending request rolls back its optimistic
+	-- presentation (the request may still land server-side; local state must not
+	-- keep claiming a success nobody confirmed), and clearing activeRequestId is
+	-- what keeps a late confirm/reject for the abandoned id ignored.
 	function self.reset()
-		if status:get() ~= "pending" then
-			activeRequestId = nil
-			status:set("idle")
+		if status:get() == "pending" and opts and opts.optimistic then
+			pcall(opts.optimistic.restore)
 		end
+		activeRequestId = nil
+		status:set("idle")
 	end
 
 	return self

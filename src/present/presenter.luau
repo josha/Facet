@@ -1232,6 +1232,22 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if cancelPolicy ~= "dismiss" and cancelPolicy ~= "none" then
 			error(`LuauUI presenter: unknown cancelPolicy '{tostring(cancelPolicy)}'. Valid: dismiss, none.`, 0)
 		end
+		-- ...and so do the other two string enums (F-15). They used to be compared
+		-- by equality and passed through raw, which is the exact failure the rule
+		-- above refuses: `responder = "Passive"` silently presented an ENGAGED
+		-- surface that sank nothing it was supposed to sink, and `scrim = "None"`
+		-- silently DIMMED the screen. Absent stays legal — each has a default.
+		local responderOpt = if opts ~= nil then opts.responder else nil
+		if responderOpt ~= nil and responderOpt ~= "passive" then
+			error(
+				`LuauUI presenter: unknown responder '{tostring(responderOpt)}'. Valid: passive (omit for engaged).`,
+				0
+			)
+		end
+		local scrimOpt = if opts ~= nil then opts.scrim else nil
+		if scrimOpt ~= nil and scrimOpt ~= "scrim" and scrimOpt ~= "none" then
+			error(`LuauUI presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
+		end
 		local scope = core:scope(`present-{kind}-{blueprint.id or "screen"}`)
 		-- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3). Every surface gets a
 		-- coordinator: it costs a table, builds a spring only when a region actually
@@ -2244,9 +2260,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 			blueprintOrError = handleOrError
 		end
-		return makeHandle(opts.fallbackScreen(blueprintOrError), {
-			onActivate = opts.onActivate,
-		}, "screen")
+		-- THE FALLBACK IS PRESENTED WITH THE CALLER'S OPTS (F-16). It used to get
+		-- `{ onActivate = … }` and nothing else, so a critical screen declared
+		-- `rootPolicy = "edgeToEdge"` (or navigationGroups, transition,
+		-- keepVisibleOffset, sinkNavigation…) lost every one of them exactly when
+		-- things had already gone wrong — the stand-in rendered under the wrong
+		-- root policy and the wrong navigation model, a second failure stacked on
+		-- the first. Everything the caller declared about this screen is still
+		-- true of the screen standing in for it. `fallbackScreen` is the one opt
+		-- that does not ride along: the fallback presents as an ordinary screen
+		-- and its own errors stay hard.
+		local fallbackOpts: any = table.clone(opts :: any)
+		fallbackOpts.fallbackScreen = nil
+		return makeHandle(opts.fallbackScreen(blueprintOrError), fallbackOpts, "screen")
 	end
 
 	function self.dismiss(handle: any)

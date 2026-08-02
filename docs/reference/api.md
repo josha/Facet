@@ -8,7 +8,23 @@ signature, parameters, return value, invariants, and a short example.
 The library is required as one module (`require(path.to.LuauUI)`); everything
 below hangs off that table unless noted. Client-only entry points live under
 `src/client/` and are required directly by client scripts, never from shared
-or server code.
+or server code — the blessed list is [Client entry points](#client-entry-points).
+
+**The patterns behind these entries** — how a constructor is shaped, who owns
+what, which deviations are approved and why — are the
+[constitution](constitution.md). Two conventions worth knowing before you read
+anything below, because they decide how a call is written:
+
+- **Colon vs dot** (constitution §16, E-7). Reactive-graph objects and pure
+  stepped models take `self`: `core:signal()`, `scope:own()`, `clock:step()`,
+  `model:step()`, `session:drop()`. Services, controllers and namespaces do not:
+  `presenter.present()`, `controller.refresh()`, `registry.pointerDown()`,
+  `adaptive.sizeClass()`. Each entry below is written in the form it takes.
+- **Who disposes it** (constitution §8). In order of preference: pass
+  `opts.scope` and the helper owns its resources there (`adaptive.conditions`,
+  `inputHint`); else `scope:own(handle)` the returned object (`motion.newClock`);
+  else the return IS an unsubscribe you own (`presenter.onTick`). Where an entry
+  says nothing, there is nothing to own.
 
 ---
 
@@ -17,16 +33,25 @@ or server code.
 ### `VERSION`
 
 `LuauUI.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
-currently `0.7.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
+currently `0.8.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
 pre-1.0, a minor bump may change behavior with notice; a patch bump never
 does. The version lives only here; docs and tests read it from the source.
 
 ### `DEPRECATIONS`
 
 `LuauUI.DEPRECATIONS: { { surface, since, removeNoEarlierThan, replacement, note? } }`
-— the machine-readable deprecation ledger, generated from the property schema
-(`src/blueprint_schema.luau`). A deprecated surface keeps working for at least
-one minor version after `since`.
+— the machine-readable deprecation ledger, and it is **frozen**: authority, not
+a scratch table. It is the UNION of two halves in one record shape, so every
+consumer reads one list — the entries generated from the property schema
+(`src/blueprint_schema.luau`), then the declared entries for surfaces that are
+not blueprint properties (an opts field, a derived condition). A deprecated
+surface keeps working for at least one minor version after `since`, and every
+entry names its `replacement`.
+
+The current rows are `UI.Text.color` and `UI.Text.font` (schema-generated, since
+0.5.0), plus `newResourceProvider(opts.retryAttempts)` and
+`adaptive.conditions().contentWidth` (declared, since 0.8.0). Each is marked
+deprecated where it is documented below.
 
 One important exception to "keeps working": a property that **never** reached a
 render target was never working surface to preserve. Keeping it silently
@@ -47,12 +72,22 @@ signal/memo/observer/effect graph plus the transaction scheduler and scope
 (ownership) system. Everything else in the library is built over one core per
 client.
 
+`core.name` is the implementation's name (`"custom"` for the shipped core) — a
+plain field, useful in a diagnostic dump. A core has **no `dispose()`**: scopes
+are the teardown seam, and `core:counters()` returning to its baseline is the
+leak test.
+
 Core methods (all take the core as `self`, i.e. call with `:`):
 
 - `core:signal(initial, eq?) -> Signal` — writable value. `signal:get()`,
   `signal:set(value)`, `signal:dispose()`. `eq` customizes change detection
-  (default: `==`, NaN-safe). A throwing `eq` is quarantined (recorded via
-  `lastError`, treated as "changed"), never crashes a writer.
+  (default: `==`, NaN-safe; it is a positional optional because these are the
+  library's hottest constructors — constitution E-9). A throwing `eq` is
+  quarantined (recorded via `lastError`, treated as "changed"), never crashes a
+  writer. **Disposing a signal freezes its readers rather than erroring them**:
+  dependents are never invalidated again and keep serving their last value, and
+  a later `set` on it succeeds silently and reaches nobody. Dispose a signal
+  last, or let its scope do it.
 - `core:memo(compute, eq?) -> Memo` — derived value. `compute(use)` reads
   dependencies through `use(readable)`; dependencies re-track on every run.
   Reads are glitch-free: inside or outside transactions a memo read is always
@@ -62,21 +97,38 @@ Core methods (all take the core as `self`, i.e. call with `:`):
   after a flush in which the value actually changed. Observer callbacks are
   quarantined: a throwing callback records `lastError` and never wedges the
   scheduler. Disposing an observed node reclaims and silences its observers.
-- `core:effect(run) -> dispose` — like observe but dependency-tracked; writes
-  from an effect land in the NEXT flush round; runaway feedback trips a
-  100-round cap loudly.
-- `core:transaction(body)` — batches writes; observers/effects fire once at
-  the end; set-then-revert inside a transaction fires nothing.
+- `core:effect(run) -> unsubscribe` — like observe but dependency-tracked, with
+  one difference that matters: **`run(use)` executes immediately, at
+  registration**, and then again post-commit whenever a tracked dependency
+  changes. (`observe` does NOT fire on registration — it baselines instead.)
+  Writes from an effect land in the NEXT flush round; runaway feedback trips a
+  100-round cap, which discards that round's pending writes and records the trip
+  on `lastError`.
+- `core:transaction(body)` — **batching, not atomicity.** Writes inside `body`
+  are held and observers/effects fire once at the end; set-then-revert inside a
+  transaction fires nothing. There is no snapshot and no rollback: if `body`
+  throws, the writes it already made stay applied, the flush still runs, and the
+  error is re-raised to you. Reach for it to coalesce updates, not to make a
+  group of writes all-or-nothing.
 - `core:flush()` — force a flush (rarely needed; writes outside transactions
-  flush automatically).
+  flush automatically). Calling it from inside a flush is a no-op.
 - `core:scope(label?) -> Scope` — ownership scope: `scope:own(resource)`
-  (function, disposable table, or child scope), `scope:child(label?)`,
-  `scope:dispose()` (reverse order, idempotent; double disposal is DETECTED
-  via `lastError`), `scope:isDisposed()`.
+  (function, disposable table, or child scope — a table with no `dispose` is
+  **refused** at `own` time, naming the resource, rather than silently never
+  being torn down), `scope:use(resource)` (borrow: returns it, and does NOT take
+  ownership — the spelling for a child that must outlive this scope),
+  `scope:child(label?)`, `scope:dispose()` (reverse order, idempotent; double
+  disposal is DETECTED via `lastError`), `scope:isDisposed()`.
 - `core:counters() -> { signals, memos, observers, effects, scopes }` — live
-  registry counts; lifecycle-neutral code returns them to baseline.
+  registry counts; lifecycle-neutral code returns them to baseline. A root scope
+  from `core:scope()` has no parent, so it is yours to dispose.
 - `core:lastError() -> string?` — the most recent quarantined error (cycles,
-  compute/observer/eq errors, feedback-cap trips, double disposals).
+  compute/observer/eq errors, feedback-cap trips, double disposals). **It is
+  sticky**: `nil` until the first quarantine, and never cleared afterwards.
+  There is no take-or-clear verb, so it reports "something was contained at some
+  point in this core's life", not "this core is unhealthy right now" — a health
+  assertion built on it has to be scoped to a freshly-built core, the way the
+  library's own tests are.
 
 ```lua
 local core = LuauUI.newCore()
@@ -113,10 +165,49 @@ error naming the control, the property, and the valid alternatives:
 | children on a leaf | `UI.Text does not take children (it is a leaf). Containers: Anchor, Grid, HStack, …` |
 | a property that never reached the renderer | `UI.Text.color is not supported (deprecated 0.5.0 …). Use UI.Text{ role = … }.` |
 
+A **modifier's** refusals name the modifier you called, not the internal
+property it chose: `UI.alignment(bp, "center")` on a class with no `alignH`
+reports `LuauUI UI.alignment on UI.When: UI.When has no property 'alignH'`. A
+direct constructor error is unchanged (`LuauUI UI.When: …`).
+
 Each constructor also has an exported spec type (`UI.ButtonSpec`,
 `UI.ScrollViewSpec`, …) built from the same schema, so an editor completes the
-same field set the runtime accepts. `LuauUI.UI.schema` exposes the schema
-itself (`forClass`, `propNames`, `deprecations`) for tooling.
+same field set the runtime accepts.
+
+#### Tooling surface: `UI.schema`, `UI.isReadable`, `UI.PROP_DIRTY`
+
+Three exports exist for tooling, tests and extension authors rather than for
+authoring a screen. They are public and covered by ADR-0011 like anything else.
+
+`LuauUI.UI.schema` is the property schema itself — eleven members:
+
+| Member | Answers |
+|---|---|
+| `forClass(name) -> ClassSpec?` | one class's declaration (`props`, `container`, `structural`) |
+| `all() -> { [name]: ClassSpec }` | every class, keyed by name |
+| `classNames() -> { string }` | the class names, sorted |
+| `propNames(class) -> { string }` | one class's property names, sorted |
+| `sharedPropNames() -> { string }` | the properties declared `shared` (the table above) |
+| `checkValue(propSpec, value) -> (ok, problem?)` | the single value ruling every constructor and modifier runs |
+| `suggest(class, badKey) -> { string }` | the did-you-mean candidates for an unknown key |
+| `propDirty() -> { [prop]: { [class]: { dirtyClass } } }` | which update classes a reactive prop schedules (a fresh table per call) |
+| `deprecations() -> { Deprecation }` | the schema-generated half of `LuauUI.DEPRECATIONS` (a fresh table per call) |
+| `TRANSITION_MIRROR` | each structural-transition form paired with its mirror |
+| `TRANSITION_FADES` | the forms that drive transparency (and therefore need a fade group) |
+
+**Stability.** The schema tables are **deeply frozen** — `all()` and `forClass()`
+hand back the live authority, so a writable copy would have been a way to
+disable framework validation process-wide. Read them; to annotate one, clone it.
+The shape of a `ClassSpec`/`PropSpec` is internal detail that may change in a
+minor; the eleven names and what they answer are the contract.
+
+`LuauUI.UI.isReadable(value) -> boolean` is **the one public predicate** for "is
+this a Signal or a Memo". Reach for it instead of duck-typing `.get`.
+
+`LuauUI.UI.PROP_DIRTY` is the frozen `prop -> class -> { dirty class }` map the
+mount layer reads to decide what a reactive prop invalidates. It is the same
+data `schema.propDirty()` builds; the export exists so a diagnostic tool can
+read it without rebuilding it per call.
 
 Framework metadata does **not** travel in the prop bag: an input-contribution
 bundle rides the blueprint's internal `meta` channel (see `contribution`), so
@@ -125,7 +216,26 @@ strict prop validation has no exemptions to work around.
 #### Shared properties
 
 These are accepted by every class the note names, so the per-class entries
-below list only what is specific to that control.
+below list only what is specific to that control. **"Accepted on" is exact** —
+the schema is the source, and a property this table does not list for a class is
+a construction error on it, not a no-op.
+
+Three groups recur in the column below and are worth naming once:
+
+- **every rendered class** — the twenty classes that produce a box:
+  `AdaptiveStack`, `Anchor`, `Box`, `Button`, `Composition`, `Divider`, `Grid`,
+  `Grip`, `HStack`, `Image`, `Path`, `Screen`, `ScrollView`, `Spacer`, `Text`,
+  `TextField`, `Toggle`, `VStack`, `ViewThatFits`, `ZStack`. `Region` is the
+  exception among containers: it takes **no** box properties at all, because a
+  Region *is* its ranked forms and a width on it would be a second authority
+  against the composition's own resolution. The structural regions (`When`,
+  `ForEach`, `ErrorBoundary`) take none of these either — they answer presence,
+  not paint.
+- **layout containers** — the nine that inset, clip and declare overflow:
+  `AdaptiveStack`, `Anchor`, `Composition`, `Grid`, `HStack`, `Screen`,
+  `ScrollView`, `VStack`, `ZStack`. (`Button`, `Region` and `ViewThatFits` take
+  `children` but are not in this group — see the container list below.)
+- **the text-bearing controls** — `Text`, `Button`, `Toggle`, `TextField`.
 
 | Property | Accepted on | Meaning |
 |---|---|---|
@@ -134,13 +244,13 @@ below list only what is specific to that control.
 | `margin` | every rendered class | outer spacing the parent reserves around this node; a number, a spacing-step name, or `{top?,right?,bottom?,left?}` of either. A **`fill` child spends its own margin out of its fill**, on every container — a `ZStack` layer with `margin = { top = 56 }` is 56 px shorter, not 56 px lower — and a filled axis therefore ignores `alignH`/`alignV`, because there is nothing left to align. A non-fill child keeps its size and is displaced, so alignment still applies to it |
 | `anchor`, `offsetX`, `offsetY` | children of an `Anchor` | placement corner plus offset; offsets update in the arrange pass only (no re-measure). An offset takes a number, a theme metric name (`"-s"` negates one), or a **fraction of the parent's inner extent**: `{ scale = 0.5 }`, `{ scale = 0.5, offset = -4 }` (the marker-overlay shape — see `Anchor`) |
 | `alignH`, `alignV` | children of a `ZStack` | per-child cross-alignment (`start`/`center`/`end`) |
-| `padding` | containers, `Button`, `Toggle`, `TextField` | inner spacing; on the three controls it is the text inset the adapter must match. A number, a spacing-step name (`"xs"`…`"xl"`), or per-side values of either |
-| `gap` | `Screen`, `VStack`, `HStack`, `ScrollView`, `Grid` | spacing between children along the stack axis; a number or a spacing-step name (`"xs"`…`"xl"`) |
-| `align` | `Screen`, `VStack`, `HStack` | cross-axis alignment of children (`start`/`center`/`end`/`stretch`) |
-| `overflow` | containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`) |
-| `clipChildren` | containers | make this container an engine clip host; `ScrollView` defaults it to true |
-| `active` | containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
-| `surface` | containers, `Box`, `Image`, `Button` | surface style role painted behind the node |
+| `padding` | layout containers, `Button`, and the text-bearing leaves `Text`, `Toggle`, `TextField` | inner spacing; on a control it is the text inset the adapter must match, and on a `Text` the measure adds it. A number, a spacing-step name (`"xs"`…`"xl"`), or per-side values of either |
+| `gap` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `ScrollView`, `Grid`, `Button` | spacing between children along the stack axis; a number or a spacing-step name (`"xs"`…`"xl"`). On a `Button` it spaces the button's own content |
+| `align` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `Button` | cross-axis alignment of children (`start`/`center`/`end`/`stretch`) |
+| `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
+| `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
+| `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
+| `surface` | layout containers, `Box`, `Button`, `Image`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"`) resolved from the active theme. Either form is scaled at both the measure and paint seams |
@@ -160,11 +270,18 @@ An unknown name is a construction error that lists the vocabulary. A literal
 number stays legal everywhere and thereby marks that value explicitly
 theme-independent.
 
-Containers (take `children`): `Screen`, `VStack`, `HStack`, `ZStack`,
-`ScrollView`, `Anchor`, `Grid`. Leaves: `Text`, `Image`, `Button`, `Toggle`,
-`Box`, `Spacer`, `Grip`. Structural regions: `When`, `ForEach`,
-`ErrorBoundary`. Style modifiers: `shadow`, `gradient`, `corners`, `stroke`,
-`styleGroup`.
+**Containers** (take `children`) — twelve, and this is the list the runtime's
+own "does not take children" error prints: `AdaptiveStack`, `Anchor`, `Button`,
+`Composition`, `Grid`, `HStack`, `Region`, `Screen`, `ScrollView`, `VStack`,
+`ViewThatFits`, `ZStack`. **A `Button` is a container**: it takes `children`,
+which render inside its one activation surface (see `Button` § Custom content).
+`Region` and `ViewThatFits` are containers whose children mean something
+specific — ranked forms and candidate layouts — which is why they carry none of
+the layout-container properties above.
+
+**Leaves**: `Text`, `Image`, `Toggle`, `TextField`, `Box`, `Spacer`, `Divider`,
+`Path`, `Grip`. **Structural regions**: `When`, `ForEach`, `ErrorBoundary`.
+**Style modifiers**: `shadow`, `gradient`, `corners`, `stroke`, `styleGroup`.
 
 #### Continuous colour: `tint`
 
@@ -281,8 +398,10 @@ itself, so a drag can reach content below the fold. It is **on by default and
 inert**: nothing happens unless a drag is announced, so a screen with no draggable
 content behaves identically. Pass `false` to opt a scroller out entirely, or an
 options table to tune the model (`bandH`, `dwellS`, `rampS`, `exitEaseS`, `vMin`,
-`vMax` — see `LuauUI.newAutoscroll`; the band defaults to the HOST's own shape via
-`bandForViewport`, not the screen's).
+`vMax` — see `LuauUI.newAutoscroll` for what each one means). The band defaults
+to the HOST's own shape, not the screen's: **40 px** when the host is wider than
+it is tall, **44 px** when it is taller (a portrait box has less vertical room to
+aim at). The framework picks between the two per host; there is no call to make.
 
 The policy lives here rather than in the draggable content for two reasons: the
 thing that has to move is usually *not* the control being dragged (a block `Table`
@@ -553,8 +672,15 @@ axis, and inside an `HStack` a vertical one. Inside an `AdaptiveStack` it follow
 the axis flip with no rebuild.
 
 `axis` names the stack axis the divider separates ALONG (`"y"` → horizontal line,
-`"x"` → vertical), and overrides the inference when given. `thickness` defaults to
-1 px. Explicit `width`/`height` win over both.
+`"x"` → vertical), and overrides the inference when given. Explicit `width`/`height`
+win over both.
+
+**`thickness` defaults to the theme's own hairline weight** —
+`strokes.hairline` from the live snapshot, not a literal 1 px — so a package with
+a heavier rule line moves every divider with nothing to update. Authored, it
+takes a px number **or a theme metric name** (`"strokes.hairline"`, `"s"`, any
+dotted snapshot path): it is a theme-owned number, so it accepts the theme's own
+vocabulary, resolved on every solve.
 
 The hairline is **style-owned**: under native styling it carries the `luau-divider`
 tag and the sheet's "Divider" rule paints it, so a designer can restyle every
@@ -892,7 +1018,10 @@ normalized points when the solved rect changes. `role` picks the stroke color
 from the style (`"accent"`, `"secondary"`, default content) — never a raw
 color — or, for a value no role can name, `tint` (see
 [above](#continuous-colour-tint)), which writes the same stroke colour from the
-continuous channel and needs no claim (nothing can style a `Path2D`). Engine limits
+continuous channel and needs no claim (nothing can style a `Path2D`).
+`thickness` takes a px number **or a theme metric name**, resolved against the
+live snapshot at the write seam, exactly as `Divider.thickness` does; absent, the
+framework writes nothing and the `Path2D` keeps its engine default. Engine limits
 (measured): at most 100 control points; stroke only (no fill); no per-path
 transparency.
 
@@ -1078,10 +1207,17 @@ strokes a text node's *glyphs* instead of its box.
 hairline rather than suppressing it. A node that must show exactly one border
 should name a surface that carries none (`plain`).
 
-**Pulsing it** — `strokeData` (`UI.strokeData(spec, style?)`) is the same
-normalization without a blueprint, for the reactive idiom. Normalized style data is read once, so a Signal
-inside the spec is refused at construction (the error names this fix): bind the
-whole prop instead —
+### `strokeData`
+
+`UI.strokeData(spec, style?) -> StrokeData` — the same normalization as
+`UI.stroke`, without a blueprint. It takes the identical
+`{ thickness?, color?, transparency? }` spec (same defaults, same closed key set,
+same refusals) and returns the normalized data table, so it is what you build a
+**reactive** stroke out of.
+
+Normalized style data is read once at construction, so a Signal *inside* the spec
+is refused there and the error names this fix: bind the whole `stroke` prop
+instead.
 
 ```lua
 UI.Box({
@@ -1093,6 +1229,10 @@ UI.Box({
 })
 ```
 
+It is the only `*Data` producer: `shadow`, `gradient` and `corners` are equally
+reactive props, but their normalizers are not public today, so an animated blur
+or radius has no supported spelling.
+
 ### `draggable` / `dropTarget`
 
 `UI.draggable(blueprint, spec) -> Blueprint` and
@@ -1102,6 +1242,11 @@ each returns a new frozen blueprint carrying a validated declaration on the
 metadata channel, and the renderer builds the acquisition when the node mounts.
 The same declaration therefore works on a node an author wrote and a row a
 control generated.
+
+Both **refuse a structural region** (`When`, `ForEach`, `ErrorBoundary`) at
+attach time, naming the fix: a structural node never reaches the renderer's
+per-instance registration, so the declaration would have been accepted and inert
+— the plausible mistake being to wrap a conditional card rather than the card.
 
 ```lua
 local card = UI.draggable(UI.Box({ id = "Card", surface = "control" }), {
@@ -1188,9 +1333,13 @@ focus, tests and dumps at `<parent>/<id>+overlay/<id>`.
 
 ### `styleGroup`
 
-`UI.styleGroup({ shadow?, gradient?, corners? }, blueprints, style?) -> { Blueprint }` —
+`UI.styleGroup({ shadow?, gradient?, corners?, stroke? }, blueprints, style?) -> { Blueprint }` —
 applies the modifier set to EVERY element of a collection (SwiftUI `Group`
-semantics); returns the new array (use as a `children` list).
+semantics); returns the new array (use as a `children` list). All four style
+modifiers are members, and the spec's key set is closed: an unknown key is a
+construction error naming the four, rather than a style that silently never
+appears. Spec-first is deliberate — the collection is the thing being produced
+(constitution E-3).
 
 ---
 
@@ -1267,16 +1416,52 @@ lives in the coordinator and not here.
 
 ### `renderer`
 
-`LuauUI.renderer.attach(core, mountedRoot, env, adapter, opts?) -> Controller`
-— solves layout and drives a render-target adapter with minimal writes
-(paint-only changes write props; measure/arrange/structure re-solve and write
-only rects that changed). Controller: `.initialRender()`, `.refresh()`,
-`.rectOf(path)`, `.setFocusPath(path?, visible?)`, `.stats()`, `.diagnostics()`,
-`.compositionAt(path?)` (the last solve's `UI.Composition` resolution dump for
-that node, or all of them keyed by path — see `Composition`),
-`.dispose()`. Adapters implement `createRoot/create/setRect/setProp/remove/
-destroyRoot` (see `src/render/target_contract.luau`; `FakeTarget` headless,
-`ScreenTarget` on the client).
+`LuauUI.renderer` is a namespace, not a factory: it carries the attach verb
+**and** the adapter-conformance data an adapter author writes against
+(constitution E-10 — `attach` is not `newRenderer` because the controller's
+lifetime is the mount's, not the module's).
+
+**Module exports**
+
+| Export | What it is |
+|---|---|
+| `renderer.attach(core, mountedRoot, env, adapter, opts?) -> Controller` | bind a controller to a mounted root (below) |
+| `renderer.EMITTED_PROPS` | frozen set of **every** prop name this module can hand to `adapter.setProp`. This is the conformance list a render target implements against, and `tests/render_target_contract.spec.luau` fails when the live and fake adapters disagree with it |
+| `renderer.DIRECT_PROPS` | frozen `prop -> which seam writes it`, for the writes that do not ride the style or binding channel (`clipChildren`, `textSize`, `padding`, `transform`, `transparency`) |
+| `renderer.STYLE_PROPS` / `renderer.BINDING_PROPS` | the two channel sets, keyed by prop name: which writes are style authority and which are binding authority |
+| `renderer.compactForm(props) -> form?` | pure: the normalized compact representation of a `Button`'s `compactLabel` (`{ kind = "text" \| "icon" \| "image", … }`, `nil` when none). The one place the authored grammar becomes a shape, shared by the measure seam, the paint seam and the adapter |
+| `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
+
+**`attach` options** — `{ rootPolicy?, onNodeTap?, engineSelectionBridge? }`.
+`rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
+`"deviceSafeContent"`, `"edgeToEdge"`; an unknown value errors and lists the
+set). **`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
+geometry (`x`/`y`) the outside-tap policy reads, and `via` for a
+detector-driven tap. **`engineSelectionBridge`** is the same opt-in mirror
+`presentModal` exposes, available here for a hand-attached surface.
+
+**Controller** — 27 members, all dot-called:
+
+| Group | Members |
+|---|---|
+| Render cycle | `initialRender()`, `refresh()`, `dispose()` |
+| Geometry reads | `rectOf(path)` (solved), `screenRectOf(path)` (painted — see "Two rect reads"), `hiddenRoots()`, `compositionAt(path?)` |
+| Focus | `setFocusPath(path?, visible?)` |
+| Scrolling | `scrollTo(path, {x,y})`, `scrollPosition(path)`, `scrollToVisible(path)`, `scrollHostFor(path, includeSelf?)` (the nearest `ScrollView` ancestor's handle — reach for this instead of re-deriving the host), `observeScroll(path, fn) -> unsubscribe`, `stepAutoscroll(dt?)`, `setPointerDrag(info?)` |
+| Drag | `dragRegistry()` (builds one on demand), `peekDragRegistry()` (nil when none exists yet), `setDragCollaborators(collaborators)`, `attachDragDetector(path, handlers) -> detach?` |
+| Presentation channel | `setPresentationTransform(path, t?)`, `setPresentationTransparency(path, alpha?)`, `setPresentationOffset(dy)` |
+| Surface | `setDisplayOrder(n)`, `setRootVisible(visible) -> boolean` |
+| Diagnostics | `stats()`, `diagnostics()`, `textPending()` |
+
+Two conventions worth knowing. **The read methods hand back copies** —
+`stats()`, `diagnostics()`, `hiddenRoots()` and `compositionAt(nil)` all return
+a snapshot, so caching one is safe and mutating one cannot corrupt the renderer.
+And **`attachDragDetector` answers `nil`** when the adapter has no detector seam,
+where `observeScroll` answers a no-op unsubscribe — nil-guard the first.
+
+Adapters implement `createRoot/create/setRect/setProp/remove/destroyRoot` plus
+the optional and theme sets (see `src/render/target_contract.luau`; `FakeTarget`
+headless, `ScreenTarget` on the client).
 
 **`adapter.driveActivate(path, meta?) -> boolean`** (both targets) — invokes the
 EXACT closure `setActivateHandler` registered for that node: the one the engine's
@@ -1345,15 +1530,32 @@ scrubs against layout space (ESC-2 residual, tracked in
 
 ### `newPresenter`
 
-`LuauUI.newPresenter(core, env, adapter, actionSystem) -> Presenter` — owns
-screen/modal lifetimes, focus scopes, and input contexts. Methods:
+`LuauUI.newPresenter(core, env, adapter, actionSystem, opts?) -> Presenter` —
+owns screen/modal lifetimes, focus scopes, and input contexts. `opts` is
+`{ clock?, now? }`: pass `clock` to share one motion clock with the rest of the
+application, `now` to inject time.
+
+**Session lifetime, stated.** A presenter is built **once per client session**
+and has **no `dispose()`**. It owns a feedback bus, a focus graph, a motion clock
+(its own, unless you passed one) and up to four private surfaces, and nothing
+releases them — so building a second presenter to replace the first leaks all of
+it. Present and dismiss surfaces on the one presenter instead. `newFocusGraph`
+and `newEnvironment` carry the same contract for the same reason (constitution
+§8; PKT-3 tracks adding teardown).
+
+Methods:
 
 - `presenter.present(blueprint, opts?) -> handle` — base screen.
 - `presenter.presentModal(blueprint, opts?) -> handle` — focus trap +
   higher-priority sinking input context; Cancel (gamepad B) dismisses.
 - `presenter.presentCritical(blueprintFactory, opts) -> handle` — runs the
   factory and presentation under protection; on error presents
-  `opts.fallbackScreen(err)` instead (critical-screen fallback).
+  `opts.fallbackScreen(err)` instead (critical-screen fallback). **The fallback
+  is presented with the caller's own opts** — `rootPolicy`, `navigationGroups`,
+  `transition`, `keepVisibleOffset` and the rest all still apply, because
+  everything you declared about this screen is still true of the screen standing
+  in for it. `fallbackScreen` itself does not ride along: the fallback presents
+  as an ordinary screen and its own errors stay hard.
 - `presenter.dismiss(handle)` — removes THAT handle's screen, focus scope
   (wherever it sits in the stack), input context, and mounted tree.
 - `presenter.back() -> boolean` — dismisses the top modal.
@@ -1437,6 +1639,13 @@ Options: `onActivate(path, meta)`, `onAdjust`, `onFocusNav`, `onReorderNav`,
 `onNavigateIntercept`, `navigationGroups`, `onGeometry`, `keepVisibleOffset`,
 `sinkNavigation`, `responder`, `gameplayGuard`, `rootPolicy`, `outsideTapCancel`,
 `cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`.
+The four string-enum opts — `rootPolicy`, `responder`, `cancelPolicy`, `scrim` —
+are validated at present time and an unknown value errors naming the legal set.
+
+**`sinkNavigation` does nothing on a passive surface.** A `responder = "passive"`
+screen exists precisely so navigation reaches the gameplay contexts beneath it,
+so it never sinks while passive whatever this opt says; engagement is what turns
+sinking on. Set it on an ordinary `present()` (a modal always sinks).
 
 **`rootPolicy`** resolves the surface's content rect from the viewport and the
 safe insets: `coreSafeContent` (the default — inset by the CoreGui reservation),
@@ -1495,11 +1704,15 @@ opts = {
   toast's **read floor is never truncated by priority** — an urgent message
   waits for the sentence to become readable, then preempts the weakest showing
   toast. At the cap the lowest-priority **queued** toast is dropped (never a
-  showing one). Every retirement emits `dismiss` with a reason: `timeout`,
-  `supersede`, `capacity`, `preempt`, `manual` — nothing vanishes untraceably.
+  showing one). Nothing vanishes untraceably: every retirement emits an event on
+  the feedback bus, and it is a `dismiss` carrying one of four reasons —
+  `timeout`, `capacity`, `preempt`, `manual`.
 - **Supersede** replaces a same-`key` predecessor: immediately while it is
   queued, and at the read floor while it is showing (a same-subject toast never
-  appears beside the one it replaces).
+  appears beside the one it replaces). **Replacement is its own verb**: the
+  superseded toast emits `type = "supersede"` with **`reason = nil`**, never a
+  `dismiss` — one causal moment, one event. Match on the type; a subscriber
+  wired to `type == "dismiss" and reason == "supersede"` fires never.
 - **Layering** puts it above every base screen and below every modal.
 - **Reduced motion** changes the pixels and nothing else: the same toasts appear
   for the same durations in the same order, placed instantly (SF-T3).
@@ -1655,17 +1868,62 @@ trap-and-restore) without engaging the modal machinery.
 
 ### `newEnvironment`
 
-`LuauUI.newEnvironment(core) -> Env` — per-client observable platform facts
-(`viewportRect`, safe insets, `topbarInset`, `topbarSafeInsets`,
-`keyboardOcclusionRect`,
-`preferredInput`, `capabilities`, `reducedMotion`, `preferredTextSize`,
-`preferredTransparency`, `locale`) plus derived policy memos
-(`typographyScale` — clamped 0.5–3, `effectiveTransparency` — clamped 0–1,
-`sizeClass` — compact/regular/wide, `motionPolicy` — full/reduced,
-`interactionClasses`, `effectiveInput`). Garbage
-facts clamp into legal domains instead of leaking. `env:get(key) -> Readable`,
-`env:set(key, value)` (facts only), `env:keys()`. The client adapter
-(`src/client/roblox_env.luau`) binds real engine facts; tests set fakes.
+`LuauUI.newEnvironment(core) -> Env` — per-client observable platform facts plus
+derived policy. Three methods: `env:get(key) -> Readable` (any key, fact or
+derived; an unknown key errors), `env:set(key, value)` (**facts only** — setting
+a derived key errors), and `env:keys() -> { string }` (every key, sorted, facts
+and derived merged with no marker distinguishing them — the split is the table
+below). The client adapter (`src/client/roblox_env.luau`) pushes the real engine
+facts; tests set fakes.
+
+Like the presenter, an environment is a **session-lifetime service**: it is built
+once per client, has no `dispose()`, and its ~27 core registrations live as long
+as the core does.
+
+**The keys are the API.** Settable facts:
+
+| Fact | Value |
+|---|---|
+| `viewportRect` | `{ x, y, w, h }` of the window |
+| `deviceSafeInsets` | per-edge `{ top, bottom, left, right }` device (notch) insets |
+| `coreSafeInsets` | per-edge CoreGui reservation |
+| `topbarInset` | the platform's FREE topbar rect `{ x, y, w, h }` — stated relative to the topbar-safe area, not the window |
+| `topbarSafeInsets` | per-edge topbar-safe area; the second half of placing anything in the topbar band |
+| `keyboardOcclusionRect` | `{ x, y, w, h }` the soft keyboard covers, or `nil` |
+| `preferredInput` | `"Touch" \| "Gamepad" \| "KeyboardAndMouse"` — what was used LAST (see below) |
+| `capabilities` | `{ keyboard, mouse, touch, gamepad }` booleans |
+| `reducedMotion` | boolean |
+| `preferredTextSize` | multiplicative text-scale seam (tests and device profiles); the engine leaves it at 1 |
+| `preferredTextOffset` | the engine's ADDITIVE preferred-text reservation, in px — what the real client populates |
+| `preferredTransparency` | 0..1 |
+| `locale` | e.g. `"en-us"` |
+| `displaySize` | `"Small" \| "Medium" \| "Large"` (the engine's viewport display class) |
+| `overscanInsets` | authored TV overscan margins, or the string `"none"` to opt out |
+| `presentationSpace` | `"screen" \| "billboard" \| "world"` — where this surface is presented |
+| `themeMetrics` | the frozen `ThemeSnapshot`; the single atomic metric commit point |
+
+Derived policy (memoized, read-only):
+
+| Derived | Answers |
+|---|---|
+| `typographyScale` | the MEASURE-seam text scale: `preferredTextSize` clamped to 0.5–3, times 1.5 on a `Large` display |
+| `typographyPaintScale` | the PAINT-seam scale: the ten-foot factor only (1.5 on `Large`, else 1). The engine applies the player's preference itself, so paint must not multiply it in again |
+| `effectiveTransparency` | `preferredTransparency` clamped to 0–1 |
+| `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` on a `Large` display |
+| `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
+| `distanceProfile` | `"ten-foot"` on a `Large` display, else `"near"` |
+| `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) on a `Large` display and zeros elsewhere |
+| `presentationProfile` | `{ space, flat, world }`; an unrecognised `presentationSpace` resolves to `"screen"` |
+| `interactionClasses` | the LIVE set of input idioms plus `primary` (ADR-0015): capabilities and preference together, never the preference alone |
+| `effectiveInput` | `interactionClasses.primary` in the platform fact's own vocabulary |
+
+**Where the clamping actually happens.** `env:set` validates only that the key
+exists and is settable — it does **not** check the value, so a fact reads back
+exactly what the adapter pushed. It is the **derived** memos that clamp garbage
+into a legal domain (a NaN text preference resolves to 1, an out-of-range
+transparency clamps to 0..1, an unknown presentation space falls back to
+`"screen"`). Read the derived key when you want the guarantee; a consumer that
+reads `viewportRect` straight is reading the adapter, unfiltered.
 
 **`preferredInput` is a REPORT, `effectiveInput` is the ANSWER.** The platform
 fact says which input was used *last*, so a phone nobody has touched yet reports
@@ -1698,6 +1956,23 @@ priority/sinking/lifetime: `system.createContext{ name, priority, sink }`,
 `system.deviceKey(keyCode, isDown)` — the same path real bindings use; no
 direct callback bypass. Controls never bind hardware key codes themselves.
 
+The rest of the surface: `system.deviceAxis(axis, x, y)` and
+`action.bindAxis(spec)` (the analog path the presenter binds unconditionally),
+`system.modifiers() -> { shift, toggle }` (live modifier state the presenter
+reads for shift/toggle Activate semantics), `action.onReleased(fn)`,
+`action.preferredBinding(kind)`, `binding.remove()`, `context.setEnabled(on)`,
+`context.setSink(on)`, and `context.destroy()` (the grandfathered teardown verb
+for input contexts — constitution E-17). Prefer the setters over writing
+`context.enabled`/`.sink` directly: a bare field write works headlessly and is
+dead on the real engine adapter.
+
+**`action._deliver(value)` and `binding._sample(x, y)` are the engine-adapter
+seam.** The leading underscore means exactly that (constitution §2): they are
+how an alternate action-system adapter — `src/client/roblox_input.luau` is the
+first-party one — delivers state into the headless model. They are not private,
+and they are not for consumer code: a control or a screen drives an action
+through `bind`/`deviceKey`, never through these.
+
 ### `inputHint`
 
 `LuauUI.inputHint(core, env, action, opts?) -> Readable<string>` — a reactive
@@ -1726,10 +2001,15 @@ local line = core:memo(function(use) return `{use(how)} to apply` end)
 A key label alone cannot remove that branch, because touch does not differ by
 KEY, it differs by VERB: you tap, you do not press Enter.
 
+An unknown `style` is refused at the call, naming the two legal values — the
+same rule `rootPolicy` and `cancelPolicy` follow.
+
+**`opts.scope`** hands the returned memo to a scope, the same idiom
+`adaptive.conditions` uses; omit it and disposing the memo is yours.
+
 Invariants: it never injects visible UI on its own (the consumer decides where
-the label appears); the caller owns the returned memo and disposes it. It reads
-`env:get("effectiveInput")` — a change re-labels the same node, no factory
-rerun.
+the label appears). It reads `env:get("effectiveInput")` — a change re-labels the
+same node, no factory rerun.
 
 ### `adaptive`
 
@@ -1747,11 +2027,12 @@ headlessly testable):
 | `adaptive.heightClass(height, opts?)` | `"short"` (< 600) / `"medium"` (< 1000) / `"tall"`. `opts.distanceProfile = "ten-foot"` caps at `"medium"`, for the same reason the width cap exists: `tall` is the densest vertical arrangement. Degrades to `"short"` on nil/NaN |
 | `adaptive.orientationFor(width, height)` | `"landscape"` / `"portrait"` / `"square"` — a **shape** fact, not a device fact: a windowed pane on a desktop is portrait and must be treated as one |
 | `adaptive.BREAKPOINTS` | `{ regular = 600, wide = 1000 }` as data |
+| `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
 
 **Reactive conditions:** `adaptive.conditions(core, env, opts?)` returns Readables
 the caller owns — `sizeClass`, `isCompact`, `isRegular`, `isWide`, `isTenFoot`,
-`viewportWidth` (and `contentWidth`, its alias), and `axis` (ready to bind to `UI.AdaptiveStack`), plus the
+`viewportWidth`, and `axis` (ready to bind to `UI.AdaptiveStack`), plus the
 height half: `heightClass`, `isShort`, `isTall` (medium height is neither),
 `viewportHeight`, `orientation` and `isLandscape`. They are memos
 over the environment, so they cost nothing until read and re-resolve in place when a
@@ -1777,8 +2058,8 @@ so they die with the screen:
 local conditions = LuauUI.adaptive.conditions(core, env, { scope = screenScope })
 ```
 
-Omitting it is still legal — then you own the six memos by hand, which is the same
-§6.3 rule every other resource follows. `opts` also carries the `axisFor`
+Omitting it is still legal — then you own the twelve memos by hand, which is the
+same rule every other resource follows. `opts` also carries the `axisFor`
 breakpoint override (`stackAbove`).
 
 `isTenFoot` follows the **viewing distance** (`displaySize == "Large"`), not the
@@ -1791,6 +2072,11 @@ while overscan removes 106 px per side, so near a breakpoint a screen can resolv
 space it does not have. For a decision that must depend on the space one particular
 container actually received, use the real measurement contract instead — see
 `ViewThatFits`.
+
+**`contentWidth` is deprecated (since 0.8.0; replacement `viewportWidth`).** It
+is the same value under a second name, and the name is a lie: it states an inset
+subtraction that never happens. It keeps working — it is in `LuauUI.DEPRECATIONS`
+with at least one minor of notice — but new code reads `viewportWidth`.
 
 ### `composition`
 
@@ -1843,6 +2129,90 @@ Invariant: when the bundle declares `handleActivate`, the inner focusable
 primitives must carry **no** `onActivate` prop — the presenter dispatches to
 the node's own handler first and then to the longest-prefix contribution, so
 declaring both double-fires the verb.
+
+---
+
+## Text measurement
+
+### `text`
+
+`LuauUI.text` — the library's own measurement engine, reachable. Three pure
+functions over one non-yielding measurer: per-font calibration, per-role line
+height, real greedy wrapping, and the CJK/emoji full-em path. It exists because
+the alternative is what consumers were writing instead — a character count times
+a guessed average glyph width, which is the measurer's own *conservative
+fallback* for a font it has never seen.
+
+| Call | Answers |
+|---|---|
+| `text.measure(spec) -> Metrics` | how big is this string, at this size, in this box |
+| `text.fit(spec) -> Fit` | what size makes it fit, and does it |
+| `text.size(spec) -> number` | the same answer, when all you want is the size |
+
+**`text.measure`** takes a spec table — the canonical form, and the one that
+matches its two siblings:
+
+```lua
+local m = LuauUI.text.measure({
+    text = "Rally Points",
+    font = "GothamSSm",
+    size = 18,          -- the size to measure AT
+    width = 240,        -- the box the string must live in
+    lineHeight = 1.2,   -- optional: the typography role's factor
+    maxLines = 2,       -- optional: the caller's own lineLimit
+})
+```
+
+The spec is construction-strict — an unknown key is an error naming the shape,
+because the likeliest mistake is writing the positional parameter's name
+(`fontSize`) and silently measuring at nil. `Metrics` is
+`{ width, height, lines, naturalLines, truncated, state, exact, requestKey?,
+error? }`: `naturalLines` is what the string wraps to uncapped, so
+`truncated` (`naturalLines > lines`) tells you the engine will ellipsize without
+a second measure; `state` is `"ready" | "pending" | "failed"`; `exact` is true
+only when every word came from a real engine measurement.
+
+`text.measure` also keeps its **six-positional form**
+(`measure(text, font, size, width, lineHeight?, maxLines?)`), detected by a
+string first argument. That is a grandfathered exception (constitution
+**E-15**): it is the solver's own hot seam, called thousands of times per solve,
+so the positional form stays for the solver while the spec form is the public
+idiom. New code writes the spec.
+
+**`text.fit(spec) -> Fit`** answers the derivation every caller was building on
+top: the largest integer size in `[floor, cap]` at which the string draws inside
+the box. `FitSpec` is
+`{ text, font, cap, width, height?, lines?, lineHeight?, floor? }` — `cap` is the
+largest size you will ever paint at (a type role's own cap), `lines` defaults to
+1, `height` is optional, and `floor` is the size below which you would rather
+change the layout than keep shrinking. `Fit` is
+`{ size, fits, lines, height, exact, state }`:
+
+- `fits = false` means even `floor` overflows — a layout decision (drop it, step
+  it down), not something to solve by painting unreadably.
+- `state` is carried straight through from the measure the chosen size came
+  from, so `exact = false` no longer conflates "this font is not calibrated yet"
+  with "an engine measurement failed". Wait on `pending`; give up on `failed`.
+
+The search is exact rather than iterative-until-close: fit is monotone in size,
+so a binary search over `[floor, cap]` lands on the true answer in ~log2(cap)
+measures, each of them memoized per `(text, font, size, width)`.
+
+**`text.size(spec) -> number`** is `fit(spec).size` — the convenience, for the
+common case where the box is known to be big enough.
+
+**The premeasure budget** is the one interaction worth planning around. Every
+`measure` of a word the engine has not sized yet enqueues a measurement request
+while the solver's collect window is open, and that queue is capped (1024
+words per round) and shared with the solve itself. `text.fit` measures at
+~log2(cap) different sizes, so calling it from inside a `presenter.onTick` hook
+during a solve can spend the surface's premeasure budget on words at sizes
+nothing will ever paint. Call it where you build a screen, not inside the frame
+that is solving one.
+
+Measurement state is process-wide: the calibration table and the measured-word
+store belong to the module, not to a core or a scope, and there is nothing to
+own or dispose.
 
 ---
 
@@ -1911,8 +2281,17 @@ the multi-column list control (SwiftUI-`Table`-shaped columns that own their
 cells; owner-held `sortOrder`; selection none/single/multi with the
 Apple-style focus/selection model; column resize via focusable grips;
 pointer-drag row reordering with ghost + drop indicator). See
-`src/controls/table.luau` for the full spec shape. `dump()` returns the
-deterministic diagnostic summary. **Input is auto-composed** by the presenter
+`src/controls/table.luau` for the full spec shape.
+
+`dump()` is the deterministic diagnostic summary, and it carries the live
+interaction state a bug report actually needs, not only the construction:
+`{ schema, id, columns, rowCount, selection, sortOrder, selectedKeys (sorted),
+grabbedKey, editing, scrollTop, dragging, reorderable, rootPath }`.
+
+A column's `alignment` applies to its **header title** as well as its cells, so a
+numeric column's heading sits over its numbers rather than left of them.
+
+**Input is auto-composed** by the presenter
 with no `present()` opts (ui_todo §0; ADR-0013): row select, sort, focus-nav
 and grab-mode reorder wire themselves from the mounted control. Every
 interactive surface has a focus + Activate story on all four inputs — sortable
@@ -1985,8 +2364,14 @@ ADR-0013): mouse wheel and one-finger touch pan scroll the window; each row is
 a focusable hit whose tap / Return / ButtonA activation calls `onActivate(item,
 meta)`; Up/Down and D-pad step the windowed rows, scrolling a row into view
 when focus crosses the window edge. The viewport is a real engine clip host so
-partial rows crop. VirtualList has no reorder, so it contributes no
-navigate-intercept.
+partial rows crop.
+
+**It does reorder, and it does intercept Navigate.** A `reorderable` list adds
+`navigateIntercept` to its contribution — that is how arrow/D-pad keys move the
+predicted slot while a row is armed instead of moving focus — and a list that is
+either reorderable *or* a drop surface adds `handleCancel`, so Cancel ends an
+armed session rather than falling through to the surface. Neither is contributed
+by a plain read-only list. See **The unified collection** below.
 
 Native canvas (native-substrate NS-A4): the list rides a `ScrollingFrame`
 whose `CanvasSize` is the FULL virtual height while only the window mounts.
@@ -1995,9 +2380,9 @@ After presenting, the CONSUMER wires the engine mirror once:
 `CanvasPosition` then drives `scrollTop` (wheel/touch/momentum/bars are
 native), and `focusKey`/keep-visible compute a canvas target written through
 `controller.scrollTo`. Unbound (or on a scroll-less adapter) the list is
-clip-only and programmatic scrolls no-op. The gallery client auto-binds any
-returned control exposing `bindNativeScroll`. `newTable` exposes the same
-seam for its body scroll.
+clip-only and programmatic scrolls no-op. VirtualList publishes the seam **flat**
+on its returned table; `newTable` publishes the same seam as
+`api.bindNativeScroll`. The gallery client auto-binds either spelling.
 
 **The unified collection** (ADR-0022 Decision 5, rows SF-L1/L2/L3). One
 construct windows, **selects**, **reorders** and **accepts drops** at the same
@@ -2059,9 +2444,22 @@ scrolls the host.
 
 `LuauUI.newResourceProvider(core, opts?) -> Provider` — bounded async
 resource provider (images and friends). `opts`: `maxConcurrent` (default 4),
-`cacheBudget` (LRU entries, default 16), `retryAttempts` (default 0),
+`cacheBudget` (LRU entries, default 16),
 `retry = { count, delaySeconds?, giveUp? }`, `now` (injected clock, default
-`os.clock`).
+`os.clock`), and the deprecated `retryAttempts` (below).
+
+`opts` is **construction-strict**: `maxConcurrent` must be an integer ≥ 1,
+`cacheBudget` an integer ≥ 0, and a declared `retry`'s `count`/`delaySeconds`
+non-negative numbers. A `maxConcurrent = 0` used to be accepted (zero is truthy
+in Lua) and then nothing could ever start — a UI that loaded nothing, with no
+diagnostic anywhere. Each refusal names the option and the rule.
+
+**`retryAttempts` is deprecated (since 0.8.0; replacement
+`retry = { count, delaySeconds?, giveUp? }`).** Two words for one concept, with
+different semantics: the legacy spelling means immediate attempts and a failed
+key that re-requests on the next `acquire`, while `retry` means spaced attempts
+against the injected clock and, by default, a give-up that lasts the session. It
+keeps its old promise until removal.
 
 - `provider.acquire(scope, key, opts?) -> handle` — `handle.state`
   (`"pending" | "ready" | "failed"` Readable), `handle.value`,
@@ -2076,15 +2474,16 @@ resource provider (images and friends). `opts`: `maxConcurrent` (default 4),
   When the budget is spent the key is **given up for the session**
   (`giveUp`, default `true` for a declared `retry`): it reads `failed`, a later
   `acquire` inherits that state instead of re-opening the transport, and
-  `provider.invalidate(key)` is the explicit reset. The legacy `retryAttempts`
-  spelling keeps its old promise — immediate attempts, and a failed key
-  re-requests on demand.
+  `provider.invalidate(key)` is the explicit reset.
 - **`provider.preload(keys, opts?) -> { keys, release }`** — warm a declared
   imminent set so a debuting badge skips the placeholder flash. It is an
   acquire without a view: the same requests, the same concurrency window, the
   same generations, so `release()` prevents work that has not started and a
   completion after it is stale. Never a global sweep — it fetches exactly the
-  keys it was handed, and skips cached or given-up ones.
+  keys it was handed, and skips cached or given-up ones. **The returned handle is
+  yours to release.** `acquire` takes a scope and registers its release there;
+  `preload` takes no scope, so a forgotten `release()` keeps the warm wave alive
+  for the session and holds its concurrency slot.
 - `provider.tick()` — cross the injected clock so due spaced retries join the
   queue. Call it from the same loop that steps the motion clock; a provider
   with no spaced retry has nothing to do.
@@ -2097,8 +2496,19 @@ resource provider (images and friends). `opts`: `maxConcurrent` (default 4),
   `provider.fail(key, generation, err) -> "retrying" | "failed" | "stale"`.
   Generations make cancelled/superseded completions stale by construction —
   a late completion can never resurrect a released request.
-- `provider.invalidate(key)` (drops the cached value AND any session give-up),
-  `provider.counters()`.
+- `provider.invalidate(key)` — drops the cached value AND any session give-up.
+  It does not reach a handle already holding that key: an existing handle keeps
+  reading `ready` with the value it was given, and a fresh `acquire` is what
+  re-opens the transport.
+- `provider.counters() -> { handles, active, queued, cached, staleRejected, dropped }`
+  — live counts for leak and behaviour assertions: outstanding handles, requests
+  in the active window, requests waiting for a slot, cached keys, completions
+  rejected as stale, and requests dropped before they started.
+- The provider itself has **no `dispose()`**: its cache and per-key state live as
+  long as it does. Handles are scope-owned, and releasing the last handle for a
+  key disposes that key's shared `state`/`value`/`error` Readables — so a
+  blueprint prop that captured `handle.state` outlives the signal behind it and
+  will read its last value forever. Bind the handle, not a copy of its field.
 
 ---
 
@@ -2109,22 +2519,53 @@ resource provider (images and friends). `opts`: `maxConcurrent` (default 4),
 `LuauUI.replication` — the client-side replicated-state adapters. Transport
 is game-owned; you feed these from your remotes.
 
+**Three ingest verbs, not one overloaded one** (constitution E-16): the name
+says *what arrived* — a whole state, a delta, a recovery — because that is what
+call sites branch on.
+
 - `replication.snapshot(core, initialRevision, initialData)` — full-state
   snapshots: `.binding` (Signal), `.ingest(revision, data) -> "applied" |
   "stale" | "duplicate"`, `.revision()`. Revisions are monotonic; stale and
   duplicate ingests are refused.
 - `replication.collection(core, initialRevision, initialItems, requestResnapshot)`
-  — keyed items with patch streams: `.ingestPatch(revision, { set?, remove? })
-  -> "applied" | "stale" | "duplicate" | "gap"` (a gap freezes patching and
-  calls `requestResnapshot(fromRevision)` until
-  `.ingestResnapshot(revision, items)` recovers), `.binding`, `.revision()`.
+  — keyed items with patch streams: `.binding`, `.revision()`,
+  `.ingestPatch(revision, { set?, remove? }) -> "applied" | "stale" |
+  "duplicate" | "gap"`, and
+  `.ingestResnapshot(revision, items) -> "applied" | "stale"`.
+
+  A patch beyond the next revision is a **gap**: patching freezes and
+  `requestResnapshot(fromRevision)` is called once, with the client's CURRENT
+  revision. A throwing `requestResnapshot` does not latch the gap — the next
+  patch asks again, so a transient remote error cannot kill the collection.
+
+  `ingestResnapshot`'s acceptance rule depends on whether a gap is outstanding.
+  **While awaiting, an equal revision is a legal re-base**: "nothing has changed
+  since your gap" is the natural answer to a request made at the current
+  revision, it applies, and it clears the gap. Outside a gap the rule is
+  unchanged — a resnapshot must be strictly newer, and an equal one is `"stale"`.
+  Note the asymmetry with the other two verbs, which call an equal revision
+  `"duplicate"`.
 - `replication.mutation(core, opts?)` — typed client requests:
   `.send(payload, expectedRevision?) -> envelope` (one in flight; a second
   send errors), `.confirm(requestId, result)` / `.reject(requestId, reason)`
   (idempotent; wrong-id responses ignored), `.reset()`, `.status`
   (`idle/pending/confirmed/rejected` Signal — pending NEVER implies
-  success), `.lastResult`. `opts.optimistic = { apply(payload), restore() }`
-  applies presentation optimistically and restores on resolution.
+  success), `.lastResult`.
+
+  **`reset()` works from any state, including pending.** It is the caller's
+  escape from a request the server never answered: it rolls back the optimistic
+  presentation (the request may still land server-side, so local state must not
+  keep claiming a success nobody confirmed) and clears the active id, which is
+  what keeps a late confirm or reject for the abandoned request ignored.
+
+  `opts.optimistic = { apply(payload), restore() }` shows the expected result
+  immediately and re-syncs on resolution. **`restore` has two jobs**, and which
+  one it is doing depends on the terminal that called it: on **reject** it truly
+  restores (put the view back), and on **confirm** it *reconciles from
+  authoritative truth as of now*. Write it as "re-read authoritative state", not
+  as "undo", or the confirm path is wrong. Both callbacks are quarantined: a
+  throwing `apply` degrades the send to an un-optimistic one, the envelope still
+  returns, and the request still goes out.
 
 ---
 
@@ -2137,7 +2578,16 @@ report)` validates a game's semantic token schema (surface/content color
 pairs with a 4.5:1 contrast gate, type ramp, spacing, radii, strokes, target
 sizes, motion durations, optional `shadows` presets) into frozen tables plus
 a contrast/completeness report. `tokens.contrastRatio(a, b)` computes the
-WCAG-style ratio. The built-in default style ("Studio Neutral",
+WCAG-style ratio.
+
+`tokens.dangerPair(colors) -> (danger, onDanger)` answers the **effective**
+destructive palette: the `danger`/`onDanger` roles from the table you pass, or
+the library's fallback pair where a style predates them. It lives here, free of
+dependencies, because both the sheet model and the theme-package compiler gate
+on the same answer — so a game overriding the destructive palette can ask what
+the contrast gate will actually run against.
+
+The built-in default style ("Studio Neutral",
 `src/tokens/default_style.luau`) is the neutral floor every app gets for
 free; games override via their own schema. Style-modifier normalization
 lives in `src/tokens/styling.luau`; the style lint (jagged corner+shadow
@@ -2315,15 +2765,27 @@ buttons, so keyboard/gamepad users navigate them with the normal focus ring
 (Down/Up) and select with Activate; closed, only the trigger is focusable.
 
 Spec: `{ id?, options: { { id: string, label: string } }, value:
-Signal<string> (the selected option id), onChange: ((id: string) -> ())? }`.
-Option `id`s must be path-safe (no `/`) and are asserted at build. The
+Signal<string> (the selected option id), onChange: ((id: string) -> ())?,
+presentation: ("automatic" | "menu" | "inline" | "sheet")?, sizeClass:
+(string | Readable)?, interactionClasses: (table | Readable)? }`.
+Option `id`s must be path-safe (no `/`) and are asserted at build. `value` must
+be a **settable Signal you own** — a read-only Memo is refused at build, the way
+every sibling control refuses one, rather than crashing on the first selection.
+The
 selection is OWNER-HELD in `value`: the control reads it (label + per-row
 selected marks) and writes it on selection, but never stores selection state
 of its own — durable state belongs in your data model. `onChange` fires only
 on an actual change (re-selecting the current option just closes).
 
-Returns `api = { handleActivate(path, meta?) -> boolean, open(), close(),
-select(id), isOpen (Signal) }`. Route the presenter's `onActivate` to
+Returns `{ blueprint, api, presentation, dump, dispose }`, where
+`api = { handleActivate(path, meta?) -> boolean, open(), close(), select(id),
+isOpen (Signal), presentation() }`. `presentation` here is a **function**
+returning the resolved idiom — `"menu"`, `"inline"` or `"sheet"` — chosen from
+the option count, the space class and whether touch is live: touch takes the
+sheet; a compact space with more than 6 options takes the sheet; 3 or fewer
+options outside a compact space go inline; everything else is a menu. (Note the
+sibling asymmetry: `newPicker`'s `presentation` is a Readable, not a function.
+PKT-1 tracks unifying them at 1.0.) Route the presenter's `onActivate` to
 `api.handleActivate` (it returns `true` when the path was the control's — the
 trigger, an option row, or Cancel); `open`/`close`/`select` drive the control
 from host code without a pointer. `dump()` returns the deterministic
@@ -2387,8 +2849,14 @@ class, including Adjust.
 min? = 0, max? = 1, format?, showValue?, height? }`.
 
 The fill is a **percent** dimension, so the bar reflows with its container without
-recomputing pixels, and paint is style-owned: the track carries the `control` surface
-role and the fill `accent`, so retheming those rules restyles every progress bar.
+recomputing pixels, and paint is style-owned through the **bar family**: the
+track declares the `barTrack` decoration slot and the fill declares `barFill`, so
+retheming those slots — or shipping art for them — restyles every progress bar.
+It does **not** borrow the `control` and `accent` surfaces any more, and that is
+the point: those are treatments meant for buttons and panels, so an ornate
+package stretched a button plate across the track and a panel gradient's alpha
+made the fill see-through (ADR-0020 R3). A theme customizes a bar through
+`chrome.barTrack` / `chrome.barFill`, never through the button rules.
 Out-of-range values clamp through the shared value model rather than overflowing, and
 `semanticText` states the value in its range. **Non-interactive** by declaration — it
 reports, it does not accept input.
@@ -2401,7 +2869,10 @@ reports, it does not accept input.
 
 `title` is **required** because it *is* the semantic text: `semanticText` is the title
 whatever the presentation, so an icon-only Label is never a control with no accessible
-name. `iconOnly` **degrades to the title** when there is no icon to show — an empty
+name. It is a **`Readable<string>`**, like the one every other control in the family
+publishes (`newProgressView`, `newStepper`, `newSlider`, `newRating`) — read it with
+`:get()`, so an accessibility or readout layer can be written once for all five.
+`iconOnly` **degrades to the title** when there is no icon to show — an empty
 square is worse than a word. Non-interactive: put it inside a `Button` (which takes
 content) when it must be pressable, which keeps one activation surface.
 
@@ -2414,10 +2885,18 @@ sizeClass?, enabled?, onChange? }`.
 
 **The presentation is adaptive, not a platform branch.** `"automatic"` (the default)
 picks from the option count and the space class you pass in — typically
-`LuauUI.adaptive.conditions(core, env).sizeClass`. The rule is exported as
-`picker.resolvePresentation(optionCount, sizeClass, longestLabel)` so it is
-predictable: more than four options stack; in a compact space, more than three options
-or labels longer than ten characters stack. A device name appears nowhere.
+`LuauUI.adaptive.conditions(core, env).sizeClass`. The rule is small enough to
+state in full, and it is the whole rule — a device name appears nowhere:
+
+| Condition (first match wins) | Presentation |
+|---|---|
+| more than 4 options | `inline` |
+| `sizeClass == "compact"` **and** (more than 3 options **or** the longest label is over 10 characters) | `inline` |
+| otherwise | `segmented` |
+
+`presentation` on the returned table is a **`Readable<string>`** of the resolved
+answer, so you can bind it. (The rule function itself is not on the public
+`LuauUI` table today; the table above is the contract.)
 
 The option group is a `UI.AdaptiveStack`, so a live space change **flips the
 presentation without remounting the options** — they keep their identity, focus and
@@ -2589,7 +3068,19 @@ Invariants worth knowing: the step grid is measured **from `min`**, so a range l
 5…25 step 5 reaches both bounds; `stepped` always makes progress (a mid-grid value
 does not quantize back onto itself and no-op); a NaN or infinite input resolves to
 the low bound instead of propagating; and an impossible range or a non-positive step
-is a build error.
+is a build error naming the field.
+
+`valueModel.defaultFormat(v) -> string` is the namespace's other member: the
+library's default number formatting, with integers bare, fractions to at most two
+decimals with trailing zeros trimmed, and no negative zero. It is what a model
+uses when its spec declares no `format`. **It is not the same function as
+`model.format`** — a model's `format` clamps the value into the model's range
+first, and this one does not. Reach for it to make a legend or a tick label match
+a control's numerals; do not use it expecting bounds.
+
+`spec.format` is a consumer callback like any other: it is quarantined on the
+render path, and a throwing formatter falls back to `defaultFormat` rather than
+unwinding a solve.
 
 ### `newTextInput`
 
@@ -2606,7 +3097,8 @@ construction: pointer, touch, keyboard, and gamepad each drive the same value
 model.
 
 **Spec** `{ id, value, onChange?, onCommit?, placeholder?, disabled?,
-keyboardType?, clearButton?, clearButtonMode?, maxLength?, validate?, env?, actionSystem? }`:
+keyboardType?, submitLabel?, clearButton?, clearButtonMode?, maxLength?,
+validate?, env?, actionSystem? }`:
 
 - `id: string` — path-stable identity.
 - `value: Signal<string>` (required, owner-held) — the field text. Must be a
@@ -2621,12 +3113,18 @@ keyboardType?, clearButton?, clearButtonMode?, maxLength?, validate?, env?, acti
 - `placeholder: string?` — shown by the engine when the value is empty.
 - `disabled: boolean | Signal<boolean>?` — a disabled field is excluded from
   focus, cannot be edited (tap/Activate do nothing), and shows no clear button.
-- `keyboardType: "default" | "numeric"?` — declared intent only; an unknown
-  value is a build error. **The current engine exposes no public keyboard-type
-  API** (`TextBox.TextInputType` is CoreScript-only), so the adapter detects
-  capability and degrades to the default keyboard; the declaration is preserved
-  as data on the field for the engine adapter and never promises a numeric
-  keyboard.
+- `keyboardType: "default" | "numeric" | "email" | "phone"?` — declared intent;
+  an unknown value is a build error. **The current engine exposes no public
+  keyboard-type API** (`TextBox.TextInputType` is CoreScript-only), so the
+  adapter detects capability and degrades to the default keyboard; the
+  declaration is preserved as data on the field for the engine adapter and never
+  promises a particular keyboard.
+- `submitLabel: "default" | "done" | "go" | "next" | "search" | "send"?` — the
+  Return-key label hint, validated at build and **never applied to anything**.
+  `TextBox.ReturnKeyType` is hidden and not scriptable, so there is no engine
+  surface to write it to; this is a declared, justified engine-absent exception
+  kept as data (it appears in `dump()`) for parity with `keyboardType`. Declaring
+  it changes no pixels today.
 - `clearButton: boolean?` — sugar for `clearButtonMode = "always"`. Activating
   the `×` empties the value (a user edit: fires `onChange`, does not commit);
   focus returns to the field as the vanished button's nearest survivor.
@@ -2669,12 +3167,15 @@ keyboardType?, clearButton?, clearButtonMode?, maxLength?, validate?, env?, acti
 
 **Returns** `api = { editing (readable Signal<boolean>), keepVisibleOffset
 (readable Signal<number>, 0 when clear), handleActivate(path, meta?) -> boolean,
-syncGeometry(rectOf) }`. Route the presenter's `onActivate` to
-`api.handleActivate` (returns `true` when the path was the field or its clear
-button); wire `onGeometry` to `api.syncGeometry` and `keepVisibleOffset` to
-`api.keepVisibleOffset` to enable keep-visible. `dump()` returns
+syncGeometry(rectOf), focusGroups(rootNode), bindActionSystem(actionSystem) }`.
+Route the presenter's `onActivate` to `api.handleActivate` (returns `true` when
+the path was the field or its clear button); wire `onGeometry` to
+`api.syncGeometry` and `keepVisibleOffset` to `api.keepVisibleOffset` to enable
+keep-visible. (`focusGroups` and `bindActionSystem` also ride the control's own
+input contribution, so the presenter already calls them — they are on `api` for a
+host that composes input by hand.) `dump()` returns
 `{ schema, id, value, editing, disabled, placeholderVisible, clearVisible,
-occlusionOffset }`.
+clearButtonMode, occlusionOffset, keyboardType, submitLabel }`.
 
 **Invariants**
 
@@ -2735,7 +3236,7 @@ Spec fields:
 |---|---|---|---|
 | `id` | `string` | no (default `"Chip"`) | the blueprint id; the mounted path is `<screen>/<id>`. |
 | `label` | `string` | no (default `""`) | the text painted on the pill. |
-| `selected` | `Signal<boolean>` | **yes** | the owner-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. |
+| `selected` | `Signal<boolean>` | **yes** | the owner-held selection. The chip reads it to paint the surface and flips it on activate — it never creates or owns it. Validated at build: absent, or a read-only Memo, is an error naming the control and the field, not a crash on the first tap. |
 | `onToggle` | `(nextValue: boolean) -> ()` | no | called after each flip with the new value (e.g. to persist a filter). |
 
 Return surface:
@@ -2822,8 +3323,14 @@ to find every copy.
   against the range it was ratified inside.
 - `interactionTokens.classForPointerType(pointerType)` — `"mouse"`/`"pen"` →
   `"pointer"`, `"touch"` → `"touch"`; anything absent or unknown → `"pointer"`.
-- `interactionTokens.promotionPx(class, overrides?)` and
-  `promotionForPointerType(pointerType, overrides?)` — the gate in px.
+- `interactionTokens.promotionPx(class, overrides?)` — the gate in px for an
+  interaction class. An unknown class falls back to the pointer gate, never to
+  zero: a gate that is too small still asks the player to move, while a zero gate
+  would eat every tap on that device.
+- `interactionTokens.promotionForPointerType(pointerType, overrides?)` — the same
+  gate keyed on the engine's pointer type instead, i.e. `promotionPx` composed
+  with `classForPointerType`. This is the one to reach for inside an event
+  handler, where what you hold is the event's own pointer type.
 - `interactionTokens.promoted(dx, dy, pointerType, overrides?) -> boolean` —
   the **magnitude** test. A 5 px diagonal on a mouse is 7 px of travel and reads
   as a drag to the player; two independent axis tests would still call it a tap.
@@ -2865,9 +3372,11 @@ re-solves nothing. `model:step(input) -> { delta, state, justArmed }` where
 `input` is `{ now, pointerPos, hostRect, canvasPos, maxScroll }` and `state` is
 `"idle" | "dwelling" | "active" | "exiting"`.
 
-Defaults (ratified, all overridable): `bandH` 40 px landscape / 44 px portrait
-(`autoscroll.bandForViewport(w, h)` picks one), `dwellS` 0.3, `vMin` 100,
-`vMax` 500, `rampS` 0.15, `exitEaseS` 0.08.
+Defaults (ratified, all overridable through `opts`): `bandH` **40 px** when the
+host is wider than it is tall and **44 px** when it is taller — the framework
+picks between them from the host's own shape, and `model:options()` reports the
+tuning actually in force — `dwellS` 0.3, `vMin` 100, `vMax` 500, `rampS` 0.15,
+`exitEaseS` 0.08.
 
 | Rule | Behavior |
 |---|---|
@@ -2900,11 +3409,25 @@ that owns its own acquisition.
 
 `opts` are `core` and `rectOf` (required — the renderer's **live** rects), plus
 the optional `zOf` (paint-order tie-break for overlapping targets), `now`,
-`feedback`, `proxy`, `motionClock` and `promotionPx`. **Every collaborator is
-optional and each degrades exactly one behavior** — no `motionClock` means
-terminals resolve instantly instead of flying, no `proxy` paints nothing, no
-`feedback` drops the semantic events — but none of them can change a verdict.
+`feedback`, `proxy`, `motionClock`, `promotionPx`, and the host's two live
+predicates: `isPathLive(path)` (a retiring subtree paints its exit but is not a
+drag surface; answered at resolution time, so a re-entry mid-exit is eligible the
+same frame) and `isSourceEnabled(path)` (whether a source is enabled right now).
+Absent, both read as always-live / always-enabled, which is what a standalone
+registry wants. **Every collaborator is optional and each degrades exactly one
+behavior** — no `motionClock` means terminals resolve instantly instead of
+flying, no `proxy` paints nothing, no `feedback` drops the semantic events — but
+none of them can change a verdict.
 
+Every member is a **dot** function (`registry.pointerDown(path, pos)`), unlike
+the colon-called pure models beside it — a `registry:` call would silently pass
+the registry table as the path.
+
+- Registration: `registry.registerSource(path, decl) -> unregister` and
+  `registry.registerTarget(path, decl) -> unregister`. The renderer calls these
+  for every mounted `UI.draggable` / `UI.dropTarget`; a host that owns its own
+  registry calls them itself, and each returns the closure that removes the
+  declaration again.
 - Acquisition: `registry.pointerDown/pointerMove/pointerUp/pointerCancel(path,
   …)` and `registry.detectorHandlers(path)` (the `UIDragDetector` form). Both
   funnel into one promotion test and one session; the engine's detector merely
@@ -2917,12 +3440,28 @@ terminals resolve instantly instead of flying, no `proxy` paints nothing, no
   re-runs the hover at the last pointer position. Call it in the same frame as a
   scroll write; the renderer already calls it after every re-solve.
 - Reads: `registry.verdict` (a Readable of
-  `{ targetId, overId, legal, reason, mode }`), `registry.isActive()`,
-  `registry.session()`, `registry.payload()`, `registry.mode()`,
-  `registry.sourcePath()`, `registry.pointerPosition()`,
-  `registry.interactionTarget()`, `registry.dump()`, `registry.dispose()`.
+  `{ targetId, overId, legal, reason, mode }`), `registry.heldSource` (a
+  `Readable<string?>` naming the source path a live session is carrying — the
+  renderer binds it to write the `dragHeld` state; see "The held source empties"
+  under `UI.draggable`), `registry.isActive()`, `registry.session()`,
+  `registry.payload()`, `registry.mode()`, `registry.sourcePath()`,
+  `registry.pointerPosition()`, `registry.interactionTarget()`,
+  `registry.dump()`.
+- `registry.onUpdate(fn) -> unsubscribe` — "the session began / moved / ended",
+  fired on every hover update and every terminal, with `{ active = false }` once
+  the session is gone.
+- `registry.setCollaborators({ now?, feedback?, proxy?, motionClock?, promotionPx? })`
+  — the injection point for collaborators that only exist once a surface is
+  presented. Each is read live, so a swap takes effect on the next gesture, and
+  passing **`false`** clears one (nil cannot: it does not survive table
+  iteration). The presenter wires every surface automatically; this is how a
+  degraded host opts a pre-wired collaborator back out.
 - `registry.surfacePresented(kind)` — a modal presenting mid-drag **cancels** the
   session (a focus trap and a drag proxy cannot coexist).
+- `registry.dispose()` — cancels the live session, kills detached flights, clears
+  sources/targets/watchers and disposes its signals, returning `core:counters()`
+  to baseline. The renderer disposes the registry it built; a hand-built one is
+  yours.
 
 `verdict` carries more than the session's hover on purpose. `newDragSession`
 skips illegal targets entirely, so it alone cannot say "you are over row 7 and it
@@ -2940,19 +3479,29 @@ cancel.
 
 `LuauUI.touchGestures` — normalization and composition for the native `GuiObject`
 touch events (roblox-native audit corrections §2). The engine *recognizes*
-gestures; this module never re-recognizes from raw samples. `touchGestures
-.normalize(kind, args) -> Gesture` turns the engine's positional callback
-arguments (`TouchTap`, `TouchLongPress`, `TouchPan`, `TouchPinch`, `TouchRotate`,
-`TouchSwipe`) into a stable value object — `{ kind, state, positions,
-totalTranslation?, velocity?, scale?, rotation?, direction? }` — mapping the
-`UserInputState` names (`Begin`/`Change`/`End`) to `began`/`changed`/`ended`
-(taps and swipes are instantaneous, state `"none"`), and tolerating any missing
-optional field without erroring. `touchGestures.newArbiter(opts?) -> arbiter`
-decides which stream owns the interaction when several fire at once:
-`arbiter:feed(gesture) -> "own" | "preempted" | "pass"` and `arbiter:owner() ->
-kind?`. Policy: pinch/rotate (two-finger) preempt pan; a began longPress preempts
-tap; swipe and tap are instantaneous and never own; ownership releases on the
-owning gesture's `"ended"` frame.
+gestures; this module never re-recognizes from raw samples.
+
+`touchGestures.normalize(kind, args) -> Gesture` turns one engine gesture
+callback into a stable value object. **`args` is the callback's POSITIONAL
+arguments as an array**, in the order the engine passes them — `{ positions }`
+for `TouchTap`, `{ positions, state }` for `TouchLongPress`,
+`{ positions, totalTranslation, velocity, state }` for `TouchPan`, and so on for
+`TouchPinch`, `TouchRotate` and `TouchSwipe`. Handing it a named-key table
+normalizes to an empty gesture, because there is nothing at `args[1]`. The
+result is `{ kind, state, positions, totalTranslation?, velocity?, scale?,
+rotation?, direction? }`, mapping the `UserInputState` names
+(`Begin`/`Change`/`End`) to `began`/`changed`/`ended` (taps and swipes are
+instantaneous, state `"none"`), and tolerating any missing optional field
+without erroring.
+
+`touchGestures.newArbiter(opts?) -> arbiter` decides which stream owns the
+interaction when several fire at once: `arbiter:feed(gesture) -> "own" |
+"preempted" | "pass"`, `arbiter:owner() -> kind?`, `arbiter:reset()`. Policy:
+pinch/rotate (two-finger) preempt pan; a began longPress preempts tap; swipe and
+tap are instantaneous and never own; ownership releases on the owning gesture's
+`"ended"` frame. **`opts` is reserved**: the policy is fixed, and a non-empty
+table is refused at construction naming that fact, rather than accepted and
+ignored.
 
 ### `spatial`
 
@@ -2989,14 +3538,162 @@ zero, `NaN`/infinite coordinates are not positions, unknown vocabulary values
 fall back to `"unknown"`/`"none"`, and an event with no spatial content at all
 returns `nil` rather than pretending to be spatially targeted. `distance` is
 *derived* from the pose and the hit, never taken on trust. `spatial.extend`
-returns a new value and leaves the input untouched; `spatial.isFlat(pos)` is
-`true` for every event LuauUI produces today; `spatial.describe(pos)` gives a
-one-line diagnostic.
+returns a new value and leaves the input untouched; `spatial.of(pos)` reads the
+spatial payload back off a position (`nil` for a flat one — it is the reader the
+example above uses); `spatial.isFlat(pos)` is `true` for every event LuauUI
+produces today; `spatial.describe(pos)` gives a one-line diagnostic.
+
+The two vocabularies are frozen sets, published so an adapter and a consumer
+agree on what a value may be: `spatial.PHASES` is
+`{ began, changed, ended, cancelled, none }` and `spatial.HANDEDNESS` is
+`{ left, right, unknown }`. `none` and `unknown` exist so a partial platform
+event still normalizes to a well-formed value rather than a nil every consumer
+has to guard.
 
 The matching render-target half is `target_contract.FUTURE.surface`: a
-`SurfaceGui` world target, **declared with its ten unanswered questions and not
-implemented**. See [`../extending/new-platform-mode.md`](../extending/new-platform-mode.md)
+`SurfaceGui` world target, **declared with its eleven unanswered questions and
+not implemented**. See [`../extending/new-platform-mode.md`](../extending/new-platform-mode.md)
 for the physical gate a support claim would have to pass first.
+
+---
+
+## Client entry points
+
+Everything above hangs off the `LuauUI` table. These eight modules do not: they
+are the code that touches Roblox `Instance`s, real input and real device facts,
+so exporting them would put engine requires in the shared/server graph. A client
+script requires each **directly**:
+
+```lua
+local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target)
+```
+
+**This list is the contract** (ADR-0011, constitution §12). These eight are
+public surface with the same compatibility promise as anything above; everything
+else under `src/` is library-internal, and a consumer requiring one of those is
+outside the boundary rule.
+
+#### `client.screen_target`
+
+`screen_target.new(opts?) -> RenderTargetAdapter` — the production `ScreenGui`
+target. **One adapter per root**: its instance map and capture/cursor state are
+adapter-scoped, so an adapter must never host two roots (ADR-0009). `destroyRoot`
+releases the tree.
+
+| Opt | Meaning |
+|---|---|
+| `style` | the compiled token style to paint from; default is Studio Neutral |
+| `isReducedMotion` | `() -> boolean`, consulted for engine-side motion |
+| `parent` | host the root under this Instance instead of `PlayerGui` (the Edit-mode preview and any harness without a LocalPlayer) |
+| `rootFactory` | `(screenId) -> { gui }` — swap only the ROOT container; everything below is target-agnostic flat rendering (this is how `billboard_target` is built) |
+| `forceScrollFallback` | render `ScrollView` nodes as plain clip hosts with no engine scrolling — the A/B switch that exercises the fallback path deliberately |
+| `forceDragFallback` | make `setDragDetector` answer nil so the raw pointer-capture path runs instead |
+| `nativeStyle` | opt into native StyleSheet paint: `true` for the built-in Dark/Light model, or `{ model?, handle?, host?, theme?, transitions? }`. Absent or unsupported keeps the explicit-write path |
+| `themePackage` | the installed `ThemePackage` whose chrome recipes decide decoration slots; the theme controller swaps it at runtime |
+
+#### `client.billboard_target`
+
+`billboard_target.new(opts) -> RenderTargetAdapter` — the same adapter with a
+`BillboardGui` root, for a LuauUI surface in the world. `opts` is
+`{ parent, adornee, canvas = { w, h } }` (all three required and asserted) plus
+`studsOffset?`, `alwaysOnTop?`, `maxDistance?`, `style?`, `isReducedMotion?`.
+Parent it under `PlayerGui` for input; anywhere else is display-only.
+`billboard_target.canvasRect(canvas)` is the matching viewport rect to feed the
+environment. It deliberately **removes** two optional adapter methods
+(`setPointerHandlers`, `setTouchGestureHandlers`), which is the target contract's
+own degrade mechanism — a billboard says honestly what it cannot do. One adapter
+per billboard, same rule as above.
+
+#### `client.roblox_env`
+
+`roblox_env.bind(env) -> unbind` — populates and keeps live every engine-owned
+fact on a `LuauUI.newEnvironment` (viewport, safe insets, topbar geometry,
+keyboard occlusion, input preference and capabilities, display class,
+accessibility preferences, locale). This is the one place allowed to read
+`UserInputService`/`GuiService` facts. The unbind is yours to own.
+
+#### `client.roblox_input`
+
+`roblox_input.newSystem(core) -> ActionSystem` — the same interface as
+`LuauUI.newActionSystem`, implemented over real `InputContext`/`InputAction`/
+`InputBinding` instances, so the presenter runs unchanged on either. Arbitration
+(priority and sinking) is the ENGINE's job here; this adapter never
+re-implements it. Pass it to `newPresenter` in place of the headless system.
+
+#### `client.roblox_resources`
+
+`roblox_resources.bind(provider) -> unbind` — the transport for
+`LuauUI.newResourceProvider`. It drains `provider.pendingRequests()` and fulfils
+each key through `ContentProvider:PreloadAsync`, answering
+`provider.complete/fail` with the request's generation. Honest about
+cancellation: releasing a handle prevents unstarted work and makes a late
+completion stale, but nothing can stop an in-flight engine fetch. The unbind is
+yours to own.
+
+#### `client.theme_controller`
+
+`theme_controller.install(adapter, package, opts) -> controller` — materializes a
+theme package's sheet, links it at the target root, resolves the snapshot and
+commits it. Documented in full under [`themes`](#themes) (the controller's
+members, the swap transaction, the fallback story). Every capability check runs
+**before** the first mutation, so a failed install leaves the target and the
+environment untouched.
+
+`opts` in full — `env` is the only unconditionally required field:
+
+| Opt | Meaning |
+|---|---|
+| `env` | **required** — the resolved snapshot rides it as the `themeMetrics` fact |
+| `core` | **required whenever `selectBy` is given**: the paradigm subscription needs a scope. Optional otherwise |
+| `theme` | initial theme name; default `package.style.defaultTheme` |
+| `selectBy` | `{ touch = pkg, pointer = pkg, gamepad = pkg }` — profile-conditional package selection (ADR-0020 R7); the positional `package` is the default for any unmapped class |
+| `selectBySettleSeconds` | how long a profile must hold before it counts as settled (default 0.25 s) |
+| `selectBySettle` | the settle-timer seam, for tests |
+| `facts` | explicit resolve facts; default is to read them from the environment |
+| `overrides` | dotted metric paths, recorded as deliberate theme-independence |
+| `rootGui` | the target's root, for an adapter that cannot report one |
+| `host` | explicit sheet host (else ADR-0018's host policy) |
+| `sheetModel` | a prebuilt sheet model (else one is derived from the package) |
+| `nativeStyle` | the materializer seam (tests and tools inject it) |
+| `forceFallback` | exercise the fallback paint path deliberately |
+| `transitions` | opt into native paint transitions (default off) |
+| `preflightFonts` | preload the package's fonts before committing (default true) |
+| `calibrate` | `(keys) -> { [key]: number }`, the font-calibration seam |
+| `fontFiles` | family → engine font file, for a package shipping its own faces |
+| `warn` | where a one-off warning goes |
+
+#### `client.edit_preview`
+
+`edit_preview.start(LuauUI, opts) -> handle` — Studio Edit-mode preview: builds
+its own core, environment and device profile, mounts a blueprint and draws a
+labelled device frame around it. `opts` is
+`{ parent, blueprint, profile?, style? }`, where `blueprint` may be a factory
+`(LuauUI, core) -> Blueprint` so an entry can create its own signals. The handle
+is `{ controller, profile, setProfile(name), refresh(), dispose() }`. Taking the
+library table as a positional first argument is deliberate (constitution E-11):
+dev tooling is injected like a composite so a plugin can hand in the game's own
+library table. **Always `dispose()` before saving the place** — it disconnects
+the heartbeat, disposes the controller and root, and destroys the decoration
+`ScreenGui`; without it the preview furniture is saved into the place.
+
+#### `client.motion_driver`
+
+`motion_driver.bind(presenter) -> unbind` — the one binding between a presenter's
+frame tick and the engine render clock: it connects `presenter.tick(dt)` to
+`RunService.PreRender`. PreRender rather than Heartbeat, because Heartbeat runs
+*after* render and would add a frame of latency to every visual the tick drives.
+Binding the same presenter twice is refused loudly.
+
+Two things stay the caller's:
+
+- **The unbind.** Nothing here watches presenter lifetime — disposing a presenter
+  does not disconnect its binding, and the module keys presenters strongly, so a
+  discarded unbind keeps ticking (and retaining) a surface nobody presents. Keep
+  the returned function next to whatever owns the presenter.
+- **The budget.** A PreRender handler blocks the rendering pipeline until it
+  returns, so everything inside one tick — the clock's transaction, every motion
+  write, transitions, the toast schedule — spends the frame's *render-thread*
+  budget.
 
 ## Motion
 
@@ -3041,7 +3738,14 @@ toggling reduced motion changes the next re-target without a remount.
   settled motion detaches itself, and a step with nothing active returns before it
   opens a transaction.
 - `clock:stats()` — `{ steps, writes, transactions }` for leak and perf
-  assertions; `transactions` always equals `steps`.
+  assertions. The invariant is **`transactions <= steps`**, with equality exactly
+  when no frame aborted before the commit phase: a throwing per-frame callback
+  aborts that step before a transaction is opened, so counting one would report a
+  flush that never happened (measured: 30 steps under a persistently throwing
+  live target → 0 transactions). Assert `<=`, not `==`, or the assertion fails in
+  precisely the scenario worth asserting on.
+- `clock:lastError() -> string?` — the last error a step quarantined, nil when
+  none. The instrument for a wedged clock, mirroring `core:lastError`.
 - `clock:dispose()` / `clock:isDisposed()` — scope-owned (`scope:own(clock)`).
   Disposal releases every value the clock built, so core counters return to
   baseline across mount/reset churn.
@@ -3176,3 +3880,61 @@ modes** — that is an invariant of the authority, not a caller's courtesy.
 | `clock:chase` | Placement is instant and `onArrive` fires on the same frame, with the same `how` / `targetLost` context. |
 | `clock:timeline` | Every beat fires immediately, in order, durations zeroed (`run` then `terminal` per beat), and `onDone("reduced")` fires once. No beat is ever dropped. |
 | `reducedMotion = "fade"` | A caller **declaration** that the consumer pairs the instant placement with a transparency fade at the destination. The value itself still snaps; motion never paints. |
+
+#### `motion.newValueReveal(spec) -> reveal`
+
+"Hold a number at what it WAS, then move it to what it IS, on cue, and land the
+truth whatever happens." A results screen, a wallet, a rank — anything that must
+not state its new value before its moment, and must never *withdraw* one it has
+already stated. It is the one member of `motion` that is not the clock or the
+class registry, because it owns **no clock and no signals**: you pass the two
+flags your own view reads and the animator it reads, and the reveal only decides
+what state they should be in.
+
+```lua
+local reveal = LuauUI.motion.newValueReveal({
+    held = heldSignal,        -- true  -> the view paints `from`
+    counting = countingSignal,-- true  -> the view paints the animator
+    animator = coinCount,     -- optional: a clock:counter / clock:spring
+})
+
+-- whenever ANY input changes — idempotent, cheap, safe before the payload exists
+reveal:sync({
+    epoch = tailId,   -- "this is a different showing"; nil = no showing at all
+    open = false,     -- has the window opened?
+    past = false,     -- has it already closed? (a late arrival has nothing to hold for)
+    abandoned = false,
+    from = 120, to = 154,   -- nil = NOT YET KNOWN
+})
+
+coinCount:onSettle(function() reveal:landed() end)
+```
+
+Neither flag true means the view paints `to`. Three methods, all colon-called:
+`reveal:sync(cue)` (call it whenever an input changes), `reveal:landed()` (wire
+it to your animator's `onSettle` — it stops the count without re-holding), and
+`reveal:rest()` (release everything to the settled state and rearm, for a
+teardown or a new surface).
+
+The five rules it encodes are the contract:
+
+1. **Held is the default.** Before the cue the reveal reads `from`. A caller with
+   no payload yet is WAITING, not abandoning — a `sync` with `epoch`, `from` or
+   `to` still nil leaves the hold exactly as it was. Releasing there is the
+   defect this exists to prevent: the final value paints, the payload arrives,
+   the hold goes back up, and the bar visibly empties before filling.
+2. **Seed, then count.** `sync` snaps the animator to `from` *before* it sets
+   `counting`, so no frame can observe an unseeded animator (a counter is created
+   at zero — flipping the flag first paints a 0).
+3. **Every abandon path lands the truth.** An explicit `abandoned`, a new epoch,
+   a window already `past`, and a caller with no animator all release to `to`.
+   There is no path on which a number is left showing what it was.
+4. **Once per epoch.** A reveal runs once for a given `epoch` — a tail id, a
+   round stamp, whatever "this is a different showing" means to you — and a
+   repeated cue is a no-op. A new epoch rearms on the settled state of the last.
+5. **Degrading is not withholding.** `animator = nil` (no motion clock, reduced
+   motion) is not a hold: every cue lands immediately. Decoration may be skipped;
+   the fact may not.
+
+Ownership: nothing. `rest()` is a state reset, not a teardown — the animator and
+both flags belong to the caller.

@@ -47,8 +47,30 @@ function scope_impl.factory(counts: { scopes: number } & { [string]: number }, r
 		return setmetatable({ label = label, owned = {}, disposed = false, parent = nil }, Scope)
 	end
 
+	-- OWNERSHIP MEANS RELEASABILITY (F-13). `own` used to insert whatever it was
+	-- handed, and the dispose walk below falls through anything it cannot
+	-- release — so `scope:own(thing)` over a table with no `dispose` read as
+	-- correct, reviewed as correct, and did nothing at all. That is the
+	-- accepted-but-ignored class, and it shipped inside the framework's own
+	-- gallery scenario. Diagnosed HERE, at the call site where the mistake is,
+	-- rather than never: a function, a child scope, and an object with a
+	-- `dispose()` are the three things a scope can actually release. Non-tables
+	-- other than functions (an engine connection, say) are unchanged — this
+	-- module cannot rule on what it cannot inspect. Borrowing is still free:
+	-- `scope:use(anything)` says "not mine to release" and always did.
 	function Scope.own(self: any, resource: any): any
 		assert(not self.disposed, "cannot own into a disposed scope")
+		-- the same reads the dispose walk performs, so the two can never disagree
+		-- about what is releasable (an inherited `dispose` off a class metatable
+		-- counts for both)
+		if type(resource) == "table" and getmetatable(resource) ~= Scope and (resource :: any).dispose == nil then
+			local kind = (resource :: any).kind
+			local named = if type(kind) == "string" then ` (kind '{kind}')` else ""
+			error(
+				`LuauUI scope: own() on scope '{self.label or "?"}' was handed a table with no dispose(){named} — a scope releases functions, child scopes, and objects with a dispose(). Own its release/unsubscribe FUNCTION instead, or do not own it (use scope:use() to borrow).`,
+				0
+			)
+		end
 		table.insert(self.owned, resource)
 		return resource
 	end

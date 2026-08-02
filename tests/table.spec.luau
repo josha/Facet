@@ -318,6 +318,64 @@ describe("Table: custom cells and resize model", function()
 			expect((after :: any)[k]).toBe(v)
 		end
 	end)
+
+	-- CTRL-08a (api-architecture-consistency F-25). Every `.dump()` in this file
+	-- was `handle.root.dump()` — the MOUNT tree — so the CONTROL's own dump, the
+	-- largest one in the library, was never exercised at all and its schema
+	-- string appeared nowhere in the repo.
+	it("the CONTROL dump is deterministic and carries its schema string", function()
+		local _, adapter, pres, tbl = world({})
+		expect(tbl.dump().schema).toBe("luauui-table-dump/1")
+		local d1 = serde.encode("json", tbl.dump(), true)
+		expect(d1).toBe(serde.encode("json", tbl.dump(), true))
+		-- ...and it stays deterministic after live interaction moved the state
+		adapter.tap(rowHitPath(0, "razz"))
+		pres.refresh()
+		local d2 = serde.encode("json", tbl.dump(), true)
+		expect(d2).toBe(serde.encode("json", tbl.dump(), true))
+		expect(d2 ~= d1).toBe(true)
+	end)
+
+	-- the live interaction state a bug report actually needs (playbook §2.5).
+	-- VirtualList's dump carried all of its equivalents; Table's carried none.
+	it("the control dump carries the live interaction state a bug report needs", function()
+		local core, adapter, pres, tbl = world({ selection = "multi", editing = nil })
+		local d = tbl.dump()
+		expect(type(d.selectedKeys)).toBe("table")
+		expect(#d.selectedKeys).toBe(0)
+		expect(d.grabbedKey).toBeNil()
+		expect(d.editing).toBe(false)
+		expect(d.scrollTop).toBe(0)
+		adapter.tap(rowHitPath(0, "razz"))
+		pres.refresh()
+		expect(tbl.dump().selectedKeys).toEqual({ "razz" })
+		local _ = core
+	end)
+
+	-- `selectedKeys` is a SET inside the control, and a set's iteration order is
+	-- not the insertion order and not stable across processes — so an unsorted
+	-- array would make the largest control's dump non-deterministic the moment a
+	-- second row was selected, which is exactly the promise the dump makes.
+	it("the dump's selectedKeys are SORTED, so a multi-selection stays deterministic", function()
+		local wide = {}
+		for _, key in { "zeta", "alpha", "mango", "delta", "kilo", "bravo", "yankee", "echo" } do
+			table.insert(wide, { id = key, name = key, laps = 1 })
+		end
+		local _, _, _, tbl = world({ selection = "multi", rowsOverride = wide })
+		for _, key in { "zeta", "mango", "kilo", "bravo", "yankee", "echo", "alpha", "delta" } do
+			tbl.api.select(key, { mode = "toggle" })
+		end
+		expect(tbl.dump().selectedKeys).toEqual({
+			"alpha",
+			"bravo",
+			"delta",
+			"echo",
+			"kilo",
+			"mango",
+			"yankee",
+			"zeta",
+		})
+	end)
 end)
 
 describe("Table: SwiftUI-shaped columns (director round 5)", function()
@@ -341,6 +399,83 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		-- leading (default) column content keeps the left inset
 		local nameText = adapter.node(cellPath(0, "razz", "name") .. "/Value")
 		expect(nameText.rect.x).toBe(adapter.node(cellPath(0, "razz", "name")).rect.x + 8)
+	end)
+
+	-- api-architecture-consistency F-27: `column.alignment` was honoured on the
+	-- CELLS and ignored by the header title, so a trailing-aligned numeric column
+	-- showed a left-aligned heading over right-aligned numbers — a
+	-- partially-honoured property, which is worse than an unsupported one.
+	it("the header title honours the column alignment, exactly like the column's cells", function()
+		local _, adapter = world({
+			columns = {
+				{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
+				{ id = "laps", title = "Laps", width = 64, alignment = { h = "trailing" } },
+			},
+		})
+		local lapsHead = adapter.node("/S/Racers/Main/Header/Head-laps").rect
+		local lapsTitle = adapter.node("/S/Racers/Main/Header/Head-laps/Title")
+		-- the title's text box is inset by the same cellPadding the cells use...
+		expect(lapsTitle.rect.x).toBe(lapsHead.x + 8)
+		expect(lapsTitle.rect.x + lapsTitle.rect.w).toBe(lapsHead.x + lapsHead.w - 8)
+		-- ...and the glyphs sit at the TRAILING edge of it, over their column
+		expect(lapsTitle.props.textAlign).toBe("end")
+
+		-- the leading default is unchanged: box and glyphs both start at the inset
+		local nameHead = adapter.node("/S/Racers/Main/Header/Head-name").rect
+		local nameTitle = adapter.node("/S/Racers/Main/Header/Head-name/Title")
+		expect(nameTitle.rect.x).toBe(nameHead.x + 8)
+		expect(nameTitle.props.textAlign).toBe("start")
+	end)
+
+	-- the sort mark lives at the trailing edge of the same header ZStack, so a
+	-- trailing title is the one that can collide with it. It must not.
+	it("a trailing title on a SORTABLE column clears the sort mark", function()
+		local core = LuauUI.newCore()
+		local sortOrder = core:signal({ column = "laps", ascending = true })
+		local _, adapter = world({
+			core = core,
+			sortOrder = sortOrder,
+			columns = {
+				{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
+				{
+					id = "laps",
+					title = "Laps",
+					width = 120,
+					alignment = { h = "trailing" },
+					sortable = true,
+				},
+			},
+		})
+		local head = adapter.node("/S/Racers/Main/Header/Head-laps").rect
+		local title = adapter.node("/S/Racers/Main/Header/Head-laps/Title").rect
+		local mark = adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").rect
+		expect(adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").props.text).toBe("▲")
+		-- the trailing inset is the THEME's mark reserve (controls.table.
+		-- sortMarkMargin = 14), not the 8px cell inset — the cell inset left the
+		-- two 1px apart under Studio Neutral's 11px mark
+		expect((head.x + head.w) - (title.x + title.w)).toBe(14)
+		expect(title.x + title.w < mark.x).toBe(true)
+		-- and a NON-sortable trailing column keeps the plain cell inset, so the
+		-- reserve is paid only where there is something to clear
+		local _, adapter2 = world({
+			columns = {
+				{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
+				{ id = "laps", title = "Laps", width = 120, alignment = { h = "trailing" } },
+			},
+		})
+		local head2 = adapter2.node("/S/Racers/Main/Header/Head-laps").rect
+		local title2 = adapter2.node("/S/Racers/Main/Header/Head-laps/Title").rect
+		expect((head2.x + head2.w) - (title2.x + title2.w)).toBe(8)
+	end)
+
+	it("a centered column centers its header title too", function()
+		local _, adapter = world({
+			columns = {
+				{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
+				{ id = "laps", title = "Laps", width = 64, alignment = { h = "center" } },
+			},
+		})
+		expect(adapter.node("/S/Racers/Main/Header/Head-laps/Title").props.textAlign).toBe("center")
 	end)
 
 	it("columns own their cells: `value` renders a default Text, `cell` renders custom", function()

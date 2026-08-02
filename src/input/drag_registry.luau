@@ -70,6 +70,14 @@ export type Opts = {
 	proxy: ProxyHost?,
 	motionClock: any?,
 	promotionPx: { [string]: number }?,
+	-- THE HOST'S TWO LIVE PREDICATES (api-architecture-consistency F-29). Both are
+	-- read below and neither was declared. `isPathLive`: a retiring subtree paints
+	-- its exit but is not a drag surface, answered per path at RESOLUTION time
+	-- (ARCH-F2). `isSourceEnabled`: whether a source is currently enabled, a live
+	-- prop read (P2-3). Absent = always live / always enabled, which is what a
+	-- standalone registry wants.
+	isPathLive: ((path: string) -> boolean)?,
+	isSourceEnabled: ((path: string) -> boolean)?,
 }
 
 export type Verdict = {

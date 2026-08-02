@@ -444,7 +444,7 @@ local function clampLines(natural: number, maxLines: number?): number
 	return math.min(natural, math.max(1, math.floor(maxLines)))
 end
 
-function text_metrics.measure(
+local function measureAt(
 	text: string,
 	font: string,
 	fontSize: number,
@@ -499,6 +499,74 @@ function text_metrics.measure(
 		state = "ready",
 		exact = exact,
 	} :: Metrics
+end
+
+--[[ TWO FORMS, ONE ANSWER (api-architecture-consistency F-31).
+
+	`LuauUI.text` exports three functions in one namespace: `fit` and `size` take a
+	spec table, `measure` took six positional arguments. Same question, two ways to
+	ask it, and a caller who learned one could not guess the other — `measure`'s
+	shape was inherited from its life as a solver internal, which is a reason and
+	not a justification.
+
+	So `measure` also accepts a spec table, detected by a table-typed first
+	argument, using its siblings' vocabulary (`text`, `font`, `width`) plus the one
+	word `FitSpec` spells differently because it means something different there:
+	`size` is the size to measure AT, where `fit`'s `cap` is the size to search
+	DOWN FROM. The positional form is untouched — every existing caller, internal
+	and shipped, keeps working — and the spec form is construction-strict, because
+	the likeliest mistake is writing the POSITIONAL parameter's name (`fontSize`)
+	as a key and silently measuring at a nil size. ]]
+export type MeasureSpec = {
+	text: string,
+	font: string,
+	size: number, -- the type size to measure AT
+	width: number, -- the box the string has to live in
+	lineHeight: number?, -- the typography role's factor; absent = the library's
+	maxLines: number?, -- the caller's own `lineLimit`; absent = uncapped
+}
+
+local MEASURE_SPEC_KEYS: { [string]: boolean } = {
+	text = true,
+	font = true,
+	size = true,
+	width = true,
+	lineHeight = true,
+	maxLines = true,
+}
+local MEASURE_SPEC_SHAPE = "a measure spec is { text, font, size, width, lineHeight?, maxLines? }"
+
+function text_metrics.measure(
+	text: string | MeasureSpec,
+	font: string?,
+	fontSize: number?,
+	maxWidth: number?,
+	lineHeight: number?,
+	maxLines: number?
+): Metrics
+	if type(text) == "table" then
+		local spec: any = text
+		for key in spec do
+			if MEASURE_SPEC_KEYS[key] ~= true then
+				error("LuauUI text.measure: unknown key '" .. tostring(key) .. "' — " .. MEASURE_SPEC_SHAPE .. ".", 0)
+			end
+		end
+		if
+			type(spec.text) ~= "string"
+			or type(spec.font) ~= "string"
+			or type(spec.size) ~= "number"
+			or type(spec.width) ~= "number"
+		then
+			error(
+				"LuauUI text.measure: "
+					.. MEASURE_SPEC_SHAPE
+					.. " — text and font are strings, size and width are numbers.",
+				0
+			)
+		end
+		return measureAt(spec.text, spec.font, spec.size, spec.width, spec.lineHeight, spec.maxLines)
+	end
+	return measureAt(text :: string, font :: string, fontSize :: number, maxWidth :: number, lineHeight, maxLines)
 end
 
 return text_metrics

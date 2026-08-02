@@ -56,8 +56,11 @@ export type Event = {
 	path: string?,
 	-- the presented handle it belongs to, when it belongs to one
 	surface: any?,
-	-- a machine-readable reason: "timeout" | "supersede" | "capacity" | "preempt" |
-	-- "manual" for a dismiss; a game-supplied code for a reject
+	-- a machine-readable reason: "timeout" | "capacity" | "preempt" | "manual"
+	-- for a dismiss; a game-supplied code for a reject. REPLACEMENT IS ITS OWN
+	-- VERB, not a dismiss reason: a superseded toast emits `type = "supersede"`
+	-- with `reason = nil` (src/present/presenter.luau's onDismiss), so nothing
+	-- ever arrives as `type = "dismiss", reason = "supersede"`.
 	reason: string?,
 	context: any?,
 }

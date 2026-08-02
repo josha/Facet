@@ -6,8 +6,12 @@
 --      tests/conformance/controls_registry.luau (spec, conformance, docs
 --      anchor, dump surface, public export) and every row's artifacts exist;
 --   2. the API reference (docs/reference/api.md) covers every public export
---      of src/init.luau and every UI.* constructor — and documents nothing
---      that does not exist (drift in either direction fails);
+--      of src/init.luau and every UI.* constructor UNDER ITS OWN `###`
+--      HEADING (a mention in prose or a code sample is not a reference
+--      entry), covers every PUBLIC MEMBER of every namespace export
+--      (motion, text, themes, …) written QUALIFIED as `<ns>.<member>`, and
+--      documents nothing that does not exist (drift in either direction
+--      fails);
 --   3. every tests/*.spec.luau is registered in tests/run.luau (a green
 --      suite with an unregistered spec is a silent zero);
 --   4. every extension playbook exists under docs/extending/;
@@ -36,6 +40,34 @@ local fs = require("@lune/fs")
 local contract = require("../../src/controls/contract")
 
 local check_registration = {}
+
+-- NESTED NAMESPACE COVERAGE (ENF-1). A top-level export like `motion` is one
+-- token, but the SURFACE is every member of the table behind it — and a bare
+-- `documented["motion"]` said nothing about `motion.newValueReveal`. These are
+-- the exports whose value is a namespace table built in src/init.luau; the
+-- checker reads the LIVE table (a headless `require` of src) rather than parsing
+-- the literal, so a member added by any route is covered.
+local NESTED_NAMESPACES = {
+	"motion",
+	"text",
+	"themes",
+	"tokens",
+	"adaptive",
+	"composition",
+	"replication",
+	"spatial",
+	"touchGestures",
+	"interactionTokens",
+	"valueModel",
+}
+
+-- Members that api.md documents in PROSE rather than as `<namespace>.<member>`.
+-- EVERY entry needs a reason — an allowlist without one is just a hole. Keyed
+-- "<namespace>.<member>". Deliberately EMPTY: nothing on the current surface
+-- qualifies (the members the checker reports today are undocumented outright,
+-- not documented differently), and an entry added to silence a report rather
+-- than to record a fact is the failure this rule exists to prevent.
+local NESTED_DOC_ALLOW: { [string]: string } = {}
 
 local REQUIRED_PLAYBOOKS = {
 	"docs/extending/new-control.md",
@@ -80,6 +112,12 @@ type Opts = {
 	-- synthetic four-input rows for the checker's own tests (drift injection):
 	-- each is { name, interactive: boolean, inputProofs }
 	extraProofRows: { any }?,
+	-- synthetic nested namespace members: { { namespace, member } }
+	extraNestedMembers: { any }?,
+	-- synthetic allowlist entries, merged over NESTED_DOC_ALLOW
+	extraNestedAllow: { [string]: string }?,
+	-- synthetic dump-surface rows: { { name, module, dumpFunction?, dump?, reason? } }
+	extraDumpRows: { any }?,
 }
 
 -- a leaf primitive is interactive when its contract makes it a focus/Activate
@@ -124,6 +162,47 @@ function check_registration.check(opts: Opts?)
 	local apiMd = fs.readFile("docs/reference/api.md")
 	local initSource = fs.readFile("src/init.luau")
 
+	-- ---- dump surface (ENF-1c) ----------------------------------------
+	-- `dumpMarker` was a free substring searched in the module source, so a row
+	-- could "prove" its dump surface with the module's own name ("async_image")
+	-- or with an unrelated constructor ("function value_model.new") and pass. The
+	-- rule is now binary and legible: either the row CITES THE DUMP FUNCTION —
+	-- exact text `function <x>.dump` / `function dump`, which must exist in the
+	-- source as a definition — or it declares `dump = false` with a `reason`
+	-- saying why this module has none. Silence is not an option either way.
+	local function checkDumpSurface(entry: any)
+		if entry.dump == false then
+			if type(entry.reason) ~= "string" or #entry.reason == 0 then
+				problem(
+					`control {entry.name}: dump = false needs a 'reason' string saying why this module has no dump surface (§10.2)`
+				)
+			end
+			return
+		end
+		local cited = entry.dumpFunction
+		if type(cited) ~= "string" then
+			problem(
+				`control {entry.name}: no dump surface declared — cite the definition as dumpFunction = "function <x>.dump", or declare dump = false with a reason (§10.2 deterministic dump form)`
+			)
+			return
+		end
+		if string.match(cited, "^function [%w_%.]*dump$") == nil then
+			problem(
+				`control {entry.name}: dumpFunction '{cited}' is not a dump definition — it must read exactly 'function <x>.dump' (a free substring proves nothing; that is how 'async_image' passed as a dump surface)`
+			)
+			return
+		end
+		if entry.module == nil or not fs.isFile(entry.module) then
+			return -- the missing-artifact problem is reported by the caller
+		end
+		local source = fs.readFile(entry.module)
+		if string.find(source, cited .. "(", 1, true) == nil then
+			problem(
+				`control {entry.name}: dumpFunction '{cited}' is not defined in {entry.module} (§10.2 deterministic dump form)`
+			)
+		end
+	end
+
 	local matchedControls = 0
 	for _, file in controlFiles do
 		local entry = registryByModule[file]
@@ -139,20 +218,16 @@ function check_registration.check(opts: Opts?)
 				problem(`control {entry.name}: registered artifact missing on disk: {artifact}`)
 			end
 		end
-		if fs.isFile(entry.module) then
-			local source = fs.readFile(entry.module)
-			if string.find(source, entry.dumpMarker, 1, true) == nil then
-				problem(
-					`control {entry.name}: dump surface marker '{entry.dumpMarker}' not found in {entry.module} (§10.2 deterministic dump form)`
-				)
-			end
-		end
+		checkDumpSurface(entry)
 		if string.find(initSource, entry.export, 1, true) == nil then
 			problem(`control {entry.name}: export '{entry.export}' not found in src/init.luau`)
 		end
 		if string.find(apiMd, "`" .. entry.docsAnchor .. "`", 1, true) == nil then
 			problem(`control {entry.name}: docs anchor \`{entry.docsAnchor}\` not found in docs/reference/api.md`)
 		end
+	end
+	for _, ghost in options.extraDumpRows or {} do
+		checkDumpSurface(ghost)
 	end
 
 	-- ---- 2. API reference drift ---------------------------------------
@@ -179,23 +254,111 @@ function check_registration.check(opts: Opts?)
 		end
 	end
 
+	-- (a) A HEADING, not a mention. A bare `` `newThing` `` anywhere in api.md —
+	-- inside a code sample, a table cell, a sentence about something else —
+	-- used to count as coverage, so an export could be "documented" by an
+	-- example that happened to call it. The reference documents a public export
+	-- under its own `### \`<name>\`` heading or it does not document it.
 	local exportSet: { [string]: boolean } = {}
 	local exportsDocumented = 0
 	for _, export in exports do
 		exportSet[export] = true
 		if documented[export] then
 			exportsDocumented += 1
-		elseif string.find(apiMd, "`" .. export .. "`", 1, true) == nil then
-			problem(`public export '{export}' is not documented in docs/reference/api.md`)
 		else
-			exportsDocumented += 1
+			problem(
+				`public export '{export}' has no \`### \`{export}\`\` heading in docs/reference/api.md (a mention in prose or a code sample is not a reference entry)`
+			)
 		end
 	end
 	for _, ghost in options.extraDocumented or {} do
 		documented[ghost] = true
 	end
+
+	-- ---- 2b. NESTED namespace coverage (ENF-1b) ------------------------
+	-- `motion`, `text`, `tokens`, … are single tokens at the top level and whole
+	-- APIs underneath. The live table is the source of truth: require src and
+	-- walk each namespace, so a member added tomorrow is covered without anyone
+	-- updating a list. A member counts as documented when api.md writes it
+	-- QUALIFIED — `` `<ns>.<member>` `` (optionally through `LuauUI.`) — or gives
+	-- it its own heading. A bare mention of the short name does not count, for
+	-- the same reason (a) does not: `resolve` is four different functions.
+	local allow: { [string]: string } = table.clone(NESTED_DOC_ALLOW)
+	for key, reason in options.extraNestedAllow or {} do
+		allow[key] = reason
+	end
+	local LuauUI = require("../../src") :: any
+
+	-- a qualified mention, with a right-hand boundary so `tokens.contrast` does
+	-- not get credit from `tokens.contrastRatio`
+	local function mentionsQualified(qualified: string): boolean
+		for _, prefix in { "`" .. qualified, "`LuauUI." .. qualified } do
+			local from = 1
+			while true do
+				local _, stop = string.find(apiMd, prefix, from, true)
+				if stop == nil then
+					break
+				end
+				if string.match(string.sub(apiMd, stop + 1, stop + 1), "[%w_]") == nil then
+					return true
+				end
+				from = stop + 1
+			end
+		end
+		return false
+	end
+
+	local nestedMembers: { any } = {}
+	for _, namespace in NESTED_NAMESPACES do
+		local value = LuauUI[namespace]
+		if type(value) ~= "table" then
+			problem(
+				`nested namespace '{namespace}' is declared in check_registration but LuauUI.{namespace} is {type(value)} — update the list`
+			)
+			continue
+		end
+		for key in value do
+			if type(key) == "string" and string.sub(key, 1, 1) ~= "_" then
+				table.insert(nestedMembers, { namespace = namespace, member = key })
+			end
+		end
+	end
+	for _, ghost in options.extraNestedMembers or {} do
+		table.insert(nestedMembers, ghost)
+	end
+
+	-- a nested member's own heading is a legitimate reference entry, so it must
+	-- not then be reported as a stale token by the reverse check below
+	local nestedNames: { [string]: boolean } = {}
+	for _, row in nestedMembers do
+		nestedNames[row.member] = true
+	end
+
+	local nestedDocumented = 0
+	for _, row in nestedMembers do
+		local qualified = `{row.namespace}.{row.member}`
+		local reason = allow[qualified]
+		if reason ~= nil then
+			if #reason == 0 then
+				problem(
+					`nested member '{qualified}' is allowlisted in check_registration with an EMPTY reason — every allowlist entry states why the reference documents it in prose instead`
+				)
+			else
+				nestedDocumented += 1
+			end
+			continue
+		end
+		if mentionsQualified(qualified) or documented[row.member] then
+			nestedDocumented += 1
+		else
+			problem(
+				`nested public member '{qualified}' is not documented in docs/reference/api.md — write it QUALIFIED (\`{qualified}\`) or give it a heading; a namespace's members are public surface, not implementation`
+			)
+		end
+	end
+
 	for token in documented do
-		if not exportSet[token] then
+		if not exportSet[token] and not nestedNames[token] then
 			problem(`docs/reference/api.md documents '{token}' which is not a public export (stale reference?)`)
 		end
 	end
@@ -407,6 +570,8 @@ function check_registration.check(opts: Opts?)
 		counts = {
 			controls = matchedControls,
 			exportsDocumented = exportsDocumented,
+			nestedMembers = #nestedMembers,
+			nestedDocumented = nestedDocumented,
 			specs = #specFiles,
 			interactiveControls = interactiveControls,
 			affordanceControls = affordanceControls,

@@ -10,6 +10,9 @@ playbook is the contributor's side: the rules that keep a theme from breaking
 the solver, the vocabulary you may and may not extend, and the evidence a theme
 change owes before it is called done.
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules your addition must follow.
+
 > **What this document is, in plain words.** A theme in LuauUI is a settings
 > table, not a program. It can change what the UI *looks like* — colours, type,
 > sizes, and the pictures drawn behind buttons and panels — and it is

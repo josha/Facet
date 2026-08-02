@@ -7,6 +7,9 @@ This playbook covers COMPOSITE controls — controls composed from the shipped
 that needs a NEW engine instance class is an engine feature first: do
 [new-engine-feature.md](new-engine-feature.md), then come back here.
 
+Read [`../reference/constitution.md`](../reference/constitution.md) first — the
+rules your addition must follow.
+
 ## 0. Ground rules
 
 - Work from the library root: `GameStudio/ui/LuauUI` (all commands below
@@ -184,6 +187,12 @@ signature, spec-table fields, return surface, invariants, and a short
 example — written for a developer who has never seen this repo (no internal
 shorthand). If the control introduces a new concept, add a paragraph to the
 relevant `docs/guide/` page.
+
+[`../reference/constitution.md` §15](../reference/constitution.md#15-evidence)
+is the evidence list your entry is part of: red-first specs, the registry row
+with its proofs, this api.md entry plus a guide paragraph when it introduces a
+concept, live Studio evidence for anything visible or interactive, and honest
+PENDING rows for what only a device or a human can observe.
 
 ## 5. Gates and evidence
 

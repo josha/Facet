@@ -7,6 +7,7 @@
 -- Library-internal requires stay RELATIVE/@self so the same source runs
 -- headless under lune and mounted under Rojo.
 
+local coreContract = require("@self/core/contract")
 local customCore = require("@self/core/custom")
 local blueprint = require("@self/blueprint")
 local mountLib = require("@self/mount")
@@ -24,23 +25,76 @@ local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
 local motionClasses = require("@self/motion/classes")
 
+-- THE CORE CONTRACT TYPES, REACHABLE (F-28). `src/core/contract.luau` is pure
+-- types and no code, and until now nothing re-exported it from the public entry
+-- — so an author writing a typed helper (`function build(core: ???, …)`) had no
+-- name to write and no way to import one, and the library's own boundaries said
+-- `core: any` 35 times. These are erased at runtime (the module returns nil),
+-- and it requires nothing, so the entry point stays safe for shared/server
+-- require graphs (UI-BOUND-001).
+export type Core = coreContract.Core
+export type Scope = coreContract.Scope
+export type Signal<T> = coreContract.Signal<T>
+export type Memo<T> = coreContract.Memo<T>
+export type Readable<T> = coreContract.Readable<T>
+export type Unsubscribe = coreContract.Unsubscribe
+
+export type Deprecation = {
+	surface: string,
+	since: string,
+	removeNoEarlierThan: string,
+	replacement: string,
+	note: string?,
+}
+
+-- DECLARED deprecations (ADR-0011): the half of the ledger that is not a
+-- blueprint PROPERTY. `blueprint_schema.deprecations()` can only speak about
+-- props, so an opts field or a derived condition had nowhere to be declared and
+-- the machinery simply did not know about it. Both halves are the same record
+-- shape, so every consumer of DEPRECATIONS reads one list.
+local DECLARED_DEPRECATIONS: { Deprecation } = {
+	{
+		surface = "newResourceProvider(opts.retryAttempts)",
+		since = "0.8.0",
+		removeNoEarlierThan = "0.9.0",
+		replacement = "opts.retry = { count, delaySeconds?, giveUp? }",
+		note = "legacy immediate-retry semantics preserved until removal",
+	},
+	{
+		surface = "adaptive.conditions().contentWidth",
+		since = "0.8.0",
+		removeNoEarlierThan = "0.9.0",
+		replacement = "viewportWidth",
+		note = "alias; the value never subtracted insets",
+	},
+}
+
+-- the ledger is the UNION of both halves, in a deterministic order: every
+-- schema-generated entry (already sorted by class then prop) followed by the
+-- declared list in declaration order. Frozen: it is machine-readable authority,
+-- not a scratch table a consumer can edit.
+local function buildDeprecations(): { Deprecation }
+	local ledger: { Deprecation } = {}
+	for _, entry in require("@self/blueprint_schema").deprecations() do
+		table.insert(ledger, entry)
+	end
+	for _, entry in DECLARED_DEPRECATIONS do
+		table.insert(ledger, entry)
+	end
+	return table.freeze(ledger)
+end
+
 local LuauUI = {
 	-- semantic version (ADR-0011): MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the ADR.
-	VERSION = "0.7.0",
+	VERSION = "0.8.0",
 
 	-- deprecation ledger (ADR-0011): { surface, since, removeNoEarlierThan,
 	-- replacement, note? } per entry; a deprecated surface keeps working for
-	-- at least one minor version after `since`. Empty = nothing deprecated.
-	DEPRECATIONS = require("@self/blueprint_schema").deprecations() :: {
-		{
-			surface: string,
-			since: string,
-			removeNoEarlierThan: string,
-			replacement: string,
-			note: string?,
-		}
-	},
+	-- at least one minor version after `since`. Schema-generated property
+	-- deprecations plus the declared list above — complete, machine-readable,
+	-- and frozen.
+	DEPRECATIONS = buildDeprecations(),
 
 	-- reactive foundation (ADR-0002: custom core)
 	newCore = customCore.new,

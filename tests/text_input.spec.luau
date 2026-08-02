@@ -125,6 +125,28 @@ describe("TextInput: build + render (TextField primitive wired headless)", funct
 		expect(node.props.maxLength).toBe(10)
 		expect(node.rect ~= nil).toBe(true)
 	end)
+
+	-- api-architecture-consistency F-26. `spec.env` is DOCUMENTED optional (and
+	-- the control has three env reads: the keyboard-occlusion memo, the
+	-- edit-start touch snapshot, and the hot-switch observer). Nothing proved
+	-- the nil-env path, so the whole edit flow was one unguarded deref away from
+	-- crashing on the first tap for anyone who took the documented option. This
+	-- drives the flow end to end WITHOUT an env: the env only tells the control
+	-- which classes were live, and without one there is simply no touch to
+	-- snapshot and no occlusion to dodge.
+	it("a TextInput with NO env builds, edits, types and commits (the documented optional)", function()
+		local w = world({ env = false, initial = "" })
+		expect(w.adapter.node(FIELD) ~= nil).toBe(true)
+		w.adapter.tap(FIELD)
+		expect(w.control.api.editing:get()).toBe(true)
+		w.adapter.focusText(FIELD)
+		w.adapter.typeText(FIELD, "abc")
+		expect(w.value:get()).toBe("abc")
+		w.adapter.commitText(FIELD)
+		expect(w.control.api.editing:get()).toBe(false)
+		expect(w.commits[1].text).toBe("abc")
+		expect(w.core:lastError()).toBeNil()
+	end)
 end)
 
 describe("TextInput: pointer (tap to edit, type, commit)", function()

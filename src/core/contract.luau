@@ -66,7 +66,11 @@ export type Core = {
 	scope: (self: Core, label: string?) -> Scope,
 	counters: (self: Core) -> Counters,
 	-- diagnostics: last quarantined error string (cycle path, write-in-memo,
-	-- compute error, feedback-loop cap), nil when healthy
+	-- compute error, feedback-loop cap). STICKY: nil until the first quarantined
+	-- error, and never cleared afterwards — it reports "something was contained
+	-- at some point in this core's life", not "this core is unhealthy right now".
+	-- There is no take/clear verb, so a health assertion built on it must be
+	-- scoped to a freshly-built core (the library's own tests are).
 	lastError: (self: Core) -> string?,
 }
 

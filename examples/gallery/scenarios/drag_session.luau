@@ -69,6 +69,10 @@ return {
 
 		local session: any = nil
 		local trace: { string } = {}
+		-- the FULL normalized gesture payloads (NS-A6 / SEAM-3): a Studio drive on a
+		-- real touch device reads these to prove positions/scale/state actually
+		-- arrived, not merely that a gesture kind fired
+		local gestures: { any } = {}
 		local wired = "none"
 
 		local function targetsFromGeometry(rectOf: (string) -> any)
@@ -165,14 +169,36 @@ return {
 							end,
 						})
 					end
-					-- NS-A6 connection: normalized touch gestures reach a pure sink
+					-- NS-A6 connection: normalized touch gestures reach a pure sink.
+					-- The recorder keeps the WHOLE payload, not just the kind: `kind`
+					-- survived the SEAM-3 named-key defect while positions, state,
+					-- scale, rotation, translation and velocity were all dropped, so a
+					-- kind-only trace could never have caught it. A Studio drive on a
+					-- touch device reads `gestures` and sees real numbers or nothing.
 					if adapter.setTouchGestureHandlers ~= nil and cardInstance ~= nil then
 						adapter.setTouchGestureHandlers(
 							{ instance = cardInstance, path = "/DragLab/Board/Card" },
 							function(gesture)
+								local first = (gesture.positions or {})[1]
+								table.insert(gestures, {
+									kind = gesture.kind,
+									state = gesture.state,
+									positionCount = #(gesture.positions or {}),
+									firstPosition = if first ~= nil then { x = first.x, y = first.y } else nil,
+									totalTranslation = gesture.totalTranslation,
+									velocity = gesture.velocity,
+									scale = gesture.scale,
+									rotation = gesture.rotation,
+									direction = gesture.direction,
+								})
 								table.insert(
 									trace,
-									"touch:" .. tostring(gesture.kind) .. ":" .. tostring(gesture.state)
+									"touch:"
+										.. tostring(gesture.kind)
+										.. ":"
+										.. tostring(gesture.state)
+										.. ":n="
+										.. tostring(#(gesture.positions or {}))
 								)
 							end
 						)
@@ -191,7 +217,13 @@ return {
 				end,
 			},
 			report = function()
-				return { status = status:get(), hover = hoverTarget:get(), wired = wired, trace = trace }
+				return {
+					status = status:get(),
+					hover = hoverTarget:get(),
+					wired = wired,
+					trace = trace,
+					gestures = gestures,
+				}
 			end,
 		}
 	end,

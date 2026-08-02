@@ -97,3 +97,83 @@ describe("text_fit.fit — the largest size that actually fits", function()
 		expect(`known={type(unknown.exact)}`).toBe("known=boolean")
 	end)
 end)
+
+--[[ ONE NAMESPACE, ONE ARGUMENT CONVENTION (api-architecture-consistency F-31).
+	`LuauUI.text` shipped `fit`/`size` taking a spec table and `measure` taking six
+	positional arguments — the same question asked two ways, in three functions
+	exported in one commit. `measure` now ALSO accepts the spec table (detected by
+	a table-typed first argument), with the vocabulary its siblings use. The
+	positional form is untouched: every existing caller, internal and shipped,
+	keeps working. ]]
+describe("text.measure — the spec-table form (F-31)", function()
+	it("both forms answer identically for the same inputs", function()
+		local cases = {
+			{ text = "You earned 100 points towards the Chaos Cup!", size = 18, width = 240, maxLines = 2 },
+			{ text = "BEACH-BALL BUMPER", size = 24, width = 86 },
+			{ text = "", size = 14, width = 100 },
+			{ text = "Drag to steer", size = 22, width = 173, lineHeight = 1.35, maxLines = 3 },
+		}
+		for _, case in cases do
+			local positional =
+				textMetrics.measure(case.text, FONT, case.size, case.width, case.lineHeight, case.maxLines)
+			local spec = textMetrics.measure({
+				text = case.text,
+				font = FONT,
+				size = case.size,
+				width = case.width,
+				lineHeight = case.lineHeight,
+				maxLines = case.maxLines,
+			})
+			expect(`w={spec.width} h={spec.height} l={spec.lines} n={spec.naturalLines}`).toBe(
+				`w={positional.width} h={positional.height} l={positional.lines} n={positional.naturalLines}`
+			)
+			expect(`trunc={spec.truncated} state={spec.state} exact={spec.exact}`).toBe(
+				`trunc={positional.truncated} state={positional.state} exact={positional.exact}`
+			)
+		end
+	end)
+
+	it("a missing or mistyped key fails at the call site, naming the legal set", function()
+		local ok, err = pcall(function()
+			-- `fontSize` is the POSITIONAL parameter's name, and the likeliest typo
+			return textMetrics.measure({ text = "x", font = FONT, fontSize = 18, width = 100 } :: any)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "fontSize", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "size", 1, true) ~= nil).toBe(true)
+
+		local missing = pcall(function()
+			return textMetrics.measure({ text = "x", font = FONT, width = 100 } :: any)
+		end)
+		expect(missing).toBe(false)
+	end)
+end)
+
+--[[ `Fit` CARRIES THE MEASURE'S STATE (api-architecture-consistency F-32).
+	`Metrics.state` distinguishes "the font is uncalibrated, the engine has not
+	answered yet" (`pending`) from "an engine measurement failed" (`failed`) from
+	`ready`; `Fit` kept only `exact`, which covers both. The state reported is the
+	state of the measure at the CHOSEN size — the one the caller is about to
+	paint at. ]]
+describe("text_fit.fit — the state of the measure at the chosen size (F-32)", function()
+	it("a calibrated font reports the same state its measure does", function()
+		local spec = { text = "Rally Points", font = FONT, cap = 24, width = 90, lines = 1 }
+		local fit = textFit.fit(spec)
+		local atChosen = textMetrics.measure(spec.text, spec.font, fit.size, spec.width, nil, spec.lines)
+		expect(fit.state).toBe(atChosen.state)
+		expect(fit.state).toBe("ready")
+	end)
+
+	it("an uncalibrated font says `pending`, not merely `exact = false`", function()
+		local fit = textFit.fit({ text = "Rally Points", font = "NotACalibratedFace", cap = 24, width = 90 })
+		expect(fit.state).toBe("pending")
+	end)
+
+	it("the cap-fits and empty-string paths carry it too", function()
+		local wide = textFit.fit({ text = "ok", font = "NotACalibratedFace", cap = 20, width = 4000 })
+		expect(wide.size).toBe(20) -- the cap fit outright
+		expect(wide.state).toBe("pending")
+		local empty = textFit.fit({ text = "", font = FONT, cap = 20, width = 100 })
+		expect(empty.state).toBe("ready")
+	end)
+end)

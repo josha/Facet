@@ -169,6 +169,64 @@ describe("bounded retry: the give-up is permanent for the session", function()
 	end)
 end)
 
+-- F-12. The sibling four files away in the same public surface (`valueModel.new`)
+-- raises named errors for an impossible range; this constructor took the same
+-- class of impossible option in silence. `maxConcurrent = 0` is the sharp one:
+-- `promote()` can never activate anything, so every request queues forever and
+-- the UI simply never loads, with no diagnostic anywhere — not even
+-- `core:lastError()`. Refusing it at construction IS the fix.
+describe("provider construction is strict (F-12)", function()
+	local function build(opts: any): (boolean, string)
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			resources.newProvider(core, opts)
+		end)
+		return ok, tostring(err)
+	end
+
+	it("maxConcurrent = 0 is refused instead of silently wedging every request", function()
+		local ok, err = build({ maxConcurrent = 0 })
+		expect(ok).toBe(false)
+		expect(string.find(err, "LuauUI resource provider:", 1, true) ~= nil).toBe(true)
+		expect(string.find(err, "maxConcurrent", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("maxConcurrent must be a positive INTEGER", function()
+		expect((build({ maxConcurrent = -2 }))).toBe(false)
+		expect((build({ maxConcurrent = 2.5 }))).toBe(false)
+		expect((build({ maxConcurrent = "4" }))).toBe(false)
+		expect((build({ maxConcurrent = 0 / 0 }))).toBe(false)
+		expect((build({ maxConcurrent = 1 }))).toBe(true)
+		expect((build({ maxConcurrent = 8 }))).toBe(true)
+	end)
+
+	it("cacheBudget must be a non-negative integer (0 is legal: cache nothing)", function()
+		local ok, err = build({ cacheBudget = -1 })
+		expect(ok).toBe(false)
+		expect(string.find(err, "cacheBudget", 1, true) ~= nil).toBe(true)
+		expect((build({ cacheBudget = 1.5 }))).toBe(false)
+		expect((build({ cacheBudget = 0 }))).toBe(true)
+		expect((build({ cacheBudget = 32 }))).toBe(true)
+	end)
+
+	it("a negative retry count or delay is reported, not silently discarded", function()
+		local ok, err = build({ retry = { count = -1 } })
+		expect(ok).toBe(false)
+		expect(string.find(err, "retry.count", 1, true) ~= nil).toBe(true)
+		local ok2, err2 = build({ retry = { delaySeconds = -0.5 } })
+		expect(ok2).toBe(false)
+		expect(string.find(err2, "retry.delaySeconds", 1, true) ~= nil).toBe(true)
+		expect((build({ retry = { count = 0, delaySeconds = 0 } }))).toBe(true)
+		expect((build({ retry = { count = 3, delaySeconds = 1 } }))).toBe(true)
+		expect((build({ retry = { count = "3" } }))).toBe(false)
+	end)
+
+	it("no opts at all, and an empty opts table, still build the documented defaults", function()
+		expect((build(nil))).toBe(true)
+		expect((build({}))).toBe(true)
+	end)
+end)
+
 describe("preload: warming a declared set", function()
 	it("preloads exactly the keys it was handed, under the same concurrency window", function()
 		local f = fixture({ maxConcurrent = 2 })

@@ -6,7 +6,8 @@
 -- no asset, or an icon-only presentation at a size where a glyph alone is
 -- ambiguous — the title still carries the meaning. `semanticText` is always the
 -- title, whatever the presentation, so an icon-only Label is never a control with
--- no accessible name.
+-- no accessible name. It is a READABLE (`:get()`), the shape ProgressView,
+-- Stepper, Slider and Rating publish, so one readout layer serves all five.
 --
 -- NON-INTERACTIVE: a Label displays. Put it inside a Button (which now takes
 -- content) when it needs to be pressable — that keeps ONE activation surface.
@@ -87,8 +88,14 @@ function label_control.build(LuauUI: any, core: any, spec: Spec)
 		align = "center",
 		children = children,
 	})
-	-- always the title, whatever the presentation
-	api.semanticText = spec.title
+	-- always the title, whatever the presentation — and a READABLE, like the
+	-- four siblings that publish one (ProgressView, Stepper, Slider, Rating), so
+	-- an accessibility/readout layer can be written ONCE for the family
+	-- (CTRL-06). The title is construction-fixed here, so this is a static memo:
+	-- it is owned by the control scope and dies with dispose().
+	api.semanticText = scope:own(core:memo(function()
+		return spec.title
+	end))
 
 	function api.dump()
 		return {

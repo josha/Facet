@@ -25,7 +25,7 @@ All source lives under `src/`. Grouped by responsibility:
 | **env** | `env/environment.luau` | Per-device facts (screen size, safe areas, input capabilities and preference, display class, accessibility preferences) as observable values, plus derived policy — notably `interactionClasses` (the live set of input idioms the device offers right now) and `distanceProfile` (`near` vs `ten-foot` for TV-class displays). |
 | **async** | `async/resources.luau` | Bounded, cancellable async loading with a cache and stale-response rejection. |
 | **controls** | `controls/table.luau`, `controls/virtual_list.luau`, `controls/contract.luau` | Composite controls built *out of* the primitive blueprints. |
-| **client** | `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/billboard_target.luau`, `client/edit_preview.luau`, `client/theme_controller.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only. |
+| **client** | `client/screen_target.luau`, `client/roblox_env.luau`, `client/roblox_input.luau`, `client/roblox_resources.luau`, `client/billboard_target.luau`, `client/theme_controller.luau`, `client/edit_preview.luau`, `client/motion_driver.luau` | The **only** code that touches Roblox `Instance`s, real input, and real device facts. Client-only, and these eight are the blessed entry points a consumer may require directly — see [`../reference/api.md` §Client entry points](../reference/api.md#client-entry-points). |
 
 Everything except the **client** group is engine-free and runs headless.
 
@@ -93,7 +93,10 @@ that actually changed are written back.
 ## 2.3 Extension points
 
 You extend LuauUI at four seams, each a documented contract rather than a place
-to edit library internals.
+to edit library internals. Whatever you add through one of them is held to
+[`the constitution`](../reference/constitution.md) — the authoritative rule set
+for how a LuauUI public surface is shaped, and what the playbooks and the
+registration checkers enforce.
 
 ### Composite controls
 

@@ -198,6 +198,64 @@ describe("scope disposal: a throwing cleanup is quarantined (RR-4)", function()
 	end)
 end)
 
+-- F-13. `own` used to insert whatever it was handed and `dispose` used to fall
+-- through anything it could not release, with no diagnostic — so an ownership
+-- statement over an unreleasable table read as correct, reviewed as correct, and
+-- did nothing. The library's own shipped gallery scenario did exactly that. The
+-- accepted-but-ignored class is the failure this diagnoses AT own(), where the
+-- mistake is, rather than never.
+describe("scope ownership: an unreleasable resource is refused at own() (F-13)", function()
+	it("a table with no dispose() is refused, naming the scope and the fix", function()
+		local core = LuauUI.newCore()
+		local scope = core:scope("ownership")
+		local ok, err = pcall(function()
+			scope:own({ pendingRequests = function() end }) -- a provider-shaped table
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "LuauUI scope:", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "ownership", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "dispose", 1, true) ~= nil).toBe(true)
+		-- refusing is not corrupting: the scope never took it, and still works
+		local released = false
+		scope:own(function()
+			released = true
+		end)
+		scope:dispose()
+		expect(released).toBe(true)
+	end)
+
+	it("functions, child scopes, and dispose-bearing objects all stay legal", function()
+		local core = LuauUI.newCore()
+		local before = core:counters()
+		local scope = core:scope("legal")
+		local order: { string } = {}
+		scope:own(function()
+			table.insert(order, "function")
+		end)
+		scope:own(core:signal(1)) -- a Readable disposes itself
+		scope:own(core:memo(function()
+			return 1
+		end))
+		scope:child("kid")
+		scope:own({
+			dispose = function()
+				table.insert(order, "object")
+			end,
+		})
+		scope:dispose()
+		expect(order).toEqual({ "object", "function" })
+		expect(core:counters()).toEqual(before)
+	end)
+
+	it("`use` still borrows anything — only OWNERSHIP implies releasability", function()
+		local core = LuauUI.newCore()
+		local scope = core:scope("borrow")
+		local borrowed = { name = "not mine to release" }
+		expect(scope:use(borrowed)).toBe(borrowed)
+		scope:dispose()
+	end)
+end)
+
 describe("motion clock: the stats contract under a quarantined frame (RR-1-R2)", function()
 	it("transactions counts frames that really committed, never the aborted ones", function()
 		local core = LuauUI.newCore()

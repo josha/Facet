@@ -15,7 +15,6 @@ local LuauUI = require(ReplicatedStorage:WaitForChild("LuauUI")) :: any
 local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target) :: any
 local roblox_env = require(ReplicatedStorage.LuauUI.client.roblox_env) :: any
 local roblox_input = require(ReplicatedStorage.LuauUI.client.roblox_input) :: any
-local table_control = require(ReplicatedStorage.LuauUI.controls["table"]) :: any
 
 local UI = LuauUI.UI
 local core = LuauUI.newCore()
@@ -52,7 +51,10 @@ core:observe(sortOrder, function(order)
 	workspace:SetAttribute("LuauUI_TB_Sort", `{order.column}:{if order.ascending then "asc" else "desc"}`)
 end)
 
-local tbl = table_control.build(LuauUI, core, {
+-- the PUBLIC export, not an instance-path reach into src/controls (ADR-0011:
+-- a consumer goes through the LuauUI root plus the blessed client entry points;
+-- check_boundary now enforces it)
+local tbl = LuauUI.newTable(LuauUI, core, {
 	id = "Racers",
 	columns = {
 		{

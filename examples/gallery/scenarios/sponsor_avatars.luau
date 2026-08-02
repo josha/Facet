@@ -45,13 +45,16 @@ return {
 		-- RETRY IS A CALL-SITE DECISION (§6.6): three attempts a second apart, then
 		-- the key is given up for the session. The clock is the presenter's.
 		local RETRY = { count = 3, delaySeconds = 1 }
-		local provider = scope:own(LuauUI.newResourceProvider(core, {
+		-- NOT scope-owned: a provider is not disposable (its handles are — each
+		-- `acquire` registers its own release on the caller's scope), so owning
+		-- it here only ever read as ownership.
+		local provider = LuauUI.newResourceProvider(core, {
 			maxConcurrent = 4,
 			now = function()
 				return elapsed
 			end,
 			retry = RETRY,
-		}))
+		})
 
 		-- the scripted transport: which keys are allowed to succeed, and how many
 		-- times each key has been asked
