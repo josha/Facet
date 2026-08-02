@@ -1,0 +1,196 @@
+{
+  "schema": "luauui-theme-assets/1",
+  "package": "pixel-quest",
+  "stage": "rich-skinning-v2",
+  "rendering": "pixel",
+  "pixelUnit": 4,
+  "uploaded": "2026-07-25",
+  "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8643 serving this directory (build package P4, pixel mode; P5 added pixel_blank for the selected-only ornament layer)",
+  "note": "Slice geometry: SliceCenter = Rect(border, border, W-border, H-border), SliceScale = 1 (integer, R5). EVERY image rule for this package must carry ResampleMode = Pixelated. Every sliced source is 2*border+1 design pixels on each sliced axis, so the stretched centre is one uniform design pixel.",
+  "assets": {
+    "pixel_plate_default": {
+      "file": "pixel_plate_default.png",
+      "contentId": "rbxassetid://70509734376718",
+      "size": "36x36",
+      "designPx": "9x9",
+      "sliceBorder": 16,
+      "slot": "control|selection",
+      "state": "default"
+    },
+    "pixel_plate_selected": {
+      "file": "pixel_plate_selected.png",
+      "contentId": "rbxassetid://140498947277552",
+      "size": "36x36",
+      "designPx": "9x9",
+      "sliceBorder": 16,
+      "slot": "selection",
+      "state": "selected"
+    },
+    "pixel_plate_ornament": {
+      "file": "pixel_plate_ornament.png",
+      "contentId": "rbxassetid://112667248840646",
+      "size": "24x24",
+      "designPx": "6x6",
+      "sliceBorder": 0,
+      "slot": "selection.layers[*]",
+      "layerKind": "corners",
+      "state": "selected"
+    },
+    "pixel_blank": {
+      "file": "pixel_blank.png",
+      "contentId": "rbxassetid://98713013227633",
+      "size": "24x24",
+      "designPx": "6x6",
+      "sliceBorder": 0,
+      "slot": "selection.layers[*]",
+      "layerKind": "corners",
+      "state": "default",
+      "note": "Entirely transparent, on purpose: the per-state grammar requires a `default`, and this is how a layer says it paints NOTHING in the states it is not for."
+    },
+    "pixel_panel": {
+      "file": "pixel_panel.png",
+      "contentId": "rbxassetid://122249249524085",
+      "size": "52x52",
+      "designPx": "13x13",
+      "sliceBorder": 24,
+      "slot": "panel",
+      "state": "default"
+    },
+    "pixel_field": {
+      "file": "pixel_field.png",
+      "contentId": "rbxassetid://88009742569643",
+      "size": "36x36",
+      "designPx": "9x9",
+      "sliceBorder": 16,
+      "slot": "field",
+      "state": "default"
+    },
+    "pixel_bar_track": {
+      "file": "pixel_bar_track.png",
+      "contentId": "rbxassetid://133548434345857",
+      "size": "20x32",
+      "designPx": "5x8",
+      "sliceBorder": 8,
+      "slot": "barTrack",
+      "state": "default"
+    },
+    "pixel_bar_fill": {
+      "file": "pixel_bar_fill.png",
+      "contentId": "rbxassetid://118968463549709",
+      "size": "12x16",
+      "designPx": "3x4",
+      "sliceBorder": 4,
+      "slot": "barFill",
+      "state": "default",
+      "direction": "ltr"
+    },
+    "pixel_bar_cap_heart": {
+      "file": "pixel_bar_cap_heart.png",
+      "contentId": "rbxassetid://100115790671157",
+      "size": "40x40",
+      "designPx": "10x10",
+      "sliceBorder": 0,
+      "slot": "barCap.start",
+      "state": "default"
+    },
+    "pixel_toggle_track_off": {
+      "file": "pixel_toggle_track_off.png",
+      "contentId": "rbxassetid://82727713033159",
+      "size": "28x32",
+      "designPx": "7x8",
+      "sliceBorder": 12,
+      "slot": "toggleTrack",
+      "state": "default"
+    },
+    "pixel_toggle_track_on": {
+      "file": "pixel_toggle_track_on.png",
+      "contentId": "rbxassetid://94324416211669",
+      "size": "28x32",
+      "designPx": "7x8",
+      "sliceBorder": 12,
+      "slot": "toggleTrack",
+      "state": "selected"
+    },
+    "pixel_toggle_knob": {
+      "file": "pixel_toggle_knob.png",
+      "contentId": "rbxassetid://134826235649025",
+      "size": "24x24",
+      "designPx": "6x6",
+      "sliceBorder": 0,
+      "slot": "toggleKnob",
+      "state": "default"
+    },
+    "pixel_stepper_plate_default": {
+      "file": "pixel_stepper_plate_default.png",
+      "contentId": "rbxassetid://115416309466713",
+      "size": "28x28",
+      "designPx": "7x7",
+      "sliceBorder": 12,
+      "slot": "stepperPlate",
+      "state": "default"
+    },
+    "pixel_stepper_plate_pressed": {
+      "file": "pixel_stepper_plate_pressed.png",
+      "contentId": "rbxassetid://73383523712450",
+      "size": "28x28",
+      "designPx": "7x7",
+      "sliceBorder": 12,
+      "slot": "stepperPlate",
+      "state": "pressed"
+    },
+    "pixel_icon_chevron_right": {
+      "file": "pixel_icon_chevron_right.png",
+      "contentId": "rbxassetid://135535101730897",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.trailing",
+      "state": "default"
+    },
+    "pixel_icon_chevron_down": {
+      "file": "pixel_icon_chevron_down.png",
+      "contentId": "rbxassetid://135945017045204",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.down",
+      "state": "default"
+    },
+    "pixel_icon_plus": {
+      "file": "pixel_icon_plus.png",
+      "contentId": "rbxassetid://137937473154830",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.stepper.increment",
+      "state": "default"
+    },
+    "pixel_icon_minus": {
+      "file": "pixel_icon_minus.png",
+      "contentId": "rbxassetid://139370520867356",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.stepper.decrement",
+      "state": "default"
+    },
+    "pixel_icon_check": {
+      "file": "pixel_icon_check.png",
+      "contentId": "rbxassetid://93821473650946",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.check",
+      "state": "default"
+    },
+    "pixel_icon_cross": {
+      "file": "pixel_icon_cross.png",
+      "contentId": "rbxassetid://76283014616825",
+      "size": "32x32",
+      "designPx": "8x8",
+      "sliceBorder": 0,
+      "slot": "icons.close",
+      "state": "default"
+    }
+  }
+}

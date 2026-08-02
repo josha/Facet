@@ -1,0 +1,233 @@
+--!strict
+-- UI-PARADIGM-003 + affordance matrix D.1/D.3/D.4: the console 10-foot
+-- PRESENTATION consumers. When distanceProfile == "ten-foot" (displaySize ==
+-- "Large") the presentation must (D.1) scale rendered text by the type-scale
+-- floor at BOTH the layout-measure and paint seams, (D.3) cap layout density,
+-- and (D.4) strengthen the focus state. A near display stays byte-identical
+-- (the pre-existing tests are the regression guard). D.2 (overscan margins) is
+-- already shipped (preview.spec) and is not re-proven here.
+
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+
+local customFactory = require("../src/core/custom")
+local UI = require("../src/blueprint")
+local mountLib = require("../src/mount")
+local environment = require("../src/env/environment")
+local renderer = require("../src/render/renderer")
+local fake_target = require("../tests/lib/fake_target")
+
+local function attach(displaySize: string?, childrenFn: (any) -> { any })
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+	if displaySize then
+		env:set("displaySize", displaySize)
+	end
+	local root = mountLib.mount(core, UI.Screen({ id = "S", children = childrenFn(core) }))
+	local adapter = fake_target.new()
+	local controller = renderer.attach(core, root, env, adapter, {})
+	controller.initialRender()
+	return core, env, root, adapter, controller
+end
+
+describe("environment ten-foot derivations (matrix D.1/D.3)", function()
+	it("typographyScale composes the ten-foot 1.5x multiplier over the preference", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("preferredTextSize", 2)
+		expect(env:get("typographyScale"):get()).toBe(2) -- Medium: accessibility preference only
+		env:set("displaySize", "Large")
+		expect(env:get("typographyScale"):get()).toBe(3) -- 2 * 1.5 ten-foot floor
+		env:set("preferredTextSize", 1)
+		expect(env:get("typographyScale"):get()).toBe(1.5)
+		env:set("displaySize", "Medium")
+		expect(env:get("typographyScale"):get()).toBe(1) -- restores to preference only
+	end)
+
+	it("sizeClass caps at regular on a ten-foot Large display even on a wide viewport", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		expect(env:get("sizeClass"):get()).toBe("wide")
+		env:set("displaySize", "Large")
+		expect(env:get("sizeClass"):get()).toBe("regular") -- density floor: never the densest at 3m
+		env:set("displaySize", "Medium")
+		expect(env:get("sizeClass"):get()).toBe("wide")
+	end)
+end)
+
+describe("UI-PARADIGM-003: ten-foot text scaling at the paint seam (matrix D.1)", function()
+	it("a near display leaves rendered text sizes unscaled (typographyScale 1)", function()
+		local _, _, _, adapter = attach("Medium", function()
+			return { UI.Text({ id = "T", text = "Race", textSize = 16 }) }
+		end)
+		expect(adapter.node("/S/T").props.textSize).toBe(16)
+	end)
+
+	it("a ten-foot display scales rendered text sizes by 1.5x", function()
+		local _, _, _, adapter = attach("Large", function()
+			return { UI.Text({ id = "T", text = "Race", textSize = 16 }) }
+		end)
+		expect(adapter.node("/S/T").props.textSize).toBe(24) -- 16 * 1.5
+	end)
+
+	it("layout re-solves and rendered text grows when displaySize flips to Large", function()
+		local _, env, _, adapter = attach("Medium", function()
+			return { UI.Text({ id = "T", text = "Race", textSize = 16 }) }
+		end)
+		local before = adapter.node("/S/T").rect
+		expect(adapter.node("/S/T").props.textSize).toBe(16)
+		env:set("displaySize", "Large")
+		-- paint seam updates AND layout re-solves the taller box
+		expect(adapter.node("/S/T").props.textSize).toBe(24)
+		expect(adapter.node("/S/T").rect.h > before.h).toBe(true)
+	end)
+end)
+
+describe("UI-PARADIGM-003: ten-foot focus strengthening (matrix D.4)", function()
+	it("focus visuals differ between a Large display and a Medium display", function()
+		local _, _, _, adapterBig, ctlBig = attach("Large", function()
+			return { UI.Button({ id = "B", label = "Go" }) }
+		end)
+		ctlBig.setFocusPath("/S/B")
+		local _, _, _, adapterNear, ctlNear = attach("Medium", function()
+			return { UI.Button({ id = "B", label = "Go" }) }
+		end)
+		ctlNear.setFocusPath("/S/B")
+		expect(adapterBig.node("/S/B").focusProfile).toBe("ten-foot")
+		expect(adapterNear.node("/S/B").focusProfile).toBe("near")
+		expect(adapterBig.node("/S/B").focusProfile ~= adapterNear.node("/S/B").focusProfile).toBe(true)
+	end)
+
+	it("a near display keeps the focus profile at near (2px-ring semantics unchanged)", function()
+		local _, _, _, adapter, ctl = attach("Medium", function()
+			return { UI.Button({ id = "B", label = "Go" }) }
+		end)
+		ctl.setFocusPath("/S/B")
+		expect(adapter.node("/S/B").focused).toBe(true)
+		expect(adapter.node("/S/B").focusProfile).toBe("near")
+	end)
+end)
+
+-- =============================================================================
+-- Verifier findings (architecture review, 2026-07-21)
+-- =============================================================================
+describe("verifier F1: Toggle honors an explicit textSize at the MEASURE seam", function()
+	it("a Toggle with an explicit textSize measures taller than the 16pt default (measure/paint agree)", function()
+		local _, _, _, adapter = attach(nil, function(core)
+			return {
+				UI.Toggle({ id = "Small", label = "Music", value = core:signal(false) }),
+				UI.Toggle({ id = "Big", label = "Music", value = core:signal(false), textSize = 32 }),
+			}
+		end)
+		local small = adapter.node("/S/Small").rect
+		local big = adapter.node("/S/Big").rect
+		-- pre-fix both measured at a hardcoded 16 -> identical heights; the
+		-- explicit 32 must reserve a taller box AND paint at 32 (scale 1)
+		expect(big.h > small.h).toBe(true)
+		expect(adapter.node("/S/Big").props.textSize).toBe(32)
+	end)
+end)
+
+describe("verifier F2: a displaySize flip re-strengthens the RESTING focus visual", function()
+	it("focus already on a control adopts the ten-foot profile when the display docks to Large", function()
+		local _, env, _, adapter, controller = attach(nil, function(core)
+			return { UI.Button({ id = "Go", label = "Go" }) }
+		end)
+		controller.setFocusPath("/S/Go")
+		expect(adapter.node("/S/Go").focusProfile).toBe("near")
+		env:set("displaySize", "Large") -- handheld docks to the TV; focus does not move
+		expect(adapter.node("/S/Go").focusProfile).toBe("ten-foot")
+		env:set("displaySize", "Medium")
+		expect(adapter.node("/S/Go").focusProfile).toBe("near")
+	end)
+end)
+
+-- =============================================================================
+-- Director live find (Xbox One emulator, 2026-07-21): the ten-foot focus LIFT
+-- scaled a full-width filter field past the screen edge (1888 x 1.05 = 1982 >
+-- 1920). The lift is a CARD idiom — it must apply only when the lifted bounds
+-- still fit the screen; oversized surfaces keep the strong ring with no scale.
+-- Engine truth from the same session: the Xbox One device emulator DOES report
+-- ViewportDisplaySize.Large, so the ten-foot profile is live in emulation.
+-- =============================================================================
+describe("ten-foot focus lift is capped to bounds that fit the screen (director live find)", function()
+	it("a small control lifts; a full-width control keeps the strong ring with NO lift", function()
+		local _, _, _, adapter, controller = attach("Large", function(core)
+			return {
+				UI.Button({
+					id = "Small",
+					label = "Go",
+					width = { type = "fixed", px = 120 },
+					height = { type = "fixed", px = 44 },
+				}),
+				UI.Button({
+					id = "Wide",
+					label = "Filter",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 44 },
+				}),
+			}
+		end)
+		controller.setFocusPath("/S/Small")
+		expect(adapter.node("/S/Small").focusProfile).toBe("ten-foot")
+		expect(adapter.node("/S/Small").focusLift).toBe(true)
+		controller.setFocusPath("/S/Wide")
+		expect(adapter.node("/S/Wide").focusProfile).toBe("ten-foot")
+		expect(adapter.node("/S/Wide").focusLift).toBe(false) -- lifted bounds would overflow
+	end)
+
+	it("a near display never lifts regardless of size", function()
+		local _, _, _, adapter, controller = attach(nil, function(core)
+			return {
+				UI.Button({
+					id = "Small",
+					label = "Go",
+					width = { type = "fixed", px = 120 },
+					height = { type = "fixed", px = 44 },
+				}),
+			}
+		end)
+		controller.setFocusPath("/S/Small")
+		expect(adapter.node("/S/Small").focusLift ~= true).toBe(true)
+	end)
+end)
+
+describe("ten-foot default overscan margins (director live find: edge-flush UI on a TV-class display)", function()
+	it("effectiveOverscanInsets defaults to the tvOS-equivalent 60/90 under Large when none are authored", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		expect(env:get("effectiveOverscanInsets"):get().left).toBe(0) -- near: no margins
+		env:set("displaySize", "Large")
+		local insets = env:get("effectiveOverscanInsets"):get()
+		expect(insets.top).toBe(60)
+		expect(insets.bottom).toBe(60)
+		expect(insets.left).toBe(90)
+		expect(insets.right).toBe(90)
+		-- authored values win
+		env:set("overscanInsets", { top = 10, bottom = 10, left = 20, right = 20 })
+		expect(env:get("effectiveOverscanInsets"):get().left).toBe(20)
+		-- explicit opt-out
+		env:set("overscanInsets", "none")
+		expect(env:get("effectiveOverscanInsets"):get().left).toBe(0)
+	end)
+
+	it("an unauthored Large display insets the solved tree by the default margins", function()
+		local _, env, _, adapter = attach(nil, function(core)
+			return {
+				UI.VStack({
+					id = "Panel",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {},
+				}),
+			}
+		end)
+		expect(adapter.node("/S/Panel").rect.x).toBe(0)
+		env:set("displaySize", "Large")
+		local rect = adapter.node("/S/Panel").rect
+		expect(rect.x).toBe(90)
+		expect(rect.w).toBe(1280 - 180)
+	end)
+end)

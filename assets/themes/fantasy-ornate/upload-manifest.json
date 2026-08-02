@@ -1,0 +1,332 @@
+{
+  "schema": "luauui-theme-assets/1",
+  "package": "fantasy-ornate",
+  "stage": "rich-skinning-v2",
+  "uploaded": "2026-07-25",
+  "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8643 serving this directory (build packages P2, then P3 for the value displays); the seven ornate_icon_* uploaded by P5",
+  "note": "Slice geometry: SliceCenter = Rect(border, border, W-border, H-border), SliceScale = 1. Slot/state names follow ADR-0020 R1/R2/R3/R4; the P5 package owns the authoritative recipe wiring.",
+  "assets": {
+    "ornate_panel_fill": {
+      "file": "ornate_panel_fill.png",
+      "contentId": "rbxassetid://81048500362779",
+      "size": "128x128",
+      "sliceBorder": 32,
+      "slot": "panel.layers[1]",
+      "layerKind": "fill",
+      "state": "default"
+    },
+    "ornate_panel_frame": {
+      "file": "ornate_panel_frame.png",
+      "contentId": "rbxassetid://104827392559065",
+      "size": "160x160",
+      "sliceBorder": 40,
+      "slot": "panel.layers[2]",
+      "layerKind": "frame",
+      "state": "default"
+    },
+    "ornate_corner_tl": {
+      "file": "ornate_corner_tl.png",
+      "contentId": "rbxassetid://83669367091366",
+      "size": "48x48",
+      "sliceBorder": 0,
+      "slot": "panel.layers[3].topLeft",
+      "layerKind": "corners",
+      "state": "default"
+    },
+    "ornate_corner_tr": {
+      "file": "ornate_corner_tr.png",
+      "contentId": "rbxassetid://108150811338158",
+      "size": "48x48",
+      "sliceBorder": 0,
+      "slot": "panel.layers[3].topRight",
+      "layerKind": "corners",
+      "state": "default"
+    },
+    "ornate_corner_bl": {
+      "file": "ornate_corner_bl.png",
+      "contentId": "rbxassetid://130569583845489",
+      "size": "48x48",
+      "sliceBorder": 0,
+      "slot": "panel.layers[3].bottomLeft",
+      "layerKind": "corners",
+      "state": "default"
+    },
+    "ornate_corner_br": {
+      "file": "ornate_corner_br.png",
+      "contentId": "rbxassetid://86251498610726",
+      "size": "48x48",
+      "sliceBorder": 0,
+      "slot": "panel.layers[3].bottomRight",
+      "layerKind": "corners",
+      "state": "default"
+    },
+    "ornate_edge_rail": {
+      "file": "ornate_edge_rail.png",
+      "contentId": "rbxassetid://138849576571840",
+      "size": "64x24",
+      "sliceBorder": 0,
+      "tileSize": [
+        64,
+        24
+      ],
+      "slot": "panel.layers[*]",
+      "layerKind": "edges",
+      "state": "default",
+      "note": "TILE asset \u2014 seamless at x=0/64, pattern period 16. Never nine-slice it."
+    },
+    "ornate_velvet_tile": {
+      "file": "ornate_velvet_tile.png",
+      "contentId": "rbxassetid://117354814510719",
+      "size": "64x64",
+      "sliceBorder": 0,
+      "tileSize": [
+        64,
+        64
+      ],
+      "slot": "panel.layers[*]",
+      "layerKind": "tile",
+      "state": "default",
+      "note": "Seamless on both axes."
+    },
+    "ornate_plaque": {
+      "file": "ornate_plaque.png",
+      "contentId": "rbxassetid://117707325909741",
+      "size": "176x56",
+      "sliceBorder": 20,
+      "slot": "panel.layers[*]",
+      "layerKind": "plaque",
+      "state": "default",
+      "note": "Blank board \u2014 the title is the plaque layer's live text sub-slot."
+    },
+    "ornate_button_default": {
+      "file": "ornate_button_default.png",
+      "contentId": "rbxassetid://112835782358182",
+      "size": "64x64",
+      "sliceBorder": 16,
+      "slot": "control",
+      "state": "default"
+    },
+    "ornate_button_hover": {
+      "file": "ornate_button_hover.png",
+      "contentId": "rbxassetid://127234850374967",
+      "size": "64x64",
+      "sliceBorder": 16,
+      "slot": "control",
+      "state": "hover"
+    },
+    "ornate_button_pressed": {
+      "file": "ornate_button_pressed.png",
+      "contentId": "rbxassetid://90667263700535",
+      "size": "64x64",
+      "sliceBorder": 16,
+      "slot": "control",
+      "state": "pressed"
+    },
+    "ornate_selection_default": {
+      "file": "ornate_selection_default.png",
+      "contentId": "rbxassetid://101901876687967",
+      "size": "64x64",
+      "sliceBorder": 16,
+      "slot": "selection",
+      "state": "default"
+    },
+    "ornate_selection_selected": {
+      "file": "ornate_selection_selected.png",
+      "contentId": "rbxassetid://74679464509477",
+      "size": "64x64",
+      "sliceBorder": 16,
+      "slot": "selection",
+      "state": "selected"
+    },
+    "ornate_field": {
+      "file": "ornate_field.png",
+      "contentId": "rbxassetid://106727123624605",
+      "size": "64x64",
+      "sliceBorder": 16,
+      "slot": "field",
+      "state": "default"
+    },
+    "ornate_bar_track": {
+      "file": "ornate_bar_track.png",
+      "contentId": "rbxassetid://92904178783883",
+      "size": "96x28",
+      "sliceBorder": 12,
+      "slot": "barTrack",
+      "state": "default"
+    },
+    "ornate_bar_fill": {
+      "file": "ornate_bar_fill.png",
+      "contentId": "rbxassetid://111942785128400",
+      "size": "96x20",
+      "sliceBorder": 8,
+      "slot": "barFill",
+      "state": "default",
+      "direction": "ltr",
+      "note": "X-uniform between the slice borders; revealed through the R3 clip window."
+    },
+    "ornate_bar_cap_start": {
+      "file": "ornate_bar_cap_start.png",
+      "contentId": "rbxassetid://113767043260178",
+      "size": "28x36",
+      "sliceBorder": 0,
+      "slot": "barCap.start",
+      "state": "default"
+    },
+    "ornate_bar_cap_end": {
+      "file": "ornate_bar_cap_end.png",
+      "contentId": "rbxassetid://86593934806842",
+      "size": "28x36",
+      "sliceBorder": 0,
+      "slot": "barCap.end",
+      "state": "default"
+    },
+    "ornate_bar_center": {
+      "file": "ornate_bar_center.png",
+      "contentId": "rbxassetid://73806369333659",
+      "size": "36x28",
+      "sliceBorder": 0,
+      "slot": "barCenter",
+      "state": "default"
+    },
+    "ornate_toggle_track_off": {
+      "file": "ornate_toggle_track_off.png",
+      "contentId": "rbxassetid://79434491980979",
+      "size": "72x32",
+      "sliceBorder": 14,
+      "slot": "toggleTrack",
+      "state": "default"
+    },
+    "ornate_toggle_track_on": {
+      "file": "ornate_toggle_track_on.png",
+      "contentId": "rbxassetid://108473944163690",
+      "size": "72x32",
+      "sliceBorder": 14,
+      "slot": "toggleTrack",
+      "state": "selected"
+    },
+    "ornate_toggle_knob_default": {
+      "file": "ornate_toggle_knob_default.png",
+      "contentId": "rbxassetid://75192659975960",
+      "size": "28x28",
+      "sliceBorder": 0,
+      "slot": "toggleKnob",
+      "state": "default"
+    },
+    "ornate_toggle_knob_pressed": {
+      "file": "ornate_toggle_knob_pressed.png",
+      "contentId": "rbxassetid://119648517302972",
+      "size": "28x28",
+      "sliceBorder": 0,
+      "slot": "toggleKnob",
+      "state": "pressed"
+    },
+    "ornate_stepper_plate_default": {
+      "file": "ornate_stepper_plate_default.png",
+      "contentId": "rbxassetid://99012630527588",
+      "size": "40x40",
+      "sliceBorder": 12,
+      "slot": "stepperPlate",
+      "state": "default"
+    },
+    "ornate_stepper_plate_pressed": {
+      "file": "ornate_stepper_plate_pressed.png",
+      "contentId": "rbxassetid://78661159227432",
+      "size": "40x40",
+      "sliceBorder": 12,
+      "slot": "stepperPlate",
+      "state": "pressed"
+    },
+    "ornate_icon_chevron_right": {
+      "file": "ornate_icon_chevron_right.png",
+      "contentId": "rbxassetid://105245349364481",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.trailing",
+      "state": "default"
+    },
+    "ornate_icon_chevron_down": {
+      "file": "ornate_icon_chevron_down.png",
+      "contentId": "rbxassetid://115385031782859",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.chevron.down",
+      "state": "default"
+    },
+    "ornate_icon_plus": {
+      "file": "ornate_icon_plus.png",
+      "contentId": "rbxassetid://137432148053328",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.stepper.increment",
+      "state": "default"
+    },
+    "ornate_icon_minus": {
+      "file": "ornate_icon_minus.png",
+      "contentId": "rbxassetid://85685383372532",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.stepper.decrement",
+      "state": "default"
+    },
+    "ornate_icon_check": {
+      "file": "ornate_icon_check.png",
+      "contentId": "rbxassetid://107294339133126",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.check",
+      "state": "default"
+    },
+    "ornate_icon_cross": {
+      "file": "ornate_icon_cross.png",
+      "contentId": "rbxassetid://102422912531329",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.close",
+      "state": "default"
+    },
+    "ornate_icon_gear": {
+      "file": "ornate_icon_gear.png",
+      "contentId": "rbxassetid://136119216057736",
+      "size": "32x32",
+      "sliceBorder": 0,
+      "slot": "icons.settings",
+      "state": "default"
+    }
+  },
+  "uploadedBy": "rich-skinning-v2 P2 (layer application) + P3 (image value displays) + P5 (the icon set, for the shipping Fantasy Ornate package)",
+  "uploadedFiles": [
+    "ornate_bar_cap_end",
+    "ornate_bar_cap_start",
+    "ornate_bar_center",
+    "ornate_bar_fill",
+    "ornate_bar_track",
+    "ornate_button_default",
+    "ornate_button_hover",
+    "ornate_button_pressed",
+    "ornate_corner_bl",
+    "ornate_corner_br",
+    "ornate_corner_tl",
+    "ornate_corner_tr",
+    "ornate_edge_rail",
+    "ornate_field",
+    "ornate_icon_check",
+    "ornate_icon_chevron_down",
+    "ornate_icon_chevron_right",
+    "ornate_icon_cross",
+    "ornate_icon_gear",
+    "ornate_icon_minus",
+    "ornate_icon_plus",
+    "ornate_panel_fill",
+    "ornate_panel_frame",
+    "ornate_plaque",
+    "ornate_selection_default",
+    "ornate_selection_selected",
+    "ornate_stepper_plate_default",
+    "ornate_stepper_plate_pressed",
+    "ornate_toggle_knob_default",
+    "ornate_toggle_knob_pressed",
+    "ornate_toggle_track_off",
+    "ornate_toggle_track_on",
+    "ornate_velvet_tile"
+  ]
+}

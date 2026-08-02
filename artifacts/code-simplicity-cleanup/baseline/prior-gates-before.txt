@@ -1,0 +1,29 @@
+PASS phase-0-foundation
+PASS phase-1-minimal-screen
+PASS phase-2-settings-parity
+PASS phase-3-pilot
+PASS part-2-director
+PASS phase-4-hardening
+      FAIL_ENVIRONMENT  physical-device-confirmation
+PASS input-adaptation-audit
+      FAIL_ENVIRONMENT  physical-device-confirmation
+PASS expansion-textinput
+      FAIL_ENVIRONMENT  physical-device-confirmation
+PASS input-paradigms
+      FAIL_ENVIRONMENT  physical-device-confirmation
+PASS native-substrate
+      FAIL_ENVIRONMENT  physical-device-confirmation
+PASS native-stylesheets
+      FAIL_ENVIRONMENT  designer-and-device-confirmation
+FAIL authoring-adaptive-ui (exit 1)
+      PENDING  physical-and-human-rows
+    gate: PENDING -> artifacts/authoring-adaptive-ui/gate.json
+FAIL theme-packages-and-skinning (exit 1)
+      FAIL_ENVIRONMENT  physical-and-human-rows
+PASS rich-skinning-v2
+      FAIL_ENVIRONMENT  physical-and-human-rows
+PASS cross-platform-proof
+      FAIL_ENVIRONMENT  physical-and-human-rows
+PASS sponsor-framework-gaps
+      FAIL_ENVIRONMENT  physical-and-human-rows
+DONE

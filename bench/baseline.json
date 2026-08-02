@@ -1,0 +1,202 @@
+{
+ "environment": "lune-headless (trend screening only; device authoritative per design \u00a714.3)",
+ "frozen": "2026-07-28 median of 3 quiet runs; p95_norm is the gated value, p95_ms is descriptive only",
+ "normalizedBy": "zz-yardstick-cpu",
+ "regressionFactorP95": 1.5,
+ "results": [
+  {
+   "name": "billboard-nameplate-storm",
+   "p50_ms": 0.05191669333726168,
+   "p95_ms": 0.10333332465961576,
+   "p95_norm": 0.4358906647367442,
+   "p99_ms": 0.12408330803737044,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "collection-mutation-custom",
+   "p50_ms": 0.004708359483629465,
+   "p95_ms": 0.00683334656059742,
+   "p95_norm": 0.03042677730572333,
+   "p99_ms": 0.009083305485546589,
+   "requirement": "UI-RUNTIME-002",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "collection-mutation-fusion",
+   "p50_ms": 0.005958369001746178,
+   "p95_ms": 0.009000010322779417,
+   "p95_norm": 0.039146652733112304,
+   "p99_ms": 0.012125005014240742,
+   "requirement": "UI-RUNTIME-002",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "collection-mutation-imperative",
+   "p50_ms": 0.004458357580006123,
+   "p95_ms": 0.00583333894610405,
+   "p95_norm": 0.0246138049072284,
+   "p99_ms": 0.006750051397830248,
+   "requirement": "UI-RUNTIME-002",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "hud-binding-storm-custom",
+   "p50_ms": 0.15154166612774134,
+   "p95_ms": 0.233083323109895,
+   "p95_norm": 0.9856754820662693,
+   "p99_ms": 0.2455833018757403,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "hud-binding-storm-fusion",
+   "p50_ms": 0.3007500199601054,
+   "p95_ms": 0.45237503945827484,
+   "p95_norm": 1.923543396553026,
+   "p99_ms": 0.4932500305585563,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "hud-binding-storm-imperative",
+   "p50_ms": 0.043249980080872774,
+   "p95_ms": 0.04920829087495804,
+   "p95_norm": 0.2050585228515684,
+   "p99_ms": 0.05400000372901559,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "mounted-slice-update-storm",
+   "p50_ms": 0.08145830361172557,
+   "p95_ms": 0.14483334962278605,
+   "p95_norm": 0.6259742602464498,
+   "p99_ms": 0.15879166312515736,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "settings-churn-custom",
+   "p50_ms": 0.005499983672052622,
+   "p95_ms": 0.012583332136273384,
+   "p95_norm": 0.05602968344706182,
+   "p99_ms": 0.015833298675715923,
+   "requirement": "UI-LIFE-002",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "settings-churn-fusion",
+   "p50_ms": 0.011541647836565971,
+   "p95_ms": 0.021208368707448244,
+   "p95_norm": 0.09421138656740043,
+   "p99_ms": 0.027916685212403536,
+   "requirement": "UI-LIFE-002",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "settings-churn-imperative",
+   "p50_ms": 0.010291696526110172,
+   "p95_ms": 0.015375029761344194,
+   "p95_norm": 0.0684602489378775,
+   "p99_ms": 0.02091669011861086,
+   "requirement": "UI-LIFE-002",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "sparse-update-under-load-custom",
+   "p50_ms": 0.0009583309292793274,
+   "p95_ms": 0.00120833283290267,
+   "p95_norm": 0.005097106896464939,
+   "p99_ms": 0.0014583347365260124,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "sparse-update-under-load-fusion",
+   "p50_ms": 0.0019583385437726974,
+   "p95_ms": 0.0027500209398567677,
+   "p95_norm": 0.01120361494139415,
+   "p99_ms": 0.0031249946914613247,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "sparse-update-under-load-imperative",
+   "p50_ms": 0.01737498678267002,
+   "p95_ms": 0.017625046893954277,
+   "p95_norm": 0.07792215870567233,
+   "p99_ms": 0.022333289962261915,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "table-mutation",
+   "p50_ms": 0.6064166664145887,
+   "p95_ms": 0.9764999849721789,
+   "p95_norm": 4.136478977363338,
+   "p99_ms": 1.046708319336176,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "table-resize-drag",
+   "p50_ms": 5.43095835018903,
+   "p95_ms": 8.154999988619238,
+   "p95_norm": 34.40021288075915,
+   "p99_ms": 8.638833358418196,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "textinput-typing-storm",
+   "p50_ms": 0.06504170596599579,
+   "p95_ms": 0.16129168216139078,
+   "p95_norm": 0.6803762366634931,
+   "p99_ms": 0.19141664961352944,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "zz-yardstick-cpu-after",
+   "p50_ms": 0.2184166805818677,
+   "p95_ms": 0.23554166546091437,
+   "p95_norm": 0.9935847266035268,
+   "p99_ms": 0.24570833193138242,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  },
+  {
+   "name": "zz-yardstick-cpu-before",
+   "p50_ms": 0.21399999968707561,
+   "p95_ms": 0.2385833067819476,
+   "p95_norm": 1.0064152733964733,
+   "p99_ms": 0.2471249899826944,
+   "requirement": "UI-PERF-001",
+   "samples": 300,
+   "warmup": 50
+  }
+ ],
+ "samples": 300,
+ "schema": "luauui-bench/1",
+ "status": "PASS",
+ "warmup": 50
+}

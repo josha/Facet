@@ -1,0 +1,260 @@
+{
+  "deviceBudgets": {
+    "console-physical": {
+      "budgetMs": 4.166666666666667,
+      "frameTargetHz": 60,
+      "measured": false,
+      "note": "the supported console / ten-foot path; PENDING_PHYSICAL (ledger XP-P2)",
+      "requirement": "UI-PERF-002",
+      "uiShare": 0.25
+    },
+    "desktop-retail": {
+      "budgetMs": 4.166666666666667,
+      "frameTargetHz": 60,
+      "measured": false,
+      "note": "the retail (non-Studio) desktop client; PENDING_PHYSICAL (ledger XP-P3)",
+      "requirement": "UI-PERF-002",
+      "uiShare": 0.25
+    },
+    "phone-physical": {
+      "budgetMs": 8.333333333333334,
+      "frameTargetHz": 30,
+      "measured": false,
+      "note": "the weakest supported physical Android device; PENDING_PHYSICAL (ledger XP-P1)",
+      "requirement": "UI-PERF-002",
+      "uiShare": 0.25
+    }
+  },
+  "evidenceClass": "lune",
+  "evidenceLevel": "E1",
+  "floorMs": 0.1,
+  "frameCeiling": {
+    "ceilingMs": 8.333333333333334,
+    "directionality": "one-way",
+    "frameTargetHz": 30,
+    "note": "Exceeding this proves the scene cannot hold the frame target on ANY supported device, because this host is faster than all of them. Passing it proves NOTHING about a device.",
+    "uiShare": 0.25
+  },
+  "multiplier": 4,
+  "note": "Headless trend budgets, floor-device (low-end Android) reference. observed_p95_ms is the WORST p95 over baselineRepeats runs, so the multiplier applies to a number that already contains the run-to-run jitter. total_p95_ms = max(worst_p95 × multiplier, floorMs). Trend-only; NOT a device SLA (§14.3).",
+  "referenceProfile": "floorAndroid",
+  "scenes": {
+    "animation-interruption": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'animation-interruption' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.14583335723727942,
+      "observed_p95_min_ms": 0.11245833593420684,
+      "observed_p95_ms": 0.14583335723727942,
+      "requirement": "UI-PERF-001",
+      "total_p95_ms": 0.5833334289491177
+    },
+    "async-image-burst": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'async-image-burst' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.030499999411404133,
+      "observed_p95_min_ms": 0.021041661966592073,
+      "observed_p95_ms": 0.030499999411404133,
+      "requirement": "UI-PERF-001",
+      "total_p95_ms": 0.12199999764561653
+    },
+    "async-image-grid": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'async-image-grid' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.7753749960102141,
+      "observed_p95_min_ms": 0.6577083258889616,
+      "observed_p95_ms": 0.7753749960102141,
+      "requirement": "UI-PERF-001",
+      "total_p95_ms": 3.1014999840408564
+    },
+    "collection-mutation": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'collection-mutation' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 1.059875008650124,
+      "observed_p95_min_ms": 0.9800833358895034,
+      "observed_p95_ms": 1.059875008650124,
+      "requirement": "UI-RUNTIME-002",
+      "total_p95_ms": 4.239500034600496
+    },
+    "dense-hud": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'dense-hud' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.48216668074019253,
+      "observed_p95_min_ms": 0.42104165186174214,
+      "observed_p95_ms": 0.48216668074019253,
+      "requirement": "UI-PERF-001",
+      "total_p95_ms": 1.9286667229607701
+    },
+    "dense-motion": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'dense-motion' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.7356666610576212,
+      "observed_p95_min_ms": 0.6563750212080777,
+      "observed_p95_ms": 0.7356666610576212,
+      "requirement": "UI-PERF-001",
+      "total_p95_ms": 2.942666644230485
+    },
+    "hud-binding-storm": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'hud-binding-storm' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.1554166665300727,
+      "observed_p95_min_ms": 0.13699999544769526,
+      "observed_p95_ms": 0.1554166665300727,
+      "requirement": "UI-PERF-001",
+      "total_p95_ms": 0.6216666661202908
+    },
+    "locale-textsize-change": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'locale-textsize-change' (UI-ENV-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.09262500680051744,
+      "observed_p95_min_ms": 0.08416667697019875,
+      "observed_p95_ms": 0.09262500680051744,
+      "requirement": "UI-ENV-001",
+      "total_p95_ms": 0.37050002720206976
+    },
+    "native-scroll-drag": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'native-scroll-drag' (UI-NATIVE-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.022083346266299486,
+      "observed_p95_min_ms": 0.006416667019948363,
+      "observed_p95_ms": 0.022083346266299486,
+      "requirement": "UI-NATIVE-001",
+      "total_p95_ms": 0.1
+    },
+    "screen-lifecycle-churn": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'screen-lifecycle-churn' (UI-LIFE-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 1.0734999959822744,
+      "observed_p95_min_ms": 0.811500009149313,
+      "observed_p95_ms": 1.0734999959822744,
+      "requirement": "UI-LIFE-002",
+      "total_p95_ms": 4.293999983929098
+    },
+    "scroll-focus-traversal": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'scroll-focus-traversal' (UI-FOCUS-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.037583347875624895,
+      "observed_p95_min_ms": 0.0228749995585531,
+      "observed_p95_ms": 0.037583347875624895,
+      "requirement": "UI-FOCUS-001",
+      "total_p95_ms": 0.15033339150249958
+    },
+    "settings-churn": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'settings-churn' (UI-LIFE-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.4315416736062616,
+      "observed_p95_min_ms": 0.32420834759250283,
+      "observed_p95_ms": 0.4315416736062616,
+      "requirement": "UI-LIFE-002",
+      "total_p95_ms": 1.7261666944250464
+    },
+    "shadow-storm": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'shadow-storm' (UI-STYLE-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.00879165600053966,
+      "observed_p95_min_ms": 0.006416667019948363,
+      "observed_p95_ms": 0.00879165600053966,
+      "requirement": "UI-STYLE-001",
+      "total_p95_ms": 0.1
+    },
+    "stylesheet-state-churn": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'stylesheet-state-churn' (UI-STYLE-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.09529167436994612,
+      "observed_p95_min_ms": 0.06975000724196434,
+      "observed_p95_ms": 0.09529167436994612,
+      "requirement": "UI-STYLE-001",
+      "total_p95_ms": 0.3811666974797845
+    },
+    "theme-swap-assets": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'theme-swap-assets' (UI-PERF-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.13983334065414965,
+      "observed_p95_min_ms": 0.06895832484588027,
+      "observed_p95_ms": 0.13983334065414965,
+      "requirement": "UI-PERF-002",
+      "total_p95_ms": 0.5593333626165986
+    },
+    "theme-swap-flat": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'theme-swap-flat' (UI-PERF-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.11033331975340843,
+      "observed_p95_min_ms": 0.06925000343471766,
+      "observed_p95_ms": 0.11033331975340843,
+      "requirement": "UI-PERF-002",
+      "total_p95_ms": 0.44133327901363373
+    },
+    "theme-swap-metrics": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'theme-swap-metrics' (UI-PERF-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 0.13091668370179832,
+      "observed_p95_min_ms": 0.04199999966658652,
+      "observed_p95_ms": 0.13091668370179832,
+      "requirement": "UI-PERF-002",
+      "total_p95_ms": 0.5236667348071933
+    },
+    "virtual-list-scroll": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'virtual-list-scroll' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
+      "observed_p95_max_ms": 1.7041249957401305,
+      "observed_p95_min_ms": 1.518833334557712,
+      "observed_p95_ms": 1.7041249957401305,
+      "requirement": "UI-RUNTIME-002",
+      "total_p95_ms": 6.816499982960522
+    }
+  },
+  "schema": "luauui-perf-budgets/2"
+}

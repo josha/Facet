@@ -1,0 +1,48 @@
+{
+  "schema": "luauui-rubric/1",
+  "name": "phase3-pilot",
+  "adrSlug": "phase3-pilot-selection",
+  "question": "Which surface is the Phase 3 production pilot: card management or garage? (design §17 Phase 3)",
+  "context": "Neither surface exists yet in RascalRally. Card management = deck curation + collection (GameDesign §5/§6.12: deck-validity floors, Card Tokens, hand-of-cards; 'lands with Mission 14') and per the LuauUI design §9.4 card pick-and-place is an explicitly DEFERRED (Phase 5) interaction pattern. Garage = kart ownership/equip over the existing pure, Lune-tested semantic schema code/src/shared/CarInventory.luau (owned set + equipped id; grant/equip validated; 5-kart roster). Rubric axes from §17 Phase 3, higher = better for the pilot.",
+  "criteria": [
+    { "id": "fewer-bespoke-interactions", "weight": 5 },
+    { "id": "less-deferred-feature-dependency", "weight": 5 },
+    { "id": "smaller-rollback-risk", "weight": 4 },
+    { "id": "future-pattern-coverage", "weight": 4 }
+  ],
+  "candidates": [
+    {
+      "id": "garage",
+      "summary": "Kart grid over CarInventory semantic state: select, pick/equip mutation, equipped badge, owned/earnable states.",
+      "scores": {
+        "fewer-bespoke-interactions": 5,
+        "less-deferred-feature-dependency": 5,
+        "smaller-rollback-risk": 4,
+        "future-pattern-coverage": 5
+      },
+      "evidence": {
+        "fewer-bespoke-interactions": "grid + focus + activate + one typed mutation; zero gesture patterns",
+        "less-deferred-feature-dependency": "needs only shipped primitives (Grid/ForEach/Button/focus/mutation); 5 items => no virtualization (documented)",
+        "smaller-rollback-risk": "new surface, no default entry point; debug-flag construction; semantic schema already shipped + tested (CarInventory)",
+        "future-pattern-coverage": "keyed collection + adaptive grid + selection + validated equip mutation = the shop/list/loadout shape of most future surfaces"
+      }
+    },
+    {
+      "id": "card-management",
+      "summary": "Deck curation + card collection (hand, validity floors, Tokens).",
+      "scores": {
+        "fewer-bespoke-interactions": 2,
+        "less-deferred-feature-dependency": 1,
+        "smaller-rollback-risk": 3,
+        "future-pattern-coverage": 4
+      },
+      "evidence": {
+        "fewer-bespoke-interactions": "deck curation implies pick-and-place / drag idioms and validity-constrained composition UI",
+        "less-deferred-feature-dependency": "pick-and-place is explicitly Phase 5 (design §9.4); deck rules + card pool land with game Mission 14 — the semantic state does not exist yet",
+        "smaller-rollback-risk": "would front-run Mission 14's design surface",
+        "future-pattern-coverage": "rich, but the patterns it exercises are the deferred ones"
+      }
+    }
+  ],
+  "consequences": "Garage pilot is built as a new flag-gated surface over CarInventory; no new framework primitives are demanded (recorded in the ADR — §17 Phase 3 requires an ADR per NEW primitive; zero were needed). Virtualization not required at 5 fixed-height items. Card management remains the natural second adopter after Mission 14 lands its semantics."
+}

@@ -1,0 +1,167 @@
+{
+  "schema": "luauui-theme-assets/1",
+  "package": "compact-pointer",
+  "stage": "rich-skinning-v2",
+  "platformPairRole": "pointer",
+  "uploaded": "2026-07-25",
+  "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8643 serving assets/themes/ (build package P5, reference packages)",
+  "note": "Slice geometry: SliceCenter = Rect(border, border, W-border, H-border), SliceScale = 1. Authored 1:1 at the ~22px pointer metric; do not scale (the identity is 1px hairlines). Minimum rendered sizes are recorded per asset as minRender.",
+  "assets": {
+    "compact_panel": {
+      "file": "compact_panel.png",
+      "contentId": "rbxassetid://113956274031174",
+      "size": "48x48",
+      "sliceBorder": 12,
+      "minRender": [
+        24,
+        24
+      ],
+      "slot": "panel",
+      "state": "default"
+    },
+    "compact_button_default": {
+      "file": "compact_button_default.png",
+      "contentId": "rbxassetid://125945402308792",
+      "size": "32x22",
+      "sliceBorder": 8,
+      "minRender": [
+        16,
+        22
+      ],
+      "slot": "control",
+      "state": "default"
+    },
+    "compact_button_hover": {
+      "file": "compact_button_hover.png",
+      "contentId": "rbxassetid://119001630381133",
+      "size": "32x22",
+      "sliceBorder": 8,
+      "minRender": [
+        16,
+        22
+      ],
+      "slot": "control",
+      "state": "hover"
+    },
+    "compact_button_pressed": {
+      "file": "compact_button_pressed.png",
+      "contentId": "rbxassetid://109265822114166",
+      "size": "32x22",
+      "sliceBorder": 8,
+      "minRender": [
+        16,
+        22
+      ],
+      "slot": "control",
+      "state": "pressed"
+    },
+    "compact_field": {
+      "file": "compact_field.png",
+      "contentId": "rbxassetid://90201834768221",
+      "size": "32x22",
+      "sliceBorder": 8,
+      "minRender": [
+        16,
+        22
+      ],
+      "slot": "field",
+      "state": "default"
+    },
+    "compact_bar_track": {
+      "file": "compact_bar_track.png",
+      "contentId": "rbxassetid://139498496637253",
+      "size": "48x10",
+      "sliceBorder": 4,
+      "minRender": [
+        8,
+        10
+      ],
+      "slot": "barTrack",
+      "state": "default"
+    },
+    "compact_bar_fill": {
+      "file": "compact_bar_fill.png",
+      "contentId": "rbxassetid://117421457462709",
+      "size": "48x8",
+      "sliceBorder": 3,
+      "minRender": [
+        6,
+        8
+      ],
+      "slot": "barFill",
+      "state": "default",
+      "direction": "ltr",
+      "note": "X-uniform between the slice borders; revealed through the R3 clip window."
+    },
+    "compact_toggle_track_off": {
+      "file": "compact_toggle_track_off.png",
+      "contentId": "rbxassetid://140310035261723",
+      "size": "36x18",
+      "sliceBorder": 8,
+      "minRender": [
+        16,
+        18
+      ],
+      "slot": "toggleTrack",
+      "state": "default"
+    },
+    "compact_toggle_track_on": {
+      "file": "compact_toggle_track_on.png",
+      "contentId": "rbxassetid://75560406065820",
+      "size": "36x18",
+      "sliceBorder": 8,
+      "minRender": [
+        16,
+        18
+      ],
+      "slot": "toggleTrack",
+      "state": "selected"
+    },
+    "compact_toggle_knob": {
+      "file": "compact_toggle_knob.png",
+      "contentId": "rbxassetid://75181583166364",
+      "size": "16x16",
+      "sliceBorder": 0,
+      "slot": "toggleKnob",
+      "state": "default"
+    },
+    "compact_stepper_plate_default": {
+      "file": "compact_stepper_plate_default.png",
+      "contentId": "rbxassetid://96206949435730",
+      "size": "22x22",
+      "sliceBorder": 7,
+      "minRender": [
+        14,
+        22
+      ],
+      "slot": "stepperPlate",
+      "state": "default"
+    },
+    "compact_stepper_plate_pressed": {
+      "file": "compact_stepper_plate_pressed.png",
+      "contentId": "rbxassetid://129313878988790",
+      "size": "22x22",
+      "sliceBorder": 7,
+      "minRender": [
+        14,
+        22
+      ],
+      "slot": "stepperPlate",
+      "state": "pressed"
+    }
+  },
+  "uploadedFiles": [
+    "compact_bar_fill",
+    "compact_bar_track",
+    "compact_button_default",
+    "compact_button_hover",
+    "compact_button_pressed",
+    "compact_field",
+    "compact_panel",
+    "compact_stepper_plate_default",
+    "compact_stepper_plate_pressed",
+    "compact_toggle_knob",
+    "compact_toggle_track_off",
+    "compact_toggle_track_on"
+  ]
+}

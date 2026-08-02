@@ -1,0 +1,164 @@
+=== phase-0-foundation ===
+  PASS  doctor
+  PASS  test-suite
+  PASS  conformance-custom-core
+  PASS  conformance-fusion-adapter
+  PASS  conformance-imperative-baseline
+  FAIL_RECOVERABLE  layout-spike
+  PASS  replication-boundary-spike
+  PASS  client-boundary-static
+  PASS  property-authority-spike
+  PASS  input-action-spike
+  PASS  modal-focus-spike
+  PASS  engine-fidelity-fixtures
+  PASS  worldtarget-seam
+  PASS  foundation-decision
+  PASS  opus-verification
+gate: FAIL_RECOVERABLE -> artifacts/phase-0/gate.json
+exit:1 for phase-0-foundation
+=== phase-1-minimal-screen ===
+  PASS  doctor
+  PASS  test-suite
+  PASS  client-boundary-static
+  PASS  settings-subset-multi-input
+  PASS  two-clients-independent-layouts
+  PASS  authoritative-mutation-slice
+  PASS  no-permanent-pending-or-divergence
+  PASS  modal-context-priority-sink-disposal
+  PASS  preferred-input-affordance-no-remount
+  PASS  churn-registry-neutral
+  PASS  no-factory-rerun-trace
+  PASS  engine-fidelity
+  PASS  bench-reproducible
+  PASS  gallery-visible-viewport-checks
+  PASS  opus-verification
+gate: PASS -> artifacts/phase-1/gate.json
+exit:0 for phase-1-minimal-screen
+=== phase-2-settings-parity ===
+  PASS  game-suite-green
+  PASS  library-suite-green
+  PASS  behavior-parity-slice
+  PASS  state-driven-repaint-no-rebuild
+  PASS  open-close-memory-neutral
+  PASS  touch-and-action-paths
+  PASS  multi-viewport-adaptation
+  PASS  replication-convergence-carryover
+  PASS  old-settings-intact-and-default
+  PASS  ui-cost-budget
+  PASS  port-doc-and-rollback
+  PASS  studio-port-run
+  PASS  opus-verification
+gate: PASS -> artifacts/phase-2/gate.json
+exit:0 for phase-2-settings-parity
+=== phase-3-pilot ===
+  PASS  pilot-decision
+  PASS  game-suite-green
+  PASS  library-suite-green
+  PASS  all-interactions-reachable-across-bindings
+  PASS  validated-mutation-flow
+  PASS  no-factory-rerun-in-pilot
+  PASS  multi-viewport-adaptation
+  PASS  diagnosable-from-dumps
+  PASS  no-leak-regression
+  PASS  framework-defects-fixed-in-framework
+  PASS  opus-verification
+gate: PASS -> artifacts/phase-3/gate.json
+exit:0 for phase-3-pilot
+=== part-2-director ===
+  PASS  ws1-table-phase-b-suite
+  PASS  ws1-pointer-seam-minimal-writes
+  PASS  ws1-adr-and-bench
+  PASS  ws1-studio-drive
+  PASS  ws2-edit-preview-harness
+  PASS  ws3-billboard-target
+  PASS  ws4-game-table-surface
+  PASS  opus-verification
+gate: PASS -> artifacts/part-2/gate.json
+exit:0 for part-2-director
+=== phase-4-hardening ===
+  PASS  library-suite-green
+  PASS  game-suite-green
+  PASS  old-settings-intact-and-default
+  PASS  fuzz-scheduler
+  PASS  fuzz-layout
+  PASS  fuzz-replication
+  PASS  fault-injection
+  FAIL_RECOVERABLE  virtualization-hardening
+  PASS  navigation-groups
+  PASS  a11y-l10n-corpus
+  PASS  perf-runner-floor-suite
+  PASS  semver-and-deprecation
+  PASS  error-boundaries
+  PASS  engine-styling-shadows-corners
+  PASS  maintainability-playbooks-and-checker
+  PASS  popup-button-dry-run
+  PASS  documentation-and-examples
+  PASS  specialist-docs-updated
+  PASS  opus-verification
+  FAIL_ENVIRONMENT  physical-device-confirmation
+gate: FAIL_RECOVERABLE -> artifacts/phase-4/gate.json
+exit:1 for phase-4-hardening
+=== input-adaptation-audit ===
+  PASS  audit-matrix
+  PASS  library-suite-green
+  PASS  game-suite-green
+  FAIL_RECOVERABLE  framework-auto-input
+  PASS  per-control-per-input-conformance
+  PASS  examples-all-input-headless
+  PASS  examples-no-input-boilerplate
+  PASS  studio-all-input-verification
+  PASS  engine-truths-encoded
+  PASS  first-responder-model
+  PASS  playbooks-and-docs-updated
+  PASS  adr-recorded
+  PASS  opus-verification
+  FAIL_ENVIRONMENT  physical-device-confirmation
+gate: FAIL_RECOVERABLE -> artifacts/input-adaptation-audit/gate.json
+exit:1 for input-adaptation-audit
+=== expansion-textinput ===
+  PASS  library-suite-green
+  PASS  game-suite-green
+  PASS  engine-facts-probed
+  PASS  textinput-per-input-interaction
+  PASS  textinput-handshake-and-cancel
+  PASS  textinput-occlusion-keep-visible
+  PASS  adapter-capability-detection
+  PASS  examples-upgraded
+  PASS  registration-and-docs
+  PASS  studio-drive-and-screenshots
+  PASS  expansion-adr-bench-rollback
+  PASS  opus-verification
+  FAIL_ENVIRONMENT  physical-device-confirmation
+gate: PASS -> artifacts/expansion-textinput/gate.json
+exit:0 for expansion-textinput
+=== input-paradigms ===
+  PASS  defect-example02-fix
+  PASS  affordance-matrix
+  PASS  per-control-affordance-proofs
+  PASS  hybrid-hotswitch
+  PASS  console-10foot
+  PASS  axes-future-proofing
+  PASS  library-suite-green
+  PASS  game-suite-green
+  PASS  studio-drive
+  PASS  opus-verification
+  FAIL_ENVIRONMENT  physical-device-confirmation
+gate: PASS -> artifacts/input-paradigms/gate.json
+exit:0 for input-paradigms
+
+=== ADDENDUM 2026-07-23 (same session) ===
+Three gates initially FAIL_RECOVERABLE for non-product reasons, fixed and re-run to PASS:
+- phase-0-foundation/layout-spike: the static no-yield grep on src/layout matched the LITERAL
+  'GetTextBoundsAsync' inside a NEW COMMENT in text_metrics.luau (calibration seam docs).
+  Comment reworded; the no-yield invariant itself was never violated (calibration is pure data;
+  the yielding call lives in src/client/text_calibration.luau).
+- phase-4-hardening/virtualization-hardening + input-adaptation-audit/framework-auto-input:
+  grep-locked spec-case names renamed by the native-canvas migration
+  ('rect-writes only: zero structural dirties' -> 'same-window scroll delta is ZERO framework
+  writes'; 'VirtualList touch: a one-finger pan' -> 'VirtualList touch: a native pan scroll
+  slides the window'). Manifest greps re-anchored to the new names after verifying each new
+  case covers the same intent (the expansion-textinput D1 lesson pattern).
+exit:0 for phase-0-foundation (re-run)
+exit:0 for phase-4-hardening (re-run)
+exit:0 for input-adaptation-audit (re-run)
+FINAL: 9/9 prior gates PASS

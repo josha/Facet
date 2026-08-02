@@ -1,0 +1,160 @@
+{
+  "note": "Alpha-weighted mean of each asset's nine-slice CENTRE rect \u2014 the pixels a lifted label is read against. Regenerate with tools/sample_plates.py whenever the art is re-cut; tests/theme_reference_packages.spec.luau re-hashes every file and fails if a sample is stale.",
+  "samples": {
+    "compact-pointer": {
+      "control": {
+        "alpha": 1.0,
+        "asset": "compact_button_default",
+        "b": 249,
+        "file": "assets/themes/compact-pointer/compact_button_default.png",
+        "g": 246,
+        "r": 246,
+        "sha256": "7a419d3ac28fbf4d38bdea6677ea3f0d4afed08a1d8574781033f5619d28cbb2",
+        "size": "32x22",
+        "sliceCenter": {
+          "x0": 8,
+          "x1": 24,
+          "y0": 8,
+          "y1": 14
+        }
+      },
+      "selected": {
+        "alpha": 1.0,
+        "asset": "compact_button_hover",
+        "b": 254,
+        "file": "assets/themes/compact-pointer/compact_button_hover.png",
+        "g": 246,
+        "r": 240,
+        "sha256": "bc1a1fe331fecb828e2891cbc22ece47d3cdc65fff34f9656b0456a49548e807",
+        "size": "32x22",
+        "sliceCenter": {
+          "x0": 8,
+          "x1": 24,
+          "y0": 8,
+          "y1": 14
+        }
+      }
+    },
+    "fantasy-ornate": {
+      "control": {
+        "alpha": 1.0,
+        "asset": "ornate_button_default",
+        "b": 44,
+        "file": "assets/themes/fantasy-ornate/ornate_button_default.png",
+        "g": 27,
+        "r": 55,
+        "sha256": "3c942c9049955a31feaaeded9e430504e3a0e80ad6c064537baf8ce1b5967fac",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      },
+      "selected": {
+        "alpha": 1.0,
+        "asset": "ornate_selection_selected",
+        "b": 65,
+        "file": "assets/themes/fantasy-ornate/ornate_selection_selected.png",
+        "g": 84,
+        "r": 40,
+        "sha256": "c2d7a13f3495bc3a0aac3ce87a6f7edaec45d29b8b03cf54295f508c99107e49",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      }
+    },
+    "fantasy-parchment": {
+      "control": {
+        "alpha": 1.0,
+        "asset": "parchment_button",
+        "b": 146,
+        "file": "assets/themes/fantasy-parchment/parchment_button.png",
+        "g": 187,
+        "r": 210,
+        "sha256": "45c106d28d28ae75ac96074bffa03e37defd8e60100575547f53706d3679f882",
+        "size": "64x64",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 48
+        }
+      }
+    },
+    "glossy-touch": {
+      "control": {
+        "alpha": 1.0,
+        "asset": "glossy_button_default",
+        "b": 227,
+        "file": "assets/themes/glossy-touch/glossy_button_default.png",
+        "g": 214,
+        "r": 207,
+        "sha256": "e754429e98ff56a43c6affbd86818d91ebd271a7f93db1aedd77ee8101ced463",
+        "size": "64x44",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 48,
+          "y0": 16,
+          "y1": 28
+        }
+      },
+      "selected": {
+        "alpha": 1.0,
+        "asset": "glossy_selection_selected",
+        "b": 221,
+        "file": "assets/themes/glossy-touch/glossy_selection_selected.png",
+        "g": 115,
+        "r": 40,
+        "sha256": "f26c69fca90924b1a5ab00624c1600515c9065747698c939fa614ed573d3e800",
+        "size": "72x44",
+        "sliceCenter": {
+          "x0": 18,
+          "x1": 54,
+          "y0": 18,
+          "y1": 26
+        }
+      }
+    },
+    "pixel-quest": {
+      "control": {
+        "alpha": 1.0,
+        "asset": "pixel_plate_default",
+        "b": 47,
+        "file": "assets/themes/pixel-quest/pixel_plate_default.png",
+        "g": 114,
+        "r": 168,
+        "sha256": "0cca342563e5ba04e85bafdaa37032db68cfd0e686910f9ba509d47ef2132138",
+        "size": "36x36",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 20,
+          "y0": 16,
+          "y1": 20
+        }
+      },
+      "selected": {
+        "alpha": 1.0,
+        "asset": "pixel_plate_selected",
+        "b": 96,
+        "file": "assets/themes/pixel-quest/pixel_plate_selected.png",
+        "g": 168,
+        "r": 215,
+        "sha256": "e7fe796149d3ef6769924fc2bb4640bb7a48c9fe3610ba73c0b7d094a176da90",
+        "size": "36x36",
+        "sliceCenter": {
+          "x0": 16,
+          "x1": 20,
+          "y0": 16,
+          "y1": 20
+        }
+      }
+    }
+  },
+  "schema": "luauui-art-plate-samples/1"
+}

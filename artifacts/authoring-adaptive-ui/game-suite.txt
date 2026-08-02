@@ -1,0 +1,23 @@
+RascalRally game suite — invariant I3 (framework change must not leak into game behavior)
+Run: games/RascalRally/code/run-tests.sh   ·   2026-07-24
+
+2404 passed
+
+zero game-code edits this stage.
+
+`git status --porcelain` in games/RascalRally/code reports 5 modified files:
+  M src/client/GaragePilotGui.luau
+  M src/client/LuauUIRacerListGui.luau
+  M src/client/LuauUISettingsGui.luau
+  M src/client/init.client.luau
+  M src/server/init.server.luau
+
+These PRE-DATE this session and belong to the earlier native-stylesheet promotion
+work (their diffs reference "native-stylesheets stage, promotion plan"):
+
+  src/client/LuauUISettingsGui.luau   mtime 2026-07-24 10:15:19
+  src/server/init.server.luau         mtime 2026-07-24 12:02:22
+  this stage's first LuauUI edit       mtime 2026-07-24 15:10:12
+
+Every file this stage touched is under GameStudio/ui/LuauUI/. No file under games/
+was created, edited, or deleted.

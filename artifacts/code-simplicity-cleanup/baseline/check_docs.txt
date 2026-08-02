@@ -1,0 +1,1 @@
+check_docs: PASS (8 documents, 77 surface anchors, 62 local links, 7 themes exports documented, 24 scenario steps, 10 example packages, 17 asset files, 11 stale phrases absent)

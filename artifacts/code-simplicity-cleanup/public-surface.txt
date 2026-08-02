@@ -1,0 +1,139 @@
+VERSION 0.7.0
+UI : table
+  UI.AdaptiveStack : function
+  UI.Anchor : function
+  UI.Box : function
+  UI.Button : function
+  UI.Divider : function
+  UI.ErrorBoundary : function
+  UI.ForEach : function
+  UI.Grid : function
+  UI.Grip : function
+  UI.HStack : function
+  UI.Image : function
+  UI.PROP_DIRTY : table
+  UI.Path : function
+  UI.Screen : function
+  UI.ScrollView : function
+  UI.Spacer : function
+  UI.Text : function
+  UI.TextField : function
+  UI.Toggle : function
+  UI.VStack : function
+  UI.ViewThatFits : function
+  UI.When : function
+  UI.ZStack : function
+  UI.alignment : function
+  UI.aspectRatio : function
+  UI.background : function
+  UI.corners : function
+  UI.draggable : function
+  UI.dropTarget : function
+  UI.frame : function
+  UI.gradient : function
+  UI.isReadable : function
+  UI.offset : function
+  UI.overlay : function
+  UI.padding : function
+  UI.schema : table
+  UI.shadow : function
+  UI.stroke : function
+  UI.strokeData : function
+  UI.styleGroup : function
+VERSION : string
+adaptive : table
+  adaptive.BREAKPOINTS : table(frozen)
+  adaptive.DEFAULT_STACK_ABOVE : number
+  adaptive.axisFor : function
+  adaptive.columnsFor : function
+  adaptive.conditions : function
+  adaptive.sizeClass : function
+contribution : table
+  contribution.PROP : string
+  contribution.attach : function
+  contribution.read : function
+inputHint : function
+interactionTokens : table
+  interactionTokens.classForPointerType : function
+  interactionTokens.dragPromotionPx : table(frozen)
+  interactionTokens.dragPromotionRangePx : table(frozen)
+  interactionTokens.promoted : function
+  interactionTokens.promotionForPointerType : function
+  interactionTokens.promotionPx : function
+motion : table
+  motion.classNames : function
+  motion.isRegisteredClass : function
+  motion.newClock : function
+  motion.registerClass : function
+  motion.resetClasses : function
+  motion.resolveClass : function
+mount : function
+newActionSystem : function
+newAsyncImage : function
+newAutoscroll : function
+newChip : function
+newCore : function
+newDisclosureGroup : function
+newDragRegistry : function
+newDragSession : function
+newDragVelocity : function
+newEnvironment : function
+newFocusGraph : function
+newLabel : function
+newPicker : function
+newPopupButton : function
+newPresenter : function
+newProgressView : function
+newRating : function
+newResourceProvider : function
+newSlider : function
+newStepper : function
+newTable : function
+newTextInput : function
+newVirtualList : function
+pathShapes : table
+  pathShapes.MAX_CONTROL_POINTS : number
+  pathShapes.arc : function
+  pathShapes.needle : function
+  pathShapes.ring : function
+renderer : table
+  renderer.BINDING_PROPS : table
+  renderer.DIRECT_PROPS : table(frozen)
+  renderer.EMITTED_PROPS : table(frozen)
+  renderer.STYLE_PROPS : table
+  renderer.attach : function
+  renderer.compactForm : function
+  renderer.drawnButtonText : function
+replication : table
+  replication.collection : function
+  replication.mutation : function
+  replication.snapshot : function
+spatial : table
+  spatial.HANDEDNESS : table(frozen)
+  spatial.PHASES : table(frozen)
+  spatial.describe : function
+  spatial.extend : function
+  spatial.isFlat : function
+  spatial.normalize : function
+  spatial.of : function
+themes : table
+  themes.SCHEMA : string
+  themes.checkCoverage : function
+  themes.define : function
+  themes.lintProperty : function
+  themes.neutral : function
+  themes.neutralPackage : function
+  themes.resolve : function
+tokens : table
+  tokens.compile : function
+  tokens.contrastRatio : function
+  tokens.dangerPair : function
+touchGestures : table
+  touchGestures.newArbiter : function
+  touchGestures.normalize : function
+valueModel : table
+  valueModel.defaultFormat : function
+  valueModel.new : function
+DEPRECATIONS:
+  UI.Text.color | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } | note=Text.color was declared and documented but no render target ever consumed it: a reactive color scheduled paint work the adapter dropped. Text color is style authority (native StyleSheet / style role), never an authored literal.
+  UI.Text.font | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } (fonts are style authority) | note=Text.font reached the text-metrics measure seam but no paint seam, so an authored font silently made measured and painted bounds disagree. FontFace is owned by the style sheet (authority.nativeSheetOwned).

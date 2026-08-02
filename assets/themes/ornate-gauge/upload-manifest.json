@@ -1,0 +1,33 @@
+{
+  "schema": "luauui-theme-assets/1",
+  "package": null,
+  "control": "OrnateGauge",
+  "controlModule": "examples/themes/ornate_gauge.luau",
+  "stage": "rich-skinning-v2",
+  "uploaded": "2026-07-25",
+  "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8647 serving this directory (build package P6, ADR-0020 R8 rung 3)",
+  "note": "This art belongs to a CONTROL, not to a theme package: `package` is null on purpose. A control paints through the public UI.Image primitive, which has no slice geometry and no tint, so there is no sliceBorder column here — gauge_face.png is horizontally invariant instead (asserted by the generator) and the other two are drawn at a fixed px box.",
+  "assets": {
+    "gauge_face": {
+      "file": "gauge_face.png",
+      "contentId": "rbxassetid://117569461983627",
+      "size": "64x64",
+      "role": "the carved channel the needle rides in",
+      "drawnAt": "width = fill, height = gauge:dial.height (stretched horizontally, losslessly)"
+    },
+    "gauge_needle": {
+      "file": "gauge_needle.png",
+      "contentId": "rbxassetid://88340591181438",
+      "size": "24x64",
+      "role": "the value token — tapered brass needle with a ruby boss",
+      "drawnAt": "fixed 24px wide, full dial height"
+    },
+    "gauge_endcap": {
+      "file": "gauge_endcap.png",
+      "contentId": "rbxassetid://80585948903459",
+      "size": "28x64",
+      "role": "fluted brass end cap, used unflipped at both ends",
+      "drawnAt": "fixed 28px wide, full dial height"
+    }
+  }
+}

@@ -1,0 +1,150 @@
+{
+ "schema": "luauui-phases/1",
+ "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md#17",
+ "gateStates": [
+  "PASS",
+  "FAIL_RECOVERABLE",
+  "FAIL_OPTIONAL",
+  "FAIL_ENVIRONMENT",
+  "BLOCKED_CRITICAL"
+ ],
+ "artifactRoot": "artifacts",
+ "phases": [
+  {
+   "gate": "phase-0-foundation",
+   "title": "Contracts, tooling, and feasibility",
+   "specSection": "17 Phase 0",
+   "artifactDir": "artifacts/phase-0",
+   "gateArtifact": "artifacts/phase-0/gate.json",
+   "next": "phase-1-minimal-screen"
+  },
+  {
+   "gate": "phase-1-minimal-screen",
+   "title": "Minimal production-shaped screen slice",
+   "specSection": "17 Phase 1",
+   "artifactDir": "artifacts/phase-1",
+   "gateArtifact": "artifacts/phase-1/gate.json",
+   "next": "phase-2-settings-parity"
+  },
+  {
+   "gate": "phase-2-settings-parity",
+   "title": "Settings parity port behind runtime flag (old Settings stays default; never deleted by the autonomous build)",
+   "specSection": "17 Phase 2",
+   "artifactDir": "artifacts/phase-2",
+   "gateArtifact": "artifacts/phase-2/gate.json",
+   "next": "phase-3-pilot"
+  },
+  {
+   "gate": "phase-3-pilot",
+   "title": "First production pilot (card management vs garage, selected by rubric)",
+   "specSection": "17 Phase 3",
+   "artifactDir": "artifacts/phase-3",
+   "gateArtifact": "artifacts/phase-3/gate.json",
+   "next": "part-2-director"
+  },
+  {
+   "gate": "part-2-director",
+   "title": "Director Part-2 workstreams: Table Phase B, Edit-mode preview harness, BillboardTarget, first game Table surface",
+   "specSection": "director direction 2026-07-19 (ADR-0007 B, ADR-0008)",
+   "artifactDir": "artifacts/part-2",
+   "gateArtifact": "artifacts/part-2/gate.json",
+   "next": "phase-4-hardening"
+  },
+  {
+   "gate": "phase-4-hardening",
+   "title": "Hardening: fuzzing, fault injection, virtualization/navigation/a11y-l10n, perf runner, semver, error boundaries, engine styling, agentic maintainability, documentation",
+   "specSection": "17 Phase 4",
+   "artifactDir": "artifacts/phase-4",
+   "gateArtifact": "artifacts/phase-4/gate.json",
+   "next": null
+  },
+  {
+   "gate": "input-adaptation-audit",
+   "title": "Input auto-adaptation audit + closure: every control ships focus/navigation, Activate, and input-appropriate affordances for pointer, touch, keyboard, and gamepad with no consumer wiring (ui_todo \u00a70 held automatically; \u00a73 engine truths encoded)",
+   "specSection": "ui_todo.md \u00a70/\u00a73 (director 2026-07-20) + design \u00a79",
+   "artifactDir": "artifacts/input-adaptation-audit",
+   "gateArtifact": "artifacts/input-adaptation-audit/gate.json",
+   "next": null
+  },
+  {
+   "gate": "expansion-textinput",
+   "title": "Phase-5 expansion: UI.TextInput \u2014 signal-backed value model + engine TextBox adapter with capability detection, text-entry-mode handshake, occlusion keep-visible; examples 01/02 upgraded",
+   "specSection": "17 Phase 5 expansion rules + ui_todo.md \u00a70/\u00a71 (director 2026-07-20)",
+   "artifactDir": "artifacts/expansion-textinput",
+   "gateArtifact": "artifacts/expansion-textinput/gate.json",
+   "next": "input-paradigms"
+  },
+  {
+   "gate": "input-paradigms",
+   "title": "Interaction-paradigm expansion: three adaptation axes (UI/input/paradigm), hybrid + hot-switch, console 10-foot",
+   "specSection": "prompt.md 'Expansion: input paradigms' (2026-07-21)",
+   "artifactDir": "artifacts/input-paradigms",
+   "gateArtifact": "artifacts/input-paradigms/gate.json",
+   "next": "native-substrate"
+  },
+  {
+   "gate": "native-substrate",
+   "title": "Roblox-native substrate adoption (roadmap Step 1): corrected native capability matrix with evidence; ScrollingFrame scroll/clip host, UIDragDetector, native touch events, Path2D, UIPageLayout decision, four-edge safe areas, single-application preferred text, modal-only selection bridge, PreloadAsync transport \u2014 deterministic decisions stay headless",
+   "specSection": "docs/plans/luauui-consolidated-roadmap.md Step 1 + docs/plans/roblox-native-audit-corrections.md",
+   "artifactDir": "artifacts/native-substrate",
+   "gateArtifact": "artifacts/native-substrate/gate.json",
+   "next": "native-stylesheets"
+  },
+  {
+   "gate": "native-stylesheets",
+   "title": "Roblox-native StyleSheets as the runtime styling source of truth (roadmap Step 2): DataModel sheet + Style Editor own every proven styleable paint property, semantic role, native interaction state, app-state tag, theme, and transition; state-as-tags, one authority per property with explicit-write fallback as a separate target mode; layout solver inputs stay headless Luau",
+   "specSection": "docs/plans/roblox-native-stylesheets.md (Rev 2) + docs/plans/roblox-native-audit-corrections.md \u00a75-\u00a79 + docs/plans/fable-execution-contract.md \u00a79 stage 2",
+   "artifactDir": "artifacts/native-stylesheets",
+   "gateArtifact": "artifacts/native-stylesheets/gate.json",
+   "next": null
+  },
+  {
+   "gate": "authoring-adaptive-ui",
+   "title": "Trustworthy authoring, then adaptive layout and the common controls (roadmap Step 3)",
+   "specSection": "docs/plans/swiftui-parity-next.md Milestones 0, A, B",
+   "artifactDir": "artifacts/authoring-adaptive-ui",
+   "gateArtifact": "artifacts/authoring-adaptive-ui/gate.json",
+   "next": null
+  },
+  {
+   "gate": "theme-packages-and-skinning",
+   "title": "Public versioned theme packages, metric-aware swapping, and bounded rich skinning (roadmap Step 3.5): one ThemePackage contract around native StyleSheets, one frozen metric snapshot shared by solver and adapter, font-aware measurement, an honest Style Editor sync workflow, bounded chrome recipes/decoration slots, and Fantasy Parchment as the public-API proof theme",
+   "specSection": "docs/plans/theme-packages-and-skinning.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+   "artifactDir": "artifacts/theme-packages-and-skinning",
+   "gateArtifact": "artifacts/theme-packages-and-skinning/gate.json",
+   "next": null
+  },
+  {
+   "gate": "rich-skinning-v2",
+   "title": "Rich skinning v2 \u2014 fully image-driven UI (director direction from the Step 3.5 TP-P3 review): image-is-the-element posture, layered decoration slots, per-state asset variants at both customization rungs, image value-displays, semantic icons, pixel-art mode, Content adoption, profile-conditional selectBy package selection, the tile decision, toggle slots, and the SwiftUI customization ladder \u2014 consuming the ADR-0019 contract, never reopening it",
+   "specSection": "docs/plans/rich-skinning-v2.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+   "artifactDir": "artifacts/rich-skinning-v2",
+   "gateArtifact": "artifacts/rich-skinning-v2/gate.json",
+   "next": "cross-platform-proof"
+  },
+  {
+   "gate": "cross-platform-proof",
+   "title": "Cross-platform performance proof and the future spatial seam: production-shaped scenes, evidence-class separation, the reusable Studio five-view driver, and spatial contracts with no VR claim",
+   "specSection": "roadmap Step 4 (docs/plans/luauui-consolidated-roadmap.md); swiftui-parity-next.md investment 10",
+   "artifactDir": "artifacts/cross-platform-proof",
+   "gateArtifact": "artifacts/cross-platform-proof/gate.json",
+   "next": "sponsor-framework-gaps"
+  },
+  {
+   "gate": "sponsor-framework-gaps",
+   "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture \u2014 proven in a Sponsor-shaped gallery with no game policy in LuauUI",
+   "specSection": "roadmap Step 5 (docs/plans/luauui-consolidated-roadmap.md); docs/reference/sponsor-view-parity.md re-audited 2026-07-27",
+   "artifactDir": "artifacts/sponsor-framework-gaps",
+   "gateArtifact": "artifacts/sponsor-framework-gaps/gate.json",
+   "next": "code-simplicity-cleanup"
+  },
+  {
+   "gate": "code-simplicity-cleanup",
+   "title": "Fresh-context simplicity cleanup (roadmap Step 5.5): a behaviour-preserving audit that deletes proved waste, consolidates duplicated decisions at one owner, and dispositions every Step 5 carry-over — with unchanged public API, deprecations, property authority, theme/Sponsor mechanisms, Studio behaviour, lifecycle/resource counts, and headless performance",
+   "specSection": "docs/plans/code-simplicity-cleanup.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+   "artifactDir": "artifacts/code-simplicity-cleanup",
+   "gateArtifact": "artifacts/code-simplicity-cleanup/gate.json",
+   "next": null
+  }
+ ]
+}

@@ -1,0 +1,791 @@
+--!strict
+-- LuauUI Gallery client bootstrap (design §17 Phase 1): the complete path —
+-- replicated semantic state -> adapters -> blueprint -> mount -> solve ->
+-- ScreenTarget, with real IAS input and the presenter. The "server" here is a
+-- local loopback of semantic state (the gallery is single-place); games wire
+-- the same adapters to their replication layer.
+-- Studio verification reads workspace attributes LuauUI_* (checkpoints).
+
+-- string requires do NOT wait for replication (platform research 2026-07-19)
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+
+local LuauUI = require(ReplicatedStorage:WaitForChild("LuauUI")) :: any
+local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target) :: any
+local roblox_env = require(ReplicatedStorage.LuauUI.client.roblox_env) :: any
+local roblox_input = require(ReplicatedStorage.LuauUI.client.roblox_input) :: any
+local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention) :: any
+local responder_effects = require(ReplicatedStorage.LuauUI.client.responder_effects) :: any
+
+local UI = LuauUI.UI
+local core = LuauUI.newCore()
+local env = LuauUI.newEnvironment(core)
+local unbindEnv = roblox_env.bind(env)
+-- NS-I2 fallback A/B driver: set workspace attribute LuauUI_ForceScrollFallback
+-- BEFORE running to exercise the clip-only ScrollView fallback in Studio
+-- Native-stylesheets A/B driver (ledger NSS-A2/NSS-A10): LuauUI_NativeStyle=true
+-- opts the target into sheet-owned paint; LuauUI_ForceStyleFallback wins over it
+-- so the explicit-write path is exercised separately (never only headlessly)
+local adapter = screen_target.new({
+	forceScrollFallback = workspace:GetAttribute("LuauUI_ForceScrollFallback") == true,
+	-- LuauUI_NativeTransitions opts the sheet transitions in (progressive
+	-- enhancement, default OFF until the NSS-P3 publish rider clears)
+	nativeStyle = (workspace:GetAttribute("LuauUI_NativeStyle") == true and workspace:GetAttribute(
+		"LuauUI_ForceStyleFallback"
+	) ~= true) and { transitions = workspace:GetAttribute("LuauUI_NativeTransitions") == true } or false,
+})
+local system = roblox_input.newSystem(core)
+local pres = LuauUI.newPresenter(core, env, adapter, system)
+
+-- The presentation layer's clock (Step 5): transitions, toasts, and every
+-- motion-clock consumer advance ONLY inside presenter.tick — bind it to the
+-- render clock exactly once, or nothing animates live while headless stays green.
+local motion_driver = require(ReplicatedStorage.LuauUI.client.motion_driver) :: any
+motion_driver.bind(pres)
+
+-- First-responder engine seam (ADR-0014): while an EXCLUSIVE (sinking) surface
+-- is up — a modal, or an engaged-from-passive HUD — hide the mobile touch
+-- controls. This gallery is a UI-only place whose default screen presents no
+-- modal, so the effect is inert here; the call proves the one-line wiring shape
+-- a real game (RascalRally) uses. Client-only module (like gamepad_contention),
+-- required directly from src/client — see docs/guide/07-input.md §7.3.
+local unbindResponderEffects = responder_effects.bind(core, pres)
+
+-- THEME PICKER (director review 2026-07-25: "no idea how to swap themes").
+-- A gallery-only overlay — see examples/gallery/client/theme_picker.luau for
+-- why it is an example and not library code. Mounted for the DEMO and TUTORIAL
+-- paths only: a scenario run owns its own theme controller (the runner installs
+-- and swaps packages as acceptance steps), and `themeMetrics` is ONE env fact,
+-- so a second controller there would be a capability error rather than a
+-- convenience. Set the workspace attribute LuauUI_ThemePicker = false to hide it.
+local theme_picker = require(script:WaitForChild("theme_picker")) :: any
+local theme_controller = require(ReplicatedStorage.LuauUI.client.theme_controller) :: any
+
+-- `collapsible` is passed only by the showcase place: see theme_picker's
+-- MountOpts for why it is opt-in rather than the default.
+local function mountThemePicker(collapsible: boolean?, composed: boolean?)
+	if workspace:GetAttribute(theme_picker.ATTRIBUTE) == false then
+		return nil
+	end
+	-- the reference packages replicate as ModuleScripts under
+	-- ReplicatedStorage.LuauUIThemes (examples/gallery.project.json); each
+	-- exposes `build(themes) -> (package, report)` through the PUBLIC surface
+	local folder = ReplicatedStorage:FindFirstChild("LuauUIThemes")
+	local packages: { [string]: any } = {}
+	if folder ~= nil then
+		for _, module in folder:GetChildren() do
+			if not module:IsA("ModuleScript") then
+				continue
+			end
+			local ok, built = pcall(function()
+				local m = require(module) :: any
+				-- `testOnly` fixtures stay out of the list (theme_picker.isPickable):
+				-- the acceptance scenarios install those by name, and a picker whose
+				-- rows are broken-on-purpose packages misrepresents the framework
+				return if theme_picker.isPickable(m) then (m.build(LuauUI.themes)) else nil
+			end)
+			if ok and built ~= nil then
+				packages[module.Name] = built
+			end
+		end
+	end
+	local mounted = theme_picker.mount({
+		LuauUI = LuauUI,
+		core = core,
+		env = env,
+		adapter = adapter,
+		presenter = pres,
+		packages = packages,
+		themeController = theme_controller,
+		collapsible = collapsible,
+		-- composed: hand back the chip and the panel instead of presenting an
+		-- overlay, so the showcase host can lay both pickers out in one surface
+		composed = composed,
+		warn = warn,
+	})
+	if mounted ~= nil then
+		workspace:SetAttribute("LuauUI_ThemePickerReady", true)
+	end
+	return mounted
+end
+
+-- ENGINE TRUTH (ui_todo.md §3, live gamepad 2026-07-20): the legacy control
+-- scripts bind gamepad ButtonA to jumpAction UNCONDITIONALLY — even with no
+-- character — silently consuming the button (gameProcessed) before the Input
+-- Action System sees it. These gallery places are UI-only, so free ButtonA
+-- through the shared helper (ONE implementation:
+-- src/client/gamepad_contention.luau; full story in docs/guide/07-input.md).
+-- Real games keep their controls and either run the IAS player-script stack
+-- (RascalRally does) or accept A-contention while a character can jump.
+-- UI-only place: real games keep avatar input and rely on IAS arbitration —
+-- docs/guide/07-input.md.
+task.defer(function()
+	gamepad_contention.disableLegacyControls()
+end)
+
+-- ENGINE TEXT CALIBRATION (NS-A10, UI-FID-001) IS STILL NOT RUN HERE, and no
+-- longer needs to be: the ScreenTarget adapter now measures text per WORD with
+-- the engine's own bounds API (src/client/text_premeasure), so boxes match what
+-- is drawn without any average-glyph model at all.
+--
+-- The calibration seam remains for targets that want a cheap per-font tightening,
+-- but it cannot be the answer on its own and that is worth remembering: measured
+-- live 2026-07-24 on the SAME font at the SAME size, "Brightness" runs 0.391
+-- em/glyph and "Volume" 0.469. A single fraction that bounds the wide one wastes
+-- space on the narrow one; one that fits the narrow one clips the wide one.
+-- Turning it on did exactly that — "Brightness" lost its final s and "Download"
+-- was cut off. The problem was never the font, it was VARIANCE, and no average
+-- can bound a specific short string.
+
+-- ===== SHOWCASE MODE (the hands-on device place) ==========================
+--
+-- One place you publish once and open on a phone, a tablet, a desktop and a
+-- console, with BOTH the demo and the theme switchable in-game. Every other
+-- selector in this file needs a workspace attribute set before Play and a
+-- republish to change — a fine developer affordance and a useless one on a
+-- device you are holding.
+--
+-- The showcase place sets `LuauUI_Showcase = true` in its own Rojo project
+-- (tools/build_places.sh), so nobody has to touch an attribute; the branch is
+-- inert in every other place.
+if workspace:GetAttribute("LuauUI_Showcase") == true then
+	local demo_picker = require(script:WaitForChild("demo_picker")) :: any
+
+	-- RESERVE THE BAR, DO NOT FLOAT OVER IT.
+	--
+	-- The first attempt floated both pickers over the demo and nudged them apart
+	-- with offsets. That is a losing game: every demo puts content somewhere, so
+	-- a fixed overlay always covers SOMETHING — the all-controls fixture's own
+	-- title and its stepper both ended up underneath a chip.
+	--
+	-- LuauUI already has the right mechanism, and it is the one the CoreGui
+	-- topbar itself uses: `coreSafeInsets` is read on every solve, so a top inset
+	-- of (core topbar + bar) makes the SOLVER lay every demo out below both.
+	-- Nothing overlaps because nothing floats.
+	--
+	-- THE TOP EDGE ONLY. `coreSafeInsets` is a FOUR-EDGE fact and the platform
+	-- adapter is its author: on a notched phone in landscape the left and right
+	-- edges are the notch and the home indicator, and on some devices `bottom` is
+	-- real too. Writing a whole table with three zeroes in it looks like
+	-- "reserving the top" and is actually "deleting every other edge" — content
+	-- would sit under CoreGui-reserved regions on exactly the landscape and
+	-- notched rows the device matrix drives. So the other three edges are carried
+	-- through from whatever the adapter last published.
+	--
+	-- THE TOP IS COMPUTED FROM THE ENGINE, NOT FROM THE FACT. Deriving it by
+	-- adding to whatever `coreSafeInsets` currently holds looks equivalent and is
+	-- not: this ran before the adapter had published the real 58px topbar, so it
+	-- reserved 0+40 and the demo's content started at y=40 — ABOVE the Roblox
+	-- buttons, with the chips underneath them. Reading GetGuiInset directly makes
+	-- the reservation absolute, and re-asserting it each frame makes it
+	-- idempotent and immune to the adapter rewriting the fact underneath us.
+	local GuiService = game:GetService("GuiService")
+	-- ...AND IT RESERVES WHAT THE CHIPS ACTUALLY MEASURE, NOT A LITERAL.
+	--
+	-- `demo_picker.BAR_HEIGHT` was the whole answer, and it was a number tuned once
+	-- against Studio Neutral ("the taller chip's measured 46px, plus padding"). A
+	-- chip is a THEMED control whose height is its theme's chrome plus its label at
+	-- the player's own text size, so the literal was only ever right for the theme
+	-- and the device it was measured on: under Pixel Quest, on an iPhone, the chip
+	-- came out taller than the strip that was supposed to hold it and its plate
+	-- painted over the top of the demo's own page title (device report 2026-07-27).
+	-- The file's standing excuse — "a literal because two separate surfaces cannot
+	-- measure each other" — stopped being true twice over: the showcase composes
+	-- BOTH chips into one surface it owns (see the chrome block below), and the
+	-- presenter feeds `onGeometry(rectOf)` after the first solve and every refresh.
+	--
+	-- SO IT MEASURES. `chipsBottom` is the solved bottom edge of the chip row, fed
+	-- back from the chrome surface. It is stable under this reservation — the Bar is
+	-- placed at `coreTopSignal`, the live Roblox topbar inset, and NOT at the
+	-- reservation — so reserving from it cannot chase its own tail. The literal
+	-- survives only as the first-frame value, for the one frame before any geometry
+	-- exists, and as the standalone (non-composed) pickers' own strip.
+	local chipsBottom = core:signal(nil :: number?)
+	-- the live core-topbar height, published as a signal because the CHROME is
+	-- presented edge-to-edge (it owns the strip) and therefore has to place
+	-- itself below the Roblox buttons itself, reactively
+	local coreTopSignal = core:signal(GuiService:GetGuiInset().Y)
+	local function reserveBar()
+		local coreTop = GuiService:GetGuiInset().Y
+		if coreTopSignal:get() ~= coreTop then
+			coreTopSignal:set(coreTop)
+		end
+		-- the same space step the chrome pads itself with, so the demo below starts
+		-- clear of the chips instead of flush against them
+		local metrics = env:get("themeMetrics"):get()
+		local slack = if type(metrics) == "table" then metrics.space.s else 8
+		local want = demo_picker.barReservation(coreTop, chipsBottom:get(), slack)
+		local live = env:get("coreSafeInsets"):get()
+		local other = if type(live) == "table" then live else {}
+		if type(live) == "table" and live.top == want then
+			return
+		end
+		env:set("coreSafeInsets", {
+			top = want,
+			bottom = other.bottom or 0,
+			left = other.left or 0,
+			right = other.right or 0,
+		})
+	end
+	reserveBar()
+	local examplesFolder = ReplicatedStorage:WaitForChild("LuauUIExamples", 10)
+	local scenariosFolder = ReplicatedStorage:FindFirstChild("LuauUIScenarios")
+
+	-- EVERY DEMO GETS ITS OWN SCOPE, AND THE HOST INSTALLS IT.
+	--
+	-- Ownership in this core is EXPLICIT (`scope:own`) — there is no ambient
+	-- scope a signal joins by being created — and the tutorial examples create
+	-- signals and memos straight on the core they are handed and return no
+	-- `dispose`. So dismissing their screens reclaimed the Instances and left
+	-- their reactive state behind: after eight swaps, eight demos' worth of
+	-- signals were still live on the shared core.
+	--
+	-- The fix belongs HERE, not in the examples: the examples are what the guide
+	-- walks through line by line, and a showcase requirement has no business
+	-- changing them. They take the core as an argument, so the host hands them a
+	-- proxy whose allocating methods own into a per-demo scope. Disposing that
+	-- scope reclaims everything the demo made, whatever it made it with.
+	local function scopedCore(scope: any): any
+		return setmetatable({}, {
+			__index = function(_, key: string)
+				local value = (core :: any)[key]
+				if type(value) ~= "function" then
+					return value
+				end
+				-- the allocating surface: what these return is what leaks
+				if key == "signal" or key == "memo" or key == "observe" or key == "effect" or key == "scope" then
+					return function(_self, ...)
+						return scope:own(value(core, ...))
+					end
+				end
+				return function(_self, ...)
+					return value(core, ...)
+				end
+			end,
+		})
+	end
+
+	-- HOW A DEMO MOUNTS is the host's job, because the two contracts differ:
+	-- a tutorial example takes (LuauUI, core, opts) and may present itself; a
+	-- scenario fixture takes one ctx table and returns a screen for us to
+	-- present. The picker knows neither, which is what keeps it a picker.
+	local function mountDemo(demo: any): any
+		local demoScope = core:scope(`showcase-demo-{demo.id}`)
+		local demoCore = scopedCore(demoScope)
+		local built: any
+		if demo.kind == "fixture" then
+			assert(scenariosFolder ~= nil, "showcase: LuauUIScenarios is not replicated")
+			local mod = require(scenariosFolder:FindFirstChild(demo.module)) :: any
+			-- the MINIMAL ctx: this fixture reads exactly these three, which is
+			-- why it can run outside the verification runner at all
+			built = mod.build({ LuauUI = LuauUI, core = demoCore, env = env })
+			built.handle = pres.present(built.screen)
+		else
+			local mod = require(examplesFolder:FindFirstChild(demo.module)) :: any
+			built = mod.build(LuauUI, demoCore, {
+				env = env,
+				actionSystem = system,
+				presenter = pres,
+				adapter = adapter,
+			})
+			-- examples 1-4 hand back a screen to present; 5-7 present themselves
+			if built.handle == nil and built.screen ~= nil then
+				local presented = pres.present(built.screen, built.present)
+				for _, value in built :: any do
+					if type(value) == "table" and type((value :: any).bindNativeScroll) == "function" then
+						(value :: any).bindNativeScroll(presented.controller)
+					end
+				end
+				built.handle = presented
+			end
+		end
+		-- DELIVER THE LOOPBACK SERVER'S RESPONSES.
+		--
+		-- The tutorial examples that demonstrate optimistic replication hold a
+		-- `server` with an explicit `flush()`, because the TUTORIAL wants the
+		-- reader to control when the response lands. Nobody was calling it here,
+		-- so the first change went pending and stayed pending — and `mutation.send`
+		-- ERRORS while a request is in flight, so the control worked exactly once.
+		-- On the device that read as "I can toggle music on but not off".
+		--
+		-- A host is what delivers a transport's responses; flushing every frame is
+		-- this loopback's version of a server that answers promptly.
+		if built.server ~= nil and type(built.server.flush) == "function" then
+			demoScope:own(RunService.Heartbeat:Connect(function()
+				built.server.flush()
+			end))
+		end
+
+		-- the picker calls `dispose` before it drops a demo; chain the example's
+		-- own teardown (when it has one) ahead of the scope's
+		local ownDispose = built.dispose
+		built.dispose = function()
+			if ownDispose ~= nil then
+				pcall(ownDispose)
+			end
+			demoScope:dispose()
+		end
+		return built
+	end
+
+	-- A BACKDROP, PRESENTED FIRST AND NEVER RE-PRESENTED.
+	--
+	-- Every demo screen is transparent, which was invisible in Studio over a
+	-- plain grey baseplate and unusable on a phone over a textured 3D world: the
+	-- playlist's hint row was illegible against the sky, and the confirm dialog
+	-- had no boundary at all. A showcase is a UI place — the world behind it is
+	-- scenery, not content.
+	--
+	-- Z-ORDER IS PRESENT ORDER (presenter §2.2), so presenting this ONCE, before
+	-- anything else, keeps it underneath every demo and the chrome without any
+	-- notion of "send to back". It is never raised, and that is the mechanism.
+	pres.present(
+		UI.Screen({
+			id = "ShowcaseBackdrop",
+			surface = "base",
+			children = {
+				UI.Spacer({
+					id = "Fill",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+				}),
+			},
+		}),
+		-- edgeToEdge: a backdrop that respects the safe area is a rectangle with
+		-- the world showing around it (device capture, 2026-07-26)
+		{ responder = "passive", rootPolicy = "edgeToEdge" }
+	)
+
+	-- ONE CHROME SURFACE, LAID OUT BY THE SOLVER.
+	--
+	-- The two chips used to be two presented surfaces held apart by a hard-coded
+	-- offset, because neither could measure the other. On a real iPhone 15 Pro
+	-- the text renders wider than the offset assumed and they OVERLAPPED — twice
+	-- reported from a device. An offset between two things that cannot see each
+	-- other is a guess, and a guess about text is a guess about every font, every
+	-- typography scale and every device.
+	--
+	-- So the host composes: it asks each picker for its chip and its panel and
+	-- puts them in ONE screen. Now one solver owns both, the row can never
+	-- overlap, and the panels are children of a full-width column instead of
+	-- floating at a fixed x — which is what ran the theme list off the right edge
+	-- in portrait and mislaid it in landscape.
+	local showcasePicker: any = nil
+	local demos: any = nil
+	local chrome: any = nil
+
+	local function raiseChrome()
+		if chrome ~= nil and chrome.handle ~= nil then
+			pres.dismiss(chrome.handle)
+		end
+		if chrome ~= nil then
+			chrome.handle = pres.present(chrome.screen, chrome.opts)
+		end
+	end
+
+	demos = demo_picker.mount({
+		LuauUI = LuauUI,
+		core = core,
+		env = env,
+		presenter = pres,
+		composed = true,
+		mountDemo = mountDemo,
+		-- z-order is present order, so the chrome goes back on top after every
+		-- demo swap
+		onRaise = function()
+			raiseChrome()
+		end,
+		warn = warn,
+	})
+	showcasePicker = mountThemePicker(true, true)
+
+	-- ONE OPEN PANEL AT A TIME. They share the column under the chips, so two
+	-- open at once would stack into a screen-high wall of chrome.
+	local function closeOthers(which: string)
+		if which ~= "demo" then
+			demos.open:set(false)
+		end
+		if which ~= "theme" and showcasePicker ~= nil then
+			showcasePicker.open:set(false)
+		end
+	end
+	core:observe(demos.open, function(isOpen)
+		if isOpen then
+			closeOthers("demo")
+		end
+	end)
+	if showcasePicker ~= nil then
+		core:observe(showcasePicker.open, function(isOpen)
+			if isOpen then
+				closeOthers("theme")
+			end
+		end)
+	end
+
+	local chipRow = { demos.chip }
+	if showcasePicker ~= nil then
+		table.insert(chipRow, showcasePicker.chip)
+	end
+	local barChildren = {
+		UI.HStack({ id = "Chips", gap = "s", children = chipRow }),
+		UI.When({
+			id = "DemoList",
+			condition = demos.open,
+			thenView = function()
+				return demos.list
+			end,
+		}),
+	}
+	if showcasePicker ~= nil then
+		table.insert(
+			barChildren,
+			UI.When({
+				id = "ThemePanel",
+				condition = showcasePicker.open,
+				thenView = function()
+					-- the picker owns its own scrolling now (theme_picker builds
+					-- the card with a ScrollView INSIDE it when composed); this
+					-- used to wrap the card in one, which clipped the card
+					return showcasePicker.panel
+				end,
+			})
+		)
+	end
+
+	chrome = {
+		screen = UI.Screen({
+			id = "ShowcaseChrome",
+			padding = "s",
+			children = {
+				UI.Anchor({
+					id = "Dock",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.VStack({
+							id = "Bar",
+							anchor = "topLeft",
+							-- FULL HEIGHT, so the open panel has the whole screen
+							-- below the chips to be as tall as it needs
+							height = { type = "fill", weight = 1 },
+							-- PUSHED DOWN PAST THE ROBLOX BUTTONS, not lifted up
+							-- into a reserved strip. The chrome is presented
+							-- edge-to-edge because it OWNS the strip; lifting it
+							-- into an inset content area meant the panel could
+							-- never use the 62px the strip took, and the theme card
+							-- came out three pixels short of its own content.
+							offsetY = coreTopSignal,
+							-- FULL WIDTH. The panels are children of this column, so
+							-- they get the real available width and wrap inside it
+							-- rather than overflowing to the right of a fixed x.
+							width = { type = "fill", weight = 1 },
+							gap = "xs",
+							alignH = "start",
+							children = barChildren,
+						}),
+					},
+				}),
+			},
+		}),
+		opts = {
+			responder = "passive",
+			-- the chrome owns the strip it draws in, so it is not inset by it
+			rootPolicy = "edgeToEdge",
+			-- THE MEASUREMENT THAT REPLACED THE LITERAL (see reserveBar). Fed after
+			-- the first solve and after every refresh, so a theme swap, an
+			-- orientation change or a raised text preference re-reports the chip
+			-- row's real bottom edge and the reserved strip follows it.
+			--
+			-- The CHIP ROW and not the Bar: the Bar is full-height by design (an open
+			-- panel wants the whole screen below the chips), and reserving THAT would
+			-- push every demo off the bottom of the screen the moment a panel opened.
+			onGeometry = function(rectOf: (string) -> any)
+				local r = rectOf("/ShowcaseChrome/Dock/Bar/Chips")
+				if type(r) == "table" and type(r.y) == "number" and type(r.h) == "number" then
+					local bottom = r.y + r.h
+					if chipsBottom:get() ~= bottom then
+						chipsBottom:set(bottom)
+					end
+				end
+			end,
+			-- NO `onActivate` HERE EITHER. A surface-level handler is an OVERRIDE
+			-- (presenter §dispatchActivate) — it wins outright and returns, so
+			-- every node on this surface would lose its own handler. That is what
+			-- killed both chips: the router only understood the theme picker's
+			-- rows, and answered for everything else by doing nothing. Each
+			-- control on this surface carries its own behaviour.
+		},
+		handle = nil,
+	}
+	raiseChrome()
+	-- the chrome is up; now mount the demo it advertises
+	demos.show(demos.current())
+
+	local showcaseHeartbeat = RunService.Heartbeat:Connect(function()
+		-- re-assert the reservation before the solve: the platform adapter
+		-- rewrites coreSafeInsets on orientation and topbar changes, and the
+		-- write above is idempotent, so this simply keeps the strip reserved
+		reserveBar()
+		pres.refresh()
+	end)
+	-- A HANDLE FOR THE ROOM. The scenario runner already publishes its API this
+	-- way (examples/gallery/scenarios/runner.luau) and for the same reason: the
+	-- Studio MCP's execute_luau runs in a DIFFERENT Luau VM than this
+	-- LocalScript, so `_G` does not cross but a BindableFunction in the shared
+	-- DataModel does. It is what lets the demo be advanced without a pointer,
+	-- which matters while the injected-input limitation (XP-B3) stands.
+	_G.LuauUIShowcase = { list = demo_picker.list, current = demos.current, showNext = demos.showNext }
+	local showcaseApi = Instance.new("Folder")
+	showcaseApi.Name = "LuauUIShowcaseAPI"
+	for fnName, impl in
+		{
+			list = function(_arg: string?)
+				return HttpService:JSONEncode(demo_picker.list())
+			end,
+			current = function(_arg: string?)
+				return HttpService:JSONEncode({ current = demos.current() })
+			end,
+			showNext = function(arg: string?)
+				demos.showNext(tonumber(arg) or 1)
+				return HttpService:JSONEncode({ current = demos.current() })
+			end,
+			-- the theme half of the same handle, for the same reason: with no
+			-- scriptable pointer (XP-B3) this is how a themed view gets driven
+			themes = function(_arg: string?)
+				if showcasePicker == nil then
+					return HttpService:JSONEncode({ entries = {} })
+				end
+				local ids = {}
+				for _, entry in showcasePicker.entries do
+					table.insert(ids, entry.id)
+				end
+				return HttpService:JSONEncode({ entries = ids, current = showcasePicker.selection:get() })
+			end,
+			pickTheme = function(arg: string?)
+				if showcasePicker == nil then
+					return HttpService:JSONEncode({ ok = false })
+				end
+				-- `dispatch` is GONE: behaviour moved onto the nodes (handoff §4.1)
+				-- and this went on calling it, so pickTheme errored with "attempt to
+				-- call a nil value" and there was no working route to switch theme
+				-- from a script at all. `pickPackage` is the same call the chips'
+				-- own onActivate makes.
+				local ok = showcasePicker.pickPackage(tostring(arg))
+				return HttpService:JSONEncode({ ok = ok, current = showcasePicker.selection:get() })
+			end,
+			toggleThemes = function(_arg: string?)
+				if showcasePicker == nil then
+					return HttpService:JSONEncode({ open = false })
+				end
+				showcasePicker.open:set(not showcasePicker.open:get())
+				return HttpService:JSONEncode({ open = showcasePicker.open:get() })
+			end,
+		} :: { [string]: (string?) -> string }
+	do
+		local bf = Instance.new("BindableFunction")
+		bf.Name = fnName
+		bf.OnInvoke = impl
+		bf.Parent = showcaseApi
+	end
+	showcaseApi.Parent = workspace
+	workspace:SetAttribute("LuauUI_GalleryReady", true)
+	workspace:SetAttribute("LuauUI_ShowcaseReady", true)
+	print(
+		`[LuauUI Showcase] {LuauUI.VERSION} — {#demo_picker.list()} demos, theme picker {if showcasePicker ~= nil
+			then "on"
+			else "unavailable"}`
+	)
+	local _keep = { showcaseHeartbeat, demos, showcasePicker, unbindEnv, unbindResponderEffects }
+	return
+end
+
+-- Verification-scenario selector (fable-execution-contract §5): set the
+-- workspace STRING attribute LuauUI_Scenario to a registered scenario name
+-- BEFORE running to mount that deterministic fixture instead of the demo.
+-- The runner exposes _G.LuauUIScenario (list/steps/step/report/reset) for the
+-- Studio MCP and stamps LuauUI_ScenarioReady/LuauUI_ScenarioState attributes.
+local scenarioName = workspace:GetAttribute("LuauUI_Scenario")
+if type(scenarioName) == "string" and scenarioName ~= "" then
+	local registryModule = ReplicatedStorage:WaitForChild("LuauUIScenarios", 10)
+	if registryModule ~= nil then
+		local registry = require(registryModule) :: any
+		local runner = require(registry.runner) :: any
+		local scenarioHeartbeat = RunService.Heartbeat:Connect(function()
+			pres.refresh()
+		end)
+		local api = runner.start({
+			LuauUI = LuauUI,
+			registry = registry,
+			scenarioName = scenarioName,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = pres,
+			actionSystem = system,
+			unbindEnv = unbindEnv,
+		})
+		local _keep = { scenarioHeartbeat, api, unbindResponderEffects }
+		return
+	else
+		warn("[LuauUI Scenario] LuauUIScenarios not present in ReplicatedStorage; falling through to demo")
+	end
+end
+
+-- Tutorial example selector (§17 Phase 4 documentation deliverable): set the
+-- workspace attribute LuauUI_Example to 1..7 BEFORE running to present that
+-- gallery example instead of the default settings demo. The examples are the
+-- exact engine-free modules the tutorial (docs/guide/04-tutorial-examples.md)
+-- walks through — they run here as written.
+-- only places that SET the attribute wait for the examples folder; the plain
+-- settings-demo place must not stall on a folder it never mapped
+local selectedExample = workspace:GetAttribute("LuauUI_Example")
+local EXAMPLES = if selectedExample ~= nil
+	then ReplicatedStorage:WaitForChild("LuauUIExamples", 10)
+	else ReplicatedStorage:FindFirstChild("LuauUIExamples")
+local EXAMPLE_MODULES = {
+	"01_temperature_converter",
+	"02_playlist_table",
+	"03_settings_sync",
+	"04_confirm_dialog",
+	"05_word_game",
+	"06_tile_game",
+	"07_match3",
+}
+local selected = selectedExample
+if type(selected) == "number" and EXAMPLE_MODULES[selected] ~= nil and EXAMPLES ~= nil then
+	local exampleModule = EXAMPLES:FindFirstChild(EXAMPLE_MODULES[selected])
+	if exampleModule ~= nil then
+		local example = require(exampleModule) :: any
+		local built = example.build(LuauUI, core, {
+			env = env,
+			actionSystem = system,
+			presenter = pres,
+			adapter = adapter,
+		})
+		-- two build styles (documented in docs/guide/04-tutorial-examples.md):
+		-- examples 1-4 return { screen, present } for the caller to present;
+		-- the game examples (5-7) present THEMSELVES and return { handle }
+		if built.handle == nil and built.screen ~= nil then
+			local presented = pres.present(built.screen, built.present)
+			-- native-scroll consumer wiring (native-substrate NS-A3/NS-A4):
+			-- controls riding the native canvas expose bindNativeScroll; the
+			-- CONSUMER binds after present so engine CanvasPosition feeds
+			-- their windowing/keep-visible mirror
+			for _, value in built :: any do
+				if type(value) == "table" and type((value :: any).bindNativeScroll) == "function" then
+					(value :: any).bindNativeScroll(presented.controller)
+				end
+			end
+			built.handle = presented
+		end
+		local exampleHeartbeat = RunService.Heartbeat:Connect(function()
+			pres.refresh()
+		end)
+		local examplePicker = mountThemePicker()
+		workspace:SetAttribute("LuauUI_GalleryReady", true)
+		workspace:SetAttribute("LuauUI_ExampleTitle", example.title)
+		print(`[LuauUI Gallery] example {selected}: {example.title}`)
+		local _keep = { exampleHeartbeat, unbindEnv, built, examplePicker }
+		return
+	end
+end
+
+-- semantic state: authoritative snapshot + draft + mutation (loopback server)
+local snapshot = LuauUI.replication.snapshot(core, 1, { music = false, sfx = true })
+local draftMusic = core:signal(false)
+local saveStatus = core:signal("idle")
+local mutation = LuauUI.replication.mutation(core, {
+	optimistic = {
+		apply = function(payload)
+			draftMusic:set(payload.music)
+		end,
+		restore = function()
+			draftMusic:set(snapshot.binding:get().music)
+		end,
+	},
+})
+
+-- hint text derives from the environment's preferred input (no remount:
+-- it is a plain binding on an existing Text node — ADR-0004's phase-1 proof)
+local hint = core:memo(function(use)
+	local preferred = use(env:get("effectiveInput"))
+	return if preferred == "Touch"
+		then "Tap Save to apply"
+		elseif preferred == "Gamepad" then "Press A to apply"
+		else "Press Enter to apply"
+end)
+
+local statusLine = core:memo(function(use)
+	return `music={tostring(use(draftMusic))} save={use(saveStatus)}`
+end)
+
+local screen = UI.Screen({
+	id = "GallerySettings",
+	padding = 16,
+	gap = 8,
+	children = {
+		UI.Text({ id = "Title", text = "LuauUI Gallery — Settings", textSize = 24 }),
+		UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+		UI.Toggle({ id = "Music", label = "Music", value = draftMusic }),
+		UI.Text({ id = "Status", text = statusLine, textSize = 14 }),
+		UI.Spacer({ id = "Gap", height = { type = "fill", weight = 1 } }),
+		UI.Button({ id = "Save", label = "Save" }),
+	},
+})
+
+local handle = pres.present(screen, {
+	onActivate = function(path: string)
+		if path == "/GallerySettings/Music" then
+			draftMusic:set(not draftMusic:get())
+		elseif path == "/GallerySettings/Save" then
+			local envelope = mutation.send({ music = draftMusic:get() }, snapshot.revision())
+			saveStatus:set("pending")
+			-- loopback "server": validate + replicate + confirm next frame
+			task.defer(function()
+				snapshot.ingest(snapshot.revision() + 1, { music = envelope.payload.music, sfx = true })
+				mutation.confirm(envelope.requestId, "ok")
+				saveStatus:set("confirmed")
+				mutation.reset()
+			end)
+		end
+	end,
+})
+
+local picker = mountThemePicker()
+
+-- frame-coalesced refresh (design §6.2: production coalesces to a frame)
+local heartbeat = RunService.Heartbeat:Connect(function()
+	pres.refresh()
+end)
+
+-- Studio verification checkpoints
+workspace:SetAttribute("LuauUI_GalleryReady", true)
+workspace:SetAttribute("LuauUI_Version", LuauUI.VERSION)
+core:observe(pres.focus.focused, function(path)
+	workspace:SetAttribute("LuauUI_Focused", path or "")
+end)
+workspace:SetAttribute("LuauUI_Focused", pres.focus.focused:get() or "")
+core:observe(statusLine, function(line)
+	workspace:SetAttribute("LuauUI_Status", line)
+end)
+workspace:SetAttribute("LuauUI_Status", statusLine:get())
+core:observe(hint, function(text)
+	workspace:SetAttribute("LuauUI_Hint", text)
+end)
+workspace:SetAttribute("LuauUI_Hint", hint:get())
+
+-- factory-rerun counter for the no-remount proof: mounted total is stable
+-- unless structure genuinely changes
+task.defer(function()
+	workspace:SetAttribute("LuauUI_FactoryRuns", handle.root.counters().factoryRuns)
+end)
+
+print(`[LuauUI Gallery] running {LuauUI.VERSION}; focus={pres.focus.focused:get()}`)
+
+-- keep references alive for the session
+local _keep = { unbindEnv, heartbeat, mutation, unbindResponderEffects, picker }

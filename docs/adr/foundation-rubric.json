@@ -1,0 +1,92 @@
+{
+  "schema": "luauui-rubric/1",
+  "name": "foundation",
+  "adrSlug": "foundation-core-selection",
+  "question": "Which reactive foundation implements the LuauUI core contract? (design §3, §17 Phase 0)",
+  "context": "Three candidates behind the identical public contract (src/core/contract.luau) ran the identical 26-check conformance suite (artifacts/conformance-<core>.json) and 12 bench scenarios (artifacts/bench.json). Selection rules from the design: custom if it materially wins; Fusion if it conforms better; imperative if reactivity complexity is unjustified.",
+  "criteria": [
+    { "id": "semantic-correctness", "weight": 5 },
+    { "id": "lifecycle-safety", "weight": 4 },
+    { "id": "deterministic-behavior", "weight": 4 },
+    { "id": "update-cost", "weight": 4 },
+    { "id": "allocations", "weight": 3 },
+    { "id": "source-maintenance-complexity", "weight": 3 },
+    { "id": "diagnostics", "weight": 4 },
+    { "id": "public-api-fit", "weight": 3 }
+  ],
+  "candidates": [
+    {
+      "id": "custom",
+      "summary": "Minimal custom transactional push-pull core (src/core/custom.luau, ~380 lines, zero dependencies).",
+      "scores": {
+        "semantic-correctness": 5,
+        "lifecycle-safety": 5,
+        "deterministic-behavior": 5,
+        "update-cost": 5,
+        "allocations": 4,
+        "source-maintenance-complexity": 4,
+        "diagnostics": 5,
+        "public-api-fit": 5
+      },
+      "evidence": {
+        "semantic-correctness": "26/26 conformance incl. verifier-driven corrective checks (artifacts/conformance-custom.json)",
+        "lifecycle-safety": "all UI-LIFE checks + memory-neutral-churn pass",
+        "deterministic-behavior": "synchronous flush, no external scheduler; suite deterministic across runs",
+        "update-cost": "sparse-update p50 0.0006ms vs 0.0020 (fusion) / 0.0170 (imperative), artifacts/bench.json",
+        "allocations": "heap deltas smallest-or-comparable across scenarios (headless trend only)",
+        "source-maintenance-complexity": "~380 owned lines, no vendor pin to track",
+        "diagnostics": "cycle path, write-during-memo, feedback cap, quarantine all queryable via lastError()",
+        "public-api-fit": "implements the contract natively incl. transactions and custom equality"
+      }
+    },
+    {
+      "id": "fusion",
+      "summary": "Thin adapter over vendored Fusion 0.3 state subset (src/core/fusion_adapter.luau + vendor/Fusion).",
+      "scores": {
+        "semantic-correctness": 3,
+        "lifecycle-safety": 4,
+        "deterministic-behavior": 3,
+        "update-cost": 4,
+        "allocations": 3,
+        "source-maintenance-complexity": 2,
+        "diagnostics": 2,
+        "public-api-fit": 3
+      },
+      "evidence": {
+        "semantic-correctness": "19/26: no transaction batching, no per-signal equality, write-during-memo silent, revert-fires, error surfacing opaque (artifacts/conformance-fusion.json)",
+        "lifecycle-safety": "scope + churn checks pass via per-resource fusion scopes",
+        "deterministic-behavior": "external-scheduler dependent; observer delivery needs provider stepping",
+        "update-cost": "sparse-update p50 0.0020ms; hud-storm 0.288ms (worst of three)",
+        "allocations": "settings-churn heap delta 1223KB (largest)",
+        "source-maintenance-complexity": "3k+ vendored lines + require transform + upstream 0.3 pin",
+        "diagnostics": "errors routed to external logger, not queryable; cycle check produced no observable diagnostic",
+        "public-api-fit": "contract's transaction()/eq params accepted but semantically inert"
+      }
+    },
+    {
+      "id": "imperative",
+      "summary": "Retained imperative recompute-all baseline (src/core/imperative.luau), the pattern the games use today.",
+      "scores": {
+        "semantic-correctness": 4,
+        "lifecycle-safety": 5,
+        "deterministic-behavior": 5,
+        "update-cost": 1,
+        "allocations": 4,
+        "source-maintenance-complexity": 5,
+        "diagnostics": 2,
+        "public-api-fit": 3
+      },
+      "evidence": {
+        "semantic-correctness": "21/26: dynamic-dependency skip impossible, write-during-memo silent, NaN refires, revert-fires (artifacts/conformance-imperative.json)",
+        "lifecycle-safety": "all UI-LIFE checks pass",
+        "deterministic-behavior": "synchronous ordered recompute",
+        "update-cost": "sparse-update p50 0.0170ms = O(all live derivations) per write; 28x custom with only 200 memos",
+        "allocations": "small heap deltas",
+        "source-maintenance-complexity": "~260 trivial lines",
+        "diagnostics": "no cycle/write detection by design",
+        "public-api-fit": "contract accepted but use() tracking is a no-op; UI-RUNTIME-001 scaling requirement unmet"
+      }
+    }
+  ],
+  "consequences": "Public API unchanged (contract holds). Fusion stays vendored for reference; the adapter and baseline remain as conformance foils and rubric evidence. UI-RUNTIME-001's no-rerun guarantee at scale requires O(affected) updates, which only the custom core provides with queryable diagnostics."
+}

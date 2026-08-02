@@ -1,0 +1,20 @@
+# ── Review captures ─────────────────────────────────────────────────────────
+# `artifacts/` is the evidence trail of every director round: paired Studio
+# captures and their resolution dumps. It is 241 MB of the 261 MB on disk, it
+# is REGENERABLE (the capture tools and the scenario rig are both in-tree), and
+# a clone of this library should not carry a quarter of a gigabyte of PNGs.
+#
+# The WRITING in artifacts/ is kept: the specs, the ledgers, the review packets
+# and the director rulings verbatim. Those are the decisions; the screenshots
+# are what the decisions were made from.
+artifacts/**/*.png
+artifacts/**/*.jpg
+artifacts/**/*.jpeg
+artifacts/**/*.mov
+artifacts/**/*.mp4
+artifacts/**/*.json
+
+# build output + editor/OS noise
+build/
+sourcemap.json
+.DS_Store

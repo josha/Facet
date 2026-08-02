@@ -1,0 +1,428 @@
+--!strict
+-- Framework-layer input auto-adaptation, screen level (ADR-0013; ui_todo §0).
+-- Closes the remaining FRAMEWORK-AUTOMATIC cells the audit left open on PLAIN
+-- screens (no input-contribution composites):
+--   * WP-1 auto navigation groups derived from LAYOUT STRUCTURE (HStack row ->
+--     horizontal group; Grid -> per-row groups with 2D up/down exits; a plain
+--     vertical screen keeps the byte-identical flat ring);
+--   * WP-2 modal outside-tap = Cancel (a tap outside the top modal dismisses it
+--     and never clicks through to a lower screen; opt-out per modal);
+--   * WP-3 a modal's declared close affordance is keyboard-reachable and
+--     Activate-dismissable (Escape is engine-reserved — the justified exception);
+--   * WP-4 LuauUI.inputHint(core, env, action): a reactive hint memo that flips
+--     with env preferredInput, with no remount.
+-- Every interaction rides the REAL device paths (adapter.tap for pointer/touch,
+-- system.deviceKey for keyboard/gamepad), never a direct callback.
+
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+
+local LuauUI = require("../src") :: any
+local fake_target = require("../tests/lib/fake_target")
+
+local function harness()
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	return core, env, system, adapter, pres
+end
+
+local function press(system: any, key: string)
+	system.deviceKey(key, true)
+	system.deviceKey(key, false)
+end
+
+-- ===========================================================================
+-- WP-1: auto navigation groups derived from layout structure
+-- ===========================================================================
+describe("auto-screens WP-1: a Grid of Buttons gets 2D D-pad navigation, zero opts", function()
+	local function gridWorld()
+		local core, _, system, adapter, pres = harness()
+		local cells = {}
+		for i = 1, 9 do
+			cells[i] = LuauUI.UI.Button({ id = "b" .. i, label = "b" .. i })
+		end
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			children = { LuauUI.UI.Grid({ id = "G", columns = 3, children = cells }) },
+		})
+		local handle = pres.present(screen) -- ZERO present opts
+		pres.refresh()
+		return { core = core, system = system, adapter = adapter, pres = pres, handle = handle }
+	end
+
+	local function cell(i: number): string
+		return `/S/G/b{i}`
+	end
+
+	it("initial focus lands on the first grid cell", function()
+		local w = gridWorld()
+		expect(w.pres.focus.focused:get()).toBe(cell(1))
+	end)
+
+	it("Left/Right move within a row (DPad); Up/Down cross rows keeping the column", function()
+		local w = gridWorld()
+		-- across row 1: b1 -> b2 -> b3
+		press(w.system, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(cell(2))
+		press(w.system, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(cell(3))
+		-- down keeps column 3: b3 -> b6 -> b9
+		press(w.system, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe(cell(6))
+		press(w.system, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe(cell(9))
+		-- back up the column, then left, then up: b9 -> b6 -> b5 -> b2
+		press(w.system, "DPadUp")
+		expect(w.pres.focus.focused:get()).toBe(cell(6))
+		press(w.system, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(cell(5))
+		press(w.system, "DPadUp")
+		expect(w.pres.focus.focused:get()).toBe(cell(2))
+	end)
+
+	it("Left at the start of a row is contained (grid 2D nav, no cross-row wrap)", function()
+		local w = gridWorld()
+		expect(w.pres.focus.focused:get()).toBe(cell(1))
+		press(w.system, "DPadLeft") -- b1 is the first column: contained, stays put
+		expect(w.pres.focus.focused:get()).toBe(cell(1))
+	end)
+end)
+
+describe("auto-screens WP-1: an HStack row navigates horizontally, zero opts", function()
+	local function rowWorld()
+		local core, _, system, adapter, pres = harness()
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.HStack({
+					id = "Row",
+					children = {
+						LuauUI.UI.Button({ id = "a", label = "a" }),
+						LuauUI.UI.Button({ id = "b", label = "b" }),
+						LuauUI.UI.Button({ id = "c", label = "c" }),
+					},
+				}),
+			},
+		})
+		local handle = pres.present(screen) -- ZERO present opts
+		pres.refresh()
+		return { system = system, pres = pres, handle = handle }
+	end
+
+	it("Right/Left (keyboard) walk the row; the row is the horizontal axis", function()
+		local w = rowWorld()
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/a")
+		press(w.system, "Right")
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/b")
+		press(w.system, "Right")
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/c")
+		press(w.system, "Left")
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/b")
+	end)
+
+	it("DPadLeft/DPadRight drive the same horizontal row (gamepad)", function()
+		local w = rowWorld()
+		press(w.system, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/b")
+	end)
+end)
+
+describe("auto-screens WP-1: a plain vertical screen keeps the byte-identical flat ring", function()
+	it("Down advances in document order and WRAPS at the end (unchanged flat behavior)", function()
+		local core, _, system, _, pres = harness()
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.Button({ id = "a", label = "a" }),
+				LuauUI.UI.Button({ id = "b", label = "b" }),
+				LuauUI.UI.Button({ id = "c", label = "c" }),
+			},
+		})
+		pres.present(screen) -- ZERO present opts
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/a")
+		press(system, "Down")
+		expect(pres.focus.focused:get()).toBe("/S/b")
+		press(system, "Down")
+		expect(pres.focus.focused:get()).toBe("/S/c")
+		press(system, "Down")
+		expect(pres.focus.focused:get()).toBe("/S/a") -- WRAP: flat ring, not grouped
+		local _ = core
+	end)
+end)
+
+describe("auto-screens WP-1: refresh re-derives auto layout groups after a structural change", function()
+	it("a grid row added after present becomes reachable through the derived groups", function()
+		local core, _, system, _, pres = harness()
+		local items = core:signal({ { k = "a" }, { k = "b" }, { k = "c" }, { k = "d" } })
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.Grid({
+					id = "G",
+					columns = 2,
+					children = {
+						LuauUI.UI.ForEach({
+							id = "Cells",
+							items = items,
+							key = function(x: any)
+								return x.k
+							end,
+							row = function(x: any)
+								return LuauUI.UI.Button({ id = "cell", label = x.k })
+							end,
+						}),
+					},
+				}),
+			},
+		})
+		pres.present(screen) -- ZERO present opts
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/G/Cells/[a]/cell")
+		-- add a third row (e, f)
+		items:set({ { k = "a" }, { k = "b" }, { k = "c" }, { k = "d" }, { k = "e" }, { k = "f" } })
+		pres.refresh() -- groups re-derived here
+		-- column 1 downward: a -> c -> e (the new bottom row)
+		press(system, "DPadDown")
+		expect(pres.focus.focused:get()).toBe("/S/G/Cells/[c]/cell")
+		press(system, "DPadDown")
+		expect(pres.focus.focused:get()).toBe("/S/G/Cells/[e]/cell")
+		items:dispose()
+	end)
+end)
+
+-- ===========================================================================
+-- WP-2: modal outside-tap = Cancel
+-- ===========================================================================
+describe("auto-screens WP-2: an outside tap dismisses the top modal, never clicks through", function()
+	local function stackWorld()
+		local core, _, system, adapter, pres = harness()
+		local baseHits: { string } = {}
+		local base = LuauUI.UI.Screen({
+			id = "Base",
+			children = {
+				LuauUI.UI.Button({
+					id = "B",
+					label = "B",
+					onActivate = function(path: string)
+						table.insert(baseHits, path)
+					end,
+				}),
+			},
+		})
+		pres.present(base)
+		local m1 = LuauUI.UI.Screen({ id = "M1", children = { LuauUI.UI.Button({ id = "X", label = "X" }) } })
+		local hm1 = pres.presentModal(m1)
+		local topHits: { string } = {}
+		local m2 = LuauUI.UI.Screen({
+			id = "M2",
+			children = {
+				LuauUI.UI.Button({
+					id = "Y",
+					label = "Y",
+					onActivate = function(path: string)
+						table.insert(topHits, path)
+					end,
+				}),
+			},
+		})
+		local hm2 = pres.presentModal(m2)
+		return {
+			core = core,
+			system = system,
+			adapter = adapter,
+			pres = pres,
+			baseHits = baseHits,
+			topHits = topHits,
+			hm1 = hm1,
+			hm2 = hm2,
+		}
+	end
+
+	it("a stack of two modals pops exactly one per outside tap, base is never activated", function()
+		local w = stackWorld()
+		expect(w.pres.depth()).toBe(3) -- base + M1 + M2
+		-- tap the base button (outside the top modal M2): dismiss M2 only
+		w.adapter.tap("/Base/B")
+		expect(w.pres.depth()).toBe(2)
+		expect(#w.baseHits).toBe(0) -- NO clickthrough to the base
+		-- tap again (now outside M1): dismiss M1
+		w.adapter.tap("/Base/B")
+		expect(w.pres.depth()).toBe(1)
+		expect(#w.baseHits).toBe(0)
+	end)
+
+	it("a tap INSIDE the top modal routes normally (dispatches, does not dismiss)", function()
+		local w = stackWorld()
+		w.adapter.tap("/M2/Y")
+		expect(w.pres.depth()).toBe(3) -- still open
+		expect(#w.topHits).toBe(1)
+		expect(w.topHits[1]).toBe("/M2/Y")
+	end)
+
+	it("outsideTapCancel=false swallows the outside tap (barrier; no dismiss, no clickthrough)", function()
+		-- BEHAVIOR CHANGE (docs/research/2026-07-21-modal-dismissal-spec.md §3.4):
+		-- a decision modal that declines outside-dismiss is still a BARRIER — the
+		-- synthesized scrim catches and EATS the tap. The pre-spec behavior let an
+		-- outsideTapCancel=false outside tap fall through to the lower surface; the
+		-- spec closes that (Apple "other views disabled", Material scrim).
+		local core, _, _, adapter, pres = harness()
+		local baseHits: { string } = {}
+		local base = LuauUI.UI.Screen({
+			id = "Base",
+			children = {
+				LuauUI.UI.Button({
+					id = "B",
+					label = "B",
+					onActivate = function(path: string)
+						table.insert(baseHits, path)
+					end,
+				}),
+			},
+		})
+		pres.present(base)
+		local modal = LuauUI.UI.Screen({ id = "M", children = { LuauUI.UI.Button({ id = "X", label = "X" }) } })
+		pres.presentModal(modal, { outsideTapCancel = false })
+		expect(pres.depth()).toBe(2)
+		adapter.tap("/Base/B") -- outside the modal: the barrier swallows it
+		expect(pres.depth()).toBe(2) -- modal NOT dismissed
+		expect(#baseHits).toBe(0) -- NO clickthrough (spec §3.4 change)
+		local _ = core
+	end)
+
+	it("with NO modal, base taps route normally (unchanged)", function()
+		local core, _, _, adapter, pres = harness()
+		local baseHits: { string } = {}
+		local base = LuauUI.UI.Screen({
+			id = "Base",
+			children = {
+				LuauUI.UI.Button({
+					id = "B",
+					label = "B",
+					onActivate = function(path: string)
+						table.insert(baseHits, path)
+					end,
+				}),
+			},
+		})
+		pres.present(base)
+		adapter.tap("/Base/B")
+		expect(#baseHits).toBe(1)
+		local _ = core
+	end)
+end)
+
+-- ===========================================================================
+-- WP-3: modal keyboard Cancel = a keyboard-reachable, Activate-dismissable
+-- close affordance (Escape is engine-reserved; ADR-0013 justified exception).
+-- ===========================================================================
+describe("auto-screens WP-3: a modal's close button is keyboard-reachable and Activate-dismisses", function()
+	it("Navigate reaches the close Button; Return activates it and dismisses the modal end-to-end", function()
+		local core, _, system, _, pres = harness()
+		pres.present(LuauUI.UI.Screen({
+			id = "Base",
+			children = { LuauUI.UI.Button({ id = "Open", label = "Open" }) },
+		}))
+		local modal
+		modal = pres.presentModal(LuauUI.UI.Screen({
+			id = "Sheet",
+			children = {
+				LuauUI.UI.Text({ id = "Msg", text = "Delete this?" }),
+				LuauUI.UI.Button({ id = "Confirm", label = "Delete" }),
+				LuauUI.UI.Button({
+					id = "Close",
+					label = "Cancel",
+					onActivate = function()
+						pres.dismiss(modal)
+					end,
+				}),
+			},
+		}))
+		expect(pres.depth()).toBe(2)
+		-- the ring reaches every focusable in the modal: Confirm -> Close
+		expect(pres.focus.focused:get()).toBe("/Sheet/Confirm")
+		press(system, "Down")
+		expect(pres.focus.focused:get()).toBe("/Sheet/Close")
+		-- keyboard Return activates the focused close affordance -> dismiss
+		press(system, "Return")
+		expect(pres.depth()).toBe(1)
+		expect(pres.focus.focused:get()).toBe("/Base/Open") -- focus restored
+		local _ = core
+	end)
+end)
+
+-- ===========================================================================
+-- WP-4: LuauUI.inputHint(core, env, action) reactive hint memo
+-- ===========================================================================
+describe("auto-screens WP-4: inputHint flips with preferredInput, no remount", function()
+	it("the hint text prop follows env preferredInput via preferredBinding; zero factory reruns", function()
+		local core, env, system, adapter, pres = harness()
+		local ctx = system.createContext({ name = "Nav" })
+		local activate = ctx.createAction("Activate", "Bool")
+		activate.bind({ keyCode = "Return", displayName = "Enter" })
+		activate.bind({ uiButton = "ActivateButton", displayName = "Tap" })
+
+		local hint = LuauUI.inputHint(core, env, activate)
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.Text({ id = "Hint", text = hint, textSize = 14 }),
+				LuauUI.UI.Button({ id = "Go", label = "Go" }),
+			},
+		})
+		local handle = pres.present(screen)
+		pres.refresh()
+		local runsBefore = handle.root.counters().factoryRuns
+		local mountedBefore = handle.root.counters().mounted
+
+		expect(adapter.node("/S/Hint").props.text).toBe("Enter") -- KeyboardAndMouse default
+		env:set("preferredInput", "Touch")
+		pres.refresh()
+		expect(adapter.node("/S/Hint").props.text).toBe("Tap")
+		expect(handle.root.counters().factoryRuns).toBe(runsBefore) -- no rerun
+		expect(handle.root.counters().mounted).toBe(mountedBefore) -- no remount
+
+		hint:dispose()
+	end)
+
+	it('style="phrase" answers the whole affordance, so a consumer never branches on input class', function()
+		-- director 2026-07-29: "if we built the framework right, I'm not sure there
+		-- would be any uses of preferred input outside it". A key label alone could
+		-- not remove the consumer's branch, because touch differs by VERB, not by
+		-- key — you tap, you do not press Enter.
+		local core, env, system, _, _ = harness()
+		local ctx = system.createContext({ name = "Nav3" })
+		local activate = ctx.createAction("Activate", "Bool")
+		activate.bind({ keyCode = "Return", displayName = "Enter" })
+		activate.bind({ uiButton = "ActivateButton", displayName = "Tap" })
+		local phrase = LuauUI.inputHint(core, env, activate, { style = "phrase" })
+		expect(phrase:get()).toBe("Press Enter")
+		env:set("preferredInput", "Gamepad")
+		env:set("capabilities", { keyboard = false, mouse = false, touch = false, gamepad = true })
+		expect(phrase:get()).toBe("Press Enter") -- gamepad takes the keyCode binding
+		env:set("preferredInput", "Touch")
+		expect(phrase:get()).toBe("Tap")
+		-- ...and a TOUCH device that has not been touched yet is still "Tap": the
+		-- resolved class comes from capability, not from the last input used
+		env:set("preferredInput", "KeyboardAndMouse")
+		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		expect(phrase:get()).toBe("Tap")
+		phrase:dispose()
+	end)
+
+	it("displayName-less bindings fall back to the key/button name, and nil is tolerated", function()
+		local core, env, system, _, _ = harness()
+		local ctx = system.createContext({ name = "Nav2" })
+		local adjust = ctx.createAction("Adjust", "Bool")
+		adjust.bind({ keyCode = "Period" }) -- no displayName
+		local hint = LuauUI.inputHint(core, env, adjust)
+		expect(hint:get()).toBe("Period")
+		env:set("preferredInput", "Touch")
+		expect(hint:get()).toBe("") -- no uiButton binding for Touch: empty, not an error
+		hint:dispose()
+	end)
+end)

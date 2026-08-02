@@ -1,0 +1,308 @@
+{
+ "schema": "luauui-requirements/1",
+ "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md",
+ "note": "IDs are stable; gates and tests reference them. 'spec' cites the design section. 'firstGate' names the earliest phase gate that must prove the requirement.",
+ "requirements": [
+  {
+   "id": "UI-ADAPT-001",
+   "title": "Per-client adaptation: each client resolves/renders its own UI from its viewport, safe areas, accessibility, bindings, presentation state",
+   "spec": "2.1.1, 8",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-SERVER-001",
+   "title": "Server-authoritative semantics: server owns/validates gameplay state; replicates semantic state, never layout or device presentation",
+   "spec": "2.1.2, 4.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-RUNTIME-001",
+   "title": "No component rerun for non-structural updates",
+   "spec": "2.1.3, 6.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-RUNTIME-002",
+   "title": "Explicit structural reactivity: only declared regions (When/ForEach) mount/move/unmount nodes; duplicate keys are hard errors",
+   "spec": "2.1.4, 5.4",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-RUNTIME-003",
+   "title": "Glitch-free transactions: no partially propagated dependency graph observable; scheduler phases ordered; cycles diagnosed; errors quarantined",
+   "spec": "2.1.7, 6.2",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-LAYOUT-001",
+   "title": "Pure layout: measure/arrange on immutable snapshots; no live signals, Instances, or yielding APIs in the solver",
+   "spec": "2.1.5, 7.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-LAYOUT-002",
+   "title": "V1 sizing algebra + containers with diagnostics for undefined/cyclic combinations",
+   "spec": "7.2",
+   "firstGate": "phase-1-minimal-screen"
+  },
+  {
+   "id": "UI-LAYOUT-003",
+   "title": "Text premeasurement: non-yielding provider with ready/pending/failed, engine queue, conservative fallback, cache keys",
+   "spec": "7.4",
+   "firstGate": "phase-1-minimal-screen"
+  },
+  {
+   "id": "UI-LIFE-001",
+   "title": "Explicit ownership: one owner per framework resource; own/use/child; reverse-order idempotent cleanup; double-disposal detected",
+   "spec": "2.1.6, 6.3",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-LIFE-002",
+   "title": "Memory/registry neutrality: mount/unmount and churn return every tracked registry to baseline",
+   "spec": "6.3, 14.3",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-INPUT-001",
+   "title": "Action-first input via InputContext/InputAction/InputBinding; no control binds hardware key codes; UserInputService only behind platform adapter",
+   "spec": "2.1.8, 9.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-INPUT-002",
+   "title": "Hybrid-device behavior: PreferredInput changes hints/emphasis only; all available inputs keep working; no remount",
+   "spec": "2.1.9, 9.1",
+   "firstGate": "phase-1-minimal-screen",
+   "note": "deferred from phase-0 by ADR-0004 (no mounted renderer to prove no-remount against)"
+  },
+  {
+   "id": "UI-INPUT-003",
+   "title": "Split test harness (ADR-0004): scriptable bindings validate the binding-to-action pipeline; cross-context priority/sinking validated with real or injected key events at engine gates; no direct callback bypass",
+   "spec": "9.2",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-INPUT-004",
+   "title": "InputContext priority/sink/lifetime correct; context disposal disconnects and disables everything it owns",
+   "spec": "9.1, 12.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-FOCUS-001",
+   "title": "Logical focus graph owned by LuauUI; engine selection is a render output; modal trap and previous-focus restoration",
+   "spec": "9.3",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-REPL-001",
+   "title": "Replication contract: monotonic revisions; stale/dup ignored; gap triggers resnapshot; reconnect converges",
+   "spec": "4.2",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-REPL-002",
+   "title": "Typed mutations: request ID, validation, idempotent confirm/reject; optimistic state reconciles; pending never implies success",
+   "spec": "4.2",
+   "firstGate": "phase-1-minimal-screen"
+  },
+  {
+   "id": "UI-BOUND-001",
+   "title": "Server/shared modules cannot require the client renderer; client-only execution boundary enforced and tested",
+   "spec": "4.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-STYLE-001",
+   "title": "One property authority per engine render property (layout/style/binding/presentation/custom host); conflicts are debug errors",
+   "spec": "7.3, 11",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-ENV-001",
+   "title": "Environment: per-key observable facts; subscribers invalidate only on their keys; presenter owns inset policy; TopbarInset is dynamic geometry",
+   "spec": "8.1, 8.2",
+   "firstGate": "phase-1-minimal-screen"
+  },
+  {
+   "id": "UI-DIAG-001",
+   "title": "Headless diagnostics: deterministic machine-readable dumps (versioned schema) for layout, lifecycle, interaction, state failures",
+   "spec": "2.1.10, 7.5",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-FID-001",
+   "title": "Engine authority: headless checks screen; Studio/device differential fixtures within declared tolerances are authoritative",
+   "spec": "2.1.11, 15.5",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-PERF-001",
+   "title": "Performance: instrumented hot paths; benchmark method reproducible; floor-device budget documented and enforced at release gates",
+   "spec": "2.1.12, 14",
+   "firstGate": "phase-1-minimal-screen"
+  },
+  {
+   "id": "UI-EXT-001",
+   "title": "Escape hatch: UI.Custom mounts raw Instances under explicit contract (rects, tokens, owned properties, disposal, diagnostics)",
+   "spec": "2.1.13, 10.4",
+   "firstGate": "phase-3-pilot"
+  },
+  {
+   "id": "UI-AGENT-001",
+   "title": "Agent autonomy: stable commands exit nonzero on failure, write structured artifacts, name failing requirement, actionable hint",
+   "spec": "2.1.14, 16.1",
+   "firstGate": "phase-0-foundation"
+  },
+  {
+   "id": "UI-PARADIGM-001",
+   "title": "Structural affordances per live class: every interactive control exposes each live class's structural idiom (pointer direct-drag/hover/wheel; touch 44px/naked-pan-scroll/edit-grip; keyboard focus+Navigate/Activate/Adjust; gamepad focus+grab/A-B/Adjust), derived from interactionClasses' live set \u2014 never preferredInput alone \u2014 with zero consumer wiring",
+   "spec": "artifacts/input-paradigms/affordance-matrix.md \u00a7A/\u00a7E; ADR-0015",
+   "firstGate": "input-paradigms"
+  },
+  {
+   "id": "UI-PARADIGM-002",
+   "title": "Hot-switch transition semantics: every in-flight interaction state (drag/capture, pan, edit-mode, grab-mode, focus, text entry) has a defined CARRY or CANCEL outcome per class-flip; a flip never wedges an interaction and never loses uncommitted data",
+   "spec": "artifacts/input-paradigms/affordance-matrix.md \u00a7C/\u00a7E",
+   "firstGate": "input-paradigms"
+  },
+  {
+   "id": "UI-PARADIGM-003",
+   "title": "Ten-foot presentation: distanceProfile ten-foot (displaySize Large) applies the type-scale floor, overscan margins, reduced density, and strengthened focus visibility; Navigate tolerates Thumbstick1 alongside DPad*",
+   "spec": "artifacts/input-paradigms/affordance-matrix.md \u00a7D/\u00a7E",
+   "firstGate": "input-paradigms"
+  },
+  {
+   "id": "UI-NATIVE-001",
+   "title": "Native scroll/clip substrate: scroll regions are native ScrollingFrame hosts; the solver keeps owning content geometry and contentSize; the engine owns scroll physics, clipping, and scroll bars; programmatic keep-visible writes CanvasPosition",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-002",
+   "title": "Native drag acquisition: UIDragDetector behind an adapter capability; LuauUI keeps the pure drag-session model (payload, legal targets, enter/leave, cancellation) with a headless driver and a fallback path exercised separately",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-003",
+   "title": "Native touch gestures: GuiObject touch events normalized into stable framework value objects; composition/arbitration decisions stay headless; no raw-sample re-recognition unless a native event is proven insufficient",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-004",
+   "title": "Native paths: a Path adapter backed by Path2D for strokes/arcs/radial progress; bespoke constructions retained only where a concrete requirement failed with evidence",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-005",
+   "title": "Safe-area singularity: four-edge insets read from the modern GuiService inset surface; deviceSafeInsets populated; exactly one inset authority applies (never solver facts plus engine insets together)",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-006",
+   "title": "Preferred text applied exactly once: the engine owns the player's preference in paint; LuauUI applies only authored scale; headless measurement reserves matching bounds from injected facts; measure and paint never diverge or clip",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-007",
+   "title": "Selection policy: passive/gameplay targets keep GuiService.SelectedObject nil; an engine-selection bridge is opt-in for an engaged modal/menu only, reversible, clears on teardown, and requires physical-gamepad proof before being contract",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-NATIVE-008",
+   "title": "Honest resource transport: ContentProvider:PreloadAsync fulfils the provider's pending requests; releasing a handle ignores stale completion and prevents queued-unstarted work; no in-flight cancellation is claimed",
+   "spec": "docs/plans/roblox-native-audit-corrections.md + docs/plans/roblox-native-primitives.md",
+   "firstGate": "native-substrate"
+  },
+  {
+   "id": "UI-PERF-002",
+   "title": "Evidence-classed performance: every record names the instrument that produced it (lune | studio-emulated | desktop-retail | phone-physical | console-physical) and its evidence level; budgets derive from a measured baseline and a supported frame target; a device budget is never enforced from a non-device class",
+   "spec": "roadmap Step 4; swiftui-parity-next.md investment 10",
+   "firstGate": "cross-platform-proof"
+  },
+  {
+   "id": "UI-SPATIAL-001",
+   "title": "Future spatial seam: presentation-space and spatial-pointing facts, optional ray/3D-hit/pose/handedness/phase/target on normalized events, and a declared future world render target \u2014 contracts only; no VR support claim without the named physical focus/hover/occlusion/comfort/cancellation/performance gate",
+   "spec": "docs/extending/new-platform-mode.md; swiftui-parity-next.md investment 10",
+   "firstGate": "cross-platform-proof"
+  },
+  {
+   "id": "UI-MOTION-001",
+   "title": "Interruptible value-motion authority: named motion classes (damping/response), re-target any frame from current value+velocity, velocity seeding, live-readable targets re-read per frame, perceptual arrival + settle events, injectable clock for headless determinism, zero cost at rest; writes presentation-channel properties only (never solver geometry or native-sheet paint)",
+   "spec": "roadmap Step 5; UI_SPEC_sponsor_motion.md invariants generalized; APPLE_UI_MOTION_SKILL.md",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-MOTION-002",
+   "title": "Structural enter/exit transitions: When/ForEach branches and presented surfaces animate in/out interruptibly with a hard completion cap; disposal completes exactly once; re-entry mid-exit reverses; leak-free under churn",
+   "spec": "roadmap Step 5; sponsor-view-parity B2",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-MOTION-003",
+   "title": "Reduced-motion information parity: every motion/transition/transient contract has an RM equivalent (instant placement or short fade) that preserves the full information surface and emits the same semantic events; informational timers still deplete; nothing is silently dropped",
+   "spec": "roadmap Step 5; UI_SPEC_sponsor_motion.md RM invariant; M12 R1",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-COLLECT-001",
+   "title": "Unified collection substrate: one public list construct that windows, selects, reorders, and acts as a drop surface simultaneously, with stable row identity, selection, and focus across live order churn",
+   "spec": "roadmap Step 5; sponsor-view-parity A2",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-DRAG-001",
+   "title": "Public drag/drop contract: blueprint-level draggable payload sources and drop targets over the pure drag session (payload, game-supplied legality, exactly-once enter/leave, predicted verdict, cancel, reject-with-reason snap-back), cross-container, with a non-pointer arm/navigate/commit paradigm through the same session and no second policy path",
+   "spec": "roadmap Step 5; sponsor-view-parity A3/R6",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-DRAG-002",
+   "title": "Gesture velocity handoff and promotion tokens: rolling-window release velocity seeds the settle motion (zero seed on non-gestural cancels via the same path); press-to-drag promotion thresholds are shared per-input-class tokens; release under threshold stays a tap",
+   "spec": "roadmap Step 5; sponsor-view-parity R7; UI_SPEC_sponsor_motion.md",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-DRAG-003",
+   "title": "Drag-to-edge autoscroll: pointer-band membership with dwell arming, penetration-proportional speed with start ramp and exit ease, frame-accurate hover re-resolution during scroll, canvas-end clamp that stays armed, inert on short content; framework defaults within the ratified ranges, tunable per host",
+   "spec": "roadmap Step 5; UI_SPEC_racerlist_autoscroll.md generalized; sponsor-view-parity R8",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-PAINT-001",
+   "title": "Authored paint extensions under single property authority: continuous per-node color binding for values a selector cannot express, Image tint/scale-mode, a public reactive stroke modifier, a deterministic zIndex paint-order override, and fractional Anchor offsets for keyed live marker overlays \u2014 each with declared authority and no native-sheet conflict",
+   "spec": "roadmap Step 5; sponsor-view-parity A5/A8/B4/R16/R2/C2",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-PRESENT-001",
+   "title": "Transient toast presentation: input-transparent, self-retiring, stacked surfaces above the base screen that never steal focus or block gameplay input, scheduled with priority, queue cap, per-item minimum dwell, and same-subject supersede",
+   "spec": "roadmap Step 5; sponsor-view-parity B5/R31",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-FEEDBACK-001",
+   "title": "Semantic interaction events: controls, drag sessions, and motion arrivals emit named events on their causal frames through one subscribe seam; LuauUI never plays sound or haptics; events carry source and reason context",
+   "spec": "roadmap Step 5; sponsor-view-parity C3/C4",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-ASYNC-001",
+   "title": "Async image completeness: failure is a silent presentable state (placeholder persists, no error glyph), bounded-retry option with session give-up, preload seam for declared imminent identity sets, stale rejection under recycle/churn, and a live-session transport proof",
+   "spec": "roadmap Step 5; sponsor-view-parity A9; UI_SPEC_avatar_badges.md mechanisms",
+   "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "UI-WORLD-001",
+   "title": "World-anchored display surface: the existing billboard target proven with a display-only fixture (live bindings, reduced motion, registry-neutral teardown, render-vs-record scoping); interactive billboard input remains explicitly out of contract",
+   "spec": "roadmap Step 5; ADR-0009 riders; sponsor-view-parity C1",
+   "firstGate": "sponsor-framework-gaps"
+  }
+ ]
+}

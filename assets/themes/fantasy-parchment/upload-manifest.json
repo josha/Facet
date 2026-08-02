@@ -1,0 +1,48 @@
+{
+ "schema": "luauui-theme-assets/1",
+ "package": "fantasy-parchment",
+ "uploaded": "2026-07-24 (core) / 2026-07-25 (value-control + badge extras)",
+ "method": "Studio MCP upload_image (local HTTP serve of the repository PNGs)",
+ "assets": {
+  "parchment_panel": {
+   "file": "parchment_panel.png",
+   "contentId": "rbxassetid://78012779616687",
+   "size": 144,
+   "sliceBorder": 40
+  },
+  "parchment_button": {
+   "file": "parchment_button.png",
+   "contentId": "rbxassetid://87220434497053",
+   "size": 64,
+   "sliceBorder": 16
+  },
+  "parchment_field": {
+   "file": "parchment_field.png",
+   "contentId": "rbxassetid://73053023436561",
+   "size": 64,
+   "sliceBorder": 16
+  },
+  "parchment_slider_track": {
+   "file": "parchment_slider_track.png",
+   "contentId": "rbxassetid://133629068271978",
+   "size": "96x20",
+   "sliceBorder": 8,
+   "note": "horizontal rail nine-slice"
+  },
+  "parchment_slider_thumb": {
+   "file": "parchment_slider_thumb.png",
+   "contentId": "rbxassetid://102024273231445",
+   "size": "28x28",
+   "sliceBorder": 0,
+   "note": "whole image, no slicing"
+  },
+  "parchment_badge": {
+   "file": "parchment_badge.png",
+   "contentId": "rbxassetid://103212793200116",
+   "size": "28x28",
+   "sliceBorder": 0,
+   "note": "whole image counter seal"
+  }
+ },
+ "note": "Slice geometry: SliceCenter = Rect(border, border, size-border, size-border), SliceScale = 1. Another project uploads the same PNGs under its own account and substitutes its IDs (provenance.md)."
+}

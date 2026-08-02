@@ -1,0 +1,166 @@
+{
+  "schema": "luauui-theme-assets/1",
+  "package": "glossy-touch",
+  "stage": "rich-skinning-v2",
+  "platformPairRole": "touch",
+  "uploaded": "2026-07-25",
+  "method": "Studio MCP upload_image over a local http.server on 127.0.0.1:8643 serving assets/themes/ (build package P5, reference packages)",
+  "note": "Slice geometry: SliceCenter = Rect(border, border, W-border, H-border), SliceScale = 1. Sources are authored at the 44px touch-row height so the gel gloss step maps 1:1.",
+  "assets": {
+    "glossy_panel": {
+      "file": "glossy_panel.png",
+      "contentId": "rbxassetid://107047113527598",
+      "size": "96x96",
+      "sliceBorder": 28,
+      "slot": "panel",
+      "state": "default"
+    },
+    "glossy_button_default": {
+      "file": "glossy_button_default.png",
+      "contentId": "rbxassetid://112434784235062",
+      "size": "64x44",
+      "sliceBorder": 16,
+      "slot": "control",
+      "state": "default"
+    },
+    "glossy_button_pressed": {
+      "file": "glossy_button_pressed.png",
+      "contentId": "rbxassetid://109576289121111",
+      "size": "64x44",
+      "sliceBorder": 16,
+      "slot": "control",
+      "state": "pressed"
+    },
+    "glossy_field": {
+      "file": "glossy_field.png",
+      "contentId": "rbxassetid://132031958681203",
+      "size": "64x44",
+      "sliceBorder": 16,
+      "slot": "field",
+      "state": "default"
+    },
+    "glossy_bar_track": {
+      "file": "glossy_bar_track.png",
+      "contentId": "rbxassetid://90291950996149",
+      "size": "96x24",
+      "sliceBorder": 10,
+      "slot": "barTrack",
+      "state": "default"
+    },
+    "glossy_bar_fill": {
+      "file": "glossy_bar_fill.png",
+      "contentId": "rbxassetid://121908556097885",
+      "size": "96x24",
+      "sliceBorder": 8,
+      "slot": "barFill",
+      "state": "default",
+      "direction": "ltr",
+      "note": "X-uniform between the slice borders; revealed through the R3 clip window. Authored AT controls.progress.trackHeight (24) since the director art round, so the gel's gloss step is never in a stretched band."
+    },
+    "glossy_stripe_tile": {
+      "file": "glossy_stripe_tile.png",
+      "contentId": "rbxassetid://131357884608814",
+      "size": "24x24",
+      "sliceBorder": 0,
+      "tileSize": [
+        24,
+        24
+      ],
+      "slot": "barFill.layers[*]",
+      "layerKind": "tile",
+      "state": "default",
+      "note": "Seamless both axes, 8px stripe period (3 cycles per 24px tile), lit band + dark leading edge. Barber-pole / pinstripe demo."
+    },
+    "glossy_toggle_track_off": {
+      "file": "glossy_toggle_track_off.png",
+      "contentId": "rbxassetid://133407056790088",
+      "size": "72x32",
+      "sliceBorder": 14,
+      "slot": "toggleTrack",
+      "state": "default"
+    },
+    "glossy_toggle_track_on": {
+      "file": "glossy_toggle_track_on.png",
+      "contentId": "rbxassetid://98206529376640",
+      "size": "72x32",
+      "sliceBorder": 14,
+      "slot": "toggleTrack",
+      "state": "selected",
+      "note": "Re-cut 2026-07-26 (seed 0x6E43) from the GREEN gel into the package's own BLUE ramp — the same accent identity the selection plate, the pressed stepper plate and the progress fill already carry."
+    },
+    "glossy_toggle_knob": {
+      "file": "glossy_toggle_knob.png",
+      "contentId": "rbxassetid://126375261384779",
+      "size": "30x30",
+      "sliceBorder": 0,
+      "slot": "toggleKnob",
+      "state": "default"
+    },
+    "glossy_stepper_plate_default": {
+      "file": "glossy_stepper_plate_default.png",
+      "contentId": "rbxassetid://133233140281994",
+      "size": "44x44",
+      "sliceBorder": 14,
+      "slot": "stepperPlate",
+      "state": "default"
+    },
+    "glossy_stepper_plate_pressed": {
+      "file": "glossy_stepper_plate_pressed.png",
+      "contentId": "rbxassetid://70897473278181",
+      "size": "44x44",
+      "sliceBorder": 14,
+      "slot": "stepperPlate",
+      "state": "pressed"
+    },
+    "glossy_selection_default": {
+      "file": "glossy_selection_default.png",
+      "contentId": "rbxassetid://80851150247066",
+      "size": "72x44",
+      "sliceBorder": 18,
+      "slot": "selection",
+      "state": "default"
+    },
+    "glossy_selection_selected": {
+      "file": "glossy_selection_selected.png",
+      "contentId": "rbxassetid://92935254088612",
+      "size": "72x44",
+      "sliceBorder": 18,
+      "slot": "selection",
+      "state": "selected"
+    }
+  },
+  "uploadedFiles": [
+    "glossy_bar_fill",
+    "glossy_bar_track",
+    "glossy_button_default",
+    "glossy_button_pressed",
+    "glossy_field",
+    "glossy_panel",
+    "glossy_selection_default",
+    "glossy_selection_selected",
+    "glossy_stepper_plate_default",
+    "glossy_stepper_plate_pressed",
+    "glossy_stripe_tile",
+    "glossy_toggle_knob",
+    "glossy_toggle_track_off",
+    "glossy_toggle_track_on"
+  ],
+  "reuploaded": [
+    {
+      "date": "2026-07-25",
+      "files": [
+        "glossy_bar_track",
+        "glossy_bar_fill",
+        "glossy_stripe_tile"
+      ],
+      "why": "director art round: the desktop-row bar read muddy against the compact/macOS-class reference. Regenerated at seed 0x6E27 (deeper trough, 24px-authored gel fill, 8px stripe period with a shaded leading edge)."
+    },
+    {
+      "date": "2026-07-26",
+      "files": [
+        "glossy_toggle_track_on"
+      ],
+      "why": "director round 8: the ON switch was GREEN and this package's action colour is BLUE (accent rgb(18,92,190)). Regenerated at seed 0x6E43 with the BLUE ramp and the BLUE_BOT rim the selection plate uses; the other thirteen textures re-generate byte-identically at the new seed (verified by sha256)."
+    }
+  ]
+}

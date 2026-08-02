@@ -1,0 +1,539 @@
+--!strict
+-- Rating (director round 10, 2026-07-26): a run of glyphs that reads as ONE
+-- value and takes ONE focus stop.
+--
+-- The control exists because the obvious spelling — one Button per star — was
+-- wrong on three axes at once, and every one of them showed up on a phone:
+-- five themed plates instead of five glyphs, five focus stops for one number,
+-- and five activation handlers all writing the same signal. These tests pin
+-- each of those, plus the four-input reach the conformance registry demands.
+
+local t = require("./lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+
+local customFactory = require("../src/core/custom")
+local LuauUI = require("../src") :: any
+local UI = require("../src/blueprint")
+local environment = require("../src/env/environment")
+local presenterLib = require("../src/present/presenter")
+local actionsLib = require("../src/input/actions")
+local fake_target = require("../tests/lib/fake_target")
+local chrome_slots = require("../src/tokens/chrome_slots")
+
+local STRIP = "/S/Stars/Strip"
+
+local function mount(specOverrides: any?)
+	local core = customFactory.new()
+	local env = environment.new(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+	local adapter = fake_target.new()
+	local system = actionsLib.newSystem(core)
+	local pres = presenterLib.new(core, env, adapter, system)
+	local value = core:signal(3)
+	local spec: any = { id = "Stars", value = value }
+	for k, v in (specOverrides or {}) :: any do
+		spec[k] = v
+	end
+	local control = LuauUI.newRating(LuauUI, core, spec)
+	pres.present(UI.Screen({ id = "S", children = { control.blueprint } }))
+	pres.refresh()
+	return core, adapter, system, pres, value, control
+end
+
+-- a point at the given fraction across the strip's solved rect
+local function pointAt(adapter: any, fraction: number): (number, number)
+	local rect = adapter.node(STRIP).rect
+	return rect.x + rect.w * fraction, rect.y + rect.h / 2
+end
+
+describe("Rating: the value model", function()
+	it("a read-only Memo is refused at BUILD, not on the first tap", function()
+		local core = customFactory.new()
+		expect(pcall(function()
+			return LuauUI.newRating(LuauUI, core, {
+				id = "R",
+				value = core:memo(function()
+					return 3
+				end),
+			})
+		end)).toBe(false)
+	end)
+
+	it("a count that is not a whole number >= 1 is a build error", function()
+		local core = customFactory.new()
+		for _, bad in { 0, -3, 2.5 } do
+			expect(pcall(function()
+				return LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(1), count = bad })
+			end)).toBe(false)
+		end
+	end)
+
+	it("glyphs are filled up to the value and hollow after it, and repaint in place", function()
+		local _, adapter, _, pres, value = mount()
+		local function glyphs(): string
+			local out = ""
+			for i = 1, 5 do
+				out ..= adapter.node(`/S/Stars/Stars/Star{i}`).props.text
+			end
+			return out
+		end
+		expect(glyphs()).toBe("★★★☆☆")
+		local before = adapter.liveCount()
+		value:set(5)
+		pres.refresh()
+		expect(glyphs()).toBe("★★★★★")
+		-- a rating change is PAINT: no node was created or destroyed
+		expect(adapter.liveCount()).toBe(before)
+	end)
+
+	it("the value is clamped to the run, and to zero only when zero is allowed", function()
+		local _, adapter, _, pres, value = mount()
+		adapter.pointerDown(STRIP, pointAt(adapter, -2))
+		pres.refresh()
+		expect(value:get()).toBe(0)
+		local _, adapter2, _, pres2, value2 = mount({ allowZero = false })
+		adapter2.pointerDown(STRIP, pointAt(adapter2, -2))
+		pres2.refresh()
+		expect(value2:get()).toBe(1)
+	end)
+
+	it("semantic text reports the value IN ITS RANGE, never a bare number", function()
+		local _, _, _, _, _, control = mount()
+		expect(control.semanticText:get()).toBe("3 of 5")
+	end)
+end)
+
+describe("Rating: one control, not N buttons", function()
+	it("no star is a Button, so no theme can paint a plate behind one", function()
+		-- the defect this control replaces: five Buttons meant five `control`
+		-- decorations. Under Glossy Touch that was five glossy pills; under
+		-- Glossy Mobile, whose control recipe is a raised SHADOW, five shadows
+		-- overlapped into a smeared band behind the row.
+		local _, adapter = mount()
+		for i = 1, 5 do
+			local node = adapter.node(`/S/Stars/Stars/Star{i}`)
+			expect(node.class).toBe("Text")
+			expect(chrome_slots.classify({ class = node.class, surface = node.props.surface })).toBeNil()
+		end
+	end)
+
+	it("the whole strip is ONE focus stop, not one per star", function()
+		-- the defect this replaces: five Buttons meant a gamepad user pressed
+		-- Right four times to cross ONE cell. Walk the ring and prove it lands on
+		-- the strip and never on a star, however far you walk.
+		local _, _, system, pres = mount()
+		local seen: { [string]: boolean } = {}
+		for _ = 1, 8 do
+			system.deviceKey("DPadDown", true)
+			system.deviceKey("DPadDown", false)
+			pres.refresh()
+			seen[tostring(pres.focus.focused:get())] = true
+			system.deviceKey("DPadRight", true)
+			system.deviceKey("DPadRight", false)
+			pres.refresh()
+			seen[tostring(pres.focus.focused:get())] = true
+		end
+		expect(seen[STRIP]).toBe(true)
+		for i = 1, 5 do
+			expect(seen[`/S/Stars/Stars/Star{i}`]).never().toBe(true)
+		end
+	end)
+
+	it("a read-only rating paints but is not focusable and refuses every input", function()
+		local _, adapter, _, pres, value = mount({ readOnly = true })
+		expect(adapter.node(`/S/Stars/Stars/Star1`).props.text).toBe("★")
+		-- nothing in a read-only rating is reachable: the ring never lands inside
+		local _, _, system2, pres2 = mount({ readOnly = true })
+		system2.deviceKey("DPadDown", true)
+		system2.deviceKey("DPadDown", false)
+		pres2.refresh()
+		expect(tostring(pres2.focus.focused:get())).never().toBe(STRIP)
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
+		pres.refresh()
+		expect(value:get()).toBe(3)
+	end)
+
+	it("a disabled rating refuses every input class, not just the pointer", function()
+		local _, adapter, system, pres, value = mount({ enabled = false })
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
+		pres.refresh()
+		expect(value:get()).toBe(3)
+		system.deviceKey("DPadDown", true)
+		system.deviceKey("DPadDown", false)
+		system.deviceKey("Period", true)
+		system.deviceKey("Period", false)
+		pres.refresh()
+		expect(value:get()).toBe(3)
+	end)
+end)
+
+describe("Rating reaches the same arithmetic from every input class", function()
+	it("pointer: clicking a star sets the rating to that star", function()
+		local _, adapter, _, pres, value = mount()
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
+		adapter.pointerUp(pointAt(adapter, 0.9))
+		pres.refresh()
+		expect(value:get()).toBe(5)
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.3))
+		adapter.pointerUp(pointAt(adapter, 0.3))
+		pres.refresh()
+		expect(value:get()).toBe(2)
+	end)
+
+	it("touch: a finger drag across the strip scrubs the value live", function()
+		local _, adapter, _, pres, value = mount()
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.1), "touch")
+		pres.refresh()
+		expect(value:get()).toBe(1)
+		adapter.pointerMove(pointAt(adapter, 0.7))
+		pres.refresh()
+		expect(value:get()).toBe(4)
+		adapter.pointerUp(pointAt(adapter, 0.7))
+		pres.refresh()
+		expect(value:get()).toBe(4)
+	end)
+
+	it("keyboard: Adjust on the focused strip rates without touching a star", function()
+		local _, _, system, pres, value = mount()
+		system.deviceKey("DPadDown", true)
+		system.deviceKey("DPadDown", false)
+		pres.refresh()
+		system.deviceKey("Period", true)
+		system.deviceKey("Period", false)
+		pres.refresh()
+		expect(value:get()).toBe(4)
+		system.deviceKey("Comma", true)
+		system.deviceKey("Comma", false)
+		pres.refresh()
+		expect(value:get()).toBe(3)
+	end)
+
+	it("gamepad: the bumpers Adjust the focused rating", function()
+		local _, _, system, pres, value = mount()
+		system.deviceKey("DPadDown", true)
+		system.deviceKey("DPadDown", false)
+		pres.refresh()
+		system.deviceKey("ButtonR1", true)
+		system.deviceKey("ButtonR1", false)
+		pres.refresh()
+		expect(value:get()).toBe(4)
+		system.deviceKey("ButtonL1", true)
+		system.deviceKey("ButtonL1", false)
+		pres.refresh()
+		expect(value:get()).toBe(3)
+	end)
+
+	it("no Adjust key is bound while focus sits outside the Rating (no gameplay bumper shadow)", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local system = actionsLib.newSystem(core)
+		local pres = presenterLib.new(core, env, adapter, system)
+		local value = core:signal(3)
+		local control = LuauUI.newRating(LuauUI, core, { id = "Stars", value = value })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.Button({ id = "Elsewhere", label = "elsewhere", height = { type = "fixed", px = 44 } }),
+				control.blueprint,
+			},
+		}))
+		pres.refresh()
+		-- focus is on the first focusable, which is OUTSIDE the rating
+		system.deviceKey("ButtonR1", true)
+		system.deviceKey("ButtonR1", false)
+		pres.refresh()
+		expect(value:get()).toBe(3)
+	end)
+
+	it("hotSwitch: losing the pointer mid-scrub CANCELS back, it never commits", function()
+		local _, adapter, _, pres, value, control = mount()
+		adapter.pointerDown(STRIP, pointAt(adapter, 0.9))
+		pres.refresh()
+		expect(value:get()).toBe(5)
+		control.onInteractionClassLost("pointer")
+		pres.refresh()
+		expect(value:get()).toBe(3) -- the pre-scrub value, not the half-finished one
+	end)
+end)
+
+-- ===========================================================================
+-- A RATING IS A ROW OF ICONS, SO IT SIZES LIKE ONE
+-- (measured across all nine shipped packages, 2026-07-27)
+--
+-- The star was first sized at `iconSizes.medium` — the rung that is right for
+-- ONE icon and wrong for five of them side by side. Under Glossy Touch the
+-- strip measured 164px and under Pixel Quest and Fantasy Ornate 176px, all of
+-- which overrun the 132px column a table gives a rating cell, so the stars ran
+-- off the end of their cells in exactly the themes the director was looking at.
+-- ===========================================================================
+describe("Rating: the strip fits the cell a table gives it, under every package", function()
+	local themes = LuauUI.themes
+	local fake = require("../tests/lib/fake_target")
+	local PACKAGES = {
+		"glossy_touch",
+		"glossy_mobile",
+		"pixel_quest",
+		"fantasy_ornate",
+		"scifi_hud",
+		"compact_pointer",
+		"classic_desktop",
+		"fantasy_parchment",
+	}
+	-- the playlist demo's rating column
+	local COLUMN = 144
+
+	local function stripWidth(pkg: any?, starSize: string?): number
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 430, h = 900 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake.new()
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3), starSize = starSize })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Cell",
+					width = { type = "fixed", px = COLUMN },
+					height = { type = "fixed", px = 48 },
+					children = { control.blueprint },
+				}),
+			},
+		}))
+		pres.refresh()
+		if pkg ~= nil then
+			env:set("themeMetrics", themes.resolve(pkg, nil, {}))
+			pres.refresh()
+		end
+		local last = adapter.node("/S/Cell/R/Stars/Star5").rect
+		return last.x + last.w
+	end
+
+	it("five stars fit a 132px cell in the flat theme and in all eight shipped packages", function()
+		expect(stripWidth(nil) <= COLUMN).toBe(true)
+		for _, name in PACKAGES do
+			local pkg = (require)(`../examples/themes/{name}`).build(themes)
+			expect(stripWidth(pkg) <= COLUMN).toBe(true)
+		end
+	end)
+
+	it("...at the rung a table row actually uses, in every package", function()
+		-- Round 12 asserted this at ALL THREE rungs, which an even share made
+		-- automatic: a share can never exceed the cell, whatever the glyph is. The
+		-- 2026-07-27 grouping ruling gives that up ON PURPOSE — the spacing now
+		-- follows the glyph, so a caller who asks for `large` glyphs in a 132px
+		-- column is asking for something that does not fit, and the director's own
+		-- framing of the ruling is that the CELL has to be sized for the control
+		-- ("we should be cognizant of how big the cell is").
+		--
+		-- `small` is what a table row uses and what the control defaults to,
+		-- precisely because round 13 measured the bigger rungs overrunning this
+		-- same column. That is the guarantee worth pinning.
+		for _, name in PACKAGES do
+			local pkg = (require)(`../examples/themes/{name}`).build(themes)
+			expect(stripWidth(pkg, "small") <= COLUMN).toBe(true)
+		end
+		expect(stripWidth(nil, "small") <= COLUMN).toBe(true)
+	end)
+
+	-- ===================================================================
+	-- THE STRIP GROUPS (director ruling 2026-07-27, superseding round 12's
+	-- "it FILLS the cell"): "let's have stars group, but knowing that, we
+	-- should be cognizant of how big the cell is... if we make the cell with
+	-- the rating control wider, we need to respect alignment (e.g. center it
+	-- in the column)."
+	--
+	-- Round 12 made each star an even SHARE, which fixed the strip's OUTER
+	-- width and left its INNER spacing to chance: the box became the caller's
+	-- arithmetic while the glyph stayed the theme's. Measured in this same
+	-- 132px column, the gap as a fraction of the glyph reached 0.67 under
+	-- Compact Pointer — a 15px star in a 25px box, five marks that stopped
+	-- reading as one rating.
+	-- ===================================================================
+	local function starPitchAndGlyph(pkg: any?): (number, number)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 430, h = 900 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake.new()
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3) })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Cell",
+					width = { type = "fixed", px = COLUMN },
+					height = { type = "fixed", px = 48 },
+					children = { control.blueprint },
+				}),
+			},
+		}))
+		pres.refresh()
+		if pkg ~= nil then
+			env:set("themeMetrics", themes.resolve(pkg, nil, {}))
+			pres.refresh()
+		end
+		local s1 = adapter.node("/S/Cell/R/Stars/Star1").rect
+		local s2 = adapter.node("/S/Cell/R/Stars/Star2").rect
+		return s2.x - s1.x, s1.h
+	end
+
+	it("the SPACING follows the glyph, not the cell — no package spreads its stars", function()
+		-- the invariant, stated so it cannot silently drift again: the step from
+		-- one star to the next is the glyph plus a gap, and the gap is a small
+		-- fraction of the glyph rather than a fraction of whatever slack the
+		-- caller's column happened to have.
+		for _, name in PACKAGES do
+			local pkg = (require)(`../examples/themes/{name}`).build(themes)
+			local pitch, glyph = starPitchAndGlyph(pkg)
+			expect((pitch - glyph) / glyph < 0.25).toBe(true)
+		end
+		local pitch, glyph = starPitchAndGlyph(nil)
+		expect((pitch - glyph) / glyph < 0.25).toBe(true)
+	end)
+
+	it("...and the leftover is CENTRED in the column, not dumped after the last star", function()
+		-- a rating hugging its glyphs no longer reaches both edges of a generous
+		-- cell, so where the slack goes becomes a visible decision. Split evenly,
+		-- the strip stays aligned with its own header.
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 430, h = 900 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake.new()
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3) })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Cell",
+					width = { type = "fixed", px = COLUMN },
+					height = { type = "fixed", px = 48 },
+					children = { control.blueprint },
+				}),
+			},
+		}))
+		pres.refresh()
+		env:set("themeMetrics", themes.resolve((require)("../examples/themes/compact_pointer").build(themes), nil, {}))
+		pres.refresh()
+		local cell = adapter.node("/S/Cell").rect
+		local s1 = adapter.node("/S/Cell/R/Stars/Star1").rect
+		local s5 = adapter.node("/S/Cell/R/Stars/Star5").rect
+		local before = s1.x - cell.x
+		local after = (cell.x + cell.w) - (s5.x + s5.w)
+		expect(before > 0).toBe(true)
+		expect(math.abs(before - after) <= 2).toBe(true)
+	end)
+
+	it("an unknown starSize is a build error, not a silently-default star", function()
+		local core = customFactory.new()
+		expect(pcall(function()
+			return LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(1), starSize = "huge" })
+		end)).toBe(false)
+	end)
+end)
+
+-- ===========================================================================
+-- WIDER FOR A FINGER THAN FOR A CURSOR (director, 2026-07-27: "it's a little
+-- too tight on compact pointer… if we're on a touch input, part of the paradigm
+-- should be slightly wider spacing for touch targets vs. what we can do with a
+-- pointer").
+--
+-- The run is ONE drag target, so the gap between marks is what makes an
+-- individual star reachable. `iconRunGap` is DERIVED from each package's own
+-- `iconSizes` rather than borrowed from the page's spacing ladder, because the
+-- two disagree wildly: Compact Pointer's `xs` is 2px against a 12px star — a 17%
+-- gap, which is what "too tight" looked like — while Glossy Mobile's is 6px
+-- against 16px.
+-- ===========================================================================
+describe("Rating: the star run spaces itself for the input paradigm", function()
+	local environment = require("../src/env/environment")
+	-- re-declared: the earlier describe's locals are not in scope here
+	local themes = LuauUI.themes
+	local fake = require("../tests/lib/fake_target")
+	local COLUMN = 144
+	local PACKAGES = {
+		"glossy_touch",
+		"glossy_mobile",
+		"pixel_quest",
+		"fantasy_ornate",
+		"scifi_hud",
+		"compact_pointer",
+		"classic_desktop",
+		"fantasy_parchment",
+	}
+
+	local function pitchUnder(pkgName: string, touch: boolean): (number, number)
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 430, h = 900 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		-- `interactionClasses` is DERIVED, so the paradigm is driven the way a real
+		-- session drives it: the live capability set plus the preferred device
+		env:set("capabilities", { keyboard = not touch, mouse = not touch, touch = touch, gamepad = false })
+		env:set("preferredInput", if touch then "Touch" else "KeyboardAndMouse")
+		local adapter = fake.new()
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		local control = LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3), env = env })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Cell",
+					width = { type = "fixed", px = COLUMN },
+					height = { type = "fixed", px = 48 },
+					children = { control.blueprint },
+				}),
+			},
+		}))
+		pres.refresh()
+		env:set("themeMetrics", themes.resolve((require)(`../examples/themes/{pkgName}`).build(themes), nil, {}))
+		pres.refresh()
+		local s1 = adapter.node("/S/Cell/R/Stars/Star1").rect
+		local s2 = adapter.node("/S/Cell/R/Stars/Star2").rect
+		local s5 = adapter.node("/S/Cell/R/Stars/Star5").rect
+		return s2.x - s1.x, (s5.x + s5.w) - s1.x
+	end
+
+	it("touch spaces the run WIDER than a pointer, in every package", function()
+		for _, name in PACKAGES do
+			local pointerPitch = pitchUnder(name, false)
+			local touchPitch = pitchUnder(name, true)
+			expect(touchPitch > pointerPitch).toBe(true)
+		end
+	end)
+
+	it("the package that showed the defect is no longer 2px between 12px stars", function()
+		-- Compact Pointer: `xs` is 2 and the star is 12, so the old `xs` gap was
+		-- 17% of the glyph. The derived gap scales with the glyph instead.
+		local pitch = pitchUnder("compact_pointer", false)
+		local glyph = 12
+		expect(pitch - glyph >= 4).toBe(true)
+	end)
+
+	it("...and neither paradigm overruns the cell, in any package", function()
+		-- the whole reason the run is capped: a wider gap must never reintroduce
+		-- round 12's overrun
+		for _, name in PACKAGES do
+			local _, pointerRun = pitchUnder(name, false)
+			local _, touchRun = pitchUnder(name, true)
+			expect(pointerRun <= COLUMN).toBe(true)
+			expect(touchRun <= COLUMN).toBe(true)
+		end
+	end)
+
+	it("a rating with NO env takes the pointer spacing, which is the one that always fits", function()
+		local core = customFactory.new()
+		local ok = pcall(function()
+			return LuauUI.newRating(LuauUI, core, { id = "R", value = core:signal(3) })
+		end)
+		expect(ok).toBe(true)
+	end)
+end)

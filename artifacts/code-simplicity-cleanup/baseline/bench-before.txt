@@ -1,0 +1,18 @@
+  billboard-nameplate-storm: p50=0.0530ms p95=0.1090ms heapΔ=-36KB
+  collection-mutation-custom: p50=0.0050ms p95=0.0067ms heapΔ=1149KB
+  collection-mutation-fusion: p50=0.0060ms p95=0.0098ms heapΔ=-1405KB
+  collection-mutation-imperative: p50=0.0047ms p95=0.0060ms heapΔ=945KB
+  hud-binding-storm-custom: p50=0.1677ms p95=0.2739ms heapΔ=-685KB
+  hud-binding-storm-fusion: p50=0.3199ms p95=0.5016ms heapΔ=1099KB
+  hud-binding-storm-imperative: p50=0.0473ms p95=0.0533ms heapΔ=607KB
+  mounted-slice-update-storm: p50=0.0871ms p95=0.1478ms heapΔ=616KB
+  settings-churn-custom: p50=0.0050ms p95=0.0138ms heapΔ=-1465KB
+  settings-churn-fusion: p50=0.0139ms p95=0.0219ms heapΔ=248KB
+  settings-churn-imperative: p50=0.0125ms p95=0.0160ms heapΔ=-1114KB
+  sparse-update-under-load-custom: p50=0.0010ms p95=0.0013ms heapΔ=164KB
+  sparse-update-under-load-fusion: p50=0.0022ms p95=0.0029ms heapΔ=305KB
+  sparse-update-under-load-imperative: p50=0.0174ms p95=0.0178ms heapΔ=-52KB
+  table-mutation: p50=0.6631ms p95=1.1457ms heapΔ=5584KB
+  table-resize-drag: p50=5.6626ms p95=8.6234ms heapΔ=26881KB
+  textinput-typing-storm: p50=0.0681ms p95=0.1534ms heapΔ=-6789KB
+bench: PASS (artifacts/bench.json)

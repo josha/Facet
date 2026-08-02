@@ -1,0 +1,262 @@
+--!strict
+-- Property-authority manifest (design §7.3, UI-STYLE-001): exactly one
+-- authority per engine render property per class. The Studio spike proved the
+-- engine will NOT police this (an explicit write silently defeats StyleRules
+-- and fires no signals), so the renderer asserts it at the ONLY write site.
+-- Authorities: layout (rects), style (token paint), binding (data-driven),
+-- presentation (transient transform/opacity), host (a custom control's claims).
+--
+-- `host` IS DECLARED BUT UNUSED, deliberately and on the record (architecture
+-- verifier ARCH-F8, dispositioned in the Step 5.5 cleanup ledger): no entry in
+-- MANIFEST below carries it and no writer passes it, because the custom-control
+-- seam it was reserved for (UI-EXT-001) never shipped a blueprint class. It stays
+-- in the vocabulary because the theme linter's rejections and ADR-0019 §4 classify
+-- engine properties against this same five-name list; it is NOT a fifth live
+-- authority, and the guide says so.
+
+local authority = {}
+
+export type Authority = "layout" | "style" | "binding" | "presentation" | "host"
+
+-- per class: engine-property-ish name -> authority
+local MANIFEST: { [string]: { [string]: Authority } } = {
+	common = {
+		surface = "style",
+		role = "style",
+		active = "binding",
+		position = "layout",
+		size = "layout",
+		padding = "layout",
+		clipChildren = "layout",
+		zIndex = "layout",
+		-- native scroll host (NS-A2, verifier F2): the canvas EXTENT is layout-
+		-- derived render geometry (solver contentSize+padding) with exactly one
+		-- writer (renderer scroll-region push). CanvasPosition is deliberately
+		-- NOT in the manifest: the ENGINE co-authors it (user scrolling) and the
+		-- framework's scrollTo is a request, not an owned property — same reason
+		-- GuiService.SelectedObject (engine-co-authored selection) stays out.
+		canvasSize = "layout",
+		anchorPoint = "layout",
+		backgroundColor = "style",
+		cornerRadius = "style",
+		-- §17 Phase 4 engine styling: normalized modifier data (UIShadow
+		-- params; one-form corner spec). The adapter materializes instances;
+		-- the four per-corner engine props share this single authority entry.
+		shadow = "style",
+		-- the per-view gradient modifier: normalized UIGradient data. The
+		-- adapter materializes ONE bespoke child; the theme's own gradients are
+		-- phantom ::UIGradient RULES, and a real child is what makes the view
+		-- win on this node (ADR-0020 R8 composition).
+		gradient = "style",
+		corners = "style",
+		-- the AUTHORED stroke modifier (ADR-0022 Decision 6): normalized UIStroke
+		-- data, exactly the shape and authority `shadow`/`gradient`/`corners` carry.
+		-- The adapter materializes ONE bespoke child; a theme's own chrome stroke is
+		-- a phantom ::UIStroke RULE and the engine renders both, so the authored one
+		-- is additive rather than a replacement (ADR-0020 R8).
+		stroke = "style",
+		strokeColor = "style",
+		transparency = "presentation",
+		transform = "presentation",
+		-- THE HELD DRAG SOURCE (director round five): registry-driven state the
+		-- renderer writes while a live session carries this node's payload; the
+		-- adapter empties the label via the `luau-drag-held` tag rule (native)
+		-- or a direct text write (bespoke). Never authored — a consumer cannot
+		-- set it, which is what makes the guarantee universal.
+		dragHeld = "presentation",
+	},
+	-- Box is the one container-shaped leaf that can wear a continuous fill
+	-- (ADR-0022 Decision 6). `tint` is BINDING authority on purpose: the value is
+	-- data (a blend driven by a signal, an identity hue), which is exactly what the
+	-- style authority cannot express — a rule cannot see a value. In native mode the
+	-- write CLAIMS the engine property from the sheet; the claim is recorded and
+	-- dumped so defeat detection audits the hand-off instead of tripping on it.
+	Box = { tint = "binding" },
+	Text = {
+		text = "binding",
+		textColor = "style",
+		textSize = "layout",
+		textAlign = "style",
+		font = "style",
+		tint = "binding",
+	},
+	Button = {
+		text = "binding",
+		enabled = "binding",
+		selected = "binding",
+		textColor = "style",
+		textSize = "layout",
+		font = "style",
+		-- the circle Button (feature round 2026-07-26). `shape` is STYLE authority
+		-- even though it also decides geometry: the geometry half is the solver
+		-- reading a prop (no engine write at all), and the only thing written to an
+		-- engine object is the disc's chrome — a tag in native mode, the real
+		-- UICorner's radius in fallback mode. `icon` is style for the same reason:
+		-- it selects the theme-owned picture over the node's own glyph.
+		shape = "style",
+		icon = "style",
+		-- `compactLabel` is STYLE for the same reason `icon` is, and the reasoning
+		-- matters because it also decides TEXT. The declaration selects which
+		-- representation the node wears (and, in its icon form, which theme-owned
+		-- picture); the resulting engine `Text` write still goes through the
+		-- BINDING authority above, on the one label seam, so there is no second
+		-- writer for the drawn string.
+		compactLabel = "style",
+	},
+	-- textSize joined for the ten-foot/measure-paint agreement (verifier F1):
+	-- an explicit Toggle textSize scales at both seams like every text node
+	Toggle = { text = "binding", value = "binding", enabled = "binding", textSize = "layout" },
+	-- TextField (§17 Phase 5): all data-driven props ride the binding authority
+	-- so the engine adapter maps them onto the TextBox (editing -> Capture/
+	-- ReleaseFocus, text/placeholder -> Text/PlaceholderText, maxLength/
+	-- keyboardType -> best-effort engine hints). Layout/style props inherit
+	-- `common`; the presentation transform (keep-visible) is common.transform.
+	TextField = {
+		text = "binding",
+		placeholder = "binding",
+		editing = "binding",
+		enabled = "binding",
+		maxLength = "binding",
+		keyboardType = "binding",
+		-- textSize joined for the same measure-paint agreement Toggle's did
+		-- (director fix round 2026-07-25): a field's intrinsic `control` role now
+		-- reaches paint, so a package that moves that role moves the drawn text
+		-- instead of only the reserved box
+		textSize = "layout",
+	},
+	-- `scaleMode` is STYLE even though it decides geometry INSIDE the box, for the
+	-- same reason `shape` is: nothing about the node's solved rect moves, and the
+	-- single engine write is how the picture fills a box the solver already sized.
+	Image = { image = "binding", tint = "binding", scaleMode = "style" },
+	Grip = { cursorHint = "binding" },
+	-- Path (native-substrate NS-A7): reactive stroke geometry/config are
+	-- binding-authored; stroke color rides the style role hint — or, for a value a
+	-- finite role cannot express, the continuous `tint` channel
+	Path = { points = "binding", thickness = "binding", closed = "binding", tint = "binding" },
+}
+
+-- authorityFor(class, prop) -> Authority (class table wins over common)
+function authority.authorityFor(class: string, prop: string): Authority?
+	local classMap = MANIFEST[class]
+	if classMap and classMap[prop] then
+		return classMap[prop]
+	end
+	return MANIFEST.common[prop]
+end
+
+-- assertWrite: the renderer calls this before every engine write; a writer
+-- claiming a property it does not own is a debug error, not a silent win.
+function authority.assertWrite(class: string, prop: string, writer: Authority)
+	local owner = authority.authorityFor(class, prop)
+	if owner == nil then
+		error(`LuauUI authority: no declared authority for {class}.{prop} (declare it in the manifest)`, 0)
+	end
+	if owner ~= writer then
+		error(`LuauUI authority: {writer} tried to write {class}.{prop} owned by {owner}`, 0)
+	end
+end
+
+function authority.manifest()
+	return MANIFEST
+end
+
+-- Native-stylesheet ownership (native-stylesheets stage, ledger NSS-I2): when
+-- a target opts into native paint (screen_target `nativeStyle`), these ENGINE
+-- properties transfer from adapter explicit-writes to the DataModel sheet.
+-- The adapter must not write them in native mode — an explicit write silently
+-- and permanently defeats the rule (spike 2026-07-19, reconfirmed 2026-07-24)
+-- — and the verification surface proves the hand-off per property at runtime:
+-- GetStyled(prop) must equal the sheet-resolved value (defeat detection,
+-- feasibility m10). Declared intended real-child overrides (the Toggle
+-- knob-track assembly's transparency/fills; explicit UI.corners/UI.shadow
+-- modifier instances) are the ONLY sanctioned exceptions and stay bespoke.
+local NATIVE_SHEET_OWNED: { [string]: boolean } = {
+	BackgroundColor3 = true,
+	BackgroundTransparency = true,
+	TextColor3 = true,
+	TextTransparency = true, -- disabled state (:NonInteractable rules)
+	PlaceholderColor3 = true,
+	FontFace = true,
+	ScrollBarImageColor3 = true,
+	-- phantom modifier chrome (rules CREATE these; the adapter must not
+	-- materialize UICorner/UIStroke instances for handed-off surfaces)
+	CornerRadius = true,
+	StrokeColor = true,
+	StrokeTransparency = true,
+	StrokeThickness = true,
+	-- IMAGE PAINT (rich-skinning-v2; platform verifier F4). Every one of these is
+	-- written by a generated rule for a skinned slot, a layer, a bar part, a
+	-- toggle part or an icon — so this stage's whole visual surface was outside
+	-- the gate that exists to catch a defeating explicit write. `Image` carries
+	-- ONE sanctioned exception: the managed semantic-icon picture, because no
+	-- rule can pick a content id per node (see BESPOKE_INSTANCES).
+	Image = true,
+	ImageColor3 = true,
+	ImageTransparency = true,
+	ScaleType = true,
+	SliceCenter = true,
+	SliceScale = true,
+	TileSize = true,
+	ResampleMode = true,
+}
+
+-- ADAPTER-OWNED INSTANCE FAMILIES (rich-skinning-v2; architecture verifier F4).
+--
+-- The comment above says "declared intended real-child overrides ... are the
+-- ONLY sanctioned exceptions", and until this stage that meant two families. v2
+-- added six more, every one of them an instance the ADAPTER creates and no rule
+-- can create for it (a rule cannot pick a content id, cannot decide how many
+-- ornaments a corners layer needs, cannot size a clip window from a solved rect).
+--
+-- Frozen and asserted against `chrome_slots`'s own name constants, so adding an
+-- adapter-owned family without declaring it here is a failing test rather than a
+-- silently widening exception. Paint on these instances is still RULE-owned from
+-- birth wherever a rule can reach it (rs-m2's defeat refinement) — being on this
+-- list buys the right to EXIST, not the right to paint.
+-- The two families this stage added are NOT chrome, so their names live here
+-- rather than in `chrome_slots`: one is presentation (the motion scale), one is an
+-- authored style override (the stroke). Same anti-drift rule as the chrome
+-- constants, one module up — the adapter reads the name from here, and the
+-- manifest below is keyed by it, so a rename cannot leave the two disagreeing.
+local INSTANCE_NAMES = table.freeze({
+	motionScale = "LuauUIMotionScale",
+	stroke = "LuauUIStroke",
+})
+authority.INSTANCE_NAMES = INSTANCE_NAMES
+
+local BESPOKE_INSTANCES: { [string]: string } = {
+	[INSTANCE_NAMES.motionScale] = "the presentation channel's transient UIScale (ADR-0022 Decision 2): a motion "
+		.. "scale is not paint and no rule can express one, and it exists only while a motion runs. On a node that "
+		.. "already owns a UIScale for its press dip the presentation write REUSES that instance — the engine honours "
+		.. "one UIScale per object, so two would make the winner unpredictable",
+	[INSTANCE_NAMES.stroke] = "the authored UI.stroke border (ADR-0022 Decision 6) — the same sanctioned-override "
+		.. "standing UI.corners/UI.shadow have. A theme's own chrome stroke is a phantom ::UIStroke rule and the "
+		.. "engine renders both, so this one is additive and never suppresses the theme's",
+	LuauUIChrome = "the single-asset slot decoration (nineSlice recipes)",
+	LuauUIChromeText = "the chrome text lift: the node's own glyphs, above the decoration",
+	LuauUIChromeL = "the layered decoration ladder (one child per layer, plus per-corner ornaments, plus the "
+		.. "`LuauUIChromeL<n>Mask` CanvasGroup a masked full-bleed layer is wrapped in — a SILHOUETTE, not "
+		.. "paint: untagged, Active=false, with the layer's tagged art still inside it; probe rs-m9)",
+	LuauUIIcon = "the managed semantic-icon picture — the ONE sanctioned `Image` write",
+	LuauUIBarWindow = "the bar fill's ClipsDescendants window (percent = one Size write)",
+	LuauUIBarFill = "the full-track sliced fill art inside that window",
+	LuauUIBarCenter = "the bar's whole-image centre ornament",
+	LuauUIBarCapStart = "the bar's start cap, which must survive every percent",
+	LuauUIBarCapEnd = "the bar's end cap, which must survive every percent",
+	Track = "the toggle switch's track art (a direct child, so `:Hover > ` can reach it)",
+	Knob = "the toggle switch's travelling knob art (solver-owned travel, rule-owned paint)",
+}
+
+function authority.nativeSheetOwned(engineProp: string): boolean
+	return NATIVE_SHEET_OWNED[engineProp] == true
+end
+
+function authority.nativeSheetOwnedSet(): { [string]: boolean }
+	return NATIVE_SHEET_OWNED
+end
+
+function authority.bespokeInstances(): { [string]: string }
+	return BESPOKE_INSTANCES
+end
+
+return authority
