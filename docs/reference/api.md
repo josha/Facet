@@ -1229,9 +1229,28 @@ UI.Box({
 })
 ```
 
-It is the only `*Data` producer: `shadow`, `gradient` and `corners` are equally
-reactive props, but their normalizers are not public today, so an animated blur
-or radius has no supported spelling.
+### `shadowData` / `gradientData` / `cornersData`
+
+`UI.shadowData(spec, style?)`, `UI.gradientData(spec, style?)` and
+`UI.cornersData(spec, style?)` complete the family: each is the normalizer its
+modifier already uses (`UI.shadow` / `UI.gradient` / `UI.corners`), without a
+blueprint, returning the normalized data table. Same specs, same defaults, same
+closed key sets, same refusals — and the same reactive idiom as `strokeData`
+above, so an animated blur, wash or radius is a **pulsing prop** rather than a
+rebuilt blueprint:
+
+```lua
+UI.Box({
+    id = "Card",
+    surface = "raised",
+    shadow = core:memo(function()
+        return UI.shadowData({ blurRadius = { offset = use(lift) }, color = "shadow" })
+    end),
+})
+```
+
+`UI.gradientData` does not run `UI.gradient`'s text-bearing wall, because there
+is no blueprint here to judge; the wall still applies wherever the data is bound.
 
 ### `draggable` / `dropTarget`
 

@@ -34,6 +34,8 @@
 -- decides how many times the transport is asked before the key is given up for
 -- the session.
 
+local specGuard = require("../spec_guard")
+
 local async_image = {}
 
 -- 35 % toward the surface [25–45] (ratified: avatar_badges §1.3 "Dimmed")
@@ -41,7 +43,22 @@ local DIM_BLEND = 0.35
 local DIM_TINT = table.freeze({ role = "surface", blend = DIM_BLEND })
 local PLAIN_TINT = table.freeze({ role = "surface", blend = 0 })
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local ASYNC_IMAGE_KEYS = specGuard.keySet({
+	"dimmed",
+	"failureLabel",
+	"height",
+	"id",
+	"key",
+	"provider",
+	"retry",
+	"scope",
+	"width",
+})
+
 function async_image.build(LuauUI: any, core: any, spec: any)
+	specGuard.assertKnownKeys("newAsyncImage", spec, ASYNC_IMAGE_KEYS, "spec")
 	local UI = LuauUI.UI
 	assert(type(spec) == "table" and type(spec.id) == "string", "newAsyncImage: spec.id required")
 	assert(spec.provider ~= nil and spec.scope ~= nil, "newAsyncImage: provider and scope required")

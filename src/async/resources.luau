@@ -10,6 +10,8 @@
 -- key is stale and is rejected ("stale"), never applied — cancelled or
 -- superseded requests cannot resurrect (§10.3, §15.1 async stale completion).
 
+local specGuard = require("../spec_guard")
+
 local resources = {}
 
 type Wave = { count: number } -- live waiters across a request AND its retries
@@ -97,7 +99,19 @@ local function requireNonNegativeNumber(value: any, name: string)
 	end
 end
 
+-- CLOSED OPTS (constitution §4; ARCH-1). A misspelled `maxConcurent` used to cap
+-- nothing and a misspelled `retry` bought no give-up, both silently.
+local PROVIDER_OPTS_KEYS = specGuard.keySet({ "cacheBudget", "maxConcurrent", "now", "retry", "retryAttempts" })
+local RETRY_OPTS_KEYS = specGuard.keySet({ "count", "delaySeconds", "giveUp" })
+-- the per-call tables of `acquire`/`preload`: one key each, which is exactly why
+-- a typo in it was invisible
+local CALL_OPTS_KEYS = specGuard.keySet({ "retry" })
+
 function resources.newProvider(core: any, opts: ProviderOpts?)
+	specGuard.assertKnownKeys("newResourceProvider", opts, PROVIDER_OPTS_KEYS, "opts")
+	if opts ~= nil then
+		specGuard.assertKnownKeys("newResourceProvider opts.retry", opts.retry, RETRY_OPTS_KEYS, "opts")
+	end
 	requireIntegerAtLeast(opts and opts.maxConcurrent, 1, "maxConcurrent")
 	requireIntegerAtLeast(opts and opts.cacheBudget, 0, "cacheBudget")
 	if opts ~= nil and type(opts.retry) == "table" then
@@ -254,6 +268,10 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	-- policy FOR THIS KEY (RL-19: the mechanism is the framework's, the counts and
 	-- the spacing are the call site's).
 	function provider.acquire(scope: any, key: string, acquireOpts: { retry: RetryOpts? }?)
+		specGuard.assertKnownKeys("provider.acquire", acquireOpts, CALL_OPTS_KEYS, "opts")
+		if acquireOpts ~= nil then
+			specGuard.assertKnownKeys("provider.acquire opts.retry", acquireOpts.retry, RETRY_OPTS_KEYS, "opts")
+		end
 		counters.handles += 1
 		local entry = stateFor(key)
 		local wave: Wave? = nil
@@ -446,6 +464,10 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	-- Never a global sweep: it fetches exactly the keys it was handed.
 	function provider.preload(keys: { string }, preloadOpts: { retry: RetryOpts? }?)
 		assert(type(keys) == "table", "provider.preload takes an array of keys")
+		specGuard.assertKnownKeys("provider.preload", preloadOpts, CALL_OPTS_KEYS, "opts")
+		if preloadOpts ~= nil then
+			specGuard.assertKnownKeys("provider.preload opts.retry", preloadOpts.retry, RETRY_OPTS_KEYS, "opts")
+		end
 		local retry = if preloadOpts ~= nil and preloadOpts.retry ~= nil
 			then resolveRetry(preloadOpts.retry, defaultRetry)
 			else defaultRetry

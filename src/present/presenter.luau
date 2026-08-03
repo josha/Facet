@@ -25,6 +25,7 @@ local motionClockLib = require("../motion/clock")
 -- both are now THEME values read from the live `themeMetrics` fact, so a theme
 -- with roomier spacing gets a proportionally roomier dismiss ring for free.
 local themeSnapshot = require("../themes/snapshot")
+local specGuard = require("../spec_guard")
 
 local presenter = {}
 
@@ -155,6 +156,45 @@ export type ToastOpts = {
 	transition: any?, -- default: slide in from its own edge, with a fade
 	context: any?, -- carried on the toast's dismiss event, untouched
 }
+
+-- CLOSED OPTS (constitution §4; ARCH-1). This is the widest opts table in the
+-- library — twenty declared fields, most of them booleans and policy strings
+-- with silent defaults — so it is the one where an accepted-and-ignored key
+-- costs the most: `outsideTapCancle = false` left the modal dismissing on an
+-- outside tap with nothing to say about it. Every declared field is legal, and
+-- exactly those.
+local PRESENT_OPTS_KEYS = specGuard.keySet({
+	"cancelPolicy",
+	"engineSelectionBridge",
+	"fallbackScreen",
+	"gameplayGuard",
+	"keepVisibleOffset",
+	"navigationGroups",
+	"onActivate",
+	"onAdjust",
+	"onFocusNav",
+	"onGeometry",
+	"onNavigateIntercept",
+	"onReorderNav",
+	"outsideTapCancel",
+	"responder",
+	"revealTimeout",
+	"revealWhenTextExact",
+	"rootPolicy",
+	"scrim",
+	"sinkNavigation",
+	"transition",
+})
+local TOAST_OPTS_KEYS = specGuard.keySet({
+	"context",
+	"duration",
+	"key",
+	"position",
+	"priority",
+	"readFloor",
+	"transition",
+})
+local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "now" })
 
 local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
 
@@ -733,6 +773,7 @@ export type PresenterOpts = {
 }
 
 function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opts: PresenterOpts?)
+	specGuard.assertKnownKeys("newPresenter", opts, PRESENTER_OPTS_KEYS, "opts")
 	local self = {}
 	local graph = focus_graph.new(core)
 	local stack: { any } = {} -- presented handles, base first
@@ -2210,10 +2251,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	end
 
 	function self.present(blueprint: any, opts: PresentOpts?)
+		specGuard.assertKnownKeys("presenter.present", opts, PRESENT_OPTS_KEYS, "opts")
 		return makeHandle(blueprint, opts, "screen")
 	end
 
 	function self.presentModal(blueprint: any, opts: PresentOpts?)
+		specGuard.assertKnownKeys("presenter.presentModal", opts, PRESENT_OPTS_KEYS, "opts")
 		-- the base screen's context stays enabled for non-sunk actions, but
 		-- navigation keys are sunk by the modal context's priority+sink
 		local handle = makeHandle(blueprint, opts, "modal")
@@ -2248,6 +2291,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- blueprint that explodes during mount/render also falls back. The
 	-- fallback screen itself presents normally (its errors stay hard).
 	function self.presentCritical(blueprintFactory: () -> any, opts: PresentOpts)
+		specGuard.assertKnownKeys("presenter.presentCritical", opts, PRESENT_OPTS_KEYS, "opts")
 		assert(
 			type(opts) == "table" and type(opts.fallbackScreen) == "function",
 			"presentCritical requires opts.fallbackScreen(err) -> Blueprint"
@@ -2560,6 +2604,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			type(blueprint) == "table" and type(blueprint.class) == "string",
 			"presenter.presentToast takes a blueprint (UI.*) and an options table"
 		)
+		specGuard.assertKnownKeys("presenter.presentToast", opts, TOAST_OPTS_KEYS, "opts")
 		local options: any = opts or {}
 		ensureToastSchedule()
 		ensureToastLayer(options)

@@ -25,14 +25,18 @@ describe("RenderTargetAdapter contract", function()
 		expect(#result.optionalAbsent).toBe(0)
 	end)
 
-	-- SEAM-20: `check` used to answer a narrower question than the seam. Nine
-	-- methods the framework CALLS — five feature-detected by the renderer, four
+	-- SEAM-20: `check` used to answer a narrower question than the seam. Ten
+	-- methods the framework CALLS — five feature-detected by the renderer, five
 	-- by the theme controller — were on neither list, so an adapter could pass
 	-- with `#optionalAbsent == 0` and still ship with no hit-target floor, no
 	-- wheel channel, no display order, no reduced-motion suppression and no
-	-- theming. The lists are the contract, so the pin is: the nine are declared,
-	-- the fake implements them, and the LIVE adapter names every one.
-	it("the contract DECLARES all nine methods the framework feature-detects", function()
+	-- theming. The lists are the contract, so the pin is: the ten are declared,
+	-- the fake implements them, and the LIVE adapter names every one it has grown.
+	--
+	-- The tenth is `setThemeStyle` (ARCH-5): F-35's repair stopped at nine, and the
+	-- one the controller still called through a bare `type(...) == "function"` was
+	-- the one the file that states the rule did not declare.
+	it("the contract DECLARES all ten methods the framework feature-detects", function()
 		local declared: { [string]: string } = {}
 		for _, name in target_contract.OPTIONAL do
 			declared[name] = "OPTIONAL"
@@ -52,10 +56,50 @@ describe("RenderTargetAdapter contract", function()
 			setThemePackage = "THEME",
 			relinkThemeSheet = "THEME",
 			nativeStyleInfo = "THEME",
+			setThemeStyle = "THEME",
 		}
 		for name, list in expected do
 			expect(`{name}={declared[name]}`).toBe(`{name}={list}`)
 		end
+		-- and the framework's own call sites are the source of that list: every
+		-- `type(adapter.X) == "function"` guard in the theme controller must be a
+		-- declared THEME name. This is the check that would have caught the gap.
+		local controllerSource = fs.readFile("src/client/theme_controller.luau")
+		for name in string.gmatch(controllerSource, 'type%(adapter%.([%w_]+)%) == "function"') do
+			expect(`{name}={declared[name]}`).toBe(`{name}=THEME`)
+		end
+	end)
+
+	-- ...and exactly one of those THEME names is a GROWTH seam, not a prerequisite
+	-- (ADR-0019: the controller calls it "for any target that grows the seam").
+	-- Pinned as its own set so `themeable` cannot quietly become false for every
+	-- shipping adapter the day a growth name joins the list.
+	it("setThemeStyle is a GROWTH seam: declared, feature-detected, never a theming blocker", function()
+		expect(target_contract.THEME_GROWTH.setThemeStyle).toBe(true)
+		local growthNames: { string } = {}
+		for name in target_contract.THEME_GROWTH do
+			table.insert(growthNames, name)
+		end
+		expect(table.concat(growthNames, ",")).toBe("setThemeStyle")
+
+		-- a target with every prerequisite but no growth seam is STILL themeable,
+		-- and the absence is reported rather than swallowed
+		local bare = target_contract.check({
+			nativeStyleInfo = function() end,
+			themeRootGui = function() end,
+			setThemePackage = function() end,
+			relinkThemeSheet = function() end,
+		})
+		expect(#bare.themeAbsent).toBe(0)
+		expect(bare.themeable).toBe(true)
+		expect(table.concat(bare.themeGrowthAbsent, ",")).toBe("setThemeStyle")
+
+		-- the FakeTarget HAS grown it, and records what the controller pushed
+		local themed = fake_target.new({ trackThemeRoots = true })
+		expect(#target_contract.check(themed).themeGrowthAbsent).toBe(0)
+		expect(#themed.themeStylePushes()).toBe(0)
+		themed.setThemeStyle({ marker = "compiled" })
+		expect(themed.themeStylePushes()[1].marker).toBe("compiled")
 	end)
 
 	it("the FakeTarget satisfies the THEME group too (relink rides the opt-in)", function()
@@ -78,14 +122,25 @@ describe("RenderTargetAdapter contract", function()
 		-- is read exactly as check_prop_parity reads it
 		local liveSource = fs.readFile("src/client/screen_target.luau")
 		local absent: { string } = {}
+		local growthAbsent: { string } = {}
 		for _, list in { target_contract.REQUIRED, target_contract.OPTIONAL, target_contract.THEME } do
 			for _, name in list do
 				if string.find(liveSource, `function adapter.{name}(`, 1, true) == nil then
-					table.insert(absent, name)
+					if target_contract.THEME_GROWTH[name] then
+						table.insert(growthAbsent, name)
+					else
+						table.insert(absent, name)
+					end
 				end
 			end
 		end
 		table.sort(absent)
+		table.sort(growthAbsent)
+		-- ScreenTarget's ONE declared-but-ungrown name, asserted exactly (ARCH-5).
+		-- ADR-0019's ruling: it takes its bespoke style at construction and exposes
+		-- no runtime setter, so the palette half of a swap does not reach it. Pinned
+		-- both ways — if it grows the seam this fails and says "move it".
+		expect(table.concat(growthAbsent, ",")).toBe("setThemeStyle")
 		if #absent > 0 then
 			error(
 				`src/client/screen_target.luau declares no `

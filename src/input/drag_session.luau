@@ -19,6 +19,8 @@
 --   * A terminal state (drop or cancel) makes the session INERT: further
 --     update/drop/cancel/retarget are no-ops returning nil / an inert result.
 
+local specGuard = require("../spec_guard")
+
 local drag_session = {}
 
 export type Rect = { x: number, y: number, w: number, h: number }
@@ -52,7 +54,20 @@ local function inside(rect: Rect, x: number, y: number): boolean
 	return x >= rect.x and x < rect.x + rect.w and y >= rect.y and y < rect.y + rect.h
 end
 
+-- CLOSED OPTS (constitution §4; ARCH-1). A misspelled `onPredict` is a drag that
+-- never previews its verdict, and nothing says so.
+local DRAG_SESSION_OPTS_KEYS = specGuard.keySet({ "onEnter", "onLeave", "onPredict", "payload", "source", "targets" })
+-- the target entries are the same boundary one level down: `accpets` reads as
+-- "accepts anything", which is the most permissive possible silent failure.
+local DRAG_TARGET_KEYS = specGuard.keySet({ "accepts", "id", "rect" })
+
 function drag_session.new(opts: Opts)
+	specGuard.assertKnownKeys("newDragSession", opts, DRAG_SESSION_OPTS_KEYS, "opts")
+	if type(opts) == "table" and type(opts.targets) == "table" then
+		for _, target in opts.targets do
+			specGuard.assertKnownKeys("newDragSession target", target, DRAG_TARGET_KEYS, "spec")
+		end
+	end
 	local payload = opts.payload
 	local source = opts.source
 	local onEnter = opts.onEnter

@@ -32,6 +32,7 @@ local contribution = require("../input/contribution")
 local interactionTokens = require("../input/interaction_tokens")
 local solverLib = require("../layout/solver")
 local themeSnapshot = require("../themes/snapshot")
+local specGuard = require("../spec_guard")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -127,7 +128,32 @@ export type Spec = {
 	env: any?, -- optional environment for input-aware affordances
 }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local TABLE_KEYS = specGuard.keySet({
+	"cellFor",
+	"cellPadding",
+	"columns",
+	"dragLabel",
+	"editing",
+	"env",
+	"gap",
+	"header",
+	"height",
+	"id",
+	"key",
+	"onReorder",
+	"reorderable",
+	"rowGap",
+	"rowHeight",
+	"rows",
+	"scrolls",
+	"selection",
+	"sortOrder",
+})
+
 function table_control.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newTable", spec, TABLE_KEYS, "spec")
 	local UI = LuauUI.UI
 	local scope = core:scope(`Table-{spec.id or "table"}`)
 	local tableId = spec.id or "Table"

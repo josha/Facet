@@ -1,9 +1,10 @@
-VERSION 0.7.0
+VERSION 0.8.0
 UI : table
   UI.AdaptiveStack : function
   UI.Anchor : function
   UI.Box : function
   UI.Button : function
+  UI.Composition : function
   UI.Divider : function
   UI.ErrorBoundary : function
   UI.ForEach : function
@@ -11,8 +12,9 @@ UI : table
   UI.Grip : function
   UI.HStack : function
   UI.Image : function
-  UI.PROP_DIRTY : table
+  UI.PROP_DIRTY : table(frozen)
   UI.Path : function
+  UI.Region : function
   UI.Screen : function
   UI.ScrollView : function
   UI.Spacer : function
@@ -27,16 +29,19 @@ UI : table
   UI.aspectRatio : function
   UI.background : function
   UI.corners : function
+  UI.cornersData : function
   UI.draggable : function
   UI.dropTarget : function
   UI.frame : function
   UI.gradient : function
+  UI.gradientData : function
   UI.isReadable : function
   UI.offset : function
   UI.overlay : function
   UI.padding : function
   UI.schema : table
   UI.shadow : function
+  UI.shadowData : function
   UI.stroke : function
   UI.strokeData : function
   UI.styleGroup : function
@@ -44,10 +49,20 @@ VERSION : string
 adaptive : table
   adaptive.BREAKPOINTS : table(frozen)
   adaptive.DEFAULT_STACK_ABOVE : number
+  adaptive.HEIGHT_BREAKPOINTS : table(frozen)
   adaptive.axisFor : function
   adaptive.columnsFor : function
   adaptive.conditions : function
+  adaptive.heightClass : function
+  adaptive.orientationFor : function
   adaptive.sizeClass : function
+composition : table
+  composition.ARRANGEMENTS : table(frozen)
+  composition.arrangementOf : function
+  composition.dump : function
+  composition.floorPx : function
+  composition.normalize : function
+  composition.resolve : function
 contribution : table
   contribution.PROP : string
   contribution.attach : function
@@ -64,6 +79,7 @@ motion : table
   motion.classNames : function
   motion.isRegisteredClass : function
   motion.newClock : function
+  motion.newValueReveal : function
   motion.registerClass : function
   motion.resetClasses : function
   motion.resolveClass : function
@@ -116,6 +132,10 @@ spatial : table
   spatial.isFlat : function
   spatial.normalize : function
   spatial.of : function
+text : table
+  text.fit : function
+  text.measure : function
+  text.size : function
 themes : table
   themes.SCHEMA : string
   themes.checkCoverage : function
@@ -137,3 +157,5 @@ valueModel : table
 DEPRECATIONS:
   UI.Text.color | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } | note=Text.color was declared and documented but no render target ever consumed it: a reactive color scheduled paint work the adapter dropped. Text color is style authority (native StyleSheet / style role), never an authored literal.
   UI.Text.font | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } (fonts are style authority) | note=Text.font reached the text-metrics measure seam but no paint seam, so an authored font silently made measured and painted bounds disagree. FontFace is owned by the style sheet (authority.nativeSheetOwned).
+  adaptive.conditions().contentWidth | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=viewportWidth | note=alias; the value never subtracted insets
+  newResourceProvider(opts.retryAttempts) | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=opts.retry = { count, delaySeconds?, giveUp? } | note=legacy immediate-retry semantics preserved until removal

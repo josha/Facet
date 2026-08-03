@@ -177,6 +177,10 @@ require("./sponsor_scenarios.spec")
 -- (arrangement choice, step-down/drop order, floors, reserved-at-rest, the
 -- one-scroll refusal, the column fallback) plus the mounted re-solve identity
 require("./composition.spec")
+-- THE CLOSED-KEY SWEEP (ARCH-1): every composite control spec and every
+-- service/model opts table refuses an unknown key, naming the boundary, the key
+-- and the legal set — and still accepts the legal call it was derived from
+require("./spec_guard_sweep.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

@@ -597,7 +597,10 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 
 	it("AsyncImage: the default 48px square", function()
 		local _, _, _, adapter = controlWorld(function(core)
-			local provider = LuauUI.newResourceProvider(core, { load = function() end })
+			-- `{ load = … }` used to sit here: a key the provider never had, accepted
+			-- and ignored for the life of this test. The transport is driven through
+			-- `pendingRequests`/`complete`, never a `load` callback (ARCH-1).
+			local provider = LuauUI.newResourceProvider(core)
 			return LuauUI.newAsyncImage(LuauUI, core, {
 				id = "I",
 				provider = provider,

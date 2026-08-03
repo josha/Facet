@@ -44,6 +44,7 @@
 local drag_session = require("./drag_session")
 local drag_velocity = require("./drag_velocity")
 local tokens = require("./interaction_tokens")
+local specGuard = require("../spec_guard")
 
 local drag_registry = {}
 
@@ -99,7 +100,24 @@ local function centerOf(rect: any): (number?, number?)
 	return rect.x + (rect.w or 0) / 2, rect.y + (rect.h or 0) / 2
 end
 
+-- CLOSED OPTS (constitution §4; ARCH-1). Two of these ARE live predicates whose
+-- absence means "always legal" (`isPathLive`, `isSourceEnabled`), so a typo here
+-- silently widens what a surface will accept — the worst direction to fail in.
+local DRAG_REGISTRY_OPTS_KEYS = specGuard.keySet({
+	"core",
+	"feedback",
+	"isPathLive",
+	"isSourceEnabled",
+	"motionClock",
+	"now",
+	"promotionPx",
+	"proxy",
+	"rectOf",
+	"zOf",
+})
+
 function drag_registry.new(opts: Opts)
+	specGuard.assertKnownKeys("newDragRegistry", opts, DRAG_REGISTRY_OPTS_KEYS, "opts")
 	assert(type(opts) == "table" and type(opts.core) == "table", "LuauUI drag registry: `core` is required")
 	assert(type(opts.rectOf) == "function", "LuauUI drag registry: `rectOf` is required (the renderer's live rects)")
 	local core = opts.core

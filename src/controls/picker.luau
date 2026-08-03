@@ -19,6 +19,7 @@
 
 local controlContract = require("./contract")
 local contribution = require("../input/contribution")
+local specGuard = require("../spec_guard")
 
 local picker = {}
 
@@ -50,7 +51,21 @@ function picker.resolvePresentation(optionCount: number, sizeClass: string?, lon
 	return "segmented"
 end
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local PICKER_KEYS = specGuard.keySet({
+	"enabled",
+	"id",
+	"label",
+	"onChange",
+	"options",
+	"presentation",
+	"selected",
+	"sizeClass",
+})
+
 function picker.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Picker"
 	local scope = core:scope("picker-" .. tostring(id))

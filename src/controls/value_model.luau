@@ -12,6 +12,8 @@
 -- Toggle and TextInput follow), so a value change is the caller's data model
 -- changing, not hidden control state.
 
+local specGuard = require("../spec_guard")
+
 local value_model = {}
 
 export type Spec = {
@@ -58,7 +60,12 @@ local function defaultFormat(v: number): string
 end
 value_model.defaultFormat = defaultFormat
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the four fields the model
+-- reads — a misspelled `step` is a control that silently went continuous.
+local VALUE_MODEL_KEYS = specGuard.keySet({ "format", "max", "min", "step" })
+
 function value_model.new(spec: Spec): Model
+	specGuard.assertKnownKeys("valueModel.new", spec, VALUE_MODEL_KEYS, "spec")
 	if not isFinite(spec.min) or not isFinite(spec.max) then
 		error("LuauUI value control: min and max must be finite numbers", 0)
 	end

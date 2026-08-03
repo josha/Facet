@@ -25,6 +25,8 @@
 -- here for screen-level arrangement and ViewThatFits inside a container whose
 -- width is not the screen's.
 
+local specGuard = require("../spec_guard")
+
 local adaptive = {}
 
 -- These are THE breakpoints. `src/env/environment.luau`'s `sizeClass` memo calls
@@ -171,7 +173,12 @@ export type ConditionsOpts = {
 -- conditions(core, env, opts?) -> Conditions
 -- Readables the caller owns; they are memos over the environment, so they cost
 -- nothing until read and re-resolve in place when a fact changes.
+-- CLOSED OPTS (constitution §4; ARCH-1). `scope` is the leak fix below, and a
+-- misspelled one leaks twelve memos per mount without a word.
+local CONDITIONS_OPTS_KEYS = specGuard.keySet({ "scope", "stackAbove" })
+
 function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Conditions
+	specGuard.assertKnownKeys("adaptive.conditions", opts, CONDITIONS_OPTS_KEYS, "opts")
 	local viewportRect = env:get("viewportRect")
 	-- delegate to the env memo so the breakpoints have exactly one implementation
 	local sizeClass = env:get("sizeClass")

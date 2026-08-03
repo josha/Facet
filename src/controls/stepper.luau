@@ -31,6 +31,7 @@ local controlContract = require("./contract")
 local contribution = require("../input/contribution")
 local themePackage = require("../themes/package")
 local value_model = require("./value_model")
+local specGuard = require("../spec_guard")
 
 -- THE +/- GLYPHS (ADR-0020 R4). Requested by MEANING and drawn as the
 -- framework's ASCII-safe characters. The decrement used to be U+2212, the MINUS
@@ -55,7 +56,22 @@ export type Spec = {
 	onChange: ((value: number) -> ())?,
 }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local STEPPER_KEYS = specGuard.keySet({
+	"enabled",
+	"format",
+	"id",
+	"label",
+	"max",
+	"min",
+	"onChange",
+	"step",
+	"value",
+})
+
 function stepper.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newStepper", spec, STEPPER_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Stepper"
 	local scope = core:scope("stepper-" .. tostring(id))

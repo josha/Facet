@@ -38,6 +38,7 @@
 local motionValues = require("./motion")
 local chaseLib = require("./chase")
 local timelineLib = require("./timeline")
+local specGuard = require("../spec_guard")
 
 local clock = {}
 
@@ -86,7 +87,12 @@ export type Clock = {
 	isDisposed: (self: Clock) -> boolean,
 }
 
+-- CLOSED OPTS (constitution §4; ARCH-1). `motionPolicy` misspelled means reduced
+-- motion is never read and every accessibility toggle is ignored, silently.
+local CLOCK_OPTS_KEYS = specGuard.keySet({ "motionPolicy", "now" })
+
 function clock.new(core: any, opts: Opts?): Clock
+	specGuard.assertKnownKeys("motion.newClock", opts, CLOCK_OPTS_KEYS, "opts")
 	assert(type(core) == "table" and type(core.transaction) == "function", "LuauUI motion: newClock needs a core")
 	local options: Opts = opts or {}
 	local now = options.now or os.clock

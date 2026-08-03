@@ -29,6 +29,7 @@
 -- tests/text_input.spec.luau.
 
 local contribution = require("../input/contribution")
+local specGuard = require("../spec_guard")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -130,7 +131,27 @@ local function truncate(s: string, maxLen: number?): string
 	return string.sub(s, 1, endOffset - 1)
 end
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local TEXT_INPUT_KEYS = specGuard.keySet({
+	"actionSystem",
+	"clearButton",
+	"clearButtonMode",
+	"disabled",
+	"env",
+	"id",
+	"keyboardType",
+	"maxLength",
+	"onChange",
+	"onCommit",
+	"placeholder",
+	"submitLabel",
+	"validate",
+	"value",
+})
+
 function text_input.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newTextInput", spec, TEXT_INPUT_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "TextInput"
 	local scope = core:scope(`text_input-{id}`)

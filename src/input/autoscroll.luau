@@ -51,6 +51,8 @@
 -- already scrolls the host, and duplicating dwell/band for a focus ring would
 -- be a second mechanism answering the same question.
 
+local specGuard = require("../spec_guard")
+
 local autoscroll = {}
 
 -- band height by viewport shape (ratified defaults). Portrait gets the taller
@@ -115,7 +117,13 @@ local function easeOutQuad(k: number): number
 	return 1 - (1 - t) * (1 - t)
 end
 
+-- CLOSED OPTS (constitution §4; ARCH-1). Every field here is a tuning number
+-- with a default, so a typo produced the default silently — the exact shape of
+-- "I changed the value and nothing happened".
+local AUTOSCROLL_OPTS_KEYS = specGuard.keySet({ "bandH", "dwellS", "exitEaseS", "rampS", "vMax", "vMin" })
+
 function autoscroll.new(opts: Opts?)
+	specGuard.assertKnownKeys("newAutoscroll", opts, AUTOSCROLL_OPTS_KEYS, "opts")
 	local options: Opts = opts or {}
 	local bandH = math.max(1, number(options.bandH, DEFAULTS.bandH))
 	local dwellS = math.max(0, number(options.dwellS, DEFAULTS.dwellS))

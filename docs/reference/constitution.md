@@ -49,9 +49,9 @@ over the `valueModel` decision module plus adapter seams).
   underscore (`action._deliver`) — underscore means *engine-adapter seam*, not
   "free to break", and each one is documented as such.
 - One concept gets one public word. The shipped vocabulary: `dispose` (teardown),
-  `release` (async handles), `destroy` (input contexts — grandfathered, see PKT-2),
-  an `unsubscribe` closure (event listeners). New surface uses `dispose` or an
-  unsubscribe closure; do not add a fifth word.
+  `release` (async handles), `destroy` (input contexts) and `binding.remove()` —
+  both grandfathered, see PKT-2 — and an `unsubscribe` closure (event listeners).
+  New surface uses `dispose` or an unsubscribe closure; do not add a sixth word.
 
 ## 3. Constructors and argument order
 
@@ -82,8 +82,10 @@ Rules:
 
 - An unknown key, wrong type, missing required field, illegal enum value, or a
   reactive value on a construction-only prop is an **immediate error** — never a
-  value that silently does nothing. This applies to modifier specs and control
-  specs exactly as to `UI.*` props.
+  value that silently does nothing. This applies to `UI.*` props, modifier specs,
+  control specs, AND service/model option tables (`spec_guard.assertKnownKeys` is
+  the shared refusal every non-schema boundary uses; architecture review ARCH-1
+  closed the last silent acceptors in 0.8.0).
 - A property that is *accepted* must *do something*; a declared-intent-only field
   says so in its doc line. An option reserved for the future is **refused**, not
   ignored (`touchGestures.newArbiter`).
@@ -221,7 +223,10 @@ Four seams, each a contract — never an edit to library internals:
 
 1. **Composite control** — `docs/extending/new-control.md`; scaffolded
    (`scaffold_cli control <name>`), registered, four-input-proven. Everything the
-   playbook demands is reachable from public API.
+   playbook **requires** is reachable from public API. Honest limit (CTRL-11,
+   tracked PKT-13): three house *conveniences* the in-repo controls share — the
+   `enabled` reading policy, chrome-slot hints, semantic icon glyph lookup — are
+   not yet exported; an out-of-repo control writes its own until PKT-13 lands.
 2. **Render target** — `docs/extending/new-render-target.md` + the target
    contract.
 3. **Engine feature** — `docs/extending/new-engine-feature.md`: schema first,
@@ -283,6 +288,7 @@ Approved deviations. Each is deliberate; making it uniform would make the API wo
 | E-15 | `text.measure` keeps its six-positional form (spec-table form added, canonical) | it is the solver's own hot seam, called thousands of times per solve; the positional form stays for the solver, the spec form is the public idiom |
 | E-16 | `replication` verbs: `ingest` / `ingestPatch` / `ingestResnapshot` | the three names encode *what arrives* (a whole state, a delta, a recovery), which call sites branch on; one overloaded verb would hide the protocol |
 | E-17 | `context.destroy()` (input contexts) keeps its name | grandfathered pre-1.0; renaming now costs every consumer more than the inconsistency does. PKT-2 proposes the 1.0 unification |
+| E-18 | `UI.offset(bp, x?, y?)`, `UI.aspectRatio(bp, ratio)`, `UI.alignment(bp, h?, v?)` take positional scalars, not a spec table | one or two numbers/words are the whole message; a spec table there is ceremony (SwiftUI spells these the same way). The sub-family is internally consistent and closed — a new modifier with ≥3 fields takes a spec table |
 
 Candidates that were **not** granted exceptions and are queued as decision packets
 (rename/unification proposals with migration costs) live in

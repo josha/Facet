@@ -18,6 +18,7 @@ local controlContract = require("./contract")
 local contribution = require("../input/contribution")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
+local specGuard = require("../spec_guard")
 
 local disclosure_group = {}
 
@@ -30,7 +31,19 @@ export type Spec = {
 	onToggle: ((expanded: boolean) -> ())?,
 }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local DISCLOSURE_GROUP_KEYS = specGuard.keySet({
+	"content",
+	"enabled",
+	"expanded",
+	"id",
+	"label",
+	"onToggle",
+})
+
 function disclosure_group.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newDisclosureGroup", spec, DISCLOSURE_GROUP_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Disclosure"
 	local scope = core:scope("disclosure-" .. tostring(id))

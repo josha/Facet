@@ -24,6 +24,8 @@
 -- through this same consumer path rather than skipping it — one code path means
 -- the two cancels cannot drift in feel.
 
+local specGuard = require("../spec_guard")
+
 local drag_velocity = {}
 
 -- the ratified window (Sponsor motion spec): 0.1 s
@@ -39,7 +41,12 @@ local function isFinite(n: any): boolean
 	return type(n) == "number" and n == n and n ~= math.huge and n ~= -math.huge
 end
 
+-- CLOSED OPTS (constitution §4; ARCH-1): one tuning field, and therefore the
+-- easiest of all to misspell into the default.
+local DRAG_VELOCITY_OPTS_KEYS = specGuard.keySet({ "windowS" })
+
 function drag_velocity.new(opts: Opts?)
+	specGuard.assertKnownKeys("newDragVelocity", opts, DRAG_VELOCITY_OPTS_KEYS, "opts")
 	local options: Opts = opts or {}
 	local windowS = if isFinite(options.windowS) and (options.windowS :: number) > 0
 		then options.windowS :: number

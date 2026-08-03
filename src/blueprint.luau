@@ -1006,6 +1006,30 @@ function blueprint.strokeData(spec: any, style: any?): any
 	return stylingLib.normalizeStroke(spec, style)
 end
 
+-- ...AND THE OTHER THREE (ledger BP-F7, disposition FIX F-39). The pulse idiom
+-- above is documented as the way to animate authored paint, and it was reachable
+-- for exactly one of the four style modifiers: `shadow`, `gradient` and `corners`
+-- are all normalized-data props on the same schema, all read once by the adapter,
+-- and all animatable in principle — but with no data producer the only way to
+-- pulse a shadow was to rebuild the blueprint, which is a remount for a paint
+-- change. Each is the SAME normalizer its modifier uses, so the two forms cannot
+-- drift and a value legal in one is legal in the other.
+--
+-- `gradientData` deliberately does NOT run the gradientable wall: there is no
+-- blueprint here to judge, and the wall still stands where the data is APPLIED
+-- (UI.gradient / UI.styleGroup, and the schema's own prop check on bind).
+function blueprint.shadowData(spec: any, style: any?): any
+	return stylingLib.normalizeShadow(spec, style)
+end
+
+function blueprint.gradientData(spec: any, style: any?): any
+	return stylingLib.normalizeGradient(spec, style)
+end
+
+function blueprint.cornersData(spec: any, style: any?): any
+	return stylingLib.normalizeCorners(spec, style)
+end
+
 -- ===== drag and drop (ADR-0022 Decision 5; SF-D1/SF-D5) =====================
 -- UI.draggable(bp, { payload, dragMotion?, proxy?, onCommitProxy?, grabAnchor?,
 -- declineTouch?, promotionPx? }) and UI.dropTarget(bp, { accepts?, onDrop,

@@ -15,6 +15,7 @@
 -- Engine-free; Lune-tested in tests/popup_button.spec.luau.
 
 local contribution = require("../input/contribution")
+local specGuard = require("../spec_guard")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -78,7 +79,20 @@ end
 
 local PRESENTATIONS: { [string]: boolean } = { automatic = true, menu = true, inline = true, sheet = true }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local POPUP_BUTTON_KEYS = specGuard.keySet({
+	"id",
+	"interactionClasses",
+	"onChange",
+	"options",
+	"presentation",
+	"sizeClass",
+	"value",
+})
+
 function popup_button.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newPopupButton", spec, POPUP_BUTTON_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "PopupButton"
 	local scope = core:scope(`popup_button-{id}`)

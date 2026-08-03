@@ -12,6 +12,7 @@
 --   root.dispose()
 
 local blueprintLib = require("./blueprint")
+local specGuard = require("./spec_guard")
 
 type Blueprint = blueprintLib.Blueprint
 
@@ -46,7 +47,12 @@ export type MountOpts = {
 
 local mountLib = {}
 
+-- CLOSED OPTS (constitution §4; ARCH-1). `scope` misspelled means the mount owns
+-- its own root scope and the caller's dispose frees nothing.
+local MOUNT_OPTS_KEYS = specGuard.keySet({ "scope", "transitions" })
+
 function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
+	specGuard.assertKnownKeys("mount", opts, MOUNT_OPTS_KEYS, "opts")
 	local rootScope = if opts and opts.scope then opts.scope else core:scope("mount-root")
 	local transitions: Transitions? = if opts then opts.transitions else nil
 

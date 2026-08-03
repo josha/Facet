@@ -14,7 +14,7 @@ re-run after the last library change of the stage; see `game-suite.txt`).
 | F-12 provider strict opts | no `newResourceProvider` caller in the game | unreachable |
 | F-13 `scope:own` refusal | every `:own(` in `code/src` audited (pkg1): all functions or dispose-bearing objects | no trip |
 | F-14 focus-graph copies | game reaches the graph only via `presenter.focus`; presenter passes fresh literals; game never re-reads pushed tables | behavior-identical; input paths pinned by the game suite's sponsor/settings integration tests |
-| F-15 `responder`/`scrim` validation | game's `present()` opts grepped: `responder = "passive"` ×2 (HudScreen.luau:210, LuauUISponsor/init.luau:570), `scrim = "none"` ×2 — all legal values | no trip |
+| F-15 `responder`/`scrim` validation | game's `present()` opts grepped: `responder = "passive"` ×2 (HudScreen.luau:210, LuauUISponsor/init.luau:570), `scrim = "none"` ×1 call site (plus one comment mention) — all legal values | no trip |
 | F-17 touch-gesture payloads | the game consumes no `setTouchGestureHandlers` seam | unreachable (its drag rides `UI.draggable`) |
 | F-23 Label `semanticText` Readable | no `newLabel` caller in the game | unreachable |
 | F-27 Table header alignment | `LuauUIRacerListScreen.luau:159` — its columns declare no `alignment`, and leading titles keep the same inset arithmetic (cellPadding both sides) | visually equivalent; pinned headless by the new table.spec geometry cases; Studio canary row in `studio-disposition.md` |
@@ -23,6 +23,8 @@ re-run after the last library change of the stage; see `game-suite.txt`).
 | F-22 deep-frozen blueprints | game never mutates a constructed blueprint (grep: no `.props[` / `table.insert(bp` writes) | no trip |
 | DEP `retryAttempts` / `contentWidth` | no game caller of either spelling (`conditions(...).contentWidth` grep: 0) | nothing to migrate |
 | Type re-exports, text.measure overload, Fit.state, inputHint opts.scope, target-contract THEME group | additive | none |
+| F-40 `spec_guard` unknown-key refusal on 28 public boundaries (resolution round) | every game-passed option table audited (grep sweep of `code/src` for each guarded constructor) and proven live by the game's new `luauui_closed_key_contract.spec.luau` — each Sponsor-package opts table hits the real boundary and is accepted; the guard fires only on keys the source never read (previously silently ignored) | no trip; +5 game-side contract tests |
+| F-39 `UI.shadowData`/`gradientData`/`cornersData` (resolution round) | no game caller of the new producers | additive |
 | v0.8.0 + new DEPRECATIONS entries | game reads `LuauUI.VERSION` nowhere | none |
 
 **Why no game edit is correct (per the lockstep rule):** every change is compatible

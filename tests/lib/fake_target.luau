@@ -724,6 +724,19 @@ function fake_target.new(opts: Opts?)
 		return themePackagePushes
 	end
 
+	-- THE GROWTH SEAM, GROWN (ARCH-5). `theme_controller` feature-detects
+	-- `setThemeStyle` and calls it on every commit for a target that can take a
+	-- runtime palette; ScreenTarget cannot, so this fake is the only place the
+	-- call has ever been observable. Recording, so a spec can assert the commit
+	-- reached the target rather than inferring it from paint.
+	local themeStylePushes: { any } = {}
+	function adapter.setThemeStyle(style: any)
+		table.insert(themeStylePushes, style)
+	end
+	function adapter.themeStylePushes(): { any }
+		return themeStylePushes
+	end
+
 	-- test readers for the declared region and the current offset (A-SV1)
 	function adapter.scrollRegionOf(path: string): any
 		local node = nodes[path]

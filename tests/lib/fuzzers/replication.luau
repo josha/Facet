@@ -50,9 +50,15 @@ function replication_fuzzer.case(rng: Prng)
 	-- hostile network: pending messages, random delivery order
 	local network: { Message } = {}
 	local resnapshotRequests = 0
+	-- the oracle's mirror of the adapter's awaitingResnapshot flag: set when the
+	-- adapter asks for recovery, cleared when a resnapshot APPLIES. Needed because
+	-- the repaired contract (api-architecture-consistency F-8) is awaiting-aware —
+	-- see the resnapshot branch of `deliver`.
+	local awaitingResnapshot = false
 
 	local collection = adapters.collection(core, serverRev, table.clone(serverItems), function(_fromRev: number)
 		resnapshotRequests += 1
+		awaitingResnapshot = true
 		-- server services the request with its CURRENT authoritative state
 		table.insert(network, { kind = "resnap", rev = serverRev, items = table.clone(serverItems) })
 	end)
@@ -74,10 +80,29 @@ function replication_fuzzer.case(rng: Prng)
 			end
 		else
 			result = collection.ingestResnapshot(message.rev, message.items :: { [string]: any })
-			assert(
-				result == (if message.rev <= before then "stale" else "applied"),
-				`resnapshot rev {message.rev} at client rev {before} returned {result}`
-			)
+			-- THE REPAIRED CONTRACT (api-architecture-consistency F-8; the guide's
+			-- own promise). While a resnapshot is OUTSTANDING, the natural server
+			-- answer to requestResnapshot(fromRev) when nothing changed since the
+			-- gap is the CURRENT revision — so an equal-revision resnapshot must
+			-- RE-BASE ("applied", clearing the gap), not wedge the collection with
+			-- "stale" forever. When nothing is outstanding, an equal-or-older
+			-- resnapshot is still "stale" and a newer one is the reconnect path.
+			-- This oracle used to pin the wedge; 12 of 400 hostile-network cases
+			-- hit exactly that seam once the adapter was fixed.
+			if awaitingResnapshot then
+				assert(
+					result == (if message.rev >= before then "applied" else "stale"),
+					`resnapshot rev {message.rev} at client rev {before} (awaiting) returned {result}`
+				)
+			else
+				assert(
+					result == (if message.rev <= before then "stale" else "applied"),
+					`resnapshot rev {message.rev} at client rev {before} returned {result}`
+				)
+			end
+			if result == "applied" then
+				awaitingResnapshot = false
+			end
 		end
 		local after = collection.revision()
 		assert(after >= before, `client revision went backwards: {before} -> {after}`)

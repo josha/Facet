@@ -23,6 +23,14 @@
 --                             exported `<Class>Spec` type must carry exactly
 --                             the schema's field set.
 --
+--   7. binding-prop CLASS restriction
+--                             the renderer's private `BINDING_PROP_CLASSES`
+--                             allowlist ("this binding prop is emitted only by
+--                             these classes") must agree with the per-class
+--                             authority manifest: every restricted class must
+--                             declare the prop as `binding`, and no class
+--                             OUTSIDE the restriction may.
+--
 -- check(opts?) -> { ok, problems, counts }. CLI: this file, run directly.
 
 local fs = require("@lune/fs")
@@ -204,7 +212,39 @@ export type Options = {
 	-- synthetic drift for the checker's own tests
 	dropDocsFor: string?, -- "Class.prop"
 	dropBindingProp: string?,
+	-- view 7: inject a bogus `BINDING_PROP_CLASSES` entry, "prop=Class"
+	bindingPropClass: string?,
 }
+
+-- ===== view 7 source reader ================================================
+-- `BINDING_PROP_CLASSES` is a PRIVATE local in the renderer (it is not part of
+-- the public `LuauUI.renderer` surface and should not become part of it just to
+-- be checkable), so it is read from source — the same way views 3/4/5 read the
+-- adapter, the solver and the renderer's own wiring.
+local function sortedKeysOf(set: { [string]: boolean }): { string }
+	local out: { string } = {}
+	for name in set do
+		table.insert(out, name)
+	end
+	table.sort(out)
+	return out
+end
+
+local function bindingPropClasses(rendererSource: string): { [string]: { [string]: boolean } }
+	local block = string.match(rendererSource, "local BINDING_PROP_CLASSES[^\n]-=%s*(%b{})")
+	if block == nil then
+		return {}
+	end
+	local out: { [string]: { [string]: boolean } } = {}
+	for prop, classes in string.gmatch(block, "([%w_]+)%s*=%s*(%b{})") do
+		local set: { [string]: boolean } = {}
+		for class in string.gmatch(classes, "([%w_]+)%s*=%s*true") do
+			set[class] = true
+		end
+		out[prop] = set
+	end
+	return out
+end
 
 function checker.check(opts: Options?)
 	local options = opts or {}
@@ -415,6 +455,56 @@ function checker.check(opts: Options?)
 	for prop in styleProps do
 		if not schemaProps[prop] then
 			problem(`renderer STYLE_PROPS declares '{prop}', which no public schema property backs`)
+		end
+	end
+
+	-- ===== 7. BINDING_PROP_CLASSES vs the authority manifest (ARCH-8) =========
+	-- "Which class emits this binding prop" is now written down twice: the
+	-- renderer's private allowlist and authority.luau's per-class manifest. The
+	-- F-19/BP-F12 defect (`thickness` dispatched as a binding write for Divider,
+	-- which consumes it in the SOLVER and never sees an adapter) is exactly what
+	-- the two disagreeing looks like, and nothing derived one from the other — so
+	-- the same defect could return silently. This view makes them agree.
+	local manifest = authority.manifest()
+	local restrictions = bindingPropClasses(rendererSource)
+	if options.bindingPropClass ~= nil then
+		local prop, class = string.match(options.bindingPropClass, "^([%w_]+)=([%w_]+)$")
+		if prop ~= nil then
+			restrictions[prop :: string] = { [class :: string] = true }
+		end
+	end
+	if next(restrictions) == nil then
+		problem(
+			`{SRC_RENDERER} declares no readable BINDING_PROP_CLASSES table — view 7 would pass vacuously `
+				.. `(the allowlist moved or was renamed; teach this reader about it)`
+		)
+	end
+	for prop, only in restrictions do
+		if not bindingProps[prop] then
+			problem(`renderer BINDING_PROP_CLASSES restricts '{prop}', which is not a BINDING_PROPS prop at all`)
+		end
+		-- (a) every RESTRICTED class must declare the prop as `binding`
+		for class in only do
+			local declared = authority.authorityFor(class, prop)
+			if declared ~= "binding" then
+				problem(
+					`renderer BINDING_PROP_CLASSES says {class} emits '{prop}' as a binding, but `
+						.. `render/authority.luau declares {class}.{prop} as '{declared or "nothing"}'`
+				)
+			end
+		end
+		-- (b) ...and no class OUTSIDE the restriction may declare it as a binding.
+		-- `common` is checked too: a shared binding entry would make the
+		-- restriction a lie for every class at once.
+		for class, props in manifest do
+			if only[class] or props[prop] ~= "binding" then
+				continue
+			end
+			problem(
+				`render/authority.luau declares {class}.{prop} as a binding, but the renderer's `
+					.. `BINDING_PROP_CLASSES restricts '{prop}' to {table.concat(sortedKeysOf(only), ", ")} — `
+					.. `{class} would be authorized to write a prop the renderer never emits for it`
+			)
 		end
 	end
 

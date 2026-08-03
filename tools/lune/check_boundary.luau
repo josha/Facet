@@ -135,35 +135,129 @@ local EXAMPLE_INTERNAL_REACH: { [string]: string } = {
 
 local consumerScanned = 0
 
-local function checkConsumerFile(filePath: string)
-	consumerScanned += 1
-	local source = fs.readFile(filePath)
+-- `:WaitForChild("x")` / `:FindFirstChild("x")` / `["x"]` all mean `.x` here
+local function normalizeIndexing(text: string): string
+	local out = string.gsub(text, "[%.:]%s*WaitForChild%s*%(%s*[\"']([%w_]+)[\"']%s*%)", ".%1")
+	out = string.gsub(out, "[%.:]%s*FindFirstChild%s*%(%s*[\"']([%w_]+)[\"']%s*%)", ".%1")
+	out = string.gsub(out, "%[%s*[\"']([%w_]+)[\"']%s*%]", ".%1")
+	return out
+end
+
+-- where the WHOLE identifier `LuauUI` appears in already-normalized text, or nil.
+-- Whole-identifier, because the gallery replicates sibling folders whose names
+-- START with it — `LuauUIThemes`, `LuauUIScenarios`, `LuauUIExamples` — and a
+-- substring match reads `FindFirstChild("LuauUIScenarios")` as the library root
+-- with a stray `Themes`/`Scenarios` path component hanging off it.
+local function findRootToken(normalized: string): number?
+	local from = 1
+	while true do
+		local s, e = string.find(normalized, "LuauUI", from, true)
+		if s == nil then
+			return nil
+		end
+		local before = if s > 1 then string.sub(normalized, s - 1, s - 1) else ""
+		local after = string.sub(normalized, (e :: number) + 1, (e :: number) + 1)
+		if not string.match(before, "[%w_]") and not string.match(after, "[%w_]") then
+			return e :: number
+		end
+		from = (e :: number) + 1
+	end
+end
+
+-- HOISTED ROOTS (ARCH-6). The scan used to inspect only require expressions whose
+-- TEXT contained "LuauUI", which is defeated by the single most likely real-world
+-- spelling — and the one the production game already uses:
+--
+--   local root = ReplicatedStorage:WaitForChild("LuauUI")
+--   require(root.render.renderer)      -- text has no "LuauUI"; missed entirely
+--
+-- So a local whose right-hand side names LuauUI MARKS that variable, and a
+-- require through a marked variable is resolved to the same LuauUI-relative path
+-- and judged by the same blessed list. Requiring the ROOT through a marked
+-- variable (`require(root)`) stays legal — that is the documented entry point,
+-- and it is exactly what the game does.
+--
+-- Marking is transitive through pure index chains (`local c = root.client`) but
+-- deliberately NOT through `require(...)`: `local LuauUI = require(root)` yields
+-- the library TABLE, whose fields are values rather than module instances.
+local function markedRoots(source: string): { [string]: boolean }
+	-- a chained call broken across lines is one statement for our purposes
+	local joined = string.gsub(source, "\n%s*([%.:])", "%1")
+	local marked: { [string]: boolean } = {}
+	local changed = true
+	while changed do
+		changed = false
+		for name, rhs in string.gmatch(joined, "([%w_]+)%s*=%s*([^\n]*)") do
+			if marked[name] then
+				continue
+			end
+			local normalizedRhs = normalizeIndexing(rhs)
+			local namesRoot = findRootToken(normalizedRhs) ~= nil
+			local viaMarked = false
+			if not namesRoot and string.find(rhs, "require", 1, true) == nil then
+				local head = string.match(normalizedRhs, "^%s*([%w_]+)%s*%.")
+				viaMarked = head ~= nil and marked[head] == true
+			end
+			if namesRoot or viaMarked then
+				marked[name] = true
+				changed = true
+			end
+		end
+	end
+	return marked
+end
+
+-- the LuauUI-relative path a require expression reaches, or nil when the
+-- expression is not a LuauUI instance-path require at all
+local function luauUiPath(expr: string, marked: { [string]: boolean }): { string }?
+	local normalized = normalizeIndexing(expr)
+	local tail: string? = nil
+	local rootEnd = findRootToken(normalized)
+	if rootEnd ~= nil then
+		tail = string.sub(normalized, rootEnd + 1)
+	else
+		local inner = string.match(normalized, "^require%s*%((.*)%)$")
+		local head = if inner ~= nil then string.match(inner, "^%s*([%w_]+)") else nil
+		if head == nil or not marked[head :: string] then
+			return nil
+		end
+		local from = string.find(inner :: string, head :: string, 1, true) :: number
+		tail = string.sub(inner :: string, from + #(head :: string))
+	end
+	local components: { string } = {}
+	for component in string.gmatch(tail :: string, "%.([%w_]+)") do
+		table.insert(components, component)
+	end
+	return components
+end
+
+-- pure over (path, source) so the rule can be mutation-tested below without
+-- writing a synthetic tree to disk
+local function consumerViolations(filePath: string, source: string): { { file: string, target: string, rule: string } }
+	local found: { { file: string, target: string, rule: string } } = {}
+	local marked = markedRoots(source)
 	for expr in string.gmatch(source, "require%b()") do
-		local at = string.find(expr, "LuauUI", 1, true)
-		if at == nil then
-			continue
-		end
-		-- normalise `:WaitForChild("x")` into `.x`, then read the path components
-		-- that follow the LuauUI root
-		local tail = string.sub(expr, at + 6)
-		tail = string.gsub(tail, "[%.:]%s*WaitForChild%s*%(%s*[\"']([%w_]+)[\"']%s*%)", ".%1")
-		tail = string.gsub(tail, "%[%s*[\"']([%w_]+)[\"']%s*%]", ".%1")
-		local components: { string } = {}
-		for component in string.gmatch(tail, "%.([%w_]+)") do
-			table.insert(components, component)
-		end
-		if #components == 0 then
-			continue -- the LuauUI root module itself: always legal
+		local components = luauUiPath(expr, marked)
+		if components == nil or #components == 0 then
+			continue -- not a LuauUI path, or the LuauUI root module itself (legal)
 		end
 		local module = components[#components]
 		local exempt = string.sub(filePath, 1, 9) == "examples/" and EXAMPLE_INTERNAL_REACH[module] ~= nil
 		if not BLESSED_CLIENT_MODULES[module] and not exempt then
-			table.insert(violations, {
+			table.insert(found, {
 				file = filePath,
 				target = "LuauUI." .. table.concat(components, "."),
 				rule = "consumer-requires-luauui-internal",
 			})
 		end
+	end
+	return found
+end
+
+local function checkConsumerFile(filePath: string)
+	consumerScanned += 1
+	for _, v in consumerViolations(filePath, fs.readFile(filePath)) do
+		table.insert(violations, v)
 	end
 end
 
@@ -183,6 +277,61 @@ end
 
 for _, root in CONSUMER_ROOTS do
 	walkConsumer(root)
+end
+
+-- A SCAN THAT FOUND NOTHING IS NOT A PASS (ARCH-6). `walkConsumer` returns
+-- silently when a root does not resolve, so a moved game tree (or a checker run
+-- from the wrong cwd) reported "PASS, 0 consumer files" and the whole ENF-2 half
+-- of this check evaporated without a word.
+if consumerScanned == 0 then
+	print(
+		`boundary: FAIL — consumer scan found no files — the game tree moved? (roots: {table.concat(
+			CONSUMER_ROOTS,
+			", "
+		)})`
+	)
+	process.exit(1)
+end
+
+-- ...AND THE RULE MUST BITE (ARCH-6). The hoisted-root form was live-defeated for
+-- the life of this checker, under a green run, because nothing ever asked the rule
+-- to refuse anything. These four synthetic sources are the mutation test, run on
+-- every invocation: two spellings that MUST be caught, and the two legal forms
+-- that must stay legal — including the one the production game uses.
+local SELF_TEST: { { name: string, source: string, expect: string? } } = {
+	{
+		name = "hoisted root, dot path",
+		source = 'local root = ReplicatedStorage:WaitForChild("LuauUI")\nlocal r = require(root.render.renderer)',
+		expect = "LuauUI.render.renderer",
+	},
+	{
+		name = "hoisted root, WaitForChild chain",
+		source = "local root = ReplicatedStorage.LuauUI\n"
+			.. 'local s = require(root:WaitForChild("layout"):WaitForChild("solver"))',
+		expect = "LuauUI.layout.solver",
+	},
+	{
+		name = "hoisted root, required as the ROOT (the game's own spelling)",
+		source = 'local root = ReplicatedStorage:WaitForChild("LuauUI")\nlocal LuauUI = require(root)',
+		expect = nil,
+	},
+	{
+		name = "hoisted root, blessed client entry point",
+		source = 'local root = ReplicatedStorage:WaitForChild("LuauUI")\n'
+			.. "local st = require(root.client.screen_target)",
+		expect = nil,
+	},
+}
+for _, case in SELF_TEST do
+	local found = consumerViolations("selftest/case.luau", case.source)
+	local got = if #found > 0 then found[1].target else nil
+	if got ~= case.expect then
+		print(
+			`boundary: FAIL — the consumer rule does not bite: case '{case.name}' expected `
+				.. `{case.expect or "no violation"}, got {got or "no violation"}`
+		)
+		process.exit(1)
+	end
 end
 
 artifact.writeJson("artifacts/boundary.json", {

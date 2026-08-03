@@ -98,6 +98,7 @@
 local autoscrollLib = require("../input/autoscroll")
 local contribution = require("../input/contribution")
 local solverLib = require("../layout/solver")
+local specGuard = require("../spec_guard")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -113,7 +114,34 @@ local virtual_list = {}
 -- one surface can never accept each other's row moves by accident.
 local REORDER_KIND = "__luauui_reorder"
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local VIRTUAL_LIST_KEYS = specGuard.keySet({
+	"autoscroll",
+	"cell",
+	"dropSurface",
+	"grabOnActivate",
+	"id",
+	"key",
+	"motionClock",
+	"navigation",
+	"onActivate",
+	"onReorder",
+	"onSelect",
+	"overscan",
+	"reorderMotion",
+	"reorderable",
+	"rowDropTarget",
+	"rowFocusable",
+	"rowHeight",
+	"rows",
+	"selection",
+	"viewportHeight",
+	"width",
+})
+
 function virtual_list.build(LuauUI: any, core: any, spec: any)
+	specGuard.assertKnownKeys("newVirtualList", spec, VIRTUAL_LIST_KEYS, "spec")
 	local rowHeightSpec = spec.rowHeight
 	-- ROW HEIGHT MAY BE DERIVED, BUT IT IS ONE NUMBER FOR THE WHOLE LIST
 	-- (finding F13). A Readable is accepted so a height derived from the theme

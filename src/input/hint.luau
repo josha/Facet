@@ -22,6 +22,8 @@
 -- care less, not a reason for two calls that look identical to want two
 -- different disposal disciplines.
 
+local specGuard = require("../spec_guard")
+
 local hint = {}
 
 -- resolve a binding to a display label, preferring displayName
@@ -46,7 +48,13 @@ export type Opts = {
 	scope: any?, -- owns the returned memo, like `adaptive.conditions`
 }
 
+-- CLOSED OPTS (constitution §4; ARCH-1): the unknown VALUE was already refused
+-- loudly below; the unknown KEY was not, so `{ Style = "phrase" }` fell through
+-- to the default with the same silence the value check exists to remove.
+local HINT_OPTS_KEYS = specGuard.keySet({ "scope", "style" })
+
 function hint.inputHint(core: any, env: any, action: any, opts: Opts?): any
+	specGuard.assertKnownKeys("inputHint", opts, HINT_OPTS_KEYS, "opts")
 	local style = if opts ~= nil and opts.style ~= nil then opts.style else "key"
 	-- an unknown style is refused LOUDLY, the way `rootPolicy` / `cancelPolicy` /
 	-- `responder` / `scrim` are: `style = "Phrase"` used to yield the bare key

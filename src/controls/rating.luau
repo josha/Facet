@@ -48,6 +48,7 @@
 
 local controlContract = require("./contract")
 local contribution = require("../input/contribution")
+local specGuard = require("../spec_guard")
 
 local rating = {}
 
@@ -104,7 +105,23 @@ export type Spec = {
 	onChange: ((value: number) -> ())?,
 }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local RATING_KEYS = specGuard.keySet({
+	"allowZero",
+	"count",
+	"enabled",
+	"env",
+	"glyphs",
+	"id",
+	"onChange",
+	"readOnly",
+	"starSize",
+	"value",
+})
+
 function rating.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newRating", spec, RATING_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Rating"
 	local scope = core:scope("rating-" .. tostring(id))

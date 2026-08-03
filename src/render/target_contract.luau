@@ -2,7 +2,7 @@
 -- RenderTargetAdapter contract (design §13, ADR-0003/ADR-0009): the seam every
 -- render target implements. Three lists: REQUIRED (called unconditionally),
 -- OPTIONAL (feature-detected with `~= nil`; each absence is one named degrade)
--- and THEME (the four `theme_controller` reaches for — without them a target
+-- and THEME (the five `theme_controller` reaches for — without them a target
 -- cannot take a theme package). The lists are the CONTRACT, so a name the
 -- framework calls must appear on one of them: nine did not (SEAM-20), which let
 -- an adapter pass `check` with `#optionalAbsent == 0` and still ship with no
@@ -151,7 +151,24 @@ target_contract.THEME = {
 	-- a root created AFTER the install (a modal) keeps the legacy sheet and
 	-- appears Neutral over a themed screen.
 	"relinkThemeSheet", -- (sheet: StyleSheet?)
+	-- WITHOUT IT: a FALLBACK-paint target never learns the new theme's token
+	-- style, so a runtime theme swap changes metrics and leaves every explicit
+	-- colour write on the outgoing palette (ADR-0019 §7; theme_controller feature-
+	-- detects and calls it on every commit). ScreenTarget does not implement it —
+	-- that absence is the degrade this line names, not a defect.
+	"setThemeStyle", -- (style: CompiledStyle) -> ()
 }
+
+-- ...and exactly one THEME name is a GROWTH seam rather than a prerequisite
+-- (ARCH-5). ADR-0019's integration ruling is explicit — the controller "calls
+-- `adapter.setThemeStyle(style)` on every commit for ANY TARGET THAT GROWS THE
+-- SEAM" — so a target without it is still fully themeable (ScreenTarget is, and
+-- is the shipping path); it simply takes its palette at construction. It is
+-- declared on THEME because the contract's own rule is that a name the framework
+-- calls must appear on a list, and named here so `themeable` keeps meaning "this
+-- target can be themed by a package" instead of silently becoming false for every
+-- adapter in the tree.
+target_contract.THEME_GROWTH = table.freeze({ setThemeStyle = true })
 
 -- ---------------------------------------------------------------------------
 -- FUTURE TARGETS (roadmap Step 4, ADR-0021). DECLARED, NOT IMPLEMENTED.
@@ -202,6 +219,7 @@ export type Result = {
 	missing: { string },
 	optionalAbsent: { string },
 	themeAbsent: { string },
+	themeGrowthAbsent: { string },
 	themeable: boolean,
 }
 
@@ -215,11 +233,22 @@ function target_contract.check(adapter: any): Result
 		end
 		return out
 	end
-	local themeAbsent = absent(target_contract.THEME)
+	local themeAbsent: { string } = {}
+	local themeGrowthAbsent: { string } = {}
+	for _, name in absent(target_contract.THEME) do
+		if target_contract.THEME_GROWTH[name] then
+			table.insert(themeGrowthAbsent, name)
+		else
+			table.insert(themeAbsent, name)
+		end
+	end
 	return {
 		missing = absent(target_contract.REQUIRED),
 		optionalAbsent = absent(target_contract.OPTIONAL),
 		themeAbsent = themeAbsent,
+		-- declared THEME names this target has not grown; each is a named degrade,
+		-- never a theming blocker (see THEME_GROWTH)
+		themeGrowthAbsent = themeGrowthAbsent,
 		themeable = #themeAbsent == 0,
 	}
 end

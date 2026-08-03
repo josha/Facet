@@ -57,6 +57,19 @@ notice; the ADR's version-history entry enumerates them.
 | F-36 | SEAM-25 scaffold adapter template wrong `create` arity, no registration edits | Template matches the contract (decorationHint/createOpts); stamps a spec stub |
 | F-37 | SEAM-4 `newArbiter(_opts)` accepted-and-ignored | Refuse a non-empty opts table (reserved), naming the fact — silence is the failure class |
 | F-38 | valueModel `spec.format` unquarantined in render path | pcall with fallback to defaultFormat + core-style containment note (lowest-risk quarantine) |
+| F-39 | BP-F7: the reactive pulse idiom existed for `strokeData` alone — a reactive shadow/gradient/corner radius needed an internal require | Export `UI.shadowData` / `UI.gradientData` / `UI.cornersData` mirroring `strokeData` (additive family completion; architecture review ARCH-2) |
+| F-40 | ARCH-1: nine public constructors accepted unknown spec/opts keys silently while the constitution claimed universal strictness | One shared `spec_guard.assertKnownKeys` refusal applied to every composite spec and service/model opts boundary (same diagnosed-at-construction class as F-4/F-5/F-12) |
+
+### Declared boundary exception (BEX)
+
+**BEX-1 — F-23 (`newLabel.semanticText` string → Readable).** The architecture
+review (ARCH-3) is right that this is a source-incompatible change to a public
+return field, not a pure compatible repair. It ships anyway, DECLARED: the field
+was a family lie (four siblings publish a Readable; api.md never distinguished),
+zero consumers exist (game grep: none; the one example never reads it), and the
+pre-1.0 MINOR rule allows a behavior change with notice — the notice is the
+ADR-0011 0.8.0 entry's own line plus the api.md entry and the pinned spec case.
+`dump().semanticText` stays a plain string by design (dumps are snapshots).
 
 ## B. Documentation repairs (DOC) — api.md/guide/source-comment lies and gaps
 
@@ -66,7 +79,7 @@ undocumented env keys + settable-vs-derived table + honest clamp wording ·
 DOC-5 renderer module exports (EMITTED_PROPS et al) + all 27 controller members ·
 DOC-6 drag-registry members (`heldSource`, `registerSource/Target`, `onUpdate`,
 `setCollaborators`) + `Opts` fields · DOC-7 client entry points: new api.md section
-enumerating the blessed seven with signatures (the ADR-0011 list made real) ·
+enumerating the blessed eight with signatures (the ADR-0011 list made real) ·
 DOC-8 `tokens.dangerPair`, `valueModel.defaultFormat`, provider `counters()` keys,
 preload ownership sentence · DOC-9 `UI.schema` all eleven members + stability note;
 `UI.isReadable`; `UI.PROP_DIRTY` (advanced/tooling) · DOC-10 api.md shared-property
@@ -169,6 +182,11 @@ all six playbooks link `docs/reference/constitution.md`; check_docs pins the lin
 the README DEPRECATIONS sentence + the 08-without-rojo folder list.
 
 ## G. Notes (NOTE, no action)
+
+**SEAM-1 disposition (for traceability): PKT-1.** The drag family's call-convention
+split (`newDragRegistry` dot vs four colon siblings) is ruled into PKT-1's scope
+(see decision-packets.md preamble); documented per api.md entry until the 1.0 pass.
+
 
 `nextRequestId` module-global (determinism hazard recorded) · `HEIGHT_BREAKPOINTS`
 === `BREAKPOINTS` (deliberate, spec-pinned) · Spacer/ScrollView/Divider optional-spec

@@ -12,6 +12,8 @@
 -- NON-INTERACTIVE: a Label displays. Put it inside a Button (which now takes
 -- content) when it needs to be pressable — that keeps ONE activation surface.
 
+local specGuard = require("../spec_guard")
+
 local label_control = {}
 
 export type Spec = {
@@ -27,7 +29,20 @@ export type Spec = {
 
 local PRESENTATIONS: { [string]: boolean } = { titleAndIcon = true, titleOnly = true, iconOnly = true }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local LABEL_KEYS = specGuard.keySet({
+	"gap",
+	"icon",
+	"iconSize",
+	"id",
+	"presentation",
+	"textSize",
+	"title",
+})
+
 function label_control.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newLabel", spec, LABEL_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Label"
 	local scope = core:scope("label-" .. tostring(id))

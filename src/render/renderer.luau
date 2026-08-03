@@ -26,6 +26,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 local dragContract = require("../input/drag_contract")
 local dragRegistryLib = require("../input/drag_registry")
 local autoscrollLib = require("../input/autoscroll")
+local specGuard = require("../spec_guard")
 
 local renderer = {}
 
@@ -883,6 +884,8 @@ export type RendererAttachOpts = {
 	engineSelectionBridge: boolean?,
 }
 
+local ATTACH_OPTS_KEYS = specGuard.keySet({ "engineSelectionBridge", "onNodeTap", "rootPolicy" })
+
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
 function renderer.attach(
 	core: any,
@@ -899,6 +902,10 @@ function renderer.attach(
 		and `meta` is where the outside-tap geometry (`x`/`y`) and `via` live. ]]
 	opts: RendererAttachOpts?
 )
+	-- ...AND THE DECLARED TYPE IS ALSO CLOSED (constitution §4; ARCH-1). F-29 made
+	-- the three fields honest; this makes a fourth, misspelled one loud instead of
+	-- inert — the same rule `rootPolicy`'s own value check applies one level up.
+	specGuard.assertKnownKeys("renderer.attach", opts, ATTACH_OPTS_KEYS, "opts")
 	-- THE ACCEPTED POLICIES, ENUMERATED. `edgeToEdge` was passed by every modal
 	-- scrim for months and read by nothing: it fell through to the default and
 	-- the scrim was quietly inset, with a comment above the call site describing

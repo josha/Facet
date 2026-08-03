@@ -4,6 +4,11 @@ Larger-than-compatible proposals preserved with evidence, a recommendation, and 
 migration cost. None is executed in this stage. Evidence citations live in
 `ledger/*.md`; dispositions in `dispositions.md`.
 
+> Scope note (phase-gate PG-A5): PKT-1 also covers **SEAM-1**, the drag family's
+> call-convention split — `newDragRegistry` is the one dot-function object among
+> four colon-method siblings; the 1.0 pass converts it to the colon convention its
+> family teaches (documented per-entry until then).
+
 ## PKT-1 — Control return-shape and callback unification (breaking, target 1.0)
 
 **Evidence:** CTRL-05 (five return shapes for one pattern), CTRL-05a (the
@@ -40,6 +45,8 @@ ledger `destroy vs dispose`.
 dispose); `graph.remove` renamed `graph.removeEntry`. Document now (done),
 rename later.
 
+**Migration cost:** mechanical rename with one-MINOR aliases; ~12 in-tree call sites for `context.destroy`, ~6 for `binding.remove`; zero RascalRally callers touch either directly (both reached via the presenter).
+
 ## PKT-3 — Session-lifetime teardown: `presenter.dispose()`, focus-graph/env scope
 
 **Evidence:** services ledger MAJORs — presenter owns a bus, possibly its own
@@ -69,6 +76,8 @@ factory) or narrow the public story to "Readables come from this core" and make
 0.9 + the factory only when a real consumer appears. Constitution §5 states the
 narrow contract today.
 
+**Migration cost:** none for the recommended tightening (compatible predicate change + doc sentence); the bridging factory is additive when a consumer appears.
+
 ## PKT-5 — Module-vs-`.new` export policy (autoscroll/velocity constants)
 
 **Evidence:** SEAM-2 — `LuauUI.newAutoscroll`/`newDragVelocity`/`newDragRegistry`
@@ -82,6 +91,8 @@ namespaces at 0.9 (`LuauUI.autoscroll`, keeping `newAutoscroll` as the factory
 alias) only if a consumer actually needs the constants; otherwise fold the
 constants into `interactionTokens` where tuning data already lives.
 
+**Migration cost:** additive namespaces cost nothing; folding constants into `interactionTokens` touches only docs (no in-tree caller reaches the unreachable members today — that is the finding).
+
 ## PKT-6 — Per-control pure-rule exports (`resolvePresentation`)
 
 **Evidence:** CTRL-10/CTRL-10a — api.md and both sources claim
@@ -91,6 +102,8 @@ a caller can predict"; only `.build` is exported. Docs corrected this stage.
 **Recommendation:** if prediction is worth an API, expose the rules as data/fn on
 the control's returned `api` (available post-build) or under a `LuauUI.rules`
 namespace at 0.9. Do not add per-control top-level namespaces.
+
+**Migration cost:** additive (a member on the returned `api` or one `rules` namespace); the only consumers today are the two doc sentences corrected this stage.
 
 ## PKT-7 — Self-driven interaction-class loss (`onInteractionClassLost`)
 
@@ -103,6 +116,8 @@ real class flip under a green suite.
 class loss (keep the callback as an override/notification). Needs a Studio
 hot-switch canary; that's why it is not this stage's compatible fix.
 
+**Migration cost:** behavior change on class-flip for Slider/Rating consumers (none in RascalRally today); needs one Studio hot-switch canary; the callback stays as an override so no caller breaks.
+
 ## PKT-8 — Typed theme schema
 
 **Evidence:** SEAM-12 — every `themes.*` function is `any`-typed; ~100 lines of
@@ -113,6 +128,8 @@ the library.
 `Report` types incrementally (identity+metrics first), keeping `define(any)`
 accepting (validators keep `any` in — E-12) but typing the RETURNS. Sizeable,
 mechanical, safe: a types-only stage.
+
+**Migration cost:** types-only stage, zero runtime risk; the work is authoring ~4 record types and threading them through two modules; api.md prose already documents the shapes to encode.
 
 ## PKT-9 — Table sort-mark glyphs → semantic icon path
 
@@ -125,6 +142,8 @@ re-baseline window.
 **Recommendation:** do it in the next stage that already re-baselines (Step 8
 touches focus visuals) — one-line change + baseline refresh + device spot-check.
 
+**Migration cost:** one-line glyph-source change + flat-baseline re-characterization + a device spot-check; no API change.
+
 ## PKT-10 — Error-prefix grammar unification
 
 **Evidence:** BP-F21 — seven prefix shapes in the blueprint layer alone; styling
@@ -136,6 +155,8 @@ throws; five control error vocabularies (controls ledger).
 errors mechanically at 0.9. Not brittle-lintable; enforce by review + the grammar
 being written down.
 
+**Migration cost:** mechanical message rewrites behind existing tests (~30 sites); the only risk is tests pinning exact message text — update them in the same pass.
+
 ## PKT-11 — `core:lastError` read semantics
 
 **Evidence:** core-state MAJOR — monotonic, never cleared; the library's own
@@ -145,6 +166,8 @@ fault. Docs now state stickiness.
 **Recommendation:** add `core:takeError()` (read-and-clear) at 0.9; keep
 `lastError` sticky for post-mortems. One function, additive.
 
+**Migration cost:** additive (`takeError()`); in-tree health-assertion idiom (~9 spec sites) migrates opportunistically; no consumer breaks.
+
 ## PKT-12 — Environment key introspection
 
 **Evidence:** core-state ledger — `env:keys()` mixes settable facts and derived
@@ -152,3 +175,24 @@ memos with no way to tell them apart, zero callers, zero tests.
 
 **Recommendation:** if a consumer appears, add `env:isDerived(key)`; otherwise
 leave documented. Not worth surface today.
+
+**Migration cost:** additive one-method change if ever needed; zero callers today.
+
+
+## PKT-13 — Export the composite-control house conveniences (CTRL-11)
+
+**Evidence:** ledger/controls.md CTRL-11 — `contract.enabledNow`/`enabledIn` (the
+one `enabled` reading policy), `chrome_slots.attachHint` (paint-slot declaration),
+`themePackage.iconGlyph`/`normalizeVariant` (semantic icons, per-state asset
+grammar) are used by every shipped composite and exported by none, so an
+out-of-repo control cannot follow the house pattern it can see. Constitution §13
+now states the limit honestly (architecture review ARCH-2).
+
+**Recommendation:** 0.9: one `LuauUI.controlKit` namespace (or fold `enabledNow`/
+`enabledIn` into the public `contribution` seam and the icon/variant pair into
+`themes`) — decide the home deliberately, not at a gate close. The REQUIRED
+playbook obligations are already public; this unlocks the conveniences.
+
+**Migration cost:** additive exports + api.md entries + the playbook paragraph;
+zero existing callers change (in-repo controls keep their relative requires or
+migrate opportunistically).

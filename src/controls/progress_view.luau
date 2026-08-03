@@ -22,6 +22,7 @@
 
 local chrome_slots = require("../tokens/chrome_slots")
 local value_model = require("./value_model")
+local specGuard = require("../spec_guard")
 
 local progress_view = {}
 
@@ -41,7 +42,21 @@ export type Spec = {
 	height: number?,
 }
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local PROGRESS_VIEW_KEYS = specGuard.keySet({
+	"format",
+	"height",
+	"id",
+	"label",
+	"max",
+	"min",
+	"showValue",
+	"value",
+})
+
 function progress_view.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newProgressView", spec, PROGRESS_VIEW_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Progress"
 	local scope = core:scope("progress-" .. tostring(id))

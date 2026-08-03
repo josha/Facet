@@ -72,12 +72,21 @@ change without notice. Games must not require library-internal modules.
     carries the caller's opts to the fallback; `newFocusGraph` no longer mutates
     caller tables; native touch gestures deliver real payloads at the screen
     adapter; Table header titles honor `column.alignment`; `overflow = "clip"`
-    now implies `clipChildren`; `newLabel.semanticText` is a Readable like its
-    siblings; modifier errors name the modifier.
+    now implies `clipChildren`; an authored `Divider.thickness` reaches the solve
+    at all (it errored at first render for every value — repair, and both
+    `thickness` props now also take metric names); modifier errors name the
+    modifier.
+  - **Declared source-incompatible field change (this notice is the ADR-0011
+    notice):** `newLabel(...).semanticText` is now a `Readable<string>` like its
+    four siblings, instead of a plain string. Zero consumers existed (game and
+    examples audited); the api.md entry and a pinned spec case carry the new
+    contract; `dump().semanticText` remains a plain string (dumps are
+    snapshots). Ruled BEX-1 in the stage dispositions after architecture review.
   - **Additive**: core contract types re-exported from `src/init.luau`;
     `text.measure` spec-table form; `Fit.state`; `inputHint` `opts.scope`;
-    metric names on `Divider.thickness`/`Path.thickness`; target-contract THEME
-    method group.
+    `UI.shadowData`/`UI.gradientData`/`UI.cornersData` completing the
+    `strokeData` family; unknown-key refusal on every service/model opts table
+    (`spec_guard`); target-contract THEME method group.
   - **Deprecated (ledger)**: `newResourceProvider(opts.retryAttempts)` →
     `opts.retry`; `adaptive.conditions().contentWidth` → `viewportWidth`. Both
     keep working per the policy above.

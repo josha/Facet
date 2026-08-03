@@ -81,8 +81,8 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "compatible-fixes-proven",
 			requirements = { "UI-AGENT-001" },
-			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*re-bases while awaiting" && echo "$out" | grep -q "✓.*still returns the envelope and leaves the mutation usable" && echo "$out" | grep -q "✓.*does not latch the gap" && echo "$out" | grep -q "✓.*escapes a stuck pending request" && echo "$out" | grep -q "✓.*INFLATED backing layer keeps its drag declaration" && echo "$out" | grep -q "✓.*unknown spec key is refused, naming the modifier" && echo "$out" | grep -q "✓.*typo.d gradient field is refused" && echo "$out" | grep -q "✓.*cannot disable framework validation" && echo "$out" | grep -q "✓.*rejects a read-only Memo" && echo "$out" | grep -q "✓.*header title honours the column alignment" && echo "$out" | grep -q "✓.*table.freeze.d grouped scope" && echo "$out" | grep -q "✓.*ledger is the UNION of schema-generated and declared" && echo "$out" | grep -q "✓.*at least one MINOR of notice, and the ledger is frozen" && echo "$out" | grep -q "✓.*opts.scope owns the memo" && echo "$out" | grep -q "✓.*a critical fallback under rootPolicy" && echo "$out" | grep -q "✓.*an unknown responder names the opt" && echo "$out" | grep -q "✓.*semanticText is a Readable" && echo "$out" | grep -q "✓.*both forms answer identically for the same inputs" && echo "$out" | grep -q "✓.*a throwing formatter falls back to the default format" && echo "$out" | grep -q "✓.*refuses a non-empty opts table"',
-			note = "twenty named red-first regressions, one per compatible-fix family (F-1..F-38 in dispositions.md), each anchored to the PASS marker (Form A — the assignment carries the suite exit code, so a failing suite reddens this check). The two ADR-0011 deprecations are pinned by the UNION-ledger and one-MINOR-of-notice cases; the deprecated surfaces keep working (their own specs still run)",
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*re-bases while awaiting" && echo "$out" | grep -q "✓.*still returns the envelope and leaves the mutation usable" && echo "$out" | grep -q "✓.*does not latch the gap" && echo "$out" | grep -q "✓.*escapes a stuck pending request" && echo "$out" | grep -q "✓.*INFLATED backing layer keeps its drag declaration" && echo "$out" | grep -q "✓.*unknown spec key is refused, naming the modifier" && echo "$out" | grep -q "✓.*typo.d gradient field is refused" && echo "$out" | grep -q "✓.*cannot disable framework validation" && echo "$out" | grep -q "✓.*rejects a read-only Memo" && echo "$out" | grep -q "✓.*header title honours the column alignment" && echo "$out" | grep -q "✓.*table.freeze.d grouped scope" && echo "$out" | grep -q "✓.*ledger is the UNION of schema-generated and declared" && echo "$out" | grep -q "✓.*at least one MINOR of notice, and the ledger is frozen" && echo "$out" | grep -q "✓.*opts.scope owns the memo" && echo "$out" | grep -q "✓.*a critical fallback under rootPolicy" && echo "$out" | grep -q "✓.*an unknown responder names the opt" && echo "$out" | grep -q "✓.*semanticText is a Readable" && echo "$out" | grep -q "✓.*both forms answer identically for the same inputs" && echo "$out" | grep -q "✓.*a throwing formatter falls back to the default format" && echo "$out" | grep -q "✓.*refuses a non-empty opts table" && echo "$out" | grep -q "✓.*the sweep covers every boundary the constitution.s §4 claim names" && echo "$out" | grep -q "✓.*newResourceProvider refuses .definitelyNotAKey. and names itself" && echo "$out" | grep -q "✓.*complete the family and pulse the same way" && echo "$out" | grep -q "✓.*it detects a restricted class the authority manifest does not back"',
+			note = "twenty-four named red-first regressions across the compatible-fix families (F-1..F-40 in dispositions.md; the last four pin the architecture-review resolution round — the spec_guard sweep's coverage floor + a per-boundary refusal, the *Data family pulse, and parity view 7), each anchored to the PASS marker (Form A — the assignment carries the suite exit code, so a failing suite reddens this check). The two ADR-0011 deprecations are pinned by the UNION-ledger and one-MINOR-of-notice cases; the deprecated surfaces keep working (their own specs still run)",
 		},
 		{
 			name = "decision-packets",
@@ -100,16 +100,16 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "fresh-author-exercise",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/api-architecture-consistency/fresh-author-exercise.md && test -f "$f" && grep -q "rule b" "$f" && grep -qi "friction" "$f" && grep -q "newTagCount.* is not classified in the surface ledger" "$f" && grep -qi "verdict" "$f" && test ! -f src/controls/tag_count.luau',
 			evidence = "artifacts/api-architecture-consistency/fresh-author-exercise.md",
-			note = "an agent with ONLY public docs adds one small composite through the canonical extension path (docs/extending/new-control.md), with no internal imports, and receives actionable failures for omitted obligations; the artifact records the transcript summary, the failures received, and the final green state",
+			note = "run 2026-08-02, VERDICT YES: a fresh author with ONLY the public docs scaffolded, implemented, tested, registered and documented a small composite (newTagCount) with zero internal imports. Deliberate-omission probe: the four-input/paradigm registry obligations produced 9 named, actionable failures (exemplary); the api.md TODO-stub and the skipped dump-determinism case shipped GREEN — two one-axis-deep checks recorded as findings, not hidden — and check_surface_ledger caught the unclassified new export verbatim. 12-item friction log preserved in the artifact; the toy control was reverted after archiving (the last clause proves it), so the shipped surface is unchanged",
 		},
 		{
 			name = "library-suite-green",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = "tools/test.sh 2980",
 			evidence = "artifacts/test.json",
-			note = "flips to `run = tools/test.sh <floor>` with the FINAL count once the stage's own regressions land; the floor may never fall below the stage-start count recorded in baseline-freeze",
+			note = "stage-start floor was 2785; the floor lands as the FINAL number (2980 = +195 stage regressions and proofs across the seven packages incl. the architecture-review fixes, none removed and none weakened) so a regression of this stage's own pins fails the gate",
 		},
 		{
 			name = "rascalrally-consumer",
@@ -146,7 +146,7 @@ local manifest: { [string]: { Check } } = {
 				.. "assert c['preflight']['viewport'].startswith('1092'), 'viewport';"
 				.. "assert 'VERSION=0.8.0' in c['preflight']['sourceMarker'], 'source marker';"
 				.. "ids={s['id'].split(' ')[0] for s in c['slices']};"
-				.. "assert {'S1-header-alignment-live','S2-consumer-modal-real-pointer','S3-keyboard-semantic-path','S4-lifecycle'} <= {i.split(' ')[0] for i in ids} or len(ids)>=4, 'slices';"
+				.. "assert {'S1-header-alignment-live','S2-consumer-modal-real-pointer','S3-keyboard-semantic-path','S4-lifecycle'} <= ids, 'slices';"
 				.. "assert all(s['level']=='E3' for s in c['slices']), 'levels';"
 				.. "assert any('NS-P2' in o for o in c['honestObservations']), 'touch honesty';"
 				.. '" && test -f artifacts/api-architecture-consistency/studio-disposition.md && grep -q "F-17" artifacts/api-architecture-consistency/studio-disposition.md && lune run tools/lune/check_flat_baseline >/dev/null',
@@ -156,9 +156,17 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "fresh-context-reviews",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = "python3 -c \"import json,sys; a=json.load(open('artifacts/api-architecture-consistency/verifier-architecture.json')); p=json.load(open('artifacts/api-architecture-consistency/verifier-phase-gate.json')); sys.exit(0 if a.get('verdict')=='ACCEPT' and p.get('verdict') in ('READY TO DECLARE','ACCEPT') else 1)\"",
 			evidence = "artifacts/api-architecture-consistency/verifier-phase-gate.json",
-			note = "fresh-context architecture + phase-gate reviews on the raw surface ledger, baseline, diff, decisions, exercise, and evidence — without the implementer's conclusions; runtime/platform review added only when the stage changed that authority. The check reads the verdict FIELD, never a grep for an accept token",
+			note = "fresh-context architecture + phase-gate reviews ran on the raw surface ledger, baseline, diff, decisions, exercise, and evidence. Round 1: both ACCEPT-WITH-FINDINGS (architecture: 4 requirement-affecting — §4 strictness overclaim, three undispositioned MAJORs, the Label semanticText boundary call, the hand-assembled baseline; phase-gate: 6 MINOR). Every finding was resolved (spec_guard sweep, F-39/F-40/BEX-1/PKT-13, script-generated baseline, strict slice assert, packet costs, on-disk capture, physical-rows row) and both reviewers RE-VERIFIED the resolutions against the tree: architecture ACCEPT, phase-gate READY TO DECLARE, zero requirement-affecting findings open. The check reads the verdict FIELDS, never a grep for an accept token; runtime/platform review was not triggered (no reactive-runtime or platform-authority change beyond what the platform-adjacent evidence already covers)",
+		},
+		{
+			name = "physical-rows",
+			requirements = { "UI-INPUT-002" },
+			state = "FAIL_ENVIRONMENT",
+			releaseBlocking = false,
+			evidence = "artifacts/api-architecture-consistency/studio-disposition.md",
+			note = "phase-gate reviewer PG-A4: the F-17 touch-gesture repair (positional args + userdata readers at the screen adapter) is headlessly pinned and source-asserted, but real gesture FIRING needs physical touch no Studio instrument synthesizes — it stays on native-substrate's standing row NS-P2, restated here so this gate carries its own honest pending row instead of borrowing another stage's",
 		},
 	},
 	["code-simplicity-cleanup"] = {
@@ -686,7 +694,7 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "ws1-table-phase-b-suite",
 			requirements = { "UI-INPUT-001", "UI-RUNTIME-001" },
-			run = "tools/test.sh 176 && ./run-tests.sh 2>&1 | grep -q '✓.*header taps cycle the owner-held sortOrder' && ./run-tests.sh 2>&1 | grep -q '✓.*per-column alignment positions cell content' && ./run-tests.sh 2>&1 | grep -q '✓.*columns own their cells' && ./run-tests.sh 2>&1 | grep -q '✓.*width sugar: a number is fixed px' && ./run-tests.sh 2>&1 | grep -q '✓.*grip drag previews a guide line and commits the width on release' && ./run-tests.sh 2>&1 | grep -q '✓.*ghost + indicator with the row IN PLACE' && ./run-tests.sh 2>&1 | grep -q '✓.*an invalid drop (outside the table) commits nothing' && ./run-tests.sh 2>&1 | grep -q '✓.*system interrupt (Roblox menu opened) aborts the drag' && ./run-tests.sh 2>&1 | grep -q '✓.*arrow navigation moves the SELECTION with focus' && ./run-tests.sh 2>&1 | grep -q '✓.*shift-click extends a contiguous range from the anchor' && ./run-tests.sh 2>&1 | grep -q '✓.*a focused grip resizes its column via the Adjust action' && ./run-tests.sh 2>&1 | grep -q '✓.*sinkNavigation stops nav keys' && ./run-tests.sh 2>&1 | grep -q '✓.*wraps at the edges'",
+			run = "tools/test.sh 176 && ./run-tests.sh 2>&1 | grep -q '✓.*header taps cycle the owner-held sortOrder' && ./run-tests.sh 2>&1 | grep -q '✓.*per-column alignment positions cell content' && ./run-tests.sh 2>&1 | grep -q '✓.*columns own their cells' && ./run-tests.sh 2>&1 | grep -q '✓.*width sugar: a number is fixed px' && ./run-tests.sh 2>&1 | grep -q '✓.*grip drag previews a guide line and commits the width on release' && ./run-tests.sh 2>&1 | grep -q '✓.*ghost + indicator with the row IN PLACE' && ./run-tests.sh 2>&1 | grep -q '✓.*an invalid drop (outside the table) commits nothing' && ./run-tests.sh 2>&1 | grep -q '✓.*system interrupt (Roblox menu opened) aborts the drag' && ./run-tests.sh 2>&1 | grep -q '✓.*arrow navigation moves the SELECTION with focus' && ./run-tests.sh 2>&1 | grep -q '✓.*shift-click extends a contiguous range from the anchor' && ./run-tests.sh 2>&1 | grep -q '✓.*a focused column handle resizes its column via the Adjust action' && ./run-tests.sh 2>&1 | grep -q '✓.*sinkNavigation stops nav keys' && ./run-tests.sh 2>&1 | grep -q '✓.*wraps at the edges'",
 			evidence = "artifacts/test.json",
 			note = "ADR-0008 seam + all four Phase B behaviors; revised per director hand-tests 2026-07-20 (rounds 1+2): row stays in place during drag (ghost+line affordance), post-removal slots, menu-open drag abort, Apple focus/selection model (click focuses, arrows select), focus wrap, sinkNavigation, cell insets",
 		},

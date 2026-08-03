@@ -527,6 +527,84 @@ describe("UI.stroke: the authored border", function()
 		expect(adapter.node("/S/Row").strokeInstance).toBeNil()
 	end)
 
+	-- BP-F7 / FIX F-39: `strokeData` was the family's ONLY data producer, so the
+	-- documented pulse idiom above reached exactly one of four equally reactive
+	-- style props — an animated blur, wash or radius had no supported spelling and
+	-- the workaround was to rebuild the blueprint, which is a remount for a paint
+	-- change. The three siblings are the same normalizers without a blueprint.
+	it("shadowData / gradientData / cornersData complete the family and pulse the same way", function()
+		-- each is byte-identical to what its modifier puts on a blueprint
+		local shadowSpec = { blurRadius = { scale = 0, offset = 8 }, transparency = 0.5 }
+		expect(UI.shadowData(shadowSpec)).toEqual(UI.shadow(UI.Box({ id = "B" }), shadowSpec).props.shadow)
+		expect(UI.gradientData({ colors = { "surface", "accent" }, rotation = 45 })).toEqual(
+			UI.gradient(UI.Box({ id = "B" }), { colors = { "surface", "accent" }, rotation = 45 }).props.gradient
+		)
+		expect(UI.cornersData("pill")).toEqual(UI.corners(UI.Box({ id = "B" }), "pill").props.corners)
+		-- ...and the same closed key sets refuse the same junk
+		expect(contains(
+			fails(function()
+				UI.shadowData({ blurRadus = 8 })
+			end),
+			"unknown shadow field 'blurRadus'"
+		)).toBe(true)
+		expect(contains(
+			fails(function()
+				UI.gradientData({ colors = { "surface", "accent" }, roation = 45 })
+			end),
+			"unknown gradient field 'roation'"
+		)).toBe(true)
+
+		-- THE POINT OF THE EXPORT: a MEMO of each reaches the adapter, and
+		-- re-evaluating the memo re-applies it with no remount
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local lift = core:signal(4)
+		local wash = core:signal(45)
+		local radius = core:signal(6)
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.Box({
+						id = "Row",
+						surface = "control",
+						shadow = core:memo(function(use)
+							return UI.shadowData({ blurRadius = { scale = 0, offset = use(lift) } })
+						end),
+						gradient = core:memo(function(use)
+							return UI.gradientData({ colors = { "surface", "accent" }, rotation = use(wash) })
+						end),
+						corners = core:memo(function(use)
+							return UI.cornersData(use(radius))
+						end),
+					}),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local painted = adapter.node("/S/Row").props
+		expect(painted.shadow.blurRadius.offset).toBe(4)
+		expect(painted.corners.form).toBe("uniform")
+		expect(adapter.node("/S/Row").gradientInstance.rotation).toBe(45)
+		local before = adapter.node("/S/Row").gradientInstance
+
+		lift:set(12)
+		wash:set(135)
+		radius:set(18)
+		controller.refresh()
+		local after = adapter.node("/S/Row")
+		expect(after.props.shadow.blurRadius.offset).toBe(12)
+		expect(after.props.corners.radius).toBe(18)
+		-- the gradient's ONE child is reused, exactly as the stroke pulse above
+		expect(after.gradientInstance).toBe(before)
+		expect(after.gradientInstance.rotation).toBe(135)
+	end)
+
 	it("is a declared bespoke family, named from the manifest's own constant", function()
 		expect(authority.INSTANCE_NAMES.stroke).toBe("LuauUIStroke")
 		expect(authority.bespokeInstances()[authority.INSTANCE_NAMES.stroke] ~= nil).toBe(true)

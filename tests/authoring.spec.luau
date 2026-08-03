@@ -337,6 +337,29 @@ describe("M0-A3: one reconciled property model", function()
 		expect(result.ok).toBe(false)
 	end)
 
+	-- VIEW 7 (ARCH-8): the renderer's private BINDING_PROP_CLASSES allowlist and
+	-- authority.luau's per-class manifest are two records of the same fact, and
+	-- nothing derived one from the other — so the F-19/BP-F12 defect (a solver-
+	-- consumed prop dispatched as a binding write) could recur silently. Both
+	-- directions of the disagreement are injected here.
+	it("it detects a restricted class the authority manifest does not back", function()
+		-- `Divider` is the real case: it CONSUMES thickness in the solver and
+		-- declares no binding authority for it, so restricting the emit to Divider
+		-- must be caught rather than shipped
+		local result = propParity.check({ bindingPropClass = "thickness=Divider" })
+		expect(result.ok).toBe(false)
+		expect(table.concat(result.problems, " | "):find("Divider.thickness", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("it detects a class left OUTSIDE a restriction that still claims the binding", function()
+		-- restrict `thickness` to a class that does declare it a binding, leaving
+		-- Path — which also declares it — outside: the allowlist would then be a
+		-- lie about who may write it
+		local result = propParity.check({ bindingPropClass = "tint=Image" })
+		expect(result.ok).toBe(false)
+		expect(table.concat(result.problems, " | "):find("Path.tint", 1, true) ~= nil).toBe(true)
+	end)
+
 	it("the dirty map is derived from the schema for every class", function()
 		local derived = schema.propDirty()
 		for _, class in schema.classNames() do

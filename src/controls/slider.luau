@@ -40,6 +40,7 @@ local chrome_slots = require("../tokens/chrome_slots")
 -- literally the schema `themes.define` validates recipes against.
 local themePackage = require("../themes/package")
 local value_model = require("./value_model")
+local specGuard = require("../spec_guard")
 
 local slider = {}
 
@@ -112,7 +113,26 @@ local function hintFor(id: string, slot: string, prop: string, value: any): chro
 	return { slot = slot, imageVariants = variant }
 end
 
+-- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
+-- reads — an unknown one is an authoring mistake, never a silent no-op.
+local SLIDER_KEYS = specGuard.keySet({
+	"enabled",
+	"format",
+	"id",
+	"label",
+	"max",
+	"min",
+	"onChange",
+	"onCommit",
+	"step",
+	"tapToPosition",
+	"thumbImage",
+	"trackImage",
+	"value",
+})
+
 function slider.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newSlider", spec, SLIDER_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Slider"
 	local scope = core:scope("slider-" .. tostring(id))
