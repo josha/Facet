@@ -61,9 +61,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "acceptance-ledger",
 			requirements = { "UI-AGENT-001" },
-			run = 'f=artifacts/traversal-document-order/acceptance.md && test -f "$f" && for id in TD-1 TD-2 TD-3 TD-5 TD-7 TD-9 TD-10 TD-13 TD-15 TD-16 TD-P1; do grep -q "$id" "$f" || { echo "$id missing"; exit 1; }; done && grep -q "PENDING_HUMAN" "$f" && test -f artifacts/traversal-document-order/decisions.md && grep -q "TDN-1" artifacts/traversal-document-order/decisions.md && grep -q "TDN-2" artifacts/traversal-document-order/decisions.md',
+			run = 'f=artifacts/traversal-document-order/acceptance.md && test -f "$f" && for id in TD-1 TD-2 TD-3 TD-5 TD-7 TD-9 TD-10 TD-13 TD-15 TD-16 TD-P1; do grep -q "$id" "$f" || { echo "$id missing"; exit 1; }; done && grep -qE "^\\| \\*\\*TD-P2\\*\\* \\|.*PENDING_PHYSICAL" "$f" && grep -qE "^\\| \\*\\*TD-P1\\*\\* \\|.*PASS_HUMAN" "$f" && test -f artifacts/traversal-document-order/decisions.md && grep -q "TDN-1" artifacts/traversal-document-order/decisions.md && grep -q "TDN-2" artifacts/traversal-document-order/decisions.md',
 			evidence = "artifacts/traversal-document-order/acceptance.md",
-			note = "execution contract §2: the ledger written BEFORE implementation, with the human row left pending rather than closed by an instrument. The decision packets it cites (TDN-1 all-grips-no-exceptions, TDN-2 rank-is-a-sort-key-not-a-second-order, TDN-3 construction-only, TDN-4 the uncommitted Step 8 baseline, TDN-5 the two stale Step 8 gate checks) are checked to exist beside it",
+			note = "execution contract §2: the ledger written BEFORE implementation. The status greps are anchored to the ROW (^| **TD-Pn** |), not to the file: they previously matched the legend line that merely LISTS the status vocabulary, so once the human row closed the check kept passing while asserting nothing — the can't-ever-fail shape this stage kept finding elsewhere. TD-P1 must read PASS_HUMAN and TD-P2 must still read PENDING_PHYSICAL, so neither closing the physical row by hand nor reopening the human one can slip through. The decision packets it cites (TDN-1 all-grips-no-exceptions, TDN-2 rank-is-a-sort-key-not-a-second-order, TDN-3 construction-only, TDN-4 the uncommitted Step 8 baseline, TDN-5 the two stale Step 8 gate checks) are checked to exist beside it",
 		},
 		{
 			name = "document-order-traversal",
@@ -129,6 +129,14 @@ local manifest: { [string]: { Check } } = {
 			note = "TD-24, director round 7. Zone A is the union bounding box of every painted node plus every focusable hit rect, inflated — modal DISMISSAL forgiveness, and on a surface holding a full-width slider it covered most of the viewport, so a click on empty world resigned nothing. The forgiveness is now destructive-outcome-only. BOTH sides are pinned: the HUD must resign on a tap close to its content, and the modal must still survive a near-miss (the existing 24px case is grepped here too, so removing forgiveness wholesale cannot pass). The Adjust half is pinned separately because it was gated on focus rather than on ownership",
 		},
 		{
+			name = "physical-device-rows",
+			requirements = { "UI-INPUT-002" },
+			state = "PENDING_PHYSICAL",
+			releaseBlocking = false,
+			evidence = "artifacts/traversal-document-order/review-packet.md",
+			note = "TD-P2, deliberately NOT closed by TD-P1. Every input in this stage is Studio-synthesized; a real client on real hardware is a separate row. It inherits Step 8's open items unchanged — DK-P1 a real OS keyboard on a phone/tablet, DK-P2 physical hot-plug against a live avatar stack, DKN-1 Tab while the CoreGui players list is enabled (the engine will not synthesize it at all), DKN-2 keyboard input marked gameProcessed while a TextBox holds capture",
+		},
+		{
 			name = "focus-order-dump",
 			requirements = { "UI-AGENT-001" },
 			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*carries its schema and both readings" && echo "$out" | grep -q "✓.*is deterministic: two calls with nothing changed are equal" && echo "✓ frozen" >/dev/null && echo "$out" | grep -q "✓.*is frozen — an inspector cannot mutate the map it is inspecting" && echo "$out" | grep -q "✓.*survives dispose: an overlay outliving its surface gets an empty map, not a throw" && echo "$out" | grep -q "✓.*reports the AUTHORED tier per entry"',
@@ -171,10 +179,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "human-review",
 			requirements = { "UI-INPUT-002" },
-			state = "PENDING_HUMAN",
-			releaseBlocking = false,
+			run = 'f=artifacts/traversal-document-order/acceptance.md && grep -q "PASS_HUMAN" "$f" && grep -q "Human review — TD-P1, closed" "$f"',
 			evidence = "artifacts/traversal-document-order/review-packet.md",
-			note = "TD-P1: a person tabs through the fixture and says whether the order reads as the form reads. This row exists because the stage it fixes passed its gate and three fresh-context reviews, and the director found the defect in a ten-minute playtest — every instrument here measures the order it was told to expect. TD-P2 inherits Step 8's physical rows (DK-P1/DK-P2) and its two engine-blocked ones (DKN-1 players list, DKN-2 TextBox suppression)",
+			note = 'TD-P1, CLOSED by the director 2026-08-03 ("both feel good"): the focus ring reads at a glance, and tabbing the form reads as the form reads. This row existed because the stage it fixes passed its gate and three fresh-context reviews and a person still found the defect in ten minutes — seven director rounds later, it found six more. It closes the E5 row ONLY: a Studio review on a desktop window does not speak for hardware, which is why the physical row below stays separate',
 		},
 	},
 	["desktop-keyboard-navigation"] = {

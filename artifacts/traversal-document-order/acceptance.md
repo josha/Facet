@@ -63,10 +63,26 @@ order on every platform that has ever had a Tab key.
 | **TD-22** | A control that paints its **own** focused state (a Slider's thumb) releases it when the surface resigns | The adapter's ring obeys the ownership rule and a control-painted one does not, so the UI looks focused while every key goes to the avatar | E1 + E3 | `tests/keyboard_navigation.spec.luau` + live click on the world | suite, `studio/traversal.json` row `TD22-self-painted-ring-releases`, `studio/td22-slider-releases.png` | PASS_AUTOMATED |
 | **TD-23** | A **passive** surface defaults to no initial focus; engaged-open screens and modals still default to their first focusable | A HUD that owns no input until it is touched still claims focus on mount | E1 | same | suite | PASS_AUTOMATED |
 | **TD-24** | An engaged HUD resigns on a click outside its content **wherever** that click lands, and gives back the ring, Tab/Space **and** the Adjust keys | Modal-dismissal forgiveness is applied to a cheap reversible resign, so on a surface holding a full-width control almost no click can release it — the UI keeps the keyboard with nothing on screen to explain why | E1 + E3 | `tests/keyboard_navigation.spec.luau` + live click at the exact failing point | suite, `studio/traversal.json` row `TD24-resign-has-no-forgiveness-zone`, `studio/td24-resign-near-content.png` | PASS_AUTOMATED |
-| **TD-P1** | A person sits in front of the `keyboard_navigation` fixture and tabs through it, and the order reads as the form reads | Every instrument in this stage measures the order it was told to expect; the defect it exists to fix was found by a human and not by any of them | E5 | `review-packet.md` TD-P1 | review result | PENDING_HUMAN |
+| **TD-P1** | A person sits in front of the `keyboard_navigation` fixture and tabs through it, and the order reads as the form reads | Every instrument in this stage measures the order it was told to expect; the defect it exists to fix was found by a human and not by any of them | E5 | `review-packet.md` TD-P1 | director review, 2026-08-03 | **PASS_HUMAN** |
 | **TD-P2** | Tab traversal on a **physical** keyboard against a real client, inheriting Step 8's open rows (DK-P1/DK-P2, DKN-1 players list, DKN-2 TextBox suppression) | Studio cannot produce the real device path; Step 8's open rows do not close by being inherited | E4 | `review-packet.md` TD-P2 | review result | PENDING_PHYSICAL |
 
 ---
+
+## Human review — TD-P1, closed 2026-08-03
+
+The director played the `keyboard_navigation` fixture in the gallery place and
+approved **both** questions the review packet asked:
+
+1. **Does the slider's focus ring read at a glance?** Yes. (The measurement said
+   2px opaque accent on a dark thumb; only a person could say it is legible.)
+2. **Does tabbing through the form feel like reading the form?** Yes — the slider
+   is reached in the position it occupies on screen.
+
+Verbatim: *"both feel good."*
+
+This closes the E5 row and **only** that row. It is a Studio review on a desktop
+window: it does not speak for a physical device, which is TD-P2 and stays
+`PENDING_PHYSICAL`.
 
 ## What this stage explicitly does not claim
 

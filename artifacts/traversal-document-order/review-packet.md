@@ -1,7 +1,7 @@
 # Review packet — `traversal-document-order`
 
-Two rows no instrument in this build can close. Everything else is automated and
-stored; these need a person and a real device.
+**TD-P1 is closed** (director, 2026-08-03). **TD-P2 remains open** — it needs real
+hardware, and a Studio review cannot speak for it.
 
 **Why this packet is not a formality.** The stage this one fixes passed its gate and
 **three** independent fresh-context reviews. The director then found two real defects
@@ -11,7 +11,11 @@ is the row that has historically caught what the machines did not.
 
 ---
 
-## TD-P1 — a person tabs through the fixture (`PENDING_HUMAN`)
+## TD-P1 — a person tabs through the fixture — ✅ **CLOSED 2026-08-03**
+
+> Director verdict: **"both feel good"** — the focus ring reads at a glance, and
+> tabbing the form reads as the form reads. The procedure below is kept so the row
+> can be re-run against a future change.
 
 **Time:** about two minutes.
 
