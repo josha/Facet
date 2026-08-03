@@ -143,7 +143,10 @@ Rules the reviewers will hold you to:
   the public prop bag, so it is unaffected by strict prop validation. Fill only the fields your control needs
   (`focusGroups` for D-pad/arrow navigation, `handleActivate` for tap/A/Return,
   `navigateIntercept` for grab mode, `focusMoved`/`syncGeometry`/
-  `keepVisibleOffset`/`bindActionSystem` as needed). The presenter discovers the
+  `keepVisibleOffset`/`bindActionSystem` as needed, and `bindFocusGraph` for the
+  rare control that must MOVE focus rather than follow it — `newVirtualList`'s
+  index focus policy is the worked example; never ask a consumer for the graph).
+  The presenter discovers the
   bundle on mount and composes the four-input story with zero consumer opts;
   `tests/auto_input.spec.luau` is the pattern. (A composite that attaches NO
   contribution is treated as non-interactive by the checker — do not delete the

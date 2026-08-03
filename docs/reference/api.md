@@ -1860,8 +1860,15 @@ contribution at present time (idempotent).
 attaches to its root (`contribution.attach(rootBlueprint, bundle)`; every field
 optional): `focusGroups(rootNode)`, `handleActivate(path, meta)`,
 `navigateIntercept(direction)`, `focusMoved(path)`, `syncGeometry(rectOf)`,
-`keepVisibleOffset` (`Readable<number>`), `bindActionSystem(actionSystem)`, and
-the **paradigm-axis seams** (UI-PARADIGM-001):
+`keepVisibleOffset` (`Readable<number>`), `bindActionSystem(actionSystem)`,
+`bindFocusGraph(focusGraph)`, and the **paradigm-axis seams** (UI-PARADIGM-001):
+- `bindFocusGraph(focusGraph)` — the presenter hands over the screen's focus graph
+  at the same moment it binds the action system and the controller, for the one
+  case a control has to **move** focus rather than follow it: the data under a
+  focused row changed and the control's own policy says the ring belongs
+  somewhere else now (`newVirtualList.focusPolicy = "index"`). It is the canonical
+  route — a control handed the graph by its *consumer* leaves the consumer owning
+  half the focus story. Absent, the control degrades to logical focus only.
 - `adjustTargets(rootNode) -> { [path]: true }` + `handleAdjust(path, direction)`
   — the Adjust verb (grip resize, value stepper). The presenter binds the Adjust
   keys DYNAMICALLY — only while the focused path is a declared target — so a bare
@@ -2374,7 +2381,8 @@ keyed-row virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
 string, rowHeight (px), rowGap? (px), viewportHeight (px or Readable<number>), overscan?, cell (item, ctx {
-scope }) -> Blueprint, width?, onActivate? ((item, meta) -> ()) }`. Returns `{
+scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
+onActivate? ((item, meta) -> ()) }`. Returns `{
 blueprint, scrollTop (Signal), focusedKey (Signal), pathOf(key) -> path?,
 focusKey(key) -> path? (scrolls into view and materializes), debugWindow(),
 dump(), dispose() }`. Item state lives in the item scope and dies when a row
@@ -2424,6 +2432,7 @@ and the same terminals.
 | `reorderMotion` | motion class for the slide to a new slot (default `"object"`, `"instant"` to opt out — finding F6). Needs `motionClock`; the slide rides the presentation channel, so it never re-solves. |
 | `dropSurface` / `rowDropTarget(item)` | each row becomes a drop target. `rowDropTarget` returns `{ accepts, onDrop }` for that row; `onDrop(payload, info)` gets `info.key`, `info.item`, `info.index`. |
 | `rowFocusable(item)` | the SF-L3 focus-skip predicate, evaluated at navigation time. |
+| `focusPolicy` | `"key"` (default) or `"index"` — **when the ORDER changes under the player, does the cursor follow the ITEM or stay on the SLOT?** `"key"` is the pre-field control byte for byte: focus follows the item, so a list re-sorting every 250 ms walks the pad cursor up and down the rows on its own. `"index"` pins the slot: when a data update moves the focused item off the slot it was focused at, focus **retargets to whoever occupies that slot now**, clamped to the last slot if the list shrank. This is the answer a live standings list needs ("selection riding a racer's button visibly JUMPS slots on every overtake"). The retarget drives BOTH halves of focus — the logical `focusedKey` *and* the screen's focus graph, which the presenter hands the control through the contribution's `bindFocusGraph` — so there is one focus authority and no consumer-side re-pin loop. It is an **ordinary focus move**: keep-visible applies, and it never summons a focus ring the player put away (the ring-visibility origin is left alone). It **declines** in exactly two situations: while a drag session is live (a policy that re-aimed a gesture mid-flight would fight the player's hand), and when the slot's new occupant fails `rowFocusable` — parking the ring where Activate can do nothing is worse than the jump the policy prevents, so focus falls through to the item. Construction-only, and an illegal value is refused naming both. `dump()` reports `focusPolicy` and the live `pinnedSlot`. |
 | `navigation` | `{ name?, wrap?, containment?, entry?, exit? }` — overrides for the ONE navigation group this list contributes. Absent, the group is `vl:<id>`, vertical, `entry = "nearest"`, unwrapped and with no declared exits (unchanged). An unknown field is refused at construction. `list.focusGroupName` reports the resolved name so a **sibling** group can declare `exit = { down = list.focusGroupName }` without hardcoding the `vl:` convention. |
 | `autoscroll` | `false` to disable, or an options table. Defaults on whenever the list is reorderable or a drop surface. |
 | `grabOnActivate` | whether a non-pointer Activate **arms** the row. Defaults true when the list is reorderable and declares no `onActivate` (so the two verbs never shadow each other); bind `list.toggleGrab()` to a key when it declares both. |

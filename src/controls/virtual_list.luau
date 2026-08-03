@@ -66,6 +66,25 @@
 -- following item (§9.3). Item state lives in the item scope and dies when a row
 -- leaves the window (§10.5); cells own async resources through ctx.scope, so
 -- window exit cancels them and late completions are stale (§10.3).
+--
+-- FOCUS POLICY (spec.focusPolicy, default "key"). A list whose ORDER changes
+-- under the player asks a question a keyed list cannot answer on its own: when
+-- the focused item is overtaken, does the cursor follow the ITEM or stay on the
+-- SLOT?
+--   * "key" (default) — the cursor follows the ITEM. Every number below is the
+--     pre-field arithmetic verbatim; the policy costs an existing list nothing.
+--   * "index" — the cursor stays on the SLOT. When a data update moves the
+--     focused item off the slot it was focused at, focus RETARGETS to whoever
+--     occupies that slot now (clamped to the last slot when the list shrank).
+--     This is the answer a live standings list needs: "selection riding a
+--     racer's button visibly JUMPS slots on every overtake."
+-- The retarget drives BOTH halves of focus — the logical `focusedKey` AND the
+-- screen's focus GRAPH, reached through the contribution's `bindFocusGraph` —
+-- because two focus authorities is the split brain the policy exists to remove.
+-- It DECLINES in exactly two situations: while a drag session is live (a policy
+-- that re-aimed a gesture mid-flight would fight the player's hand), and when
+-- the slot's new occupant fails `rowFocusable` (parking the ring on a dead row
+-- is worse than the jump it prevents, so focus falls through to the item).
 -- FOUR-INPUT STORY (ui_todo §0; ADR-0013), auto-composed by the presenter:
 --   * pointer/touch: the engine ScrollingFrame owns wheel/pan/momentum scroll;
 --     each row is a focusable Button hit whose tap routes handleActivate -> the
@@ -106,6 +125,8 @@
 --   grabOnActivate? (boolean), dropSurface? (boolean),
 --   rowDropTarget? ((item) -> { accepts?, onDrop }?),
 --   rowFocusable? ((item) -> boolean), autoscroll? (boolean | autoscroll opts),
+--   focusPolicy? ("key" | "index", default "key" — does the cursor follow the
+--     ITEM across a re-sort, or stay on the SLOT; see FOCUS POLICY above),
 --   navigation? ({ name?, wrap?, containment?, entry?, exit? }) — overrides for
 --     the ONE focus group this list contributes; absent = today's group verbatim }
 
@@ -134,6 +155,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"autoscroll",
 	"cell",
 	"dropSurface",
+	"focusPolicy",
 	"grabOnActivate",
 	"id",
 	"key",
@@ -216,6 +238,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		selectionMode == "none" or selectionMode == "single",
 		`VirtualList.selection must be "none" or "single" (got '{tostring(spec.selection)}')`
 	)
+	--[[ DOES THE CURSOR FOLLOW THE ITEM OR THE SLOT? (see FOCUS POLICY in the
+		header.) A closed two-value enum, construction-only: the policy decides how
+		the control WIRES ITSELF to the focus graph, and a list that changed its
+		mind mid-session would leave the pin holding a slot from the other policy.
+		"key" is the default AND a legal explicit answer, and it is the pre-field
+		behaviour byte for byte — the pin below is never even allocated. ]]
+	local focusPolicy: string = spec.focusPolicy or "key"
+	assert(
+		focusPolicy == "key" or focusPolicy == "index",
+		`VirtualList.focusPolicy must be "key" (focus follows the item across a re-sort — the default) or "index" `
+			.. `(focus stays on the slot and retargets to whoever occupies it) — got '{tostring(spec.focusPolicy)}'`
+	)
 	-- THE ONE FOCUS GROUP THIS LIST CONTRIBUTES, declaratively adjustable (row
 	-- SF-L4). A screen that composes this list beside an authored row of controls
 	-- has to name the two groups to each other — "left from any row returns to the
@@ -296,6 +330,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local boundController: any = nil
 	local boundScrollPath: string? = nil
 	local mountedScrollPath: string? = nil
+	-- THE SCREEN'S FOCUS GRAPH, handed over by the presenter through the
+	-- contribution's `bindFocusGraph` (never by the consumer — constitution §13:
+	-- one focus authority, and it is not the caller's to wire). Only the index
+	-- focus policy needs it: every other focus flow in this control REPORTS a move
+	-- the graph already made. Absent (a standalone headless mount), the policy
+	-- still moves the LOGICAL focus and simply has no ring to move with it.
+	local focusGraph: any = nil
 
 	-- ===== the drag registry seam (ADR-0022 D5) ==============================
 	-- The registry belongs to the SURFACE, not to the list: a card dragged out of
@@ -501,6 +542,103 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		lastIndexOfFocused = index
 		focusedKey:set(key)
 		return pathOf(key)
+	end
+
+	--[[ ===== the INDEX focus policy (focusPolicy = "index") ====================
+		Focus pins to the SLOT, not to the item. Everything below is allocated ONLY
+		under that policy, so a default list is byte-identical to the pre-field
+		control — no pin, no observers, no graph binding.
+
+		THE PIN IS A (key, slot) PAIR, not a bare number. A lone slot cannot tell
+		"the data moved under a still-focused row" (retarget) from "focus itself
+		moved and the pin has not caught up yet" (do nothing) — and in a flush where
+		BOTH the rows and the focused key were written, observer order between two
+		signals is not something to bet a focus jump on. The pair makes the question
+		answerable: the pin applies only while it still describes the focused row.
+	]]
+	local pinnedKey: string? = nil
+	local pinnedSlot: number? = nil
+	if focusPolicy == "index" then
+		listScope:own(core:observe(focusedKey, function(key: string?)
+			-- EVERY focus move re-pins, this policy's own retarget included. The
+			-- retarget hands focus to whoever is AT the pinned slot, so it re-pins to
+			-- the same number: idempotent by construction, which beats a suppression
+			-- latch that a throw mid-flight would leave stuck (a stuck latch would
+			-- freeze the pin on a stale slot and then drag focus around by it).
+			pinnedSlot = if key ~= nil then (indexByKey:get() :: { [string]: number })[key] else nil
+			pinnedKey = if pinnedSlot ~= nil then key else nil
+		end))
+		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
+			local focused = focusedKey:get() :: string?
+			local slot = pinnedSlot
+			-- THE PIN APPLIES ONLY WHILE IT STILL DESCRIBES THE FOCUSED ROW. That is
+			-- what makes "focus itself just moved" (do nothing — the pin catches up
+			-- on the next round) distinguishable from "the data moved under a still-
+			-- focused row" (retarget). It is load-bearing in a real flush: a consumer
+			-- that answers the SAME data update by focusing a row explicitly is
+			-- notified before this observer, and without the pair its choice would be
+			-- overwritten by the previous row's slot.
+			if focused == nil or slot == nil or pinnedKey ~= focused then
+				return
+			end
+			-- REMOVAL of the focused row lands here too, and asks for the same answer
+			-- (whoever holds the slot now, clamped) — so it needs no branch of its
+			-- own. In practice the shared nearest-survivor rule above has already
+			-- moved focus and this observer returns at the pin check; the arithmetic
+			-- below agrees with it either way, which is why the ordering of the two
+			-- observers is not something this policy has to depend on.
+			if map[focused] == slot then
+				return -- the focused row still holds its slot
+			end
+			-- NEVER FIGHT A LIVE GESTURE. A drag in flight owns where the player is
+			-- pointing; re-aiming the ring under it would move the drop target the
+			-- press was about to commit to. The pin resumes on the next data change
+			-- after the session ends.
+			local reg = registry()
+			if reg ~= nil and reg.isActive() then
+				return
+			end
+			local items = spec.rows:get() :: { any }
+			-- CLAMP ON SHRINK: the pinned slot may no longer exist
+			local landing = math.min(slot, #items)
+			local occupant = if landing >= 1 then items[landing] else nil
+			if occupant == nil then
+				return
+			end
+			local occupantKey = spec.key(occupant)
+			if occupantKey == focused then
+				return
+			end
+			-- FALL THROUGH TO THE ITEM when the slot's new occupant is not
+			-- focus-eligible: parking the ring where Activate can do nothing is worse
+			-- than the jump the policy exists to prevent.
+			if spec.rowFocusable ~= nil and spec.rowFocusable(occupant) == false then
+				return
+			end
+			-- BOTH HALVES OF FOCUS MOVE, or the player gets a split brain: the
+			-- LOGICAL key (what keep-visible and the armed paradigm read) and the
+			-- GRAPH (what paints the ring and what Activate dispatches against).
+			-- This is an ordinary focus move — same keep-visible, same events, same
+			-- ring-visibility origin (the policy never SUMMONS a ring a touch player
+			-- put away; `focusOn` leaves the origin alone).
+			--
+			-- THE GRAPH MOVES ONLY IF IT WAS ON THE ROW WE ARE RETARGETING FROM
+			-- (live canary, 2026-08-02). The two halves can legitimately be apart
+			-- before a re-sort ever happens: a tap on a focus-INELIGIBLE row still
+			-- activates and still sets the logical key, while `graph.focusOn` refuses
+			-- it — so the ring is elsewhere, possibly on another control entirely.
+			-- Yanking it into this list would be a focus move nobody asked for. The
+			-- logical retarget happens either way; only the ring is conditional.
+			local fromPath = hitPathOf(focused)
+			local graphWasHere = focusGraph ~= nil and fromPath ~= nil and focusGraph.focused:get() == fromPath
+			pinnedKey = occupantKey
+			pinnedSlot = landing
+			focusKey(occupantKey)
+			local hitPath = hitPathOf(occupantKey)
+			if graphWasHere and hitPath ~= nil then
+				focusGraph.focusOn(hitPath)
+			end
+		end))
 	end
 
 	-- window-space pointer y -> canvas y. The solver arranges rows in the host's
@@ -1272,6 +1410,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			end
 		end,
 	}
+	if focusPolicy == "index" then
+		-- the index policy is the one flow here that MOVES focus instead of
+		-- reporting a move; a default list asks for nothing and is bound nothing
+		bundle.bindFocusGraph = function(graph: any)
+			focusGraph = graph
+		end
+	end
 	if reorderable then
 		bundle.navigateIntercept = navigateIntercept
 	end
@@ -1329,6 +1474,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			armedKey = armedKey:get(),
 			dropIndex = dropIndex:get(),
 			selection = selectionMode,
+			-- the policy AND the slot it is holding: the two facts a "why did the
+			-- ring move" bug report needs (`pinnedSlot` is nil under "key")
+			focusPolicy = focusPolicy,
+			pinnedSlot = pinnedSlot,
 			reorderable = reorderable,
 			dropSurface = isDropSurface,
 			focusGroup = focusGroupName,

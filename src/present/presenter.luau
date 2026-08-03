@@ -1449,6 +1449,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if c.bundle.bindController ~= nil then
 				c.bundle.bindController(controller)
 			end
+			-- and the FOCUS GRAPH, for the controls that must MOVE focus rather
+			-- than merely follow it (VirtualList's index focus policy: the data
+			-- re-sorted under the ring and the control's policy says the ring stays
+			-- on the SLOT). Bound here rather than handed over by the consumer, so
+			-- there is exactly one focus authority and no consumer-side split brain.
+			if c.bundle.bindFocusGraph ~= nil then
+				c.bundle.bindFocusGraph(graph)
+			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the
 			-- popup opens/closes (see the popup-catcher block above)

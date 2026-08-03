@@ -28,6 +28,7 @@
 --     keepVisibleOffset: Readable<number>?,
 --     bindActionSystem: (actionSystem) -> (),
 --     bindController: (controller) -> (),
+--     bindFocusGraph: (focusGraph) -> (),
 --     adjustTargets: (rootNode) -> { [path]: true },
 --     handleAdjust: (path, direction) -> boolean }
 --
@@ -88,6 +89,18 @@ export type Bundle = {
 	-- still work when the capability is absent (the corrections require a
 	-- fallback), so this is an enhancement seam, not a dependency.
 	bindController: ((controller: any) -> ())?,
+	-- bindFocusGraph: hands the control the screen's FOCUS GRAPH, for the one
+	-- case a control has to MOVE focus rather than merely follow it — the data
+	-- under a focused row changed and the control's own policy says the ring
+	-- belongs somewhere else now (`newVirtualList.focusPolicy = "index"`), or
+	-- content about to unmount still holds focus. Bound alongside the action
+	-- system and the controller, once per discovered bundle, so a control that a
+	-- keyed region mounts late is wired the same way. It is the CANONICAL route
+	-- (constitution §13): a control must never be handed the graph by its
+	-- consumer, because then the consumer owns half the focus story. Absent, the
+	-- control degrades to logical focus only — an enhancement seam, never a
+	-- dependency.
+	bindFocusGraph: ((focusGraph: any) -> ())?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,
 	handleCancel: ((focusedPath: string?) -> boolean)?,

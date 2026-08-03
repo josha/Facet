@@ -53,6 +53,7 @@ require("./fuzz_replication.spec")
 require("./faults.spec")
 require("./virtualization.spec")
 require("./virtual_list_row_gap.spec")
+require("./virtual_list_focus_policy.spec")
 require("./navigation_groups.spec")
 require("./perf_runner.spec")
 -- evidence-class discipline: the rules that stop a headless number becoming a
