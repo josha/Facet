@@ -19,14 +19,26 @@
 -- CANVAS DESIGN (native §6). A native ScrollingFrame renders one Frame per
 -- child, so a naive windowed list — ~15 mounted rows — would give the engine a
 -- 15-row canvas, not the full virtual extent. FIX: the ScrollView holds ONE
--- child, a full-height Anchor "Canvas" (height = totalRows*rowHeight, a live
+-- child, a full-height Anchor "Canvas" (height = the content extent, a live
 -- memo), and the windowed rows are ABSOLUTELY-positioned anchor children at
--- offsetY = (index-1)*rowHeight. The solver sums the scroll axis, so
+-- offsetY = (index-1)*PITCH. The solver sums the scroll axis, so
 -- contentSize == the Canvas height == the full virtual height; the renderer
 -- maps that to CanvasSize (native-substrate NS-A2). Row offsets are CANVAS
 -- offsets, engine-independent (a scroll never re-arranges them — the ENGINE
 -- translates via CanvasPosition), so a same-window scroll delta is now ZERO
 -- framework writes (was rect-writes-only under the old Anchor+offsetY trick).
+--
+-- PITCH vs ROW (spec.rowGap). The slot a row occupies is `rowHeight + rowGap`
+-- tall; the row's own node stays `rowHeight` tall, so the gutter is DEAD SPACE
+-- that belongs to neither neighbour — exactly what a `UIListLayout.Padding`
+-- gives, and exactly why the alternative (hand in the pitch AS the row height
+-- and inset the cell) is wrong: that inflates the row's HIT into the gutter, so
+-- a press between two plates activates one of them. EVERY windowing number is
+-- on the pitch (canvas extent, clamp, window membership, keep-visible, the
+-- insertion slot, the reorder slide); the row box and the row rect are not. The
+-- content extent carries no TRAILING gutter — N rows span
+-- N*rowHeight + (N-1)*rowGap. `rowGap = 0` is the default and reproduces the
+-- pre-field arithmetic byte for byte.
 --
 -- scrollTop is a MIRROR of the engine CanvasPosition, never a hand-managed
 -- offset. It is written ONLY by (i) the presenter/consumer wiring the engine
@@ -82,7 +94,9 @@
 --   debugWindow() -> {key=true}, dump(), dispose()
 -- }
 -- spec: { id?, rows (Readable {T}), key (T)->string, rowHeight (px number or
---   Readable<number>), viewportHeight (px number or Readable<number>),
+--   Readable<number>), rowGap? (px number or Readable<number>, default 0 — the
+--   gutter between row SLOTS; the pitch is rowHeight + rowGap and the row's own
+--   node stays rowHeight tall), viewportHeight (px number or Readable<number>),
 --   overscan? (rows, default 2),
 --   cell (item, ctx: {scope}) -> Blueprint, width? (row width Dim),
 --   onActivate? ((item, meta) -> ()),
@@ -133,6 +147,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"reorderable",
 	"rowDropTarget",
 	"rowFocusable",
+	"rowGap",
 	"rowHeight",
 	"rows",
 	"selection",
@@ -154,6 +169,25 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		rowHeightIsLive or (type(rowHeightSpec) == "number" and rowHeightSpec > 0),
 		"VirtualList.rowHeight must be a positive number or a Readable<number> (fixed-height rows, uniform per list; "
 			.. "derive it from the theme metrics snapshot at the call site — variable heights are a §17 Phase 5 gate)"
+	)
+	--[[ THE GUTTER BETWEEN ROW SLOTS, one number for the whole list for exactly
+		the reason the row height is one number: the windowing arithmetic is
+		index x pitch. `newTable` has always had this field
+		(`controls/table.luau`); VirtualList's absence left consumers one
+		workaround — hand in the PITCH as `rowHeight` and inset the cell — which
+		is wrong where it counts, because it inflates the row's HIT node into the
+		gutter and a press in the dead space between two plates then activates
+		one of them. Zero is the default AND a legal explicit answer, so an
+		absent gap costs an existing list nothing (every number below collapses
+		to its pre-field form at 0). Live for the same reason `rowHeight` is: a
+		gutter derived from the theme metrics re-derives on a theme swap without
+		rebuilding the list. ]]
+	local rowGapSpec: any = if spec.rowGap ~= nil then spec.rowGap else 0
+	local rowGapIsLive = type(rowGapSpec) == "table" and type(rowGapSpec.get) == "function"
+	assert(
+		rowGapIsLive or (type(rowGapSpec) == "number" and rowGapSpec == rowGapSpec and rowGapSpec >= 0),
+		"VirtualList.rowGap must be a non-negative number or a Readable<number> (the vertical gutter between row "
+			.. "slots, uniform per list; the row itself stays rowHeight tall and the gutter is dead space)"
 	)
 	-- VIEWPORT HEIGHT MAY BE LIVE for the same reason rowHeight may (P5-F5): a
 	-- list filling a container, or re-deriving after an environment change,
@@ -218,6 +252,36 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local function rowHeightIn(use: any): number
 		return if rowHeightIsLive then use(rowHeightSpec) else rowHeightSpec
 	end
+	local function rowGapNow(): number
+		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
+	end
+	local function rowGapIn(use: any): number
+		return if rowGapIsLive then use(rowGapSpec) else rowGapSpec
+	end
+	-- THE PITCH: one slot, gutter included. Every windowing number is on this,
+	-- and nothing that describes the ROW is (see the header).
+	local function pitchNow(): number
+		return rowHeightNow() + rowGapNow()
+	end
+	local function pitchIn(use: any): number
+		return rowHeightIn(use) + rowGapIn(use)
+	end
+	-- ...and the CONTENT EXTENT the canvas spans: N slots with NO trailing
+	-- gutter, because the gap is BETWEEN rows exactly as a UIListLayout's padding
+	-- is. An empty list spans nothing.
+	local function contentIn(use: any, count: number): number
+		if count <= 0 then
+			return 0
+		end
+		return count * rowHeightIn(use) + (count - 1) * rowGapIn(use)
+	end
+	local function contentNow(): number
+		local count = #(spec.rows:get() :: { any })
+		if count <= 0 then
+			return 0
+		end
+		return count * rowHeightNow() + (count - 1) * rowGapNow()
+	end
 
 	-- id -> path-pattern piece: a row hit path looks like
 	-- <root>/<id>/Canvas/W/[<key>]/Row/Hit (the Canvas anchor is the full-height
@@ -276,14 +340,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- mount only in the window, but the canvas always spans the whole list.
 	local canvasDim = listScope:own(core:memo(function(use)
 		local count = #(use(spec.rows) :: { any })
-		return { type = "fixed", px = count * rowHeightIn(use) }
+		return { type = "fixed", px = contentIn(use, count) }
 	end))
 
 	-- scroll clamped into the content band, so garbage/overshoot mirror values
 	-- cannot mount phantom windows
 	local clampedTop = listScope:own(core:memo(function(use)
 		local count = #(use(spec.rows) :: { any })
-		local maxTopPx = math.max(0, count * rowHeightIn(use) - viewportIn(use))
+		local maxTopPx = math.max(0, contentIn(use, count) - viewportIn(use))
 		local raw = use(scrollTop)
 		if type(raw) ~= "number" or raw ~= raw then
 			return 0
@@ -307,9 +371,11 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local windowItems = listScope:own(core:memo(function(use)
 		local items = use(spec.rows) :: { any }
 		local top = use(clampedTop)
-		local height = rowHeightIn(use)
-		local firstVisible = math.floor(top / height) + 1
-		local visibleCount = math.ceil(viewportIn(use) / height)
+		-- SLOTS, not rows: a viewport spans `viewport / pitch` whole slots and the
+		-- canvas y of slot k is (k-1)*pitch, so both halves read the pitch
+		local pitch = pitchIn(use)
+		local firstVisible = math.floor(top / pitch) + 1
+		local visibleCount = math.ceil(viewportIn(use) / pitch)
 		local first = math.max(1, firstVisible - overscan)
 		local last = math.min(#items, firstVisible + visibleCount - 1 + overscan)
 		local window = {}
@@ -387,8 +453,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- scroll path (the ScrollView IS the control root) is captured in
 	-- buildFocusGroups, which the presenter calls on every refresh.
 	local function maxTop(): number
-		local count = #(spec.rows:get() :: { any })
-		return math.max(0, count * rowHeightNow() - viewportNow())
+		return math.max(0, contentNow() - viewportNow())
 	end
 
 	-- keep-visible target: the canvas y that brings row `index` fully into the
@@ -397,14 +462,16 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- mounted and therefore has no solved rect the renderer's substrate could read.
 	-- The minimum-distance CLAMP is the shared one (A-SV2): only the span's source
 	-- differs, never the arithmetic.
+	-- The SPAN is the row's own box, not its slot: keep-visible owes the player a
+	-- visible ROW, and demanding the trailing gutter too would scroll a row that
+	-- is already fully readable.
 	local function keepVisibleTarget(index: number): number?
-		local height = rowHeightNow()
 		return solverLib.keepVisibleOffset(
-			(index - 1) * height,
-			height,
+			(index - 1) * pitchNow(),
+			rowHeightNow(),
 			clampedTop:get(),
 			viewportNow(),
-			#(spec.rows:get() :: { any }) * height
+			contentNow()
 		)
 	end
 
@@ -464,15 +531,25 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return pointerY - rect.y + clampedTop:get()
 	end
 
-	-- the insertion slot for a canvas y: the number of whole rows above it, using
-	-- each row's MIDPOINT so the line snaps to the nearer boundary. Returns the
+	-- the canvas y the insertion LINE is drawn at for a 0-based slot: the middle
+	-- of the gutter above it, so the hairline reads as "between these two rows"
+	-- rather than as a lid on the lower one. Clamped into the content extent so
+	-- the first and last boundaries stay inside the canvas the host clips to. At
+	-- rowGap 0 this is `slot * rowHeight`, clamped exactly as before.
+	local function slotBoundary(slot: number): number
+		local gap = rowGapNow()
+		return math.clamp(slot * pitchNow() - gap / 2, 0, contentNow())
+	end
+
+	-- the insertion slot for a canvas y: the number of whole SLOTS above it, using
+	-- each slot's MIDPOINT so the line snaps to the nearer boundary. Returns the
 	-- 0-based insertion slot and its canvas boundary y.
 	local function insertSlotAt(canvasY: number): (number, number)
-		local height = rowHeightNow()
+		local pitch = pitchNow()
 		local count = #(spec.rows:get() :: { any })
-		local slot = math.floor((canvasY + height / 2) / height)
+		local slot = math.floor((canvasY + pitch / 2) / pitch)
 		slot = math.clamp(slot, 0, count)
-		return slot, slot * height
+		return slot, slotBoundary(slot)
 	end
 
 	-- the drop line rides the PRESENTATION channel, not layout: it is mounted
@@ -579,11 +656,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 	if reorderable then
 		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
-			local height = rowHeightNow()
+			-- the slide is a SLOT delta: rows move by whole pitches, gutter included
+			local pitch = pitchNow()
 			for key, index in map do
 				local previous = lastIndexByKey[key]
 				if previous ~= nil and previous ~= index then
-					slideRow(key, (previous - index) * height)
+					slideRow(key, (previous - index) * pitch)
 				end
 			end
 			for key in lastIndexByKey do
@@ -753,7 +831,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					local index = if hoveredKey ~= nil then indexOfKey(hoveredKey) else nil
 					if index ~= nil then
 						dropIndex:set(index)
-						writeDropLine((index - 1) * rowHeightNow())
+						writeDropLine(slotBoundary(index - 1))
 						return
 					end
 				elseif state.y ~= nil then
@@ -1054,7 +1132,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					if index == nil then
 						return 0 -- row is leaving; the unmount is in flight
 					end
-					return (index - 1) * rowHeightIn(use)
+					-- the SLOT's top: the gutter belongs to the space between
+					-- slots, never to the row that follows it
+					return (index - 1) * pitchIn(use)
 				end))
 				local rowHeightDim = itemScope:own(core:memo(function(use)
 					return { type = "fixed", px = rowHeightIn(use) }
@@ -1240,6 +1320,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			schema = "luauui-virtual-list-dump/1",
 			id = id,
 			rowHeight = rowHeightNow(),
+			rowGap = rowGapNow(),
 			viewportHeight = viewportNow(),
 			overscan = overscan,
 			scrollTop = clampedTop:get(),

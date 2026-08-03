@@ -2371,7 +2371,7 @@ overflow. It only binds at raised text preferences.
 keyed-row virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
-string, rowHeight (px), viewportHeight (px or Readable<number>), overscan?, cell (item, ctx {
+string, rowHeight (px), rowGap? (px), viewportHeight (px or Readable<number>), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, onActivate? ((item, meta) -> ()) }`. Returns `{
 blueprint, scrollTop (Signal), focusedKey (Signal), pathOf(key) -> path?,
 focusKey(key) -> path? (scrolls into view and materializes), debugWindow(),
@@ -2414,7 +2414,8 @@ and the same terminals.
 
 | Spec field | Meaning |
 |---|---|
-| `rowHeight` | a number **or a `Readable<number>`**. Derive it from the theme-metrics snapshot and the list re-derives on a swap; it stays **uniform per list** either way — the windowing arithmetic is index×height, so a per-row height is refused (finding F13). |
+| `rowHeight` | a number **or a `Readable<number>`**. Derive it from the theme-metrics snapshot and the list re-derives on a swap; it stays **uniform per list** either way — the windowing arithmetic is index×pitch, so a per-row height is refused (finding F13). |
+| `rowGap` | the vertical gutter **between row slots**, a non-negative number **or a `Readable<number>`**, default `0`. The **pitch** is `rowHeight + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The row's own node stays **`rowHeight`** tall, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*rowHeight + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list, for the same reason `rowHeight` is. Do **not** reach for the old workaround (hand in the pitch as `rowHeight` and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
 | `viewportHeight` | a number **or a `Readable<number>`** — a list that fills a container, or one derived from the viewport rect, hands in a memo and BOTH consumers track it: the painted host box and the windowing arithmetic. A build-time pixel goes stale the moment the device rotates. |
 | `selection` | `"none"` (default) or `"single"`. Activate selects the row from **every** paradigm (tap / Return / ButtonA). `selectedKey` is a Signal; `list.select(key)` / `list.clearSelection()` drive it; `onSelect(item, key)` reports it. Selection **prunes with the data** and survives a re-sort that keeps the row. The selected row also carries the **native `selected` state** on its own hit node (Table parity), so the theme paints it (`controlSelected`) and a cell never has to spend an elevation role saying "chosen". |
 | `reorderable` + `onReorder(key, toIndex)` | rows become draggable. `toIndex` is the **1-based index the row will occupy in the resulting order**; a drop that reproduces the current order emits nothing. Order is owner state: the list renders what it is handed. |
