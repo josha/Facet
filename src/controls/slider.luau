@@ -65,6 +65,11 @@ local READOUT_MIN_WIDTH = "controls.slider.readoutMinWidth"
 -- the next step up instead of inheriting the generic one, because the shape it
 -- has to clear is its own.
 local LABEL_GAP = "m"
+-- the focused thumb's ring weight, as a THEME TOKEN rather than a literal 2:
+-- `stroke.thickness` resolves a string against `style.strokes`, so this is the
+-- one name that reaches the same number the adapter draws its own focus ring at
+-- (see `focusStroke` below for why the slider draws its own at all)
+local FOCUS_RING = "focusRing"
 
 export type Spec = {
 	id: string?,
@@ -266,6 +271,60 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 		return controlContract.enabledIn(use, spec.enabled)
 	end))
 
+	-- THE SLIDER'S OWN FOCUSED STATE (director playtest 2026-08-03). The track
+	-- declares `focusVisual = "none"`, so nothing paints a focused treatment unless
+	-- this control does. The fact comes from the screen's focus graph through the
+	-- contribution's `bindFocusGraph` — the canonical route (constitution §13); a
+	-- consumer never hands a control the graph. Absent (no presenter, a headless
+	-- mount), `focused` simply stays false and the slider paints its resting look.
+	local focusGraph: any = nil
+	-- MAY WE PAINT IT? Handed over with the graph by the presenter (round 6). The
+	-- graph answers "does this control hold focus"; this answers "is a focused
+	-- treatment legal on this surface right now" — hidden after a pointer move, and
+	-- absent entirely while the surface is passive and owns no input. Without it the
+	-- thumb kept its ring after the player clicked the world and the responder had
+	-- already handed the keyboard back. nil (no presenter, a headless mount) reads
+	-- as permitted, so nothing that never had a responder changes.
+	local focusPaintAllowed: any = nil
+	-- DECLARED HERE, ABOVE ITS READER. `syncTrackFocus` closes over `trackPath`,
+	-- and a `local` written further down is not the same variable — the closure
+	-- would resolve a nil GLOBAL and the focus fact would never become true. Same
+	-- trap `newTextInput`'s `idPattern` hit in this stage; it is silent both times,
+	-- because nothing errors, the answer is just permanently false.
+	local trackPath: string? = nil
+	local trackFocused = scope:own(core:signal(false))
+	local function syncTrackFocus()
+		local path = trackPath
+		local holdsFocus = focusGraph ~= nil and path ~= nil and focusGraph.focused:get() == path
+		local mayPaint = focusPaintAllowed == nil or focusPaintAllowed:get() ~= false
+		trackFocused:set(holdsFocus and mayPaint)
+	end
+	-- the ring, as a pulsing PROP rather than a Signal buried inside normalized
+	-- data (the idiom UI.strokeData documents). `accent` is a role, so every theme
+	-- package answers it in its own palette instead of a literal colour landing on
+	-- a parchment thumb.
+	--
+	-- IT MUST BE VISIBLE, WHICH TOOK A SECOND ROUND (director playtest
+	-- 2026-08-03, round 2: "i don't see any visual affordance when the slider's
+	-- focused"). The first version passed `{ color = "accent" }` and nothing else,
+	-- and `normalizeStroke`'s unstated defaults are the theme's HAIRLINE —
+	-- `strokes.hairline` (1px) and `extra.hairlineOpacity` (0.92). So the ring was
+	-- painting correctly and was an accent-tinted hairline at 8% visibility,
+	-- stacked under the thumb's own resting hairline. Measured live on the focused
+	-- thumb: two UIStrokes, both `thick=1 trans=0.92`.
+	--
+	-- The adapter's ring, which this stands in for, is `Thickness =
+	-- extra.focusRingThickness` at `Transparency = 0` (screen_target). So both are
+	-- named here rather than defaulted: a focus ring is not a hairline, and every
+	-- value a focus treatment depends on has to be stated by the thing claiming to
+	-- draw one.
+	local focusStroke = scope:own(core:memo(function(use)
+		if not use(trackFocused) then
+			return nil
+		end
+		return LuauUI.UI.strokeData({ color = "accent", thickness = FOCUS_RING, transparency = 0 })
+	end))
+
 	-- both read the track through `use`, so a solve that resizes the track moves
 	-- the fill and the thumb with it — no value change required
 	local fillWidth = scope:own(core:memo(function(use)
@@ -361,6 +420,16 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 							-- is not a button. The slot hint is now their whole
 							-- paint identity: the package's `Slot — <slot>` rules
 							-- paint them SOLID and no gradient can reach them.
+							-- THE RING GOES ON THE VALUE INDICATOR (director playtest
+							-- 2026-08-03). Focus used to land on the full-width Track
+							-- grip, so the focus ring drew a box around the whole
+							-- slider and told the player nothing about where the value
+							-- is. The thumb IS the value, so it is what takes focus and
+							-- what the ring frames — and it is a themed chrome slot, so
+							-- every package's own focus treatment applies to it rather
+							-- than to a rail-shaped rectangle. The Track keeps the
+							-- pointer story (press anywhere on it to jump the value);
+							-- it is simply no longer the focus stop.
 							chrome_slots.attachHint(
 								UI.Box({
 									id = "Thumb",
@@ -368,6 +437,13 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 									offsetX = thumbOffset,
 									width = { type = "fixed", px = THUMB_SIZE },
 									height = { type = "fixed", px = THUMB_SIZE },
+									-- the focused treatment, on the thing that IS the
+									-- value. A stroke rather than a fill or a size
+									-- change: the thumb keeps its package's own shape
+									-- and paint, and the ring reads against every one
+									-- of them because it uses the theme's focus role
+									-- rather than a literal colour.
+									stroke = focusStroke,
 								}),
 								thumbOverride
 							),
@@ -379,6 +455,14 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 						-- verb (verifier finding V13): Grip has no `enabled` prop, so its
 						-- opt-IN focusability carries the control's enabled state
 						focusable = focusableTrack,
+						-- THE SLIDER PAINTS ITS OWN FOCUSED STATE (director playtest
+						-- 2026-08-03). The adapter's Grip treatment fills the focused
+						-- grip with accent, which is right for a thin resize handle and
+						-- wrong here: this grip is the full width of the control, so
+						-- filling it paints a solid bar over the value the player is
+						-- reading. The focused treatment belongs on the THUMB, which is
+						-- where the value is — see `thumbFocused` below.
+						focusVisual = "none",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 						onPointerDown = function(_path: string, pos: any)
@@ -409,7 +493,6 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 	})
 
 	local rootPath: string? = nil
-	local trackPath: string? = nil
 	local thumbPath: string? = nil
 	local detachDetector: (() -> ())? = nil
 	local nativeDetector = false
@@ -471,6 +554,9 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 			if trackPath ~= nil then
 				trackRect:set(rectOf(trackPath))
 				tryAttachDetector()
+				-- the path is LEARNED here, so the focus fact cannot be resolved
+				-- until it is: re-ask now that we know what to compare against
+				syncTrackFocus()
 			end
 			if thumbPath ~= nil then
 				thumbRect:set(rectOf(thumbPath))
@@ -481,6 +567,20 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 		bindController = function(controller: any)
 			boundController = controller
 			tryAttachDetector()
+		end,
+		-- the canonical route to the screen's focus graph (constitution §13): a
+		-- control is handed it by the PRESENTER, never by its consumer
+		bindFocusGraph = function(graph: any, paintAllowed: any)
+			focusGraph = graph
+			focusPaintAllowed = paintAllowed
+			scope:own(core:observe(graph.focused, syncTrackFocus))
+			-- ...and on the PERMISSION flipping under a standing focus: resigning
+			-- moves no focus, so the focused observer never fires and the ring would
+			-- sit there until something else happened to move it
+			if paintAllowed ~= nil then
+				scope:own(core:observe(paintAllowed, syncTrackFocus))
+			end
+			syncTrackFocus()
 		end,
 		onStart = function(pos: any)
 			beginDrag(if pos ~= nil then pos.x else 0)
@@ -493,10 +593,11 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 
 		-- focus-gated Adjust: keyboard/gamepad get predictable increments rather
 		-- than a mandatory continuous thumbstick (corrections §1)
-		-- NOTE: the presenter hands adjustTargets the SCREEN root, not this
-		-- contribution's node, so the track is found by walking rather than by
-		-- assuming a path shape.
-		adjustTargets = function(screenRoot: any): { [string]: boolean }
+		-- The presenter hands this the control's OWN mounted root (the same node
+		-- `focusGroups` gets). The track is still found by WALKING rather than by
+		-- assuming a path shape, because where the consumer placed this control
+		-- decides the mounted path and guessing it is what breaks silently.
+		adjustTargets = function(ownRoot: any): { [string]: boolean }
 			if trackPath == nil then
 				local function walk(node: any)
 					if node.id == "Track" and node.class == "Grip" then
@@ -510,10 +611,14 @@ function slider.build(LuauUI: any, core: any, spec: Spec)
 					end
 					return false
 				end
-				walk(screenRoot)
+				walk(ownRoot)
 			end
 			return if trackPath ~= nil then { [trackPath] = true } else {}
 		end,
+		-- the value runs LEFT to RIGHT, so Left/Right ARE this control (roadmap
+		-- Step 8): while the track holds focus those arrows decrement/increment and
+		-- Up/Down keep navigating away from the slider.
+		adjustAxis = "horizontal",
 		handleAdjust = function(_path: string, direction: number): boolean
 			return adjust(direction)
 		end,

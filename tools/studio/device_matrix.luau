@@ -28,6 +28,8 @@
 --   row        select + observe + measure, composed into one stamped record
 --   input      drive native input through VirtualInput at live geometry and pair
 --              the raw event with the visible effect
+--   keyboard   drive a SEQUENCE of raw key presses (args.keys) through
+--              VirtualInput and pair each with the semantic action it produced
 --   step       run one scenario step (name in args.step, payload in args.payload)
 --   reset      stop device simulation and restore the session
 --
@@ -816,6 +818,108 @@ local function driveInput(): any
 end
 
 -- ===========================================================================
+-- keyboard: drive a SEQUENCE of raw key presses through VirtualInput and pair
+-- each one with the semantic action, focus, scroll and state it produced
+-- (roadmap Step 8, acceptance row DK-17).
+--
+-- WHY A SEQUENCE AND NOT A PRESS. Every claim in this stage is about what the
+-- Nth press does GIVEN the N-1 before it — Tab, Tab, Shift+Tab lands where it
+-- started; Tab out of an editing field commits and only then advances. A
+-- one-press driver can only ever prove the first of those.
+--
+-- `args.keys` is a list of key specs, each `"Tab"` or `"Shift+Tab"` (any
+-- KeyCode name; the `Shift+` prefix holds LeftShift across the press). The
+-- scenario's `armKeys`/`readKeys` steps bracket the run, so the raw log, the
+-- action log and the focus log all cover exactly these presses and nothing else.
+--
+-- WHAT IT CANNOT PROVE: that a PHYSICAL keyboard delivers the same events. See
+-- the honest-evidence boundary in docs/plans/studio-device-verification.md —
+-- VirtualInput is player-like, not hardware.
+local function driveKeyboard(): any
+	local api = scenarioApi()
+	if api == nil then
+		return { ok = false, reason = "no scenario API" }
+	end
+	local vi = virtualInputProbe()
+	if not vi.usable then
+		return {
+			ok = false,
+			path = "unsupported",
+			virtualInput = { available = vi.available, usable = false, methods = vi.methods, reason = vi.reason },
+			reason = "VirtualInput cannot drive this path; a keyboard row cannot be closed from here",
+		}
+	end
+	local keys = ARGS.keys
+	if type(keys) ~= "table" or #keys == 0 then
+		return { ok = false, reason = "args.keys must be a non-empty list of key specs" }
+	end
+
+	local armed = decode(api.step("armKeys"))
+	local before = armed and armed.result or armed
+
+	local calls: { any } = {}
+	local function sendKey(name: string, pressed: boolean): boolean
+		local keyCode = (Enum.KeyCode :: any)[name]
+		if keyCode == nil then
+			table.insert(calls, { call = name, ok = false, error = `no KeyCode named '{name}'` })
+			return false
+		end
+		local ok, err = pcall(function()
+			(vi.instance :: any):SendKey(pressed, keyCode)
+		end)
+		table.insert(
+			calls,
+			{ call = `SendKey({tostring(pressed)}, {name})`, ok = ok, error = if ok then nil else tostring(err) }
+		)
+		game:GetService("RunService").Heartbeat:Wait()
+		return ok
+	end
+
+	for _, spec in keys do
+		local text = tostring(spec)
+		local modifier, key = string.match(text, "^(%a+)%+(.+)$")
+		if modifier ~= nil then
+			-- "Shift+Tab" — hold the modifier across the whole press so
+			-- UserInputService:IsKeyDown, which is what the presenter reads for
+			-- the traversal direction, sees it at the moment the key goes down
+			local held = if string.lower(modifier) == "shift" then "LeftShift" else modifier
+			sendKey(held, true)
+			sendKey(key, true)
+			sendKey(key, false)
+			sendKey(held, false)
+		else
+			sendKey(text, true)
+			sendKey(text, false)
+		end
+	end
+
+	local read = decode(api.step("readKeys"))
+	local after = read and read.result or read
+	local rawCount = if after ~= nil and type(after.rawInput) == "table" then #after.rawInput else 0
+	local actionCount = if after ~= nil and type(after.actions) == "table" then #after.actions else 0
+	return {
+		ok = rawCount > 0 and actionCount > 0,
+		path = "VirtualInput:SendKey (UserInputService:CreateVirtualInput)",
+		virtualInput = { available = true, usable = true, methods = vi.methods },
+		keys = keys,
+		calls = calls,
+		before = before,
+		after = after,
+		pairing = {
+			rawEvents = rawCount,
+			semanticActions = actionCount,
+			note = "a row is only closed when BOTH are non-empty: raw events prove the press reached the "
+				.. "engine, semantic actions prove it reached the intended verb. Either alone is blind.",
+		},
+		cannotProve = {
+			"that a PHYSICAL keyboard delivers these events — VirtualInput is player-like, not hardware (E4)",
+			"a real mobile operating-system keyboard on a touch device (E4)",
+			"native arbitration against a real avatar control stack outside this place",
+		},
+	}
+end
+
+-- ===========================================================================
 local function stepScenario(): any
 	local api = scenarioApi()
 	if api == nil then
@@ -955,6 +1059,8 @@ local function run(args: any): string
 		return json(stepScenario())
 	elseif mode == "input" then
 		return json(driveInput())
+	elseif mode == "keyboard" then
+		return json(driveKeyboard())
 	elseif mode == "reset" then
 		local result = resetSimulation()
 		local installed = workspace:FindFirstChild("LuauUIMatrixDriver")

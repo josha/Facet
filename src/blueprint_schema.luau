@@ -767,6 +767,35 @@ local FOCUSABLE_OPT_OUT: PropSpec = p({
 	doc = "set false to remove this control from focus order (default: focusable)",
 })
 
+-- LINEAR TRAVERSAL POSITION (Tab / Shift+Tab), as a sort TIER rather than an
+-- absolute index: the key is `(traversalPriority, document position)` and the
+-- default is 0, so within a tier document order always wins and an author who
+-- sets nothing gets the order the screen reads in. Negative pulls a control
+-- toward the front, positive pushes it toward the back — the `tabindex` model,
+-- because that is the one every author already carries.
+--
+-- It does NOT touch the arrows: `navigateDirection` never reads the rank. The
+-- two verbs walk the same SET (constitution §9) and only the reading order
+-- differs (decision packet TDN-2).
+--
+-- CONSTRUCTION-ONLY, deliberately, while `focusable` beside it is reactive
+-- (TDN-3): a traversal position answers what the node IS, not a question about
+-- state, and no shipped control needs to move one at runtime. Binding a Readable
+-- here is an immediate refusal naming the rebuild idiom (§4), never a silently
+-- ignored value. Widening to reactive later is compatible; narrowing would not be.
+-- No `dirty` classes, unlike `focusable` beside it: a dirty class is what a
+-- REACTIVE prop needs so a live change re-runs the affected work, and this one
+-- cannot change without a rebuild. The repository's prop-parity check enforces
+-- that pairing in both directions.
+local TRAVERSAL_PRIORITY: PropSpec = p({
+	types = { "number" },
+	reactive = false,
+	shared = true,
+	channel = "semantic",
+	doc = "linear-traversal sort tier (default 0); sorts by (priority, document position) — "
+		.. "negative traverses earlier, positive later. Tab/Shift+Tab only; the arrows are unaffected",
+})
+
 local function merge(...: { [string]: PropSpec }): { [string]: PropSpec }
 	local out: { [string]: PropSpec } = {}
 	for _, group in { ... } do
@@ -1361,6 +1390,7 @@ class("Button", {
 			doc = "app-state selection — rides a style tag, never a bespoke fill",
 		}),
 		focusable = FOCUSABLE_OPT_OUT,
+		traversalPriority = TRAVERSAL_PRIORITY,
 		surface = CONTAINER_LAYOUT.surface,
 		padding = CONTAINER_LAYOUT.padding,
 		textSize = TEXT_SIZE,
@@ -1425,6 +1455,7 @@ class("Toggle", {
 			doc = "false removes the control from focus and activation",
 		}),
 		focusable = FOCUSABLE_OPT_OUT,
+		traversalPriority = TRAVERSAL_PRIORITY,
 		padding = CONTAINER_LAYOUT.padding,
 		textSize = TEXT_SIZE,
 		onActivate = p({
@@ -1470,6 +1501,7 @@ class("TextField", {
 			doc = "false removes the field from focus and editing",
 		}),
 		focusable = FOCUSABLE_OPT_OUT,
+		traversalPriority = TRAVERSAL_PRIORITY,
 		padding = CONTAINER_LAYOUT.padding,
 		textSize = TEXT_SIZE,
 		maxLength = p({
@@ -1524,6 +1556,23 @@ class("Grip", {
 			dirty = { "navigation" },
 			channel = "semantic",
 			doc = "opt IN to focus order (Grips are unfocusable by default)",
+		}),
+		traversalPriority = TRAVERSAL_PRIORITY,
+		-- WHO DRAWS THE FOCUSED STATE (director playtest 2026-08-03). A focused
+		-- Grip fills with accent, because a thin sliver with a hairline ring read as
+		-- "focus went nowhere" in the 2026-07-20 hand test. That is right for a
+		-- resize handle and wrong for a Slider, whose track is the full width of the
+		-- control: filling it paints a solid bar over the value the player is trying
+		-- to read. `focusVisual = "none"` lets a control that paints its OWN focused
+		-- treatment say so, instead of the adapter and the control both drawing.
+		-- Construction-only: which thing draws the state is what the node IS, not a
+		-- question about state.
+		focusVisual = p({
+			types = { "string" },
+			reactive = false,
+			channel = "semantic",
+			enum = { "default", "none" },
+			doc = '"default" (adapter paints the focused state) | "none" (this control paints its own)',
 		}),
 		onPointerDown = p({
 			types = { "function" },

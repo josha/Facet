@@ -233,6 +233,7 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	enabled: Bound<boolean>?,
 	selected: Bound<boolean>?,
 	focusable: Bound<boolean>?,
+	traversalPriority: number?,
 	surface: Bound<string>?,
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
@@ -244,6 +245,7 @@ export type ToggleSpec = BoxProps & {
 	value: Bound<boolean>?,
 	enabled: Bound<boolean>?,
 	focusable: Bound<boolean>?,
+	traversalPriority: number?,
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
 	onActivate: ((path: string, meta: any?) -> ())?,
@@ -255,6 +257,7 @@ export type TextFieldSpec = BoxProps & {
 	editing: Bound<boolean>?,
 	enabled: Bound<boolean>?,
 	focusable: Bound<boolean>?,
+	traversalPriority: number?,
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
 	maxLength: Bound<number>?,
@@ -267,6 +270,8 @@ export type TextFieldSpec = BoxProps & {
 export type GripSpec = BoxProps & PointerHandlers & {
 	cursorHint: Bound<string>?,
 	focusable: Bound<boolean>?,
+	traversalPriority: number?,
+	focusVisual: string?,
 }
 
 export type PathSpec = BoxProps & {

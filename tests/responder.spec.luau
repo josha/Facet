@@ -164,8 +164,14 @@ describe("responder (b): a tap on the HUD's focusable engages it (first responde
 		expect(h.responder:get()).toBe("engaged")
 		press(system, "Up")
 		expect(g.counters.move).toBe(0) -- nav sunk from gameplay
-		-- Up from b1 wraps to b2 in a two-element flat ring (the HUD owns nav)
-		expect(pres.focus.focused:get()).toBe("/HUD/b2")
+		-- A PASSIVE HUD MOUNTS WITH NO FOCUS (2026-08-03 round 6), so the first
+		-- Navigate ENTERS the ring at b1 rather than stepping from it. The claim
+		-- this case exists for is that the HUD — not the avatar — received the
+		-- press, which the `move == 0` above already pins; the second press keeps
+		-- the "it really steps" half honest.
+		expect(pres.focus.focused:get()).toBe("/HUD/b1")
+		press(system, "Up")
+		expect(pres.focus.focused:get()).toBe("/HUD/b2") -- wraps up in a two-element ring
 	end)
 end)
 
@@ -318,7 +324,10 @@ describe("responder (g): engage/resign churn is leak-free and registry-neutral",
 		-- idempotent: a redundant engage/resign is a no-op, no double-registration
 		h.engage()
 		h.engage()
-		-- a single Up moves focus exactly once (no duplicate nav delivery)
+		-- a single Up moves focus exactly ONCE (no duplicate nav delivery). Focus is
+		-- standing on b1 from the cycles above, so one press is one step to b2 — if
+		-- the doubled engage had registered twice this would land back on b1.
+		pres.focus.focusOn("/HUD/b1")
 		press(system, "Up")
 		expect(pres.focus.focused:get()).toBe("/HUD/b2") -- one step (wrap up)
 		h.resign()

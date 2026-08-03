@@ -277,6 +277,7 @@ local registry: { Entry } = {
 			keyboard = {
 				"focused field + Activate (Return) enters editing",
 				"Enter commits, editing ends, and navigation works again (probe fires post-edit)",
+				"Tab commits through the field's own path and only THEN advances focus",
 			},
 			gamepad = {
 				"ButtonA enters editing; D-pad does not navigate; ButtonB cancels reverting to the snapshot",
@@ -294,7 +295,14 @@ local registry: { Entry } = {
 		affordanceProofs = {
 			pointer = { "tapping the field enters editing (the control-owned handshake)" },
 			touch = { "a touch tap enters editing and the occlusion keep-visible engages (touch story end to end)" },
-			keyboard = { "Enter commits, editing ends, and navigation works again (probe fires post-edit)" },
+			-- keyboard PARADIGM: while editing, typing wins — Space types, the
+			-- arrows stay with the field's sinking context, and Tab is the
+			-- documented way OUT (commit through validation, then advance)
+			keyboard = {
+				"Enter commits, editing ends, and navigation works again (probe fires post-edit)",
+				"Space does not activate anything while the field is editing",
+				"the arrows stay with the field's own sinking context while editing",
+			},
 			gamepad = { "ButtonA enters editing; D-pad does not navigate; ButtonB cancels reverting to the snapshot" },
 			hotSwitch = {
 				"a gamepad arriving mid-edit CARRIES the edit (editing stays, text intact)",
@@ -420,7 +428,10 @@ local registry: { Entry } = {
 		inputProofs = {
 			pointer = { "pointer: tap-to-position jumps to the tapped fraction" },
 			touch = { "touch: a touch-typed drag drives it identically" },
-			keyboard = { "keyboard: Adjust steps predictably rather than requiring a drag" },
+			keyboard = {
+				"keyboard: Adjust steps predictably rather than requiring a drag",
+				"Left/Right adjust a focused horizontal Slider on a GROUPED screen",
+			},
 			gamepad = { "gamepad: the bumpers Adjust the focused slider" },
 		},
 		-- PARADIGM: pointer = direct drag on the track (native UIDragDetector, with
@@ -455,7 +466,11 @@ local registry: { Entry } = {
 		inputProofs = {
 			pointer = { "pointer: tapping plus and minus steps the owner's value" },
 			touch = { "touch: a finger tap on + steps it identically" },
-			keyboard = { "keyboard: Adjust on the focused control steps without touching a button" },
+			keyboard = {
+				"keyboard: Adjust on the focused control steps without touching a button",
+				"Space on the focused button steps the value, in both directions",
+				"the axis-independent Adjust keys still reach the same arithmetic",
+			},
 			gamepad = { "gamepad: ButtonA on the focused + activates, and the bumpers Adjust" },
 		},
 		-- PARADIGM: pointer = discrete press affordances (no drag); touch = the
@@ -597,7 +612,11 @@ local registry: { Entry } = {
 		inputProofs = {
 			pointer = { "pointer tap activates the Button through its onActivate prop" },
 			touch = { "Button touch: a finger tap activates through the auto dispatch" },
-			keyboard = { "keyboard Return activates the focused Button" },
+			keyboard = {
+				"keyboard Return activates the focused Button",
+				"Space activates the focused control exactly once",
+				"Tab and Shift+Tab move the focus ring through a plain form",
+			},
 			gamepad = { "gamepad ButtonA activates the focused Button" },
 		},
 		-- PARADIGM axis (matrix §B-Button). pointer = the free hover PREVIEW
@@ -612,7 +631,14 @@ local registry: { Entry } = {
 				"the default style defines a hover role distinct from the control rest fill",
 			},
 			touch = { "Button touch: a finger tap activates through the auto dispatch" },
-			keyboard = { "keyboard Return activates the focused Button" },
+			-- keyboard PARADIGM (roadmap Step 8): the desktop shape is the focus
+			-- CHAIN — Tab/Shift+Tab walk it, Space activates like Return, and both
+			-- keys exist only while a keyboard is live and the responder is engaged
+			keyboard = {
+				"keyboard Return activates the focused Button",
+				"Tab and Shift+Tab move the focus ring through a plain form",
+				"a PASSIVE HUD binds no Tab and no Space: gameplay is untouched",
+			},
 			gamepad = {
 				"gamepad ButtonA activates the focused Button",
 				"focus visuals differ between a Large display and a Medium display",

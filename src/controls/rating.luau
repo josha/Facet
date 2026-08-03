@@ -332,7 +332,9 @@ function rating.build(LuauUI: any, core: any, spec: Spec)
 	local built = contribution.attach(root, {
 		-- focus-gated Adjust (ADR-0013): the strip is the adjust target, so
 		-- keyboard Comma/Period and gamepad L1/R1 reach the same arithmetic while
-		-- focus sits on this control — and are UNBOUND otherwise.
+		-- focus sits on this control — and are UNBOUND otherwise. `rootNode` is
+		-- THIS CONTROL's mounted root (see the same note on newStepper): handed
+		-- the screen root, "every Grip below here" claimed the whole screen.
 		adjustTargets = function(rootNode: any): { [string]: boolean }
 			rootPath = rootNode.path
 			local out: { [string]: boolean } = {}
@@ -350,6 +352,9 @@ function rating.build(LuauUI: any, core: any, spec: Spec)
 			walk(rootNode)
 			return out
 		end,
+		-- the strip runs left to right, so Left/Right ARE the rating (roadmap
+		-- Step 8); Up/Down keep navigating away from it.
+		adjustAxis = "horizontal",
 		handleAdjust = function(_path: string, direction: number): boolean
 			return apply(value:get() + direction)
 		end,

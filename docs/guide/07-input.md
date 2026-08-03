@@ -79,6 +79,101 @@ Text fields raise a sinking text-entry context while editing so typing is never
 navigation, and publish a keep-visible offset when the on-screen keyboard would
 occlude them. You choose none of this per consumer; it ships with the control.
 
+### 7.2.1 The desktop keyboard conventions
+
+*What you have to do: nothing. No screen binds a key.*
+
+When a **keyboard is live** and one of your surfaces **owns UI input**, three
+conventions a desktop player already has in their fingers come with the surface:
+
+**Tab and Shift+Tab walk the focus chain.** Forward and back through everything
+focusable on the active surface, in the order it is mounted — the same order the
+arrows walk, read linearly instead of directionally. The difference matters in one
+place: a *contained* group (a `Grid` row, a `Table`'s header) exists so the arrows
+cannot wander out of it sideways, and Tab's whole job is to leave, so it does.
+Everything the arrows skip, Tab skips — a hidden node, a disabled control, a
+losing `ViewThatFits` candidate, a row that has just become ineligible — because
+it is one focus map, not two. A modal traps Tab and gives focus back on dismiss.
+A control that scrolls into view for the arrows scrolls into view for Tab.
+
+Whether Tab **wraps** at the ends is the surface's call, not a control's:
+`present(screen, { traversalWrap = false })` makes the end of the chain feel like
+an end. The default wraps.
+
+**Space activates, like Return.** Same verb, same once-per-press guarantee, same
+disabled-control gate. In a game with an avatar this is exactly where the
+responder chain earns its keep — and *which* surface mode you chose decides what
+Space does:
+
+| Surface | Space |
+|---|---|
+| `responder = "passive"` HUD, not engaged | **not bound at all** — the jump key is the player's |
+| engaged-from-passive, or a modal | bound inside a **sinking** context above the gameplay band: the focused control activates and the avatar does **not** jump |
+| a plain `present()` screen (engaged-open, **non-sinking**, priority 1500) | bound, and it does not sink — so what happens depends on what is underneath (below) |
+
+That last row is the one to plan for, and it is better behaved than it looks.
+Measured live against a real gameplay stack:
+
+- with the **doc-sanctioned gameplay band** underneath — a game `InputContext` at
+  priority **2000 with `Sink`**, which is what a real game uses — the game wins
+  outright: Space reaches the game action and the UI **does not** activate. A
+  plain screen sits at 1500, so anything above it that sinks takes the key first.
+- with only the **non-sinking** default character contexts underneath, **both**
+  fire: the focused control activates *and* the avatar jumps.
+
+> **The avatar does not sit at 2000.** 2000 is the priority Roblox *recommends a
+> game use for its own sink*. The shipped `PlayerModule`'s own contexts, measured
+> 2026-08-03, are **Camera 100, Character 150, Vehicle 200, Transformer 300** —
+> an earlier version of this guide said 1000, which was simply wrong. Nothing in
+> LuauUI's behavior turns on it (a plain screen is 1500 and an engaged one 3000,
+> which clear all four regardless), but do not size a context against the old
+> number.
+
+So a plain screen only shares Space with things that were not claiming it firmly
+in the first place — exactly how its arrows have always behaved. If your screen
+sits over gameplay and you want a definite answer, present it `passive` (and
+engage it), or pass `sinkNavigation = true` to take the key, or declare
+`{ gameplayGuard = false }` to leave it alone — which binds neither Activate nor
+the guard. Rascal Rally's results screen does the last of those, because it binds
+Space itself for the celebration skip.
+
+**The arrows adjust a focused value control.** Focus a `Slider`, a `Stepper` or a
+`Rating` and Left/Right move its value — on any screen, including a grouped one
+where Left/Right otherwise navigate. The control declares which axis is *its*
+(`adjustAxis`), so the other axis still navigates and focus can always leave.
+Comma/period and the shoulder buttons keep working as they did. A control that
+declares no axis — `Table`, whose resizable headers are navigation stops and
+adjust targets at once — keeps its own model (Activate selects the column, then
+the arrows resize it, Cancel releases).
+
+**Typing wins while a field is being edited.** Space types a space and the arrows
+move the caret — neither activates anything and neither moves the focus ring.
+
+Tab means *"I'm done here"*: the field commits through its normal validation path
+first, and only then does focus move on. **On today's Roblox engine that last
+sentence describes the framework, not the observed result.** While a `TextBox`
+holds keyboard focus the engine marks keyboard input `gameProcessed` and fires no
+developer Input Action binding at all, so Tab inside a focused field currently does
+*nothing*: it does not type a tab character, does not bypass validation, and does
+not advance — measured live, recorded in
+`artifacts/desktop-keyboard-navigation/decisions.md` (DKN-2). Commit with `Return`
+and then Tab. The commit-then-advance behavior engages with no code change the day
+the engine delivers the key.
+
+None of this appears on a device with no keyboard, and all of it appears when one
+becomes available — the framework reads the live capability set
+(`interactionClasses.keyboard`), never a device name, so a tablet with a keyboard
+case behaves like a desktop while touch keeps working. The bindings are created
+and destroyed as that fact changes, so nothing is left sinking behind a keyboard
+that went away.
+
+One honest caveat about *when* the fact changes: it is fed by
+`UserInputService.KeyboardEnabled`, which describes the device class rather than a
+plug event, and Roblox publishes no keyboard-connected signal to observe. The
+framework's response to the fact changing is proven; whether a mid-session USB
+plug on a real client moves that fact at all is a physical row
+(`artifacts/desktop-keyboard-navigation/review-packet.md`, DK-P2).
+
 ### The paradigm axis: not just *reachable*, but the right *shape*
 
 *What you have to do: nothing. Read this to understand why the same control
@@ -120,8 +215,10 @@ That is why nothing disappears when a player picks up a controller mid-session.
   long-press — never a naked pan. Text focus summons the on-screen keyboard and
   the field publishes a keep-visible offset so it is never occluded.
 - **keyboard** — a visible **focus ring**; **Navigate** (arrows) moves it,
-  **Activate** (Return) fires, **Adjust** (arrows, or comma/period) increments a
-  focused value. (`Escape` is engine-reserved — never a Cancel key; see §7.4.)
+  **Tab**/**Shift+Tab** walk the whole focus chain, **Activate** (Return *or*
+  Space) fires, **Adjust** (the focused control's own arrows, or comma/period)
+  increments a focused value. (`Escape` is engine-reserved — never a Cancel key;
+  see §7.4.) The desktop conventions are §7.2.1 below.
 - **gamepad** — focus + select: **Activate → ButtonA** (PlayStation Cross),
   **Cancel → ButtonB** (Circle); reorder is **grab mode**; **Adjust** is
   focus-then-directional (D-pad L/R or L1/R1). Directional moves derive from
@@ -233,7 +330,8 @@ navigated — presents as:
 local hud = pres.present(speedoScreen, { responder = "passive" })
 ```
 
-Its navigation context exists but is **disabled**: `Space`, `ButtonA`, arrows,
+Its navigation context exists but is **disabled**, and while it is passive the
+surface binds no keyboard keys at all: `Tab`, `Space`, `ButtonA`, arrows,
 everything reaches the avatar untouched. Having the HUD on screen costs the
 player nothing.
 
@@ -241,8 +339,10 @@ player nothing.
 — or you call `hud.engage()` — the surface enables its context in the engaged
 band (priority 3000, strictly above the doc-sanctioned gameplay band at 2000)
 with Sink on. Now the UI answers first: arrows move its focus instead of the
-character, `ButtonA`/`Return` activate instead of jumping, and a no-op guard
-catches `Space` so the avatar doesn't jump under the UI. `hud.responder` reads
+character, `Tab` walks the focus chain, and `ButtonA`/`Return`/`Space` activate
+instead of jumping — with a keyboard live `Space` *is* the Activate binding, so the
+same binding that fires the focused control sinks the jump; with no keyboard it
+falls back to the no-op guard that has always caught it. `hud.responder` reads
 `"engaged"`. The surface resigns — restoring avatar input exactly — on Cancel
 (`ButtonB`), an outside tap, or `hud.resign()`.
 
@@ -291,6 +391,41 @@ uses the responder chain (§7.3). Full details:
 
 **Do not script `GuiService.CoreGuiNavigationEnabled`.** The CoreScripts
 re-enable it, and it was never the cause of dead A-presses anyway.
+
+**Tab is the players-list shortcut, and the players list wins.** Roblox's own
+documentation files `Tab` under inputs that are *"reserved unless you disable the
+respective feature"* — the feature being the CoreGui **players list** (the
+leaderboard) — and documents exactly one remedy:
+
+```lua
+game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+```
+
+No `InputContext` priority is documented to outrank CoreGui, so while the players
+list is enabled (the default) assume `Tab` does not reach LuauUI's traversal
+action. Tab is deliberately *not* in Roblox's hard-reserved set
+(`Esc`/`F9`/`F11`/`F12`/`PrintScreen`), which is why LuauUI binds it rather than
+refusing to — a UI-only place, a menu shell, or any game that has already turned
+its leaderboard off gets the desktop convention for free. Everything else in
+§7.2.1 — Space activation, the focused-value arrows, the scroll-into-view, the
+modal trap — is unaffected either way, because none of those keys are contended.
+
+LuauUI never disables your leaderboard for you. It gives you the same kind of
+probe it gives you for gamepad `ButtonA`, so the loss is visible instead of
+silent:
+
+```lua
+local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention)
+if gamepad_contention.traversalKeyContended() then
+    warn("Tab traversal is contended by the CoreGui players list; ",
+        gamepad_contention.describeContention())
+end
+```
+
+Roblox's own keyboard UI navigation is a separate, coexisting feature:
+**Backslash** enters UI-selection mode, then the arrows/WASD move and Enter
+activates. LuauUI's arrows and Return do the same job inside a LuauUI surface,
+and neither disables the other.
 
 **`Escape` is engine-reserved.** It is permanently bound to the Roblox menu and
 cannot be rebound, so there is no keyboard Cancel key; the sanctioned keyboard

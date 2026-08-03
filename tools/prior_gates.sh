@@ -98,26 +98,42 @@ settle() {
 		sleep 3
 		waited=$((waited + 3))
 	done
+	settled_load="$load"
 	echo "prior_gates: load did not settle within ${PRIOR_GATES_SETTLE_MAX:-45}s (load $load) — continuing anyway" >&2
+}
+
+# CURRENT 1-MINUTE LOAD, for the record line below.
+current_load() {
+	uptime | sed 's/.*load averages*: *//' | awk '{print $1}' | tr -d ','
 }
 
 # See RECURSION GUARD in the header. Exported here rather than per-invocation so
 # it reaches tools/gate.sh -> lune -> the check's own `bash -c`.
 export LUAUUI_PRIOR_GATES_NESTED=1
 
+# MEASUREMENT CONDITIONS, ON THE ARTIFACT (phase-gate PG-11, 2026-08-03). A
+# contended sweep and a clean one used to produce identically-shaped files, so a
+# red roll-up could not be told from a slow machine without re-running it by hand
+# — which is exactly the diagnosis Step 8 had to do for `input-paradigms` (passes
+# standalone, failed inside a sweep running against two other sweeps, a Studio
+# session and three agents). Recording the settle policy and the load each gate
+# actually started at makes a suspicious FAIL self-diagnosing.
+echo "# settle: max=${PRIOR_GATES_SETTLE_MAX:-45}s threshold=${PRIOR_GATES_SETTLE_LOAD:-2} (1-min load average)" >"$tmp"
+
 for g in "${gates[@]}"; do
 	settle
+	started_at_load="$(current_load)"
 	log="$(tools/gate.sh "$g" 2>&1)"
 	code=$?
 	if [ "$code" -eq 0 ]; then
 		echo "PASS $g"
 	else
-		echo "FAIL $g (exit $code)"
+		echo "FAIL $g (exit $code) [load at start: $started_at_load]"
 	fi
 	# carry the non-PASS rows through for diagnosis; they are informational and
 	# the gate check only ever compares the `^PASS ` lines
 	echo "$log" | grep -E "^  (FAIL|PENDING|SKIP)" | sed 's/^/    /' || true
-done >"$tmp"
+done >>"$tmp"
 
 echo "DONE" >>"$tmp"
 mv "$tmp" "$out"

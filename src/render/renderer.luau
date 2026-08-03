@@ -2484,6 +2484,19 @@ function renderer.attach(
 		if bridgeEngaged and adapter.setEngineSelection ~= nil then
 			adapter.setEngineSelection(if path ~= nil then handles[path] else nil)
 		end
+		-- A CONTROL THAT PAINTS ITS OWN FOCUSED STATE GETS NO SECOND ONE (director
+		-- playtest 2026-08-03). `focusVisual = "none"` is declared on the NODE, so
+		-- the decision is made here, where the node is known — the adapter's
+		-- `setFocusVisual` handle carries no props and could not see it, and a check
+		-- there would have been accepted-and-ignored, which is the one thing a
+		-- declared prop may never be.
+		local function paintsOwnFocus(p: string?): boolean
+			if p == nil then
+				return false
+			end
+			local node = findNode(p)
+			return node ~= nil and node.props ~= nil and node.props.focusVisual == "none"
+		end
 		if adapter.setFocusVisual ~= nil then
 			-- ten-foot focus strengthening (UI-PARADIGM-003, matrix D.4): the
 			-- distance profile rides the focus write so the adapter can render an
@@ -2491,10 +2504,10 @@ function renderer.attach(
 			-- near display keeps the hairline ring. Third arg is optional —
 			-- older adapters ignore it and stay byte-identical.
 			local profile = env:get("distanceProfile"):get()
-			if focusedPath ~= nil and handles[focusedPath] ~= nil then
+			if focusedPath ~= nil and handles[focusedPath] ~= nil and not paintsOwnFocus(focusedPath) then
 				adapter.setFocusVisual(handles[focusedPath], false, profile)
 			end
-			if wantRing and path ~= nil and handles[path] ~= nil then
+			if wantRing and path ~= nil and handles[path] ~= nil and not paintsOwnFocus(path) then
 				adapter.setFocusVisual(handles[path], true, profile)
 			end
 		end

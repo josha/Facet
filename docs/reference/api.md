@@ -256,6 +256,7 @@ Three groups recur in the column below and are worth naming once:
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme. A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. Either form is scaled at both seams |
 | `textAlign` | `Text` | horizontal alignment of the node's own text in its box (`start` \| `center` \| `end`); default `start`. Vertical alignment stays adapter-owned and is always centred, because the headless measurer over-reserves and centring splits that error evenly |
 | `focusable` | `Button`, `Toggle`, `TextField` (opt **out**), `Grip` (opt **in**) | membership in focus order |
+| `traversalPriority` | `Button`, `Toggle`, `TextField`, `Grip` | linear-traversal (Tab/Shift+Tab) sort **tier**, default `0`. The sort key is `(traversalPriority, document position)`, so a negative value traverses earlier and a positive one later, and **within a tier document order always wins** — the `tabindex` model. Affects Tab only; the directional arrows never read it. Construction-only: a traversal position is what a node *is*, so binding a Readable here is refused with the rebuild idiom |
 | `onActivate` | `Button`, `Toggle` | `onActivate(path, meta)` — the presenter auto-dispatches tap / Return / ButtonA to it (ADR-0013) |
 
 **Theme metric names.** Anywhere the table above accepts a theme-owned number
@@ -1040,11 +1041,21 @@ than its plate) must live OUTSIDE that container, exactly as a shadow does.
 
 ### `Grip`
 
-`UI.Grip{ id?, cursorHint?, focusable?, onPointerDown?, onPointerMove?,
-onPointerUp?, onPointerCancel? }` — non-button pointer zone with capture-based
-drag routing (used by Table column resize). Opt-in focusable for gamepad
-reachability, where the focus-gated `Adjust` verb replaces the drag (a virtual
-cursor cannot see a `MouseIcon` hint). Handlers receive `(path, pos, rectOf)`;
+`UI.Grip{ id?, cursorHint?, focusable?, focusVisual?, onPointerDown?,
+onPointerMove?, onPointerUp?, onPointerCancel? }` — non-button pointer zone with
+capture-based drag routing (used by Table column resize). Opt-in focusable for
+gamepad reachability, where the focus-gated `Adjust` verb replaces the drag (a
+virtual cursor cannot see a `MouseIcon` hint).
+
+**`focusVisual`** (construction-only) is `"default"` or `"none"`, and it answers
+*who draws the focused state*. A focused Grip fills with the accent colour,
+because a thin sliver wearing a hairline ring read as "focus went nowhere" in the
+2026-07-20 hand test. That is right for a resize handle and wrong for a control
+whose grip spans its whole width: `newSlider`'s track is exactly that, and filling
+it paints a solid bar over the value the player is trying to read. `"none"` says
+this control paints its own focused treatment, so the adapter paints none — the
+decision is made in the renderer, where the node is visible, and a control that
+declares it owes a focused treatment of its own. Handlers receive `(path, pos, rectOf)`;
 `onPointerDown` may return `false` to decline the capture so a sibling zone
 under the same point can take it, and `onPointerCancel(path, reason)` may
 return `true` to keep a capture alive when its origin node unmounts mid-drag.
@@ -1553,8 +1564,24 @@ scrubs against layout space (ESC-2 residual, tracked in
 
 `LuauUI.newPresenter(core, env, adapter, actionSystem, opts?) -> Presenter` —
 owns screen/modal lifetimes, focus scopes, and input contexts. `opts` is
-`{ clock?, now? }`: pass `clock` to share one motion clock with the rest of the
-application, `now` to inject time.
+`{ clock?, now?, keyboardNavigation? }`: pass `clock` to share one motion clock
+with the rest of the application, `now` to inject time.
+
+**`keyboardNavigation`** (default **`false`**) opts this presenter's surfaces into
+the desktop keyboard conventions: **Tab / Shift+Tab** traverse the focus chain and
+**Space** joins Return as Activate. It is **off by default because the keys it
+claims are keys an avatar is already using** — with it implicitly on, Space jumped
+the character while the UI held focus (director playtest 2026-08-03). Turn it on
+for a UI-driven place or a keyboard-first surface; leave it off for a HUD over
+live gameplay.
+
+Even when on, the bindings exist only while **keyboard capability is live** and
+the surface's **responder is engaged**, so a phone binds nothing and a passive HUD
+binds nothing until it engages. All three conditions are reactive: a keyboard
+plugged in mid-session adds real bindings and unplugging removes them, with no
+dead sink left behind.
+
+Per-surface override: `present(bp, { keyboardNavigation = … })`, below.
 
 **Session lifetime, stated.** A presenter is built **once per client session**
 and has **no `dispose()`**. It owns a feedback bus, a focus graph, a motion clock
@@ -1654,12 +1681,14 @@ Methods:
   scrim/catcher beneath the top exclusive surface, or nil when none is up (see
   Modal outside-tap dismissal below). Handle fields: `.root`, `.controller`,
   `.blueprint`, `.actions`, `.displayOrder` (cross-surface z),
-  `.responder` (a `Readable<"passive" | "engaged">`), `.engage()`, `.resign()`.
+  `.responder` (a `Readable<"passive" | "engaged">`), `.engage()`, `.resign()`,
+  `.focusOrder()` (the focus-map inspection dump, below).
 
 Options: `onActivate(path, meta)`, `onAdjust`, `onFocusNav`, `onReorderNav`,
 `onNavigateIntercept`, `navigationGroups`, `onGeometry`, `keepVisibleOffset`,
 `sinkNavigation`, `responder`, `gameplayGuard`, `rootPolicy`, `outsideTapCancel`,
-`cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`.
+`cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`,
+`traversalWrap`, `keyboardNavigation`, `initialFocus`.
 The four string-enum opts — `rootPolicy`, `responder`, `cancelPolicy`, `scrim` —
 are validated at present time and an unknown value errors naming the legal set.
 
@@ -1667,6 +1696,125 @@ are validated at present time and an unknown value errors naming the legal set.
 screen exists precisely so navigation reaches the gameplay contexts beneath it,
 so it never sinks while passive whatever this opt says; engagement is what turns
 sinking on. Set it on an ordinary `present()` (a modal always sinks).
+
+**`traversalWrap`** (default `true`) declares whether **Tab / Shift+Tab** wrap at
+the ends of this surface's focus scope. It is declared per surface and never by a
+control, so one screen has one answer wherever the ring is standing. `true` is the
+default because it matches the ring the arrows have always walked and because a
+modal has nowhere else for Tab to go; set `false` where running off the end should
+read as an end. It governs Tab only — a `NavigationGroup`'s own `wrap` still
+governs the directional arrows along that group's axis.
+
+**`keyboardNavigation`** overrides the presenter default (see `newPresenter`) for
+this one surface: `true` gives a keyboard-driven modal Tab and Space over a
+gameplay HUD that does not want them, `false` keeps one HUD out of the way on a
+keyboard-navigable presenter. The capability and responder conditions still
+apply.
+
+> **If your surface sits over a live world, pair it with `responder = "passive"`.**
+> `keyboardNavigation = true` makes an ordinary `present()` screen **sink** — it has
+> to, or the avatar hears Space and the arrows while the UI has focus. But an
+> ordinary screen is *engaged-open*: it is never the exclusive surface, so it is
+> never given an outside-tap catcher, and `resign()` is a no-op for it. The result
+> is a surface that takes the keyboard when it mounts and **never gives it back**.
+>
+> That is correct for a full-screen menu, where there is nothing else to click. It
+> is wrong for anything with a world behind it. `responder = "passive"` is the
+> click-to-focus / click-away-to-blur convention and is what you want there:
+>
+> ```lua
+> presenter.present(hud, { keyboardNavigation = true, responder = "passive" })
+> ```
+>
+> | | binds Tab/Space | sinks | gives it back |
+> |---|---|---|---|
+> | `present()` (engaged-open) | on mount, forever | yes | **no** |
+> | `responder = "passive"` | on first tap on the UI | while engaged | on a tap outside, Cancel, or `resign()` |
+> | `presentModal()` | while open | yes | on dismiss |
+
+### `handle.focusOrder()`
+
+Returns this surface's focus map **as data**, for debugging and for tests. Frozen,
+and deterministic — two calls with nothing changed in between return equal data.
+
+```lua
+{
+  schema = "luauui-focus-order/1",
+  scope = "SettingsScreen",
+  present = true,          -- false after the surface is dismissed/disposed
+  trap = false,            -- is this a trapping (modal) scope?
+  traversalWrap = true,
+  ranked = true,           -- false when you supplied `navigationGroups` yourself
+  traversal = {            -- the LINEAR (Tab / Shift+Tab) reading, in order
+    { path = "/S/Name", priority = 0, eligible = true },
+    { path = "/S/Volume/TrackHost/Track", priority = 0, eligible = true },
+  },
+  navigation = {           -- the DIRECTIONAL (arrow) reading
+    { name = "auto-v-1", axis = "vertical", order = { "/S/Name" } },
+    { name = "auto-grips", axis = "vertical", order = { "/S/Volume/TrackHost/Track" } },
+  },
+}
+```
+
+**The two lists are meant to differ, and meant to cover the same set.** A focusable
+`Grip` — a Slider's track, a Rating's strip — traverses in its
+**document position** and arrows to the **end**, because Tab means document order
+while arrowing down a table should reach rows before handles. Seeing both readings
+at once is the point: if a control is in one list and not the other, that is a bug
+in the framework, not in your screen. A flat scope reports its single ring as a
+group named `(flat)`.
+
+**What is absent versus what is ineligible.** A node excluded upstream — hidden,
+`enabled = false`, `focusable = false`, mid-exit-transition, or a losing
+`ViewThatFits` candidate — never reaches the focus graph and does not appear here
+at all; its absence is the answer to "why does Tab skip it". `eligible = false`
+means something narrower: the node is in the map, and a live focus-skip predicate
+is refusing it *right now*.
+
+`priority` is the **authored** `traversalPriority` tier, not the resolved position
+— the resolved position is the entry's index in `traversal`.
+
+Safe to call after the surface is gone: a dismissed or disposed surface returns
+`present = false` with empty lists rather than throwing, so a debug overlay that
+outlives what it inspects cannot crash the client.
+
+**`initialFocus`** decides where focus is when the surface appears.
+
+| Value | Focus on mount |
+|---|---|
+| absent, on an engaged-open screen or a modal | the first focusable in traversal order |
+| absent, on `responder = "passive"` | **nothing** — a surface that owns no input until it is touched claims no focus either |
+| `"first"` | the first focusable, explicitly |
+| `"none"` | **nothing.** Focus arrives on the first Tab, tap, or `engage()` |
+| a node id (`"Save"`) | that control |
+| `{ id = "Save" }` | that control, said unambiguously |
+
+An id is matched by its **final path segment or full path**, so `"Save"` finds
+`/Settings/Actions/Save` without you knowing the tree above it. An id that names no
+focusable on the surface is **refused at present time**, listing what is available —
+a typo'd control name must not silently become "first".
+
+`"first"` and `"none"` are reserved words. If your surface genuinely contains a
+focusable with one of those ids, `initialFocus = "first"` is ambiguous and is
+**refused**; use the `{ id = … }` form to mean the control.
+
+`"none"` is a standing property, not a one-shot: a surface that asked for no initial
+focus is not given one by later structural churn either. Once focus does land there,
+it behaves like any other scope — including keeping the nearest survivor when a
+focused node unmounts.
+
+> **A control that paints its own focused state follows the same rule.** A `Slider`
+> declares `focusVisual = "none"` and draws its own thumb ring; the presenter hands
+> it the same permission the adapter's ring obeys (through `bindFocusGraph`), so it
+> releases that ring when the surface resigns. Focus **identity** is deliberately
+> kept — keep-visible, the drag aim and the selection bridge all follow it, and
+> re-engaging resumes where the player left off. Only the paint goes.
+
+> **Focus is released when the surface goes away.** `dismiss()` (and Cancel, and an
+> outside tap on a modal) pops the focus scope, destroys the input context, and
+> clears the surface's focus ring **immediately** — including while an exit
+> transition is still playing, when the tree is still mounted. A surface on its way
+> out neither takes input nor looks like it does.
 
 **`rootPolicy`** resolves the surface's content rect from the viewport and the
 safe insets: `coreSafeContent` (the default — inset by the CoreGui reservation),
@@ -1834,11 +1982,91 @@ gains two options for real avatar games running the IAS player-script stack:
   with `Sink` — when the player taps one of its focusables or you call
   `handle.engage()`. It drops back to passive on Cancel (gamepad B), an outside
   tap, or `handle.resign()`. `handle.responder` reads `"passive"`/`"engaged"`.
-- `gameplayGuard` (default `true`) — an engaged-exclusive surface (a modal, or a
-  passive surface once engaged) also binds `Space` (keyboard jump) to a no-op
-  `GameplayGuard` action so jump is sunk while it is first responder (`ButtonA`
-  is already sunk via Activate, arrows/D-pad via Navigate). Set `false` for a
-  surface that wants `Space` (a word-game modal). WASD is not sunk in v1.
+- `gameplayGuard` (default `true`) — governs who owns `Space` while this surface
+  is first responder. With a keyboard live, `Space` is bound to **Activate** in
+  the surface's own context; with no keyboard capability it falls back to a no-op
+  `GameplayGuard` action. **Whether that also takes the key from the game depends
+  on whether this surface sinks**, and the two cases were measured live:
+  · an **engaged-exclusive** surface (a modal, or a passive surface once engaged)
+    sinks, so the focused control activates and the avatar's jump is sunk by the
+    same binding;
+  · a **plain `present()`** screen does not sink and sits at priority 1500, so a
+    game context above it that sinks (the doc-sanctioned 2000 band) takes `Space`
+    first and this surface's Activate never fires — while a bare non-sinking
+    context below it shares the press instead.
+  Set `false` for a surface that wants `Space` to reach the game: it then binds
+  neither Activate nor the guard. `ButtonA` is already sunk via Activate and
+  arrows/D-pad via Navigate. Set `false` for a surface that wants `Space` to
+  reach the game (a word-game modal): it then binds neither the guard nor the
+  Activate key. WASD is not sunk in v1.
+
+### Desktop keyboard conventions
+
+With **keyboard capability live** (`env` `interactionClasses.keyboard`) and this
+surface's responder **engaged**, the presenter binds two more keys, and removes
+them again the moment either condition stops holding — so a phone with no keyboard
+binds neither, a tablet that gains one starts behaving like a desktop with no
+device branch anywhere, and a `responder = "passive"` HUD binds nothing at all
+until `engage()`:
+
+- **`Tab` / `Shift+Tab`** drive a `Traverse` action that walks the active focus
+  scope linearly. **Platform limit:** Roblox documents `Tab` as reserved while the
+  CoreGui **players list** is enabled (the default), and no `InputContext`
+  priority is documented to outrank CoreGui — so assume the binding is inert
+  until the consuming place runs
+  `StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)`. It is bound
+  rather than refused because Tab is *not* in Roblox's hard-reserved set
+  (`Esc`/`F9`/`F11`/`F12`/`PrintScreen`), so a UI-only place gets the convention
+  for free. `gamepad_contention.traversalKeyContended()` probes the condition;
+  LuauUI never disables a consumer's leaderboard. Everything else here — Space,
+  the focused-value arrows, keep-visible, the modal trap — is uncontended.
+
+  Traversal is a *second reading* of the same mounted focus graph the arrows
+  walk, never a second focus system. Order is the scope's own order (a flat
+  scope's `focusOrder`, or every navigation group's order concatenated in group
+  order); hidden, disabled, non-focusable, retiring and losing-adaptive nodes are
+  skipped because they never entered the graph, and live focus-skip predicates are
+  evaluated at press time. Unlike the arrows, traversal crosses group boundaries
+  unconditionally — containment exists to stop the arrows leaving, and leaving is
+  Tab's whole job. A trapped scope (a modal, an open popup's transient scope) traps
+  Tab too and restores the prior focus on dismiss, and every move runs through the
+  same keep-visible service (`controller.scrollToVisible`) a directional move does.
+  Wrap is `traversalWrap`, above. A focused `newTextInput` sees the press first
+  through `handleTraverse` and commits before the ring moves — subject to the
+  engine limit recorded on `handleTraverse` below.
+- **`Space`** joins `Return` as **Activate**, subject to `gameplayGuard` — whose
+  entry above records which surface kinds actually take the key from a game and
+  which only share it.
+
+**Activate `meta.pointer`** is a closed four-value enum naming the input class the
+engine attributed the press to: `"mouse"`, `"touch"`, `"gamepad"`, and — since this
+stage — `"keyboard"`, for the `Activated` the engine fires on a *selected*
+`GuiButton`. The last two are not pointers: the field is named for its first and
+commonest use and its vocabulary is now wider than its name (renaming it is a
+breaking change, recorded rather than taken). An `InputObject` the engine reports
+without a `UserInputType` falls back to `"mouse"`, so a consumer branching on this
+should treat it as a hint about provenance, not an authority.
+
+**Exactly one Activate per press.** When a surface opts into
+`engineSelectionBridge` — the only thing that ever sets
+`GuiService.SelectedObject` — the engine fires the selected `GuiButton`'s own
+`Activated` for the *same* key press IAS already delivered as Activate. The
+presenter collapses that pair, and it identifies it by **input class rather than
+by which surface it is on**: an Activate whose native half reports a non-pointer
+class (`meta.pointer == "keyboard"` or `"gamepad"`) within 50 ms of the action is
+the same press echoing. The window is a chosen bound rather than a measured one —
+far below any human double-press, and far above one frame — and the pair is spent
+when it collapses, so a fast third press opens a new window rather than falling
+inside the echo's. The rule is deliberately not scoped to the bridge opt-in,
+because the class test is the stricter of the two and needs no per-surface state.
+Two pointer taps, two key presses, and a real click beside a key press all remain
+two presses.
+
+**Two plain `present()` screens share one focus graph.** Base screens sit at the
+same priority and do not sink, so both would receive `Tab` (and the arrows) and
+both would step the one focus ring. That is unchanged by this stage and the
+guidance is unchanged with it: present the second surface as a modal, or as a
+passive HUD that engages.
 
 `presentModal` is always engaged-exclusive (`responder` has no effect on it).
 
@@ -1875,6 +2103,41 @@ optional): `focusGroups(rootNode)`, `handleActivate(path, meta)`,
   screen never shadows gameplay arrow/bumper keys off-target. `direction` is −1 /
   +1; `handleAdjust` returns true when consumed; longest-path-prefix wins.
   `opts.onAdjust` still overrides both per-opt.
+- `adjustAxis = "horizontal" | "vertical"` — which **arrow keys** the control's
+  declared targets consume while one of them holds focus. `"horizontal"` takes
+  Left/Right + DPadLeft/DPadRight; `"vertical"` takes Up/Down + DPadUp/DPadDown.
+  The *other* axis keeps navigating. Comma/Period and L1/R1 are axis-independent
+  and are bound for a declared target either way. Any other value is refused at
+  `contribution.attach`, naming the two legal ones.
+
+  **Choose the axis your screen does not navigate on.** On a *grouped* screen both
+  axes navigate, so either choice leaves the ring a way out on the arrows plus Tab.
+  On a *flat* screen only the vertical axis navigates — so `"vertical"` there takes
+  the only arrows that could move focus, and **Tab becomes the only way off the
+  control**. Every shipped value control declares `"horizontal"` for this reason;
+  `"vertical"` exists for a genuinely vertical value (a level meter, a
+  bottom-anchored slider) and is the author's call to make knowingly.
+
+  Omitting it is a real choice, not an oversight: an undeclared target keeps the
+  pre-0.9 key set (Comma/Period/L1/R1 always, plus the horizontal arrows only on
+  a *flat* screen where nothing else wants them). `newSlider`, `newStepper` and
+  `newRating` declare `"horizontal"` because their value **is** that axis;
+  `newTable` deliberately does not, because its resizable headers are navigation
+  stops and adjust targets at once and it resolves the contention with a mode
+  (Activate selects the column, then the arrows resize it, Cancel releases).
+- `handleTraverse(path, direction) -> boolean` — a chance to consume Tab /
+  Shift+Tab *before* the focus ring moves. `direction` is +1 (Tab) or −1
+  (Shift+Tab); return true to keep focus where it is, false/nil to let the
+  presenter traverse. Longest-path-prefix wins, like `handleActivate`. It exists
+  for controls that must finish something first: `newTextInput` commits through
+  its own validation path and then returns false, so Tab out of a field never
+  types a tab character and never advances out of an unfinished edit. **Engine
+  limit:** while a `TextBox` holds keyboard focus, Roblox marks keyboard input
+  `gameProcessed` and fires no developer Input Action binding, so this seam is not
+  reached on today's engine and Tab inside a focused field does nothing at all
+  (measured; `artifacts/desktop-keyboard-navigation/decisions.md` DKN-2). The
+  contract is headlessly proven and engages unchanged when the engine delivers the
+  key; `Return` commits today.
 - `handleCancel(focusedPath) -> boolean` — Cancel (gamepad ButtonB) is offered to
   the focused contribution BEFORE the presenter's modal-dismiss / passive-resign
   branches (first true consumes; false falls through, so a modal containing the

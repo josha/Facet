@@ -1,8 +1,8 @@
 # LuauUI Studio device verification
 
 **Date:** 2026-07-24
-**Status:** Required verification substrate for roadmap Steps 3–14, including Step
-3.5, and for Step 5.5 cleanup changes that can affect visible or interactive
+**Status:** Required verification substrate for roadmap Steps 3–14, including Steps
+3.5 and 8.5, and for Step 5.5 cleanup changes that can affect visible or interactive
 behavior.
 
 ## Decision
@@ -94,7 +94,10 @@ keyboard.
 
 Preferred text size, reduced motion, locale expansion, and hybrid input are fixture
 axes, not new device profiles. Run them on the smallest relevant subset that covers
-their failure mode instead of taking a Cartesian product of every axis.
+their failure mode instead of taking a Cartesian product of every axis. Step 8.5 is
+the deliberate exception for preferred text: sweep all four enum values headlessly,
+then run `Medium` and `Largest` on compact phone portrait and landscape through the
+real adapter, including a live preference-change probe.
 
 ## Required automation loop
 
@@ -183,6 +186,7 @@ low-end Android result.
 | 6 | Run identical legacy and LuauUI Sponsor fixtures at the same device rows; use `StudioTestService` only for lifecycle rows that need multiple clients |
 | 7 | Run the fresh-author control and any runtime-affecting compatible repair on applicable rows; documentation-only rules need no fake Studio evidence |
 | 8 | Drive Tab/Shift+Tab, Space/Return, and arrows with `VirtualInput` on desktop and keyboard-capable phone/tablet configurations; pair raw input with responder, focus, action, scroll, and state traces |
+| 8.5 | Sweep all four preference values through deterministic fixtures; run `Medium` and `Largest` on compact phone portrait/landscape plus the 667x375 Sponsor fixture, hot-change the mounted tree, and pair paint/measure/geometry/composition/focus/scroll/full-value-access evidence. Probe the real read-only player setting separately; emulation does not close physical Largest-text rows |
 | 9 | Use the matrix to prove performance-lab layout, scenario controls, and repeatability; never treat it as the low-end Android performance gate |
 | 10 | Batch all seven examples under both materially different theme packages across the five view rows, then drive the canonical keyboard/pointer gameplay paths with `VirtualInput`; keep touch/gamepad rows separate |
 | 11 | Run each clean-room reference loop on the applicable five views and prove reflow, theme, state/focus survival, and supported input paths; Apple host-OS features are ledger rows, not simulator fixtures |

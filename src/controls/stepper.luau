@@ -220,6 +220,10 @@ function stepper.build(LuauUI: any, core: any, spec: Spec)
 		-- focus-gated Adjust (ADR-0013): the whole row is an adjust target, so
 		-- keyboard Comma/Period and gamepad L1/R1 reach the same arithmetic while
 		-- focus is anywhere inside this control — and are UNBOUND otherwise.
+		-- `rootNode` is THIS CONTROL's mounted root, so "every Button below here"
+		-- means the two stepper buttons. It used to be handed the screen root,
+		-- which made the same sentence mean every button on the screen (found
+		-- live 2026-08-02; the presenter now passes the contribution's own node).
 		adjustTargets = function(rootNode: any): { [string]: boolean }
 			local out: { [string]: boolean } = {}
 			rootPath = rootNode.path
@@ -234,6 +238,14 @@ function stepper.build(LuauUI: any, core: any, spec: Spec)
 			walk(rootNode)
 			return out
 		end,
+		-- NO `adjustAxis` (director playtest 2026-08-03). A stepper's two buttons
+		-- are ordinary focus stops and ACTIVATING one is the whole interaction —
+		-- focus Dec, press Space, the value goes down. Claiming Left/Right here
+		-- would take the arrows away from navigating between the two buttons to do
+		-- the same job twice, and on a screen with an avatar underneath it would
+		-- take them from the camera for nothing. Comma/Period and L1/R1 stay bound
+		-- while focus is inside the control, which is the gamepad/keyboard shortcut
+		-- for the same arithmetic without the contention.
 		handleAdjust = function(_path: string, direction: number): boolean
 			return adjust(direction)
 		end,

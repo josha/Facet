@@ -300,6 +300,18 @@ second graph or screen-local key listeners. This cross-cutting stage follows the
 constitution so new public options, if any, use the same patterns as the rest of the
 framework.
 
+## Post-foundation large-text accessibility
+
+Preferred text must become a live layout input rather than a generous reservation
+guess. Follow
+[`large-text-accessibility.md`](large-text-accessibility.md): prove the Roblox
+measurement and paint seam across `Medium`, `Large`, `Larger`, and `Largest`; reflow
+before truncating; keep essential content fully reachable; and permit moving-text
+disclosure only as a bounded, engaged, reduced-motion-safe last resort. Prove the
+policy across public controls and on the production Rascal Rally Sponsor presenter,
+including compact mobile portrait and landscape. This inclusive-design stage must
+not claim a screen-reader bridge Roblox does not expose.
+
 ## Cross-cutting stage after the everyday control vocabulary
 
 Once Milestone B is stable, add the public theme-package contract in
@@ -339,10 +351,10 @@ raises the priority of native scrolling, virtualized reorder/drop, drag sessions
 `Path2D`, adaptive layout, async images, interruptible choreography, banners/toasts,
 world targets, semantic feedback, and device performance.
 
-The framework milestones do not port Sponsor Mode. The game-specific implementation
-is built later as the parallel, development-selectable path in
+The game-specific implementation and its retained rollback path are governed by
 [`../../../../../games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md`](../../../../../games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md).
-The existing implementation remains default until a separate cutover decision.
+The LuauUI presenter became the production default on 2026-08-03; legacy remains
+shipped and untouched behind `UseLuauUISponsor = false`.
 
 ## Completion standard
 
@@ -358,6 +370,9 @@ This plan is complete only when:
 - public theme packages can change palette, typography, density, control metrics,
   and bounded rich chrome through native Style Editor authoring while solved and
   actual geometry remain aligned;
+- all Roblox preferred-text values update mounted UI exactly once; public controls
+  and Sponsor View reflow without overlap or inaccessible essential text on compact
+  mobile portrait and landscape;
 - headless regression evidence and real-device performance evidence are labeled and
   gated separately;
 - guides, API reference, examples, registries, and public types describe the same

@@ -55,6 +55,37 @@ export type FocusScope = {
 	order: { any }?, -- FLAT scope
 	groups: { NavigationGroup }?, -- GROUPED scope
 	trap: boolean, -- modal: navigation stays inside, never escapes
+	-- LINEAR TRAVERSAL (Tab / Shift+Tab) wrap policy, declared by the SCOPE.
+	-- Default `true`. The plan's rule is that traversal wrap is a property of the
+	-- active scope, not of any control or group inside it — a group's own `wrap`
+	-- governs the DIRECTIONAL arrows along that group's axis and nothing else, so
+	-- a screen cannot end up wrapping differently depending on which control the
+	-- ring happens to be standing on. `true` is the default because it matches the
+	-- flat ring the arrows have always walked (a list whose focus stops dead at
+	-- the ends reads as "focus went nowhere" — director hand-test 2026-07-20) and
+	-- because a trapped modal has nowhere else for Tab to go by construction.
+	traversalWrap: boolean?,
+	-- LINEAR TRAVERSAL ORDER, as a SORT KEY over the members this scope already
+	-- has — never a second list of members (decision packet TDN-2).
+	--
+	-- Constitution §9 requires that Navigate and Traverse walk one focus map, and
+	-- names the failure mode precisely: "a second order, derived from Instances or
+	-- maintained alongside, is the defect — the two would disagree the first time a
+	-- node was hidden". That failure is a MEMBERSHIP disagreement, and a rank map
+	-- cannot produce one: `traverse` still takes its members from `allIds(scope)`
+	-- and its eligibility from the same predicate the arrows use, and only asks
+	-- this table what order to read them in. A path here that is not in `allIds` is
+	-- invisible; a path in `allIds` that is missing here still traverses, sorting
+	-- stably where it already sat.
+	--
+	-- nil means "no opinion", and a scope with no rank traverses BYTE-IDENTICALLY
+	-- to pre-stage behavior — which is what makes a consumer-supplied
+	-- `navigationGroups` keep its declared order verbatim.
+	traversalRank: { [string]: number }?,
+	-- where focus lands as this scope is pushed: nil / "first" (the first
+	-- eligible node — the default and the pre-option behavior), "none" (push with
+	-- no focus at all), or a resolved PATH. See pushScope.
+	initialFocus: string?,
 }
 
 -- direction -> axis delta per group axis; nil = orthogonal to the axis
@@ -170,6 +201,12 @@ function focus_graph.new(core: any)
 		end
 		local copy: any = table.clone(scope)
 		copy._lastFocus = nil
+		-- the graph's own copy, same rule as the order tables below (F-14): the
+		-- caller may keep building into the map it handed us and must not be able
+		-- to reach in and re-rank a live scope behind `traverse`'s back
+		if scope.traversalRank ~= nil then
+			copy.traversalRank = table.clone(scope.traversalRank)
+		end
 		if scope.groups ~= nil then
 			copy.groups = internalGroups(scope.groups)
 			copy.order = nil
@@ -243,6 +280,51 @@ function focus_graph.new(core: any)
 		return nil, nil
 	end
 
+	-- THE SECOND READING (decision packet TDN-2). `allIds` answers WHO is in the
+	-- scope; this answers what order the LINEAR verb reads them in. It takes the
+	-- member list as given and only reorders it, so traversal can never reach a
+	-- node the arrows cannot, nor miss one they can.
+	--
+	-- `table.sort` in Luau is NOT stable, so the comparator carries the entry's
+	-- original index as an explicit final tiebreak. Without it, two controls at the
+	-- same rank could swap between presses, which reads to a player as Tab going
+	-- backwards for no reason.
+	--
+	-- THE MAP MUST COVER EVERY MEMBER, or this reorders nothing. Ranking only the
+	-- paths it recognizes is not merely incomplete, it is UNSORTABLE: mixing ranked
+	-- and unranked entries and falling back to index order for the mixed pairs
+	-- yields an intransitive comparator (rank 9 at index 1, unranked at index 2,
+	-- rank 1 at index 3 gives a<b and b<c but c<a), which Luau's sort is entitled
+	-- to reject or to answer with garbage. The presenter always emits the rank from
+	-- the SAME walk that produced the order, so completeness is the real contract
+	-- and a gap is a bug — one that leaves traversal on the pre-stage reading,
+	-- where it is at worst old, rather than on an order nobody can predict.
+	local function traversalOrder(scope: any, ids: { string }): { string }
+		local rank = scope.traversalRank
+		if rank == nil then
+			return ids
+		end
+		local rows = table.create(#ids)
+		for i, id in ids do
+			local r = rank[id]
+			if r == nil then
+				return ids -- incomplete: no opinion at all, rather than half of one
+			end
+			table.insert(rows, { id = id, rank = r, i = i })
+		end
+		table.sort(rows, function(a, b)
+			if a.rank ~= b.rank then
+				return a.rank < b.rank
+			end
+			return a.i < b.i
+		end)
+		local out = table.create(#rows)
+		for _, row in rows do
+			table.insert(out, row.id)
+		end
+		return out
+	end
+
 	local function allIds(scope: any): { string }
 		if scope.order ~= nil then
 			return scope.order
@@ -270,6 +352,19 @@ function focus_graph.new(core: any)
 
 	local function setFocus(id: string?)
 		focused:set(id)
+		-- A SCOPE THAT ASKED FOR NO INITIAL FOCUS STOPS DECLINING ONE THE MOMENT IT
+		-- GETS IT. `initialFocus = "none"` means "do not invent focus for me", not
+		-- "never hold focus" — and the two are told apart by this flag rather than
+		-- by testing `focused == nil`, which cannot distinguish "never had it" from
+		-- "the focused node just unmounted". Order updates skip their auto-entry
+		-- while it is set; once the player Tabs or taps in, the scope behaves like
+		-- every other and keeps the nearest-survivor rule intact.
+		if id ~= nil then
+			local scope = top()
+			if scope ~= nil then
+				scope._awaitingFirstFocus = nil
+			end
+		end
 		recordFocus(top(), id)
 	end
 
@@ -344,6 +439,22 @@ function focus_graph.new(core: any)
 
 	-- base scope (screen) or modal push. Modal scopes trap and remember the
 	-- previous focus for restoration on pop.
+	--[[ `initialFocus` decides where focus lands as the scope is pushed — HERE,
+		not by the caller setting focus afterwards (director playtest 2026-08-03
+		round 5). A push already sets focus, so a caller that corrected it a moment
+		later would fire the focus observers twice and paint a ring on one control
+		before moving it to another. One decision, one notification.
+
+		nil / "first" — the first eligible node, which is what every scope did
+		                before this option existed and is still the default.
+		"none"        — the scope is pushed with NO focus. It arrives on the first
+		                Tab, tap, or engage, exactly as it does for a scope whose
+		                nodes were all ineligible at push time.
+		anything else — a RESOLVED PATH. The presenter turns an author's node id
+		                into one and refuses an id that names nothing, so by the
+		                time it reaches here it is known to be in this scope; if it
+		                is somehow not eligible, entry falls back rather than
+		                leaving focus somewhere the player cannot reach. ]]
 	function self.pushScope(scope: FocusScope)
 		-- the graph's own copy; the caller's tables are never written (F-14 above)
 		local internal = internalScope(scope)
@@ -351,7 +462,15 @@ function focus_graph.new(core: any)
 			table.insert(restoreStack, focused:get())
 		end
 		table.insert(scopes, internal)
-		setFocus(entryFocus(internal))
+		local want = scope.initialFocus
+		if want == "none" then
+			internal._awaitingFirstFocus = true
+			setFocus(nil)
+		elseif want ~= nil and want ~= "first" and isFocusable(internal, want) then
+			setFocus(want)
+		else
+			setFocus(entryFocus(internal))
+		end
 	end
 
 	function self.popScope()
@@ -535,6 +654,77 @@ function focus_graph.new(core: any)
 		end
 	end
 
+	--[[ ── LINEAR TRAVERSAL: Tab / Shift+Tab ────────────────────────────────────
+		The desktop convention, over the SAME graph the arrows walk. `delta` is +1
+		(Tab) or -1 (Shift+Tab); the answer is whether focus actually moved.
+
+		The members are `allIds(scope)` — a flat scope's own order, or every group's
+		order concatenated in group-array order. That is the whole point: traversal
+		is a second READING of one focus map, never a second focus map. Everything
+		the arrows already skip — hidden, disabled, non-focusable, retiring, and
+		losing adaptive candidates (all filtered out before they ever reach the
+		graph) plus live focus-skip predicates (evaluated here, at navigation time)
+		— is skipped identically, because it is the same set and the same predicate.
+
+		The READING is `traversalOrder`, which sorts those members by the scope's
+		rank. The concatenated group order is NOT document order: the presenter
+		defers focusable Grips (a Slider's track, a Rating's strip)
+		to the end so the ARROWS land on content first, and Tab inherited that — so
+		a Slider sitting between a button row and a list traversed after the whole
+		list (director playtest 2026-08-03). Tab means document order on every
+		platform that has ever had a Tab key; the arrows keep the deferral, which
+		is theirs. A scope with no rank reads in `allIds` order, unchanged.
+
+		Where traversal DIFFERS from `navigate` is that it crosses group boundaries
+		unconditionally: a contained group is contained against the ARROWS (left
+		does not leave a grid row), and Tab's job is precisely to leave. Wrap is the
+		scope's policy (see FocusScope.traversalWrap). ]]
+	function self.traverse(delta: number): boolean
+		local scope = top()
+		if scope == nil then
+			return false
+		end
+		local order = traversalOrder(scope, allIds(scope))
+		local n = #order
+		if n == 0 then
+			return false
+		end
+		local current = focused:get()
+		local i = indexOf(order, current)
+		local step = if delta >= 0 then 1 else -1
+		if i == nil then
+			-- Focus is outside this scope (or nil): traversal ENTERS rather than
+			-- no-ops — and it enters at the END IT CAME FROM (architecture review
+			-- ARCH-9). Tab lands on the first eligible node, Shift+Tab on the last;
+			-- entering a scope backwards and landing on its first item reads as the
+			-- ring jumping past everything, which is the disorientation the
+			-- near-end entry rule exists to prevent everywhere else in this graph.
+			local entry = if step > 0 then entryFocus(scope) else nearestEligible(scope, order, n)
+			if entry == nil then
+				return false
+			end
+			setFocus(entry)
+			return true
+		end
+		local wrap = scope.traversalWrap ~= false
+		local k = i
+		for _ = 1, n do
+			k += step
+			if k < 1 or k > n then
+				if not wrap then
+					return false -- an end, and this scope does not wrap
+				end
+				k = ((k - 1) % n) + 1
+			end
+			local candidate = order[k]
+			if candidate ~= current and isFocusable(scope, candidate) then
+				setFocus(candidate)
+				return true
+			end
+		end
+		return false -- nothing else eligible anywhere in the scope: focus stays put
+	end
+
 	-- replace a GROUPED scope's whole group map (dynamic surfaces: table rows
 	-- reorder/churn — gamepad support 2026-07-20): keeps focus when it
 	-- survives the new map, else enters the first group.
@@ -545,7 +735,11 @@ function focus_graph.new(core: any)
 	-- the upgrade left it navigating a flat ring for the rest of its life, with
 	-- the declared wraps and exits silently dropped. The scope keeps its name,
 	-- its trap and its stack position — only its navigation model changes.
-	function self.replaceGroups(scopeName: string, groups: { NavigationGroup })
+	-- `rank` rides along with every order write for the same reason it rides along
+	-- with `pushScope`: it must come from the SAME derivation that produced the
+	-- order, or the two drift and traversal starts sorting a map that no longer
+	-- exists. Omitting it clears the scope's rank rather than leaving a stale one.
+	function self.replaceGroups(scopeName: string, groups: { NavigationGroup }, rank: { [string]: number }?)
 		for i = #scopes, 1, -1 do
 			local scope = scopes[i]
 			if scope.name == scopeName then
@@ -553,6 +747,7 @@ function focus_graph.new(core: any)
 				scope.groups = internalGroups(groups)
 				scope.order = nil
 				scope._focusable = nil
+				scope.traversalRank = if rank ~= nil then table.clone(rank) else nil
 				if scope._lastFocus ~= nil then
 					for groupName, remembered in scope._lastFocus do
 						local group = groupByName(scope, groupName)
@@ -563,7 +758,7 @@ function focus_graph.new(core: any)
 				end
 				if i == #scopes then
 					local current = focused:get()
-					if current == nil or indexOf(allIds(scope), current) == nil then
+					if not scope._awaitingFirstFocus and (current == nil or indexOf(allIds(scope), current) == nil) then
 						setFocus(entryFocus(scope))
 					end
 				end
@@ -574,7 +769,7 @@ function focus_graph.new(core: any)
 
 	-- replace a FLAT scope's order after structural change: keeps focus if it
 	-- survives, else nearest surviving neighbor
-	function self.setOrder(name: string, order: { any })
+	function self.setOrder(name: string, order: { any }, rank: { [string]: number }?)
 		for i = #scopes, 1, -1 do
 			local scope = scopes[i]
 			if scope.name == name then
@@ -587,9 +782,10 @@ function focus_graph.new(core: any)
 				local normalized = normalizeOrder(order, sink)
 				scope.order = normalized
 				scope._focusable = sink
+				scope.traversalRank = if rank ~= nil then table.clone(rank) else nil
 				if i == #scopes then
 					local current = focused:get()
-					if current == nil or indexOf(normalized, current) == nil then
+					if not scope._awaitingFirstFocus and (current == nil or indexOf(normalized, current) == nil) then
 						local fallback = if oldIndex ~= nil then math.min(oldIndex, #normalized) else 1
 						setFocus(nearestEligible(scope, normalized, math.max(1, fallback)))
 					end
@@ -675,6 +871,79 @@ function focus_graph.new(core: any)
 	end
 
 	-- pointer-driven focus (Apple model, director round 2): clicking a
+	--[[ ── FOCUS MAP INSPECTION ─────────────────────────────────────────────────
+		Both readings of one scope's focus map, as data, for the surface-level
+		`handle.focusOrder()` dump.
+
+		This exists because the defect it ships beside was found by a person in a
+		playtest and by none of the instruments: there was no way to ASK what order
+		Tab would take, so the only way to see it was to press Tab sixteen times and
+		write down where focus landed. Reporting the linear order and the group
+		order side by side is the whole point — a reader has to be able to see that
+		they differ (they are meant to) while covering the same set (they must).
+
+		`eligible` is the LIVE predicate, evaluated now, so an entry a focus-skip
+		predicate is currently refusing reads false without leaving the map. Nodes
+		excluded upstream — hidden, disabled, non-focusable, retiring, losing
+		adaptive candidates — are filtered before they ever reach the graph and are
+		therefore absent entirely, which is itself the answer to "why is it not in
+		my Tab order".
+
+		Returns nil for an unknown scope name so a caller can tell "no such scope"
+		from "a scope with nothing in it". ]]
+	function self.focusMap(scopeName: string?): any?
+		local scope = if scopeName == nil then top() else nil
+		if scopeName ~= nil then
+			for i = #scopes, 1, -1 do
+				if scopes[i].name == scopeName then
+					scope = scopes[i]
+					break
+				end
+			end
+		end
+		if scope == nil then
+			return nil
+		end
+		local members = allIds(scope)
+		local traversal = {}
+		for _, id in traversalOrder(scope, members) do
+			table.insert(traversal, {
+				path = id,
+				rank = if scope.traversalRank ~= nil then scope.traversalRank[id] else nil,
+				eligible = isFocusable(scope, id),
+			})
+		end
+		local navigation = {}
+		if scope.groups == nil then
+			-- A FLAT SCOPE STILL HAS A DIRECTIONAL READING — it is one vertical ring,
+			-- and that ring is where the Grip deferral lives for a plain screen.
+			-- Reporting `navigation = {}` here would have made the dump silent about
+			-- the arrows on exactly the surfaces where the two readings differ most
+			-- visibly, which is the comparison the dump exists to serve. The name is
+			-- parenthesized so nobody mistakes it for a declared group.
+			table.insert(navigation, { name = "(flat)", axis = "vertical", order = members })
+		end
+		for _, group in (scope.groups or {}) :: { NavigationGroup } do
+			local order = {}
+			for _, entry in group.order do
+				table.insert(order, entry)
+			end
+			table.insert(navigation, {
+				name = group.name,
+				axis = group.axis,
+				order = order,
+			})
+		end
+		return {
+			scope = scope.name,
+			trap = scope.trap == true,
+			traversalWrap = scope.traversalWrap ~= false,
+			ranked = scope.traversalRank ~= nil,
+			traversal = traversal,
+			navigation = navigation,
+		}
+	end
+
 	-- focusable moves keyboard focus there; only paths in the ACTIVE scope
 	-- are accepted (a background screen's node cannot steal focus)
 	function self.focusOn(path: string): boolean

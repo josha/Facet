@@ -470,6 +470,24 @@ function text_input.build(LuauUI: any, core: any, spec: Spec)
 		end
 	end
 
+	-- TAB LEAVES THROUGH THE COMMIT PATH (roadmap Step 8, DK-12). Desktop Tab out
+	-- of a text field means "I am done with this field" — so it runs the SAME
+	-- commit the Return key and a focus loss run (defensive re-validate, then
+	-- `onCommit`), ends the edit, and returns false so the presenter advances the
+	-- ring. It never types a tab character (the field is out of editing before the
+	-- ring moves, and every accepted value still goes through `applyProposed`), and
+	-- it never advances out of a still-open edit. Not editing: nothing to consume,
+	-- so Tab is plain traversal.
+	-- (the presenter only offers this to contributions whose mounted path is a
+	-- prefix of the focused one, so `path` is always inside this control)
+	function api.handleTraverse(_path: string, _direction: number): boolean
+		if not editing:get() then
+			return false
+		end
+		commit("focusLost")
+		return false -- the edit is closed: let the ring move on
+	end
+
 	-- the field is a single-cell focus group (one horizontal group); a disabled
 	-- field contributes nothing (its field opts out of focus). rootNode is the
 	-- control's mounted root (the Anchor), so the field path is <root>/Field.
@@ -624,6 +642,7 @@ function text_input.build(LuauUI: any, core: any, spec: Spec)
 			syncGeometry = api.syncGeometry,
 			keepVisibleOffset = keepVisibleOffset,
 			bindActionSystem = api.bindActionSystem,
+			handleTraverse = api.handleTraverse,
 		}),
 		api = api,
 		dump = dump,

@@ -61,6 +61,14 @@ local CONTENTION_DESCRIPTION = table.concat({
 	"3. GuiService.CoreGuiNavigationEnabled re-enables itself if scripted off "
 		.. "(CoreScripts fight back) and is not the eater anyway; do not rely on "
 		.. "scripting it off.",
+	"4. Tab is the CoreGui PLAYERS LIST shortcut, and while that CoreGuiType is "
+		.. "enabled (the default) the platform documents it as reserved — so "
+		.. "LuauUI's Tab/Shift+Tab focus traversal will not receive it. Roblox "
+		.. "files Tab under 'reserved unless you disable the respective feature' "
+		.. "rather than in its hard-reserved set (Esc/F9/F11/F12/PrintScreen), "
+		.. "and documents exactly one remedy: StarterGui:SetCoreGuiEnabled("
+		.. "Enum.CoreGuiType.PlayerList, false). No InputContext priority is "
+		.. "documented to outrank CoreGui. traversalKeyContended() probes it.",
 }, "\n")
 
 -- The three engine truths as a diagnostic string (for logs / doctor output).
@@ -85,6 +93,35 @@ function gamepad_contention.legacyStackActive(): boolean
 		return bound["jumpAction"] ~= nil
 	end)
 	return ok and active == true
+end
+
+-- Is the Tab focus-traversal key contended by CoreGui right now? (roadmap Step 8)
+--
+-- SAME SHAPE AS legacyStackActive, DIFFERENT KEY. Roblox's own documentation
+-- puts Tab in the table of inputs that are "reserved unless you disable the
+-- respective feature", and Tab's feature is the CoreGui players list; the hard
+-- table that "cannot be overridden" is Esc/F9/F11/F12/PrintScreen and Tab is
+-- deliberately not in it. So unlike ButtonA there IS a flag to read, and this is
+-- a real read rather than a behavioral guess: the players list being enabled is
+-- the documented condition under which Tab does not reach a developer
+-- InputContext.
+--
+-- Its intended use is the same: a game (or doctor tooling) WARNING that keyboard
+-- traversal may be silently dead, so the loss is visible. It is never a gate,
+-- and LuauUI never disables the players list on a consumer's behalf — hiding a
+-- game's leaderboard to win a key is exactly the trade this module's SCOPE note
+-- refuses to make for the avatar controls.
+--
+-- Returns false headless / off the live client, and false once the players list
+-- is disabled. It reports the DOCUMENTED contention condition, not an
+-- end-to-end proof: only a physical Tab press on a real client can confirm the
+-- key reaches Activate either way (standing PENDING_PHYSICAL rider).
+function gamepad_contention.traversalKeyContended(): boolean
+	local ok, contended = pcall(function(): boolean
+		local StarterGui = game:GetService("StarterGui")
+		return StarterGui:GetCoreGuiEnabled(Enum.CoreGuiType.PlayerList) == true
+	end)
+	return ok and contended == true
 end
 
 -- Disable the legacy control scripts so gamepad ButtonA reaches the Input Action

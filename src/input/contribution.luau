@@ -103,6 +103,36 @@ export type Bundle = {
 	bindFocusGraph: ((focusGraph: any) -> ())?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,
+	-- WHICH ARROWS THIS CONTROL CONSUMES (roadmap Step 8). "horizontal" (what every
+	-- shipped adjust target declares — Slider, Stepper, Rating) means Left/Right +
+	-- DPadLeft/DPadRight become Adjust while one of this bundle's `adjustTargets`
+	-- holds focus; "vertical" means Up/Down + DPadUp/DPadDown do. Comma/Period and
+	-- L1/R1 are axis-independent and are bound for a declared target either way.
+	-- Declared rather than inferred, because only the control knows which
+	-- direction its value runs in.
+	--
+	-- CHOOSE THE AXIS THE SCREEN DOES NOT NAVIGATE ON. The other axis keeps
+	-- navigating, but which axes navigate depends on the screen: a GROUPED screen
+	-- navigates both, so either choice leaves the ring a way out on the arrows; a
+	-- FLAT screen navigates only vertically, so "vertical" there takes the only
+	-- arrows that could move focus and Tab becomes the only way off the control.
+	-- That is the author's call to make knowingly, which is why this is an option
+	-- and not an inference.
+	--
+	-- Omitting it is a real choice too: an undeclared target keeps the pre-0.9 key
+	-- set (Comma/Period/L1/R1 always, plus the horizontal arrows only on a flat
+	-- screen where nothing else wants them). `newTable` omits it deliberately — its
+	-- resizable headers are navigation stops and adjust targets at once, and it
+	-- resolves the contention with a mode instead.
+	adjustAxis: string?, -- "horizontal" (default) | "vertical"
+	-- CONSUME Tab / Shift+Tab BEFORE the ring moves (roadmap Step 8). `direction`
+	-- is +1 (Tab) or -1 (Shift+Tab). Return true to keep focus where it is; false
+	-- or nil to let the presenter traverse. It exists for the one control that
+	-- must finish something first: a TextInput being edited commits through its
+	-- own validation path and then returns false so focus advances — it must
+	-- never type a tab character, and never advance out of an unfinished edit.
+	-- Longest-path-prefix wins, like handleActivate.
+	handleTraverse: ((path: string, direction: number) -> boolean)?,
 	handleCancel: ((focusedPath: string?) -> boolean)?,
 	outsideDismiss: { active: any, dismiss: () -> () }?, -- active: Readable<boolean>
 	transientScope: { active: any, rootPath: string? }?, -- active: Readable<boolean>
@@ -117,6 +147,16 @@ contribution.PROP = PROP
 -- returned root, so the attachment is uniform and the magic prop name lives in
 -- exactly one place.
 function contribution.attach(rootBlueprint: any, bundle: Bundle): any
+	-- an illegal axis is refused at construction, naming the legal set
+	-- (constitution §4): silently defaulting to horizontal would leave a vertical
+	-- control's arrows navigating with nothing to say about it
+	local axis = (bundle :: any).adjustAxis
+	if axis ~= nil and axis ~= "horizontal" and axis ~= "vertical" then
+		error(
+			`LuauUI contribution.attach: adjustAxis '{tostring(axis)}' is not an axis. Valid: horizontal, vertical.`,
+			0
+		)
+	end
 	local meta = if rootBlueprint.meta ~= nil then table.clone(rootBlueprint.meta) else {}
 	meta[PROP] = bundle
 	return table.freeze({

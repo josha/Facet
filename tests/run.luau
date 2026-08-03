@@ -16,6 +16,10 @@ require("./mount.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
 require("./native_scroll.spec")
+-- desktop keyboard focus chain (roadmap Step 8): Tab/Shift+Tab traversal,
+-- Space-as-Activate, focused-value arrow Adjust
+require("./keyboard_navigation.spec")
+require("./traversal_order.spec")
 require("./path.spec")
 require("./async_image.spec")
 require("./selection_bridge.spec")

@@ -50,6 +50,233 @@ export type Check = {
 }
 
 local manifest: { [string]: { Check } } = {
+	["traversal-document-order"] = {
+		-- Roadmap Step 8 FOLLOW-UP (docs/plans/traversal-document-order.md): Tab
+		-- stops inheriting the directional Grip deferral and reads the focus map in
+		-- DOCUMENT order, via a presenter-supplied rank; plus the two public items
+		-- the defect's discovery proved missing — `traversalPriority` (move one
+		-- control) and `handle.focusOrder()` (see the resolved chain at all).
+		-- Acceptance rows TD-1..TD-P2 live in
+		-- artifacts/traversal-document-order/acceptance.md.
+		{
+			name = "acceptance-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/traversal-document-order/acceptance.md && test -f "$f" && for id in TD-1 TD-2 TD-3 TD-5 TD-7 TD-9 TD-10 TD-13 TD-15 TD-16 TD-P1; do grep -q "$id" "$f" || { echo "$id missing"; exit 1; }; done && grep -q "PENDING_HUMAN" "$f" && test -f artifacts/traversal-document-order/decisions.md && grep -q "TDN-1" artifacts/traversal-document-order/decisions.md && grep -q "TDN-2" artifacts/traversal-document-order/decisions.md',
+			evidence = "artifacts/traversal-document-order/acceptance.md",
+			note = "execution contract §2: the ledger written BEFORE implementation, with the human row left pending rather than closed by an instrument. The decision packets it cites (TDN-1 all-grips-no-exceptions, TDN-2 rank-is-a-sort-key-not-a-second-order, TDN-3 construction-only, TDN-4 the uncommitted Step 8 baseline, TDN-5 the two stale Step 8 gate checks) are checked to exist beside it",
+		},
+		{
+			name = "document-order-traversal",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*Tab visits the Slider.s track in DOCUMENT position, not last" && echo "$out" | grep -q "✓.*pressing Tab really moves focus in that order" && echo "$out" | grep -q "✓.*a bare focusable Grip declared between buttons traverses between them" && echo "$out" | grep -q "✓.*and pressing Tab really lands on it there" && echo "$out" | grep -q "✓.*a Grip inside a modal takes its document position within the modal" && echo "$out" | grep -q "✓.*a row mounted after present() takes its document position, not the end"',
+			note = "TD-1/TD-4/TD-11/TD-12. Every fixture puts the Grip-bearing control BETWEEN ordinary controls — the shape every Step 8 fixture omitted, which is exactly why the defect shipped under a green suite. Each ordering claim is asserted TWICE: against handle.focusOrder() (the dump) and against real Tab presses recorded through opts.onFocusNav, because the dump and traverse read the rank by different code paths and a dump-only suite stays green when traversal is wired wrong — proved by mutation",
+		},
+		{
+			name = "arrows-unregressed",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*and the ARROWS still defer it to the end, exactly as before" && echo "$out" | grep -q "✓.*the two readings cover the SAME SET" && echo "$out" | grep -q "✓.*the tier does NOT reach the arrows" && echo "$out" | grep -q "✓.*the arrows never read the rank" && echo "$out" | grep -q "✓.*ENTRY focus still reads the unranked order, by design"',
+			note = "TD-2/TD-3, the regression half. The deferral is CORRECT for directional navigation and must survive untouched; the two readings must cover one set. The entry-focus case pins the one place the stage deliberately did NOT change (a scope is entered through the arrows' reading), so a later change there is a decision rather than a drift",
+		},
+		{
+			name = "traversal-priority",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*a positive tier pushes one control to the back without moving the others" && echo "$out" | grep -q "✓.*a negative tier pulls one to the front" && echo "$out" | grep -q "✓.*within one tier, DOCUMENT order always wins" && echo "$out" | grep -q "✓.*a non-number is refused, naming the property" && echo "$out" | grep -q "✓.*a BOUND value is refused: the prop is construction-only"',
+			note = "TD-5/TD-6/TD-8: the sort TIER semantics (not an absolute index) and the §4 refusals. The same-tier case is what keeps the sort's explicit index tiebreak honest — Luau's table.sort is not stable, so equal-priority controls would otherwise be free to swap between presses",
+		},
+		{
+			name = "consumer-map-untouched",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the declared order survives exactly, grips and all" && echo "$out" | grep -q "✓.*navigationGroups = false is NOT a declared map: the flat ring is still ranked" && echo "$out" | grep -q "✓.*no rank means the pre-stage reading, byte for byte" && echo "$out" | grep -q "✓.*an INCOMPLETE rank is ignored entirely rather than applied to half the ring"',
+			note = "TD-7 plus the graph contract under it (TDN-2). A rank is the framework's opinion about an order IT derived; a hand-authored navigationGroups map is the declared order and gets none. The incomplete-rank case pins the deliberate refusal to half-sort: mixing ranked and unranked entries yields an INTRANSITIVE comparator, which Luau's sort may reject or answer with garbage",
+		},
+		{
+			name = "slider-focus-affordance",
+			requirements = { "UI-FOCUS-001" },
+			run = "out=\"$(./run-tests.sh 2>&1)\" && echo \"$out\" | grep -q \"✓.*the thumb takes a focus stroke while the track holds focus, and drops it after\" && echo \"$out\" | grep -q \"✓.*the .focusRing. thickness alias resolves to the adapter.s own ring weight\" && python3 -c \"\nimport json\nd=json.load(open('artifacts/traversal-document-order/studio/traversal.json'))\nr={x['id']: x for x in d['rows']}['TD17-slider-focus-affordance']\nassert r['status']=='PASS_AUTOMATED'\nassert 'thick=2 trans=0' in ' '.join(r['measuredAfter'])\n\" && test -f artifacts/traversal-document-order/studio/td17-slider-focused.png",
+			evidence = "artifacts/traversal-document-order/studio/td17-slider-focused.png",
+			note = 'TD-17, the director\'s round-2 finding: the Slider declares focusVisual = "none" so the adapter paints nothing, and what it painted instead was an accent HAIRLINE at 0.92 transparency — invisible. The suite could not see it because the existing case asserted only that a stroke EXISTED. Both halves are pinned now: the thickness/transparency the ring is actually drawn at, and that the "focusRing" alias resolves to the same number the adapter uses, so a Slider\'s ring can never drift from every other control\'s',
+		},
+		{
+			name = "engage-and-resign",
+			requirements = { "UI-INPUT-003" },
+			run = "out=\"$(./run-tests.sh 2>&1)\" && echo \"$out\" | grep -q \"✓.*a tap on the UI takes the keyboard, and a tap OUTSIDE gives it back\" && grep -q 'responder = \"passive\"' examples/gallery/scenarios/keyboard_navigation.luau && python3 -c \"\nimport json\nd=json.load(open('artifacts/traversal-document-order/studio/traversal.json'))\nr={x['id']: x for x in d['rows']}['TD18-engage-and-resign']\nassert r['status']=='PASS_AUTOMATED'\nc=r['cycle']\nassert c[0]['traverse']==[] and 'Space' not in c[0]['activate'], 'at rest the keyboard must be free'\nassert c[1]['traverse']==['Tab'] and 'Space' in c[1]['activate'], 'a UI tap must take it'\nassert c[2]['traverse']==[] and 'Space' not in c[2]['activate'], 'an outside tap must give it back'\n\"",
+			evidence = "artifacts/traversal-document-order/studio/traversal.json",
+			note = 'TD-18, the director\'s round-3 finding: the fixture was presented engaged-open, where `resign()` is a no-op and no outside-tap catcher is ever mounted, so it held Tab and Space for the whole session. The headless case drives the two real TAPS rather than calling engage()/resign() — the existing case called the API, which is exactly why the routing gap was invisible to it. The check also pins the fixture to `responder = "passive"`, so the shape that could not unfocus cannot come back',
+		},
+		{
+			name = "ring-follows-ownership",
+			requirements = { "UI-FOCUS-001" },
+			run = "out=\"$(./run-tests.sh 2>&1)\" && echo \"$out\" | grep -q \"✓.*a PASSIVE surface paints no focus ring: the ring never claims input it lacks\" && echo \"$out\" | grep -q \"✓.*an ordinary (engaged-open) screen still paints its ring exactly as before\" && python3 -c \"\nimport json\nd=json.load(open('artifacts/traversal-document-order/studio/traversal.json'))\nr={x['id']: x for x in d['rows']}['TD19-ring-follows-ownership']\nassert r['status']=='PASS_AUTOMATED'\nassert r['measuredBefore']['opaqueRingsPainted'], 'the before-state must record the defect'\nc=r['cycle']\nassert c[0]['rings']==[] and c[0]['traverse']==[], 'passive paints nothing'\nassert c[2]['rings'], 'a navigation move must bring the ring back'\nassert c[3]['rings']==[], 'resigning must take it away'\n\"",
+			evidence = "artifacts/traversal-document-order/studio/td19-no-ring-when-passive.png",
+			note = "TD-19, the director's round-4 finding: ring visibility was derived from focus ORIGIN alone and never from whether the surface owned input, so a passive HUD painted a ring over a keyboard the avatar had. Both halves are pinned — a passive surface paints nothing, and an engaged-open screen is byte-identical to pre-fix — because the gate is on RESPONDER ownership and a plain screen owns input from mount. The Studio row additionally pins the recorded before-state, so the defect cannot be quietly rewritten as never having happened",
+		},
+		{
+			name = "initial-focus-and-release",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*initialFocus defaults to the first focusable" && echo "$out" | grep -q "✓.*initialFocus = .none. mounts the surface with NO focus" && echo "$out" | grep -q "✓.*and Tab still ENTERS such a scope rather than no-opping" && echo "$out" | grep -q "✓.*initialFocus names a control by id, without the author knowing its path" && echo "$out" | grep -q "✓.*focus lands there ONCE — the ring never appears elsewhere first" && echo "$out" | grep -q "✓.*an initialFocus id that names nothing is refused, listing what is available" && echo "$out" | grep -q "✓.*makes the keyword ambiguous, and it says so" && echo "$out" | grep -q "✓.*is the escape hatch that means the CONTROL" && echo "$out" | grep -q "✓.*a dismissed surface gives up its focus ring immediately, mid-exit-transition"',
+			note = "TD-20/TD-21, the director round-5 request. The DEFAULT is pinned first, because the whole point of the option is that nobody who did not ask for it moves. `focus lands there ONCE` is the case that keeps the decision in pushScope rather than in a correction afterwards, which would fire the focus observers twice and flash a ring on the wrong control. The dismissal case asserts the node is STILL MOUNTED and no longer painted — the exit-transition window is the only place the defect ever lived",
+		},
+		{
+			name = "self-painted-ring-releases",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*a self-painted focus ring clears when the surface resigns" && echo "$out" | grep -q "✓.*a PASSIVE surface defaults to NO initial focus" && echo "$out" | grep -q "✓.*while an engaged-open screen still defaults to its first focusable" && echo "$out" | grep -q "✓.*an explicit initialFocus still wins on a passive surface"',
+			note = 'TD-22/TD-23, director round 6. The ownership gate added in round 4 covered the ADAPTER\'s ring; a control declaring focusVisual = "none" paints its own and could not see it, so a Slider kept its thumb ring after the responder had already handed the keyboard back. The permission now rides the existing bindFocusGraph seam. Both halves of the new DEFAULT are pinned (passive = none, engaged-open = first) because the value of the rule is that it differs by responder — a check that only pinned one half would pass a framework that had collapsed them',
+		},
+		{
+			name = "resign-has-no-forgiveness-zone",
+			requirements = { "UI-INPUT-003" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*an engaged HUD resigns on an outside tap even CLOSE to its own content" && echo "$out" | grep -q "✓.*while a MODAL keeps its dismissal forgiveness" && echo "$out" | grep -q "✓.*a resigned surface unbinds the Adjust keys it had claimed" && echo "$out" | grep -q "✓.*a tap within 24px of the panel edge does NOT dismiss (near-miss forgiveness)"',
+			note = "TD-24, director round 7. Zone A is the union bounding box of every painted node plus every focusable hit rect, inflated — modal DISMISSAL forgiveness, and on a surface holding a full-width slider it covered most of the viewport, so a click on empty world resigned nothing. The forgiveness is now destructive-outcome-only. BOTH sides are pinned: the HUD must resign on a tap close to its content, and the modal must still survive a near-miss (the existing 24px case is grepped here too, so removing forgiveness wholesale cannot pass). The Adjust half is pinned separately because it was gated on focus rather than on ownership",
+		},
+		{
+			name = "focus-order-dump",
+			requirements = { "UI-AGENT-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*carries its schema and both readings" && echo "$out" | grep -q "✓.*is deterministic: two calls with nothing changed are equal" && echo "✓ frozen" >/dev/null && echo "$out" | grep -q "✓.*is frozen — an inspector cannot mutate the map it is inspecting" && echo "$out" | grep -q "✓.*survives dispose: an overlay outliving its surface gets an empty map, not a throw" && echo "$out" | grep -q "✓.*reports the AUTHORED tier per entry"',
+			note = "TD-9/TD-10: the §6 dump contract (schema string, deterministic, frozen) and the post-dispose safety that keeps a debug overlay from crashing the client it was added to diagnose. The dump reports BOTH readings, which is what makes 'one map read two ways' inspectable rather than merely asserted",
+		},
+		{
+			name = "registration-and-docs",
+			requirements = { "UI-AGENT-001" },
+			run = "lune run tools/lune/check_registration_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && lune run tools/lune/check_boundary >/dev/null && lune run tools/lune/check_prop_parity_cli >/dev/null && lune run tools/lune/check_surface_ledger >/dev/null && python3 tools/check_manifest_integrity.py >/dev/null && stylua --check src tests tools bench examples",
+			note = "the standard battery at the final source. The prop-parity check is what caught traversalPriority declaring dirty classes while construction-only, and its absence from the exported ButtonSpec/ToggleSpec/TextFieldSpec/GripSpec types and from api.md's shared-prop table",
+		},
+		{
+			name = "step8-debt-cleared",
+			requirements = { "UI-AGENT-001" },
+			run = "test -f artifacts/traversal-document-order/step8-debt.md && grep -q 'keyboardNavigation' docs/reference/api.md && grep -q 'Camera 100' docs/guide/07-input.md && grep -q 'Camera 100' docs/adr/ADR-0014-first-responder.md && python3 -c \"\nimport json\nd=json.load(open('artifacts/desktop-keyboard-navigation/gate.json'))\nc={x['name']: x.get('state') for x in d['checks']}\nfor k in ('adjust-claim-is-subtree-scoped','rascalrally-consumer','library-suite-green'):\n    assert c.get(k)=='PASS', (k, c.get(k))\nassert d['status']=='PASS', d['status']\n\"",
+			evidence = "artifacts/traversal-document-order/step8-debt.md",
+			note = "TD-16. Step 8's gate returned FAIL_RECOVERABLE when re-run at its own unmodified source (decision TDN-5): one check grepped a test that had been renamed, one ran a game test asserting a pre-Step-8 world, and its suite floor was pinned below its own finishing count. The proof that all three are repaired is Step 8's OWN gate result, so this check reads the three named checks out of its gate.json and requires PASS. Written that way after the first attempt used NEGATIVE greps for the stale strings against this manifest — which can never pass, because the check's own run string contains the strings it greps for. A check that cannot pass is the same defect class as one that cannot fail",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			run = "tools/test.sh 3133",
+			evidence = "artifacts/test.json",
+			note = "stage-start floor was 3079; the floor lands as the FINAL number so a regression of this stage's own pins fails the gate. (Step 8's equivalent check pinned 3070 against a 3079 finish — corrected in this stage, see step8-debt.md)",
+		},
+		{
+			name = "studio-evidence",
+			requirements = { "UI-FID-001" },
+			run = "python3 -c \"\nimport json\nd=json.load(open('artifacts/traversal-document-order/studio/traversal.json'))\nassert d['preflight']['scenarioState']=='ready', 'preflight'\nassert d['preflight']['stalenessMarkerChecked'] is True, 'staleness'\nassert d['preflight']['playerListEnabled'] is False, 'DKN-1: Tab is only deliverable with the players list off'\nrows={r['id']: r for r in d['rows']}\nfor k in ('TD13-forward-traversal','TD13-reverse-traversal','TD2-arrows-unregressed','TD14-dump-matches-behavior','TD13-capture'):\n    assert rows[k]['status']=='PASS_AUTOMATED', k\nassert rows['TD15-consumer-canary']['status']=='PENDING', 'the game-place canary must stay honest'\nf=rows['TD13-forward-traversal']\nassert f['focusLog'][2]=='/KbdNav/Volume/TrackHost/Track', 'the grip must be reached THIRD, in document position'\nassert all(e['gameProcessed'] is False for e in f['rawInput']), 'raw Tab must reach the developer binding'\na=rows['TD2-arrows-unregressed']['focusLog']\nassert not any('Track' in p for p in a), 'the ARROWS must not visit the grip'\nt=[e['path'] for e in rows['TD14-dump-matches-behavior']['dump']['traversal']]\nassert t[3]=='/KbdNav/Volume/TrackHost/Track', 'dump must agree with the observed order'\nnav=rows['TD14-dump-matches-behavior']['dump']['navigation']\nassert nav[-1]['name']=='auto-grips', 'the arrows keep the trailing grip group'\n\" && test -f artifacts/traversal-document-order/studio/td13-fixture.png",
+			evidence = "artifacts/traversal-document-order/studio/traversal.json",
+			note = "TD-13/TD-14: raw Tab through the real adapter in a visible Play session against the keyboard_navigation scenario, with the live focus log compared against document order AND against a handle.focusOrder() dump taken in the same session. Step 8 left its post-sink key drive unverified after three execute_luau timeouts; if that recurs this lands FAIL_ENVIRONMENT with the procedure, never as a product claim",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/traversal-document-order/consumer-impact.md && test -f "$f" && grep -q "TD15-consumer-canary" "$f" && grep -q "luauui_focus_order_contract" "$f" && test -f ../../../games/RascalRally/code/tests/luauui_focus_order_contract.spec.luau && cd ../../../games/RascalRally/code && ./run-tests.sh >/dev/null 2>&1',
+			evidence = "artifacts/traversal-document-order/consumer-impact.md",
+			note = "TD-15: the consumer-impact ledger audits every changed contract against the game's real callers, and the check re-runs the game suite live at the source being judged rather than trusting a stored transcript",
+		},
+		{
+			name = "human-review",
+			requirements = { "UI-INPUT-002" },
+			state = "PENDING_HUMAN",
+			releaseBlocking = false,
+			evidence = "artifacts/traversal-document-order/review-packet.md",
+			note = "TD-P1: a person tabs through the fixture and says whether the order reads as the form reads. This row exists because the stage it fixes passed its gate and three fresh-context reviews, and the director found the defect in a ten-minute playtest — every instrument here measures the order it was told to expect. TD-P2 inherits Step 8's physical rows (DK-P1/DK-P2) and its two engine-blocked ones (DKN-1 players list, DKN-2 TextBox suppression)",
+		},
+	},
+	["desktop-keyboard-navigation"] = {
+		-- Roadmap Step 8 (docs/plans/desktop-keyboard-navigation.md): Tab/Shift+Tab
+		-- traversal, Space-as-Activate, and focused-value arrow Adjust, all through
+		-- the EXISTING focus graph / responder / IAS architecture. Registered BEFORE
+		-- any edit with honest PENDING checks per the plan's "Gate"; each flipped to
+		-- `run` only once its work and evidence actually existed. Acceptance rows
+		-- DK-1..DK-18 live in artifacts/desktop-keyboard-navigation/acceptance.md.
+		{
+			name = "acceptance-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/desktop-keyboard-navigation/acceptance.md && test -f "$f" && for id in DK-1 DK-4 DK-7 DK-9 DK-11 DK-12 DK-13 DK-16 DK-17 DK-18 DK-P1; do grep -q "$id" "$f" || { echo "$id missing"; exit 1; }; done && grep -q "PENDING_PHYSICAL" "$f" && test -f artifacts/desktop-keyboard-navigation/decisions.md && grep -q "DKN-1" artifacts/desktop-keyboard-navigation/decisions.md',
+			evidence = "artifacts/desktop-keyboard-navigation/acceptance.md",
+			note = "execution contract §2: the ledger written BEFORE implementation, with a final honest status per row and the physical rows left pending rather than closed by an easier instrument. The decision packets it cites (DKN-1 Tab/CoreGui, DKN-2 TextBox suppression, DKN-3 the adjustTargets root, DKN-4 the consumer Space collision) are checked to exist beside it",
+		},
+		{
+			name = "traversal-pure",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*traverse(+1) walks the flat scope forward" && echo "$out" | grep -q "✓.*Tab leaves a CONTAINED group that the arrows cannot leave sideways" && echo "$out" | grep -q "✓.*Shift+Tab crosses back into the previous group at its LAST node" && echo "$out" | grep -q "✓.*wraps by default at both ends" && echo "$out" | grep -q "✓.*traversalWrap = false stops at the ends" && echo "$out" | grep -q "✓.*a GROUPED scope.s wrap policy is the scope.s, not any group.s" && echo "$out" | grep -q "✓.*an ineligible focus-skip entry is stepped over, not landed on" && echo "$out" | grep -q "✓.*focus stays put when nothing else in the scope is eligible" && echo "$out" | grep -q "✓.*a node removed between presses never becomes a traversal target" && echo "$out" | grep -q "✓.*re-ordering the scope re-reads the order on the very next press" && echo "$out" | grep -q "✓.*Tab cannot leave a trapped scope and the prior focus is restored on pop"',
+			note = "DK-1..DK-6: red-first pure specs for forward/reverse traversal, contained-group crossing, the SCOPE-level wrap policy (distinct from a group's own arrow wrap), live focus-skip predicates, structural churn, and modal trap + restore. Form A, so a failing suite reddens the check",
+		},
+		{
+			name = "action-system-behavior",
+			requirements = { "UI-INPUT-003", "UI-INPUT-004" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*Tab and Shift+Tab move the focus ring through a plain form" && echo "$out" | grep -q "✓.*Space activates the focused control exactly once" && echo "$out" | grep -q "✓.*a disabled control consumes Space and does nothing" && echo "$out" | grep -q "✓.*a native Activated echoing the same keyboard press does not activate twice" && echo "$out" | grep -q "✓.*a real pointer tap beside a key press is two presses, never an echo" && echo "$out" | grep -q "✓.*a spent echo does not roll the window forward onto the next real press" && echo "$out" | grep -q "✓.*Shift+Tab into a scope with no focus enters at the LAST eligible node" && echo "$out" | grep -q "✓.*a surface with no selection bridge never collapses a tap next to a key press" && echo "$out" | grep -q "✓.*Left/Right adjust a focused horizontal Slider on a GROUPED screen" && echo "$out" | grep -q "✓.*the OTHER axis still navigates while the value control holds focus" && echo "$out" | grep -q "✓.*the Adjust keys are UNBOUND while focus sits off a declared target" && echo "$out" | grep -q "✓.*Tab commits through the field.s own path and only THEN advances focus" && echo "$out" | grep -q "✓.*the arrows stay with the field.s own sinking context while editing" && echo "$out" | grep -q "✓.*a PASSIVE HUD binds no Tab and no Space: gameplay is untouched" && echo "$out" | grep -q "✓.*engage() binds them and resign() gives them back, with no residue" && echo "$out" | grep -q "✓.*keyboard hot-plug adds and removes the bindings with no stuck sink" && echo "$out" | grep -q "✓.*a dismissed screen stops eating Tab and Space"',
+			note = "DK-8..DK-15 driven through system.deviceKey (the arbitrated device path, never a direct callback): responder ownership, keyboard hot-plug bind/unbind with no leaked sink, teardown, exactly-once activation across the IAS and native-tap paths INCLUDING the two negative cases that keep the echo window from eating real presses, Space/Return parity, axis-scoped Adjust routing, and text editing",
+		},
+		{
+			name = "adjust-claim-is-subtree-scoped",
+			requirements = { "UI-PARADIGM-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the Adjust keys unbind when focus leaves the control for a sibling button" && echo "$out" | grep -q "✓.*a sibling button.s arrows fire no dead Adjust"',
+			note = "DK-11, the defect Studio found under a green suite: the presenter handed `adjustTargets` the SCREEN root while `focusGroups` beside it has always been handed the contribution's own node, so newStepper/newRating claimed every Button/Grip on the screen and the Adjust keys stayed bound with focus anywhere. Both regressions put the value control on a screen WITH a sibling button, which is what every prior fixture omitted",
+		},
+		{
+			name = "keep-visible-on-traverse",
+			requirements = { "UI-FOCUS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*tabbing past the visible band scrolls the host, with no control wiring"',
+			note = "DK-7: a traversal move routes through the SHARED keep-visible service (controller.scrollToVisible via handle.focusMoved) rather than a second scroll path — asserted on the host's own scroll position, not on the call",
+		},
+		{
+			name = "no-screen-key-bindings",
+			requirements = { "UI-INPUT-001" },
+			run = '! grep -rqn "KeyCode" src/controls/ && ! grep -rqn "UserInputService" src/controls/ && ! grep -rqn "ContextActionService" src/controls/ && test "$(grep -rlE "keyCode *=" src/controls/ | sort | tr "\\n" " ")" = "src/controls/text_input.luau " && test "$(grep -cE "keyCode *=" src/controls/text_input.luau)" = "2" && ! grep -qE "keyCode *=|createAction\\(|\\.bind\\(" examples/gallery/scenarios/keyboard_navigation.luau && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*Tab and Shift+Tab move the focus ring through a plain form"',
+			note = "DK-16: the behavior is automatic for public controls. The first three clauses were CASE-BLIND when first written (phase-gate PG-2): they grepped `KeyCode` while the spelling this repo uses at a binding site is lowercase `keyCode`, so a new control binding Tab would have been invisible — proven by copying stepper.luau to scratch, appending a keyCode bind, and watching all three clauses still pass. The check now PINS the lowercase binding sites exactly: text_input.luau is the ONLY file allowed to have them and it must have exactly two (its text-entry Swallow and Cancel bindings, which are a control-owned sinking context, not a screen binding a key). A third one there, or one anywhere else, reddens this check. The Studio fixture CREATES no binding either — the test is for a `keyCode =` assignment or a createAction/bind call, since the fixture READS `binding.keyCode` for its trace, which is observation, not wiring. The traversal case that proves the behavior presents with ZERO input opts",
+		},
+		{
+			name = "registration-and-docs",
+			requirements = { "UI-AGENT-001" },
+			run = "lune run tools/lune/check_registration_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && lune run tools/lune/check_boundary >/dev/null && lune run tools/lune/check_prop_parity_cli >/dev/null && lune run tools/lune/check_surface_ledger >/dev/null && python3 tools/check_manifest_integrity.py >/dev/null && stylua --check src tests tools bench examples",
+			note = "the standard battery at the final source: api.md drift both directions, the engine-free require graph plus the consumer scan, theme-doc anchors, seven-view property parity, surface-ledger classification of the new public items, manifest grep integrity, and stylua proving the diff is not a reformat",
+		},
+		{
+			name = "conformance-proofs",
+			requirements = { "UI-PARADIGM-001" },
+			run = 'grep -q "Tab and Shift+Tab move the focus ring through a plain form" tests/conformance/controls_registry.luau && grep -q "Space activates the focused control exactly once" tests/conformance/controls_registry.luau && grep -q "a PASSIVE HUD binds no Tab and no Space" tests/conformance/controls_registry.luau && grep -q "Left/Right adjust a focused horizontal Slider on a GROUPED screen" tests/conformance/controls_registry.luau && grep -q "Space on the focused button steps the value, in both directions" tests/conformance/controls_registry.luau && lune run tools/lune/check_registration_cli >/dev/null',
+			note = "the registry's keyboard input/affordance cells cite the new cases verbatim for Button, TextInput, Slider and Stepper, and check_registration proves every cited name exists in a registered spec",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			run = "tools/test.sh 3079",
+			evidence = "artifacts/test.json",
+			note = "stage-start floor was 3028 (baseline/test-before.json, captured from a worktree pinned to aeffc68); the floor lands as the FINAL number so a regression of this stage's own pins fails the gate. CORRECTED 2026-08-03 (traversal-document-order TDN-5): the pin said 3070 while the stage actually finished at 3079, so nine of its own tests were outside the floor",
+		},
+		{
+			name = "studio-evidence",
+			requirements = { "UI-FID-001" },
+			run = "python3 -c \"\nimport json,sys\nd=json.load(open('artifacts/desktop-keyboard-navigation/studio/keyboard.json'))\nassert d['preflight']['scenarioState']=='ready', 'preflight'\nassert d['preflight']['libraryVersion']=='0.8.0', 'version'\nrows={r['id']: r for r in d['rows']}\nneed={'DK17-B-form-traversal','DK17-C-keep-visible','DK17-D-modal-trap-and-restore','DK17-G-space-and-return-activate','DK17-H-value-control-axis','DK17-I-adjust-claim-is-subtree-scoped','DK17-J-keyboard-hot-plug'}\nassert need <= set(rows), sorted(need-set(rows))\nfor k in need: assert rows[k]['status']=='PASS_AUTOMATED', k\nassert rows['DK17-F-tab-while-editing']['status']=='FAIL_ENVIRONMENT', 'F must stay honest'\nassert rows['DK17-A-tab-contended']['status']=='FAIL_ENVIRONMENT', 'A must stay honest'\n\" && test -f artifacts/desktop-keyboard-navigation/studio/dk17-fixture.png",
+			evidence = "artifacts/desktop-keyboard-navigation/studio/keyboard.json",
+			note = "DK-17: raw Tab/Shift+Tab/Space/Return/arrow events driven with VirtualInput through the real adapter in a visible Play session, each row pairing the raw keyboard log (with gameProcessed), the semantic action, the focus log, the scroll position and the control state. The check reads the STATUS FIELD per row and pins the two honest FAIL_ENVIRONMENT rows so they cannot be quietly upgraded",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/desktop-keyboard-navigation/consumer-impact.md && grep -q "DKN-4" artifacts/desktop-keyboard-navigation/consumer-impact.md && grep -q "DK18-consumer-canary" artifacts/desktop-keyboard-navigation/consumer-impact.md && cd ../../../games/RascalRally/code && ./run-tests.sh >/dev/null 2>&1',
+			evidence = "artifacts/desktop-keyboard-navigation/consumer-impact.md",
+			note = "the consumer-impact ledger audits all eight changed contracts against the game's real callers with file:line evidence, and the check RE-RUNS the game suite live at the source being judged rather than trusting a stored transcript",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			run = 'if [ -n "${LUAUUI_PRIOR_GATES_NESTED:-}" ]; then echo "prior-gates: NESTED - regeneration skipped (the outer prior_gates.sh run re-runs this same list)"; exit 0; fi; b=artifacts/desktop-keyboard-navigation/baseline/prior-gates-before.txt && a=artifacts/desktop-keyboard-navigation/prior-gates.txt && test -f "$b" && test "$(grep -cE "^PASS " "$b")" -ge 15 && tools/prior_gates.sh "$a" desktop-keyboard-navigation && grep -q "^DONE$" "$a" && lost="$(comm -23 <(grep "^PASS " "$b" | sort) <(grep "^PASS " "$a" | sort))" && test -z "$lost"',
+			evidence = "artifacts/desktop-keyboard-navigation/prior-gates.txt",
+			note = "all prior gates RE-RUN IN-TREE at the final source via tools/prior_gates.sh (nested-guard aware). The baseline is the PREVIOUS stage's in-tree roll-up, not a worktree run: a pinned worktree cannot read the gitignored evidence artifacts most checks consume, so a worktree baseline is all-FAIL and makes this comparison vacuously green — the exact can't-ever-fail shape the 2026-07-29 sweep removed (docs/lessons/pinned-worktree-cannot-rerun-gates.md). The `-ge 15` floor on the baseline is what stops a degenerate before-set from passing this check",
+		},
+		{
+			name = "fresh-context-reviews",
+			requirements = { "UI-AGENT-001" },
+			run = "python3 -c \"import json,sys; p=json.load(open('artifacts/desktop-keyboard-navigation/verifier-phase-gate.json')); a=json.load(open('artifacts/desktop-keyboard-navigation/verifier-architecture.json')); t=json.load(open('artifacts/desktop-keyboard-navigation/verifier-platform.json')); sys.exit(0 if p.get('verdict') in ('READY TO DECLARE','ACCEPT') and a.get('verdict') in ('ACCEPT','ACCEPT-WITH-FINDINGS') and t.get('verdict') in ('ACCEPT','ACCEPT-WITH-FINDINGS') else 1)\"",
+			evidence = "artifacts/desktop-keyboard-navigation/verifier-phase-gate.json",
+			note = "fresh-context phase-gate + architecture (public contracts changed: traversalWrap, adjustAxis, handleTraverse, graph.traverse) + Roblox-platform (the Tab/CoreGui and TextBox-suppression findings) reviews on the raw artifacts; the check reads the verdict FIELD, never a grep for an accept token",
+		},
+		{
+			name = "physical-and-contended-rows",
+			requirements = { "UI-INPUT-002" },
+			state = "FAIL_ENVIRONMENT",
+			releaseBlocking = false,
+			evidence = "artifacts/desktop-keyboard-navigation/review-packet.md",
+			note = "four rows no instrument in this build can close: DK-P1 a real operating-system keyboard on a phone/tablet (the emulator cannot produce a keyboard-capable touch device and never summons the mobile OS keyboard); DK-P2 physical keyboard hot-plug against a real avatar control stack; DK17-A Tab while the CoreGui players list is enabled (the engine refuses to synthesize the key at all — decision packet DKN-1); DK17-F Tab inside a focused TextBox (the engine marks keyboard input gameProcessed and fires no developer binding — DKN-2). Exact procedures in review-packet.md",
+		},
+	},
 	["api-architecture-consistency"] = {
 		-- Roadmap Step 7 (docs/plans/api-architecture-consistency.md): the API
 		-- constitution + whole-surface consistency audit. Registered BEFORE any

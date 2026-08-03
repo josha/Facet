@@ -166,8 +166,9 @@ Rules:
 ## 9. Input and focus
 
 - Controls never bind hardware key codes; they speak **semantic actions**
-  (Activate, Cancel, Navigate, Adjust) through contexts that own
-  priority/sink/lifetime.
+  (Activate, Cancel, Navigate, Adjust, Traverse) through contexts that own
+  priority/sink/lifetime. The vocabulary is closed: a new verb is an ADR, not a
+  new binding at a call site.
 - A composite advertises its whole four-input story by attaching **one
   contribution bundle** to its blueprint root (`contribution.attach`); the
   presenter discovers and composes it — consumers wire zero `present()` opts.
@@ -178,6 +179,22 @@ Rules:
   order predicates are evaluated at navigation time; the active interaction holds
   its target's focusability. Adjust is bound only while focus sits on a declared
   target, so screens never shadow gameplay keys.
+- **One focus map, read two ways.** Directional Navigate and linear Traverse
+  (Tab/Shift+Tab) walk the *same* scope order. A second order, derived from
+  Instances or maintained alongside, is the defect — the two would disagree the
+  first time a node was hidden. Scope-level policy (traversal wrap, trap) is
+  declared by the surface; a control may not invent its own.
+- **A key belongs to one action at a time.** Where two verbs want the same key,
+  the presenter *moves the binding* (a focused value control's declared
+  `adjustAxis` suspends that axis's Navigate bindings and restores them on
+  leaving) rather than delivering one press to two actions in one context.
+- **Device-selected behavior comes from live capability plus responder state**,
+  never a device name. The rule is about how such a decision is *made*, not a
+  claim that every binding is gated: today only the desktop keyboard additions
+  (Tab, Space-as-Activate) are capability-and-responder gated, while the older
+  Return/ButtonA/arrow bindings are unconditional and harmless where their device
+  is absent. When a binding IS gated it must add and remove real bindings, so a
+  capability that goes away leaves no dead sink behind.
 
 ## 10. Adaptation
 

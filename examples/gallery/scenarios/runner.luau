@@ -758,6 +758,64 @@ function Runner.start(deps: { [string]: any })
 						end,
 					}
 				end)(),
+				-- KEY LOG (roadmap Step 8). `rawInput` above keeps only the most
+				-- recent began/ended pair, which is right for a single press but
+				-- blind to a SEQUENCE — and a keyboard row is a sequence by
+				-- definition (Tab, Tab, Shift+Tab, Space). This appends every
+				-- keyboard event, in order, with the `gameProcessed` flag beside
+				-- it: that flag is the free second opinion on whether the engine
+				-- considered the press consumed by the UI, and it is the one
+				-- signal that separates "our binding fired" from "the key also
+				-- went somewhere else".
+				keyLog = (function()
+					local UserInputService = game:GetService("UserInputService")
+					local events: { any } = {}
+					local conns: { RBXScriptConnection } = {}
+					local function record(phase: string, input: InputObject, gameProcessed: boolean)
+						if input.UserInputType ~= Enum.UserInputType.Keyboard then
+							return
+						end
+						table.insert(events, {
+							n = #events + 1,
+							phase = phase,
+							at = os.clock(),
+							keyCode = tostring(input.KeyCode),
+							userInputType = tostring(input.UserInputType),
+							gameProcessed = gameProcessed,
+						})
+					end
+					return {
+						arm = function(): boolean
+							table.clear(events)
+							if #conns == 0 then
+								table.insert(
+									conns,
+									UserInputService.InputBegan:Connect(function(input, processed)
+										record("began", input, processed)
+									end)
+								)
+								table.insert(
+									conns,
+									UserInputService.InputEnded:Connect(function(input, processed)
+										record("ended", input, processed)
+									end)
+								)
+							end
+							return true
+						end,
+						read = function(): { any }
+							return events
+						end,
+						disarm = function(): boolean
+							for _, c in conns do
+								c:Disconnect()
+							end
+							conns = {}
+							table.clear(events)
+							return true
+						end,
+					}
+				end)(),
 				-- one frame, so a caller can order "write, then let the engine
 				-- draw, then read" without importing RunService
 				step = function(): number

@@ -23,8 +23,18 @@ Its conclusions in brief:
    **sink** (IAS `Sink` or CAS priority) — coordinated manually.
 2. The doc-sanctioned layering idiom is `PlayContext` vs `NavContext` toggled by
    `Enabled`, with a **gameplay sink recommended at `Priority = 2000`**; the
-   default PlayerScripts contexts sit below that (historical default 1000). No
-   reserved-band table is published.
+   default PlayerScripts contexts sit below that. No reserved-band table is
+   published.
+
+   **Corrected 2026-08-03.** This clause used to say the PlayerScripts contexts
+   sit at a "historical default 1000", and the guide repeated it. Measured on the
+   shipped `PlayerModule`, they are far lower and are not one number:
+   **Camera 100, Character 150, Vehicle 200, Transformer 300**. The 2000 figure is
+   a *recommendation for a game's own sink*, never where the avatar actually sits.
+   No behavior depends on the difference — LuauUI's bands (1500 plain, 3000
+   engaged) clear all of these either way — but the false number invites somebody
+   to size a context against it, which is why it is written down correctly here
+   rather than left as folklore.
 3. To be focus-aware and never swallow jump wholesale, LuauUI must **sink jump
    inputs only in the engaged context, above the gameplay band** — mirror
    `ContextActionPriority.High = 3000` rather than tying the game's 2000.

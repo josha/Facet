@@ -22,6 +22,9 @@ repeatability checks, while keeping it explicitly separate from physical perform
 Exercise the public package and metric contract from
 [`theme-packages-and-skinning.md`](theme-packages-and-skinning.md); a palette-only
 swap is not enough to measure theme cost.
+Exercise the large-text contract from
+[`large-text-accessibility.md`](large-text-accessibility.md) without reducing content
+or accessibility behavior to improve a profile.
 Reuse
 `bench/perf_scenes.luau`, `bench/perf_profiles.luau`,
 `bench/perf_runner.luau`, `tools/lune/perf.luau`, the gallery's Studio scenario
@@ -95,7 +98,8 @@ Keep each scenario focused enough that a profile has an interpretable cause:
 | `dense-scroll` | Principal virtualized interactive list | Is steady scrolling smooth and windowing bounded? |
 | `dense-scroll-native` | Matched raw-Roblox reference | Which cost is engine work versus LuauUI overhead? |
 | `collection-churn` | Selection, edits, insert/remove/reorder while scrolling | Do updates stay proportional to changed/visible content? |
-| `layout-style-churn` | Preferred text, locale length, resize/orientation, palette-only and metric/chrome theme swaps | Which invalidations cause unnecessary whole-tree work? |
+| `layout-style-churn` | All four preferred-text values, hot preference changes, locale length, resize/orientation, palette-only and metric/chrome theme swaps | Which invalidations cause unnecessary whole-tree work? |
+| `large-text-overflow` | Long localized/identity strings at `Largest`, both reference fonts, repeated reflow/scroll, and an engaged overflow reveal if shipped | Are measurement, disclosure, and any motion bounded without hiding content? |
 | `async-image-churn` | Cold/warm image acquire, stale completion, failures, rapid reuse | Are decoding, resource lifecycle, and UI updates separated and bounded? |
 | `lifecycle-soak` | Repeated mount/dismiss/reset plus a long scrolling run | Do Instances, connections, memory, or stale work trend upward? |
 
@@ -117,6 +121,8 @@ The development overlay must provide:
   row, mounted row, and stale-resource counters where measurable;
 - active theme package/snapshot, metric revision, decoration-layer, asset-fallback,
   and theme-swap/reflow counters;
+- preferred-text source/value, text-measure queue/cache, re-solve, overflow-policy,
+  full-value-disclosure, active moving-label, and text per-frame-write counters;
 - automatic export of scenario settings and telemetry;
 - a clean capture mode that hides the launcher and unrelated overlays;
 - one action that returns to the idle baseline and proves teardown.
@@ -209,6 +215,8 @@ It must verify:
 - the principal dense-scroll workload and matched native reference;
 - matched flat/ornate theme workloads and isolated install, swap/reflow, steady-state,
   asset-failure, and teardown costs;
+- large-text/long-content reflow and overflow work, including a hard bound on any
+  active moving labels and proof that reduced motion eliminates travel;
 - bounded virtualization and instrumentation correctness;
 - MicroProfiler labels and capture metadata;
 - headless scenario linkage without mislabeling it as device evidence;

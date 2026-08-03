@@ -66,11 +66,11 @@ Sources: [SwiftUI updates](https://developer.apple.com/documentation/updates/swi
 | Axis | LuauUI strength | Material gap |
 |---|---|---|
 | Declarative state and identity | Signals/memos, keyed `ForEach`, ownership scopes, deterministic lifecycle, server-state adapters | Public constructor types are weak; property validity and render authority are not one enforced schema |
-| Cross-platform input | Semantic actions, live interaction-class set, hot-switch contracts, four-input proof registry, ten-foot focus | Desktop Tab/Shift+Tab and Space conventions are incomplete; gesture and secondary-action behavior is still control-specific; physical device proof is open |
+| Cross-platform input | Semantic actions, live interaction-class set, hot-switch contracts, four-input proof registry, ten-foot focus, desktop Tab/Shift+Tab traversal + Space activation + focused-axis Adjust (Step 8) | Gesture and secondary-action behavior is still control-specific; no Home/End/PageUp/PageDown or type-ahead; `Escape` is engine-reserved so keyboard modal exit is screen-provided; physical device proof is open |
 | Layout | Deterministic solver, stack/grid/anchor primitives, device profiles, safe-area facts | ScrollView is not a real scroll container; no `ViewThatFits`, adaptive stack, layout priority, or custom-layout contract |
 | Controls | Deep TextInput, Table, VirtualList, PopupButton, Toggle, Chip | Button is too limited; Slider/Stepper and several common display/selection controls are absent or only recipes |
 | Styling | Token validation plus strong native StyleSheet opportunity | Current adapter hard-codes control chrome; reactive style hints can be dropped; Style Editor handoff is not implemented yet |
-| Accessibility and inclusion | Reduced-motion/transparency facts, contrast checks, focus, target declarations, text-reserve tests | No semantic tree/announcement bridge; hit floors are not generally enforced; preferred text may be applied twice |
+| Accessibility and inclusion | Reduced-motion/transparency facts, contrast checks, focus, target declarations, exact/conservative text metrics, adaptive composition, and an exact-once paint/measure split | No semantic tree/announcement bridge; the live preferred-text adapter still uses guessed offsets and misses live preference changes; full-surface/Sponsor proof at `Largest` is planned in Step 8.5 |
 | Agentic development | Scaffolds, failing test stubs, conformance registry, deterministic dumps, gates, fuzz/fault/soak tools, extension playbooks | Unknown props can fail silently; public `any` boundaries and stale guide samples weaken autocomplete and diagnostics; some primitives bypass registration |
 | Performance | Named production-shaped scenes, p50/p95/p99 headless timing, regression budgets, heap/reactive counters | Fake target only; device slots remain empty; no authoritative phone/console frame, Instance, connection, memory, or latency result |
 | Future spatial UI | Existing BillboardGui target and semantic action architecture | No SurfaceGui target, spatial environment facts/event values, ray/pose input, VR focus/hover/occlusion contract, or hardware proof |
@@ -436,7 +436,7 @@ The structural gap the repo names itself: **Table reorders but does not virtuali
 **Gaps that matter:**
 - **No compact adaptation.** SwiftUI's `Table` hides headers and shows only the first column in a compact horizontal size class. LuauUI has no such behavior — and cannot easily, because `sizeClass` has **zero consumers in `src/`** ([§7.4](#74-platform-adaptation)).
 - **No virtualization**; column resize remounts every row (`table.luau:1471-1484` bumps a `widthsVersion` keyed into the row items) — a documented Phase-A cost, wrong at scale.
-- **No Home/End/PageUp/PageDown and no type-ahead** — a 20-row table is one row at a time on keyboard.
+- **No Home/End/PageUp/PageDown and no type-ahead** — a 20-row table is one row at a time on keyboard (Tab/Shift+Tab traverse the header and rows since Step 8, but there is still no jump-to-edge or first-letter seek).
 - **No secondary row actions, no `.onDelete`, no modifier-click multi-select** (⌘/⇧ is "Phase B", unshipped).
 
 ### 4.7 Form — **Composable**
@@ -581,16 +581,22 @@ Searched the whole repo for `screenreader`/`screen reader`/`voiceover`/`talkback
 
 **What does exist is a substantial inclusive-design foundation, not yet a proven
 assistive-technology one:** reduced-motion and transparency facts, contrast checks,
-a declared hit-target floor, never-color-only guidance, and headless text-reserve
-tests. One correction is required: the live adapter maps `PreferredTextSize` into a
-custom scale and then writes scaled `TextSize`, while Roblox may already apply that
-preference. The native evidence matrix must prove and remove any double application
-before this can be called correct. BiDi/RTL and assistive semantics remain deferred.
+a declared hit-target floor, never-color-only guidance, exact/conservative text
+measurement, `lineLimit`, `ViewThatFits`, adaptive composition, and scroll-to-visible.
+The renderer now separates measurement reservation from paint: the live engine path
+does not multiply the player's preference into `TextSize` a second time. The remaining
+gap is still material. `src/client/roblox_env.luau` uses unmeasured generous offsets
+for the four preference values and does not subscribe to `PreferredTextSize`; all
+public surfaces and Sponsor View have not been proved at `Largest`, and permitted
+truncation does not yet guarantee full-value access. Roadmap Step 8.5 owns the exact
+native seam, reflow/overflow policy, mobile Sponsor proof, and performance bounds:
+[`large-text-accessibility.md`](../plans/large-text-accessibility.md). BiDi/RTL and
+assistive semantics remain separate gaps.
 
 ### 7.4 Platform adaptation
 
 **Automatic, zero consumer code:** injected text-reserve modeling plus an authored
-ten-foot scale (pending the no-double-scale correction above); overscan insetting of
+ten-foot scale (with live offset exactness still pending Step 8.5); overscan insetting of
 the solved tree on a Large display; focus-ring strengthening; a density cap;
 pointer-gated hover; four-input control wiring; derived navigation groups; modal
 dismissal; reduced-motion/transparency facts; and keyboard-occlusion keep-visible.
@@ -605,13 +611,24 @@ Architectural ruling worth recording: **the console TV is not a fifth device cla
 
 Mapped to SwiftUI: `@FocusState` ↔ `graph.focused` (a `Readable`) + `focusOn(path)`; `.focusSection()` ↔ `NavigationGroup`; `prefersDefaultFocus` ↔ `entry`. And unlike SwiftUI, the groups are **auto-derived from layout structure** with zero declaration (`presenter.luau:352-429`) — a `Grid` emits one group per row with `containment = true` and declared `up`/`down` exits between rows (`presenter.luau:376-392`), which is a stronger construct than `.focusSection()`: SwiftUI's focus engine still resolves direction from raw geometry, while these groups make the row topology explicit. Gamepad axis tolerance is real: D-pad-arriving-as-`Thumbstick1` is handled via a companion Direction2D action plus a client deadzone/re-center latch (`presenter.luau:945`, `roblox_input.luau:193-271`), with the honest rider that real analog delivery is unverifiable in Studio (`docs/lessons/synthetic-gamepad-unreachable.md`).
 
-The **logical focus engine is Available, but desktop keyboard conventions are not
-yet complete**. Current bindings provide directional navigation and Return-based
-activation; they do not provide Tab/Shift+Tab traversal or Space activation, and
-focused value controls need explicit arrow-to-Adjust routing without stealing text
-editing or gameplay keys. This is an adapter/responder binding gap, not a reason to
-create a second focus graph. The bounded follow-on is
-[`desktop-keyboard-navigation.md`](../plans/desktop-keyboard-navigation.md).
+The **logical focus engine is Available, and the desktop keyboard conventions
+landed on it in Step 8** ([`desktop-keyboard-navigation.md`](../plans/desktop-keyboard-navigation.md)),
+as a second READING of the same graph rather than a second graph: `graph.traverse`
+walks the active scope's own order (a flat scope's order, or every group's order
+concatenated in group order), crossing group containment because leaving is what
+Tab is for, honoring a scope-declared `traversalWrap`, trapping and restoring in a
+modal, and reporting through the same keep-visible service a directional move uses.
+`Space` joins `Return` as Activate, and a focused value control consumes the arrows
+on the axis it declares (`adjustAxis`) while the other axis keeps navigating (with
+the flat-scope caveat recorded in the API reference). All of
+it is bound at the IAS adapter edge only while keyboard capability is live and the
+surface's responder is engaged, so a passive HUD still binds nothing.
+
+Mapped to SwiftUI: `.focusable()`'s Tab ordering ↔ the mounted focus order (SwiftUI
+derives Tab order from view order; LuauUI derives it from the same order it derives
+navigation from). What remains open is narrower and named below: no
+Home/End/PageUp/PageDown, no type-ahead, and `Escape` is engine-reserved so a modal's
+keyboard exit is still its focusable Close button.
 
 ### 7.6 `ForEach` — **Available**
 

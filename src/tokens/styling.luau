@@ -458,7 +458,28 @@ function styling.normalizeStroke(spec: any, style: any?): any
 		thickness = activeStyle.strokes.hairline
 	elseif type(thickness) == "string" then
 		local resolved = activeStyle.strokes and activeStyle.strokes[thickness]
-		assert(type(resolved) == "number", `unknown stroke thickness token '{thickness}' (style.strokes)`)
+		-- `"focusRing"` is an ALIAS onto `extra.focusRingThickness`, deliberately,
+		-- rather than a second token carrying the same number (director playtest
+		-- 2026-08-03 round 2).
+		--
+		-- A control that declares `focusVisual = "none"` paints its own focused
+		-- state (a Slider: its track is the full width of the control, so the
+		-- adapter's fill would cover the value the player is reading), and it must
+		-- draw that ring at the SAME weight the adapter draws every other control's.
+		-- That number already exists and already has one home — `extra` — which is
+		-- where `screen_target` reads it. Adding `strokes.focusRing` beside it was
+		-- tried first and is the wrong shape twice over: two names for one
+		-- measurement is a drift risk, and because `strokes` is a themable token
+		-- family it also rewrote every theme package's committed metrics region and
+		-- invalidated a stored capture stamp — a large blast radius for a number
+		-- nobody was changing.
+		if resolved == nil and thickness == "focusRing" then
+			resolved = activeStyle.extra and activeStyle.extra.focusRingThickness
+		end
+		assert(
+			type(resolved) == "number",
+			`unknown stroke thickness token '{thickness}' (style.strokes, or "focusRing")`
+		)
 		thickness = resolved
 	end
 	assert(isFinite(thickness) and thickness >= 0, "stroke.thickness must be a non-negative number or a stroke token")

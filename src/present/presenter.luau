@@ -47,6 +47,25 @@ export type PresentOpts = {
 	-- and drops back on Cancel / outside-tap / handle.resign(). presentModal is
 	-- always engaged-exclusive regardless of this opt.
 	responder: string?, -- "passive"
+	-- LINEAR TRAVERSAL wrap policy for this surface's focus scope (roadmap
+	-- Step 8). Default true: Tab past the last control returns to the first, and
+	-- Shift+Tab off the first goes to the last. Set false for a surface where
+	-- running off the end should mean "stop" — a step-by-step form whose author
+	-- wants the end of the chain to feel like an end. It is declared HERE, per
+	-- surface, and never by a control: the plan's rule is one consistent policy
+	-- per active scope. It governs Tab only; a NavigationGroup's own `wrap`
+	-- still governs the directional arrows along that group's axis.
+	traversalWrap: boolean?,
+	-- where focus lands when this surface appears: "first" (default), "none", a
+	-- node id, or { id = "…" } when the id collides with one of those two words
+	initialFocus: (string | { id: string })?,
+	-- Per-surface override of the presenter's `keyboardNavigation` default: `true`
+	-- turns the desktop keyboard conventions on for this surface, `false` off,
+	-- `nil` inherits. Turning it ON also makes this surface's input context SINK
+	-- while it is engaged — the whole point is that the keys it claims (Space, the
+	-- arrows) stop reaching the avatar underneath, which is what "the UI has focus"
+	-- has to mean to a player. See api.md § Desktop keyboard conventions.
+	keyboardNavigation: boolean?,
 	-- engine-selection bridge (native-substrate NS-A12): presentModal-only
 	-- opt-in that mirrors LuauUI's logical focus to GuiService.SelectedObject
 	-- while the modal owns UI input. Ignored on present() (passive/gameplay
@@ -174,6 +193,7 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"onAdjust",
 	"onFocusNav",
 	"onGeometry",
+	"initialFocus",
 	"onNavigateIntercept",
 	"onReorderNav",
 	"outsideTapCancel",
@@ -184,6 +204,8 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"scrim",
 	"sinkNavigation",
 	"transition",
+	"traversalWrap",
+	"keyboardNavigation",
 })
 local TOAST_OPTS_KEYS = specGuard.keySet({
 	"context",
@@ -194,7 +216,7 @@ local TOAST_OPTS_KEYS = specGuard.keySet({
 	"readFloor",
 	"transition",
 })
-local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "now" })
+local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "now" })
 
 local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
 
@@ -397,6 +419,210 @@ local function focusOrder(node: any, out: { string })
 	for _, path in deferred do
 		table.insert(out, path)
 	end
+end
+
+-- ===== the LINEAR reading of the focus map (roadmap Step 8 follow-up) ========
+--
+-- Everything above derives the order the ARROWS walk, and defers focusable Grips
+-- to the end of it so directional navigation lands on content before it lands on
+-- a value control's grab zone. Tab inherited that deferral and should not have: a Slider
+-- between a button row and a list traversed AFTER the whole list, because a
+-- Slider's focus stop is a Grip (director playtest 2026-08-03; the measurement is
+-- in artifacts/traversal-document-order/acceptance.md).
+--
+-- So the presenter hands the graph a RANK — a sort key over the members the scope
+-- already has, never a second list of members (decision packet TDN-2). Two rules,
+-- in this order:
+--
+--   1. `traversalPriority`, a sort TIER (default 0, negative earlier, later
+--      positive) so an author can move ONE control without redeclaring the map;
+--   2. document position, so within a tier the order is the order the screen
+--      reads in.
+--
+-- COMPLETENESS BY CONSTRUCTION. The rank is derived FROM the finished order, so
+-- it covers exactly that order's paths — it cannot be missing one, which is what
+-- `graph.traverse` requires before it will sort at all. That is why this runs
+-- after the producer and after the hidden-filter rather than inside the walks:
+-- three producers with three different pruning rules cannot drift from a map that
+-- is built out of their own output.
+
+--[[ ===== initialFocus: which control holds focus when the surface appears =====
+	(director playtest 2026-08-03 round 5.)
+
+	`opts.initialFocus` is `"first"` (the default and the pre-option behavior),
+	`"none"`, a node id, or `{ id = "…" }`. This turns the author's answer into
+	what `FocusScope.initialFocus` wants: `"first"`, `"none"`, or a resolved PATH.
+
+	AN ID IS MATCHED AGAINST THE SCOPE'S OWN FOCUSABLES, by final path segment or
+	by full path, so `"Save"` finds `/Settings/Actions/Save` without the author
+	knowing the tree above it. An id that matches nothing is REFUSED naming what
+	is available (§4: a value that is accepted must do something) — an author who
+	typos a control name should not silently get "first" and wonder why.
+
+	THE RESERVED WORDS ARE CHECKED FOR COLLISION, not assumed away. `"first"` and
+	`"none"` are keywords, so a surface that actually contains a focusable with one
+	of those ids is ambiguous — and rather than resolve it silently in either
+	direction, construction refuses and names the escape hatch. It costs one branch
+	and removes a class of bug nobody would ever guess at. ]]
+local RESERVED_INITIAL_FOCUS: { [string]: boolean } = { first = true, none = true }
+
+local function resolveInitialFocus(spec: any, order: { string }, surfaceName: string): string?
+	if spec == nil then
+		return nil
+	end
+	local wanted: string
+	local explicitId = type(spec) == "table"
+	if explicitId then
+		wanted = (spec :: any).id
+	else
+		wanted = spec :: string
+	end
+
+	local function matches(path: string): boolean
+		return path == wanted or string.sub(path, -(#wanted + 1)) == "/" .. wanted
+	end
+
+	local hit: string? = nil
+	local ids: { string } = {}
+	for _, path in order do
+		local segs = string.split(path, "/")
+		table.insert(ids, segs[#segs])
+		if matches(path) and hit == nil then
+			hit = path
+		end
+	end
+
+	if not explicitId and RESERVED_INITIAL_FOCUS[wanted] then
+		if hit ~= nil then
+			error(
+				`LuauUI present('{surfaceName}'): initialFocus '{wanted}' is ambiguous — it is a reserved word `
+					.. `AND a mounted focusable has that id ({hit}). Rename the control, or say `
+					.. `initialFocus = \{ id = "{wanted}" } to mean the control.`,
+				0
+			)
+		end
+		return wanted -- the keyword, with nothing to collide with
+	end
+
+	if hit == nil then
+		local shown = table.concat(ids, ", ")
+		if #ids > 12 then
+			shown = table.concat(table.move(ids, 1, 12, 1, {}), ", ") .. `, … ({#ids} focusables)`
+		end
+		error(
+			`LuauUI present('{surfaceName}'): initialFocus '{wanted}' names no focusable on this surface. `
+				.. `Available: {if #ids > 0 then shown else "(none — this surface has no focusables)"}. `
+				.. `Use "first" for the first one, or "none" for no initial focus.`,
+			0
+		)
+	end
+	return hit
+end
+
+-- `handle.focusOrder()`'s dump schema (constitution §6: every dump carries one).
+-- Bump the integer if the shape changes in a way a reader could not absorb.
+local FOCUS_ORDER_SCHEMA = "luauui-focus-order/1"
+
+-- the AUTHORED traversal tier on one mounted path, for the inspection dump.
+-- Linear rather than a cached map on purpose: this runs once per entry in a
+-- human-triggered debug call, never on the traversal path itself.
+local function nodePriority(root: any, path: string): number
+	local function walk(node: any): number?
+		if node.path == path then
+			local p = node.props ~= nil and node.props.traversalPriority or nil
+			return if type(p) == "number" then p else 0
+		end
+		for _, child in node.children or {} do
+			local found = walk(child)
+			if found ~= nil then
+				return found
+			end
+		end
+		return nil
+	end
+	return walk(root) or 0
+end
+
+-- document position of every non-retiring node, plus the traversal tier declared
+-- on it. One pre-order walk; `retiring` is pruned because every producer above
+-- prunes it, so the two can never disagree about a fading subtree.
+local function documentIndex(root: any): ({ [string]: number }, { [string]: number })
+	local index: { [string]: number } = {}
+	local priority: { [string]: number } = {}
+	local n = 0
+	local function walk(node: any)
+		if isRetiring(node) then
+			return
+		end
+		n += 1
+		index[node.path] = n
+		local p = node.props ~= nil and node.props.traversalPriority or nil
+		if type(p) == "number" then
+			priority[node.path] = p
+		end
+		for _, child in node.children or {} do
+			walk(child)
+		end
+	end
+	walk(root)
+	return index, priority
+end
+
+-- every path in a flat order or a grouped map, in the order the graph will
+-- concatenate them — the exact member set `allIds(scope)` will produce
+local function orderPaths(order: { any }?, groups: { any }?): { string }
+	local out: { string } = {}
+	if order ~= nil then
+		for _, entry in order do
+			local path = entryPath(entry)
+			if path ~= nil then
+				table.insert(out, path)
+			end
+		end
+	elseif groups ~= nil then
+		for _, group in groups do
+			for _, entry in (group.order or {}) :: { any } do
+				local path = entryPath(entry)
+				if path ~= nil then
+					table.insert(out, path)
+				end
+			end
+		end
+	end
+	return out
+end
+
+-- rank[path] = 1..N in linear-traversal order, for exactly the paths in `order`
+-- or `groups`. A path the document walk never saw (a contribution may declare
+-- one) sorts after everything it did see, deterministically, rather than
+-- destabilizing the sort or dropping out of the map.
+local function traversalRank(rootNode: any, order: { any }?, groups: { any }?): { [string]: number }
+	local paths = orderPaths(order, groups)
+	local index, priority = documentIndex(rootNode)
+	local rows = table.create(#paths)
+	local unseen = #paths + 1
+	for i, path in paths do
+		table.insert(rows, {
+			path = path,
+			priority = priority[path] or 0,
+			doc = index[path] or (unseen + i),
+			i = i,
+		})
+	end
+	table.sort(rows, function(a, b)
+		if a.priority ~= b.priority then
+			return a.priority < b.priority
+		end
+		if a.doc ~= b.doc then
+			return a.doc < b.doc
+		end
+		return a.i < b.i -- Luau's sort is not stable; keep equal keys reproducible
+	end)
+	local rank: { [string]: number } = {}
+	for position, row in rows do
+		rank[row.path] = position
+	end
+	return rank
 end
 
 -- ===== input auto-wiring seam (ADR-0013; ui_todo §0) =======================
@@ -733,10 +959,54 @@ end
 -- disabled control. `enabled = false` has to mean disabled on every path,
 -- including the one that overrides everything else, and a disabled control emits
 -- no event either: nothing happened.
-local function dispatchActivate(handle: any, path: string?, meta: any?)
+--
+-- `source` names which of the two paths saw the press: "action" (the IAS
+-- Activate action — Return, Space, ButtonA) or "tap" (a native tap/Activated
+-- routed through the renderer). One press can be seen by BOTH exactly when this
+-- surface mirrors LuauUI focus onto `GuiService.SelectedObject`: the engine then
+-- fires the selected `GuiButton`'s own `Activated` for the same key press that
+-- IAS delivered as Activate. That must still be ONE activation (roadmap Step 8,
+-- DK-9), so a cross-source pair inside ACTIVATE_ECHO_WINDOW collapses.
+--
+-- IDENTIFIED BY INPUT CLASS, NOT BY TIME ALONE. A time-only window would eat a
+-- real mouse click that happened to land beside a key press — which is a thing
+-- players do, and it broke the "one event per press" feedback pin the moment it
+-- was tried. The engine's selection activation is distinguishable: its
+-- `InputObject.UserInputType` is Keyboard or a Gamepad, never Mouse or Touch. So
+-- only an {IAS Activate, non-pointer native Activated} pair collapses. Two
+-- pointer taps, two key presses, or a tap next to a key press are all two
+-- presses. The renderer's own detector echo guard draws the same line for the
+-- same reason: deduplicate only what genuinely has two signals per press.
+local ACTIVATE_ECHO_WINDOW = 0.05 -- s; far below any human double-press
+local function isEngineSelectionTap(source: string?, meta: any?): boolean
+	if source ~= "tap" or type(meta) ~= "table" then
+		return false
+	end
+	return meta.pointer == "keyboard" or meta.pointer == "gamepad"
+end
+local function dispatchActivate(handle: any, path: string?, meta: any?, source: string?)
 	local node = if path ~= nil then nodeAt(handle.root.node, path) else nil
 	if isDisabled(node) then
 		return true -- consumes the verb and does nothing
+	end
+	if path ~= nil and source ~= nil and handle.activateEcho ~= nil then
+		local at = handle.now()
+		local selectionTap = isEngineSelectionTap(source, meta)
+		local previous = handle.activateEcho[path]
+		local echoes = previous ~= nil
+			and previous.source ~= source
+			and (selectionTap or previous.selectionTap == true)
+			and (at - previous.at) < ACTIVATE_ECHO_WINDOW
+		if echoes then
+			-- A PRESS IS A PAIR, AND THE PAIR IS NOW SPENT (architecture review
+			-- ARCH-4). Recording the collapsing signal instead would roll the
+			-- window forward on every echo, so a genuinely fast third press —
+			-- key, echo, key — would land inside a window opened by the echo and
+			-- be eaten as well. Clearing means the next signal starts a new press.
+			handle.activateEcho[path] = nil
+			return true -- the same press echoing through the other path
+		end
+		handle.activateEcho[path] = { at = at, source = source, selectionTap = selectionTap }
 	end
 	activateEffect(handle, node, path, meta)
 	if path ~= nil and handle.emitFeedback ~= nil then
@@ -764,6 +1034,13 @@ local SURFACE_LAYER = table.freeze({
 presenter.SURFACE_LAYER = SURFACE_LAYER
 
 export type PresenterOpts = {
+	-- DESKTOP KEYBOARD NAVIGATION, OFF UNTIL ASKED FOR (director playtest
+	-- 2026-08-03). Tab/Shift+Tab traversal and Space-as-Activate are opt-in at the
+	-- presenter, and every surface inherits this unless it overrides it with its
+	-- own `keyboardNavigation`. It defaults FALSE because the keys it claims are
+	-- the ones an avatar is already using: a game that has not asked for keyboard
+	-- navigation keeps exactly the input behavior it had.
+	keyboardNavigation: boolean?,
 	-- the motion clock every transition and the toast schedule ride. Supply one to
 	-- share it with the rest of the application (the client binds it to
 	-- RunService.PreRender); absent, the presenter builds its own and `tick`
@@ -780,6 +1057,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	self.focus = graph
 	local presenterOpts: PresenterOpts = opts or {}
 	local nowFn = presenterOpts.now or os.clock
+	-- ONE ACTIVATE PER PRESS ACROSS THE TWO PATHS (roadmap Step 8, DK-9). A
+	-- keyboard press on a control the engine also considers SELECTED can arrive
+	-- twice: once as the IAS `Activate` action, and once as the native
+	-- `GuiButton.Activated` the engine-selection bridge makes reachable. Keyed by
+	-- path across the whole presenter (paths are surface-prefixed), and collapsing
+	-- only a CROSS-SOURCE pair inside the window: two presses of the same key, or
+	-- two real taps, are two presses and must both count — the renderer's own
+	-- detector-echo guard draws the same line for the same reason.
+	local activateEcho: { [string]: { at: number, source: string } } = {}
 
 	-- ===== the semantic feedback seam (ADR-0022 Decision 7; row SF-F1) =======
 	-- ONE bus per presenter. `presenter.onFeedback` is the primary seam (every
@@ -884,12 +1170,39 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		for _, handle in stack do
 			local rootPath = "/" .. (handle.blueprint.id or "")
 			local owns = path ~= nil and string.sub(path, 1, #rootPath) == rootPath
-			handle.controller.setFocusPath(if owns then path else nil, ringVisible)
+			-- ...AND IT IS A CLAIM ABOUT WHO OWNS INPUT, SO A SURFACE THAT DOES NOT
+			-- OWN IT DRAWS NO RING (director playtest 2026-08-03 round 4: "when i hit
+			-- play and clicked on the world, the text field kept showing a focus ring
+			-- even though input goes to the avatar").
+			--
+			-- A passive surface has focus IDENTITY from the moment it mounts —
+			-- entry focus lands on its first focusable, which is correct and is what
+			-- every consumer that follows focus depends on. What it does not have is
+			-- the keyboard: it binds nothing until it engages. The ring was painted
+			-- from `focusVisible` alone, which only answers "was the last focus move
+			-- a pointer move or a navigation move", so a freshly mounted passive HUD
+			-- drew a full ring while every key it looked ready to receive went to the
+			-- avatar. The ring was not stale — it had never been true.
+			--
+			-- Clicking the world could not clear it either: a passive surface is not
+			-- `currentExclusive`, so there is no catcher and the click is never seen.
+			-- Gating on ownership fixes both halves at once — nothing to clear,
+			-- because nothing was ever drawn.
+			local ownsInput = not handle.isPassive or handle.responder:get() == "engaged"
+			handle.controller.setFocusPath(if owns then path else nil, ringVisible and ownsInput)
 			-- focus-gated Adjust bindings (matrix §B-Table): bind/unbind as focus
 			-- enters/leaves a declared adjust target so gameplay keys are never
 			-- shadowed while focus is elsewhere
+			-- ...AND SO DO THE ADJUST BINDINGS (round 7). These were gated on focus
+			-- alone, so a resigned surface kept Left/Right/Comma/Period bound to
+			-- whatever its focus was standing on. It is inert today only because a
+			-- passive surface's context is DISABLED — the keys are bound to a
+			-- context that delivers nothing — which is luck, not design: the whole
+			-- point of the dynamic binding is that a surface shadows no gameplay key
+			-- it is not using, and "bound but currently undeliverable" is exactly the
+			-- stuck-sink shape ADR-0014 forbids.
 			if handle.syncAdjustBindings ~= nil then
-				handle.syncAdjustBindings(if owns then path else nil)
+				handle.syncAdjustBindings(if owns and ownsInput then path else nil)
 			end
 			-- ARMED FOLLOWS FOCUS (director virtual-controller round): while a
 			-- session is armed, every focus move IS the aim — the verdict paints
@@ -914,6 +1227,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	core:observe(graph.focusVisible, function()
 		syncFocusVisuals(graph.focused:get())
 	end)
+	-- ...and on a RESPONDER flipping, for the same reason: engaging must bring the
+	-- ring up on the node focus is already standing on (nothing moved, so neither
+	-- observer above fires), and resigning must take it away again. `engage()` and
+	-- `resign()` call this; it is exposed on the presenter rather than inlined
+	-- there because a handle cannot reach this closure.
+	function self.syncFocusVisuals()
+		syncFocusVisuals(graph.focused:get())
+	end
 
 	-- cross-surface z: a monotonic layer per presented surface (base first, each
 	-- later surface above). Deterministic and creation-ordered; the synthesized
@@ -970,10 +1291,34 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		local x = if type(meta) == "table" then meta.x else nil
 		local y = if type(meta) == "table" then meta.y else nil
-		if x ~= nil and y ~= nil and modalInZoneA(owner, x, y, metricsNow()) then
+		local resigning = owner.isPassive and owner.responder:get() == "engaged"
+		--[[ ZONE A IS DISMISSAL FORGIVENESS, AND A RESIGN IS NOT A DISMISSAL
+			(director playtest 2026-08-03 round 7: "i have the slider selected. i
+			click on the world. the slider still shows focus. left/right go to the
+			slider.")
+
+			Zone A is the union BOUNDING BOX of every painted node on the surface,
+			inflated by a spacing step, plus every focusable's 44px hit rect. That is
+			right for a modal: a fat-finger just outside a card must not destroy it,
+			and a card's bbox is a card.
+
+			It is wrong for an engaged HUD. Its bbox is the whole UI extent, so
+			"outside" barely exists — measured on the keyboard fixture, the slider
+			track alone is 803px wide at y=163..207 and the union bbox reaches
+			y≈447 across the full viewport. A click at (600,225) is empty world to
+			a player and Zone A to this check, so nothing resigned: the ring stayed,
+			and the Adjust keys stayed bound to the slider. A click far below it at
+			(600,780) resigned correctly, which is why this survived my own live
+			check — I had happened to click below the box.
+
+			So the forgiveness applies to the DESTRUCTIVE outcome only. A resign is
+			cheap and reversible, and a click that reached this catcher has already
+			missed every real UI node above it (the catcher sits at
+			displayOrder - 50), so there is nothing left to forgive. ]]
+		if not resigning and x ~= nil and y ~= nil and modalInZoneA(owner, x, y, metricsNow()) then
 			return -- Zone A: forgiveness / a tap on the painted panel itself
 		end
-		applyOutsideOutcome(owner, owner.isPassive and owner.responder:get() == "engaged")
+		applyOutsideOutcome(owner, resigning)
 	end
 
 	-- mount the catcher beneath `owner`. mode "scrim" = dim at scrimOpacity
@@ -1289,7 +1634,102 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if scrimOpt ~= nil and scrimOpt ~= "scrim" and scrimOpt ~= "none" then
 			error(`LuauUI presenter: unknown scrim '{tostring(scrimOpt)}'. Valid: scrim, none.`, 0)
 		end
+		-- Tab/Shift+Tab wrap policy for this surface's scope (roadmap Step 8),
+		-- declared once here rather than per control. Same enum discipline as the
+		-- three above: only a boolean, and only this surface's own scope.
+		-- keyboardNavigation: per-surface override of the presenter default, and
+		-- the switch that decides whether this surface claims the contended keys
+		-- at all (director playtest 2026-08-03)
+		local keyboardNavOpt = if opts ~= nil then opts.keyboardNavigation else nil
+		if keyboardNavOpt ~= nil and type(keyboardNavOpt) ~= "boolean" then
+			error(
+				`LuauUI presenter: keyboardNavigation must be a boolean (got {typeof(keyboardNavOpt)}); `
+					.. `omit it to inherit the presenter's default.`,
+				0
+			)
+		end
+		local keyboardNavigation = if keyboardNavOpt ~= nil
+			then keyboardNavOpt
+			else presenterOpts.keyboardNavigation == true
+		local traversalWrap = if opts ~= nil then opts.traversalWrap else nil
+		if traversalWrap ~= nil and type(traversalWrap) ~= "boolean" then
+			error(
+				`LuauUI presenter: traversalWrap must be a boolean (got {typeof(traversalWrap)}); `
+					.. `it declares whether Tab wraps at the ends of this surface's focus scope.`,
+				0
+			)
+		end
+		--[[ A PASSIVE SURFACE TAKES NO INITIAL FOCUS (director, 2026-08-03 round 6,
+			revising round 5's "keep first everywhere").
+
+			The default now follows the responder, because that is what the option is
+			actually about: a surface that owns input from the moment it mounts should
+			say where focus is, and a surface that owns nothing until the player
+			touches it has no business claiming any. An explicit `initialFocus`
+			always wins, so an author who wants a passive HUD pre-focused says so.
+
+			Engaged-open screens and modals are UNCHANGED — they still default to the
+			first focusable, which is every caller that is not passive. ]]
+		local initialFocus = if opts ~= nil then opts.initialFocus else nil
+		if initialFocus == nil and kind == "screen" and (opts and opts.responder) == "passive" then
+			initialFocus = "none"
+		end
+		if initialFocus ~= nil and type(initialFocus) ~= "string" and type(initialFocus) ~= "table" then
+			error(
+				`LuauUI presenter: initialFocus must be "first", "none", a node id, or \{ id = "…" } `
+					.. `(got {typeof(initialFocus)}).`,
+				0
+			)
+		end
+		if type(initialFocus) == "table" then
+			local id = (initialFocus :: any).id
+			if type(id) ~= "string" then
+				error(`LuauUI presenter: initialFocus \{ id = … } needs a string id (got {typeof(id)}).`, 0)
+			end
+			-- the table form is the ESCAPE HATCH from the reserved words below, so
+			-- it is remembered as "definitely an id" rather than collapsed to a
+			-- bare string that would be read as a keyword again
+			initialFocus = { id = id }
+		end
+
+		-- engine-selection bridge: opt-in AND modal/exclusive-only. It is the only
+		-- way `GuiService.SelectedObject` is ever set, and therefore the only way a
+		-- native `Activated` can echo a key press (NS-A11) — but the echo guard in
+		-- `dispatchActivate` does NOT read this flag, because the input CLASS of
+		-- the native half is a stricter test and needs no per-surface state. Named
+		-- here only for the renderer wiring below.
+		local selectionBridged = (opts and opts.engineSelectionBridge) == true and kind ~= "screen"
 		local scope = core:scope(`present-{kind}-{blueprint.id or "screen"}`)
+		--[[ RESPONDER STATE IS HOISTED HERE, above `bindContribution`, because a
+			control has to be handed the paint permission below at BIND time and
+			`handle` does not exist until far later in this function — writing
+			through it there would resolve a nil global (the upvalue trap that bit
+			newSlider's trackPath and newTextInput's idPattern in Step 8). The handle
+			literal reuses these locals rather than making its own. ]]
+		local isPassive = kind == "screen" and (opts and opts.responder) == "passive"
+		local responderState = scope:own(core:signal(if isPassive then "passive" else "engaged"))
+
+		--[[ MAY A CONTROL PAINT ITS OWN FOCUSED STATE RIGHT NOW? (director playtest
+			2026-08-03 round 6: "slider has focus, and i clicked on the world. it's
+			not giving up focus.")
+
+			A control that declares `focusVisual = "none"` paints its own focused
+			treatment — a Slider's thumb ring — and it did so from `graph.focused`
+			alone. Focus IDENTITY deliberately survives a resign, so the responder
+			handed the keyboard back and the slider went on wearing its ring: the
+			adapter's ring obeys the ownership gate added in round 4, and a
+			control-painted one had no way to see that gate at all.
+
+			So the rule is published as a fact instead of re-derived. Same two terms
+			the adapter's ring uses: the ring is a NAVIGATION answer (hidden after a
+			pointer move) AND a claim about owning input (a passive surface owns
+			none until it engages). ]]
+		local focusPaintAllowed = scope:own(core:memo(function(use)
+			if use(graph.focusVisible) == false then
+				return false
+			end
+			return not isPassive or use(responderState) == "engaged"
+		end))
 		-- STRUCTURAL TRANSITIONS (ADR-0022 Decision 3). Every surface gets a
 		-- coordinator: it costs a table, builds a spring only when a region actually
 		-- declares a transition, and it is the only thing that makes `UI.When
@@ -1316,7 +1756,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- bridge is a render output that clears on teardown. Physical-pad
 			-- non-interference proof is ledger row NS-P1; until it closes this
 			-- stays an experiment, not a contract.
-			engineSelectionBridge = (opts and opts.engineSelectionBridge) == true and kind ~= "screen",
+			engineSelectionBridge = selectionBridged,
 			-- pointer taps activate directly (no focus round-trip): same
 			-- semantic command path as the Activate action
 			onNodeTap = function(path: string, meta: any?)
@@ -1385,7 +1825,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				graph.setFocusOrigin("pointer")
 				graph.focusOn(path)
 				if h ~= nil then
-					dispatchActivate(h, path, meta)
+					dispatchActivate(h, path, meta, "tap")
 				end
 			end,
 		})
@@ -1455,7 +1895,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- on the SLOT). Bound here rather than handed over by the consumer, so
 			-- there is exactly one focus authority and no consumer-side split brain.
 			if c.bundle.bindFocusGraph ~= nil then
-				c.bundle.bindFocusGraph(graph)
+				-- second argument is ADDITIVE: every control written before it
+				-- ignores the extra parameter and is unchanged
+				c.bundle.bindFocusGraph(graph, focusPaintAllowed)
 			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the
@@ -1587,6 +2029,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			return true
 		end
 
+		-- WHOSE ORDER IS IT? A traversal rank is the framework's opinion about the
+		-- order IT derived. When the consumer handed us a focus map — an explicit
+		-- `navigationGroups` array or function — that map IS the declared order and
+		-- the framework adds no opinion to it: no rank, so `graph.traverse` walks
+		-- it exactly as written (ledger row TD-7). `navigationGroups = false` is
+		-- not such a map: it says "no groups", which puts us back on the
+		-- framework's own flat derivation, and that does get ranked.
+		-- a plain local, carried onto the handle in its table literal below: at this
+		-- point in makeHandle `handle` is not yet declared, so writing through it
+		-- here would resolve a nil GLOBAL and throw (the upvalue trap that bit
+		-- newTextInput.idPattern and newSlider.trackPath in Step 8)
+		local consumerFocusMap = ngOpt ~= nil and ngOpt ~= false
+
 		if navigationGroups ~= nil then
 			-- grouped, direction-aware scope (§9.3; verifier F2). Hidden candidates
 			-- leave the ring here exactly as they do on the flat path below.
@@ -1594,12 +2049,32 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				navigationGroups,
 				if controller.hiddenRoots ~= nil then controller.hiddenRoots() else nil
 			)
-			graph.pushScope({ name = blueprint.id or kind, trap = kind == "modal", groups = navigationGroups })
+			graph.pushScope({
+				name = blueprint.id or kind,
+				trap = kind == "modal",
+				groups = navigationGroups,
+				traversalWrap = traversalWrap,
+				initialFocus = resolveInitialFocus(
+					initialFocus,
+					orderPaths(nil, navigationGroups),
+					blueprint.id or kind
+				),
+				-- derived AFTER the hidden filter, from the filtered map, so the
+				-- rank covers exactly the members the scope will have
+				traversalRank = if consumerFocusMap then nil else traversalRank(root.node, nil, navigationGroups),
+			})
 		else
 			local order: { string } = {}
 			focusOrder(root.node, order)
 			order = filterHidden(order, if controller.hiddenRoots ~= nil then controller.hiddenRoots() else nil)
-			graph.pushScope({ name = blueprint.id or kind, trap = kind == "modal", order = order })
+			graph.pushScope({
+				name = blueprint.id or kind,
+				trap = kind == "modal",
+				order = order,
+				traversalWrap = traversalWrap,
+				traversalRank = traversalRank(root.node, order, nil),
+				initialFocus = resolveInitialFocus(initialFocus, order, blueprint.id or kind),
+			})
 		end
 
 		-- navigation InputContext: modal contexts sit above and SINK so lower
@@ -1623,7 +2098,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- via engage() (tap-in / explicit), raising itself into the engaged band
 		-- (3000, strictly above the gameplay sink at 2000) with sink=true, and
 		-- drops back on resign() / Cancel / outside-tap.
-		local isPassive = kind == "screen" and (opts and opts.responder) == "passive"
 		local contextPriority: number
 		if kind == "modal" then
 			contextPriority = topModalPriority() + 500
@@ -1636,7 +2110,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			name = `Nav-{blueprint.id or kind}`,
 			priority = contextPriority,
 			-- passive starts non-sinking + DISABLED (below); engage() flips both
-			sink = kind == "modal" or (not isPassive and (opts and opts.sinkNavigation) == true),
+			-- KEYBOARD NAVIGATION IMPLIES SINKING (director playtest 2026-08-03).
+			-- A surface that claims Space and the arrows must also consume them:
+			-- priority alone only ORDERS delivery, and with both contexts
+			-- non-sinking the avatar jumped and the camera turned while the UI had
+			-- focus — measured, 3/3, against the real PlayerModule CharacterContext.
+			-- A passive surface still sinks nothing until it engages.
+			sink = kind == "modal"
+				or (not isPassive and ((opts and opts.sinkNavigation) == true or keyboardNavigation)),
 		})
 		local navigate = context.createAction("Navigate", "Direction1D")
 		local activate = context.createAction("Activate", "Bool")
@@ -1644,6 +2125,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- Adjust: the horizontal "change the focused thing" semantic (grip
 		-- resize now; sliders later) — keyboard arrows, dpad, and bumpers
 		local adjust = context.createAction("Adjust", "Direction1D")
+		-- TRAVERSE: the desktop focus-chain verb (roadmap Step 8). A Bool action,
+		-- not a Direction1D, because both directions arrive on the SAME KeyCode —
+		-- Shift+Tab is Tab with a modifier, and IAS bindings carry no modifier
+		-- slot. The direction is read from the same live modifier state Activate
+		-- already uses for range/toggle selection, so keyboard and pointer agree
+		-- about what "shift held" means. Its Tab binding is added and removed
+		-- dynamically (see setKeyboardBound) — the action existing costs nothing.
+		local traverse = context.createAction("Traverse", "Bool")
 		navigate.bind({ keyCode = "Down", direction = 1 })
 		navigate.bind({ keyCode = "Up", direction = -1 })
 		-- gamepad d-pad (PS Cross maps to ButtonA for Activate; the d-pad
@@ -1697,20 +2186,101 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- sits elsewhere. opts.onAdjust (above) still wins per-opt and binds
 		-- unconditionally (back-compat), so this engages only when it is absent.
 		-- Comma/Period/L1/R1 never collide with a grouped screen's horizontal
-		-- Navigate (NavigateH owns Left/Right + DPad L/R); the arrow/dpad
-		-- horizontals are added only on a FLAT screen where NavigateH is absent.
-		local function bindAdjustKeys(): { any }
+		-- Navigate (NavigateH owns Left/Right + DPad L/R).
+		--
+		-- THE ARROWS ARE THE CONTROL'S, ON THE AXIS IT DECLARES (roadmap Step 8).
+		-- Binding the arrows only on a FLAT screen left the desktop convention
+		-- half-built: on any GROUPED screen — which is most real screens, since an
+		-- HStack row or a Grid derives groups automatically — Left/Right belonged
+		-- permanently to NavigateH, so a focused Slider could only be moved with
+		-- comma and period. A control that declares `adjustAxis` now takes that
+		-- one axis: the presenter SUSPENDS the directional bindings for it while
+		-- the target holds focus and restores them the moment focus leaves. One
+		-- key, one action, always — the alternative (both bound, disambiguated in
+		-- a handler) delivers the same press to two actions inside one context.
+		--
+		-- A target that declares NO axis keeps exactly the pre-Step-8 deal:
+		-- Comma/Period/L1/R1 always, plus the horizontal arrows only on a flat
+		-- screen where nothing else wants them. Table is the reason that stays a
+		-- real option rather than an omission — its resizable headers are
+		-- navigation stops AND adjust targets at once, and it resolves the
+		-- contention with a MODE (Activate selects the column, then the arrows
+		-- resize it through `navigateIntercept`, Cancel releases). Taking the
+		-- arrows away from Navigate for every focused header would break the walk
+		-- through the header row. Declaring an axis is therefore a statement that
+		-- the control's value IS the arrows, which is true of a Slider and not of
+		-- a column header.
+		local ADJUST_AXIS_KEYS: { [string]: { { any } } } = {
+			horizontal = { { "Left", -1 }, { "Right", 1 }, { "DPadLeft", -1 }, { "DPadRight", 1 } },
+			vertical = { { "Up", -1 }, { "Down", 1 }, { "DPadUp", -1 }, { "DPadDown", 1 } },
+		}
+		-- which action owns an axis's arrows when nothing is adjusting
+		local function axisOwner(axis: string): any
+			return if axis == "horizontal" then navigateH else navigate
+		end
+		-- A SUSPENSION MUST RESTORE WHAT IT TOOK (architecture review ARCH-10). The
+		-- whole binding spec is captured, not just the key and direction: a binding
+		-- also carries `displayName` (what `inputHint` reads to label the
+		-- affordance) and `uiButton`. Restoring a partial spec would silently
+		-- relabel a hint the first time focus passed through a value control.
+		--
+		-- NO TEST PINS THIS, DELIBERATELY. No binding the presenter puts on a
+		-- SUSPENDABLE axis carries a displayName today, so a regression written now
+		-- would pass against the lossy version too — a check that proves nothing,
+		-- which this repository treats as its own defect class. The loss was latent
+		-- rather than live; the capture is written to be total so it stays latent
+		-- when the first labelled directional binding lands.
+		local suspendedNav: { { action: any, spec: any } } = {}
+		local function suspendAxisKeys(axis: string)
+			local owner = axisOwner(axis)
+			if owner == nil then
+				return -- a flat screen has no NavigateH: nothing to take the keys from
+			end
+			for _, pair in ADJUST_AXIS_KEYS[axis] do
+				local keyCode = pair[1] :: string
+				for i = #owner.bindings, 1, -1 do
+					local b = owner.bindings[i]
+					if b.keyCode == keyCode then
+						table.insert(suspendedNav, {
+							action = owner,
+							spec = {
+								keyCode = b.keyCode,
+								direction = b.direction,
+								displayName = b.displayName,
+								uiButton = b.uiButton,
+							},
+						})
+						b.remove()
+					end
+				end
+			end
+		end
+		local function restoreSuspendedNav()
+			for _, entry in suspendedNav do
+				entry.action.bind(entry.spec)
+			end
+			table.clear(suspendedNav)
+		end
+		-- `state` is "horizontal" | "vertical" (a declared axis) or "legacy" (a
+		-- target that declared none)
+		local function bindAdjustKeys(state: string): { any }
 			local bound: { any } = {
 				adjust.bind({ keyCode = "Comma", direction = -1 }),
 				adjust.bind({ keyCode = "Period", direction = 1 }),
 				adjust.bind({ keyCode = "ButtonL1", direction = -1 }),
 				adjust.bind({ keyCode = "ButtonR1", direction = 1 }),
 			}
-			if navigateH == nil then
-				table.insert(bound, adjust.bind({ keyCode = "Left", direction = -1 }))
-				table.insert(bound, adjust.bind({ keyCode = "Right", direction = 1 }))
-				table.insert(bound, adjust.bind({ keyCode = "DPadLeft", direction = -1 }))
-				table.insert(bound, adjust.bind({ keyCode = "DPadRight", direction = 1 }))
+			local axis = state
+			if state == "legacy" then
+				if navigateH ~= nil then
+					return bound -- grouped screen: the arrows stay with Navigate
+				end
+				axis = "horizontal" -- flat screen: nothing else wants them
+			else
+				suspendAxisKeys(axis)
+			end
+			for _, pair in ADJUST_AXIS_KEYS[axis] do
+				table.insert(bound, adjust.bind({ keyCode = pair[1] :: string, direction = pair[2] :: number }))
 			end
 			return bound
 		end
@@ -1724,17 +2294,20 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				return false
 			end)()
 		local adjustBindings: { any } = {}
-		local function setAdjustBound(on: boolean)
-			if on == (#adjustBindings > 0) then
+		local adjustStateBound: string? = nil
+		-- `state` is nil (unbind), "legacy", "horizontal" or "vertical"
+		local function setAdjustBound(state: string?)
+			if state == adjustStateBound then
 				return -- already in the requested state
 			end
-			if on then
-				adjustBindings = bindAdjustKeys()
-			else
-				for _, b in adjustBindings do
-					b.remove()
-				end
-				adjustBindings = {}
+			for _, b in adjustBindings do
+				b.remove()
+			end
+			adjustBindings = {}
+			restoreSuspendedNav()
+			adjustStateBound = state
+			if state ~= nil then
+				adjustBindings = bindAdjustKeys(state)
 			end
 		end
 		-- Escape is permanently bound to the Roblox CoreGui menu (engine
@@ -1753,9 +2326,68 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- open decision, pending the live IAS move/jump binding-set probe). For a
 		-- passive surface the guard lives in a DISABLED context until engage(),
 		-- so Space reaches gameplay while passive.
-		if (kind == "modal" or isPassive) and not (opts and opts.gameplayGuard == false) then
-			local gameplayGuard = context.createAction("GameplayGuard", "Bool")
-			gameplayGuard.bind({ keyCode = "Space" })
+		--
+		-- SPACE IS ALSO THE ACTIVATE KEY (roadmap Step 8), which changes what this
+		-- guard is for without changing what it protects. While a keyboard is live
+		-- and this surface owns UI input, Space rides `activate` — inside the same
+		-- sinking context, so the avatar still never sees it — and the no-op guard
+		-- is not bound at all: one key belongs to one action. When the keyboard is
+		-- absent (a pure-touch or pad-only client) Space is not an activation key
+		-- and the no-op guard is what stands between a covered avatar and a jump,
+		-- so it goes back on. `gameplayGuard = false` opts out of BOTH: a word game
+		-- that wants Space gets Space, and does not get a stray Activate either.
+		local spaceIsOurs = not (opts and opts.gameplayGuard == false)
+		local gameplayGuard: any = nil
+		local gameplayGuardBinding: any = nil
+		if (kind == "modal" or isPassive) and spaceIsOurs then
+			gameplayGuard = context.createAction("GameplayGuard", "Bool")
+		end
+
+		-- ===== desktop keyboard bindings (roadmap Step 8) =====================
+		-- Tab and Space are bound ONLY while all three are true:
+		--   * this surface has keyboard navigation ENABLED — opt-in at the
+		--     presenter, overridable per surface. Off by default, because the keys
+		--     it claims are the ones an avatar is already using (director playtest
+		--     2026-08-03: with it implicitly on, Space jumped the character while
+		--     the UI had focus);
+		--   * keyboard capability is LIVE (env interactionClasses.keyboard) — a
+		--     phone with no keyboard binds neither, and a tablet that gains one
+		--     starts behaving like a desktop with no device branch anywhere; and
+		--   * this surface's responder is ENGAGED — a passive HUD binds nothing
+		--     gameplay-contended, which is stronger than relying on its context
+		--     being disabled, and makes "no leaked sink" a testable claim rather
+		--     than an inference about arbitration.
+		-- All three are re-evaluated reactively, so a hot-plug adds and removes real
+		-- bindings (the Roblox adapter creates/destroys the InputBinding instances)
+		-- rather than leaving a dead sink behind.
+		local keyboardBindings: { any } = {}
+		local function setKeyboardBound(on: boolean)
+			if on == (#keyboardBindings > 0) then
+				return
+			end
+			if on then
+				keyboardBindings = { traverse.bind({ keyCode = "Tab", displayName = "Tab" }) }
+				if spaceIsOurs then
+					table.insert(keyboardBindings, activate.bind({ keyCode = "Space" }))
+					if gameplayGuardBinding ~= nil then
+						gameplayGuardBinding.remove()
+						gameplayGuardBinding = nil
+					end
+				end
+			else
+				for _, b in keyboardBindings do
+					b.remove()
+				end
+				keyboardBindings = {}
+				if gameplayGuard ~= nil and gameplayGuardBinding == nil then
+					gameplayGuardBinding = gameplayGuard.bind({ keyCode = "Space" })
+				end
+			end
+		end
+		-- the no-keyboard starting state, so a client that never gains one behaves
+		-- exactly as it did before this stage
+		if gameplayGuard ~= nil then
+			gameplayGuardBinding = gameplayGuard.bind({ keyCode = "Space" })
 		end
 
 		-- passive surfaces present with their nav context DISABLED: they bind
@@ -1772,7 +2404,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			root = root,
 			controller = controller,
 			context = context,
-			actions = { navigate = navigate, activate = activate, cancel = cancel, adjust = adjust },
+			actions = {
+				navigate = navigate,
+				activate = activate,
+				cancel = cancel,
+				adjust = adjust,
+				traverse = traverse,
+			},
+			-- ONE ACTIVATE PER PRESS, ACROSS THE TWO PATHS (DK-9). The shared echo
+			-- table + injected clock live on the presenter; the handle carries them
+			-- so the module-level dispatchActivate can reach them.
+			activateEcho = activateEcho,
+			now = nowFn,
 			contributions = contributions,
 			-- modal outside-tap dismiss (ADR-0013 WP-2): default true; a modal
 			-- opts out with outsideTapCancel=false to keep legacy clickthrough
@@ -1787,6 +2430,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			transition = (opts and opts.transition) or nil,
 			emitFeedback = emitFeedback,
 			navigationGroupsFn = navigationGroupsFn,
+			-- did the FRAMEWORK derive this surface's focus map (rank it) or did the
+			-- consumer hand one over (leave it exactly as declared)? Read by refresh,
+			-- which re-derives the map on every structural change.
+			autoFocusMap = not consumerFocusMap,
 			onAdjust = (opts and opts.onAdjust) or nil,
 			onReorderNav = (opts and opts.onReorderNav) or nil,
 			feedGeometry = feedGeometry,
@@ -1798,7 +2445,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- other surface reports "engaged" (a plain screen is engaged-open,
 			-- non-sinking; a modal is engaged-exclusive). Readable for consumers.
 			isPassive = isPassive,
-			responder = scope:own(core:signal(if isPassive then "passive" else "engaged")),
+			responder = responderState,
 			-- scrim appearance (spec §3.1): modals dim by default; engaged HUDs are
 			-- transparent-but-catching; either overridable via opts.scrim.
 			scrimMode = (opts and opts.scrim) or (if kind == "modal" then "scrim" else "none"),
@@ -1866,6 +2513,101 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			syncTextReveal(handle)
 		end
 
+		-- keyboard-binding gate (roadmap Step 8): live keyboard AND an engaged
+		-- responder. Called on present, on engage/resign, and reactively whenever
+		-- the live interaction-class set changes, so a keyboard arriving or leaving
+		-- mid-session adds and removes the real bindings.
+		--[[ ── handle.focusOrder(): what order will Tab take? ────────────────────
+			The inspection dump for this surface's focus map, in the shipped `dump()`
+			shape (constitution §6): frozen, deterministic — two calls with nothing
+			changed in between return equal data — and carrying a `schema` string.
+
+			It reports BOTH readings of the one map. `traversal` is the linear
+			Tab/Shift+Tab order with each entry's declared `traversalPriority` and its
+			LIVE eligibility; `navigation` is the group map the arrows walk. They are
+			meant to differ (a focusable Grip traverses in document position and
+			arrows to the end) and they must cover the same set, and a reader can now
+			see both facts instead of pressing Tab sixteen times and writing down
+			where focus landed — which is how the defect this ships beside was found.
+
+			A node excluded upstream — hidden, disabled, non-focusable, retiring, a
+			losing `ViewThatFits` candidate — never reaches the graph and is absent
+			here entirely. Its absence IS the answer to "why is it not in my Tab
+			order"; `eligible = false` means something narrower, that a live
+			focus-skip predicate is refusing it right now.
+
+			SAFE AFTER DISPOSE (ledger row TD-10). A debug overlay outliving the
+			surface it inspects gets an empty map carrying the schema, never a throw:
+			an inspection tool that crashes the client it was added to diagnose is
+			worse than no tool. ]]
+		function handle.focusOrder(): any
+			local map = graph.focusMap(handle.blueprint.id or handle.kind)
+			if map == nil then
+				return table.freeze({
+					schema = FOCUS_ORDER_SCHEMA,
+					scope = handle.blueprint.id or handle.kind,
+					present = false,
+					traversal = table.freeze({}),
+					navigation = table.freeze({}),
+				})
+			end
+			local traversal = table.create(#map.traversal)
+			for _, entry in map.traversal do
+				table.insert(
+					traversal,
+					table.freeze({
+						path = entry.path,
+						-- the AUTHORED tier, not the resolved rank: the resolved rank is
+						-- just this list's index, which the reader can already see
+						priority = nodePriority(handle.root.node, entry.path),
+						eligible = entry.eligible,
+					})
+				)
+			end
+			local navigation = table.create(#map.navigation)
+			for _, group in map.navigation do
+				local order = table.create(#group.order)
+				for _, entry in group.order do
+					local path = entryPath(entry)
+					if path ~= nil then
+						table.insert(order, path)
+					end
+				end
+				table.insert(
+					navigation,
+					table.freeze({ name = group.name, axis = group.axis, order = table.freeze(order) })
+				)
+			end
+			return table.freeze({
+				schema = FOCUS_ORDER_SCHEMA,
+				scope = map.scope,
+				present = true,
+				trap = map.trap,
+				traversalWrap = map.traversalWrap,
+				ranked = map.ranked,
+				traversal = table.freeze(traversal),
+				navigation = table.freeze(navigation),
+			})
+		end
+
+		function handle.syncKeyboardBindings()
+			-- A DISMISSED SURFACE BINDS NOTHING (architecture review ARCH-6). Input
+			-- stops the frame `dismiss` runs — `context.destroy()` is immediate —
+			-- but a surface with an exit transition keeps `handle.scope` alive until
+			-- the transition finishes (or the coordinator's 500 ms cap fires), so
+			-- this observer outlives its own context. A keyboard arriving inside
+			-- that window would otherwise call `bind` on a destroyed context.
+			if context.destroyed then
+				return
+			end
+			local classes = env:get("interactionClasses"):get()
+			local keyboardLive = type(classes) == "table" and classes.keyboard == true
+			setKeyboardBound(keyboardNavigation and keyboardLive and handle.responder:get() == "engaged")
+		end
+		scope:own(core:observe(env:get("interactionClasses"), function()
+			handle.syncKeyboardBindings()
+		end))
+
 		-- engage(): a passive surface becomes first responder — its nav context
 		-- rises into the engaged band with sink=true, so it handles events BEFORE
 		-- the avatar (IAS priority 3000 > gameplay 2000). No-op for non-passive
@@ -1880,6 +2622,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- mirror this onto the real InputContext.Sink (P1, 2026-07-21)
 			context.setSink(true)
 			handle.responder:set("engaged")
+			handle.syncKeyboardBindings() -- Tab/Space arrive with first responder
+			self.syncFocusVisuals() -- ...and so does the ring (round 4)
 			refreshExclusive()
 			syncScrim() -- an engaged HUD gets its transparent catcher (spec §3.6)
 		end
@@ -1894,6 +2638,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			context.setSink(false)
 			context.setEnabled(false)
 			handle.responder:set("passive")
+			handle.syncKeyboardBindings() -- ...and leave with it, binding and all
+			self.syncFocusVisuals() -- ...ring included: it claimed input we gave back
 			refreshExclusive()
 			syncScrim() -- resigned: no longer exclusive, its catcher is retired
 		end
@@ -1943,23 +2689,42 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- gameplay keys are never shadowed while focus sits off-target. Called by
 		-- the shared focus observer on every focus move and by refresh (targets may
 		-- churn). No-op unless a contribution opted into the dynamic path.
+		-- The axis comes from the OWNING contribution (`adjustAxis`): a control that
+		-- declares one consumes those arrows and leaves the other axis to Navigate;
+		-- one that declares none keeps the pre-Step-8 key set (roadmap Step 8,
+		-- DK-10/DK-11).
 		function handle.syncAdjustBindings(ownedPath: string?)
 			if not dynamicAdjust then
 				return
 			end
-			local isTarget = false
+			local state: string? = nil
 			if ownedPath ~= nil then
 				for _, c in contributions do
 					if c.bundle.adjustTargets ~= nil then
-						local targets = c.bundle.adjustTargets(root.node)
+						-- ITS OWN NODE, NOT THE SCREEN ROOT (Studio 2026-08-02).
+						-- This used to hand every contribution the whole screen,
+						-- while `focusGroups` — the seam right beside it — has
+						-- always been handed the contribution's own node. Controls
+						-- that identify their targets STRUCTURALLY rather than by a
+						-- unique id therefore claimed the whole screen: `newStepper`
+						-- returns "every Button below here", `newRating` "every
+						-- Grip", and on a screen carrying either one plus any other
+						-- button the Adjust keys stayed bound with focus anywhere at
+						-- all. That is precisely the gameplay-key shadowing this
+						-- dynamic binding exists to prevent (matrix §B-Table), and
+						-- no headless test saw it because every fixture put the
+						-- value control on a screen by itself. Live: focus on an
+						-- unrelated Save button, one Right press, an Adjust action
+						-- fired and nothing consumed it.
+						local targets = c.bundle.adjustTargets(c.node)
 						if type(targets) == "table" and targets[ownedPath] == true then
-							isTarget = true
+							state = c.bundle.adjustAxis or "legacy"
 							break
 						end
 					end
 				end
 			end
-			setAdjustBound(isTarget)
+			setAdjustBound(state)
 		end
 
 		-- transient-popup focus trap/restore (matrix §B PopupButton; transientScope).
@@ -1988,14 +2753,20 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 						if sub ~= nil then
 							focusOrder(sub, order)
 						end
+						-- a popup's trap scope is a framework-derived flat order like any
+						-- other, so it ranks too — a popup holding a Slider traverses in
+						-- document order inside its trap (ledger row TD-12). Ranked
+						-- against the POPUP's own subtree, which is the tree its order
+						-- was walked from.
+						local rank = if sub ~= nil then traversalRank(sub, order, nil) else nil
 						if not pushed then
 							-- pushScope records the current focus (the trigger) for
 							-- restore and enters at order[1] (the trigger) — no jump
-							graph.pushScope({ name = name, trap = true, order = order })
+							graph.pushScope({ name = name, trap = true, order = order, traversalRank = rank })
 							transientPushed[c.path] = true
 						else
 							-- rows may churn while open: keep the trap order current
-							graph.setOrder(name, order)
+							graph.setOrder(name, order, rank)
 						end
 					elseif pushed then
 						graph.removeScope(name) -- top trap: restores focus to the trigger
@@ -2144,6 +2915,38 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end
 		end))
+		-- TRAVERSE (Tab / Shift+Tab, roadmap Step 8). Shift chooses the direction
+		-- from the same live modifier state Activate reads.
+		--
+		-- A contribution may CONSUME the verb before the ring moves — the one case
+		-- that exists today is a TextInput being edited, which has to run its own
+		-- commit/validation path first and only then let focus advance. It returns
+		-- true to keep focus where it is (validation refused), false to say "I have
+		-- finished, go ahead", and the traversal happens here either way rather
+		-- than inside the control, so there is exactly one place that moves focus.
+		traverse.onPressed(function()
+			local backward = actionSystem.modifiers ~= nil and actionSystem.modifiers().shift
+			local direction = if backward then -1 else 1
+			-- a traversal verb asks "where does the ring go next", so the ring comes
+			-- back even if a tap had put it away (DB-3(b))
+			graph.setFocusOrigin("navigation")
+			local from = graph.focused:get()
+			if from ~= nil then
+				for _, c in contributionsForPath(contributions, from) do
+					if c.bundle.handleTraverse ~= nil and c.bundle.handleTraverse(from, direction) then
+						return -- consumed: focus stays where it is
+					end
+				end
+			end
+			if graph.traverse(direction) then
+				local focused = graph.focused:get()
+				if focused ~= nil then
+					-- the same focus-move report every other navigation verb makes:
+					-- keep-visible first, then the owning contribution
+					handle.focusMoved(focused)
+				end
+			end
+		end)
 		activate.onPressed(function()
 			-- held modifiers ride along so list semantics (range/toggle select)
 			-- work identically for keyboard and pointer
@@ -2153,7 +2956,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				meta.shift = mods.shift
 				meta.toggle = mods.toggle
 			end
-			dispatchActivate(handle, graph.focused:get(), meta)
+			dispatchActivate(handle, graph.focused:get(), meta, "action")
 		end)
 		cancel.onPressed(function()
 			-- transient-popup Cancel (matrix §B PopupButton; handleCancel): offer
@@ -2228,19 +3031,23 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 		end
 		table.insert(stack, handle)
+		-- ...and the surface's keyboard bindings, now that its responder is known
+		handle.syncKeyboardBindings()
 		refreshExclusive() -- a modal joining the stack raises the exclusive flag
 		syncScrim() -- synthesize/move the catcher beneath the new top exclusive surface
 		-- paint the INITIAL focus ring: the shared focused-observer fired
 		-- during pushScope, BEFORE this handle joined the stack, so the first
 		-- focus of a fresh screen never rendered its ring (latent since
 		-- phase 1; surfaced by the gamepad flow, 2026-07-20)
-		local current = graph.focused:get()
-		if current ~= nil then
-			local rootPath = "/" .. (blueprint.id or "")
-			if string.sub(current, 1, #rootPath) == rootPath then
-				controller.setFocusPath(current)
-				handle.syncAdjustBindings(current) -- initial focus may already sit on a target
-			end
+		--
+		-- THROUGH THE SHARED FUNCTION, not by hand (round 4). This used to call
+		-- `controller.setFocusPath(current)` with no second argument, so the ring
+		-- defaulted to VISIBLE and skipped every rule the shared path applies —
+		-- which is how a passive surface came up painting a ring over a keyboard it
+		-- had not bound. One decision site, so a rule added there cannot be missed
+		-- here; it also drops a hand-rolled copy of the same ownership/adjust work.
+		if graph.focused:get() ~= nil then
+			self.syncFocusVisuals()
 		end
 		return handle
 	end
@@ -2342,6 +3149,23 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- remove THIS handle's focus scope wherever it sits — dismissing a
 		-- covered screen must not pop the live top scope (verifier F3)
 		graph.removeScope(handle.blueprint.id or handle.kind)
+		--[[ AND STOP PAINTING FOCUS ON THE WAY OUT (director playtest 2026-08-03
+			round 5: "if the user does something that would dismiss the view, when
+			the view goes away we give up focus").
+
+			Removing the scope releases focus IDENTITY correctly — the graph moves
+			to the next scope's entry, or to nil. What it cannot do is un-paint the
+			departing surface: `syncFocusVisuals` iterates the live `stack`, and
+			this handle was removed from it three lines above, so the focus change
+			it just caused reaches every surface EXCEPT the one that was wearing the
+			ring. With an exit transition the tree stays mounted for the whole
+			animation, so the ring sat there, on a surface that had already stopped
+			taking input, until the instances were destroyed. Measured: `graph focus
+			= nil`, node still mounted, ring still `true`.
+
+			The input half was already right. This makes the paint tell the same
+			story. ]]
+		handle.controller.setFocusPath(nil)
 		-- the dismissal is a fact the moment it is decided, not when the pixels
 		-- finish moving (SF-F1's causal frame)
 		emitFeedback({ type = "dismiss", path = "/" .. (handle.blueprint.id or handle.kind), surface = handle })
@@ -2410,21 +3234,26 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- re-derive the focus map from the CURRENT mounted tree so
 			-- focusables mounted/unmounted by When/ForEach stay reachable and
 			-- dead paths never receive Activate (phase-1 verifier finding F1)
+			-- the rank is RE-DERIVED here with the order, from the same tree walk, so
+			-- a list that grew or shrank between presses ranks its current members
+			-- and never sorts by a map describing rows that no longer exist
 			if handle.navigationGroupsFn ~= nil then
 				local ctrl = handle.controller
+				local groups = filterGroupsHidden(
+					handle.navigationGroupsFn(handle.root.node),
+					if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil
+				)
 				graph.replaceGroups(
 					handle.blueprint.id or handle.kind,
-					filterGroupsHidden(
-						handle.navigationGroupsFn(handle.root.node),
-						if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil
-					)
+					groups,
+					if handle.autoFocusMap == false then nil else traversalRank(handle.root.node, nil, groups)
 				)
 			else
 				local order: { string } = {}
 				focusOrder(handle.root.node, order)
 				local ctrl = handle.controller
 				order = filterHidden(order, if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil)
-				graph.setOrder(handle.blueprint.id or handle.kind, order)
+				graph.setOrder(handle.blueprint.id or handle.kind, order, traversalRank(handle.root.node, order, nil))
 			end
 			-- push/pop transient popup trap scopes now that the popup rows are
 			-- mounted/unmounted (matrix §B PopupButton; transientScope) — AFTER the
@@ -2432,15 +3261,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if handle.syncTransientScopes ~= nil then
 				handle.syncTransientScopes()
 			end
-			-- re-gate the dynamic Adjust bindings: adjust targets may have churned
-			-- (rows added/removed) even when the focused path is unchanged
-			if handle.syncAdjustBindings ~= nil then
-				local f = graph.focused:get()
-				local rootPath = "/" .. (handle.blueprint.id or "")
-				local owns = f ~= nil and string.sub(f, 1, #rootPath) == rootPath
-				handle.syncAdjustBindings(if owns then f else nil)
-			end
 		end
+		-- re-gate the dynamic Adjust bindings and the focus ring: adjust targets may
+		-- have churned (rows added/removed) even when the focused path is unchanged.
+		--
+		-- THROUGH THE SHARED FUNCTION, once, after the loop (round 7). This was a
+		-- hand-rolled copy of the ownership decision that syncFocusVisuals makes —
+		-- and being a copy, it did not get the ownership gate, so every refresh
+		-- re-bound the Adjust keys onto a surface that had already resigned. That is
+		-- the second time in this stage a duplicate of this exact decision has
+		-- silently opted out of a rule added to the original (the first was
+		-- `setFocusPath(current)` in makeHandle). There is now one.
+		self.syncFocusVisuals()
 	end
 
 	-- ===== TOASTS (ADR-0022 Decision 4; rows SF-T1..T3) =======================

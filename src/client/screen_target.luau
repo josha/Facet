@@ -2281,6 +2281,15 @@ function screen_target.new(opts: Opts?)
 					pointer = "touch"
 				elseif userInputType ~= nil and string.find(tostring(userInputType), "Gamepad") ~= nil then
 					pointer = "gamepad"
+				elseif userInputType == Enum.UserInputType.Keyboard then
+					-- NOT A POINTER AT ALL (roadmap Step 8). The engine fires the
+					-- SELECTED GuiButton's Activated for a keyboard press too, and
+					-- that arrived here classified as a mouse click — so the one
+					-- signal that identifies an engine-selection echo of an IAS
+					-- Activate was indistinguishable from a real click. Naming it
+					-- is what lets the presenter collapse the pair and nothing else
+					-- (see dispatchActivate).
+					pointer = "keyboard"
 				end
 				local function down(keyCode: Enum.KeyCode): boolean
 					return UserInputService:IsKeyDown(keyCode)

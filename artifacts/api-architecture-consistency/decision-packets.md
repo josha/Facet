@@ -196,3 +196,36 @@ playbook obligations are already public; this unlocks the conveniences.
 **Migration cost:** additive exports + api.md entries + the playbook paragraph;
 zero existing callers change (in-repo controls keep their relative requires or
 migrate opportunistically).
+
+
+## PKT-14 — Promote (or split) `client/gamepad_contention`, the input-contention probes
+
+**Raised by:** the `desktop-keyboard-navigation` architecture review (ARCH-1),
+carried here as decision packet DKN-5 of that stage because it changes a closed,
+checker-pinned public list and therefore belongs to this ledger rather than to a
+keyboard stage.
+
+**Evidence:** `src/client/gamepad_contention.luau` is **not** on the constitution
+§12 blessed client entry-point list (`screen_target`, `billboard_target`,
+`roblox_env`, `roblox_input`, `roblox_resources`, `theme_controller`,
+`edit_preview`, `motion_driver`), and `tools/lune/check_boundary.luau` records it
+in `EXAMPLE_INTERNAL_REACH` as *"not yet a blessed entry point"*. Yet
+`docs/guide/07-input.md` instructs consumers to require it — for
+`legacyStackActive()` (pre-existing) and now for `traversalKeyContended()`, the
+probe that tells a game its Tab traversal is being eaten by the CoreGui players
+list. A consumer following the guide reaches an unblessed module; a consumer
+obeying the constitution cannot follow the guide.
+
+**Recommendation:** promote the module. The two probes answer one question —
+*"is a core script eating this key, and which?"* — for the two keys where the
+answer is not observable any other way, they are documented, and they are the
+only sanctioned diagnosis for two named failure modes. The alternative (move both
+probes onto an already-blessed seam such as `roblox_input`) also works and keeps
+the list shorter, but puts a diagnostic on the action-system adapter, which is a
+different job. `responder_effects` sits in exactly the same position in
+`EXAMPLE_INTERNAL_REACH` and should be decided in the same pass.
+
+**Migration cost:** additive. Add the module(s) to the constitution §12 list and
+api.md's client entry points, remove the `EXAMPLE_INTERNAL_REACH` entries, and
+the existing guide snippets become correct with no consumer change. No behavior
+moves; nothing is renamed.

@@ -1,6 +1,6 @@
 # LuauUI consolidated roadmap — Roblox-native, SwiftUI-shaped, device-profiled, Sponsor-proven
 
-**Date:** 2026-08-02
+**Date:** 2026-08-03
 
 This is the entry point for LuauUI work. Running the prompts in order is intended to
 produce these outcomes:
@@ -16,32 +16,35 @@ produce these outcomes:
    real Roblox device evidence, with an honest extension seam for future spatial UI;
 6. a fresh-context simplification pass removes proven framework waste where found,
    without changing public behavior or smuggling in a redesign;
-7. a complete LuauUI Sponsor Mode can be tested in RascalRally beside the existing
-   implementation, with the old implementation still the default;
+7. Rascal Rally ships the proved LuauUI Sponsor presenter as production default while
+   retaining the untouched legacy presenter as an explicit rollback;
 8. one API and architecture constitution makes new features predictable to authors
    and agents, with current exceptions documented rather than accidental;
 9. desktop keyboard users get an automatic focus chain, activation, and value-control
    behavior without screen-local key wiring or gameplay input theft;
-10. self-contained performance places make LuauUI cost reproducible and optimizable in
+10. Roblox preferred text size becomes a live layout input; public UI and Rascal
+   Rally Sponsor View reflow without overlap or inaccessible essential text, including
+   compact mobile portrait and landscape;
+11. self-contained performance places make LuauUI cost reproducible and optimizable in
    Studio and on the supported low-end Android floor;
-11. every tutorial example is visibly instructive, playable, consistently styled, and
+12. every tutorial example is visibly instructive, playable, consistently styled, and
    verified through the real Roblox adapter.
-12. three clean-room, SwiftUI-scale reference experiences show what LuauUI can build
+13. three clean-room, SwiftUI-scale reference experiences show what LuauUI can build
    inside Roblox and distinguish framework gaps from Roblox/Apple platform differences;
-13. a measured architecture decision determines whether declarative 3D should become
+14. a measured architecture decision determines whether declarative 3D should become
    a sibling system without forcing world objects into the 2D UI solver;
-14. a fresh Fable release review finds and remediates whole-framework defects and
+15. a fresh Fable release review finds and remediates whole-framework defects and
    makes the public guide/API catalogs complete and drift-checked;
-15. a reproducible clean source release excludes internal/game context and gives
+16. a reproducible clean source release excludes internal/game context and gives
    human and AI authors accurate, tested onboarding without requiring Roblox Packages;
    and
-16. every LuauUI change keeps Rascal Rally's directly mounted consumer code, contract
+17. every LuauUI change keeps Rascal Rally's directly mounted consumer code, contract
    tests, build mappings, and affected Studio behavior synchronized in the same stage.
 
-Steps 1–2, 3.5, 5, 6, 7, and 11–13 are Fable-led because architecture,
+Steps 1–2, 3.5, 5, 6, 7, 8.5, and 11–13 are Fable-led because architecture,
 ownership, product interpretation, live diagnosis, or whole-framework judgment
 remains coupled to execution. Fable dispatches only decided work packages to Opus 5.
-Steps 3, 4, 5.5, 8–10, and 14 are bounded Opus 5 execution goals, using
+Steps 3, 4, 5.5, 8, 9, 10, and 14 are bounded Opus 5 execution goals, using
 [`claude-opus-5`](https://platform.claude.com/docs/en/about-claude/models/whats-new-opus-5)
 with thinking enabled and `xhigh` effort as the starting point for agentic coding.
 The prompts follow the
@@ -81,7 +84,7 @@ These documents govern the work:
 
 1. [`agent-execution-contract.md`](agent-execution-contract.md) — model handoff,
    evidence,
-   Studio-loop, autonomy, and completion rules for all sixteen prompts.
+   Studio-loop, autonomy, and completion rules for all seventeen prompts.
 2. [`roblox-native-audit-corrections.md`](roblox-native-audit-corrections.md) —
    current platform corrections; it wins over older claims.
 3. [`roblox-native-primitives.md`](roblox-native-primitives.md) — detailed
@@ -108,19 +111,21 @@ These documents govern the work:
     predictable public API, lifecycle, extension, and enforcement rules.
 12. [`desktop-keyboard-navigation.md`](desktop-keyboard-navigation.md) — Tab focus
     traversal, Space activation, value adjustment, responder ownership, and proof.
-13. [`performance-stress-places.md`](performance-stress-places.md) — publish-ready
+13. [`large-text-accessibility.md`](large-text-accessibility.md) — exact native
+    preferred-text handling, reflow and overflow policy, and mobile Sponsor proof.
+14. [`performance-stress-places.md`](performance-stress-places.md) — publish-ready
    device profiling lab, workloads, MicroProfiler protocol, and optimization loop.
-14. [`example-quality-pass.md`](example-quality-pass.md) — tutorial gameplay,
+15. [`example-quality-pass.md`](example-quality-pass.md) — tutorial gameplay,
     teaching, styling, input, and Studio-evidence requirements.
-15. [`swiftui-reference-app-validation.md`](swiftui-reference-app-validation.md) —
+16. [`swiftui-reference-app-validation.md`](swiftui-reference-app-validation.md) —
     official-sample feature ledgers and three clean-room Roblox proof experiences.
-16. [`declarative-3d-architecture.md`](declarative-3d-architecture.md) — decision and
+17. [`declarative-3d-architecture.md`](declarative-3d-architecture.md) — decision and
     isolated spike for a possible sibling declarative world system.
-17. [`release-candidate-review.md`](release-candidate-review.md) — fresh-context
+18. [`release-candidate-review.md`](release-candidate-review.md) — fresh-context
     whole-framework review and remediation.
-18. [`distribution-readiness.md`](distribution-readiness.md) — clean source boundary,
+19. [`distribution-readiness.md`](distribution-readiness.md) — clean source boundary,
     agent onboarding, documentation consolidation, verification, and provenance.
-19. [`studio-device-verification.md`](studio-device-verification.md) — the
+20. [`studio-device-verification.md`](studio-device-verification.md) — the
     scriptable five-view Studio matrix, VirtualInput rules, multiplayer-test use,
     and evidence that still requires physical hardware.
 
@@ -170,9 +175,10 @@ Key corrections to the earlier roadmap:
 | 4 | Cross-platform performance and future-platform proof | Existing headless gates plus real phone/console evidence; no unearned VR claim |
 | 5 | Sponsor-required framework capability | Every framework row in the Sponsor ledger is closed or intentionally game-owned |
 | 5.5 | Fresh-context simplicity cleanup | Proven waste is removed; public behavior, prior gates, and Studio baselines remain intact |
-| 6 | Parallel RascalRally Sponsor Mode | Full parity packet passes while `legacy` remains default |
+| 6 | Parallel RascalRally Sponsor Mode | Full parity packet passes with legacy intact and still default during this gate |
 | 7 | API constitution and consistency audit | Every public item follows a documented pattern or a justified exception; drift is checked |
 | 8 | Desktop keyboard interaction | Tab/Shift+Tab, Space/Return, and value arrows work through the existing focus/responder system |
+| 8.5 | Large-text accessibility | Native text preference is exact and live; public UI and Sponsor View reflow without inaccessible content on compact mobile |
 | 9 | Publish-ready LuauUI performance lab | Deterministic Studio/device profiles and matched native baseline; low-end Android row honest |
 | 10 | Tutorial gallery quality pass | All seven examples are played, styled, understandable, and governed by a canonical gate |
 | 11 | SwiftUI-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
@@ -189,8 +195,9 @@ Step 5.5 has completed without baseline drift.
 Recorded/static Sponsor fixtures may be created earlier.
 
 Step 5.5 is deliberately before game integration. Step 7 then freezes the API rules
-before Step 8 adds keyboard behavior. Steps 9 and 10 exercise the resulting surface
-through performance and tutorial product passes. Step 11 tests broader application
+before Step 8 adds keyboard behavior. Step 8.5 makes large text a live layout and
+product requirement before Steps 9 and 10 exercise the resulting surface through
+performance and tutorial product passes. Step 11 tests broader application
 composition without treating Apple-only host surfaces as framework gaps. Step 12 is
 an isolated architecture decision, not a LuauUI feature claim. The fresh review in
 Step 13 precedes the clean source and agent-onboarding pass in Step 14.
@@ -201,10 +208,10 @@ finishes the harness and automated evidence, records the exact remaining procedu
 and leaves the gate explicitly pending. Emulator or headless evidence must not be
 relabeled as physical evidence.
 
-Run Fable-led Steps 1–2, 3.5, 5, 6, 7, and 11–13 at Fable's highest practical
-effort; dispatch only decided packages to Opus 5. Run Steps 3, 4, 5.5, 8–10, and 14
-in Opus 5 with thinking enabled, `xhigh` effort, and enough output headroom for the
-full tool-use run. Verify one vertical slice at a time rather than deferring Studio
+Run Fable-led Steps 1–2, 3.5, 5, 6, 7, 8.5, and 11–13 at Fable's highest practical
+effort; dispatch only decided packages to Opus 5. Run Steps 3, 4, 5.5, 8, 9, 10, and
+14 in Opus 5 with thinking enabled, `xhigh` effort, and enough output headroom for
+the full tool-use run. Verify one vertical slice at a time rather than deferring Studio
 to stage end.
 
 “Without user intervention” therefore means no repeated implementation/debugging
@@ -769,6 +776,10 @@ This step is the end-to-end proof. It is intentionally not called “migration.�
 the game plan exactly: legacy remains the default, one development-only selector
 chooses one presenter, and no old-code removal occurs.
 
+This is the historical pre-cutover prompt. The director separately authorized the
+LuauUI default on 2026-08-03; current work preserves that default and the untouched
+legacy rollback.
+
 ### Fable-led goal prompt
 
 ```text
@@ -838,6 +849,8 @@ review/hardware pending honestly; do not switch defaults or remove old code.
 
 ## Step 7 — Establish one predictable API and architecture language
 
+Done August 2, 2026
+
 This stage runs after the parallel Sponsor implementation. It writes the rules every
 later public feature must follow, audits the existing API against them, fixes small
 compatible defects, and records larger migrations without smuggling in a redesign.
@@ -906,6 +919,13 @@ green; and docs identify one authoritative rule set. Report outcome and artifact
 
 ## Step 8 — Add desktop keyboard focus-chain behavior
 
+Done August 3, 2026. Two platform limits are recorded rather than papered over:
+Tab is the CoreGui players-list shortcut (the binding ships and works wherever the
+list is disabled; `gamepad_contention.traversalKeyContended()` detects the
+contended case), and keyboard Input Action bindings do not fire while a `TextBox`
+holds focus, so `handleTraverse` is unreachable on today's engine. Evidence and
+decisions in `artifacts/desktop-keyboard-navigation/`.
+
 LuauUI's directional focus remains the base. This stage adds the desktop conventions
 authors should get automatically when a keyboard is available, while engaged UI owns
 input and passive gameplay remains untouched.
@@ -970,6 +990,83 @@ required Studio proof and synchronized RascalRally consumer evidence. Do not cha
 RascalRally gameplay or publish/deploy.
 ```
 
+## Step 8.5 — Make large text a first-class layout input
+
+This stage closes the exact Roblox preferred-text seam, establishes one framework
+overflow policy, and proves the result on the production LuauUI Sponsor presenter.
+It is Fable-led because engine measurement, public API, accessibility judgment,
+responsive composition, and game integration must be decided together.
+
+### Fable-led goal prompt
+
+```text
+/goal Make LuauUI and the production Rascal Rally Sponsor View resilient at Roblox
+PreferredTextSize Medium, Large, Larger, and Largest, especially compact mobile
+portrait and landscape.
+
+Lead with Claude Fable 5 at highest practical effort. Fable owns engine diagnosis,
+accessibility/layout policy, framework/game boundaries, live integration, and product
+iteration. Dispatch at most three decided, disjoint packages to Claude Opus 5
+(`claude-opus-5`) at `xhigh`.
+
+Read:
+- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
+- GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
+- GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
+- GameStudio/ui/LuauUI/docs/reference/api.md and the current environment, text,
+  layout, focus, scroll, and motion implementations
+- games/RascalRally/docs/LUAUUI_SPONSOR_PARALLEL.md
+- games/RascalRally/docs/ui/UI_SPEC_sponsor_luauui.md
+- GameStudio/specialists/{UI_DESIGNER,APPLE_UI_MOTION_SKILL,ROBLOX}.md
+
+Treat `large-text-accessibility.md` as the full specification. Outcome: preference is
+applied exactly once, changes live without remount/state loss, and reliably drives
+measurement/reflow. Public UI and Sponsor View stay readable, nonoverlapping,
+reachable, and usable; essential content never becomes an inaccessible ellipsis.
+
+Live-probe all four values before API/code; compare engine paint/bounds, TextService,
+solver reservation, theme metrics, and ten-foot scale. Replace guessed offsets with
+the smallest exact cached/failure-safe seam and subscribe to PreferredTextSize.
+Never block first mount, double-apply, under-reserve, or loop reflow.
+
+Apply the plan's order: reflow, then container scroll/keep-visible, then truncation
+only for bounded secondary/identity text with cross-input full-value access. Never
+hide an action, instruction, status, error, result, or required fact. Audit current
+text, adaptive, scroll, compact-label, focus, and motion mechanisms before adding API.
+
+If engaged reveal is necessary, keep it reusable, delayed, direction/grapheme-correct,
+pausable, statically discoverable, reduced-motion-safe, one-per-active-presentation,
+and free of per-label frame loops. Character/word replacement remains separate
+opt-in research.
+
+Diagnose bounds/lines, policy/full-value access, overlap/clipping, hit floors, hidden
+focus, repeated reflow, and moving-label count; declare intentional overlays.
+
+Keep responsibility declarative: LuauUI owns measurement, overflow, adaptation,
+input/focus/scroll, diagnostics, and motion policy. RascalRally owns localized
+content, importance, style/control choices, relationships, and layout candidates.
+No game-local marquee, measurement, geometry, input, focus, scroll, or device branch.
+Synchronize every affected RascalRally caller/test and Studio canary.
+
+Exercise production Sponsor fixtures across every major surface/state. Include long
+names/locales, large rosters, both themes, reduced motion, all four values, hot
+Medium↔Largest, compact portrait/landscape, and 667x375 landscape. Correct truncation
+rules that hide essentials; iterate on UI Designer evidence until no automatable or
+specialist usability gap remains.
+
+Register `large-text-accessibility` first; the execution/device contracts bind. Pair
+Studio captures with text/geometry, composition, focus/scroll, preference source,
+style, motion, and lifecycle traces. Add the plan's workloads/counters to Step 9.
+Injected coverage is not the real read-only setting; physical Largest phone portrait/
+landscape and subjective readability remain honest external gates.
+
+Complete only with gate exit 0/artifact; exact live behavior; green public/Sponsor
+matrices, LuauUI/RascalRally suites and prior gates; no inaccessible essential text,
+overlap, state loss, unbounded motion, or game workaround; reviews resolved; and
+API/guide/parity/Sponsor docs updated. Do not publish/deploy/push, remove legacy
+Sponsor, or claim assistive-technology parity Roblox cannot expose.
+```
+
 ## Step 9 — Ship a publish-ready LuauUI performance lab
 
 This step turns Step 4's measurement infrastructure into a reproducible Roblox place
@@ -991,6 +1088,7 @@ Read:
 - GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
 - GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
 - GameStudio/ui/LuauUI/docs/plans/performance-stress-places.md
+- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
 - GameStudio/ui/LuauUI/docs/plans/desktop-keyboard-navigation.md
 - GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
 - GameStudio/ui/LuauUI/bench/
@@ -1063,14 +1161,14 @@ complete Wordle-like game, and actually validates the tile and match-3 loops.
 styles, adapts, rebuilds, and verifies as specified by the plan.
 
 Run with Claude Opus 5 (`claude-opus-5`), thinking enabled, `xhigh`. Treat the plans
-as acceptance requirements; avoid unrelated work. Escalate materially unresolved
-architecture/product choices with evidence for Fable 5 or the user.
+as binding; avoid unrelated work. Escalate material unresolved choices with evidence.
 
 Read:
 - GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
 - GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
 - GameStudio/ui/LuauUI/docs/plans/example-quality-pass.md
 - GameStudio/ui/LuauUI/docs/plans/theme-packages-and-skinning.md
+- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
 - GameStudio/ui/LuauUI/ui_todo.md (§0, §2)
 - GameStudio/ui/LuauUI/docs/plans/roblox-native-stylesheets.md
 - GameStudio/ui/LuauUI/examples/gallery/
@@ -1100,7 +1198,8 @@ Native StyleSheets/property authority must govern every example; do not revive c
 paint. Add the plan's authority-aware drift check and prove a contrasting runtime
 theme-package swap—palette, metrics, and bounded chrome—restyles and reflows all
 examples without edits/remount. Capture both across the matrix with
-geometry/style/focus/mount evidence.
+geometry/style/focus/mount evidence; include `Medium`/`Largest` under the Step 8.5
+overflow policy.
 
 Example 03 must visibly teach deterministic optimistic apply, pending, accept/
 reconcile, deliberate reject with reason/rollback, and reset—without test-only calls.
@@ -1151,6 +1250,7 @@ Read:
 - GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
 - GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
 - GameStudio/ui/LuauUI/docs/plans/studio-device-verification.md
+- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
 - GameStudio/ui/LuauUI/docs/reference/swiftui-parity.md
 - GameStudio/ui/LuauUI/docs/reference/api.md
 - GameStudio/specialists/UI_DESIGNER.md
@@ -1284,6 +1384,7 @@ Read:
 - GameStudio/specialists/CODE_REVIEWER.md
 - GameStudio/ui/LuauUI/docs/plans/release-candidate-review.md
 - GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
+- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
 - GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
 - GameStudio/ui/LuauUI/docs/guide/02-architecture.md
 - GameStudio/ui/LuauUI/docs/reference/api.md
@@ -1356,6 +1457,7 @@ Read:
 - GameStudio/ui/LuauUI/docs/plans/distribution-readiness.md
 - GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
 - GameStudio/ui/LuauUI/docs/plans/release-candidate-review.md
+- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
 - GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
 - GameStudio/ui/LuauUI/docs/guide/README.md
 - GameStudio/ui/LuauUI/docs/reference/api.md
@@ -1373,7 +1475,8 @@ standalone consumer. Document Rojo and source-copy use; keep `.rbxm` optional. N
 Package, registry, published model, archive, or hosted repository is required.
 
 Create and ship root `GameStudio/ui/LuauUI/AGENTS.md`. Route agents to quick start,
-catalog/API, examples, architecture, styling, input/device, and extension docs; teach
+catalog/API, examples, architecture, styling, input/device, large-text accessibility,
+and extension docs; teach
 the public workflow and framework/game boundary; name build/test/Studio/RascalRally
 lockstep; forbid internal-import/raw-GuiObject substitutes, local input/focus/layout,
 device-name branches, and game-side framework workarounds.
@@ -1395,8 +1498,9 @@ missing public/agent files, stale links/surface docs, and size growth.
 Register `distribution-readiness`. Export twice and compare manifests/checksums. In a
 temporary clean tree run quick start, tests, docs/links/boundaries, and real-adapter
 mount/input/theme/adaptation/geometry/teardown proof. Give only clean public material
-to two fresh agents: one builds an adaptive themed stateful screen; one diagnoses or
-extends bounded behavior through documented paths. Fix instruction-caused failures.
+to two fresh agents: one builds an adaptive themed stateful screen usable at
+`Largest`; one diagnoses or extends bounded behavior through documented paths. Fix
+instruction-caused failures.
 Keep prior gates green and RascalRally synchronized.
 
 Complete only with gate exit zero/artifact, reproducible usable source export,
@@ -1423,6 +1527,13 @@ The roadmap has achieved its goals only when all of these are true:
 - one semantic screen adapts across supported layout, distance, input, and
   accessibility profiles without device-specific copies;
 - common controls/layouts pass all input and accessibility profiles;
+- Roblox preferred text is measured and painted exactly once, updates while mounted,
+  and all four values preserve public-control layout, state, focus, and full access
+  to essential text;
+- the production LuauUI Sponsor View remains readable, nonoverlapping, reachable,
+  and usable at `Largest` on compact mobile portrait and landscape, with any permitted
+  truncation exposing its full value and any moving-text fallback bounded and
+  reduced-motion-safe;
 - existing headless performance trends and real phone/console evidence are stored and
   labeled separately, with measured budgets for the supported device floor;
 - the performance-lab source rebuilds self-contained `.rbxl` places that open without
@@ -1472,5 +1583,6 @@ The roadmap has achieved its goals only when all of these are true:
   RascalRally consumer-impact ledger, synchronized game integration or an explicit
   no-caller-change result, an updated game-side compatibility test, relevant game
   suite results, and an affected Studio canary where behavior is live;
-- legacy Sponsor Mode is still present and default;
-- no cutover or deletion occurred without a later explicit decision.
+- legacy Sponsor Mode is still present as the `UseLuauUISponsor = false` rollback;
+- the 2026-08-03 cutover decision is recorded, and no legacy deletion occurs without
+  a later explicit decision.

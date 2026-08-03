@@ -3,8 +3,8 @@
 **Date:** 2026-08-01
 **Status:** Required by every build prompt in
 [`luauui-consolidated-roadmap.md`](luauui-consolidated-roadmap.md).
-Roadmap Steps 3–14, including Step 3.5, plus Step 5.5 when cleanup can affect visible
-behavior, follow the canonical scriptable Studio matrix in
+Roadmap Steps 3–14, including Steps 3.5 and 8.5, plus Step 5.5 when cleanup can affect
+visible behavior, follow the canonical scriptable Studio matrix in
 [`studio-device-verification.md`](studio-device-verification.md).
 
 This contract exists because a green headless suite is necessary but has not been
@@ -30,8 +30,9 @@ The roadmap deliberately uses two lead models:
   cross-platform interaction, motion feel, and live integration decisions remain
   coupled to implementation. Fable uses the named UI Designer specialist and
   dispatches only decided packages to Opus 5.
-- Steps 7, 11, 12, and 13 are Fable-led for API architecture, reference-product
-  interpretation, 3D topology, and whole-framework review/diagnosis respectively.
+- Steps 7, 8.5, 11, 12, and 13 are Fable-led for API architecture, large-text
+  product/engine integration, reference-product interpretation, 3D topology, and
+  whole-framework review/diagnosis respectively.
 - Steps 3, 4, 5.5, 8, 9, 10, and 14 use Opus 5. Run Opus with thinking enabled,
   `xhigh` effort as the starting point for agentic coding, and enough output budget
   to finish the long tool-use run.
@@ -108,8 +109,9 @@ Do not manufacture a production-game edit for a compatible internal change. In t
 case, update or add the game-side compatibility test/evidence and record why no
 caller change was correct. Documentation-only changes with no contract or behavior
 effect update Rascal Rally documentation only when its claim changed. Preserve game
-behavior, content ownership, feature flags, and the legacy Sponsor default unless a
-separate authorized goal changes them. A LuauUI gate cannot pass while its Rascal
+behavior, content ownership, feature flags, the production LuauUI Sponsor default,
+and the `UseLuauUISponsor = false` legacy rollback unless a separate authorized goal
+changes them. A LuauUI gate cannot pass while its Rascal
 Rally consumer is stale, failing, or unaudited.
 
 ## 2. Create the acceptance ledger before coding
@@ -218,8 +220,8 @@ Honor the recorded Studio limits in `docs/lessons/`:
 - the device emulator does not summon the real mobile operating-system keyboard;
 - screenshots can look aimed correctly even when routed input landed elsewhere.
 
-For layout-affecting work in Steps 3–14, including Step 3.5, or Step 5.5, run the five
-view rows defined in `studio-device-verification.md`: compact phone portrait, the
+For layout-affecting work in Steps 3–14, including Steps 3.5 and 8.5, or Step 5.5,
+run the five view rows defined in `studio-device-verification.md`: compact phone portrait, the
 same phone landscape, tablet landscape, desktop, and console/ten-foot. Do not run the
 entire Studio catalog. Resolve the current presets through the API, record the exact
 configurations, and keep preferred text, locale, reduced motion, and hybrid input as
@@ -357,6 +359,7 @@ evidence pending**. Do not report the stage or roadmap outcome fully complete.
 | 6 — parallel Sponsor | The real place freezes named legacy quality baselines, runs the LuauUI presenter against the same fixtures, proves only one live presenter/command effect, and produces paired captures/traces for every matrix row; Fable repeats integrated UI Designer reviews until no automatable/specialist gap remains; an ownership ledger proves framework needs were fixed/tested in LuauUI and no local workaround/parallel adaptation machinery remains; physical and director FEEL approval remain separate gates |
 | 7 — API consistency | The fresh-author exercise uses only public docs and APIs; any compatible change that can affect runtime has matching real-adapter proof; the surface ledger and checks classify every public item or justified exception |
 | 8 — desktop keyboard | Raw Tab/Shift+Tab, Space/Return, and arrow input reaches semantic traversal/activation/adjustment through the real adapter; responder ownership, text editing, exactly-once activation, keep-visible, and teardown are traced |
+| 8.5 — large text | All four native preference values and live changes have exact-once measurement/paint evidence; the public surface and production Sponsor fixtures reflow without overlap or inaccessible essential text; compact portrait/landscape, full-value access, focus/scroll survival, reduced motion, and bounded reveal work have paired traces/captures |
 | 9 — performance lab | Self-contained places rebuild and run without Rojo; the scenario runner, dense scroll workload, matched native reference, bounded mount window, MicroProfiler labels, capture metadata, reset, and teardown work in Studio; low-end Android remains a named physical row |
 | 10 — example quality | All seven examples are played through the real adapter; teaching, style authority, geometry, input, completion/reset, failure, and lifecycle rows have paired traces/captures; an ownership ledger proves examples contain domain/content plus declarative composition while reusable fixes live behind public LuauUI APIs; source claims alone close nothing |
 | 11 — reference apps | Each clean-room reference proof runs a complete representative loop across the applicable five views and input paths; the feature ledger cites live evidence and never substitutes a fake for an unavailable Apple host surface |

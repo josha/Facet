@@ -45,6 +45,9 @@ local ORDER = {
 	-- ADR-0023: declared-content adaptive composition. ONE declaration of twelve
 	-- ranked regions driven through the five device offers plus a live axis flip
 	"composition",
+	-- roadmap Step 8: the desktop keyboard focus chain (form + scrollable list +
+	-- modal + TextInput + Slider + Stepper), driven with raw VirtualInput keys
+	"keyboard_navigation",
 }
 
 local scenarios = {}

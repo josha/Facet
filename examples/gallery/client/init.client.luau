@@ -148,6 +148,28 @@ task.defer(function()
 	gamepad_contention.disableLegacyControls()
 end)
 
+-- ...AND FREE THE TAB KEY, for the same reason and with the same scope limit
+-- (director playtest 2026-08-03, confirmed on a physical keyboard: with the
+-- players list enabled, Tab does nothing at all).
+--
+-- Tab is the CoreGui players-list shortcut. Roblox documents it as reserved
+-- "unless you disable the respective feature", and disabling that feature is the
+-- only sanctioned way to let a developer InputContext receive the key — no
+-- InputContext priority is documented to outrank CoreGui. These gallery places
+-- are UI-only and have no leaderboard worth keeping, so the trade is free HERE.
+--
+-- IT IS NOT FREE IN A GAME, which is why this lives in the gallery bootstrap and
+-- not in LuauUI: hiding a game's leaderboard to win a key is the same trade the
+-- gamepad_contention scope note refuses for avatar controls, and the library
+-- never makes it for a consumer. A game decides for itself, and
+-- `gamepad_contention.traversalKeyContended()` tells it what the current answer
+-- is. Full story in docs/guide/07-input.md §7.4.
+task.defer(function()
+	pcall(function()
+		game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)
+	end)
+end)
+
 -- ENGINE TEXT CALIBRATION (NS-A10, UI-FID-001) IS STILL NOT RUN HERE, and no
 -- longer needs to be: the ScreenTarget adapter now measures text per WORD with
 -- the engine's own bounds API (src/client/text_premeasure), so boxes match what
