@@ -69,8 +69,9 @@ local function neutralTypography(): any
 		local size = (defaultStyle.type :: any)[role]
 		if size == nil then
 			-- "control": the size the renderer hardcoded for Button and TextField
-			-- text (18). It sits between `body` (16) and `heading` (20) and had no
-			-- token, so a theme could not restyle a button's label.
+			-- text (18). It sits between `body` (16) and `heading` (20); the token
+			-- now lives in default_style beside the rest of the ladder, and this
+			-- stays as the guard for a style that predates it.
 			size = 18
 		end
 		out[role] = { font = table.clone(NEUTRAL_FONT), size = size, lineHeight = NEUTRAL_LINE_HEIGHT }
@@ -319,7 +320,7 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		local authored = if type(metrics.iconSizes) == "table" then (metrics.iconSizes :: any)[role] else nil
 		out.iconSizes[role] = if type(authored) == "number" then authored else (NEUTRAL_ICON_SIZES :: any)[role]
 	end
-	for role, entry in metrics.typography do
+	local function publishRole(role: string, entry: any)
 		out.type[role] = {
 			fontKey = snapshot.fontKey(entry.font),
 			font = {
@@ -330,6 +331,28 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 			size = entry.size,
 			lineHeight = entry.lineHeight,
 		}
+	end
+	for role, entry in metrics.typography do
+		publishRole(role, entry)
+	end
+	-- THE WEIGHT ROLES, derived when a package did not author them (F2,
+	-- 2026-08-02). `strong` and `numeral` answer every package — an authored one
+	-- wins, an unauthored one takes its base role's size/family/style with the
+	-- derivation's weight (`pkg.deriveTypeRole`) — so `textSize = "strong"` can
+	-- never resolve to nil and silently fall back to `body`.
+	--
+	-- DERIVED HERE AND NOT IN THE NEUTRAL DEFINITION, for exactly the reason the
+	-- `iconSizes` note above records: a new authored `metrics.*` entry would move
+	-- every derived package's content STAMP and invalidate stored capture
+	-- evidence, for values no package wrote. Studio Neutral therefore gains the
+	-- two roles without a single authored byte moving.
+	for _, role in pkg.OPTIONAL_TYPE_ROLES do
+		if out.type[role] == nil then
+			local derived = pkg.deriveTypeRole(role, metrics.typography)
+			if derived ~= nil then
+				publishRole(role, derived)
+			end
+		end
 	end
 	for _, section in { "space", "radii", "strokes", "targetSizes", "motion" } do
 		for k, v in (metrics :: any)[section] do
@@ -806,7 +829,7 @@ function snapshot.isTypeRole(name: any): boolean
 	if type(name) ~= "string" then
 		return false
 	end
-	for _, role in pkg.REQUIRED_TYPE_ROLES do
+	for _, role in pkg.TYPE_ROLES do
 		if role == name then
 			return true
 		end
@@ -911,6 +934,38 @@ snapshot.INTRINSIC_TEXT_ROLE = table.freeze({
 	Toggle = "body",
 	TextField = "control",
 })
+
+-- effectiveTypeRole(snap, class, textSize) -> (roleName, roleEntry) — THE
+-- typography role a text-bearing node actually wears, or nil for neither.
+--
+-- ONE FUNCTION, TWO SEAMS (F2, 2026-08-02). The measure seam reads it to key
+-- `text_metrics` on the role's font DESCRIPTOR, and the paint seam reads it to
+-- write the node's FontFace. That is the whole reason the weight channel is a
+-- role rather than a `weight` prop: `Text.font` reached measurement and never
+-- paint, so an authored face made the reserved box and the drawn glyphs disagree
+-- (its deprecation entry says so verbatim). Two call sites resolving the role
+-- independently would rebuild that split one level up, so they share this.
+--
+-- A NAMED role wins; otherwise the class's intrinsic role (`Text` -> body,
+-- `Button` -> control, …); a literal px size names no role at all, and gets the
+-- class's intrinsic face so a size override never silently changes the family.
+function snapshot.effectiveTypeRole(snap: any, class: string?, textSize: any): (string?, any)
+	if type(snap) ~= "table" or type(snap.type) ~= "table" then
+		return nil, nil
+	end
+	if type(textSize) == "string" then
+		local entry = (snap.type :: any)[textSize]
+		if entry ~= nil then
+			return textSize, entry
+		end
+	end
+	local role = if type(class) == "string" then (snapshot.INTRINSIC_TEXT_ROLE :: any)[class] else nil
+	if role == nil then
+		return nil, nil
+	end
+	local entry = (snap.type :: any)[role]
+	return (if entry ~= nil then role else nil), entry
+end
 
 -- intrinsicTextSize(snap, class) -> the px a class draws unstyled text at, or
 -- nil when the class has no intrinsic text.

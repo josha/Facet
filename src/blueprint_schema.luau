@@ -39,6 +39,10 @@
 -- Adding a property: add it here first, then satisfy `check_prop_parity`.
 
 local themeSnapshot = require("./themes/snapshot")
+-- the theme vocabulary itself (PURE, and already in this graph via snapshot):
+-- the typography-role list a refusal names comes from the one table that
+-- defines it, so the schema can never advertise a stale set.
+local themePackage = require("./themes/package")
 -- the pure style-modifier layer. ONE ruling on what a `tint` value may be
 -- (styling.checkTint), read here for construction and by the adapter for a
 -- REACTIVE value at the write site, so the two can never diverge.
@@ -82,7 +86,11 @@ export type PropSpec = {
 --            dotted path into the snapshot ("controls.slider.thumbSize",
 --            "targetSizes.minimum"). It resolves to pixels on every solve, so a
 --            theme swap moves the geometry without rebuilding the blueprint.
--- "typeRole" a typography role name ("caption".."title", plus "control").
+-- "typeRole" a typography role name: the size ladder ("caption".."title", plus
+--            "control") and the two WEIGHT roles ("strong" emphasis at reading
+--            size, "numeral" a rank/score figure). A role supplies the font
+--            descriptor and line height as well as the size, so measurement and
+--            paint can never disagree about the face.
 --
 -- A literal number remains legal everywhere a metric name is accepted, and is
 -- thereby EXPLICITLY theme-independent — that is the documented escape hatch,
@@ -162,7 +170,10 @@ schema.TRANSITION_MIRROR = table.freeze(TRANSITION_MIRROR)
 schema.TRANSITION_FADES = table.freeze({ fade = true, materialize = true })
 
 local SPACE_STEP_LIST = "xs | s | m | l | xl"
-local TYPE_ROLE_LIST = "caption | label | body | heading | title | control"
+-- DERIVED from the theme package's own vocabulary, never restated: a refusal
+-- that names a stale six-role set while the resolver accepts eight is exactly
+-- the "documentation states what ships" defect (constitution §14).
+local TYPE_ROLE_LIST = table.concat(themePackage.TYPE_ROLES, " | ")
 local METRIC_HINT = `a spacing step ({SPACE_STEP_LIST}) or a theme metric path such as `
 	.. `"controls.slider.thumbSize" / "targetSizes.minimum"`
 
@@ -656,8 +667,10 @@ local TEXT_SIZE: PropSpec = p({
 	shared = true,
 	channel = "layout",
 	doc = "text size: an explicit px number, or a typography role name "
-		.. '("caption"|"label"|"body"|"heading"|"title"|"control") resolved from the active '
-		.. "theme. Either form is scaled at BOTH the measure and paint seams",
+		.. `({TYPE_ROLE_LIST}) resolved from the active `
+		.. "theme. A role also supplies the FONT DESCRIPTOR and line height, so `strong` and "
+		.. "`numeral` are how a node asks for weight — both seams read the one role. "
+		.. "Either form is scaled at BOTH the measure and paint seams",
 })
 
 -- LINE LIMIT (SwiftUI `.lineLimit`, 2026-07-27). "This label gets at most N

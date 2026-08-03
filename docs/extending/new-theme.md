@@ -89,12 +89,40 @@ The v1 core vocabulary is a **closed set**, versioned with the schema
 | Constant | Members |
 |---|---|
 | `REQUIRED_TYPE_ROLES` | `caption`, `label`, `body`, `heading`, `title`, `control` |
+| `OPTIONAL_TYPE_ROLES` | `strong`, `numeral` — the WEIGHT roles. Derived when a package omits them (see below), so they are legal to author and never required |
+| `TYPE_ROLES` | all eight, in ladder order: the vocabulary a `textSize` refusal names |
 | `REQUIRED_SPACE_STEPS` | `xs`, `s`, `m`, `l`, `xl` |
 | `REQUIRED_CONTROL_SIZES` | `compact`, `regular`, `large` (each `height`, `paddingX`, `iconSize`) |
 | `SLOTS` | `panel`, `control`, `field`, `selection`, `divider`, `scrollbar`, `sliderTrack`, `sliderThumb`, `badge`, `barTrack`, `barFill`, `barCap`, `barCenter`, `stepperPlate`, `toggleTrack`, `toggleKnob` |
 | `REQUIRED_RADII` / `REQUIRED_STROKES` / `REQUIRED_MOTION` | `control`/`panel`/`pill`, `hairline`, `fast`/`normal` |
 | `CONTROL_FAMILIES` | the per-family metrics with no better home (`slider.thumbSize`, `table.headerHeight`, …) |
 | `MIN_TARGET_SIZE` | `44` — a theme may raise a target size, never lower one |
+
+**The two WEIGHT roles are optional and derived.** `strong` (emphasis at reading
+size) and `numeral` (a rank or score figure) are the answer to "I need bold
+here" — a role rather than a `weight` prop, because a role's font descriptor
+reaches the MEASURE seam and the PAINT seam together, and a face that reached
+only one of them is exactly what got `UI.Text.font` deprecated.
+
+Omit them and `themes.resolve` derives each from your own ramp: the base role's
+family, style, size and line height, with only the weight changed —
+`strong` = `body` at SemiBold, `numeral` = `control` (or `heading`) at Bold. A
+display-face package therefore gets *its* face in both weights for free. Author
+one and it wins outright:
+
+```lua
+metrics = {
+    typography = {
+        -- …the six required roles…
+        numeral = { font = { family = "GothamSSm", weight = "Heavy" }, size = 22, lineHeight = 1.1 },
+    },
+}
+```
+
+Pick a weight the family actually ships. `Font.new` accepts any weight and
+silently substitutes, and both seams substitute identically — so nothing breaks,
+but you get a face you did not choose. The derivation deliberately stops at
+SemiBold/Bold for that reason.
 
 **Adding a core role is a framework change, not a package change.** It means:
 extend the neutral package in `src/themes/snapshot.luau` (naming the literal it

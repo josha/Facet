@@ -50,6 +50,21 @@ local TEXT_ALIGN_MAP: { [string]: Enum.TextXAlignment } = {
 	["end"] = Enum.TextXAlignment.Right,
 }
 
+-- THE ENGINE FACE FOR A TYPOGRAPHY-ROLE DESCRIPTOR (F2, 2026-08-02).
+--
+-- `text_premeasure.fontFor` is the SAME resolver the premeasure batch hands to
+-- `GetTextBoundsAsync`, keyed on the same canonical "family#weight#style"
+-- descriptor (ADR-0019 §6). So the face the engine DRAWS and the face the engine
+-- was asked to MEASURE are one cached lookup, not two parallel mappings that can
+-- drift — which is the failure `Text.font` was deprecated for. An unresolvable
+-- family returns nil and the node keeps the face it already has.
+local function fontFaceFor(descriptor: any): Font?
+	if type(descriptor) ~= "table" or type(descriptor.fontKey) ~= "string" then
+		return nil
+	end
+	return text_premeasure.fontFor(descriptor.fontKey)
+end
+
 -- authored `scaleMode` -> engine ScaleType (ADR-0022 Decision 6, row SF-P2).
 --
 -- `fill` and `crop` BOTH map to Crop, and that is deliberate rather than a
@@ -378,6 +393,13 @@ function screen_target.new(opts: Opts?)
 			-- costs a flat theme zero instances — and the tag has to ride the
 			-- desired set or the next classification pass would square it off.
 			shape = handle.shape,
+			-- THE TYPOGRAPHY ROLE (F2, 2026-08-02). `FontFace` is sheet-owned, so
+			-- the role a node wears reaches native paint as a tag whose generated
+			-- rule carries that role's descriptor — the same descriptor the solver
+			-- measured with. It rides the desired set like every other
+			-- classification tag, or the next pass would strip the face back to the
+			-- class default.
+			typeRole = handle.typeRole,
 		})
 		for _, tag in CollectionService:GetTags(instance) do
 			if string.sub(tag, 1, 5) == "luau-" and desired[tag] ~= true then
@@ -1275,6 +1297,8 @@ function screen_target.new(opts: Opts?)
 			-- native: the "Text default" class rule owns label paint (a write
 			-- here would pin the label's color across theme swaps)
 			assertBespokePaint("TextColor3")
+			-- the pre-paint floor; the Toggle's role face reaches this lifted label
+			-- through the `textFont` write, exactly as its `textSize` does
 			label.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json")
 			label.TextColor3 = COLOR.content
 		end
@@ -1848,6 +1872,10 @@ function screen_target.new(opts: Opts?)
 			if not nativeMode then
 				-- native: "Text default"/"Button text default" rules own these
 				assertBespokePaint("TextColor3")
+				-- THE PRE-PAINT FLOOR, not the authority (F2, 2026-08-02). This node's
+				-- FACE comes from its typography role through the `textFont` write in
+				-- setProp, inside the same solve; this is only what the instance wears
+				-- for the instant between creation and that write.
 				instance.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json")
 				instance.TextColor3 = COLOR.content
 			end
@@ -1906,6 +1934,7 @@ function screen_target.new(opts: Opts?)
 			if not nativeMode then
 				-- native: "Field text default" + "Field — outline" rules own these
 				assertBespokePaint("TextColor3")
+				-- the pre-paint floor; the role's face lands via the `textFont` write
 				instance.FontFace = Font.new("rbxasset://fonts/families/BuilderSans.json")
 				instance.TextColor3 = COLOR.content
 				instance.PlaceholderColor3 = COLOR.contentSecondary
@@ -3434,6 +3463,38 @@ function screen_target.new(opts: Opts?)
 				elseif value >= style.type.heading then
 					assertBespokePaint("TextColor3")
 					instance.TextColor3 = COLOR.contentStrong
+				end
+			end
+		elseif prop == "textFont" then
+			-- THE TYPOGRAPHY ROLE'S FACE (F2, 2026-08-02). The renderer resolves the
+			-- node's effective role against the SAME snapshot the solver measured with
+			-- and hands the descriptor here, so the family/weight the engine draws is
+			-- the family/weight the box was reserved for. Before this the adapter wrote
+			-- one hardcoded face at creation and nothing ever moved it — which is why a
+			-- `weight` PROP would have been the wrong shape: a face that reaches only
+			-- one seam is exactly what `Text.font` was deprecated for.
+			--
+			-- NATIVE MODE MUST NOT WRITE IT. `FontFace` is sheet-owned
+			-- (authority.nativeSheetOwned) and an explicit write permanently defeats the
+			-- rule, so in native mode the role rides a `luau-type-<role>` TAG whose
+			-- generated rule carries the same descriptor.
+			local descriptor = if type(value) == "table" then value else nil
+			if nativeMode then
+				handle.typeRole = if descriptor ~= nil then descriptor.role else nil
+				syncTags(handle)
+			elseif descriptor ~= nil then
+				local face = fontFaceFor(descriptor)
+				if face ~= nil then
+					if instance:IsA("TextLabel") or instance:IsA("TextButton") or instance:IsA("TextBox") then
+						assertBespokePaint("FontFace")
+						instance.FontFace = face
+					end
+					-- ...and the Toggle's lifted label, for exactly the reason `textSize`
+					-- reaches it: that instance is the thing that draws the text
+					if handle.labelInstance ~= nil then
+						assertBespokePaint("FontFace")
+						handle.labelInstance.FontFace = face
+					end
 				end
 			end
 		elseif prop == "text" or prop == "label" then

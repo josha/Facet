@@ -876,7 +876,21 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 		-- bakes `strokes.hairline` for the same reason every other hairline does —
 		-- a designer thickening the theme's hairline must thicken the disc's rim
 		-- too, or a circle stops matching the buttons beside it.
-		expect(count).toBe(11 + slotSites)
+		--
+		-- +6 since F2 (the weight channel): one `Type — <role>` FontFace site per
+		-- AUTHORED typography role, so a designer's `Type_<role>_font` edit
+		-- repaints every node wearing that role — the same reason the three class
+		-- text defaults are mapped. A flat package authors the six ladder roles and
+		-- derives `strong`/`numeral`, and a DERIVED role is deliberately unmapped:
+		-- it has no token attribute for the watcher to read.
+		local typeSites = 0
+		for _, entry in model.metricRuleProps :: any do
+			if string.find(entry.rule, "Type ", 1, true) == 1 then
+				typeSites += 1
+			end
+		end
+		expect(typeSites).toBe(6)
+		expect(count).toBe(11 + slotSites + typeSites)
 	end)
 end)
 

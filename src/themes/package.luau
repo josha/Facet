@@ -52,6 +52,80 @@ package.SCHEMA = "luauui-theme/1"
 -- to catch before play.
 
 package.REQUIRED_TYPE_ROLES = table.freeze({ "caption", "label", "body", "heading", "title", "control" })
+
+-- THE WEIGHT CHANNEL IS A TYPOGRAPHY ROLE (F2, racer-sort parity, 2026-08-02).
+--
+-- `strong` (emphasis at reading size) and `numeral` (a figure that has to read as
+-- a rank/score) are the two things games kept asking a `weight` prop for. They are
+-- ROLES rather than a prop for the reason `Text.font` was deprecated
+-- diagnosed-not-preserved: a font that reaches only the paint seam makes measured
+-- and painted bounds disagree, permanently and invisibly. A role carries size,
+-- font descriptor AND line height through ONE resolution the measurer and the
+-- painter both read, so the two cannot split.
+--
+-- OPTIONAL, and derived when absent (`package.deriveTypeRole` below, applied in
+-- `snapshot.resolve`). Making them required would fail every package published
+-- against the six-role vocabulary — including the reference packages — for values
+-- the derivation gets right on its own. A package that wants its own emphasis
+-- face simply authors the role and wins.
+package.OPTIONAL_TYPE_ROLES = table.freeze({ "strong", "numeral" })
+
+-- the whole eight-role vocabulary, in ladder order. This is the list a refusal
+-- names and the list `snapshot.isTypeRole` validates a `textSize` against.
+package.TYPE_ROLES = table.freeze({
+	"caption",
+	"label",
+	"body",
+	"heading",
+	"title",
+	"control",
+	"strong",
+	"numeral",
+})
+
+-- HOW AN UNAUTHORED WEIGHT ROLE IS DERIVED.
+--
+-- `base` names the authored role whose SIZE and font FAMILY/STYLE the derived
+-- role inherits (so a package that scales its ramp scales these with it, and a
+-- package with a display face keeps that face); `weight` is the only thing the
+-- derivation changes. `fallbackBase` covers a hand-built metrics table missing
+-- the preferred base.
+--
+-- WHY THESE WEIGHTS. Emphasis at reading size wants the lightest face that still
+-- reads as emphasis — SemiBold — because a Bold body paragraph is shouting. A
+-- numeral is a glanceable figure at control size, so it takes Bold. Neither goes
+-- to ExtraBold/Heavy by default: the faces the text-measurement milestone
+-- actually probed for the default family are Regular / Medium / SemiBold / Bold
+-- (docs/plans/text-measurement-milestone.md), and an unshipped weight is silently
+-- substituted by `Font.new` — which is exactly the class of quiet substitution
+-- this channel exists to remove. A package may still author ExtraBold explicitly.
+package.DERIVED_TYPE_ROLES = table.freeze({
+	strong = table.freeze({ base = "body", fallbackBase = "body", weight = "SemiBold" }),
+	numeral = table.freeze({ base = "control", fallbackBase = "heading", weight = "Bold" }),
+})
+
+-- deriveTypeRole(role, typography) -> { font = { family, weight, style }, size,
+-- lineHeight } | nil. PURE, and the ONE derivation both the theme snapshot and a
+-- game's own tooling read, so a derived face can never be computed two ways.
+function package.deriveTypeRole(role: string, typography: any): any
+	local rule = (package.DERIVED_TYPE_ROLES :: any)[role]
+	if rule == nil or type(typography) ~= "table" then
+		return nil
+	end
+	local base = typography[rule.base]
+	if type(base) ~= "table" then
+		base = typography[rule.fallbackBase]
+	end
+	if type(base) ~= "table" or type(base.font) ~= "table" then
+		return nil
+	end
+	return {
+		font = { family = base.font.family, weight = rule.weight, style = base.font.style },
+		size = base.size,
+		lineHeight = base.lineHeight,
+	}
+end
+
 package.REQUIRED_SPACE_STEPS = table.freeze({ "xs", "s", "m", "l", "xl" })
 package.REQUIRED_CONTROL_SIZES = table.freeze({ "compact", "regular", "large" })
 package.CONTROL_SIZE_FIELDS = table.freeze({ "height", "paddingX", "iconSize" })
@@ -1186,8 +1260,14 @@ function package.define(def: any): (any, any)
 	end
 
 	local typography = if type(metrics.typography) == "table" then metrics.typography else {}
-	for _, role in package.REQUIRED_TYPE_ROLES do
+	for _, role in package.TYPE_ROLES do
 		local entry = typography[role]
+		-- an OPTIONAL weight role (`strong`/`numeral`) that was not authored is
+		-- derived in `snapshot.resolve`, so its absence is not a gap; anything the
+		-- package DID author is validated exactly as a required role is
+		if entry == nil and (package.DERIVED_TYPE_ROLES :: any)[role] ~= nil then
+			continue
+		end
 		if
 			not need(
 				`metrics.typography.{role}`,
@@ -1265,7 +1345,7 @@ function package.define(def: any): (any, any)
 	end
 	for role in typography do
 		local known = false
-		for _, name in package.REQUIRED_TYPE_ROLES do
+		for _, name in package.TYPE_ROLES do
 			known = known or name == role
 		end
 		if not known then
@@ -1273,7 +1353,7 @@ function package.define(def: any): (any, any)
 				"unknownField",
 				`metrics.typography.{tostring(role)}`,
 				`unknown typography role '{tostring(role)}'`,
-				`v1 roles: {table.concat(package.REQUIRED_TYPE_ROLES, " | ")}`
+				`v1 roles: {table.concat(package.TYPE_ROLES, " | ")}`
 			)
 		end
 	end

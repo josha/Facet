@@ -182,6 +182,10 @@ require("./composition.spec")
 -- service/model opts table refuses an unknown key, naming the boundary, the key
 -- and the legal set — and still accepts the legal call it was derived from
 require("./spec_guard_sweep.spec")
+-- THE TYPOGRAPHY WEIGHT CHANNEL (F2): `strong`/`numeral` as first-class roles,
+-- and the invariant that makes them a role rather than a `weight` prop — the
+-- descriptor the solver MEASURES with is the descriptor the adapter PAINTS
+require("./typography_weight_roles.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

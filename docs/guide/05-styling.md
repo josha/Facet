@@ -25,7 +25,8 @@ report)*. Compilation does two useful things before it hands anything back:
   pairs (`surface`/`content`, `surfaceStrong`/`contentStrong`, `accent`/`onAccent`),
   the spacing steps (`xs`, `s`, `m`, `l`, `xl`), the text roles (`body`, `label`,
   `heading`, `title`), a minimum touch-target size, and motion durations. Anything
-  missing is listed in `report.missing`.
+  missing is listed in `report.missing`. (`strong` and `numeral` are optional and
+  derived when absent — see *Typography* below.)
 - **Contrast check.** Each surface/content color pair is checked for a text
   contrast ratio of at least 4.5:1 (the common readability threshold).
   `report.contrast` lists each pair's ratio and whether it passed.
@@ -38,6 +39,37 @@ to ship unreadable text. On success you get a **frozen** (immutable) token set.
 local compiled, report = LuauUI.tokens.compile(mySchema)
 assert(compiled ~= nil, "style failed its own contrast/completeness check")
 ```
+
+### Typography: eight roles, and weight is one of them
+
+`textSize` takes a px number **or a typography role name**. Six roles name a rung
+on the reading ladder — `caption`, `label`, `body`, `heading`, `title`,
+`control` — and two name a **weight**:
+
+| Role | What it means | Studio Neutral |
+|---|---|---|
+| `strong` | emphasis at reading size: a name in a list, a label that has to win | `body`'s size, the family's SemiBold face |
+| `numeral` | a figure read as a rank or a score, not as prose | `control`'s size, the family's Bold face |
+
+```lua
+UI.Text({ id = "Name", text = racer.name, textSize = "strong" })
+UI.Text({ id = "Pos",  text = tostring(racer.place), textSize = "numeral" })
+```
+
+**There is no `weight` prop, and that is deliberate.** A typography role carries
+its **font descriptor and line height** as well as its size, and the whole entry
+travels to the layout solver *and* to the adapter that paints the glyphs. A prop
+that set only the painted face would reserve a box for one family and draw
+another — which is exactly what happened to the deprecated `UI.Text.font`, and
+why it was removed rather than kept working. Weight is a style decision, styles
+are theme-owned, and a role is the theme-owned channel.
+
+`strong` and `numeral` are **optional** in a token schema and in a theme package.
+Leave them out and they are derived from the ramp you did write (`strong` from
+`body`, `numeral` from `control`-or-`heading`, changing only the weight), so
+every theme answers all eight names and a display-face theme gets *its* face in
+both weights. Author either one to override it — see
+`docs/extending/new-theme.md` §2.
 
 ## 5.2 The Studio Neutral default
 

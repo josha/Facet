@@ -59,6 +59,11 @@ local HANDLED_PROPS: { string } = {
 	-- dedicated seams (layout + presentation authority)
 	"clipChildren",
 	"textSize",
+	-- the typography role's FACE, beside its size (F2): the live adapter turns
+	-- this descriptor into a FontFace (bespoke) or a `luau-type-<role>` tag
+	-- (native), so it has to be a declared prop here or the parity pin blinds
+	-- the suite to the whole seam — the SF-M9 lesson this list exists for
+	"textFont",
 	"padding",
 	"transform",
 	"transparency",
@@ -617,6 +622,28 @@ function fake_target.new(opts: Opts?)
 	end
 	function adapter.textBatchCount(): number
 		return #textBatches
+	end
+	-- ...and the WHOLE request, descriptor included (F2). The font a batch asks
+	-- about is the font the solver measured with, so this is the instrument that
+	-- proves a typography role reached MEASUREMENT — read off the seam the engine
+	-- would answer, never re-derived from the same function the renderer called.
+	function adapter.pendingTextRequests(): { { word: string, size: number, font: string } }
+		local out: { { word: string, size: number, font: string } } = {}
+		for _, batch in textBatches do
+			for _, request in batch.requests do
+				table.insert(out, { word = request.word, size = request.size, font = request.font })
+			end
+		end
+		table.sort(out, function(a, b)
+			if a.font ~= b.font then
+				return a.font < b.font
+			end
+			if a.size ~= b.size then
+				return a.size < b.size
+			end
+			return a.word < b.word
+		end)
+		return out
 	end
 	function adapter.pendingTextWords(): { string }
 		local out: { string } = {}

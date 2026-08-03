@@ -20,6 +20,22 @@ local REQUIRED_COLOR_PAIRS: { { surface: string, content: string } } = {
 local REQUIRED_SPACE = { "xs", "s", "m", "l", "xl" }
 local REQUIRED_TYPE = { "body", "label", "heading", "title" }
 
+-- THE WEIGHT ROLES (F2, 2026-08-02): `strong` (emphasis at reading size) and
+-- `numeral` (a rank/score figure) are first-class typography roles, and OPTIONAL
+-- in a game's schema. A schema that omits one gets the size derived here from the
+-- ramp it DID author, so every compiled style answers all eight role names and a
+-- game never has to restate a number it already declared.
+--
+-- Sizes only — a compiled token style has never carried font descriptors (that is
+-- the theme PACKAGE's `metrics.typography`, where the same two roles derive their
+-- FACES from `themes.package.deriveTypeRole`). The two derivations agree by
+-- construction: both take `strong` from `body` and `numeral` from
+-- `control`-or-`heading`.
+local DERIVED_TYPE: { { role: string, from: { string } } } = {
+	{ role = "strong", from = { "body" } },
+	{ role = "numeral", from = { "control", "heading" } },
+}
+
 local function luminance(c: Rgb): number
 	local function chan(v: number): number
 		return if v <= 0.03928 then v / 12.92 else ((v + 0.055) / 1.055) ^ 2.4
@@ -101,6 +117,20 @@ function tokens.compile(schema: any): (any, any)
 		return nil, report
 	end
 
+	-- the weight roles' sizes, filled in for a schema that did not author them
+	-- (see DERIVED_TYPE above). An authored value always wins.
+	local typeRamp = table.clone(schema.type)
+	for _, entry in DERIVED_TYPE do
+		if typeRamp[entry.role] == nil then
+			for _, source in entry.from do
+				if typeRamp[source] ~= nil then
+					typeRamp[entry.role] = typeRamp[source]
+					break
+				end
+			end
+		end
+	end
+
 	local function deepFreeze(t: any): any
 		for _, v in t do
 			if type(v) == "table" then
@@ -111,7 +141,7 @@ function tokens.compile(schema: any): (any, any)
 	end
 	local compiled = deepFreeze({
 		colors = table.clone(schema.colors),
-		type = table.clone(schema.type),
+		type = typeRamp,
 		space = table.clone(schema.space),
 		radii = table.clone(schema.radii or {}),
 		strokes = table.clone(schema.strokes or {}),

@@ -58,7 +58,13 @@ local SCHEMA = {
 		tenFootFocusRingThickness = 4,
 		tenFootFocusScale = 1.05,
 	},
-	type = { caption = 12, label = 14, body = 16, heading = 20, title = 24 },
+	-- the typography ramp. `control` (18) is stated here rather than left to the
+	-- theme snapshot's literal fallback so ONE table describes the ladder every
+	-- role name resolves through — and so the `numeral` size `tokens.compile`
+	-- derives (control-or-heading) is the same 18 the theme snapshot derives.
+	-- `strong`/`numeral` themselves stay derived (tokens.compile DERIVED_TYPE):
+	-- Studio Neutral takes the same defaults a game schema does.
+	type = { caption = 12, label = 14, body = 16, heading = 20, title = 24, control = 18 },
 	space = { xs = 4, s = 8, m = 16, l = 24, xl = 40 },
 	radii = { control = 8, panel = 12, pill = 999 },
 	-- engine-true UIShadow presets (verified platform facts 2026-07-20:

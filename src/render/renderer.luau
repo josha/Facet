@@ -177,6 +177,7 @@ end
 local DIRECT_PROPS: { [string]: string } = {
 	clipChildren = "ensureTree's clip-host declaration (layout authority)",
 	textSize = "applyTextScale — the scaled-text paint seam",
+	textFont = "applyTextScale — the typography role's FACE, beside its size (F2)",
 	padding = "applyPadding — the Button text-inset paint seam",
 	transform = "controller.setPresentationTransform / setPresentationOffset (presentation authority)",
 	transparency = "controller.setPresentationTransparency (presentation authority)",
@@ -339,11 +340,20 @@ local function toLayoutNode(
 	-- adapter draws it.
 	local function textOf(fallbackRole: string): (number, any)
 		local raw = props.textSize
+		-- THE FACE COMES FROM THE EFFECTIVE ROLE, authored or intrinsic (F2,
+		-- 2026-08-02). This used to hand back `nil` for an unauthored size, and the
+		-- solver then keyed measurement on `body`'s descriptor — while the class's
+		-- INTRINSIC role is `control` for a Button and a TextField. Under Studio
+		-- Neutral every role wears one face so nothing showed; under a package whose
+		-- control face differs from its body face the solver measured the wrong
+		-- family, and the paint seam (which now writes the role's face) would have
+		-- disagreed with it. One resolver for both seams, so it cannot.
+		local _, role = themeSnapshot.effectiveTypeRole(metrics, class, raw)
 		local size = themeSnapshot.resolveSize(metrics, raw)
 		if size == nil then
-			return metrics.type[fallbackRole].size + prefOffset, nil
+			return metrics.type[fallbackRole].size + prefOffset, role
 		end
-		return size * textScale + prefOffset, themeSnapshot.roleOf(metrics, raw)
+		return size * textScale + prefOffset, role
 	end
 	local kind: string
 	-- set by the Button branch below; spent once `layoutNode` exists
@@ -1721,6 +1731,22 @@ function renderer.attach(
 	-- (an intrinsic default is not scaled there either), and the preferred-text
 	-- offset stays out of paint because the engine applies its own at draw time.
 	local lastTextSize: { [string]: number } = {}
+	-- THE FACE, beside the size, from the SAME role (F2, 2026-08-02). The
+	-- typography role has always carried a font descriptor and the MEASURE seam
+	-- has always keyed `text_metrics` on it (`toLayoutNode` -> `layoutNode.font`);
+	-- paint did not, so every text node was drawn in whatever face the adapter
+	-- hardcoded at creation. That is `Text.font`'s deprecation read backwards —
+	-- there, the author's face reached measurement and never paint; here, the
+	-- THEME's face reached measurement and never paint — and it is why a weight
+	-- channel had to be a role rather than a prop.
+	--
+	-- Both seams resolve through `themeSnapshot.effectiveTypeRole`, so the
+	-- descriptor the solver measured with IS the descriptor the engine draws with.
+	-- Written inside the solve, against THAT solve's metrics, exactly as the size
+	-- and the Button padding beside it are. Minimal-write: the descriptor key is
+	-- cached per path, so a steady theme costs zero writes and every screen whose
+	-- roles all resolve to the family's Regular face is byte-identical.
+	local lastTextFont: { [string]: string } = {}
 	local function applyTextScale(scale: number, metrics: any)
 		local function walk(node: any)
 			-- an AUTHORED size paints; a role name is just as authored as a number
@@ -1738,6 +1764,24 @@ function renderer.attach(
 					adapter.setProp(handles[node.path], "textSize", scaled, "layout")
 					lastTextSize[node.path] = scaled
 					stats.propWrites += 1
+				end
+				-- a CONTENT Button draws no text of its own, so it has no face to
+				-- write either (`raw` is already nil for one, above)
+				local roleName, role =
+					themeSnapshot.effectiveTypeRole(metrics, node.class, node.props and node.props.textSize)
+				if role ~= nil then
+					if lastTextFont[node.path] ~= role.fontKey then
+						authority.assertWrite(node.class, "textFont", "layout")
+						adapter.setProp(handles[node.path], "textFont", {
+							role = roleName,
+							fontKey = role.fontKey,
+							family = role.font.family,
+							weight = role.font.weight,
+							style = role.font.style,
+						}, "layout")
+						lastTextFont[node.path] = role.fontKey
+						stats.propWrites += 1
+					end
 				end
 			end
 			for _, child in node.children do
@@ -2298,6 +2342,7 @@ function renderer.attach(
 				end
 				lastZ[path] = nil
 				lastTextSize[path] = nil
+				lastTextFont[path] = nil
 				lastPadding[path] = nil
 				-- paths are REUSED across a structural remount (a When/ForEach child, a
 				-- re-created ViewThatFits candidate), so these caches must be forgotten

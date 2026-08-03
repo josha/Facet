@@ -227,6 +227,18 @@ local ALLOWED_ADDED_PROPS: { { prop: string, why: string } } = {
 			.. "measured those, so every rect and hit rect below is unchanged: what moves is the size the engine "
 			.. "draws a Button/TextField label at (16 -> 18) and nothing else. SANCTIONED, this stage.",
 	},
+	{
+		prop = "textFont",
+		why = "the typography role's FACE now reaches PAINT beside its size (F2, 2026-08-02) — the exact "
+			.. "correction the `textSize` entry above describes, one property later. A role has always carried a "
+			.. "font DESCRIPTOR and the solver has always measured with it; the adapter drew whatever face it "
+			.. "hardcoded at creation, so a package that gave a role its own weight was reserved for one family "
+			.. "and drawn in another. THE INVARIANT THIS ENTRY PINS: under Studio Neutral every one of the six "
+			.. "pre-existing roles resolves to `BuilderSans#Regular#Normal`, which is byte-identical to the face "
+			.. "the adapter hardcoded — so no glyph on any flat node moves, and every rect, hit rect and other "
+			.. "prop below still matches byte for byte. What the value records is WHICH role each node resolved "
+			.. "to, which is new information rather than a new appearance.",
+	},
 }
 
 local function addedPropReason(prop: string): string?

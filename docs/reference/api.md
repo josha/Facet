@@ -253,7 +253,7 @@ Three groups recur in the column below and are worth naming once:
 | `surface` | layout containers, `Box`, `Button`, `Image`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
 | `shadow`, `gradient`, `corners`, `stroke` | every rendered class | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
 | `zIndex` | every rendered class | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
-| `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"`) resolved from the active theme. Either form is scaled at both the measure and paint seams |
+| `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme. A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. Either form is scaled at both seams |
 | `textAlign` | `Text` | horizontal alignment of the node's own text in its box (`start` \| `center` \| `end`); default `start`. Vertical alignment stays adapter-owned and is always centred, because the headless measurer over-reserves and centring splits that error evenly |
 | `focusable` | `Button`, `Toggle`, `TextField` (opt **out**), `Grip` (opt **in**) | membership in focus order |
 | `onActivate` | `Button`, `Toggle` | `onActivate(path, meta)` — the presenter auto-dispatches tap / Return / ButtonA to it (ADR-0013) |
@@ -725,7 +725,9 @@ Pair it with `minColumnWidth = "intrinsic"` when the cells are labels.
 — text label. `text`/`textSize` changes invalidate measurement; text metrics come
 from a non-yielding provider with conservative fallbacks for unknown
 fonts/scripts. `textSize` takes a px number or a typography role name, which
-also supplies the font descriptor and line height the measurer uses. `role`
+also supplies the font descriptor and line height the measurer uses — and the
+same descriptor the ADAPTER paints, which is why weight is a role
+(`"strong"`, `"numeral"`) and not a prop. `role`
 selects the text style role (color and weight resolve from the active style /
 native StyleSheet): `"secondary"` is the receded treatment and `"content"` the
 resting default. **`"content"` exists so a REACTIVE `role` can return.** A label
@@ -2696,6 +2698,25 @@ property deliberately theme-independent. The snapshot rides the environment as
 the `themeMetrics` fact — one key, one signal — so `env:set("themeMetrics", …)`
 is the single atomic metric commit and every mounted screen RE-SOLVES rather
 than rebuilding.
+
+**The typography ramp is EIGHT roles.** Six describe a size on the reading
+ladder — `caption`, `label`, `body`, `heading`, `title`, `control` — and two
+describe a **weight**: `strong` (emphasis at reading size) and `numeral` (a rank
+or score figure). A role carries `{ font = { family, weight?, style? }, size,
+lineHeight }`, and the *whole* entry reaches both the measure seam and the paint
+seam, which is why there is no `weight` prop: an authored face that reaches only
+one of the two is precisely the defect `UI.Text.font` was deprecated for.
+
+The six ladder roles are **required** in a package; `strong` and `numeral` are
+**optional and derived when absent**, so every package published against the
+earlier vocabulary keeps compiling and every snapshot still answers all eight.
+The derivation takes the base role's family, style, size and line height and
+changes only the weight — `strong` from `body` at SemiBold, `numeral` from
+`control` (or `heading`) at Bold — so a package with a display face gets *its*
+face in both weights and authors nothing. Author either role to win outright.
+The derivation runs in `themes.resolve`, never in a package's authored metrics,
+so no package's content `stamp` moved when the roles were added. The same two
+sizes are derived by `tokens.compile` for a game's own token schema.
 
 `themes.neutral()` is the Studio Neutral snapshot (the `themeMetrics` default;
 its values are the literals the framework shipped before packages existed).

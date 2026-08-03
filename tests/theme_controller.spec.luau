@@ -1192,13 +1192,22 @@ describe("font preflight has a lifecycle (A8)", function()
 		controller.swapPackage(definePackage("flights-2"))
 		controller.swapPackage(definePackage("flights-3"))
 		expect(#asked).toBe(1)
-		-- ...but a package with a NEW descriptor is asked exactly once
+		-- ...but a package with a NEW descriptor is asked exactly once. Overriding
+		-- `body` moves TWO descriptors since F2: the authored face, and the `strong`
+		-- role DERIVED from it (same family/style, SemiBold). `numeral` derives from
+		-- `control`, which this package leaves on the base family, so its descriptor
+		-- was already calibrated by the first flight and is not re-asked.
 		controller.swapPackage(definePackage("flights-4", {
 			typography = { body = { font = { family = "GothamSSm", weight = "Bold" }, size = 16, lineHeight = 1.2 } },
 		}))
 		expect(#asked).toBe(2)
-		expect(#asked[2]).toBe(1)
-		expect(asked[2][1]).toBe("GothamSSm#Bold#Normal")
+		local second: { [string]: boolean } = {}
+		for _, key in asked[2] do
+			second[key] = true
+		end
+		expect(#asked[2]).toBe(2)
+		expect(second["GothamSSm#Bold#Normal"]).toBe(true)
+		expect(second["GothamSSm#SemiBold#Normal"]).toBe(true)
 	end)
 
 	it("a descriptor that came back unavailable is retried on the next swapPackage", function()

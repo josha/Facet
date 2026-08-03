@@ -79,6 +79,13 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		textAlign = "style",
 		font = "style",
 		tint = "binding",
+		-- THE TYPOGRAPHY ROLE'S FACE (F2, 2026-08-02). LAYOUT authority, beside
+		-- `textSize`, because it is the same fact: a role resolves to a size AND a
+		-- font descriptor, the solver measures with that descriptor, and a second
+		-- writer for the face would be the measure/paint split `Text.font` was
+		-- deprecated for. (`font` above is that deprecated authored prop; it is
+		-- STYLE authority and diagnosed-not-preserved.)
+		textFont = "layout",
 	},
 	Button = {
 		text = "binding",
@@ -87,6 +94,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		textColor = "style",
 		textSize = "layout",
 		font = "style",
+		textFont = "layout", -- the role's face; see the Text entry above
 		-- the circle Button (feature round 2026-07-26). `shape` is STYLE authority
 		-- even though it also decides geometry: the geometry half is the solver
 		-- reading a prop (no engine write at all), and the only thing written to an
@@ -105,7 +113,13 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	},
 	-- textSize joined for the ten-foot/measure-paint agreement (verifier F1):
 	-- an explicit Toggle textSize scales at both seams like every text node
-	Toggle = { text = "binding", value = "binding", enabled = "binding", textSize = "layout" },
+	Toggle = {
+		text = "binding",
+		value = "binding",
+		enabled = "binding",
+		textSize = "layout",
+		textFont = "layout", -- the role's face; see the Text entry above
+	},
 	-- TextField (§17 Phase 5): all data-driven props ride the binding authority
 	-- so the engine adapter maps them onto the TextBox (editing -> Capture/
 	-- ReleaseFocus, text/placeholder -> Text/PlaceholderText, maxLength/
@@ -123,6 +137,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- reaches paint, so a package that moves that role moves the drawn text
 		-- instead of only the reserved box
 		textSize = "layout",
+		textFont = "layout", -- the role's face; see the Text entry above
 	},
 	-- `scaleMode` is STYLE even though it decides geometry INSIDE the box, for the
 	-- same reason `shape` is: nothing about the node's solved rect moves, and the

@@ -46,6 +46,13 @@ sheet_model.TAGS = table.freeze({
 	-- seventh surface, which is what keeps `shape` from having to re-declare a
 	-- fill, a label colour and a hover treatment it does not change.
 	shapePrefix = "luau-shape-", -- + circle (the only non-default shape)
+	-- THE TYPOGRAPHY ROLE TAG (F2, 2026-08-02). `FontFace` is sheet-owned in
+	-- native mode, so a node's typography role — which carries the FACE as well as
+	-- the size — cannot reach paint as an explicit write. It reaches it as this
+	-- tag, one generated rule per role, each carrying the descriptor the solver
+	-- measured with. Distinct from `luau-role-strong`, which is the CONTENT-COLOUR
+	-- emphasis a heading-scale size earns: one names a face, the other a colour.
+	typePrefix = "luau-type-", -- + caption|label|body|heading|title|control|strong|numeral
 })
 
 -- A theme token is a colour in the Step 2 vocabulary. `buildPackage` also emits
@@ -162,6 +169,10 @@ export type ClassifyInput = {
 	-- every Button already had; "circle" earns `luau-shape-circle`, which the
 	-- disc's phantom corner and hairline rules key on.
 	shape: string?,
+	-- THE TYPOGRAPHY ROLE this text node resolved to (F2, 2026-08-02): the name,
+	-- not the descriptor — the FACE lives in the generated rule, so measurement and
+	-- paint read the one ramp. nil for a node that draws no text.
+	typeRole: string?,
 }
 
 function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
@@ -222,6 +233,13 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- cannot strip a disc back to a rectangle.
 	if input.shape ~= nil and input.shape ~= "rect" then
 		tags[T.shapePrefix .. input.shape] = true
+	end
+	-- THE TYPOGRAPHY ROLE (F2). Emitted for every role a text node resolves to,
+	-- including the class defaults: a rule that restates the class default is inert
+	-- under a package whose ramp shares one face (Studio Neutral, every existing
+	-- screen) and load-bearing the moment a package gives one role its own.
+	if type(input.typeRole) == "string" and input.typeRole ~= "" then
+		tags[T.typePrefix .. input.typeRole] = true
 	end
 	-- Divider (A-LV3): the hairline is sheet-painted, so a designer can restyle
 	-- every separator in one rule. Never a bespoke fill in native mode.
@@ -431,6 +449,15 @@ local function gateTheme(name: string, style: any)
 end
 
 local BUILDER_SANS: RuleProp = { kind = "font", family = "rbxasset://fonts/families/BuilderSans.json" }
+-- the two WEIGHT-ROLE faces of the same family (F2, 2026-08-02). SemiBold for
+-- `strong` and Bold for `numeral`, which is exactly what
+-- `themes.package.deriveTypeRole` derives — stated in both places because the
+-- token-style path has no font descriptors to derive FROM, and asserted equal by
+-- a spec so the two can never drift.
+local BUILDER_SANS_SEMIBOLD: RuleProp =
+	{ kind = "font", family = "rbxasset://fonts/families/BuilderSans.json", weight = "SemiBold", style = "Normal" }
+local BUILDER_SANS_BOLD: RuleProp =
+	{ kind = "font", family = "rbxasset://fonts/families/BuilderSans.json", weight = "Bold", style = "Normal" }
 local function udim(scale: number, offset: number): RuleProp
 	return { kind = "udim", scale = scale, offset = offset }
 end
@@ -734,6 +761,15 @@ function sheet_model.build(opts: BuildOpts): Model
 		},
 		{ name = "Secondary text", selector = ".luau-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
 		{ name = "Strong text", selector = ".luau-role-strong", props = { TextColor3 = "$ContentStrong" } },
+		-- THE TYPOGRAPHY-ROLE FACES (F2, 2026-08-02). One rule per role that wears
+		-- a face this builder can name. A compiled TOKEN style carries sizes only —
+		-- font descriptors live in a theme PACKAGE (`buildPackage` below emits all
+		-- eight from `type.<role>.font`) — so the built-in model states exactly what
+		-- the neutral snapshot derives: the six ladder roles keep the family's
+		-- Regular face (already the class default, so these rules are inert and no
+		-- existing screen moves) and the two weight roles take the derived faces.
+		{ name = "Type — strong", selector = ".luau-type-strong", props = { FontFace = BUILDER_SANS_SEMIBOLD } },
+		{ name = "Type — numeral", selector = ".luau-type-numeral", props = { FontFace = BUILDER_SANS_BOLD } },
 		{ name = "Scroll bar", selector = "ScrollingFrame", props = { ScrollBarImageColor3 = "$ContentSecondary" } },
 		{
 			name = "Base surface",
@@ -1591,8 +1627,15 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	local S = sheet_model.TAGS.surfacePrefix
 	local T = sheet_model.TAGS
 
+	-- THE FACE FOR A ROLE, authored or DERIVED (F2, 2026-08-02). `strong` and
+	-- `numeral` are optional in a package, and the theme SNAPSHOT derives an
+	-- unauthored one (`themePackage.deriveTypeRole`) — so the sheet has to derive
+	-- it the same way or native paint would draw a face the solver did not measure,
+	-- which is the whole split this channel exists to close.
 	local function fontOf(role: string): RuleProp
-		local entry = metrics.typography[role] or metrics.typography.body
+		local entry = metrics.typography[role]
+			or themePackage.deriveTypeRole(role, metrics.typography)
+			or metrics.typography.body
 		return { kind = "font", family = entry.font.family, weight = entry.font.weight, style = entry.font.style }
 	end
 
@@ -1780,6 +1823,23 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		},
 	})
 	fromMetric("type.control.font", "Field text default", "FontFace", "font")
+	-- THE PER-ROLE FACES (F2, 2026-08-02). A node's typography role reaches native
+	-- paint as `luau-type-<role>`; this is the rule that gives that tag its face,
+	-- from the SAME `type.<role>.font` the solver measured with. Emitted for all
+	-- eight roles, class defaults included, so a role always beats the class rule
+	-- it sits on (a `strong` Text inside a TextButton, a `body` Button label) — and
+	-- inert wherever the package's ramp shares one face, which is every flat
+	-- reference package and Studio Neutral.
+	--
+	-- The live-edit push (`fromMetric`) is registered only for an AUTHORED role: a
+	-- derived one has no `type.<role>.font` token attribute for the watcher to read.
+	for _, role in themePackage.TYPE_ROLES do
+		local ruleName = `Type — {role}`
+		emit("base", { name = ruleName, selector = `.{T.typePrefix}{role}`, props = { FontFace = fontOf(role) } })
+		if metrics.typography[role] ~= nil then
+			fromMetric(`type.{role}.font`, ruleName, "FontFace", "font")
+		end
+	end
 	emit("base", {
 		name = "Scroll bar",
 		selector = "ScrollingFrame",

@@ -234,6 +234,14 @@ transitions (opt-in); geometry never animates independently of the solver.
 - **The core typography vocabulary is six roles**: `caption|label|body|heading|title`
   **plus `control`** (button/field text — added so migrating the 18px literals could
   not change effective values). §1's original five-role list is amended here.
+  *Amended again 2026-08-02 (F2, the weight channel): **eight** roles, adding
+  `strong` and `numeral`. They are OPTIONAL in a package and DERIVED in
+  `themes.resolve` when absent — base role's family/style/size/lineHeight, weight
+  changed to SemiBold / Bold — so no package's authored metrics or content stamp
+  moved and every package published against the six-role list still compiles. The
+  reason weight is a role and not a prop is §6's own rule read forwards: a role's
+  descriptor reaches measurement AND paint, and `UI.Text.font` was deprecated
+  precisely because an authored face reached only one of them.*
 - **Floors clamp hit targets, not visuals.** `targetSizes.minimum` governs the
   effective HIT geometry (the renderer's expander), per Step 3's escalated ruling
   ("hit-area expansion, not visual growth"). A theme may draw controls smaller;

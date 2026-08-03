@@ -42,7 +42,9 @@ local SCHEMA = {
 		tenFootFocusRingThickness = 4,
 		tenFootFocusScale = 1.05,
 	},
-	type = { caption = 12, label = 14, body = 16, heading = 20, title = 24 },
+	-- the same ladder the dark style declares (control stated, weight roles
+	-- derived by tokens.compile) — a light variant changes colour, never metrics
+	type = { caption = 12, label = 14, body = 16, heading = 20, title = 24, control = 18 },
 	space = { xs = 4, s = 8, m = 16, l = 24, xl = 40 },
 	radii = { control = 8, panel = 12, pill = 999 },
 	shadows = {
