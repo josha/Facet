@@ -45,6 +45,14 @@ target_contract.OPTIONAL = {
 	-- its hover fill; an adapter without it degrades (no hover preview), never
 	-- crashes — nothing essential lives behind hover.
 	"enableHover", -- (handle)                        [pointer hover state]
+	-- full-value disclosure engagement zones (Step 8.5, LTN-4): the renderer
+	-- calls this for a `disclose` text node, per input class that is live
+	-- (hover half on pointer, long-press half on touch; calls MERGE per half so
+	-- a class arriving mid-session retrofits the missing half). WITHOUT IT: no
+	-- pointer-dwell or touch-long-press engagement — focus-driven disclosure
+	-- still works through the presenter, so the full value stays reachable on
+	-- keyboard/gamepad; pointer/touch reachability degrades to focus.
+	"enableDisclosure", -- (handle, { hover?, longPress? })
 	"setZOrder", -- (handle, z)                      [deterministic paint order]
 	"setPointerHandlers", -- (handle, {down,move,up,cancel})  [ADR-0008 capture]
 	-- text-entry seam (§17 Phase 5, UI.TextInput): a TextField adapter wires

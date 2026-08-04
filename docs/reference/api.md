@@ -722,7 +722,7 @@ Pair it with `minColumnWidth = "intrinsic"` when the cells are labels.
 
 ### `Text`
 
-`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, role?, surface?, tint?, width?, height? }`
+`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, disclose?, reveal?, role?, surface?, tint?, width?, height? }`
 — text label. `text`/`textSize` changes invalidate measurement; text metrics come
 from a non-yielding provider with conservative fallbacks for unknown
 fonts/scripts. `textSize` takes a px number or a typography role name, which
@@ -755,6 +755,33 @@ This is a different question from the framework's internal word/phrase rule: tha
 one is derived from the **string** (a single word has no legal break, so it is
 measured and drawn on one line), while `lineLimit` is the **owner's** knowledge of
 the space available. They compose — a capped phrase still wraps, up to the cap.
+
+**`disclose`** (boolean, construction-only) declares this label as **bounded
+secondary or identity text whose full value must stay reachable**. Truncation is
+only permitted for such text, and only with a way back to the whole string: set
+`disclose = true` and, when the label actually truncates, engaging it presents the
+full value — hover dwell on pointer, focus on the containing focusable for
+keyboard/gamepad, long-press on touch — through the presenter's static plate (see
+**Full-value disclosure** under `newPresenter`). It does nothing while the text fits,
+so declaring it costs nothing; **omitting** it on text that truncates is what the
+text audit reports as a clipped-essential finding. Binding a Readable here is
+refused with the rebuild idiom, exactly like `traversalPriority`.
+
+**`reveal`** (`"auto"`, construction-only; director ruling 2026-08-04, superseding
+LTN-2's "no marquee" for surfaces that declare it) makes a truncated **one-line**
+label auto-scroll its whole value instead of resting behind the ellipsis alone.
+The presenter owns the cycle (see **The auto reveal** under `newPresenter`): a
+quiet delay in the engine's own ellipsis, then the full string slides through the
+box as one strip — out to the tail, a pause, and back to rest. A reveal node is
+**also a disclosure source** (the static plate is its declared full-value
+alternative), reduced motion disables the travel entirely, at most one strip runs
+across the whole presentation (`presenter.movingText()` feeds
+`text_audit.movingText`, allowance 1), and the facts channel reports
+`policy = "truncate+reveal"` plus `naturalWidth` (the travel distance's other
+half). `"auto"` is the only value today — it names the *unengaged* variant the
+ruling ordered, for a non-interactive span nothing can hover or focus
+deliberately; an engaged variant remains a possible future value. Inert while the
+text fits, exactly like `disclose`.
 
 **`surface` on a Text is `"badge"` or `"chip"` — and only those two.** Box and
 Image take the full eight-surface vocabulary; a Text takes the two that are
@@ -966,11 +993,17 @@ one.
 
 ### `Toggle`
 
-`UI.Toggle{ id?, label (required), value?, enabled?, onActivate? }` — boolean
-control. When `value` is a settable Signal the presenter AUTO-FLIPS it on Activate
-(tap / Return / ButtonA) with no consumer wiring (contract "Activate flips value";
-ADR-0013). Supply `onActivate(path, meta)` to take over the effect, or an explicit
-`opts.onActivate` on `present()` to override the whole auto path.
+`UI.Toggle{ id?, label (required), value?, enabled?, disclose?, onActivate? }` —
+boolean control. When `value` is a settable Signal the presenter AUTO-FLIPS it on
+Activate (tap / Return / ButtonA) with no consumer wiring (contract "Activate
+flips value"; ADR-0013). Supply `onActivate(path, meta)` to take over the effect,
+or an explicit `opts.onActivate` on `present()` to override the whole auto path.
+The label draws ONE line with an end ellipsis by measured design (a wrapped label
+plus the press-scale affordance produced mid-word breaks — director finding 13),
+so `disclose` (construction-only, Step 8.5) is the label's full-value path: where
+a compact width truncates it, engaging the toggle (hover dwell / focus /
+long-press) presents the full label through the presenter's static disclosure
+plate, exactly as a `Text` with `disclose` does.
 
 ### `TextField`
 
@@ -1464,20 +1497,26 @@ lifetime is the mount's, not the module's).
 | `renderer.compactForm(props) -> form?` | pure: the normalized compact representation of a `Button`'s `compactLabel` (`{ kind = "text" \| "icon" \| "image", … }`, `nil` when none). The one place the authored grammar becomes a shape, shared by the measure seam, the paint seam and the adapter |
 | `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
 
-**`attach` options** — `{ rootPolicy?, onNodeTap?, engineSelectionBridge? }`.
+**`attach` options** — `{ rootPolicy?, onNodeTap?, engineSelectionBridge?,
+onDiscloseHover?, onDiscloseLongPress? }`.
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"edgeToEdge"`; an unknown value errors and lists the
 set). **`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
 geometry (`x`/`y`) the outside-tap policy reads, and `via` for a
 detector-driven tap. **`engineSelectionBridge`** is the same opt-in mirror
 `presentModal` exposes, available here for a hand-attached surface.
+**`onDiscloseHover(path?)` / `onDiscloseLongPress(path?)`** (Step 8.5) receive
+the live adapter's disclosure engagement zones on `disclose` text nodes —
+`path` on engage, `nil` on disengage; the presenter routes them to its
+`_discloseHover`/`_discloseLongPress` seams. Omit both on a hand-attached
+surface and no zones are wired (focus-driven disclosure still works).
 
-**Controller** — 27 members, all dot-called:
+**Controller** — 28 members, all dot-called:
 
 | Group | Members |
 |---|---|
 | Render cycle | `initialRender()`, `refresh()`, `dispose()` |
-| Geometry reads | `rectOf(path)` (solved), `screenRectOf(path)` (painted — see "Two rect reads"), `hiddenRoots()`, `compositionAt(path?)` |
+| Geometry reads | `rectOf(path)` (solved), `screenRectOf(path)` (painted — see "Two rect reads"), `hiddenRoots()`, `compositionAt(path?)`, `textAt(path?)` (the per-text-node facts of the last solve: font, size, lines, naturalLines, truncated, disclose, reveal, naturalWidth, policy — the channel the disclosure plate and the auto reveal both read) |
 | Focus | `setFocusPath(path?, visible?)` |
 | Scrolling | `scrollTo(path, {x,y})`, `scrollPosition(path)`, `scrollToVisible(path)`, `scrollHostFor(path, includeSelf?)` (the nearest `ScrollView` ancestor's handle — reach for this instead of re-deriving the host), `observeScroll(path, fn) -> unsubscribe`, `stepAutoscroll(dt?)`, `setPointerDrag(info?)` |
 | Drag | `dragRegistry()` (builds one on demand), `peekDragRegistry()` (nil when none exists yet), `setDragCollaborators(collaborators)`, `attachDragDetector(path, handlers) -> detach?` |
@@ -1677,6 +1716,12 @@ Methods:
   presented surface is EXCLUSIVE (a modal, or an engaged-from-passive HUD — both
   sink, becoming first responder over gameplay). A client adapter observes this
   to hide the mobile touch controls (`src/client/responder_effects`; ADR-0014).
+- `presenter.disclosure() -> { schema, present, path?, labelPath?, sourcePath?,
+  source?, text? }` — the live **full-value disclosure** plate (below), frozen
+  and deterministic; `present = false` when none is up. `presenter._discloseHover(path?)`
+  and `presenter._discloseLongPress(path?)` are the two engine-adapter seams that
+  feed it (`nil` = disengaged); the leading underscore means an adapter drives
+  them, exactly as for `action._deliver`.
 - `presenter.topScrimPath() -> string?` — the path of the synthesized
   scrim/catcher beneath the top exclusive surface, or nil when none is up (see
   Modal outside-tap dismissal below). Handle fields: `.root`, `.controller`,
@@ -1845,6 +1890,69 @@ A fading form needs a fade group and a `Screen` is not one, so the transition
 targets the root's single declared `canvasGroup` child when it has one
 (`UI.ZStack{ canvasGroup = true }` around the screen's content is the shape) and
 the root itself otherwise.
+
+#### Full-value disclosure
+
+A `UI.Text{ disclose = true }` that **truncated** owes the reader the whole
+string, and the presenter pays that debt with one **static** plate — no marquee,
+no travel, no per-frame work while nothing is engaged (decision LTN-2 chose the
+static form so reduced-motion parity is structural rather than a branch).
+
+Three engagements, one per applicable input class, and **at most one plate is
+live at a time** across every surface:
+
+| Input class | Engages | Disengages |
+|---|---|---|
+| pointer | `presenter._discloseHover(path)`, after a 0.45 s dwell | `_discloseHover(nil)`, or hovering a different label |
+| keyboard / gamepad | focus entering the containing focusable | focus leaving it |
+| touch | `presenter._discloseLongPress(path)` | `_discloseLongPress(nil)` |
+
+A tap anywhere, the source node unmounting, a re-solve that makes room for the
+label, and the owning surface being dismissed all remove it too. A pointer-driven
+focus move does **not** engage it — the finger asked to press the row, not to
+read its name, which is the same rule the focus ring reads.
+
+The plate is presentation chrome: a presenter-private surface (not in the stack,
+no focus scope, no input context), never focusable and never in any focus order,
+painted just above its owner inside its owner's band, anchored near the source
+node and clamped into the safe viewport, themed by the active ThemeSnapshot's
+`raised` surface. The truncation verdict comes from the solve
+(`controller.textAt(path)`), never from a second measurement, so the plate exists
+exactly while the engine is ellipsizing.
+
+`presenter.disclosure()` reports the live plate for inspection and tests.
+
+#### The auto reveal
+
+A `UI.Text{ reveal = "auto" }` that **truncated** auto-scrolls its whole value
+(director ruling 2026-08-04, superseding LTN-2's "no marquee shipped" for
+surfaces that declare it; the plan's rung-4 constraint list binds). The presenter
+owns the whole cycle on its **one tick** — no per-label frame loops, and an idle
+presentation pays only a timer-gated rescan behind the `hasReveal` stamp:
+
+- **rest** — the label sits in the engine's own ellipsis for the quiet delay
+  (1.2 s), so nothing moves the moment a surface presents;
+- **out** — a presenter-private strip (a `clipChildren` window fixed at the
+  source label's own rect, the full string inside it at the solve's own
+  `naturalWidth`) slides LEFT at a glyph-rate speed (bigger preference text
+  moves slower in px, same reading rate), while the source's own paint is held
+  through `controller.setPaintHeld` — the solve, the rects and the truncation
+  facts are untouched;
+- **end** — the tail holds for the same pause, fully shown;
+- **back** — the strip returns and unmounts; the source's ellipsis paint comes
+  back, and the cycle rests again.
+
+The string is never re-segmented (grapheme safety is structural: one strip, one
+translation); a re-solve that makes room, a swapped bound value, a dismissed
+surface or a reduced-motion flip all retire the strip on the next tick, releasing
+the held paint. A live **disclosure plate for the same label outranks the strip**
+(the reader asked for the static answer), and a reveal node is itself a
+disclosure source — the plate is its static full-value alternative, which is also
+the whole reduced-motion story. At most **one** strip runs across every surface:
+`presenter.movingText()` is the count `text_audit.movingText` audits (allowance
+1). `presenter.reveal()` reports the live strip — `{ present, sourcePath, phase,
+travel, distance, text }`, frozen and safe when nothing is up — for inspection
+and tests.
 
 #### Toasts
 
@@ -2185,7 +2293,7 @@ as the core does.
 | `capabilities` | `{ keyboard, mouse, touch, gamepad }` booleans |
 | `reducedMotion` | boolean |
 | `preferredTextSize` | multiplicative text-scale seam (tests and device profiles); the engine leaves it at 1 |
-| `preferredTextOffset` | the engine's ADDITIVE preferred-text reservation, in px — what the real client populates |
+| `preferredTextOffset` | the engine's ADDITIVE preferred-text reservation, in px. The Roblox adapter maps the live `PreferredTextSize` enum through measured per-preference constants (Medium 0 / Large 4 / Larger 10 / Largest 14 — uniform across font, weight, and size; confirmed per session via `GetTextSizeOffsetAsync`, cached, failure-safe) and subscribes to changes, so a mid-session preference step is one atomic re-solve of every mounted surface — never a remount. Tests inject this fact directly; the live adapter and the injected path never both apply (Step 8.5, decision LTN-1) |
 | `preferredTransparency` | 0..1 |
 | `locale` | e.g. `"en-us"` |
 | `displaySize` | `"Small" \| "Medium" \| "Large"` (the engine's viewport display class) |
@@ -2473,14 +2581,24 @@ idiom. New code writes the spec.
 **`text.fit(spec) -> Fit`** answers the derivation every caller was building on
 top: the largest integer size in `[floor, cap]` at which the string draws inside
 the box. `FitSpec` is
-`{ text, font, cap, width, height?, lines?, lineHeight?, floor? }` — `cap` is the
-largest size you will ever paint at (a type role's own cap), `lines` defaults to
-1, `height` is optional, and `floor` is the size below which you would rather
-change the layout than keep shrinking. `Fit` is
-`{ size, fits, lines, height, exact, state }`:
+`{ text, font, cap, width, height?, lines?, lineHeight?, floor?, offset? }` —
+`cap` is the largest size you will ever paint at (a type role's own cap),
+`lines` defaults to 1, `height` is optional, and `floor` is the size below which
+you would rather change the layout than keep shrinking. `offset` (Step 8.5) is
+the paint-time additive preferred-text offset — pass the environment's
+`preferredTextOffset` fact, read inside a memo so the answer re-derives on a
+live preference change. The engine paints at `TextSize + offset`, so the search
+fits the PAINTED form while returning the authored size: without it a size
+chosen to fill a box at Medium ellipsizes at Largest (the production role-pick
+CTA did exactly that). Absent = 0, byte-identical to the pre-8.5 behavior.
+`Fit` is `{ size, fits, lines, height, exact, state }`:
 
 - `fits = false` means even `floor` overflows — a layout decision (drop it, step
   it down), not something to solve by painting unreadably.
+- with a non-zero `offset`, `lines`/`height` describe the PAINTED form (measured
+  at `size + offset`) while `size` stays the authored value — and the effective
+  painted floor is `floor + offset`, so read `.fits`, not just `.size`, when the
+  box is tight.
 - `state` is carried straight through from the measure the chosen size came
   from, so `exact = false` no longer conflates "this font is not calibrated yet"
   with "an engine measurement failed". Wait on `pending`; give up on `failed`.
@@ -2636,6 +2754,17 @@ One limit is worth stating: a pinned `rowHeight` is honoured but never below one
 line of its own cell text. A row cannot be shorter than the single line it must
 draw, so a pin below that would not make a shorter row — it would reproduce the
 overflow. It only binds at raised text preferences.
+
+**A pinned `rowHeight` is preference-blind by contract (Step 8.5 authoring
+rule).** The default (unpinned) row box composes the player's preferred-text
+offset automatically; a pinned px value is honoured verbatim, so pin only a
+height that clears `(textSize + the Largest offset, 14px) * lineHeight` for
+every cell it holds — otherwise cell text that fits at Medium is cut at
+Largest. An undisclosed clip from a too-short pin is exactly what the
+`clippedEssential` authoring check fires on. A column may declare
+`disclose = true`, which stamps the full-value disclosure contract on the
+table-authored value cells and the header title it caps (a custom `cell`
+blueprint declares `disclose` on its own Text instead).
 
 ### `newVirtualList`
 

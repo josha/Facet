@@ -658,7 +658,14 @@ if type(scenarioName) == "string" and scenarioName ~= "" then
 	if registryModule ~= nil then
 		local registry = require(registryModule) :: any
 		local runner = require(registry.runner) :: any
-		local scenarioHeartbeat = RunService.Heartbeat:Connect(function()
+		local scenarioHeartbeat = RunService.Heartbeat:Connect(function(dt: number)
+			-- tick BEFORE refresh: presenter.tick advances time-based presenter
+			-- state (toast clocks, the disclosure hover dwell — Step 8.5), and
+			-- refresh then paints its outcome in the same frame. The scenario
+			-- path used to refresh only, so a hover dwell could never elapse in
+			-- a live scenario session while every headless case passed (found
+			-- driving the disclosure plate in the device matrix, 2026-08-03).
+			pres.tick(dt)
 			pres.refresh()
 		end)
 		local api = runner.start({

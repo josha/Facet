@@ -319,6 +319,22 @@ local function isSingleWord(label: any): boolean
 	return type(label) == "string" and label ~= "" and string.find(label, "%s") == nil
 end
 
+-- THE EFFECTIVE TARGET FLOOR for a class, or nil when it declares none. The
+-- CONTRACT (src/controls/contract.luau) is the source of truth for WHETHER a
+-- class has a floor, so adding a focusable control gets it enforced; the THEME
+-- owns the VALUE, and floors clamp UP only (ADR-0019 §2 step 4) — a package may
+-- enlarge a touch target, never shrink one below what the control declared.
+--
+-- ONE reading, two readers: `toLayoutNode` carries it into the solve so the
+-- result can name its interactive rects (LTN-4 diagnostics), and `pushHitRects`
+-- spends the same number as real hit geometry. They were two copies of this
+-- arithmetic for exactly one commit.
+local function effectiveHitFloor(class: string, metrics: any): number?
+	local c = controlContract.forClass(class)
+	local declared = if c ~= nil then c.minHitSize else nil
+	return if declared ~= nil then math.max(declared, metrics.targetSizes.minimum) else nil
+end
+
 local function toLayoutNode(
 	node: any,
 	metrics: any,
@@ -451,6 +467,13 @@ local function toLayoutNode(
 		itemSizing = props.itemSizing,
 		overflow = props.overflow,
 		axis = props.axis,
+		-- THE EFFECTIVE TARGET FLOOR, CARRIED INTO THE SOLVE (LTN-4 diagnostics).
+		-- Declared by the control contract, clamped UP by the theme — the identical
+		-- pair `pushHitRects` spends below, read here so the SOLVE RESULT can say
+		-- which rects belong to something the player is meant to hit. It changes no
+		-- geometry: the hit expansion stays where it was, and this is the fact a
+		-- pure audit needs to tell an interactive rect from a decorative one.
+		hitFloor = effectiveHitFloor(class, metrics),
 	}
 	if class == "Composition" then
 		-- Every theme-owned number is resolved HERE, on every solve, so a package
@@ -496,6 +519,14 @@ local function toLayoutNode(
 		-- already set on every text node — instead of the label growing its box and
 		-- painting through whatever contains it.
 		layoutNode.lineLimit = themeSnapshot.resolveNumber(metrics, props.lineLimit)
+		-- FULL-VALUE DISCLOSURE (LTN-4). Construction-only, so it is read straight
+		-- off the prop bag; it changes no geometry and exists on the layout node
+		-- solely so the solve result can report truncation and permission together.
+		layoutNode.disclose = if props.disclose == true then true else nil
+		-- THE AUTO REVEAL rides the same channel: construction-only, no geometry
+		-- of its own — the solve reports truncation, permission and the natural
+		-- one-line width together, and the presenter drives the travel
+		layoutNode.reveal = props.reveal
 		-- THE MEASURE HALF of the word/phrase rule, now that the adapter applies
 		-- it to every text node and not only to Buttons (director, 2026-07-27).
 		-- Both seams re-decide from the SAME string or the box is reserved for one
@@ -579,6 +610,11 @@ local function toLayoutNode(
 		-- affordance (`extra.pressedScale` = 0.985) shrinks the box on every
 		-- single flip.
 		layoutNode.singleLine = true
+		-- FULL-VALUE DISCLOSURE for the one-line label (Step 8.5 LT-G1/LTN-5):
+		-- the single-line form is measured, signed design — so where a compact
+		-- width truncates it, `disclose` is the declared full-value path, riding
+		-- the same textFacts channel a Text's does
+		layoutNode.disclose = if props.disclose == true then true else nil
 		-- explicit textSize wins and scales like every other text node
 		-- (verifier F1: measure and paint must agree); the intrinsic default is
 		-- the `body` role, which is ScreenTarget's toggle label size
@@ -869,14 +905,6 @@ local function rectsEqual(a: any, b: any): boolean
 	return a.x == b.x and a.y == b.y and a.w == b.w and a.h == b.h
 end
 
--- the declared effective-target floor for a class, or nil when it has none.
--- The CONTRACT is the source of truth (src/controls/contract.luau), so adding a
--- focusable control automatically gets the floor enforced.
-local function hitFloorFor(class: string): number?
-	local c = controlContract.forClass(class)
-	return if c ~= nil then c.minHitSize else nil
-end
-
 local TAPPABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
 -- nodes that get the pointer HOVER layer (UI-PARADIGM-001): activatable chrome
 -- the renderer draws (Table rows/headers render as Button). TextField is not a
@@ -892,9 +920,17 @@ export type RendererAttachOpts = {
 	-- OPT-IN mirror of logical focus to engine selection (NS-A12); the presenter
 	-- sets it for modal/exclusive surfaces only
 	engineSelectionBridge: boolean?,
+	-- FULL-VALUE DISCLOSURE engagement (Step 8.5, LTN-4): pointer enter/leave
+	-- and touch long-press on a `disclose` Text, delivered as (path | nil). The
+	-- presenter routes these to its `_discloseHover`/`_discloseLongPress`
+	-- engine-adapter seams; hand-attached surfaces may omit both (no zones are
+	-- wired, focus-driven disclosure still works through the presenter).
+	onDiscloseHover: ((path: string?) -> ())?,
+	onDiscloseLongPress: ((path: string?) -> ())?,
 }
 
-local ATTACH_OPTS_KEYS = specGuard.keySet({ "engineSelectionBridge", "onNodeTap", "rootPolicy" })
+local ATTACH_OPTS_KEYS =
+	specGuard.keySet({ "engineSelectionBridge", "onNodeTap", "rootPolicy", "onDiscloseHover", "onDiscloseLongPress" })
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
 function renderer.attach(
@@ -1285,6 +1321,11 @@ function renderer.attach(
 	-- `hiddenRoots`) — an adaptive screen whose only evidence is a screenshot is
 	-- an adaptive screen nobody can debug.
 	local lastCompositions: { [string]: any } = {}
+	-- ...and the last solve's per-text-node measurement facts, by node path
+	-- (LTN-4). Same channel, same reason: "this label was cut" is a solve output,
+	-- and the presenter's disclosure affordance and the text audit both need it
+	-- from the ONE authority that decided it rather than by re-measuring.
+	local lastTextFacts: { [string]: any } = {}
 	-- words handed to the adapter's premeasurement seam and not yet answered.
 	-- Guards against asking twice while one round is in flight; a word that
 	-- comes back (measured OR refused) is recorded in text_metrics and can
@@ -1313,6 +1354,13 @@ function renderer.attach(
 	end
 	-- last visibility pushed per path (hidden subtrees, A-AL1)
 	local lastVisible: { [string]: boolean } = {}
+	-- PRESENTATION HOLDS (auto reveal, 2026-08-04): paths whose own paint the
+	-- PRESENTER is holding while its travelling strip covers them. Presentation
+	-- layer only — the solve, rects and facts are untouched — and the visibility
+	-- walk ORs it in so a re-solve (or a structural remount of the path) cannot
+	-- un-hold a covered label. Presenter-owned: set and cleared through
+	-- `controller.setPaintHeld`, never by structuralSync.
+	local paintHeld: { [string]: boolean } = {}
 
 	-- RS-PATHCLIP, the LIVE half. A native scroll host moves its canvas without
 	-- moving one solved rect ("a same-window scroll delta is zero writes" —
@@ -1327,7 +1375,9 @@ function renderer.attach(
 		for path in pathNodes do
 			local handle = handles[path]
 			if handle ~= nil then
-				local want = solverHidden[path] ~= true and not pathEscapesClip(path, screenRectOf)
+				local want = solverHidden[path] ~= true
+					and paintHeld[path] ~= true
+					and not pathEscapesClip(path, screenRectOf)
 				if lastVisible[path] ~= want then
 					adapter.setVisible(handle, want)
 					lastVisible[path] = want
@@ -1438,6 +1488,41 @@ function renderer.attach(
 				and env:get("interactionClasses"):get().pointer == true
 			then
 				adapter.enableHover(handles[node.path])
+			end
+			-- FULL-VALUE DISCLOSURE engagement zones (Step 8.5, LTN-4): a Text
+			-- that declares `disclose` gets pointer enter/leave and touch
+			-- long-press observation on its own instance, routed to the
+			-- presenter's engagement seams. Wired at mount like enableHover (the
+			-- prop is construction-only), gated per input class the same way —
+			-- and only OBSERVED: the label still sinks nothing. Whether a plate
+			-- actually appears stays the presenter's call (it re-checks live
+			-- truncation facts on every engagement).
+			-- class-agnostic like the presenter's walker (LT-G1): a Toggle's
+			-- one-line label declares disclose the same way a Text does
+			-- ...and a `reveal` node gets the SAME zones: the static plate is the
+			-- auto reveal's declared full-value alternative (director 2026-08-04)
+			if
+				((node.props or {}).disclose == true or (node.props or {}).reveal ~= nil)
+				and adapter.enableDisclosure ~= nil
+			then
+				local hoverCb = opts and (opts :: any).onDiscloseHover
+				local pressCb = opts and (opts :: any).onDiscloseLongPress
+				if hoverCb ~= nil or pressCb ~= nil then
+					local path = node.path
+					local classes = env:get("interactionClasses"):get()
+					adapter.enableDisclosure(handles[path], {
+						hover = if hoverCb ~= nil and classes.pointer == true
+							then function(over: boolean)
+								hoverCb(if over then path else nil)
+							end
+							else nil,
+						longPress = if pressCb ~= nil and classes.touch == true
+							then function(held: boolean)
+								pressCb(if held then path else nil)
+							end
+							else nil,
+					})
+				end
 			end
 			-- PUBLIC DRAG/DROP DECLARATIONS (ADR-0022 D5). Registration happens at
 			-- mount and unregistration at removal (structuralSync), so a
@@ -1978,6 +2063,7 @@ function renderer.attach(
 		-- so navigation can never land on an invisible control.
 		local nextHidden: { [string]: boolean } = {}
 		local nextCompositions: { [string]: any } = {}
+		local nextTextFacts: { [string]: any } = {}
 		for path, entry in result.rects do
 			if entry.hidden == true then
 				nextHidden[path] = true
@@ -1985,8 +2071,12 @@ function renderer.attach(
 			if entry.composition ~= nil then
 				nextCompositions[path] = entry.composition
 			end
+			if entry.textFacts ~= nil then
+				nextTextFacts[path] = entry.textFacts
+			end
 		end
 		lastCompositions = nextCompositions
+		lastTextFacts = nextTextFacts
 		hiddenRoots = nextHidden
 		-- a hidden candidate must not PAINT. A zero rect was not enough: text still
 		-- wrapped and drew inside a 0px box (found live in the adaptive_controls
@@ -2002,7 +2092,9 @@ function renderer.attach(
 				-- decided per NODE and never inherited (a Path is a leaf, and the
 				-- solver's own verdict is what descends), so the walk keeps carrying
 				-- `isHidden` down and this only widens the write for the path itself.
-				local wantHidden = isHidden
+				-- ...and a presenter PAINT HOLD (auto reveal) is a per-node veto the
+				-- same way: never inherited, never contradicting the solver.
+				local wantHidden = isHidden or paintHeld[node.path] == true
 				if not wantHidden and pathNodes[node.path] == true and pathEscapesClip(node.path, rectFor) then
 					wantHidden = true
 				end
@@ -2036,12 +2128,10 @@ function renderer.attach(
 			-- its expander retracted rather than merely left un-refreshed.
 			local function pushHitRects(node: any, hidden: boolean)
 				local isHidden = hidden or nextHidden[node.path] == true
-				local declared = hitFloorFor(node.class)
-				-- the CONTRACT declares that a class has an effective-target floor;
-				-- the THEME owns its value. Floors clamp UP only (ADR-0019 §2 step
-				-- 4), so a theme can enlarge a touch target but never shrink one
-				-- below what the control declared.
-				local floor = if declared ~= nil then math.max(declared, metrics.targetSizes.minimum) else nil
+				-- the same reading the solve was handed as `hitFloor` (see
+				-- `effectiveHitFloor`): the contract declares the floor exists, the
+				-- theme owns its value, and it clamps up only
+				local floor = effectiveHitFloor(node.class, metrics)
 				if floor ~= nil then
 					local entry = result.rects[node.path]
 					local handle = handles[node.path]
@@ -2353,6 +2443,14 @@ function renderer.attach(
 				lastVisible[path] = nil
 				lastHitRects[path] = nil
 				solverHidden[path] = nil
+				-- ...and the compact-label verdict cache (found LIVE 2026-08-04:
+				-- RascalRally's watch-cycle buttons painted "Previous racer" ellipsized
+				-- after a pose toggle at EVERY preference). A re-created button is
+				-- born with its FULL label; a surviving `true` here said the swap was
+				-- already applied, so `applyCompactLabel` never wrote the glyph again.
+				-- One mount looked right — which is why the device pass that shipped
+				-- the feature saw chevrons — and every remount after it did not.
+				lastCompact[path] = nil
 				-- a scroll host that left takes its RS-PATHCLIP subscription with it
 				if pathClipObservers[path] ~= nil then
 					local detach = pathClipObservers[path]
@@ -2552,6 +2650,52 @@ function renderer.attach(
 			end
 			hoverLive = live
 		end))
+	end
+
+	-- ...and the SAME carry idiom for disclosure engagement zones (architecture
+	-- review F-5): long-press is the ONLY full-value path on touch, so a touch
+	-- class arriving mid-session (hybrid handheld docking, first tap on a
+	-- touchscreen laptop) must retrofit zones onto already-mounted disclosed
+	-- labels exactly as hover does. `enableDisclosure` merges per half, so a
+	-- label wired for hover at mount gains the touch half here without
+	-- disturbing the first.
+	do
+		local discloseHoverCb = opts and (opts :: any).onDiscloseHover
+		local disclosePressCb = opts and (opts :: any).onDiscloseLongPress
+		if (discloseHoverCb ~= nil or disclosePressCb ~= nil) and adapter.enableDisclosure ~= nil then
+			local last = env:get("interactionClasses"):get()
+			local lastPointer, lastTouch = last.pointer == true, last.touch == true
+			attachScope:own(core:observe(env:get("interactionClasses"), function(classes)
+				local pointer, touch = classes.pointer == true, classes.touch == true
+				if (pointer and not lastPointer) or (touch and not lastTouch) then
+					local function wireWalk(node: any)
+						if
+							((node.props or {}).disclose == true or (node.props or {}).reveal ~= nil)
+							and handles[node.path] ~= nil
+						then
+							local path = node.path
+							adapter.enableDisclosure(handles[path], {
+								hover = if discloseHoverCb ~= nil and pointer
+									then function(over: boolean)
+										discloseHoverCb(if over then path else nil)
+									end
+									else nil,
+								longPress = if disclosePressCb ~= nil and touch
+									then function(held: boolean)
+										disclosePressCb(if held then path else nil)
+									end
+									else nil,
+							})
+						end
+						for _, child in node.children do
+							wireWalk(child)
+						end
+					end
+					wireWalk(root.node)
+				end
+				lastPointer, lastTouch = pointer, touch
+			end))
+		end
 	end
 
 	-- native-stylesheets NSS-A7: reduced motion is a LIVE fact. When the target
@@ -3063,6 +3207,36 @@ function renderer.attach(
 			return table.clone(lastCompositions)
 		end
 		return lastCompositions[path]
+	end
+
+	-- textAt(path) -> the last solve's measurement facts for that text node, or
+	-- nil. Omit the path for every one of them, keyed by path (LTN-4). Same shape
+	-- and same copy discipline as `compositionAt`: font, size, lines,
+	-- naturalLines, truncated, lineLimit, disclose, policy, text.
+	function controller.textAt(path: string?): any
+		if path == nil then
+			return table.clone(lastTextFacts)
+		end
+		return lastTextFacts[path]
+	end
+
+	-- THE PRESENTATION HOLD (auto reveal, 2026-08-04). The presenter paints its
+	-- travelling strip OVER a source label and holds that label's own paint
+	-- while the strip covers it. Presentation-layer only: the solve, the rects
+	-- and the facts are untouched, so the reveal target stays "truncated" and
+	-- the strip's travel distance stays honest. The hold survives re-solves and
+	-- structural remounts of the path (the visibility walk ORs it in); it is
+	-- the PRESENTER's to clear, and it dies with this controller either way.
+	function controller.setPaintHeld(path: string, held: boolean)
+		paintHeld[path] = if held then true else nil
+		local handle = handles[path]
+		if handle ~= nil and adapter.setVisible ~= nil then
+			local want = solverHidden[path] ~= true and not held
+			if lastVisible[path] ~= want then
+				adapter.setVisible(handle, want)
+				lastVisible[path] = want
+			end
+		end
 	end
 
 	-- is a text premeasurement round still outstanding? A surface that must not

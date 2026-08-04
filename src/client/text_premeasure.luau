@@ -21,11 +21,15 @@
 --     the estimator's conservative bound;
 --   * measurements are re-validated at the text_metrics seam (NaN, infinite,
 --     negative, and zero-for-a-non-empty-word are refused there);
---   * GetTextBoundsAsync honours the player's PreferredTextSize (grounded
---     2026-07-23) while the solver has ALREADY added its own preferredTextOffset
---     headroom to the size it asks about. At the shipped default (offset 0) the
---     two agree exactly; at a raised text preference the engine's factor rides
---     on top and the box is over-reserved, which is the safe direction.
+--   * GetTextBoundsAsync does NOT include the player's PreferredTextSize — it
+--     answers for the literal requested size at every preference (measured
+--     2026-08-03, Step 8.5 probe artifact; this REFUTES the 2026-07-23
+--     grounding that it honours the preference). The engine paints at
+--     TextSize + a per-preference constant offset, and the solver asks this
+--     module at `size + preferredTextOffset` — so the widths returned here are
+--     exactly the glyph widths the engine draws. The preference is applied
+--     ONCE, at the solver's measure seam; a preference change re-requests
+--     naturally because the effective size key changes.
 
 -- Services are resolved LAZILY, never at module scope: this module is required
 -- by the theme controller, whose lifecycle the headless suite exercises, and a

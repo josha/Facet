@@ -1,7 +1,9 @@
 --!strict
 -- Engine text calibration (native-substrate NS-A10, UI-FID-001; CLIENT-ONLY):
--- measures a reference corpus with TextService:GetTextBoundsAsync (which
--- honors PreferredTextSize — grounded 2026-07-23) and feeds a per-font
+-- measures a reference corpus with TextService:GetTextBoundsAsync (which is
+-- PreferredTextSize-INDEPENDENT — measured 2026-08-03, Step 8.5 probe; the
+-- 2026-07-23 "honors the preference" grounding was wrong, so the fraction
+-- below is never poisoned by the player's setting) and feeds a per-font
 -- average-glyph fraction into the headless estimator's calibration seam
 -- (src/layout/text_metrics.calibrate), TIGHTENING its deliberate over-reserve
 -- without ever under-reserving:

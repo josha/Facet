@@ -99,6 +99,43 @@ describe("A-AL3: reactive conditions over the environment", function()
 		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 800 })
 		expect(c.axis:get()).toBe("x")
 	end)
+
+	it("REFUSES the engine's placeholder viewport: a degenerate write keeps the last real fact", function()
+		--[[ Director clip 2026-08-04 (textpop.mov) + the boot watcher, measured:
+			the camera reports 1x1 for the first client frame(s), and a surface
+			painted from it derived the COMPACT class on a desktop-sized screen —
+			then re-derived when the real number landed a frame later (the
+			role-pick sub-copy visibly re-wrapped: two lines -> one, box widened).
+			The environment's own rule applies at the fact boundary: an engine
+			placeholder is not a fact (the `interactionClasses` precedent, worded
+			there as "a preference the player has not expressed cannot outvote
+			what the device is"). A viewport write without two real >1px axes is
+			refused, and the fact keeps its last real value — the already-wired
+			change signal delivers the true size within a frame. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 801, h = 392 })
+		local BAD: { any } = {
+			{ x = 0, y = 0, w = 1, h = 1 }, -- the measured boot placeholder
+			{ x = 0, y = 0, w = 0, h = 720 },
+			{ x = 0, y = 0, w = 1280, h = 0 },
+			{ x = 0, y = 0, w = 0 / 0, h = 720 },
+			{ x = 0, y = 0, w = 1280 }, -- h missing
+			"garbage",
+		}
+		for i, bad in BAD do
+			env:set("viewportRect", bad)
+			local vp = env:get("viewportRect"):get()
+			expect(`{i}:{vp.w}x{vp.h}`).toBe(`{i}:801x392`)
+		end
+		-- and nil is refused the same way, not stored
+		env:set("viewportRect", nil)
+		local vp = env:get("viewportRect"):get()
+		expect(`{vp.w}x{vp.h}`).toBe("801x392")
+		-- a REAL write still lands (the refusal is about placeholders, not writes)
+		env:set("viewportRect", { x = 0, y = 0, w = 375, h = 812 })
+		expect(env:get("viewportRect"):get().w).toBe(375)
+	end)
 end)
 
 describe("A-AL2: AdaptiveStack changes axis without rebuilding anything", function()

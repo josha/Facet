@@ -27,6 +27,27 @@ require("./text_calibration.spec")
 require("./text_fit.spec")
 require("./value_reveal.spec")
 require("./text_premeasure.spec")
+-- large-text accessibility (LTN-4): the solve's per-text truncation facts, the
+-- /2 layout dump, and the five pure authoring-safety checks with their negative
+-- controls
+require("./text_audit.spec")
+-- ...and the presenter-owned STATIC full-value disclosure the `disclose`
+-- declaration buys (LTN-2 chose static over a marquee)
+require("./text_disclosure.spec")
+-- ...and the AUTO REVEAL (director 2026-08-04, superseding LTN-2 for declared
+-- surfaces): `reveal = "auto"` slides a truncated one-liner's whole value
+-- through its box on the presenter's one tick, under the plan's constraint list
+require("./text_reveal.spec")
+require("./preferred_text_seam.spec")
+-- ...and the LARGE-TEXT MATRIX the plan's verification section asks for
+-- (acceptance LT-6/LT-8), over the shared tests/lib/large_text harness: every
+-- controls_registry row at { 0, 4, 10, 14 } px x both reference themes; the
+-- overflow ORDER on four composed screens at two compact viewports, with
+-- reduced motion; and the live 0 -> 14 -> 0 swing with focus, an uncommitted
+-- edit and a scrolled list on the screen
+require("./large_text_matrix.spec")
+require("./large_text_layout.spec")
+require("./large_text_hot_swap.spec")
 require("./drag_session.spec")
 require("./touch_gestures.spec")
 require("./input.spec")

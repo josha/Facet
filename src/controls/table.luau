@@ -64,7 +64,16 @@ export type Column = {
 	cell: ((item: any) -> any)?,
 	value: ((item: any) -> string)?,
 	sortable: boolean?, -- opt a `cell` column into sorting explicitly
+	-- FULL-VALUE DISCLOSURE for table-authored text (Step 8.5 LT-G2): the
+	-- default `value` cell and the header title are Texts the TABLE authors, so
+	-- a consumer had no way to declare their identity strings disclosable. A
+	-- column carrying `disclose = true` passes the declaration to both; a
+	-- custom `cell` blueprint declares it on its own Text instead.
+	disclose: boolean?,
 }
+
+-- the column boundary's closed key set (§4 — refused, never swallowed);
+-- built below once specGuard is in scope
 
 export type Spec = {
 	id: string?,
@@ -130,6 +139,20 @@ export type Spec = {
 
 -- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
+-- the COLUMN boundary's closed key set (§4, architecture review F-4)
+local COLUMN_KEYS = specGuard.keySet({
+	"id",
+	"title",
+	"width",
+	"minWidth",
+	"resizable",
+	"alignment",
+	"cell",
+	"value",
+	"sortable",
+	"disclose",
+})
+
 local TABLE_KEYS = specGuard.keySet({
 	"cellFor",
 	"cellPadding",
@@ -459,6 +482,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	end
 	local columns: { Column } = {}
 	for _, column in spec.columns do
+		-- STRICT AT THE COLUMN BOUNDARY TOO (architecture review F-4; §4). The
+		-- top-level spec has always refused unknown keys; columns silently
+		-- swallowed them — and `disclose` is exactly the key whose silent typo
+		-- (`disclos = true`) removes an accessibility guarantee with no error.
+		specGuard.assertKnownKeys(`newTable column '{tostring(column.id)}'`, column, COLUMN_KEYS, "column")
+		assert(
+			column.disclose == nil or type(column.disclose) == "boolean",
+			`Table '{tableId}': column '{tostring(column.id)}'.disclose expects boolean, got {typeof(column.disclose)}`
+		)
 		-- column ids become path segments (Cell-{id}, Head-{id}) — a "/" would
 		-- corrupt path routing everywhere downstream
 		assert(
@@ -497,6 +529,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				text = tostring((column.value :: any)(item)),
 				textSize = "controls.table.cellTextSize",
 				lineLimit = lineCap,
+				disclose = if column.disclose == true then true else nil,
 			})
 		end
 		assert(spec.cellFor ~= nil, `Table '{tableId}': column '{column.id}' has no cell/value and no spec.cellFor`)
@@ -1176,6 +1209,9 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				-- cells did; and a column heading that grows the header out of
 				-- alignment with its own column is worse than an ellipsis.
 				lineLimit = 1,
+				-- the column's disclosure declaration covers the title it caps
+				-- (Step 8.5 LT-G2)
+				disclose = if column.disclose == true then true else nil,
 			})
 			local headerChildren = {}
 			-- ONE FOCUS STOP PER COLUMN, AND IT IS THE HEADER (director 2026-07-29).

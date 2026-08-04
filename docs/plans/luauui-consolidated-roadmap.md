@@ -992,6 +992,15 @@ RascalRally gameplay or publish/deploy.
 
 ## Step 8.5 — Make large text a first-class layout input
 
+> **Status: Done — GATE PASS exit 0, 2026-08-03.** Suite 3133→3291 (+ game
+> 3029→3067); measured offsets {0,4,10,14} replace the guessed table, applied
+> exactly once with a live change subscription (epoch-guarded confirm);
+> `disclose` full-value plates on Text/Toggle/Table columns; six-check
+> `text_audit`; the live "Sponsor a…" Largest regression measured dead in the
+> production place at the real setting; three fresh-context reviews' every
+> BLOCKER/MAJOR fixed and pinned (LTN-7). LT-P1 physical phone + LT-P2 human
+> readability stay honestly pending with the prepared review packet.
+
 This stage closes the exact Roblox preferred-text seam, establishes one framework
 overflow policy, and proves the result on the production LuauUI Sponsor presenter.
 It is Fable-led because engine measurement, public API, accessibility judgment,

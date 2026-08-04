@@ -34,6 +34,7 @@
 ]]
 
 local text_metrics = require("./text_metrics")
+local specGuard = require("../spec_guard")
 
 local text_fit = {}
 
@@ -51,13 +52,27 @@ export type FitSpec = {
 	-- the floor has a box that is too small, which is a LAYOUT decision (drop it,
 	-- step it down) rather than something to solve by painting unreadably.
 	floor: number?,
+	-- THE PAINT-TIME ADDITIVE OFFSET (Step 8.5, LTN-1): the engine paints every
+	-- text node at `TextSize + offset(preference)`, so a size chosen to fit a
+	-- box WITHOUT the offset overflows it the moment the player raises their
+	-- text preference — measured live: the production role-pick CTA ellipsized
+	-- at Largest exactly this way. Pass the environment's `preferredTextOffset`
+	-- fact (read it inside a memo so the answer re-derives on a live change);
+	-- the search then fits the PAINTED form (size + offset) while returning the
+	-- authored size to paint at. Absent = 0, byte-identical to the pre-8.5
+	-- behavior.
+	offset: number?,
 }
 
 export type Fit = {
-	size: number, -- the size to paint at
+	size: number, -- the AUTHORED size to paint at (the engine adds `offset` itself)
 	fits: boolean, -- false = even `floor` overflows; the caller must drop or resize
-	lines: number, -- lines the string draws at `size`
-	height: number, -- the height it needs at `size` (`ceil(lines * size * factor)`)
+	-- lines/height describe the PAINTED form: with a non-zero `offset` they are
+	-- measured at `size + offset` (the box must hold what the engine draws), so
+	-- `height` is `ceil(lines * (size + offset) * factor)` — not the authored-size
+	-- arithmetic. With offset absent/0 they are byte-identical to the old meaning.
+	lines: number,
+	height: number,
 	exact: boolean, -- false = the font is uncalibrated, so `size` is conservative
 	--[[ THE MEASURE'S OWN STATE, carried through (F-31/F-32). `exact = false`
 		covers two different situations — "the font is uncalibrated and the engine
@@ -68,8 +83,19 @@ export type Fit = {
 	state: "ready" | "pending" | "failed",
 }
 
+local function offsetOf(spec: FitSpec): number
+	local raw = spec.offset
+	if type(raw) ~= "number" or raw ~= raw then
+		return 0
+	end
+	-- same legal domain the renderer clamps the env fact to
+	return math.clamp(raw, 0, 32)
+end
+
 local function fitsAt(spec: FitSpec, size: number): (boolean, text_metrics.Metrics)
-	local m = text_metrics.measure(spec.text, spec.font, size, spec.width, spec.lineHeight, spec.lines)
+	-- the box has to hold the PAINTED form: the engine draws at size + offset,
+	-- so that is the size the question is asked about
+	local m = text_metrics.measure(spec.text, spec.font, size + offsetOf(spec), spec.width, spec.lineHeight, spec.lines)
 	local ok = m.naturalLines <= (spec.lines or 1)
 	if ok and type(spec.height) == "number" then
 		ok = m.height <= (spec.height :: number)
@@ -79,14 +105,31 @@ end
 
 --[[ The largest integer size in [floor, cap] at which `text` draws inside
 	`width` (and `height`, when given) without exceeding `lines`. ]]
+local FIT_SPEC_KEYS =
+	specGuard.keySet({ "text", "font", "cap", "width", "height", "lines", "lineHeight", "floor", "offset" })
+
 function text_fit.fit(spec: FitSpec): Fit
+	-- strict at the boundary (§4, architecture review F-6): an unknown key or a
+	-- mistyped offset must fail loudly, not silently measure at offset 0
+	specGuard.assertKnownKeys("text.fit", spec, FIT_SPEC_KEYS, "spec")
+	assert(
+		spec.offset == nil or (type(spec.offset) == "number" and spec.offset == spec.offset),
+		"text.fit: spec.offset must be a number (the environment's preferredTextOffset fact)"
+	)
 	local cap = math.max(1, math.floor(spec.cap))
 	local floor = math.max(1, math.floor(spec.floor or 1))
 	if floor > cap then
 		floor = cap
 	end
 	if spec.text == "" or spec.width <= 0 then
-		local m = text_metrics.measure(spec.text, spec.font, cap, math.max(spec.width, 0), spec.lineHeight, spec.lines)
+		local m = text_metrics.measure(
+			spec.text,
+			spec.font,
+			cap + offsetOf(spec),
+			math.max(spec.width, 0),
+			spec.lineHeight,
+			spec.lines
+		)
 		return {
 			size = cap,
 			fits = spec.text == "",

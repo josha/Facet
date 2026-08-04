@@ -204,6 +204,12 @@ this session: **PASS (24 classes, 414 properties, 2 diagnosed, 448 typed fields)
 - **Findings:** BP-F6 (api.md's shared `padding` row omits `Text`, while api.md's own
   modifier table at :1177 includes it), BP-F19 (both ledger entries are past their
   removal window), BP-F8 (`tint: Bound<any>`).
+- **Post-review additions:** `disclose` (boolean, construction-only; Step 8.5
+  LTN-4, 2026-08-03 — the static full-value plate) and `reveal` (`"auto"` enum,
+  construction-only; director ruling 2026-08-04 — the auto-scrolling reveal, whose
+  static alternative is the same plate). Both construction-strict, both inert
+  while the text fits, both documented in api.md's Text entry (parity-checked).
+  Proof: `tests/text_disclosure.spec.luau`, `tests/text_reveal.spec.luau`.
 
 ### `UI.Image` — constructor (leaf)
 - **Shipped shape:** `blueprint.luau:622-624`; schema `:1228-1259` = `BOX ∪

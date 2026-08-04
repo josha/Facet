@@ -16,6 +16,18 @@ local function nodeDump(node: solver.Node, rects: { [string]: any }): any
 		rect = entry and entry.rect,
 		overflow = entry and entry.overflow,
 		textState = entry and entry.textState,
+		-- PER-TEXT-NODE MEASUREMENT FACTS (LTN-4): the font descriptor and px size
+		-- this solve measured with, the natural and drawn line counts, whether the
+		-- engine will ellipsize, whether the author declared a way back to the full
+		-- string (`disclose`, and/or the auto `reveal` with its `naturalWidth`,
+		-- 2026-08-04), and the resulting overflow policy ("wrap" | "cap" |
+		-- "truncate" | "truncate+disclose" | "truncate+reveal"). Nil on every node
+		-- that is not text — a dump that reported a truncation state for a Box
+		-- would be inviting a reader to act on a number about nothing.
+		textFacts = entry and entry.textFacts,
+		-- the declared interactive floor (LTN-5): carried so a DUMP-based audit
+		-- can run text_audit.hitFloor without the live rects table
+		hitFloor = entry and entry.hitFloor,
 		contentSize = entry and entry.contentSize,
 		-- the composition resolution (ADR-0023) rides the same channel as the
 		-- rect it produced: WHICH arrangement, WHICH form per region, and WHY
@@ -45,7 +57,10 @@ function dump.fromSolve(
 ): any
 	local result = solver.solve(root, viewport, opts)
 	return {
-		schema = "luauui-dump/1",
+		-- /2 adds `textFacts` per text node (LTN-4). Additive, so a /1 reader keeps
+		-- working; the version moves because a diff against a stored /1 fixture
+		-- would otherwise read as a layout change.
+		schema = "luauui-dump/2",
 		viewport = viewport,
 		rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
 		safeInsets = (opts and opts.safeInsets) or { top = 0, bottom = 0, left = 0, right = 0 },

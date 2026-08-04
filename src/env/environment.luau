@@ -46,12 +46,17 @@ local FACT_DEFAULTS: { [string]: any } = {
 	capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false },
 	reducedMotion = false,
 	preferredTextSize = 1, -- multiplicative reservation seam (tests/dev profiles)
-	-- ADDITIVE preference reservation (platform verifier F1, 2026-07-23): the
-	-- ENGINE applies PreferredTextSize as a FIXED PIXEL OFFSET (official
-	-- text-scaling announcement), not a multiplier — so live reservation adds
-	-- headroom in px. The multiplier fact above stays as the injectable
-	-- test/profile seam (over-reserving via it is safe); the Roblox adapter
-	-- populates THIS fact from the live enum and leaves the multiplier at 1.
+	-- ADDITIVE preference reservation (Step 8.5, decision LTN-1): the ENGINE
+	-- paints every text node at TextSize + a per-preference constant pixel
+	-- offset — measured live 2026-08-03 as Medium=0 / Large=4 / Larger=10 /
+	-- Largest=14, uniform across font, weight and size (probe artifact:
+	-- artifacts/large-text-accessibility/probe/preference-probe.json) — and
+	-- the bounds APIs answer WITHOUT it, so reserving at `size + offset` is
+	-- exact. The Roblox adapter populates THIS fact (measured fallback applied
+	-- synchronously, GetTextSizeOffsetAsync confirmation cached per value) and
+	-- subscribes to PreferredTextSize changes; the multiplier fact above stays
+	-- 1 on the live path and remains the injectable test/profile seam — the
+	-- two authorities never overlap.
 	preferredTextOffset = 0,
 	preferredTransparency = 1,
 	locale = "en-us",
@@ -110,15 +115,14 @@ function environment.new(core: any): Env
 		local floor = if use(signals.displaySize) == "Large" then 1.5 else 1
 		return base * floor
 	end)
-	-- PAINT-seam scale (native-substrate NS-A9, corrections §9): the ENGINE
-	-- applies the player's PreferredTextSize in its own font pipeline
-	-- (accessibility doc, grounded 2026-07-23), so LuauUI must not multiply it
-	-- into the painted TextSize again — that is the double-application defect.
-	-- Paint carries ONLY authored scale (the ten-foot floor). MEASUREMENT
-	-- (typographyScale above) keeps the preference factor so the solver
-	-- RESERVES the engine-scaled bounds; the two seams differ by exactly the
-	-- engine-owned factor, and measured-vs-painted agreement is the engine's
-	-- own application of that factor at draw time.
+	-- PAINT-seam scale (NS-A9; MODEL CORRECTED by Step 8.5, LTN-1): the engine
+	-- applies the player's PreferredTextSize as an ADDITIVE px offset at draw
+	-- time, so LuauUI must not fold the preference into the painted TextSize —
+	-- that is the double-application defect. Paint carries ONLY authored scale
+	-- (the ten-foot floor). On the live path the multiplier fact stays 1, so
+	-- the two SCALE seams are identical and the preference travels exclusively
+	-- through `preferredTextOffset` at the measure seam; a dev/test profile
+	-- that raises the multiplier widens measurement only (over-reserve, safe).
 	derived.typographyPaintScale = core:memo(function(use)
 		return if use(signals.displaySize) == "Large" then 1.5 else 1
 	end)
@@ -287,6 +291,24 @@ function environment.new(core: any): Env
 	function env.set(_self, key: string, value: any)
 		local signal = signals[key]
 		assert(signal ~= nil, `cannot set unknown/derived environment key '{key}'`)
+		--[[ THE ENGINE'S PLACEHOLDER VIEWPORT IS NOT A FACT (director clip
+			2026-08-04, textpop.mov; boot watcher measured `vp=1x1` on the first
+			client frame, the real size one frame later). A surface painted from
+			the placeholder derives the wrong size class and visibly re-derives
+			when the truth lands — the first-present size pop. Same boundary rule
+			as `interactionClasses` ("an engine default the player never expressed
+			cannot outvote what the device is"): a viewport write without two real
+			>1px axes is REFUSED, the fact keeps its last real value, and the
+			adapter's already-wired change signal delivers the true size within a
+			frame — one atomic re-solve. Every legitimate viewport (the smallest
+			emulated phone included) clears the bar by orders of magnitude. ]]
+		if key == "viewportRect" then
+			local w = if type(value) == "table" then tonumber(value.w) else nil
+			local h = if type(value) == "table" then tonumber(value.h) else nil
+			if w == nil or h == nil or w ~= w or h ~= h or w <= 1 or h <= 1 then
+				return
+			end
+		end
 		signal:set(value)
 	end
 

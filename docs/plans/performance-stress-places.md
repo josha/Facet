@@ -161,6 +161,12 @@ retail mobile client. Record at least:
 - frame-time distribution and spikes;
 - named LuauUI scope inclusive/exclusive times where the tooling exposes them;
 - memory, live Instances/connections, mounted window, and stale/dropped resources;
+- for the text workloads (Step 8.5 gate rider): text-measurement queue depth and
+  premeasure cache hits/misses/corrections, re-solve count per preference change
+  (exactly one atomic re-solve after the confirmed offset settles — anything more
+  is the reflow-loop defect), per-frame adapter writes while text is idle (zero),
+  and the active moving-text-surface count (0 shipped; the diagnostic allows at
+  most 1 so a future engaged reveal cannot proliferate silently);
 - capture and derived-summary paths.
 
 Do not invent a device budget from desktop or Studio numbers. Establish or ratify the

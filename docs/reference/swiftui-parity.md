@@ -584,12 +584,19 @@ assistive-technology one:** reduced-motion and transparency facts, contrast chec
 a declared hit-target floor, never-color-only guidance, exact/conservative text
 measurement, `lineLimit`, `ViewThatFits`, adaptive composition, and scroll-to-visible.
 The renderer now separates measurement reservation from paint: the live engine path
-does not multiply the player's preference into `TextSize` a second time. The remaining
-gap is still material. `src/client/roblox_env.luau` uses unmeasured generous offsets
-for the four preference values and does not subscribe to `PreferredTextSize`; all
-public surfaces and Sponsor View have not been proved at `Largest`, and permitted
-truncation does not yet guarantee full-value access. Roadmap Step 8.5 owns the exact
-native seam, reflow/overflow policy, mobile Sponsor proof, and performance bounds:
+does not multiply the player's preference into `TextSize` a second time. Step 8.5
+(2026-08-03) replaced the guessed offsets with the measured per-preference constants
+(Medium 0 / Large 4 / Larger 10 / Largest 14, uniform across font/weight/size —
+probe: `artifacts/large-text-accessibility/probe/preference-probe.json`), confirmed
+per session through `GetTextSizeOffsetAsync` behind a cached, failure-safe,
+never-blocking seam, and subscribed the adapter to `PreferredTextSize` changes: a
+mid-session step is one atomic re-solve with mount identity, focus, scroll, and
+state preserved. The measured truth also corrected the platform model:
+`GetTextBoundsAsync` is preference-INDEPENDENT (the engine paints at
+`TextSize + offset` and answers bounds without it), so measuring at the inflated
+size is exact rather than double-applied. Remaining Step 8.5 work — the public
+large-text matrix, Sponsor `Largest` mobile proof, and truncation full-value
+access — is tracked in
 [`large-text-accessibility.md`](../plans/large-text-accessibility.md). BiDi/RTL and
 assistive semantics remain separate gaps.
 

@@ -99,6 +99,23 @@ export type Node = {
 	-- Set, it makes the fit a solver decision reported back through `out[id]
 	-- .compact`, which is how measure and paint end up reading ONE verdict.
 	compactText: string?,
+	-- FULL-VALUE DISCLOSURE (blueprint `Text.disclose`, LTN-4). Carried, never
+	-- spent: it changes no geometry. It rides the layout node so the solve result
+	-- — the one place that knows this text TRUNCATED — can say in the same breath
+	-- whether the author declared a way back to the whole string. The presenter
+	-- and the text audit both read that pair; neither could derive it from a rect.
+	disclose: boolean?,
+	-- THE AUTO REVEAL (blueprint `Text.reveal`, director 2026-08-04). Carried
+	-- exactly as `disclose` is; additionally the measure records the string's
+	-- natural one-line width in the facts, because the reveal's travel distance
+	-- is that width less the box — a number only the measure pass knows
+	reveal: string?,
+	-- the EFFECTIVE target floor this node's control class declares, in px
+	-- (renderer-set from controls/contract minHitSize clamped up by the theme's
+	-- targetSizes.minimum). Diagnostics only — the renderer still owns the hit
+	-- expansion — and it is what makes "which nodes are interactive" a fact of the
+	-- solve rather than something a pure audit has to guess from a rect.
+	hitFloor: number?,
 	axis: string?,
 	-- the decoration slot whose `contentInsets` are part of this node's padding
 	-- (renderer-set; RS-A16-D3). Diagnostics only — the solver spends the padding
@@ -227,6 +244,11 @@ type Ctx = {
 	-- out during arrange, so the verdict the box was reserved for is exactly the
 	-- verdict the adapter paints (docs/lessons/one-word-two-subsystems.md).
 	compact: { [string]: boolean },
+	-- PER-TEXT-NODE MEASUREMENT FACTS (LTN-4), recorded on the same channel and
+	-- under the same discipline as `compact`: assigned on EVERY measure of the
+	-- node, so the facts published are the ones the reserved box was built from
+	-- and a re-solve that made room can never leave a stale "truncated" behind.
+	textFacts: { [string]: any },
 	-- scrollbar thickness to reserve off a scrolling region's cross axis; the
 	-- adapter owns the number (it is engine-specific), the solver only spends it
 	scrollBarReserve: number,
@@ -249,6 +271,65 @@ type Ctx = {
 	-- branch. 0 means "nothing shows" (dropped, or below its floor).
 	regionForm: { [string]: number },
 }
+
+--[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4).
+
+	`Metrics` already answers "did this get cut" for the WRAPPED case
+	(`naturalLines > lines`, which only a `lineLimit` can produce). It cannot
+	answer it for the two CLAMPED cases, where the measure returns
+	`min(measured, box)` and the engine's TextTruncate.AtEnd eats the difference:
+	a single-line label narrower than its own string, and a compact form still
+	wider than the box it won. Both are the shape a long display NAME arrives in,
+	so a `truncated` derived from line counts alone would report "fits" on exactly
+	the cases disclosure exists for — `clampedWidth` is the caller's verdict on the
+	return it is about to make.
+
+	Module-level, not a closure inside `measure`: this runs once per text node per
+	measure pass, and a per-call closure allocation in this function is the shape
+	of a bench regression this file has already paid for once (2026-07-25).
+]]
+local function recordTextFacts(
+	ctx: Ctx,
+	node: Node,
+	m: any,
+	clampedWidth: boolean,
+	font: string,
+	size: number,
+	naturalWidth: number?
+)
+	ctx.textStates[node.id] = m.state
+	local truncated = m.truncated or clampedWidth
+	local policy: string
+	if not truncated then
+		policy = if node.lineLimit ~= nil then "cap" else "wrap"
+	else
+		-- reveal outranks disclose in the POLICY string (the travel is the
+		-- primary path; the plate stays its static alternative either way)
+		policy = if node.reveal ~= nil
+			then "truncate+reveal"
+			elseif node.disclose == true then "truncate+disclose"
+			else "truncate"
+	end
+	ctx.textFacts[node.id] = {
+		-- the canonical descriptor and px size this measure actually used, so a
+		-- reader never has to re-derive the role ladder to know what was measured
+		font = font,
+		size = size,
+		lines = m.lines,
+		naturalLines = m.naturalLines,
+		truncated = truncated,
+		lineLimit = node.lineLimit,
+		disclose = node.disclose == true,
+		reveal = node.reveal ~= nil,
+		-- reveal nodes only: the one-line width the string WANTS at this size,
+		-- from THIS measure pass — the travel distance's other half
+		naturalWidth = naturalWidth,
+		policy = policy,
+		-- the string this verdict is about: with a compact form in play it is NOT
+		-- the string the node draws, and disclosure hands back the full value
+		text = node.text,
+	}
+end
 
 local measure -- forward
 
@@ -632,6 +713,14 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- pass, and again by its parent's arrange at the final width), and a
 		-- verdict that could only latch true would keep a compact form after a
 		-- re-solve made room for the full label.
+		-- THE REVEAL'S OTHER NUMBER (director 2026-08-04): a reveal node's facts
+		-- carry the natural ONE-LINE width, measured here so the travel distance
+		-- comes from the same pass as the truncation verdict it belongs to. Reveal
+		-- nodes only — every other text pays nothing.
+		local naturalW: number? = nil
+		if node.reveal ~= nil then
+			naturalW = text_metrics.measure(node.text or "", font, size, math.huge, lineHeight).width
+		end
 		local compact = node.compactText
 		if compact ~= nil and availW ~= math.huge then
 			local natural = text_metrics.measure(node.text or "", font, size, math.huge, lineHeight)
@@ -642,16 +731,17 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 				-- across both seams without a second rule.
 				local cm = text_metrics.measure(compact, font, size, math.huge, lineHeight)
 				ctx.compact[node.id] = true
-				ctx.textStates[node.id] = cm.state
+				recordTextFacts(ctx, node, cm, cm.width > availW, font, size, naturalW)
 				return math.min(cm.width, availW) + pl + pr, cm.height + pt + pb
 			end
 			ctx.compact[node.id] = false
 		end
 		local m = text_metrics.measure(node.text or "", font, size, wrapWidth, lineHeight, node.lineLimit)
-		ctx.textStates[node.id] = m.state
 		if node.singleLine == true and innerMaxW ~= math.huge then
+			recordTextFacts(ctx, node, m, m.width > innerMaxW, font, size, naturalW)
 			return math.min(m.width, innerMaxW) + pl + pr, m.height + pt + pb
 		end
+		recordTextFacts(ctx, node, m, false, font, size, naturalW)
 		return m.width + pl + pr, m.height + pt + pb
 	end
 
@@ -984,6 +1074,14 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- the paint seam cannot read a different answer than the box was reserved
 		-- for. `nil` on every node that declared no compact form.
 		compact = ctx.compact[node.id],
+		-- ...and so do the text facts, for the same reason: "this label was cut"
+		-- is only meaningful beside the box it was cut to fit. `nil` on every node
+		-- that is not text (LTN-4).
+		textFacts = ctx.textFacts[node.id],
+		-- the declared target floor of an interactive node, carried through so a
+		-- pure audit can tell an interactive rect from a decorative one without a
+		-- class table it has no business owning. `nil` = no floor declared.
+		hitFloor = node.hitFloor,
 	}
 
 	-- THE PADDING FACTS ARE COMPUTED BEFORE THE LEAF RETURN (director report
@@ -1681,6 +1779,7 @@ function solver.solve(
 		diagnostics = {},
 		textStates = {},
 		compact = {},
+		textFacts = {},
 		compositions = {},
 		regionForm = {},
 		hiddenDepth = 0,

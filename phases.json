@@ -60,16 +60,16 @@
   },
   {
    "gate": "input-adaptation-audit",
-   "title": "Input auto-adaptation audit + closure: every control ships focus/navigation, Activate, and input-appropriate affordances for pointer, touch, keyboard, and gamepad with no consumer wiring (ui_todo \u00a70 held automatically; \u00a73 engine truths encoded)",
-   "specSection": "ui_todo.md \u00a70/\u00a73 (director 2026-07-20) + design \u00a79",
+   "title": "Input auto-adaptation audit + closure: every control ships focus/navigation, Activate, and input-appropriate affordances for pointer, touch, keyboard, and gamepad with no consumer wiring (ui_todo §0 held automatically; §3 engine truths encoded)",
+   "specSection": "ui_todo.md §0/§3 (director 2026-07-20) + design §9",
    "artifactDir": "artifacts/input-adaptation-audit",
    "gateArtifact": "artifacts/input-adaptation-audit/gate.json",
    "next": null
   },
   {
    "gate": "expansion-textinput",
-   "title": "Phase-5 expansion: UI.TextInput \u2014 signal-backed value model + engine TextBox adapter with capability detection, text-entry-mode handshake, occlusion keep-visible; examples 01/02 upgraded",
-   "specSection": "17 Phase 5 expansion rules + ui_todo.md \u00a70/\u00a71 (director 2026-07-20)",
+   "title": "Phase-5 expansion: UI.TextInput — signal-backed value model + engine TextBox adapter with capability detection, text-entry-mode handshake, occlusion keep-visible; examples 01/02 upgraded",
+   "specSection": "17 Phase 5 expansion rules + ui_todo.md §0/§1 (director 2026-07-20)",
    "artifactDir": "artifacts/expansion-textinput",
    "gateArtifact": "artifacts/expansion-textinput/gate.json",
    "next": "input-paradigms"
@@ -84,7 +84,7 @@
   },
   {
    "gate": "native-substrate",
-   "title": "Roblox-native substrate adoption (roadmap Step 1): corrected native capability matrix with evidence; ScrollingFrame scroll/clip host, UIDragDetector, native touch events, Path2D, UIPageLayout decision, four-edge safe areas, single-application preferred text, modal-only selection bridge, PreloadAsync transport \u2014 deterministic decisions stay headless",
+   "title": "Roblox-native substrate adoption (roadmap Step 1): corrected native capability matrix with evidence; ScrollingFrame scroll/clip host, UIDragDetector, native touch events, Path2D, UIPageLayout decision, four-edge safe areas, single-application preferred text, modal-only selection bridge, PreloadAsync transport — deterministic decisions stay headless",
    "specSection": "docs/plans/luauui-consolidated-roadmap.md Step 1 + docs/plans/roblox-native-audit-corrections.md",
    "artifactDir": "artifacts/native-substrate",
    "gateArtifact": "artifacts/native-substrate/gate.json",
@@ -93,7 +93,7 @@
   {
    "gate": "native-stylesheets",
    "title": "Roblox-native StyleSheets as the runtime styling source of truth (roadmap Step 2): DataModel sheet + Style Editor own every proven styleable paint property, semantic role, native interaction state, app-state tag, theme, and transition; state-as-tags, one authority per property with explicit-write fallback as a separate target mode; layout solver inputs stay headless Luau",
-   "specSection": "docs/plans/roblox-native-stylesheets.md (Rev 2) + docs/plans/roblox-native-audit-corrections.md \u00a75-\u00a79 + docs/plans/fable-execution-contract.md \u00a79 stage 2",
+   "specSection": "docs/plans/roblox-native-stylesheets.md (Rev 2) + docs/plans/roblox-native-audit-corrections.md §5-§9 + docs/plans/fable-execution-contract.md §9 stage 2",
    "artifactDir": "artifacts/native-stylesheets",
    "gateArtifact": "artifacts/native-stylesheets/gate.json",
    "next": null
@@ -116,7 +116,7 @@
   },
   {
    "gate": "rich-skinning-v2",
-   "title": "Rich skinning v2 \u2014 fully image-driven UI (director direction from the Step 3.5 TP-P3 review): image-is-the-element posture, layered decoration slots, per-state asset variants at both customization rungs, image value-displays, semantic icons, pixel-art mode, Content adoption, profile-conditional selectBy package selection, the tile decision, toggle slots, and the SwiftUI customization ladder \u2014 consuming the ADR-0019 contract, never reopening it",
+   "title": "Rich skinning v2 — fully image-driven UI (director direction from the Step 3.5 TP-P3 review): image-is-the-element posture, layered decoration slots, per-state asset variants at both customization rungs, image value-displays, semantic icons, pixel-art mode, Content adoption, profile-conditional selectBy package selection, the tile decision, toggle slots, and the SwiftUI customization ladder — consuming the ADR-0019 contract, never reopening it",
    "specSection": "docs/plans/rich-skinning-v2.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
    "artifactDir": "artifacts/rich-skinning-v2",
    "gateArtifact": "artifacts/rich-skinning-v2/gate.json",
@@ -132,7 +132,7 @@
   },
   {
    "gate": "sponsor-framework-gaps",
-   "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture \u2014 proven in a Sponsor-shaped gallery with no game policy in LuauUI",
+   "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture — proven in a Sponsor-shaped gallery with no game policy in LuauUI",
    "specSection": "roadmap Step 5 (docs/plans/luauui-consolidated-roadmap.md); docs/reference/sponsor-view-parity.md re-audited 2026-07-27",
    "artifactDir": "artifacts/sponsor-framework-gaps",
    "gateArtifact": "artifacts/sponsor-framework-gaps/gate.json",
@@ -140,7 +140,7 @@
   },
   {
    "gate": "code-simplicity-cleanup",
-   "title": "Fresh-context simplicity cleanup (roadmap Step 5.5): a behaviour-preserving audit that deletes proved waste, consolidates duplicated decisions at one owner, and dispositions every Step 5 carry-over \u2014 with unchanged public API, deprecations, property authority, theme/Sponsor mechanisms, Studio behaviour, lifecycle/resource counts, and headless performance",
+   "title": "Fresh-context simplicity cleanup (roadmap Step 5.5): a behaviour-preserving audit that deletes proved waste, consolidates duplicated decisions at one owner, and dispositions every Step 5 carry-over — with unchanged public API, deprecations, property authority, theme/Sponsor mechanisms, Studio behaviour, lifecycle/resource counts, and headless performance",
    "specSection": "docs/plans/code-simplicity-cleanup.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
    "artifactDir": "artifacts/code-simplicity-cleanup",
    "gateArtifact": "artifacts/code-simplicity-cleanup/gate.json",
@@ -156,7 +156,7 @@
   },
   {
    "gate": "desktop-keyboard-navigation",
-   "title": "Desktop keyboard focus-chain behavior (roadmap Step 8): Tab/Shift+Tab traversal of the existing focus graph, Space alongside Return as Activate, and focused-value-control arrow Adjust \u2014 bound through the Input Action System only while an interactive responder owns UI input and keyboard capability is live, with passive HUD and gameplay input untouched",
+   "title": "Desktop keyboard focus-chain behavior (roadmap Step 8): Tab/Shift+Tab traversal of the existing focus graph, Space alongside Return as Activate, and focused-value-control arrow Adjust — bound through the Input Action System only while an interactive responder owns UI input and keyboard capability is live, with passive HUD and gameplay input untouched",
    "specSection": "docs/plans/desktop-keyboard-navigation.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
    "artifactDir": "artifacts/desktop-keyboard-navigation",
    "gateArtifact": "artifacts/desktop-keyboard-navigation/gate.json",
@@ -168,6 +168,14 @@
    "specSection": "docs/plans/traversal-document-order.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
    "artifactDir": "artifacts/traversal-document-order",
    "gateArtifact": "artifacts/traversal-document-order/gate.json",
+   "next": "large-text-accessibility"
+  },
+  {
+   "gate": "large-text-accessibility",
+   "title": "The player's PreferredTextSize as a first-class layout input (roadmap Step 8.5): measured per-preference offsets applied exactly once and live-updating without remount; the reflow -> scroll -> bounded-truncation-with-full-value-access overflow order across the public surface; text/overlap/hit-floor/focus-visibility diagnostics; the Rascal Rally Sponsor View proved at all four values on compact mobile portrait and landscape",
+   "specSection": "docs/plans/large-text-accessibility.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+   "artifactDir": "artifacts/large-text-accessibility",
+   "gateArtifact": "artifacts/large-text-accessibility/gate.json",
    "next": null
   }
  ]

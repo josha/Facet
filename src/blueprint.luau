@@ -205,6 +205,13 @@ export type TextSpec = BoxProps & {
 	-- ellipsizes instead of the box growing. The owner's knowledge, not the
 	-- string's — see blueprint_schema's LINE_LIMIT for the ruling
 	lineLimit: Bound<number>?,
+	-- bounded secondary/identity text whose full value must stay reachable once it
+	-- truncates (LTN-4). Construction-only, so never a `Bound<…>`
+	disclose: boolean?,
+	-- "auto": when this one-line text truncates, the presenter auto-scrolls its
+	-- whole value through the box (director 2026-08-04; the plan's rung-4
+	-- constraint list binds). Construction-only, like `disclose` above
+	reveal: string?,
 	padding: Bound<Sides>?,
 	role: Bound<string>?,
 	-- "badge" | "chip" only — a Text is not interactive, so it is offered the
@@ -248,6 +255,7 @@ export type ToggleSpec = BoxProps & {
 	traversalPriority: number?,
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
+	disclose: boolean?,
 	onActivate: ((path: string, meta: any?) -> ())?,
 }
 

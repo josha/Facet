@@ -2385,6 +2385,9 @@ function screen_target.new(opts: Opts?)
 		"hoverEnterConn",
 		"hoverLeaveConn",
 		"hoverStateConn",
+		"discloseEnterConn",
+		"discloseLeaveConn",
+		"discloseTouchConn",
 		"scrollConn",
 		"textChangedConn",
 		"focusedConn",
@@ -2934,6 +2937,111 @@ function screen_target.new(opts: Opts?)
 		handle.hoverStateConn = instance.MouseEnter:Connect(function()
 			handle.applyHoverFill()
 		end)
+	end
+
+	-- FULL-VALUE DISCLOSURE ENGAGEMENT (Step 8.5, LTN-4). The disclosed Text
+	-- node itself is the zone: MouseEnter/Leave feed the presenter's hover dwell,
+	-- and a stationary touch held past the threshold feeds its long-press seam.
+	-- Enter/Leave fire on any visible GuiObject regardless of Active, so the
+	-- label keeps sinking nothing — engagement observes input, it never claims
+	-- it (which is also why a long-press release still activates the row under
+	-- the label: the plate is a preview, not a capture; recorded for the
+	-- physical-device row). Connections live on the label instance and die with
+	-- it; the census slots below keep them countable.
+	local DISCLOSE_LONG_PRESS_S = 0.4
+	local DISCLOSE_SLOP_PX = 12
+	function adapter.enableDisclosure(handle: any, callbacks: any)
+		local instance = handle.instance
+		if not instance:IsA("GuiObject") then
+			return
+		end
+		-- MERGE, don't one-shot (architecture review F-5): a capability that
+		-- turns on mid-session re-wires already-mounted labels, so each half
+		-- guards itself and a later call may add the half a mount-time gate
+		-- withheld
+		if callbacks.hover ~= nil and handle.discloseEnterConn == nil then
+			handle.discloseEnterConn = instance.MouseEnter:Connect(function()
+				callbacks.hover(true)
+			end)
+			handle.discloseLeaveConn = instance.MouseLeave:Connect(function()
+				callbacks.hover(false)
+			end)
+		end
+		if callbacks.longPress ~= nil and handle.discloseTouchConn == nil then
+			local pressToken = 0
+			handle.discloseTouchConn = instance.InputBegan:Connect(function(inputObject: InputObject)
+				if inputObject.UserInputType ~= Enum.UserInputType.Touch then
+					return
+				end
+				pressToken += 1
+				local token = pressToken
+				local start = inputObject.Position
+				local live = true
+				local fired = false
+				local moveConn: RBXScriptConnection? = nil
+				local endConn: RBXScriptConnection? = nil
+				local destroyingConn: RBXScriptConnection? = nil
+				local function finish(reason: string)
+					if not live then
+						return
+					end
+					live = false
+					if moveConn ~= nil then
+						moveConn:Disconnect()
+					end
+					if endConn ~= nil then
+						endConn:Disconnect()
+					end
+					if destroyingConn ~= nil then
+						destroyingConn:Disconnect()
+					end
+					-- a press that dies with its label must not dismiss ANOTHER
+					-- label's plate (platform review F7): the label's own death
+					-- fires no release
+					if fired and reason ~= "drag" and reason ~= "destroyed" then
+						callbacks.longPress(false)
+					end
+				end
+				-- ONE FINGER, THIS FINGER (platform review F6): a touch
+				-- InputObject is stable for the life of its contact, so both
+				-- global listeners filter to the object that began the press —
+				-- a second finger panning the HUD must neither cancel the press
+				-- nor dismiss the plate it raised
+				moveConn = UserInputService.InputChanged:Connect(function(moveObject: InputObject)
+					if moveObject ~= inputObject then
+						return
+					end
+					local dx = moveObject.Position.X - start.X
+					local dy = moveObject.Position.Y - start.Y
+					if math.abs(dx) + math.abs(dy) > DISCLOSE_SLOP_PX then
+						-- a moving finger is a scroll/drag, never a press: if the
+						-- plate already showed, take it down with the movement
+						local wasFired = fired
+						finish("drag")
+						if wasFired then
+							callbacks.longPress(false)
+						end
+					end
+				end)
+				endConn = UserInputService.InputEnded:Connect(function(endObject: InputObject)
+					if endObject == inputObject then
+						finish("release")
+					end
+				end)
+				-- the label dying mid-press ends the press silently; the timer
+				-- below then finds `live` false and does nothing (the task.delay
+				-- itself cannot be cancelled, so this is what defuses it)
+				destroyingConn = instance.Destroying:Connect(function()
+					finish("destroyed")
+				end)
+				task.delay(DISCLOSE_LONG_PRESS_S, function()
+					if live and token == pressToken then
+						fired = true
+						callbacks.longPress(true)
+					end
+				end)
+			end)
+		end
 	end
 
 	-- focus ring (design §8.4: focus is never color-only — ring + hover fill).

@@ -698,6 +698,62 @@ local LINE_LIMIT: PropSpec = p({
 		.. "truncates with an ellipsis rather than the box growing. Absent = uncapped",
 })
 
+-- FULL-VALUE DISCLOSURE (large-text-accessibility LTN-4, 2026-08-03). The plan's
+-- overflow ladder permits truncation only for bounded SECONDARY or IDENTITY text,
+-- and only when the full string stays reachable. `disclose` is the declaration of
+-- that permission-plus-debt: this label may ellipsize, and when it does the
+-- framework owes the reader the whole value.
+--
+-- ONE boolean rather than a mode enum, because the author's knowledge is binary
+-- (is the full string worth reading?) and every other term — which input class
+-- engages it, where the plate lands, what it is themed as — is the presenter's,
+-- not the screen's (constitution: screens declare, never implement). It is legal
+-- on any Text and does NOTHING while the text is not truncated, so declaring it
+-- is free and forgetting it is what the audit reports.
+--
+-- CONSTRUCTION-ONLY, exactly like `traversalPriority`: "may this be revealed" is
+-- what the node IS, not a question about state, and the presenter reads it off
+-- the mounted node. Binding a Readable here is an immediate refusal naming the
+-- rebuild idiom (§4), never a silently ignored value. No `dirty` classes for the
+-- same reason the parity checker enforces in both directions: a dirty class is
+-- what a REACTIVE prop needs, and this one cannot change without a rebuild.
+local DISCLOSE: PropSpec = p({
+	types = { "boolean" },
+	reactive = false,
+	-- Text-only, like `lineLimit` beside it: documented in Text's own entry
+	channel = "semantic",
+	doc = "declare this bounded secondary/identity label as revealable: when it truncates, engaging it "
+		.. "(hover dwell, focus, long-press) presents the full string. Inert while the text fits",
+})
+
+-- THE AUTO REVEAL (director ruling 2026-08-04, superseding LTN-2's "no marquee"
+-- for surfaces that DECLARE it; the plan's overflow rung 4, its full constraint
+-- list binding). `reveal = "auto"` says: this bounded one-line text, when it
+-- truncates, auto-scrolls its whole value — the presenter slides the full string
+-- through the box after a quiet delay, pausing at the ends, and rests in the
+-- engine's own ellipsis between cycles. It is ALSO a disclosure source (the
+-- LTN-4 plate is its static full-value alternative), reduced motion disables the
+-- travel entirely, and at most one strip runs per presentation
+-- (`text_audit.movingText`).
+--
+-- AN ENUM WITH ONE VALUE, not a boolean: "auto" names the UNENGAGED variant the
+-- ruling ordered (the surface presenting IS the engagement — the recap line is a
+-- non-interactive span nothing can focus or hover deliberately). An ENGAGED
+-- variant remains a possible future value; a boolean would have to be re-typed
+-- to admit it.
+--
+-- CONSTRUCTION-ONLY, exactly as `disclose` beside it: "may this travel" is what
+-- the node IS, and the presenter reads it off the mounted node.
+local REVEAL: PropSpec = p({
+	types = { "string" },
+	enum = { "auto" },
+	reactive = false,
+	channel = "semantic",
+	doc = "declare this bounded one-line label as an auto-scrolling reveal: when it truncates, the "
+		.. "presenter slides the whole value through the box (quiet delay, pause at ends, rests as the "
+		.. "ellipsis; reduced motion disables travel; the static disclosure plate stays its alternative)",
+})
+
 -- THE FADE GROUP (ADR-0022 Decision 2). Presentation transparency is offered ONLY
 -- through a node that declared this, and the declaration is explicit because it
 -- has a real cost: the adapter materializes the node as a CanvasGroup, which
@@ -1177,6 +1233,8 @@ class("Text", {
 		textSize = TEXT_SIZE,
 		textAlign = TEXT_ALIGN,
 		lineLimit = LINE_LIMIT,
+		disclose = DISCLOSE,
+		reveal = REVEAL,
 		tint = TINT,
 		-- the solver's text measure adds padding to the reserved box, so this is a
 		-- real layout input on a label (it lets UI.padding apply without wrapping)
@@ -1458,6 +1516,11 @@ class("Toggle", {
 		traversalPriority = TRAVERSAL_PRIORITY,
 		padding = CONTAINER_LAYOUT.padding,
 		textSize = TEXT_SIZE,
+		-- the Toggle's label is drawn ONE LINE with an end ellipsis by measured
+		-- design (director finding 13: wrap + press-scale = mid-word breaks), so
+		-- where a compact width truncates it the full value must stay reachable —
+		-- the same disclosure contract a Text carries (Step 8.5 LT-G1/LTN-5)
+		disclose = DISCLOSE,
 		onActivate = p({
 			types = { "function" },
 			reactive = false,

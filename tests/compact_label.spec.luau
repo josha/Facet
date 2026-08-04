@@ -270,6 +270,62 @@ describe("compactLabel: one decision, two seams", function()
 		root.dispose()
 	end)
 
+	it("a REMOUNTED button gets its verdict re-applied — the cache dies with the node", function()
+		--[[ Found LIVE 2026-08-04, RascalRally production: the sponsor HUD's
+			watch-cycle buttons painted "Previous racer" ellipsized to "…" — at
+			EVERY preference — after a pose toggle, while a fresh mount painted the
+			chevron correctly. `applyCompactLabel`'s minimal-write cache is keyed by
+			PATH, and paths are REUSED across a structural remount (a `When` branch,
+			a ForEach row): the re-created instance is born with its FULL label, and
+			the surviving `true` said the swap was already applied, so the glyph was
+			never written again. Every headless witness was green because every
+			fixture mounted ONCE. The cache is now cleared in the same removal block
+			every other per-path cache learned to die in (verifier finding V10's
+			comment names the class). ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 60, h = 400 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local shown = core:signal(true)
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				children = {
+					UI.When({
+						id = "R",
+						condition = shown,
+						thenView = function()
+							return UI.Button({
+								id = "B",
+								label = "Edit item",
+								compactLabel = "Ed",
+								width = { type = "fill" },
+							})
+						end,
+					}),
+				},
+			})
+		)
+		local controller = rendererLib.attach(core, root, env, adapter, {})
+		controller.initialRender()
+		local path = "/S/R/then/B"
+		expect(adapter.node(path).props.label).toBe("Ed")
+		-- the region leaves...
+		shown:set(false)
+		controller.refresh()
+		expect(adapter.node(path) == nil).toBe(true)
+		-- ...and returns: the SAME path, a NEW instance, the same verdict — and
+		-- the drawn string must be the compact form again, not the born label
+		shown:set(true)
+		controller.refresh()
+		expect(adapter.node(path).props.label).toBe("Ed")
+		controller.dispose()
+		root.dispose()
+	end)
+
 	it("a steady layout costs ZERO extra prop writes", function()
 		local core = customFactory.new()
 		local env = environment.new(core)

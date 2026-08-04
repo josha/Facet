@@ -38,6 +38,18 @@
 # the check's detail string and therefore lands in gate.json — it is recorded,
 # not silent.
 set -uo pipefail
+
+# ONE SWEEP AT A TIME (Step 8.5 phase-gate review F2: two concurrent sweeps
+# were measured writing the same roll-up and driving tools/test.sh into the
+# same artifacts, which invalidated both). mkdir is the atomic lock; a stale
+# lock from a killed sweep is cleared by hand (rmdir) — deliberate, so a crash
+# is investigated rather than papered over.
+LOCK="/tmp/luauui_prior_gates.lock"
+if ! mkdir "$LOCK" 2>/dev/null; then
+	echo "prior_gates: another sweep holds $LOCK — refusing to start a second (rmdir it if stale)" >&2
+	exit 2
+fi
+trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
 cd "$(dirname "$0")/.."
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 

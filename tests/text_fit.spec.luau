@@ -96,6 +96,40 @@ describe("text_fit.fit — the largest size that actually fits", function()
 		local unknown = textFit.fit({ text = "Rally Points", font = "NotACalibratedFace", cap = 24, width = 90 })
 		expect(`known={type(unknown.exact)}`).toBe("known=boolean")
 	end)
+
+	it("the paint-time offset shrinks the answer: a Largest player fits fewer authored px (LTN-1)", function()
+		-- the box that exactly holds the string at Medium must NOT hold it once
+		-- the engine paints +14 on top: the returned size gives the offset back
+		local spec = { text = "Sponsor a Race", font = FONT, cap = 24, width = 160 }
+		local medium = textFit.fit(spec)
+		local largest = textFit.fit({
+			text = spec.text,
+			font = spec.font,
+			cap = spec.cap,
+			width = spec.width,
+			offset = 14,
+		})
+		expect(`shrinks={largest.size < medium.size}`).toBe("shrinks=true")
+		-- the fit claim is about the PAINTED form: authored size + 14 must fit
+		-- the same box the painted Medium answer fit
+		local painted = textFit.fit({
+			text = spec.text,
+			font = spec.font,
+			cap = largest.size + 14,
+			width = spec.width,
+		})
+		expect(`paintedFits={painted.fits}`).toBe("paintedFits=true")
+	end)
+
+	it("offset zero and absent are byte-identical (the pre-8.5 answer); NaN is refused at the boundary", function()
+		local base = textFit.fit({ text = "Rally", font = FONT, cap = 24, width = 60 })
+		local zero = textFit.fit({ text = "Rally", font = FONT, cap = 24, width = 60, offset = 0 })
+		expect(`size={zero.size == base.size} fits={zero.fits == base.fits}`).toBe("size=true fits=true")
+		local ok = pcall(function()
+			return textFit.fit({ text = "Rally", font = FONT, cap = 24, width = 60, offset = 0 / 0 })
+		end)
+		expect(ok).toBe(false)
+	end)
 end)
 
 --[[ ONE NAMESPACE, ONE ARGUMENT CONVENTION (api-architecture-consistency F-31).
@@ -175,5 +209,21 @@ describe("text_fit.fit — the state of the measure at the chosen size (F-32)", 
 		expect(wide.state).toBe("pending")
 		local empty = textFit.fit({ text = "", font = FONT, cap = 20, width = 100 })
 		expect(empty.state).toBe("ready")
+	end)
+end)
+
+describe("text.fit is strict at its boundary (architecture review F-6)", function()
+	it("an unknown spec key is refused, naming it", function()
+		local ok, err = pcall(function()
+			return textFit.fit({ text = "x", font = FONT, cap = 20, width = 100, offsetx = 5 })
+		end)
+		expect(`ok={ok} names={string.find(tostring(err), "offsetx") ~= nil}`).toBe("ok=false names=true")
+	end)
+
+	it("a mistyped offset is refused, never silently measured at 0", function()
+		local ok, err = pcall(function()
+			return textFit.fit({ text = "x", font = FONT, cap = 20, width = 100, offset = "big" })
+		end)
+		expect(`ok={ok} names={string.find(tostring(err), "offset") ~= nil}`).toBe("ok=false names=true")
 	end)
 end)

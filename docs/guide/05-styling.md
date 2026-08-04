@@ -92,10 +92,23 @@ professional and neutral, renders quickly." Concretely:
   itself for viewing at a distance: the focus ring thickens
   (`tenFootFocusRingThickness`), the focused control scales up slightly
   (`tenFootFocusScale`), and content insets by TV-overscan-safe margins. The
-  current 0.4 adapter also applies an authored text-size floor, but its composition
-  with Roblox's own preferred-text behavior is under correction because the player
-  preference may currently be applied twice. The final model must apply the native
-  preference once and the authored distance treatment once;
+  authored ten-foot text scale and the player's native preference compose without
+  double application: the ten-foot factor rides both seams (measure and paint),
+  while the preference is an ADDITIVE px offset the engine paints itself and the
+  solver reserves exactly once (see the next bullet);
+- the **player's preferred text size** (Roblox settings › Text size:
+  `Medium`/`Large`/`Larger`/`Largest`) is a first-class layout input. The engine
+  paints every text node at `TextSize + offset`, where the offset is a measured
+  per-preference constant (0 / 4 / 10 / 14 px — uniform across font, weight, and
+  size). LuauUI's adapter feeds that offset into the environment
+  (`preferredTextOffset`), the solver reserves the exact painted box, and a
+  mid-session change re-solves every mounted surface in place — mount identity,
+  focus, scroll, and control state all survive. Screens declare content and
+  layout candidates and never read the preference themselves: reflow comes from
+  the same wrap/`lineLimit`/`ViewThatFits`/composition mechanisms as any other
+  geometry change, in the plan's order — reflow first, scroll the containing
+  region second, and truncation only for bounded secondary/identity text that
+  keeps its full value reachable;
 - cheap to render by default: flat fills, one stroke, no gradients, and shadows
   used only in the two depth presets described below.
 

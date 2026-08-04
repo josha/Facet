@@ -41,7 +41,9 @@ specification:
   the target cannot be mounted.
 - **OPTIONAL** — feature-detected with `~= nil`. Each absence is ONE named
   degrade, never a crash: `setActivateHandler`, `setFocusVisual`, `enableHover`,
-  `setZOrder`, `setPointerHandlers`, `setTextInputHandlers`, `setScrollRegion`,
+  `enableDisclosure` (without it, no pointer-dwell/touch-long-press disclosure
+  engagement — focus-driven disclosure still works), `setZOrder`,
+  `setPointerHandlers`, `setTextInputHandlers`, `setScrollRegion`,
   `setScrollPosition`, `observeScroll`, `getScrollPosition`, `setScrollHandler`,
   `setEngineSelection`, `setVisible`, `setDragDetector`,
   `setTouchGestureHandlers`, `setHitRect`, `measureTextWidths`,

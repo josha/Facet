@@ -6,6 +6,9 @@
 
 local UserInputService = game:GetService("UserInputService")
 local GuiService = game:GetService("GuiService")
+local TextService = game:GetService("TextService")
+
+local preferred_text = require("./preferred_text")
 
 local roblox_env = {}
 
@@ -94,6 +97,52 @@ function roblox_env.bind(env: any): () -> ()
 		})
 	end
 
+	-- PREFERRED TEXT SIZE (Step 8.5, decision LTN-1; probe artifact
+	-- artifacts/large-text-accessibility/probe/preference-probe.json): the
+	-- engine paints every text node at TextSize + a per-preference constant
+	-- pixel offset (measured Medium=0 / Large=4 / Larger=10 / Largest=14,
+	-- uniform across font, weight and size), and `GetTextBoundsAsync` answers
+	-- WITHOUT it — so reserving at `size + offset` is exact, and this one env
+	-- fact is the entire live seam. The controller applies the measured
+	-- fallback synchronously (first mount never waits), confirms each value
+	-- once through the yielding `GetTextSizeOffsetAsync` (cached; failure keeps
+	-- the fallback; a stale answer never applies), and the renderer's existing
+	-- `preferredTextOffset` watch turns a change into one re-solve of the
+	-- mounted tree — never a remount.
+	-- The multiplicative preferredTextSize fact stays 1 on the live path — it
+	-- remains the injectable test/profile seam (non-overlapping authority).
+	local CONFIRM_PROBE_SIZE = 16 -- any size works: the offset is size-independent (probe)
+	-- TWO FACES, MAX WINS (platform review F3). The probe measured the offset
+	-- as font-independent, and the env fact is one global number — so if the
+	-- platform ever made it font-dependent, a single-face confirm would push
+	-- the SMALLEST face's answer over the conservative fallback and clip every
+	-- wider face. Probing two distinct built-in families and taking the max
+	-- keeps the confirm exact today and fail-safe (over-reserving) under that
+	-- drift; a per-font offset model would be a new stage, not a silent bet.
+	local CONFIRM_FACES = {
+		"rbxasset://fonts/families/BuilderSans.json",
+		"rbxasset://fonts/families/GothamSSm.json",
+	}
+	local offsetController = preferred_text.new({
+		getOffset = function(_preference: string): number?
+			-- asks for the CURRENT live preference — the API has no per-enum
+			-- parameter; the controller's epoch guard handles the race
+			local best: number? = nil
+			for _, file in CONFIRM_FACES do
+				local ok, answer = pcall(function()
+					return TextService:GetTextSizeOffsetAsync(CONFIRM_PROBE_SIZE, Font.new(file))
+				end)
+				if ok and type(answer) == "number" then
+					best = if best == nil then answer else math.max(best, answer)
+				end
+			end
+			return best
+		end,
+		apply = function(offset: number)
+			env:set("preferredTextOffset", offset)
+		end,
+	})
+
 	local function pushAccessibility()
 		env:set("reducedMotion", GuiService.ReducedMotionEnabled)
 		env:set("preferredTransparency", GuiService.PreferredTransparency)
@@ -101,17 +150,7 @@ function roblox_env.bind(env: any): () -> ()
 			return (GuiService :: any).PreferredTextSize
 		end)
 		if okText and typeof(textSize) == "EnumItem" then
-			-- RESERVATION offsets (NS-A9; platform verifier F1 2026-07-23): the
-			-- engine applies the preference as a FIXED PIXEL OFFSET (official
-			-- text-scaling announcement — magnitude undisclosed), so the live
-			-- reservation is ADDITIVE px headroom on every measured text node.
-			-- Values are deliberately generous (over-reserve is safe; a
-			-- multiplier would under-reserve small text) until the assisted
-			-- preference sweep (review packet) measures the real offsets.
-			-- The multiplicative preferredTextSize fact stays 1 on the live
-			-- path — it remains the injectable test/profile seam.
-			local offsets: { [string]: number } = { Medium = 0, Large = 6, Larger = 10, Largest = 14 }
-			env:set("preferredTextOffset", offsets[textSize.Name] or 0)
+			offsetController:setPreference(textSize.Name)
 		end
 	end
 
@@ -153,6 +192,18 @@ function roblox_env.bind(env: any): () -> ()
 	)
 	table.insert(connections, GuiService:GetPropertyChangedSignal("ReducedMotionEnabled"):Connect(pushAccessibility))
 	table.insert(connections, GuiService:GetPropertyChangedSignal("PreferredTransparency"):Connect(pushAccessibility))
+	do
+		-- the player can change text size mid-session from the in-experience
+		-- menu (probe: the change signal fires reliably on every step, both
+		-- directions). Guarded like the read: a pre-release engine without the
+		-- property simply never fires.
+		local okSignal, textSignal = pcall(function()
+			return GuiService:GetPropertyChangedSignal("PreferredTextSize")
+		end)
+		if okSignal and textSignal ~= nil then
+			table.insert(connections, textSignal:Connect(pushAccessibility))
+		end
+	end
 	table.insert(
 		connections,
 		UserInputService.OnScreenKeyboardVisible
@@ -169,6 +220,7 @@ function roblox_env.bind(env: any): () -> ()
 	)
 
 	return function()
+		offsetController:dispose()
 		for _, connection in connections do
 			connection:Disconnect()
 		end

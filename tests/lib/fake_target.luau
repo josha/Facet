@@ -465,6 +465,20 @@ function fake_target.new(opts: Opts?)
 		handle.hoverEnabled = true
 	end
 
+	-- full-value disclosure engagement zones (Step 8.5, LTN-4): the headless
+	-- mirror records the wiring per half; specs drive the presenter's seams
+	-- directly, and the wiring specs read `discloseZones` to assert the
+	-- renderer's per-class gating. Calls MERGE per half like the real adapter.
+	function adapter.enableDisclosure(handle: any, callbacks: any)
+		handle.discloseZone = handle.discloseZone or {}
+		if callbacks.hover ~= nil and handle.discloseZone.hover == nil then
+			handle.discloseZone.hover = callbacks.hover
+		end
+		if callbacks.longPress ~= nil and handle.discloseZone.longPress == nil then
+			handle.discloseZone.longPress = callbacks.longPress
+		end
+	end
+
 	-- pointer seam (ADR-0008): capture-based routing + semantic cursor hints,
 	-- mirroring the ScreenTarget contract (down captures; moves/up route to
 	-- the captured node until release; a captured drag keeps its hint alive)

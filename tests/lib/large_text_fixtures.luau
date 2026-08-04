@@ -1,0 +1,644 @@
+--!strict
+--[[ THE LARGE-TEXT CONTROL FIXTURES — one mountable screen per
+	tests/conformance/controls_registry row (acceptance LT-8).
+
+	Split out of tests/large_text_matrix.spec so the sweep file stays readable:
+	this is the DATA (what is mounted, what truncation is declared, and why), the
+	spec is the ASSERTIONS. Nothing here runs a check; nothing there decides what
+	a control's large-text fixture should be.
+
+	Each fixture names the registry `class` it covers — several fixtures may
+	cover one row (a Button is worth sweeping in three shapes) — and any
+	`allowClipped` path prefixes whose truncation is DECLARED, each citing a gap
+	in LT_GAPS. An allowlist entry is never "this is fine": it is "the framework
+	has no way to express the fix", and tests/large_text_open_defects.luau
+	carries the failing repro for each one.
+]]
+
+local LuauUI = require("../../src") :: any
+local UI = require("../../src/blueprint")
+local resources = require("../../src/async/resources")
+local lt = require("./large_text")
+
+local fixtures = {}
+
+local PSEUDO = lt.PSEUDO
+local GERMAN = lt.GERMAN_COMPOUND
+
+--[[ THE DECLARED GAPS — found by this sweep, now CLOSED in the framework (the
+	fixtures below carry the fixes, so the sweep re-proves them every run; no
+	allowlist entries remain).
+
+	LT-G1  (FIXED) a Toggle's one-line label had no full-value path — `disclose`
+	       now rides UI.Toggle, feeding the same textFacts/plate the Text prop
+	       does (tests/text_disclosure.spec "LT-G1" describe).
+
+	LT-G2  (FIXED) table-authored text had no disclose channel — a Column's
+	       `disclose = true` now stamps its value cells and header title
+	       (tests/table.spec "Table column disclosure").
+
+	LT-G3  (AUTHORING RULE) a pinned px `rowHeight` is honored verbatim and is
+	       preference-blind by contract: pin only a height that clears
+	       (textSize + Largest offset) * lineHeight for every cell, or leave it
+	       unpinned (the default row box composes the offset automatically).
+	       An undisclosed clip from a too-short pinned row is caught by
+	       clippedEssential; the api.md Table entry states the rule.
+]]
+local LT_GAPS = { G1 = "LT-G1", G2 = "LT-G2", G3 = "LT-G3" }
+fixtures.LT_GAPS = LT_GAPS
+
+-- ── fixtures ────────────────────────────────────────────────────────────────
+-- `class` is the controls_registry row this fixture covers (several fixtures may
+-- cover one row: a Button has three shapes worth sweeping). `allowClipped` is a
+-- list of path PREFIXES whose truncation is declared, each with a gap citation.
+
+export type Fixture = {
+	id: string,
+	class: string,
+	build: (core: any, w: any) -> any,
+	allowClipped: { string }?,
+	why: string?,
+}
+
+local FIXTURES: { Fixture } = {
+	{
+		id = "Text",
+		class = "Text",
+		-- an essential status line: a phrase, so the reflow rung applies and it
+		-- must WRAP at every preference rather than ellipsize
+		build = function()
+			return UI.Text({ id = "Ctl", text = PSEUDO })
+		end,
+	},
+	{
+		id = "Text-identity-disclosed",
+		class = "Text",
+		-- the identity case done RIGHT: one unbroken name in a bounded cell,
+		-- declaring `disclose`, which is the full-value path LTN-4 shipped. This
+		-- is the fixture the plan means by "prefer declaring disclose": it
+		-- truncates and produces NO finding, because the reader can still get the
+		-- whole string.
+		build = function()
+			return UI.VStack({
+				id = "Ctl",
+				width = { type = "fixed", px = 140 },
+				children = { UI.Text({ id = "Name", text = GERMAN, disclose = true }) },
+			})
+		end,
+	},
+	{
+		id = "Button-plain",
+		class = "Button",
+		-- an ACTION label. The plan forbids it becoming an ellipsis at any
+		-- preference; a phrase has legal breaks, so the framework's answer is to
+		-- wrap and grow the button.
+		build = function()
+			return UI.Button({ id = "Ctl", label = lt.PSEUDO_ACTION })
+		end,
+	},
+	{
+		id = "Button-circle",
+		class = "Button",
+		-- shape = "circle": the drawn content is the ICON and the label stays the
+		-- semantic name, so there is no text to clip and the disc must stay on
+		-- its 1:1 target at every preference
+		build = function()
+			return UI.Button({ id = "Ctl", label = lt.PSEUDO_ACTION, shape = "circle", icon = "more" })
+		end,
+	},
+	{
+		id = "Button-compactLabel",
+		class = "Button",
+		-- the declared compact alternative: the solver measures BOTH strings in
+		-- one pass and picks per solve, so a narrow box takes the compact form
+		-- instead of cutting the full one.
+		--
+		-- 150px is chosen, not arbitrary: it is under what the FULL label needs in
+		-- either theme at any preference (214-362px), so the swap always happens,
+		-- and above what the COMPACT form needs at Largest under Fantasy
+		-- Parchment (110px), so the last rung of the ladder still fits its box. A
+		-- narrower authored width clips the compact form itself at Larger under
+		-- that package — see LT6-FIXEDPX below, which pins that boundary.
+		build = function()
+			return UI.HStack({
+				id = "Ctl",
+				gap = 8,
+				children = {
+					UI.Button({
+						id = "Save",
+						label = lt.PSEUDO_ACTION,
+						compactLabel = "OK",
+						width = { type = "fixed", px = 150 },
+					}),
+					UI.Button({
+						id = "Later",
+						label = lt.PSEUDO_SECONDARY,
+						compactLabel = "No",
+						width = { type = "fixed", px = 150 },
+					}),
+				},
+			})
+		end,
+	},
+	{
+		id = "Toggle",
+		class = "Toggle",
+		-- the one-line label form is measured, signed design; `disclose` (the
+		-- LT-G1 fix) is its declared full-value path, so the truncation files no
+		-- finding and needs no allowlist any more
+		build = function(core)
+			return UI.Toggle({ id = "Ctl", label = PSEUDO, value = core:signal(false), disclose = true })
+		end,
+	},
+	{
+		id = "TextField",
+		class = "TextField",
+		-- the placeholder is instruction text: it must reflow, never ellipsize
+		build = function()
+			return UI.TextField({ id = "Ctl", text = "", placeholder = PSEUDO })
+		end,
+	},
+	{
+		id = "Grip",
+		class = "Grip",
+		build = function()
+			return UI.Grip({
+				id = "Ctl",
+				cursorHint = "rbxasset://SizeEW",
+				focusable = true,
+				width = { type = "fixed", px = 44 },
+				height = { type = "fixed", px = 44 },
+			})
+		end,
+	},
+	{
+		id = "Slider",
+		class = "Slider",
+		build = function(core)
+			return LuauUI.newSlider(LuauUI, core, {
+				id = "Ctl",
+				label = PSEUDO,
+				value = core:signal(0.5),
+				min = 0,
+				max = 1,
+				step = 0.1,
+			}).blueprint
+		end,
+	},
+	{
+		id = "Stepper",
+		class = "Stepper",
+		build = function(core)
+			return LuauUI.newStepper(LuauUI, core, {
+				id = "Ctl",
+				label = PSEUDO,
+				value = core:signal(3),
+				min = 0,
+				max = 10,
+				step = 1,
+			}).blueprint
+		end,
+	},
+	{
+		id = "Chip",
+		class = "Chip",
+		build = function(core)
+			return LuauUI.newChip(LuauUI, core, { id = "Ctl", label = PSEUDO, selected = core:signal(false) }).blueprint
+		end,
+	},
+	{
+		id = "PopupButton",
+		class = "PopupButton",
+		build = function(core)
+			return LuauUI.newPopupButton(LuauUI, core, {
+				id = "Ctl",
+				value = core:signal("one"),
+				options = { { id = "one", label = PSEUDO }, { id = "two", label = lt.PSEUDO_SECONDARY } },
+			}).blueprint
+		end,
+	},
+	{
+		id = "Rating",
+		class = "Rating",
+		build = function(core)
+			return LuauUI.newRating(LuauUI, core, { id = "Ctl", value = core:signal(3) }).blueprint
+		end,
+	},
+	{
+		id = "Picker",
+		class = "Picker",
+		build = function(core)
+			return LuauUI.newPicker(LuauUI, core, {
+				id = "Ctl",
+				label = lt.PSEUDO_ACTION,
+				selected = core:signal("a"),
+				options = {
+					{ value = "a", label = lt.PSEUDO_ACTION },
+					{ value = "b", label = lt.PSEUDO_SECONDARY },
+				},
+			}).blueprint
+		end,
+	},
+	{
+		id = "DisclosureGroup",
+		class = "DisclosureGroup",
+		build = function(core)
+			return LuauUI.newDisclosureGroup(LuauUI, core, {
+				id = "Ctl",
+				label = lt.PSEUDO_ACTION,
+				expanded = core:signal(true),
+				content = function()
+					return UI.Text({ id = "Body", text = PSEUDO })
+				end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "ProgressView",
+		class = "ProgressView",
+		build = function(core)
+			return LuauUI.newProgressView(LuauUI, core, { id = "Ctl", value = 0.4, showValue = true }).blueprint
+		end,
+	},
+	{
+		id = "Label",
+		class = "Label",
+		build = function(core)
+			return LuauUI.newLabel(LuauUI, core, { id = "Ctl", title = PSEUDO, icon = "rbxassetid://1" }).blueprint
+		end,
+	},
+	{
+		id = "TextInput",
+		class = "TextInput",
+		build = function(core, w)
+			return LuauUI.newTextInput(LuauUI, core, {
+				id = "Ctl",
+				value = core:signal(""),
+				placeholder = PSEUDO,
+				env = w.env,
+				actionSystem = w.system,
+			}).blueprint
+		end,
+	},
+	{
+		id = "Table",
+		class = "Table",
+		build = function(core)
+			return LuauUI.newTable(LuauUI, core, {
+				id = "Ctl",
+				rows = core:signal({ { id = "a", name = PSEUDO }, { id = "b", name = GERMAN } }),
+				key = function(row: any)
+					return row.id
+				end,
+				rowHeight = 44,
+				columns = {
+					{
+						id = "name",
+						title = PSEUDO,
+						width = { type = "fill", weight = 1 },
+						value = function(row: any)
+							return row.name
+						end,
+						-- the LT-G2 fix: the column's declaration covers the
+						-- table-authored value cells AND the header title, so the
+						-- identity truncation has its full-value path and files no
+						-- finding. The px `rowHeight` stays authored (LT-G3 is an
+						-- AUTHORING rule now: a pinned row must clear the painted
+						-- text at every preference, or stay unpinned — the audit
+						-- catches an undisclosed clip either way)
+						disclose = true,
+					},
+				},
+			}).blueprint
+		end,
+	},
+	{
+		id = "VirtualList",
+		class = "VirtualList",
+		-- the identity cell done RIGHT: the CALLER owns the cell factory here, so
+		-- the unbroken name declares `disclose` and the row produces no finding —
+		-- the same fix the Table cannot express
+		build = function(core)
+			return LuauUI.newVirtualList(LuauUI, core, {
+				id = "Ctl",
+				rows = core:signal({ { id = "a", label = PSEUDO }, { id = "b", label = GERMAN } }),
+				key = function(item: any)
+					return item.id
+				end,
+				rowHeight = 44,
+				viewportHeight = 200,
+				overscan = 1,
+				cell = function(item: any)
+					return UI.Text({ id = "Label", text = item.label, disclose = true })
+				end,
+			}).blueprint
+		end,
+	},
+	{
+		id = "AsyncImage",
+		class = "AsyncImage",
+		build = function(core)
+			local provider = resources.newProvider(core)
+			return LuauUI.newAsyncImage(LuauUI, core, {
+				id = "Ctl",
+				provider = provider,
+				scope = core:scope("large-text-async"),
+				key = "avatar/1",
+			}).blueprint
+		end,
+	},
+	{
+		id = "PathShapes-ring",
+		class = "PathShapes",
+		-- pathShapes is pure math; the thing that MOUNTS is the UI.Path it feeds,
+		-- so the fixture sweeps the pair (which also covers the Path leaf row)
+		build = function()
+			return UI.Path({
+				id = "Ctl",
+				points = LuauUI.pathShapes.ring({ radius = 0.5 }),
+				width = { type = "fixed", px = 64 },
+				height = { type = "fixed", px = 64 },
+			})
+		end,
+	},
+	{
+		id = "Path",
+		class = "Path",
+		build = function()
+			return UI.Path({
+				id = "Ctl",
+				points = LuauUI.pathShapes.ring({ radius = 0.4 }),
+				width = { type = "fixed", px = 48 },
+				height = { type = "fixed", px = 48 },
+			})
+		end,
+	},
+	{
+		id = "Image",
+		class = "Image",
+		build = function()
+			return UI.Image({ id = "Ctl", image = "rbxassetid://1" })
+		end,
+	},
+	{
+		id = "Box",
+		class = "Box",
+		build = function()
+			return UI.Box({ id = "Ctl", height = { type = "fixed", px = 40 } })
+		end,
+	},
+	{
+		id = "Spacer",
+		class = "Spacer",
+		build = function()
+			return UI.VStack({
+				id = "Ctl",
+				children = { UI.Text({ id = "A", text = PSEUDO }), UI.Spacer({ id = "Gap" }) },
+			})
+		end,
+	},
+	{
+		id = "Divider",
+		class = "Divider",
+		build = function()
+			return UI.VStack({
+				id = "Ctl",
+				children = {
+					UI.Text({ id = "A", text = lt.PSEUDO_ACTION }),
+					UI.Divider({ id = "Rule" }),
+					UI.Text({ id = "B", text = lt.PSEUDO_SECONDARY }),
+				},
+			})
+		end,
+	},
+	{
+		id = "VStack",
+		class = "VStack",
+		build = function()
+			return UI.VStack({
+				id = "Ctl",
+				gap = 8,
+				children = { UI.Text({ id = "A", text = PSEUDO }), UI.Text({ id = "B", text = PSEUDO }) },
+			})
+		end,
+	},
+	{
+		id = "HStack",
+		class = "HStack",
+		build = function()
+			return UI.HStack({
+				id = "Ctl",
+				gap = 8,
+				children = {
+					UI.Text({ id = "A", text = lt.PSEUDO_ACTION }),
+					UI.Text({ id = "B", text = lt.PSEUDO_SECONDARY }),
+				},
+			})
+		end,
+	},
+	{
+		id = "ZStack",
+		class = "ZStack",
+		build = function()
+			return UI.ZStack({
+				id = "Ctl",
+				height = { type = "fixed", px = 120 },
+				children = { UI.Box({ id = "Plate" }), UI.Text({ id = "Over", text = lt.PSEUDO_ACTION }) },
+			})
+		end,
+	},
+	{
+		id = "Anchor",
+		class = "Anchor",
+		build = function()
+			return UI.Anchor({
+				id = "Ctl",
+				height = { type = "fixed", px = 120 },
+				children = { UI.Text({ id = "Pinned", text = lt.PSEUDO_ACTION, anchor = "topLeft" }) },
+			})
+		end,
+	},
+	{
+		id = "Grid",
+		class = "Grid",
+		build = function()
+			return UI.Grid({
+				id = "Ctl",
+				columns = 2,
+				minColumnWidth = "intrinsic",
+				gap = 8,
+				children = {
+					UI.Button({ id = "A", label = lt.PSEUDO_ACTION }),
+					UI.Button({ id = "B", label = lt.PSEUDO_SECONDARY }),
+				},
+			})
+		end,
+	},
+	{
+		id = "ScrollView",
+		class = "ScrollView",
+		build = function()
+			return UI.ScrollView({
+				id = "Ctl",
+				height = { type = "fixed", px = 200 },
+				children = {
+					UI.Text({ id = "A", text = PSEUDO }),
+					UI.Text({ id = "B", text = PSEUDO }),
+					UI.Text({ id = "C", text = PSEUDO }),
+				},
+			})
+		end,
+	},
+	{
+		id = "AdaptiveStack",
+		class = "AdaptiveStack",
+		build = function()
+			return UI.AdaptiveStack({
+				id = "Ctl",
+				axis = "y",
+				gap = 8,
+				children = {
+					UI.Button({ id = "A", label = lt.PSEUDO_ACTION }),
+					UI.Button({ id = "B", label = lt.PSEUDO_SECONDARY }),
+				},
+			})
+		end,
+	},
+	{
+		id = "ViewThatFits",
+		class = "ViewThatFits",
+		build = function()
+			return UI.ViewThatFits({
+				id = "Ctl",
+				children = {
+					UI.HStack({
+						id = "Row",
+						gap = 8,
+						children = {
+							UI.Button({ id = "RowSave", label = lt.PSEUDO_ACTION }),
+							UI.Button({ id = "RowLater", label = lt.PSEUDO_SECONDARY }),
+						},
+					}),
+					UI.VStack({
+						id = "Col",
+						gap = 8,
+						children = {
+							UI.Button({ id = "ColSave", label = lt.PSEUDO_ACTION }),
+							UI.Button({ id = "ColLater", label = lt.PSEUDO_SECONDARY }),
+						},
+					}),
+				},
+			})
+		end,
+	},
+	{
+		id = "Composition",
+		class = "Composition",
+		build = function()
+			return UI.Composition({
+				id = "Ctl",
+				arrangements = { "twoLane", "column" },
+				laneGap = 12,
+				groupGap = 8,
+				height = { type = "fill", weight = 1 },
+				groups = {
+					{ id = "body", lane = "main", sizing = "fill", minWidth = 200 },
+					{ id = "actions", lane = "trail", sizing = "hug" },
+				},
+				children = {
+					UI.Region({
+						id = "Status",
+						group = "body",
+						rank = 1,
+						children = { UI.Text({ id = "Line", text = PSEUDO }) },
+					}),
+					UI.Region({
+						id = "Cta",
+						group = "actions",
+						rank = 2,
+						children = { UI.Button({ id = "Go", label = lt.PSEUDO_ACTION }) },
+					}),
+				},
+			})
+		end,
+	},
+	{
+		id = "Region",
+		class = "Region",
+		-- a Region only means anything inside a Composition, so its fixture is the
+		-- Composition that gives it a box (the conformance kit does the same)
+		build = function()
+			return UI.Composition({
+				id = "Ctl",
+				arrangements = { "column" },
+				groups = { { id = "body", lane = "main", sizing = "fill" } },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Region({
+						id = "Only",
+						group = "body",
+						rank = 1,
+						sizing = "fill",
+						children = { UI.Text({ id = "Line", text = PSEUDO }) },
+					}),
+				},
+			})
+		end,
+	},
+	{
+		id = "When",
+		class = "When",
+		build = function(core)
+			return UI.When({
+				id = "Ctl",
+				condition = core:signal(true),
+				thenView = function()
+					return UI.Text({ id = "Shown", text = PSEUDO })
+				end,
+			})
+		end,
+	},
+	{
+		id = "ForEach",
+		class = "ForEach",
+		build = function(core)
+			return UI.ForEach({
+				id = "Ctl",
+				items = core:signal({ 1, 2 }),
+				key = function(item: any)
+					return tostring(item)
+				end,
+				row = function(item: any)
+					return UI.Text({ id = `row{item}`, text = PSEUDO })
+				end,
+			})
+		end,
+	},
+	{
+		id = "ErrorBoundary",
+		class = "ErrorBoundary",
+		build = function()
+			return UI.ErrorBoundary({
+				id = "Ctl",
+				view = function()
+					return UI.Text({ id = "Body", text = PSEUDO })
+				end,
+				fallback = function()
+					return UI.Text({ id = "Fallback", text = "failed" })
+				end,
+			})
+		end,
+	},
+}
+
+-- registry rows that CANNOT be a fixture, each with the reason. Silence here
+-- would be the same silent-zero the extension checker exists to prevent.
+local UNSWEEPABLE: { [string]: string } = {
+	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
+	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
+}
+
+fixtures.FIXTURES = FIXTURES
+fixtures.UNSWEEPABLE = UNSWEEPABLE
+
+return fixtures

@@ -1822,3 +1822,113 @@ describe("Table: `scrolls = false` makes it a block for a scrolling host", funct
 		expect(hasBody).toBe(true)
 	end)
 end)
+
+describe("Table column disclosure (Step 8.5 LT-G2)", function()
+	-- the default `value` cell and the header title are Texts the TABLE authors;
+	-- a column's `disclose = true` is the consumer's only way to declare their
+	-- identity strings disclosable (a custom `cell` declares its own)
+	local LONG = "Maximiliana-Wilhelmina Rennfahrerin-Steuerbord III"
+
+	local function discloseWorld(disclose: boolean?)
+		return world({
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fixed", px = 120 },
+					value = function(item: any)
+						return if item.id == "razz" then LONG else item.name
+					end,
+					disclose = disclose,
+				},
+				{
+					id = "laps",
+					title = "Laps",
+					width = { type = "fixed", px = 64 },
+					value = function(item: any)
+						return tostring(item.laps)
+					end,
+				},
+			},
+			header = true,
+		})
+	end
+
+	it("a disclosing column stamps disclose on its value cells AND its header title", function()
+		-- construction-only props never reach the adapter; the solve's textFacts
+		-- are the observable channel (the same one the presenter's plate reads)
+		local _, _, _, _, _, handle = discloseWorld(true)
+		local cell = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value")
+		expect(cell ~= nil).toBe(true)
+		expect((cell :: any).disclose).toBe(true)
+		expect((cell :: any).truncated).toBe(true) -- the LONG fixture really is cut
+		local title = handle.controller.textAt("/S/Racers/Main/Header/Head-name/Title")
+		expect(title ~= nil).toBe(true)
+		expect((title :: any).disclose).toBe(true)
+	end)
+
+	it("...and an ordinary column stamps nothing — the default is byte-identical", function()
+		local _, _, _, _, _, handle = discloseWorld(nil)
+		local cell = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value")
+		expect((cell :: any).disclose ~= true).toBe(true)
+		local laps = handle.controller.textAt("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-laps/Value")
+		expect((laps :: any).disclose ~= true).toBe(true)
+	end)
+
+	it("engaging the truncated disclosing cell presents its FULL value through the presenter", function()
+		local _, adapter, pres = discloseWorld(true)
+		pres._discloseLongPress("/S/Racers/Main/Body/Rows/[razz@0]/Row/Cells/Cell-name/Value")
+		local d = pres.disclosure()
+		expect(d.present).toBe(true)
+		expect(d.text).toBe(LONG)
+		pres._discloseLongPress(nil)
+		expect(pres.disclosure().present).toBe(false)
+	end)
+end)
+
+describe("Table column boundary is strict (architecture review F-4)", function()
+	local function build(column: any)
+		return table_control.build(LuauUI, LuauUI.newCore(), {
+			id = "T",
+			columns = { column },
+			rows = LuauUI.newCore():signal({}),
+			key = function(item: any)
+				return item.id
+			end,
+			rowHeight = 40,
+		})
+	end
+
+	it(
+		"an unknown column key is refused, naming the column — a disclose typo cannot silently drop the guarantee",
+		function()
+			local ok, err = pcall(function()
+				return build({
+					id = "name",
+					width = { type = "fixed", px = 100 },
+					value = function()
+						return "x"
+					end,
+					disclos = true,
+				})
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), "disclos") ~= nil).toBe(true)
+		end
+	)
+
+	it("a non-boolean disclose is refused with the type it got", function()
+		local ok, err = pcall(function()
+			return build({
+				id = "name",
+				width = { type = "fixed", px = 100 },
+				value = function()
+					return "x"
+				end,
+				disclose = "yes",
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "boolean") ~= nil).toBe(true)
+	end)
+end)
