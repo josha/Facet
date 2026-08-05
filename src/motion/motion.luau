@@ -50,6 +50,7 @@
 
 local springLib = require("./spring")
 local classes = require("./classes")
+local specGuard = require("../spec_guard")
 
 local motion = {}
 
@@ -58,6 +59,10 @@ local DEFAULT_QUANTUM = 0.25
 
 local KINDS: { [string]: boolean } = { decorative = true, informational = true }
 local REDUCED_FORMS: { [string]: boolean } = { snap = true, fade = true }
+-- CLOSED SPEC (constitution §4): `durationS` misspelled would silently glide over
+-- the default duration of nil, which errors — but `quantum`/`eps` misspelled would
+-- silently drop an accessibility declaration, so the whole spec is closed.
+local GLIDE_SPEC_KEYS = specGuard.keySet({ "duration", "kind", "quantum", "reducedMotion", "eps" })
 
 -- One participant in a clock step. Every hook is optional; an entry leaves the
 -- active set by calling the detach function `attach` returned (nothing else
@@ -104,6 +109,18 @@ export type TimerSpec = {
 	-- reduced motion it keeps depleting (quantized) instead of jumping to its end
 	kind: string?,
 	quantum: number?,
+}
+
+export type GlideSpec = {
+	-- seconds to cross the gap to a NEW aim. Set it to the cadence the value is
+	-- resampled at, so each sample's travel exactly fills the wait for the next.
+	duration: number,
+	-- a resampled stream is information (where a racer IS), so reduced motion
+	-- keeps it gliding at a coarser write rate rather than teleporting it
+	kind: string?,
+	quantum: number?,
+	reducedMotion: string?,
+	eps: number?,
 }
 
 export type MotionValue = {
@@ -547,6 +564,101 @@ function motion.newCounter(internals: Internals, initial: number, class: any, op
 		end,
 	}
 	return newValue(internals, whole(initial), options, driver, false)
+end
+
+-- clock:glide(initial, spec) — the RE-AIMABLE linear ramp: the value a fixed
+-- cadence resamples, which must cross each gap at CONSTANT speed.
+--
+-- WHY IT IS NOT A SPRING. A spring re-aimed on every sample is an ease-out per
+-- sample: it surges to ~2.2x average speed for a few frames and then decays to
+-- ~0.14x before the next sample re-launches it. At a 4 Hz cadence the eye reads
+-- that surge/stall cycle as stepping, and the layout solver's whole-pixel
+-- rounding turns the spring's sub-pixel tail into literally frozen frames. The
+-- Sponsor map's dots wore exactly that (director report, 2026-08-04). Duration
+-- is not the thing to match — the VELOCITY PROFILE is.
+--
+-- WHY IT IS NOT A TIMER. A timer is fire-and-forget: `setTarget` raises on it,
+-- because a countdown that could be re-aimed is not a countdown. A glide's whole
+-- job is to be re-aimed, on every sample, forever.
+--
+-- The contract: `aim(v)` restarts a FULL-duration ramp from wherever the value
+-- currently is to `v`. It never moves the value (the interruptibility invariant
+-- springs also owe), so a sample that arrives mid-flight redirects without a
+-- visible jump. `kind` defaults to "informational" — snapping a resampled stream
+-- under reduced motion would restore the very stepping this primitive removes.
+function motion.newGlide(internals: Internals, initial: number, spec: GlideSpec): MotionValue
+	if type(spec) ~= "table" then
+		error(`LuauUI motion: clock:glide takes a spec table \{ duration }, got {typeof(spec)}`, 0)
+	end
+	specGuard.assertKnownKeys("motion.glide", spec, GLIDE_SPEC_KEYS, "spec")
+	if not isFinite(initial) then
+		error("LuauUI motion: clock:glide needs a finite initial value", 0)
+	end
+	local duration = spec.duration
+	if not isFinite(duration) or duration < 0 then
+		error(`LuauUI motion: clock:glide needs a duration in seconds >= 0, got {tostring(duration)}`, 0)
+	end
+
+	-- `from` is the ramp's origin, re-seeded at every aim; `elapsed >= duration`
+	-- IS the rest state, which is why a fresh glide starts settled and costs the
+	-- clock nothing until something aims it.
+	local from, target, current = initial, initial, initial
+	local elapsed = duration
+	local driver: Driver = {
+		advance = function(dt: number): boolean
+			if elapsed >= duration then
+				current = target
+				return true
+			end
+			elapsed += dt
+			if elapsed >= duration then
+				elapsed = duration
+				current = target
+				return true
+			end
+			current = from + (target - from) * (elapsed / duration)
+			return false
+		end,
+		place = function(v: number)
+			from, target, current = v, v, v
+			elapsed = duration
+		end,
+		value = function(): number
+			return current
+		end,
+		terminus = function(): number
+			return target
+		end,
+		settled = function(): boolean
+			return elapsed >= duration
+		end,
+		aim = function(v: number)
+			-- from WHERE IT IS, not from the last target: an aim during flight must
+			-- neither teleport nor inherit a stale origin
+			from = current
+			target = v
+			elapsed = 0
+			if duration <= 0 then
+				current = v
+			end
+		end,
+		-- a linear ramp has no velocity to seed: its speed is (target - from) /
+		-- duration by definition, and accepting a seed would silently do nothing
+		seed = nil,
+		velocity = function(): number
+			if duration <= 0 or elapsed >= duration then
+				return 0
+			end
+			return (target - from) / duration
+		end,
+	}
+	local options: ValueOpts = {
+		eps = spec.eps,
+		kind = spec.kind or "informational",
+		quantum = spec.quantum,
+		reducedMotion = spec.reducedMotion,
+	}
+	return newValue(internals, initial, options, driver, false)
 end
 
 -- clock:timer(spec) — the informational ramp: `from` → `to` over `duration`

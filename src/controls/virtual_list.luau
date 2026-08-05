@@ -120,6 +120,9 @@
 --   cell (item, ctx: {scope}) -> Blueprint, width? (row width Dim),
 --   onActivate? ((item, meta) -> ()),
 --   selection? ("none" | "single"), onSelect? ((item, key) -> ()),
+--   selectionPaint? ("native" | "none" — "none" keeps the selection and drops
+--     only the row's native `selected` state, for a list whose "chosen" is
+--     carried somewhere other than the row),
 --   reorderable? (boolean), onReorder? ((key, toIndex) -> ()),
 --   reorderMotion? (motion class name | "instant"), motionClock? (a motion clock),
 --   grabOnActivate? (boolean), dropSurface? (boolean),
@@ -173,6 +176,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"rowHeight",
 	"rows",
 	"selection",
+	"selectionPaint",
 	"viewportHeight",
 	"width",
 })
@@ -237,6 +241,23 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	assert(
 		selectionMode == "none" or selectionMode == "single",
 		`VirtualList.selection must be "none" or "single" (got '{tostring(spec.selection)}')`
+	)
+	--[[ THE STATE AND ITS PAINT ARE SEPARABLE (director, 2026-08-04).
+
+		Selection normally rides the row: the list declares the native `selected`
+		state and the theme paints it (`controlSelected`). But some lists carry
+		"which one is chosen" somewhere that is not the row at all. Rascal Rally's
+		sponsor standings is the case that asked for this — the selected racer is
+		the one the CAMERA is watching, and the ruling there is that the watched row
+		paints NOTHING, byte-identical to its siblings.
+
+		`selection = "none"` cannot express that: it deletes the selection itself,
+		taking `onSelect` and `selectedKey` with it. So the paint gets its own
+		switch, defaulting to the behaviour every existing caller already has. ]]
+	local selectionPaint: string = spec.selectionPaint or "native"
+	assert(
+		selectionPaint == "native" or selectionPaint == "none",
+		`VirtualList.selectionPaint must be "native" or "none" (got '{tostring(spec.selectionPaint)}')`
 	)
 	--[[ DOES THE CURSOR FOLLOW THE ITEM OR THE SLOT? (see FOCUS POLICY in the
 		header.) A closed two-value enum, construction-only: the policy decides how
@@ -1295,11 +1316,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- (`controlSelected`), which is why a cell never has to reach for an
 				-- ELEVATION role to say "chosen", and why a theme package can
 				-- restyle selection without every consumer changing. A list with
-				-- selection off declares nothing, and its rows are byte-identical.
+				-- selection off — or with `selectionPaint = "none"`, which keeps the
+				-- state and drops only its paint — declares nothing here, and its
+				-- rows are byte-identical.
 				local hit = UI.Button({
 					id = "Hit",
 					label = "",
-					selected = if selectionMode == "none" then nil else selectedMemo(entry.key, itemScope),
+					selected = if selectionMode == "none" or selectionPaint == "none"
+						then nil
+						else selectedMemo(entry.key, itemScope),
 					focusable = true,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
@@ -1313,6 +1338,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 						-- reaches reorder through the grab verbs — Table's precedent,
 						-- which shipped the same split for the same reason.
 						declineTouch = true,
+						--[[ A WINDOWED-OUT ROW IS NOT A REMOVED ROW. This list unmounts
+							rows it is still holding — that is what virtualization is — and
+							a reorder drag deliberately SCROLLS the list, so the row being
+							dragged is routinely the one that leaves the window. Without
+							this, its own drag would cancel itself the moment it scrolled
+							past the edge. Everything hand-authored keeps the safe default
+							(vanish = end the drag); the list is the one thing that knows
+							its rows come back. ]]
+						recycled = true,
 					})
 				end
 				if rowsAreTargets then

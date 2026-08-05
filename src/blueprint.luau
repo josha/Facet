@@ -1045,7 +1045,7 @@ end
 
 -- ===== drag and drop (ADR-0022 Decision 5; SF-D1/SF-D5) =====================
 -- UI.draggable(bp, { payload, dragMotion?, proxy?, onCommitProxy?, grabAnchor?,
--- declineTouch?, promotionPx? }) and UI.dropTarget(bp, { accepts?, onDrop,
+-- declineTouch?, recycled?, promotionPx? }) and UI.dropTarget(bp, { accepts?, onDrop,
 -- onEnter?, onLeave? })
 -- are DECLARATIONS, not wiring: they ride the metadata channel and the renderer
 -- picks them up when the node mounts, which is what makes drag/drop work the

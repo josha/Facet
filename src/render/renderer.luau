@@ -2308,9 +2308,23 @@ function renderer.attach(
 							text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
 						end
 					end
-					-- exactly one re-solve per answered round, and only when the
-					-- round actually taught the measurer something
+					--[[ exactly one re-solve per answered round, and only when the
+						round actually taught the measurer something.
+
+						PUBLISH THE GENERATION FIRST (director 2026-08-04, the
+						finish-screen size pop). The re-solve fixes the SOLVER's boxes,
+						but a consumer memo that called `LuauUI.text.fit/.size/.measure`
+						has no dependency on the exact-width store — it is plain data —
+						so it evaluated once against the ESTIMATOR and nothing here
+						invalidated it. Bumping `textMeasureEpoch` is that dependency:
+						any memo that reads it re-derives once, on this frame, together
+						with the solve rather than at some arbitrary later tick. Written
+						before `solveAndApply` so the re-solve already sees the
+						re-derived values instead of needing a third pass. ]]
 					if learned and not disposed then
+						-- `env:get` answers the FACT's signal, so the current value is one
+						-- more `:get()` in (same shape as every other read in this file)
+						env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
 						solveAndApply()
 					end
 				end)

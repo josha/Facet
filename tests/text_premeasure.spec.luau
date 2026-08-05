@@ -236,6 +236,40 @@ describe("renderer: engine premeasurement round", function()
 		text_metrics.resetMeasured()
 	end)
 
+	it("publishes a MEASURE EPOCH, so a consumer memo can depend on exactness", function()
+		--[[ DIRECTOR 2026-08-04, the finish-screen size pop.
+
+			The re-solve above fixes the SOLVER's boxes. It does nothing for a
+			consumer MEMO that called `LuauUI.text.fit/.size/.measure` to derive its
+			own reservation — the exact-width store is plain, non-reactive data, so
+			such a memo has no dependency to invalidate. It evaluated once, against
+			the ESTIMATOR, and then changed at whatever arbitrary later moment some
+			unrelated dependency happened to tick. That is what a size change with no
+			visible cause is.
+
+			`textMeasureEpoch` is the missing dependency. It must bump exactly when
+			the store LEARNS something — not per frame (which would re-derive every
+			memo forever) and not per delivery (a round that taught nothing must cost
+			nothing). ]]
+		text_metrics.resetMeasured()
+		local env, root, adapter = actionSlice()
+		local epoch = env:get("textMeasureEpoch")
+		local before = epoch:get()
+		adapter.deliverTextWidths(engineWidth)
+		-- EXACTLY one, not merely "more": an epoch that over-counts re-derives
+		-- every dependent memo more often than the store actually changed
+		expect(`bumped={epoch:get() - before}`).toBe("bumped=1")
+		--[[ ...and a SECOND delivery that teaches nothing does not bump it. This is
+			the half that keeps the fact honest: an epoch that ticked on every round
+			would re-derive every dependent memo forever, which trades a pop for a
+			permanent cost. ]]
+		local settled = epoch:get()
+		adapter.deliverTextWidths(engineWidth)
+		expect(`quiet={epoch:get()}`).toBe(`quiet={settled}`)
+		root.dispose()
+		text_metrics.resetMeasured()
+	end)
+
 	it("a known vocabulary asks for nothing on later solves", function()
 		text_metrics.resetMeasured()
 		local env, root, adapter, controller = actionSlice()

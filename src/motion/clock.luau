@@ -80,6 +80,7 @@ export type Clock = {
 	spring: (self: Clock, initial: number, class: any, opts: motionValues.ValueOpts?) -> motionValues.MotionValue,
 	counter: (self: Clock, initial: number, class: any, opts: motionValues.ValueOpts?) -> motionValues.MotionValue,
 	timer: (self: Clock, spec: motionValues.TimerSpec) -> motionValues.MotionValue,
+	glide: (self: Clock, initial: number, spec: motionValues.GlideSpec) -> motionValues.MotionValue,
 	chase: (self: Clock, opts: chaseLib.Opts) -> chaseLib.Chase,
 	timeline: (self: Clock, spec: timelineLib.Spec) -> timelineLib.Timeline,
 	isReduced: (self: Clock) -> boolean,
@@ -278,6 +279,15 @@ function clock.new(core: any, opts: Opts?): Clock
 	function self.timer(_: any, spec: motionValues.TimerSpec)
 		assert(not disposed, "LuauUI motion: cannot build a timer on a disposed clock")
 		return motionValues.newTimer(internals, spec)
+	end
+
+	-- the value a fixed cadence RESAMPLES: a re-aimable ramp that crosses every
+	-- gap at constant speed. Reach for it whenever a stream of samples has to read
+	-- as continuous motion — a spring re-aimed per sample eases out inside each
+	-- gap, which the eye reads as stepping (see motion.newGlide's header).
+	function self.glide(_: any, initial: number, spec: motionValues.GlideSpec)
+		assert(not disposed, "LuauUI motion: cannot build a glide on a disposed clock")
+		return motionValues.newGlide(internals, initial, spec)
 	end
 
 	function self.chase(_: any, chaseOpts: chaseLib.Opts)

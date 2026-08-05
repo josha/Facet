@@ -58,6 +58,24 @@ local FACT_DEFAULTS: { [string]: any } = {
 	-- 1 on the live path and remains the injectable test/profile seam — the
 	-- two authorities never overlap.
 	preferredTextOffset = 0,
+	--[[ THE EXACT-WIDTH STORE'S GENERATION (director 2026-08-04, the finish-screen
+		size pop). `text_metrics`' exact-width store is plain, non-reactive data
+		filled ASYNCHRONOUSLY: the first solve of a newly presented surface uses the
+		conservative estimator, the engine answers `GetTextBoundsAsync` a few frames
+		later, and the renderer re-solves. The SOLVER re-runs and is fine — but a
+		consumer MEMO that calls `LuauUI.text.fit/.size/.measure` has no dependency
+		on a table nobody can subscribe to, so it evaluates once against the
+		estimator and is never invalidated. It then changes at an arbitrary later
+		moment, when some unrelated dependency happens to tick, which is what a
+		"pop with no cause" is.
+
+		This is that missing dependency: a counter the renderer bumps once per round
+		that actually taught the measurer something. A memo that reads it re-derives
+		exactly once when the round closes, and never again. It is deliberately a
+		plain number rather than a timestamp — the value carries no meaning beyond
+		"different from last time", and a monotonic counter is reproducible in a
+		scripted test where a clock is not. ]]
+	textMeasureEpoch = 0,
 	preferredTransparency = 1,
 	locale = "en-us",
 	-- console 10-foot facts (input-paradigms expansion): the physical display

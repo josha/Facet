@@ -714,6 +714,24 @@ function drag_registry.new(opts: Opts)
 	registry.verdict = verdict
 
 	-- ===== registration ===================================================
+	--[[ A SOURCE THAT VANISHES ENDS ITS DRAG — unless it declared itself RECYCLED.
+
+		The symmetric half of finding F5, which handled a TARGET vanishing under a
+		live drag. The source side had nothing, and the consequence is worse,
+		because the ghost is not parented to the source: the drag proxy is its own
+		screen on the presenter's scope, destroyed only when the registry is
+		disposed. So a surface that dropped its sources mid-drag left the ghost
+		painted over whatever was underneath, while the stale session refused every
+		new pickup (`arm` and the tap-to-arm path both bail while one exists) and
+		stayed committable onto anything that remounted beneath it.
+
+		`recycled` is what separates "windowed out of a live list" from "torn down"
+		— see its header in `drag_contract`. Liveness cannot: a minimised director
+		table still has a live HUD root above it.
+
+		`cancel` is the whole fix: it flies the ghost home, clears `heldSource` and
+		the verdict, and emits the same `cancel` event every other cancel affordance
+		does, so no consumer needs new vocabulary. ]]
 	function registry.registerSource(path: string, decl: any): () -> ()
 		sources[path] = decl
 		return function()
@@ -722,6 +740,9 @@ function drag_registry.new(opts: Opts)
 			end
 			if pending ~= nil and pending.path == path then
 				pending = nil
+			end
+			if live ~= nil and live.sourcePath == path and decl.recycled ~= true then
+				registry.cancel("sourceUnmounted")
 			end
 		end
 	end

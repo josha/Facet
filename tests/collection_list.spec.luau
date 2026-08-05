@@ -49,6 +49,7 @@ local function world(opts: any?)
 		viewportHeight = options.viewportHeight or 400,
 		overscan = options.overscan or 2,
 		selection = options.selection,
+		selectionPaint = options.selectionPaint,
 		onSelect = function(item: any, key: string)
 			table.insert(selections, key)
 			local _ = item
@@ -224,6 +225,38 @@ describe("unified collection: selection (SF-L1)", function()
 		w.pres.refresh()
 		expect(w.adapter.node(w.hitPath("r3")).props.selected).toBe(false)
 		expect(w.adapter.node(w.hitPath("r4")).props.selected).toBe(true)
+	end)
+
+	it("selectionPaint='none' keeps the SELECTION and drops only the PAINT", function()
+		--[[ Some lists carry "which one is chosen" in a channel that is not the row.
+			Rascal Rally's sponsor standings is the case that asked for this: the
+			selected racer is the one the CAMERA is watching, and the director ruled
+			(2026-08-03) that the watched row must paint nothing — "byte-identical to
+			its siblings". The list still owns the selection (it is what `onSelect`
+			reports and what activation moves), so `selection = "none"` is the wrong
+			instrument: it would silently delete the selection itself.
+
+			So the state and its paint are separated. Everything below is the SAME as
+			the case above except the one declaration. ]]
+		local w = world({ selection = "single", selectionPaint = "none" })
+		w.list.select("r3")
+		w.pres.refresh()
+		-- the selection is REAL...
+		expect(w.list.selectedKey:get()).toBe("r3")
+		-- ...and no row declares the native state, so no theme can paint one
+		expect(w.adapter.node(w.hitPath("r3")).props.selected).toBeNil()
+		expect(w.adapter.node(w.hitPath("r4")).props.selected).toBeNil()
+		-- and selecting elsewhere still moves it, silently
+		w.list.select("r4")
+		w.pres.refresh()
+		expect(w.list.selectedKey:get()).toBe("r4")
+		expect(w.adapter.node(w.hitPath("r4")).props.selected).toBeNil()
+	end)
+
+	it("selectionPaint refuses an unknown value (constitution §4)", function()
+		expect(function()
+			world({ selection = "single", selectionPaint = "subtle" })
+		end).toThrow()
 	end)
 
 	it("a list with selection OFF declares nothing: those rows are unchanged", function()

@@ -430,6 +430,87 @@ describe("motion clock: informational timers", function()
 	end)
 end)
 
+describe("motion clock: glides (a value RESAMPLED at a fixed cadence)", function()
+	-- WHY THIS PRIMITIVE EXISTS. A pose that arrives on a fixed poll (the Sponsor
+	-- map's 4 Hz dot samples) must cross the gap between samples at CONSTANT speed:
+	-- the eye reads a re-aimed spring's ease-out as a surge-then-stall four times a
+	-- second, which is the "jerky dots" defect the director reported 2026-08-04.
+	-- A timer cannot be re-aimed and a spring cannot hold a constant velocity, so
+	-- neither existing value could express it.
+	it("crosses the gap at CONSTANT velocity — the assertion a spring cannot pass", function()
+		local f = fixture()
+		local g = f.clock:glide(0, { duration = 0.25 })
+		g:setTarget(1)
+		local deltas: { number } = {}
+		local prev = g:get()
+		for _ = 1, 16 do -- 16 x 1/64 s = the full 0.25 s ramp
+			f.clock:step(TICK)
+			table.insert(deltas, g:get() - prev)
+			prev = g:get()
+		end
+		local lo, hi = math.huge, -math.huge
+		for _, d in deltas do
+			lo, hi = math.min(lo, d), math.max(hi, d)
+		end
+		-- an `object` spring over the same staircase swings 15.5x between its
+		-- fastest and slowest frame; linear is 1.0 by construction
+		expect(hi / lo).toBeCloseTo(1, 1e-9)
+		expect(g:get()).toBe(1)
+		expect(g:isSettled()).toBe(true)
+	end)
+
+	it("re-aiming mid-flight restarts the ramp FROM WHERE IT IS — no teleport, no stall", function()
+		local f = fixture()
+		local g = f.clock:glide(0, { duration = 0.25 })
+		g:setTarget(1)
+		stepN(f.clock, 8, TICK) -- half way
+		local mid = g:get()
+		expect(mid).toBeCloseTo(0.5, 1e-9)
+		g:setTarget(2)
+		expect(g:get()).toBe(mid) -- the aim never moves the value (interruptibility)
+		f.clock:step(TICK)
+		-- a fresh full-duration ramp from `mid` to 2: one tick of (2 - mid) / 0.25
+		expect(g:get()).toBeCloseTo(mid + (2 - mid) * (TICK / 0.25), 1e-9)
+		stepN(f.clock, 15, TICK)
+		expect(g:get()).toBe(2)
+		expect(f.clock:activeCount()).toBe(0) -- rest costs zero
+	end)
+
+	it("is INFORMATIONAL by default: under RM it keeps gliding, quantized, never snapping", function()
+		local f = fixture()
+		f.reduce()
+		local g = f.clock:glide(0, { duration = 1 })
+		expect(g:motionKind()).toBe("informational")
+		g:setTarget(1)
+		expect(g:get()).toBe(0) -- a decorative value would already be AT 1
+		stepN(f.clock, 15, TICK)
+		expect(g:get()).toBe(0) -- inside the first 250 ms tick: no write yet
+		f.clock:step(TICK)
+		expect(g:get()).toBeCloseTo(0.25, 1e-9) -- still travelling, just coarser
+		stepN(f.clock, 48, TICK)
+		expect(g:get()).toBe(1)
+	end)
+
+	it("a zero duration is legal and lands immediately (a cadence that is one frame)", function()
+		local f = fixture()
+		local g = f.clock:glide(3, { duration = 0 })
+		g:setTarget(9)
+		f.clock:step(TICK)
+		expect(g:get()).toBe(9)
+		expect(g:isSettled()).toBe(true)
+	end)
+
+	it("refuses an unknown key and a negative duration (constitution §4)", function()
+		local f = fixture()
+		expect(function()
+			f.clock:glide(0, { duration = 0.25, durationS = 0.25 } :: any)
+		end).toThrow()
+		expect(function()
+			f.clock:glide(0, { duration = -1 })
+		end).toThrow()
+	end)
+end)
+
 describe("motion clock: counters (the numeral a player reads)", function()
 	it("publishes WHOLE numbers on the way, and lands exactly on the count", function()
 		local f = fixture()

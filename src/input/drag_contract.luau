@@ -72,6 +72,29 @@ export type SourceSpec = {
 	-- inspectable"). `enabled = false` on the node itself still refuses
 	-- acquisition too, and it additionally kills the tap.
 	enabled: any?,
+	--[[ THIS NODE IS RECYCLED: its disappearance is not its REMOVAL.
+
+		One event — "the source's node stopped being mounted" — carries two
+		opposite meanings, and only the thing that unmounted it can tell them
+		apart:
+
+		  · a VIRTUALIZED list scrolled the row out of its window, or a re-sort
+		    moved it out. The row is still in the data and the drag must continue —
+		    that is what edge autoscroll and keep-visible exist to serve.
+		  · a SURFACE TORE DOWN (a `When` flipped, a pose changed). The source is
+		    gone from the world, and a session left standing paints its ghost over
+		    whatever is underneath, refuses every new pickup, and stays committable
+		    onto anything that remounts beneath it.
+
+		Liveness cannot separate them: when Rascal Rally's director table minimises,
+		the HUD root is still mounted, so "some ancestor survived" is true of BOTH.
+
+		So the declaration sits where the knowledge is. Default FALSE — a source
+		that vanishes ends its drag, which is right for anything hand-authored.
+		`VirtualList` sets it true on its own rows, because recycling is precisely
+		what it does. (Director report 2026-08-04: a card held while the director
+		view was dismissed stayed picked up outside it and could not be reached.) ]]
+	recycled: boolean?,
 	-- TOUCH ONLY: decline the pointer capture so a native scroll host under this
 	-- node keeps the pan. A row inside a `ScrollView` sets this (fighting the
 	-- engine's momentum scroll is never winnable); a card lying on a screen does
@@ -153,6 +176,7 @@ function drag_contract.source(spec: SourceSpec): SourceSpec
 		grabAnchor = spec.grabAnchor or "center",
 		armOnTap = spec.armOnTap == true,
 		declineTouch = spec.declineTouch == true,
+		recycled = spec.recycled == true,
 		enabled = spec.enabled,
 		promotionPx = if spec.promotionPx ~= nil then table.freeze(table.clone(spec.promotionPx)) else nil,
 	}) :: any

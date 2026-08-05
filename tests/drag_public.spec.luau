@@ -438,6 +438,155 @@ describe("public drag: geometry stays live (SF-D1, SF-L2)", function()
 		expect(registry.verdict:get().legal).toBe(false)
 	end)
 
+	it("removing the SOURCE mid-session CANCELS it — no orphan ghost, no wedge (F5's mirror)", function()
+		--[[ F5 above handles the TARGET vanishing under a live drag. The SOURCE
+			vanishing had no handling at all, and the consequence is worse, because
+			the ghost is not parented to the source: the drag proxy is its own screen
+			on the presenter's scope, so it outlives whatever unmounted. A surface
+			that drops its sources while a card is held left the card painted over
+			the world with nothing under it, and the stale session then refused every
+			new pickup while staying committable onto anything that remounted
+			underneath. Director report, 2026-08-04: "the card stayed picked up
+			outside director view and was inaccessible when I opened director view
+			up." ]]
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local present = core:signal(true)
+		local events: { string } = {}
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.Anchor({
+					id = "Board",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.When({
+							id = "CardWhen",
+							condition = present,
+							thenView = function()
+								return UI.draggable(
+									UI.Box({
+										id = "Card",
+										anchor = "topLeft",
+										offsetX = 0,
+										offsetY = 0,
+										width = { type = "fixed", px = 100 },
+										height = { type = "fixed", px = 60 },
+									}),
+									{ payload = "card" }
+								)
+							end,
+						}),
+					},
+				}),
+			},
+		})
+		local handle = pres.present(screen)
+		pres.refresh()
+		handle.controller.setDragCollaborators({
+			feedback = {
+				emit = function(event: string)
+					table.insert(events, event)
+				end,
+			},
+		})
+		local registry = handle.controller.dragRegistry()
+		local cardPath = "/S/Board/CardWhen/then/Card"
+		adapter.driveDragStart(cardPath, { x = 20, y = 20, pointerType = "mouse" })
+		adapter.driveDragContinue(cardPath, { x = 30, y = 20, pointerType = "mouse" }, { x = 0, y = 0 })
+		expect(registry.isActive()).toBe(true)
+
+		present:set(false)
+		pres.refresh()
+		-- the session is OVER — not merely un-targeted, as the F5 target case is
+		expect(`active={registry.isActive()}`).toBe("active=false")
+		expect(`cancelled={table.find(events, "cancel") ~= nil}`).toBe("cancelled=true")
+		--[[ ...and once the return flight ARRIVES nothing is held, so the next
+			pickup is not refused. `heldSource` deliberately outlives the cancel
+			frame — it clears on arrival, not on release — so this settles the
+			flight rather than reading it too early. ]]
+		for _ = 1, 120 do
+			pres.tick(1 / 60)
+		end
+		pres.refresh()
+		expect(`held={registry.heldSource:get()}`).toBe("held=nil")
+	end)
+
+	it("...but a RECYCLED source keeps its session: virtualization is not removal", function()
+		--[[ The other half, and the reason the rule cannot simply be "the source
+			went away". A VirtualList unmounts rows it is still holding — that is
+			what windowing IS — and a reorder drag deliberately scrolls the list, so
+			the dragged row is routinely the one that leaves. `recycled` is how the
+			only thing that knows says so. Asserted through the SAME teardown as the
+			case above, so the declaration is provably the whole difference. ]]
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local present = core:signal(true)
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.Anchor({
+					id = "Board",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.When({
+							id = "CardWhen",
+							condition = present,
+							thenView = function()
+								return UI.draggable(
+									UI.Box({
+										id = "Card",
+										anchor = "topLeft",
+										offsetX = 0,
+										offsetY = 0,
+										width = { type = "fixed", px = 100 },
+										height = { type = "fixed", px = 60 },
+									}),
+									{ payload = "card", recycled = true }
+								)
+							end,
+						}),
+					},
+				}),
+			},
+		})
+		local handle = pres.present(screen)
+		pres.refresh()
+		local registry = handle.controller.dragRegistry()
+		local cardPath = "/S/Board/CardWhen/then/Card"
+		adapter.driveDragStart(cardPath, { x = 20, y = 20, pointerType = "mouse" })
+		adapter.driveDragContinue(cardPath, { x = 30, y = 20, pointerType = "mouse" }, { x = 0, y = 0 })
+		expect(registry.isActive()).toBe(true)
+		present:set(false)
+		pres.refresh()
+		expect(`stillLive={registry.isActive()}`).toBe("stillLive=true")
+		expect(`stillHeld={registry.heldSource:get()}`).toBe(`stillHeld={cardPath}`)
+	end)
+
+	it("the source contract CARRIES `recycled` — a dropped key would be silent", function()
+		--[[ `drag_contract.source` copies the spec into a frozen table of known
+			keys rather than passing it through, so a member the copy forgets is
+			dropped with no error anywhere — which is exactly what happened to
+			`recycled` on its first cut, and it presented as "the fix does nothing".
+			The copy is worth keeping (it is what freezes and defaults the spec), so
+			this pins the membership instead. ]]
+		local dragContract = require("../src/input/drag_contract")
+		expect(`carried={dragContract.source({ payload = "p", recycled = true }).recycled}`).toBe("carried=true")
+		-- ...and it DEFAULTS false rather than nil, so the registry's check is a
+		-- boolean compare and never an accidental truthy read
+		expect(`default={dragContract.source({ payload = "p" }).recycled}`).toBe("default=false")
+	end)
+
 	it("a target inside a SCROLLED host hit-tests where it is DRAWN, not where it solved", function()
 		local core = LuauUI.newCore()
 		local env = LuauUI.newEnvironment(core)

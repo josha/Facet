@@ -1169,6 +1169,16 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	local syncDisclosureFocus: (path: string?) -> () = function() end
 	local dismissDisclosure: (reason: string) -> () = function() end
 
+	-- the path an ARMED drag session was last aimed at, so "armed follows focus"
+	-- re-aims on a focus MOVE rather than on every sync (see the block below)
+	local lastArmedAim: string? = nil
+	-- ...and whether the CURRENT armed session has been seen at all yet, so the
+	-- arming frame seeds the aim instead of counting as a move
+	local armedSeen = false
+	-- the focus this function last ran on, so the arming frame can tell "focus is
+	-- where it already was" from "arming moved focus here"
+	local prevFocusPath: string? = nil
+
 	-- one shared observer drives focus visuals across all presented handles
 	local function syncFocusVisuals(path: string?)
 		-- THE RING IS A NAVIGATION ANSWER, NOT A FOCUS ANSWER (DB-3(b)): a
@@ -1217,12 +1227,66 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- SponsorGesture §3: ghost-follows-focus). Without this, navigation
 			-- moved the ring but the session kept aiming at the hand, so a commit
 			-- landed where the pickup began.
+			--[[ …ON A FOCUS **MOVE**, NOT ON EVERY SYNC (director, 2026-08-04: "when
+				I tap to pick up a card, racers are randomly highlighted red or
+				green").
+
+				This block was written when `syncFocusVisuals` ran from ONE place: the
+				`graph.focused` observer, i.e. only when focus actually moved. Step 8
+				(desktop keyboard navigation) promoted it to a method and started
+				calling it unconditionally from `refresh()`, `engage()`, `resign()`
+				and `present()` — so "re-aim on a focus move" silently became "re-aim
+				on every frame".
+
+				That is what put a verdict wash on a row nobody aimed at. A tap that
+				ARMS deliberately skips the presenter's tap handler, so it never moves
+				focus onto the card slot; focus stays wherever it was left — most
+				often a racer row, because a successful play parks it there. The next
+				refresh then aimed the armed session at that row and painted it green
+				or red. It read as random because a pointer-origin focus move paints
+				no ring, so the player could not see where focus was standing.
+
+				Guarding on the path CHANGING restores the original meaning without
+				re-splitting the ownership decision into a second observer (round 7's
+				rule). `nil` is tracked too, so leaving and re-entering the same row
+				re-aims. ]]
 			if owns then
 				local reg = if handle.controller.peekDragRegistry ~= nil
 					then handle.controller.peekDragRegistry()
 					else nil
 				if reg ~= nil and reg.mode ~= nil and reg.mode() == "armed" then
-					reg.armTo(path)
+					if not armedSeen then
+						--[[ THE ARM ITSELF IS NOT A MOVE — but an arm that MOVES focus is.
+
+							Seed from the focus as it stood BEFORE this session armed, not
+							from the focus right now. That one distinction separates the two
+							real flows:
+
+							  · a touch tap-arm does not move focus at all (the tap path
+							    that arms deliberately skips the presenter's tap handler),
+							    so focus is still parked on whatever row the last play left
+							    it on. Seed == current => no aim, which is the director's
+							    report fixed: a pickup must not paint a row nobody chose.
+							  · a gamepad arm that lands focus on the first eligible row HAS
+							    moved it. Seed != current => aim, and the ghost hops to the
+							    row the ring just went to, exactly as before.
+
+							`prevFocusPath` is last call's focus, and this branch runs
+							before it is updated below — so it is the pre-arm value. ]]
+						armedSeen = true
+						lastArmedAim = prevFocusPath
+						if path ~= lastArmedAim then
+							lastArmedAim = path
+							reg.armTo(path)
+						end
+					elseif path ~= lastArmedAim then
+						lastArmedAim = path
+						reg.armTo(path)
+					end
+				else
+					-- no session: the next arm seeds itself again from scratch
+					armedSeen = false
+					lastArmedAim = nil
 				end
 			end
 		end
@@ -1232,6 +1296,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- will not get the next rule added to the original. A surface that is not
 		-- painting a focus ring is not presenting a focus-driven plate either.
 		syncDisclosureFocus(path)
+		-- recorded LAST, so the armed-aim seed above reads the PREVIOUS call's focus
+		prevFocusPath = path
 	end
 	core:observe(graph.focused, syncFocusVisuals)
 	-- ...and on the ORIGIN flipping under a standing focus: the first arrow press
