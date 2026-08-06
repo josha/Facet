@@ -52,6 +52,13 @@ local LuauUI = require("../src")
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 local perf_profiles = require("../bench/perf_profiles")
+-- THE SHARED LAB DEFINITIONS (roadmap Step 9, acceptance PL-12). The headless
+-- scenes below and the Roblox performance place build the SAME dataset from the
+-- SAME generator and the SAME row shape. Two independently written "dense lists"
+-- would drift, and the day they did, this budget would be guarding a workload the
+-- place does not run.
+local perf_dataset = require("../examples/performance/lab/dataset")
+local perf_rows = require("../examples/performance/lab/rows")
 local themeSnapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 
@@ -1298,5 +1305,195 @@ table.insert(
 		end,
 	})
 )
+
+-- ---------------------------------------------------------------------------
+-- Roadmap Step 9 (performance-stress-places): the LAB-LINKED scenes.
+--
+-- These are the headless half of the performance lab. They exist for two reasons
+-- and neither of them is "measure a device":
+--
+--   1. REGRESSION SCREENING. The lab's workload runs on every `tools/perf.sh`, so
+--      a framework change that makes the dense list more expensive reddens the
+--      gate on the development host long before anyone opens Studio.
+--   2. A FALSIFIABLE GATE. `prove_perf_gate` injects a regression into a named
+--      scene; a lab-linked scene is what makes that proof about the workload this
+--      stage actually cares about.
+--
+-- They are TREND EVIDENCE ONLY, like every other scene here: no engine, no frame,
+-- no device. The place is where engine cost is measured and only a phone can
+-- close the device budget.
+local function labStack(profile)
+	local core, env, system, adapter, pres = newStack(profile)
+	local provider = LuauUI.newResourceProvider(core)
+	return core, env, system, adapter, pres, provider
+end
+
+local function labList(core: any, pres: any, provider: any, items: { any }, viewportHeight: number, profile: any)
+	local rowsSignal = core:signal(items)
+	local ownerScope = core:scope("perf-scene-rows")
+	local values: { [string]: any } = {}
+	local toggles: { [string]: any } = {}
+	-- THE SAME ARRANGEMENT DECISION THE PLACE MAKES (2026-08-05). The reference profile
+	-- is `floorAndroid` at 360x640 — a compact phone — so before this, every headless
+	-- number for these two scenes was measured on a row overflowing its box by 132px.
+	-- The work was real work, but the layout was not one anybody would ship, and a
+	-- budget taken from it was guarding the wrong thing. Sharing `compactFor` is the
+	-- whole point of sharing the row module.
+	local compact = perf_rows.compactFor(profile.viewport.w)
+	local list = LuauUI.newVirtualList(LuauUI, core, {
+		id = "Rows",
+		rows = rowsSignal,
+		key = function(item: any)
+			return item.id
+		end,
+		rowHeight = perf_rows.heightFor(compact),
+		rowGap = perf_rows.ROW_GAP,
+		viewportHeight = viewportHeight,
+		overscan = perf_rows.OVERSCAN,
+		selection = "single",
+		cell = function(item: any, cellCtx: any)
+			return perf_rows.cell(LuauUI, core, item, {
+				scope = cellCtx.scope,
+				ownerScope = ownerScope,
+				provider = provider,
+				values = values,
+				toggles = toggles,
+				compact = compact,
+			})
+		end,
+	})
+	pres.present(UI.Screen({ id = "PerfWorkload", padding = 8, gap = 6, children = { list.blueprint } }))
+	pres.refresh()
+	return list, rowsSignal
+end
+
+-- LAB-1: the principal dense-scroll workload, headless.
+table.insert(scenes, {
+	name = "lab-dense-scroll",
+	requirement = "UI-PERF-001",
+	dataset = `perf-lab shared dataset (seed 1, 2000 rows, {perf_dataset.VERSION}) x {perf_rows.VERSION} `
+		.. "(image + 2 text + toggle + stepper + button); 61px scroll + refresh per iter",
+	samples = 120,
+	warmup = 30,
+	setup = function(profile)
+		local core, _env, _sys, adapter, pres, provider = labStack(profile)
+		local items = perf_dataset.build({ count = 2000, seed = 1, content = "normal" })
+		local viewportHeight = math.max(120, profile.viewport.h - 80)
+		local list = labList(core, pres, provider, items, viewportHeight, profile)
+		return {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			list = list,
+			provider = provider,
+			y = 0,
+			viewportHeight = viewportHeight,
+			compact = perf_rows.compactFor(profile.viewport.w),
+			digest = perf_dataset.digest(items),
+		}
+	end,
+	run = function(state)
+		-- 61px, deliberately not a row multiple (same reasoning as
+		-- virtual-list-scroll): every iteration lands on a fresh partial boundary
+		state.y += 61
+		local extent = 2000 * (perf_rows.heightFor(state.compact) + perf_rows.ROW_GAP) - state.viewportHeight
+		if state.y > extent then
+			state.y = 0
+		end
+		local t0 = os.clock()
+		state.list.scrollTop:set(state.y)
+		local scroll = os.clock() - t0
+		local t1 = os.clock()
+		state.pres.refresh()
+		return { scroll = scroll, commit = os.clock() - t1 }
+	end,
+	teardown = function(state)
+		state.list.dispose()
+	end,
+	extras = function(state)
+		local n = 0
+		for _ in state.list.debugWindow() do
+			n += 1
+		end
+		return {
+			windowedRows = n,
+			-- the SAME bound the place asserts, computed from the same arithmetic,
+			-- so a windowing regression fails here as well as there
+			windowBound = perf_rows.expectedWindow(state.viewportHeight, state.compact),
+			logicalRows = 2000,
+			datasetVersion = perf_dataset.VERSION,
+			rowVersion = perf_rows.VERSION,
+			datasetDigest = state.digest,
+		}
+	end,
+})
+
+-- LAB-2: collection churn over the same dataset — insert, remove and reorder
+-- while the window holds. Separated from the scroll scene because the two have
+-- different invalidation shapes and blending them hides which one moved.
+table.insert(scenes, {
+	name = "lab-collection-churn",
+	requirement = "UI-RUNTIME-002",
+	dataset = `perf-lab shared dataset (seed 1, 800 rows, {perf_dataset.VERSION}) x {perf_rows.VERSION}; `
+		.. "one insert + one remove + one reorder + refresh per iter",
+	samples = 100,
+	warmup = 25,
+	setup = function(profile)
+		local core, _env, _sys, adapter, pres, provider = labStack(profile)
+		local items = perf_dataset.build({ count = 800, seed = 1, content = "normal" })
+		local viewportHeight = math.max(120, profile.viewport.h - 80)
+		local list, rowsSignal = labList(core, pres, provider, items, viewportHeight, profile)
+		return {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			list = list,
+			rowsSignal = rowsSignal,
+			viewportHeight = viewportHeight,
+			compact = perf_rows.compactFor(profile.viewport.w),
+			n = 0,
+		}
+	end,
+	run = function(state)
+		state.n += 1
+		local t0 = os.clock()
+		local items = table.clone(state.rowsSignal:get())
+		local at = math.max(1, math.floor(#items * 0.25))
+		table.insert(items, at, {
+			id = `ins{state.n}`,
+			name = `Inserted {state.n}`,
+			detail = "inserted during churn",
+			team = "Ember",
+			imageKey = perf_dataset.IMAGE_KEYS[(state.n % #perf_dataset.IMAGE_KEYS) + 1],
+			value = 0.5,
+			enabled = true,
+			rank = at,
+		})
+		table.remove(items, math.max(1, math.floor(#items * 0.6)))
+		local moved = table.remove(items, math.max(1, (state.n * 7) % #items))
+		table.insert(items, math.max(1, ((state.n * 7) % #items) + 3), moved)
+		local mutate = os.clock() - t0
+		local t1 = os.clock()
+		state.rowsSignal:set(items)
+		state.pres.refresh()
+		return { mutate = mutate, commit = os.clock() - t1 }
+	end,
+	teardown = function(state)
+		state.list.dispose()
+	end,
+	extras = function(state)
+		local n = 0
+		for _ in state.list.debugWindow() do
+			n += 1
+		end
+		return {
+			windowedRows = n,
+			windowBound = perf_rows.expectedWindow(state.viewportHeight, state.compact),
+			logicalRows = #state.rowsSignal:get(),
+			datasetVersion = perf_dataset.VERSION,
+			rowVersion = perf_rows.VERSION,
+		}
+	end,
+})
 
 return scenes

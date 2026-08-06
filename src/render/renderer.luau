@@ -15,6 +15,7 @@
 -- write only rects that actually changed (minimal-write contract).
 
 local solver = require("../layout/solver")
+local profile = require("../core/profile")
 local text_metrics = require("../layout/text_metrics")
 local authority = require("./authority")
 local controlContract = require("../controls/contract")
@@ -927,10 +928,19 @@ export type RendererAttachOpts = {
 	-- wired, focus-driven disclosure still works through the presenter).
 	onDiscloseHover: ((path: string?) -> ())?,
 	onDiscloseLongPress: ((path: string?) -> ())?,
+	recycleInstances: boolean?,
+	incrementalLayout: boolean?,
 }
 
-local ATTACH_OPTS_KEYS =
-	specGuard.keySet({ "engineSelectionBridge", "onNodeTap", "rootPolicy", "onDiscloseHover", "onDiscloseLongPress" })
+local ATTACH_OPTS_KEYS = specGuard.keySet({
+	"engineSelectionBridge",
+	"onNodeTap",
+	"rootPolicy",
+	"onDiscloseHover",
+	"onDiscloseLongPress",
+	"recycleInstances",
+	"incrementalLayout",
+})
 
 -- attach(core, mountedRoot, env, adapter, opts) -> controller
 function renderer.attach(
@@ -1314,7 +1324,41 @@ function renderer.attach(
 		end
 		return adapter.setDragDetector(handle, handlers)
 	end
-	local stats = { creates = 0, removes = 0, rectWrites = 0, propWrites = 0, solves = 0, textMeasureBatches = 0 }
+	local stats = {
+		creates = 0,
+		removes = 0,
+		rectWrites = 0,
+		propWrites = 0,
+		solves = 0,
+		textMeasureBatches = 0,
+		-- recycling: `parked` counts nodes taken out of the tree intact rather than
+		-- destroyed; `recycled` counts creates served from the pool instead of the
+		-- engine. Both stay 0 unless the feature is on, which makes "is it actually
+		-- doing anything" a readable number rather than an inference.
+		parked = 0,
+		recycled = 0,
+		-- diagnostics for "why is recycling doing nothing": whether the feature is
+		-- armed at all, and how many park attempts the ADAPTER refused
+		recycleArmed = false,
+		parkRefused = 0,
+		-- nodes the MOST RECENT solve arranged / measured
+		lastArranged = 0,
+		lastMeasured = 0,
+		-- solves served by re-solving one absorbing box instead of the whole tree
+		partialSolves = 0,
+		elided = 0,
+		ssPasses = 0,
+		ssEnsureTree = 0,
+		ssRetire = 0,
+		ssLivePaths = 0,
+		ssSweep = 0,
+		ssZOrder = 0,
+		-- structuralSync phase timings, ms accumulated. MEASURED rather than assumed:
+		-- the pass was believed to be O(all live nodes), and it is not — the no-op walk
+		-- is ~6% of it and the rest is per-NEW-NODE setup. Kept so that stays visible.
+		ssTotal = 0,
+		lastSkipped = 0,
+	}
 	local lastDiagnostics: { any } = {}
 	-- the last solve's composition resolutions, by node path (ADR-0023). A solve
 	-- OUTPUT, exposed exactly where the other two live (`diagnostics`,
@@ -1333,6 +1377,19 @@ function renderer.attach(
 	local textInFlight: { [string]: boolean } = {}
 	local disposed = false
 	-- paths whose subtree the solver hid this pass (losing ViewThatFits candidates)
+	-- THE STRUCTURE EPOCH (2026-08-05). Monotonic; bumped by exactly the two things
+	-- that can change what the focus map derives to for a given tree: a structural
+	-- sync (nodes mounted/unmounted/reordered) and a change in which roots are HIDDEN
+	-- (a ViewThatFits candidate losing at a new width does that without any structural
+	-- churn at all, which is why the second half is not optional).
+	--
+	-- It exists because `presenter.refresh` re-derived the whole focus map from a full
+	-- tree walk plus a traversal-rank sort EVERY frame, for EVERY presented surface,
+	-- whether or not anything had moved. Measured on the ornate dense-scroll at
+	-- 360x691: 478 derivations across 120 frames, 78.4 ms — 20% of all LuauUI work in
+	-- the frame, and the great majority of it re-deriving a map identical to the one
+	-- already installed.
+	local structureEpoch = 0
 	local hiddenRoots: { [string]: boolean } = {}
 	-- the expanded hit rect currently pushed per path (nil = none needed)
 	local lastHitRects: { [string]: any } = {}
@@ -1428,6 +1485,107 @@ function renderer.attach(
 		end
 	end
 
+	-- ---- INSTANCE RECYCLING (opt-in, default OFF) ---------------------------
+	--
+	-- A windowed list destroys a row at one end and builds an identical one at the
+	-- other, every time the window slides, for no reason except that the PATH
+	-- changed. Measured on this engine: build one 24-object row 0.252 ms, destroy
+	-- it 0.045 ms, rewrite the same objects' properties 0.024 ms — **12x**. The
+	-- structural pass (`LuauUI/mount`) was 0.66-0.97 ms/frame at every viewport,
+	-- the largest single component of a frame.
+	--
+	-- OFF BY DEFAULT and feature-detected on both sides. The adapter must offer
+	-- `park`/`adopt`/`discardParked`, and `park` refuses any node carrying
+	-- adapter-owned, path-keyed state (decoration, chrome text, toggle parts,
+	-- stroke, motion scale, clip-host role, presentation transform). A refusal
+	-- falls straight through to the ordinary remove, so the feature can only ever
+	-- do nothing — never something different.
+	-- ON BY DEFAULT; pass `recycleInstances = false` to opt out. It only ever avoids
+	-- work: `park` refuses any node it cannot take intact and the refusal falls
+	-- through to the ordinary remove, so the worst case is one boolean test per
+	-- create and per remove.
+	--
+	-- WHY ON: the saving is proportional to CHURN, and churn is not what a creeping
+	-- scroll does — it is what a FLING does. Measured on this workload: a steady
+	-- scroll retires 2.8 objects/frame (0.035 ms/frame saved, inside the noise),
+	-- while a seek that replaces the whole window retires 62.9 objects per jump
+	-- (0.78 ms saved per jump, at a measured 12.4 us of engine work per object).
+	-- On a low-end Android that avoided work is several times more expensive again,
+	-- and it lands on exactly the frames a list feels worst on.
+	local recycleEnabled = (opts == nil or opts.recycleInstances ~= false)
+		and adapter.park ~= nil
+		and adapter.adopt ~= nil
+		and adapter.discardParked ~= nil
+	-- key: the CREATION-TIME facts the adapter baked into the object. Class decides
+	-- the engine class; the decoration hint decides its skin; canvasGroup decides
+	-- the class outright. Two nodes agreeing on all three are interchangeable as
+	-- far as construction goes — everything else is a property write the renderer
+	-- is about to make anyway, because every per-path cache died with the old path.
+	stats.recycleArmed = recycleEnabled
+	local recyclePool: { [string]: { any } } = {}
+	-- the key each live path was BUILT with. Recorded at create because the dying
+	-- node's decoration hint is not available at remove time: `pathNodes` is cleared
+	-- and refilled with LIVE paths before the sweep, so a dying path reads nil there
+	-- and every parked handle would land in a bucket no create ever looks in.
+	local recycleKeyOf: { [string]: string } = {}
+	local recyclePooled = 0
+	local RECYCLE_POOL_CAP = 64
+	-- THE KEY INCLUDES THE DECLARED PROPERTY SET, and that is what makes carrying the
+	-- property caches sound.
+	--
+	-- Adoption now writes only the properties that DIFFER from what the instance
+	-- already holds. That is only safe if every property on the instance is one the
+	-- new node also declares — otherwise a property the OLD identity set and the new
+	-- one does not would survive, and nothing would ever clear it. (Proven, not
+	-- assumed: the ragged case in `instance_recycling.spec` exists precisely because
+	-- rows with different property sets are where that bug lives.)
+	--
+	-- So two nodes share a pool bucket only if they agree on class, decoration hint,
+	-- canvasGroup AND the exact set of property names they declare. In a virtualized
+	-- list every row comes from one blueprint, so they all agree and the pool works;
+	-- anything else simply does not match and takes the ordinary create path.
+	local propSigCache: { [any]: string } = {}
+	local function propSignature(node: any): string
+		local props = node.props
+		if props == nil then
+			return ""
+		end
+		local hit = propSigCache[props]
+		if hit ~= nil then
+			return hit
+		end
+		local names = {}
+		for name in props do
+			table.insert(names, name)
+		end
+		table.sort(names)
+		local sig = table.concat(names, ",")
+		propSigCache[props] = sig
+		return sig
+	end
+	local function recycleKey(class: string, hint: any, canvasGroup: boolean, propSig: string): string
+		return `{class}\0{tostring(hint)}\0{tostring(canvasGroup)}\0{propSig}`
+	end
+	local function drainRecyclePool()
+		if recyclePooled == 0 then
+			return
+		end
+		for _, bucket in recyclePool do
+			for _, handle in bucket do
+				adapter.discardParked(handle)
+			end
+		end
+		table.clear(recyclePool)
+		recyclePooled = 0
+	end
+
+	-- FORWARD. The per-path property caches are declared throughout this file, well
+	-- after `ensureTree` — so the park/adopt handlers that move them are declared here
+	-- and defined once every cache exists. (Assigning them inline read `lastTextSize`
+	-- as nil and took out 47 cases.)
+	local captureParkedProps: (path: string) -> any
+	local restoreParkedProps: (path: string, carried: any) -> ()
+
 	local function ensureTree(node: any)
 		if handles[node.path] == nil then
 			-- The DECORATION HINT rides the blueprint's internal `meta` channel
@@ -1445,9 +1603,50 @@ function renderer.attach(
 			if node.props ~= nil and node.props.canvasGroup == true then
 				createOpts = { canvasGroup = true }
 			end
-			handles[node.path] =
-				adapter.create(rootHandle, node.path, node.class, chrome_slots.readHint(node), createOpts)
-			stats.creates += 1
+			local hint = chrome_slots.readHint(node)
+			local adopted: any = nil
+			if recycleEnabled then
+				local key = recycleKey(node.class, hint, createOpts ~= nil, propSignature(node))
+				local bucket = recyclePool[key]
+				if bucket ~= nil and #bucket > 0 then
+					local candidate = table.remove(bucket)
+					recyclePooled -= 1
+					-- ADOPT MAY REFUSE. It is the adapter's judgement, not ours, and a
+					-- refusal must cost nothing but a fresh create — so the candidate is
+					-- discarded rather than pushed back, which would let one permanently
+					-- un-adoptable handle be retried on every create forever.
+					if adapter.adopt(candidate, node.path, node.class) then
+						adopted = candidate
+						-- restore the instance's own property record under its new path,
+						-- so `applyProps` writes only what actually differs
+						local carried = candidate.parkedProps
+						if carried ~= nil then
+							candidate.parkedProps = nil
+							restoreParkedProps(node.path, carried)
+						end
+					else
+						candidate.parkedProps = nil
+						adapter.discardParked(candidate)
+					end
+				end
+			end
+			if adopted ~= nil then
+				handles[node.path] = adopted
+				stats.recycled += 1
+			else
+				local made = adapter.create(rootHandle, node.path, node.class, hint, createOpts)
+				handles[node.path] = made
+				stats.creates += 1
+				-- nodes the adapter declined to give an engine object. Counted so a
+				-- runtime disable is visible: the source-shape test can only see that
+				-- the RULE exists, not that it is switched on.
+				if made ~= nil and made.elided == true then
+					stats.elided += 1
+				end
+			end
+			if recycleEnabled then
+				recycleKeyOf[node.path] = recycleKey(node.class, hint, createOpts ~= nil, propSignature(node))
+			end
 			applyProps(handles[node.path], node)
 			-- the engine text inset must MATCH the solver's padding (the adapter
 			-- used to hardcode 12px, which rendered a 22px star button's glyph
@@ -1921,6 +2120,38 @@ function renderer.attach(
 	-- Minimal-write: the verdict is cached per path, so a steady layout costs zero
 	-- writes and a node with no compact form is never visited twice.
 	local lastCompact: { [string]: boolean } = {}
+
+	-- The instance's own property record, moved with it across a recycle. These say
+	-- what the ENGINE OBJECT holds, so they stay true when the path changes — which is
+	-- what lets adoption write only the differences.
+	--
+	-- TWO ARE DELIBERATELY EXCLUDED, and the difference is worth stating: a cache may
+	-- be carried only if it records a VALUE the instance holds. `solverHidden` is a
+	-- verdict about the node. `lastCompact` looks like a value and is not — it gates
+	-- `applyCompactLabel`, whose WRITE depends on the new node's label, so a carried
+	-- `true` skips re-applying a different row's glyph and the previous row's label
+	-- survives. (Caught by "a REMOUNTED button gets its verdict re-applied", which is
+	-- itself the pin for a defect found live on RascalRally's watch-cycle buttons.)
+	captureParkedProps = function(path: string): any
+		return {
+			rect = lastRects[path],
+			z = lastZ[path],
+			textSize = lastTextSize[path],
+			textFont = lastTextFont[path],
+			padding = lastPadding[path],
+			visible = lastVisible[path],
+			hitRect = lastHitRects[path],
+		}
+	end
+	restoreParkedProps = function(path: string, carried: any)
+		lastRects[path] = carried.rect
+		lastZ[path] = carried.z
+		lastTextSize[path] = carried.textSize
+		lastTextFont[path] = carried.textFont
+		lastPadding[path] = carried.padding
+		lastVisible[path] = carried.visible
+		lastHitRects[path] = carried.hitRect
+	end
 	local function applyCompactLabel(rects: any)
 		local function walk(node: any)
 			if node.class == "Button" and #node.children == 0 and handles[node.path] ~= nil then
@@ -1950,6 +2181,29 @@ function renderer.attach(
 		end
 		walk(root.node)
 	end
+
+	-- the inputs of the most recent solve, for the opt-in boundary analysis below
+	local lastSolveInputs: any = nil
+
+	-- ---- INCREMENTAL LAYOUT, STAGE 2 v2 — SKIP SUBTREES INSIDE ONE SOLVE -------
+	--
+	-- v1 re-solved the boundary subtree as its own ROOT and it could not be made
+	-- correct: a sub-solve gets a fresh `ctx` (no `hasScroll`, `hiddenDepth` 0, zeroed
+	-- insets) and a screen-root policy applied to a node that is not a screen. Ten
+	-- existing cases found ten ways that mattered, starting with a `percent` box
+	-- resolving its fraction against itself.
+	--
+	-- v2 keeps ONE solve from the root — same traversal, same ctx, same policies — and
+	-- lets the solver SKIP a subtree it can prove cannot have changed: no dirty node
+	-- inside it, and the same offer/rect it had last time. Nothing is re-based,
+	-- re-rooted or re-parented, so there is no second context to disagree with the
+	-- first. The published verdicts and diagnostics for a skipped subtree are replayed
+	-- from the previous result, which is exactly the mechanism the measure memo in
+	-- `solver.measure` already uses (and which a differential fuzz once caught
+	-- returning geometry without them).
+	local incrementalEnabled = opts == nil or (opts :: any).incrementalLayout ~= false
+	local lastResult: any = nil
+	local dirtyContains: { [string]: boolean }? = nil
 
 	local function solveAndApply()
 		stats.solves += 1
@@ -2042,302 +2296,352 @@ function renderer.attach(
 		-- path and the paint seam must all resolve the same theme, or a swap
 		-- landing mid-solve would measure one theme and paint another
 		local metrics = currentMetrics()
-		local result = solver.solve(
-			toLayoutNode(root.node, metrics, measureScale, prefOffset),
-			{ w = vp.w, h = vp.h },
-			{
-				safeInsets = insets,
-				rootPolicy = rootPolicy,
-				scrollBarReserve = barReserve,
-				metrics = metrics,
-			}
-		)
-		local textRequests = text_metrics.endCollect()
-		lastDiagnostics = result.diagnostics
-		applyTextScale(paintScale, metrics)
-		applyPadding(metrics)
-		applyCompactLabel(result.rects)
-		-- hidden subtrees (A-AL1): a ViewThatFits candidate that lost keeps its
-		-- mount but must not be reachable. The solver marks the losing candidate
-		-- roots; the presenter reads this set to exclude them from focus order,
-		-- so navigation can never land on an invisible control.
-		local nextHidden: { [string]: boolean } = {}
-		local nextCompositions: { [string]: any } = {}
-		local nextTextFacts: { [string]: any } = {}
-		for path, entry in result.rects do
-			if entry.hidden == true then
-				nextHidden[path] = true
-			end
-			if entry.composition ~= nil then
-				nextCompositions[path] = entry.composition
-			end
-			if entry.textFacts ~= nil then
-				nextTextFacts[path] = entry.textFacts
-			end
+		local layoutRoot = toLayoutNode(root.node, metrics, measureScale, prefOffset)
+		local solveOpts = {
+			safeInsets = insets,
+			rootPolicy = rootPolicy,
+			scrollBarReserve = barReserve,
+			metrics = metrics,
+		}
+		-- kept so the Stage-1 boundary analysis can re-solve the SAME tree with the
+		-- SAME offers; an analysis run against a differently-built tree would be
+		-- measuring something other than what shipped
+		lastSolveInputs = { layoutRoot = layoutRoot, viewport = { w = vp.w, h = vp.h }, opts = solveOpts }
+		if incrementalEnabled and lastResult ~= nil and dirtyContains ~= nil then
+			solveOpts.reuse = { previous = lastResult, dirtyContains = dirtyContains }
 		end
-		lastCompositions = nextCompositions
-		lastTextFacts = nextTextFacts
-		hiddenRoots = nextHidden
-		-- a hidden candidate must not PAINT. A zero rect was not enough: text still
-		-- wrapped and drew inside a 0px box (found live in the adaptive_controls
-		-- capture, where the losing action column's labels ran down the screen edge).
-		if adapter.setVisible ~= nil then
-			local function rectFor(path: string): any
-				return paintedRectIn(result.rects, path)
-			end
-			local function pushVisible(node: any, hidden: boolean)
-				local isHidden = hidden or nextHidden[node.path] == true
-				solverHidden[node.path] = isHidden
-				-- RS-PATHCLIP: a stroked path outside its clip host is culled. It is
-				-- decided per NODE and never inherited (a Path is a leaf, and the
-				-- solver's own verdict is what descends), so the walk keeps carrying
-				-- `isHidden` down and this only widens the write for the path itself.
-				-- ...and a presenter PAINT HOLD (auto reveal) is a per-node veto the
-				-- same way: never inherited, never contradicting the solver.
-				local wantHidden = isHidden or paintHeld[node.path] == true
-				if not wantHidden and pathNodes[node.path] == true and pathEscapesClip(node.path, rectFor) then
-					wantHidden = true
-				end
-				local handle = handles[node.path]
-				if handle ~= nil and lastVisible[node.path] ~= not wantHidden then
-					adapter.setVisible(handle, not wantHidden)
-					lastVisible[node.path] = not wantHidden
-				end
-				for _, child in node.children do
-					pushVisible(child, isHidden)
-				end
-			end
-			pushVisible(root.node, false)
+		local result = solver.solve(layoutRoot, { w = vp.w, h = vp.h }, solveOpts)
+		if result.work ~= nil and (result.work.skipped or 0) > 0 then
+			stats.partialSolves += 1
+			stats.lastSkipped = result.work.skipped
 		end
-		-- B-BTN3: enforce the effective target floor in HIT geometry. The visual
-		-- rect is deliberately untouched — flooring the painted size would silently
-		-- rewrite shipped design (a 22px icon button would double) — so the
-		-- framework separates what the player SEES from what the player can HIT.
-		-- Feature-detected: an adapter without the seam keeps today's behaviour.
-		if adapter.setHitRect ~= nil then
-			-- RS-A16-D1 (found live by the rich-skinning-v2 matrix drive, under the
-			-- FLAT default, with real injected clicks): this walk used to ignore the
-			-- `nextHidden` set the visibility walk just built. A hidden candidate
-			-- solves to zero width, so every control inside it fell under the floor
-			-- and the renderer ASKED for an expanded hit rect — a live activation
-			-- surface for a control the player cannot see, which in the real adapter
-			-- sits at the ScreenGui root and out-ranked the VISIBLE winner's buttons.
-			-- Hiddenness is carried down the walk (the solver marks the candidate
-			-- ROOT only) exactly as `pushVisible` carries it, and a hidden node takes
-			-- the SAME diff path with `want = nil`, so a node that BECOMES hidden has
-			-- its expander retracted rather than merely left un-refreshed.
-			local function pushHitRects(node: any, hidden: boolean)
-				local isHidden = hidden or nextHidden[node.path] == true
-				-- the same reading the solve was handed as `hitFloor` (see
-				-- `effectiveHitFloor`): the contract declares the floor exists, the
-				-- theme owns its value, and it clamps up only
-				local floor = effectiveHitFloor(node.class, metrics)
-				if floor ~= nil then
-					local entry = result.rects[node.path]
+		lastResult = result
+		-- the last solve's work, surfaced through `controller.stats()`. This is what
+		-- makes "one changed value re-laid-out the whole tree" a testable claim rather
+		-- than something you have to instrument the solver to see.
+		if result.work ~= nil then
+			stats.lastArranged = result.work.arranged
+			stats.lastMeasured = result.work.measured
+		end
+		-- MICROPROFILER PHASE `LuauUI/commit` (roadmap Step 9): the ADAPTER COMMIT —
+		-- everything between a finished solve and a frame the player can see. Visibility,
+		-- hit rects, rects, scroll regions, z-order, transforms and the text-measurement
+		-- follow-up all live here. It is deliberately ONE scope for the whole pass rather
+		-- than one per write class: the question a capture asks is "is the framework's
+		-- output cheap relative to its solve", and eight sibling bars answer it worse than
+		-- one. `measure`/`arrange` are nested INSIDE the enclosing solve and remain
+		-- separately named, so inclusive-minus-exclusive still separates the two halves.
+		profile.span("commit", function()
+			local textRequests = text_metrics.endCollect()
+			lastDiagnostics = result.diagnostics
+			applyTextScale(paintScale, metrics)
+			applyPadding(metrics)
+			applyCompactLabel(result.rects)
+			-- hidden subtrees (A-AL1): a ViewThatFits candidate that lost keeps its
+			-- mount but must not be reachable. The solver marks the losing candidate
+			-- roots; the presenter reads this set to exclude them from focus order,
+			-- so navigation can never land on an invisible control.
+			local nextHidden: { [string]: boolean } = {}
+			local nextCompositions: { [string]: any } = {}
+			local nextTextFacts: { [string]: any } = {}
+			for path, entry in result.rects do
+				if entry.hidden == true then
+					nextHidden[path] = true
+				end
+				if entry.composition ~= nil then
+					nextCompositions[path] = entry.composition
+				end
+				if entry.textFacts ~= nil then
+					nextTextFacts[path] = entry.textFacts
+				end
+			end
+			lastCompositions = nextCompositions
+			lastTextFacts = nextTextFacts
+			-- ...AND A HIDE IS A FOCUS-MAP CHANGE, with no structural sync behind it.
+			-- Compared rather than assumed-changed: the set is 0-2 entries on a normal
+			-- surface, so this is cheaper than the derivation it guards, and bumping
+			-- unconditionally here would defeat the epoch entirely (this runs on every
+			-- solve).
+			local hiddenChanged = false
+			for path in nextHidden do
+				if hiddenRoots[path] == nil then
+					hiddenChanged = true
+					break
+				end
+			end
+			if not hiddenChanged then
+				for path in hiddenRoots do
+					if nextHidden[path] == nil then
+						hiddenChanged = true
+						break
+					end
+				end
+			end
+			if hiddenChanged then
+				structureEpoch += 1
+			end
+			hiddenRoots = nextHidden
+			-- a hidden candidate must not PAINT. A zero rect was not enough: text still
+			-- wrapped and drew inside a 0px box (found live in the adaptive_controls
+			-- capture, where the losing action column's labels ran down the screen edge).
+			if adapter.setVisible ~= nil then
+				local function rectFor(path: string): any
+					return paintedRectIn(result.rects, path)
+				end
+				local function pushVisible(node: any, hidden: boolean)
+					local isHidden = hidden or nextHidden[node.path] == true
+					solverHidden[node.path] = isHidden
+					-- RS-PATHCLIP: a stroked path outside its clip host is culled. It is
+					-- decided per NODE and never inherited (a Path is a leaf, and the
+					-- solver's own verdict is what descends), so the walk keeps carrying
+					-- `isHidden` down and this only widens the write for the path itself.
+					-- ...and a presenter PAINT HOLD (auto reveal) is a per-node veto the
+					-- same way: never inherited, never contradicting the solver.
+					local wantHidden = isHidden or paintHeld[node.path] == true
+					if not wantHidden and pathNodes[node.path] == true and pathEscapesClip(node.path, rectFor) then
+						wantHidden = true
+					end
 					local handle = handles[node.path]
-					if entry ~= nil and handle ~= nil then
-						local r = entry.rect
-						local want: any = nil
-						if not isHidden and (r.w < floor or r.h < floor) then
-							local w = math.max(r.w, floor)
-							local h = math.max(r.h, floor)
-							want = {
-								x = r.x - math.floor((w - r.w) / 2),
-								y = r.y - math.floor((h - r.h) / 2),
-								w = w,
-								h = h,
+					if handle ~= nil and lastVisible[node.path] ~= not wantHidden then
+						adapter.setVisible(handle, not wantHidden)
+						lastVisible[node.path] = not wantHidden
+					end
+					for _, child in node.children do
+						pushVisible(child, isHidden)
+					end
+				end
+				pushVisible(root.node, false)
+			end
+			-- B-BTN3: enforce the effective target floor in HIT geometry. The visual
+			-- rect is deliberately untouched — flooring the painted size would silently
+			-- rewrite shipped design (a 22px icon button would double) — so the
+			-- framework separates what the player SEES from what the player can HIT.
+			-- Feature-detected: an adapter without the seam keeps today's behaviour.
+			if adapter.setHitRect ~= nil then
+				-- RS-A16-D1 (found live by the rich-skinning-v2 matrix drive, under the
+				-- FLAT default, with real injected clicks): this walk used to ignore the
+				-- `nextHidden` set the visibility walk just built. A hidden candidate
+				-- solves to zero width, so every control inside it fell under the floor
+				-- and the renderer ASKED for an expanded hit rect — a live activation
+				-- surface for a control the player cannot see, which in the real adapter
+				-- sits at the ScreenGui root and out-ranked the VISIBLE winner's buttons.
+				-- Hiddenness is carried down the walk (the solver marks the candidate
+				-- ROOT only) exactly as `pushVisible` carries it, and a hidden node takes
+				-- the SAME diff path with `want = nil`, so a node that BECOMES hidden has
+				-- its expander retracted rather than merely left un-refreshed.
+				local function pushHitRects(node: any, hidden: boolean)
+					local isHidden = hidden or nextHidden[node.path] == true
+					-- the same reading the solve was handed as `hitFloor` (see
+					-- `effectiveHitFloor`): the contract declares the floor exists, the
+					-- theme owns its value, and it clamps up only
+					local floor = effectiveHitFloor(node.class, metrics)
+					if floor ~= nil then
+						local entry = result.rects[node.path]
+						local handle = handles[node.path]
+						if entry ~= nil and handle ~= nil then
+							local r = entry.rect
+							local want: any = nil
+							if not isHidden and (r.w < floor or r.h < floor) then
+								local w = math.max(r.w, floor)
+								local h = math.max(r.h, floor)
+								want = {
+									x = r.x - math.floor((w - r.w) / 2),
+									y = r.y - math.floor((h - r.h) / 2),
+									w = w,
+									h = h,
+								}
+							end
+							local last = lastHitRects[node.path]
+							if not rectsEqual(last, want) then
+								adapter.setHitRect(handle, want)
+								lastHitRects[node.path] = want
+							end
+						end
+					end
+					for _, child in node.children do
+						pushHitRects(child, isHidden)
+					end
+				end
+				pushHitRects(root.node, false)
+			end
+			for path, entry in result.rects do
+				local handle = handles[path]
+				if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
+					authority.assertWrite("common", "size", "layout")
+					adapter.setRect(handle, entry.rect)
+					lastRects[path] = entry.rect
+					stats.rectWrites += 1
+				end
+			end
+			-- native scroll regions (native-substrate NS-A2): a scroll node's SOLVED
+			-- content extent (plus its own padding — children arrange inside the
+			-- padded area, so the canvas must include it) maps to the adapter's
+			-- canvas. The adapter/engine owns the live offset; the solver keeps
+			-- owning every content rect. Feature-detected: a scroll-less adapter
+			-- (billboard until proven, old fake) keeps the clip-only fallback.
+			if adapter.setScrollRegion ~= nil then
+				local function pushRegions(node: any)
+					if node.class == "ScrollView" then
+						local entry = result.rects[node.path]
+						local handle = handles[node.path]
+						if entry ~= nil and entry.contentSize ~= nil and handle ~= nil then
+							-- THE PADDING THE SOLVER ACTUALLY SPENT, not the padding the
+							-- author wrote (found 2026-07-27 while chasing a landscape
+							-- scroll cut-off). `toLayoutNode` adds a slot's `chromeInsets`
+							-- to this node's padding before the solve, and a ScrollView
+							-- always classifies into the `scrollbar` slot — so recomputing
+							-- from `props.padding` here would under-report the canvas by
+							-- exactly the theme's reservation, and the tail of the content
+							-- would be unreachable. Inert today (every shipped package
+							-- declares `chrome.scrollbar = { kind = "native" }`, reserving
+							-- zero) and wrong the moment one does not.
+							local props = node.props or {}
+							local layoutPadding = if entry.padding ~= nil
+								then entry.padding
+								else themeSnapshot.resolveSides(metrics, props.padding)
+							local pt, pr, pb, pl = solver.sides(layoutPadding)
+							-- ...PLUS THE THEME'S DECORATION BLEED (director round 11,
+							-- root-caused 2026-07-27 from a landscape capture).
+							--
+							-- A canvas built from RECTS stops exactly at the last child's
+							-- rect — I measured it doing so to the pixel in seven
+							-- configurations. A `shadow` recipe paints OUTSIDE that rect,
+							-- so under Sci-Fi HUD (a centred 24px glow on `panel`) the
+							-- bottom of the last element was unreachable: scrollbar at the
+							-- end of its track, content still cut off.
+							--
+							-- It is spent HERE and nowhere else, deliberately. Reserving it
+							-- as layout margin would be the other way to fix it and it would
+							-- be wrong — a glow is meant to overlap its neighbours, and
+							-- reserving it would space every themed screen out by 24px in
+							-- every direction. A canvas allowance is the iOS `contentInset`
+							-- shape: the layout does not move, the paint becomes reachable.
+							-- Zero for every package that declares no shadow.
+							local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
+							local region = {
+								axis = props.axis or "y",
+								contentW = entry.contentSize.w + pl + pr + bleed,
+								contentH = entry.contentSize.h + pt + pb + bleed,
 							}
-						end
-						local last = lastHitRects[node.path]
-						if not rectsEqual(last, want) then
-							adapter.setHitRect(handle, want)
-							lastHitRects[node.path] = want
-						end
-					end
-				end
-				for _, child in node.children do
-					pushHitRects(child, isHidden)
-				end
-			end
-			pushHitRects(root.node, false)
-		end
-		for path, entry in result.rects do
-			local handle = handles[path]
-			if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
-				authority.assertWrite("common", "size", "layout")
-				adapter.setRect(handle, entry.rect)
-				lastRects[path] = entry.rect
-				stats.rectWrites += 1
-			end
-		end
-		-- native scroll regions (native-substrate NS-A2): a scroll node's SOLVED
-		-- content extent (plus its own padding — children arrange inside the
-		-- padded area, so the canvas must include it) maps to the adapter's
-		-- canvas. The adapter/engine owns the live offset; the solver keeps
-		-- owning every content rect. Feature-detected: a scroll-less adapter
-		-- (billboard until proven, old fake) keeps the clip-only fallback.
-		if adapter.setScrollRegion ~= nil then
-			local function pushRegions(node: any)
-				if node.class == "ScrollView" then
-					local entry = result.rects[node.path]
-					local handle = handles[node.path]
-					if entry ~= nil and entry.contentSize ~= nil and handle ~= nil then
-						-- THE PADDING THE SOLVER ACTUALLY SPENT, not the padding the
-						-- author wrote (found 2026-07-27 while chasing a landscape
-						-- scroll cut-off). `toLayoutNode` adds a slot's `chromeInsets`
-						-- to this node's padding before the solve, and a ScrollView
-						-- always classifies into the `scrollbar` slot — so recomputing
-						-- from `props.padding` here would under-report the canvas by
-						-- exactly the theme's reservation, and the tail of the content
-						-- would be unreachable. Inert today (every shipped package
-						-- declares `chrome.scrollbar = { kind = "native" }`, reserving
-						-- zero) and wrong the moment one does not.
-						local props = node.props or {}
-						local layoutPadding = if entry.padding ~= nil
-							then entry.padding
-							else themeSnapshot.resolveSides(metrics, props.padding)
-						local pt, pr, pb, pl = solver.sides(layoutPadding)
-						-- ...PLUS THE THEME'S DECORATION BLEED (director round 11,
-						-- root-caused 2026-07-27 from a landscape capture).
-						--
-						-- A canvas built from RECTS stops exactly at the last child's
-						-- rect — I measured it doing so to the pixel in seven
-						-- configurations. A `shadow` recipe paints OUTSIDE that rect,
-						-- so under Sci-Fi HUD (a centred 24px glow on `panel`) the
-						-- bottom of the last element was unreachable: scrollbar at the
-						-- end of its track, content still cut off.
-						--
-						-- It is spent HERE and nowhere else, deliberately. Reserving it
-						-- as layout margin would be the other way to fix it and it would
-						-- be wrong — a glow is meant to overlap its neighbours, and
-						-- reserving it would space every themed screen out by 24px in
-						-- every direction. A canvas allowance is the iOS `contentInset`
-						-- shape: the layout does not move, the paint becomes reachable.
-						-- Zero for every package that declares no shadow.
-						local bleed = if type(metrics.chromeBleed) == "number" then metrics.chromeBleed else 0
-						local region = {
-							axis = props.axis or "y",
-							contentW = entry.contentSize.w + pl + pr + bleed,
-							contentH = entry.contentSize.h + pt + pb + bleed,
-						}
-						-- the host's own autoscroll declaration, recorded on the SAME
-						-- walk that publishes its canvas: `false` opts out, a table
-						-- tunes the model, absent means on-and-inert. Kept here so the
-						-- per-frame stepper never needs a tree lookup.
-						scrollAutoscroll[node.path] = if props.autoscroll == false
-							then false
-							else (if type(props.autoscroll) == "table" then props.autoscroll else true)
-						local last = lastScrollRegions[node.path]
-						if
-							last == nil
-							or last.axis ~= region.axis
-							or last.contentW ~= region.contentW
-							or last.contentH ~= region.contentH
-						then
-							authority.assertWrite("common", "canvasSize", "layout")
-							adapter.setScrollRegion(handle, region)
-							lastScrollRegions[node.path] = region
-						end
-						-- RS-PATHCLIP: the host's live offset is what a stroked path
-						-- inside it has to be re-culled against. One subscription per
-						-- scroll host, taken where the host is already in hand; the
-						-- callback early-outs on a surface with no paths, so a list that
-						-- draws none pays a comparison.
-						if adapter.observeScroll ~= nil and pathClipObservers[node.path] == nil then
-							pathClipObservers[node.path] = adapter.observeScroll(handle, function()
-								reculPathClips()
-							end)
+							-- the host's own autoscroll declaration, recorded on the SAME
+							-- walk that publishes its canvas: `false` opts out, a table
+							-- tunes the model, absent means on-and-inert. Kept here so the
+							-- per-frame stepper never needs a tree lookup.
+							scrollAutoscroll[node.path] = if props.autoscroll == false
+								then false
+								else (if type(props.autoscroll) == "table" then props.autoscroll else true)
+							local last = lastScrollRegions[node.path]
+							if
+								last == nil
+								or last.axis ~= region.axis
+								or last.contentW ~= region.contentW
+								or last.contentH ~= region.contentH
+							then
+								authority.assertWrite("common", "canvasSize", "layout")
+								adapter.setScrollRegion(handle, region)
+								lastScrollRegions[node.path] = region
+							end
+							-- RS-PATHCLIP: the host's live offset is what a stroked path
+							-- inside it has to be re-culled against. One subscription per
+							-- scroll host, taken where the host is already in hand; the
+							-- callback early-outs on a surface with no paths, so a list that
+							-- draws none pays a comparison.
+							if adapter.observeScroll ~= nil and pathClipObservers[node.path] == nil then
+								pathClipObservers[node.path] = adapter.observeScroll(handle, function()
+									reculPathClips()
+								end)
+							end
 						end
 					end
+					for _, child in node.children do
+						pushRegions(child)
+					end
 				end
-				for _, child in node.children do
-					pushRegions(child)
-				end
+				pushRegions(root.node)
 			end
-			pushRegions(root.node)
-		end
 
-		-- ...and only now, with this frame fully painted from the conservative
-		-- estimate, ask the engine for the words it could not size. Ordering is
-		-- the safety property: the first frame is always the over-reserving
-		-- fallback, never a guess waiting on an async answer, and the exact
-		-- geometry lands one re-solve later. Batched per SOLVE over the whole
-		-- tree's vocabulary — never per node.
-		if adapter.measureTextWidths ~= nil and #textRequests > 0 and not disposed then
-			local batch: { any } = {}
-			for _, request in textRequests do
-				local key = `{request.font}\0{request.size}\0{request.word}`
-				if not textInFlight[key] then
-					textInFlight[key] = true
-					table.insert(batch, request)
+			-- ...and only now, with this frame fully painted from the conservative
+			-- estimate, ask the engine for the words it could not size. Ordering is
+			-- the safety property: the first frame is always the over-reserving
+			-- fallback, never a guess waiting on an async answer, and the exact
+			-- geometry lands one re-solve later. Batched per SOLVE over the whole
+			-- tree's vocabulary — never per node.
+			if adapter.measureTextWidths ~= nil and #textRequests > 0 and not disposed then
+				local batch: { any } = {}
+				for _, request in textRequests do
+					local key = `{request.font}\0{request.size}\0{request.word}`
+					if not textInFlight[key] then
+						textInFlight[key] = true
+						table.insert(batch, request)
+					end
 				end
-			end
-			if #batch > 0 then
-				stats.textMeasureBatches += 1
-				-- `final` (default true) is the adapter saying "this batch is
-				-- closed". An adapter that answers early with widths it does not
-				-- yet trust — the Roblox one does, while the engine's boot window
-				-- is still open — passes false, and the words stay in flight so a
-				-- surface waiting for exact text keeps waiting.
-				adapter.measureTextWidths(batch, function(results: { any }, final: boolean?)
-					local learned = false
-					for _, entry in results do
-						if type(entry) ~= "table" then
-							continue
-						end
-						if final ~= false then
-							textInFlight[`{entry.font}\0{entry.size}\0{entry.word}`] = nil
-						end
-						if type(entry.width) == "number" then
-							-- an adapter may answer the SAME batch twice (the
-							-- Roblox one re-reads once the session has settled and
-							-- corrects the boot answer), so a re-solve is owed only
-							-- when a width actually moved
-							local previous = text_metrics.measuredWidth(entry.font, entry.size, entry.word)
-							if text_metrics.setMeasured(entry.font, entry.size, entry.word, entry.width) then
-								if previous ~= entry.width then
-									learned = true
+				if #batch > 0 then
+					stats.textMeasureBatches += 1
+					-- `final` (default true) is the adapter saying "this batch is
+					-- closed". An adapter that answers early with widths it does not
+					-- yet trust — the Roblox one does, while the engine's boot window
+					-- is still open — passes false, and the words stay in flight so a
+					-- surface waiting for exact text keeps waiting.
+					adapter.measureTextWidths(batch, function(results: { any }, final: boolean?)
+						local learned = false
+						for _, entry in results do
+							if type(entry) ~= "table" then
+								continue
+							end
+							if final ~= false then
+								textInFlight[`{entry.font}\0{entry.size}\0{entry.word}`] = nil
+							end
+							if type(entry.width) == "number" then
+								-- an adapter may answer the SAME batch twice (the
+								-- Roblox one re-reads once the session has settled and
+								-- corrects the boot answer), so a re-solve is owed only
+								-- when a width actually moved
+								local previous = text_metrics.measuredWidth(entry.font, entry.size, entry.word)
+								if text_metrics.setMeasured(entry.font, entry.size, entry.word, entry.width) then
+									if previous ~= entry.width then
+										learned = true
+									end
+								else
+									-- a measurement this seam refuses is a measurement
+									-- that could clip: keep the estimate, and do not
+									-- ask for it again on every solve
+									text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
 								end
 							else
-								-- a measurement this seam refuses is a measurement
-								-- that could clip: keep the estimate, and do not
-								-- ask for it again on every solve
 								text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
 							end
-						else
-							text_metrics.markUnmeasurable(entry.font, entry.size, entry.word)
 						end
-					end
-					--[[ exactly one re-solve per answered round, and only when the
-						round actually taught the measurer something.
+						--[[ exactly one re-solve per answered round, and only when the
+							round actually taught the measurer something.
 
-						PUBLISH THE GENERATION FIRST (director 2026-08-04, the
-						finish-screen size pop). The re-solve fixes the SOLVER's boxes,
-						but a consumer memo that called `LuauUI.text.fit/.size/.measure`
-						has no dependency on the exact-width store — it is plain data —
-						so it evaluated once against the ESTIMATOR and nothing here
-						invalidated it. Bumping `textMeasureEpoch` is that dependency:
-						any memo that reads it re-derives once, on this frame, together
-						with the solve rather than at some arbitrary later tick. Written
-						before `solveAndApply` so the re-solve already sees the
-						re-derived values instead of needing a third pass. ]]
-					if learned and not disposed then
-						-- `env:get` answers the FACT's signal, so the current value is one
-						-- more `:get()` in (same shape as every other read in this file)
-						env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
-						solveAndApply()
-					end
-				end)
+							PUBLISH THE GENERATION FIRST (director 2026-08-04, the
+							finish-screen size pop). The re-solve fixes the SOLVER's boxes,
+							but a consumer memo that called `LuauUI.text.fit/.size/.measure`
+							has no dependency on the exact-width store — it is plain data —
+							so it evaluated once against the ESTIMATOR and nothing here
+							invalidated it. Bumping `textMeasureEpoch` is that dependency:
+							any memo that reads it re-derives once, on this frame, together
+							with the solve rather than at some arbitrary later tick. Written
+							before `solveAndApply` so the re-solve already sees the
+							re-derived values instead of needing a third pass. ]]
+						if learned and not disposed then
+							-- `env:get` answers the FACT's signal, so the current value is one
+							-- more `:get()` in (same shape as every other read in this file)
+							env:set("textMeasureEpoch", ((env:get("textMeasureEpoch"):get() :: number?) or 0) + 1)
+							solveAndApply()
+						end
+					end)
+				end
 			end
-		end
-		-- A REFLOW MOVES THE DROP TARGETS (ADR-0022 D5). Every rect the live
-		-- session hit-tests against was just rewritten, so the hover is
-		-- re-evaluated at the last pointer position on THIS frame — a verdict
-		-- that trailed the layout by a frame is a verdict about geometry the
-		-- player is no longer looking at.
-		if dragRegistryInstance ~= nil and dragRegistryInstance.isActive() then
-			dragRegistryInstance.refreshTargets()
-		end
+			-- A REFLOW MOVES THE DROP TARGETS (ADR-0022 D5). Every rect the live
+			-- session hit-tests against was just rewritten, so the hover is
+			-- re-evaluated at the last pointer position on THIS frame — a verdict
+			-- that trailed the layout by a frame is a verdict about geometry the
+			-- player is no longer looking at.
+			if dragRegistryInstance ~= nil and dragRegistryInstance.isActive() then
+				dragRegistryInstance.refreshTargets()
+			end
+		end)
 	end
 
 	-- flat sibling rendering paints in z-order; instance creation order is NOT
@@ -2409,7 +2713,10 @@ function renderer.attach(
 	end
 
 	local function structuralSync()
+		structureEpoch += 1
+		local _t0 = os.clock()
 		ensureTree(root.node)
+		local _t1 = os.clock()
 		collectRetiringRoots() -- ARCH-F2: retire begin/cancel both push structure
 		-- mounted identity may have changed under any path (a When branch, a ForEach
 		-- row, a re-created ViewThatFits candidate), so the presentation channel's
@@ -2420,7 +2727,9 @@ function renderer.attach(
 		table.clear(clipHostOf)
 		table.clear(pathNodes)
 		pathNodeCount = 0
+		local _t2 = os.clock()
 		livePaths(root.node, alive, nil, nil)
+		local _t3 = os.clock()
 		for path, handle in handles do
 			if not alive[path] then
 				-- drag/drop declarations die WITH their node (ADR-0022 D5): an
@@ -2435,7 +2744,44 @@ function renderer.attach(
 						unbind()
 					end
 				end
-				adapter.remove(handle)
+				-- PARK BEFORE REMOVE. `park` refuses anything carrying path-keyed
+				-- adapter state, and a refusal falls through to the ordinary remove —
+				-- so this can only ever save a create, never change what is on screen.
+				local parked = false
+				local key = recycleKeyOf[path]
+				recycleKeyOf[path] = nil
+				if recycleEnabled and key ~= nil and recyclePooled < RECYCLE_POOL_CAP then
+					if not adapter.park(handle) then
+						stats.parkRefused += 1
+					else
+						local bucket = recyclePool[key]
+						if bucket == nil then
+							bucket = {}
+							recyclePool[key] = bucket
+						end
+						table.insert(bucket, handle)
+						recyclePooled += 1
+						parked = true
+						stats.parked += 1
+					end
+				end
+				if parked then
+					-- CARRY THE PROPERTY CACHES WITH THE INSTANCE.
+					--
+					-- These record what the ENGINE OBJECT currently holds, so they are a
+					-- property of the instance and not of the path — carrying them across
+					-- a recycle is accurate, not stale. Dropping them (which is right for
+					-- a real removal, where the instance is destroyed) meant every
+					-- adopted node had all ~8 properties per object rewritten from
+					-- scratch, and `mount` is 67% of a fling frame.
+					--
+					-- `solverHidden` is deliberately NOT carried: it is a verdict about
+					-- the NODE, not a value on the instance, and the new identity gets
+					-- its own.
+					handle.parkedProps = captureParkedProps(path)
+				else
+					adapter.remove(handle)
+				end
 				handles[path] = nil
 				lastRects[path] = nil
 				lastScrollRegions[path] = nil
@@ -2478,7 +2824,16 @@ function renderer.attach(
 				stats.removes += 1
 			end
 		end
+		local _t4 = os.clock()
 		syncZOrder()
+		local _t5 = os.clock()
+		stats.ssPasses += 1
+		stats.ssEnsureTree += (_t1 - _t0) * 1000
+		stats.ssRetire += (_t2 - _t1) * 1000
+		stats.ssLivePaths += (_t3 - _t2) * 1000
+		stats.ssSweep += (_t4 - _t3) * 1000
+		stats.ssZOrder += (_t5 - _t4) * 1000
+		stats.ssTotal += (_t5 - _t0) * 1000
 	end
 
 	-- environment geometry drives re-arrangement (per-key subscription).
@@ -2541,31 +2896,93 @@ function renderer.attach(
 				needsSolve = true
 			elseif entry.class == "measure" or entry.class == "arrange" then
 				needsSolve = true
+			elseif entry.class == "navigation" or entry.class == "semantics" then
+				-- ...AND THE FOCUS MAP CAN CHANGE WITHOUT THE TREE CHANGING. Read off
+				-- the SCHEMA rather than off a hand-kept prop list: `focusable` declares
+				-- `dirty = { "navigation" }` and `enabled` declares `semantics`, and both
+				-- decide whether a node is in the order at all. Caught by the suite —
+				-- "re-enabling restores focus reachability with no remount" and
+				-- "navigation skips a disabled Slider's track" both went red when the
+				-- epoch only counted structure and hidden roots.
+				--
+				-- `semantics` also carries `selected`, which the map does not read, so
+				-- this over-invalidates on a selection change. That is a click, not a
+				-- frame, and the alternative is a list of prop names that a future
+				-- navigation prop would silently fall off.
+				structureEpoch += 1
 			end
 			-- paint/semantics: prop-level writes below
 		end
 		if needsStructure then
-			structuralSync()
+			-- MICROPROFILER PHASE `LuauUI/mount` (roadmap Step 9): creating,
+			-- reconciling and retiring Instances. Named apart from `commit` because
+			-- Instance churn and property writes have completely different fixes —
+			-- one is a keying/virtualization problem, the other is a diff problem.
+			profile.span("mount", structuralSync)
 		end
 		-- prop writes for changed nodes (paint/semantics): write ONLY the
 		-- changed prop, once, even when it dirtied several classes
-		local seen: { [string]: boolean } = {}
-		for _, entry in dirty do
-			local key = entry.path .. "\30" .. tostring(entry.prop)
-			if (entry.class == "paint" or entry.class == "semantics") and entry.prop ~= nil and not seen[key] then
-				seen[key] = true
-				local node = findNode(entry.path)
-				if node ~= nil and handles[entry.path] ~= nil then
-					if BINDING_PROPS[entry.prop] then
-						applyProp(handles[entry.path], node, entry.prop :: string)
-					elseif STYLE_PROPS[entry.prop] then
-						applyStyleProp(handles[entry.path], node, entry.prop :: string)
+		if #dirty > 0 then
+			-- MICROPROFILER PHASE `LuauUI/commit`: adapter property writes. Guarded
+			-- on there being any dirt at all, so an idle frame pays a comparison
+			-- rather than a scope — an idle frame with a scope in it is exactly the
+			-- annotation overhead the plan warns about.
+			profile.span("commit", function()
+				local seen: { [string]: boolean } = {}
+				for _, entry in dirty do
+					local key = entry.path .. "\30" .. tostring(entry.prop)
+					if
+						(entry.class == "paint" or entry.class == "semantics")
+						and entry.prop ~= nil
+						and not seen[key]
+					then
+						seen[key] = true
+						local node = findNode(entry.path)
+						if node ~= nil and handles[entry.path] ~= nil then
+							if BINDING_PROPS[entry.prop] then
+								applyProp(handles[entry.path], node, entry.prop :: string)
+							elseif STYLE_PROPS[entry.prop] then
+								applyStyleProp(handles[entry.path], node, entry.prop :: string)
+							end
+						end
 					end
 				end
-			end
+			end)
 		end
 		if needsSolve then
+			-- A STRUCTURAL change clears the dirty set: the tree's shape moved, so the
+			-- last solve's rects are not a safe base to splice onto.
+			-- A STRUCTURAL change gives no reuse set at all: the tree's shape moved, so
+			-- last solve's rects are not a safe base for anything.
+			if needsStructure then
+				dirtyContains = nil
+			else
+				-- THE ANCESTOR CLOSURE. A node may be skipped only if NOTHING inside it
+				-- is dirty, so the set handed to the solver is every dirty node plus
+				-- every ancestor of one — the solver skips exactly the nodes absent
+				-- from it. Paths are `/a/b/c`, so the ancestors are the prefixes.
+				local contains: { [string]: boolean } = {}
+				for _, entry in dirty do
+					local path = entry.path
+					if (entry.class == "measure" or entry.class == "arrange") and path ~= nil then
+						contains[path] = true
+						local at = path
+						while true do
+							local cut = string.match(at, "^(.*)/[^/]*$")
+							if cut == nil or cut == "" or contains[cut] then
+								break
+							end
+							contains[cut] = true
+							at = cut
+						end
+					end
+				end
+				dirtyContains = contains
+			end
 			solveAndApply()
+			-- the set belongs to THIS refresh; a re-entrant solve (text measurement, an
+			-- env observer) must not reuse it, and gets a full solve instead
+			dirtyContains = nil
 		end
 		return stats
 	end
@@ -2759,6 +3176,11 @@ function renderer.attach(
 
 	-- hidden-subtree roots from the last solve (A-AL1). The presenter consults
 	-- this when rebuilding focus order; an empty table means nothing is hidden.
+	-- see `structureEpoch` above: the value a caller can cache a tree derivation on.
+	function controller.structureEpoch(): number
+		return structureEpoch
+	end
+
 	function controller.hiddenRoots(): { [string]: boolean }
 		-- A COPY, like `stats()` (F-30). The live set is the renderer's own state
 		-- for the frame; a caller that mutated it corrupted the visibility walk,
@@ -3202,6 +3624,23 @@ function renderer.attach(
 		return true
 	end
 
+	-- INCREMENTAL-LAYOUT STAGE 1: DETECTION ONLY (docs/plans/incremental-layout.md).
+	--
+	-- Re-solves the last tree with boundary detection on and reports how much of it a
+	-- boundary-aware layout would have to redo for a single change. It changes
+	-- nothing and runs only when called, so an ordinary frame pays nothing for it —
+	-- the whole point of Stage 1 is to size Stages 2 and 3 before touching the solver
+	-- for real.
+	function controller.analyzeBoundaries(): any
+		if lastSolveInputs == nil then
+			return nil
+		end
+		local opts2 = table.clone(lastSolveInputs.opts)
+		opts2.analyzeBoundaries = true
+		local result = solver.solve(lastSolveInputs.layoutRoot, lastSolveInputs.viewport, opts2)
+		return solver.boundaryReport(lastSolveInputs.layoutRoot, result)
+	end
+
 	function controller.stats()
 		return table.clone(stats)
 	end
@@ -3293,6 +3732,7 @@ function renderer.attach(
 		table.clear(pathNodes)
 		pathNodeCount = 0
 		attachScope:dispose()
+		drainRecyclePool()
 		adapter.destroyRoot(rootHandle)
 		handles = {}
 		lastRects = {}

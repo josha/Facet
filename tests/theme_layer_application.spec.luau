@@ -318,14 +318,15 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 		-- assumed affordable (director report 2026-07-28: a lift inset by more than
 		-- its host's padded box solved to zero width and drew nothing)
 		local geom = section("local function liftGeometry(plan: any, handle: any?)", "\n\tend")
-		expect(
-			string.find(
-				geom,
-				"chrome_slots.plaqueTextBox(plan) or chrome_slots.liftGeometry(plan, hostW, hostH)",
-				1,
-				true
-			) ~= nil
-		).toBe(true)
+		expect(string.find(geom, "plaque or chrome_slots.liftGeometry(plan, hostW, hostH)", 1, true) ~= nil).toBe(true)
+		expect(string.find(geom, "local plaque = chrome_slots.plaqueTextBox(plan)", 1, true) ~= nil).toBe(true)
+		-- ...and the PLAQUE path takes no full-bleed compensation. The generic lift is
+		-- scale-1 against the host's padded content box and must add that padding back
+		-- (a 60px button with 12+12 padding gave its label 8px and drew nothing); a
+		-- plaque rect is already the absolute box the recipe declared, so compensating
+		-- it would push the title off its own plate.
+		expect(string.find(geom, "if plaque == nil then", 1, true) ~= nil).toBe(true)
+		expect(string.find(geom, "chrome_slots.fullBleedBox(padL, padR, padT, padB)", 1, true) ~= nil).toBe(true)
 		-- ...and the label follows the plaque's own ANCHOR, or a centred plaque
 		-- would place its title from the wrong corner
 		local lift = section("local function syncChromeText(handle: any", "\n\tend")
@@ -344,6 +345,63 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 		expect(chrome_slots.stackInstanceCount(nil)).toBe(0)
 	end)
 
+	-- A DECORATION IS A BACKDROP, AND THE LADDER FORGOT (director report 2026-08-05:
+	-- "the Ready toggle has no label under the ornate theme").
+	--
+	-- The single-decoration path parents `LuauUIChrome` at ZIndex 0 — *below anything
+	-- the node's own content draws*. The layered path numbered its layers 1..N, and a
+	-- control's own adapter-built content sits at 1 (`Label`, `Track`) and 2 (`Knob`).
+	-- Equal ZIndex breaks by SIBLING ORDER and a decoration is built after the content
+	-- it decorates, so an opaque full-bleed `LuauUIChromeL1` painted over both.
+	--
+	-- Measured live at 360x691: under fantasy-ornate (layered) `Label z=1, Track z=1,
+	-- LuauUIChromeL1 z=1` and the word "Ready" was invisible; under pixel-quest (one
+	-- nine-slice) `LuauUIChrome z=0` and the same control read correctly. Same defect
+	-- shape as `applyFullBleed` (L-25) — a ruling that lived at one call site.
+	describe("the ladder is a BACKDROP: every layer sits below the node's own content", function()
+		it("the band is <= 0, and the topmost layer lands where a single decoration does", function()
+			expect(chrome_slots.DECORATION_Z_INDEX).toBe(0)
+			-- a one-layer package is byte-identical to the single-decoration case
+			expect(chrome_slots.layerZIndexFor(1, 1)).toBe(chrome_slots.DECORATION_Z_INDEX)
+			-- ...and a ladder keeps its own order inside the band
+			expect(chrome_slots.layerZIndexFor(1, 6)).toBe(-5)
+			expect(chrome_slots.layerZIndexFor(6, 6)).toBe(0)
+		end)
+
+		it("no layer of any depth can reach the CONTENT band, which starts at 1", function()
+			-- the invariant stated over the whole shipped range rather than at the one
+			-- depth the report happened to use
+			for count = 1, 12 do
+				for index = 1, count do
+					local z = chrome_slots.layerZIndexFor(index, count)
+					expect(`L{index}/{count} z={z} belowContent={z <= chrome_slots.DECORATION_Z_INDEX}`).toBe(
+						`L{index}/{count} z={z} belowContent=true`
+					)
+				end
+			end
+		end)
+
+		it("the ladder is strictly ordered, so no two layers share a slot", function()
+			-- sibling order would be the alternative and a re-sync rebuilds only what
+			-- changed, so an order the array does not control is one that drifts
+			for count = 1, 12 do
+				for index = 2, count do
+					expect(chrome_slots.layerZIndexFor(index, count) > chrome_slots.layerZIndexFor(index - 1, count)).toBe(
+						true
+					)
+				end
+			end
+		end)
+
+		it("...and the lift still clears the whole ladder AND the content band", function()
+			local stack = stackOf(FULL_STACK)
+			expect(chrome_slots.liftZIndexFor(stack) > chrome_slots.layerZIndexFor(#stack.layers, #stack.layers)).toBe(
+				true
+			)
+			expect(chrome_slots.liftZIndexFor(stack) > 2).toBe(true)
+		end)
+	end)
+
 	it("the text lift rides above the WHOLE ladder", function()
 		-- rs-m2: a layer covers the parent's engine text at any ZIndex, so the
 		-- lift is mandatory at every depth and has to clear N
@@ -359,7 +417,15 @@ describe("screen_target: the layer ladder is materialized as the plan describes"
 	it("one ImageLabel per BOX, ZIndex = array order, Active=false", function()
 		local build = section("local function buildChromeStack", "handle.chromeStack = built")
 		expect(string.find(build, "for _, spec in chrome_slots.layerBoxes(layer) do", 1, true) ~= nil).toBe(true)
-		expect(string.find(build, "child.ZIndex = layer.index", 1, true) ~= nil).toBe(true)
+		-- ARRAY ORDER, INSIDE THE DECORATION BAND. The z comes from the shared
+		-- function rather than from `layer.index` directly (director report
+		-- 2026-08-05): 1..N put the ladder on top of the node's own content.
+		expect(
+			string.find(build, "child.ZIndex = chrome_slots.layerZIndexFor(layer.index, layerCount)", 1, true) ~= nil
+		).toBe(true)
+		expect(string.find(build, "made.ZIndex = chrome_slots.layerZIndexFor(layer.index, layerCount)", 1, true) ~= nil).toBe(
+			true
+		)
 		expect(string.find(build, "child.Active = false", 1, true) ~= nil).toBe(true)
 		expect(string.find(build, "child.Selectable = false", 1, true) ~= nil).toBe(true)
 		-- geometry comes from the pure boxes, never from arithmetic here

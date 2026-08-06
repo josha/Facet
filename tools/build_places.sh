@@ -151,4 +151,18 @@ rojo build "$project" -o "examples/places/LuauUI-Showcase.rbxl"
 rm "$project"
 echo "built examples/places/LuauUI-Showcase.rbxl (LuauUI-Showcase — in-game demo + theme switching)"
 
+# ===== THE PERFORMANCE LAB ==================================================
+# Roadmap Step 9 (docs/plans/performance-stress-places.md). Unlike every place
+# above, this one is built from a CHECKED-IN Rojo project file rather than a
+# heredoc: the plan requires the place's sources and its project to be
+# reviewable artifacts, and a project that exists only inside a shell script
+# cannot be diffed, opened in Rojo, or reused by the place doctor.
+#
+# The emitted file must open and run with no Rojo session, no filesystem path,
+# no private asset, no secret, no universe id and no plugin — it is safe for the
+# user to open and choose "Publish to Roblox" manually. THIS SCRIPT NEVER
+# PUBLISHES: `rojo build` writes a local file and nothing else.
+rojo build examples/performance.project.json -o "examples/places/LuauUI-PerformanceLab.rbxl"
+echo "built examples/places/LuauUI-PerformanceLab.rbxl (LuauUI-PerformanceLab — Step 9 performance lab)"
+
 echo "done: $(ls examples/places/*.rbxl | wc -l | tr -d ' ') place files in examples/places/"

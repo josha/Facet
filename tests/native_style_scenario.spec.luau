@@ -299,14 +299,17 @@ describe("screen_target: the image IS the button (source contract)", function()
 		expect(string.find(source, "function adapter.create(", 1, true) ~= nil).toBe(true)
 		expect(string.find(source, "decorationHint: any?,", 1, true) ~= nil).toBe(true)
 		expect(string.find(source, "handle.decorationHint = decorationHint", 1, true) ~= nil).toBe(true)
+		-- The hint is READ from the blueprint and handed to `create` as its 4th
+		-- argument. It used to be one literal call; instance recycling hoisted the
+		-- read into a local because the same value also keys the recycle pool. The
+		-- contract this guards is unchanged — construction-time, never a later setter
+		-- — so both halves are asserted rather than one exact spelling.
+		expect(string.find(renderer, "local hint = chrome_slots.readHint(node)", 1, true) ~= nil).toBe(true)
 		expect(
-			string.find(
-				renderer,
-				"adapter.create(rootHandle, node.path, node.class, chrome_slots.readHint(node), createOpts)",
-				1,
-				true
-			) ~= nil
+			string.find(renderer, "adapter.create(rootHandle, node.path, node.class, hint, createOpts)", 1, true) ~= nil
 		).toBe(true)
+		-- and there is still no post-construction hint setter anywhere
+		expect(string.find(renderer, "setDecorationHint", 1, true) == nil).toBe(true)
 	end)
 
 	it("a per-view override is explicit-written and never tagged", function()

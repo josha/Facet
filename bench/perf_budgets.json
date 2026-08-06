@@ -61,7 +61,7 @@
       "observed_p95_min_ms": 0.021041661966592073,
       "observed_p95_ms": 0.030499999411404133,
       "requirement": "UI-PERF-001",
-      "total_p95_ms": 0.12199999764561653
+      "total_p95_ms": 0.12199999764561652
     },
     "async-image-grid": {
       "baselineRepeats": 5,
@@ -97,7 +97,7 @@
       "observed_p95_min_ms": 0.42104165186174214,
       "observed_p95_ms": 0.48216668074019253,
       "requirement": "UI-PERF-001",
-      "total_p95_ms": 1.9286667229607701
+      "total_p95_ms": 1.92866672296077
     },
     "dense-motion": {
       "baselineRepeats": 5,
@@ -123,6 +123,32 @@
       "requirement": "UI-PERF-001",
       "total_p95_ms": 0.6216666661202908
     },
+    "lab-collection-churn": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'lab-collection-churn' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene lab-collection-churn' ONLY if the cost is intended",
+      "observed_p95_max_ms": 3.063541604205966,
+      "observed_p95_min_ms": 2.8109168633818626,
+      "observed_p95_ms": 3.063541604205966,
+      "requirement": "UI-RUNTIME-002",
+      "scopedBaseline": true,
+      "total_p95_ms": 12.254166416823864
+    },
+    "lab-dense-scroll": {
+      "baselineRepeats": 5,
+      "ceilingMs": 8.333333333333334,
+      "frameBudgetMs": 33.333333333333336,
+      "frameTargetHz": 30,
+      "hint": "scene 'lab-dense-scroll' (UI-PERF-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'lune run tools/lune/perf_baseline_scene lab-dense-scroll' ONLY if the cost is intended",
+      "observed_p95_max_ms": 4.809750011190772,
+      "observed_p95_min_ms": 4.227416589856148,
+      "observed_p95_ms": 4.809750011190772,
+      "requirement": "UI-PERF-001",
+      "scopedBaseline": true,
+      "total_p95_ms": 19.23900004476309
+    },
     "locale-textsize-change": {
       "baselineRepeats": 5,
       "ceilingMs": 8.333333333333334,
@@ -141,9 +167,9 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'native-scroll-drag' (UI-NATIVE-001) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
-      "observed_p95_max_ms": 0.022083346266299486,
+      "observed_p95_max_ms": 0.02208334626629949,
       "observed_p95_min_ms": 0.006416667019948363,
-      "observed_p95_ms": 0.022083346266299486,
+      "observed_p95_ms": 0.02208334626629949,
       "requirement": "UI-NATIVE-001",
       "total_p95_ms": 0.1
     },
@@ -225,11 +251,11 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'theme-swap-flat' (UI-PERF-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
-      "observed_p95_max_ms": 0.11033331975340843,
+      "observed_p95_max_ms": 0.11033331975340845,
       "observed_p95_min_ms": 0.06925000343471766,
-      "observed_p95_ms": 0.11033331975340843,
+      "observed_p95_ms": 0.11033331975340845,
       "requirement": "UI-PERF-002",
-      "total_p95_ms": 0.44133327901363373
+      "total_p95_ms": 0.4413332790136338
     },
     "theme-swap-metrics": {
       "baselineRepeats": 5,
@@ -249,9 +275,9 @@
       "frameBudgetMs": 33.333333333333336,
       "frameTargetHz": 30,
       "hint": "scene 'virtual-list-scroll' (UI-RUNTIME-002) exceeded its headless trend budget — profile the reactive/layout path it exercises; re-baseline with 'tools/perf.sh baseline' ONLY if the cost is intended",
-      "observed_p95_max_ms": 1.7041249957401305,
+      "observed_p95_max_ms": 1.7041249957401303,
       "observed_p95_min_ms": 1.518833334557712,
-      "observed_p95_ms": 1.7041249957401305,
+      "observed_p95_ms": 1.7041249957401303,
       "requirement": "UI-RUNTIME-002",
       "total_p95_ms": 6.816499982960522
     }

@@ -230,6 +230,17 @@ function Runner.start(deps: { [string]: any })
 	local function build()
 		local ctx = {
 			LuauUI = LuauUI,
+			-- HOST SEAMS (roadmap Step 9). A scenario module is engine-free by
+			-- contract, and the runner owns every engine seam it needs — but a stage
+			-- can need one this runner has no business knowing about (the performance
+			-- lab's raw-Roblox reference list, its host environment facts, its
+			-- profiler handle). `host` is the generic passthrough for those: whatever
+			-- the BOOTSTRAP hands `runner.start` arrives here untouched. `nil` in the
+			-- gallery, which is why every existing scenario is unaffected.
+			host = deps.host,
+			-- ...and the sibling modules a registry chose to expose, for the same
+			-- reason: a scenario that required `script.Parent` would be Roblox-only.
+			lab = deps.lab,
 			core = deps.core,
 			env = deps.env,
 			adapter = deps.adapter,

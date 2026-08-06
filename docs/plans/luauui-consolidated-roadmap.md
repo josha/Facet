@@ -919,7 +919,9 @@ green; and docs identify one authoritative rule set. Report outcome and artifact
 
 ## Step 8 — Add desktop keyboard focus-chain behavior
 
-Done August 3, 2026. Two platform limits are recorded rather than papered over:
+Done August 3, 2026. 
+
+Two platform limits are recorded rather than papered over:
 Tab is the CoreGui players-list shortcut (the binding ships and works wherever the
 list is disabled; `gamepad_contention.traversalKeyContended()` detects the
 contended case), and keyboard Input Action bindings do not fire while a `TextBox`

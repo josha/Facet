@@ -812,14 +812,41 @@ function screen_target.new(opts: Opts?)
 		return TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	end
 
+	-- THE PRESS DIP'S UIScale, CREATED ON FIRST PRESS AND NOT BEFORE.
+	--
+	-- Measured on the performance lab: a 5-row window held 249 instances, and **all 25
+	-- UIScale objects sat at Scale = 1.0** — one per interactive control, created at
+	-- construction for a dip that had not happened and on most controls never will.
+	-- That is 10% of every instance on the surface doing nothing, and it is paid by
+	-- every LuauUI consumer with buttons on screen, not just this fixture.
+	--
+	-- ONE SCALE, SHARED WITH THE MOTION CHANNEL. The engine honours a single UIScale
+	-- per instance, so the press dip and a running motion must not each own one — the
+	-- existing "the motion scale SHARES the press dip's UIScale" contract. This
+	-- accessor is the single place either path gets one, so laziness cannot
+	-- accidentally produce two.
+	local function ensureScale(instance: Instance, handle: any): UIScale
+		local existing = handle.motionScale or handle.uiScale
+		if existing ~= nil then
+			return existing
+		end
+		local scale = Instance.new("UIScale")
+		scale.Name = authority.INSTANCE_NAMES.motionScale
+		scale.Parent = instance
+		handle.uiScale = scale
+		return scale
+	end
+
 	-- pressed-dip presentation for native mode: the fills belong to the sheet
 	-- (:Press rules), but the quick UIScale dip is value-driven presentation
 	-- and stays bespoke (plan §6.5) — wired WITHOUT any fill writes.
 	local function wireNativePressDip(button: TextButton, handle: any)
-		local scale = Instance.new("UIScale")
-		scale.Parent = button
-		handle.uiScale = scale
 		local function recover()
+			-- nothing to recover if no dip ever happened, and nothing to create either
+			local scale = handle.motionScale or handle.uiScale
+			if scale == nil then
+				return
+			end
 			if not isReducedMotion() and not handle.suppressStates then
 				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
 			else
@@ -828,7 +855,11 @@ function screen_target.new(opts: Opts?)
 		end
 		button.MouseButton1Down:Connect(function()
 			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = style.extra.pressedScale }):Play()
+				TweenService:Create(
+					ensureScale(button, handle),
+					motionInfo(style.motion.fast),
+					{ Scale = style.extra.pressedScale }
+				):Play()
 			end
 		end)
 		button.MouseButton1Up:Connect(recover)
@@ -972,7 +1003,29 @@ function screen_target.new(opts: Opts?)
 		uiCorner.Parent = instance
 	end
 
+	-- A STROKE NOBODY CAN SEE IS NOT WORTH AN INSTANCE. A theme package may set
+	-- `strokes.hairline = 0` or a fully transparent hairline; both shipped themes
+	-- keep it visible, so this saves nothing on them — but a theme that turns
+	-- hairlines off would otherwise pay 30 invisible `UIStroke` objects per five
+	-- rows (measured shape: 30 strokes on a 137-GuiObject surface). The guard is one
+	-- comparison at construction and cannot change what is on screen: if it declines
+	-- to build the stroke, the stroke would have drawn nothing.
+	local function hairlineWouldShow(): boolean
+		local thickness = style.strokes.hairline
+		local opacity = style.extra.hairlineOpacity
+		if type(thickness) == "number" and thickness <= 0 then
+			return false
+		end
+		if type(opacity) == "number" and opacity >= 1 then
+			return false
+		end
+		return true
+	end
+
 	local function hairline(instance: Instance, sanctionedOverride: boolean?)
+		if not hairlineWouldShow() then
+			return
+		end
 		if not sanctionedOverride then
 			assertBespokePaint("StrokeColor")
 		end
@@ -1123,9 +1176,6 @@ function screen_target.new(opts: Opts?)
 		button.BackgroundColor3 = COLOR.control
 		corner(button, style.radii.control, nil, handle)
 		hairline(button)
-		local scale = Instance.new("UIScale")
-		scale.Parent = button
-		handle.uiScale = scale
 		-- resting fill honors selection: hover-leave on a selected row must
 		-- restore controlSelected, never strip the tint (live-found 2026-07-19)
 		local function restingFill(): Color3
@@ -1188,16 +1238,23 @@ function screen_target.new(opts: Opts?)
 			-- when the button is released off-target (or the row is dragged
 			-- away), which left rows visibly shrunken (director hand-test
 			-- 2026-07-20: "one row is narrower than the others")
-			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
-			else
-				scale.Scale = 1
+			local scale = handle.motionScale or handle.uiScale
+			if scale ~= nil then
+				if not isReducedMotion() and not handle.suppressStates then
+					TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
+				else
+					scale.Scale = 1
+				end
 			end
 		end)
 		button.MouseButton1Down:Connect(function()
 			setFill(pressedFill(), true, "pressed")
 			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = style.extra.pressedScale }):Play()
+				TweenService:Create(
+					ensureScale(button, handle),
+					motionInfo(style.motion.fast),
+					{ Scale = style.extra.pressedScale }
+				):Play()
 			end
 		end)
 		button.MouseButton1Up:Connect(function()
@@ -1491,6 +1548,8 @@ function screen_target.new(opts: Opts?)
 		themeRoots = live
 	end
 
+	local lastRootHandle: any = nil
+
 	function adapter.createRoot(screenId: string): any
 		if opts and opts.rootFactory then
 			local made = opts.rootFactory(screenId)
@@ -1716,9 +1775,7 @@ function screen_target.new(opts: Opts?)
 		if scale ~= nil and scale ~= 1 then
 			local live = existing
 			if live == nil then
-				live = Instance.new("UIScale")
-				live.Name = authority.INSTANCE_NAMES.motionScale
-				live.Parent = instance
+				live = ensureScale(instance, handle)
 				handle.motionScale = live
 			end
 			live.Scale = scale
@@ -1758,7 +1815,71 @@ function screen_target.new(opts: Opts?)
 	-- the adapter can only honour while it is choosing the engine object.
 	-- `canvasGroup` decides the node's engine CLASS, so it cannot arrive as a later
 	-- prop write — the instance would already exist.
+	-- ---- INERT CONTAINER ELISION -------------------------------------------
+	--
+	-- MEASURED on the performance lab: of 137 GuiObjects on a five-row surface, **55
+	-- (40%) are completely inert** — they do not paint, do not clip, are not
+	-- interactive, carry no modifier children and hold no text or image. And in
+	-- LuauUI's FLAT tree they are not even the engine parent of their children:
+	-- `create` parents everything to the root and the solver positions absolutely. An
+	-- inert container is an invisible, zero-child `Frame` holding a rect nothing
+	-- reads. At ~12.4us of engine work each that is ~0.68ms per full window build,
+	-- against a `mount` that is 67% of a fling frame.
+	--
+	-- So a pure layout container gets a HANDLE and no instance, and materialises the
+	-- instant anything needs one. Same shape as the lazy `UIScale` that shipped
+	-- alongside it: the cheap case is free, the real case is unchanged.
+	--
+	-- ELIGIBILITY IS CONSERVATIVE AND CREATION-TIME. `create` cannot know whether a
+	-- node will later be given a surface or a handler, so it only elides classes that
+	-- are layout-only by construction, and `ensureInstance` covers everything else by
+	-- materialising on demand. Anything carrying a decoration hint or a canvasGroup
+	-- declaration is excluded outright — both are construction-time facts that need a
+	-- real object.
+	-- ROLLBACK IN ONE PLACE: `opts.elideContainers = false` restores an engine object
+	-- for every node. Kept because this changes which instances exist at all, and a
+	-- consumer debugging a layout in the Explorer may want the full tree back.
+	local elideContainers = not (opts ~= nil and (opts :: any).elideContainers == false)
+
+	local ELIDABLE_CLASSES: { [string]: boolean } = {
+		VStack = true,
+		HStack = true,
+		ZStack = true,
+		Grid = true,
+		Anchor = true,
+		Spacer = true,
+	}
+
+	local buildHandle: (any, string, string, any?, any?) -> any
+
 	function adapter.create(
+		rootHandle: any,
+		path: string,
+		class: string,
+		decorationHint: any?,
+		createOpts: { canvasGroup: boolean? }?
+	): any
+		if
+			elideContainers
+			and ELIDABLE_CLASSES[class]
+			and decorationHint == nil
+			and (createOpts == nil or createOpts.canvasGroup ~= true)
+		then
+			-- the construction arguments ride along so materialisation builds exactly
+			-- what an eager create would have built
+			return {
+				path = path,
+				class = class,
+				elided = true,
+				elidedRoot = rootHandle,
+				elidedHint = decorationHint,
+				elidedOpts = createOpts,
+			}
+		end
+		return buildHandle(rootHandle, path, class, decorationHint, createOpts)
+	end
+
+	buildHandle = function(
 		rootHandle: any,
 		path: string,
 		class: string,
@@ -1807,6 +1928,11 @@ function screen_target.new(opts: Opts?)
 			instance.Selectable = false -- selection policy (NS-A11): never selectable by default
 		end
 		local handle = { instance = instance, path = path, class = class }
+		-- the surface a recycled node is re-parented back under. Kept in a module
+		-- local, NOT on the handle: a field there is walked by the subtree index and
+		-- by the presentation channel, and adding one changed a motion's subtree
+		-- count from 3 to 5 before any of the recycling code even ran.
+		lastRootHandle = rootHandle
 		if instance:IsA("CanvasGroup") then
 			handle.canvasGroupInstance = instance
 			-- a fade group is a REAL PARENT: its descendants live inside it (which is
@@ -1979,6 +2105,51 @@ function screen_target.new(opts: Opts?)
 		handle.decorationHint = decorationHint
 		syncChrome(handle)
 		return handle
+	end
+
+	-- MATERIALISE. Builds exactly what an eager `create` would have, then folds it
+	-- into the handle table the renderer already holds — identity has to survive,
+	-- because the renderer keys everything off this exact table.
+	--
+	-- Anything the node was told while it had no instance is replayed afterwards: its
+	-- rect and its visibility. Those are the only two an elided node can have been
+	-- given, because every other entry point materialises before it writes.
+	local function ensureInstance(handle: any): Instance?
+		if handle == nil then
+			return nil
+		end
+		if handle.instance ~= nil or handle.elided ~= true then
+			return handle.instance
+		end
+		local built = buildHandle(handle.elidedRoot, handle.path, handle.class, handle.elidedHint, handle.elidedOpts)
+		local pendingRect, pendingVisible = handle.pendingRect, handle.pendingVisible
+		handle.elided = nil
+		handle.elidedRoot, handle.elidedHint, handle.elidedOpts = nil, nil, nil
+		handle.pendingRect, handle.pendingVisible = nil, nil
+		for k, v in built do
+			handle[k] = v
+		end
+		-- `buildHandle` registered the throwaway table it made; the live handle is this
+		-- one, and a stale registration would hand some later lookup a table nobody
+		-- else references
+		handlesByPath[handle.path] = handle
+		instancesByPath[handle.path] = handle.instance
+		local host = handle.clipHost
+		if host ~= nil then
+			for i, child in host.children do
+				if child == built then
+					host.children[i] = handle
+					break
+				end
+			end
+		end
+		if pendingRect ~= nil then
+			adapter.setRect(handle, pendingRect)
+		end
+		if pendingVisible ~= nil then
+			adapter.setVisible(handle, pendingVisible)
+		end
+		return handle.instance
 	end
 
 	function adapter.getInstance(path: string): Instance?
@@ -2253,6 +2424,14 @@ function screen_target.new(opts: Opts?)
 
 	function adapter.setRect(handle: any, rect: any)
 		handle.windowRect = rect
+		if handle.elided == true then
+			-- NOTHING TO MOVE. An elided node paints nothing and, in this flat tree, is
+			-- not the engine parent of its children — they were positioned absolutely
+			-- from the same solve. The rect is recorded so materialisation can apply it
+			-- if the node ever needs a real object.
+			handle.pendingRect = rect
+			return
+		end
 		applyRect(handle)
 		-- a clip host that moved re-bases every child (children may have
 		-- received their rects before the host did)
@@ -2586,7 +2765,14 @@ function screen_target.new(opts: Opts?)
 	-- resize re-chooses without rebuilding, but it must not paint. Visible=false
 	-- hides the whole subtree in one write and is not a styled property, so it does
 	-- not fight the sheet.
+	-- ELIDED NODES: visibility is applied PER NODE in this flat tree, so hiding a node
+	-- that owns no engine object hides nothing its children were not already told. The
+	-- value is recorded in case the node later materialises.
 	function adapter.setVisible(handle: any, visible: boolean)
+		if handle.elided == true then
+			handle.pendingVisible = visible
+			return
+		end
 		handle.instance.Visible = visible
 		-- RS-A16-D1: the expander is a SIBLING of its control (it has to be, so the
 		-- control keeps winning where they overlap), which means the host's Visible
@@ -2600,7 +2786,9 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	-- a hit rect needs a real object, so an elided node materialises here
 	function adapter.setHitRect(handle: any, rect: any)
+		ensureInstance(handle)
 		local instance = handle.instance
 		if rect == nil then
 			handle.hitRectWant = nil
@@ -3301,7 +3489,9 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	-- a property write needs a real object, so an elided node materialises here
 	function adapter.setProp(handle: any, prop: string, value: any, _authority: string)
+		ensureInstance(handle)
 		local instance = handle.instance
 		if prop == "surface" then
 			if instance:IsA("GuiObject") then
@@ -3756,7 +3946,11 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	-- an elided node has nothing on screen to order
 	function adapter.setZOrder(handle: any, z: number)
+		if handle.elided == true then
+			return
+		end
 		local instance = handle.instance
 		if instance:IsA("GuiObject") then
 			instance.ZIndex = z
@@ -3769,7 +3963,153 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	-- ---- INSTANCE RECYCLING (optional, feature-detected, default OFF) --------
+	--
+	-- MEASURED, on this engine, in this Studio session: building one virtualized
+	-- row (24 GuiObjects) costs 0.252 ms and destroying it 0.045 ms, while
+	-- REWRITING the same 24 objects' properties costs 0.024 ms. **Twelve times
+	-- cheaper**, and `LuauUI/mount` — the structural pass — was measured at
+	-- 0.66-0.97 ms/frame at every viewport, the largest single component of the
+	-- framework's frame after the L-9 measure fix. A scrolling list churns rows
+	-- for no reason other than that their PATH changed.
+	--
+	-- ONLY BARE INSTANCES ARE ELIGIBLE, and that restriction is the whole safety
+	-- argument. `adapter.remove` below re-keys eleven separate path-keyed records —
+	-- decorations, chrome text, toggle parts, stroke, motion scale, presentation
+	-- transform, clip-host membership, the subtree cache. Re-keying all of that on
+	-- a live instance is a much larger change than renaming one, and getting any
+	-- single entry wrong puts a stale decoration or a mis-parented toggle knob on
+	-- screen. So `park` REFUSES any handle carrying any of it, and the pool only
+	-- ever holds plain, undecorated nodes. In the performance lab's row that is
+	-- most of the tree; the Toggle and the Button keep the ordinary path.
+	local function isBare(handle: any): boolean
+		if handle == nil or handle.instance == nil then
+			return false
+		end
+		local path = handle.path
+		if
+			handle.decoration ~= nil
+			or handle.motionScale ~= nil
+			or handle.strokeInstance ~= nil
+			or handle.canvasGroupInstance ~= nil
+			or handle.chromeText ~= nil
+			-- being a clip host is disqualifying; being a MEMBER of one is not.
+			-- Every node inside a ScrollView is a member, which is the entire set a
+			-- windowed list wants to recycle — refusing them (the first version did)
+			-- made the feature refuse 275 of 275 parks and do exactly nothing.
+			-- Membership is released on park and re-established on adopt.
+			or clipHosts[path] ~= nil
+			or presentationTransforms[path] ~= nil
+		then
+			return false
+		end
+		-- a node that grew ANY child instance is carrying adapter-owned state that
+		-- is keyed to its old path; the cheapest sound test for "bare" is that the
+		-- engine object has no children at all
+		if #handle.instance:GetChildren() > 0 then
+			return false
+		end
+		if instancesByPath[path .. "/" .. chrome_slots.DECORATION_NAME] ~= nil then
+			return false
+		end
+		for name in chrome_slots.TOGGLE_PARTS do
+			if instancesByPath[path .. "/" .. chrome_slots.TOGGLE_PARTS[name]] ~= nil then
+				return false
+			end
+		end
+		return true
+	end
+
+	-- PARK: take a dying node out of the tree without destroying it. Returns false
+	-- if the node is not eligible, and the caller then removes it normally — so a
+	-- refusal is always safe and never silent.
+	function adapter.park(handle: any): boolean
+		if handle ~= nil and handle.elided == true then
+			-- an elided node owns no engine object: there is nothing to park, and
+			-- nothing to gain by pooling a table. It is simply dropped.
+			return false
+		end
+		if not isBare(handle) then
+			return false
+		end
+		if activeCapture ~= nil and activeCapture.handle == handle then
+			return false
+		end
+		local path = handle.path
+		-- RELEASE CLIP-HOST MEMBERSHIP. The host keeps an array of its children and
+		-- re-bases their window rects against itself; a parked node left in that
+		-- array is a corpse the host goes on re-placing every solve.
+		local host = handle.clipHost
+		if host ~= nil then
+			for i, child in host.children do
+				if child == handle then
+					table.remove(host.children, i)
+					break
+				end
+			end
+			handle.clipHost = nil
+		end
+		instancesByPath[path] = nil
+		handlesByPath[path] = nil
+		subtreeCache = {}
+		-- OFF THE SCREEN, not merely invisible: a parked instance must cost no
+		-- layout, no paint and no hit test, and must not appear in any census that
+		-- counts what the surface is holding
+		-- UNPARENTED IS ENOUGH, and `Visible` is deliberately left alone. The renderer
+		-- caches the last visibility it wrote per path; if park flipped it here, that
+		-- cache would disagree with the instance and the property diff on adoption
+		-- below could skip a write the node needs.
+		handle.instance.Parent = nil
+		handle.parked = true
+		return true
+	end
+
+	-- ADOPT: give a parked node a new identity. Every property the new node
+	-- declares is written by the renderer immediately afterwards (its per-path
+	-- caches were dropped when the old path died), so only IDENTITY is restored
+	-- here — the paint state is the renderer's job either way.
+	function adapter.adopt(handle: any, newPath: string, newClass: string): boolean
+		if handle == nil or handle.parked ~= true then
+			return false
+		end
+		if handle.class ~= newClass then
+			return false
+		end
+		handle.parked = nil
+		handle.path = newPath
+		handle.instance.Name = newPath
+		local host = hostFor(newPath)
+		if host ~= nil then
+			handle.clipHost = host
+			table.insert(host.children, handle)
+			handle.instance.Parent = host.instance
+		else
+			handle.instance.Parent = lastRootHandle.gui
+		end
+		instancesByPath[newPath] = handle.instance
+		handlesByPath[newPath] = handle
+		subtreeCache = {}
+		recomputePresentationOffset(handle)
+		return true
+	end
+
+	-- DISCARD: a parked node the pool never reused. Destroying it is the whole
+	-- point of the pool being bounded.
+	function adapter.discardParked(handle: any)
+		if handle ~= nil and handle.instance ~= nil then
+			handle.instance:Destroy()
+			handle.instance = nil
+		end
+	end
+
 	function adapter.remove(handle: any)
+		if handle ~= nil and handle.elided == true then
+			-- never built anything, so there is nothing to unwind; the path-keyed
+			-- records below were never written for it either
+			instancesByPath[handle.path] = nil
+			handlesByPath[handle.path] = nil
+			return
+		end
 		if activeCapture ~= nil and activeCapture.handle == handle then
 			-- never leave a global capture pointing at a dead node — unless
 			-- the drag itself removed it (lift) and asks to keep the capture

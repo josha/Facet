@@ -382,12 +382,16 @@ describe("screen_target: the presentation channel (source contract)", function()
 		local write = string.find(adapterSource, 'elseif prop == "transform" then', 1, true)
 		local writeBody = string.sub(adapterSource, write :: number, (write :: number) + 1200)
 		expect(string.find(writeBody, "subtreeOf(handle.path)", 1, true) ~= nil).toBe(true)
-		-- three invalidation sites: create, remove, whole-root teardown
+		-- FIVE invalidation sites: create, remove, whole-root teardown, and the two
+		-- halves of instance recycling (park takes a node out of the tree, adopt puts
+		-- one back under a new path). Both are structural changes to the flat tree, so
+		-- both must drop the derived subtree index — a recycled node that kept a stale
+		-- entry would re-place some other node's subtree on the next transform write.
 		local invalidations = 0
 		for _ in string.gmatch(adapterSource, "subtreeCache = {}") do
 			invalidations += 1
 		end
-		expect(invalidations).toBe(3)
+		expect(invalidations).toBe(5)
 	end)
 
 	it("the hit expander travels with the paint (a shifted control stays pressable)", function()
@@ -402,7 +406,47 @@ describe("screen_target: the presentation channel (source contract)", function()
 		expect(from ~= nil).toBe(true)
 		local body = string.sub(adapterSource, from :: number, (from :: number) + 1200)
 		expect(string.find(body, "handle.motionScale or handle.uiScale", 1, true) ~= nil).toBe(true)
-		expect(string.find(body, "authority.INSTANCE_NAMES.motionScale", 1, true) ~= nil).toBe(true)
+		-- The naming used to live here. It now lives in `ensureScale`, which is the
+		-- SINGLE place either path creates a UIScale — the press dip creates one lazily
+		-- on first press, so a second creation site would be exactly how the engine ends
+		-- up with two and honours neither. Pinning "one creation site" is stronger than
+		-- pinning where the name is written.
+		expect(string.find(body, "ensureScale(instance, handle)", 1, true) ~= nil).toBe(true)
+		local _, creations = string.gsub(adapterSource, 'Instance%.new%("UIScale"%)', "")
+		-- ensureScale, plus the focus ring's own scale, and nothing else
+		expect(creations).toBe(2)
+		local ensureFrom = string.find(adapterSource, "local function ensureScale(", 1, true)
+		expect(ensureFrom ~= nil).toBe(true)
+		local ensureBody = string.sub(adapterSource, ensureFrom :: number, (ensureFrom :: number) + 600)
+		expect(string.find(ensureBody, "authority.INSTANCE_NAMES.motionScale", 1, true) ~= nil).toBe(true)
+		expect(string.find(ensureBody, "handle.motionScale or handle.uiScale", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("an invisible hairline is not built at all (modifier elision)", function()
+		-- A `UIStroke` with zero thickness or full transparency draws nothing, so
+		-- creating one is a pure instance cost. Both shipped themes keep hairlines
+		-- visible, so this saves nothing on them — the guard is for a theme package
+		-- that turns them off, which would otherwise pay ~30 invisible strokes per
+		-- five rows on the shape measured in the performance lab.
+		--
+		-- SOURCE-SHAPE, and said so: the fake target does not build engine modifiers,
+		-- so a headless test cannot count real `UIStroke` instances. What is pinned is
+		-- that the guard exists and runs BEFORE construction — an elision checked
+		-- after `Instance.new` would save nothing.
+		local from = string.find(adapterSource, "local function hairlineWouldShow(): boolean", 1, true)
+		expect(from ~= nil).toBe(true)
+		local guard = string.sub(adapterSource, from :: number, (from :: number) + 500)
+		expect(string.find(guard, "thickness <= 0", 1, true) ~= nil).toBe(true)
+		expect(string.find(guard, "opacity >= 1", 1, true) ~= nil).toBe(true)
+
+		local hf = string.find(adapterSource, "local function hairline(instance: Instance", 1, true)
+		expect(hf ~= nil).toBe(true)
+		local body = string.sub(adapterSource, hf :: number, (hf :: number) + 400)
+		local guardAt = string.find(body, "if not hairlineWouldShow() then", 1, true)
+		local buildAt = string.find(body, 'Instance.new("UIStroke")', 1, true)
+		expect(guardAt ~= nil).toBe(true)
+		expect(buildAt ~= nil).toBe(true)
+		expect((guardAt :: number) < (buildAt :: number)).toBe(true)
 	end)
 
 	it("a fade group is created as a CanvasGroup, capability-probed, and is a real parent", function()

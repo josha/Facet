@@ -11,6 +11,7 @@
 -- Depends only on the contract types; no engine or Lune APIs.
 
 local contract = require("./contract")
+local profile = require("./profile")
 local scope_impl = require("./scope_impl")
 
 type Use = contract.Use
@@ -236,11 +237,27 @@ function Custom.new()
 		end
 	end
 
+	-- the flush BODY, hoisted out of `flush` so the MicroProfiler scope wraps a
+	-- named function rather than a closure allocated on every frame. Everything
+	-- inside is already pcall-quarantined (nothing may unwind and strand
+	-- `flushing = true`), so the span adds no new failure mode.
+	local flushBody: () -> ()
+
 	flush = function()
 		if flushing then
 			return
 		end
 		flushing = true
+		-- MICROPROFILER PHASE `LuauUI/react` (roadmap Step 9): reactive propagation
+		-- — the dirty walk, memo recomputes, observer notifies and effect runs that
+		-- one batch of writes caused. This is the phase that grows superlinearly
+		-- when a dependency graph is wrong, and it is invisible in a capture that
+		-- only shows `$Script`.
+		profile.span("react", flushBody)
+		flushing = false
+	end
+
+	flushBody = function()
 		local rounds = 0
 		while next(writeSet) ~= nil do
 			rounds += 1
@@ -288,7 +305,6 @@ function Custom.new()
 				runEffect(effect)
 			end
 		end
-		flushing = false
 	end
 
 	local function makeReadable(node: Node)
@@ -419,7 +435,12 @@ function Custom.new()
 
 		transaction = function(_self, body: () -> ())
 			txDepth += 1
-			local ok, err = pcall(body)
+			-- MICROPROFILER PHASE `LuauUI/mutate` (roadmap Step 9): the batched
+			-- MODEL change, separated from the propagation it causes. A profile that
+			-- cannot tell "the game wrote 400 signals" from "the framework walked the
+			-- dependency graph" cannot attribute the frame to either of them. The
+			-- trailing flush stays OUTSIDE this scope on purpose — it is `react`.
+			local ok, err = pcall(profile.span, "mutate", body)
 			txDepth -= 1
 			if txDepth == 0 then
 				flush()

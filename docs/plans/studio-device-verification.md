@@ -143,6 +143,16 @@ so the day a limit lifts, the automation starts using the capability.
 | — | `HttpService` requests are **server-only** during Play. | The driver is fetched and installed from the Server datamodel, then required from the Client. |
 | — | The override setters require an ACTIVE device. Measured: `SetScalingModeAsync` errors with *"no device is active"* straight after `StopSimulationAsync`; Roblox documents the same precondition for the resolution and pixel-density setters. | Select the device FIRST, then scaling mode / resolution / density. The driver's per-candidate setter order is deliberate. |
 
+## Measured on Studio 0.732 (2026-08-05, roadmap Step 9)
+
+One row above is now out of date, and one new limit is worth recording.
+
+| Claim | What was measured on 0.732 | Consequence |
+|---|---|---|
+| Step 4: "`VirtualInput`'s calls succeeded while delivering no observable input events" | **Keyboard delivery works.** `UserInputService:CreateVirtualInput()` then `vi:SendKey(true/false, Enum.KeyCode.Tab)` produced a real `InputBegan` with `UserInputType.Keyboard`, `KeyCode.Tab`, `gameProcessed = false`. | Keyboard rows can be driven again. Re-probe rather than inheriting the Step-4 pessimism — this is a rolling platform and the limit lifted. |
+| — | **The pointer-wheel path could not be driven at all.** `SendMouseWheel` is *not a valid member* of `VirtualInput`. `SendPointerAction` exists but its argument shape is undiscoverable from its own errors: `(Vector2, Vector2, number, boolean)` errors *"Unable to cast Vector2 to Dictionary"*, and a table errors *"Unable to cast Dictionary to Vector2"* — the same parameter rejected as both. Five shapes tried, none accepted. | A wheel row is `FAIL_ENVIRONMENT` until the signature is established from first-party documentation. Programmatic scroll is a different, honestly-labelled thing and must not be presented as a wheel. |
+| — | A raw key that arrives with `gameProcessed = false` means **nothing consumed it**. A surface presented with a plain `present(screen)` owns no UI keyboard input, so traversal bindings are not live on it (Step 8's responder rule). | When a keyboard row produces no effect, check responder ownership before concluding the injection failed. |
+
 The device catalog is also misleading in two directions, which is why the selection
 policy filters on pixel density rather than `DeviceForm` alone: Roblox classifies its
 Android TV entry as a **Tablet** (1920×1080 at 44 dpi), and its handheld consoles as

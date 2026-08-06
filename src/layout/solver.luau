@@ -29,6 +29,7 @@
 -- runs on Studio Neutral, whose values are the framework's historic literals.
 
 local text_metrics = require("./text_metrics")
+local profile = require("../core/profile")
 local themeSnapshot = require("../themes/snapshot")
 -- the PURE declared-content composition decision (ADR-0023). The solver supplies
 -- the measurements and consumes the rects; the ranking, the step-down/drop order
@@ -270,6 +271,30 @@ type Ctx = {
 	-- ...and the form index each region resolved to, read by the `region` arrange
 	-- branch. 0 means "nothing shows" (dropped, or below its floor).
 	regionForm: { [string]: number },
+	-- PER-SOLVE MEASURE MEMO (roadmap Step 9). node -> "<maxW>|<maxH>|<hidden>" ->
+	-- { w, h, textState, compact, textFacts, composition }. The verdicts ride along
+	-- because they are REPLAYED on a hit; see `measure` for why that is load-bearing.
+	measureCache: { [any]: { [string]: any } },
+	heightFree: { [any]: boolean },
+	offers: { [string]: number },
+	-- HOW MUCH OF THE TREE THIS SOLVE TOUCHED. Published in the result so a test can
+	-- ask "did changing one bound value re-lay-out the whole screen?" from the public
+	-- surface, instead of a one-off probe that has to patch this file.
+	arranged: number,
+	measured: number,
+	-- Stage-1 analysis only; nil on an ordinary solve
+	analyze: boolean,
+	boundary: { [string]: boolean },
+	-- INCREMENTAL REUSE (Stage 2 v2). `previous` is the last solve's result and
+	-- `dirtyContains` is every node that is dirty or contains a dirty node; a node
+	-- absent from it cannot have changed, so its subtree may be replayed instead of
+	-- walked. Both nil on an ordinary solve, which then behaves exactly as before.
+	reuse: any,
+	skipped: number,
+	skippedIds: { [string]: boolean },
+	-- true once a `scroll` node has been measured in this solve; gates the memo so a
+	-- tree with no scroll region pays nothing for it
+	hasScroll: boolean,
 }
 
 --[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4).
@@ -332,6 +357,7 @@ local function recordTextFacts(
 end
 
 local measure -- forward
+local measureUncached -- forward (the real body; `measure` is the per-solve memo in front of it)
 
 -- INTRINSIC COLUMNS (director round 9, 2026-07-26). `minColumnWidth` used to be
 -- a literal, which is a guess about a FONT: the gallery's theme picker asked for
@@ -433,6 +459,54 @@ local function gridUniformCell(ctx: Ctx, node: Node, colW: number, innerH: numbe
 end
 
 -- resolve one axis of `node` given the limit and a content thunk
+-- ---- RELAYOUT BOUNDARIES (incremental-layout Stage 1: DETECTION ONLY) -------
+--
+-- A node is a relayout BOUNDARY when its own size cannot change because something
+-- inside it changed. That is the property incremental layout needs: when a leaf's
+-- size changes, the effect propagates upward until it reaches a node that absorbs
+-- it, and only that node's subtree has to be laid out again.
+--
+-- The predicate MIRRORS `resolveAxis` deliberately, case for case, because a
+-- boundary rule that disagrees with the resolver is worse than none: it would
+-- promise that a subtree is isolated when it is not.
+--
+--   fixed    a literal                                    -> absorbs
+--   percent  reads the LIMIT, not the content...          -> absorbs IF bounded
+--   fill     ...same                                      -> absorbs IF bounded
+--   minMax   `preferred or contentFn()`                   -> absorbs IFF preferred
+--   hug      content, capped at the offer                 -> does NOT absorb
+--   content  the content                                  -> does NOT absorb
+--   aspect   derived from the other axis                  -> defers to it
+--
+-- `percent` and `fill` fall back to content on an UNBOUNDED axis (inside a scroll's
+-- scroll direction), and `resolveAxis` files a diagnostic when it does — so the
+-- limit check here is the same condition, not an approximation of it.
+--
+-- Stage 1 computes this and NOTHING else: no behaviour changes, and the whole
+-- analysis is gated behind an opt-in flag so an ordinary solve does not pay for it.
+local function axisAbsorbs(d: Dim, limit: number, other: Dim, otherLimit: number): boolean
+	local t = d.type
+	if t == "fixed" then
+		return true
+	elseif t == "percent" or t == "fill" then
+		return limit ~= math.huge
+	elseif t == "minMax" then
+		return d.preferred ~= nil
+	elseif t == "aspect" then
+		-- one level only: aspect-on-both-axes is already rewritten to content above
+		local ot = other.type
+		if ot == "fixed" then
+			return true
+		elseif ot == "percent" or ot == "fill" then
+			return otherLimit ~= math.huge
+		elseif ot == "minMax" then
+			return other.preferred ~= nil
+		end
+		return false
+	end
+	return false
+end
+
 local function resolveAxis(ctx: Ctx, node: Node, d: Dim, limit: number, contentFn: () -> number): number
 	if d.type == "fixed" then
 		return d.px :: number
@@ -932,8 +1006,146 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 end
 
 -- measure pass: desired size within (maxW, maxH); math.huge = unbounded axis
+--
+-- PER-SOLVE MEMO (roadmap Step 9, found by the performance lab 2026-08-04). A
+-- scroll node is measured TWICE by design — once by this pass, and again inside
+-- `arrange`, where `measureAll` re-measures every child to decide whether the
+-- engine's scrollbar has to be reserved off the cross axis ("measuring twice is
+-- the cost of not guessing"). That reasoning is right and the second measure
+-- stays; what was wasteful is that the second one recomputed an answer the first
+-- had already produced for the SAME node at the SAME limits.
+--
+-- Measured on the lab's dense-scroll workload (2 000 rows, 11 mounted, steady
+-- 40px/frame): `LuauUI/arrange` ran at 1.51ms mean against `LuauUI/measure` at
+-- 0.23ms — 6.6x, in a pass that is supposed to be the cheap one, and 56% of the
+-- whole step. The re-measure was the difference.
+--
+-- SAFETY. `ctx` is created fresh per `solver.solve`, nothing mutates node content
+-- mid-solve, and every side effect `measure` has is an idempotent write into a
+-- ctx table keyed by `node.id`. The one contextual input that is NOT in the
+-- argument list is `ctx.hiddenDepth` (it gates diagnostics), so it is part of the
+-- key. A miss recomputes exactly as before.
 measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
+	-- SCOPED TO THE SHAPES THAT PAY FOR IT (architecture review MINOR-8, confirmed as a
+	-- real gate failure). The memo exists for ONE redundancy: `arrange`'s scroll branch
+	-- re-measuring children the measure pass already sized. A tree with no scroll node
+	-- has no such redundancy, so the cache can only cost — a string key and a table per
+	-- node per solve.
+	--
+	-- That cost was measurable, not theoretical. `textinput-typing-storm` (a small tree
+	-- re-solved per keystroke) crossed the bench's 1.5x regression rule with the memo
+	-- unconditional: six interleaved A/B pairs read memo 1.453/1.585/1.530/1.694/1.630/
+	-- 1.663 against nomemo 0.817/1.380/1.522/0.668/1.418/1.657 — worse in every pair.
+	-- Re-baselining that budget to accept it was never an option; scoping the change is
+	-- the fix.
+	--
+	-- `hasScroll` flips the first time a scroll node is measured, and a scroll node is
+	-- always measured before its own children, so it is set before any call that could
+	-- benefit. A tree without one never touches the cache at all.
+	if not ctx.hasScroll then
+		return measureUncached(ctx, node, maxW, maxH)
+	end
+	-- THE KEY CARRIES THE INPUTS THE COMPUTATION ACTUALLY READS, AND NO MORE. A key
+	-- with a spare field in it is not merely wasteful — it is a cache that cannot hit.
+	--
+	-- MEASURED (MicroProfiler capture + headless probe, 2026-08-05): the solver made
+	-- 5.67 measure calls per text node per solve and this cache served 4.4% of them.
+	-- The reason is `maxH`. A container measures a child against the height REMAINING
+	-- after its siblings, so the offered height is different on almost every call —
+	-- while a text node's answer does not depend on it at all. Its content size comes
+	-- from the wrap width, and `contentSize`'s text branch never reads `innerMaxH`.
+	--
+	-- So for a text leaf whose HEIGHT cannot depend on the offer, `maxH` leaves the
+	-- key. The three dimension types that qualify are exactly the ones `resolveAxis`
+	-- answers without reading its `limit`: `fixed` (a literal), `content` (the text
+	-- metrics) and `minMax` (preferred-or-content, then clamped). `fill`, `percent`
+	-- and `hug` all read the limit — `hug` caps at the offer — so they keep it. Either
+	-- axis being `aspect` couples the two, so that keeps it too.
+	--
+	-- Verified by differential fuzz against a build with the drop disabled, not by
+	-- reading the code twice: this is the second cache in this function, and the FIRST
+	-- one was wrong in a way only a differential oracle could see.
+	local dropH = ctx.heightFree[node]
+	if dropH == nil then
+		dropH = false
+		if node.kind == "text" then
+			local wD, hD = dim(node, "w"), dim(node, "h")
+			local t = hD.type
+			dropH = wD.type ~= "aspect" and t ~= "aspect" and (t == "fixed" or t == "content" or t == "minMax")
+		end
+		ctx.heightFree[node] = dropH
+	end
+	local cacheKey = if dropH then `{maxW}|*|{ctx.hiddenDepth}` else `{maxW}|{maxH}|{ctx.hiddenDepth}`
+	local perNode = ctx.measureCache[node]
+	if perNode ~= nil then
+		local hit = perNode[cacheKey]
+		if hit ~= nil then
+			-- REPLAY THE PUBLISHED VERDICTS, DO NOT MERELY RETURN THE SIZE.
+			-- (architecture review 2026-08-04, BLOCKER-1 — caught by a differential
+			-- fuzz over 800 seeded trees.)
+			--
+			-- These three channels are documented as "assigned on EVERY measure of the
+			-- node, so the facts published are the ones the reserved box was built
+			-- from" (see `ctx.compact` and `recordTextFacts` above). Their published
+			-- value is decided by LAST WRITE WINS across boxes — a node is measured
+			-- repeatedly at different widths and the final logical measure is the one
+			-- `arrange` snapshots.
+			--
+			-- A cache that returned only `(w, h)` silently changed that rule to "the
+			-- first measure of each distinct box wins", which differs whenever the
+			-- order is measure(A) -> measure(B) -> measure(A). The fuzz found exactly
+			-- that: geometry byte-identical across all 800 trees, but `compact` flipped
+			-- on 3 and `textFacts` on 12 — including `truncated` going true -> false,
+			-- which is what gates the full-value disclosure path and the reveal. A cut
+			-- label reporting `truncated = false` loses its accessible full value: a
+			-- Step 8.5 contract regression, geometry unchanged.
+			--
+			-- Replaying restores last-write-wins exactly while keeping the saving. Note
+			-- `nil` is a legitimate replay value (the original call may not have written
+			-- the channel at all), so these are plain assignments, not `or` merges.
+			ctx.textStates[node.id] = hit.textState
+			ctx.compact[node.id] = hit.compact
+			ctx.textFacts[node.id] = hit.textFacts
+			-- `ctx.compositions` is re-derived by `arrange` from its own box today, so
+			-- replaying it changes nothing — it is replayed anyway so that the day an
+			-- arrange branch reads the leftover instead, this does not become the same
+			-- bug a second time.
+			ctx.compositions[node.id] = hit.composition
+			return hit.w, hit.h
+		end
+	else
+		perNode = {}
+		ctx.measureCache[node] = perNode
+	end
+	local mw, mh = measureUncached(ctx, node, maxW, maxH)
+	-- captured AFTER the call, so the entry holds what this measure published
+	perNode[cacheKey] = {
+		w = mw,
+		h = mh,
+		textState = ctx.textStates[node.id],
+		compact = ctx.compact[node.id],
+		textFacts = ctx.textFacts[node.id],
+		composition = ctx.compositions[node.id],
+	}
+	return mw, mh
+end
+
+measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
+	ctx.measured += 1
+	ctx.offers[node.id .. "|w"] = maxW
+	ctx.offers[node.id .. "|h"] = maxH
+	-- the gate for the memo above: a scroll node is measured before its children, so
+	-- setting this here arms the cache for exactly the subtree that benefits
+	if node.kind == "scroll" then
+		ctx.hasScroll = true
+	end
 	local wDim, hDim = dim(node, "w"), dim(node, "h")
+	if ctx.analyze then
+		-- recorded where the OFFER is in hand, because that is what decides it for a
+		-- percent or fill dimension. Last write wins, exactly like the other
+		-- per-measure verdicts: the final logical measure is the one arrange uses.
+		ctx.boundary[node.id] = axisAbsorbs(wDim, maxW, hDim, maxH) and axisAbsorbs(hDim, maxH, wDim, maxW)
+	end
 	if wDim.type == "aspect" and hDim.type == "aspect" then
 		table.insert(ctx.diagnostics, {
 			node = node.id,
@@ -1063,10 +1275,59 @@ local function alignOffset(align: string?, avail: number, size: number): number
 end
 
 -- arrange pass: assign rects into out[id]
+-- Copy a whole subtree's previous entries forward, unchanged. Used only when the
+-- subtree is provably unaffected: nothing inside it is dirty and it is being placed at
+-- exactly the rect it already had, so every descendant's absolute geometry — and every
+-- verdict that geometry produced — is the answer it already gave.
+local function replaySubtree(ctx: Ctx, node: Node, previous: any, out: { [string]: any })
+	local entry = previous.rects[node.id]
+	if entry == nil then
+		return false
+	end
+	out[node.id] = entry
+	ctx.skippedIds[node.id] = true
+	ctx.skipped += 1
+	-- the published channels the rest of the framework reads off `ctx`, replayed for
+	-- the same reason `solver.measure`'s memo replays them: a cache that returns
+	-- geometry and drops the verdicts changes `compact` and `truncated` while every
+	-- rect stays byte-identical (the BLOCKER a differential fuzz caught on that memo)
+	ctx.textStates[node.id] = entry.textState
+	ctx.compact[node.id] = entry.compact
+	ctx.textFacts[node.id] = entry.textFacts
+	for _, child in node.children or {} do
+		if not replaySubtree(ctx, child, previous, out) then
+			return false
+		end
+	end
+	return true
+end
+
 local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
+	-- THE SKIP. Same solve, same ctx, same traversal — this subtree just does not need
+	-- walking: no dirty node inside it, and it is landing on the rect it already had.
+	local reuse = ctx.reuse
+	if reuse ~= nil and reuse.dirtyContains[node.id] ~= true then
+		local prev = reuse.previous.rects[node.id]
+		local pr = if prev ~= nil then prev.rect else nil
+		if
+			pr ~= nil
+			and pr.x == rect.x
+			and pr.y == rect.y
+			and pr.w == rect.w
+			and pr.h == rect.h
+			and replaySubtree(ctx, node, reuse.previous, out)
+		then
+			return
+		end
+	end
+	ctx.arranged += 1
 	local gap = node.gap or 0
 	out[node.id] = {
 		rect = rect,
+		-- the OFFER this node was measured against, so a later solve can ask "is this
+		-- the same question I already answered?" — a rect alone cannot say that
+		offerW = ctx.offers[node.id .. "|w"],
+		offerH = ctx.offers[node.id .. "|h"],
 		kind = node.kind,
 		overflow = node.overflow,
 		textState = ctx.textStates[node.id],
@@ -1783,21 +2044,154 @@ function solver.solve(
 		compositions = {},
 		regionForm = {},
 		hiddenDepth = 0,
+		-- per-solve measure memo (see `measure`). Weak keys are unnecessary: the
+		-- whole ctx dies with the solve.
+		measureCache = {},
+		arranged = 0,
+		measured = 0,
+		analyze = (opts and (opts :: any).analyzeBoundaries) == true,
+		boundary = {},
+		reuse = opts and (opts :: any).reuse,
+		skipped = 0,
+		skippedIds = {},
+		offers = {},
+		-- per-node verdict: can this node's measured size depend on the offered
+		-- HEIGHT? Computed once per node per solve, read on every measure of it.
+		heightFree = {},
+		-- armed the first time a scroll node is measured; a tree without one never
+		-- pays for the cache
+		hasScroll = false,
 		scrollBarReserve = if type(reserve) == "number" and reserve == reserve then math.max(0, reserve) else 0,
 		-- Studio Neutral when the caller supplies none: a solve is never without
 		-- a metric authority, and neutral reproduces the pre-theme literals
 		metrics = (opts and opts.metrics) or themeSnapshot.neutral(),
 	}
-	local mw, mh = measure(ctx, root, contentRect.w, contentRect.h)
+	-- MICROPROFILER PHASES (roadmap Step 9). The two passes are named separately
+	-- because they answer different questions and regress for different reasons: a
+	-- measure regression is text metrics / intrinsic sizing / candidate selection,
+	-- an arrange regression is stack distribution and rect derivation. Averaged into
+	-- one "solve" bar a capture cannot tell them apart. Both are ONE scope for the
+	-- whole tree — never one per node (see src/core/profile.luau rule 1).
+	local mw, mh
+	profile.span("measure", function()
+		mw, mh = measure(ctx, root, contentRect.w, contentRect.h)
+	end)
 	-- the root honors its own dims: fixed/content use the measured size
 	-- (clamped to the content rect); fill stretches to the content rect
 	local rootW = if dim(root, "w").type == "fill" then contentRect.w else math.min(mw, contentRect.w)
 	local rootH = if dim(root, "h").type == "fill" then contentRect.h else math.min(mh, contentRect.h)
 	local out: { [string]: any } = {}
-	arrange(ctx, root, { x = contentRect.x, y = contentRect.y, w = rootW, h = rootH }, out)
-	return { rects = out, diagnostics = ctx.diagnostics, contentRect = contentRect }
+	profile.span("arrange", function()
+		arrange(ctx, root, { x = contentRect.x, y = contentRect.y, w = rootW, h = rootH }, out)
+	end)
+	-- A SKIPPED SUBTREE KEEPS ITS FINDINGS. It was not walked, so it filed nothing this
+	-- solve; dropping them would silence `controller.diagnostics()` for exactly the
+	-- parts of the screen that did not change, which is the instrument every layout
+	-- defect in this repo was caught by.
+	if ctx.reuse ~= nil and ctx.skipped > 0 then
+		for _, d in ctx.reuse.previous.diagnostics or {} do
+			if ctx.skippedIds[d.node] == true then
+				table.insert(ctx.diagnostics, d)
+			end
+		end
+	end
+	return {
+		rects = out,
+		diagnostics = ctx.diagnostics,
+		contentRect = contentRect,
+		work = {
+			arranged = ctx.arranged,
+			measured = ctx.measured,
+			skipped = ctx.skipped,
+			-- present only when asked for (Stage 1); an ordinary solve carries nothing
+			boundary = if ctx.analyze then ctx.boundary else nil,
+		},
+	}
 end
 
 solver.sides = sides
+
+-- ---- THE STAGE-1 REPORT -----------------------------------------------------
+--
+-- Answers one question, for the tree as solved: **if any single node changed size,
+-- how much of the tree would a boundary-aware layout have to redo?**
+--
+-- For each node it walks upward to the nearest ancestor that ABSORBS a size change
+-- (inclusive of the node itself — a fixed-size node absorbs its own content's
+-- change) and counts that ancestor's subtree. With no absorbing ancestor the answer
+-- is the whole tree, which is what LuauUI does today for every node.
+--
+-- Reported as a distribution rather than one number because the interesting fact is
+-- the SHAPE: if the median node is isolated to a handful of nodes but the mean is
+-- the whole tree, the win is real but uneven, and that changes what Stage 2 should
+-- do first.
+function solver.boundaryReport(root: Node, result: any): any
+	local boundary = result and result.work and result.work.boundary
+	if boundary == nil then
+		error("solver.boundaryReport: solve with { analyzeBoundaries = true } first", 2)
+	end
+	local parentOf: { [string]: string } = {}
+	local subtree: { [string]: number } = {}
+	local order: { Node } = {}
+
+	local function walk(node: Node, parent: Node?)
+		if parent ~= nil then
+			parentOf[node.id] = parent.id
+		end
+		table.insert(order, node)
+		for _, child in node.children or {} do
+			walk(child, node)
+		end
+	end
+	walk(root, nil)
+
+	-- subtree sizes, bottom-up over the same order
+	for i = #order, 1, -1 do
+		local node = order[i]
+		local n = 1
+		for _, child in node.children or {} do
+			n += subtree[child.id] or 1
+		end
+		subtree[node.id] = n
+	end
+
+	local total = #order
+	local affected: { number } = {}
+	local absorbed = 0
+	for _, node in order do
+		if boundary[node.id] == true then
+			absorbed += 1
+		end
+		-- nearest absorbing ancestor, INCLUSIVE
+		local at: string? = node.id
+		local hops = 0
+		while at ~= nil and boundary[at] ~= true and hops <= total do
+			at = parentOf[at]
+			hops += 1
+		end
+		table.insert(affected, if at ~= nil and boundary[at] == true then (subtree[at] or total) else total)
+	end
+	table.sort(affected)
+	local sum = 0
+	for _, v in affected do
+		sum += v
+	end
+	local function pct(p: number): number
+		return affected[math.max(1, math.min(#affected, math.floor(#affected * p)))]
+	end
+	return {
+		nodes = total,
+		absorbingNodes = absorbed,
+		-- how many nodes a single change would re-lay-out, if boundaries were honoured
+		meanAffected = if #affected > 0 then sum / #affected else 0,
+		medianAffected = pct(0.5),
+		p95Affected = pct(0.95),
+		worstAffected = affected[#affected],
+		-- what LuauUI does today for every single change
+		todayAffected = total,
+		-- 1.0 = boundaries would buy nothing; 0.1 = a change touches a tenth of the tree
+		meanShareOfTree = if total > 0 and #affected > 0 then (sum / #affected) / total else 1,
+	}
+end
 
 return solver

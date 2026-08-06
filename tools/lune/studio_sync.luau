@@ -59,15 +59,35 @@ local function addTree(fsDir: string, robloxPath: string, rootClassName: string)
 	end
 end
 
-addTree("src", "ReplicatedStorage.LuauUI", "ModuleScript")
-addTree("examples/gallery/examples", "ReplicatedStorage.LuauUIExamples", "Folder")
-addTree("examples/gallery/scenarios", "ReplicatedStorage.LuauUIScenarios", "ModuleScript")
-addTree("examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
--- theme packages (stage theme-packages-and-skinning): the scenario runner
--- discovers ReplicatedStorage.LuauUIThemes at play time (same mapping the
--- gallery.project.json Rojo build declares)
-addTree("examples/themes", "ReplicatedStorage.LuauUIThemes", "Folder")
+-- TWO TREES, ONE AT A TIME (roadmap Step 9). The gallery and the performance lab
+-- both mount at `ReplicatedStorage.LuauUIScenarios`, because the lab REUSES the
+-- gallery's scenario runner rather than forking it — so serving both at once
+-- would put two different `init.luau` files at the same path and the last writer
+-- would win silently. The mode is explicit instead:
+--
+--   lune run tools/lune/studio_sync            -- the gallery tree (default)
+--   lune run tools/lune/studio_sync perf       -- the performance lab tree
+--   lune run tools/lune/studio_sync perf manifest
+--
+-- The perf mapping mirrors examples/performance.project.json exactly, including
+-- the gallery runner mapped in as a child of the lab registry.
+local mode = if process.args[1] == "perf" then "perf" else "gallery"
 
+addTree("src", "ReplicatedStorage.LuauUI", "ModuleScript")
+addTree("examples/themes", "ReplicatedStorage.LuauUIThemes", "Folder")
+if mode == "perf" then
+	addTree("examples/performance/lab", "ReplicatedStorage.LuauUIScenarios", "ModuleScript")
+	table.insert(entries, {
+		path = "ReplicatedStorage.LuauUIScenarios.runner",
+		className = "ModuleScript",
+		file = "examples/gallery/scenarios/runner.luau",
+	})
+	addTree("examples/performance/client", "StarterPlayer.StarterPlayerScripts.PerfLab", "ModuleScript")
+else
+	addTree("examples/gallery/examples", "ReplicatedStorage.LuauUIExamples", "Folder")
+	addTree("examples/gallery/scenarios", "ReplicatedStorage.LuauUIScenarios", "ModuleScript")
+	addTree("examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
+end
 -- vendored Fusion is not needed by the gallery runtime path; skip.
 
 -- content stamp: order-stable concatenated sizes+paths hashed cheaply.
@@ -106,9 +126,9 @@ local manifest = buildManifest()
 
 fs.writeDir("build")
 fs.writeFile("build/studio_manifest.json", serde.encode("json", manifest, true))
-print(`studio_sync: manifest {#entries} nodes, stamp {manifest.stamp}`)
+print(`studio_sync: [{mode}] manifest {#entries} nodes, stamp {manifest.stamp}`)
 
-if process.args[1] == "manifest" then
+if process.args[1] == "manifest" or process.args[2] == "manifest" then
 	return
 end
 
@@ -132,8 +152,19 @@ net.serve(PORT, function(request)
 		if not string.match(name, "^[%w%-_]+$") then
 			return { status = 400, body = "bad name" }
 		end
-		fs.writeDir("artifacts/cross-platform-proof/rows/matrix")
-		local target = `artifacts/cross-platform-proof/rows/matrix/{name}.json`
+		-- The stage directory is an ALLOWLIST, not a free path: this route exists so
+		-- a driver row lands byte-for-byte as the instrument emitted it, and a route
+		-- that could write anywhere would be a different kind of tool.
+		local DIRS: { [string]: string } = {
+			matrix = "artifacts/cross-platform-proof/rows/matrix",
+			perf = "artifacts/performance-stress-places/studio",
+		}
+		local dir = DIRS[request.query.dir or "matrix"]
+		if dir == nil then
+			return { status = 400, body = "unknown dir" }
+		end
+		fs.writeDir(dir)
+		local target = `{dir}/{name}.json`
 		fs.writeFile(target, request.body)
 		print(`studio_sync: saved {target} ({#request.body} bytes)`)
 		return { status = 200, body = target }
@@ -143,6 +174,10 @@ net.serve(PORT, function(request)
 		-- NOT in the manifest: it is development tooling, not library source and
 		-- not a shipped example (studio-device-verification.md).
 		return { status = 200, body = fs.readFile("tools/studio/device_matrix.luau") }
+	elseif path == "/visual_diff" then
+		-- the visual-regression harness, served the same way and for the same reason:
+		-- the copy running in the open place must not drift from the repository copy
+		return { status = 200, body = fs.readFile("tools/studio/visual_diff.luau") }
 	elseif path:sub(1, 6) == "/file/" then
 		local idx = tonumber(path:sub(7))
 		local entry = idx and manifest.files[idx]

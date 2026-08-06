@@ -1519,9 +1519,41 @@ function chrome_slots.stackInstanceCount(stack: StackPlan?): number
 	return n
 end
 
+-- WHERE A LAYER SITS IN ITS HOST'S Z BAND (director report 2026-08-05).
+--
+-- The single-decoration path has always parented its `LuauUIChrome` at **ZIndex 0**,
+-- with the ruling written on the line: *below anything the node's own content draws*.
+-- The LAYERED path never got it. It numbered its layers 1..N, and a control's own
+-- adapter-built content sits at 1 and 2 — `Label`, `Track`, `Knob`. Equal ZIndex is
+-- broken by SIBLING ORDER, and a decoration is created after the content it decorates,
+-- so `LuauUIChromeL1` painted straight over both.
+--
+-- Live under fantasy-ornate: a Toggle's `Label` ("Ready") and its `Track` were BURIED
+-- under an opaque full-bleed layer; only the `Knob` at 2 survived, and only because
+-- the corner ornaments that share its ZIndex do not overlap it. Under pixel-quest —
+-- one nine-slice, ZIndex 0 — the same control reads correctly. That A/B is the whole
+-- diagnosis, and it is the same shape as the `applyFullBleed` defect (L-25): a ruling
+-- that lived at ONE call site while the layered route took another.
+--
+-- The band is therefore `<= 0` for decoration and `>= 1` for content, and the ladder
+-- keeps its own order INSIDE it: layer i of N sits at `i - N`, so the topmost layer
+-- lands exactly where a single decoration does (0) and the rest stack below it. That
+-- is byte-identical for a one-layer package and strictly correct for the rest.
+--
+-- NOT sibling order. Two layers could collapse to one z slot and rely on creation
+-- order, but a re-sync rebuilds only the layers that changed — an order the array does
+-- not control is an order that drifts.
+chrome_slots.DECORATION_Z_INDEX = 0
+
+function chrome_slots.layerZIndexFor(index: number, count: number): number
+	return index - count
+end
+
 -- the chrome text lift rides ABOVE the whole ladder (rs-m2: a layer covers the
 -- parent's engine text at any ZIndex, so the lift is mandatory at every depth).
--- Layers occupy 1..N; a single nine-slice decoration sits at 0 and keeps 1.
+-- Layers occupy `1-N .. 0`; a single nine-slice decoration sits at 0 and keeps 1.
+-- Unchanged by the band move above: `N + 1` already cleared every layer, and it also
+-- clears the content band, which is what a redrawn copy of the host's own text wants.
 function chrome_slots.liftZIndexFor(stack: StackPlan?): number
 	if stack == nil then
 		return 1

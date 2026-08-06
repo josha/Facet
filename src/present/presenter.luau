@@ -13,13 +13,13 @@ local blueprintLib = require("../blueprint")
 local chrome_slots = require("../tokens/chrome_slots")
 local renderer = require("../render/renderer")
 local focus_graph = require("../focus/focus_graph")
-local contribution = require("../input/contribution")
 -- structural transitions, the toast model and the semantic feedback seam
 -- (ADR-0022 Decisions 3, 4, 7). Each is engine-free and driven from here.
 local transitionsLib = require("../render/transitions")
 local toast_schedule = require("./toast_schedule")
 local feedbackLib = require("./feedback")
 local motionClockLib = require("../motion/clock")
+local profile = require("../core/profile")
 -- the metric authority (ADR-0019 §2). The modal-dismissal spec pins the
 -- forgiveness ring to space.l and the target ring to the effective hit floor;
 -- both are now THEME values read from the live `themeMetrics` fact, so a theme
@@ -205,6 +205,14 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"sinkNavigation",
 	"transition",
 	"traversalWrap",
+	-- INSTANCE RECYCLING (opt-in, default off). A windowed list rebuilds an
+	-- identical row every time its window slides; with this on, retiring nodes are
+	-- parked and reused instead of destroyed and re-created. Feature-detected on
+	-- the adapter as well, and the adapter refuses any node carrying path-keyed
+	-- state — so it can only ever save work, never change what is on screen.
+	"recycleInstances",
+	-- INCREMENTAL LAYOUT (opt-in, default off — Stage 2)
+	"incrementalLayout",
 	"keyboardNavigation",
 })
 local TOAST_OPTS_KEYS = specGuard.keySet({
@@ -218,702 +226,46 @@ local TOAST_OPTS_KEYS = specGuard.keySet({
 })
 local PRESENTER_OPTS_KEYS = specGuard.keySet({ "clock", "keyboardNavigation", "now" })
 
-local FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
+local modalZones = require("./modal_zones")
+local focusMap = require("./focus_map")
 
--- B-BTN4: `enabled = false` must be consistent across focus, activation,
--- appearance and semantics. It used to reach only paint and semantics, so a
--- disabled control stayed in focus order and still activated on tap, Return and
--- ButtonA — visible as disabled, fully operable by keyboard and gamepad.
-local function isDisabled(node: any): boolean
-	return node ~= nil and node.props ~= nil and node.props.enabled == false
-end
-
--- ===== modal outside-tap: two-zone geometry (modal-dismissal spec) ==========
--- Zone A ("no dismiss") is the modal's PAINTED region, never its blueprint-path
--- envelope: an invisible/transparent container that geometrically covers the
--- screen contributes NOTHING (defusing the "fill root swallows every tap"
--- footgun), while a VISIBLE fullscreen panel correctly has no outside. A node is
--- "painted" iff it carries a `surface` fill OR is a content-bearing leaf.
-local CONTENT_PAINTED: { [string]: boolean } =
-	{ Text = true, Button = true, Toggle = true, TextField = true, Image = true }
--- forgiveness ring = space.l (≈ half the hit floor) and the effective hit floor
--- itself (targetSizes.minimum). Roles, not literals — the boundary mirror of the
--- target-forgiveness logic (spec §3.2).
-
-local function pointInRect(x: number, y: number, r: any): boolean
-	return x >= r.x and x <= r.x + r.w and y >= r.y and y <= r.y + r.h
-end
-
-local function inflate(r: any, m: number): any
-	return { x = r.x - m, y = r.y - m, w = r.w + 2 * m, h = r.h + 2 * m }
-end
-
--- inflate a rect symmetrically so each axis reaches at least `floor` (the 44px
--- effective hit rect of an edge button that may be smaller than its target)
-local function inflateToFloor(r: any, floor: number): any
-	local dw = math.max(0, floor - r.w)
-	local dh = math.max(0, floor - r.h)
-	return { x = r.x - dw / 2, y = r.y - dh / 2, w = r.w + dw, h = r.h + dh }
-end
-
--- is (x,y) inside `subtreeRoot`'s Zone A? = ( outermost painted panel bbox ⊕ 24 )
--- ∪ ( each focusable's 44px hit rect ). Reads SOLVED rects (rectOf), replacing
--- the pure path-prefix test for the dismiss decision. Returns false when nothing
--- is painted (a wholly-invisible surface has no Zone A, so every tap is Zone B).
--- Scoped to any subtree so both a modal (whole root) and a transient popup (its
--- contribution subtree) share one geometry (ADR-0014 two-zone model).
-local function zoneAContains(rectOf: (string) -> any, subtreeRoot: any, x: number, y: number, metrics: any): boolean
-	local forgiveMargin: number = metrics.space.l
-	local hitFloor: number = metrics.targetSizes.minimum
-	local bbox: any = nil
-	local focusHit = false
-	local function consider(node: any)
-		local props = node.props
-		local painted = (props ~= nil and props.surface ~= nil) or CONTENT_PAINTED[node.class] == true
-		if painted then
-			local r = rectOf(node.path)
-			if r ~= nil then
-				if bbox == nil then
-					bbox = { x = r.x, y = r.y, w = r.w, h = r.h }
-				else
-					local bx2 = math.max(bbox.x + bbox.w, r.x + r.w)
-					local by2 = math.max(bbox.y + bbox.h, r.y + r.h)
-					bbox.x = math.min(bbox.x, r.x)
-					bbox.y = math.min(bbox.y, r.y)
-					bbox.w = bx2 - bbox.x
-					bbox.h = by2 - bbox.y
-				end
-				if FOCUSABLE[node.class] and not (props ~= nil and props.focusable == false) then
-					if pointInRect(x, y, inflateToFloor(r, hitFloor)) then
-						focusHit = true
-					end
-				end
-			end
-		end
-		for _, child in node.children or {} do
-			consider(child)
-		end
-	end
-	if subtreeRoot ~= nil then
-		consider(subtreeRoot)
-	end
-	if focusHit then
-		return true
-	end
-	return bbox ~= nil and pointInRect(x, y, inflate(bbox, forgiveMargin))
-end
-
-local function modalInZoneA(handle: any, x: number, y: number, metrics: any): boolean
-	return zoneAContains(handle.controller.rectOf, handle.root.node, x, y, metrics)
-end
-
--- grips (opt-in focusable pointer zones) sort AFTER the ordinary walk so list
--- navigation lands on content first; they stay reachable past the end
--- (gamepad resize affordance — the virtual cursor ignores MouseIcon)
--- A RETIRING SUBTREE IS NOT INTERACTIVE (ADR-0022 Decision 3). A node whose
--- structural region declared an exit transition stays MOUNTED while it plays that
--- exit — its layout slot holds, its instances stay put — and that is exactly the
--- window in which it must stop being focusable and stop taking taps. Focus landing
--- on a control that is fading out is the defect this guard exists for; every walk
--- over the mounted tree that feeds focus or hit routing prunes at the mark.
-local function isRetiring(node: any): boolean
-	return node ~= nil and node.retiring == true
-end
-
-local function focusWalk(node: any, out: { string }, deferred: { string })
-	if isRetiring(node) then
-		return
-	end
-	if node.class == "Grip" then
-		if node.props and node.props.focusable == true then
-			table.insert(deferred, node.path)
-		end
-	elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) and not isDisabled(node) then
-		table.insert(out, node.path)
-	end
-	for _, child in node.children do
-		focusWalk(child, out, deferred)
-	end
-end
-
--- hidden(path) tells focusOrder to skip a path and everything beneath it. It
--- exists for ViewThatFits (A-AL1): a losing candidate stays MOUNTED so a resize
--- re-chooses without rebuilding, which means focus order — not the mount tree —
--- is what has to exclude it. Without this, navigation would land on a control
--- with a zero rect that the player cannot see.
--- is `prefix` a PATH prefix of `path` (segment-aligned, so "/S/Name" prefixes
--- "/S/Name/Field" but not "/S/NameX/...")
-local function isPathPrefix(prefix: string, path: string): boolean
-	return path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/"
-end
-
--- An order entry is a bare path OR the live-predicate form `{ id = path,
--- focusable = () -> boolean }` (ADR-0022 Decision 5). Both have to be filterable,
--- because the hidden rule is about the NODE, not about how it was declared.
-local function entryPath(entry: any): string?
-	if type(entry) == "string" then
-		return entry
-	end
-	if type(entry) == "table" and type(entry.id) == "string" then
-		return entry.id
-	end
-	return nil
-end
-
-local function isHiddenPath(path: string?, hidden: { [string]: boolean }): boolean
-	if path == nil then
-		return false
-	end
-	for root in hidden do
-		if isPathPrefix(root, path) then
-			return true
-		end
-	end
-	return false
-end
-
-local function filterHidden(order: { any }, hidden: { [string]: boolean }?): { any }
-	if hidden == nil or next(hidden) == nil then
-		return order
-	end
-	local out: { any } = {}
-	for _, entry in order do
-		if not isHiddenPath(entryPath(entry), hidden) then
-			table.insert(out, entry)
-		end
-	end
-	return out
-end
-
--- The SAME exclusion for a GROUPED scope. Every path into a grouped scope —
--- a contribution's `focusGroups`, `autoGroups`, `layoutGroups`, or an explicit
--- `navigationGroups` opt — used to skip this filter entirely, so a losing
--- `ViewThatFits` candidate stayed in the ring: on a wide viewport a pad walked
--- onto the hidden COLUMN candidate's buttons and could not reach the visible ROW
--- at all (found building RascalRally's results CTA band, 2026-07-30). The public
--- contract has always been "losing candidates are excluded from focus order"
--- (docs/reference/api.md § ViewThatFits); this is the grouped half of it.
-local function filterGroupsHidden(groups: { any }, hidden: { [string]: boolean }?): { any }
-	if groups == nil or hidden == nil or next(hidden) == nil then
-		return groups
-	end
-	local out: { any } = {}
-	for _, group in groups do
-		if type(group) == "table" and type(group.order) == "table" then
-			local filtered = filterHidden(group.order, hidden)
-			if #filtered ~= #group.order then
-				local copy = table.clone(group)
-				copy.order = filtered
-				table.insert(out, copy)
-				continue
-			end
-		end
-		table.insert(out, group)
-	end
-	return out
-end
-
-local function focusOrder(node: any, out: { string })
-	local deferred: { string } = {}
-	focusWalk(node, out, deferred)
-	for _, path in deferred do
-		table.insert(out, path)
-	end
-end
-
--- ===== the LINEAR reading of the focus map (roadmap Step 8 follow-up) ========
---
--- Everything above derives the order the ARROWS walk, and defers focusable Grips
--- to the end of it so directional navigation lands on content before it lands on
--- a value control's grab zone. Tab inherited that deferral and should not have: a Slider
--- between a button row and a list traversed AFTER the whole list, because a
--- Slider's focus stop is a Grip (director playtest 2026-08-03; the measurement is
--- in artifacts/traversal-document-order/acceptance.md).
---
--- So the presenter hands the graph a RANK — a sort key over the members the scope
--- already has, never a second list of members (decision packet TDN-2). Two rules,
--- in this order:
---
---   1. `traversalPriority`, a sort TIER (default 0, negative earlier, later
---      positive) so an author can move ONE control without redeclaring the map;
---   2. document position, so within a tier the order is the order the screen
---      reads in.
---
--- COMPLETENESS BY CONSTRUCTION. The rank is derived FROM the finished order, so
--- it covers exactly that order's paths — it cannot be missing one, which is what
--- `graph.traverse` requires before it will sort at all. That is why this runs
--- after the producer and after the hidden-filter rather than inside the walks:
--- three producers with three different pruning rules cannot drift from a map that
--- is built out of their own output.
-
---[[ ===== initialFocus: which control holds focus when the surface appears =====
-	(director playtest 2026-08-03 round 5.)
-
-	`opts.initialFocus` is `"first"` (the default and the pre-option behavior),
-	`"none"`, a node id, or `{ id = "…" }`. This turns the author's answer into
-	what `FocusScope.initialFocus` wants: `"first"`, `"none"`, or a resolved PATH.
-
-	AN ID IS MATCHED AGAINST THE SCOPE'S OWN FOCUSABLES, by final path segment or
-	by full path, so `"Save"` finds `/Settings/Actions/Save` without the author
-	knowing the tree above it. An id that matches nothing is REFUSED naming what
-	is available (§4: a value that is accepted must do something) — an author who
-	typos a control name should not silently get "first" and wonder why.
-
-	THE RESERVED WORDS ARE CHECKED FOR COLLISION, not assumed away. `"first"` and
-	`"none"` are keywords, so a surface that actually contains a focusable with one
-	of those ids is ambiguous — and rather than resolve it silently in either
-	direction, construction refuses and names the escape hatch. It costs one branch
-	and removes a class of bug nobody would ever guess at. ]]
-local RESERVED_INITIAL_FOCUS: { [string]: boolean } = { first = true, none = true }
-
-local function resolveInitialFocus(spec: any, order: { string }, surfaceName: string): string?
-	if spec == nil then
-		return nil
-	end
-	local wanted: string
-	local explicitId = type(spec) == "table"
-	if explicitId then
-		wanted = (spec :: any).id
-	else
-		wanted = spec :: string
-	end
-
-	local function matches(path: string): boolean
-		return path == wanted or string.sub(path, -(#wanted + 1)) == "/" .. wanted
-	end
-
-	local hit: string? = nil
-	local ids: { string } = {}
-	for _, path in order do
-		local segs = string.split(path, "/")
-		table.insert(ids, segs[#segs])
-		if matches(path) and hit == nil then
-			hit = path
-		end
-	end
-
-	if not explicitId and RESERVED_INITIAL_FOCUS[wanted] then
-		if hit ~= nil then
-			error(
-				`LuauUI present('{surfaceName}'): initialFocus '{wanted}' is ambiguous — it is a reserved word `
-					.. `AND a mounted focusable has that id ({hit}). Rename the control, or say `
-					.. `initialFocus = \{ id = "{wanted}" } to mean the control.`,
-				0
-			)
-		end
-		return wanted -- the keyword, with nothing to collide with
-	end
-
-	if hit == nil then
-		local shown = table.concat(ids, ", ")
-		if #ids > 12 then
-			shown = table.concat(table.move(ids, 1, 12, 1, {}), ", ") .. `, … ({#ids} focusables)`
-		end
-		error(
-			`LuauUI present('{surfaceName}'): initialFocus '{wanted}' names no focusable on this surface. `
-				.. `Available: {if #ids > 0 then shown else "(none — this surface has no focusables)"}. `
-				.. `Use "first" for the first one, or "none" for no initial focus.`,
-			0
-		)
-	end
-	return hit
-end
-
--- `handle.focusOrder()`'s dump schema (constitution §6: every dump carries one).
--- Bump the integer if the shape changes in a way a reader could not absorb.
-local FOCUS_ORDER_SCHEMA = "luauui-focus-order/1"
-
--- the AUTHORED traversal tier on one mounted path, for the inspection dump.
--- Linear rather than a cached map on purpose: this runs once per entry in a
--- human-triggered debug call, never on the traversal path itself.
-local function nodePriority(root: any, path: string): number
-	local function walk(node: any): number?
-		if node.path == path then
-			local p = node.props ~= nil and node.props.traversalPriority or nil
-			return if type(p) == "number" then p else 0
-		end
-		for _, child in node.children or {} do
-			local found = walk(child)
-			if found ~= nil then
-				return found
-			end
-		end
-		return nil
-	end
-	return walk(root) or 0
-end
-
--- document position of every non-retiring node, plus the traversal tier declared
--- on it. One pre-order walk; `retiring` is pruned because every producer above
--- prunes it, so the two can never disagree about a fading subtree.
-local function documentIndex(root: any): ({ [string]: number }, { [string]: number })
-	local index: { [string]: number } = {}
-	local priority: { [string]: number } = {}
-	local n = 0
-	local function walk(node: any)
-		if isRetiring(node) then
-			return
-		end
-		n += 1
-		index[node.path] = n
-		local p = node.props ~= nil and node.props.traversalPriority or nil
-		if type(p) == "number" then
-			priority[node.path] = p
-		end
-		for _, child in node.children or {} do
-			walk(child)
-		end
-	end
-	walk(root)
-	return index, priority
-end
-
--- every path in a flat order or a grouped map, in the order the graph will
--- concatenate them — the exact member set `allIds(scope)` will produce
-local function orderPaths(order: { any }?, groups: { any }?): { string }
-	local out: { string } = {}
-	if order ~= nil then
-		for _, entry in order do
-			local path = entryPath(entry)
-			if path ~= nil then
-				table.insert(out, path)
-			end
-		end
-	elseif groups ~= nil then
-		for _, group in groups do
-			for _, entry in (group.order or {}) :: { any } do
-				local path = entryPath(entry)
-				if path ~= nil then
-					table.insert(out, path)
-				end
-			end
-		end
-	end
-	return out
-end
-
--- rank[path] = 1..N in linear-traversal order, for exactly the paths in `order`
--- or `groups`. A path the document walk never saw (a contribution may declare
--- one) sorts after everything it did see, deterministically, rather than
--- destabilizing the sort or dropping out of the map.
-local function traversalRank(rootNode: any, order: { any }?, groups: { any }?): { [string]: number }
-	local paths = orderPaths(order, groups)
-	local index, priority = documentIndex(rootNode)
-	local rows = table.create(#paths)
-	local unseen = #paths + 1
-	for i, path in paths do
-		table.insert(rows, {
-			path = path,
-			priority = priority[path] or 0,
-			doc = index[path] or (unseen + i),
-			i = i,
-		})
-	end
-	table.sort(rows, function(a, b)
-		if a.priority ~= b.priority then
-			return a.priority < b.priority
-		end
-		if a.doc ~= b.doc then
-			return a.doc < b.doc
-		end
-		return a.i < b.i -- Luau's sort is not stable; keep equal keys reproducible
-	end)
-	local rank: { [string]: number } = {}
-	for position, row in rows do
-		rank[row.path] = position
-	end
-	return rank
-end
-
--- ===== input auto-wiring seam (ADR-0013; ui_todo §0) =======================
--- The presenter walks the MOUNTED tree, discovers each composite's attached
--- input-contribution bundle, and auto-composes navigation groups + Activate
--- dispatch + grab intercept + focus-move reporting + geometry + keep-visible +
--- action-system binding. Every consumer-passed present() opt still overrides
--- its auto counterpart, per-opt (see makeHandle).
-
-type Contribution = { path: string, node: any, bundle: contribution.Bundle }
-
--- collect contributions in DOCUMENT (pre-order) order
-local function collectContributions(rootNode: any): { Contribution }
-	local out: { Contribution } = {}
-	local function walk(node: any)
-		local bundle = contribution.read(node)
-		if bundle ~= nil then
-			table.insert(out, { path = node.path, node = node, bundle = bundle })
-		end
-		for _, child in node.children or {} do
-			walk(child)
-		end
-	end
-	walk(rootNode)
-	return out
-end
-
--- find the mounted node at an exact path (small trees; full DFS)
-local function nodeAt(rootNode: any, path: string?): any
-	if path == nil then
-		return nil
-	end
-	if rootNode.path == path then
-		return rootNode
-	end
-	for _, child in rootNode.children or {} do
-		local found = nodeAt(child, path)
-		if found ~= nil then
-			return found
-		end
-	end
-	return nil
-end
-
--- is `path` inside a subtree that is playing its exit? (the tap half of the
--- retiring rule above: a fading control must not still activate)
-local function pathIsRetiring(rootNode: any, path: string): boolean
-	if rootNode == nil then
-		return false
-	end
-	if isRetiring(rootNode) then
-		return isPathPrefix(rootNode.path, path)
-	end
-	for _, child in rootNode.children or {} do
-		if pathIsRetiring(child, path) then
-			return true
-		end
-	end
-	return false
-end
-
--- contributions whose root path prefixes `path`, longest prefix first
-local function contributionsForPath(contributions: { Contribution }, path: string): { Contribution }
-	local matches: { Contribution } = {}
-	for _, c in contributions do
-		if isPathPrefix(c.path, path) then
-			table.insert(matches, c)
-		end
-	end
-	table.sort(matches, function(a, b)
-		return #a.path > #b.path
-	end)
-	return matches
-end
-
--- auto NavigationGroups: contributions contribute their groups at their tree
--- position; standalone focusables outside any contribution subtree form flat
--- vertical groups between them (preserving focusOrder order); focusable grips
--- defer last. Re-derived on every refresh (function form).
--- collect focusable paths (excluding grips) under `node`, in document order
--- (hoisted above autoGroups — both derivations share the layout helpers)
-local function collectFocusables(node: any, out: { string })
-	if node.class == "Grip" or isRetiring(node) then
-		return
-	end
-	if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
-		table.insert(out, node.path)
-	end
-	for _, child in node.children or {} do
-		collectFocusables(child, out)
-	end
-end
-
-local function focusableCount(node: any): number
-	local out: { string } = {}
-	collectFocusables(node, out)
-	return #out
-end
-
--- does this subtree contain an input contribution that declares focus groups?
--- (a layout container must never swallow one — its groups own its focusables)
-local function subtreeHasFocusGroups(node: any): boolean
-	local bundle = contribution.read(node)
-	if bundle ~= nil and bundle.focusGroups ~= nil then
-		return true
-	end
-	for _, child in node.children or {} do
-		if subtreeHasFocusGroups(child) then
-			return true
-		end
-	end
-	return false
-end
-
--- per-row horizontal groups for a Grid's focusables, linked by up/down exits
--- (grid 2D nav, column-preserving); shared by both group derivations
-local function emitGridGroups(node: any, groups: { any })
-	local cells: { string } = {}
-	collectFocusables(node, cells)
-	local colsProp = node.props and node.props.columns
-	local cols = if type(colsProp) == "number" and colsProp >= 1 then colsProp else #cells
-	local rows: { { string } } = {}
-	for i, path in cells do
-		local r = math.floor((i - 1) / cols) + 1
-		rows[r] = rows[r] or {}
-		table.insert(rows[r], path)
-	end
-	local base = `auto-grid-{node.path}`
-	for r = 1, #rows do
-		local exit: { [string]: string } = {}
-		if rows[r - 1] ~= nil then
-			exit.up = `{base}-r{r - 1}`
-		end
-		if rows[r + 1] ~= nil then
-			exit.down = `{base}-r{r + 1}`
-		end
-		table.insert(groups, {
-			name = `{base}-r{r}`,
-			axis = "horizontal",
-			entry = "nearest",
-			containment = true, -- grid: left/right stay in the row; up/down via exits
-			exit = exit,
-			order = rows[r],
-		})
-	end
-end
-
-local function autoGroups(rootNode: any): { any }
-	local groups: { any } = {}
-	local pending: { string } = {}
-	local grips: { string } = {}
-	local flatCount = 0
-	local function flush()
-		if #pending > 0 then
-			flatCount += 1
-			table.insert(
-				groups,
-				{ name = `auto-flat-{flatCount}`, axis = "vertical", entry = "nearest", order = pending }
-			)
-			pending = {}
-		end
-	end
-	local function walk(node: any)
-		if isRetiring(node) then
-			return
-		end
-		local bundle = contribution.read(node)
-		if bundle ~= nil and bundle.focusGroups ~= nil then
-			-- a contribution owns its own subtree's focus: emit its groups and do
-			-- NOT descend (its focusables live inside the groups it declares)
-			flush()
-			for _, group in bundle.focusGroups(node) do
-				table.insert(groups, group)
-			end
-			return
-		end
-		-- LAYOUT-AWARE RUNS (director virtual-controller round): an HStack row of
-		-- focusables navigates HORIZONTALLY and a Grid navigates as a grid, the
-		-- same derivation the no-contribution path has always used. Every
-		-- ungrouped run used to become a VERTICAL group, so "right" inside the
-		-- hand's card row was orthogonal-dead — the pad could not reach Card B.
-		if node.class == "Grid" and focusableCount(node) >= 2 and not subtreeHasFocusGroups(node) then
-			flush()
-			emitGridGroups(node, groups)
-			return
-		end
-		if node.class == "HStack" and focusableCount(node) >= 2 and not subtreeHasFocusGroups(node) then
-			flush()
-			local cells: { string } = {}
-			collectFocusables(node, cells)
-			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
-			return
-		end
-		if node.class == "Grip" then
-			if node.props and node.props.focusable == true then
-				table.insert(grips, node.path)
-			end
-		elseif FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
-			table.insert(pending, node.path)
-		end
-		for _, child in node.children or {} do
-			walk(child)
-		end
-	end
-	walk(rootNode)
-	flush()
-	if #grips > 0 then
-		table.insert(groups, { name = "auto-grips", axis = "vertical", order = grips })
-	end
-	return groups
-end
-
--- ===== auto navigation groups from LAYOUT STRUCTURE (ADR-0013 WP-1) =========
--- A PLAIN screen (no input contributions) still deserves 2D navigation when its
--- layout says so: an HStack row of focusables is a horizontal group; focusables
--- under a Grid are per-row horizontal groups linked by up/down exits (grid 2D
--- nav, column-preserving); everything else is the vertical document order. This
--- only ENGAGES when the tree actually contains a horizontal container or a Grid
--- with >=2 focusables — otherwise the flat ring stays byte-identical (many tests
--- depend on the flat ring's wrap behavior). Grips keep their deferred-last spot.
-
--- does the tree contain an HStack or Grid holding >=2 focusables? (the engage
--- gate: only then do we derive groups; else the flat ring is preserved exactly)
-local function hasHorizontalStructure(node: any): boolean
-	if (node.class == "HStack" or node.class == "Grid") and focusableCount(node) >= 2 then
-		return true
-	end
-	for _, child in node.children or {} do
-		if hasHorizontalStructure(child) then
-			return true
-		end
-	end
-	return false
-end
-
--- build layout-derived NavigationGroups. Always returns a valid array once the
--- gate has engaged (re-run on every refresh); a plain vertical run collapses to
--- a single vertical group, an HStack to a horizontal group, a Grid to per-row
--- horizontal groups with declared up/down exits (entry="nearest" preserves the
--- column) contained so left/right cannot wrap across rows.
-local function layoutGroups(rootNode: any): { any }
-	local groups: { any } = {}
-	local pending: { string } = {}
-	local grips: { string } = {}
-	local vCount = 0
-	local function flushVertical()
-		if #pending > 0 then
-			vCount += 1
-			table.insert(groups, { name = `auto-v-{vCount}`, axis = "vertical", entry = "nearest", order = pending })
-			pending = {}
-		end
-	end
-	local function walk(node: any)
-		if isRetiring(node) then
-			return
-		end
-		if node.class == "Grip" then
-			if node.props and node.props.focusable == true then
-				table.insert(grips, node.path)
-			end
-			return
-		end
-		if node.class == "Grid" and focusableCount(node) >= 2 then
-			flushVertical()
-			emitGridGroups(node, groups)
-			return -- focusables consumed by the grid block
-		end
-		if node.class == "HStack" and focusableCount(node) >= 2 then
-			flushVertical()
-			local cells: { string } = {}
-			collectFocusables(node, cells)
-			-- no containment: up/down fall through to the adjacent stacked group
-			-- (stacked HStacks read as a loose 2D board — column-preserving via
-			-- entry="nearest"); horizontal moves stay within the row
-			table.insert(groups, { name = `auto-h-{node.path}`, axis = "horizontal", entry = "nearest", order = cells })
-			return
-		end
-		if FOCUSABLE[node.class] and not (node.props and node.props.focusable == false) then
-			table.insert(pending, node.path)
-		end
-		for _, child in node.children or {} do
-			walk(child)
-		end
-	end
-	walk(rootNode)
-	flushVertical()
-	if #grips > 0 then
-		table.insert(groups, { name = "auto-grips", axis = "vertical", order = grips })
-	end
-	return groups
-end
+-- ALIASED TO THE SAME LOCAL NAMES the 3 500-line `presenter.new` closure below already
+-- calls (2026-08-06). The focus-order/traversal-rank/navigation-group derivations and
+-- the modal two-zone geometry moved into their own modules — see the headers there for
+-- why — and binding them back to their original names here means NOT ONE LINE of the
+-- closure changed. A rename sweep through that closure is exactly the kind of churn
+-- this codebase's defect history says not to take on for a file move.
+local FOCUS_ORDER_SCHEMA = focusMap.FOCUS_ORDER_SCHEMA
+local FOCUSABLE = focusMap.FOCUSABLE
+local isDisabled = focusMap.isDisabled
+local isRetiring = focusMap.isRetiring
+local isPathPrefix = focusMap.isPathPrefix
+local entryPath = focusMap.entryPath
+local isHiddenPath = focusMap.isHiddenPath
+local filterHidden = focusMap.filterHidden
+local filterGroupsHidden = focusMap.filterGroupsHidden
+local focusOrder = focusMap.focusOrder
+local resolveInitialFocus = focusMap.resolveInitialFocus
+local nodePriority = focusMap.nodePriority
+local documentIndex = focusMap.documentIndex
+local orderPaths = focusMap.orderPaths
+local traversalRank = focusMap.traversalRank
+local collectContributions = focusMap.collectContributions
+local nodeAt = focusMap.nodeAt
+local pathIsRetiring = focusMap.pathIsRetiring
+local contributionsForPath = focusMap.contributionsForPath
+local collectFocusables = focusMap.collectFocusables
+local focusableCount = focusMap.focusableCount
+local subtreeHasFocusGroups = focusMap.subtreeHasFocusGroups
+local autoGroups = focusMap.autoGroups
+local hasHorizontalStructure = focusMap.hasHorizontalStructure
+local layoutGroups = focusMap.layoutGroups
+local pointInRect = modalZones.pointInRect
+local inflate = modalZones.inflate
+local inflateToFloor = modalZones.inflateToFloor
+local zoneAContains = modalZones.zoneAContains
+local modalInZoneA = modalZones.modalInZoneA
+type Contribution = focusMap.Contribution
 
 -- Activate dispatch when the consumer passed NO opts.onActivate: (1) a
 -- props.onActivate on the node; (2) a Toggle whose value is a settable signal
@@ -2663,6 +2015,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		local root = mountLib.mount(core, blueprint, { scope = scope:child("mount"), transitions = coordinator })
 		local controller = renderer.attach(core, root, env, adapter, {
 			rootPolicy = (opts and opts.rootPolicy) or "coreSafeContent",
+			-- default ON; an explicit `false` opts out (see renderer for the measurement)
+			recycleInstances = opts == nil or opts.recycleInstances ~= false,
+			incrementalLayout = opts == nil or opts.incrementalLayout ~= false,
 			-- engine-selection bridge (native-substrate NS-A12, corrections §11):
 			-- OPT-IN and modal/exclusive-only. Passive/gameplay surfaces never
 			-- set it, so GuiService.SelectedObject stays nil for them (NS-A11).
@@ -2919,7 +2274,24 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- A surviving bundle keeps its identity, so nothing is re-bound and no
 		-- consumer sees a second `bindController`.
 		local autoNavigationGroups = ngOpt == nil
+		-- ...AND THE SECOND PER-FRAME TREE WALK, gated on the same epoch as the focus
+		-- map (L-27). This runs at the top of every refresh and its own doc calls it
+		-- "cheap by construction: one pre-order walk" — which is true per call and
+		-- false per second. On an idle mounted surface the walk IS the frame: after the
+		-- focus-map cache, `present` was 57% of a 0.180 ms idle frame and this is the
+		-- bulk of it.
+		--
+		-- A contribution is a MOUNTED NODE's input bundle, so the set can only change
+		-- when the tree does. The epoch is strictly more conservative than that — it
+		-- also bumps on `navigation`/`semantics` dirt — so nothing that could reach the
+		-- comparison below is missed.
+		local contribEpoch: number? = nil
 		local function syncContributions()
+			local epoch = if controller.structureEpoch ~= nil then controller.structureEpoch() else nil
+			if epoch ~= nil and contribEpoch == epoch then
+				return false
+			end
+			contribEpoch = epoch
 			local fresh = collectContributions(root.node)
 			local changed = #fresh ~= #contributions
 			if not changed then
@@ -4188,7 +3560,79 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return false
 	end
 
+	-- THE FRAME'S OWN SCOPE (2026-08-05). Everything below runs on the host's frame
+	-- connection whether or not anything changed, and until this scope existed none of
+	-- the nine layout phases could see it: they only open when there is layout work,
+	-- so a frame that solved nothing profiled as free while costing 2 ms.
+	-- RE-DERIVE THE FOCUS MAP from the CURRENT mounted tree, so focusables mounted or
+	-- unmounted by `When`/`ForEach` stay reachable and dead paths never receive
+	-- Activate (phase-1 verifier finding F1). The rank is re-derived here with the
+	-- order, from the same tree walk, so a list that grew or shrank between presses
+	-- ranks its current members and never sorts by a map describing rows that no
+	-- longer exist.
+	-- ONLY THE DERIVATION IS CACHED, NEVER THE GRAPH CALL (2026-08-05). `replaceGroups`
+	-- and `setOrder` are not pure: on the topmost scope they re-seed focus when the
+	-- current path is no longer in the order, and that re-seed is load-bearing for the
+	-- passive/resign behaviour this project spent seven director rounds getting right.
+	-- So the walk is skipped and the call is still made, with the same arguments it
+	-- would have been given. Nothing downstream of this function can tell the
+	-- difference; the two tree walks and the rank sort simply stop repeating.
+	local function focusDerivation(handle: any): any
+		local ctrl = handle.controller
+		local epoch = if ctrl ~= nil and ctrl.structureEpoch ~= nil then ctrl.structureEpoch() else nil
+		local cached = handle.focusDerived
+		-- the FUNCTION is part of the key: `syncContributions` can swap a surface from
+		-- the flat ring to `autoGroups` mid-refresh when a contribution with
+		-- focusGroups mounts, and that changes the derivation without touching the tree
+		if
+			epoch ~= nil
+			and cached ~= nil
+			and cached.epoch == epoch
+			and cached.fn == handle.navigationGroupsFn
+			and cached.autoFocusMap == handle.autoFocusMap
+		then
+			return cached
+		end
+		local hidden = if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil
+		local derived: any
+		if handle.navigationGroupsFn ~= nil then
+			local groups = filterGroupsHidden(handle.navigationGroupsFn(handle.root.node), hidden)
+			derived = {
+				grouped = true,
+				groups = groups,
+				rank = if handle.autoFocusMap == false then nil else traversalRank(handle.root.node, nil, groups),
+			}
+		else
+			local order: { string } = {}
+			focusOrder(handle.root.node, order)
+			order = filterHidden(order, hidden)
+			derived = { grouped = false, order = order, rank = traversalRank(handle.root.node, order, nil) }
+		end
+		derived.epoch = epoch
+		derived.fn = handle.navigationGroupsFn
+		derived.autoFocusMap = handle.autoFocusMap
+		-- a controller with no epoch (a test double, an older adapter) simply never
+		-- caches: `epoch == nil` fails the hit test above every time
+		handle.focusDerived = if epoch ~= nil then derived else nil
+		return derived
+	end
+
+	local function syncFocusMap(handle: any)
+		local derived = focusDerivation(handle)
+		local scopeName = handle.blueprint.id or handle.kind
+		if derived.grouped then
+			graph.replaceGroups(scopeName, derived.groups, derived.rank)
+		else
+			graph.setOrder(scopeName, derived.order, derived.rank)
+		end
+	end
+
+	local refreshBody: () -> ()
 	function self.refresh()
+		profile.span("present", refreshBody)
+	end
+
+	function refreshBody()
 		for _, handle in stack do
 			handle.controller.refresh()
 			-- FIRST: re-discover the input contributions from the tree this refresh
@@ -4216,24 +3660,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- the rank is RE-DERIVED here with the order, from the same tree walk, so
 			-- a list that grew or shrank between presses ranks its current members
 			-- and never sorts by a map describing rows that no longer exist
-			if handle.navigationGroupsFn ~= nil then
-				local ctrl = handle.controller
-				local groups = filterGroupsHidden(
-					handle.navigationGroupsFn(handle.root.node),
-					if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil
-				)
-				graph.replaceGroups(
-					handle.blueprint.id or handle.kind,
-					groups,
-					if handle.autoFocusMap == false then nil else traversalRank(handle.root.node, nil, groups)
-				)
-			else
-				local order: { string } = {}
-				focusOrder(handle.root.node, order)
-				local ctrl = handle.controller
-				order = filterHidden(order, if ctrl ~= nil and ctrl.hiddenRoots ~= nil then ctrl.hiddenRoots() else nil)
-				graph.setOrder(handle.blueprint.id or handle.kind, order, traversalRank(handle.root.node, order, nil))
-			end
+			profile.span("focusmap", function()
+				syncFocusMap(handle)
+			end)
 			-- push/pop transient popup trap scopes now that the popup rows are
 			-- mounted/unmounted (matrix §B PopupButton; transientScope) — AFTER the
 			-- base order update so a close restores focus to the trigger cleanly
@@ -4465,7 +3894,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- what makes every rule above deterministic. Nothing animates and no deferred
 	-- teardown completes without it — including the exit cap, which is measured in
 	-- CLOCK time, not wall time.
+	local tickBody: (dt: number?) -> ()
 	function self.tick(dt: number?)
+		profile.span("tick", function()
+			tickBody(dt)
+		end)
+	end
+
+	function tickBody(dt: number?)
 		local step = dt
 		local t = nowFn()
 		if step == nil then

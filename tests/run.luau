@@ -13,6 +13,24 @@ require("./replication.spec")
 require("./layout.spec")
 require("./focus.spec")
 require("./mount.spec")
+-- MicroProfiler phase scopes (roadmap Step 9, PL-8): the closed scope set, its
+-- cardinality bound, and the balance guarantee proved through a recording hook
+-- pair — because Lune has no debug.profilebegin and the instrumented branch is
+-- otherwise never executed by this suite at all
+require("./profile_scopes.spec")
+-- the performance lab's PURE decisions (roadmap Step 9, PL-2..PL-11): the shared
+-- deterministic dataset, the bounded-window rule with its negative control, mount
+-- exclusivity, the emergency stop, and what makes a capture row inadmissible
+require("./perf_lab.spec")
+-- the per-solve measure memo's VERDICT contract (Step 9, architecture review
+-- BLOCKER-1): a cached measure must replay the compact/textFacts it published, or
+-- last-write-wins silently becomes first-measure-wins and a cut label reports
+-- truncated = false with its geometry unchanged
+require("./measure_memo.spec")
+require("./fine_grained_reactivity.spec")
+require("./instance_recycling.spec")
+require("./incremental_layout.spec")
+require("./perf_principles.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
 require("./native_scroll.spec")

@@ -131,6 +131,7 @@ local EXAMPLE_INTERNAL_REACH: { [string]: string } = {
 	text_premeasure = "the lab drives the premeasurement task directly to prove the two-read correction on a device",
 	gamepad_contention = "the gallery demonstrates the legacy-control disable seam documented in docs/guide/07-input.md; not yet a blessed entry point",
 	responder_effects = "the gallery binds the responder-effects seam the guide teaches; not yet a blessed entry point",
+	profile = "the performance lab opens the framework's OWN balanced MicroProfiler span wrapper, so the scenario driver's scopes and LuauUI's phases come from one implementation and cannot disagree about naming or balance (roadmap Step 9, PLN-2)",
 }
 
 local consumerScanned = 0

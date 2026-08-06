@@ -511,17 +511,36 @@ function screen_chrome.new(ctx: Context)
 	-- the same content box `applyFullBleed` above has to compensate for.
 	local function liftGeometry(plan: any, handle: any?): (UDim2, UDim2)
 		local hostW, hostH = nil, nil
+		local padL, padR, padT, padB = 0, 0, 0, 0
 		local rect = if handle ~= nil then handle.windowRect else nil
 		if type(rect) == "table" then
 			local pad = handle.instance:FindFirstChildOfClass("UIPadding")
-			local padX = if pad ~= nil then pad.PaddingLeft.Offset + pad.PaddingRight.Offset else 0
-			local padY = if pad ~= nil then pad.PaddingTop.Offset + pad.PaddingBottom.Offset else 0
-			hostW, hostH = rect.w - padX, rect.h - padY
+			if pad ~= nil then
+				padL, padR = pad.PaddingLeft.Offset, pad.PaddingRight.Offset
+				padT, padB = pad.PaddingTop.Offset, pad.PaddingBottom.Offset
+			end
+			-- THE HOST'S OWN BOX, not its padded content box. The lift is full-bleed
+			-- FIRST and inset by the recipe SECOND; feeding the padded width in here
+			-- made the fit check believe the label had 24px less room than it does.
+			hostW, hostH = rect.w, rect.h
 		end
-		local box = chrome_slots.plaqueTextBox(plan) or chrome_slots.liftGeometry(plan, hostW, hostH)
+		local plaque = chrome_slots.plaqueTextBox(plan)
+		local box = plaque or chrome_slots.liftGeometry(plan, hostW, hostH)
 		local anchor = (box :: any).anchor
-		local pos = UDim2.new(box.position.xScale, box.position.xOffset, box.position.yScale, box.position.yOffset)
-		local size = UDim2.new(box.size.xScale, box.size.xOffset, box.size.yScale, box.size.yOffset)
+		local px, py = box.position.xOffset, box.position.yOffset
+		local sx, sy = box.size.xOffset, box.size.yOffset
+		if plaque == nil then
+			-- COMPENSATE FOR THE HOST'S PADDING, exactly as `applyFullBleed` does for a
+			-- decoration. A scale-1 child resolves against the PADDED content box, so
+			-- the recipe's insets were being taken from an already-shrunken box: a 60px
+			-- Open button with 12+12 padding gave the label 60-24-28 = **8px**, and it
+			-- rendered nothing. Full-bleed first, then inset, gives 60-28 = 32px.
+			local bleed = chrome_slots.fullBleedBox(padL, padR, padT, padB)
+			px, py = px + bleed.x, py + bleed.y
+			sx, sy = sx + bleed.w, sy + bleed.h
+		end
+		local pos = UDim2.new(box.position.xScale, px, box.position.yScale, py)
+		local size = UDim2.new(box.size.xScale, sx, box.size.yScale, sy)
 		return pos, size, if anchor ~= nil then Vector2.new(anchor.x, anchor.y) else Vector2.zero
 	end
 
@@ -975,13 +994,116 @@ function screen_chrome.new(ctx: Context)
 				visit(entry.instance, if entry.plan ~= nil then entry.plan.assetName else nil)
 			end
 		end
+		-- THE LIFTED LABEL HAS TO FIT THE CHROME THAT TOOK IT.
+		--
+		-- Found live on `fantasy_ornate` (2026-08-05): a 60x46 Open button whose OWN
+		-- text reported `TextFits = true` at 36x18, while the label the chrome lifted
+		-- into `LuauUIChromeText` was **8px wide** — a 36px decoration minus two 14px
+		-- corner pieces. The button rendered with no readable label and the solver
+		-- filed nothing, because the solver measured the BUTTON's box and the adapter
+		-- then painted the label into a box derived from the ART.
+		--
+		-- That is the "painted at a size nobody measured for it" family this project
+		-- already has a lesson about, reaching the one seam the layout audit cannot
+		-- see. This does not repair it — the fix is a theme/layout contract change —
+		-- but it stops it being INVISIBLE, which is what let it ship.
+		local liftedTooSmall: { any } = {}
+		local liftedChecked = 0
+		for _, handle in handlesByPath do
+			local lifted = handle.chromeText
+			if typeof(lifted) == "Instance" and lifted:IsA("TextLabel") and lifted.Parent ~= nil then
+				liftedChecked += 1
+				-- `TextBounds` IS THE RENDERED WIDTH, NOT THE REQUIRED ONE. The first
+				-- version of this check compared the box against `lifted.TextBounds` and
+				-- flagged nothing: a label truncated to nothing reports **0**, so
+				-- "box narrower than text" was never true for exactly the labels that
+				-- had vanished. (Same family as `TextFits` reporting true for a
+				-- truncating label.)
+				--
+				-- The requirement comes from the HOST instead — the control's own
+				-- measured text, which the solver sized the control for. If the box the
+				-- chrome handed the label is narrower than that, the theme has taken a
+				-- label the layout made room for and put it somewhere it does not fit.
+				local box = lifted.AbsoluteSize
+				local host = lifted.Parent
+				local want = 0
+				if host ~= nil and (host:IsA("TextButton") or host:IsA("TextLabel")) then
+					want = (host :: any).TextBounds.X
+				end
+				local vanished = lifted.Text ~= "" and lifted.TextBounds.X <= 0
+				if lifted.Text ~= "" and (vanished or (want > 0 and box.X + 0.5 < want)) then
+					if #liftedTooSmall < 8 then
+						table.insert(liftedTooSmall, {
+							host = if lifted.Parent ~= nil then lifted.Parent.Name else "?",
+							text = lifted.Text,
+							boxW = math.floor(box.X + 0.5),
+							wantW = math.floor(want + 0.5),
+							-- the label rendered NOTHING: the unambiguous case
+							vanished = vanished,
+						})
+					end
+				end
+			end
+		end
+
+		-- THE DECORATION HAS TO COVER THE CONTROL IT FRAMES.
+		--
+		-- Found live on `fantasy_ornate` (2026-08-05, director report): a 336px row
+		-- framed by 312px of art and a 60px button by 36px — short by exactly 24px on X
+		-- and 0 on Y, on ten of seventeen decorated nodes. 24px is the host's own
+		-- horizontal `UIPadding` (`space.s + 4` per side), and Y was clean only because
+		-- these controls have no vertical padding.
+		--
+		-- Roblox's `UIPadding` shrinks a host's ENGINE children, so a decoration
+		-- parented to a padded control is inset by that padding unless something adds
+		-- it back. `applyFullBleed` does exactly that — and it has ONE call site, which
+		-- the layered (`chromeStack`) path does not use. The content then sits outside
+		-- the painted frame: the avatar, the labels and the value row all did.
+		--
+		-- This reports it rather than repairing it; the repair belongs with the stack
+		-- placement code and its own verification. What it stops is the silence.
+		local undersized: { any } = {}
+		local decoratedNodes = 0
+		for _, handle in handlesByPath do
+			local host = handle.instance
+			if typeof(host) == "Instance" and host:IsA("GuiObject") then
+				-- the single-decoration path names it `LuauUIChrome`; a LAYERED package
+				-- names its layers `LuauUIChromeL<N>` and never creates the former, so a
+				-- check that only looked for `DECORATION_NAME` was blind to exactly the
+				-- packages this defect lives in
+				local primary = host:FindFirstChild(chrome_slots.DECORATION_NAME)
+					or host:FindFirstChild(chrome_slots.LAYER_NAME_PREFIX .. "1")
+				if primary ~= nil and primary:IsA("GuiObject") then
+					decoratedNodes += 1
+					local shortW = host.AbsoluteSize.X - primary.AbsoluteSize.X
+					local shortH = host.AbsoluteSize.Y - primary.AbsoluteSize.Y
+					if (shortW > 1 or shortH > 1) and #undersized < 8 then
+						table.insert(undersized, {
+							host = host.Name,
+							hostW = math.floor(host.AbsoluteSize.X + 0.5),
+							decoW = math.floor(primary.AbsoluteSize.X + 0.5),
+							uncoveredX = math.floor(shortW + 0.5),
+							uncoveredY = math.floor(shortH + 0.5),
+						})
+					end
+				end
+			end
+		end
+
 		return {
+			decoratedNodes = decoratedNodes,
+			undersizedDecorations = #undersized,
+			undersizedSamples = undersized,
 			images = images,
 			judgeable = judgeable,
 			undecoded = undecoded,
 			undecodedJudgeable = undecodedJudgeable,
 			byReason = byReason,
 			undecodedJudgeableSamples = samples,
+			-- chrome-lifted labels whose box cannot hold their own text
+			liftedChecked = liftedChecked,
+			liftedTooSmall = #liftedTooSmall,
+			liftedTooSmallSamples = liftedTooSmall,
 		}
 	end
 
@@ -1217,6 +1339,10 @@ function screen_chrome.new(ctx: Context)
 		local instance = handle.instance
 		local built: { any } = {}
 		local kinds: { string } = {}
+		-- the whole ladder lives in the DECORATION band (<= 0), below the node's own
+		-- content — see `chrome_slots.layerZIndexFor` for why, and for the live A/B
+		-- that found it
+		local layerCount = #stack.layers
 		for _, layer in stack.layers do
 			table.insert(kinds, layer.kind)
 			local first = true
@@ -1250,7 +1376,7 @@ function screen_chrome.new(ctx: Context)
 						spec.position.yOffset
 					)
 					made.Size = UDim2.new(spec.size.xScale, spec.size.xOffset, spec.size.yScale, spec.size.yOffset)
-					made.ZIndex = layer.index
+					made.ZIndex = chrome_slots.layerZIndexFor(layer.index, layerCount)
 					local corner = Instance.new("UICorner")
 					-- "pill": scale 0.5 is a half-height radius at every width, so the
 					-- silhouette follows a stretched track instead of a fixed radius
@@ -1278,7 +1404,7 @@ function screen_chrome.new(ctx: Context)
 						spec.position.yOffset
 					)
 					child.Size = UDim2.new(spec.size.xScale, spec.size.xOffset, spec.size.yScale, spec.size.yOffset)
-					child.ZIndex = layer.index -- Z-ORDER IS ARRAY ORDER
+					child.ZIndex = chrome_slots.layerZIndexFor(layer.index, layerCount) -- Z-ORDER IS ARRAY ORDER
 				end
 				-- TAG BEFORE PARENT: the rule is matching the instant it joins the
 				-- styled tree, which is the only condition under which a later
@@ -1291,6 +1417,23 @@ function screen_chrome.new(ctx: Context)
 					applyChromeLayerPaint(child, layer, cornerContentId)
 				end
 				child.Parent = mask or instance
+				-- FULL-BLEED THE LAYER, exactly as the single-decoration path does.
+				--
+				-- A `UIPadding` on the host shrinks every engine child, so a layer sized
+				-- `fromScale(1, 1)` covers the host's PADDED content box, not the host.
+				-- `applyFullBleed` exists for that and had ONE call site — the
+				-- single-decoration path — so every LAYERED package drew its frame short
+				-- by the host's padding. Measured live on `fantasy_ornate`: a 336px row
+				-- framed by 312px of art and a 60px button by 36px, short by exactly the
+				-- 12+12 padding, on X only because these controls have no vertical
+				-- padding. The avatar, the labels and the value row all sat outside the
+				-- border that was supposed to contain them.
+				--
+				-- Skipped when the layer sits inside a MASK: the mask is the full-bleed
+				-- surface then, and the layer is deliberately positioned within it.
+				if mask == nil and spec.size.xScale == 1 and spec.size.yScale == 1 then
+					applyFullBleed(instance, child)
+				end
 				instancesByPath[handle.path .. "/" .. spec.name] = child
 				if mask ~= nil then
 					instancesByPath[handle.path .. "/" .. mask.Name] = mask
@@ -2119,7 +2262,11 @@ function screen_chrome.new(ctx: Context)
 			made.AnchorPoint = Vector2.zero
 			made.Position = UDim2.fromScale(0, 0)
 			made.Size = UDim2.fromScale(1, 1) -- full bleed: the skin IS the node
-			made.ZIndex = 0 -- below anything the node's own content draws
+			-- below anything the node's own content draws. The SAME band the layer
+			-- ladder occupies (`chrome_slots.layerZIndexFor`) — named rather than
+			-- restated, because a ruling that lives at one call site is the defect
+			-- this constant exists to close.
+			made.ZIndex = chrome_slots.DECORATION_Z_INDEX
 			-- RUNG 2 OF THE LADDER (per-view override). A locally overridden
 			-- decoration is deliberately NOT tagged, so the package's `Image`
 			-- rule can never reach it, and the adapter explicit-writes the image

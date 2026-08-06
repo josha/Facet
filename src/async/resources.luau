@@ -12,6 +12,8 @@
 
 local specGuard = require("../spec_guard")
 
+local profile = require("../core/profile")
+
 local resources = {}
 
 type Wave = { count: number } -- live waiters across a request AND its retries
@@ -346,84 +348,95 @@ function resources.newProvider(core: any, opts: ProviderOpts?)
 	end
 
 	-- returns "applied" | "stale"
+	-- MICROPROFILER PHASE `LuauUI/resource` (roadmap Step 9). Completion is where
+	-- an async landing turns into UI work — cache admission, LRU/eviction, and the
+	-- transaction that pushes the value into the tree — and a capture has to be able
+	-- to tell that apart from steady-state framework cost, or a cold-image profile
+	-- reads as "the framework got slower". `fail` carries the same scope: a retry
+	-- storm is resource work too, and a phase that only names the happy path hides
+	-- exactly the case worth profiling.
 	function provider.complete(key: string, generation: number, value: any): string
-		local request = requests[key]
-		if request == nil or request.generation ~= generation then
-			counters.staleRejected += 1
+		return profile.span("resource", function(): string
+			local request = requests[key]
+			if request == nil or request.generation ~= generation then
+				counters.staleRejected += 1
+				syncCounters()
+				return "stale"
+			end
+			retireRequest(request)
+			cache[key] = value
+			touchLru(key)
+			evictOverBudget()
+			local entry = keyState[key]
+			if entry ~= nil then
+				core:transaction(function()
+					entry.value:set(value)
+					entry.error:set(nil)
+					entry.state:set("ready")
+				end)
+			end
 			syncCounters()
-			return "stale"
-		end
-		retireRequest(request)
-		cache[key] = value
-		touchLru(key)
-		evictOverBudget()
-		local entry = keyState[key]
-		if entry ~= nil then
-			core:transaction(function()
-				entry.value:set(value)
-				entry.error:set(nil)
-				entry.state:set("ready")
-			end)
-		end
-		syncCounters()
-		return "applied"
+			return "applied"
+		end)
 	end
 
 	-- returns "retrying" | "failed" | "stale"
 	function provider.fail(key: string, generation: number, message: any): string
-		local request = requests[key]
-		if request == nil or request.generation ~= generation then
-			counters.staleRejected += 1
-			syncCounters()
-			return "stale"
-		end
-		local policy = request.retry or defaultRetry
-		if request.attempt <= policy.count then
-			-- retry under a NEW generation so the failed attempt's late
-			-- completion is stale by construction; the WAVE carries over so
-			-- waiter release still cancels the retried request (verifier F2)
-			local attempt = request.attempt + 1
-			local wave = request.wave
+		return profile.span("resource", function(): string
+			local request = requests[key]
+			if request == nil or request.generation ~= generation then
+				counters.staleRejected += 1
+				syncCounters()
+				return "stale"
+			end
+			local policy = request.retry or defaultRetry
+			if request.attempt <= policy.count then
+				-- retry under a NEW generation so the failed attempt's late
+				-- completion is stale by construction; the WAVE carries over so
+				-- waiter release still cancels the retried request (verifier F2)
+				local attempt = request.attempt + 1
+				local wave = request.wave
+				retireRequest(request)
+				generationCounter += 1
+				local retry: Request = {
+					key = key,
+					generation = generationCounter,
+					attempt = attempt,
+					active = false,
+					wave = wave,
+					retry = policy,
+				}
+				requests[key] = retry
+				if policy.delaySeconds > 0 then
+					-- SPACED: it waits out of the transport's sight until `tick` crosses
+					-- its due time. It is still `requests[key]`, so a release still
+					-- cancels it and a late completion is still stale.
+					retry.dueAt = now() + policy.delaySeconds
+					table.insert(waiting, retry)
+				else
+					table.insert(queue, retry)
+					promote()
+				end
+				syncCounters()
+				return "retrying"
+			end
 			retireRequest(request)
-			generationCounter += 1
-			local retry: Request = {
-				key = key,
-				generation = generationCounter,
-				attempt = attempt,
-				active = false,
-				wave = wave,
-				retry = policy,
-			}
-			requests[key] = retry
-			if policy.delaySeconds > 0 then
-				-- SPACED: it waits out of the transport's sight until `tick` crosses
-				-- its due time. It is still `requests[key]`, so a release still
-				-- cancels it and a late completion is still stale.
-				retry.dueAt = now() + policy.delaySeconds
-				table.insert(waiting, retry)
-			else
-				table.insert(queue, retry)
-				promote()
+			-- the budget is spent. A DECLARED retry policy gives up permanently for the
+			-- session (SF-A2); the legacy `retryAttempts` spelling keeps its old
+			-- promise, where a later acquire simply asks again.
+			if policy.giveUp then
+				gaveUp[key] = tostring(message)
+			end
+			local entry = keyState[key]
+			if entry ~= nil then
+				core:transaction(function()
+					entry.error:set(tostring(message))
+					entry.state:set("failed")
+				end)
 			end
 			syncCounters()
-			return "retrying"
-		end
-		retireRequest(request)
-		-- the budget is spent. A DECLARED retry policy gives up permanently for the
-		-- session (SF-A2); the legacy `retryAttempts` spelling keeps its old
-		-- promise, where a later acquire simply asks again.
-		if policy.giveUp then
-			gaveUp[key] = tostring(message)
-		end
-		local entry = keyState[key]
-		if entry ~= nil then
-			core:transaction(function()
-				entry.error:set(tostring(message))
-				entry.state:set("failed")
-			end)
-		end
-		syncCounters()
-		return "failed"
+			return "failed"
+		end)
 	end
 
 	-- advance the injected clock: spaced retries whose due time has passed join the

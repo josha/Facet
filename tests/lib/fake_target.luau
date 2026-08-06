@@ -182,6 +182,13 @@ function fake_target.new(opts: Opts?)
 	-- creation-time facts that decide which engine object the live adapter builds.
 	-- Mirrored, so "this node became a fade GROUP" is provable headless — the live
 	-- target materializes a CanvasGroup and nothing else can fade a subtree.
+	-- MIRRORS THE LIVE ADAPTER'S ELISION. `screen_target` gives a pure layout container
+	-- a handle and no engine object; this target has no engine objects at all, but it
+	-- must report the same VERDICT or a headless test cannot see the rule being turned
+	-- off at runtime.
+	local FAKE_ELIDABLE: { [string]: boolean } =
+		{ VStack = true, HStack = true, ZStack = true, Grid = true, Anchor = true, Spacer = true }
+
 	function adapter.create(
 		rootHandle: any,
 		path: string,
@@ -200,6 +207,9 @@ function fake_target.new(opts: Opts?)
 		}
 		if createOpts ~= nil and createOpts.canvasGroup == true then
 			node.canvasGroupInstance = { className = "CanvasGroup", groupTransparency = 0 }
+		end
+		if FAKE_ELIDABLE[class] and decorationHint == nil and (createOpts == nil or createOpts.canvasGroup ~= true) then
+			node.elided = true
 		end
 		nodes[path] = node
 		table.insert(ops, `create {path} ({class})`)
@@ -381,6 +391,63 @@ function fake_target.new(opts: Opts?)
 		nodes[handle.path] = nil
 		table.insert(ops, `remove {handle.path}`)
 		adapter._cancelIfCaptured(handle, "removed")
+	end
+
+	-- ---- instance recycling, mirrored ---------------------------------------
+	-- The fake target implements the same three-call contract as the live adapter
+	-- so the differential test below can run the SAME scenario with recycling on
+	-- and off and compare the resulting virtual state. Its eligibility rule is
+	-- deliberately the same SHAPE as the live one (refuse anything carrying
+	-- adapter-owned state) even though this target grows far less of it — a fake
+	-- that accepts what the real one refuses would prove the wrong thing.
+	function adapter.park(handle: any): boolean
+		if handle == nil or handle.alive ~= true then
+			return false
+		end
+		if handle.canvasGroupInstance ~= nil or handle.decoration ~= nil then
+			return false
+		end
+		-- MIRROR THE LIVE ADAPTER'S REFUSALS. `screen_target.park` refuses a node
+		-- carrying a presentation transform, because that record is keyed to the path
+		-- and a recycled instance would inherit an offset nothing is driving. A fake
+		-- that accepts what the real adapter refuses proves the wrong thing — this one
+		-- did, and a re-created path came back at -50 instead of at rest.
+		if handle.props ~= nil and handle.props.transform ~= nil then
+			return false
+		end
+		nodes[handle.path] = nil
+		handle.parked = true
+		handle.alive = false
+		-- PROPERTIES SURVIVE, mirroring the live adapter. The renderer now writes only
+		-- what differs on adoption, and the pool only ever hands a node to a consumer
+		-- declaring the SAME property names — so everything on this instance is
+		-- something the next identity also declares and will overwrite if it differs.
+		-- Clearing here would model an adapter that does not exist and would hide the
+		-- property diff entirely.
+		table.insert(ops, `park {handle.path}`)
+		adapter._cancelIfCaptured(handle, "removed")
+		return true
+	end
+
+	function adapter.adopt(handle: any, newPath: string, newClass: string): boolean
+		if handle == nil or handle.parked ~= true or handle.class ~= newClass then
+			return false
+		end
+		handle.parked = nil
+		handle.alive = true
+		handle.path = newPath
+		nodes[newPath] = handle
+		table.insert(ops, `adopt {newPath} ({newClass})`)
+		adapter._composePresentation(handle)
+		return true
+	end
+
+	function adapter.discardParked(handle: any)
+		if handle ~= nil then
+			handle.parked = nil
+			handle.alive = false
+			table.insert(ops, `discard {handle.path}`)
+		end
 	end
 
 	function adapter.setZOrder(handle: any, z: number)
@@ -1103,6 +1170,11 @@ function fake_target.new(opts: Opts?)
 	end
 	function adapter.rootCount(): number
 		return rootCount
+	end
+	-- the whole live node table, for a differential that has to compare EVERY
+	-- property of every node rather than a chosen few
+	function adapter.liveNodes(): { [string]: any }
+		return nodes
 	end
 
 	return adapter

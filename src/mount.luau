@@ -12,6 +12,7 @@
 --   root.dispose()
 
 local blueprintLib = require("./blueprint")
+local profile = require("./core/profile")
 local specGuard = require("./spec_guard")
 
 type Blueprint = blueprintLib.Blueprint
@@ -539,7 +540,13 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		return node
 	end
 
-	local rootNode = mountNode(rootBlueprint, "", rootScope, 1)
+	-- MICROPROFILER PHASE `LuauUI/mount` (roadmap Step 9): the INITIAL tree build.
+	-- The same scope name the renderer's structural sync uses, because they are the
+	-- same question — how much does making and un-making this tree cost — and a
+	-- mount-ramp profile wants one bar that grows with row count, not two.
+	local rootNode = profile.span("mount", function()
+		return mountNode(rootBlueprint, "", rootScope, 1)
+	end)
 
 	local function dumpNode(node: any): any
 		local dirty = {}
@@ -567,7 +574,9 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	local root = {
 		node = rootNode,
 		dispose = function()
-			rootScope:dispose()
+			profile.span("mount", function()
+				rootScope:dispose()
+			end)
 		end,
 		takeDirty = function(): { { path: string, class: string, prop: string? } }
 			local taken = dirtyQueue

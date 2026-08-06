@@ -50,6 +50,174 @@ export type Check = {
 }
 
 local manifest: { [string]: { Check } } = {
+	["performance-stress-places"] = {
+		-- Roadmap Step 9 (docs/plans/performance-stress-places.md): a self-contained,
+		-- publish-ready performance place plus the repeatable Studio / low-end-Android
+		-- profiling loop. Registered BEFORE any implementation edit per the plan's own
+		-- gate rule; every check below started life as a bare `PENDING` and became a
+		-- `run` only once its implementation existed.
+		--
+		-- Acceptance rows PL-1..PL-P3 live in
+		-- artifacts/performance-stress-places/acceptance.md.
+		--
+		-- THE EVIDENCE-CLASS RULE THIS GATE ENFORCES: Lune, Studio, the device emulator,
+		-- desktop retail and physical Android are five different labels and none of them
+		-- substitutes for another. PL-P1/PL-P2 stay PENDING_PHYSICAL until real hardware
+		-- captures exist, PL-P3 stays PENDING_HUMAN until the emitted file is opened;
+		-- nothing here may claim the low-end device budget from a host number.
+		--
+		-- ARTIFACT ASSERTIONS LIVE IN tools/check_perf_gate_evidence.py, one section per
+		-- check. They were inline `python3 -c` strings first, and the embedded newlines
+		-- collapsed this manifest's single-quoted Luau strings — the trap in
+		-- docs/lessons/luau-interpolated-strings-single-line.md, in a new place. A file
+		-- keeps every `run` a one-liner and lets each assertion be mutation-tested.
+		{
+			name = "acceptance-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/performance-stress-places/acceptance.md && test -f "$f" && for id in PL-1 PL-2 PL-3 PL-4 PL-5 PL-6 PL-7 PL-8 PL-9 PL-10 PL-11 PL-12 PL-13 PL-14 PL-15 PL-16 PL-17 PL-18 PL-19 PL-20 PL-21; do grep -qE "^\\| \\*\\*$id\\*\\* \\|.*\\| PASS_AUTOMATED \\|" "$f" || { echo "$id not PASS_AUTOMATED"; exit 1; }; done && grep -qE "^\\| \\*\\*PL-P1\\*\\* \\|.*PENDING_PHYSICAL" "$f" && grep -qE "^\\| \\*\\*PL-P2\\*\\* \\|.*PENDING_PHYSICAL" "$f" && grep -qE "^\\| \\*\\*PL-P3\\*\\* \\|.*PENDING_HUMAN" "$f" && for d in PLN-1 PLN-2 PLN-3 PLN-4 PLN-5 PLN-6 PLN-7; do grep -q "$d" artifacts/performance-stress-places/decisions.md || { echo "$d missing"; exit 1; }; done',
+			evidence = "artifacts/performance-stress-places/acceptance.md",
+			note = "execution contract §2: the PL-* ledger written BEFORE implementation, status-anchored at close — every automated row pinned to PASS_AUTOMATED on its own line, the two physical rows and the one human row pinned to their pending states, and all seven decision packets present. A row silently flipping to FAIL_PRODUCT reddens the gate",
+		},
+		{
+			name = "place-builds-and-opens",
+			requirements = { "UI-AGENT-001" },
+			run = "python3 tools/check_perf_place.py",
+			evidence = "artifacts/performance-stress-places/place.json",
+			note = "PL-1/PL-16: the doctor REBUILDS from clean source and inspects the resulting tree — 16 required instances with their classes, 5 version markers, no absolute developer path / PlaceId / GameId / plugin dependency, and the scenario runner byte-identical to the gallery's (reused, not forked). Mutation-tested twice: dropping the runner mapping and renaming a version marker each redden it",
+		},
+		{
+			name = "deterministic-scenarios",
+			requirements = { "UI-RUNTIME-002" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the same seed, count and content produce a byte-identical row set" && echo "$out" | grep -q "✓.*a different seed produces a different row set, and the digest says so" && echo "$out" | grep -q "✓.*each content variant is its own workload, not a relabelling of the same one" && echo "$out" | grep -q "✓.*an unknown content variant is refused, naming it" && echo "$out" | grep -q "✓.*every declared workload names only passes the scenario implements" && echo "$out" | grep -q "✓.*selecting a scenario adopts its implementation and content" && echo "$out" | grep -q "✓.*the row count is clamped to the declared ceiling rather than honoured blindly"',
+			note = "PL-2: one seed reproduces one dataset byte for byte in both Lune and Roblox (own xorshift, no Random/math.randomseed), the digest distinguishes seeds and content variants, and a declared workload cannot name a pass the scenario does not implement",
+		},
+		{
+			name = "dense-scroll-workload",
+			requirements = { "UI-PERF-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*a row carries an image, a two-line text stack, and three controls" && echo "$out" | grep -q "✓.*the identity line keeps its full-value disclosure" && echo "$out" | grep -q "✓.*2000 logical rows mount a window, not a collection" && echo "$out" | grep -q "✓.*the window stays bounded across a full programmatic scroll sweep" && echo "$out" | grep -q "✓.*the bound is not a bigger row count away from firing" && echo "$out" | grep -q "✓.*NEGATIVE CONTROL: the declared window fault makes the mount FAIL, naming the defect" && echo "$out" | grep -q "✓.*collection churn keeps the window bounded through insert, remove and reorder" && echo "$out" | grep -q "✓.*running a scenario executes its declared sequence and records each pass separately" && echo "$out" | grep -q "✓.*scrolling a virtualized list does NOT grow the reactive core"',
+			note = "PL-3/PL-4: the row really is HStack + image + VStack text + toggle + value control + button with its disclosure intact; 200 and 20 000 logical rows mount the same window; the NEGATIVE control drives the declared window fault and requires the mount to be refused. The last grep is the durable regression for the control-scope leak this stage found live (17 078 memos after 400 scroll steps)",
+		},
+		{
+			name = "native-reference-and-exclusivity",
+			requirements = { "UI-PERF-002" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*a second mount is refused, naming the rule" && echo "$out" | grep -q "✓.*the native reference refuses to mount where the host seam is absent" && python3 tools/check_perf_gate_evidence.py native-reference',
+			note = "PL-5: exactly one implementation may be live during a capture, and the reference refuses rather than silently mounting nothing. The artifact side requires three repeats per side taken with the overlay dismissed, and the reference's capability gaps recorded beside the ratio — a floor compared without its omissions is a misleading number",
+		},
+		{
+			name = "theme-cost-isolated",
+			requirements = { "UI-PERF-002" },
+			run = "python3 tools/check_perf_gate_evidence.py theme-cost",
+			note = "PL-6: flat versus `fantasy_ornate` (34 declared image assets, the most expensive non-testOnly shipped package) over an identical workload, with install, steady scroll and teardown timed apart. The check requires the package to actually COMPILE — a module handed to setThemePackage uncompiled returns false and reads as 'the ornate skin costs nothing'",
+		},
+		{
+			name = "large-text-workload",
+			requirements = { "UI-LAYOUT-001" },
+			run = 'python3 tools/check_perf_gate_evidence.py large-text && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*each content variant is its own workload, not a relabelling of the same one"',
+			note = "PL-7: the four MEASURED preference offsets (0/4/10/14) swept live, the active-moving-label cap of one observed with zero findings, and the locale/identity content variants proven to be genuinely different workloads rather than the same one relabelled",
+		},
+		{
+			name = "microprofiler-scopes",
+			requirements = { "UI-PERF-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*every declared label is prefixed so LibMP can select exactly this set" && echo "$out" | grep -q "✓.*an undeclared scope name is refused at the call, naming the offender" && echo "$out" | grep -q "✓.*refusing an undeclared name opens no scope at all" && echo "$out" | grep -q "✓.*an ERRORING body still closes the scope, and the error value is unchanged" && echo "$out" | grep -q "✓.*a non-string error value survives the span unchanged" && echo "$out" | grep -q "✓.*nested spans unwind in order when the INNER one throws" && echo "$out" | grep -q "✓.*the number of scopes a frame opens does NOT scale with the row count" && echo "$out" | grep -q "✓.*mount -> solve -> commit produces only declared labels, and closes them all" && python3 tools/check_perf_gate_evidence.py scopes',
+			note = "PL-8: the closed scope set, its cardinality bound stated as BEHAVIOUR (a 4-row and a 40-row tree open the same number of scopes), and balance on every exit path — proved through a recording hook pair because Lune has no debug.profilebegin and the instrumented branch would otherwise never run. Mutation-tested: dropping the close reddens exactly the three error cases. The artifact side pins all eight timers found by mask in a live LibMP capture with opens == closes",
+		},
+		{
+			name = "capture-metadata",
+			requirements = { "UI-AGENT-001" },
+			run = "python3 tools/check_perf_captures.py",
+			evidence = "artifacts/performance-stress-places/captures.json",
+			note = "PL-9: every stored capture row carries its identity, workload, conditions, method and results, and `unknown` counts as MISSING. It also refuses a device-class row that lacks device fields or carries a studioVersion. The rule caught a real hole on its first run — the host read graphics quality through `settings()`, a plugin global that is nil in a LocalScript",
+		},
+		{
+			name = "overlay-and-ramp",
+			requirements = { "UI-AGENT-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the emergency stop halts a running sequence between passes" && echo "$out" | grep -q "✓.*the ramp climbs its declared ladder and stops when told" && echo "$out" | grep -q "✓.*the ramp ladder is bounded by a declared ceiling" && echo "$out" | grep -q "✓.*reset returns to the idle baseline and PROVES the workload is unmounted" && echo "$out" | grep -q "✓.*clean capture DISMISSES the overlay rather than hiding it" && python3 tools/check_perf_gate_evidence.py studio',
+			note = "PL-10/PL-11: selectors, run controls, clean capture that DISMISSES rather than hides (a hidden ScreenGui is still a mounted tree the census counts), a ramp on a declared ladder with a hard ceiling and a stop checked between steps, and a reset that proves teardown with a before/after census. The live half — 222 GuiObjects to 0, and eight soak cycles byte-identical — rides the studio section",
+		},
+		{
+			name = "headless-linkage",
+			requirements = { "UI-PERF-001" },
+			run = "python3 tools/check_perf_gate_evidence.py headless-linkage",
+			note = "PL-12: `bench/perf_scenes.luau` requires the SAME dataset and row modules the place runs, so the headless budget cannot guard a workload the place does not have. The check also refuses a perf artifact stamped `injectedRegression` and any headless row wearing a device class",
+		},
+		{
+			name = "studio-evidence",
+			requirements = { "UI-FID-001" },
+			run = "python3 tools/check_perf_gate_evidence.py studio",
+			evidence = "artifacts/performance-stress-places/studio/perf-lab.json",
+			note = "PL-13: the execution-contract preflight (source stamp checked against the built manifest, non-1x1 viewport, clean log boundary, exactly-once mount, canary), the window fault seen to BITE in a live session, an admissible capture row, and the capture images present on disk rather than named",
+		},
+		{
+			name = "device-matrix-smoke",
+			requirements = { "UI-LAYOUT-001" },
+			run = "python3 tools/check_perf_gate_evidence.py device-matrix",
+			evidence = "artifacts/performance-stress-places/studio/device-matrix.json",
+			note = "PL-14: the canonical five rows, each selected through StudioDeviceSimulatorService with its configuration recorded, the lab operable and the mounted window bounded at every viewport, simulation stopped at the end — and the whole file stamped `emulator` with the honest boundary in it. The compact-phone-landscape row records that it needed an explicit pinnedDeviceId, because the first attempt silently stayed portrait",
+		},
+		{
+			name = "perf-gate-falsifiable",
+			requirements = { "UI-PERF-001" },
+			run = "python3 tools/check_perf_gate_evidence.py falsifiable",
+			evidence = "artifacts/performance-stress-places/prove-perf-gate.json",
+			note = "PL-15: an 8x regression injected into the LAB-linked scene through the shipped environment hook reddened tools/perf.sh with BOTH a trend and a frame-ceiling violation, named the scene, and produced an artifact stamped as injected which check_perf_metrics refuses as a baseline",
+		},
+		{
+			name = "optimization-loop-recorded",
+			requirements = { "UI-PERF-001" },
+			run = 'f=artifacts/performance-stress-places/optimization-log.md && test -f "$f" && grep -q "L-4 — arrange re-measures every scroll subtree" "$f" && grep -q "NEGATIVE: the .native-scroll-drag. regression was noise" "$f" && grep -q "INCONCLUSIVE" "$f" && grep -q "What was deliberately NOT changed" "$f" && grep -q "measureUncached" src/layout/solver.luau && grep -q "measureCache" src/layout/solver.luau && python3 tools/check_perf_gate_evidence.py budgets',
+			evidence = "artifacts/performance-stress-places/optimization-log.md",
+			note = "PL-17: the loop recorded end to end — repeated baselines, a falsifiable cause stated before the change, the smallest fix, gates, rebuild, repeated after-captures and a cross-scenario check — INCLUDING the refuted regression and the inconclusive attempt, and what was deliberately left alone. The source greps pin the fix existing; the budget section pins that re-baselining TIGHTENED the two lab scenes and left the phone budget unmeasured",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/performance-stress-places/consumer-impact.md && test -f "$f" && grep -q "No public API changed" "$f" && grep -q "3089 passed" "$f" && grep -q "was NOT re-run" "$f" && cd ../../../games/RascalRally/code && ./run-tests.sh >/dev/null 2>&1',
+			evidence = "artifacts/performance-stress-places/consumer-impact.md",
+			note = "PL-19: the consumer-impact ledger with the game suite re-run LIVE at the judged source. No public API, default, asset or distribution output changed, so no caller edit was manufactured — and the ledger says so, together with the one thing it does NOT claim (a Sponsor Studio canary was not re-run)",
+		},
+		{
+			name = "registration-and-docs",
+			requirements = { "UI-AGENT-001" },
+			run = "lune run tools/lune/check_registration_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && lune run tools/lune/check_boundary >/dev/null && lune run tools/lune/check_prop_parity_cli >/dev/null && lune run tools/lune/check_surface_ledger >/dev/null && python3 tools/check_manifest_integrity.py >/dev/null && stylua --check src tests tools bench examples && test -f docs/guide/12-performance-lab.md && grep -q '12-performance-lab.md' docs/guide/README.md && grep -q 'Publish to Roblox' docs/guide/12-performance-lab.md && grep -q 'MicroProfiler' docs/guide/12-performance-lab.md && grep -q 'phone-physical' docs/guide/12-performance-lab.md && test -f docs/lessons/embedded-newlines-measure-as-one-line.md",
+			note = "PL-18/PL-20: the standard battery at the final source, plus the guide chapter existing, being LINKED from the index (an unlinked chapter is a chapter nobody finds), and covering the four procedures the plan names — rebuild/open, manual publish, MicroProfiler capture, and the device class that closes the budget. The lesson file pins the newline defect this stage found rather than losing it",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			run = "tools/test.sh 3421",
+			evidence = "artifacts/test.json",
+			note = "PL-20: stage-start floor was 3319; the floor lands as the FINAL count (3402 after +15 profile-scope cases, +36 perf-lab cases, +5 measure-memo cases, +7 fine-grained-reactivity cases and +8 instance-recycling cases) so a regression of this stage's own pins fails the gate",
+		},
+		{
+			name = "existing-perf-gate",
+			requirements = { "UI-PERF-001" },
+			run = "tools/perf.sh >/dev/null && python3 tools/check_perf_gate_evidence.py perf-gate",
+			evidence = "artifacts/phase-4/perf.json",
+			note = "PL-20: tools/perf.sh run at the final source and required to PASS with zero violations AND with the phone-physical budget explicitly SKIPPED rather than satisfied — the refusal has to be visible in the artifact, not merely implemented",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			run = "python3 tools/check_perf_gate_evidence.py prior-gates",
+			evidence = "artifacts/performance-stress-places/prior-gates.txt",
+			note = "PL-20: tools/prior_gates.sh regenerated at the final source, plus the supplement. Structural: roll-up DONE, >=18 PASS, and EVERY FAIL_RECOVERABLE check must carry a recorded `<gate> :: <check> :: standalone PASS` line. That replaced the inherited four-name bench allowlist, which trusted a NAME instead of demanding evidence. The new rule is not a formality: it caught a real regression in this stage — performance-unregressed was red in the sweep AND red standalone, which is the discriminator between load noise and a defect, and the memo was scoped rather than the budget loosened (optimization log L-6). Mutation-tested: removing a verdict line or truncating the roll-up each redden it",
+		},
+		{
+			name = "fresh-context-reviews",
+			requirements = { "UI-AGENT-001" },
+			run = 'd=artifacts/performance-stress-places/reviews && test -f $d/phase-gate.md && test -f $d/architecture.md && test -f $d/reactive-runtime.md && test -f $d/roblox-platform.md && test -f $d/README.md && grep -q "Phase-gate" $d/README.md && grep -q "Architecture" $d/README.md && grep -q "Reactive runtime" $d/README.md && grep -q "Roblox platform" $d/README.md && grep -q "PLN-" $d/README.md',
+			evidence = "artifacts/performance-stress-places/reviews/README.md",
+			note = "PL-21: the required fresh-context phase-gate review plus the three specialist authorities this stage touched — architecture (the solver memo and the profile module's containment), reactive runtime (the flush-body hoist and the ownership changes), and Roblox platform (the MicroProfiler/LibMP claims and the place's publish safety). The README carries the dispositions",
+		},
+		{
+			name = "physical-rows",
+			requirements = { "UI-PERF-002" },
+			run = 'f=artifacts/performance-stress-places/acceptance.md && grep -qE "^\\| \\*\\*PL-P1\\*\\* \\|.*PENDING_PHYSICAL" "$f" && grep -qE "^\\| \\*\\*PL-P2\\*\\* \\|.*PENDING_PHYSICAL" "$f" && grep -qE "^\\| \\*\\*PL-P3\\*\\* \\|.*PENDING_HUMAN" "$f" && test -f artifacts/performance-stress-places/review-packet.md && grep -q "automation complete, low-end performance not proven" artifacts/performance-stress-places/review-packet.md && grep -q "Open from" artifacts/performance-stress-places/review-packet.md && python3 tools/check_perf_gate_evidence.py budgets',
+			releaseBlocking = false,
+			evidence = "artifacts/performance-stress-places/review-packet.md",
+			note = "PL-P1/PL-P2/PL-P3: the two device rows and the one file-open row stay honestly pending behind one prepared review build and one checklist. The budgets assertion keeps `phone-physical.measured = false` — the stage may report automation complete and may NOT report that LuauUI meets the low-end-device budget",
+		},
+	},
 	["large-text-accessibility"] = {
 		-- Roadmap Step 8.5 (docs/plans/large-text-accessibility.md): the player's
 		-- PreferredTextSize (Medium/Large/Larger/Largest) as a first-class layout

@@ -1,0 +1,91 @@
+{
+  "name": "LuauUI-PerformanceLab",
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
+  "tree": {
+    "$className": "DataModel",
+    "Workspace": {
+      "$attributes": {
+        "LuauUI_PerfLabPlace": "LuauUI-PerformanceLab",
+        "LuauUI_NativeStyle": false
+      },
+      "$properties": {
+        "FilteringEnabled": true
+      },
+      "Baseplate": {
+        "$className": "Part",
+        "$properties": {
+          "Anchored": true,
+          "Locked": true,
+          "Size": [
+            512,
+            20,
+            512
+          ],
+          "Position": [
+            0,
+            -10,
+            0
+          ],
+          "Color": [
+            0.35,
+            0.37,
+            0.39
+          ],
+          "TopSurface": "Smooth",
+          "BottomSurface": "Smooth"
+        }
+      },
+      "SpawnLocation": {
+        "$className": "SpawnLocation",
+        "$properties": {
+          "Anchored": true,
+          "Size": [
+            12,
+            1,
+            12
+          ],
+          "Position": [
+            0,
+            0.5,
+            0
+          ],
+          "Duration": 0,
+          "Neutral": true
+        }
+      }
+    },
+    "Players": {
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
+    },
+    "ReplicatedStorage": {
+      "LuauUI": {
+        "$path": "../src"
+      },
+      "LuauUIThemes": {
+        "$path": "themes"
+      },
+      "LuauUIScenarios": {
+        "$path": "performance/lab",
+        "runner": {
+          "$path": "gallery/scenarios/runner.luau"
+        }
+      }
+    },
+    "StarterGui": {
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
+    },
+    "StarterPlayer": {
+      "StarterPlayerScripts": {
+        "PerfLab": {
+          "$path": "performance/client"
+        }
+      }
+    }
+  }
+}
