@@ -1825,3 +1825,110 @@ presenter's focus-order dump. Both were caught by the suite immediately — 13 f
 then 3 430 green. Live after the move: `focusTraverse` visits 40 stops, `liftedTooSmall`
 and `undersizedDecorations` both 0, idle 0.109 ms/frame, scroll p50 0.458 ms, all ten
 workloads swept clean under `fantasy_ornate`.
+
+---
+
+## L-28 — themed instance recycling: park releases the chrome, adopt re-keys it
+
+L-27 measured the refusal: `isBare` refused any handle carrying a decoration, a chrome
+lift, or child instances — which under a skinned package is every control by
+construction (ornate paints 5-11 chrome children per control). So recycling delivered
+-32% on flat, where there is nothing expensive to recycle, and a small LOSS under
+`fantasy_ornate` (249 park refusals against 96 parks), where `mount` runs
+**5.44 ms/call** and was the largest single scope in a scroll frame.
+
+### The fix, in five rulings
+
+1. **Eligibility widened from "bare" to "nothing that cannot travel".** Chrome is
+   handle-keyed; its only path-keyed state is the `instancesByPath` registration. Still
+   refused, each for a stated reason: clip-host ROLE, presentation transform, motion
+   scale, the sibling-parented hit expander and float focus ring, a focused handle.
+2. **ONE enumeration of the chrome's path-keyed children**
+   (`screen_chrome.chromePathChildEntries`): the single decoration, the lifted label,
+   the managed icon, the layer ladder *including a masked layer's CanvasGroup* (its
+   ImageLabel is parented to the mask, not the host — direct-children iteration could
+   never find it), bar window/fill/ornaments, and the toggle's Track/Knob. `park`
+   releases exactly this set and `adopt` re-keys exactly this set, so the two seams
+   cannot drift — the defence against this area's recurring
+   ruling-at-one-call-site defect (applyFullBleed, the chrome z-ladder). A spec pins
+   every family name inside the function body.
+3. **A hint mismatch REFUSES the adoption — it never re-plans.** The decoration hint
+   arrives through `create` and no later setter re-plans it (pinned invariant); a
+   re-plan on adopt would be a second planning path AND a rebuild, which costs what the
+   fresh create costs — a mismatch adoption is never a win. Content, never address
+   (`chrome_slots.hintKey`, one ruling shared by the renderer's pool bucket, the fake
+   target and the live adapter): the renderer rebuilds cell blueprints every window
+   slide, so `tostring(hint)` in the old bucket key made every hinted node's bucket
+   unreachable — measured zero hinted adoptions, ever. `adapter.adopt` now takes the
+   incoming hint as its 4th argument.
+4. **A chrome EPOCH gates staleness, not a reconcile.** A parked handle has left
+   `handlesByPath`, so neither `setThemePackage`'s every-handle resync nor the asset
+   fallback refresh can reach it. `chrome_slots` state now carries one integer bumped
+   by exactly the facts a chrome plan depends on (package swap, asset-ledger movement);
+   park stamps it, adopt refuses on mismatch. The first version called `syncChrome` on
+   every adoption instead — correct, but it charged every adoption to heal a case that
+   is rare by construction; the epoch check is one compare.
+5. **`discardParked` is now the census-correct teardown** (a parked node's chrome stays
+   COUNTED while parked, so every census must fall on discard), and a parked handle's
+   `path` is a sentinel (`\0LuauUIParked`) so the teardown helpers' internal
+   `instancesByPath` clears can never clobber a successor node's registrations at the
+   old path.
+
+### Measured, live, ornate dense-scroll 500 rows 360x691, interleaved A/B
+
+| per 120-frame scrollSteady pass | recycle=on | recycle=off | delta |
+|---|---|---|---|
+| `LuauUI/mount` inclusive | **53.5 / 60.4 ms** | 102.0 / 114.7 ms | **-45%** |
+| all LuauUI work (sum of scope exclusives) | **143.2 / 153.8 ms** | 191.2 / 209.1 ms | **-26%** |
+| `LuauUI/present` inclusive | 127.8 / 137.5 ms | 177.4 / 194.4 ms | -28% |
+| `scrollSeek` worst step | 24.1 ms | 27.7 ms | -13% |
+| `scopes:idle` total | 10.5-11.9 ms | 11.0-12.9 ms | no cost |
+
+Park refusals under ornate fell from 249-vs-96 to **elided nodes only** (~1 240
+refusals ≈ the 44% of creates that are elided and own no engine object — a free and
+correct refusal); 1 426 parked, 1 362 recycled in the first measured session.
+
+### The instrument finding: step p50 cannot see this win
+
+`pass:scrollSteady` `stepMs` p50 moved nowhere (on ≈ 0.50, off ≈ 0.45 ms) — and a
+same-session FLAT control shows the same nothing (0.39 vs 0.38), so L-27's
+"-32% flat p50" no longer reproduces on today's build either. The step timer measures
+the scroll write + re-window bookkeeping only; `mount` runs under `LuauUI/present` on
+the Heartbeat, outside the step — so the step p50 pays the retire-path bookkeeping
+(park + prop capture, ~+0.05 ms on the on-side median) and can never see the adoption
+saving, which is 5x larger on the same frames. The honest comparator is the scope
+totals above. (Same lesson family as measure-the-requirement-not-the-render: an
+instrument that does not contain the cost cannot report the saving.)
+
+### Verified beyond the counters
+
+- **Engine visual diff, on vs off, same drive (steady + seek + steady):** 424 nodes,
+  **1 difference — the lab overlay's own scope-counter text**. The recycled surface is
+  engine-identical.
+- `counters().chromeArt`: `liftedTooSmall` 0, `undersizedDecorations` 0 in every
+  configuration; `decoratedNodes` 40 at rest / 53-54 under churn — never falls. The
+  chromeArt census reads decorations *through* `instancesByPath[path .. "/" .. name]`,
+  so its finding 54 decorated nodes after 5 306 recycles is itself the proof that
+  adopted chrome is reachable at its new paths.
+- All ten workloads swept clean under `fantasy_ornate` with recycle=on (lifecycle-soak
+  recycles 0 by design: the pool drains on unmount).
+- Hard-scroll screenshot human-checked: every recycled row wears its OWN chrome —
+  frames sized to their controls, toggle art on the toggle, no ghost decorations.
+- Suites: LuauUI **3 442** (new `instance_recycling_themed.spec`: hinted nodes recycle
+  across a slide, differential on/off byte-identical, hint-mismatch refusal both
+  directions, epoch moves on ledger movement and not on no-ops, plus source contracts
+  on the live adapter), RascalRally 3 089, gate 22/22 PASS, `check_flat_baseline` PASS.
+
+### Verdict and residuals
+
+**Recycling stays ON by default, now for themed packages too** — it went from a
+measured +5% loss under ornate to -26% of all LuauUI scroll work, with the win
+concentrated in `mount`, exactly where L-27 located the prize.
+
+Residuals: (1) the retire path adds ~0.05 ms to the step-side median on churn frames —
+repaid ~5x by the mount saving on the same frames, recorded so nobody rediscovers it
+as a regression; (2) the pool can hold up to 64 chromed instance trees off-screen
+(unparented, so invisible to the GuiObject census) — bounded by the existing cap;
+(3) a RascalRally Studio canary is owed — the game place was not open this session;
+the framework suite, the game suite and the engine visual diff all pass, and no
+public contract moved (adopt's 4th argument is adapter-internal, feature-detected).

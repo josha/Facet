@@ -617,6 +617,7 @@ function screen_target.new(opts: Opts?)
 	local destroyBarOrnaments = chrome.destroyBarOrnaments
 	local dropChromeShadow = chrome.dropChromeShadow
 	local chromeArtCensus = chrome.artCensus
+	local chromePathChildEntries = chrome.chromePathChildEntries
 
 	-- the colour a focus visual paints, in ONE place so the ring and the glow can
 	-- never disagree about which accent is live. DECLARED BELOW `COLOR` on
@@ -3963,7 +3964,7 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	-- ---- INSTANCE RECYCLING (optional, feature-detected, default OFF) --------
+	-- ---- INSTANCE RECYCLING (optional, feature-detected, default ON) ---------
 	--
 	-- MEASURED, on this engine, in this Studio session: building one virtualized
 	-- row (24 GuiObjects) costs 0.252 ms and destroying it 0.045 ms, while
@@ -3973,52 +3974,53 @@ function screen_target.new(opts: Opts?)
 	-- framework's frame after the L-9 measure fix. A scrolling list churns rows
 	-- for no reason other than that their PATH changed.
 	--
-	-- ONLY BARE INSTANCES ARE ELIGIBLE, and that restriction is the whole safety
-	-- argument. `adapter.remove` below re-keys eleven separate path-keyed records —
-	-- decorations, chrome text, toggle parts, stroke, motion scale, presentation
-	-- transform, clip-host membership, the subtree cache. Re-keying all of that on
-	-- a live instance is a much larger change than renaming one, and getting any
-	-- single entry wrong puts a stale decoration or a mis-parented toggle knob on
-	-- screen. So `park` REFUSES any handle carrying any of it, and the pool only
-	-- ever holds plain, undecorated nodes. In the performance lab's row that is
-	-- most of the tree; the Toggle and the Button keep the ordinary path.
-	local function isBare(handle: any): boolean
+	-- WHICH HANDLES ARE ELIGIBLE (L-28 widened this from "bare only"). Chrome IS
+	-- eligible now: a themed control's decoration, lifted label, icon, layer
+	-- ladder, bar parts and toggle assembly are all handle-keyed instances whose
+	-- ONLY path-keyed state is their `instancesByPath` registration — which
+	-- `park` releases and `adopt` re-keys through the one enumeration
+	-- (`chromePathChildEntries`). That is where the prize was: under a skinned
+	-- package every control failed the old bare test by construction (5-11
+	-- chrome children each), so recycling delivered -32% on flat and a small
+	-- LOSS under `fantasy_ornate` while `mount` ran 5.44 ms/call there (L-27:
+	-- 249 refusals against 96 parks).
+	--
+	-- STILL REFUSED, each for a stated reason:
+	--   clip-host ROLE / presentation transform — path-keyed records a recycled
+	--     node would inherit with nothing driving them (membership in a clip
+	--     host is fine: released on park, re-established on adopt);
+	--   motion scale — a transient animation mid-flight, keyed to the old
+	--     identity's gesture;
+	--   canvas group wrapper — construction-time class decision;
+	--   hit expander / float focus ring — SIBLINGS of the instance (parented to
+	--     the clip host), so unparenting the node does not take them off screen;
+	--   a focused handle (or one carrying a glow) — focus visuals must never
+	--     ride into a new identity.
+	local function parkEligible(handle: any): boolean
 		if handle == nil or handle.instance == nil then
 			return false
 		end
 		local path = handle.path
 		if
-			handle.decoration ~= nil
-			or handle.motionScale ~= nil
-			or handle.strokeInstance ~= nil
+			handle.motionScale ~= nil
 			or handle.canvasGroupInstance ~= nil
-			or handle.chromeText ~= nil
-			-- being a clip host is disqualifying; being a MEMBER of one is not.
-			-- Every node inside a ScrollView is a member, which is the entire set a
-			-- windowed list wants to recycle — refusing them (the first version did)
-			-- made the feature refuse 275 of 275 parks and do exactly nothing.
-			-- Membership is released on park and re-established on adopt.
+			or handle.hitExpander ~= nil
+			or handle.focusRingFloat ~= nil
+			or handle.focusGlow ~= nil
+			or focusedHandles[handle] ~= nil
 			or clipHosts[path] ~= nil
 			or presentationTransforms[path] ~= nil
 		then
 			return false
 		end
-		-- a node that grew ANY child instance is carrying adapter-owned state that
-		-- is keyed to its old path; the cheapest sound test for "bare" is that the
-		-- engine object has no children at all
-		if #handle.instance:GetChildren() > 0 then
-			return false
-		end
-		if instancesByPath[path .. "/" .. chrome_slots.DECORATION_NAME] ~= nil then
-			return false
-		end
-		for name in chrome_slots.TOGGLE_PARTS do
-			if instancesByPath[path .. "/" .. chrome_slots.TOGGLE_PARTS[name]] ~= nil then
-				return false
-			end
-		end
 		return true
 	end
+
+	-- while parked a handle keeps NO live path: `discardParked`'s teardown
+	-- helpers clear `instancesByPath[handle.path .. "/" .. name]` internally, and
+	-- a successor node may have re-registered those very keys under the old path
+	-- — so the parked path is a sentinel nobody else can collide with
+	local PARKED_PATH = "\0LuauUIParked"
 
 	-- PARK: take a dying node out of the tree without destroying it. Returns false
 	-- if the node is not eligible, and the caller then removes it normally — so a
@@ -4029,7 +4031,7 @@ function screen_target.new(opts: Opts?)
 			-- nothing to gain by pooling a table. It is simply dropped.
 			return false
 		end
-		if not isBare(handle) then
+		if not parkEligible(handle) then
 			return false
 		end
 		if activeCapture ~= nil and activeCapture.handle == handle then
@@ -4051,6 +4053,20 @@ function screen_target.new(opts: Opts?)
 		end
 		instancesByPath[path] = nil
 		handlesByPath[path] = nil
+		-- ...and every chrome child registered under this path (L-28): the same
+		-- enumeration `adopt` re-keys, or a recycled node's chrome becomes
+		-- unreachable and a LATER node at this path inherits a dead registration
+		for name in chromePathChildEntries(handle) do
+			instancesByPath[path .. "/" .. name] = nil
+		end
+		-- the chrome facts the node was built against (package + asset ledger,
+		-- one integer — chrome_slots `chromeEpoch`). A parked handle has left
+		-- `handlesByPath`, so neither `setThemePackage`'s every-handle resync
+		-- nor the fallback refresh can reach it — `adopt` refuses the handle if
+		-- this no longer matches, and an equal stamp is what makes adopting
+		-- WITHOUT a chrome reconcile sound.
+		handle.parkedChromeEpoch = chromeState.epoch()
+		handle.path = PARKED_PATH
 		subtreeCache = {}
 		-- OFF THE SCREEN, not merely invisible: a parked instance must cost no
 		-- layout, no paint and no hit test, and must not appear in any census that
@@ -4068,14 +4084,36 @@ function screen_target.new(opts: Opts?)
 	-- declares is written by the renderer immediately afterwards (its per-path
 	-- caches were dropped when the old path died), so only IDENTITY is restored
 	-- here — the paint state is the renderer's job either way.
-	function adapter.adopt(handle: any, newPath: string, newClass: string): boolean
+	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any): boolean
 		if handle == nil or handle.parked ~= true then
 			return false
 		end
 		if handle.class ~= newClass then
 			return false
 		end
+		-- THE HINT GATE (L-28). The decoration hint arrives through `create` and
+		-- no later setter re-plans it (pinned elsewhere), so a node adopted under
+		-- a DIFFERENT hint would keep the wrong chrome plan forever. REFUSED, not
+		-- re-planned: a re-plan is a rebuild, which costs what the fresh create
+		-- costs, so a mismatch adoption is never a win — and re-planning here
+		-- would be a second planning path beside the create-time one. Content,
+		-- never address (chrome_slots.hintKey): the renderer rebuilds hint tables
+		-- on every window slide.
+		if chrome_slots.hintKey(handle.decorationHint) ~= chrome_slots.hintKey(hint) then
+			return false
+		end
+		-- ...and the EPOCH GATE: a package swap or an asset-ledger movement while
+		-- this handle sat in the pool never reached it (both walk
+		-- `handlesByPath`, which the handle has left), so its chrome would be
+		-- stale with nothing left to fix it. A refusal falls through to a fresh
+		-- create — chosen over reconciling here because a reconcile on the hot
+		-- adopt path costs every adoption something to heal a case that is
+		-- rare by construction.
+		if handle.parkedChromeEpoch ~= chromeState.epoch() then
+			return false
+		end
 		handle.parked = nil
+		handle.parkedChromeEpoch = nil
 		handle.path = newPath
 		handle.instance.Name = newPath
 		local host = hostFor(newPath)
@@ -4088,18 +4126,53 @@ function screen_target.new(opts: Opts?)
 		end
 		instancesByPath[newPath] = handle.instance
 		handlesByPath[newPath] = handle
+		-- re-key the chrome children under the new identity — the SAME enumeration
+		-- `park` released, so the two seams cannot drift apart
+		for name, child in chromePathChildEntries(handle) do
+			instancesByPath[newPath .. "/" .. name] = child
+		end
 		subtreeCache = {}
 		recomputePresentationOffset(handle)
+		-- NO chrome reconcile here, deliberately: the epoch gate above proves no
+		-- plan-deciding fact moved while the handle was parked, the hint gate
+		-- proves the plan itself matches, and every node-side fact that could
+		-- differ (surface, value, selection) re-syncs its own chrome through the
+		-- property writes the renderer is about to make. A reconcile on this
+		-- path would charge every adoption for a case the gates already refuse.
 		return true
 	end
 
 	-- DISCARD: a parked node the pool never reused. Destroying it is the whole
-	-- point of the pool being bounded.
+	-- point of the pool being bounded — and since a parked node can carry CHROME
+	-- now (L-28), the teardown must be the census-correct one: its decorations
+	-- stayed COUNTED while parked (that is what keeps `decoratedNodes` honest),
+	-- so every census has to fall here or it can never show a leak. The path-map
+	-- writes inside these helpers hit the PARKED_PATH sentinel, never a live
+	-- path, so a successor node's registrations cannot be clobbered.
 	function adapter.discardParked(handle: any)
-		if handle ~= nil and handle.instance ~= nil then
-			handle.instance:Destroy()
-			handle.instance = nil
+		if handle == nil or handle.instance == nil then
+			return
 		end
+		destroyChromeText(handle)
+		destroyIconArt(handle)
+		if handle.chrome ~= nil then
+			chromeState.noteDestroyed(handle.chromeSlot)
+			handle.chrome, handle.chromeSlot = nil, nil
+		end
+		destroyChromeStack(handle)
+		destroyBarFill(handle)
+		destroyBarOrnaments(handle)
+		if handle.chromeOverrideConn ~= nil then
+			handle.chromeOverrideConn:Disconnect()
+			handle.chromeOverrideConn = nil
+		end
+		dropChromeShadow(handle)
+		if handle.strokeInstance ~= nil then
+			handle.strokeInstance:Destroy()
+			handle.strokeInstance = nil
+		end
+		handle.instance:Destroy()
+		handle.instance = nil
 	end
 
 	function adapter.remove(handle: any)

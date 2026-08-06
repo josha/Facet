@@ -2356,11 +2356,66 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
+	-- chromePathChildEntries(handle) -> { [childName]: Instance } — every chrome
+	-- child this handle registered under `path .. "/" .. name` (L-28).
+	--
+	-- THE ONE RULING for park/adopt re-keying. The recurring defect shape in this
+	-- area is a ruling that lives at one call site (applyFullBleed, the chrome
+	-- z-ladder), so the enumeration that `park` releases and `adopt` re-keys is a
+	-- single function covering ALL the registration families this module writes:
+	-- the single decoration, the lifted label, the managed icon, the layer ladder
+	-- (including a MASKED layer's CanvasGroup — its ImageLabel is parented to the
+	-- mask and NOT to the host, which is why this walks the handle's own records
+	-- rather than the instance's direct children), the bar window/fill and
+	-- ornaments, and the toggle's Track/Knob. A registration family added here
+	-- without being added here is exactly the leak the themed-park test sweeps for.
+	local function chromePathChildEntries(handle: any): { [string]: Instance }
+		local out: { [string]: Instance } = {}
+		if handle.chrome ~= nil then
+			out[chrome_slots.DECORATION_NAME] = handle.chrome
+		end
+		if handle.chromeText ~= nil then
+			out[chrome_slots.TEXT_LIFT_NAME] = handle.chromeText
+		end
+		if handle.iconInstance ~= nil then
+			out[chrome_slots.ICON_NAME] = handle.iconInstance
+		end
+		if handle.chromeStack ~= nil then
+			for _, entry in handle.chromeStack do
+				out[entry.instance.Name] = entry.instance
+				if entry.mask ~= nil then
+					out[entry.mask.Name] = entry.mask
+				end
+			end
+		end
+		if handle.barWindow ~= nil then
+			out[chrome_slots.BAR_WINDOW_NAME] = handle.barWindow
+		end
+		if handle.barFill ~= nil then
+			out[chrome_slots.BAR_FILL_NAME] = handle.barFill
+		end
+		if handle.barOrnaments ~= nil then
+			for _, entry in handle.barOrnaments do
+				out[entry.instance.Name] = entry.instance
+			end
+		end
+		if handle.track ~= nil then
+			out[chrome_slots.TOGGLE_PARTS.toggleTrack] = handle.track
+		end
+		if handle.knob ~= nil then
+			out[chrome_slots.TOGGLE_PARTS.toggleKnob] = handle.knob
+		end
+		return out
+	end
+
 	return {
 		-- the ONE entry point: reconcile every piece of chrome this node should
 		-- carry against the installed package (called on create, on rect change,
 		-- on state change and for every handle on a package swap)
 		syncChrome = syncChrome,
+		-- every chrome child registered under `path .. "/" .. name`, for the
+		-- park/adopt re-key (L-28); park releases this set, adopt re-keys it
+		chromePathChildEntries = chromePathChildEntries,
 		-- the asset-failure ledger's inbound edge (adapter.setChromeAssetLoaded)
 		setChromeAssetLoaded = setChromeAssetLoaded,
 		-- the decode judgement over every art instance this target owns

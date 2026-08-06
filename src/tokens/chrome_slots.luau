@@ -678,6 +678,33 @@ function chrome_slots.readHint(node: any): Hint?
 	return value
 end
 
+-- hintKey(hint) -> a canonical CONTENT string for a decoration hint (L-28).
+--
+-- Recycling compares hints in three places — the renderer's pool bucket, the
+-- fake target's adopt gate and the live adapter's — and all three must agree,
+-- so the serialization is ONE ruling here rather than three. By content, never
+-- by address: a windowed list rebuilds its cell blueprints on every slide, so
+-- two content-equal hints are different tables by construction, and a key that
+-- includes `tostring(hint)` can never match across a slide (measured: zero
+-- hinted adoptions, ever). `imageVariants` values are single-field records
+-- (`{ asset }`, normalized by `themes.normalizeVariant`), so state=asset pairs
+-- are the whole content.
+function chrome_slots.hintKey(hint: Hint?): string
+	if hint == nil then
+		return "nil"
+	end
+	local parts = { tostring(hint.slot), tostring(hint.image), tostring(hint.icon), tostring(hint.iconSize) }
+	if type(hint.imageVariants) == "table" then
+		local states = {}
+		for state, entry in hint.imageVariants do
+			table.insert(states, `{tostring(state)}:{tostring((entry :: any).asset)}`)
+		end
+		table.sort(states)
+		table.insert(parts, table.concat(states, ","))
+	end
+	return table.concat(parts, "|")
+end
+
 -- ===== 1. classification ===================================================
 --
 -- THE MAPPING (ADR-0019 §5 slot vocabulary <- the renderer's existing surface/
@@ -2280,6 +2307,9 @@ export type Census = {
 export type State = {
 	setPackage: (package: any?) -> boolean,
 	package: () -> any?,
+	-- moves when a fact a node's chrome PLAN depends on moves (package swap,
+	-- asset-ledger movement) — the park/adopt staleness gate (L-28)
+	epoch: () -> number,
 	planFor: (slot: string, override: Override?) -> Plan?,
 	layerPlanFor: (slot: string) -> StackPlan?,
 	shadowFor: (slot: string) -> any,
@@ -2316,6 +2346,13 @@ function chrome_slots.newState(package: any?): State
 	-- every asset this target has ever seen decode, under the package now
 	-- installed (cleared with the ledger on a package swap — RS-A16-D5)
 	local loadedEver: { [string]: boolean } = {}
+	-- bumped by exactly the facts a node's chrome PLAN can change under while the
+	-- node itself is untouched: a package swap and an asset-ledger movement
+	-- (failure or recovery). A parked handle stamps this at park and `adopt`
+	-- refuses on mismatch (L-28) — a parked handle has left `handlesByPath`, so
+	-- neither `setThemePackage`'s every-handle resync nor the fallback refresh
+	-- can reach it, and an equal epoch is what makes skipping a reconcile sound.
+	local chromeEpoch = 0
 	local state = {}
 
 	local function bucket(slot: string)
@@ -2390,8 +2427,15 @@ function chrome_slots.newState(package: any?): State
 			-- is a claim about THIS package's art being resident, so a swap can
 			-- still condemn a new asset that really is broken
 			loadedEver = {}
+			chromeEpoch += 1
 		end
 		return changed
+	end
+
+	-- see `chromeEpoch` above: equal means "no fact a parked node's chrome
+	-- depends on has moved since it was stamped"
+	function state.epoch(): number
+		return chromeEpoch
 	end
 
 	function state.package(): any?
@@ -2457,6 +2501,7 @@ function chrome_slots.newState(package: any?): State
 			return false
 		end
 		failed[assetName] = if now then true else nil
+		chromeEpoch += 1
 		return true
 	end
 

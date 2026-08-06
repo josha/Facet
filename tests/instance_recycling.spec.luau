@@ -16,11 +16,13 @@
 	happened" would pass just as happily on a build that reused a node while leaving
 	one stale property on it, and a stale property is the entire risk.
 
-	OFF BY DEFAULT. `opts.recycleInstances` must be explicitly true AND the adapter
-	must offer park/adopt/discardParked. The live adapter's `park` additionally
-	refuses any node carrying path-keyed adapter state (decoration, chrome text,
-	toggle parts, stroke, motion scale, clip-host role, presentation transform), and
-	a refusal falls straight through to the ordinary remove — so the feature can only
+	ON BY DEFAULT; `opts.recycleInstances = false` opts out, and the adapter must
+	offer park/adopt/discardParked. Since L-28 the live adapter parks THEMED nodes
+	too (their chrome's path-keyed registrations are released on park and re-keyed
+	on adopt — see instance_recycling_themed.spec); `park` still refuses what
+	cannot travel (clip-host role, presentation transform, motion scale, the
+	sibling-parented hit expander and float focus ring, a focused node), and a
+	refusal falls straight through to the ordinary remove — so the feature can only
 	ever do nothing, never something different.
 ]]
 

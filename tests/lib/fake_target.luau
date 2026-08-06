@@ -4,6 +4,7 @@
 -- structural adds/removes, and final virtual state. Same interface as the
 -- client-only ScreenTarget.
 
+local chrome_slots = require("../../src/tokens/chrome_slots")
 local default_style = require("../../src/tokens/default_style")
 -- the PURE paint resolvers the live adapter goes through. Sharing them is the
 -- point: a mirror that computed its own colours would prove the fake, not the
@@ -429,8 +430,15 @@ function fake_target.new(opts: Opts?)
 		return true
 	end
 
-	function adapter.adopt(handle: any, newPath: string, newClass: string): boolean
+	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any): boolean
 		if handle == nil or handle.parked ~= true or handle.class ~= newClass then
+			return false
+		end
+		-- MIRROR THE LIVE ADAPTER'S HINT GATE (L-28). The decoration hint arrives
+		-- through `create` and no later setter re-plans it, so a node adopted under
+		-- a DIFFERENT hint would keep the wrong chrome plan forever. Content, not
+		-- address: the renderer rebuilds hint tables on every window slide.
+		if chrome_slots.hintKey(handle.decorationHint) ~= chrome_slots.hintKey(hint) then
 			return false
 		end
 		handle.parked = nil

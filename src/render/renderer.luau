@@ -1494,12 +1494,14 @@ function renderer.attach(
 	-- structural pass (`LuauUI/mount`) was 0.66-0.97 ms/frame at every viewport,
 	-- the largest single component of a frame.
 	--
-	-- OFF BY DEFAULT and feature-detected on both sides. The adapter must offer
-	-- `park`/`adopt`/`discardParked`, and `park` refuses any node carrying
-	-- adapter-owned, path-keyed state (decoration, chrome text, toggle parts,
-	-- stroke, motion scale, clip-host role, presentation transform). A refusal
-	-- falls straight through to the ordinary remove, so the feature can only ever
-	-- do nothing — never something different.
+	-- Feature-detected on both sides: the adapter must offer
+	-- `park`/`adopt`/`discardParked`. Since L-28 a THEMED node is eligible too —
+	-- the adapter releases its chrome's path-keyed registrations on park and
+	-- re-keys them on adopt — and `park` still refuses what cannot travel
+	-- (clip-host role, presentation transform, motion scale, sibling-parented
+	-- hit expander / float focus ring, a focused node). A refusal falls straight
+	-- through to the ordinary remove, so the feature can only ever do nothing —
+	-- never something different.
 	-- ON BY DEFAULT; pass `recycleInstances = false` to opt out. It only ever avoids
 	-- work: `park` refuses any node it cannot take intact and the refusal falls
 	-- through to the ordinary remove, so the worst case is one boolean test per
@@ -1563,8 +1565,12 @@ function renderer.attach(
 		propSigCache[props] = sig
 		return sig
 	end
+	-- the hint goes in BY CONTENT (chrome_slots.hintKey), never by address: a
+	-- windowed list rebuilds its cell blueprints on every slide, so a
+	-- content-equal hint is a different table by construction and
+	-- `tostring(hint)` made every hinted node's bucket unreachable (L-28)
 	local function recycleKey(class: string, hint: any, canvasGroup: boolean, propSig: string): string
-		return `{class}\0{tostring(hint)}\0{tostring(canvasGroup)}\0{propSig}`
+		return `{class}\0{chrome_slots.hintKey(hint)}\0{tostring(canvasGroup)}\0{propSig}`
 	end
 	local function drainRecyclePool()
 		if recyclePooled == 0 then
@@ -1615,7 +1621,10 @@ function renderer.attach(
 					-- refusal must cost nothing but a fresh create — so the candidate is
 					-- discarded rather than pushed back, which would let one permanently
 					-- un-adoptable handle be retried on every create forever.
-					if adapter.adopt(candidate, node.path, node.class) then
+					-- the incoming hint rides along so the adapter can hold its own
+					-- mismatch rule (the bucket key already agrees by construction,
+					-- but the adapter must not depend on its caller's bookkeeping)
+					if adapter.adopt(candidate, node.path, node.class, hint) then
 						adopted = candidate
 						-- restore the instance's own property record under its new path,
 						-- so `applyProps` writes only what actually differs

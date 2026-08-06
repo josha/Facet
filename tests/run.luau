@@ -29,6 +29,9 @@ require("./perf_lab.spec")
 require("./measure_memo.spec")
 require("./fine_grained_reactivity.spec")
 require("./instance_recycling.spec")
+-- ...and the THEMED half (L-28): park releases the chrome's path keys, adopt
+-- re-keys them, and a decoration-hint or package mismatch refuses the adoption
+require("./instance_recycling_themed.spec")
 require("./incremental_layout.spec")
 require("./perf_principles.spec")
 require("./layout_v1.spec")
