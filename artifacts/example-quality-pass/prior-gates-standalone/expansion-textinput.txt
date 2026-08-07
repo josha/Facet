@@ -1,0 +1,14 @@
+  PASS  library-suite-green
+  PASS  game-suite-green
+  PASS  engine-facts-probed
+  PASS  textinput-per-input-interaction
+  PASS  textinput-handshake-and-cancel
+  PASS  textinput-occlusion-keep-visible
+  PASS  adapter-capability-detection
+  PASS  examples-upgraded
+  PASS  registration-and-docs
+  PASS  studio-drive-and-screenshots
+  PASS  expansion-adr-bench-rollback
+  PASS  opus-verification
+  FAIL_ENVIRONMENT  physical-device-confirmation
+gate: PASS -> artifacts/expansion-textinput/gate.json

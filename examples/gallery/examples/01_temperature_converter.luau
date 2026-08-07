@@ -113,19 +113,51 @@ function example.build(LuauUI: any, core: any, deps: any)
 		actionSystem = deps and deps.actionSystem,
 	})
 
+	-- CLEAR: the deterministic way back to the starting state. Without it the only
+	-- route out of a typed value was select-all-and-delete, which is not a lesson
+	-- and not discoverable (example-quality-pass play audit, 2026-08-06).
+	local function clear()
+		fahrenheitText:set("")
+		liveCelsius:set(nil)
+		celsius:set(nil)
+	end
+
 	-- THE SCREEN -------------------------------------------------------------
+	-- STYLE AUTHORITY: `textSize` names a typography ROLE and the spacing names a
+	-- step, so a theme package moves both. The px numbers that used to sit here
+	-- (24/14/16/20, padding 16, gap 8) were the same under every package, which is
+	-- exactly what made the example immune to the theme picker mounted beside it.
+	--
+	-- `surface = "base"` because the tutorial is a SCREEN, not loose text over
+	-- whatever 3D world the place happens to have: on the gallery's baseplate the
+	-- secondary prompt was the least legible thing on it.
 	local screen = UI.Screen({
 		id = "TempConverter",
-		padding = 16,
-		gap = 8,
+		surface = "base",
+		padding = "m",
 		children = {
-			UI.Text({ id = "Title", text = "Fahrenheit → Celsius", textSize = 24 }),
-			UI.Text({ id = "Prompt", text = "Enter a temperature in °F:", textSize = 14, role = "secondary" }),
-			field.blueprint,
-			-- LIVE: recomputes on every keystroke (onChange)
-			UI.Text({ id = "Preview", text = previewLabel, textSize = 16, role = "secondary" }),
-			-- COMMITTED: recomputes only when the edit is finished (onCommit)
-			UI.Text({ id = "Result", text = resultLabel, textSize = 20 }),
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Text({ id = "Title", text = "Fahrenheit → Celsius", textSize = "title" }),
+					UI.Text({
+						id = "Prompt",
+						text = "Enter a temperature in °F:",
+						textSize = "label",
+						role = "secondary",
+					}),
+					field.blueprint,
+					-- LIVE: recomputes on every keystroke (onChange)
+					UI.Text({ id = "Preview", text = previewLabel, textSize = "body", role = "secondary" }),
+					-- COMMITTED: recomputes only when the edit is finished (onCommit)
+					UI.Text({ id = "Result", text = resultLabel, textSize = "heading" }),
+					UI.Button({ id = "Clear", label = "Clear", onActivate = clear }),
+				},
+			}),
 		},
 	})
 
@@ -147,6 +179,8 @@ function example.build(LuauUI: any, core: any, deps: any)
 		celsius = celsius, -- the committed result (onCommit)
 		resultLabel = resultLabel, -- the bound committed display string
 		field = field, -- the TextInput control (api.editing, etc.)
+		clear = clear, -- the Clear button's command (back to the starting state)
+		clearPath = "/TempConverter/Page/Clear",
 		dispose = function()
 			field.dispose()
 			fahrenheitText:dispose()

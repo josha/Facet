@@ -834,3 +834,127 @@ describe("theme picker: the composed panel hugs, and scrolls when it must", func
 		expect(node.scrollRegion.contentH > node.rect.h).toBe(true)
 	end)
 end)
+
+-- ============================================================================
+-- THE STANDALONE COLLAPSED SHELL (example-quality-pass, 2026-08-06).
+--
+-- The tutorial-example host used to mount the picker EXPANDED, over the example.
+-- Measured live on desktop: the panel occupied `x 339..899, y 8..219` while
+-- example 01's text field occupied `x 16..891, y 78..122`, so the picker covered
+-- most of the primary control of the example it exists to restyle; on a 360x691
+-- phone it covered the example entirely.
+--
+-- `collapsible = true` without `composed` was previously unreachable — every
+-- caller paired the two — so the shell carried the SHOWCASE's geometry: docked
+-- top-left and lifted `-BAR_HEIGHT` into a strip only the showcase reserves.
+-- These cases pin the standalone shape: collapsed by default, docked top-right,
+-- no lift, and a chip that opens the panel with no remount.
+-- ============================================================================
+describe("theme picker: the standalone collapsed shell stays out of the example's way", function()
+	local function collapsed(w: number, h: number): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("themeMetrics", snapshot.resolve(themes.neutralPackage(), nil, {}))
+		local adapter = fake_target.new()
+		local presenter = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local mounted = theme_picker.mount({
+			LuauUI = LuauUI,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			packages = pickablePackages(),
+			themeController = { install = stubController },
+			collapsible = true,
+			warn = function() end,
+		})
+		presenter.refresh()
+		return { adapter = adapter, presenter = presenter, mounted = mounted, w = w, h = h }
+	end
+
+	it("starts COLLAPSED: the panel is not mounted at all", function()
+		local s = collapsed(907, 986)
+		expect(s.adapter.node("/GalleryThemePicker/Dock/Shell/Toggle") ~= nil).toBe(true)
+		expect(s.adapter.node("/GalleryThemePicker/Dock/Shell/PanelWhen/then/Panel")).toBe(nil)
+		s.mounted.dispose()
+	end)
+
+	it("docks top-RIGHT, so it cannot sit on a top-left example title", function()
+		local s = collapsed(907, 986)
+		local chip = s.adapter.node("/GalleryThemePicker/Dock/Shell/Toggle").rect
+		-- the chip's right edge is at the dock's right edge, not its left
+		expect(chip.x > s.w / 2).toBe(true)
+		-- and it does NOT lift above the viewport (the showcase's -BAR_HEIGHT)
+		expect(chip.y >= 0).toBe(true)
+		s.mounted.dispose()
+	end)
+
+	it("collapsed, it paints nothing over the band an example lays its content into", function()
+		-- the failure this replaces: the expanded panel occupied x 339..899 and
+		-- covered example 01's field (x 16..891). Collapsed, every node the picker
+		-- actually PAINTS must sit in the right-hand quarter. The full-bleed
+		-- transparent Screen/Dock containers are structural, not paint, so the rule
+		-- is stated over the nodes narrower than the viewport.
+		local s = collapsed(907, 986)
+		local painted = 0
+		for _, path in s.adapter.paths() do
+			local node = s.adapter.node(path)
+			-- everything the picker draws lives under the Shell; `Dock` and the
+			-- Screen are the full-bleed transparent frame the overlay is presented in
+			if node.rect ~= nil and string.find(path, "/Dock/Shell", 1, true) ~= nil then
+				painted += 1
+				if node.rect.x <= 600 then
+					error(`{path} paints at x = {node.rect.x}, inside the example's column`)
+				end
+			end
+		end
+		-- and the rule is not vacuous: the chip really is one of the nodes measured
+		expect(painted >= 1).toBe(true)
+		s.mounted.dispose()
+	end)
+
+	it("opening the panel is a `When`, not a rebuild of the shell", function()
+		local s = collapsed(907, 986)
+		expect(s.mounted.open:get()).toBe(false)
+		local shellBefore = s.adapter.node("/GalleryThemePicker/Dock/Shell")
+		s.mounted.open:set(true)
+		s.presenter.refresh()
+		expect(s.adapter.node("/GalleryThemePicker/Dock/Shell/PanelWhen/then/Panel") ~= nil).toBe(true)
+		-- the shell node is the SAME node: opening the panel mounts the panel only
+		expect(s.adapter.node("/GalleryThemePicker/Dock/Shell")).toBe(shellBefore)
+		s.mounted.open:set(false)
+		s.presenter.refresh()
+		expect(s.adapter.node("/GalleryThemePicker/Dock/Shell/PanelWhen/then/Panel")).toBe(nil)
+		s.mounted.dispose()
+	end)
+
+	it("exposes the same scriptable seams the composed handle has, so a capture can be driven", function()
+		-- the showcase's `pickTheme` route once shipped as a nil global for exactly
+		-- this reason: two returns from one function offering different powers.
+		local s = collapsed(907, 986)
+		expect(type(s.mounted.pickPackage)).toBe("function")
+		expect(s.mounted.open ~= nil).toBe(true)
+		local before = s.mounted.selection:get().packageId
+		local other
+		for _, entry in s.mounted.entries do
+			if entry.id ~= before then
+				other = entry.id
+				break
+			end
+		end
+		expect(s.mounted.pickPackage(other)).toBe(true)
+		expect(s.mounted.selection:get().packageId).toBe(other)
+		s.mounted.dispose()
+	end)
+
+	it("on a compact phone the collapsed chip still fits inside the viewport", function()
+		local s = collapsed(360, 633)
+		local chip = s.adapter.node("/GalleryThemePicker/Dock/Shell/Toggle").rect
+		expect(chip.x >= 0).toBe(true)
+		expect(chip.x + chip.w <= 360).toBe(true)
+		expect(chip.y + chip.h <= 633).toBe(true)
+		s.mounted.dispose()
+	end)
+end)

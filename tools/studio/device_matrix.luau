@@ -635,7 +635,25 @@ local function observe(): any
 	local clippedNodes = 0
 	local cam = workspace.CurrentCamera
 	local vw, vh = cam.ViewportSize.X, cam.ViewportSize.Y
+	-- JUDGE LUAUUI'S OWN TREES, NOT ROBLOX'S (example-quality-pass, 2026-08-06).
+	-- The runner dumps EVERY ScreenGui under PlayerGui, which on a live client
+	-- includes the CoreGui chat window. Its nodes reported `textFits = false`
+	-- ("MessageMode", "Leave channel <XX>?", a Confirm and a Cancel) on every
+	-- single row, so every example failed a check about Roblox's chat rather than
+	-- about the example — six phantom unfit entries per row, identical everywhere,
+	-- which is exactly what an always-firing check looks like.
+	--
+	-- The discriminator is the tree ROOT: a LuauUI surface's ScreenGui is named
+	-- `LuauUI_<screen id>` by the adapter, and its descendants carry the flat
+	-- `/path` names. Anything else in PlayerGui belongs to the platform.
+	local judgedTrees = 0
+	local skippedTrees = {}
 	for _, tree in report.instanceTrees or {} do
+		if type(tree.root) ~= "string" or string.sub(tree.root, 1, 6) ~= "LuauUI" then
+			table.insert(skippedTrees, tostring(tree.root))
+			continue
+		end
+		judgedTrees += 1
 		-- CLIPPING ANCESTRY. The dump is a flat depth-ordered walk, so a stack of
 		-- "is some ancestor a clip host" is enough. Without it the first live run
 		-- flagged a virtual list's 8800px canvas as off-screen content, which is
@@ -699,6 +717,8 @@ local function observe(): any
 		invisibleNodes = invisible,
 		clippedNodes = clippedNodes,
 		offscreenNodes = offscreen,
+		judgedTrees = judgedTrees,
+		skippedTrees = skippedTrees,
 		unfitText = unfitText,
 	}
 end
@@ -988,7 +1008,10 @@ local function rowRecord(): any
 		measure = if ok then (result.result or result) else { error = tostring(result) }
 	end
 	return {
+		-- `judgedTrees > 0` is the anti-vacuity clause: a tree filter that matched
+		-- nothing would report a clean layout for an empty set
 		ok = observed.ok
+			and (observed.judgedTrees or 0) > 0
 			and #observed.offscreenNodes == 0
 			and observed.solverDiagnostics == 0
 			and #observed.unfitText == 0,
@@ -1033,6 +1056,8 @@ local function rowRecord(): any
 			invisibleNodes = observed.invisibleNodes,
 			offscreenNodes = observed.offscreenNodes,
 			unfitText = observed.unfitText,
+			judgedTrees = observed.judgedTrees,
+			skippedTrees = observed.skippedTrees,
 			solverDiagnostics = observed.solverDiagnostics,
 			focusPath = observed.focusPath,
 		},

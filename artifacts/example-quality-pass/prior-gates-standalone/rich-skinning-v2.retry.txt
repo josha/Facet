@@ -1,0 +1,21 @@
+  PASS  feasibility-probes
+  PASS  layered-slots-and-posture
+  PASS  state-variant-assets
+  PASS  image-value-displays
+  PASS  semantic-icons
+  PASS  pixel-mode
+  PASS  content-adoption
+  PASS  selectby-profile-selection
+  PASS  tile-decision-honest
+  PASS  reference-packages
+  PASS  platform-pair
+  PASS  customization-ladder-docs
+  PASS  studio-matrix-final-stamp
+  PASS  cost-honesty
+  PASS  circle-button
+  PASS  library-suite-green
+  PASS  game-suite-untouched
+  FAIL_RECOVERABLE  prior-gates-unregressed
+  PASS  fresh-context-reviews
+  FAIL_ENVIRONMENT  physical-and-human-rows
+gate: FAIL_RECOVERABLE -> artifacts/rich-skinning-v2/gate.json

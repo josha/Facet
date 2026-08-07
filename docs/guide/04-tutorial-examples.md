@@ -41,7 +41,7 @@ The file order:
 | 3 | `02_playlist_table.luau` (continued) | collections, derived filtering, virtualization |
 | 4 | `03_settings_sync.luau` | optimistic mutation and server reconciliation |
 | 5 | `04_confirm_dialog.luau` | modals, focus trapping, cancel routing |
-| 6 | `05_word_game.luau` | a keyed grid + a hardware-key input context (2D nav is auto) |
+| 6 | `05_word_game.luau` | a keyed `UI.Grid`, state as theme roles, a hardware-key context |
 | 7 | `06_tile_game.luau` | selection state and derived score at board scale |
 | 8 | `07_match3.luau` | adaptive layout, async images, deterministic churn |
 
@@ -56,6 +56,17 @@ numeric text field (`LuauUI.newTextInput`) and sees it converted to Celsius. The
 primary — and only — input affordance. (Earlier builds of this tutorial used
 stepper buttons because the library had no editable text-box control; now that
 the text-input control (`LuauUI.newTextInput`, over the `UI.TextField` primitive) ships, the field replaces them.)
+
+**The way back.** The quality pass played this screen and found it had no reset at
+all: once a value was typed, the only route to the starting state was select-all-
+and-delete, which is neither discoverable nor a lesson. A **Clear** button now
+returns the field, the live preview and the committed result together.
+
+**Style authority.** Every `textSize` here names a typography *role*
+(`title`/`label`/`body`/`heading`) and every space names a step (`"m"`, `"s"`),
+rather than the px literals this example used to carry. A literal is the same
+number under every package, which is exactly what made these screens immune to the
+theme picker mounted beside them.
 
 Three pieces of state are held in signals:
 
@@ -181,6 +192,17 @@ control and a track list) into the screen a music app would actually ship: an
 iTunes-style playlist with a filter field, a header, and three columns — Name,
 Length, and a star Rating you can click — whose rows you can drag into a new
 order.
+
+**Restore.** Reordering rows and re-rating tracks are both destructive to the
+shipped playlist, and there was no way back short of leaving the place. A
+**Restore the original playlist** button returns the order, every rating and the
+filter together.
+
+**A known limit at Largest text.** On a compact phone with the player's text size
+at Largest, `UI.Table`'s touch Edit toggle overlaps the rating column's header
+title. It is a framework defect in the Table's toolbar/header spacing — this
+example authors no toolbar or header geometry — and it is recorded, unclosed, in
+`artifacts/example-quality-pass/studio/large-text.json` as `LT-F3`.
 
 ### The data
 
@@ -344,16 +366,37 @@ mode. Reordering is disabled while a filter is active — clear it first.
 ## 4.3 Settings sync
 
 **New concept over example 3: talking to a server — an optimistic mutation that
-reconciles.**
+reconciles, with every step of the round trip on the screen.**
 
 An audio-settings form (a Music toggle and a volume stepper) whose values are
 owned by the server. This is the first example to use `LuauUI.replication`, and it
 is the practical version of the client/server model from
 [chapter 1](01-concepts.md).
 
-There are two layers of state. The **authoritative** state — what the server has
-confirmed — lives in a snapshot; the **optimistic draft** — what the UI shows
-right now — lives in plain signals that may run ahead of the server:
+### What the screen shows
+
+Two labelled read-outs sit next to each other, because the whole lesson is the
+gap between them:
+
+```
+What you see now (your optimistic draft)
+Music off, volume 10
+------------------------------------------
+What the server has confirmed
+Music off, volume 10 (revision 1)
+```
+
+Under them, a **status** line (`idle` / `pending` / `accepted` / `rejected` with
+its reason), a **hint** line naming the next action, the controls, and a short
+**history** of what happened, newest first. Nothing about the lesson is hidden
+behind a test handle: a player who has never read the source can reach every
+state from the screen.
+
+### Two layers of state
+
+The **authoritative** state — what the server has confirmed — lives in a
+snapshot; the **optimistic draft** — what the UI shows right now — lives in plain
+signals that may run ahead of the server:
 
 ```lua
 local snapshot    = replication.snapshot(core, 1, { music = false, volume = 10 })
@@ -380,27 +423,73 @@ local mutation = replication.mutation(core, {
 })
 ```
 
+### The reply is delivered by the player
+
 The "server" is a loopback table in the same file, exactly as a single-place demo
-would use. When it processes a request it applies the server's *validation rule*
-(volume must be 0–10, which the UI deliberately does not enforce), and on success
-it replicates the new snapshot **before** confirming, so the reconcile step reads
+would use. It **queues** its answer and hands it over only when the
+**Deliver server reply** button is pressed, because *when the answer lands* is
+the thing this example is about: while a request is in flight the draft read-out
+already shows the new value and the server read-out still shows the old one.
+
+The method is called `deliver`, not `flush`, on purpose — the gallery host
+auto-flushes any `server.flush` every frame, which would answer before a player
+could ever watch a request be pending.
+
+When it processes a request it applies the server's *validation rule* (volume
+must be 0–10, which the UI deliberately does not enforce), and on success it
+replicates the new snapshot **before** confirming, so the reconcile step reads
 fresh truth:
 
 ```lua
 if valid then
     snapshot.ingest(snapshot.revision() + 1, { music = payload.music, volume = payload.volume })
-    mutation.confirm(envelope.requestId, "ok")
+    mutation.confirm(envelope.requestId, "accepted")
 else
     mutation.reject(envelope.requestId, "volume must be 0..10")
 end
 ```
 
-Activating a control calls `commit`, which calls `mutation.send(...)` (running the
-optimistic apply and moving the status to `pending`) and hands the returned
-envelope to the loopback server. Push the volume past 10 and the request is
-rejected and the stepper snaps back — the visible proof that a pending change is
-not a confirmed one. The full replication contract is covered in
-[chapter 6](06-client-server.md).
+### One request at a time
+
+`mutation.send` **throws** while a request is in flight — one in flight per
+Mutation is the adapter's contract. A tutorial must not throw at a player for
+pressing a button twice, so the example checks the status first and writes
+`Already waiting for a reply. Deliver it first.` into the history instead:
+
+```lua
+if mutation.status:get() == "pending" then
+    log("Already waiting for a reply. Deliver it first.")
+    return
+end
+```
+
+### Reset moves the revision forward
+
+**Reset demo** returns the demonstration to its documented start state (music
+off, volume 10) — by having the server *write those values again at a new
+revision*, not by pretending the history never happened. A snapshot refuses an
+older revision, so a revision only ever moves forward. `mutation.reset()` is what
+abandons a request the server never answered, and it rolls that request's
+optimistic presentation back on the way out.
+
+### Try it in the place
+
+1. Read the two read-outs: draft and server agree, `Status: idle`.
+2. Press **–**. The draft says `volume 9` and `Status: pending (no reply yet)`
+   immediately, while the server still says `volume 10 (revision 1)`.
+3. Press **Deliver server reply**. `Status: accepted`, and both read-outs settle
+   on `volume 9 (revision 2)` — that is the reconcile.
+4. Press **Ask for volume 99**. The draft jumps to `volume 99` and goes pending —
+   an optimistic value the server is certain to refuse.
+5. Press **Deliver server reply** again. `Status: rejected (volume must be
+   0..10)`, and the draft rolls back to `volume 9`. The server never moved.
+6. Press **Reset demo** to return to the start state.
+
+The page scrolls, so every control stays reachable on a phone and at the largest
+preferred-text setting. Touch, mouse, the arrow keys plus Return, and a gamepad
+D-pad plus A all drive the same controls — the example wires none of that; the
+presenter derives it from the layout (ADR-0013). The full replication contract is
+covered in [chapter 6](06-client-server.md).
 
 ---
 
@@ -412,6 +501,20 @@ focus trapping and cancel routing.**
 A "Delete Save" button that opens a confirmation dialog. This is the first example
 whose *action* uses `deps.presenter` at runtime, and the first to call
 `presenter.presentModal` instead of `present`.
+
+**The answer has to be visible.** Played in Studio, this example confirmed a
+destructive "Delete" and left the base screen *byte-identical*: the outcome went
+into a `result` signal that only a test could read. The slot now holds a save,
+empties when you confirm, says which happened, offers **Restore the save**, and
+stops offering Delete on an empty slot — so the round trip is readable and
+repeatable in place.
+
+**And the card really is centred now.** The dialog declared `alignH`/`alignV` on a
+`UI.Screen`, where those props are documented as *ZStack-child* alignment and are
+accepted-and-ignored: the card rendered at `16,16`, the top-left corner, while
+every reader of the file believed it was centred. The scrim now holds one
+full-bleed `UI.ZStack` and the card centres inside that, with a test asserting its
+centre sits within 2 px of the scrim's on both axes.
 
 The base screen is ordinary; its button carries the open action on its node, so
 the base is presented with no options:
@@ -454,16 +557,147 @@ None of that required either screen to know about the other.
 
 ## 4.5 Word game
 
-**New concepts over example 5: a keyed grid of state, a custom input context, and
-navigation groups for two-dimensional movement.**
+**New concepts over example 4: a keyed grid laid out by `UI.Grid`, game state as
+a set of pure rules the UI never touches, state expressed as theme roles, and a
+custom hardware-key input context.**
 
-A Wordle-style game: a six-by-five board of letter tiles and an on-screen
-keyboard. This is the first example large enough that it manages its own lifetime,
-so it opens with a pattern you will see in the rest of the set — a scope that owns
-everything it creates, so `dispose()` cleans up completely:
+A complete Wordle-like game. What the player sees at startup is a title, a status
+line, a **six-row by five-column board** of empty tiles with a caret (`_`) in the
+cell the next letter lands in, a legend, a three-row on-screen keyboard, and a
+"New game" button.
+
+The loop: type five letters, press Enter, read the row. A guess shorter than five
+letters, or one that is not in the example's word list, is **refused with a
+message and does not consume a row**. Six accepted wrong guesses lose and reveal
+the word; solving wins. Either ending opens a results card and disables the
+keyboard — only "New game" and the card's own buttons still respond. "New game"
+is deterministic: the solution comes from a seed, so the same seed always gives
+the same word.
+
+### The rules are a pure table, and they are not framework code
+
+Wordle scoring is *domain* logic. It lives in the example, exported so the tests
+can drive the whole game without mounting anything:
 
 ```lua
-local gameScope = core:scope("example-06-word-game")
+example.rules = rules      -- evaluate, validate, strongest, mergeKeys, solutionForSeed
+```
+
+The only genuinely subtle part is the duplicate-letter rule, and it is why
+`rules.evaluate` runs in **two passes**: the solution's letters are a *budget*,
+exact matches spend it first, and only what is left can pay for a misplaced
+letter. Guessing `AWARE` against `CRANE` is the case worth reading twice — the
+guess's first `A` is `absent`, not `present`, because the `A` in column 3 already
+spent the solution's only `A`. A single left-to-right pass gets that wrong, and
+nothing on screen tells you.
+
+The on-screen keyboard remembers the **strongest** thing ever learned about each
+letter — correct beats present, present beats absent — so a later, weaker verdict
+can never downgrade a key:
+
+```lua
+rules.KEY_RANK = { absent = 1, present = 2, correct = 3 }
+```
+
+### The board is one `UI.Grid`
+
+```lua
+UI.Grid({ id = "board", columns = COLS, gap = "xs", rowGap = "xs",
+          itemSizing = "uniform", children = tiles })
+```
+
+`columns` is the entire board layout — the example never positions a tile.
+`itemSizing = "uniform"` is what makes it a *board* rather than five columns of
+whatever width the screen happens to be: every cell takes the widest measured
+cell, so the grid reports "5 tiles + 4 gaps" as its own width and the parent
+stack's `align = "center"` can centre it. Without it a grid reports "I need the
+whole offer", and the tiles scatter across a desktop with a hundred pixels of
+nothing between them.
+
+Each tile is a `UI.ZStack` sized from a **theme metric** (`targetSizes.minimum`),
+never a device pixel, holding a plate, a letter and a mark. Every visible property
+is a memo over the state signals, so the view is a pure function of the state.
+
+### State is a theme role, never a colour and never an invented token
+
+This is the part of the example most worth copying. A tile is a `UI.Box`, and a
+Box's one paint channel is `tint`, so tile state is a **blend along a theme
+role** — and the blend *is* the strength of the evidence:
+
+```lua
+absent  = { role = "contentSecondary", blend = 0.3  }   -- receded
+present = { role = "accent",           blend = 0.55 }   -- partial
+correct = { role = "accent",           blend = 1    }   -- full
+```
+
+An on-screen key is a `UI.Button`, which paints from its `surface` role and its
+own interaction states, so a key's state rides `surface` (`base` for an
+eliminated letter, `chip` for a known-present one, `accent` for a solved one)
+rather than a tint that would fight the control's own affordance.
+
+Both also carry a plain-ASCII **mark** — `v` correct, `~` present, `x` absent,
+`_` "type here" — because colour alone is not a cue, and ASCII is the only range
+every Roblox font is guaranteed to draw. The board is readable in greyscale.
+
+Reaching for a made-up token here is the classic version of this mistake. An
+earlier build of this example bound `surface` to `"tileCorrect"`, which is not a
+member of the closed `surface` enum; every one of the thirty tiles rendered
+completely transparent, and nothing said so. Values from a **closed set** are
+states — use the enum. Values on a **continuum** are `tint`.
+
+### One command, three input paths
+
+The keyboard is three `HStack` rows of key buttons, and **that layout is the
+navigation map**. The presenter derives 2D navigation from any horizontal
+container automatically: each row becomes a horizontal group, so arrows/D-pad
+move left/right within a row and up/down between rows, landing on the nearest key
+in the same column — with no navigation table in the file.
+
+Activating a key — a tap, Space on the focused key, or gamepad A — runs that
+key's command, because each key carries it on its own node:
+
+```lua
+UI.Button({ id = "key_" .. key, label = labelOf, surface = surfaceOf,
+            enabled = playingSig, padding = 0,
+            width = { type = "fill", weight = 1 },       -- the row divides itself
+            height = { type = "fixed", px = "targetSizes.minimum" },
+            onActivate = function()
+                if thisKey == "Enter" then submit()
+                elseif thisKey == "Back" then backspace()
+                else typeLetter(thisKey) end
+            end })
+```
+
+Note the widths: no key is a fixed pixel count. Each letter key is `fill` weight
+1 and Enter/Delete are weight 1.5, so the row divides whatever width it is given
+— from a 320 px phone to a desktop — instead of adding up to a number that only
+suits one screen.
+
+The one thing that genuinely stays at the consumer level is the **hardware
+keyboard**, and it is app-semantic: a physical letter key should TYPE into the
+grid (not activate whatever key happens to be focused), and Enter should SUBMIT.
+So the example raises its own higher-priority context that **sinks** those keys,
+shadowing the presenter's default Activate:
+
+```lua
+local ctx = actions.createContext({ name = "WordleInput", priority = 2000, sink = true })
+-- 26 letter actions, plus Submit (Return) and Backspace — NO navigation actions:
+-- arrows/D-pad fall through to the presenter's auto grid navigation, so a player
+-- can switch between typing and navigating without losing the guess in flight
+```
+
+Because Return is taken, the screen asks for the one presenter option in the
+file — `present(screen, { keyboardNavigation = true })` — which gives a
+keyboard-only player Tab/Shift+Tab traversal and Space-as-Activate.
+
+### Lifetime, and the results card
+
+This is the first example large enough to manage its own lifetime, so it opens
+with a pattern you will see in the rest of the set — a scope that owns everything
+it creates, so `dispose()` cleans up completely:
+
+```lua
+local gameScope = core:scope("example-05-word-game")
 local function reg(readable)                     -- own a signal/memo for disposal
     gameScope:own(function() readable:dispose() end)
     return readable
@@ -471,46 +705,34 @@ end
 local rowsSig = reg(core:signal(emptyRows()))
 ```
 
-The game state is one signal holding the whole board, and — importantly — every
-edit produces a **new** board table (via `cloneRows`) rather than mutating the old
-one, so the core sees a genuine change and recomputes the tile bindings. The UI is
-a pure function of that state: each tile's letter and its color come from memos
-over `rowsSig`. No game logic lives in the view.
+Every edit produces a **new** board table (via `cloneRows`) rather than mutating
+the old one, so the core sees a genuine change and recomputes only the tile
+bindings that moved. Multi-signal edits — a submit, a restart — go through
+`core:transaction` so the screen never paints a half-applied move.
 
-The keyboard is built as three `HStack` rows of key buttons, and **that layout
-is the navigation map**. The presenter derives 2D navigation from any horizontal
-container automatically: each `HStack` row becomes a horizontal group, so a
-gamepad moves left/right within a row and up/down between rows, landing on the
-nearest key in the same column — with no `present()` opts and no focus-scope
-dance. (Earlier builds of this example popped the auto flat ring and pushed a
-hand-written grouped scope; that hook is gone because the layout now supplies it.)
-
-Activating a key — a tap, or gamepad A on the focused key — runs that key's
-command, because each key carries it on its node:
+The ending presents a results card on top of the board. Note how it is centred:
 
 ```lua
-UI.Button({ id = "key_" .. key, label = label, onActivate = function()
-    if thisKey == "Enter" then submit()
-    elseif thisKey == "Back" then backspace()
-    else typeLetter(thisKey) end
-end })
+UI.Screen({ id = "WordleResult", surface = "scrim", padding = "m", children = {
+    UI.ZStack({ id = "centre", width = FILL, height = FILL,
+                alignH = "center", alignV = "center", children = { card } }) } })
 ```
 
-The one thing that genuinely stays at the consumer level is the **hardware
-keyboard**, and it is app-semantic: a physical letter key should TYPE into the
-grid (not activate whatever key button happens to be focused), and Enter should
-SUBMIT the guess. So the example raises its own higher-priority context that
-**sinks** those keys, shadowing the presenter's default Activate:
+`alignH`/`alignV` are **ZStack-child** props. Set on a `Screen` or a `VStack`
+they are accepted and silently ignored; a filling `ZStack` in between is what
+actually centres a card. (A stack's own children are aligned across the axis with
+`align` instead.)
 
-```lua
-local ctx = actions.createContext({ name = "WordleInput", priority = 2000, sink = true })
--- 26 letter actions, plus Submit (Return) and Backspace — NO navigation actions:
--- arrows/D-pad fall through to the presenter's auto grid navigation
-```
+Finally, the whole page is a `UI.ScrollView`. The board plus a keyboard fits a
+compact phone at the default text size and does *not* fit at the largest
+accessibility text size, so it scrolls rather than running off the screen.
 
-The test harness drives hardware keys through `actions.deviceKey(keyCode, true/false)`
-— the same arbitrated path a real device uses — which is how a headless test can
-prove keyboard, touch, and gamepad all reach the same game commands.
+Its pure rules and its state machine are tested in
+`tests/example_word_game.spec.luau`; the four mounted input paths are in
+`tests/examples_games.spec.luau`. The test harness drives hardware keys through
+`actions.deviceKey(keyCode, true/false)` — the same arbitrated path a real device
+uses — which is how a headless test can prove keyboard, touch, and gamepad all
+reach the same game commands.
 
 ---
 
@@ -560,10 +782,27 @@ end))
 
 Activation lives on each node: a rack tile's `onActivate` selects its slot, a
 board cell's `onActivate` places the selection — and each command updates the
-signals, which repaints exactly the affected tiles. Because the board rows and
-the rack are `HStack`s, the presenter also derives 2D grid navigation from the
-layout for free, so a gamepad D-pad crosses the whole board and rack and A
-select-then-places — the example passes no `present()` opts.
+signals, which repaints exactly the affected tiles. The board and the rack are
+each one `UI.Grid`, and the presenter derives 2D navigation from a Grid for free
+(per-row groups linked by up/down exits), so a D-pad or the arrow keys cross the
+whole board and rack and Activate select-then-places — the example passes no
+`present()` opts.
+
+**Refusal is feedback.** The quality pass played this example and found that every
+move the rules rejected did *nothing at all*: tapping a square with nothing picked
+up, tapping an occupied square, and tapping a spent rack slot were all completely
+silent, and the second of them left the tile still highlighted with no reason
+given. A rule that silently does nothing is indistinguishable from a broken
+button. Each refusal now names itself in the instruction line — "Pick a letter
+from your rack first", "Row 2, column 3 already has a letter" — and a successful
+move clears the message, so the line always describes the state it sits above. A
+spent rack slot is `enabled = false` with a spent marker, which answers the
+question *before* the tap rather than after it.
+
+The example also gained what a player needs to finish: a score and a `3 of 7 tiles
+placed` progress readout, a completion message, and **Start over**, which returns
+every observable — including the selection and the message — to its starting
+value.
 
 ---
 
@@ -576,19 +815,28 @@ A match-3 grid — the "write once, run everywhere" showcase — where swapping 
 adjacent tiles clears matches, tiles fall, and new tiles refill from the top. It
 pulls together three features not seen before.
 
-**Adaptive layout.** The tile size is a memo over the environment's `sizeClass`
-fact (compact/regular/wide, derived from screen width — see
-[chapter 5](05-styling.md)). The *same* blueprint sizes itself sensibly on a
-phone, a tablet, and a desktop, because changing the bound size dimension
-re-solves layout without rebuilding the tree:
+**Adaptive layout — and who is allowed to do it.** This example used to size its
+own tiles from the environment's `sizeClass` fact, with a `compact/regular/wide ->
+40/56/72 px` branch computed right here. That is *imperative responsive geometry
+inside a consumer*, and the quality pass removed it: adaptation is LuauUI's job,
+not an example's, and an example that names device classes has taken over a
+decision the framework already makes.
+
+The tile is now one theme metric, on a `UI.Grid`:
 
 ```lua
-local cellDim = reg(core:memo(function(use)
-    local sizeClass = use(env:get("sizeClass"))
-    local px = if sizeClass == "compact" then 40 elseif sizeClass == "regular" then 56 else 72
-    return { type = "fixed", px = px }
-end))
+local CELL: any = { type = "fixed", px = "controls.large.height" }
+
+UI.Grid({ id = "board", columns = COLS, itemSizing = "uniform", gap = "xs", children = cells })
 ```
+
+A metric path resolves against the live theme snapshot on every solve, so a denser
+package makes the board denser and a chunky touch package makes it chunkier —
+without this file knowing what a phone is. The old test asserted the *defect*
+(`desktopW > phoneW`, which was only true because of the branch); it now asserts
+what actually matters, which is that a viewport change reflows without rebuilding
+the tree and the tile never drops below the theme's touch floor at any of four
+viewports.
 
 **Asynchronous images.** Each tile kind's picture is loaded through
 `LuauUI.newResourceProvider`, which models the *ready* and *pending* states a real
@@ -605,10 +853,25 @@ local image = reg(core:memo(function(use)
 end))
 ```
 
-The provider is *drained by the caller*, never by this file: a test calls
-`provider.complete(...)` to simulate a load finishing; a real client would map
-each key to an uploaded asset id through its texture transport. This is the async
-model from [chapter 2](02-architecture.md) in action.
+**Who drains the provider, and why that mattered.** This file used to say the
+provider was "drained by the caller, never by this file" — and the gallery host
+never drained it, so on a real client every one of the thirty-six tiles showed the
+pending placeholder forever and all five tile kinds were indistinguishable. The
+game was unplayable in the only place it was meant to be played.
+
+The example owns its transport now, because the artwork is its own fixture data:
+it delivers once at build so the board is playable from the first frame, and the
+three async states are on screen as controls a player can drive — **Re-request
+artwork** puts every kind back to pending, **Deliver artwork** resolves them, and
+**Fail a load** produces the failed state, which the status line names and the
+re-request recovers. "Still loading" and "will never load" look identical to a
+player unless you say which one it is.
+
+The five kinds are five of the framework's own shipped icons — five distinct
+*shapes*, so the board reads without relying on colour — and a test pins each id
+against `src/themes/standard_icons.luau` so a re-upload fails loudly instead of
+silently blanking the board. This is the async model from
+[chapter 2](02-architecture.md) in action.
 
 **Deterministic churn.** The board refills from a small seeded pseudo-random
 generator, so replaying the same swap always produces the same board — which is

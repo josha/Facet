@@ -389,7 +389,32 @@ local function wrap(
 	-- the space is only consulted (and only requested) when one is drawn
 	local spaceW: number? = nil
 	local spaceExactly = false
-	for word in string.gmatch(text, "%S+") do
+	-- A RUN OF SPACES IS AS WIDE AS IT IS LONG (found live 2026-08-06, tutorial
+	-- example 05's legend). This loop used to be `gmatch(text, "%S+")` and add
+	-- exactly ONE space width at every joint, so `"a   b"` reserved the same box as
+	-- `"a b"`. Measured on the engine at BuilderSans 12: the legend
+	-- `"v correct   ~ present   x absent"` draws 134.5 px and this model reserved
+	-- 124.5 — the four extra spaces, at 2.5 px each, exactly — so the label
+	-- truncated to "…x…" on a 907 px-wide desktop with 780 px to spare.
+	--
+	-- The gap's literal SPACE characters are counted. Only spaces: a gap made of a
+	-- newline still counts as one, so the embedded-newline behaviour
+	-- (docs/lessons/embedded-newlines-measure-as-one-line.md) is byte-identical, and
+	-- so is every single-spaced string in the suite.
+	--
+	-- CAPTURED AS A POSITION, NOT AS A STRING (bench, 2026-08-06). The obvious
+	-- spelling is `for gap, word in string.gmatch(text, "(%s*)(%S+)")`, and it costs
+	-- a throwaway `gap` string on EVERY word of EVERY measured label — every
+	-- keystroke re-measures the field. Against the pinned baseline
+	-- `textinput-typing-storm` went from 1.28x (not flagged) to 1.57-1.84x with a
+	-- heap delta of -42 MB, which is a measurement loop feeding the collector.
+	-- `"()(%S+)"` captures the word's START INDEX instead: a number, not an
+	-- allocation. The gap is then read out of `text` in place, so this loop
+	-- allocates exactly what the pre-existing `"%S+"` loop did — one word string per
+	-- word — and nothing more. Same counts, same widths; the reservation tests pin
+	-- the numbers.
+	local prevEnd = 0
+	for wordStart: number, word: string in string.gmatch(text, "()(%S+)") do
 		local wordW, wordExact = wordWidth(word, canon, bucket, fontSize, fraction)
 		exact = exact and wordExact
 		local extra = 0
@@ -400,10 +425,19 @@ local function wrap(
 				spaceExactly = spaceIsExact
 				exact = exact and spaceIsExact
 			end
+			local spaces = 0
+			for i = prevEnd + 1, (wordStart :: number) - 1 do
+				if string.byte(text, i) == 32 then
+					spaces += 1
+				end
+			end
+			if spaces < 1 then
+				spaces = 1
+			end
 			-- the joint's own grid step (see BOUNDS_GRID): reserved only when the
 			-- space width is an ENGINE measurement, because that is the only case
 			-- where the sum can fall below what the engine draws
-			extra = (spaceW :: number) + (if spaceExactly then BOUNDS_GRID else 0)
+			extra = (spaceW :: number) * spaces + (if spaceExactly then BOUNDS_GRID else 0)
 		end
 		if lineWidth > 0 and lineWidth + extra + wordW > maxWidth then
 			widest = math.max(widest, lineWidth)
@@ -412,6 +446,7 @@ local function wrap(
 		else
 			lineWidth += extra + wordW
 		end
+		prevEnd = wordStart + #word - 1
 	end
 	widest = math.max(widest, lineWidth)
 	return lines, math.min(widest, maxWidth), exact

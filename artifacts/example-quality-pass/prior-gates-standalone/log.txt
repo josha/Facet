@@ -1,0 +1,17 @@
+=== phase-1-minimal-screen  load=2.20 2.69 2.85 ===
+phase-1-minimal-screen exit=1
+=== phase-3-pilot  load=3.77 3.45 3.16 ===
+phase-3-pilot exit=0
+=== part-2-director  load=3.55 3.50 3.22 ===
+part-2-director exit=0
+=== input-adaptation-audit  load=3.00 3.85 3.57 ===
+input-adaptation-audit exit=1
+=== expansion-textinput  load=2.87 3.43 3.44 ===
+expansion-textinput exit=0
+=== theme-packages-and-skinning  load=3.58 3.42 3.42 ===
+theme-packages-and-skinning exit=1
+=== rich-skinning-v2  load=4.00 3.53 3.46 ===
+rich-skinning-v2 exit=1
+=== api-architecture-consistency  load=3.43 3.68 3.58 ===
+api-architecture-consistency exit=1
+DONE

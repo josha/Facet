@@ -116,8 +116,19 @@ export type Spec = {
 	-- It is a CHOICE and not an inference because both are legitimate: a mail
 	-- app's list owns its viewport, a settings page's small table does not.
 	scrolls: boolean?,
-	rowGap: number?, -- vertical space between row cards (default 0; the drop
-	-- indicator centers in the gap) — cards with hairline strokes need >= 2
+	rowGap: (number | string)?, -- vertical space between row cards; a number or a
+	-- theme metric name ("xs".."xl" or a dotted path such as "controls.table.rowGap"),
+	-- exactly like `cellPadding` below. Default 0 (the drop indicator centers in the
+	-- gap) — cards with hairline strokes need >= 2.
+	--
+	-- IT TAKES A METRIC NAME BECAUSE IT IS USED IN ARITHMETIC (example-quality-pass,
+	-- 2026-08-06). `cellPadding` has accepted one since it shipped, because it is
+	-- only ever handed to a blueprint prop and the solver resolves it. `rowGap` is
+	-- also read in Luau — cumulative row tops, the content extent, and the drop
+	-- slot — so a metric name here used to reach `cum += height + rowGap` and throw
+	-- "attempt to perform arithmetic on number and string". It resolves against the
+	-- live snapshot now, so the two spellings behave identically and a themed table
+	-- gap is expressible at all.
 	cellPadding: (number | string)?, -- horizontal cell inset; number or theme metric name (default "s")
 	-- Phase B: row drag-and-drop — rows stay in place while dragging; a ghost
 	-- chip and drop line carry the affordance (director round 2). Dragging a
@@ -259,6 +270,21 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			finite(use(env:get("preferredTextOffset")), 0)
 		)
 	end))
+	-- THE one row-gap answer, in pixels, live. A metric NAME resolves against the
+	-- current snapshot on every read, so a theme swap moves the gutter without a
+	-- rebuild; a number passes through unchanged; absent stays 0.
+	local rowGapPx = scope:own(core:memo(function(use)
+		local declared = spec.rowGap
+		if type(declared) == "number" then
+			return declared
+		end
+		if type(declared) ~= "string" then
+			return 0
+		end
+		local env = spec.env
+		local snap = if env == nil then themeSnapshot.neutral() else metricsOr(use(env:get("themeMetrics")))
+		return themeSnapshot.resolveNumber(snap, declared) or 0
+	end))
 	-- THE one row-height answer. Every seam that reasons about row geometry — the
 	-- blueprint, the cumulative tops, the content extent, the drop slot and
 	-- keep-visible — comes through here, so the model and the paint can never
@@ -324,7 +350,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		local box = use(rowBox)
 		for _, item in use(spec.rows) :: { any } do
 			tops[spec.key(item)] = cum
-			cum += rowHeightOf(item, box) + (spec.rowGap or 0)
+			cum += rowHeightOf(item, box) + use(rowGapPx)
 		end
 		return tops
 	end))
@@ -336,7 +362,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			total += rowHeightOf(item, box)
 			n += 1
 		end
-		return total + math.max(0, n - 1) * (spec.rowGap or 0)
+		return total + math.max(0, n - 1) * rowGapPx:get()
 	end
 	local function clampScroll(value: number, bodyHeight: number): number
 		return math.clamp(value, 0, math.max(0, contentHeight() - bodyHeight))
@@ -644,7 +670,9 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- (the native ScrollingFrame owns the pan), so touch reorder rides the
 	-- edit-mode ≡ handle, which presents its position as a mouse pointer.
 	local DRAG_THRESHOLD = interactionTokens.promotionPx("pointer")
-	local rowGap = spec.rowGap or 0
+	local function rowGapNow(): number
+		return rowGapPx:get()
+	end
 
 	-- insertion slot from a body-relative pointer y over the FULL list (the
 	-- dragged row stays in place): the count of rows whose midpoint sits
@@ -657,12 +685,12 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			local height = rowHeightOf(item)
 			if relY > cum + height / 2 then
 				slot += 1
-				cum += height + rowGap
+				cum += height + rowGapNow()
 			else
 				break
 			end
 		end
-		local boundary = if slot == 0 then 0 else cum - rowGap / 2
+		local boundary = if slot == 0 then 0 else cum - rowGapNow() / 2
 		return slot, boundary
 	end
 
@@ -1204,10 +1232,13 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				width = { type = "fill", weight = 1 },
 				margin = { left = cellPadding, right = titleTrailingInset },
 				textAlign = ALIGN_H[headAlignment.h or "leading"],
-				-- ONE LINE, ALWAYS. The header is a fixed `headerHeight` box, so a
-				-- two-word title ("Track Name") would wrap out of it exactly as the
-				-- cells did; and a column heading that grows the header out of
-				-- alignment with its own column is worse than an ellipsis.
+				-- ONE LINE, ALWAYS. A two-word title ("Track Name") that wrapped
+				-- would push the header band down by a whole line the moment a
+				-- column got narrow, and a heading that reflows out of alignment
+				-- with its own column is worse than an ellipsis. The band FLOORS at
+				-- `headerHeight` and grows to fit that one line (see the Head-<id>
+				-- box below), so a raised text preference makes the header taller
+				-- rather than making the title overflow it.
 				lineLimit = 1,
 				-- the column's disclosure declaration covers the title it caps
 				-- (Step 8.5 LT-G2)
@@ -1268,7 +1299,22 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				UI.ZStack({
 					id = `Head-{column.id}`,
 					width = headerDim(column),
-					height = { type = "fixed", px = "controls.table.headerHeight" },
+					-- A FLOOR, NOT A CAP (director 2026-08-06: "the edit button
+					-- overlaps the heading at largest text"; and the standing ask,
+					-- "if height is the issue why can't we make the whole table have
+					-- more height as text size increases"). This was `fixed`, so at
+					-- the Largest text preference a ONE-LINE title measured 34px
+					-- inside a 28px box and painted straight out of it — over the
+					-- toolbar above and the first row below. The solver had been
+					-- saying so all along: `Head-<id>/Title` reported "overflows its
+					-- zstack by 0x6px ... give the box room — a `minMax` FLOOR rather
+					-- than a fixed CAP". This is that floor. The token is what a
+					-- header band should never be SHORTER than; the live text facts
+					-- decide how much taller it has to be, so the header grows with
+					-- the preference and the band below it moves down with it.
+					-- Same defect class as the row box (§3 of paradigm_table.spec):
+					-- a fixed px height against unfixed content.
+					height = { type = "minMax", min = "controls.table.headerHeight" },
 					alignV = "center",
 					children = headerChildren,
 				})
@@ -1311,7 +1357,10 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		id = "Body",
 		width = { type = "fill", weight = 1 },
 		height = if spec.scrolls == false then { type = "content" } else { type = "fill", weight = 1 },
-		gap = rowGap,
+		-- the blueprint takes the DECLARED value: a metric name resolves in the
+		-- solver against the same live snapshot `rowGapPx` reads, so the painted
+		-- gutter and the arithmetic can never disagree
+		gap = spec.rowGap or 0,
 	}
 	if spec.scrolls ~= false then
 		bodySpec.axis = "y"

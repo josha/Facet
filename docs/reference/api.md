@@ -1622,6 +1622,25 @@ dead sink left behind.
 
 Per-surface override: `present(bp, { keyboardNavigation = … })`, below.
 
+**The arrow keys are a different story, and the default camera owns two of them.**
+Up/Down/Left/Right move focus whenever a surface has a focus graph — they are not
+gated on `keyboardNavigation`. But Roblox's **default `CameraModule` binds `Left`,
+`Right`, `I` and `O`** through ContextActionService under the action name
+**`RbxCameraKeypress`**, and it *sinks* them: the key arrives at
+`UserInputService.InputBegan` with `gameProcessed = true` and never reaches the UI.
+So **horizontal arrow navigation does nothing in a place running the default
+camera** — measured 2026-08-06: one identical `Right` press read `gameProcessed =
+true` with the binding up and `false` after
+`ContextActionService:UnbindAction("RbxCameraKeypress")`, after which focus stepped
+across a row and `Down`/`Left` moved as designed.
+
+This is not something LuauUI can fix from inside — the binding belongs to the
+player scripts, and silently unbinding a consumer's camera would be worse than the
+symptom. A keyboard-first place should release the action (or ship its own camera);
+a place that keeps the default camera should not rely on Left/Right for UI. Note
+that disabling the PlayerModule's **controls** module does *not* free the key — the
+camera module is a separate binding.
+
 **Session lifetime, stated.** A presenter is built **once per client session**
 and has **no `dispose()`**. It owns a feedback bus, a focus graph, a motion clock
 (its own, unless you passed one) and up to four private surfaces, and nothing

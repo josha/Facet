@@ -250,7 +250,22 @@ function rating.build(LuauUI: any, core: any, spec: Spec)
 			-- both sides rather than being dumped after the last star.
 			textSize = starSize,
 			textAlign = "center",
-			width = { type = "minMax", max = starSize },
+			-- `hug` IS THE TWO BEHAVIOURS, AND IT TRACKS THE SCALE (found live
+			-- 2026-08-06 on the console ten-foot matrix row). This was
+			-- `{ type = "minMax", max = starSize }`, capping the box at the icon
+			-- METRIC — an unscaled number — while the glyph beside it is painted at
+			-- `textSize * typographyScale`. At the ten-foot profile's 1.5x every one
+			-- of the playlist's stars reported `textFits = false`: the box was 16 px
+			-- and the star drew at 24. The painted-versus-measured family again, in
+			-- a control whose whole job is a row of glyphs.
+			--
+			-- `hug` is CONTENT WITH THE PARENT'S OFFER AS A CEILING (solver
+			-- `resolveAxis`), which is exactly what the note below asks for: room to
+			-- spare -> the star is glyph-sized and the run groups; not enough room ->
+			-- it shrinks to the share it was offered. The difference is that the
+			-- content it hugs is the SCALED measurement, so the cap can never fall
+			-- below the glyph again.
+			width = { type = "hug" },
 			-- NOT a Button, and therefore not a `control` to any theme: a star is
 			-- a glyph, and the whole point of this control is that a rating wears
 			-- one surface (none) rather than `count` of them.
@@ -265,8 +280,25 @@ function rating.build(LuauUI: any, core: any, spec: Spec)
 		-- standalone rating still hugs its glyphs rather than stretching.
 		width = { type = "fill", weight = 1 },
 		children = {
-			UI.HStack({
+			-- A GRID, NOT AN HSTACK, SO THE MARKS SHRINK TOGETHER (found live
+			-- 2026-08-06 at preferredTextSize = Largest on a compact phone).
+			-- An HStack of hug children that cannot all fit clamps in order and
+			-- starves the tail: measured in the playlist's 144px rating column at
+			-- typographyScale 3, `Star5` was handed a ZERO-width box and simply
+			-- vanished, while the first stars kept their full glyph. Five marks of
+			-- which two are missing is not a rating.
+			--
+			-- `UI.Grid` with `columns = count` and `itemSizing = "uniform"` is the
+			-- container built for exactly this: the column pitch is
+			-- `innerWidth / columns`, so every mark is the same width by
+			-- construction and a short offer shrinks all of them evenly instead of
+			-- dropping the last ones. Everything the ruling below asks for is
+			-- unchanged — the run still hugs its glyphs, still groups, still
+			-- centres in whatever column it is given.
+			UI.Grid({
 				id = "Stars",
+				columns = count,
+				itemSizing = "uniform",
 				gap = starGap,
 				-- THE STRIP GROUPS, AND IS CAPPED (director ruling 2026-07-27,
 				-- superseding round 12's "it FILLS the cell"). Round 12 made each

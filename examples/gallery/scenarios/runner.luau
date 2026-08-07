@@ -399,12 +399,23 @@ function Runner.start(deps: { [string]: any })
 				-- against a chosen skin without editing a scenario
 				themePackage = workspace:GetAttribute("LuauUI_ThemePackage"),
 				themeName = workspace:GetAttribute("LuauUI_ThemeName"),
+				-- roadmap Step 10: which tutorial example the `examples` scenario
+				-- opens on, selected the same way and for the same reason as the
+				-- theme package above — an operator picks it BEFORE Play and the
+				-- matrix re-selects at runtime through the scenario step
+				example = workspace:GetAttribute("LuauUI_Example"),
 			},
 			-- REFERENCE THEME PACKAGES (theme-packages-and-skinning). They are
 			-- ModuleScripts under ReplicatedStorage.LuauUIThemes here and files
 			-- under examples/themes/ headlessly, so resolving them is runner
 			-- work exactly like the resource transport and the calibration seam
 			-- — the scenario module stays engine-free and path-free.
+			-- THE TUTORIAL EXAMPLE MODULES, resolved the same way and for the same
+			-- reason as the theme packages below: they are ModuleScripts under
+			-- ReplicatedStorage.LuauUIExamples here and files under
+			-- examples/gallery/examples headlessly, so finding them is runner work
+			-- and the `examples` scenario stays path-free.
+			exampleModules = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIExamples"),
 			themePackages = (function(): { [string]: any }
 				local out: { [string]: any } = {}
 				local folder = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIThemes")

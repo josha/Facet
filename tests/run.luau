@@ -121,6 +121,10 @@ require("./gallery_theme_picker.spec")
 -- the showcase demo picker: one published place, switchable in-game
 require("./gallery_demo_picker.spec")
 require("./examples_games.spec")
+-- the word game's PURE rules and state machine (roadmap Step 10, EQ-9): the
+-- two-pass letter budget across every duplicate shape, refusals that do not
+-- consume a row, monotonic key state, win/loss, and the deterministic seed
+require("./example_word_game.spec")
 
 require("./popup_button.spec")
 require("./text_input.spec")
@@ -156,6 +160,10 @@ require("./theme_package.spec")
 require("./theme_snapshot.spec")
 require("./theme_roles.spec")
 require("./theme_drift.spec")
+-- roadmap Step 10: the same rule for the TUTORIAL EXAMPLES, and property-aware
+-- rather than a number ban — an invented `surface` token is as much a bypass as
+-- a px text size, and it is the one that made the word-game board invisible
+require("./example_drift.spec")
 -- theme controller specs (package 2)
 require("./theme_controller.spec")
 -- theme chrome/reference specs (package 3)

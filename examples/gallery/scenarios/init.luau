@@ -48,6 +48,11 @@ local ORDER = {
 	-- roadmap Step 8: the desktop keyboard focus chain (form + scrollable list +
 	-- modal + TextInput + Slider + Stepper), driven with raw VirtualInput keys
 	"keyboard_navigation",
+	-- roadmap Step 10: the seven TUTORIAL EXAMPLES, so the five-view device
+	-- matrix and the theme-swap capture can hold them by the same handle every
+	-- other stage's evidence uses. It owns no UI — it mounts one example
+	-- verbatim and adds the select/theme drive surface
+	"examples",
 }
 
 local scenarios = {}

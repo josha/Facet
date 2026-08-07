@@ -184,6 +184,14 @@
       "specSection": "docs/plans/performance-stress-places.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
       "artifactDir": "artifacts/performance-stress-places",
       "gateArtifact": "artifacts/performance-stress-places/gate.json",
+      "next": "example-quality-pass"
+    },
+    {
+      "gate": "example-quality-pass",
+      "title": "Tutorial gallery quality pass (roadmap Step 10): all seven tutorial examples understandable and playable in Studio WITHOUT reading their source \u2014 one designed LuauUI product sharing the native-StyleSheet property authority, adapting across the canonical five views and the supported input paradigms, with deterministic reset paths, a complete Wordle-like word game, a visibly taught optimistic-sync lesson, played-and-corrected tile and match-3 games, an ownership ledger proving examples hold domain/content plus declarative composition while reusable fixes live behind public LuauUI APIs, and standalone places that rebuild",
+      "specSection": "docs/plans/example-quality-pass.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/example-quality-pass",
+      "gateArtifact": "artifacts/example-quality-pass/gate.json",
       "next": null
     }
   ]

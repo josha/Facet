@@ -668,17 +668,34 @@ function theme_picker.mount(opts: MountOpts): any
 
 	-- un-collapsed: the panel IS the dock's child, at its historical path.
 	-- collapsed: a shell holds a handle plus the panel behind a `When`.
+	-- THE STANDALONE COLLAPSED SHELL DOCKS TOP-RIGHT, AND DOES NOT LIFT
+	-- (example-quality-pass, 2026-08-06).
+	--
+	-- Collapsed mode used to be reachable only from the showcase, which composes
+	-- the pieces itself (`composed = true`) and therefore never builds this shell
+	-- at all — so the branch carried the showcase's geometry: docked top-LEFT and
+	-- lifted by `-BAR_HEIGHT` into a strip the showcase reserves through
+	-- `coreSafeInsets`. The tutorial-example host reserves no such strip, and the
+	-- examples all lay their content out from the top-LEFT.
+	--
+	-- Measured why this matters: with the picker expanded (the example host's old
+	-- behaviour) its panel occupied `x 339..899, y 8..219` while example 01's text
+	-- field occupied `x 16..891, y 78..122` — the picker sat on top of most of the
+	-- primary control of the example it was supposed to be restyling, and on a
+	-- 360x691 phone it covered the example entirely.
+	--
+	-- So: top-RIGHT, no lift, out of the way of every example's content, and
+	-- collapsed by default. The showcase path is untouched (it never reaches here).
 	local dockChild = if isCollapsible
 		then UI.VStack({
 			id = "Shell",
-			anchor = "topLeft",
-			offsetX = theme_picker.CHIP_OFFSET_X,
-			-- lifted back INTO the strip the showcase reserved through
-			-- coreSafeInsets, so the chip sits beside the demo picker's rather
-			-- than over the demo. Collapsed mode is only used there.
-			offsetY = -theme_picker.BAR_HEIGHT,
+			-- zero on both axes: the Screen's own "s" padding is the inset, so the
+			-- chip sits in the top-right corner without a second hard-coded margin
+			anchor = "topRight",
+			offsetX = 0,
+			offsetY = 0,
 			gap = theme_picker.ROW_GAP,
-			alignH = "start",
+			alignH = "end",
 			children = {
 				chip,
 				UI.When({
@@ -787,6 +804,27 @@ function theme_picker.mount(opts: MountOpts): any
 		raise = function()
 			opts.presenter.dismiss(handle)
 			handle = opts.presenter.present(screen, presentOpts)
+		end,
+		-- THE SAME TWO SCRIPTABLE SEAMS THE COMPOSED HANDLE ALREADY HAD
+		-- (example-quality-pass, 2026-08-06). The tutorial-example host now mounts
+		-- this picker COLLAPSED, so an agent driving a themed capture has to be able
+		-- to open it and choose a package without a pointer — and the composed
+		-- (showcase) handle has offered exactly these two since the `dispatch`
+		-- regression. Two returns from one function offering different powers is how
+		-- the showcase's route rotted unnoticed; they match now.
+		--
+		-- `open` is the same signal the chip's own `onActivate` writes, and
+		-- `pickPackage` routes through `apply`, the identical call a package row's
+		-- `onActivate` makes. Driving either exercises the real command path rather
+		-- than a parallel one — it still does not prove the BUTTON works.
+		open = panelOpen,
+		pickPackage = function(packageId: string): boolean
+			local command = theme_picker.choosePackage(entries, selection:get(), packageId)
+			if command.action == "none" then
+				return false
+			end
+			apply(command)
+			return true
 		end,
 		entries = entries,
 		selection = selection,

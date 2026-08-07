@@ -1,26 +1,37 @@
 --!strict
--- Gallery example 8 — a match-3 game: the write-once-run-everywhere showcase.
+-- ============================================================================
+-- Example 7 of the LuauUI tutorial: a match-3 board.
+-- ============================================================================
 --
--- What this example teaches:
---   * Adaptive layout: the tiles size themselves from the environment's size
---     class (phone / tablet / desktop), so the SAME tree lays out sensibly on
---     any screen without being rebuilt.
---   * Async images: each tile kind's picture is acquired through a resource
---     provider that models the ready / pending states a real texture load has.
---     Nothing assumes an image is present the instant a tile appears.
---   * Multi-input: a tile is an image with a transparent button on top, so a
---     touch tap and a gamepad "A" on the focused tile both select it; a grid of
---     navigation groups lets a gamepad move around the board.
---   * Deterministic simulation: matches clear and the board refills from a
---     seeded sequence, so a test can replay a swap and get the same board every
---     time.
+-- WHAT THIS TEACHES
+--   * async images   — every tile kind's picture is acquired through a resource
+--                      provider that models the ready / pending / FAILED states a
+--                      real texture load has. The three states are on screen and
+--                      the failed one is recoverable, because "it is still
+--                      loading" and "it will never load" look identical to a
+--                      player unless you say which one it is
+--   * adaptive layout — the board is ONE `UI.Grid` sized from the theme's own
+--                      metrics, so it lays out sensibly on any screen without the
+--                      example measuring anything or naming a device
+--   * deterministic simulation — matches clear, gravity falls and the board
+--                      refills from a SEEDED sequence, so a test can replay a
+--                      swap and get the same board every time
+--   * multi-input    — a tile is a picture with a transparent button over it, so
+--                      a tap, a click, Return on the focused tile and a gamepad
+--                      "A" all select it; the Grid gives the board its 2D
+--                      navigation for free
 --
--- Presentation stays simple: tiles change their image and size via plain
--- property/opacity changes. Sliding a tile smoothly from one cell to another is
--- layout-space animation, which is a Phase 5 feature — see the note in swap().
+-- WHAT THE PLAYER SEES
+--   A title, a one-line instruction that changes as they play, score and move
+--   counters, the board, an artwork row that reports and drives the image
+--   states, and a "New board" button. Tapping a tile selects it; tapping an
+--   ADJACENT tile swaps them if that makes a run of three, and says why not if it
+--   does not. The opening board is generated with no run already on it and with
+--   at least one legal move available.
 --
--- Runs headless against the FakeTarget: the provider is drained by the caller
--- (a test, or a real client's texture transport), never by this file.
+-- Runs headless against the FakeTarget: no engine calls.
+--
+-- deps used: presenter (see 01's header for the shared module shape).
 
 local assets = require("./assets")
 
@@ -29,9 +40,15 @@ local COLS = 6
 local KINDS = { "a", "b", "c", "d", "e" }
 local DEFAULT_SEED = 20260720
 
--- A tiny deterministic PRNG (a classic Lehmer/park-miller generator). Seeding
--- it identically replays the exact same refill sequence, which is what lets a
--- test predict the board after a swap.
+-- A tile is a tap target first and a picture second, so it is sized from the
+-- theme's own large-control height rather than a pixel count this file guessed.
+-- A denser package makes the board denser; a chunky touch package makes it
+-- chunkier. THE EXAMPLE NAMES NO DEVICE.
+local CELL: any = { type = "fixed", px = "controlSizes.large.height" }
+
+-- A tiny deterministic PRNG (a classic Lehmer/park-miller generator). Seeding it
+-- identically replays the exact same refill sequence, which is what lets a test
+-- predict the board after a swap.
 local function makeRng(seed: number): () -> number
 	local state = seed % 2147483647
 	if state <= 0 then
@@ -46,10 +63,9 @@ end
 local function build(LuauUI: any, core: any, deps: any)
 	local UI = LuauUI.UI
 	local pres = deps.presenter
-	local env = deps.env
 	local seed = DEFAULT_SEED
 
-	local gameScope = core:scope("example-08-match3")
+	local gameScope = core:scope("example-07-match3")
 	local function reg(readable: any): any
 		gameScope:own(function()
 			readable:dispose()
@@ -81,6 +97,10 @@ local function build(LuauUI: any, core: any, deps: any)
 			end
 		end
 	end
+
+	local score = reg(core:signal(0))
+	local moves = reg(core:signal(0))
+	local message = reg(core:signal(""))
 
 	-- ---- match / collapse / refill (pure board logic) -----------------------
 	local function findMatches(): { [string]: boolean }
@@ -118,9 +138,9 @@ local function build(LuauUI: any, core: any, deps: any)
 		return matched
 	end
 
-	-- gravity: existing tiles fall to the bottom of their column, new tiles
-	-- enter from the top drawn from the seeded sequence (column by column,
-	-- bottom to top — a fixed order so replays match).
+	-- gravity: existing tiles fall to the bottom of their column, new tiles enter
+	-- from the top drawn from the seeded sequence (column by column, bottom to
+	-- top — a fixed order so replays match).
 	local function collapse()
 		for c = 1, COLS do
 			local stack: { string } = {}
@@ -136,96 +156,227 @@ local function build(LuauUI: any, core: any, deps: any)
 		end
 	end
 
-	local function resolve()
+	-- resolve(scoring) -> how many tiles cleared in total, chains included
+	local function resolve(scoring: boolean): number
+		local cleared = 0
 		while true do
 			local matched = findMatches()
 			if next(matched) == nil then
 				break
 			end
 			for key in matched do
+				cleared += 1
 				local rs, cs = key:match("(%d+),(%d+)")
 				grid[tonumber(rs) :: number][tonumber(cs) :: number] = nil :: any
 			end
 			collapse()
 		end
+		if scoring and cleared > 0 then
+			score:set(score:get() + cleared)
+		end
+		return cleared
 	end
 
-	-- swap two tiles; keep the swap only if it forms a match (classic match-3),
-	-- otherwise revert. NOTE: the tiles change instantly here. Sliding them
-	-- across cells would animate a LAYOUT position over time — layout-space
-	-- animation is a Phase 5 expansion gate, so it is intentionally not built.
-	local function swapCells(r1: number, c1: number, r2: number, c2: number)
-		grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
-		if next(findMatches()) == nil then
-			grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1] -- revert
-		else
-			resolve()
+	-- is there ANY adjacent pair whose swap makes a run? A board with no legal
+	-- move is a dead end the player cannot see, so it is checked rather than hoped.
+	local function hasLegalMove(): boolean
+		local function trySwap(r1: number, c1: number, r2: number, c2: number): boolean
+			grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
+			local any = next(findMatches()) ~= nil
+			grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
+			return any
 		end
-		syncAll()
+		for r = 1, ROWS do
+			for c = 1, COLS do
+				if c < COLS and trySwap(r, c, r, c + 1) then
+					return true
+				end
+				if r < ROWS and trySwap(r, c, r + 1, c) then
+					return true
+				end
+			end
+		end
+		return false
 	end
+
+	-- THE OPENING BOARD IS NOT ALREADY WON, AND NOT ALREADY STUCK
+	-- (example-quality-pass). The board used to be filled cell by cell and shown
+	-- as-is, so a seed could open on a run the player never made — the game
+	-- scoring itself before the first tap — or on a board with no legal move at
+	-- all. `resolve(false)` clears any accidental opening run WITHOUT scoring it,
+	-- and the loop re-deals until a move exists. Bounded, so a pathological seed
+	-- cannot hang the mount.
+	local function deal()
+		for _ = 1, 64 do
+			resolve(false)
+			if hasLegalMove() then
+				return
+			end
+			for r = 1, ROWS do
+				for c = 1, COLS do
+					grid[r][c] = nextKind()
+				end
+			end
+		end
+	end
+	deal()
+	syncAll()
 
 	-- ---- async images: one provider handle per tile kind --------------------
-	-- generous concurrency so every kind is in the active window at once; the
-	-- caller drains them (tests call provider.complete; a client's transport
-	-- would map each key to the id in assets.match3Tiles).
+	-- Generous concurrency so every kind is in the active window at once.
 	local provider = LuauUI.newResourceProvider(core, { maxConcurrent = 8 })
 	local kindHandle: { [string]: any } = {}
 	for _, kind in KINDS do
 		kindHandle[kind] = provider.acquire(gameScope, `img/{kind}`)
 	end
+	gameScope:own(function()
+		-- the handles are scope-owned already; this keeps the provider's own
+		-- bookkeeping from outliving the example
+		for _, handle in kindHandle do
+			handle.release()
+		end
+	end)
 	local PENDING = assets.pending
 
-	-- adaptive tile size: a bound Dim that tracks the environment size class.
-	-- Changing it re-solves layout (a size change), never a remount.
-	local cellDim = reg(core:memo(function(use)
-		local sizeClass = use(env:get("sizeClass"))
-		local px = if sizeClass == "compact" then 40 elseif sizeClass == "regular" then 56 else 72
-		return { type = "fixed", px = px }
+	-- Drain whatever the provider currently has in flight, answering each request
+	-- with that kind's real asset. THIS IS THE TRANSPORT — in a real client it
+	-- would be the engine's texture pipeline; here the example plays that part so
+	-- the lesson is deterministic and has no timers in it.
+	local function deliverArt(): number
+		local delivered = 0
+		for _, request in provider.pendingRequests() do
+			local kind = string.match(request.key, "^img/(.+)$")
+			local art = if kind ~= nil then assets.match3Tiles[kind] else nil
+			if art ~= nil and provider.complete(request.key, request.generation, art.image) == "applied" then
+				delivered += 1
+			end
+		end
+		return delivered
+	end
+
+	-- delivered once at build, so the board is playable from the first frame
+	deliverArt()
+
+	-- RE-REQUEST WITHOUT DROPPING THE KEY TO ZERO HANDLES. The provider owns one
+	-- state/value/error signal set per key and DISPOSES them when the last handle
+	-- releases; a fresh acquire then builds new ones. So releasing before
+	-- acquiring silently swaps the signals a mounted memo is subscribed to, and
+	-- every tile goes on painting the last art forever while the provider happily
+	-- re-fetches. Acquire FIRST (refcount 2), then release the old handle: the
+	-- entry never hits zero, the signals survive, and the mounted board sees the
+	-- state go back to pending.
+	local function requestArt(kind: string)
+		local key = `img/{kind}`
+		provider.invalidate(key)
+		local fresh = provider.acquire(gameScope, key)
+		kindHandle[kind].release()
+		kindHandle[kind] = fresh
+	end
+
+	local function reloadArt()
+		for _, kind in KINDS do
+			requestArt(kind)
+		end
+		message:set("Artwork re-requested — the tiles show the loading placeholder until it arrives.")
+	end
+
+	local function failArt()
+		local first = provider.pendingRequests()[1]
+		if first == nil then
+			-- nothing in flight: put one back in flight, then fail it
+			requestArt("a")
+			first = provider.pendingRequests()[1]
+		end
+		if first ~= nil then
+			provider.fail(first.key, first.generation, "the transport dropped it")
+			message:set('One tile kind failed to load. Press "Re-request artwork", then "Deliver artwork".')
+		end
+	end
+
+	local artStatus = reg(core:memo(function(use)
+		local pending, failed, ready = 0, 0, 0
+		for _, kind in KINDS do
+			local state = use(kindHandle[kind].state)
+			if state == "ready" then
+				ready += 1
+			elseif state == "failed" then
+				failed += 1
+			else
+				pending += 1
+			end
+		end
+		if failed > 0 then
+			return `Artwork: {failed} failed, {ready} ready`
+		end
+		if pending > 0 then
+			return `Artwork: loading {pending} of {#KINDS}`
+		end
+		return `Artwork: all {ready} ready`
 	end))
 
 	-- ---- board blueprint ----------------------------------------------------
 	local selected = reg(core:signal(nil :: { number }?))
 	local activateCell: (r: number, c: number) -> () -- forward-declared (below)
-	local cellPathByRc: { [string]: string } = {}
-	local boardRows = {}
+	local cells = {}
 	for r = 1, ROWS do
-		local rowId = "mrow" .. r
-		local cells = {}
 		for c = 1, COLS do
 			local rr, cc = r, c
 			-- the tile's image: the resolved asset for its current kind, or the
-			-- pending placeholder until that kind's image finishes loading.
+			-- pending placeholder until that kind's image arrives.
+			-- THE PLACEHOLDER FOLLOWS THE STATE, NOT THE VALUE. The provider keeps
+			-- the last-known value across a re-request (deliberately: it avoids a
+			-- flicker when a key is refetched), so a tile that keyed on `value ~= nil`
+			-- would go on showing stale art while its state read "pending", and a
+			-- FAILED key would look identical to a ready one. Reading the state is
+			-- what makes the three states actually distinguishable on screen.
 			local image = reg(core:memo(function(use)
 				local kind = use(kindSig[rr][cc])
-				local resolved = use(kindHandle[kind].value)
+				local handle = kindHandle[kind]
+				if use(handle.state) ~= "ready" then
+					return PENDING
+				end
+				local resolved = use(handle.value)
 				return if resolved ~= nil then resolved else PENDING
+			end))
+			-- the kind's SHAPE is the primary cue, its colour the accelerator; the
+			-- ASCII label is what is left if art is unavailable entirely, so five
+			-- kinds stay distinguishable in every one of the three states.
+			local tint = reg(core:memo(function(use)
+				return { role = assets.match3Tints[use(kindSig[rr][cc])], blend = 1 }
+			end))
+			local fallbackLabel = reg(core:memo(function(use)
+				local kind = use(kindSig[rr][cc])
+				local ready = use(kindHandle[kind].state) == "ready"
+				return if ready then "" else assets.match3Tiles[kind].label
 			end))
 			local isSelected = reg(core:memo(function(use)
 				local sel = use(selected)
 				return sel ~= nil and sel[1] == rr and sel[2] == cc
 			end))
-			local cellPath = `/Match3/board/{rowId}/cell{c}`
-			cellPathByRc[rr .. "," .. cc] = cellPath
-			cells[c] = UI.ZStack({
-				id = "cell" .. c,
-				width = cellDim,
-				height = cellDim,
+			cells[#cells + 1] = UI.ZStack({
+				id = `cell{r}_{c}`,
+				width = CELL,
+				height = CELL,
 				children = {
 					UI.Image({
 						id = "img",
 						image = image,
+						tint = tint,
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 					}),
-					-- the transparent hit target: focusable + tappable, fills the
-					-- tile; its `selected` prop reflects the current selection. Its
+					-- the hit target: focusable + tappable, fills the tile; its
+					-- `selected` prop reflects the current selection, and its label
+					-- is the fallback symbol while the picture is not there. Its
 					-- node onActivate carries the APP SEMANTICS (select / swap
 					-- adjacency) — the presenter dispatches Activate (tap, or A on
 					-- the focused tile) here with no consumer routing (ADR-0013).
 					UI.Button({
 						id = "hit",
-						label = "",
+						label = fallbackLabel,
+						surface = "plain",
 						selected = isSelected,
+						textSize = "control",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 						onActivate = function()
@@ -235,38 +386,146 @@ local function build(LuauUI: any, core: any, deps: any)
 				},
 			})
 		end
-		boardRows[r] = UI.HStack({ id = rowId, gap = 4, children = cells })
 	end
-	local board = UI.VStack({ id = "board", gap = 4, children = boardRows })
-
-	local screen = UI.Screen({
-		id = "Match3",
-		padding = 16,
-		gap = 12,
-		children = {
-			UI.Text({ id = "Title", text = "LuauUI Match-3", textSize = 28 }),
-			board,
-		},
+	local board = UI.Grid({
+		id = "board",
+		columns = COLS,
+		itemSizing = "uniform",
+		gap = "xs",
+		children = cells,
 	})
 
 	-- ---- select-then-swap ---------------------------------------------------
+	-- swap two tiles; keep the swap only if it forms a match (classic match-3),
+	-- otherwise revert AND SAY SO. NOTE: the tiles change instantly here. Sliding
+	-- them across cells would animate a LAYOUT position over time, which is a
+	-- separate expansion gate, so it is intentionally not built.
+	local function swapCells(r1: number, c1: number, r2: number, c2: number)
+		grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1]
+		if next(findMatches()) == nil then
+			grid[r1][c1], grid[r2][c2] = grid[r2][c2], grid[r1][c1] -- revert
+			message:set("That swap makes no run of three. Try a different pair.")
+		else
+			moves:set(moves:get() + 1)
+			local cleared = resolve(true)
+			message:set(`Cleared {cleared} tiles.`)
+			if not hasLegalMove() then
+				-- a board with no move left is a dead end the player cannot see:
+				-- re-deal rather than let them tap forever
+				deal()
+				message:set(`Cleared {cleared} tiles — no moves left, so the board was re-dealt.`)
+			end
+		end
+		syncAll()
+	end
+
 	activateCell = function(r: number, c: number)
 		local sel = selected:get()
 		if sel == nil then
 			selected:set({ r, c })
+			message:set("")
+		elseif sel[1] == r and sel[2] == c then
+			selected:set(nil) -- tapping the selected tile puts it down
+			message:set("")
 		elseif math.abs(sel[1] - r) + math.abs(sel[2] - c) == 1 then
 			swapCells(sel[1], sel[2], r, c) -- adjacent: swap
 			selected:set(nil)
 		else
 			selected:set({ r, c }) -- non-adjacent: move the selection
+			message:set("Tiles have to touch to swap. Pick a neighbour of the tile you chose.")
 		end
 	end
 
-	-- Presented with NO opts. Each tile's node onActivate handles select/swap,
-	-- and the presenter derives 2D grid navigation from the board's HStack rows
-	-- automatically (ADR-0013 layout-derived groups): D-pad crosses the grid
-	-- (Left/Right within a row, Up/Down keeping the column) and A activates —
-	-- no grouped-scope swap and no custom navigation context needed.
+	local function reset()
+		selected:set(nil)
+		score:set(0)
+		moves:set(0)
+		rng = makeRng(seed)
+		for r = 1, ROWS do
+			for c = 1, COLS do
+				grid[r][c] = nextKind()
+			end
+		end
+		deal()
+		syncAll()
+		message:set("")
+	end
+
+	-- ---- the instruction line ----------------------------------------------
+	local hint = reg(core:memo(function(use)
+		local said = use(message)
+		if said ~= "" then
+			return said
+		end
+		if use(selected) == nil then
+			return "Tap a tile, then tap a tile next to it to swap them. Three in a row clears."
+		end
+		return "Now tap a tile next to it — or tap the same tile again to put it down."
+	end))
+	local scoreText = reg(core:memo(function(use)
+		return `Score {use(score)}`
+	end))
+	local movesText = reg(core:memo(function(use)
+		return `{use(moves)} swaps`
+	end))
+
+	local screen = UI.Screen({
+		id = "Match3",
+		surface = "base",
+		padding = "m",
+		children = {
+			UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				gap = "s",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Text({ id = "Title", text = "LuauUI Match-3", textSize = "title" }),
+					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
+					UI.HStack({
+						id = "Stats",
+						gap = "m",
+						align = "center",
+						children = {
+							UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
+							UI.Text({ id = "Moves", text = movesText, textSize = "label", role = "secondary" }),
+						},
+					}),
+					board,
+					UI.Text({ id = "ArtStatus", text = artStatus, textSize = "label", role = "secondary" }),
+					UI.HStack({
+						id = "Art",
+						gap = "s",
+						align = "center",
+						children = {
+							UI.Button({ id = "Reload", label = "Re-request artwork", onActivate = reloadArt }),
+							UI.Button({
+								id = "Deliver",
+								label = "Deliver artwork",
+								onActivate = function()
+									local n = deliverArt()
+									message:set(
+										if n > 0
+											then `Delivered {n} tile pictures.`
+											else "Nothing was waiting to be delivered."
+									)
+								end,
+							}),
+							UI.Button({ id = "Break", label = "Fail a load", onActivate = failArt }),
+						},
+					}),
+					UI.Button({ id = "Reset", label = "New board", onActivate = reset }),
+				},
+			}),
+		},
+	})
+
+	-- Presented with NO opts. Each tile's node onActivate handles select/swap, and
+	-- the presenter derives 2D grid navigation from the board Grid automatically
+	-- (ADR-0013 layout-derived groups): D-pad crosses the board and A activates,
+	-- and the Grid's boundary rows link into the artwork row and the New-board
+	-- button so nothing below the board is unreachable.
 	local handle = pres.present(screen)
 
 	-- ---- public / test API --------------------------------------------------
@@ -291,12 +550,34 @@ local function build(LuauUI: any, core: any, deps: any)
 			end
 			return out
 		end,
+		score = function(): number
+			return score:get()
+		end,
+		moves = function(): number
+			return moves:get()
+		end,
+		hintText = function(): string
+			return hint:get()
+		end,
+		artStatusText = function(): string
+			return artStatus:get()
+		end,
+		hasLegalMove = hasLegalMove,
+		findMatches = findMatches,
+		reset = reset,
+		deliverArt = deliverArt,
 		cellPath = function(r: number, c: number): string
-			return cellPathByRc[r .. "," .. c] .. "/hit"
+			return `/Match3/Page/board/cell{r}_{c}/hit`
 		end,
 		imagePath = function(r: number, c: number): string
-			return cellPathByRc[r .. "," .. c] .. "/img"
+			return `/Match3/Page/board/cell{r}_{c}/img`
 		end,
+		hintPath = "/Match3/Page/Hint",
+		artStatusPath = "/Match3/Page/ArtStatus",
+		reloadPath = "/Match3/Page/Art/Reload",
+		deliverPath = "/Match3/Page/Art/Deliver",
+		breakPath = "/Match3/Page/Art/Break",
+		resetPath = "/Match3/Page/Reset",
 		swap = swapCells,
 		-- test hook: install an exact board (no auto-resolve) so a swap scenario
 		-- is reproducible.

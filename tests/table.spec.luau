@@ -1932,3 +1932,237 @@ describe("Table column boundary is strict (architecture review F-4)", function()
 		expect(string.find(tostring(err), "boolean") ~= nil).toBe(true)
 	end)
 end)
+
+-- ============================================================================
+-- `rowGap` TAKES A THEME METRIC NAME (example-quality-pass, 2026-08-06).
+--
+-- `cellPadding` has accepted "a number or a theme metric name" since it shipped,
+-- because it is only ever handed to a blueprint prop. `rowGap` is ALSO read in
+-- Luau — the cumulative row tops, the content extent and the drop slot — so a
+-- metric name reached `cum += height + rowGap` and threw "attempt to perform
+-- arithmetic on number and string". Found by pointing the playlist example at
+-- `controls.table.rowGap` instead of the literal 2 it had been carrying.
+--
+-- The default is unchanged (0): this widens what the option ACCEPTS, and moves
+-- nothing for a caller that passes a number or nothing at all.
+-- ============================================================================
+describe("Table.rowGap: a number or a theme metric name", function()
+	local function gapBetweenFirstTwoRows(rowGap: any): number
+		local _, adapter = world({ rowGap = rowGap, header = false })
+		local first = adapter.node(rowHitPath(0, RACERS[1].id)).rect
+		local second = adapter.node(rowHitPath(0, RACERS[2].id)).rect
+		return second.y - (first.y + first.h)
+	end
+
+	it("a number behaves exactly as it always has", function()
+		expect(gapBetweenFirstTwoRows(6)).toBe(6)
+		expect(gapBetweenFirstTwoRows(nil)).toBe(0)
+	end)
+
+	it("a SPACING STEP resolves to the theme's own step, not to a crash", function()
+		local neutral = snapshot.resolve(LuauUI.themes.neutralPackage(), nil, {})
+		local expected = snapshot.resolveNumber(neutral, "s")
+		expect(type(expected)).toBe("number")
+		expect(gapBetweenFirstTwoRows("s")).toBe(expected)
+	end)
+
+	it("a DOTTED METRIC PATH resolves too — the spelling the playlist example uses", function()
+		local neutral = snapshot.resolve(LuauUI.themes.neutralPackage(), nil, {})
+		local expected = snapshot.resolveNumber(neutral, "controls.table.rowGap")
+		expect(type(expected)).toBe("number")
+		expect(expected > 0).toBe(true)
+		expect(gapBetweenFirstTwoRows("controls.table.rowGap")).toBe(expected)
+	end)
+
+	it("the DROP SLOT arithmetic uses the resolved pixels, not the name", function()
+		-- this is the seam that threw: `insertSlotAt` walks cumulative row tops
+		-- and divides the gap in half to centre the drop indicator
+		local core, adapter, pres = world({ rowGap = "controls.table.rowGap", reorderable = true, header = false })
+		pres.refresh()
+		expect(adapter.node(rowHitPath(0, RACERS[2].id)) ~= nil).toBe(true)
+		expect(core:lastError()).toBeNil()
+	end)
+
+	it("a name that resolves to NOTHING is refused at the authoring boundary, naming it", function()
+		-- better than the arithmetic quietly reading 0: the blueprint's `metric`
+		-- check owns this ruling and it fires before anything is measured
+		local ok, err = pcall(function()
+			return gapBetweenFirstTwoRows("controls.table.noSuchMetric")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "noSuchMetric", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "names no theme metric", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+-- =============================================================================
+-- THE TABLE'S OWN CHROME STACKS — AT EVERY TEXT PREFERENCE (EQ-6 / LT-F3)
+--
+-- Device report 2026-08-06, compact phone portrait AND landscape, both reference
+-- packages, Largest text: "the edit button overlaps the heading". The header
+-- band was a FIXED `controls.table.headerHeight` box (28px). At the Largest
+-- preference a ONE-LINE column title measures 34px, so the title painted 6px out
+-- of its own ZStack — over the toolbar row above it and the first row below.
+--
+-- The solver had been reporting it the whole time: `Head-<id>/Title` filed
+-- "overflows its zstack by 0x6px ... give the box room — a `minMax` FLOOR rather
+-- than a fixed CAP". Nothing FAILED on it, so nobody read it. That is the whole
+-- lesson of docs/lessons/the-solver-already-told-you.md, and it is why the first
+-- assertion here is the diagnostics list itself.
+--
+-- The director's framing is the fix: "if height is the issue why can't we make
+-- the whole table have more height as text size increases". It can, and now it
+-- does — the band floors at the token and grows to the line it must hold, so the
+-- header pushes the body down instead of drawing through its neighbours.
+--
+-- Swept with the auto Edit toggle UP (reorderable + touch + no owner editing
+-- signal), because the toolbar is the neighbour the header hit.
+-- =============================================================================
+describe("Table: toolbar, header and body stack at every text preference", function()
+	local PREFERENCES = { 0, 4, 10, 14 }
+
+	-- one real table, solved on a compact phone with the auto toolbar showing;
+	-- returns the three band rects plus the solver's own verdict
+	local function solveChrome(offset: number, viewport: any): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", viewport)
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		env:set("preferredInput", "Touch")
+		env:set("preferredTextOffset", offset)
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+
+		local rows = core:signal({ { id = "a", name = "Drift City Nights" }, { id = "b", name = "Neon Overpass" } })
+		local tbl = table_control.build(LuauUI, core, {
+			id = "T",
+			columns = {
+				{
+					id = "name",
+					title = "Name",
+					width = { type = "fill", weight = 1 },
+					value = function(i: any)
+						return i.name
+					end,
+				},
+				{
+					id = "rate",
+					title = "Rating",
+					width = { type = "fixed", px = 120 },
+					value = function()
+						return "***"
+					end,
+				},
+			},
+			rows = rows,
+			key = function(i: any)
+				return i.id
+			end,
+			scrolls = false,
+			header = true,
+			reorderable = true,
+			onReorder = function() end,
+			env = env,
+		})
+		local handle = pres.present(LuauUI.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
+		local rectOf = handle.controller.rectOf
+		local out = {
+			toolbar = rectOf("/S/T/Main/ToggleWhen/then/Toolbar"),
+			toggle = rectOf("/S/T/Main/ToggleWhen/then/Toolbar/EditToggle"),
+			header = rectOf("/S/T/Main/Header"),
+			headName = rectOf("/S/T/Main/Header/Head-name"),
+			-- the PAINTED heading, not the band that holds it: the band stacked
+			-- correctly all along, and the title drew out of it
+			titleName = rectOf("/S/T/Main/Header/Head-name/Title"),
+			titleRate = rectOf("/S/T/Main/Header/Head-rate/Title"),
+			body = rectOf("/S/T/Main/Body"),
+			diagnostics = handle.controller.diagnostics(),
+		}
+		pres.dismiss(handle)
+		tbl.dispose()
+		rows:dispose()
+		return out
+	end
+
+	local VIEWPORTS = {
+		{ id = "compact-portrait", rect = { x = 0, y = 0, w = 393, h = 852 } },
+		{ id = "compact-landscape", rect = { x = 0, y = 0, w = 852, h = 393 } },
+	}
+
+	it("the solver files NO overflow anywhere in the table's chrome, at any preference", function()
+		for _, viewport in VIEWPORTS do
+			for _, offset in PREFERENCES do
+				local r = solveChrome(offset, viewport.rect)
+				local found = r.diagnostics or {}
+				if #found > 0 then
+					local lines = {}
+					for _, entry in found :: any do
+						table.insert(lines, `  {tostring((entry :: any).node)} :: {tostring((entry :: any).issue)}`)
+					end
+					error(
+						`{viewport.id} @+{offset}: the solver filed {#found} finding(s) against the table's own `
+							.. `chrome:\n{table.concat(lines, "\n")}`,
+						0
+					)
+				end
+			end
+		end
+	end)
+
+	it("the toolbar, the header and the body never overlap — the reported defect", function()
+		for _, viewport in VIEWPORTS do
+			for _, offset in PREFERENCES do
+				local r = solveChrome(offset, viewport.rect)
+				expect(r.toolbar ~= nil).toBe(true)
+				expect(r.header ~= nil).toBe(true)
+				expect(r.body ~= nil).toBe(true)
+				-- THE PAINTED PAIR, not the two bands. The bands stacked correctly
+				-- even while the defect was live — it was the heading TEXT that
+				-- drew up out of its band and into the toolbar, so the assertion
+				-- has to name the two rects the director actually saw collide.
+				local bottomOfToolbar = r.toggle.y + r.toggle.h
+				for id, title in { name = r.titleName, rate = r.titleRate } do
+					expect(title ~= nil).toBe(true)
+					if title.y < bottomOfToolbar then
+						error(
+							`{viewport.id} @+{offset}: the '{id}' heading (y={title.y} h={title.h}) is painted `
+								.. `INSIDE the Edit toggle (y={r.toggle.y} h={r.toggle.h}, bottom={bottomOfToolbar}) `
+								.. `— the two overlap by {bottomOfToolbar - title.y}px`,
+							0
+						)
+					end
+					if title.y + title.h > r.body.y then
+						error(
+							`{viewport.id} @+{offset}: the '{id}' heading (y={title.y} h={title.h}) is painted `
+								.. `into the first row (body y={r.body.y})`,
+							0
+						)
+					end
+				end
+				if r.header.y + r.header.h > r.body.y then
+					error(
+						`{viewport.id} @+{offset}: the header (y={r.header.y} h={r.header.h}) paints into `
+							.. `the body (y={r.body.y})`,
+						0
+					)
+				end
+			end
+		end
+	end)
+
+	it("the header band GROWS with the preference instead of holding its token", function()
+		local viewport = VIEWPORTS[1].rect
+		local plain = solveChrome(0, viewport)
+		local largest = solveChrome(14, viewport)
+		-- the token is the FLOOR: unchanged at the shipped size...
+		expect(plain.header.h).toBe(28)
+		-- ...and taller when the text it must hold is taller. Without this the
+		-- title overflowed by exactly the difference.
+		expect(largest.header.h > plain.header.h).toBe(true)
+		-- and the whole table is taller for it, which is the point: the bands
+		-- move down together rather than one drawing through another
+		expect(largest.body.y > plain.body.y).toBe(true)
+	end)
+end)

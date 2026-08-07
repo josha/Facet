@@ -291,6 +291,15 @@ local FIXTURES: { Fixture } = {
 					return row.id
 				end,
 				rowHeight = 44,
+				-- THE AUTO EDIT TOOLBAR IS PART OF THE CONTROL, so it has to be in
+				-- the sweep (EQ-6, 2026-08-06). Without these two lines the toolbar
+				-- row never mounted here, and the header band that grew into it at
+				-- Largest text was a defect no row of this matrix could see —
+				-- reported from a phone instead. `reorderable` + no owner `editing`
+				-- signal + the touch environment this sweep already uses is exactly
+				-- the condition that shows the toggle.
+				reorderable = true,
+				onReorder = function() end,
 				columns = {
 					{
 						id = "name",

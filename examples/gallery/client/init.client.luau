@@ -40,7 +40,15 @@ local adapter = screen_target.new({
 	) ~= true) and { transitions = workspace:GetAttribute("LuauUI_NativeTransitions") == true } or false,
 })
 local system = roblox_input.newSystem(core)
-local pres = LuauUI.newPresenter(core, env, adapter, system)
+-- KEYBOARD NAVIGATION ON, BECAUSE THIS PLACE FREED THE KEY FOR IT
+-- (example-quality-pass, 2026-08-06). The presenter's `keyboardNavigation`
+-- defaults FALSE so a game that never asked keeps the input behaviour it had —
+-- see PresenterOpts. This bootstrap already disables the CoreGui players list a
+-- hundred lines below precisely so Tab can reach a developer InputContext, and
+-- then never opted in, so Tab bound nothing and traversal was dead in all seven
+-- tutorial examples: six Tab presses moved focus zero times. A UI-only gallery
+-- whose whole job is demonstrating the framework's input story has to have it on.
+local pres = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
 
 -- The presentation layer's clock (Step 5): transitions, toasts, and every
 -- motion-clock consumer advance ONLY inside presenter.tick — bind it to the
@@ -349,15 +357,18 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		end
 		-- DELIVER THE LOOPBACK SERVER'S RESPONSES.
 		--
-		-- The tutorial examples that demonstrate optimistic replication hold a
-		-- `server` with an explicit `flush()`, because the TUTORIAL wants the
-		-- reader to control when the response lands. Nobody was calling it here,
-		-- so the first change went pending and stayed pending — and `mutation.send`
-		-- ERRORS while a request is in flight, so the control worked exactly once.
-		-- On the device that read as "I can toggle music on but not off".
+		-- THE HOST NO LONGER ANSWERS FOR THE PLAYER (example-quality-pass,
+		-- 2026-08-06). This used to flush any `built.server.flush` every frame,
+		-- because example 03's first change otherwise went pending and stayed
+		-- pending. That fixed the symptom and destroyed the lesson: the pending
+		-- state — the whole point of an optimistic-apply example — was answered
+		-- before a player could ever see it, and the accept/reject/rollback path
+		-- had no on-screen route at all.
 		--
-		-- A host is what delivers a transport's responses; flushing every frame is
-		-- this loopback's version of a server that answers promptly.
+		-- Example 03 now owns delivery through a visible "Deliver server reply"
+		-- button and exposes `server.deliver`, not `server.flush`, so it does not
+		-- opt into this auto-answer. The hook stays, nil-guarded, for any FUTURE
+		-- example whose transport really should answer promptly without a control.
 		if built.server ~= nil and type(built.server.flush) == "function" then
 			demoScope:own(RunService.Heartbeat:Connect(function()
 				built.server.flush()
@@ -737,7 +748,13 @@ if type(selected) == "number" and EXAMPLE_MODULES[selected] ~= nil and EXAMPLES 
 		local exampleHeartbeat = RunService.Heartbeat:Connect(function()
 			pres.refresh()
 		end)
-		local examplePicker = mountThemePicker()
+		-- COLLAPSED, because the picker is gallery chrome and the example is the
+		-- subject (example-quality-pass, found live 2026-08-06). Expanded, its
+		-- panel measured `x 339..899, y 8..219` on desktop and covered most of
+		-- example 01's text field (`x 16..891, y 78..122`); on a 360x691 phone it
+		-- covered the example entirely. It now docks as a chip in the top-right
+		-- and opens on demand -- the same restyling reach, none of the occlusion.
+		local examplePicker = mountThemePicker(true)
 		workspace:SetAttribute("LuauUI_GalleryReady", true)
 		workspace:SetAttribute("LuauUI_ExampleTitle", example.title)
 		print(`[LuauUI Gallery] example {selected}: {example.title}`)

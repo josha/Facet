@@ -17,6 +17,8 @@ local fake_target = require("../tests/lib/fake_target")
 local wordGame = require("../examples/gallery/examples/05_word_game")
 local tileGame = require("../examples/gallery/examples/06_tile_game")
 local match3 = require("../examples/gallery/examples/07_match3")
+local assets = require("../examples/gallery/examples/assets")
+local standard_icons = require("../src/themes/standard_icons")
 
 -- Build a fresh headless stack (core + environment + input + adapter +
 -- presenter). Baseline the core counters AFTER the presenter exists but BEFORE
@@ -43,16 +45,16 @@ local function press(system: any, key: string)
 end
 
 -- =====================================================================
--- 06 — Wordle-style word game
+-- 05 — Wordle-style word game
 -- =====================================================================
-describe("examples/06 word game (Wordle-style)", function()
+describe("examples/05 word game (Wordle-style)", function()
 	it("mounts and renders headlessly with no runtime error", function()
 		local core, deps, adapter = makeWorld()
 		local game = wordGame.build(LuauUI, core, deps)
 		expect(core:lastError()).toBeNil()
 		-- the screen and a first-row tile both reached the adapter
 		expect(adapter.node("/Wordle") == nil).toBeFalsy()
-		expect(adapter.node("/Wordle/board/row1/tile1") == nil).toBeFalsy()
+		expect(adapter.node(game.tilePath(1, 1)) == nil).toBeFalsy()
 		game.dispose()
 	end)
 
@@ -242,6 +244,21 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		game.dispose()
 	end)
 
+	-- REACHABILITY, NOT A PRESS COUNT. These used to assert "five Downs lands on
+	-- the rack", which is a fact about how many rows the board happened to have
+	-- and reddens on any layout change that is not a defect. What the row is
+	-- actually for is: from the initial focus, the D-pad/arrow keys can REACH the
+	-- rack, and Activate there picks a tile up.
+	local function pressUntil(sys: any, focus: any, key: string, wanted: string): boolean
+		for _ = 1, 12 do
+			if focus.focused:get() == wanted then
+				return true
+			end
+			press(sys, key)
+		end
+		return focus.focused:get() == wanted
+	end
+
 	it("✓ ex06 keyboard: arrow/Return select-then-place from the rack onto the board", function()
 		local core, deps = makeWorld()
 		local game = tileGame.build(LuauUI, core, deps)
@@ -249,12 +266,9 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local focus = deps.presenter.focus
 		local letter, value = game.rackTile(1)
 		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
-		for _ = 1, 5 do
-			press(sys, "Down") -- down the 5 board rows into the rack
-		end
-		expect(focus.focused:get()).toBe(game.rackPath(1))
+		expect(pressUntil(sys, focus, "Down", game.rackPath(1))).toBe(true)
 		press(sys, "Return") -- select the rack tile
-		press(sys, "Up") -- back up to the bottom board row, same column
+		expect(pressUntil(sys, focus, "Up", game.cellPath(5, 1))).toBe(true)
 		press(sys, "Return") -- place it
 		expect(game.placedAt(5, 1)).toBe(letter)
 		expect(game.score()).toBe(value)
@@ -269,15 +283,152 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local focus = deps.presenter.focus
 		local letter, value = game.rackTile(1)
 		expect(focus.focused:get()).toBe(game.cellPath(1, 1))
-		for _ = 1, 5 do
-			press(sys, "DPadDown")
-		end
-		expect(focus.focused:get()).toBe(game.rackPath(1))
+		expect(pressUntil(sys, focus, "DPadDown", game.rackPath(1))).toBe(true)
 		press(sys, "ButtonA") -- select the rack tile
-		press(sys, "DPadUp")
+		expect(pressUntil(sys, focus, "DPadUp", game.cellPath(5, 1))).toBe(true)
 		press(sys, "ButtonA") -- place it
 		expect(game.placedAt(5, 1)).toBe(letter)
 		expect(game.score()).toBe(value)
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	-- ========================================================================
+	-- WHAT THE PLAY AUDIT FOUND (example-quality-pass, 2026-08-06). Driven live
+	-- in Studio, the game placed tiles correctly and explained NOTHING: tapping a
+	-- square with nothing picked up, tapping an occupied square, and tapping an
+	-- already-played rack slot were all completely silent, and the second of them
+	-- left the rack tile still highlighted with no reason given. There was also no
+	-- progress, no completion and no way to start over.
+	--
+	-- One case per refusal, plus the reset, because "the rule fired" and "the
+	-- player was told" are different claims and only the second one is the lesson.
+	-- ========================================================================
+	it("placing with nothing picked up says so instead of doing nothing", function()
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		local before = game.hintText()
+		adapter.tap(game.cellPath(1, 1))
+		expect(game.placedAt(1, 1)).toBeNil()
+		expect(game.hintText() ~= before).toBe(true)
+		expect(string.find(game.hintText(), "Pick a letter", 1, true) ~= nil).toBe(true)
+		expect(string.find(game.hintText(), "first", 1, true) ~= nil).toBe(true)
+		-- and the visible node really carries it, not just the model
+		deps.presenter.refresh()
+		expect(adapter.node(game.hintPath).props.text).toBe(game.hintText())
+		game.dispose()
+	end)
+
+	it("placing on an occupied square names the square, and does not silently keep the tile held", function()
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		adapter.tap(game.rackPath(1))
+		adapter.tap(game.cellPath(2, 3))
+		local scoreAfterFirst = game.score()
+		adapter.tap(game.rackPath(1)) -- the next available tile
+		adapter.tap(game.cellPath(2, 3)) -- ...onto the square that is already taken
+		expect(game.score()).toBe(scoreAfterFirst)
+		expect(string.find(game.hintText(), "already has a letter", 1, true) ~= nil).toBe(true)
+		expect(string.find(game.hintText(), "column 3", 1, true) ~= nil).toBe(true)
+		game.dispose()
+	end)
+
+	it("a spent rack slot is visibly DISABLED, not a live-looking blank button", function()
+		-- the audit's complaint: a played slot "still renders as a normal-looking
+		-- empty button; clicking it does nothing and says nothing". A disabled
+		-- control that carries a spent marker answers that before the tap, which is
+		-- better than answering after it.
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		deps.presenter.refresh()
+		expect(adapter.node("/TileGame/Page/rack/rt1").props.enabled).toBe(true)
+		adapter.tap(game.rackPath(1))
+		adapter.tap(game.cellPath(1, 1))
+		deps.presenter.refresh()
+		local spent = adapter.node("/TileGame/Page/rack/rt1")
+		expect(spent.props.enabled).toBe(false)
+		expect(spent.props.label).toBe("·")
+		-- and it really is inert: tapping it changes nothing at all
+		local hintBefore = game.hintText()
+		adapter.tap("/TileGame/Page/rack/rt1")
+		expect(game.hintText()).toBe(hintBefore)
+		expect(game.rackCount()).toBe(6)
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("a successful move CLEARS the previous refusal", function()
+		-- a stale complaint under a board the player has since changed is its own
+		-- defect: the line has to describe the state it sits above
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		adapter.tap(game.cellPath(1, 1)) -- refused, message set
+		expect(string.find(game.hintText(), "Pick a letter", 1, true) ~= nil).toBe(true)
+		adapter.tap(game.rackPath(1))
+		expect(string.find(game.hintText(), "Holding", 1, true) ~= nil).toBe(true)
+		game.dispose()
+	end)
+
+	it("progress and completion are visible, and the rack really does run out", function()
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		deps.presenter.refresh()
+		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("0 of 7 tiles placed")
+		expect(game.finished()).toBe(false)
+		local placed = 0
+		for r = 1, 5 do
+			for c = 1, 5 do
+				if game.rackCount() > 0 then
+					adapter.tap(game.rackPath(1))
+					adapter.tap(game.cellPath(r, c))
+					placed += 1
+				end
+			end
+		end
+		expect(placed).toBe(7)
+		expect(game.finished()).toBe(true)
+		deps.presenter.refresh()
+		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("7 of 7 tiles placed")
+		expect(string.find(game.hintText(), "Start over", 1, true) ~= nil).toBe(true)
+		game.dispose()
+	end)
+
+	it("reset returns every observable to its starting value, selection and message included", function()
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		local startHint = game.hintText()
+		adapter.tap(game.rackPath(1))
+		adapter.tap(game.cellPath(3, 3))
+		adapter.tap(game.rackPath(1)) -- leave a tile HELD
+		adapter.tap(game.cellPath(3, 3)) -- ...and a refusal on screen
+		expect(game.score() > 0).toBe(true)
+		adapter.tap(game.resetPath)
+		expect(game.score()).toBe(0)
+		expect(game.placedAt(3, 3)).toBeNil()
+		expect(game.rackCount()).toBe(7)
+		expect(game.finished()).toBe(false)
+		expect(game.hintText()).toBe(startHint)
+		-- ...and the board is genuinely playable again, from the same first move
+		local letter = game.rackTile(1)
+		adapter.tap(game.rackPath(1))
+		adapter.tap(game.cellPath(1, 1))
+		expect(game.placedAt(1, 1)).toBe(letter)
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("rapid alternating input leaves no stale selection or held tile", function()
+		local core, deps, adapter = makeWorld()
+		local game = tileGame.build(LuauUI, core, deps)
+		for _ = 1, 20 do
+			adapter.tap(game.rackPath(1))
+			adapter.tap(game.cellPath(1, 1))
+			adapter.tap(game.cellPath(1, 1))
+			adapter.tap(game.resetPath)
+		end
+		expect(game.score()).toBe(0)
+		expect(game.rackCount()).toBe(7)
+		expect(game.finished()).toBe(false)
 		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
@@ -334,39 +485,261 @@ describe("examples/08 match-3", function()
 		game2.dispose()
 	end)
 
-	it("the board adapts between phone and desktop viewports without remounting", function()
+	it("the board reflows across viewports without remounting, and the example names no device", function()
+		-- THIS TEST USED TO ASSERT THE DEFECT (example-quality-pass, 2026-08-06).
+		-- It required `desktopW > phoneW`, which was only true because the example
+		-- computed its own cell size from `env sizeClass` -> 40/56/72 px: imperative
+		-- responsive geometry inside a consumer, the thing LuauUI owns. The tile is
+		-- now a THEME metric, so what matters is that a viewport change reflows the
+		-- page without rebuilding it, and that the tile never drops below the
+		-- theme's own touch floor at any of them.
 		local core, deps, adapter = makeWorld({ x = 0, y = 0, w = 390, h = 844 }) -- phone
 		local game = match3.build(LuauUI, core, deps)
 		deps.presenter.refresh()
-		local phoneW = adapter.node(game.cellPath(1, 1)).rect.w
 		local mountedBefore = game.handle.root.counters().mounted
 		local runsBefore = game.handle.root.counters().factoryRuns
-		-- rotate to a desktop viewport: the cell resizes, the tree does not
-		deps.env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-		deps.presenter.refresh()
-		local desktopW = adapter.node(game.cellPath(1, 1)).rect.w
-		expect(desktopW > phoneW).toBeTruthy() -- bigger cells on the wider screen
-		expect(game.handle.root.counters().mounted).toBe(mountedBefore) -- no remount
-		expect(game.handle.root.counters().factoryRuns).toBe(runsBefore)
+		local phone = adapter.node(game.cellPath(1, 1)).rect
+		expect(phone.w >= 44).toBe(true)
+		expect(phone.h >= 44).toBe(true)
+		-- the whole 6-wide board fits a narrow phone rather than running off it
+		expect(adapter.node("/Match3/Page/board").rect.w <= 390).toBe(true)
+		for _, viewport in
+			{
+				{ x = 0, y = 0, w = 844, h = 390 }, -- the same phone, landscape
+				{ x = 0, y = 0, w = 1280, h = 720 }, -- desktop
+				{ x = 0, y = 0, w = 1920, h = 1080 }, -- ten-foot
+			}
+		do
+			deps.env:set("viewportRect", viewport)
+			deps.presenter.refresh()
+			local cell = adapter.node(game.cellPath(1, 1)).rect
+			expect(cell.w >= 44).toBe(true)
+			expect(cell.h >= 44).toBe(true)
+			expect(game.handle.root.counters().mounted).toBe(mountedBefore) -- no remount
+			expect(game.handle.root.counters().factoryRuns).toBe(runsBefore)
+		end
+		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
 
-	it("async tile images resolve through the resource provider", function()
+	it("the board is PLAYABLE from the first frame: art is delivered at build", function()
+		-- the audit found every one of the thirty-six tiles showing the pending
+		-- placeholder forever, because the header said "the caller drains the
+		-- provider" and the gallery host never did. A tutorial whose board is
+		-- unreadable until someone runs a script is not a tutorial.
 		local core, deps, adapter = makeWorld()
 		local game = match3.build(LuauUI, core, deps)
-		-- before completion the tiles show the pending placeholder
-		local imgPath = game.imagePath(1, 1)
-		expect(adapter.node(imgPath).props.image).toBe(game.pendingImage)
-		-- drain the provider's pending window: resolve each requested key
-		local pending = game.provider.pendingRequests()
-		expect(#pending > 0).toBeTruthy()
-		for _, req in pending do
-			expect(game.provider.complete(req.key, req.generation, `resolved://{req.key}`)).toBe("applied")
-		end
 		deps.presenter.refresh()
-		-- the (1,1) tile now shows the resolved asset for its kind
 		local kind = game.kindAt(1, 1)
-		expect(adapter.node(imgPath).props.image).toBe(`resolved://img/{kind}`)
+		expect(adapter.node(game.imagePath(1, 1)).props.image).toBe(assets.match3Tiles[kind].image)
+		expect(game.artStatusText()).toBe("Artwork: all 5 ready")
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("re-request -> pending -> deliver is the async lesson, driven from the screen", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		deps.presenter.refresh()
+		adapter.tap(game.reloadPath)
+		deps.presenter.refresh()
+		-- every tile is back on the placeholder, and the status says how many
+		expect(adapter.node(game.imagePath(1, 1)).props.image).toBe(game.pendingImage)
+		expect(game.artStatusText()).toBe("Artwork: loading 5 of 5")
+		-- ...and the FALLBACK symbol is showing, so the five kinds are still
+		-- distinguishable while there is no art at all
+		local kind = game.kindAt(1, 1)
+		expect(adapter.node(game.cellPath(1, 1)).props.label).toBe(assets.match3Tiles[kind].label)
+		adapter.tap(game.deliverPath)
+		deps.presenter.refresh()
+		expect(adapter.node(game.imagePath(1, 1)).props.image).toBe(assets.match3Tiles[kind].image)
+		expect(game.artStatusText()).toBe("Artwork: all 5 ready")
+		expect(adapter.node(game.cellPath(1, 1)).props.label).toBe("")
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("a FAILED load is visible and recoverable, which is the half that was missing", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		deps.presenter.refresh()
+		adapter.tap(game.breakPath)
+		deps.presenter.refresh()
+		expect(string.find(game.artStatusText(), "failed", 1, true) ~= nil).toBe(true)
+		expect(string.find(game.hintText(), "failed to load", 1, true) ~= nil).toBe(true)
+		expect(string.find(game.hintText(), "Re-request artwork", 1, true) ~= nil).toBe(true)
+		-- recovery: re-request puts it back in flight, deliver resolves it
+		adapter.tap(game.reloadPath)
+		adapter.tap(game.deliverPath)
+		deps.presenter.refresh()
+		expect(game.artStatusText()).toBe("Artwork: all 5 ready")
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("the five tile kinds carry five DISTINCT shapes, and the ids are the framework's own art", function()
+		-- five identical dark squares is what the audit photographed. Distinctness
+		-- is a property of the CONTENT, so it is asserted over the content table,
+		-- and each id is pinned to the framework icon it came from so a re-upload
+		-- fails here instead of silently blanking the board.
+		local seenImage: { [string]: boolean } = {}
+		local seenLabel: { [string]: boolean } = {}
+		local count = 0
+		for kind, art in assets.match3Tiles do
+			count += 1
+			expect(seenImage[art.image]).toBeNil()
+			expect(seenLabel[art.label]).toBeNil()
+			seenImage[art.image] = true
+			seenLabel[art.label] = true
+			local record = standard_icons.ART[art.iconName]
+			expect(record ~= nil).toBe(true)
+			expect(record.contentId).toBe(art.image)
+			-- and every kind carries a semantic tint role, never a literal colour
+			expect(type(assets.match3Tints[kind])).toBe("string")
+		end
+		expect(count).toBe(5)
+	end)
+
+	-- ========================================================================
+	-- THE OPENING BOARD (example-quality-pass, 2026-08-06). The board used to be
+	-- filled cell by cell and shown as-is, with no resolve pass: a seed could open
+	-- on a run the player never made, and nothing checked that a legal move
+	-- existed at all. Both are dead ends a player cannot see and cannot fix.
+	-- ========================================================================
+	it("opens with no run already on the board", function()
+		local core, deps = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		expect(next(game.findMatches())).toBeNil()
+		expect(game.score()).toBe(0) -- and it did not score the run it cleared while dealing
+		expect(game.moves()).toBe(0)
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("opens with at least one legal move", function()
+		local core, deps = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		expect(game.hasLegalMove()).toBe(true)
+		game.dispose()
+	end)
+
+	it("...and so does every board a reset deals", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		for _ = 1, 8 do
+			adapter.tap(game.resetPath)
+			expect(next(game.findMatches())).toBeNil()
+			expect(game.hasLegalMove()).toBe(true)
+		end
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("a swap that makes no run is refused WITH A REASON, and costs no move", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		game.debugSetBoard({
+			{ "a", "b", "c", "d", "e", "a" },
+			{ "b", "c", "d", "e", "a", "b" },
+			{ "c", "d", "e", "a", "b", "c" },
+			{ "d", "e", "a", "b", "c", "d" },
+			{ "e", "a", "b", "c", "d", "e" },
+			{ "a", "b", "c", "d", "e", "a" },
+		})
+		local before = game.boardSnapshot()
+		adapter.tap(game.cellPath(1, 1))
+		adapter.tap(game.cellPath(1, 2)) -- adjacent, but makes nothing
+		expect(game.boardSnapshot()).toEqual(before)
+		expect(game.moves()).toBe(0)
+		expect(game.score()).toBe(0)
+		expect(string.find(game.hintText(), "no run of three", 1, true) ~= nil).toBe(true)
+		game.dispose()
+	end)
+
+	it("tapping a NON-adjacent tile says tiles have to touch", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		adapter.tap(game.cellPath(1, 1))
+		adapter.tap(game.cellPath(4, 4))
+		expect(string.find(game.hintText(), "have to touch", 1, true) ~= nil).toBe(true)
+		expect(game.moves()).toBe(0)
+		game.dispose()
+	end)
+
+	it("tapping the selected tile again puts it down", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		deps.presenter.refresh()
+		adapter.tap(game.cellPath(2, 2))
+		deps.presenter.refresh()
+		expect(adapter.node(game.cellPath(2, 2)).props.selected).toBe(true)
+		adapter.tap(game.cellPath(2, 2))
+		deps.presenter.refresh()
+		expect(adapter.node(game.cellPath(2, 2)).props.selected).toBe(false)
+		game.dispose()
+	end)
+
+	it("a swap SCORES what it clears, counts the move, and chains resolve in one go", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		-- swapping (1,3)<->(2,3) completes a,a,a on row 1
+		game.debugSetBoard({
+			{ "a", "a", "b", "c", "d", "e" },
+			{ "c", "d", "a", "e", "b", "c" },
+			{ "e", "b", "c", "d", "a", "b" },
+			{ "b", "c", "d", "e", "c", "a" },
+			{ "d", "e", "b", "a", "e", "d" },
+			{ "a", "c", "e", "b", "d", "c" },
+		})
+		adapter.tap(game.cellPath(1, 3))
+		adapter.tap(game.cellPath(2, 3))
+		expect(game.moves()).toBe(1)
+		expect(game.score() >= 3).toBe(true) -- at least the run of three it made
+		expect(string.find(game.hintText(), "Cleared", 1, true) ~= nil).toBe(true)
+		-- and the board it left has no run standing: every chain resolved
+		expect(next(game.findMatches())).toBeNil()
+		-- no holes
+		for _, kind in game.boardSnapshot() do
+			expect(kind ~= nil and kind ~= "").toBeTruthy()
+		end
+		game.dispose()
+	end)
+
+	it("reset returns score, moves, selection and the message to their start values", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		local startHint = game.hintText()
+		local startBoard = game.boardSnapshot()
+		adapter.tap(game.cellPath(1, 1))
+		adapter.tap(game.cellPath(4, 4)) -- leave a selection AND a refusal
+		adapter.tap(game.resetPath)
+		expect(game.score()).toBe(0)
+		expect(game.moves()).toBe(0)
+		expect(game.hintText()).toBe(startHint)
+		-- deterministic: the same seed deals the same opening board again
+		expect(game.boardSnapshot()).toEqual(startBoard)
+		deps.presenter.refresh()
+		expect(adapter.node(game.cellPath(1, 1)).props.selected).toBe(false)
+		expect(core:lastError()).toBeNil()
+		game.dispose()
+	end)
+
+	it("rapid tapping and resetting leaves no stale selection or error", function()
+		local core, deps, adapter = makeWorld()
+		local game = match3.build(LuauUI, core, deps)
+		for _ = 1, 15 do
+			adapter.tap(game.cellPath(1, 1))
+			adapter.tap(game.cellPath(1, 2))
+			adapter.tap(game.cellPath(6, 6))
+			adapter.tap(game.reloadPath)
+			adapter.tap(game.breakPath)
+			adapter.tap(game.deliverPath)
+			adapter.tap(game.resetPath)
+		end
+		expect(game.score()).toBe(0)
+		expect(game.moves()).toBe(0)
+		expect(game.hasLegalMove()).toBe(true)
+		expect(core:lastError()).toBeNil()
 		game.dispose()
 	end)
 

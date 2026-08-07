@@ -198,3 +198,43 @@ a pass.
 
 > A green suite means your decisions are right. It does not mean anything is on screen
 > where you think it is. LuauUI will tell you — if you ask it.
+
+---
+
+## 13. It said it TWICE, in the same words, and nothing failed (2026-08-06)
+
+The device report was "the edit button overlaps the heading at largest text". Seven fixes
+were attempted and reverted — two of them deleted the button entirely — because each was a
+guess at the solver's behaviour rather than a question put to it.
+
+The answer was one call away the whole time:
+
+```
+/S/T/Main/Header/Head-name/Title :: this child overflows its zstack by 0x6px and nothing
+clips a zstack, so it paints over whatever sits beside it (give the box room — a `minMax`
+FLOOR rather than a fixed CAP — or set overflow = "intentionalOverlap")
+```
+
+The diagnostic **named the defect, named the fix, and named the exact node**. `UI.Table`'s
+header cell was `{ type = "fixed", px = "controls.table.headerHeight" }` — a 28px cap
+holding a title that measures 34px at the Largest preference. Changing the one word `fixed`
+to a `minMax` floor closed it, and the mutation back reproduces all of it.
+
+Two habits let a fully-formed answer sit unread for seven attempts:
+
+1. **The LT-8 control sweep mounted the Table without `reorderable`**, so the auto Edit
+   toolbar — the neighbour the header collided with — did not exist in a single swept row.
+   *A sweep only covers the configurations its fixture actually builds. An optional
+   sub-control that ships by default belongs in the fixture.*
+2. **Nothing in the suite failed on `controller.diagnostics()`.** §1 of this file already
+   says to call it. Calling it is not enough — a fixture must **fail** on it, or the list
+   is a log nobody reads.
+
+And the director got there first, from a phone, with no instrumentation: *"if height is the
+issue why can't we make the whole table have more height as text size increases"*. That is
+the fix, stated plainly, one message before the measurement found it.
+
+**Rule:** before the second attempt at a layout defect — not the eighth — print
+`controller.diagnostics()` for the failing configuration and read it as a sentence. And any
+fixture that can produce a finding must assert the list is EMPTY, so the next one fails
+loudly instead of printing into the dark.

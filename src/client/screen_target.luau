@@ -1233,20 +1233,52 @@ function screen_target.new(opts: Opts?)
 				setFill(hoverFill(), nil, "hover")
 			end
 		end
+		-- RECOVERING THE PRESSED DIP IS ONE DECISION, NOT TWO (found live 2026-08-06,
+		-- playing the tutorial gallery: every click emitted
+		-- `TweenService:Create failed because Instance is null` from the
+		-- MouseButton1Up handler below).
+		--
+		-- The dip is created LAZILY -- `ensureScale` makes the UIScale on the first
+		-- press, and the inert-container elision means most buttons carry none until
+		-- then. MouseLeave already read `handle.motionScale or handle.uiScale` and
+		-- nil-guarded it; MouseButton1Up referenced a bare `scale`, which is declared
+		-- nowhere in this scope and therefore resolved to a nil GLOBAL. So the release
+		-- path threw on EVERY press and the dip never recovered on release -- only
+		-- when the pointer happened to leave the button afterwards.
+		--
+		-- The native path (`wireNativePressDip`) already had exactly this function.
+		-- Two copies of one rule is how the second copy went stale, so there is one
+		-- here now and both connections use it.
+		local function recoverPressDip()
+			-- `uiScale` ONLY, never `motionScale` (architecture review M-3).
+			-- `handle.motionScale` belongs to the PRESENTATION authority — it is
+			-- created by `applyPresentationPaint` for `setPresentationTransform`, and
+			-- `parkEligible` refuses to recycle a handle that has one. Restoring it
+			-- to 1 from the interaction path is two authorities writing one engine
+			-- property with the lower-priority one winning last: a button released
+			-- while a pop or an enter transition is live would have its presentation
+			-- scale snapped to 1, and nothing re-asserts it. The old `MouseLeave`
+			-- handler had this; extending it to every mouse RELEASE would have made
+			-- a rare exposure a common one.
+			--
+			-- nothing to recover if no dip ever happened, and nothing to create either
+			local scale = handle.uiScale
+			if scale == nil then
+				return
+			end
+			if not isReducedMotion() and not handle.suppressStates then
+				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
+			else
+				scale.Scale = 1
+			end
+		end
 		button.MouseLeave:Connect(function()
 			setFill(restingFill(), nil, "rest")
 			-- the pressed dip must ALWAYS recover: MouseButton1Up never fires
 			-- when the button is released off-target (or the row is dragged
 			-- away), which left rows visibly shrunken (director hand-test
 			-- 2026-07-20: "one row is narrower than the others")
-			local scale = handle.motionScale or handle.uiScale
-			if scale ~= nil then
-				if not isReducedMotion() and not handle.suppressStates then
-					TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
-				else
-					scale.Scale = 1
-				end
-			end
+			recoverPressDip()
 		end)
 		button.MouseButton1Down:Connect(function()
 			setFill(pressedFill(), true, "pressed")
@@ -1268,7 +1300,7 @@ function screen_target.new(opts: Opts?)
 			else
 				setFill(restingFill(), nil, "rest")
 			end
-			TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
+			recoverPressDip()
 		end)
 	end
 

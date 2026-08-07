@@ -50,6 +50,153 @@ export type Check = {
 }
 
 local manifest: { [string]: { Check } } = {
+	["example-quality-pass"] = {
+		-- Roadmap Step 10 (docs/plans/example-quality-pass.md): the seven tutorial
+		-- examples made understandable and playable WITHOUT reading their source,
+		-- sharing one native-StyleSheet product design, adapting across the declared
+		-- layouts and input paradigms, and rebuilding as standalone places.
+		--
+		-- REGISTERED BEFORE ANY IMPLEMENTATION EDIT, per the plan's own gate rule.
+		-- Every check below is a bare `PENDING` at registration and becomes a `run`
+		-- only once its implementation AND its evidence exist (manifest header rule).
+		-- A PENDING check cannot be satisfied, so the gate cannot silently pass while
+		-- the work is only planned.
+		--
+		-- Acceptance rows EQ-1..EQ-22 plus EQ-P1..EQ-P3 live in
+		-- artifacts/example-quality-pass/acceptance.md, written from an audit of the
+		-- current source rather than from the plan's prose.
+		--
+		-- THE EVIDENCE-CLASS RULE THIS GATE ENFORCES: a source read is not a play-through,
+		-- a call to `typeLetter`/`submit`/`server.flush` is not native input, an emulated
+		-- pointer is not physical touch, and synthetic navigation KeyCodes are not a
+		-- gamepad. EQ-P1/EQ-P2 stay PENDING_PHYSICAL and EQ-P3 PENDING_HUMAN.
+		{
+			name = "acceptance-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/example-quality-pass/acceptance.md && test -f "$f" && for id in EQ-2 EQ-3 EQ-4 EQ-5 EQ-6 EQ-9 EQ-10 EQ-14 EQ-18; do grep -qE "^. [*][*]${id}[*][*] .*[|] PASS_AUTOMATED [|]" "$f" || { echo "$id not PASS_AUTOMATED"; exit 1; }; done && grep -qE "^. [*][*]EQ-15[*][*] .*[|] FAIL_ENVIRONMENT [|]" "$f" && grep -qF "there are no captures" "$f" && grep -qF "REJECT" "$f" && grep -qF "LT-F3 is FIXED" "$f"',
+			evidence = "artifacts/example-quality-pass/acceptance.md",
+			note = "EQ-1..EQ-22 status-anchored at close, with EQ-P1/EQ-P2 pinned PENDING_PHYSICAL and EQ-P3 PENDING_HUMAN. The ledger file exists now (execution contract §2); this check stays PENDING until its rows have real closing statuses to anchor",
+		},
+		{
+			name = "play-teaching-matrix",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/example-quality-pass/audit.md && test -f "$f" && grep -qF "POST-FIX RE-AUDIT" "$f" && for w in Touch Gamepad Keyboard Tablet landscape ten-foot; do grep -qF "$w" "$f" || { echo "no $w coverage"; exit 1; }; done && grep -qF "PENDING_PHYSICAL for every example" "$f" && grep -qF "What this re-audit does NOT close" "$f" && grep -qF "35 of 35 cells pass" "$f"',
+			evidence = "artifacts/example-quality-pass/audit.md",
+			note = "BLOCKER-2 CLOSED — audit.md now carries a POST-FIX RE-AUDIT with the form-factor grid (35/35 cells), the four input paradigms named separately, the EQ-1 teaching questions re-answered from live strings, and an explicit list of what it does NOT close. Touch is PENDING_PHYSICAL for every example and gamepad is headless-only; neither is relabelled. Was: audit.md is the PRE-implementation audit — its per-example verdicts still read FAIL_PRODUCT, there is no post-fix re-audit, and it contains zero occurrences of touch/gamepad/tablet/landscape/ten-foot, which is the paradigm and form-factor coverage EQ-1 demands. EQ-1/EQ-13: one checked acceptance row per example, filled by PLAYING it — lesson, startup view, first action, success/failure/unavailable feedback, completion and reset, the four input paradigms, the four form factors, style ownership, and Studio warnings/dead controls/clipping/stale state/teardown",
+		},
+		{
+			name = "ownership-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/example-quality-pass/ownership-ledger.md && test -f "$f" && for id in F-1 F-2 F-3 F-4 H-1 H-2 H-3; do grep -qF "**$id**" "$f" || { echo "$id missing"; exit 1; }; done && grep -q "LT-F3" "$f" && grep -q "Deliberately NOT changed" "$f"',
+			evidence = "artifacts/example-quality-pass/ownership-ledger.md",
+			note = "EQ-2: every custom UI helper, direct Roblox GUI/input access, device/layout branch and workaround classified as example-domain, explicit adapter wiring, or framework-owned — with each framework-owned need fixed behind a public LuauUI API with tests and docs BEFORE the example consumes it, and no unresolved workaround left",
+		},
+		{
+			name = "style-authority-and-drift",
+			requirements = { "UI-THEME-001" },
+			run = 'lune run tools/lune/check_example_drift_cli >/dev/null && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the seven examples are clean" && echo "$out" | grep -q "✓.*it actually scanned the examples, and saw real semantic values there" && echo "$out" | grep -q "✓.*R2: an INVENTED surface token" && echo "$out" | grep -q "✓.*R2 does NOT fire on the legal vocabularies" && echo "$out" | grep -q "✓.*R3: a raw colour, in each of its three spellings" && echo "$out" | grep -q "✓.*R4: a platform branch is refused by name" && echo "$out" | grep -q "✓.*the allowlist suppresses ONLY its own line, in its own file"',
+			evidence = "artifacts/example-quality-pass/drift.json",
+			note = "EQ-3/EQ-4: the property-authority-aware drift check over examples/gallery — failing on literals/direct writes for style-owned properties, unknown semantic roles and example adapter writes while allowing documented content and structural constants — plus its recorded mutation proof. A broad ban-every-number grep does not satisfy this",
+		},
+		{
+			name = "theme-package-swap",
+			requirements = { "UI-THEME-001" },
+			run = "python3 -c \"import json,sys,os; d=json.load(open('artifacts/example-quality-pass/captures.json')); cs=d['captures']; want={(e,pkg) for e in range(1,8) for pkg in ('neutral','parchment')}; have={(c['example'], 'parchment' if 'parchment' in c['capture'] else 'neutral') for c in cs if 'desktop' in c['capture']}; ok = have==want and all(d['swapProof'].values()) and all(os.path.isfile('artifacts/example-quality-pass/captures/'+c['capture']) for c in cs); sys.exit(0 if ok else 1)\"",
+			evidence = "artifacts/example-quality-pass/captures.json",
+			note = "MAJOR-3 CLOSED — the capture set now covers all seven examples under both packages, each paired with the facts it shows: every one changed font family (BuilderSans -> Fondamento), every one changed type size (24 -> 28), every one gained decoration layers, focus identity is preserved on all fourteen and the solver reports zero diagnostics on all fourteen. Was: phase-gate MAJOR-3: EQ-5 says all seven examples; provenChange records example 1 only, and the check asserts only those example-1 numbers. focusPathPreserved is a bare boolean where the row requires focus AND mount identity recorded either side. EQ-5/EQ-3: all seven captured under Studio Neutral AND Fantasy Parchment for every declared layout profile, with the ornate package changing font/metrics and exercising its nine-slice chrome rather than merely recolouring — no source edit, no remount, and each capture paired with effective package/snapshot, actual and solved geometry, style role/tag, decoration layers/fallback, focus and mount identity",
+		},
+		{
+			name = "large-text-overflow",
+			requirements = { "UI-LAYOUT-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the solver files NO overflow anywhere in the table.s chrome, at any preference" && echo "$out" | grep -q "✓.*the toolbar, the header and the body never overlap" && echo "$out" | grep -q "✓.*the header band GROWS with the preference instead of holding its token" && grep -qE "minMax., min = .controls[.]table[.]headerHeight" src/controls/table.luau && grep -qE "reorderable = true" tests/lib/large_text_fixtures.luau && python3 tools/check_eq6_evidence.py',
+			evidence = "artifacts/example-quality-pass/studio/large-text.json",
+			note = "EQ-6 CLOSED 2026-08-06 — 56 of 56 cells. LT-F3 was `UI.Table` capping its header cell at a FIXED `controls.table.headerHeight` (28px) while a one-line column title measures 34px at a raised preference, so the title painted out of its ZStack into the auto Edit toolbar above and the first row below. The band is now a minMax FLOOR: the token is what a header must never be shorter than, the live text facts decide how much taller. The solver had been filing the finding all along and nothing failed on it; the first of the three new tests now asserts `controller.diagnostics()` is EMPTY, and the LT-8 Table fixture gained `reorderable` so the toolbar it collided with actually exists in the sweep. Mutation-proved (minMax->fixed fails all three) and live A/B-proved in one Studio session, both reference packages. Was: 52 of 56 cells pass (two phone orientations x two theme packages x two preferred-text values x seven examples). The four that fail are all example 02 at Largest: LT-F3, `UI.Table`'s touch Edit toggle overlapping the rating column header title. FRAMEWORK-owned (the example authors no toolbar or header geometry), three attempted fixes reverted because none moved the geometry, cause narrowed to the solver measuring an ELIDED container against a type-scaled child. Recorded open in studio/large-text.json. This state is deliberately not PENDING: the work ran, and it found a defect",
+		},
+		{
+			name = "example-03-optimistic-sync",
+			requirements = { "UI-REPL-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*the seven promised states are reachable through on-screen controls alone" && echo "$out" | grep -q "✓.*a valid toggle applies optimistically, goes pending, then confirms" && echo "$out" | grep -q "✓.*a rejected change restores the optimistic draft to server truth" && echo "$out" | grep -q "✓.*reset recovers from a request the server never answered" && echo "$out" | grep -q "✓.*the visible history reads newest first and is bounded"',
+			evidence = "artifacts/example-quality-pass/studio/ex03.json",
+			note = "EQ-7/EQ-8: a player with no source access triggers an accepted change, sees the optimistic value apply and the request pend, observes acceptance and reconciliation, then triggers a REJECTED change and sees the reason and the rollback, reads a short visible history, and resets — driven through pointer AND focus-based keyboard activation, never through a test handle",
+		},
+		{
+			name = "example-05-word-game",
+			requirements = { "UI-AGENT-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*a guess with a DOUBLED letter against a solution holding ONE spends the budget once" && echo "$out" | grep -q "✓.*an EXACT match consumes the budget BEFORE an earlier misplaced copy of the same letter" && echo "$out" | grep -q "✓.*three copies against two: the excess is absent" && echo "$out" | grep -q "✓.*refuses a guess shorter than five letters"',
+			note = "EQ-9: the pure scoring and state machine — two-pass duplicate-letter budgeting, short/invalid rejection without consuming a row, retained submitted rows, monotonic key-state precedence (correct > present > absent), win, loss with the solution revealed, input disabled after the end except restart/dismiss, and deterministic seeded restart",
+		},
+		{
+			name = "example-05-native-input",
+			requirements = { "UI-INPUT-001" },
+			run = "f=artifacts/example-quality-pass/studio/ex05.json && test -f \"$f\" && python3 -c \"import json,sys; d=json.load(open('$f')); names=[s['name'] for s in d['sequences']]; need=['hardware letter keys','Backspace','Return submits','arrow keys navigate','Space activates the FOCUSED','Tab traverses','switching input class']; traced=[s for s in d['sequences'] if s.get('rawEvents') or s.get('steps')]; ok = all(any(n in x for x in names) for n in need) and len(traced)>=7 and d['rawEvents']>0 and not d['usedGameMethods'] and d['duplicateLetterScored']; sys.exit(0 if ok else 1)\"",
+			evidence = "artifacts/example-quality-pass/studio/ex05.json",
+			note = "BLOCKER-3 CLOSED for EQ-10 — all eight input paths are now driven with paired raw events: hardware letters (R/E/A -> REA__), Backspace, Return (the full win, typed on hardware keys), arrow navigation, SPACE on a focused key (keyboard activation, not pointer), Tab traversal (the H-2 fix landing), and a keyboard->pointer->keyboard switch that kept one guess (A____ -> AS___ -> AST__). Every raw event carries gameProcessed. Was: studio/ex05.json is POINTER-ONLY. No hardware letter/Backspace/Enter trace, no keyboard focus navigation plus activation, no live input-class switch. The stage already measured that SendKey cannot insert a character into a focused TextBox and did not record it as FAIL_ENVIRONMENT. `usedGameMethods` is a self-declaration, not a measurement. EQ-10: the MOUNTED example played through hardware letter/Backspace/Enter, pointer activation of on-screen keys, keyboard focus navigation plus activation, and a live input-class switch that does not lose the active guess. Calling typeLetter/submit prepares fixtures and closes NOTHING here; the gamepad row is recorded as synthetic navigation, never as gamepad delivery",
+		},
+		{
+			name = "example-06-07-gameplay",
+			requirements = { "UI-AGENT-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*placing with nothing picked up says so instead of doing nothing" && echo "$out" | grep -q "✓.*placing on an occupied square names the square, and does not silently keep the tile held" && echo "$out" | grep -q "✓.*a spent rack slot is visibly DISABLED, not a live-looking blank button" && echo "$out" | grep -q "✓.*progress and completion are visible, and the rack really does run out" && echo "$out" | grep -q "✓.*opens with no run already on the board" && echo "$out" | grep -q "✓.*opens with at least one legal move" && echo "$out" | grep -q "✓.*a swap that makes no run is refused WITH A REASON, and costs no move" && echo "$out" | grep -q "✓.*a FAILED load is visible and recoverable, which is the half that was missing"',
+			evidence = "artifacts/example-quality-pass/studio/games.json",
+			note = "EQ-11/EQ-12: both games played from a fresh start through their meaningful loop — visible instructions and selectable state, activation selecting the expected tile, invalid moves explaining themselves, match-3 resolving matches/gravity/refill/chains deterministically from an opening board that is neither pre-matched nor stuck, image pending AND failure visible and recoverable, progress/completion and reset — with a gameplay test added for every defect found",
+		},
+		{
+			name = "lifecycle-and-rapid-input",
+			requirements = { "UI-RUNTIME-002" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*rapid alternating input leaves no stale selection or held tile" && echo "$out" | grep -q "✓.*rapid tapping and resetting leaves no stale selection or error" && echo "$out" | grep -q "✓.*reset returns every observable to its starting value, selection and message included" && echo "$out" | grep -q "✓.*tears down to a registry baseline after dispose"',
+			evidence = "artifacts/example-quality-pass/studio/lifecycle.json",
+			note = "EQ-16/EQ-17: a mount/dispose census per example returning to the pre-mount baseline for instances, connections, reactive nodes and action contexts, clean Studio output, and rapid-input/reset-mid-flight leaving no stale selection, focus, resource handle or bound action",
+		},
+		{
+			name = "device-matrix",
+			requirements = { "UI-LAYOUT-001" },
+			run = "python3 -c \"import json,sys; d=json.load(open('artifacts/example-quality-pass/studio/device-matrix.json')); rows={r['row'] for r in d['rows']}; want={'compact-phone-portrait','compact-phone-landscape','tablet-landscape','desktop-standard','console-ten-foot'}; v=d['virtualInputTraces']; traced={p['row'] for p in v['perRow']}; ok = rows==want and traced==want and d['result']['passed']==35 and d['result']['failed']==0 and d['preflight']['ok'] and d['evidenceClass']=='studio-emulated' and all(len(p['traces'])>=3 for p in v['perRow']) and all(t.get('rawEvent') for p in v['perRow'] for t in p['traces']) and all(r.get('cannotProve') for r in d['rows']) and v.get('cannotProve'); sys.exit(0 if ok else 1)\"",
+			evidence = "artifacts/example-quality-pass/studio/device-matrix.json",
+			note = "VirtualInput traces ADDED on all five rows — Tab (traverse), Down (navigate) and Space (activate the focused key, _____ -> S____), each with its raw event and gameProcessed, identical across every view. Tab is only live because this stage enabled the gallery presenter keyboardNavigation (H-2). The wheel path stays FAIL_ENVIRONMENT and is named. Was: the artifact carries NO VirtualInput traces (only a capability probe listing method names), drops the judgedTrees anti-vacuity counter the tool emits, drops the live/observed/configurationChanged discriminators, and collapses rows 2-5 to a hand-authored `allSevenOk` scalar. Also: no row exercised the KeyboardAndMouse presentation and that is not disclosed. EQ-14/EQ-15: all seven examples across the canonical five view rows with each preset RESOLVED AT RUNTIME and its exact configuration recorded, plus VirtualInput traces for the supported Tab/Shift+Tab, Space/Return, arrow, text and mouse paths derived from live geometry — each raw event paired with its semantic action and the visible state change. An unavailable path is recorded FAIL_ENVIRONMENT, never relabelled",
+		},
+		{
+			name = "places-and-docs",
+			requirements = { "UI-AGENT-001" },
+			run = 'test "$(ls examples/places/*.rbxl | wc -l | tr -d \' \')" -ge 10 && lune run tools/lune/check_docs_cli >/dev/null && grep -q "Refusal is feedback" docs/guide/04-tutorial-examples.md && grep -q "Who drains the provider" docs/guide/04-tutorial-examples.md && grep -q "The answer has to be visible" docs/guide/04-tutorial-examples.md && ! grep -qE "sizeClass == .compact. then 40" docs/guide/04-tutorial-examples.md',
+			evidence = "artifacts/example-quality-pass/places.json",
+			note = "EQ-18/EQ-19: every standalone example place rebuilt from clean source and asserted to contain the CURRENT example modules, plus the source headers, tutorial guide chapter and inventory describing what the player actually sees",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			run = "tools/test.sh 3556",
+			evidence = "artifacts/test.json",
+			note = "EQ-20: stage-start floor is 3442 passing; the floor lands as the FINAL count so a regression of this stage's own pins fails the gate",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			run = 'if [ -n "${LUAUUI_PRIOR_GATES_NESTED:-}" ]; then echo "prior-gates: NESTED - regeneration skipped (the outer prior_gates.sh run re-runs this same list)"; exit 0; fi; a=artifacts/example-quality-pass/prior-gates.txt && tools/prior_gates.sh "$a" example-quality-pass; grep -q "^DONE$" "$a" && unexplained="$(grep "^FAIL " "$a" | grep -vE "^FAIL (phase-2-settings-parity|phase-3-pilot|expansion-textinput|code-simplicity-cleanup|api-architecture-consistency) " || true)" && test -z "$unexplained" && lune run tools/lune/check_flat_baseline >/dev/null && lune run tools/lune/check_example_drift_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && python3 tools/check_manifest_integrity.py >/dev/null && stylua --check src tests tools examples >/dev/null && test -f artifacts/example-quality-pass/prior-gates-analysis.md && grep -qF "All five remaining failures are the same instrument" artifacts/example-quality-pass/prior-gates-analysis.md',
+			evidence = "artifacts/example-quality-pass/prior-gates.txt",
+			note = "EQ-20: tools/prior_gates.sh REGENERATED by this check at the source being judged (13 PASS/9 FAIL at stage start -> 17 PASS/5 FAIL at close), plus the flat-baseline / example-drift / docs / manifest-integrity / stylua battery. FIVE gates are allow-listed BY NAME and the allow-list is exactly the set whose only failing check shells out to tools/bench.sh: phase-2-settings-parity (ui-cost-budget IS tools/bench.sh), phase-3-pilot (no-leak-regression), expansion-textinput (expansion-adr-bench-rollback), code-simplicity-cleanup and api-architecture-consistency (performance-unregressed). Any OTHER gate going red fails this check. That allowance is earned, not assumed: 16 recorded bench runs in this stage, every FAIL was textinput-typing-storm and no other scenario flagged once, and an interleaved three-pair A/B has the UNCHANGED pre-stage loop flagging exactly as often as the shipped one (artifacts/example-quality-pass/bench-textinput-ab.json). prior-gates-unregressed itself, red in five gates before this stage, is now green in all of them, and large-text-accessibility -- red since 2026-08-03 on a test the director had deleted -- passes again",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/example-quality-pass/consumer-impact.md && test -f "$f" && grep -q "3089 passed" "$f" && grep -q "highlighted" "$f" && grep -q "What this ledger does NOT claim" "$f" && { ! grep -q "No Rascal Rally Studio canary was run" "$f" || { echo "the affected Studio canary is declared MISSING (contract: visible/input/layout/adapter/lifecycle changes require one)"; exit 1; }; } && cd ../../../games/RascalRally/code && ./run-tests.sh >/dev/null 2>&1',
+			evidence = "artifacts/example-quality-pass/consumer-impact.md",
+			note = "EQ-21: the consumer-impact ledger with the game suite re-run LIVE at the judged source. If no public API, default, asset or distribution output changed, no caller edit is manufactured — and the ledger says so, together with what it does NOT claim",
+		},
+		{
+			name = "fresh-context-reviews",
+			requirements = { "UI-AGENT-001" },
+			run = 'd=artifacts/example-quality-pass/reviews && test -f $d/architecture.md && test -f $d/README.md && grep -q "ACCEPT-WITH-FINDINGS" $d/architecture.md && for id in M-1 M-2 M-3 M-4 M-5; do grep -qF "**$id**" $d/README.md || { echo "$id not dispositioned"; exit 1; }; done && grep -q "NOT RUN" $d/README.md && grep -q "open acceptance control, not a passed one" $d/README.md',
+			evidence = "artifacts/example-quality-pass/reviews/README.md",
+			note = "EQ-22: the architecture review ran and returned ACCEPT-WITH-FINDINGS (0 BLOCKER, 5 MAJOR, 8 MINOR). M-2 (a Grid linking to a non-neighbour focus group) and M-3 (the press dip writing the PRESENTATION authority's UIScale — a regression THIS stage introduced) are fixed in source; M-1's overstated coverage claim is corrected in both places it was made. M-4, M-5 and the minors are recorded open with the change each needs. The Roblox-platform review is TRIGGERED AND NOT RUN, and the README says so — this check asserts the honest disposition exists, never that every control passed",
+		},
+		{
+			name = "physical-and-human-rows",
+			requirements = { "UI-INPUT-001" },
+			state = "PENDING",
+			releaseBlocking = false,
+			evidence = "artifacts/example-quality-pass/review-packet.md",
+			note = "EQ-P1/EQ-P2/EQ-P3: physical touch (incl. the real mobile OS keyboard), real gamepad/console delivery, and the human 'these seven read as one designed product' judgement stay honestly pending behind one prepared review build and one checklist. Studio emulation may not close any of them",
+		},
+	},
 	["performance-stress-places"] = {
 		-- Roadmap Step 9 (docs/plans/performance-stress-places.md): a self-contained,
 		-- publish-ready performance place plus the repeatable Studio / low-end-Android
@@ -282,8 +429,8 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "sponsor-fixtures",
 			requirements = { "UI-LAYOUT-001" },
-			run = 'cd ../../../games/RascalRally/code && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*no painted siblings overlap ANYWHERE on the surface, on any view, at any offset" && echo "$out" | grep -q "✓.*nothing on the whole table surface is truncated without a way back to its full value" && echo "$out" | grep -q "✓.*the same surface with the disclosure withdrawn reports every name" && echo "$out" | grep -q "✓.*the position numeral never truncates at any preference" && echo "$out" | grep -q "✓.*both CTA labels PAINT inside their fixed boxes at every offset, on every view" && echo "$out" | grep -q "✓.*neither sub-line ellipsizes at any offset" && echo "$out" | grep -q "✓.*the longest shipped reason and a ~1.4x expansion of it read WHOLE at every offset" && echo "$out" | grep -q "✓.*whichever CTA form the composition chose reads WHOLE, both roles, every offset" && echo "$out" | grep -q "✓.*the coin TOTAL never truncates" && echo "$out" | grep -q "✓.*the standings and roll-call NAMES are the things that truncate, and they disclose" && echo "$out" | grep -q "✓.*the 667x375 fixture re-arranges rather than clipping a lane, for both roles" && echo "$out" | grep -q "✓.*NOTHING PAINTS OVER ANYTHING at any preference" && echo "$out" | grep -q "✓.*the mounted nodes, the live count, the geometry and the watched row all survive" && echo "$out" | grep -q "✓.*the race-start countdown numeral never truncates"',
-			note = "LT-11 headless half (games/RascalRally/code tests/luauui_large_text_sweep + _results + _contract): the production presenter at 0/4/10/14 on 390x844/844x390/667x375 with the framework audit over every solve — overlap-free, disclose-or-never-truncate (with the negative control), required facts whole, CTA paint-fits (the check that CAN fail: verified red-first against the pre-fix code), arrangement step-down asserted to actually move, hot-swing identity. Run LIVE at the judged source, never from a transcript. The E3 half is studio-evidence",
+			run = 'cd ../../../games/RascalRally/code && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*no painted siblings overlap ANYWHERE on the surface, on any view, at any offset" && echo "$out" | grep -q "✓.*nothing on the whole table surface is truncated without a way back to its full value" && echo "$out" | grep -q "✓.*the same surface with the disclosure withdrawn reports every name" && echo "$out" | grep -q "✓.*no row carries a position numeral — the list.s own order is the place" && echo "$out" | grep -q "✓.*both CTA labels PAINT inside their fixed boxes at every offset, on every view" && echo "$out" | grep -q "✓.*neither sub-line ellipsizes at any offset" && echo "$out" | grep -q "✓.*the longest shipped reason and a ~1.4x expansion of it read WHOLE at every offset" && echo "$out" | grep -q "✓.*whichever CTA form the composition chose reads WHOLE, both roles, every offset" && echo "$out" | grep -q "✓.*the coin TOTAL never truncates" && echo "$out" | grep -q "✓.*the standings and roll-call NAMES are the things that truncate, and they disclose" && echo "$out" | grep -q "✓.*the 667x375 fixture re-arranges rather than clipping a lane, for both roles" && echo "$out" | grep -q "✓.*NOTHING PAINTS OVER ANYTHING at any preference" && echo "$out" | grep -q "✓.*the mounted nodes, the live count, the geometry and the watched row all survive" && echo "$out" | grep -q "✓.*the race-start countdown numeral never truncates"',
+			note = "GREP UPDATED 2026-08-06 (example-quality-pass prior-gates rerun): the chain asked for `the position numeral never truncates at any preference`, and no test of that name has existed since the director's 2026-08-03 ruling DELETED the Pos cell ('we know their places based on where they are in the list') — so this gate had been red on a phantom, independently of any stage, while the game suite stayed fully green. It now greps the SUCCESSOR claim, which is the same subject and strictly stronger: `no row carries a position numeral - the list's own order is the place`, swept over every view x every offset, plus the assertion that the name cell it paid into is present on every row. A numeral that does not exist cannot truncate. Original note: LT-11 headless half (games/RascalRally/code tests/luauui_large_text_sweep + _results + _contract): the production presenter at 0/4/10/14 on 390x844/844x390/667x375 with the framework audit over every solve — overlap-free, disclose-or-never-truncate (with the negative control), required facts whole, CTA paint-fits (the check that CAN fail: verified red-first against the pre-fix code), arrangement step-down asserted to actually move, hot-swing identity. Run LIVE at the judged source, never from a transcript. The E3 half is studio-evidence",
 		},
 		{
 			name = "sponsor-policy-reconciled",
@@ -946,8 +1093,8 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "examples-no-input-boilerplate",
 			requirements = { "UI-AGENT-001" },
-			run = '! grep -l "navigationGroups\\|onNavigateIntercept\\|onFocusNav\\|keepVisibleOffset\\|onGeometry" examples/gallery/examples/*.luau && [ "$(cat examples/gallery/examples/0*.luau | wc -l)" -le 1644 ]',
-			note = "regression proof vs the wp-c baselines: generic input wiring ~158 lines -> 0 (no example passes any present() input opt). Ceiling refreshed 1587 -> 1644 during sponsor-framework-gaps' prior-gates rerun: the 2026-07-26/27 director rounds legitimately grew 02 (315->352, Table.scrolls page-scroll ruling) and 04 (87->107, the Rating control) AFTER this ceiling was recorded — the grep half (the check's actual subject) stayed clean throughout; app-semantic wiring kept per the wp-c keep-list (05 hardware-key context, node-level onActivate handlers)",
+			run = '! grep -l "navigationGroups\\|onNavigateIntercept\\|onFocusNav\\|keepVisibleOffset\\|onGeometry" examples/gallery/examples/*.luau && lune run tools/lune/check_example_drift_cli && [ "$(cat examples/gallery/examples/0*.luau | wc -l)" -le 3100 ]',
+			note = "regression proof vs the wp-c baselines: generic input wiring ~158 lines -> 0 (no example passes any present() input opt). THE CHECK'S SUBJECT IS THE GREP, and it has stayed clean through every round. The line ceiling is a PROXY for it, and 2026-08-06 (example-quality-pass) is where the proxy stopped tracking its subject: that stage was chartered to add the mechanics the examples were MISSING — example 05's dictionary/validation/keyboard-state/restart/non-colour cues, example 03's player-reachable server with accept/reject/rollback/reset, 06's instructions/completion/reset, 07's scoring/hints/legal-move dealing, 04's visible outcome and Restore — so 1644 -> 2908 is required domain content, and a ceiling that forbade it would forbid the plan. Refreshed to 3100 with that reason, and the weak proxy is no longer carrying the claim alone: `tools/lune/check_example_drift_cli` now runs in the same step. Its R4 rule is the real assertion (no engine or adapter reach-around in an example) and R1-R3 additionally pin style authority, which a line count never could. Earlier refresh: 1587 -> 1644 during sponsor-framework-gaps' prior-gates rerun, for the 2026-07-26/27 director rounds that grew 02 (315->352, Table.scrolls page-scroll ruling) and 04 (87->107, the Rating control); app-semantic wiring kept per the wp-c keep-list (05 hardware-key context, node-level onActivate handlers)",
 		},
 		{
 			name = "studio-all-input-verification",

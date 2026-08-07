@@ -209,16 +209,76 @@ describe("M0-A4: diagnosed properties instead of silent drops", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
-		local surface = core:signal("panel")
+		local surface = core:signal("control")
 		local root =
 			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } }))
 		local adapter = fake_target.new()
 		local controller = renderer.attach(core, root, env, adapter, {})
 		controller.initialRender()
-		expect(adapter.node("/S/X").props.surface).toBe("panel")
+		expect(adapter.node("/S/X").props.surface).toBe("control")
 		surface:set("raised")
 		controller.refresh()
 		expect(adapter.node("/S/X").props.surface).toBe("raised")
+	end)
+
+	-- THE REACTIVE DOOR INTO THE CLOSED SET (found live 2026-08-06, tutorial
+	-- example 05: thirty board tiles bound `surface` to "tileEmpty"/"tileCorrect"/…
+	-- and every one rendered at BackgroundTransparency = 1).
+	--
+	-- The construction check above only sees a STATIC value. `tint` already refused
+	-- a malformed bound value at the write site for exactly this reason; these pin
+	-- the same rule for every enum prop, on the first render AND on a later set.
+	it("a BOUND enum value outside the closed set is refused at the write site, not silently ignored", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
+		local surface = core:signal("tileEmpty")
+		local root =
+			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } }))
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, {})
+		local err = failure(function()
+			controller.initialRender()
+			return nil
+		end)
+		expect(contains(err, "'tileEmpty' is not one of")).toBe(true)
+		expect(contains(err, "base | raised | control | chip | badge | accent | scrim | plain")).toBe(true)
+		expect(contains(err, "paints nothing")).toBe(true)
+	end)
+
+	it("...and a LATER set into an illegal value is refused too, so a valid first frame proves nothing", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
+		local surface = core:signal("control")
+		local root =
+			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Box({ id = "X", surface = surface }) } }))
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, {})
+		controller.initialRender()
+		expect(adapter.node("/S/X").props.surface).toBe("control")
+		surface:set("tileCorrect")
+		local err = failure(function()
+			controller.refresh()
+			return nil
+		end)
+		expect(contains(err, "'tileCorrect' is not one of")).toBe(true)
+	end)
+
+	it("a legal bound enum value on a NON-surface prop is unaffected", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
+		local role = core:signal("secondary")
+		local root =
+			mountLib.mount(core, UI.Screen({ id = "S", children = { UI.Text({ id = "T", text = "x", role = role }) } }))
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, {})
+		controller.initialRender()
+		expect(adapter.node("/S/T").props.role).toBe("secondary")
+		role:set("content")
+		controller.refresh()
+		expect(adapter.node("/S/T").props.role).toBe("content")
 	end)
 
 	it("a reactive `active` flag is re-applied instead of being dropped", function()

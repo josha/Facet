@@ -1,0 +1,15 @@
+  PASS  audit-matrix
+  PASS  library-suite-green
+  PASS  game-suite-green
+  PASS  framework-auto-input
+  PASS  per-control-per-input-conformance
+  PASS  examples-all-input-headless
+  PASS  examples-no-input-boilerplate
+  PASS  studio-all-input-verification
+  PASS  engine-truths-encoded
+  PASS  first-responder-model
+  PASS  playbooks-and-docs-updated
+  PASS  adr-recorded
+  PASS  opus-verification
+  FAIL_ENVIRONMENT  physical-device-confirmation
+gate: PASS -> artifacts/input-adaptation-audit/gate.json

@@ -92,6 +92,117 @@ describe("auto-screens WP-1: a Grid of Buttons gets 2D D-pad navigation, zero op
 	end)
 end)
 
+-- ===========================================================================
+-- A GRID IS NOT A CLOSED BOX (found live 2026-08-06, tutorial example 06).
+--
+-- The per-row groups link to EACH OTHER, and `containment = true` stops the
+-- fall-through that lets stacked HStacks leak into their neighbours. The first
+-- row therefore had no `up` and the last row no `down`, so anything laid out
+-- after a Grid was unreachable by D-pad or arrow key: measured on the tile game,
+-- fourteen Downs from the bottom board row and focus never moved. That is the
+-- standing "every control on every input" principle failing in the one container
+-- built for boards.
+-- ===========================================================================
+describe("auto-screens WP-1: a Grid is linked into the page around it", function()
+	local function pageWorld()
+		local core, _, system, adapter, pres = harness()
+		local cells = {}
+		for i = 1, 9 do
+			cells[i] = LuauUI.UI.Button({ id = "b" .. i, label = "b" .. i })
+		end
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.Button({ id = "Before", label = "Before" }),
+				LuauUI.UI.Grid({ id = "G", columns = 3, children = cells }),
+				LuauUI.UI.Button({ id = "After", label = "After" }),
+			},
+		})
+		local handle = pres.present(screen)
+		pres.refresh()
+		return { core = core, system = system, adapter = adapter, pres = pres, handle = handle }
+	end
+
+	it("Down from the LAST row leaves the grid and reaches what follows it", function()
+		local w = pageWorld()
+		expect(w.pres.focus.focused:get()).toBe("/S/Before")
+		press(w.system, "DPadDown") -- into the grid
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b1")
+		press(w.system, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b4")
+		press(w.system, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b7")
+		press(w.system, "DPadDown") -- OUT of the grid: this used to stay on b7 forever
+		expect(w.pres.focus.focused:get()).toBe("/S/After")
+	end)
+
+	it("Up from the FIRST row leaves the grid the other way", function()
+		local w = pageWorld()
+		press(w.system, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b1")
+		press(w.system, "DPadUp")
+		expect(w.pres.focus.focused:get()).toBe("/S/Before")
+	end)
+
+	it("the inner rows still navigate as a grid, and left/right are still contained", function()
+		-- the fix links only the BOUNDARY rows; nothing about 2D nav inside changed
+		local w = pageWorld()
+		press(w.system, "DPadDown")
+		press(w.system, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b2")
+		press(w.system, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b5") -- column preserved
+		press(w.system, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b4")
+		press(w.system, "DPadLeft") -- first column: contained, no wrap to b6
+		expect(w.pres.focus.focused:get()).toBe("/S/G/b4")
+	end)
+
+	it("two adjacent grids hand off to each other at the seam", function()
+		local core, _, system, adapter, pres = harness()
+		local function grid(id: string, prefix: string)
+			local cells = {}
+			for i = 1, 4 do
+				cells[i] = LuauUI.UI.Button({ id = prefix .. i, label = prefix .. i })
+			end
+			return LuauUI.UI.Grid({ id = id, columns = 2, children = cells })
+		end
+		local screen = LuauUI.UI.Screen({ id = "S", children = { grid("G1", "a"), grid("G2", "c") } })
+		pres.present(screen)
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/G1/a1")
+		press(system, "DPadDown")
+		expect(pres.focus.focused:get()).toBe("/S/G1/a3")
+		press(system, "DPadDown") -- across the seam into the SECOND grid
+		expect(pres.focus.focused:get()).toBe("/S/G2/c1")
+		press(system, "DPadUp")
+		expect(pres.focus.focused:get()).toBe("/S/G1/a3")
+		local _ = { core, adapter }
+	end)
+
+	it("a grid alone on a screen is unchanged: its boundary rows stay contained", function()
+		-- no neighbours means no exits to invent, so the original behaviour holds
+		local core, _, system, adapter, pres = harness()
+		local cells = {}
+		for i = 1, 9 do
+			cells[i] = LuauUI.UI.Button({ id = "b" .. i, label = "b" .. i })
+		end
+		pres.present(LuauUI.UI.Screen({
+			id = "S",
+			children = { LuauUI.UI.Grid({ id = "G", columns = 3, children = cells }) },
+		}))
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/G/b1")
+		press(system, "DPadUp")
+		expect(pres.focus.focused:get()).toBe("/S/G/b1")
+		for _ = 1, 5 do
+			press(system, "DPadDown")
+		end
+		expect(pres.focus.focused:get()).toBe("/S/G/b7")
+		local _ = { core, adapter }
+	end)
+end)
+
 describe("auto-screens WP-1: an HStack row navigates horizontally, zero opts", function()
 	local function rowWorld()
 		local core, _, system, adapter, pres = harness()

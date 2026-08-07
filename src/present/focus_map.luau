@@ -493,6 +493,78 @@ local function emitGridGroups(node: any, groups: { any })
 	end
 end
 
+-- A GRID IS NOT A CLOSED BOX (found live 2026-08-06, tutorial example 06).
+--
+-- `emitGridGroups` links its rows to EACH OTHER with up/down exits and sets
+-- `containment = true` so left/right stay in a row. But the first row got no `up`
+-- and the last row got no `down`, and containment stops the fall-through that
+-- lets stacked `HStack`s leak into their neighbours. So focus entering a Grid
+-- could never leave it: on a page of `board Grid -> rack -> Start over`, Down
+-- from the bottom board row landed on the bottom board row, forever — measured,
+-- fourteen presses, no movement. Everything after the grid was unreachable by
+-- D-pad or arrow keys, which is the standing principle (`ui_todo.md` §0) failing
+-- in the one container built for boards.
+--
+-- The grid cannot know its neighbours while it is being emitted, but the group
+-- ARRAY is in document order, so adjacency answers it afterwards: the row before
+-- a grid's first row and the row after its last row are exactly the groups either
+-- side of it — including the last/first row of an adjacent grid, which is the
+-- right target too. Authored exits are never overwritten.
+local function linkGridBoundaries(groups: { any })
+	local function gridPathOf(group: any): string?
+		local name = group.name
+		if type(name) ~= "string" then
+			return nil
+		end
+		local path = string.match(name, "^auto%-grid%-(.*)%-r%d+$")
+		return path
+	end
+	for index, group in groups do
+		local path = gridPathOf(group)
+		if path == nil then
+			continue
+		end
+		local exit = group.exit
+		if exit == nil then
+			exit = {}
+			group.exit = exit
+		end
+		-- ONLY A GROUP THIS DERIVATION EMITTED (architecture review M-2). Array
+		-- adjacency is a DOCUMENT-ORDER artifact, and it only tracks visual order
+		-- for the groups this module appends itself during one depth-first walk
+		-- (`auto-flat-*`, `auto-v-*`, `auto-h-*`, `auto-grid-*`). A contribution's
+		-- bundle is spliced in whole, in whatever order `bundle.focusGroups(node)`
+		-- returned it — nothing promises its first entry is its topmost row — so a
+		-- Grid sitting next to a contributing control could be handed an exit into
+		-- that control's LAST visual row. A group whose members all filtered away
+		-- is refused for the same reason: an exit into an empty group is the dead
+		-- end this whole function exists to remove, just quieter.
+		local function linkable(candidate: any): boolean
+			if candidate == nil or type(candidate.name) ~= "string" then
+				return false
+			end
+			if string.sub(candidate.name, 1, 5) ~= "auto-" then
+				return false
+			end
+			return candidate.order ~= nil and #candidate.order > 0
+		end
+		if exit.up == nil then
+			local before = groups[index - 1]
+			-- only the boundary row has no intra-grid `up`, so `before` here is
+			-- genuinely outside this grid
+			if linkable(before) and gridPathOf(before) ~= path then
+				exit.up = before.name
+			end
+		end
+		if exit.down == nil then
+			local after = groups[index + 1]
+			if linkable(after) and gridPathOf(after) ~= path then
+				exit.down = after.name
+			end
+		end
+	end
+end
+
 local function autoGroups(rootNode: any): { any }
 	local groups: { any } = {}
 	local pending: { string } = {}
@@ -552,6 +624,10 @@ local function autoGroups(rootNode: any): { any }
 	end
 	walk(rootNode)
 	flush()
+	-- BEFORE the grips group is appended: grips are deferred to the end of the
+	-- ring regardless of where they sit in the document, so a grid's down-exit
+	-- must not be pointed at them by mere array adjacency
+	linkGridBoundaries(groups)
 	if #grips > 0 then
 		table.insert(groups, { name = "auto-grips", axis = "vertical", order = grips })
 	end
@@ -632,6 +708,8 @@ local function layoutGroups(rootNode: any): { any }
 	end
 	walk(rootNode)
 	flushVertical()
+	-- same rule, same reason, as the contribution-aware derivation above
+	linkGridBoundaries(groups)
 	if #grips > 0 then
 		table.insert(groups, { name = "auto-grips", axis = "vertical", order = grips })
 	end

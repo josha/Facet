@@ -46,7 +46,10 @@ end
 -- side: an onChange-driven LIVE preview and an onCommit-driven committed Result.
 
 describe("examples/gallery 01: temperature converter (numeric TextInput)", function()
-	local FIELD = "/TempConverter/Fahrenheit/Field"
+	-- the page is a ScrollView now (example-quality-pass): the tutorial has to stay
+	-- reachable on a short landscape phone, and the Clear button sits below the
+	-- result. The paths gained one segment; the lesson did not change.
+	local FIELD = "/TempConverter/Page/Fahrenheit/Field"
 	local function tempWorld()
 		local ex = require("../examples/gallery/examples/01_temperature_converter")
 		local core, _, adapter, presenter, deps = makeHarness()
@@ -70,9 +73,9 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 
 	it("the numeric field is the primary affordance: no stepper or Convert buttons remain", function()
 		local _, adapter, presenter, _, handle = tempWorld()
-		expect(adapter.node("/TempConverter/InputRow/Plus10")).toBe(nil)
-		expect(adapter.node("/TempConverter/InputRow/Minus1")).toBe(nil)
-		expect(adapter.node("/TempConverter/Convert")).toBe(nil)
+		expect(adapter.node("/TempConverter/Page/InputRow/Plus10")).toBe(nil)
+		expect(adapter.node("/TempConverter/Page/InputRow/Minus1")).toBe(nil)
+		expect(adapter.node("/TempConverter/Page/Convert")).toBe(nil)
 		expect(adapter.node(FIELD) ~= nil).toBe(true)
 		expect(adapter.node(FIELD).props.keyboardType).toBe("numeric")
 		presenter.dismiss(handle)
@@ -85,10 +88,10 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		presenter.refresh()
 		-- onChange path: the live preview tracks each keystroke
 		expect(built.liveCelsius:get()).toBe(100)
-		expect(string.find(adapter.node("/TempConverter/Preview").props.text, "100", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(adapter.node("/TempConverter/Page/Preview").props.text, "100", 1, true) ~= nil).toBeTruthy()
 		-- commit path is untouched: nothing has been committed yet
 		expect(built.celsius:get()).toBeNil()
-		expect(adapter.node("/TempConverter/Result").props.text).toBe("Result: —")
+		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: —")
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -102,7 +105,7 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		expect(built.celsius:get()).toBe(100)
 		expect(built.field.api.editing:get()).toBe(false)
 		presenter.refresh()
-		expect(adapter.node("/TempConverter/Result").props.text).toBe("Result: 100 °C")
+		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: 100 °C")
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -166,6 +169,29 @@ describe("examples/gallery 01: temperature converter (numeric TextInput)", funct
 		sys.deviceKey("ButtonB", false)
 		expect(built.fahrenheitText:get()).toBe("")
 		expect(built.field.api.editing:get()).toBe(false)
+		presenter.dismiss(handle)
+	end)
+
+	-- THE WAY BACK (example-quality-pass play audit, 2026-08-06). The example had
+	-- no reset at all: once a value was typed the only route to the starting state
+	-- was select-all-and-delete, which is neither discoverable nor a lesson.
+	it("Clear returns the field, the live preview and the committed result to the start", function()
+		local core, adapter, presenter, built, handle = tempWorld()
+		edit(adapter)
+		adapter.typeText(FIELD, "212")
+		adapter.commitText(FIELD)
+		presenter.refresh()
+		expect(built.celsius:get()).toBe(100)
+		expect(built.liveCelsius:get()).toBe(100)
+		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: 100 °C")
+		adapter.tap(built.clearPath)
+		presenter.refresh()
+		expect(built.fahrenheitText:get()).toBe("")
+		expect(built.liveCelsius:get()).toBeNil()
+		expect(built.celsius:get()).toBeNil()
+		expect(adapter.node("/TempConverter/Page/Result").props.text).toBe("Result: —")
+		expect(adapter.node("/TempConverter/Page/Preview").props.text).toBe("Preview: —")
+		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 end)
@@ -605,62 +631,67 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(after[3]).toBe(order[3])
 		expect(core:lastError()).toBeNil()
 	end)
+
+	-- THE WAY BACK (example-quality-pass play audit, 2026-08-06). Reordering rows
+	-- and re-rating tracks are both destructive to the shipped playlist, and there
+	-- was no route back short of leaving the place.
+	it("Restore puts the original order and every original rating back", function()
+		local core, _, adapter, presenter, deps = makeHarness()
+		local ex = require("../examples/gallery/examples/02_playlist_table")
+		local built = ex.build(LuauUI, core, deps)
+		local handle = presenter.present(built.screen, built.present)
+		presenter.refresh()
+		local startOrder = {}
+		for _, track in built.baseRows:get() do
+			table.insert(startOrder, track.id)
+		end
+		local startRating = built.ratingFor(startOrder[1]):get()
+		-- disturb both: a reorder and a rating change, plus a live filter
+		local moved = table.clone(built.baseRows:get())
+		table.insert(moved, table.remove(moved, 1))
+		built.baseRows:set(moved)
+		built.ratingFor(startOrder[1]):set(if startRating == 5 then 1 else 5)
+		built.filterText:set("nights")
+		presenter.refresh()
+		expect(built.baseRows:get()[1].id ~= startOrder[1]).toBe(true)
+		adapter.tap(built.restorePath)
+		presenter.refresh()
+		local after = {}
+		for _, track in built.baseRows:get() do
+			table.insert(after, track.id)
+		end
+		expect(table.concat(after, "|")).toBe(table.concat(startOrder, "|"))
+		expect(built.ratingFor(startOrder[1]):get()).toBe(startRating)
+		expect(built.filterText:get()).toBe("")
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
 end)
 
 describe("examples/gallery 04: settings sync", function()
-	it("mounts headlessly with no core error", function()
-		local ex = require("../examples/gallery/examples/03_settings_sync")
-		local core, _, _, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
-		local handle = presenter.present(built.screen, built.present)
-		expect(core:lastError()).toBeNil()
-		presenter.dismiss(handle)
-	end)
+	-- THE WHOLE LESSON HAS TO BE REACHABLE FROM THE SCREEN (example-quality-pass
+	-- §"Example 03"). The live play audit found this example dead-ending: one tap
+	-- on `+` gave `Volume: 11` / `Status: pending` and nothing on screen could
+	-- ever deliver, accept, reject, roll back or reset it, because the loopback
+	-- server's `flush()` was a returned TEST HANDLE with no control behind it.
+	--
+	-- So these tests drive the example the way a player does — through named
+	-- controls only — and assert the seven promised states as VISIBLE TEXT.
+	local PAGE = "/Settings/Page"
+	local MUSIC = PAGE .. "/Music"
+	local VOL_MINUS = PAGE .. "/VolumeRow/VolMinus"
+	local VOL_PLUS = PAGE .. "/VolumeRow/VolPlus"
+	local VOL_VALUE = PAGE .. "/VolumeRow/VolValue"
+	local ASK_INVALID = PAGE .. "/AskInvalid"
+	local DELIVER = PAGE .. "/Deliver"
+	local RESET = PAGE .. "/Reset"
+	local DRAFT = PAGE .. "/State/Draft"
+	local SERVER = PAGE .. "/State/Server"
+	local STATUS = PAGE .. "/Status"
+	local HINT = PAGE .. "/Hint"
+	local EVENT1 = PAGE .. "/History/Event1"
+	local EVENT2 = PAGE .. "/History/Event2"
 
-	it("a valid toggle applies optimistically, goes pending, then confirms", function()
-		local ex = require("../examples/gallery/examples/03_settings_sync")
-		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
-		local handle = presenter.present(built.screen, built.present)
-
-		adapter.tap("/Settings/Music") -- flip the toggle
-		expect(built.draftMusic:get()).toBe(true) -- optimistic apply
-		expect(built.mutation.status:get()).toBe("pending")
-
-		built.server.flush() -- the loopback "server" validates + replicates
-		presenter.refresh()
-
-		expect(built.mutation.status:get()).toBe("confirmed")
-		expect(built.snapshot.binding:get().music).toBe(true)
-		expect(built.draftMusic:get()).toBe(true)
-		expect(adapter.node("/Settings/Status").props.text).toBe("Status: confirmed")
-		expect(core:lastError()).toBeNil()
-		presenter.dismiss(handle)
-	end)
-
-	it("a rejected change restores the optimistic draft to server truth", function()
-		local ex = require("../examples/gallery/examples/03_settings_sync")
-		local core, _, adapter, presenter, deps = makeHarness()
-		local built = ex.build(LuauUI, core, deps)
-		local handle = presenter.present(built.screen, built.present)
-
-		-- volume starts at its max (10); nudging up produces an invalid 11
-		adapter.tap("/Settings/VolumeRow/VolPlus")
-		expect(built.draftVolume:get()).toBe(11) -- optimistic
-		expect(built.mutation.status:get()).toBe("pending")
-
-		built.server.flush() -- server rejects the out-of-range value
-
-		expect(built.mutation.status:get()).toBe("rejected")
-		expect(built.draftVolume:get()).toBe(10) -- restored to server truth
-		expect(core:lastError()).toBeNil()
-		presenter.dismiss(handle)
-	end)
-
-	-- Per-input proofs (ADR-0013): example 03 now carries NO present() opts —
-	-- the toggle/steppers' node onActivate handlers are dispatched by the
-	-- presenter, and the +/- HStack yields layout-derived 2D navigation. These
-	-- close the touch / keyboard / gamepad cells that were UNPROVEN in the audit.
 	local function ex03World()
 		local ex = require("../examples/gallery/examples/03_settings_sync")
 		local core, system, adapter, presenter, deps = makeHarness()
@@ -670,44 +701,279 @@ describe("examples/gallery 04: settings sync", function()
 		return core, system, adapter, presenter, built, handle
 	end
 
+	-- what the PLAYER reads off the screen: the rendered prop, after a refresh,
+	-- never the signal behind it
+	local function shown(adapter: any, presenter: any, path: string): string
+		presenter.refresh()
+		local node = adapter.node(path)
+		if node == nil then
+			return `<no node at {path}>`
+		end
+		return tostring(node.props.text)
+	end
+
+	it("mounts headlessly with no core error", function()
+		local core, _, _, presenter, _, handle = ex03World()
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("every state the tutorial promises has an on-screen control", function()
+		local _, _, adapter, presenter, _, handle = ex03World()
+		for _, path in { MUSIC, VOL_MINUS, VOL_PLUS, ASK_INVALID, DELIVER, RESET } do
+			local node = adapter.node(path)
+			expect(node ~= nil).toBe(true)
+			expect(node.onActivate ~= nil).toBe(true)
+		end
+		presenter.dismiss(handle)
+	end)
+
+	-- THE ACCEPTANCE DRIVE. Seven states, on-screen controls only — no
+	-- `built.server`, no signal writes, no direct handler calls.
+	it("the seven promised states are reachable through on-screen controls alone", function()
+		local core, _, adapter, presenter, _, handle = ex03World()
+
+		-- 1. draft and authoritative state are distinguishable at rest
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 10")
+		expect(shown(adapter, presenter, SERVER)).toBe("Music off, volume 10 (revision 1)")
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: idle")
+
+		-- 2. trigger a change the server will accept
+		adapter.tap(VOL_MINUS)
+
+		-- 3. the optimistic value is visible IMMEDIATELY, and the server's is not
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 9")
+		expect(shown(adapter, presenter, SERVER)).toBe("Music off, volume 10 (revision 1)")
+		expect(shown(adapter, presenter, VOL_VALUE)).toBe("Volume: 9")
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: pending (no reply yet)")
+
+		-- 4. deliver the acceptance; the two values reconcile
+		adapter.tap(DELIVER)
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: accepted")
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 9")
+		expect(shown(adapter, presenter, SERVER)).toBe("Music off, volume 9 (revision 2)")
+
+		-- 5. trigger a change the server will refuse
+		adapter.tap(ASK_INVALID)
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 99")
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: pending (no reply yet)")
+
+		-- 6. the rejection carries its REASON, and the draft rolls back
+		adapter.tap(DELIVER)
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: rejected (volume must be 0..10)")
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 9")
+		expect(shown(adapter, presenter, SERVER)).toBe("Music off, volume 9 (revision 2)")
+
+		-- 7. reset returns the demonstration to its documented start state
+		adapter.tap(RESET)
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: idle")
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 10")
+		expect(shown(adapter, presenter, SERVER)).toBe("Music off, volume 10 (revision 3)")
+
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("the status line names the next action at every step", function()
+		local _, _, adapter, presenter, _, handle = ex03World()
+		expect(shown(adapter, presenter, HINT)).toBe("Change a setting to send a request.")
+		adapter.tap(MUSIC)
+		expect(shown(adapter, presenter, HINT)).toBe('Your screen already shows it. Press "Deliver server reply".')
+		adapter.tap(DELIVER)
+		expect(shown(adapter, presenter, HINT)).toBe("Draft and server agree.")
+		adapter.tap(ASK_INVALID)
+		adapter.tap(DELIVER)
+		expect(shown(adapter, presenter, HINT)).toBe("The server refused it, so the draft rolled back.")
+		presenter.dismiss(handle)
+	end)
+
+	it("a valid toggle applies optimistically, goes pending, then confirms", function()
+		local core, _, adapter, presenter, built, handle = ex03World()
+
+		adapter.tap(MUSIC) -- flip the toggle
+		expect(built.draftMusic:get()).toBe(true) -- optimistic apply
+		expect(built.mutation.status:get()).toBe("pending")
+		expect(built.snapshot.binding:get().music).toBe(false) -- server unmoved
+
+		adapter.tap(DELIVER) -- the loopback "server" validates + replicates
+
+		expect(built.mutation.status:get()).toBe("confirmed")
+		expect(built.snapshot.binding:get().music).toBe(true)
+		expect(built.draftMusic:get()).toBe(true)
+		expect(built.snapshot.revision()).toBe(2)
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: accepted")
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("a rejected change restores the optimistic draft to server truth", function()
+		local core, _, adapter, presenter, built, handle = ex03World()
+
+		-- volume starts at its max (10); nudging up produces an invalid 11
+		adapter.tap(VOL_PLUS)
+		expect(built.draftVolume:get()).toBe(11) -- optimistic
+		expect(built.mutation.status:get()).toBe("pending")
+
+		adapter.tap(DELIVER) -- server refuses the out-of-range value
+
+		expect(built.mutation.status:get()).toBe("rejected")
+		expect(built.draftVolume:get()).toBe(10) -- restored to server truth
+		expect(built.snapshot.revision()).toBe(1) -- and the server never moved
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: rejected (volume must be 0..10)")
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("reset recovers from a request the server never answered", function()
+		local core, _, adapter, presenter, built, handle = ex03World()
+		adapter.tap(ASK_INVALID)
+		expect(built.mutation.status:get()).toBe("pending")
+
+		adapter.tap(RESET) -- abandons the in-flight request and rolls it back
+
+		expect(built.mutation.status:get()).toBe("idle")
+		expect(built.draftVolume:get()).toBe(10)
+		expect(built.draftMusic:get()).toBe(false)
+		expect(shown(adapter, presenter, DRAFT)).toBe("Music off, volume 10")
+		-- the abandoned reply can still arrive and must change nothing
+		adapter.tap(DELIVER)
+		expect(built.mutation.status:get()).toBe("idle")
+		expect(built.draftVolume:get()).toBe(10)
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	-- DEVICE FINDING, iPhone 15 Pro, 2026-07-26: "I can toggle music on but not
+	-- off." `mutation.send` ERRORS while a request is in flight, so the control
+	-- worked exactly once and then threw. The example now refuses the second
+	-- change IN THE EXAMPLE and says why on screen — a tutorial must not throw at
+	-- a player for pressing a button twice.
+	it("a second change while one is in flight is refused visibly, and never throws", function()
+		local core, _, adapter, presenter, built, handle = ex03World()
+		adapter.tap(MUSIC)
+		expect(built.mutation.status:get()).toBe("pending")
+
+		local ok = pcall(function()
+			adapter.tap(MUSIC)
+		end)
+
+		expect(ok).toBe(true)
+		expect(built.draftMusic:get()).toBe(true) -- unchanged: nothing was sent
+		expect(built.mutation.status:get()).toBe("pending")
+		expect(shown(adapter, presenter, EVENT1)).toBe("Already waiting for a reply. Deliver it first.")
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("Deliver with nothing in flight explains itself instead of doing nothing", function()
+		local core, _, adapter, presenter, _, handle = ex03World()
+		adapter.tap(DELIVER)
+		expect(shown(adapter, presenter, STATUS)).toBe("Status: idle")
+		expect(shown(adapter, presenter, EVENT1)).toBe("Nothing to deliver. Send a change first.")
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("the visible history reads newest first and is bounded", function()
+		local core, _, adapter, presenter, built, handle = ex03World()
+		expect(shown(adapter, presenter, EVENT1)).toBe("Ready. Nothing sent yet.")
+
+		adapter.tap(VOL_MINUS)
+		expect(shown(adapter, presenter, EVENT1)).toBe("Sent volume 9. Waiting for the server.")
+		expect(shown(adapter, presenter, EVENT2)).toBe("Ready. Nothing sent yet.")
+
+		adapter.tap(DELIVER)
+		expect(shown(adapter, presenter, EVENT1)).toBe("Server accepted. Revision 2.")
+		expect(shown(adapter, presenter, EVENT2)).toBe("Sent volume 9. Waiting for the server.")
+
+		-- bounded: the visible log never grows past the rows the screen has
+		for _ = 1, 6 do
+			adapter.tap(MUSIC)
+			adapter.tap(DELIVER)
+		end
+		expect(#built.history:get()).toBe(3)
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	-- COMPACT PHONE, BOTH ORIENTATIONS, BOTH ENDS OF THE TEXT PREFERENCE.
+	-- The solver is asked, not the screenshot (docs/lessons/the-solver-already-
+	-- told-you.md): a fixture that never reads `controller.diagnostics()` is not
+	-- a fixture. 360x633 is a 360x691 phone minus the 58px topbar inset.
+	it("stays laid out and operable on a compact phone at every text size", function()
+		local lt = require("./lib/large_text")
+		local ex = require("../examples/gallery/examples/03_settings_sync")
+		for _, theme in lt.THEMES do
+			for _, offset in { 0, lt.LARGEST } do
+				for _, view in
+					{
+						{ name = "portrait", rect = { x = 0, y = 0, w = 360, h = 633 } },
+						{ name = "landscape", rect = { x = 0, y = 0, w = 667, h = 317 } },
+					}
+				do
+					local w = lt.world({ viewport = view.rect, offset = offset, input = "touch", theme = theme })
+					local built = ex.build(
+						LuauUI,
+						w.core,
+						{ env = w.env, actionSystem = w.system, presenter = w.pres, adapter = w.adapter }
+					)
+					w.present(built.screen, built.present)
+					local label = `{theme.id} {view.name} @ +{offset}px`
+					local sweep = lt.sweep(w, "/Settings")
+					if #sweep.overlaps > 0 then
+						error(`{label}: painted siblings overlap\n{lt.describeFindings(label, sweep.overlaps)}`, 0)
+					end
+					if #sweep.clipped > 0 then
+						error(`{label}: essential text clipped\n{lt.describeFindings(label, sweep.clipped)}`, 0)
+					end
+					-- The Music Toggle paints 134x28 under the default theme — a
+					-- bare UI.Toggle does that on ANY screen, so it is a
+					-- framework/theme baseline, not this example's doing.
+					-- Everything the EXAMPLE sizes must clear the floor.
+					for _, finding in sweep.hitFloor do
+						if finding.node ~= "/Settings/Page/Music" then
+							error(`{label}: under the target floor\n{lt.describeFindings(label, { finding })}`, 0)
+						end
+					end
+					expect(#w.handle.controller.diagnostics()).toBe(0)
+
+					-- the volume read-out has to have a box: `fill` inside a
+					-- content-sized row solved to 0 wide, and the number vanished
+					local value = w.adapter.node("/Settings/Page/VolumeRow/VolValue")
+					expect(value.rect.w > 0).toBe(true)
+					expect(value.rect.h > 0).toBe(true)
+
+					-- and the last control is reachable: the page scrolls over its
+					-- whole content, so Reset is never below a dead edge
+					local page = w.adapter.node("/Settings/Page")
+					local history = w.adapter.node("/Settings/Page/History")
+					local contentH = page.scrollRegion.contentH
+					expect(contentH >= (history.rect.y + history.rect.h) - page.rect.y).toBe(true)
+				end
+			end
+		end
+	end)
+
+	-- Per-input proofs (ADR-0013): example 03 carries NO present() opts — the
+	-- toggle/steppers/buttons' node onActivate handlers are dispatched by the
+	-- presenter, and the +/- HStack yields layout-derived 2D navigation.
 	it("✓ ex03 touch: a touch tap on the Music toggle applies optimistically and goes pending", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
-		adapter.tap("/Settings/Music", { pointer = "touch" })
+		adapter.tap(MUSIC, { pointer = "touch" })
 		expect(built.draftMusic:get()).toBe(true)
 		expect(built.mutation.status:get()).toBe("pending")
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
-	-- DEVICE FINDING, iPhone 15 Pro, 2026-07-26: "I can toggle music on but not
-	-- off." Nothing was flushing the loopback server, so the first change stayed
-	-- pending forever — and `mutation.send` ERRORS while a request is in flight,
-	-- so the control worked exactly once. The example is right to make the
-	-- response explicit (that is what it teaches); the HOST is what was missing.
-	it("✓ ex03: a second tap without a flush is refused — this is why the control worked once", function()
-		local _, _, adapter, presenter, built, handle = ex03World()
-		adapter.tap("/Settings/Music", { pointer = "touch" })
-		expect(built.draftMusic:get()).toBe(true)
-		expect(built.mutation.status:get()).toBe("pending")
-		-- the second activation, with the first still in flight: it THROWS, which
-		-- on the device surfaced as a control that simply stopped responding
-		local ok, err = pcall(function()
-			adapter.tap("/Settings/Music", { pointer = "touch" })
-		end)
-		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "while a request is pending", 1, true) ~= nil).toBe(true)
-		expect(built.draftMusic:get()).toBe(true) -- STILL on: the flip never happened
-		presenter.dismiss(handle)
-	end)
-
-	it("✓ ex03: a host that delivers the response gets a toggle that goes both ways", function()
+	it("✓ ex03 touch: the whole accept round trip is reachable by touch alone", function()
 		local core, _, adapter, presenter, built, handle = ex03World()
-		adapter.tap("/Settings/Music", { pointer = "touch" })
-		built.server.flush() -- what the showcase host now does every frame
+		adapter.tap(MUSIC, { pointer = "touch" })
+		adapter.tap(DELIVER, { pointer = "touch" })
 		expect(built.draftMusic:get()).toBe(true)
 		expect(built.mutation.status:get()).toBe("confirmed")
-		adapter.tap("/Settings/Music", { pointer = "touch" })
-		built.server.flush()
+		adapter.tap(MUSIC, { pointer = "touch" })
+		adapter.tap(DELIVER, { pointer = "touch" })
 		expect(built.draftMusic:get()).toBe(false) -- and back off again
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
@@ -715,7 +981,7 @@ describe("examples/gallery 04: settings sync", function()
 
 	it("✓ ex03 keyboard: Return on the focused Music toggle applies optimistically", function()
 		local core, system, _, presenter, built, handle = ex03World()
-		expect(presenter.focus.focused:get()).toBe("/Settings/Music") -- initial focus
+		expect(presenter.focus.focused:get()).toBe(MUSIC) -- initial focus
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
 		expect(built.draftMusic:get()).toBe(true)
@@ -724,9 +990,30 @@ describe("examples/gallery 04: settings sync", function()
 		presenter.dismiss(handle)
 	end)
 
+	-- The gallery client presents with NO `keyboardNavigation` opt, so Tab binds
+	-- nothing there; the desktop keyboard path a player actually has is the
+	-- arrows plus Return. Drive the one that exists.
+	it("✓ ex03 keyboard: the arrows reach Deliver, and Return there completes the round trip", function()
+		local core, system, _, presenter, built, handle = ex03World()
+		system.deviceKey("Return", true)
+		system.deviceKey("Return", false)
+		expect(built.mutation.status:get()).toBe("pending")
+		-- Music -> the +/- row -> AskInvalid -> Deliver, derived from the layout
+		for _ = 1, 3 do
+			system.deviceKey("Down", true)
+			system.deviceKey("Down", false)
+		end
+		expect(presenter.focus.focused:get()).toBe(DELIVER)
+		system.deviceKey("Return", true)
+		system.deviceKey("Return", false)
+		expect(built.mutation.status:get()).toBe("confirmed")
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
 	it("✓ ex03 gamepad: ButtonA on the focused Music toggle applies optimistically", function()
 		local core, system, _, presenter, built, handle = ex03World()
-		expect(presenter.focus.focused:get()).toBe("/Settings/Music")
+		expect(presenter.focus.focused:get()).toBe(MUSIC)
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)
 		expect(built.draftMusic:get()).toBe(true)
@@ -741,7 +1028,7 @@ describe("examples/gallery 04: settings sync", function()
 		-- group), auto-derived from layout: D-pad Down enters the stepper row.
 		system.deviceKey("DPadDown", true)
 		system.deviceKey("DPadDown", false)
-		expect(presenter.focus.focused:get()).toBe("/Settings/VolumeRow/VolMinus")
+		expect(presenter.focus.focused:get()).toBe(VOL_MINUS)
 		system.deviceKey("ButtonA", true) -- activate the focused stepper
 		system.deviceKey("ButtonA", false)
 		expect(built.draftVolume:get()).toBe(9) -- 10 - 1, optimistic
@@ -769,27 +1056,27 @@ describe("examples/gallery 05: confirmation dialog", function()
 		local built = ex.build(LuauUI, core, deps)
 		local handle = presenter.present(built.screen, built.present)
 
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Delete")
+		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
 		-- activate the base button -> opens the confirmation modal
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false)
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Card/Confirm")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Confirm")
 
 		-- focus is trapped inside the modal: navigation moves Confirm<->Cancel
 		-- and wraps, never escaping to the base screen
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Card/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Cancel")
 		system.deviceKey("Down", true)
 		system.deviceKey("Down", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Card/Confirm") -- wrapped
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Confirm") -- wrapped
 
 		-- ButtonB (gamepad B) is Cancel routing: dismiss + restore focus
 		system.deviceKey("ButtonB", true)
 		system.deviceKey("ButtonB", false)
 		expect(presenter.depth()).toBe(1)
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Delete") -- restored
+		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -806,13 +1093,13 @@ describe("examples/gallery 05: confirmation dialog", function()
 
 		system.deviceKey("Down", true) -- move to Cancel
 		system.deviceKey("Down", false)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Card/Cancel")
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Cancel")
 		system.deviceKey("ButtonA", true) -- activate Cancel
 		system.deviceKey("ButtonA", false)
 
 		expect(built.result:get()).toBe("cancelled")
 		expect(presenter.depth()).toBe(1)
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Delete")
+		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete")
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -832,24 +1119,112 @@ describe("examples/gallery 05: confirmation dialog", function()
 
 	it("✓ ex04 pointer: tapping Delete opens the modal; tapping Cancel records cancelled and dismisses", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
-		adapter.tap("/DangerScreen/Delete") -- mouse click opens the dialog
+		adapter.tap("/DangerScreen/Page/Delete") -- mouse click opens the dialog
 		expect(presenter.depth()).toBe(2)
-		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Card/Confirm")
-		adapter.tap("/ConfirmDialog/Card/Cancel") -- a tap INSIDE the modal routes normally
+		expect(presenter.focus.focused:get()).toBe("/ConfirmDialog/Center/Card/Confirm")
+		adapter.tap("/ConfirmDialog/Center/Card/Cancel") -- a tap INSIDE the modal routes normally
 		expect(built.result:get()).toBe("cancelled")
 		expect(presenter.depth()).toBe(1)
-		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Delete") -- restored
+		expect(presenter.focus.focused:get()).toBe("/DangerScreen/Page/Delete") -- restored
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
 
 	it("✓ ex04 touch: a touch tap opens the modal and a touch tap on Confirm records confirmed", function()
 		local core, _, adapter, presenter, built, handle = ex04World()
-		adapter.tap("/DangerScreen/Delete", { pointer = "touch" })
+		adapter.tap("/DangerScreen/Page/Delete", { pointer = "touch" })
 		expect(presenter.depth()).toBe(2)
-		adapter.tap("/ConfirmDialog/Card/Confirm", { pointer = "touch" })
+		adapter.tap("/ConfirmDialog/Center/Card/Confirm", { pointer = "touch" })
 		expect(built.result:get()).toBe("confirmed")
 		expect(presenter.depth()).toBe(1)
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	-- ========================================================================
+	-- WHAT THE PLAY AUDIT FOUND (example-quality-pass, 2026-08-06). Driven live,
+	-- the modal opened, trapped focus and dismissed correctly — and after
+	-- confirming a destructive "Delete" the base screen was BYTE-IDENTICAL to
+	-- before. `result` was a test handle; the player saw nothing happen. The
+	-- dialog was also authored `alignH/alignV = center` on a Screen, where those
+	-- props are documented as ZStack-child alignment and are accepted-and-ignored:
+	-- the card rendered at the top-left corner.
+	-- ========================================================================
+	it("confirming CHANGES THE SCREEN the player is looking at", function()
+		local core, _, adapter, presenter, built, handle = ex04World()
+		presenter.refresh()
+		local titleBefore = adapter.node(built.titlePath).props.text
+		local outcomeBefore = adapter.node(built.outcomePath).props.text
+		adapter.tap(built.deletePath)
+		adapter.tap(built.confirmPath)
+		presenter.refresh()
+		expect(adapter.node(built.titlePath).props.text ~= titleBefore).toBe(true)
+		expect(adapter.node(built.outcomePath).props.text ~= outcomeBefore).toBe(true)
+		expect(string.find(adapter.node(built.titlePath).props.text, "empty", 1, true) ~= nil).toBe(true)
+		expect(string.find(adapter.node(built.outcomePath).props.text, "Deleted", 1, true) ~= nil).toBe(true)
+		-- ...and the destructive action is no longer offered on an empty slot
+		expect(adapter.node(built.deletePath).props.enabled).toBe(false)
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("cancelling says the save was KEPT, which is a different visible answer", function()
+		local core, _, adapter, presenter, built, handle = ex04World()
+		adapter.tap(built.deletePath)
+		adapter.tap(built.cancelPath)
+		presenter.refresh()
+		expect(string.find(adapter.node(built.outcomePath).props.text, "Kept", 1, true) ~= nil).toBe(true)
+		expect(built.hasSave:get()).toBe(true)
+		expect(adapter.node(built.deletePath).props.enabled).toBe(true)
+		presenter.dismiss(handle)
+	end)
+
+	it("Restore puts the save back, so the demonstration is repeatable in place", function()
+		local core, _, adapter, presenter, built, handle = ex04World()
+		adapter.tap(built.deletePath)
+		adapter.tap(built.confirmPath)
+		expect(built.hasSave:get()).toBe(false)
+		adapter.tap(built.restorePath)
+		presenter.refresh()
+		expect(built.hasSave:get()).toBe(true)
+		expect(built.result:get()).toBe("none")
+		expect(adapter.node(built.deletePath).props.enabled).toBe(true)
+		-- and the whole round trip runs again from here
+		adapter.tap(built.deletePath)
+		expect(presenter.depth()).toBe(2)
+		adapter.tap(built.confirmPath)
+		expect(built.hasSave:get()).toBe(false)
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("the card is CENTRED, not parked in the top-left corner", function()
+		local core, _, adapter, presenter, built, handle = ex04World()
+		adapter.tap(built.deletePath)
+		presenter.refresh()
+		local screenRect = adapter.node("/ConfirmDialog").rect
+		local card = adapter.node(built.cardPath).rect
+		expect(card ~= nil).toBe(true)
+		-- the card's centre sits within 2px of the scrim's centre on both axes
+		local dx = math.abs((card.x + card.w / 2) - (screenRect.x + screenRect.w / 2))
+		local dy = math.abs((card.y + card.h / 2) - (screenRect.y + screenRect.h / 2))
+		expect(dx <= 2).toBe(true)
+		expect(dy <= 2).toBe(true)
+		-- ...and it is genuinely smaller than the scrim, so "centred" means something
+		expect(card.w < screenRect.w).toBe(true)
+		expect(card.h < screenRect.h).toBe(true)
+		expect(core:lastError()).toBeNil()
+		presenter.dismiss(handle)
+	end)
+
+	it("tapping Delete twice does not stack two identical modals", function()
+		local core, _, adapter, presenter, built, handle = ex04World()
+		adapter.tap(built.deletePath)
+		expect(presenter.depth()).toBe(2)
+		-- the base Delete is behind a modal scrim, so drive the command directly:
+		-- the guard is what is under test, not the routing
+		built.openDialog()
+		expect(presenter.depth()).toBe(2)
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)

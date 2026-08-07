@@ -221,7 +221,10 @@ function example.build(LuauUI: any, core: any, deps: any)
 		-- wrap this comment always wanted), taller again when the player raises their
 		-- text size, denser under a pointer. And whatever the height, the cells are
 		-- capped to it, so nothing can spill out of a row again.
-		rowGap = 2,
+		-- ...and the gap BETWEEN rows is a spacing step for the same reason the row
+		-- height is a theme decision: `2` was the same two pixels under a dense
+		-- pointer package and a chunky touch one.
+		rowGap = "controls.table.rowGap",
 		header = true,
 		selection = "multi",
 		reorderable = true,
@@ -280,26 +283,44 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- every row lays out, nothing clips, and this ScrollView carries the lot —
 	-- header included. That also avoids nesting a scroller inside a scroller,
 	-- where a vertical drag over the rows is ambiguous and the inner one wins.
+	-- RESTORE: the deterministic way back to the shipped playlist. Reordering rows
+	-- and re-rating tracks are both destructive to the starting state, and before
+	-- this there was no way back short of leaving the place (example-quality-pass
+	-- play audit, 2026-08-06).
+	local function restore()
+		filterText:set("")
+		baseRows:set(table.clone(TRACKS))
+		for _, track in TRACKS do
+			ratings[track.id]:set(track.rating)
+		end
+	end
+
+	-- STYLE AUTHORITY: typography ROLES and spacing STEPS, so the theme picker
+	-- mounted beside this example actually moves it. `surface = "base"` gives the
+	-- page a legible plate instead of floating the title and the secondary hint
+	-- over the 3D world.
 	local screen = UI.Screen({
 		id = "Playlist",
-		padding = 16,
+		surface = "base",
+		padding = "m",
 		children = {
 			UI.ScrollView({
 				id = "Page",
 				axis = "y",
-				gap = 8,
+				gap = "s",
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = "Playlist", textSize = 24 }),
+					UI.Text({ id = "Title", text = "Playlist", textSize = "title" }),
 					filterControl.blueprint,
 					UI.Text({
 						id = "Hint",
 						text = "Type to filter · tap stars to rate · drag rows to reorder",
-						textSize = 14,
+						textSize = "label",
 						role = "secondary",
 					}),
 					tbl.blueprint,
+					UI.Button({ id = "Restore", label = "Restore the original playlist", onActivate = restore }),
 				},
 			}),
 		},
@@ -330,6 +351,8 @@ function example.build(LuauUI: any, core: any, deps: any)
 			return ratings[id]
 		end,
 		table_ = tbl,
+		restore = restore, -- the Restore button's command (order + ratings back)
+		restorePath = "/Playlist/Page/Restore",
 		dispose = function()
 			tbl.dispose()
 			filterControl.dispose()

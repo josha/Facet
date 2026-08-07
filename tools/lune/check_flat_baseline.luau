@@ -25,6 +25,25 @@
 --
 --   lune run tools/lune/check_flat_baseline          -- checks; exits 1 on drift
 --   lune run tools/lune/check_flat_baseline -- --list  -- prints the allow-list
+--
+-- THE BASELINE HAS TWO HALVES, AND ONLY ONE OF THEM IS THE COMPATIBILITY CLAIM
+-- (2026-08-06, example-quality-pass). The stored dump renders EIGHT fixtures:
+-- `control-vocabulary` — the framework's own controls, which is what R9 is about
+-- — and the seven TUTORIAL EXAMPLES, which are content this repo is chartered to
+-- rewrite. Roadmap Step 10 rewrote six of the seven (05, 06 and 07 down to their
+-- board structure), and the check went red with 1920 findings, every one of them
+-- an example node and not one of them on `control-vocabulary`.
+--
+-- Re-pinning the whole file would have thrown away the framework claim to make an
+-- example change quiet, which is exactly the failure this header warns about. So
+-- the SEVEN EXAMPLE FIXTURES were re-baselined at that stage's final source and
+-- `control-vocabulary` was left byte-untouched — asserted, not assumed: the
+-- sha256 of its fixtures is identical before and after (`c38aa648…`). The
+-- framework surface is still measured against 0.6.0 through the characterized
+-- allow-list below, and the examples are still measured node-for-node, so an
+-- ACCIDENTAL change to either one still fails here.
+--
+-- Record: artifacts/example-quality-pass/flat-baseline-rebaseline.json.
 
 local process = require("@lune/process")
 local serde = require("@lune/serde")
