@@ -796,7 +796,12 @@ describe("RowActions control", function()
 		expect(#fired).toBe(0) -- ...but does NOT fire the destructive action itself
 	end)
 
-	it("activating the minus while the trailing tray is already open is a no-op", function()
+	-- Task 9 four-input reachability: the minus is a normal focusable Button
+	-- routed through the SAME `handleActivate` dispatch every tray button
+	-- above already proves reachable (tests/row_actions.spec.luau:598-619's
+	-- own idiom) — content("Body") is a plain UI.Text (no focusable children),
+	-- so the minus is the tree's only focus stop and Navigate lands on it first.
+	it("RowActions keyboard: focus + Return activates the minus, opening the trailing tray", function()
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
@@ -807,13 +812,117 @@ describe("RowActions control", function()
 				editing = editing,
 			})
 		end)
-		w.ra._open("trailing")
-		w.pres.refresh()
-		expect(w.ra.dump().openEdge).toBe("trailing")
-		-- second activation: no crash, state unchanged
-		w.adapter.tap(EDIT_AFFORDANCE_PATH)
+		expect(w.pres.focus.focused:get()).toBe(EDIT_AFFORDANCE_PATH)
+		w.system.deviceKey("Return", true)
+		w.system.deviceKey("Return", false)
 		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
+
+	it("RowActions gamepad: focus + ButtonA activates the minus, opening the trailing tray", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		expect(w.pres.focus.focused:get()).toBe(EDIT_AFFORDANCE_PATH)
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+	end)
+
+	it(
+		"activating the minus while the trailing tray is already open is a no-op (proven via a claim-count spy)",
+		function()
+			-- `dump().openEdge` alone cannot prove this: `open("trailing")` called a
+			-- SECOND time on an already-"trailing" row is a no-op in its OWN right
+			-- (`retarget` re-aims the SAME persistent spring at the value it is
+			-- already at; `openEdge:set("trailing")` is equality-diffed by the core
+			-- and never refires a subscriber) — so `dump().openEdge` reads
+			-- "trailing" identically whether row_actions.luau's own no-op guard
+			-- exists or not, and a mutation deleting that guard leaves this
+			-- assertion green (the exact vacuous-test class this file's own
+			-- localization test comment already warns about). The one thing that
+			-- DOES differ is whether `open()` runs its BODY at all: wrap the real
+			-- coordinator's `claim` in a counting spy (a coordinator is a plain
+			-- table of closures — `row_actions.newCoordinator`'s own return shape
+			-- — so wrapping one field is ordinary Lua, no framework hook needed)
+			-- and assert it is called exactly ONCE for two activations.
+			local coordinator = row_actions.newCoordinator(LuauUI.newCore())
+			local claimCount = 0
+			local realClaim = coordinator.claim
+			coordinator.claim = function(...)
+				claimCount += 1
+				return realClaim(...)
+			end
+			local editing
+			local w = presenterWorld(function(core)
+				editing = core:signal(true)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+					editing = editing,
+					coordinator = coordinator,
+				})
+			end)
+			w.adapter.tap(EDIT_AFFORDANCE_PATH) -- first activation: opens the tray, claims once
+			expect(w.ra.dump().openEdge).toBe("trailing")
+			expect(claimCount).toBe(1)
+			w.adapter.tap(EDIT_AFFORDANCE_PATH) -- second activation: already open — must NOT re-claim
+			expect(w.ra.dump().openEdge).toBe("trailing")
+			expect(claimCount).toBe(1) -- unchanged: this is the bite the guard exists to prove
+		end
+	)
+
+	it(
+		"a full trailing reveal is byte-identical whether or not editing is true (regression: no gutter on the negative branch)",
+		function()
+			-- `contentOffsetX`'s own comment promises the gutter is added ONLY on
+			-- the non-negative side of `offset` — a trailing reveal (`offset < 0`)
+			-- must read EXACTLY the raw `offset`, or the trailing tray is
+			-- permanently under-exposed by the gutter width for as long as it
+			-- stays open (see the comment above `contentOffsetX` in
+			-- row_actions.luau for the full reasoning). Proven directly: two
+			-- otherwise-identical rows, one wired with `editing = true`, one with
+			-- no `editing` at all, both settle to the SAME `Content` x once fully
+			-- open — not merely "some x", the identical pixel.
+			local function openTrailingContentX(withEditing: boolean): number
+				local w = presenterWorld(function(core)
+					local spec: any = {
+						id = "Row",
+						content = content("Body"),
+						trailing = {
+							{ id = "delete", label = "Delete", role = "destructive", onAction = function() end },
+						},
+					}
+					if withEditing then
+						spec.editing = core:signal(true)
+					end
+					return row_actions.build(LuauUI, core, spec)
+				end)
+				-- `_open` then an IMMEDIATE refresh, before `settle` — the same
+				-- two-step the "labels survive pseudo-loc" test above uses
+				-- (line ~274): the trailing tray mounts lazily, so its button
+				-- naturals (and therefore `trailingWidth`, and therefore the
+				-- spring's own retarget) are not measured until a sync happens
+				-- AFTER the tray exists. Skipping this step opens toward a
+				-- transient `trailingWidth == 0` and only self-corrects once
+				-- `syncGeometry` re-aims on the next sync — this test wants the
+				-- FINAL settled geometry, so it earns that correction first.
+				w.ra._open("trailing")
+				w.pres.refresh()
+				settle(w.pres)
+				w.pres.refresh()
+				return w.adapter.node(ROW .. "/Content/Body").rect.x
+			end
+			expect(openTrailingContentX(true)).toBe(openTrailingContentX(false))
+		end
+	)
 
 	it("toggling editing off does not force-close an already-open tray (documented behavior)", function()
 		local editing
