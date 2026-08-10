@@ -664,6 +664,10 @@ local FIXTURES: { Fixture } = {
 local UNSWEEPABLE: { [string]: string } = {
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
+	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
+		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
+		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "
+		.. "and is swept as one",
 }
 
 fixtures.FIXTURES = FIXTURES

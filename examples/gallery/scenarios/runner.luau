@@ -227,6 +227,58 @@ function Runner.start(deps: { [string]: any })
 	local identityIds: { [Instance]: string } = setmetatable({}, { __mode = "k" }) :: any
 	local identityCounter = 0
 
+	-- Shared stage-content materializer (swiftui-reference-app-validation): the
+	-- one engine-side seam that turns a proof's plain-table stage content into
+	-- Parts/camera/lighting through the public stage host. Used by the
+	-- post-present pass below and by ctx.stage.apply (live re-dress).
+	local function applyStageContent(controller: any, nodePath: string, content: any): string
+		local host = if controller ~= nil and controller.stageHost ~= nil then controller.stageHost(nodePath) else nil
+		if host == nil then
+			return "no-host"
+		end
+		if content.lighting ~= nil then
+			host.setLighting(content.lighting)
+		end
+		if content.camera ~= nil then
+			host.setCamera(content.camera)
+		end
+		local root = host.contentRoot()
+		if typeof(root) == "Instance" then
+			if content.replace ~= false then
+				for _, child in root:GetChildren() do
+					child:Destroy()
+				end
+			end
+			if content.parts ~= nil then
+				for _, p in content.parts :: { any } do
+					local part = Instance.new("Part")
+					part.Anchored = true
+					part.CanCollide = false
+					part.CanQuery = false
+					part.CanTouch = false
+					part.CastShadow = false
+					part.Shape = if p.shape == "ball"
+						then Enum.PartType.Ball
+						elseif p.shape == "cylinder" then Enum.PartType.Cylinder
+						else Enum.PartType.Block
+					part.Size = Vector3.new(p.size[1], p.size[2], p.size[3])
+					part.Color = Color3.new(p.color[1], p.color[2], p.color[3])
+					if p.transparency ~= nil then
+						part.Transparency = p.transparency
+					end
+					local pos = Vector3.new(p.cframe.pos[1], p.cframe.pos[2], p.cframe.pos[3])
+					part.CFrame = if p.cframe.lookAt ~= nil
+						then CFrame.lookAt(pos, Vector3.new(p.cframe.lookAt[1], p.cframe.lookAt[2], p.cframe.lookAt[3]))
+						else CFrame.new(pos)
+					part.Parent = root
+				end
+				return "materialized"
+			end
+			return "no-parts"
+		end
+		return "stub-root"
+	end
+
 	local function build()
 		local ctx = {
 			LuauUI = LuauUI,
@@ -416,6 +468,25 @@ function Runner.start(deps: { [string]: any })
 			-- examples/gallery/examples headlessly, so finding them is runner work
 			-- and the `examples` scenario stays path-free.
 			exampleModules = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIExamples"),
+			-- THE REFERENCE PROOF MODULES (swiftui-reference-app-validation):
+			-- ModuleScripts under ReplicatedStorage.LuauUIReference here, files
+			-- under examples/reference/ headlessly — resolved by the runner for the
+			-- same reason as the tutorial examples above, so the ref_* scenarios
+			-- stay engine-free and path-free.
+			referenceModules = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIReference"),
+			-- Live stage re-dress seam for the reference proofs: the proof hands
+			-- DATA, the runner does the engine work through the same shared
+			-- materializer the post-present pass uses. Resolves the controller
+			-- lazily so an observer wired at build time works after present.
+			stage = {
+				apply = function(nodePath: string, content: any): string
+					local built = session.built
+					if built == nil or built.handle == nil then
+						return "not-presented"
+					end
+					return applyStageContent((built.handle :: any).controller, nodePath, content)
+				end,
+			},
 			themePackages = (function(): { [string]: any }
 				local out: { [string]: any } = {}
 				local folder = game:GetService("ReplicatedStorage"):FindFirstChild("LuauUIThemes")
@@ -1023,6 +1094,34 @@ function Runner.start(deps: { [string]: any })
 		if session.built.screen ~= nil and session.built.handle == nil then
 			session.built.handle = deps.presenter.present(session.built.screen, session.built.present)
 		end
+		-- A KEYBOARD-FIRST SCENARIO RELEASES THE DEFAULT CAMERA'S ARROW KEYS.
+		-- Roblox's default CameraModule binds Left/Right (action name
+		-- `RbxCameraKeypress`) and SINKS them, so horizontal arrow navigation dies
+		-- in any place running the default camera (api.md `newPresenter`; measured
+		-- 2026-08-06). A scenario that declares `keyboardFirst = true` is a
+		-- UI-driven surface with no camera of its own, so the runner — the one
+		-- engine-side seam — releases the binding for the session. Opt-in per
+		-- scenario, so prior gates' scenarios keep the environment they passed in.
+		if (scenario :: any).keyboardFirst == true then
+			pcall(function()
+				game:GetService("ContextActionService"):UnbindAction("RbxCameraKeypress")
+			end)
+		end
+		-- STAGE CONTENT, MATERIALIZED BY THE RUNNER (swiftui-reference-app-validation).
+		-- A reference proof stays engine-free, so its 3D stage content arrives as
+		-- DATA: `built.stageContent = { [nodePath] = { camera?, lighting?, parts? } }`
+		-- ({ shape, size = {x,y,z}, color = {r,g,b}, cframe = { pos, lookAt? },
+		-- transparency? }). A nil host (headless twin, adapter without the seam)
+		-- is recorded, never an error — the proof's declared fallback plate is
+		-- the visible behavior there.
+		if session.built.stageContent ~= nil and session.built.handle ~= nil then
+			local controller = (session.built.handle :: any).controller
+			local applied: { [string]: string } = {}
+			for nodePath, content in session.built.stageContent :: { [string]: any } do
+				applied[nodePath] = applyStageContent(controller, nodePath, content)
+			end
+			session.built.stageApplied = applied
+		end
 	end
 
 	local function teardown()
@@ -1099,18 +1198,33 @@ function Runner.start(deps: { [string]: any })
 	-- Requires freezeEnv() first, or the live engine binding overwrites them.
 	-- Deserialises the shapes the environment expects (rects and inset tables).
 	function api.setEnv(facts: { [string]: any })
+		-- LOUD, not lossy (platform review N4): an unfrozen env means the live
+		-- engine binding will overwrite these facts on the next signal — the
+		-- write would look applied and silently revert, which is exactly the
+		-- instrument failure that left a device row proving the wrong input
+		-- class. And a fact the environment refuses is REPORTED, not dropped:
+		-- the caller sees { applied, failed } and can gate its row on both.
+		if not session.envFrozen then
+			error(
+				"runner.setEnv: freezeEnv() first — an unfrozen env re-overwrites every fact on the next engine signal",
+				0
+			)
+		end
 		local applied: { string } = {}
+		local failed: { [string]: string } = {}
 		for key, value in facts do
-			local ok = pcall(function()
+			local ok, err = pcall(function()
 				deps.env:set(key, value)
 			end)
 			if ok then
 				table.insert(applied, key)
+			else
+				failed[key] = tostring(err)
 			end
 		end
 		table.sort(applied)
 		deps.presenter.refresh()
-		return applied
+		return { applied = applied, failed = failed }
 	end
 
 	function api.reset()
@@ -1190,10 +1304,35 @@ function Runner.start(deps: { [string]: any })
 				end
 			end
 		end
+		-- the per-text-node facts of the last solve (font, lines, truncated,
+		-- disclose/reveal, policy) so an instrument judging TextFits can tell a
+		-- DECLARED truncation-with-disclosure from a genuine unfit finding
+		-- (swiftui-reference-app-validation matrix, 2026-08-08)
+		local textPolicies: any = nil
+		do
+			local handle = session.built and session.built.handle
+			local controller = handle and (handle :: any).controller
+			if controller ~= nil and controller.textAt ~= nil then
+				local ok2, facts = pcall(controller.textAt)
+				if ok2 and type(facts) == "table" then
+					local out: { [string]: any } = {}
+					for path, f in facts do
+						out[path] = {
+							truncated = (f :: any).truncated,
+							disclose = (f :: any).disclose,
+							reveal = (f :: any).reveal,
+							policy = (f :: any).policy,
+						}
+					end
+					textPolicies = out
+				end
+			end
+		end
 		local report = {
 			schema = "luauui-scenario/1",
 			scenario = name,
 			diagnostics = diagnostics,
+			textPolicies = textPolicies,
 			textMeasurement = textMeasurement,
 			ledgerRows = scenario.ledgerRows or {},
 			version = LuauUI.VERSION,
@@ -1278,7 +1417,7 @@ function Runner.start(deps: { [string]: any })
 					local r = facts.viewportRect
 					facts.viewportRect = { x = r.x, y = r.y, w = r.w, h = r.h }
 				end
-				return HttpService:JSONEncode({ applied = api.setEnv(facts) })
+				return HttpService:JSONEncode(api.setEnv(facts))
 			end,
 		} :: { [string]: (string?) -> string }
 	do

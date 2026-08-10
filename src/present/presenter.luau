@@ -460,6 +460,43 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	end
 	local motionClock = presenterOpts.clock or motionClockLib.new(core, { motionPolicy = motionPolicy, now = nowFn })
 	self.motionClock = motionClock
+
+	-- ===== scroll indicator policy (director ruling 2026-08-09) ==============
+	-- The environment derives it ("always" on pointer sessions, "auto" on
+	-- touch/gamepad); the ADAPTER applies it, because indicators are engine
+	-- paint and the reserve is engine geometry. A DECLARED optional target
+	-- method: an adapter without it keeps its constant bar and nothing else
+	-- changes. The policy also moves the adapter's published bar thickness
+	-- (auto = overlay = zero reserve), so a change re-solves every surface.
+	if type((adapter :: any).setScrollIndicatorPolicy) == "function" then
+		local okP, policyReadable = pcall(function()
+			return env:get("scrollIndicatorPolicy")
+		end)
+		if okP and policyReadable ~= nil then
+			local function applyIndicatorPolicy()
+				local reduced = if motionPolicy ~= nil then motionPolicy:get() == "reduced" else false
+				local policy = policyReadable:get();
+				(adapter :: any).setScrollIndicatorPolicy(policy, reduced)
+			end
+			-- session-lifetime, like the presenter itself (it has no dispose):
+			-- kept on self so the ownership is visible, not implicit. An effect
+			-- runs once at creation — that first run is the boot application and
+			-- must NOT refresh (self.refresh is not constructed yet, and there
+			-- is nothing mounted to re-solve); only CHANGES re-solve.
+			local booted = false
+			self._scrollIndicatorWatcher = core:effect(function(use)
+				use(policyReadable)
+				if motionPolicy ~= nil then
+					use(motionPolicy)
+				end
+				applyIndicatorPolicy()
+				if booted and type(self.refresh) == "function" then
+					self.refresh()
+				end
+				booted = true
+			end)
+		end
+	end
 	local lastTick = nowFn()
 	-- per-frame work registered through self.onTick (autoscroll steppers, fixture
 	-- probes) — run inside self.tick, after the motion step

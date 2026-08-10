@@ -53,6 +53,14 @@ local ORDER = {
 	-- other stage's evidence uses. It owns no UI — it mounts one example
 	-- verbatim and adds the select/theme drive surface
 	"examples",
+	-- roadmap Step 11 (swiftui-reference-app-validation): the five clean-room
+	-- reference proofs, one scenario per proof, each a thin delegation to its
+	-- examples/reference module (see ref_*.luau headers)
+	"ref_glade",
+	"ref_cartwheel",
+	"ref_sipworks",
+	"ref_foyer",
+	"ref_wardrobe",
 }
 
 local scenarios = {}

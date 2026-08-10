@@ -378,7 +378,7 @@ so read them before declaring one there):
 
 ### `ScrollView`
 
-`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, onScrollWheel?, children? }`
+`UI.ScrollView{ id?, axis? ("y" default | "x"), padding?, gap?, autoscroll?, indicators? ("auto" default | "none" — a peeking carousel's affordance is the half-visible next tile, so it may declare its indicator off; layout is untouched), onScrollWheel?, children? }`
 — scrolling container. `onScrollWheel(path, delta, rectOf)` receives
 hover-wheel input routed by the adapter (the composite scrolling controls use
 it; a plain `ScrollView` relies on the native host instead). the scroll axis measures children unbounded and reports
@@ -392,6 +392,22 @@ adapter without the scroll seam, e.g. billboards) still crops overflow.
 canvas extent along x, and stretches cross-axis `fill` children to the viewport
 height (before this the solver stacked horizontal children in a column and
 reported a canvas the engine could not scroll to).
+
+**Scroll indicators (director ruling 2026-08-09).** The environment derives
+`scrollIndicatorPolicy` from `interactionClasses.primary` — `"always"` on
+pointer sessions (the desktop convention: a persistent bar whose thickness the
+solver RESERVES off the scrolling region's cross axis), `"auto"` on touch and
+gamepad sessions (the platform convention: OVERLAY indicators that lay claim
+to no layout space, appear while scrolling, FLASH once when a scrollable
+region first mounts — so a page that continues below never reads as cut off —
+and fade when idle). Reduced motion never fades: `auto` degrades to
+visible-whenever-scrollable. The presenter pushes the policy through the
+declared optional target method `setScrollIndicatorPolicy(policy, reduced)`;
+an adapter without the seam keeps the constant persistent bar. The indicator's
+COLOR stays the theme's `Scroll bar` rule; its visibility is behavior, not
+paint. Known limit, recorded: the engine bar is a single tintable image, so a
+theme-colored thumb can vanish over live WORLD content behind a transparent
+surface — outline indicator art is the follow-on (framework-fixes.md).
 
 **`autoscroll` — drag-to-edge, and it belongs to the SCROLLER.** While a pointer
 drag is in flight, a `ScrollView` whose edge band the drag point is inside scrolls
@@ -711,6 +727,12 @@ grid of LABELS: a px literal is a guess about a font, so the same declaration
 over-wraps under a small type ladder and clips under a wide display face. The
 intrinsic width is re-measured on every solve, so a theme swap re-columns the
 grid with nothing to update.
+
+Inside a CONTENT-SIZED parent, a `minColumnWidth` grid reports at least the width
+its columns need — `columns × minColumnWidth` plus the gaps between them — even
+when the cells themselves are narrower. That is what keeps the column count
+stable: a hug parent hands the reported width straight back as the layout width,
+and a narrower report would re-column the grid into more rows than it measured.
 
 `itemSizing` is `"natural"` (the default: every cell sizes to its own content)
 or `"uniform"`. `"uniform"` measures every child, takes the **max** measured cell
@@ -1071,6 +1093,89 @@ re-runs from the host's own offset change without forcing a re-solve — so a
 windowed row scrolled out of a list takes its ring with it. Consequence to
 design for: a path meant to overhang a clipping container (a glow ring wider
 than its plate) must live OUTSIDE that container, exactly as a shadow does.
+
+### `Stage`
+
+`UI.Stage{ id?, width?, height?, surface?, tint? }` — the **engine-content box**:
+a leaf that reserves a rectangle for content the *engine* draws (a kart preview, a
+character turnaround, a hero rig) instead of content LuauUI lays out. The adapter
+materializes it as a `ViewportFrame` and creates and owns two instances inside it:
+one `WorldModel` (the content root) and one `Camera` assigned to the frame's
+`CurrentCamera`. Both die with the node.
+
+**It measures 0×0 without explicit dimensions**, exactly like `UI.Box`: the
+framework cannot ask a 3D scene how large it would like to be, so a Stage with no
+`width`/`height` reserves nothing and you will see nothing. Always give it a box:
+
+```lua
+UI.Stage({
+    id = "Preview",
+    width = { type = "fixed", px = 240 },
+    height = { type = "fixed", px = 240 },
+    surface = "raised",
+})
+```
+
+`surface` is the standard eight-surface vocabulary (`base`, `raised`, `control`,
+`chip`, `badge`, `accent`, `scrim`, `plain`) and paints the plate *behind* the
+scene. **`tint`** (see [above](#continuous-colour-tint)) claims the frame's own
+`ImageColor3` — a stage's "picture" is the scene it renders, and the engine
+multiplies it exactly as it multiplies an `Image`'s asset — so a tint dims or hues
+the *content*, not the plate. Layout, focus, and paint are otherwise an ordinary
+leaf's: a Stage is not focusable and owns no input.
+
+#### The content seam: `controller.stageHost(path)`
+
+Content is engine Instances by nature, so it never travels through a blueprint.
+`renderer.attach(...)`'s controller answers a **per-node handle**, cached, with an
+engine-type-free boundary — plain tables in, engine writes out:
+
+| Call | Shape | What it does |
+|---|---|---|
+| `setCamera(spec)` | `{ position = { x, y, z }, lookAt = { x, y, z }, fov? }` | aims the owned camera (`CFrame.lookAt`; `fov` in degrees, clamped 1–120, absent = unchanged) |
+| `setLighting(spec)` | `{ ambient? = { r, g, b }, lightColor? = { r, g, b }, lightDirection? = { x, y, z } }` | writes the frame's `Ambient` / `LightColor` / `LightDirection`. Colours are 0–1 floats, the same shape the theme tokens use; every field is optional and independent, but an empty spec is refused |
+| `contentRoot()` | — | the owned `WorldModel`. Parent your models here |
+
+```lua
+local stage = controller.stageHost("/Garage/Preview")
+if stage == nil then
+    -- this adapter has no stage seam: show a fallback plate
+else
+    kartModel.Parent = stage.contentRoot()
+    stage.setCamera({ position = { x = 0, y = 4, z = 9 }, lookAt = { x = 0, y = 1, z = 0 }, fov = 45 })
+    stage.setLighting({ ambient = { r = 0.35, g = 0.35, b = 0.4 } })
+end
+```
+
+**Who owns what.** LuauUI owns the frame, the `WorldModel`, the `Camera`, the box,
+the lifecycle, and *every* write to `Ambient`, `LightColor`, `LightDirection` and
+`CurrentCamera` — those four are declared seam-owned in
+`src/render/authority.luau`, so a bespoke write to one is an error, not a silent
+second authority. **You own whatever you parent into `contentRoot()`**: the
+framework never enumerates, moves, or re-parents it, and it is destroyed with the
+frame when the node unmounts. A handle whose node has died refuses every call by
+name — ask `controller.stageHost(path)` again after a remount.
+
+Malformed specs are refused at the call (constitution §4): an unknown key, a
+missing `lookAt`, a non-numeric channel, or a camera whose `position` and `lookAt`
+are the same point all error naming the field.
+
+<a id="stage-costs"></a>
+**What a stage costs.** Each one is a **separate scene render** every frame it is
+visible — the same class of cost a `CanvasGroup`'s buffer is, and larger. A stage
+is for a *small number of stable boxes*: a preview pane, a hero, a garage
+turnaround. It is not a list cell: a scrolling roster of live 3D thumbnails is N
+scene renders per frame and will not hold frame rate on a phone. Render one stage
+and change what is in it, or fall back to pre-rendered images.
+
+**The fallback contract.** `stageHost` is an OPTIONAL render-target method
+(`render/target_contract.luau`). A controller whose adapter does not implement it —
+or whose engine lacks `ViewportFrame`/`WorldModel`/`Camera`, or a node that is not
+a live Stage — returns **nil**, and the node is simply an empty reserved box that
+still paints its `surface`. Gate on the nil or present a fallback plate; never
+assume the handle. `billboard_target` deliberately does **not** implement the seam:
+a scene rendered inside a camera-projected world canvas is unproven, so it degrades
+by name rather than shipping an unmeasured render.
 
 ### `Grip`
 
@@ -2491,6 +2596,7 @@ headlessly testable):
 | `adaptive.columnsFor(available, minColumnWidth, gap?)` | the column count a `UI.Grid` with that `minColumnWidth` will derive — the same arithmetic the solver uses, so a screen can ask before laying anything out |
 | `adaptive.heightClass(height, opts?)` | `"short"` (< 600) / `"medium"` (< 1000) / `"tall"`. `opts.distanceProfile = "ten-foot"` caps at `"medium"`, for the same reason the width cap exists: `tall` is the densest vertical arrangement. Degrades to `"short"` on nil/NaN |
 | `adaptive.orientationFor(width, height)` | `"landscape"` / `"portrait"` / `"square"` — a **shape** fact, not a device fact: a windowed pane on a desktop is portrait and must be treated as one |
+| `adaptive.navPlacement(facts)` | `"bottomBar"` / `"bottomBarCompact"` / `"topBar"` / `"sidebar"` — THE app-level tab/sidebar placement policy (director rulings 2026-08-09, aligned to the platform tab-bar guidance): compact width → a full-width bottom tab bar in the thumb zone; short height → the same bar in its reduced INLINE form (short labels, tighter band, CENTERED and hugging its tabs — a landscape phone); ten-foot → a center-aligned top tab bar that HUGS its content, never full width; pointer-primary → a sidebar (desktop shape); touch- or gamepad-primary with a `Medium`/`Large` engine DisplaySize → the same centered top bar (tablet shape); touch/gamepad with a `Small` or unknown display → bottom tabs (a roomy canvas the display fact cannot tell from a phone or handheld stays one — when we cannot differentiate, bottom tabs). `facts = { sizeClass, heightClass, distanceProfile?, primary?, displaySize? }` — shape, input and display facts only, never a device idiom (touch ALONE is not the top-bar indicator: a touch phone and a touch tablet share the class, and DisplaySize is what separates them). Every placement must remain gamepad-traversable — enter, through, away, and ButtonA activation — which the reference proofs pin per home. Pure, so the `conditions` memo and tests share one implementation |
 | `adaptive.BREAKPOINTS` | `{ regular = 600, wide = 1000 }` as data |
 | `adaptive.DEFAULT_STACK_ABOVE` | `600` — the default `axisFor` threshold, as data. It is the compact/regular boundary on purpose, so a screen that adapts its stack and a screen that adapts its density flip at the same width |
 | `adaptive.HEIGHT_BREAKPOINTS` | **the same table**. The question is identical on both axes ("how much content fits along this one"), and a second set of literals would be a second thing to justify and a second thing to drift. A rotation therefore maps a class pair onto its mirror: 733×313 is `regular`×`short`, 313×733 is `compact`×`medium` |
@@ -2499,7 +2605,10 @@ headlessly testable):
 the caller owns — `sizeClass`, `isCompact`, `isRegular`, `isWide`, `isTenFoot`,
 `viewportWidth`, and `axis` (ready to bind to `UI.AdaptiveStack`), plus the
 height half: `heightClass`, `isShort`, `isTall` (medium height is neither),
-`viewportHeight`, `orientation` and `isLandscape`. They are memos
+`viewportHeight`, `orientation` and `isLandscape` — and `navPlacement`, the
+reactive form of `adaptive.navPlacement` (it additionally reads the
+environment's `interactionClasses.primary`, so a tab bar moves home when the
+primary input class changes, not when a device name does). They are memos
 over the environment, so they cost nothing until read and re-resolve in place when a
 fact changes. `sizeClass` delegates to the environment's own memo, so the
 breakpoints have exactly one implementation.

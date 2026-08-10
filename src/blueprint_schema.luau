@@ -918,6 +918,21 @@ class("ScrollView", {
 			channel = "handler",
 			doc = "onScrollWheel(path, delta, rectOf) — hover-wheel routing from the adapter",
 		}),
+		indicators = p({
+			-- CAROUSEL INDICATOR OPT-OUT (director ruling 2026-08-09): a peeking
+			-- carousel's affordance IS the half-visible next tile, and the
+			-- reference apps draw no bar on theirs — so a scroller may declare
+			-- its indicators off. "auto" (default) follows the session's
+			-- scrollIndicatorPolicy; "none" suppresses this host's indicator
+			-- entirely. LAYOUT is untouched either way: the reserve is a
+			-- session-policy fact, not a per-host one, so a "none" host in an
+			-- "always" session simply leaves its reserved lane empty.
+			types = { "string" },
+			reactive = false,
+			enum = { "auto", "none" },
+			channel = "layout",
+			doc = 'scroll indicators: "auto" (default, session policy) or "none" (carousels whose affordance is the peeking tile)',
+		}),
 		autoscroll = p({
 			-- DRAG-TO-EDGE AUTOSCROLL BELONGS TO THE SCROLLER, NOT TO ITS CONTENTS
 			-- (director, 2026-07-29). The first cut of this put the policy in Table,
@@ -1661,6 +1676,32 @@ class("Grip", {
 			channel = "handler",
 			doc = "onPointerCancel(path, reason)",
 		}),
+	}),
+})
+
+-- THE ENGINE-CONTENT BOX (ViewportFrame adoption; research
+-- docs/research/2026-08-08-viewportframe-engine-facts.md). A leaf that reserves a
+-- rectangle for content the ENGINE draws — a 3D preview, a hero rig — instead of
+-- content LuauUI lays out. It is deliberately spare: the box, its surface, and its
+-- one continuous paint channel are authored props like any other leaf's, and
+-- everything engine-shaped (the camera, the lighting, the content root) rides the
+-- adapter's `stageHost` seam, where the engine types can be converted at the one
+-- boundary that is allowed to know about them.
+--
+-- NO INTRINSIC CONTENT, and therefore no intrinsic size: a Stage measures 0x0
+-- exactly as a Box does, because the framework cannot ask a 3D scene how big it
+-- would like to be. Authors give it `width`/`height` (api.md says so).
+class("Stage", {
+	container = false,
+	structural = false,
+	props = merge(BOX, {
+		-- the eight-surface vocabulary, shared with Box: the plate BEHIND the
+		-- rendered scene (a Stage is transparent until something paints it)
+		surface = CONTAINER_LAYOUT.surface,
+		-- ...and the one continuous channel, which on this class claims the frame's
+		-- own ImageColor3 — a ViewportFrame's "picture" is the scene it renders, so
+		-- the tint multiplies it exactly as an Image's tint multiplies its asset
+		tint = TINT,
 	}),
 })
 

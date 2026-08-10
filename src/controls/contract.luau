@@ -77,6 +77,14 @@ local CONTROLS: { [string]: ControlContract } = {
 		actions = {},
 		accessibility = "decorative stroked path (Path2D); color via style role",
 	},
+	Stage = {
+		focusRole = "none",
+		actions = {},
+		accessibility = "engine-content box (ViewportFrame): reserves a rect for a scene the ENGINE draws "
+			.. "and owns its camera/lighting/content root behind controller.stageHost. It owns no input — "
+			.. "a stage is a picture, and interaction is composed AROUND it (a Grip sibling, a Button "
+			.. "overlay), so the surrounding controls keep the four-input story",
+	},
 	Grip = {
 		focusRole = "focusable", -- OPT-IN: unfocusable unless focusable = true
 		actions = { "Adjust" },

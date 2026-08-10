@@ -1661,6 +1661,20 @@ function renderer.attach(
 				createOpts = { canvasGroup = true }
 			end
 			local hint = chrome_slots.readHint(node)
+			-- A STAGE IS NEVER A DECORATION SURFACE (reference-app matrix,
+			-- 2026-08-08). An ornate package's whole-art recipe painted its
+			-- `control` plate OVER a Stage's ViewportFrame — the 3D scene, which
+			-- IS the node's content, vanished behind the skin. The engine-content
+			-- leaf pins the no-slot hint at creation so no package recipe can
+			-- ever cover the scene; a theme still reaches the pane through the
+			-- authored stroke/corners modifiers, which decorate the box's edge
+			-- rather than its face.
+			if node.class == "Stage" then
+				-- UNCONDITIONAL (architecture review F14): "never a decoration
+				-- surface" is a fact about the CLASS, so no channel — not even a
+				-- blueprint-supplied hint — may override it into a covering slot.
+				hint = { slot = chrome_slots.NO_SLOT }
+			end
 			local adopted: any = nil
 			if recycleEnabled then
 				local key = recycleKey(node.class, hint, createOpts ~= nil, propSignature(node))
@@ -2582,6 +2596,16 @@ function renderer.attach(
 								axis = props.axis or "y",
 								contentW = entry.contentSize.w + pl + pr + bleed,
 								contentH = entry.contentSize.h + pt + pb + bleed,
+								-- the host's ARRANGED box, so the adapter's cross-axis
+								-- canvas clamp is deterministic instead of racing the
+								-- engine's own window geometry mid-layout
+								hostW = entry.w,
+								hostH = entry.h,
+								-- per-host indicator opt-out (director ruling 2026-08-09):
+								-- carried on the region because the adapter learns a host
+								-- overflows on exactly this walk — the same place its
+								-- indicator lifecycle begins
+								indicators = if props.indicators == "none" then "none" else "auto",
 							}
 							-- the host's own autoscroll declaration, recorded on the SAME
 							-- walk that publishes its canvas: `false` opts out, a table
@@ -2596,6 +2620,9 @@ function renderer.attach(
 								or last.axis ~= region.axis
 								or last.contentW ~= region.contentW
 								or last.contentH ~= region.contentH
+								or last.indicators ~= region.indicators
+								or last.hostW ~= region.hostW
+								or last.hostH ~= region.hostH
 							then
 								authority.assertWrite("common", "canvasSize", "layout")
 								adapter.setScrollRegion(handle, region)
@@ -3670,6 +3697,25 @@ function renderer.attach(
 		if adapter.setRootDisplayOrder ~= nil then
 			adapter.setRootDisplayOrder(rootHandle, n)
 		end
+	end
+
+	-- THE ENGINE-CONTENT SEAM (UI.Stage, ViewportFrame adoption 2026-08-08). A
+	-- `Stage` reserves a box for content the ENGINE draws, and that content is
+	-- Instances by nature — so the framework never touches it: the adapter answers
+	-- a per-node handle (camera, lighting, a content root the caller parents its own
+	-- models into) and this is the one door to it. Optional on BOTH sides: an
+	-- adapter that never grew the seam, a node that is not a live Stage, or a path
+	-- that is not mounted all answer nil, so an author gates on the nil or presents
+	-- a fallback plate — never a crash and never a silent no-op.
+	function controller.stageHost(path: string): any?
+		if adapter.stageHost == nil then
+			return nil
+		end
+		local handle = handles[path]
+		if handle == nil then
+			return nil
+		end
+		return adapter.stageHost(handle)
 	end
 
 	-- whole-surface visibility, used by the presenter's no-pop text gate: a

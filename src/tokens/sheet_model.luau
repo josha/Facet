@@ -1341,6 +1341,10 @@ sheet_model.TINT_IDENTITY = table.freeze({
 	Text = "content",
 	Path = "content",
 	Image = "white",
+	-- a Stage tints its rendered SCENE through the same ImageColor3 multiply an
+	-- Image uses, so its identity is white for the same reason: white multiplies
+	-- to the picture the engine already drew
+	Stage = "white",
 })
 
 -- paletteColor(theme, role) -> { r, g, b }: a declared tint role resolved

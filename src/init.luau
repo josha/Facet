@@ -148,6 +148,9 @@ local LuauUI = {
 	-- rings/arcs/needles as normalized control points, headlessly tested
 	pathShapes = require("@self/controls/path_shapes"),
 
+	-- row actions: pure swipe state verdicts (axis lock, rubber-band, settle)
+	-- for row-swipe interaction. No instance, no mount; verdicts are return values.
+
 	-- async image over the resource provider (native-substrate NS-A14)
 	newAsyncImage = require("@self/controls/async_image").build,
 	-- pure drag-session model + native touch-gesture normalization/arbitration

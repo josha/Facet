@@ -18,6 +18,7 @@ UI : table
   UI.Screen : function
   UI.ScrollView : function
   UI.Spacer : function
+  UI.Stage : function
   UI.Text : function
   UI.TextField : function
   UI.Toggle : function

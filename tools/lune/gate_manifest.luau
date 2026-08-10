@@ -50,6 +50,159 @@ export type Check = {
 }
 
 local manifest: { [string]: { Check } } = {
+	["swiftui-reference-app-validation"] = {
+		-- Roadmap Step 11 (docs/plans/swiftui-reference-app-validation.md): five
+		-- self-contained clean-room reference proofs — three interpreting Apple's
+		-- Backyard Birds / Food Truck / Fruta samples, plus (director-added scope
+		-- 2026-08-08) the Roblox app's discovery home screen and avatar editor —
+		-- each running a complete representative loop through public LuauUI only,
+		-- with a complete honest feature ledger separating LuauUI behavior,
+		-- game/Roblox-service behavior, and Apple host-OS behavior.
+		--
+		-- REGISTERED BEFORE ANY IMPLEMENTATION EDIT. Every check is a bare PENDING
+		-- at registration and becomes a `run` only once its implementation AND its
+		-- evidence exist (manifest header rule). Acceptance rows RA-* live in
+		-- artifacts/swiftui-reference-app-validation/acceptance.md.
+		--
+		-- THE EVIDENCE-CLASS RULE: an unavailable Apple host surface (widgets, App
+		-- Clips, Live Activities, Dynamic Island, WeatherKit, share sheets, OS
+		-- payment sheets) is a LEDGER row, never a simulated fixture claiming
+		-- parity. Studio emulation closes no physical touch/gamepad/OS row.
+		{
+			name = "acceptance-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/acceptance.md && test -f "$f" && for id in RA-1 RA-2 RA-3 RA-4 RA-5 RA-6 RA-7 RA-8 RA-9 RA-P1 RA-P2 RA-P3 RA-P4 RA-P5 RA-M1 RA-M2 RA-M3 RA-M4 RA-M5; do grep -qE "[|] [*][*]${id}[*][*] [|].*[|] PASS_AUTOMATED" "$f" || { echo "$id not closed"; exit 1; }; done && grep -qE "[|] [*][*]RA-X1[*][*] [|].*[|] PENDING_PHYSICAL [|]" "$f" && grep -qE "[|] [*][*]RA-X2[*][*] [|].*[|] PENDING_PHYSICAL [|]" "$f" && grep -qE "[|] [*][*]RA-X3[*][*] [|].*[|] PENDING_HUMAN [|]" "$f"',
+			evidence = "artifacts/swiftui-reference-app-validation/acceptance.md",
+			note = "Every RA row must be status-anchored PASS_AUTOMATED and the three honest pendings must still read PENDING_PHYSICAL / PENDING_HUMAN — a row left PENDING fails the gate, and a relabelled physical row fails it too",
+		},
+		{
+			name = "source-inspection-and-ip-boundary",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/sources.md && test -f "$f" && grep -qF "2026-08-08" "$f" && grep -qF "behavioral references only" "$f" && grep -qF "Xcode 15.1" "$f" && grep -qF "Xcode 14.3" "$f" && grep -qF "Xcode 13.3" "$f" && grep -qF "Roblox desktop app (macOS), observed live 2026-08-08" "$f" && test -f artifacts/swiftui-reference-app-validation/sources/features-backyard-birds.md && test -f artifacts/swiftui-reference-app-validation/sources/features-food-truck.md && test -f artifacts/swiftui-reference-app-validation/sources/features-fruta.md && ! grep -rqE "Backyard Birds|Food Truck|Fruta" examples/reference/ --include="*.luau"',
+			evidence = "artifacts/swiftui-reference-app-validation/sources.md",
+			note = "Stage-start fetch dates + platform baselines recorded for all three Apple samples; the three source-read inventories exist; Roblox app observation recorded; and the clean-room grep proves no reference product name appears in any proof source",
+		},
+		{
+			name = "capability-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/capability-ledger.md && test -f "$f" && for w in "available" "composable" "framework gap" "Roblox-service adaptation" "no host equivalent"; do grep -qF "$w" "$f" || { echo "missing class: $w"; exit 1; }; done && grep -qF "## B. Backyard Birds" "$f" && grep -qF "## C. Food Truck" "$f" && grep -qF "## D. Fruta" "$f" && grep -qF "## E. Roblox app home" "$f" && grep -qF "## F. Roblox app avatar editor" "$f" && grep -qF "No percentage score" "$f"',
+			evidence = "artifacts/swiftui-reference-app-validation/capability-ledger.md",
+			note = "All five reference sections present, all five classifications in use, and the no-percentage rule stated in the ledger itself",
+		},
+		{
+			name = "responsibility-ledger",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/responsibility-ledger.md && test -f "$f" && grep -qF "Forbidden in proofs" "$f" && grep -qF "MarketplaceService" "$f" && grep -qF "LocalizationService" "$f" && grep -qF "never faked" "$f" && ! { grep -rnE "Instance[.]new|GetService[(]|UserInputService|os[.]clock|os[.]time|math[.]random" examples/reference/ --include="*.luau" | grep -vE ":[0-9]+:[[:space:]]*--" | grep -q .; } && lune run tools/lune/check_example_drift_cli >/dev/null',
+			evidence = "artifacts/swiftui-reference-app-validation/responsibility-ledger.md",
+			note = "The ownership split + production-service mapping exist, and the forbidden-list is ENFORCED by grep over every proof source (no Instance.new/GetService/UserInputService/wall-clock/random) plus the property-authority drift scan now covering examples/reference",
+		},
+		{
+			name = "proof-garden-loop",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/swiftui-reference-app-validation/proofs/garden.json && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*restores the level, and the ring drains again" && echo "$out" | grep -q "✓.*the button says Confirming" && echo "$out" | grep -q "✓.*rejection, with its copy under the card" && echo "$out" | grep -q "✓.*every declared rejection reason has player-facing copy" && echo "$out" | grep -q "✓.*restore runs the same three-phase command"',
+			evidence = "artifacts/swiftui-reference-app-validation/proofs/garden.json",
+			note = "Garden/collection proof: persistent-looking resources, refill actions, detail, purchase/subscription-shaped flow on deterministic fake services — the complete representative loop played, not a static screen",
+		},
+		{
+			name = "proof-dashboard-loop",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/swiftui-reference-app-validation/proofs/dashboard.json && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*THE COUNTDOWN SURVIVES NAVIGATION" && echo "$out" | grep -q "✓.*SELECTION RESETS PUSHED DETAIL" && echo "$out" | grep -q "✓.*BOTH purchase outcomes are reachable" && echo "$out" | grep -q "✓.*arrive in id order at seeded intervals and then stop" && echo "$out" | grep -q "✓.*already-collected brew is REJECTED, with copy, and reverts"',
+			evidence = "artifacts/swiftui-reference-app-validation/proofs/dashboard.json",
+			note = "Operations dashboard proof: adaptive split navigation, recent orders, detail + status changes, timer, custom thumbnail layout, charts — loop played end to end",
+		},
+		{
+			name = "proof-catalog-loop",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/swiftui-reference-app-validation/proofs/catalog.json && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*idle -> pending -> rejected, shows a toast" && echo "$out" | grep -q "✓.*presents Order-Placed, and the disc flips" && echo "$out" | grep -q "✓.*redeeming debits a flat ten" && echo "$out" | grep -q "✓.*locked rows are ABSENT until the purchase confirms" && echo "$out" | grep -q "✓.*expands every string by at least 1.4x" && echo "$out" | grep -q "✓.*reflows every mounted surface with no remount"',
+			evidence = "artifacts/swiftui-reference-app-validation/proofs/catalog.json",
+			note = "Catalog proof: browse/search, favorites, rewards, recipes, ordering, localization expansion, plus a compact entry flow reusing the full experience's components",
+		},
+		{
+			name = "proof-discovery-home-loop",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/swiftui-reference-app-validation/proofs/discovery-home.json && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*swaps chrome but never remounts the home body" && echo "$out" | grep -q "✓.*swaps the feed to the approval-ranked section" && echo "$out" | grep -q "✓.*then confirms with re-seeded sections" && echo "$out" | grep -q "✓.*honest empty state with a working clear button" && echo "$out" | grep -q "✓.*five-view sweep is diagnostic-clean with a live scrollbar"',
+			evidence = "artifacts/swiftui-reference-app-validation/proofs/discovery-home.json",
+			note = "Roblox-app-shaped discovery home proof: nav rail, friends carousel, sectioned recommendation feed with horizontal shelves, ratings, search, responsive column reflow — loop played end to end",
+		},
+		{
+			name = "proof-avatar-editor-loop",
+			requirements = { "UI-AGENT-001" },
+			run = 'test -f artifacts/swiftui-reference-app-validation/proofs/avatar-editor.json && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*lighting + camera recorded, fallback closed" && echo "$out" | grep -q "✓.*worn state survives the flip" && echo "$out" | grep -q "✓.*undo/redo walk the equip history and disable at the stack ends" && echo "$out" | grep -q "✓.*the wallet never moves; retry stays allowed" && echo "$out" | grep -q "✓.*balance debits, chip flips to Owned"',
+			evidence = "artifacts/swiftui-reference-app-validation/proofs/avatar-editor.json",
+			note = "Avatar-editor-shaped proof: category tabs, item grid with prices/creators, live preview pane (ViewportFrame-backed), equip/try-on with undo/redo, currency display, purchase-shaped flow on fake services, compact split adaptation — loop played end to end",
+		},
+		{
+			name = "device-matrix",
+			requirements = { "UI-LAYOUT-001" },
+			run = "python3 -c \"\nimport json\nd = json.load(open('artifacts/swiftui-reference-app-validation/studio/device-matrix.json'))\nrows = set(d['rowSet'])\nassert rows == {'compact-phone-portrait', 'compact-phone-landscape', 'tablet-landscape', 'desktop-standard', 'console-ten-foot'}\nfor name in ('glade', 'cartwheel', 'sipworks', 'foyer', 'wardrobe'):\n    p = d['proofs'][name]\n    assert set(p['rows']) == rows, name\n    bad = {r: s for r, s in p['rows'].items() if s != 'ok'}\n    assert not bad, f'{name}: {bad}'\n    assert 'keyboard' in p and p['keyboard'].startswith('ok'), f'{name}: keyboard row not ok'\n\" && python3 -c \"\nimport json, glob, sys\nbad = []\nfor name in ('glade', 'cartwheel', 'sipworks', 'foyer', 'wardrobe'):\n    files = glob.glob(f'artifacts/swiftui-reference-app-validation/studio/{name}/row-*.json')\n    if len(files) < 6:\n        bad.append(f'{name}: only {len(files)} row files (need 5 views + keyboard)')\n    for f in files:\n        if json.load(open(f)).get('ok') is not True:\n            bad.append(f'{f}: ok is not true')\nif bad:\n    print(bad)\n    sys.exit(1)\n\"",
+			evidence = "artifacts/swiftui-reference-app-validation/studio/device-matrix.json",
+			note = "Each proof loop across the five view rows with presets resolved at runtime, VirtualInput keyboard/pointer traces from live geometry, raw event paired with semantic action; every row must read ok (a RERUN_OWED entry fails this check, which is the point) and per-row evidence files must exist",
+		},
+		{
+			name = "fixture-axes",
+			requirements = { "UI-THEME-001" },
+			run = "python3 -c \"\nimport json\nd = json.load(open('artifacts/swiftui-reference-app-validation/studio/fixture-axes.json'))\nfor name in ('glade', 'cartwheel', 'sipworks', 'foyer', 'wardrobe'):\n    p = d['proofs'][name]\n    assert 'RERUN_OWED' not in str(p.get('status', '')), f'{name} axes owed'\n    for axis in (k for k in p if k not in ('themedNavigationSweep', 'headless', 'transients', 'status', 'prior', 'note')):\n        v = p[axis]\n        assert v == 0 or (isinstance(v, str) and ('settled 0' in v or v.startswith('0 '))), f'{name}.{axis}={v}'\nassert len(d['liveDefectsFoundByTheseAxes']) >= 4\n\"",
+			evidence = "artifacts/swiftui-reference-app-validation/studio/fixture-axes.json",
+			note = "Theme swap on the mounted tree, preferred text, reduced motion, and pseudo-locale per proof, driven through declared seams only; every axis must be settled-0 with no proof left owed, and the axes' own defect harvest (4 live framework defects) is recorded",
+		},
+		{
+			name = "places-and-builds",
+			requirements = { "UI-AGENT-001" },
+			run = "tools/build_reference_places.sh >/dev/null && python3 -c \"import json,os; d=json.load(open('artifacts/swiftui-reference-app-validation/places.json')); names={'LuauUI-Ref-Glade','LuauUI-Ref-Cartwheel','LuauUI-Ref-Sipworks','LuauUI-Ref-Foyer','LuauUI-Ref-Wardrobe'}; assert set(d['places'])==names; assert all(os.path.getsize(f'examples/places/{n}.rbxl')>200000 for n in names)\"",
+			evidence = "artifacts/swiftui-reference-app-validation/places.json",
+			note = "All five reference places rebuild from clean source at gate time and exist at credible size; the artifact records bytes+digest per place and the no-network/no-purchase determinism contract",
+		},
+		{
+			name = "framework-fixes-tested",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/framework-fixes.md && test -f "$f" && grep -qF "UI.Stage" "$f" && grep -qF "Grid measure is now a fixed point" "$f" && grep -qF "hug ScrollView now measures the scrollbar" "$f" && grep -qF "Findings (follow-on candidates" "$f" && grep -qF "corpse-in-the-pool" "$f" && grep -qF "Fix 6" "$f" && out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*a grid of content buttons in a hug stack reports no overflow" && echo "$out" | grep -q "✓.*an overflowing hug x-shelf reports zero diagnostics with a live bar" && echo "$out" | grep -q "✓.*derives the glyph from the name after the namespace" && echo "$out" | grep -q "✓.*parkEligible refuses an unparented (destroyed) instance" && echo "$out" | grep -q "✓.*adopt refuses (never throws) when the Parent write fails" && echo "$out" | grep -q "✓.*a fill-size page scroller taller than the stack is NOT an overflow" && echo "$out" | grep -q "✓.*a fill-WIDTH child still reports its oversize HEIGHT" && echo "$out" | grep -q "✓.*hands back ONE cached handle per node" && echo "$out" | grep -q "✓.*setCamera records position/lookAt/fov in the exact table shape" ',
+			evidence = "artifacts/swiftui-reference-app-validation/framework-fixes.md",
+			note = "The six bounded fixes (Stage NO_SLOT leaf, Grid measure fixed-point, ScrollView bar measure, namespaced-icon ASCII floor, park-corpse guards, ZStack fill-axis diagnostic) are anchored to their live suite cases, and the follow-on findings section exists; approximations are declared, never claimed as parity",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			run = "./tools/test.sh 3868",
+			evidence = "artifacts/test.json",
+			note = "Floor is the stage-close count 3868 (+ the scroll-indicator policy chain: derivation, seam, reserve consequence, reduced motion, absent-seam degrade) (the HIG tab-bar round: navPlacement policy cases, per-placement geometry + gamepad-traversal pins across three proofs, and the glade locale-x-width-x-selection sweep) (stage-start 3556 + ~225 proof pins + the six framework fixes' cases incl. the park-corpse anchors and the ZStack fill-diagnostic trio); the floor makes this stage's own pins regressing fail the gate",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			run = "if [ -n \"${LUAUUI_PRIOR_GATES_NESTED:-}\" ]; then echo \"prior-gates: NESTED - regeneration skipped (the outer prior_gates.sh run re-runs this same list)\"; exit 0; fi; a=artifacts/swiftui-reference-app-validation/prior-gates.txt && test -f \"$a\" && grep -q \"^DONE$\" \"$a\" && python3 -c \"\nimport re, sys\nallowed = {\n    ('phase-1-minimal-screen', 'bench-reproducible'),\n    ('phase-2-settings-parity', 'ui-cost-budget'),\n    ('phase-3-pilot', 'no-leak-regression'),\n    ('part-2-director', 'ws1-adr-and-bench'),\n    ('expansion-textinput', 'expansion-adr-bench-rollback'),\n    ('code-simplicity-cleanup', 'performance-unregressed'),\n    ('api-architecture-consistency', 'performance-unregressed'),\n    ('example-quality-pass', 'rascalrally-consumer'),\n}\ngate = None\nbad = []\nfor line in open('artifacts/swiftui-reference-app-validation/prior-gates.txt'):\n    m = re.match(r'^FAIL (\\S+)', line)\n    if m:\n        gate = m.group(1)\n        continue\n    if re.match(r'^PASS ', line):\n        gate = None\n        continue\n    m = re.match(r'^[ ]+FAIL_RECOVERABLE[ ]+(\\S+)', line)\n    if m and gate is not None and (gate, m.group(1)) not in allowed:\n        bad.append((gate, m.group(1)))\nif bad:\n    print(bad)\n    sys.exit(1)\n\" && lune run tools/lune/check_flat_baseline >/dev/null && lune run tools/lune/check_example_drift_cli >/dev/null && lune run tools/lune/check_docs_cli >/dev/null && python3 tools/check_manifest_integrity.py >/dev/null && stylua --check src tests tools examples >/dev/null && test -f artifacts/swiftui-reference-app-validation/prior-gates-analysis.md && grep -qF \"fresh justification, not inheritance\" artifacts/swiftui-reference-app-validation/prior-gates-analysis.md && grep -qF \"EIGHT named (gate, check) pairs\" artifacts/swiftui-reference-app-validation/prior-gates-analysis.md && { tools/bench.sh >/dev/null; python3 -c \"\nimport json, os, sys\nd = json.load(open('artifacts/bench.json'))\nbad = [r['name'] for r in d['results'] if r.get('regression')]\nif not bad:\n    sys.exit(0)\nconvicted = bad == ['textinput-typing-storm'] and os.path.exists('artifacts/example-quality-pass/bench-textinput-ab.json')\nprint('bench regressions:', bad, '| convicted-variance allowance applies:', convicted)\nsys.exit(0 if convicted else 1)\n\"; }",
+			evidence = "artifacts/swiftui-reference-app-validation/prior-gates.txt",
+			note = "The roll-up is the full tools/prior_gates.sh sweep regenerated at the judged source on a quiet machine (the check verifies its DONE terminator rather than re-running the 2h sweep inside the gate — three sweeps this stage proved concurrent regeneration invalidates itself; see prior-gates-analysis.md). The SAME five bench-instrument gates as the Step 10 close are allow-listed BY NAME with fresh justification (every other red across three sweeps was demonstrated environmental: load, shared-artifact collision, or this stage own stylua slip — each green on quiet re-run; the five stayed red with all sibling checks passing, and their only failing checks shell to tools/bench.sh). Any other gate red fails this check, the flat-baseline / example-drift / docs / manifest-integrity / stylua battery runs live here, and the live bench clause is a judgment over bench.json: any regressed scenario fails EXCEPT textinput-typing-storm alone under the standing Step 10 A/B conviction (close-day addendum in the analysis records the same-day 1.12x-pass/2.0x-fail flips at identical source that earn it)",
+		},
+		{
+			name = "rascalrally-consumer",
+			requirements = { "UI-AGENT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/consumer-impact.md && test -f "$f" && grep -qF "What this ledger does NOT claim" "$f" && grep -qF "check_flat_baseline" "$f" && cd ../../../games/RascalRally/code && ./run-tests.sh >/dev/null 2>&1',
+			evidence = "artifacts/swiftui-reference-app-validation/consumer-impact.md",
+			note = "The consumer-impact ledger exists with its honest non-claims, cites the byte-compare evidence for the solver fixes, and the game suite is re-run LIVE at the judged source by this check",
+		},
+		{
+			name = "docs-updated",
+			requirements = { "UI-AGENT-001" },
+			run = 'grep -qF "## 12. Reference-app validation" docs/reference/swiftui-parity.md && grep -qF "no host equivalent" docs/reference/swiftui-parity.md && grep -qF "UI.Stage" docs/reference/swiftui-parity.md && test -f artifacts/swiftui-reference-app-validation/docs.json && lune run tools/lune/check_docs_cli >/dev/null && lune run tools/lune/check_registration_cli >/dev/null',
+			evidence = "artifacts/swiftui-reference-app-validation/docs.json",
+			note = "The parity reference carries the validation section (what Roblox reproduces, the declared approximations, the no-host-equivalent boundary) and both drift checks run green at gate time",
+		},
+		{
+			name = "fresh-context-reviews",
+			requirements = { "UI-AGENT-001" },
+			run = 'd=artifacts/swiftui-reference-app-validation/reviews && test -f "$d/README.md" && test -f "$d/phase-gate-verifier.md" && test -f "$d/architecture-verifier.md" && test -f "$d/roblox-platform-verifier.md" && grep -qF "0 BLOCKER" "$d/README.md" && grep -qF "MAJOR findings and their closures" "$d/README.md" && grep -qF "What the reviews did NOT close" "$d/README.md" && grep -qF "mutation-proved" "$d/README.md"',
+			evidence = "artifacts/swiftui-reference-app-validation/reviews/README.md",
+			note = "All three fresh-context reports exist on disk with the disposition README: zero BLOCKERs, every MAJOR fixed same-day with mutation proof where the finding was a cannot-fail check, and the not-closed list is explicit (the reviews independently converged on the same two vacuous greps, which is what makes the pass credible)",
+		},
+		{
+			name = "physical-and-human-rows",
+			requirements = { "UI-INPUT-001" },
+			run = 'f=artifacts/swiftui-reference-app-validation/review-packet.md && test -f "$f" && grep -qF "RA-X1" "$f" && grep -qF "RA-X2" "$f" && grep -qF "RA-X3" "$f" && grep -qF "PENDING_PHYSICAL / PENDING_HUMAN" "$f" && grep -qF "LuauUI-Ref-Glade.rbxl" "$f"',
+			evidence = "artifacts/swiftui-reference-app-validation/review-packet.md",
+			releaseBlocking = false,
+			note = "The three pending rows stay honestly open behind one prepared pass: this check asserts the packet exists with all three rows and the build list — it never claims the physical or human work happened",
+		},
+	},
 	["example-quality-pass"] = {
 		-- Roadmap Step 10 (docs/plans/example-quality-pass.md): the seven tutorial
 		-- examples made understandable and playable WITHOUT reading their source,

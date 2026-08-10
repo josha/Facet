@@ -98,6 +98,14 @@ function billboard_target.new(opts: Opts)
 	-- mapping (verifier F1): strip the seam so consumers degrade honestly
 	-- instead of receiving camera-space coordinates
 	adapter.setTouchGestureHandlers = nil
+	-- the engine-content seam (UI.Stage) is NOT offered on billboards either: a
+	-- ViewportFrame renders its own scene inside a canvas that is itself a
+	-- camera-projected world surface, and nothing has measured what that composition
+	-- costs or looks like at distance. Removing the optional method makes
+	-- `controller.stageHost` answer nil — the documented degrade (an empty reserved
+	-- box, or the author's own fallback plate) — instead of shipping an unproven
+	-- render. A billboard drive is what would promote it.
+	adapter.stageHost = nil
 	return adapter
 end
 

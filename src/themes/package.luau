@@ -986,7 +986,7 @@ function package.resolveIcon(pkg: any, name: string, state: string?): any
 			}
 		end
 	end
-	local glyph = (package.ICON_FALLBACK_GLYPHS :: any)[name]
+	local glyph = package.iconGlyph(name)
 	if glyph ~= nil then
 		return { source = "glyph", name = name, glyph = glyph }
 	end
@@ -1005,7 +1005,26 @@ end
 -- sci-fi caret was the opposite arrangement — a codepoint the control chose,
 -- present in some faces and absent in the one that package installed.
 function package.iconGlyph(name: string): string?
-	return (package.ICON_FALLBACK_GLYPHS :: any)[name]
+	local known = (package.ICON_FALLBACK_GLYPHS :: any)[name]
+	if known ~= nil then
+		return known
+	end
+	-- THE NAMESPACED RUNG (2026-08-08, reference-app matrix). The api contract
+	-- has always said a `ns:name` icon draws an ASCII-safe glyph immediately so
+	-- the affordance is legible before any package ships art — but only the
+	-- table names ever resolved, and the renderer's `or props.label` fallback
+	-- painted a full accessible label into a 44px disc. A namespaced name now
+	-- derives its floor: the first LETTER after the namespace, uppercased —
+	-- ASCII by construction, curated names above always win, and a plain
+	-- unknown name stays nil (the schema keeps it a construction error).
+	local after = string.match(name, "^[%w_%-]+:(.+)$")
+	if after ~= nil then
+		local ch = string.match(after, "%a")
+		if ch ~= nil then
+			return string.upper(ch)
+		end
+	end
+	return nil
 end
 
 package.ICON_SIZE_ROLES = table.freeze({ "small", "medium", "large" })

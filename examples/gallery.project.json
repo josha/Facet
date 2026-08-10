@@ -34,6 +34,9 @@
       "LuauUIScenarios": {
         "$path": "gallery/scenarios"
       },
+      "LuauUIReference": {
+        "$path": "reference"
+      },
       "LuauUIThemes": {
         "$path": "themes"
       }

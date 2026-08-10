@@ -81,6 +81,14 @@ local function minimalInstance(core: any, class: string): any
 		return UI.Grip({ id = "Gp", cursorHint = "rbxasset://SizeEW", focusable = true })
 	elseif class == "Path" then
 		return UI.Path({ id = "P", points = pathShapes.ring({ radius = 0.5 }) })
+	elseif class == "Stage" then
+		-- a Stage has no intrinsic content and therefore no intrinsic size, so the
+		-- minimal instance is the one an author would actually write: a declared box
+		return UI.Stage({
+			id = "St",
+			width = { type = "fixed", px = 120 },
+			height = { type = "fixed", px = 120 },
+		})
 	elseif class == "When" then
 		return UI.When({
 			id = "W",

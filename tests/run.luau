@@ -32,6 +32,7 @@ require("./instance_recycling.spec")
 -- ...and the THEMED half (L-28): park releases the chrome's path keys, adopt
 -- re-keys them, and a decoration-hint or package mismatch refuses the adoption
 require("./instance_recycling_themed.spec")
+require("./instance_park_corpse.spec")
 require("./incremental_layout.spec")
 require("./perf_principles.spec")
 require("./layout_v1.spec")
@@ -42,6 +43,9 @@ require("./native_scroll.spec")
 require("./keyboard_navigation.spec")
 require("./traversal_order.spec")
 require("./path.spec")
+-- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus
+-- its renderer-mediated content seam (camera/lighting/content root)
+require("./stage.spec")
 require("./async_image.spec")
 require("./selection_bridge.spec")
 require("./text_calibration.spec")
@@ -148,6 +152,16 @@ require("./paradigm_carry.spec")
 require("./chip.spec")
 require("./authoring.spec")
 require("./layout_vocabulary.spec")
+-- a Grid must MEASURE the layout it ARRANGES: the reported width has to re-derive
+-- its own column count, or a hug parent hands back a width that adds a row
+-- (2026-08-08 report, "content overflows this vstack by 200px")
+require("./grid_measure_arrange.spec")
+-- ...and the same fixed-point rule for a hug ScrollView vs its own bar reserve
+require("./scroll_bar_measure.spec")
+require("./scroll_indicators.spec")
+require("./zstack_fill_diagnostic.spec")
+-- the namespaced-icon ASCII floor the api contract promised
+require("./icon_ns_glyph.spec")
 require("./adaptive.spec")
 require("./button_complete.spec")
 -- the circle Button (feature round 2026-07-26)
@@ -247,6 +261,12 @@ require("./spec_guard_sweep.spec")
 -- and the invariant that makes them a role rather than a `weight` prop — the
 -- descriptor the solver MEASURES with is the descriptor the adapter PAINTS
 require("./typography_weight_roles.spec")
+-- swiftui-reference-app-validation: the five clean-room reference proofs
+require("./reference/glade_spec")
+require("./reference/cartwheel_spec")
+require("./reference/sipworks_spec")
+require("./reference/foyer_spec")
+require("./reference/wardrobe_spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

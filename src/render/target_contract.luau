@@ -53,6 +53,15 @@ target_contract.OPTIONAL = {
 	-- still works through the presenter, so the full value stays reachable on
 	-- keyboard/gamepad; pointer/touch reachability degrades to focus.
 	"enableDisclosure", -- (handle, { hover?, longPress? })
+	-- scroll indicator policy (director ruling 2026-08-09): the presenter
+	-- pushes the environment's derived policy ("always" on pointer sessions,
+	-- "auto" on touch/gamepad) plus the reduced-motion fact; the adapter keys
+	-- its published scrollBarThickness on it (auto = overlay = zero solver
+	-- reserve) and drives the indicator lifecycle (flash on first overflow,
+	-- show while scrolling, fade when idle; reduced motion never fades).
+	-- WITHOUT IT: the constant persistent bar and its reserve — the pre-policy
+	-- behavior, degraded by name.
+	"setScrollIndicatorPolicy", -- (policy: "always"|"auto", reduced: boolean?)
 	"setZOrder", -- (handle, z)                      [deterministic paint order]
 	"setPointerHandlers", -- (handle, {down,move,up,cancel})  [ADR-0008 capture]
 	-- text-entry seam (§17 Phase 5, UI.TextInput): a TextField adapter wires
@@ -128,6 +137,18 @@ target_contract.OPTIONAL = {
 	-- environment cannot suppress engine-side animation (LuauUI's own motion
 	-- still honours the policy; only the target's native layer is unreachable).
 	"setNativeTransitionsEnabled", -- (on: boolean)
+	-- THE ENGINE-CONTENT SEAM (UI.Stage, ViewportFrame adoption 2026-08-08). Answers
+	-- a per-node handle for a mounted `Stage`: `setCamera{ position, lookAt, fov? }`,
+	-- `setLighting{ ambient?, lightColor?, lightDirection? }` and `contentRoot()`.
+	-- The boundary is engine-type-free (plain {x,y,z} / {r,g,b} tables) — converting
+	-- to CFrame/Color3/Vector3 is the adapter's job, which is what keeps the leaf
+	-- itself engine-free. CONTENT IS CALLER-OWNED: the handle hands back a root to
+	-- parent models into, and LuauUI owns the box, the lifecycle, the camera and the
+	-- lighting writes. WITHOUT IT: `controller.stageHost(path)` answers nil, so a
+	-- Stage is an empty reserved box — authors gate on the nil or present a fallback
+	-- plate. `billboard_target` deliberately does not offer it (its canvas story is
+	-- unproven), and neither does an engine without ViewportFrame/WorldModel.
+	"stageHost", -- (handle) -> { setCamera, setLighting, contentRoot } | nil
 	-- WITHOUT IT: no cross-surface paint order — the presenter's base < scrim <
 	-- modal ordering cannot reach the engine, so a modal may paint under the
 	-- screen it is modal over.

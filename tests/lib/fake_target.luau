@@ -10,6 +10,8 @@ local default_style = require("../../src/tokens/default_style")
 -- point: a mirror that computed its own colours would prove the fake, not the
 -- framework (ADR-0022 Decision 6).
 local sheet_model = require("../../src/tokens/sheet_model")
+-- ...and the PURE rulings the stage content seam is made of, for the same reason
+local stage_content = require("../../src/render/stage_content")
 
 local fake_target = {}
 
@@ -93,6 +95,9 @@ local TINT_ENGINE_PROP: { [string]: { string } } = {
 	Text = { "TextColor3" },
 	Image = { "ImageColor3" },
 	Path = { "Path2D.Color3" },
+	-- a ViewportFrame's "picture" IS its rendered scene, and the engine multiplies
+	-- it by the same ImageColor3 an ImageLabel uses (research 2026-08-08)
+	Stage = { "ImageColor3" },
 }
 
 -- ...and the EXTRA property a tint that declares its own `transparency` claims.
@@ -101,6 +106,7 @@ local TINT_ENGINE_PROP: { [string]: { string } } = {
 local TINT_ALPHA_ENGINE_PROP: { [string]: { string } } = {
 	Text = { "TextTransparency" },
 	Image = { "ImageTransparency" },
+	Stage = { "ImageTransparency" },
 }
 
 -- opts.trackThemeRoots: opt into the WHOLE-TARGET theme relink seam
@@ -408,6 +414,16 @@ function fake_target.new(opts: Opts?)
 		if handle.canvasGroupInstance ~= nil or handle.decoration ~= nil then
 			return false
 		end
+		-- a Stage carrying LIVE CONTENT (the live adapter's WorldModel holds models
+		-- the caller parented there) is refused: recycling one would hand a new
+		-- identity somebody else's scene. Keyed on the CONTENT SEAM, mirroring the
+		-- live adapter's `handle.stageWorld ~= nil` — NOT on the class name
+		-- (platform review N3: on a hasStage == false engine a DEGRADED Stage is
+		-- a plain Frame and IS parkable live, so a class-name refusal here made
+		-- the fake stricter than the adapter it mirrors).
+		if handle.stageApi ~= nil then
+			return false
+		end
 		-- MIRROR THE LIVE ADAPTER'S REFUSALS. `screen_target.park` refuses a node
 		-- carrying a presentation transform, because that record is keyed to the path
 		-- and a recycled instance would inherit an offset nothing is driving. A fake
@@ -590,8 +606,28 @@ function fake_target.new(opts: Opts?)
 	-- region + programmatic position, and driveScroll() is the HEADLESS SCROLL
 	-- DRIVER — it stands in for the engine moving CanvasPosition and fires the
 	-- renderer's observer exactly like a real user fling would.
+	-- scroll indicator policy, mirrored (director ruling 2026-08-09). The fake
+	-- records the POLICY FACTS and derives the same reserve rule the live
+	-- adapter derives, so a headless world proves the layout consequence (auto
+	-- = overlay = zero reserve) and the event order (flash on first overflow,
+	-- show on scroll, fade scheduled) without an engine. The configured
+	-- thickness a spec opted into is captured on the first call, because the
+	-- presenter applies the boot policy during construction.
+	function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)
+		if adapter._configuredBarThickness == nil then
+			adapter._configuredBarThickness = adapter.scrollBarThickness or 0
+		end
+		adapter.scrollIndicatorPolicy = if policy == "auto" then "auto" else "always"
+		adapter.scrollIndicatorReduced = reduced == true
+		adapter.scrollBarThickness = if adapter.scrollIndicatorPolicy == "auto"
+			then 0
+			else adapter._configuredBarThickness
+		table.insert(ops, `indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
+	end
+
 	function adapter.setScrollRegion(handle: any, region: any)
 		handle.scrollRegion = region
+		handle.indicatorsOff = region ~= nil and region.indicators == "none" or nil
 		handle.scrollPosition = handle.scrollPosition or { x = 0, y = 0 }
 		table.insert(
 			ops,
@@ -805,6 +841,50 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.getScrollPosition(handle: any): { x: number, y: number }?
 		return handle.scrollPosition
+	end
+
+	-- THE ENGINE-CONTENT SEAM, MIRRORED (UI.Stage). The live adapter owns a
+	-- ViewportFrame with a WorldModel and a Camera inside it; there are no
+	-- Instances here, so this twin RECORDS instead: the same three verbs, through
+	-- the same PURE rulings (`stage_content`), appending to an inspectable `calls`
+	-- array and answering a stable content stub. That is what makes the seam's
+	-- whole contract — the shapes it accepts, the shapes it refuses, the caching,
+	-- and the death of a handle with its node — provable without Roblox.
+	function adapter.stageHost(handle: any): any?
+		if handle == nil or handle.class ~= "Stage" or handle.alive ~= true then
+			return nil
+		end
+		if handle.stageApi ~= nil then
+			return handle.stageApi
+		end
+		local content = { kind = "stage-content-stub" }
+		local api: any = { calls = {} }
+		local function assertLive()
+			if handle.stageDisposed == true or handle.alive ~= true then
+				error(stage_content.disposedError(handle.stagePath or handle.path), 0)
+			end
+		end
+		function api.setCamera(spec: any)
+			-- NORMALIZE FIRST, then record: a refusal must leave nothing behind, or
+			-- a test could read a half-applied camera the live adapter never wrote
+			local camera = stage_content.normalizeCamera(spec)
+			assertLive()
+			table.insert(api.calls, { method = "setCamera", spec = camera })
+		end
+		function api.setLighting(spec: any)
+			local lighting = stage_content.normalizeLighting(spec)
+			assertLive()
+			table.insert(api.calls, { method = "setLighting", spec = lighting })
+		end
+		function api.contentRoot(): any
+			assertLive()
+			return content
+		end
+		-- the path is captured because `remove` clears the node's own entry, and
+		-- the refusal must still be able to name the node that died
+		handle.stagePath = handle.path
+		handle.stageApi = api
+		return api
 	end
 
 	-- ── the rest of the declared seam (SEAM-20) ─────────────────────────────

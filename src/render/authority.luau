@@ -148,6 +148,13 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- binding-authored; stroke color rides the style role hint — or, for a value a
 	-- finite role cannot express, the continuous `tint` channel
 	Path = { points = "binding", thickness = "binding", closed = "binding", tint = "binding" },
+	-- Stage (ViewportFrame adoption 2026-08-08): the AUTHORED half is ordinary —
+	-- the plate behind the scene is style, and the continuous channel is binding
+	-- for exactly the reason Box's and Image's are (a rule cannot see a value).
+	-- The four ENGINE properties a stage also has — Ambient, LightColor,
+	-- LightDirection, CurrentCamera — are not authored at all and are declared in
+	-- SEAM_OWNED below.
+	Stage = { tint = "binding" },
 }
 
 -- authorityFor(class, prop) -> Authority (class table wins over common)
@@ -261,6 +268,64 @@ local BESPOKE_INSTANCES: { [string]: string } = {
 	Track = "the toggle switch's track art (a direct child, so `:Hover > ` can reach it)",
 	Knob = "the toggle switch's travelling knob art (solver-owned travel, rule-owned paint)",
 }
+
+-- ADAPTER-SEAM-OWNED ENGINE PROPERTIES (UI.Stage; research
+-- docs/research/2026-08-08-viewportframe-engine-facts.md §1).
+--
+-- A ViewportFrame carries its scene's lighting and its camera as PLAIN PROPERTIES
+-- ON THE FRAME ITSELF — the instance LuauUI created and owns. So "the content
+-- owner sets the lighting" would mean a consumer writing properties on a
+-- framework-owned Instance, which is the authority violation the manifest above
+-- exists to prevent; and no `style`/`binding`/`layout`/`presentation` channel fits
+-- either, because none of them is an authored prop at all.
+--
+-- They are therefore declared here as SEAM-owned: written by exactly one caller
+-- (the adapter's `stageHost` handle) through `assertSeamWrite`, so a bespoke
+-- explicit write from anywhere else is a LOUD error — the same protection
+-- NATIVE_SHEET_OWNED + assertBespokePaint give Image/ScrollBar paint. Each entry
+-- says who writes it and through which verb, so the exemption is a decision on the
+-- record rather than a hole.
+local SEAM_OWNED: { [string]: string } = {
+	Ambient = "the stage scene's ambient light — written by stageHost's setLighting{ ambient }",
+	LightColor = "the stage scene's key-light colour — written by stageHost's setLighting{ lightColor }",
+	LightDirection = "the stage scene's key-light direction — written by stageHost's setLighting{ lightDirection }",
+	CurrentCamera = "the adapter-owned Camera assigned at node creation; re-aimed by stageHost's setCamera. "
+		.. "A render needs a camera, so the adapter creates and owns one instead of handing the raw instance out",
+	-- the two properties setCamera writes ON that owned Camera instance
+	-- (platform review N1: they are seam writes on an adapter-owned Instance,
+	-- so leaving them undeclared left the no-bespoke-write pin blind to them)
+	CFrame = "the owned stage Camera's transform — written only by stageHost's setCamera (CFrame.lookAt)",
+	FieldOfView = "the owned stage Camera's field of view — written only by stageHost's setCamera{ fov }",
+}
+
+function authority.seamOwned(engineProp: string): boolean
+	return SEAM_OWNED[engineProp] ~= nil
+end
+
+function authority.seamOwnedSet(): { [string]: string }
+	return SEAM_OWNED
+end
+
+-- assertSeamWrite: the ONE gate every write to a seam-owned engine property goes
+-- through. `bySeam` is true only inside the adapter's stage seam; everything else
+-- is refused by name, because a second writer for a frame's lighting or camera is
+-- exactly the silent dual authority the manifest above exists to prevent.
+function authority.assertSeamWrite(engineProp: string, bySeam: boolean)
+	if SEAM_OWNED[engineProp] == nil then
+		error(
+			`LuauUI authority: '{engineProp}' is not a declared seam-owned engine property `
+				.. "(declare it in render/authority.luau's SEAM_OWNED, with who writes it)",
+			0
+		)
+	end
+	if not bySeam then
+		error(
+			`LuauUI authority: {engineProp} is owned by the Stage content seam (adapter.stageHost) — `
+				.. "a bespoke write would be a second authority over the frame",
+			0
+		)
+	end
+end
 
 function authority.nativeSheetOwned(engineProp: string): boolean
 	return NATIVE_SHEET_OWNED[engineProp] == true

@@ -847,6 +847,11 @@ local registry: { Entry } = {
 	-- Path (native-substrate NS-A7): stroked Path2D leaf — pure presentation
 	-- (progress rings/needles); no input surface, color via style role hint
 	{ name = "Path", kind = "leaf", inputProofs = false, affordanceProofs = false },
+	-- Stage (ViewportFrame adoption 2026-08-08): the engine-content box. It draws a
+	-- scene and owns no input surface at all — interaction is composed AROUND it by
+	-- the consumer (a Grip sibling to orbit, a Button overlay to act), so the
+	-- four-input story belongs to those controls, not to the picture.
+	{ name = "Stage", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Text", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Image", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Anchor", kind = "leaf", inputProofs = false, affordanceProofs = false },

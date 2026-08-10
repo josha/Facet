@@ -35,11 +35,25 @@ local native_style = require("./native_style")
 local screen_chrome = require("./screen_chrome")
 local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
+-- the PURE rulings the UI.Stage content seam is made of (camera/lighting shapes,
+-- the dead-handle refusal). Shared with the headless twin so the two adapters
+-- cannot disagree about what the seam accepts.
+local stage_content = require("../render/stage_content")
 
 -- The engine draws a ScrollingFrame's bar INSIDE the region, over whatever the
 -- solver placed there. The solver reserves this off the cross axis when a region
 -- actually scrolls, so the number has to be one value shared by both seams.
 local SCROLL_BAR_THICKNESS = 8
+-- scroll indicator policy (director ruling 2026-08-09): "always" = the desktop
+-- convention — persistent bar, thickness RESERVED by the solver; "auto" = the
+-- touch/gamepad convention — OVERLAY indicators (zero reserve) that appear
+-- while scrolling, FLASH once when a scrollable region first mounts (so a page
+-- that continues below never reads as cut off), and fade when idle. Reduced
+-- motion never fades: "auto" degrades to visible-whenever-scrollable, so the
+-- affordance never depends on movement.
+local INDICATOR_IDLE_FADE_SECONDS = 1.1
+local INDICATOR_FLASH_HOLD_SECONDS = 1.6
+local INDICATOR_FADE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 -- `textAlign` (director review 2026-07-24). Absent means Left, which is what the
 -- adapter hard-coded before the prop existed, so every existing screen is
@@ -97,9 +111,45 @@ local CLASS_TO_INSTANCE: { [string]: string } = {
 	Image = "ImageLabel",
 	TextField = "TextBox", -- §17 Phase 5 (UI.TextInput): the only engine text-entry instance
 	ScrollView = "ScrollingFrame", -- native scroll host (NS-A2); opts.forceScrollFallback keeps a Frame
+	-- the engine-content box (ViewportFrame adoption 2026-08-08): a GuiObject that
+	-- renders its own scene. The adapter also creates and owns the WorldModel the
+	-- content lives in and the Camera the frame renders through — see buildHandle.
+	Stage = "ViewportFrame",
 	-- Path (NS-A7) renders as a transparent Frame holder + child Path2D
 	-- containers and everything else render as Frames
 }
+
+-- the instances the stage seam owns, named from one place so the adapter and any
+-- probe reading the Explorer agree
+local STAGE_WORLD_NAME = "LuauUIStageWorld"
+local STAGE_CAMERA_NAME = "LuauUIStageCamera"
+
+-- THE ONE WRITER for a seam-owned engine property (render/authority.luau's
+-- SEAM_OWNED: Ambient, LightColor, LightDirection, CurrentCamera). It writes by
+-- INDEX rather than by field name, so a dotted assignment to any of the four
+-- appears NOWHERE in this adapter — which turns "a bespoke write defeated the
+-- seam" into a literal tests/stage.spec.luau pins at zero, the same way the paint
+-- gate turns a sheet-defeating write into a loud error. Every call site is inside
+-- the stage seam, so `bySeam` is true here and false everywhere the gate is asked
+-- from outside it.
+local function writeStageProp(instance: Instance, engineProp: string, value: any)
+	authority.assertSeamWrite(engineProp, true);
+	(instance :: any)[engineProp] = value
+end
+
+-- a stage node's seam going dead, spelled once because two teardown paths need it
+-- (`remove` and `destroyRoot`). The instances themselves are children of the frame
+-- and die with it; this is what makes a handle a consumer still holds REFUSE
+-- instead of writing into the corpse.
+local function markStageDisposed(handle: any)
+	if handle == nil or handle.stageWorld == nil then
+		return
+	end
+	handle.stageDisposed = true
+	handle.stageWorld = nil
+	handle.stageCamera = nil
+	handle.stageApi = nil
+end
 
 -- Path2D control-point application (NS-A7; spike m5-path2d.json): normalized
 -- points (unit box, tangents relative to the point) scale into the CURRENT
@@ -189,7 +239,13 @@ function screen_target.new(opts: Opts?)
 	-- The renderer feeds this into solver.solve so a scrolling region lays its
 	-- content out INSIDE the bar rather than underneath it. Zero on the fallback
 	-- path, where a plain Frame host draws no bar at all.
-	adapter.scrollBarThickness = if opts ~= nil and opts.forceScrollFallback == true then 0 else SCROLL_BAR_THICKNESS
+	local forceScrollFallbackMode = opts ~= nil and (opts :: any).forceScrollFallback == true
+	adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS
+	-- scroll indicator state (the driver itself lives beside setScrollRegion);
+	-- declared HERE because the create path reads the policy at instance birth
+	local scrollIndicatorPolicy = "always"
+	local scrollIndicatorReduced = false
+	local indicatorFadeToken = {} :: { [any]: number }
 
 	-- native-paint mode resolution (NSS-A2): capability-probed and opt-in.
 	local nativeHandle: any = nil
@@ -430,6 +486,21 @@ function screen_target.new(opts: Opts?)
 			local probe = Instance.new("CanvasGroup" :: any)
 			probe:Destroy()
 		end))
+	end)()
+	-- the engine-content box's three classes, probed as ONE capability (UI.Stage): a
+	-- ViewportFrame without a WorldModel to hold the content or a Camera to render
+	-- through is not a stage. An engine missing any of them renders the node as an
+	-- ordinary Frame and `stageHost` answers nil — the documented fallback, so an
+	-- author gates on the nil or presents a plate. Never a crash.
+	local hasStage = (function(): boolean
+		return (
+			pcall(function()
+				for _, className in { "ViewportFrame", "WorldModel", "Camera" } do
+					local probe = Instance.new(className :: any)
+					probe:Destroy()
+				end
+			end)
+		)
 	end)()
 	local hasPerCornerRadii = (function(): boolean
 		return (
@@ -681,6 +752,12 @@ function screen_target.new(opts: Opts?)
 	--
 	-- The resolution itself is PURE (`sheet_model.tintColor`) and shared with the
 	-- headless FakeTarget, so the two adapters cannot disagree about the colour.
+	--
+	-- A `ViewportFrame` (UI.Stage) joins the ImageLabel branch on purpose: a stage's
+	-- "picture" IS the scene it renders, and the engine multiplies it by the same
+	-- ImageColor3/ImageTransparency pair (research 2026-08-08). Tinting the
+	-- BACKGROUND instead — which the GuiObject fall-through would do — would paint
+	-- the plate and leave the content untouched.
 	local function applyTint(handle: any)
 		local tint = handle.tint
 		local instance = handle.instance
@@ -706,7 +783,7 @@ function screen_target.new(opts: Opts?)
 			handle.path2d.Color3 = color
 			return
 		end
-		if instance:IsA("ImageLabel") then
+		if instance:IsA("ImageLabel") or instance:IsA("ViewportFrame") then
 			claimPaint(handle, "ImageColor3")
 			assertBespokePaint("ImageColor3", handle)
 			instance.ImageColor3 = color
@@ -1929,6 +2006,11 @@ function screen_target.new(opts: Opts?)
 		if createOpts ~= nil and createOpts.canvasGroup == true and hasCanvasGroup then
 			instanceClass = "CanvasGroup"
 		end
+		if instanceClass == "ViewportFrame" and not hasStage then
+			-- degraded stage: the box is still reserved and still painted, there is
+			-- simply no scene in it (and `stageHost` answers nil)
+			instanceClass = "Frame"
+		end
 		if class == "ScrollView" and opts ~= nil and opts.forceScrollFallback == true then
 			-- fallback path (NS-A2/NS-I2): identical clip-host behavior with no
 			-- engine scrolling — billboard targets keep this until their
@@ -1955,6 +2037,12 @@ function screen_target.new(opts: Opts?)
 			if not nativeMode then
 				assertBespokePaint("ScrollBarImageColor3")
 				instance.ScrollBarImageColor3 = COLOR.contentSecondary -- native: "Scroll bar" rule
+			end
+			-- indicator policy: an auto-policy host is born HIDDEN and shows on
+			-- the flash/scroll driver below; NOT a styled property (the sheet's
+			-- Scroll bar rule owns the COLOR; visibility is behavior)
+			if scrollIndicatorPolicy == "auto" then
+				instance.ScrollBarImageTransparency = 1
 			end
 			instance.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
 			instance.ScrollingDirection = Enum.ScrollingDirection.Y
@@ -1998,6 +2086,32 @@ function screen_target.new(opts: Opts?)
 				assertBespokePaint("BackgroundColor3")
 				instance.BackgroundColor3 = COLOR.hairline
 			end
+		end
+		if class == "Stage" and instance:IsA("ViewportFrame") then
+			-- NATIVE MODE CANNOT REACH A VIEWPORTFRAME (platform review M3): the
+			-- style sheet's selectors cover Frame/TextLabel/TextButton/ImageLabel/
+			-- TextBox/ScrollingFrame/CanvasGroup, and ViewportFrame is neither
+			-- listed nor a Frame subclass — so the class-default transparency rule
+			-- the nativeMode skip above defers to never fires here, and the pane
+			-- rendered on an opaque grey plate. The write is unconditional for
+			-- exactly this class: no sheet rule exists to defeat.
+			if nativeMode then
+				instance.BackgroundTransparency = 1
+			end
+			-- THE STAGE'S OWN TWO INSTANCES (ViewportFrame adoption 2026-08-08).
+			-- A render needs a camera, and the content needs a root — so the adapter
+			-- creates and OWNS both, rather than handing raw instances out or asking
+			-- the caller for them. They are children of the frame, so they die with
+			-- the node in `remove`/`destroyRoot` with no extra teardown.
+			local world = Instance.new("WorldModel")
+			world.Name = STAGE_WORLD_NAME
+			world.Parent = instance
+			local camera = Instance.new("Camera")
+			camera.Name = STAGE_CAMERA_NAME
+			camera.Parent = instance
+			writeStageProp(instance, "CurrentCamera", camera)
+			handle.stageWorld = world
+			handle.stageCamera = camera
 		end
 		if class == "Path" then
 			-- stroked-path leaf (NS-A7): engine Path2D strokes inside a
@@ -2212,6 +2326,100 @@ function screen_target.new(opts: Opts?)
 		end
 		handle.activate(meta)
 		return true
+	end
+
+	--[[ THE ENGINE-CONTENT SEAM (UI.Stage, ViewportFrame adoption 2026-08-08).
+
+		A `Stage` reserves a box; what goes IN it is engine Instances, which nothing
+		above `src/client/` may touch. So the seam is a per-node handle with three
+		verbs and an engine-type-free boundary — plain `{x,y,z}` / `{r,g,b}` tables
+		in, CFrame/Color3/Vector3 writes out — and the split of ownership is stated
+		once here and repeated in api.md:
+
+		  LuauUI owns  the ViewportFrame, the WorldModel, the Camera, the box, the
+		               lifecycle, and every write to Ambient/LightColor/
+		               LightDirection/CurrentCamera (all four declared SEAM_OWNED);
+		  the CALLER   owns whatever it parents into `contentRoot()` — the framework
+		               never enumerates, moves, or destroys that content, and it
+		               dies with the frame when the node does.
+
+		Cached per node, and DEAD when the node is: `remove`/`destroyRoot` clear the
+		refs, and every verb then refuses by name instead of writing into a
+		destroyed instance. Answers nil for anything that is not a live Stage —
+		including a stage degraded to a Frame on an engine without the classes.
+	]]
+	function adapter.stageHost(handle: any): any?
+		if handle == nil or handle.class ~= "Stage" then
+			return nil
+		end
+		-- an elided node has no instance yet; a Stage is never elidable, but the
+		-- guard keeps the seam honest if that list ever grows
+		if handle.instance == nil or handle.stageWorld == nil or handle.stageCamera == nil then
+			return nil
+		end
+		if handle.stageApi ~= nil then
+			return handle.stageApi
+		end
+		local stagePath = handle.path
+		local function live(): boolean
+			return handle.stageWorld ~= nil
+				and handle.stageCamera ~= nil
+				and handle.instance ~= nil
+				and handle.stageDisposed ~= true
+		end
+		local function assertLive()
+			if not live() then
+				error(stage_content.disposedError(stagePath), 0)
+			end
+		end
+		local api = table.freeze({
+			-- aim the owned camera. Normalized FIRST (a refusal must leave the
+			-- camera exactly where it was), then two engine writes.
+			setCamera = function(spec: any)
+				local camera = stage_content.normalizeCamera(spec)
+				assertLive()
+				local eye = Vector3.new(camera.position.x, camera.position.y, camera.position.z)
+				local at = Vector3.new(camera.lookAt.x, camera.lookAt.y, camera.lookAt.z)
+				-- the degenerate-camera refusal now lives in the SHARED normalizer
+				-- (stage_content.normalizeCamera, platform review M2) so both
+				-- adapters refuse identically before any write; and the camera's
+				-- own two properties go through the SAME indexed seam writer as
+				-- the frame's lighting (platform review N1 declared them
+				-- SEAM_OWNED, and the no-bespoke-write pin scans for literals)
+				writeStageProp(handle.stageCamera, "CFrame", CFrame.lookAt(eye, at))
+				if camera.fov ~= nil then
+					writeStageProp(handle.stageCamera, "FieldOfView", camera.fov)
+				end
+			end,
+			-- the scene's lighting, which lives on the FRAME (research §1) — which
+			-- is precisely why a consumer may not write it directly and this seam
+			-- exists. Each field is independent; absent means "leave it alone".
+			setLighting = function(spec: any)
+				local lighting = stage_content.normalizeLighting(spec)
+				assertLive()
+				if lighting.ambient ~= nil then
+					local c = lighting.ambient
+					writeStageProp(handle.instance, "Ambient", Color3.new(c.r, c.g, c.b))
+				end
+				if lighting.lightColor ~= nil then
+					local c = lighting.lightColor
+					writeStageProp(handle.instance, "LightColor", Color3.new(c.r, c.g, c.b))
+				end
+				if lighting.lightDirection ~= nil then
+					local d = lighting.lightDirection
+					writeStageProp(handle.instance, "LightDirection", Vector3.new(d.x, d.y, d.z))
+				end
+			end,
+			-- the caller's content root. It is handed OUT (rather than the caller
+			-- handing content in) so the framework never has to know the shape of
+			-- somebody's scene — parent models here, and they die with the node.
+			contentRoot = function(): Instance
+				assertLive()
+				return handle.stageWorld
+			end,
+		})
+		handle.stageApi = api
+		return api
 	end
 
 	-- ENGINE TEXT PREMEASUREMENT (text-measurement milestone): the renderer
@@ -2763,6 +2971,103 @@ function screen_target.new(opts: Opts?)
 	-- setScrollPosition is the framework's programmatic keep-visible write.
 	-- On the fallback path (forceScrollFallback / non-ScrollingFrame instance)
 	-- these degrade to no-ops and the node stays a proven clip-only host.
+	-- ===== scroll indicators (director ruling 2026-08-09) ====================
+	-- Policy state lives module-wide; per-host state lives ON THE HANDLE (the
+	-- connection dies with the instance's Destroy, and `adopt` resets the
+	-- flash so a recycled instance's NEW identity announces itself again).
+	local function indicatorShow(handle: any)
+		local instance = handle.instance
+		if instance == nil or not instance:IsA("ScrollingFrame") then
+			return
+		end
+		indicatorFadeToken[handle] = (indicatorFadeToken[handle] or 0) + 1
+		instance.ScrollBarImageTransparency = 0
+	end
+
+	local function indicatorFadeLater(handle: any, delaySeconds: number)
+		if scrollIndicatorReduced then
+			return -- reduced motion: never fade — the affordance stays put
+		end
+		local token = (indicatorFadeToken[handle] or 0) + 1
+		indicatorFadeToken[handle] = token
+		task.delay(delaySeconds, function()
+			if indicatorFadeToken[handle] ~= token then
+				return -- a newer show/fade superseded this one
+			end
+			local instance = handle.instance
+			if instance ~= nil and instance:IsA("ScrollingFrame") and instance.Parent ~= nil then
+				TweenService:Create(instance, INDICATOR_FADE_TWEEN, { ScrollBarImageTransparency = 1 }):Play()
+			end
+		end)
+	end
+
+	local function indicatorOverflowing(handle: any): boolean
+		local instance = handle.instance
+		if instance == nil or not instance:IsA("ScrollingFrame") then
+			return false
+		end
+		local canvas = instance.AbsoluteCanvasSize
+		local window = instance.AbsoluteWindowSize
+		return canvas.Y > window.Y + 1 or canvas.X > window.X + 1
+	end
+
+	local function indicatorSync(handle: any)
+		local instance = handle.instance
+		if instance == nil or not instance:IsA("ScrollingFrame") then
+			return
+		end
+		if scrollIndicatorPolicy == "always" then
+			indicatorShow(handle)
+			return
+		end
+		-- auto: reduced motion pins the indicator whenever there is anything to
+		-- indicate; full motion flashes a NEWLY scrollable host once and then
+		-- lets the scroll driver own it
+		if not indicatorOverflowing(handle) then
+			indicatorFadeToken[handle] = (indicatorFadeToken[handle] or 0) + 1
+			instance.ScrollBarImageTransparency = 1
+			handle.indicatorFlashed = nil
+			return
+		end
+		if scrollIndicatorReduced then
+			indicatorShow(handle)
+			return
+		end
+		if handle.indicatorFlashed ~= true then
+			handle.indicatorFlashed = true
+			indicatorShow(handle)
+			indicatorFadeLater(handle, INDICATOR_FLASH_HOLD_SECONDS)
+		end
+		if handle.indicatorConn == nil then
+			handle.indicatorConn = instance:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
+				if scrollIndicatorPolicy ~= "auto" or scrollIndicatorReduced then
+					return
+				end
+				indicatorShow(handle)
+				indicatorFadeLater(handle, INDICATOR_IDLE_FADE_SECONDS)
+			end)
+		end
+	end
+
+	-- the DECLARED optional policy seam the presenter drives from the
+	-- environment's `scrollIndicatorPolicy` + `motionPolicy` facts. Moving the
+	-- published thickness is what flips the solver's cross-axis reserve: an
+	-- overlay indicator lays claim to no layout space.
+	function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)
+		scrollIndicatorPolicy = if policy == "auto" then "auto" else "always"
+		scrollIndicatorReduced = reduced == true
+		adapter.scrollBarThickness = if forceScrollFallbackMode
+			then 0
+			elseif scrollIndicatorPolicy == "auto" then 0
+			else SCROLL_BAR_THICKNESS
+		for _, handle in handlesByPath do
+			if handle.instance ~= nil and handle.instance:IsA("ScrollingFrame") then
+				handle.indicatorFlashed = nil
+				indicatorSync(handle)
+			end
+		end
+	end
+
 	function adapter.setScrollRegion(handle: any, region: any)
 		local instance = handle.instance
 		if not instance:IsA("ScrollingFrame") then
@@ -2775,7 +3080,46 @@ function screen_target.new(opts: Opts?)
 		instance.ScrollingDirection = if region.axis == "x"
 			then Enum.ScrollingDirection.X
 			else Enum.ScrollingDirection.Y
-		instance.CanvasSize = UDim2.fromOffset(region.contentW, region.contentH)
+		-- THE CROSS AXIS IS CLAMPED TO THE ENGINE'S OWN WINDOW (director live
+		-- report 2026-08-09): the solver already clamps its measure, but the
+		-- engine's window is thinner than the frame by the BAR THICKNESS even
+		-- with ScrollBarInset.None — a fact only the engine can answer — and a
+		-- canvas one bar wider than the window makes it draw a cross-axis bar
+		-- nobody can scroll. Ask the instance, not arithmetic.
+		local window = instance.AbsoluteWindowSize
+		local contentW = region.contentW
+		local contentH = region.contentH
+		-- DETERMINISTIC, from the region's own published host box (the live
+		-- window geometry races the layout mid-churn): when the main axis will
+		-- overflow, the engine shrinks its window by the BAR THICKNESS even at
+		-- ScrollBarInset.None, so the cross clamp subtracts it up front.
+		local thickness = instance.ScrollBarThickness
+		local hostW = if type(region.hostW) == "number" then region.hostW else window.X
+		local hostH = if type(region.hostH) == "number" then region.hostH else window.Y
+		if region.axis == "x" then
+			local willOverflow = contentW > hostW
+			contentH = math.min(contentH, math.max(0, hostH - (if willOverflow then thickness else 0)))
+		else
+			local willOverflow = contentH > hostH
+			contentW = math.min(contentW, math.max(0, hostW - (if willOverflow then thickness else 0)))
+		end
+		instance.CanvasSize = UDim2.fromOffset(contentW, contentH)
+		-- per-host opt-out first (a carousel whose affordance is the peeking
+		-- tile declares indicators = "none"): zero thickness IS the engine's
+		-- own way to draw no bar, and the driver below never arms
+		if region.indicators == "none" then
+			handle.indicatorsOff = true
+			instance.ScrollBarThickness = 0
+			return
+		end
+		if handle.indicatorsOff == true then
+			handle.indicatorsOff = nil
+			instance.ScrollBarThickness = SCROLL_BAR_THICKNESS
+		end
+		-- the region write is where a host LEARNS it overflows — the auto
+		-- policy's mount flash rides it (and a region that stops overflowing
+		-- hides its indicator and re-arms the flash)
+		indicatorSync(handle)
 	end
 
 	function adapter.setScrollPosition(handle: any, pos: { x: number, y: number })
@@ -4027,12 +4371,33 @@ function screen_target.new(opts: Opts?)
 	--   hit expander / float focus ring — SIBLINGS of the instance (parented to
 	--     the clip host), so unparenting the node does not take them off screen;
 	--   a focused handle (or one carrying a glow) — focus visuals must never
-	--     ride into a new identity.
+	--     ride into a new identity;
+	--   a STAGE — its WorldModel holds content the CALLER parented there, so
+	--     recycling one would hand a new identity somebody else's scene (and its
+	--     live handle names the old path). Refused on both adapters.
 	local function parkEligible(handle: any): boolean
 		if handle == nil or handle.instance == nil then
 			return false
 		end
+		-- A CORPSE CANNOT TRAVEL. The removal loop visits `handles` in hash
+		-- order, and a clip host is never parkable (below) — so when a host is
+		-- destroyed before the loop reaches its descendants, engine Destroy
+		-- propagation has already killed the descendants' instances. Every write
+		-- park makes is legal on a destroyed instance (Parent = nil included),
+		-- so without this gate the pool collects corpses whose ONLY symptom is
+		-- adopt's non-nil Parent write throwing "Parent property is locked"
+		-- (found live 2026-08-08: theme install relayout parked a destroyed
+		-- card, the next section switch adopted it and the mount crashed).
+		-- A live handle's instance always has a non-nil Parent here — creation
+		-- parents it under its clip host or the root gui and nothing else
+		-- unparents it before removal.
+		if handle.instance.Parent == nil then
+			return false
+		end
 		local path = handle.path
+		if handle.stageWorld ~= nil then
+			return false
+		end
 		if
 			handle.motionScale ~= nil
 			or handle.canvasGroupInstance ~= nil
@@ -4144,17 +4509,35 @@ function screen_target.new(opts: Opts?)
 		if handle.parkedChromeEpoch ~= chromeState.epoch() then
 			return false
 		end
+		local savedEpoch = handle.parkedChromeEpoch
 		handle.parked = nil
 		handle.parkedChromeEpoch = nil
+		handle.indicatorFlashed = nil -- a recycled instance's NEW identity flashes again
 		handle.path = newPath
 		handle.instance.Name = newPath
 		local host = hostFor(newPath)
+		-- BELT AND BRACES for the corpse gate in `parkEligible`: a destroyed
+		-- instance accepts every write except a non-nil Parent, so this is the
+		-- one seam that can still detect one. Refuse the adoption (restore the
+		-- parked identity IN FULL — epoch stamp included — so the handle the
+		-- caller's discard tears down still satisfies every parked invariant;
+		-- architecture review F9).
+		local reparented = pcall(function()
+			if host ~= nil then
+				handle.instance.Parent = host.instance
+			else
+				handle.instance.Parent = lastRootHandle.gui
+			end
+		end)
+		if not reparented then
+			handle.parked = true
+			handle.parkedChromeEpoch = savedEpoch
+			handle.path = PARKED_PATH
+			return false
+		end
 		if host ~= nil then
 			handle.clipHost = host
 			table.insert(host.children, handle)
-			handle.instance.Parent = host.instance
-		else
-			handle.instance.Parent = lastRootHandle.gui
 		end
 		instancesByPath[newPath] = handle.instance
 		handlesByPath[newPath] = handle
@@ -4299,6 +4682,11 @@ function screen_target.new(opts: Opts?)
 			handle.hitExpander:Destroy()
 			handle.hitExpander = nil
 		end
+		-- THE STAGE SEAM DIES WITH ITS NODE. The WorldModel and Camera are children
+		-- of the frame, so the Destroy below takes them; what has to happen HERE is
+		-- the HANDLE going dead, or a consumer still holding it would go on aiming a
+		-- camera nothing renders and parenting content into a destroyed world.
+		markStageDisposed(handle)
 		handle.instance:Destroy()
 	end
 
@@ -4336,6 +4724,8 @@ function screen_target.new(opts: Opts?)
 				clipHosts[path] = nil
 				local handle = handlesByPath[path]
 				if handle ~= nil then
+					-- the stage seam, on the whole-root path (same reason as in `remove`)
+					markStageDisposed(handle)
 					handle.motionScale = nil
 					handle.strokeInstance = nil
 					destroyChromeText(handle)

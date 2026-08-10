@@ -692,8 +692,45 @@ local function observe(): any
 					})
 				end
 			end
-			if d.textFits == false and #unfitText < 20 then
-				table.insert(unfitText, { name = d.name, text = d.text })
+			-- a ZERO-RECT node cannot be unfit: a losing ViewThatFits candidate
+			-- (and any hidden-by-rect form) keeps its mount with a 0x0 box and
+			-- its text legitimately "does not fit" nothing
+			local sized = d.absSize ~= nil and d.absSize.x > 0 and d.absSize.y > 0
+			if d.textFits == false and sized and #unfitText < 20 then
+				-- a truncation the AUTHOR DECLARED (disclose/reveal) is the
+				-- framework's legal overflow policy with a full-value affordance —
+				-- evidence, not a failure. The runner publishes the facts channel
+				-- as report.textPolicies keyed by the same flat path names.
+				local policy = (report.textPolicies or {})[d.name]
+				if policy == nil and type(d.name) == "string" then
+					-- instance names cap at 100 chars, so a deep node's flat name
+					-- is a PREFIX of its real path — and that prefix can cover the
+					-- whole card subtree (several text nodes). The judgement only
+					-- concerns nodes that actually TRUNCATED, so: gather the
+					-- prefix-matched policies whose facts say truncated, and the
+					-- finding is declared only if every one of them declares a
+					-- full-value affordance. Zero truncated hits keeps it
+					-- undeclared (the facts channel does not know this node).
+					local truncatedHits = 0
+					local allDeclared = true
+					for path, pol in report.textPolicies or {} do
+						if string.sub(path, 1, #d.name) == d.name and (pol :: any).truncated == true then
+							truncatedHits += 1
+							if not ((pol :: any).disclose == true or (pol :: any).reveal ~= nil) then
+								allDeclared = false
+							end
+						end
+					end
+					if truncatedHits > 0 and allDeclared then
+						policy = { disclose = true, policy = "disclose(prefix)" }
+					end
+				end
+				local declared = policy ~= nil and ((policy :: any).disclose == true or (policy :: any).reveal ~= nil)
+				table.insert(unfitText, {
+					name = d.name,
+					text = d.text,
+					declared = if declared then (policy :: any).policy or "disclose" else nil,
+				})
 			end
 		end
 	end
@@ -1014,7 +1051,17 @@ local function rowRecord(): any
 			and (observed.judgedTrees or 0) > 0
 			and #observed.offscreenNodes == 0
 			and observed.solverDiagnostics == 0
-			and #observed.unfitText == 0,
+			-- DECLARED truncation (disclose/reveal) is the framework's legal
+			-- overflow policy with a full-value affordance; only an UNDECLARED
+			-- unfit is a row failure
+			and (function(): boolean
+				for _, u in observed.unfitText do
+					if (u :: any).declared == nil then
+						return false
+					end
+				end
+				return true
+			end)(),
 		row = ARGS.row,
 		-- EVIDENCE CLASS on every row, for the same reason the perf runner
 		-- stamps it: this is a Studio session on a development host, and it is

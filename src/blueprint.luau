@@ -129,6 +129,7 @@ export type ScrollViewSpec = BoxProps & ContainerProps & {
 	axis: string?,
 	onScrollWheel: ((path: string, delta: number, rectOf: (string) -> any) -> ())?,
 	autoscroll: (boolean | { [string]: any })?,
+	indicators: string?, -- "auto" (default) | "none" — carousel indicator opt-out
 }
 export type GridSpec = BoxProps & ContainerProps & {
 	gap: Bound<number | Metric>?,
@@ -280,6 +281,15 @@ export type GripSpec = BoxProps & PointerHandlers & {
 	focusable: Bound<boolean>?,
 	traversalPriority: number?,
 	focusVisual: string?,
+}
+
+-- the engine-content box (ViewportFrame adoption). The whole authored surface is
+-- the box + its plate + its one paint channel; the CONTENT of a stage (camera,
+-- lighting, models) rides `controller.stageHost(path)`, which is the only place
+-- engine types exist.
+export type StageSpec = BoxProps & {
+	surface: Bound<string>?,
+	tint: Bound<any>?,
 }
 
 export type PathSpec = BoxProps & {
@@ -877,6 +887,12 @@ end
 -- structural regions (§5.4)
 function blueprint.Path(spec: PathSpec): Blueprint
 	return make("Path", spec)
+end
+-- Stage: the engine-content box. A leaf like Box (it measures 0x0 without dims);
+-- the adapter materializes it as a ViewportFrame and owns the WorldModel/Camera
+-- behind `controller.stageHost`.
+function blueprint.Stage(spec: StageSpec): Blueprint
+	return make("Stage", spec)
 end
 function blueprint.When(spec: WhenSpec): Blueprint
 	return make("When", spec)

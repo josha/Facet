@@ -839,10 +839,26 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			n += 1
 		end
 		local gaps = if n > 1 then gap * (n - 1) else 0
-		if axis == "x" then
-			return mainSum + gaps + pl + pr, crossMax + pt + pb
+		-- THE BAR IS PART OF THE MEASURE (2026-08-08, ref_wardrobe matrix row).
+		-- Arrange reserves `scrollBarReserve` off the CROSS axis whenever the
+		-- scroll axis overflows — so a hug scroller that did not include the bar
+		-- here reported a cross size at which it cannot reproduce itself: the
+		-- parent granted content-size, arrange subtracted the bar, and every
+		-- child overflowed by exactly its thickness. Same fixed-point rule the
+		-- grid measure follows. The condition mirrors arrange's: reserve only
+		-- when the scroll-axis content overflows the bounded offer (an unbounded
+		-- offer cannot overflow, and a fitting shelf shows no bar).
+		local reserve = 0
+		if ctx.scrollBarReserve > 0 then
+			local mainOffer = if axis == "x" then innerMaxW else innerMaxH
+			if mainOffer ~= math.huge and mainSum + gaps > mainOffer then
+				reserve = ctx.scrollBarReserve
+			end
 		end
-		return crossMax + pl + pr, mainSum + gaps + pt + pb
+		if axis == "x" then
+			return mainSum + gaps + pl + pr, crossMax + reserve + pt + pb
+		end
+		return crossMax + reserve + pl + pr, mainSum + gaps + pt + pb
 	end
 
 	if node.kind == "fits" then
@@ -900,7 +916,8 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	if node.kind == "grid" then
 		local children = node.children or {}
 		local rowGap = gridRowGap(node)
-		local cols = gridColumnCount(node, innerMaxW, gap, gridColumnMin(ctx, node))
+		local minCol = gridColumnMin(ctx, node)
+		local cols = gridColumnCount(node, innerMaxW, gap, minCol)
 		-- clamp: a gap/column combination wider than the container must not
 		-- go negative (phase-4 layout fuzz, seed 206612356)
 		local colW = if innerMaxW == math.huge then math.huge else math.max(0, (innerMaxW - gap * (cols - 1)) / cols)
@@ -933,7 +950,14 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 				then w
 				elseif uniformW ~= nil and dim(child, "w").type ~= "fill" then math.min(uniformW :: number, colW)
 				else colW
-			rowW += cellW + (if (i - 1) % cols == cols - 1 then 0 else gap)
+			-- gaps go BETWEEN cells: the last cell in a row ends the row whether it
+			-- fills the last column or not. The `(i-1) % cols` test alone missed the
+			-- partial final row and added a trailing gap the arrange never paints,
+			-- so a hug parent was handed a width one gap wider than the paint —
+			-- which re-widened the column on the next measure and grew every
+			-- aspect-sized cell by 2px (the "2px overflow" half of the 2026-08-08
+			-- report; `grid_measure_arrange.spec`).
+			rowW += cellW + (if (i - 1) % cols == cols - 1 or i == #children then 0 else gap)
 			if i % cols == 0 or i == #children then
 				totalH += rowH + (if i == #children then 0 else rowGap)
 				maxRowW = math.max(maxRowW, rowW)
@@ -941,7 +965,33 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 				rowW = 0
 			end
 		end
-		return maxRowW + pl + pr, totalH + pt + pb
+		-- THE WIDTH A GRID REPORTS MUST RE-DERIVE ITS OWN COLUMN COUNT (found
+		-- 2026-08-08, `grid_measure_arrange.spec`). The column count above comes
+		-- from the OFFER via `minColumnWidth`; `maxRowW` is what the CELLS occupy,
+		-- which under `uniform` sizing can be narrower than that minimum. A hug
+		-- parent then hands the report straight back as the arrange offer, and the
+		-- grid re-columns against a width it published itself — a 148px minimum
+		-- with 144px cards measured nine columns / one row at a 1400px offer, then
+		-- arranged three columns / two rows at the 608px it had just reported, and
+		-- the section it sat in overflowed by exactly the extra row (200px).
+		--
+		-- So the report is floored at the width the chosen columns need. It never
+		-- exceeds the offer (`gridColumnCount` floors `cols` against exactly this
+		-- quantity), it is the width a `minColumnWidth` author already declared,
+		-- and it makes measure a FIXED POINT: offering the reported width back
+		-- yields the same column count, the same rows and the same height.
+		--
+		-- Only the width-derived count needs it. An explicit `columns = N` does not
+		-- depend on the offer at all, and natural sizing already reports the column
+		-- width itself — both reproduce their own report unchanged.
+		local reportedW = maxRowW
+		if node.columns == nil and minCol ~= nil and innerMaxW ~= math.huge then
+			local used = math.min(cols, #children)
+			if used > 0 then
+				reportedW = math.max(reportedW, used * (minCol + gap) - gap)
+			end
+		end
+		return reportedW + pl + pr, totalH + pt + pb
 	end
 
 	-- vstack / hstack
@@ -1511,6 +1561,20 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- flow cursor advances by gap between children, so the extent must include
 		-- them or the native canvas under-covers and the last row's tail is
 		-- unreachable (migration-agent finding 2026-07-23, native-substrate NS-A3)
+		--
+		-- THE CROSS AXIS IS CLAMPED TO THE WINDOW (director live report,
+		-- 2026-08-09): this is a SINGLE-axis scroller, so content on the other
+		-- axis is unreachable by construction — but a nested cross-axis
+		-- carousel MEASURES at its content width (fill measures as content),
+		-- and publishing that measure as the canvas made the engine draw a
+		-- horizontal scrollbar on a Y scroller, straight through the tab dock
+		-- beneath it. The canvas the adapter is given must never exceed the
+		-- window on an axis nobody can scroll.
+		if isX then
+			contentH = math.min(contentH, innerH)
+		else
+			contentW = math.min(contentW, innerW)
+		end
 		out[node.id].contentSize = { w = contentW, h = contentH }
 		-- ...and the padding this solve actually SPENT, published so the canvas the
 		-- adapter is given is built from the same number the content was measured
@@ -1660,6 +1724,10 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 
 	if node.kind == "zstack" then
 		for _, child in node.children or {} do
+			-- hoisted above the diagnostic: a FILL axis is granted exactly the
+			-- stack's box at arrange (below), so its measure is not its size
+			local childFillW = dim(child, "w").type == "fill"
+			local childFillH = dim(child, "h").type == "fill"
 			--[[ ── A LAYERED CHILD BIGGER THAN ITS BOX (2026-08-02) ─────────────────
 				The flow-stack diagnostic above cannot see this one: a ZStack has no
 				main axis to overflow, so a child measured taller or wider than the box
@@ -1672,11 +1740,21 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				Reported, never fatal: an honestly cramped offer produces the same
 				measure, and stopping a screen to report an authoring mistake is the
 				worse trade. `intentionalOverlap` is the opt-out for the layouts whose
-				whole job is to stack over one another. ]]
+				whole job is to stack over one another.
+
+				PER-AXIS, AND ONLY THE AXES THE CHILD SIZES ITSELF ON (2026-08-08,
+				reference-app matrix): a `fill` axis resolves at arrange to exactly
+				`availW`/`availH` — the child CANNOT paint outside a box it is granted
+				— but `measure` answers `fill` with content, so comparing the measure
+				here reported a fill-width page scroller as "overflowing" by its own
+				content height (plus the bar reserve its measure honestly includes) on
+				every screen. Three reference proofs carried `overflow = "clip"` purely
+				to silence that false positive; the axis gate is what makes this
+				diagnostic trustworthy as an OVERLAP signal across the device matrix. ]]
 			if ctx.hiddenDepth == 0 and node.overflow ~= "intentionalOverlap" and node.overflow ~= "clip" then
 				local cw, ch = measure(ctx, child, innerW, innerH)
-				local overW = math.floor(cw - innerW + 0.5)
-				local overH = math.floor(ch - innerH + 0.5)
+				local overW = if childFillW then 0 else math.floor(cw - innerW + 0.5)
+				local overH = if childFillH then 0 else math.floor(ch - innerH + 0.5)
 				if overW > 0 or overH > 0 then
 					table.insert(ctx.diagnostics, {
 						node = child.id,
@@ -1710,8 +1788,8 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			-- their own margins, and then sit hard against the near margin: a filled
 			-- axis has nothing left to align, so `alignH`/`alignV` are read only for
 			-- the axes the child actually sizes itself on.
-			local fillW = dim(child, "w").type == "fill"
-			local fillH = dim(child, "h").type == "fill"
+			local fillW = childFillW
+			local fillH = childFillH
 			if fillW then
 				w = availW
 			end

@@ -1,0 +1,662 @@
+--!strict
+-- Reference proof "Foyer" — E1 loop pins (RA-P4, swiftui-reference-app-validation).
+-- The representative loop, its rejection paths, reflow survival, locale swap,
+-- image transport states, and reset determinism — driven through the public
+-- presenter/adapter stack (fake target), never through test-only shortcuts:
+-- every interaction here is an adapter.tap on a mounted control or a declared
+-- scenario step.
+
+local t = require("../lib/testkit")
+local describe, it, expect = t.describe, t.it, t.expect
+
+local LuauUI = require("../../src") :: any
+local fake_target = require("../lib/fake_target")
+local proof = require("../../examples/reference/p4_foyer") :: any
+
+local function makeWorld(viewportW: number?)
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = viewportW or 1400, h = 900 })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	local deps = { env = env, actionSystem = system, presenter = presenter, adapter = adapter }
+	local built = proof.build(LuauUI, core, deps)
+	local handle = presenter.present(built.screen, built.present)
+	presenter.refresh()
+	return {
+		core = core,
+		env = env,
+		adapter = adapter,
+		presenter = presenter,
+		built = built,
+		handle = handle,
+	}
+end
+
+local function teardown(w: any)
+	if w.built.dispose then
+		w.built.dispose()
+	end
+	w.presenter.dismiss(w.handle)
+end
+
+local function findPath(adapter: any, needle: string): string?
+	for _, path in adapter.paths() do
+		if string.find(path, needle, 1, true) then
+			return path
+		end
+	end
+	return nil
+end
+
+local HOME = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody"
+
+-- advance structural exit transitions to completion (cap 500 ms) so a swapped
+-- ForEach's RETIRED rows actually dispose before an absence is asserted
+local function settleTransitions(w: any)
+	for _ = 1, 8 do
+		w.presenter.tick(0.1)
+	end
+	w.presenter.refresh()
+end
+
+describe("Foyer proof — mount and structure (RA-P4)", function()
+	it("mounts the home body with all four sections and no core error", function()
+		local w = makeWorld()
+		expect(w.core:lastError()).toBeNil()
+		for _, section in { "picked", "continue", "new", "friends" } do
+			expect(findPath(w.adapter, "Sections/[" .. section .. "]") ~= nil).toBe(true)
+		end
+		expect(w.adapter.node(HOME .. "/TabRow/Tab_forYou/B") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "FriendsRow/F_marrow") ~= nil).toBe(true)
+		teardown(w)
+	end)
+
+	it("wide viewport shows the nav rail, not the bottom bar; compact shows the bottom bar", function()
+		local wide = makeWorld(1400)
+		expect(findPath(wide.adapter, "SideRailWhen/then/NavRail") ~= nil).toBe(true)
+		expect(findPath(wide.adapter, "BottomFullWhen/then") == nil).toBe(true)
+		teardown(wide)
+		local compact = makeWorld(390)
+		expect(findPath(compact.adapter, "SideRailWhen/then/NavRail") == nil).toBe(true)
+		expect(findPath(compact.adapter, "BottomFullWhen/then/BottomBar") ~= nil).toBe(true)
+		teardown(compact)
+	end)
+
+	it("a size-class flip swaps chrome but never remounts the home body", function()
+		local w = makeWorld(1400)
+		local tabPath = HOME .. "/TabRow/Tab_forYou/B"
+		local before = w.adapter.node(tabPath)
+		expect(before ~= nil).toBe(true)
+		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 800 })
+		w.presenter.refresh()
+		expect(findPath(w.adapter, "BottomFullWhen/then/BottomBar") ~= nil).toBe(true)
+		expect(w.adapter.node(tabPath) == before).toBe(true)
+		teardown(w)
+	end)
+end)
+
+describe("Foyer nav — the four placement homes (adaptive.navPlacement)", function()
+	-- The section nav's home is a POLICY over shape/input/display facts, not
+	-- whatever happens to fit. Every assertion here is GEOMETRY — which band the
+	-- wings are painted in, how wide they are, where their midpoint sits —
+	-- because a name-only pin survives a shell that mounts the right node in the
+	-- wrong place. The top CHROME bar (brand, search, refresh, profile, bell)
+	-- is a separate band and must stay put on every one of them.
+	local function shaped(viewport: any, facts: any?): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", viewport)
+		for key, value in facts or {} do
+			env:set(key, value)
+		end
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local built =
+			proof.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		local handle = presenter.present(built.screen, built.present)
+		presenter.refresh()
+		local self: any = {
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			system = system,
+			built = built,
+			handle = handle,
+		}
+		function self.node(needle: string): any
+			local path = findPath(adapter, needle)
+			return if path ~= nil then adapter.node(path) else nil
+		end
+		return self
+	end
+
+	local TOUCH = { touch = true, mouse = false, keyboard = false, gamepad = false }
+
+	it("navPlacement gives every canvas its home: rail / bottom band / inline band / top band", function()
+		-- pointer desktop: the vertical rail beside the content
+		local desktop = shaped({ x = 0, y = 0, w = 1400, h = 900 })
+		local rail = desktop.node("SideRailWhen/then/NavRail")
+		expect(rail ~= nil and rail.rect ~= nil).toBe(true)
+		expect(rail.rect.x < 1400 * 0.2).toBe(true)
+		expect(rail.rect.h > rail.rect.w * 2).toBe(true) -- a COLUMN, not a band
+		expect(desktop.node("BottomFullWhen/then/BottomBar")).toBeNil()
+		expect(desktop.node("NavTopWhen/then/NavTopBar")).toBeNil()
+		teardown(desktop)
+
+		-- phone portrait: the full-width thumb-zone band
+		local phone = shaped({ x = 0, y = 0, w = 390, h = 844 })
+		local band = phone.node("BottomFullWhen/then/BottomBar")
+		expect(band ~= nil and band.rect ~= nil).toBe(true)
+		expect(band.rect.w).toBe(390)
+		expect(phone.node("SideRailWhen/then/NavRail")).toBeNil()
+		teardown(phone)
+
+		-- phone landscape (roomy width, SHORT height): a CENTERED cluster that
+		-- hugs its wings, never a full-width stretch
+		local land = shaped({ x = 0, y = 0, w = 720, h = 360 })
+		local inline = land.node("BottomCompactCenter/BottomCompact")
+		expect(inline ~= nil and inline.rect ~= nil).toBe(true)
+		expect(inline.rect.w < 720 * 0.7).toBe(true)
+		expect(math.abs((inline.rect.x + inline.rect.w / 2) - 360) < 60).toBe(true)
+		expect(land.node("BottomFullWhen/then/BottomBar")).toBeNil()
+		teardown(land)
+
+		-- tablet (roomy + touch + a Medium display): the centered top band
+		local tablet = shaped({ x = 0, y = 0, w = 1080, h = 810 }, { capabilities = TOUCH, preferredInput = "Touch" })
+		local top = tablet.node("NavTopFit/NavTopFull") or tablet.node("NavTopFit/NavTopIcons")
+		expect(top ~= nil and top.rect ~= nil).toBe(true)
+		expect(top.rect.w < 1080 * 0.7).toBe(true) -- hugs
+		expect(math.abs((top.rect.x + top.rect.w / 2) - 540) < 120).toBe(true) -- centered
+		expect(tablet.node("SideRailWhen/then/NavRail")).toBeNil()
+		expect(tablet.node("BottomFullWhen/then/BottomBar")).toBeNil()
+		teardown(tablet)
+
+		-- ...and a roomy canvas the DISPLAY fact cannot tell from a handheld
+		-- stays a bottom band ("when we cannot differentiate, bottom tabs")
+		local small = shaped(
+			{ x = 0, y = 0, w = 1280, h = 720 },
+			{ capabilities = TOUCH, preferredInput = "Touch", displaySize = "Small" }
+		)
+		expect(small.node("BottomFullWhen/then/BottomBar") ~= nil).toBe(true)
+		expect(small.node("NavTopWhen/then/NavTopBar")).toBeNil()
+		expect(small.core:lastError()).toBeNil()
+		teardown(small)
+	end)
+
+	it("the nav band sits BELOW the content at both bottom placements", function()
+		for _, canvas in { { 390, 844 }, { 720, 360 } } do
+			local w = shaped({ x = 0, y = 0, w = canvas[1], h = canvas[2] })
+			local middle = w.node("/Foyer/Root/Middle")
+			local band = w.node("BottomFullWhen/then/BottomBar") or w.node("BottomCompactCenter/BottomCompact")
+			expect(middle ~= nil and middle.rect ~= nil).toBe(true)
+			expect(band ~= nil and band.rect ~= nil).toBe(true)
+			expect(band.rect.y >= middle.rect.y + middle.rect.h - 1).toBe(true)
+			teardown(w)
+		end
+	end)
+
+	it("the search field keeps its home in the top chrome on EVERY placement", function()
+		-- only the SECTION nav moves; the chrome band (and the search inside it)
+		-- is Foyer's own thing and never migrates into a tab accessory
+		local canvases = {
+			{ vp = { x = 0, y = 0, w = 1400, h = 900 } },
+			{ vp = { x = 0, y = 0, w = 390, h = 844 } },
+			{ vp = { x = 0, y = 0, w = 720, h = 360 } },
+			{ vp = { x = 0, y = 0, w = 1080, h = 810 }, facts = { capabilities = TOUCH, preferredInput = "Touch" } },
+		}
+		for _, canvas in canvases do
+			local w = shaped(canvas.vp, canvas.facts)
+			local slot = findPath(w.adapter, "/Foyer/Root/TopBar/SearchSlot")
+			expect(slot ~= nil).toBe(true)
+			-- the field itself, or the icon form it collapses to at a narrow width
+			local live = findPath(w.adapter, "SearchSlot/FieldForm") or findPath(w.adapter, "SearchSlot/IconForm")
+			expect(live ~= nil).toBe(true)
+			-- and it still drives the feed
+			w.built.steps.search(nil, "moss")
+			w.presenter.refresh()
+			expect(findPath(w.adapter, "Rows/[moss-kingdom]") ~= nil).toBe(true)
+			expect(w.core:lastError()).toBeNil()
+			teardown(w)
+		end
+	end)
+
+	it("no bottom wing carries a title at all: the bands are the ICON-ONLY presentation", function()
+		-- the compact-representation ruling, pinned where it can be measured —
+		-- an icon-only wing has no text node, so no bottom wing can ellipsize.
+		-- (A losing ViewThatFits candidate still publishes text facts, so the
+		-- top band's ladder is read through `hiddenRoots` in its own case.)
+		for _, canvas in { { 390, 844 }, { 720, 360 } } do
+			for _, offset in { 0, 4, 10, 14 } do
+				local w = shaped({ x = 0, y = 0, w = canvas[1], h = canvas[2] })
+				w.env:set("preferredTextOffset", offset)
+				w.presenter.refresh()
+				local titles: { string } = {}
+				for _, path in w.adapter.paths() do
+					if string.find(path, "_iconOnly/", 1, true) ~= nil and string.sub(path, -#"/Title") == "/Title" then
+						table.insert(titles, path)
+					end
+				end
+				expect(#titles).toBe(0)
+				-- ...and every wing is still a real, hittable control
+				local hit = findPath(w.adapter, "Nav_crews_iconOnly")
+				expect(hit ~= nil).toBe(true)
+				w.adapter.tap(hit :: string)
+				w.presenter.refresh()
+				expect(w.built.report().destination).toBe("crews")
+				teardown(w)
+			end
+		end
+	end)
+
+	it("no VISIBLE top-band wing is cut off, and its icon-only rung is reachable", function()
+		local facts = { capabilities = TOUCH, preferredInput = "Touch" }
+		local w = shaped({ x = 0, y = 0, w = 1080, h = 810 }, facts)
+		local function cuts(): number
+			local hidden = w.handle.controller.hiddenRoots()
+			local n = 0
+			for path, textFacts in w.handle.controller.textAt() do
+				if textFacts.truncated ~= true or string.find(path, "NavTop", 1, true) == nil then
+					continue
+				end
+				local onScreen = true
+				for root in hidden do
+					if string.sub(path, 1, #root) == root then
+						onScreen = false
+					end
+				end
+				if onScreen then
+					n += 1
+				end
+			end
+			return n
+		end
+		-- the full titles fit a tablet band, and nothing on screen is cut
+		expect((w.node("NavTopFit/NavTopFull") :: any).rect.w > 0).toBe(true)
+		expect(cuts()).toBe(0)
+		-- ...and the ladder is REAL: the 1.4x locale at the largest text preference
+		-- on the narrowest band that is still a TOP band takes the icon-only rung
+		w.env:set("viewportRect", { x = 0, y = 0, w = 620, h = 900 })
+		w.env:set("preferredTextOffset", 14)
+		w.built.steps.locale(nil, "xa")
+		w.presenter.refresh()
+		expect((w.node("NavTopFit/NavTopFull") :: any).rect.w).toBe(0)
+		expect((w.node("NavTopFit/NavTopIcons") :: any).rect.w > 0).toBe(true)
+		expect(cuts()).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+		teardown(w)
+	end)
+
+	it("every placement is traversable: enter, through, away, and a real action", function()
+		local function pressTab(w: any)
+			w.presenter.refresh()
+			w.system.deviceKey("Tab", true)
+			w.system.deviceKey("Tab", false)
+			w.presenter.refresh()
+		end
+		local function walk(w: any): { [string]: boolean }
+			local seen: { [string]: boolean } = {}
+			local start = w.presenter.focus.focused:get()
+			if start == nil then
+				pressTab(w)
+				start = w.presenter.focus.focused:get()
+			end
+			local guard, at = 0, start
+			repeat
+				if at ~= nil then
+					seen[at] = true
+				end
+				pressTab(w)
+				at = w.presenter.focus.focused:get()
+				guard += 1
+			until at == start or at == nil or guard > 250
+			return seen
+		end
+		local canvases = {
+			{ name = "rail", vp = { x = 0, y = 0, w = 1400, h = 900 } },
+			{ name = "bottom", vp = { x = 0, y = 0, w = 390, h = 844 } },
+			{ name = "inline", vp = { x = 0, y = 0, w = 720, h = 360 } },
+			{
+				name = "top",
+				-- a tablet WITH a keyboard: `TOUCH` alone declares keyboard = false,
+				-- and a Tab ring in a keyboard-less world is honestly inert (the
+				-- pad-driven case below is how that world is walked)
+				vp = { x = 0, y = 0, w = 1080, h = 810 },
+				facts = {
+					capabilities = { touch = true, mouse = false, keyboard = true, gamepad = false },
+					preferredInput = "Touch",
+				},
+			},
+		}
+		for _, canvas in canvases do
+			local w = shaped(canvas.vp, canvas.facts)
+			local seen = walk(w)
+			for _, dest in { "home", "crews", "forge", "mail", "you" } do
+				local hit = false
+				for path in seen do
+					if string.find(path, "Nav_" .. dest .. "_", 1, true) ~= nil then
+						hit = true
+					end
+				end
+				expect(`{canvas.name}/{dest}:{hit}`).toBe(`{canvas.name}/{dest}:true`)
+			end
+			-- (away) the ring holds more than the nav
+			local outside = false
+			for path in seen do
+				if string.find(path, "/Nav_", 1, true) == nil then
+					outside = true
+				end
+			end
+			expect(`{canvas.name}/outside:{outside}`).toBe(`{canvas.name}/outside:true`)
+			-- (action) a wing switches the destination through the real path
+			local wing = findPath(w.adapter, "Nav_forge_")
+			expect(wing ~= nil).toBe(true)
+			w.adapter.tap(wing :: string)
+			w.presenter.refresh()
+			expect(w.built.report().destination).toBe("forge")
+			expect(w.core:lastError()).toBeNil()
+			teardown(w)
+		end
+	end)
+
+	it("top band, driven as a PAD drives it: DPad to the band, across it, ButtonA, DPad away", function()
+		-- capabilities.keyboard = false, so Tab is honestly inert here; the pad
+		-- path is DPad navigation plus ButtonA activation
+		local w = shaped({ x = 0, y = 0, w = 1920, h = 1080 }, {
+			capabilities = { touch = false, mouse = false, keyboard = false, gamepad = true },
+			preferredInput = "Gamepad",
+			displaySize = "Large",
+		})
+		expect(w.node("NavTopWhen/then/NavTopBar") ~= nil).toBe(true)
+		local function pad(key: string)
+			w.system.deviceKey(key, true)
+			w.system.deviceKey(key, false)
+			w.presenter.refresh()
+		end
+		local function focused(): string
+			return tostring(w.presenter.focus.focused:get())
+		end
+		-- (enter) walk DOWN into the band from wherever the surface opened
+		local guard = 0
+		while string.find(focused(), "/Nav_", 1, true) == nil and guard < 20 do
+			pad("DPadDown")
+			guard += 1
+		end
+		expect(string.find(focused(), "/Nav_", 1, true) ~= nil).toBe(true)
+		-- (through) a pad enters a band wherever it is spatially NEAREST — from the
+		-- bell that is the third wing, not the first — so the walk goes to the
+		-- leading edge first and then all the way across. The step counts come
+		-- from the wing the pad actually landed on, which is what makes this a
+		-- traversal proof rather than a lucky entry point.
+		local ORDER = { "home", "crews", "forge", "mail", "you" }
+		local function wingAt(): number?
+			for index, dest in ORDER do
+				if string.find(focused(), "Nav_" .. dest .. "_", 1, true) ~= nil then
+					return index
+				end
+			end
+			return nil
+		end
+		local entry = wingAt()
+		expect(entry ~= nil).toBe(true)
+		local seen: { [string]: boolean } = { [focused()] = true }
+		for _ = 1, (entry :: number) - 1 do
+			pad("DPadLeft")
+			seen[focused()] = true
+		end
+		expect(wingAt()).toBe(1)
+		for _ = 1, #ORDER - 1 do
+			pad("DPadRight")
+			seen[focused()] = true
+		end
+		expect(wingAt()).toBe(#ORDER)
+		for _, dest in ORDER do
+			local hit = false
+			for path in seen do
+				if string.find(path, "Nav_" .. dest .. "_", 1, true) ~= nil then
+					hit = true
+				end
+			end
+			expect(`{dest}:{hit}`).toBe(`{dest}:true`)
+		end
+		-- (away) DPadDown leaves the band for the content under it — checked
+		-- BEFORE the action, because a stub destination has nothing focusable in
+		-- it and "cannot leave" would then be indistinguishable from "nowhere to go"
+		pad("DPadDown")
+		expect(string.find(focused(), "/Nav_", 1, true) == nil).toBe(true)
+		-- (action) walk back up and press A: the wing under focus is the one that
+		-- takes effect, so the assertion reads the wing rather than assuming it
+		local back = 0
+		while string.find(focused(), "/Nav_", 1, true) == nil and back < 20 do
+			pad("DPadUp")
+			back += 1
+		end
+		local landed = wingAt()
+		expect(landed ~= nil).toBe(true)
+		pad("ButtonA")
+		expect(w.built.report().destination).toBe(ORDER[landed :: number])
+		expect(w.core:lastError()).toBeNil()
+		teardown(w)
+	end)
+end)
+
+describe("Foyer proof — tabs, search, stubs", function()
+	it("the charts tab swaps the feed to the approval-ranked section and back", function()
+		local w = makeWorld()
+		w.adapter.tap(HOME .. "/TabRow/Tab_charts/B")
+		settleTransitions(w)
+		expect(findPath(w.adapter, "Sections/[charts]") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "Sections/[picked]") == nil).toBe(true)
+		w.adapter.tap(HOME .. "/TabRow/Tab_forYou/B")
+		settleTransitions(w)
+		expect(findPath(w.adapter, "Sections/[picked]") ~= nil).toBe(true)
+		teardown(w)
+	end)
+
+	it("search filters by title and creator; clearing restores the feed", function()
+		local w = makeWorld()
+		w.built.steps.search(nil, "moss")
+		settleTransitions(w)
+		expect(findPath(w.adapter, "Rows/[moss-kingdom]") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "Sections/[picked]") == nil).toBe(true)
+		w.built.steps.search(nil, "latchkey")
+		w.presenter.refresh()
+		expect(findPath(w.adapter, "Rows/[moss-kingdom]") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "Rows/[signal-lost]") ~= nil).toBe(true)
+		w.built.steps.search(nil, "")
+		w.presenter.refresh()
+		expect(findPath(w.adapter, "Sections/[picked]") ~= nil).toBe(true)
+		teardown(w)
+	end)
+
+	it("a no-match query shows the honest empty state with a working clear button", function()
+		local w = makeWorld()
+		w.built.steps.search(nil, "zzzz")
+		w.presenter.refresh()
+		local clear = findPath(w.adapter, "Empty/Clear")
+		expect(clear ~= nil).toBe(true)
+		w.adapter.tap(clear :: string)
+		w.presenter.refresh()
+		expect(w.built.report().query).toBe("")
+		expect(findPath(w.adapter, "Sections/[picked]") ~= nil).toBe(true)
+		teardown(w)
+	end)
+
+	it("a stub destination shows the labeled stub plate, never fake content", function()
+		local w = makeWorld()
+		local nav = findPath(w.adapter, "NavRail/Nav_crews_titleAndIcon")
+		expect(nav ~= nil).toBe(true)
+		w.adapter.tap(nav :: string)
+		w.presenter.refresh()
+		expect(findPath(w.adapter, "StubWhen/then/StubPlate") ~= nil).toBe(true)
+		expect(findPath(w.adapter, "HomeWhen/then") == nil).toBe(true)
+		w.built.steps.destination(nil, "home")
+		w.presenter.refresh()
+		expect(findPath(w.adapter, "HomeWhen/then/HomeBody") ~= nil).toBe(true)
+		teardown(w)
+	end)
+end)
+
+describe("Foyer proof — refresh command lifecycle", function()
+	it("refresh pends (button disabled), then confirms with re-seeded sections", function()
+		local w = makeWorld()
+		local before = w.built.report().page
+		w.adapter.tap("/Foyer/Root/TopBar/Refresh")
+		expect(w.built.report().refreshStatus).toBe("pending")
+		w.presenter.refresh()
+		local refreshNode = w.adapter.node("/Foyer/Root/TopBar/Refresh")
+		expect(refreshNode.props.enabled).toBe(false)
+		w.built.steps.settle()
+		w.presenter.refresh()
+		local report = w.built.report()
+		expect(report.refreshStatus).toBe("confirmed")
+		expect(report.page).toBe(before + 1)
+		expect(refreshNode.props.enabled).toBe(true)
+		teardown(w)
+	end)
+
+	it("a scripted rejection leaves the feed unchanged and re-enables the button", function()
+		local w = makeWorld()
+		local before = w.built.report().page
+		w.built.steps.rejectNextRefresh()
+		w.adapter.tap("/Foyer/Root/TopBar/Refresh")
+		w.built.steps.settle()
+		w.presenter.refresh()
+		local report = w.built.report()
+		expect(report.refreshStatus).toBe("rejected")
+		expect(report.page).toBe(before)
+		expect(w.adapter.node("/Foyer/Root/TopBar/Refresh").props.enabled).toBe(true)
+		teardown(w)
+	end)
+end)
+
+describe("Foyer proof — tile detail and the visit command", function()
+	it(
+		"activating a tile presents its detail modal; visit pends then confirms into Keep playing and dismisses",
+		function()
+			local w = makeWorld()
+			local baseDepth = w.presenter.depth()
+			local tile = findPath(w.adapter, "Sections/[picked]/Body/Grid/Tiles/[moss-kingdom]/moss-kingdom")
+			expect(tile ~= nil).toBe(true)
+			w.adapter.tap(tile :: string)
+			w.presenter.refresh()
+			expect(w.presenter.depth()).toBe(baseDepth + 1)
+			local visit = findPath(w.adapter, "Detail/PanelZ/Plate/Page/Footer/Visit")
+			expect(visit ~= nil).toBe(true)
+			w.adapter.tap(visit :: string)
+			expect(w.built.report().visitStatus).toBe("pending")
+			w.presenter.refresh()
+			expect(w.adapter.node(visit :: string).props.enabled).toBe(false)
+			w.built.steps.settle()
+			w.presenter.refresh()
+			local report = w.built.report()
+			expect(report.visitStatus).toBe("confirmed")
+			expect(report.continueIds["moss-kingdom"]).toBe(true)
+			expect(w.presenter.depth()).toBe(baseDepth)
+			teardown(w)
+		end
+	)
+
+	it("a rejected visit leaves Keep playing untouched and the modal up", function()
+		local w = makeWorld()
+		local tile = findPath(w.adapter, "Sections/[picked]/Body/Grid/Tiles/[rooftop-dash]/rooftop-dash")
+		w.adapter.tap(tile :: string)
+		w.presenter.refresh()
+		w.built.steps.rejectNextVisit()
+		local visit = findPath(w.adapter, "Detail/PanelZ/Plate/Page/Footer/Visit")
+		w.adapter.tap(visit :: string)
+		w.built.steps.settle()
+		w.presenter.refresh()
+		local report = w.built.report()
+		expect(report.visitStatus).toBe("rejected")
+		expect(report.continueIds["rooftop-dash"]).toBeNil()
+		expect(w.presenter.depth() > 0).toBe(true)
+		teardown(w)
+	end)
+end)
+
+describe("Foyer proof — notices, locale, images, determinism", function()
+	it("the bell badge counts seeded notices and clears on presenting the modal", function()
+		local w = makeWorld()
+		expect(w.built.report().noticeCount).toBe(5)
+		expect(findPath(w.adapter, "BellZ/BadgeWhen/then/Badge") ~= nil).toBe(true)
+		w.adapter.tap("/Foyer/Root/TopBar/BellZ/Bell")
+		w.presenter.refresh()
+		expect(w.built.report().noticeCount).toBe(0)
+		expect(findPath(w.adapter, "BellZ/BadgeWhen/then") == nil).toBe(true)
+		teardown(w)
+	end)
+
+	it("the locale swap reaches live copy without remounting the tab button", function()
+		local w = makeWorld()
+		local tabButton = HOME .. "/TabRow/Tab_forYou/B"
+		local before = w.adapter.node(tabButton)
+		expect(tostring(before.props.label)).toBe("For you")
+		w.built.steps.locale(nil, "xa")
+		w.presenter.refresh()
+		expect(w.adapter.node(tabButton) == before).toBe(true)
+		expect(string.find(tostring(w.adapter.node(tabButton).props.label), "%[") ~= nil).toBe(true)
+		teardown(w)
+	end)
+
+	it("the scripted transport resolves art deterministically: two keys stay failed, the rest ready", function()
+		local w = makeWorld()
+		local internals = w.built._internals
+		local h1 = internals.provider.acquire(w.core:scope("probe1"), "thumb:moss-kingdom")
+		local h2 = internals.provider.acquire(w.core:scope("probe2"), "thumb:signal-lost")
+		internals.settleImages()
+		expect(h1.state:get()).toBe("ready")
+		expect(h2.state:get()).toBe("failed")
+		teardown(w)
+	end)
+
+	it("two fresh builds report identical seeded state (reset determinism)", function()
+		local a = makeWorld()
+		local b = makeWorld()
+		local ra, rb = a.built.report(), b.built.report()
+		expect(ra.page).toBe(rb.page)
+		expect(ra.noticeCount).toBe(rb.noticeCount)
+		expect(#a.adapter.paths()).toBe(#b.adapter.paths())
+		teardown(a)
+		teardown(b)
+	end)
+
+	it("the five-view sweep is diagnostic-clean with a live scrollbar (matrix pin)", function()
+		for _, vp in
+			{
+				{ w = 360, h = 691 },
+				{ w = 678, h = 339 },
+				{ w = 1080, h = 810 },
+				{ w = 1280, h = 720 },
+				{ w = 1920, h = 1080 },
+			}
+		do
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = vp.w, h = vp.h })
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new();
+			(adapter :: any).scrollBarThickness = 8
+			local presenter = LuauUI.newPresenter(core, env, adapter, system)
+			local built = proof.build(
+				LuauUI,
+				core,
+				{ env = env, actionSystem = system, presenter = presenter, adapter = adapter }
+			)
+			local handle = presenter.present(built.screen, built.present)
+			presenter.refresh()
+			expect(#handle.controller.diagnostics()).toBe(0)
+			built.dispose()
+			presenter.dismiss(handle)
+		end
+	end)
+
+	it("dispose tears the proof down without a core error", function()
+		local w = makeWorld()
+		teardown(w)
+		expect(w.core:lastError()).toBeNil()
+	end)
+end)

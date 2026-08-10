@@ -43,6 +43,10 @@ local checker = {}
 -- lint enforces is the plan's claim about EXAMPLES: "content/domain logic plus
 -- declarative LuauUI composition".
 local SCANNED_DIR = "examples/gallery/examples"
+-- swiftui-reference-app-validation: the five clean-room proofs are held to the
+-- same authority rules as the tutorials. Scanned recursively (proof folders
+-- carry content/ and services/ subtrees).
+local REFERENCE_DIR = "examples/reference"
 
 -- ---- the vocabularies, read from the framework -----------------------------
 
@@ -69,6 +73,7 @@ end
 
 local SURFACES = enumOf("Box", "surface")
 local TEXT_ROLES = enumOf("Text", "role")
+local BUTTON_ROLES = enumOf("Button", "role")
 
 -- the spacing steps a `metric` may name, plus the dotted-path form. Both rulings
 -- live in the theme snapshot; this asks it rather than hardcoding "xs".."xl".
@@ -122,9 +127,11 @@ local STRING_RULES: { { pattern: string, what: string, legal: (string) -> boolea
 			-- one pattern, two owners: `role` is a Text style role AND the key of a
 			-- tint. A value legal for either is legal here; a value legal for
 			-- neither is the typo this rule exists to catch.
-			return TEXT_ROLES[v] == true or TINT_ROLES[v] == true
+			-- ...and `role` is ALSO Button's semantic role (default|cancel|destructive),
+			-- which the reference proofs use as the spec mandates
+			return TEXT_ROLES[v] == true or TINT_ROLES[v] == true or BUTTON_ROLES[v] == true
 		end,
-		list = "a Text role or a tint role",
+		list = "a Text role, a tint role, or a Button role",
 	},
 }
 
@@ -152,6 +159,95 @@ local REACHAROUND_RULES: { { pattern: string, what: string } } = {
 -- substring of the offending source line, so the reason lives in one reviewable
 -- place instead of being scattered through the examples as suppression comments.
 local ALLOWLIST: { { file: string, match: string, why: string } } = {
+	-- ── swiftui-reference-app-validation proofs ────────────────────────────
+	-- The specs proposed proof theme metrics (metrics.foyer.*, metrics.wardrobe.*);
+	-- the stage ruling (package-briefs.md) is NO new theme tokens, so these are
+	-- structural constants at their one definition site, each with its reason.
+	{
+		file = "examples/reference/p4_foyer/init.luau",
+		match = 'width = { type = "minMax", min = 280, max = DETAIL_W },',
+		why = "modal panel structure: a floor a readable dialog needs and the spec's detail cap — layout, not themable chrome",
+	},
+	{
+		file = "examples/reference/p4_foyer/init.luau",
+		match = 'width = { type = "minMax", min = 200, preferred = SEARCH_W, max = SEARCH_W },',
+		why = "the search field's usable floor and its spec cap — structure of the top bar, not theme chrome",
+	},
+	{
+		file = "examples/reference/p4_foyer/init.luau",
+		match = 'height = { type = "fixed", px = 3 },',
+		why = "the tab-selection underline: an indicator FORM (the visual-language invariant's channel), deliberately constant across themes",
+	},
+	{
+		file = "examples/reference/p4_foyer/init.luau",
+		match = 'width = { type = "fixed", px = 3 },',
+		why = "the rail active bar: the same selection-indicator FORM as the underline, on the vertical axis",
+	},
+	{
+		file = "examples/reference/p4_foyer/init.luau",
+		match = 'width = { type = "fixed", px = 10 },',
+		why = "the presence dot: a display-only marker below the target floor by contract",
+	},
+	{
+		file = "examples/reference/p4_foyer/init.luau",
+		match = 'height = { type = "fixed", px = 10 },',
+		why = "the presence dot's other axis — the same display-only marker ruling as its width",
+	},
+	{
+		file = "examples/reference/p5_wardrobe/init.luau",
+		match = 'width = { type = "minMax", min = 260, max = CONFIRM_W },',
+		why = "purchase-confirm panel structure (spec's confirmW), layout not chrome",
+	},
+	{
+		file = "examples/reference/p5_wardrobe/init.luau",
+		match = 'width = { type = "minMax", min = 240, max = 360 },',
+		why = "refine panel structure: a small filter sheet's readable bounds",
+	},
+	{
+		file = "examples/reference/p5_wardrobe/init.luau",
+		match = 'height = { type = "fixed", px = 3 },',
+		why = "the category-selection underline: indicator form, constant across themes",
+	},
+	{
+		file = "examples/reference/p5_wardrobe/init.luau",
+		match = "ambient = { r = 0.55, g = 0.55, b = 0.58 },",
+		why = "3D stage lighting is CONTENT behind the stage seam (the scene's own light), not UI paint",
+	},
+	{
+		file = "examples/reference/p5_wardrobe/init.luau",
+		match = "lightColor = { r = 1, g = 0.98, b = 0.94 },",
+		why = "stage-scene light colour is 3D content behind the stage seam by contract, never UI paint",
+	},
+	{
+		file = "examples/reference/p2_cartwheel/init.luau",
+		match = "ambient = { r = 0.38, g = 0.36, b = 0.42 },",
+		why = "3D stage ambient light is scene CONTENT behind the stage seam by contract, never UI paint",
+	},
+	{
+		file = "examples/reference/p2_cartwheel/init.luau",
+		match = "lightColor = { r = 0.95, g = 0.9, b = 0.78 },",
+		why = "3D stage lighting is CONTENT behind the stage seam, not UI paint (same ruling as the Wardrobe pane)",
+	},
+	{
+		file = "examples/reference/p2_cartwheel/screens/brew_detail.luau",
+		match = "min = 0,",
+		why = "a countdown progress range is semantics (0..1 ratio), not a themable size",
+	},
+	{
+		file = "examples/reference/p2_cartwheel/screens/brew_detail.luau",
+		match = "max = 1,",
+		why = "the ceiling of the same semantic 0..1 ratio range — content semantics, not a themable size",
+	},
+	{
+		file = "examples/reference/p2_cartwheel/screens/workbench.luau",
+		match = "min = 0,",
+		why = "a relative-max gauge's RANGE is semantics (0..1 ratio), not a themable size",
+	},
+	{
+		file = "examples/reference/p2_cartwheel/screens/workbench.luau",
+		match = "max = 1,",
+		why = "the ceiling of the same semantic 0..1 ratio range — content semantics, not a themable size",
+	},
 	{
 		file = "examples/gallery/examples/02_playlist_table.luau",
 		match = 'width = { type = "fixed", px = 70 }',
@@ -192,6 +288,21 @@ function checker.check(opts: Options?)
 		if string.match(entry, "%.luau$") ~= nil then
 			table.insert(files, `{SCANNED_DIR}/{entry}`)
 		end
+	end
+	local function addDir(dir: string)
+		local names = fs.readDir(dir)
+		table.sort(names)
+		for _, entry in names do
+			local full = `{dir}/{entry}`
+			if fs.isDir(full) then
+				addDir(full)
+			elseif string.match(entry, "%.luau$") ~= nil then
+				table.insert(files, full)
+			end
+		end
+	end
+	if fs.isDir(REFERENCE_DIR) then
+		addDir(REFERENCE_DIR)
 	end
 
 	local allowed = 0

@@ -825,3 +825,72 @@ walkthrough in [`../guide/09-custom-themes.md`](../guide/09-custom-themes.md).
 | Keep-visible | `ScrollViewReader` + `scrollTo`, opted into per screen | A framework **service**: the presenter calls `controller.scrollToVisible` on every focus move, so any focusable inside any `ScrollView` is reachable by keyboard and gamepad with no per-screen wiring. Ten-foot and gamepad reachability is a correctness requirement here (`ui_todo` §0), not an opt-in convenience. |
 | `layoutPriority` | Decides which sibling gives up space when a stack is over-committed | **Not implemented, deliberately.** LuauUI's solver has no compression pass at all: an over-committed stack overflows and the container's declared `overflow` handles it. A priority number only means something once there is a shrink algorithm to prioritise, so shipping the prop first would be exactly the accepted-and-ignored property Milestone 0 removed. It is recorded here as a gap rather than declared in the schema. |
 | Scroll offset | `ScrollPosition` is framework state | Read from the **engine** (`CanvasPosition`), which co-authors it. A framework-cached offset would be wrong after any user fling the framework did not observe. |
+
+---
+
+## 12. Reference-app validation (2026-08-08, roadmap Step 11)
+
+The question this document opened with — can a Roblox developer build the
+in-experience parts of Apple's reference apps from one declarative description —
+was answered with five running clean-room proofs (stage
+`swiftui-reference-app-validation`; ledgers and evidence under
+`artifacts/swiftui-reference-app-validation/`):
+
+| Proof | Interprets | Representative loop proven |
+|---|---|---|
+| Glade (`examples/reference/p1_glade`) | Backyard Birds | supply drain/refill, visit schedule, premium consumables + three-tier subscription-shaped commerce with scripted rejections |
+| Cartwheel (`p2_cartwheel`) | Food Truck | adaptive split navigation, live order arrivals, status machine + service-owned countdown surviving navigation, charts, entitlement gates, a `UI.Stage` 3D hero |
+| Sipworks (`p3_sipworks`) | Fruta | catalog/search/favorites, order + rewards stamps + threshold redeem, purchase-shaped recipe unlock, deep localization incl. plural fixtures and a ≥1.4× pseudo-locale, and a compact entry flow sharing the full components |
+| Foyer (`p4_foyer`) | Roblox app home (director-added scope) | sectioned discovery feed, friends carousel, search collapse, refresh/visit command lifecycles |
+| Wardrobe (`p5_wardrobe`) | Roblox app avatar editor (director-added scope) | try-on with undo/redo history over a live `UI.Stage` mannequin, purchase lifecycle with visible rejections, split ⇄ stacked survival |
+
+**What the stage changed in this document's own claims:**
+
+- **§4.9 ScrollView "does not scroll" is long obsolete** (native `ScrollingFrame`
+  since the native-substrate stage) — and this stage additionally made a hug
+  scroller's MEASURE include the scrollbar its arrange reserves
+  (`tests/scroll_bar_measure.spec.luau`).
+- **§4.3 Grid**: cells fill their columns (A-LV1), and as of this stage the grid's
+  measured size is a fixed point of its own report
+  (`tests/grid_measure_arrange.spec.luau`).
+- **§7.4 "no ViewThatFits, no adaptive stack"** is obsolete: `UI.ViewThatFits`,
+  `UI.AdaptiveStack` and the screen-level `UI.Composition`/`UI.Region` carry all
+  five proofs' adaptation with zero device-name branches.
+- **New engine-content leaf `UI.Stage`** (ViewportFrame adoption): live 3D content
+  inside a solver-owned box through `controller.stageHost` — the surface behind
+  the avatar-editor preview and the dashboard's city hero.
+- The **namespaced-icon ASCII floor** documented under the circle Button now
+  actually exists (`package.iconGlyph` derives a glyph for `ns:name`).
+
+**Honest approximations the proofs declare (unchanged classifications):**
+shared-element/hero transitions (materialize modal, no matched-geometry
+subsystem), 3D perspective card flips (width-collapse), UI-over-UI blur
+(translucent surfaces — engine limit), area-fill charts (banded strips; Path2D
+is stroke-only), swipe-row actions (visible affordances; no secondary-action
+model yet). Apple host-OS surfaces (widgets, App Clips, Live Activities,
+Dynamic Island, WeatherKit, StoreKit/Pay chrome, Sign in with Apple) remain
+**no host equivalent** ledger rows and are never simulated. The complete
+per-feature classification lives in the stage's `capability-ledger.md`; the
+follow-on candidates (reactive `compactLabel`, bindable `newLabel.title`,
+fill-in-hug contribution, secondary-action model, and the rest) are in its
+`framework-fixes.md`.
+
+**Late-stage additions from the live device matrix (same day):**
+
+- **The recycle pool can never hold a destroyed instance.** Theme install on a
+  mounted tree plus navigation crashed adopting a parked corpse (engine Destroy
+  propagation through a removed clip host); `parkEligible` now refuses an
+  unparented instance and `adopt` guards the one write that can still detect
+  one (`tests/instance_park_corpse.spec.luau`, live A/B in the stage ledger).
+- **The ZStack overflow diagnostic is per-axis and fill-aware**: a `fill` axis
+  is granted its box at arrange, so it is no longer reported as overflowing a
+  box it cannot leave (`tests/zstack_fill_diagnostic.spec.luau`). This is what
+  makes the diagnostic trustworthy as an OVERLAP signal across device rows.
+- **Two follow-on proposals with live evidence** (deliberately not changed at
+  gate close, both in `framework-fixes.md`): a flow-stack **compress step**
+  (`minMax` children should shrink from `preferred` toward `min` under a tight
+  bounded offer — SwiftUI views fit their proposal; today's `preferred` never
+  consults the offer, which is what pushed a themed purchase bar 23px past its
+  column), and **splitting the overloaded `align` channel** (a container's own
+  `align` prop is also read by its parent as cross-axis alignment, so a child
+  container cannot align its children without moving itself).

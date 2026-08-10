@@ -1386,3 +1386,92 @@ describe("ADR-0023: height and orientation are facts, not device names", functio
 		expect(core:counters().observers).toBe(baseline.observers)
 	end)
 end)
+
+describe("navPlacement: the tab/sidebar policy is shape and input facts, never a device", function()
+	it("pure: the five canonical shapes land where the ruling puts them", function()
+		-- phone portrait: compact width -> full bottom bar
+		expect(adaptive.navPlacement({ sizeClass = "compact", heightClass = "medium" })).toBe("bottomBar")
+		-- phone landscape: roomy width but SHORT height -> the same bar, inline form
+		expect(adaptive.navPlacement({ sizeClass = "regular", heightClass = "short", primary = "touch" })).toBe(
+			"bottomBarCompact"
+		)
+		-- ten-foot: centered top bar, whatever the input class says
+		expect(adaptive.navPlacement({
+			sizeClass = "regular",
+			heightClass = "medium",
+			distanceProfile = "ten-foot",
+			primary = "gamepad",
+		})).toBe("topBar")
+		-- tablet shape: roomy + touch + a display the engine calls Medium/Large
+		expect(adaptive.navPlacement({
+			sizeClass = "wide",
+			heightClass = "tall",
+			primary = "touch",
+			displaySize = "Medium",
+		})).toBe("topBar")
+		-- touch WITHOUT a differentiating display fact: a roomy canvas the
+		-- DisplaySize cannot tell from a phone stays a phone -> bottom tabs
+		expect(adaptive.navPlacement({ sizeClass = "wide", heightClass = "tall", primary = "touch" })).toBe("bottomBar")
+		expect(adaptive.navPlacement({
+			sizeClass = "regular",
+			heightClass = "medium",
+			primary = "touch",
+			displaySize = "Small",
+		})).toBe("bottomBar")
+		-- near-distance gamepad handheld (Small display): bottom tabs too
+		expect(adaptive.navPlacement({
+			sizeClass = "regular",
+			heightClass = "medium",
+			primary = "gamepad",
+			displaySize = "Small",
+		})).toBe("bottomBar")
+		-- desktop shape: roomy + pointer-primary -> sidebar
+		expect(adaptive.navPlacement({ sizeClass = "wide", heightClass = "medium", primary = "pointer" })).toBe(
+			"sidebar"
+		)
+	end)
+
+	it("precedence: compact beats short beats ten-foot beats input class", function()
+		-- a compact-width canvas is a bottom bar even at ten-foot facts
+		expect(adaptive.navPlacement({ sizeClass = "compact", heightClass = "short", distanceProfile = "ten-foot" })).toBe(
+			"bottomBar"
+		)
+		-- short height wins over the pointer sidebar (a short desktop pane tabs)
+		expect(adaptive.navPlacement({ sizeClass = "wide", heightClass = "short", primary = "pointer" })).toBe(
+			"bottomBarCompact"
+		)
+		-- an unknown primary is NOT a pointer and NOT touch/gamepad: top bar
+		expect(adaptive.navPlacement({ sizeClass = "regular", heightClass = "medium" })).toBe("topBar")
+	end)
+
+	it("reactive: the conditions memo re-resolves in place when facts move", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 691 })
+		env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
+		env:set("preferredInput", "Touch")
+		local c = adaptive.conditions(core, env)
+		expect(c.navPlacement:get()).toBe("bottomBar")
+		-- rotate the same phone: inline bottom bar, no remount decision changes hands
+		env:set("viewportRect", { x = 0, y = 0, w = 691, h = 360 })
+		expect(c.navPlacement:get()).toBe("bottomBarCompact")
+		-- a tablet-shaped canvas on the same touch session, but the engine
+		-- calls the display SMALL (the default here is Medium, so the phone
+		-- fact is set explicitly): a panel the display fact cannot tell from a
+		-- phone keeps bottom tabs...
+		env:set("displaySize", "Small")
+		env:set("viewportRect", { x = 0, y = 0, w = 1080, h = 810 })
+		expect(c.navPlacement:get()).toBe("bottomBar")
+		-- ...and gets the centered top bar once the display says otherwise
+		env:set("displaySize", "Medium")
+		expect(c.navPlacement:get()).toBe("topBar")
+		-- the same canvas on a pointer session: sidebar (display fact irrelevant)
+		env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = false })
+		env:set("preferredInput", "KeyboardAndMouse")
+		expect(c.navPlacement:get()).toBe("sidebar")
+		-- ten-foot facts: top bar again
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		env:set("displaySize", "Large")
+		expect(c.navPlacement:get()).toBe("topBar")
+	end)
+end)

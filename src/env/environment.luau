@@ -166,6 +166,19 @@ function environment.new(core: any): Env
 	derived.motionPolicy = core:memo(function(use)
 		return if use(signals.reducedMotion) == true then "reduced" else "full"
 	end)
+	-- SCROLL INDICATOR POLICY (director ruling 2026-08-09, "auto-showing scroll
+	-- bars"): pointer sessions keep the desktop convention — a persistent bar
+	-- whose thickness the solver RESERVES off the cross axis; touch and gamepad
+	-- sessions get the platform convention their users know — OVERLAY
+	-- indicators (no reserve) that appear while scrolling, flash once on mount
+	-- so a scrollable page never reads as cut off, and fade when idle. Derived
+	-- from the same interactionClasses fact as every other input adaptation,
+	-- never from a device name.
+	derived.scrollIndicatorPolicy = core:memo(function(use)
+		local classes = use(derived.interactionClasses)
+		local primary = if type(classes) == "table" then classes.primary else "pointer"
+		return if primary == "pointer" then "always" else "auto"
+	end)
 	-- interactionClasses (ADR-0015): the LIVE interaction-class set derived
 	-- from capabilities + preferredInput — never preferredInput alone. A
 	-- single preferred value cannot describe a hybrid device (touch+gamepad

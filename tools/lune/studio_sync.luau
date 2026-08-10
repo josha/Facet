@@ -87,6 +87,9 @@ else
 	addTree("examples/gallery/examples", "ReplicatedStorage.LuauUIExamples", "Folder")
 	addTree("examples/gallery/scenarios", "ReplicatedStorage.LuauUIScenarios", "ModuleScript")
 	addTree("examples/gallery/client", "StarterPlayer.StarterPlayerScripts.Gallery", "ModuleScript")
+	-- swiftui-reference-app-validation: the five clean-room reference proofs,
+	-- mirrored from gallery.project.json's LuauUIReference mapping
+	addTree("examples/reference", "ReplicatedStorage.LuauUIReference", "Folder")
 end
 -- vendored Fusion is not needed by the gallery runtime path; skip.
 

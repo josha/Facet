@@ -105,6 +105,69 @@ function adaptive.heightClass(height: number, opts: ClassOpts?): string
 	return class
 end
 
+-- navPlacement(facts) -> "bottomBar" | "bottomBarCompact" | "topBar" | "sidebar"
+-- THE app-level tab/sidebar placement policy (director ruling 2026-08-09,
+-- aligned to the platform tab-bar guidance the reference apps follow):
+--
+--   compact width             -> "bottomBar"        a full-width tab bar in the
+--                                                    thumb zone (phone portrait)
+--   short height              -> "bottomBarCompact"  the SAME bottom bar in its
+--                                                    reduced, inline, centered
+--                                                    form (phone landscape)
+--   ten-foot distance         -> "topBar"            a center-aligned top tab
+--                                                    bar that HUGS its content
+--                                                    (never full width)
+--   pointer primary           -> "sidebar"           desktop shape
+--   touch + Medium/Large disp -> "topBar"            tablet shape: the same
+--                                                    centered top bar
+--   touch/gamepad + Small     -> "bottomBar"         a roomy canvas the DISPLAY
+--     (or unknown display)                           fact cannot tell from a
+--                                                    phone/handheld stays one
+--                                                    (director ruling: when we
+--                                                    cannot differentiate,
+--                                                    bottom tabs)
+--   anything else             -> "topBar"
+--
+-- Deliberately a function of SHAPE, INPUT and DISPLAY facts only — the
+-- reference's own rule is a device-idiom branch (`.phone`), which this
+-- vocabulary bans; (size/height class, primary interaction class, engine
+-- display size) reproduces the same outcomes from facts a windowed pane also
+-- answers honestly. Touch alone is NOT the top-bar indicator: a touch phone
+-- and a touch tablet share the class, and the engine's DisplaySize is what
+-- separates them. Pure, so the conditions memo and tests share one
+-- implementation.
+export type NavPlacementFacts = {
+	sizeClass: string,
+	heightClass: string,
+	distanceProfile: string?,
+	primary: string?,
+	displaySize: string?,
+}
+function adaptive.navPlacement(facts: NavPlacementFacts): string
+	if facts.sizeClass == "compact" then
+		return "bottomBar"
+	end
+	if facts.heightClass == "short" then
+		return "bottomBarCompact"
+	end
+	if facts.distanceProfile == "ten-foot" then
+		return "topBar"
+	end
+	if facts.primary == "pointer" then
+		return "sidebar"
+	end
+	if facts.primary == "touch" or facts.primary == "gamepad" then
+		-- touch phones/tablets AND near-distance gamepad handhelds share this
+		-- rule (director refinement: "Small and joystick can vary — bottom
+		-- tabs are ok there"): the engine's DisplaySize separates the roomy
+		-- device from the handheld, and when it cannot, the bottom bar is the
+		-- safe home. A ten-foot gamepad never reaches here (caught above).
+		local d = facts.displaySize
+		return if d == "Medium" or d == "Large" then "topBar" else "bottomBar"
+	end
+	return "topBar"
+end
+
 -- orientationFor(width, height) -> "landscape" | "portrait" | "square"
 -- A shape fact, not a device fact: a windowed pane on a desktop is portrait and
 -- must be treated as one.
@@ -158,6 +221,8 @@ export type Conditions = {
 	viewportHeight: any, -- Readable<number> — RAW, like viewportWidth
 	orientation: any, -- Readable<"landscape" | "portrait" | "square">
 	isLandscape: any, -- Readable<boolean>
+	-- the app-level tab/sidebar placement policy (see adaptive.navPlacement)
+	navPlacement: any, -- Readable<"bottomBar" | "bottomBarCompact" | "topBar" | "sidebar">
 }
 
 --[[ THE MOST IMPORTANT ARGUMENT IS NOW IN A TYPE (F-29). `conditions` used to
@@ -183,9 +248,11 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 	-- delegate to the env memo so the breakpoints have exactly one implementation
 	local sizeClass = env:get("sizeClass")
 	local distanceProfile = env:get("distanceProfile")
+	local interactionClasses = env:get("interactionClasses")
+	local displaySize = env:get("displaySize")
 
-	-- OWNERSHIP (verifier RR-8): this function creates TWELVE memos (six until
-	-- ADR-0023 added the height half), and a caller that rebuilds per mount
+	-- OWNERSHIP (verifier RR-8): this function creates THIRTEEN memos (six until
+	-- ADR-0023 added the height half, twelve until navPlacement), and a caller that rebuilds per mount
 	-- without owning them leaks twelve per cycle — measured in the sponsor
 	-- fixtures under a long-lived core. Pass `opts.scope` and the memos die with
 	-- the caller; omitted, the caller owns them by hand (§6.3 — every resource
@@ -248,6 +315,18 @@ function adaptive.conditions(core: any, env: any, opts: ConditionsOpts?): Condit
 		orientation = orientation,
 		isLandscape = owned(core:memo(function(use)
 			return use(orientation) == "landscape"
+		end)),
+		navPlacement = owned(core:memo(function(use)
+			return adaptive.navPlacement({
+				sizeClass = use(sizeClass),
+				heightClass = use(heightClass),
+				distanceProfile = use(distanceProfile),
+				primary = (function()
+					local ic = use(interactionClasses)
+					return if type(ic) == "table" then ic.primary else nil
+				end)(),
+				displaySize = use(displaySize),
+			})
 		end)),
 	}
 end
