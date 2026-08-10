@@ -220,6 +220,8 @@ require("./autoscroll.spec")
 -- the public drag/drop contract, driven through the REAL acquisition paths
 -- (SF-D1..SF-D5, findings F5/F7)
 require("./drag_public.spec")
+-- row actions: pure swipe state decisions for row-action composites
+require("./row_actions_state.spec")
 -- focus-skip by live predicate + the active-interaction exemption (SF-L3)
 require("./focus_skip.spec")
 -- the unified collection: one VirtualList that windows, selects, reorders,
