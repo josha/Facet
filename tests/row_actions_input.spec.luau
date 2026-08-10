@@ -89,8 +89,11 @@ local function pointerWorld(build: (core: any) -> any)
 end
 
 -- a row with one trailing action ("delete"); `firedOpt` lets a caller
--- override fullSwipe per test (row-actions.md's per-edge form).
-local function trailingWorld(fullSwipeOpt: any?)
+-- override fullSwipe per test (row-actions.md's per-edge form). `roleOpt`
+-- (redteam item 4) lets a caller build the SAME shape with an explicit
+-- `role` — nil (the default, used by every pre-existing caller) leaves the
+-- action `normal`, unchanged.
+local function trailingWorld(fullSwipeOpt: any?, roleOpt: ("normal" | "destructive")?)
 	local fired: { string } = {}
 	local w = pointerWorld(function(core)
 		return row_actions.build(LuauUI, core, {
@@ -100,6 +103,7 @@ local function trailingWorld(fullSwipeOpt: any?)
 				{
 					id = "delete",
 					label = "Delete",
+					role = roleOpt,
 					onAction = function()
 						table.insert(fired, "delete")
 					end,
@@ -198,8 +202,16 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
 
-	it("full swipe commits: row slides off, collapses, onAction fires exactly once", function()
-		local w = trailingWorld()
+	-- REDTEAM ITEM 4 (MAJOR — director ruling, SwiftUI behavior): the
+	-- slide-off + height-collapse sequence is DESTRUCTIVE-only (see the
+	-- "non-destructive" test below for the sibling behavior a `normal`-role
+	-- first action gets instead). Explicit `role = "destructive"` here (it
+	-- used to be implicit/unstated — the test's own name claimed "collapses"
+	-- with nothing actually asserting a height change, which is exactly how
+	-- the pre-fix code got away with collapsing EVERY role).
+	it("full swipe commits (destructive): row slides off, collapses, onAction fires exactly once", function()
+		local rowHeightBefore = 48 -- `content()`'s own fixed height (see the helper above)
+		local w = trailingWorld(nil, "destructive")
 		local rowWidth = rowWidthOf(w)
 		w.adapter.pointerDown(HIT, 0, 20, "mouse")
 		w.tick(0.01)
@@ -216,7 +228,53 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.fired[1]).toBe("delete")
 		expect(w.ra._isOpen()).toBe(false)
 		expect(w.ra.dump().phase).toBe("closed")
+		-- the collapse actually happened (not asserted before this fix wave —
+		-- proves the destructive branch really took the slide+collapse path)
+		expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(0, 0.5)
+		expect(w.handle.controller.rectOf(ROW).h < rowHeightBefore).toBe(true)
 	end)
+
+	-- the sibling half of the SwiftUI ruling: a NON-destructive first action
+	-- fires immediately and the row springs back to CLOSED — never sliding
+	-- off-screen, never collapsing height at all, exactly like tapping that
+	-- same button directly in the revealed tray (row_actions.spec.luau's own
+	-- "a successful (non-destructive) tray action..." case).
+	it(
+		"full swipe commits (non-destructive): fires once, springs back to CLOSED — no offscreen slide, no height change",
+		function()
+			local rowHeightBefore = 48
+			local w = trailingWorld() -- default action carries no role (normal)
+			local rowWidth = rowWidthOf(w)
+			w.adapter.pointerDown(HIT, 0, 20, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(-15, 20)
+			w.tick(1.0)
+			local releaseX = -(rowWidth * 0.7) -- past the 60% full-swipe commit threshold
+			w.adapter.pointerMove(releaseX, 20)
+			w.tick(FRAME)
+			w.adapter.pointerUp(releaseX, 20)
+			-- the drag itself already left `offset` at `releaseX` the instant
+			-- before any post-release animation runs — that is the baseline a
+			-- correct non-destructive commit must never grow PAST (a destructive
+			-- commit, by contrast, continues on toward -rowWidth from here).
+			local baseline = -w.ra.dump().offset
+			local peak = baseline
+			for _ = 1, 400 do
+				w.tick(FRAME)
+				local off = -w.ra.dump().offset
+				if off > peak then
+					peak = off
+				end
+			end
+			expect(#w.fired).toBe(1)
+			expect(w.fired[1]).toBe("delete")
+			expect(w.ra._isOpen()).toBe(false)
+			expect(w.ra.dump().offset).toBe(0) -- sprung all the way back to CLOSED
+			expect(peak).toBeLessThanOrEqual(baseline + 1) -- never continued toward the offscreen target
+			expect(peak).toBeLessThan(rowWidth * 0.85) -- nowhere near a destructive commit's reach
+			expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(rowHeightBefore, 0.5) -- NO collapse
+		end
+	)
 
 	-- REDTEAM ITEM 1 (BLOCKER): `doCommitAction` sets `openEdge` to the
 	-- committing edge BEFORE `retargetThen` aims the slide-off spring at the
@@ -229,11 +287,16 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 	-- row settled (and `onAction` fired) at `-trayWidth` instead — silently
 	-- wrong even though `#fired == 1`/`_isOpen() == false` still held, which
 	-- is why the existing "full swipe commits" test above never caught it.
+	--
+	-- Uses an EXPLICIT `role = "destructive"` action (item 4's later ruling,
+	-- above): only a destructive commit still runs the offscreen slide-off +
+	-- collapse chain this bug lives in — a non-destructive commit never
+	-- retargets offscreen at all, so it cannot exercise this regression.
 	it(
-		"full-swipe commit reaches the OFFSCREEN target, not just the tray width (regression: syncGeometry re-aim)",
+		"full-swipe commit (destructive) reaches the OFFSCREEN target, not just the tray width (regression: syncGeometry re-aim)",
 		function()
 			local trayWidth = learnTrayWidth()
-			local w = trailingWorld()
+			local w = trailingWorld(nil, "destructive")
 			local rowWidth = rowWidthOf(w)
 			w.adapter.pointerDown(HIT, 0, 20, "mouse")
 			w.tick(0.01)
@@ -501,9 +564,15 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 	-- longer matches") worked when probed by hand but had no regression test
 	-- pinning it. Also pins the converse (the guard must not over-block a
 	-- commit that ISN'T raced).
+	-- REDTEAM ITEM 4 note: both worlds below now build a DESTRUCTIVE action —
+	-- after item 4's fix, only a destructive commit still has an async
+	-- slide-off/collapse chain at all for a dispose to race mid-flight; a
+	-- non-destructive commit fires and closes synchronously (see the
+	-- "full swipe commits (non-destructive)" test above), so it can never
+	-- reach the "mid-flight, nothing fired yet" window this test depends on.
 	it("dispose mid-slide-off never fires onAction and never errors; a normal commit still fires once", function()
-		-- a normal commit still fires exactly once (the guard doesn't over-block)
-		local normal = trailingWorld()
+		-- a normal (unraced) commit still fires exactly once (the guard doesn't over-block)
+		local normal = trailingWorld(nil, "destructive")
 		local rowWidth = rowWidthOf(normal)
 		normal.adapter.pointerDown(HIT, 0, 20, "mouse")
 		normal.tick(0.01)
@@ -517,7 +586,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(#normal.fired).toBe(1)
 
 		-- a commit raced by a data refresh (dispose mid-slide-off): never fires
-		local raced = trailingWorld()
+		local raced = trailingWorld(nil, "destructive")
 		local raced_rowWidth = rowWidthOf(raced)
 		raced.adapter.pointerDown(HIT, 0, 20, "mouse")
 		raced.tick(0.01)
@@ -640,8 +709,11 @@ describe("RowActions touch gesture (Task 6: touch accepted, same axis-lock dance
 		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
 
-	it("TOUCH: full swipe commits: row slides off, collapses, onAction fires exactly once", function()
-		local w = trailingWorld()
+	-- REDTEAM ITEM 4: explicit `role = "destructive"` — see the mouse-path
+	-- sibling test's own comment above for why (only destructive commits
+	-- still slide off and collapse).
+	it("TOUCH: full swipe commits (destructive): row slides off, collapses, onAction fires exactly once", function()
+		local w = trailingWorld(nil, "destructive")
 		local rowWidth = rowWidthOf(w)
 		w.adapter.pointerDown(HIT, 0, 20, "touch")
 		w.tick(0.01)

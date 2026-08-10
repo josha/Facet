@@ -836,6 +836,24 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- `onArrive` at all), together mean `action.onAction` cannot fire for a
 	-- row this composite no longer owns.
 	local function doCommitAction(edge: Edge, action: ActionSpec, offscreenTarget: number): boolean
+		-- REDTEAM FIX (item 4, MAJOR — director ruling, SwiftUI behavior): a
+		-- full swipe commits differently by role. A DESTRUCTIVE first action
+		-- keeps the full slide-off + collapse sequence below unchanged. A
+		-- NON-destructive first action fires immediately (quarantined, the
+		-- SAME guarantee `fireTrayAction` above gives a direct tray-button
+		-- tap) and the row springs back to CLOSED — never sliding off-screen,
+		-- never collapsing height at all; a full swipe on a "Flag"/"Archive"-
+		-- shaped action must look and feel exactly like tapping that same
+		-- button in the revealed tray, not like a deletion. `committed` is
+		-- deliberately left untouched on this branch: this is not "the row
+		-- is being removed" the way a destructive commit is, so a later full
+		-- swipe (or tray tap) on the same still-alive row must be able to
+		-- fire again, exactly like a direct tray-button tap already can.
+		if action.role ~= "destructive" then
+			pcall(action.onAction)
+			close()
+			return true
+		end
 		if committed then
 			return false
 		end
