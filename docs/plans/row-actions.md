@@ -49,7 +49,10 @@ UI.RowActions{
   leading  = { ActionSpec, ... }?, -- revealed by rightward swipe
   trailing = { ActionSpec, ... }?, -- revealed by leftward swipe
   fullSwipe = true?,               -- default true: full swipe commits the
-                                   -- FIRST action of the swiped edge
+                                   -- FIRST action of the swiped edge.
+                                   -- Per-edge form also accepted:
+                                   -- { leading = bool?, trailing = bool? }
+                                   -- (SwiftUI allowsFullSwipe is per edge)
 }
 
 ActionSpec = {
