@@ -29,6 +29,7 @@
 --     bindActionSystem: (actionSystem) -> (),
 --     bindController: (controller) -> (),
 --     bindFocusGraph: (focusGraph) -> (),
+--     bindMotion: (motionClock) -> (),
 --     adjustTargets: (rootNode) -> { [path]: true },
 --     handleAdjust: (path, direction) -> boolean }
 --
@@ -101,6 +102,18 @@ export type Bundle = {
 	-- control degrades to logical focus only — an enhancement seam, never a
 	-- dependency.
 	bindFocusGraph: ((focusGraph: any) -> ())?,
+	-- bindMotion (row-actions Task 4): hands the control the presenter's own
+	-- motion clock (`self.motionClock`, ADR-0022 Decision 1) — the one every
+	-- surface transition, toast schedule, and drag flight already rides —
+	-- the same way bindActionSystem/bindController/bindFocusGraph hand over
+	-- what a composite cannot construct for itself. Called once per
+	-- discovered bundle, at present time, before any caller-driven input
+	-- reaches the control. Absent (a bare `mountLib.mount` in a unit test,
+	-- which never runs a presenter's bindContribution walk at all) is a real,
+	-- supported degradation: a control that wants motion MUST also work with
+	-- none, falling back to an instant write — exactly what a headless test
+	-- with no presenter needs.
+	bindMotion: ((motionClock: any) -> ())?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,
 	-- WHICH ARROWS THIS CONTROL CONSUMES (roadmap Step 8). "horizontal" (what every

@@ -1,11 +1,13 @@
 --!strict
 -- RowActions: a swipeable action tray around an arbitrary row (spec:
--- docs/plans/row-actions.md, docs/plans/row-actions-implementation.md Task 3).
--- This module ships the SKELETON: the spec/blueprint contract, the lazy tray
--- structure, and an INSTANT (unsprung) reveal. Drag/gesture input (mouse,
--- touch, keyboard, gamepad — Tasks 5-8), the coordinator (Task 7), and the
--- spring motion (Task 4) all build on the seams declared here without
--- touching this file's structure.
+-- docs/plans/row-actions.md, docs/plans/row-actions-implementation.md Tasks
+-- 3-4). The spec/blueprint contract and the lazy tray structure shipped in
+-- Task 3; Task 4 adds spring-driven reveal motion (offset AND proportional
+-- tray-button growth) on top of the same seams, falling back to Task 3's
+-- INSTANT write whenever no presenter motion clock is available (a bare
+-- mount in a unit test). Drag/gesture input (mouse, touch, keyboard, gamepad
+-- — Tasks 5-8) and the coordinator (Task 7) build on the seams declared here
+-- without touching this file's structure.
 --
 -- STRUCTURE. The root is a `UI.Anchor` — the same "overlay without joining
 -- stack flow" shape `newTable` uses for its own drag guides
@@ -25,20 +27,37 @@
 -- (`anchor = "topLeft", offsetY = offsetY`) and `table.luau`'s resize/drop
 -- guides are the shipped precedent for binding a live signal straight to it:
 -- an `offsetX`/`offsetY` write re-arranges ONE node, never re-measures the
--- tree. Every write — today's instant snap, Task 4's spring, Task 5's live
--- drag sample — goes through the ONE seam `applyOffset(px)` below.
+-- tree. Every write — the fallback instant snap, Task 4's spring, Task 5's
+-- live drag sample — goes through the ONE seam `applyOffset(px)` below.
+--
+-- THE MOTION SEAM (Task 4). A composite has no direct line to the
+-- presenter's motion clock — `bindActionSystem`/`bindController`/
+-- `bindFocusGraph` are the shipped precedent for a presenter handing a
+-- control something it cannot construct for itself, all delivered the same
+-- way: an optional field on the `contribution.attach` bundle, called once per
+-- discovered bundle from the presenter's `bindContribution` (src/present/
+-- presenter.luau). `bindMotion` follows that exact shape. With a clock bound,
+-- `_open`/`_close`/`_settleTo` aim ONE persistent spring (`motionClock:
+-- spring(0, "object")` — the same class name a drag flight uses,
+-- drag_registry.luau:376) at the target and let it fly, interrupting mid-
+-- flight rather than snapping (the spring's own guarantee); with none — a
+-- bare `mountLib.mount` + `renderer.attach` in a unit test, which never runs
+-- a presenter's `bindContribution` walk at all — every retarget falls back to
+-- Task 3's instant `applyOffset`, unchanged. `retarget(px)` is that one
+-- fork; `open`/`close`/`settleTo` never write `offset` directly.
 --
 -- TRAY WIDTH. Rather than hand-measure a label at build time (the exact
 -- "cached before truth exists" bug class docs/research/roblox-text-bounds-
 -- boot-window warns about — a width guessed before the engine has laid
--- anything out is wrong forever), each tray's width is READ from its own
--- SOLVED geometry via the input contribution's `syncGeometry` hook — the
--- same mechanism `slider.luau`'s track-fraction math and `table.luau`'s
--- resize preview use. `_open` seeds an instant estimate from the last known
--- width (0 the very first time) and `syncGeometry` corrects it the moment
--- real geometry lands, so a long, pseudo-localized label — which grows a
--- tray button past `buttonMinWidth` — reveals correctly with no hand-rolled
--- text metrics anywhere in this file.
+-- anything out is wrong forever), each tray's width is the SUM of its own
+-- buttons' SOLVED natural widths, read via the input contribution's
+-- `syncGeometry` hook — the same mechanism `slider.luau`'s track-fraction
+-- math and `table.luau`'s resize preview use. `_open` seeds an estimate from
+-- the last known width (0 the very first time) and `syncGeometry` freezes
+-- the real one the moment it lands (see the Task 4 comment by `leadingWidth`
+-- for why FROZEN, not re-fed forever), so a long, pseudo-localized label —
+-- which grows a tray button past `buttonMinWidth` — reveals correctly with
+-- no hand-rolled text metrics anywhere in this file.
 --
 -- DESTRUCTIVE COLOUR. `UI.Button` already carries a semantic `role` prop
 -- (`enum = { "default", "cancel", "destructive" }`, src/blueprint_schema.luau)
@@ -50,6 +69,7 @@
 -- color token, no bespoke fill — reusing exactly what Task 2's docs promised.
 
 local contribution = require("../input/contribution")
+local row_actions_state = require("../input/row_actions_state")
 local specGuard = require("../spec_guard")
 
 local row_actions = {}
@@ -223,16 +243,93 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- ===== reveal state ======================================================
 	local openEdge = scope:own(core:signal(nil :: Edge?))
 	local offset = scope:own(core:signal(0))
-	-- last KNOWN solved width of each tray (0 = never measured — a row not yet
-	-- opened has nothing to know); fed by syncGeometry below.
-	local leadingWidth = scope:own(core:signal(0))
-	local trailingWidth = scope:own(core:signal(0))
+
+	-- per-action NATURAL (unconstrained) width, frozen the first time it is
+	-- measured (below) and never again — created eagerly, one signal per
+	-- declared action, at BUILD time rather than inside the tray's lazy
+	-- `UI.When` factory. A reactive value created INSIDE that factory would be
+	-- a FRESH `core:memo` every remount (Trays mount lazily; a row can open
+	-- and close many times), which `scope:own` would dutifully own and never
+	-- release until this whole composite disposes — a slow leak shaped
+	-- exactly like the "table with no dispose()" mistake scope_impl.luau's
+	-- own `own()` guards against, just one level up (a table WITH a
+	-- dispose(), that nothing ever calls). Building it once, here, and having
+	-- the tray factory below only ever LOOK UP an existing entry, means every
+	-- open/close cycle reuses the same handful of reactive nodes.
+	local leadingNaturals: { [string]: any } = {}
+	for _, action in leadingActions or {} do
+		leadingNaturals[action.id] = scope:own(core:signal(nil :: number?))
+	end
+	local trailingNaturals: { [string]: any } = {}
+	for _, action in trailingActions or {} do
+		trailingNaturals[action.id] = scope:own(core:signal(nil :: number?))
+	end
+	local function sumNaturals(naturals: { [string]: any }, use: (any) -> any): number
+		local total = 0
+		for _, sig in naturals do
+			local v = use(sig)
+			if v ~= nil then
+				total += v
+			end
+		end
+		return total
+	end
+	-- the tray's total width IS the sum of its buttons' frozen naturals — never
+	-- the tray CONTAINER's own solved rect. Reading the container back would
+	-- be reading a number this same reveal can shrink (below), which would
+	-- feed a shrunk width back in as the "true" one and chase a collapsing
+	-- target forever; the naturals are only ever written once, before any
+	-- shrink has happened (see `syncGeometry`), so this sum is stable for the
+	-- composite's whole life.
+	local leadingWidth = scope:own(core:memo(function(use)
+		return sumNaturals(leadingNaturals, use)
+	end))
+	local trailingWidth = scope:own(core:memo(function(use)
+		return sumNaturals(trailingNaturals, use)
+	end))
 
 	-- THE ONE SEAM (Tasks 4-6 write through this exclusively): however the
-	-- pixel number is produced — today's instant snap, a spring chase, a live
-	-- drag sample — it reaches the Content anchor's offsetX through here alone.
+	-- pixel number is produced — the fallback instant snap, a spring chase, a
+	-- live drag sample — it reaches the Content anchor's offsetX through here
+	-- alone.
 	local function applyOffset(px: number)
 		offset:set(px)
+	end
+
+	-- ===== the motion seam (Task 4) ==========================================
+	-- `motionClock` arrives (if ever) via `bindMotion` on the contribution
+	-- bundle below, once, at present time — well before any caller-driven
+	-- `_open`/`_close`. `spring` is built lazily, on the first retarget that
+	-- has a clock to build it from, and lives for the composite's whole life
+	-- (one persistent spring drives every open/close/settle, never one per
+	-- gesture): `motionClock:spring(0, "object")`, the same class name a drag
+	-- flight uses (drag_registry.luau:376).
+	local motionClock: any = nil
+	local spring: any = nil
+	local function ensureSpring()
+		if spring ~= nil or motionClock == nil then
+			return
+		end
+		spring = scope:own(motionClock:spring(offset:get(), "object"))
+		-- dispose pattern mirrors drag_registry.luau:388-396 (unsubscribe, then
+		-- dispose the value) — one axis here instead of drag's two.
+		scope:own(core:observe(spring, function()
+			applyOffset(spring:get())
+		end))
+	end
+
+	-- THE ONE RETARGET FORK. With a clock, aim the persistent spring — the
+	-- spring's own interruptibility guarantee means a retarget mid-flight
+	-- continues rather than snapping. With none, write `offset` instantly
+	-- (Task 3's behavior, unchanged) — the fallback a bare mount (no
+	-- presenter, so `bindMotion` never ran) needs.
+	local function retarget(px: number)
+		if motionClock ~= nil then
+			ensureSpring()
+			spring:setTarget(px)
+		else
+			applyOffset(px)
+		end
 	end
 
 	local function targetFor(edge: Edge?): number
@@ -252,13 +349,23 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		if not hasActions(edge) then
 			return
 		end
+		retarget(targetFor(edge))
 		openEdge:set(edge)
-		applyOffset(targetFor(edge))
 	end
 
 	local function close()
 		openEdge:set(nil)
-		applyOffset(0)
+		retarget(0)
+	end
+
+	-- Task 5 wires the drag-release verdict (row_actions_state.settle) through
+	-- here: retargets the spring at whatever edge/target the verdict names.
+	-- `commit` (a full-swipe release) behaves like a plain open-to-target for
+	-- now — firing the edge's first action and then closing is Task 5's.
+	local function settleTo(verdict: row_actions_state.Verdict)
+		openEdge:set(verdict.edge)
+		retarget(verdict.target)
+		-- Task 5: verdict.commit fires the edge's first action, then close().
 	end
 
 	local function isOpen(): boolean
@@ -283,7 +390,36 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- an extra GuiObject. `content` mounts exactly as the caller wrote it.
 		blueprint = content
 	else
+		-- per-action WIDTH prop: one `core:memo` per declared action, built HERE
+		-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
+		-- leak reason as the naturals above. Unmeasured, or no spring at all
+		-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
+		-- content-sized, static); once its natural width is frozen it reads
+		-- its share of the SAME observed `offset` the slide itself uses — no
+		-- second spring, no per-button spring — so a button "stretches in"
+		-- from 0 toward its natural width as `|offset|` approaches `trayWidth`
+		-- (docs/plans/row-actions-implementation.md Task 4: "SwiftUI feel").
+		local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
+			local props: { [string]: any } = {}
+			for _, action in actions do
+				local natural = naturals[action.id]
+				props[action.id] = scope:own(core:memo(function(use)
+					local n = use(natural)
+					if spring == nil or n == nil then
+						return { type = "minMax", min = BUTTON_MIN_WIDTH }
+					end
+					local trayW = use(traySig)
+					local frac = if trayW > 0 then math.clamp(math.abs(use(offset)) / trayW, 0, 1) else 0
+					return { type = "fixed", px = math.floor(n * frac + 0.5) }
+				end))
+			end
+			return props
+		end
+		local leadingWidthProps = buildWidthProps(leadingNaturals, leadingWidth, leadingActions or {})
+		local trailingWidthProps = buildWidthProps(trailingNaturals, trailingWidth, trailingActions or {})
+
 		local function buildTray(edge: Edge, actions: { ActionSpec })
+			local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
 			local buttons = {}
 			for _, action in actions do
 				table.insert(
@@ -293,7 +429,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 						label = action.label,
 						icon = action.icon,
 						role = if action.role == "destructive" then "destructive" else "default",
-						width = { type = "minMax", min = BUTTON_MIN_WIDTH },
+						width = widthProps[action.id],
 						height = { type = "fill" },
 						padding = { left = BUTTON_PAD, right = BUTTON_PAD },
 					})
@@ -309,8 +445,20 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 
 		local children = {}
 		if leadingActions ~= nil then
+			-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL LIVE
+			-- (Task 4). `openEdge` flips the instant `close()`/a new `open()` on
+			-- the other edge is called, but the spring keeps animating `offset`
+			-- back toward 0 over several frames — unmounting on `openEdge`
+			-- alone would make the tray vanish INSTANTLY while Content is still
+			-- visibly sliding back over empty space. Reusing `offset` (the same
+			-- signal `Content.offsetX` and the width props above already read)
+			-- keeps the outgoing tray mounted for exactly as long as it is
+			-- still on screen, with no new coupling.
 			local revealed = scope:own(core:memo(function(use)
-				return use(openEdge) == "leading"
+				if use(openEdge) == "leading" then
+					return true
+				end
+				return use(offset) > 0
 			end))
 			table.insert(
 				children,
@@ -325,7 +473,10 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 		if trailingActions ~= nil then
 			local revealed = scope:own(core:memo(function(use)
-				return use(openEdge) == "trailing"
+				if use(openEdge) == "trailing" then
+					return true
+				end
+				return use(offset) < 0
 			end))
 			table.insert(
 				children,
@@ -378,11 +529,36 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			return false
 		end
 
-		-- SOLVED tray geometry, fed by the contribution's syncGeometry so a long
-		-- (pseudo-localized) label — which grows a button past buttonMinWidth —
-		-- corrects the reveal offset the moment the real width is known, exactly
-		-- like slider.luau's track-fraction math and table.luau's resize preview.
+		-- SOLVED per-button geometry, fed by the contribution's syncGeometry so a
+		-- long (pseudo-localized) label — which grows a button past
+		-- buttonMinWidth — corrects the reveal target the moment the real width
+		-- is known, exactly like slider.luau's track-fraction math and
+		-- table.luau's resize preview. Each button's natural is read ONLY while
+		-- still unmeasured (`sig:get() == nil`): the FIRST solve after a tray
+		-- mounts always renders through the width props' `minMax` fallback
+		-- (nothing has frozen yet), so that first read is the true,
+		-- unconstrained content width — reading it again on a later solve,
+		-- once the width props have started shrinking the button for the
+		-- reveal, would feed the shrunk number back in as "the natural width"
+		-- and the tray would chase a collapsing target forever.
 		local rootPath: string? = nil
+		local function freezeNaturals(
+			rectOf: (string) -> any,
+			edge: Edge,
+			actions: { ActionSpec },
+			naturals: { [string]: any }
+		)
+			local tid = trayId(edge)
+			for _, action in actions do
+				local sig = naturals[action.id]
+				if sig ~= nil and sig:get() == nil then
+					local r = rectOf(`{rootPath}/{tid}When/then/{tid}/Action:{action.id}`)
+					if r ~= nil then
+						sig:set(r.w)
+					end
+				end
+			end
+		end
 		local function syncGeometry(rectOf: (string) -> any, rootNode: any?)
 			if rootNode ~= nil then
 				rootPath = rootNode.path
@@ -391,21 +567,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				return
 			end
 			if leadingActions ~= nil then
-				local r = rectOf(rootPath .. "/TrayLeadingWhen/then/TrayLeading")
-				if r ~= nil then
-					leadingWidth:set(r.w)
-					if openEdge:get() == "leading" then
-						applyOffset(r.w)
-					end
+				freezeNaturals(rectOf, "leading", leadingActions, leadingNaturals)
+				if openEdge:get() == "leading" then
+					retarget(leadingWidth:get())
 				end
 			end
 			if trailingActions ~= nil then
-				local r = rectOf(rootPath .. "/TrayTrailingWhen/then/TrayTrailing")
-				if r ~= nil then
-					trailingWidth:set(r.w)
-					if openEdge:get() == "trailing" then
-						applyOffset(-r.w)
-					end
+				freezeNaturals(rectOf, "trailing", trailingActions, trailingNaturals)
+				if openEdge:get() == "trailing" then
+					retarget(-trailingWidth:get())
 				end
 			end
 		end
@@ -413,6 +583,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		blueprint = contribution.attach(root, {
 			handleActivate = handleActivate,
 			syncGeometry = syncGeometry,
+			-- Task 4: the presenter hands over its motion clock the same way it
+			-- hands over the action system/controller/focus graph (see the big
+			-- comment above `local motionClock`). No presenter (a bare mount in
+			-- a unit test) means this is simply never called, which is exactly
+			-- the fallback `retarget` already handles.
+			bindMotion = function(clock: any)
+				motionClock = clock
+			end,
 		})
 	end
 
@@ -423,11 +601,12 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			scope:dispose()
 		end,
 		-- internal seam for Table + coordinator (NOT public API; underscore
-		-- prefix) — Tasks 4-8 build the motion, gesture, and keyboard paths
-		-- through these three:
+		-- prefix) — Tasks 5-8 build the gesture and keyboard paths through
+		-- these four:
 		_open = open,
 		_close = close,
 		_isOpen = isOpen,
+		_settleTo = settleTo,
 	}
 end
 

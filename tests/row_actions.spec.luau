@@ -47,6 +47,25 @@ local function content(id: string?)
 	return LuauUI.UI.Text({ id = id or "Body", text = "Row content", height = { type = "fixed", px = 48 } })
 end
 
+-- Task 4: `_open`/`_close` now ANIMATE through a presenter's real motion
+-- clock (delivered via the new `bindMotion` contribution seam), so a test
+-- that wants the FULLY REVEALED/CLOSED state after calling them must step
+-- frames first — `pres.tick(dt)` takes an EXPLICIT dt (src/present/
+-- presenter.luau tickBody: "the headless suite passes a scripted dt"), so
+-- this is deterministic regardless of wall-clock time; no scripted clock
+-- injection needed (contrast tests/drag_public.spec.luau's `LuauUI.motion.
+-- newClock`, which exists to override a DIFFERENT clock — the drag
+-- registry's, wired through `controller.setDragCollaborators` — not the
+-- presenter's own `self.motionClock` this composite now rides). 90 frames
+-- (1.5s) comfortably settles an "object"-class spring (response 0.28s).
+local FRAME = 1 / 60
+local SETTLE_FRAMES = 90
+local function settle(pres: any, frames: number?)
+	for _ = 1, frames or SETTLE_FRAMES do
+		pres.tick(FRAME)
+	end
+end
+
 -- presenter harness: the four-input auto-composition path (chip.spec's house
 -- style). `build` receives `core` and returns the row_actions instance.
 local function presenterWorld(build: (core: any) -> any)
@@ -254,6 +273,12 @@ describe("RowActions control", function()
 		end)
 		w.ra._open("trailing")
 		w.pres.refresh()
+		-- Task 4: the reveal (and each button's proportional width) now
+		-- animates — settle the spring before reading the FULLY OPEN width
+		-- this test is actually about (localization safety at rest, not the
+		-- in-flight shape — that is covered separately below).
+		settle(w.pres)
+		w.pres.refresh()
 		local node = w.adapter.node(DELETE_PATH)
 		expect(node ~= nil).toBe(true)
 		expect(node.props.label).toBe(lt.PSEUDO)
@@ -272,7 +297,7 @@ describe("RowActions control", function()
 		expect(node.rect.w >= natural.width + 2 * buttonPad).toBe(true)
 	end)
 
-	-- 5. THE STATIC REVEAL SEAM (Tasks 4-6 build motion on this) ---------------
+	-- 5. THE REVEAL SEAM (Task 4 builds spring motion on this) -----------------
 	it("_open slides content by tray width; _close returns it; dump reflects openEdge", function()
 		local w = presenterWorld(function(core)
 			return row_actions.build(LuauUI, core, {
@@ -284,19 +309,180 @@ describe("RowActions control", function()
 		expect(w.ra.dump().offset).toBe(0)
 		expect(w.ra.dump().openEdge).toBe(nil)
 
+		-- `openEdge`/`phase`/`_isOpen()` flip INSTANTLY (Task 4 never delayed
+		-- those — only the pixel `offset` itself animates); the spring needs
+		-- settling before `offset` reaches the tray width.
 		w.ra._open("trailing")
 		w.pres.refresh()
-		local trayRect = w.adapter.node(TRAILING_TRAY).rect
-		expect(w.ra.dump().offset).toBe(-trayRect.w)
 		expect(w.ra.dump().openEdge).toBe("trailing")
 		expect(w.ra.dump().phase).toBe("open")
 		expect(w.ra._isOpen()).toBe(true)
+		settle(w.pres)
+		w.pres.refresh()
+		local trayRect = w.adapter.node(TRAILING_TRAY).rect
+		expect(w.ra.dump().offset).toBeCloseTo(-trayRect.w, 0.5)
 
 		w.ra._close()
-		expect(w.ra.dump().offset).toBe(0)
 		expect(w.ra.dump().openEdge).toBe(nil)
 		expect(w.ra.dump().phase).toBe("closed")
 		expect(w.ra._isOpen()).toBe(false)
+		settle(w.pres)
+		expect(w.ra.dump().offset).toBe(0) -- settle SNAPS exactly onto the target
+	end)
+
+	-- 5b. SPRING MOTION (Task 4) ------------------------------------------------
+	it("_open animates offset toward tray width over stepped frames", function()
+		local function build()
+			return presenterWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+				})
+			end)
+		end
+		-- learn the settled tray width from a throwaway world (same spec, so
+		-- the same measured width), rather than reaching into internals
+		local ref = build()
+		ref.ra._open("trailing")
+		ref.pres.refresh()
+		settle(ref.pres)
+		local trayWidth = -ref.ra.dump().offset
+		expect(trayWidth > 0).toBe(true)
+
+		local w = build()
+		w.ra._open("trailing")
+		w.pres.refresh()
+		expect(w.ra.dump().offset).toBe(0) -- nothing has animated yet
+
+		w.pres.tick(FRAME)
+		local afterOne = w.ra.dump().offset
+		expect(afterOne < 0).toBe(true) -- moving toward the (negative) trailing target
+		expect(afterOne > -trayWidth).toBe(true) -- not there yet
+
+		for _ = 1, 59 do
+			w.pres.tick(FRAME)
+		end
+		expect(-w.ra.dump().offset).toBeCloseTo(trayWidth, 0.5) -- 60 frames: settled
+	end)
+
+	it("buttons grow proportionally with offset", function()
+		local function build()
+			return presenterWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+				})
+			end)
+		end
+		local ref = build()
+		ref.ra._open("trailing")
+		ref.pres.refresh()
+		settle(ref.pres)
+		ref.pres.refresh()
+		local fullWidth = ref.adapter.node(DELETE_PATH).rect.w
+		local trayWidth = -ref.ra.dump().offset
+		expect(fullWidth > 0).toBe(true)
+
+		local w = build()
+		w.ra._open("trailing")
+		w.pres.refresh()
+		-- a handful of frames in: neither at rest nor fully revealed
+		for _ = 1, 8 do
+			w.pres.tick(FRAME)
+		end
+		w.pres.refresh()
+		local frac = math.abs(w.ra.dump().offset) / trayWidth
+		expect(frac > 0.05 and frac < 0.95).toBe(true) -- genuinely mid-flight
+		local midWidth = w.adapter.node(DELETE_PATH).rect.w
+		expect(midWidth).toBeCloseTo(fullWidth * frac, 1) -- SAME observed value, no second spring
+	end)
+
+	it("reduced motion snaps the reveal in one frame", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set("reducedMotion", true) -- derives env:get("motionPolicy") == "reduced"
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = content("Body"),
+			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+		})
+		pres.present(LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+		pres.refresh()
+		ra._open("trailing")
+		pres.refresh()
+		pres.tick(FRAME) -- one step: decorative motion under reduced policy snaps
+		pres.refresh()
+		local trayRect = adapter.node(TRAILING_TRAY).rect
+		expect(ra.dump().offset).toBe(-trayRect.w)
+	end)
+
+	it("dispose mid-flight leaks nothing", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local baseline = core:counters()
+
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = content("Body"),
+			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+		})
+		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local handle = pres.present(screen)
+		pres.refresh()
+		ra._open("trailing")
+		pres.refresh()
+		for _ = 1, 3 do
+			pres.tick(FRAME)
+		end
+		local mid = ra.dump().offset
+		expect(mid < 0).toBe(true) -- in flight: neither 0 nor settled
+
+		pres.dismiss(handle)
+		ra.dispose()
+
+		for _ = 1, 10 do
+			pres.tick(FRAME)
+		end
+		expect(ra.dump().offset).toBe(mid) -- disposed: further steps change nothing
+
+		local after = core:counters()
+		for key, v in baseline :: { [string]: number } do
+			expect((after :: any)[key]).toBe(v)
+		end
+	end)
+
+	it("_settleTo retargets the spring at the verdict (Task 5 wires the gesture that produces one)", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		local trayWidth = -w.ra.dump().offset
+
+		w.ra._settleTo({ target = 0, edge = nil, commit = false })
+		settle(w.pres)
+		expect(w.ra.dump().offset).toBe(0)
+		expect(w.ra.dump().openEdge).toBe(nil)
+
+		w.ra._settleTo({ target = -trayWidth, edge = "trailing", commit = false })
+		settle(w.pres)
+		expect(w.ra.dump().offset).toBe(-trayWidth)
+		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
 
 	it("_open on an edge with no actions is a no-op", function()

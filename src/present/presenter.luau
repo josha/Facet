@@ -2184,6 +2184,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- ignores the extra parameter and is unchanged
 				c.bundle.bindFocusGraph(graph, focusPaintAllowed)
 			end
+			-- and the MOTION CLOCK (row-actions Task 4): the same clock every
+			-- surface transition, toast schedule, and drag flight already rides
+			-- (`self.motionClock` above), so a composite that wants a spring
+			-- never builds or threads its own — one clock, one driver, same as
+			-- the other three binds this function makes.
+			if c.bundle.bindMotion ~= nil then
+				c.bundle.bindMotion(motionClock)
+			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the
 			-- popup opens/closes (see the popup-catcher block above)
