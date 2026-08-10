@@ -893,22 +893,34 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	--   RowActionsMenu (gamepad ButtonX, keyboard Shift+Return — Task 8b).
 	--     Task 8 shipped ButtonX only; Shift+Return was NOT expressible then
 	--     (`Return` already claimed unconditionally by the base screen's own
-	--     Activate context, `presenter.luau:2528`, and IAS bindings carried
-	--     no modifier slot at all — Task 8 report §Shift+Return). Task 8b
-	--     added an additive `modifiers` slot to `action.bind` (this repo's
-	--     `src/input/actions.luau` + its real-engine adapter
-	--     `src/client/roblox_input.luau`): a binding may now declare
-	--     `modifiers = { shift = true }`, matched only while shift is held.
-	--     Bound in THIS SAME sink=true, priority-10000 context as Delete/
-	--     ButtonX above — the preemption of the base Activate context's
+	--     Activate context, `presenter.luau:2528`, and this framework's own
+	--     `action.bind` wrapper accepted no modifier slot at all — Task 8
+	--     report §Shift+Return). Task 8b added an additive `modifiers` slot
+	--     to `action.bind` (this repo's `src/input/actions.luau` + its
+	--     real-engine adapter `src/client/roblox_input.luau`): a binding may
+	--     now declare `modifiers = { shift = true }`, matched only while
+	--     shift is held. Bound in THIS SAME sink=true, priority-10000
+	--     context as Delete/ButtonX above.
+	--
+	--     Headlessly, the preemption of the base Activate context's
 	--     unmodified `Return` binding falls out of the EXISTING priority/
 	--     sink arbitration (spike T1: a higher-priority Sink context blocks
 	--     a lower one on the same key) the moment the modifier match makes
 	--     this binding an eligible candidate; with shift NOT held it is
 	--     never a candidate at all, so plain Return reaches the base
 	--     Activate context exactly as before Task 8b (see actions.luau's
-	--     `modifierMatch`/`deviceKey` and roblox_input.luau's companion-
-	--     context realization for the two backends' mechanics).
+	--     `modifierMatch`/`deviceKey`). On the real client, real
+	--     `InputBinding` turns out to carry a genuine modifier concept —
+	--     `PrimaryModifier`/`SecondaryModifier` (fix round 2, platform
+	--     review BLOCKER-1: the first round's premise that it did not was
+	--     never checked against the engine's own class reference and was
+	--     wrong) — so `roblox_input.luau` realizes this as two ordinary
+	--     `InputBinding`s (one per physical Shift key, since
+	--     `PrimaryModifier` is a single `Enum.KeyCode` and Left/RightShift
+	--     have no combined enum) under the SAME action/context, no second
+	--     mechanism, inheriting that context's live Enabled/Sink/Priority
+	--     through the identical engine arbitration every other binding here
+	--     already goes through.
 	--
 	-- `sink = true` (TEXT_ENTRY_PRIORITY's own precedent, text_input.luau):
 	-- while this scope owns Delete/Backspace/ButtonX, nothing lower-priority

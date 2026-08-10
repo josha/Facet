@@ -284,6 +284,53 @@ describe("input: modifier-gated bindings (Task 8b)", function()
 		end
 	)
 
+	-- Fix round 2 (platform review, MAJOR-1 — HEADLESS, independently
+	-- reproduced against the fix-round-1 commit): the key-up escape hatch
+	-- was `action.state:get() == true` — ACTION-scoped, not BINDING-scoped
+	-- — so a modified binding could re-enter candidacy on a key-up it never
+	-- actually received the matching key-down for, preempt an unmodified
+	-- sibling's own release via the higher-priority Sink context, and leave
+	-- that sibling's Bool `state` stuck `true` — silently swallowing the
+	-- NEXT legitimate press (`_deliver`'s own `previous == value` dedup).
+	-- Both repros are reproduced VERBATIM from the review findings
+	-- (task-8b-review-findings.md MAJOR-1) as the corrective tests.
+	it("MAJOR-1 repro A1: tapping shift WHILE plain Return is held does not steal that Return's own key-up", function()
+		local s = shiftCollisionSetup()
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("LeftShift", true)
+		s.system.deviceKey("Return", false)
+		s.system.deviceKey("LeftShift", false)
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		expect(s.base()).toBe(2)
+	end)
+
+	it(
+		"MAJOR-1 repro A2: holding an unmodified sibling (ButtonX) on the SAME action does not steal a later plain Return's key-up",
+		function()
+			local core = customFactory.new()
+			local system = actionsLib.newSystem(core)
+			local ctxBase = system.createContext({ name = "Base", priority = 1500, sink = false })
+			local actBase = ctxBase.createAction("Activate", "Bool")
+			actBase.bind({ keyCode = "Return" })
+			local ctxMenu = system.createContext({ name = "RowActionsKeys", priority = 10000, sink = true })
+			local actMenu = ctxMenu.createAction("RowActionsMenu", "Bool")
+			actMenu.bind({ keyCode = "ButtonX" })
+			actMenu.bind({ keyCode = "Return", modifiers = { shift = true } })
+			local basePresses = 0
+			actBase.onPressed(function()
+				basePresses += 1
+			end)
+			system.deviceKey("ButtonX", true) -- the SAME action's OTHER binding, unmodified, held
+			system.deviceKey("Return", true) -- plain Return, shift never touched
+			system.deviceKey("Return", false)
+			system.deviceKey("ButtonX", false)
+			system.deviceKey("Return", true)
+			system.deviceKey("Return", false)
+			expect(basePresses).toBe(2)
+		end
+	)
+
 	it("a chord's key-up reaches its binding even if the modifier released first (no stuck Bool state)", function()
 		local s = shiftCollisionSetup()
 		s.system.deviceKey("LeftShift", true)

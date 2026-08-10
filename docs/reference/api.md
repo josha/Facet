@@ -2390,20 +2390,36 @@ wired (`ctrl`/`alt` are not accepted — `system.modifiers()` only tracks
 `shift` distinctly from a single merged `toggle` group, so they could
 type-check but never match anything real). A binding with no `modifiers`
 matches exactly as before this field existed. A binding WITH `modifiers`
-matches only while every declared flag is held, and — through the EXISTING
-priority/Sink arbitration, not a new rule — preempts an unmodified sibling
-binding on the same key the instant it becomes an eligible candidate (the
-row-actions Shift+Return menu, `newRowActions` above, is the shipped
-example: it wins over the base screen's own unmodified `Return` Activate
-binding only while shift is held, and is not a candidate at all otherwise,
-so plain Return is unaffected). Gamepad bindings never declare `modifiers`
-and so are unaffected by any held keyboard modifier. On the real engine
-adapter, a modifier-gated binding is realized as a dedicated companion
-`InputContext` (same priority/Sink as its own logical context) toggled by
-`Enabled` off live Shift key state — real `InputBinding` carries no
-modifier concept, so this cannot be a normal binding under the caller's own
-context without the always-live binding also preempting an unmodified
-sibling regardless of whether the modifier is actually held.
+matches only while every declared flag is held; a key-UP additionally
+matches whichever specific binding actually received the matching key-DOWN
+(a binding-scoped stamp, not a shared read of its action's own state — an
+action-scoped read let one binding's key-up rob a DIFFERENT binding's own
+release when they shared an action, fix round 2 / platform review
+MAJOR-1). Headlessly, this — through the EXISTING priority/Sink
+arbitration, not a new rule — preempts an unmodified sibling binding on the
+same key the instant it becomes an eligible candidate (the row-actions
+Shift+Return menu, `newRowActions` above, is the shipped example: it wins
+over the base screen's own unmodified `Return` Activate binding only while
+shift is held, and is not a candidate at all otherwise, so plain Return is
+unaffected). Gamepad bindings never declare `modifiers` and so are
+unaffected by any held keyboard modifier.
+
+On the real engine adapter, a modifier-gated binding is realized as TWO
+ordinary `InputBinding`s (one `PrimaryModifier = LeftShift`, one
+`PrimaryModifier = RightShift` — `PrimaryModifier` is a single
+`Enum.KeyCode` and there is no combined "Shift" enum) under the SAME
+action/context as any other binding — no second mechanism, no separate
+event wiring: real `InputBinding` DOES carry a modifier concept
+(`PrimaryModifier`/`SecondaryModifier`, official engine class reference:
+"will only trigger the parent InputAction if this input is pressed prior
+to KeyCode... If set to Enum.KeyCode.Unknown, no [...] modifier is
+required"), so both bindings inherit their context's live
+Enabled/Sink/Priority for free, through the identical engine arbitration
+every other binding already goes through. (An earlier round of this
+feature assumed real `InputBinding` had no modifier concept at all and
+built a hand-rolled companion-`InputContext` toggle instead; that premise
+was never checked against the engine's own reference and was wrong — the
+companion mechanism is gone.)
 
 **`system.resetModifiers()`** clears tracked held-modifier state (the
 headless adapter's `modifierKeysDown`, e.g. `LeftShift`/`LeftControl`). A

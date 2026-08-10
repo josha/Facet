@@ -299,25 +299,51 @@ function actions.newSystem(core: any)
 	-- modifier match for a keyCode candidate (Task 8b). `binding.modifiers ==
 	-- nil` (every binding before this task, and every gamepad binding always,
 	-- since nothing declares modifiers on a gamepad keyCode) matches
-	-- unconditionally — BYTE-IDENTICAL to pre-Task-8b matching, regardless of
-	-- what `held` says. A declared `shift = true` only matches while shift is
-	-- actually held. `isDown == false` additionally matches whenever this
-	-- binding's own action is mid-press (`state:get() == true`) even if the
-	-- modifier was released first — a chord's key-up must always reach
-	-- whichever binding its key-down reached, or that binding's Bool state
-	-- sticks `true` forever (next legitimate press would be deduplicated
-	-- away by `_deliver`'s `previous == value` guard).
-	local function modifierMatch(
-		binding: any,
-		action: any,
-		isDown: boolean,
-		held: { shift: boolean, toggle: boolean }
-	): boolean
+	-- unconditionally, on EITHER edge — BYTE-IDENTICAL to pre-Task-8b
+	-- matching, regardless of what `held` or `binding.pressed` say. A
+	-- declared `shift = true` only matches a key-DOWN while shift is
+	-- actually held.
+	--
+	-- Fix round 2 (platform review, MAJOR-1 — headless, independently
+	-- reproduced): the key-UP escape hatch was `action.state:get() == true`
+	-- — ACTION-scoped, not BINDING-scoped, and it stole an UNMODIFIED
+	-- sibling's own key-up. Two ways that happened, both now fixed by
+	-- making the hatch check the SPECIFIC binding rather than its action:
+	--   (a) `RowActionsMenu` binds BOTH `ButtonX` (unmodified) and `Return`
+	--       (modifiers={shift=true}) on the SAME action. Holding ButtonX sets
+	--       that ACTION's `state` true; the old hatch then let the UNRELATED
+	--       Return-with-shift binding re-enter candidacy on ANY later
+	--       Return-up (regardless of whether Return was ever actually
+	--       pressed with shift), and — being the higher-priority Sink
+	--       context — it preempted the base screen's own unmodified Return
+	--       binding's release via `consumedPriority`, leaking a stuck `true`
+	--       Bool onto the BASE action and silently swallowing the next
+	--       legitimate plain-Return press.
+	--   (b) even on a single action with only the Return+shift binding: hold
+	--       plain Return (shift not held, so the base binding gets it), THEN
+	--       tap Shift while Return is still down, then release Return — the
+	--       modified binding's action state check isn't the direct cause
+	--       here (it belongs to a DIFFERENT action), but the same class of
+	--       bug: the modifier CHECK ITSELF was being re-evaluated at
+	--       release time using CURRENT held state rather than "was this
+	--       binding the one that got the down", so a shift pressed AFTER
+	--       the key already went down elsewhere made the modified binding a
+	--       release-time candidate it was never a press-time one, again
+	--       preempting the true holder's release via priority/Sink.
+	-- Fix: a binding-scoped `pressed` stamp, set/cleared at the point of
+	-- actual DELIVERY (not mere candidacy — see `deviceKey` below) rather
+	-- than read off any action's shared state. A modified binding's key-up
+	-- matches iff `binding.pressed == true` — i.e. iff THIS binding, not
+	-- some sibling on the same action, actually received the matching
+	-- key-down — never by re-checking live modifier state at release time
+	-- (which is what let a binding that was never live at press-time
+	-- re-admit itself on the up).
+	local function modifierMatch(binding: any, isDown: boolean, held: { shift: boolean, toggle: boolean }): boolean
 		if binding.modifiers == nil then
 			return true
 		end
-		if not isDown and action.state:get() == true then
-			return true
+		if not isDown then
+			return binding.pressed == true
 		end
 		if binding.modifiers.shift == true and not held.shift then
 			return false
@@ -343,7 +369,7 @@ function actions.newSystem(core: any)
 			if context.enabled and not context.destroyed then
 				for _, action in context.actions do
 					for _, binding in action.bindings do
-						if binding.keyCode == keyCode and modifierMatch(binding, action, isDown, held) then
+						if binding.keyCode == keyCode and modifierMatch(binding, isDown, held) then
 							table.insert(candidates, { context = context, action = action, binding = binding })
 						end
 					end
@@ -364,6 +390,18 @@ function actions.newSystem(core: any)
 			else
 				-- Direction1D via composite key mapping; key-up returns to 0
 				value = if isDown then candidate.binding.direction or 0 else 0
+			end
+			-- binding-scoped pressed stamp (Task 8b fix round 2, MAJOR-1):
+			-- set on an ACTUAL delivery, not mere candidacy — a candidate cut
+			-- off by `consumedPriority`'s break above never reaches here and
+			-- is correctly never stamped. Cleared on the matching release's
+			-- own delivery, so a binding's `pressed` window is exactly
+			-- "between the down this binding received and the up it
+			-- delivers" — never read outside `modifierMatch`, so this is a
+			-- no-op write for the many bindings that never declare
+			-- `modifiers` (they always match via the first branch above).
+			if candidate.binding.modifiers ~= nil then
+				candidate.binding.pressed = isDown
 			end
 			candidate.action._deliver(value)
 			if candidate.context.sink then

@@ -1804,6 +1804,41 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		expect(w.ra.dump().menuOpen).toBe(false) -- the menu never even considered it
 	end)
 
+	-- MAJOR-1 fix round 2 (platform review, control-level regression — the
+	-- action-system spec above pins the same bug at the binding layer; this
+	-- pins the player-visible outcome). Reproduced against the fix-round-1
+	-- commit via task-8b-review-findings.md's repro2.luau before this fix:
+	-- holding plain Return, tapping Shift mid-hold, then releasing Return
+	-- left the row's own `activated` stuck at 1 forever — the NEXT plain
+	-- Return press was silently swallowed.
+	it(
+		"holding plain Return, tapping shift mid-hold, then releasing it does not swallow the NEXT plain Return activation",
+		function()
+			local activated: { string } = {}
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body", activated),
+					trailing = {
+						{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.system.deviceKey("Return", true)
+			w.pres.refresh()
+			w.system.deviceKey("LeftShift", true) -- shift tapped WHILE Return is still held
+			w.system.deviceKey("Return", false)
+			w.system.deviceKey("LeftShift", false)
+			w.pres.refresh()
+			expect(activated).toEqual({ "activate" }) -- the chord itself still activates once
+			w.press("Return") -- the NEXT plain press — must not be swallowed
+			w.pres.refresh()
+			expect(activated).toEqual({ "activate", "activate" })
+			expect(w.ra.dump().menuOpen).toBe(false)
+		end
+	)
+
 	it(
 		"Delete while the menu is open (opened via Shift+Return) stays inert — same carve-out as the ButtonX path",
 		function()
