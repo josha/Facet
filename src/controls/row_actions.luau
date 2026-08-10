@@ -46,18 +46,32 @@
 -- Task 3's instant `applyOffset`, unchanged. `retarget(px)` is that one
 -- fork; `open`/`close`/`settleTo` never write `offset` directly.
 --
--- TRAY WIDTH. Rather than hand-measure a label at build time (the exact
+-- TRAY WIDTH (revised: code review, 2026-08-10 — see the Task 4 fix-report
+-- addendum). Rather than hand-measure a label at BUILD time (the exact
 -- "cached before truth exists" bug class docs/research/roblox-text-bounds-
 -- boot-window warns about — a width guessed before the engine has laid
--- anything out is wrong forever), each tray's width is the SUM of its own
--- buttons' SOLVED natural widths, read via the input contribution's
--- `syncGeometry` hook — the same mechanism `slider.luau`'s track-fraction
--- math and `table.luau`'s resize preview use. `_open` seeds an estimate from
--- the last known width (0 the very first time) and `syncGeometry` freezes
--- the real one the moment it lands (see the Task 4 comment by `leadingWidth`
--- for why FROZEN, not re-fed forever), so a long, pseudo-localized label —
--- which grows a tray button past `buttonMinWidth` — reveals correctly with
--- no hand-rolled text metrics anywhere in this file.
+-- anything out is wrong forever) OR read it back from the tray's own SOLVED
+-- geometry (the first shipped version of this file: a feedback loop once that
+-- geometry is itself something this reveal shrinks, AND — the review finding
+-- — permanently stale against a live `preferredTextSize`/theme change, since
+-- a solved rect is only ever produced by a solve THIS composite triggered),
+-- each tray button's natural width is an INDEPENDENT measurement: the same
+-- `text_metrics.measure(label, font, size, math.huge)` oracle
+-- `tests/row_actions.spec.luau`'s own localization test already uses,
+-- fed by `controller.textAt(path)` — the framework's own published,
+-- LIVE-subscribed font/size facts for that exact node (`bindController`,
+-- the same delivery shape as `bindMotion`; `renderer.luau`'s `toLayoutNode`
+-- already re-measures on `themeMetrics`/`typographyScale`/
+-- `preferredTextOffset` changing, so these facts are ALREADY reactive to
+-- every one of those — this control duplicates none of that arithmetic).
+-- Because the measurement asks for the label at UNLIMITED width, it can
+-- never read back anything this reveal itself painted — there is no
+-- geometry in the loop at all, so re-deriving it on EVERY `syncGeometry`
+-- (no freeze, no staleness) is safe by construction, not by care. The
+-- remaining ingredient — `buttonPad`/`buttonMinWidth` in pixels — is a
+-- theme fact with no font/size component, resolved the same way
+-- `table.luau` resolves its own theme metrics (`spec.env`, optional,
+-- degrades to `themeSnapshot.neutral()`).
 --
 -- DESTRUCTIVE COLOUR. `UI.Button` already carries a semantic `role` prop
 -- (`enum = { "default", "cancel", "destructive" }`, src/blueprint_schema.luau)
@@ -70,6 +84,8 @@
 
 local contribution = require("../input/contribution")
 local row_actions_state = require("../input/row_actions_state")
+local themeSnapshot = require("../themes/snapshot")
+local text_metrics = require("../layout/text_metrics")
 local specGuard = require("../spec_guard")
 
 local row_actions = {}
@@ -91,6 +107,15 @@ export type Spec = {
 	trailing: { ActionSpec }?,
 	fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?, -- default true
 	coordinator: any?, -- newRowActionsCoordinator() result; Task 7 wires it
+	-- OPTIONAL, table.luau's own precedent (`table.luau` Spec.env): live text/
+	-- theme reactivity for each tray button's reserved width (buttonPad,
+	-- buttonMinWidth) needs the environment's theme snapshot, and a composite
+	-- has no other line to it (unlike font/size, which arrive fully resolved
+	-- through `controller.textAt` — see the natural-width comment below).
+	-- Absent degrades to `themeSnapshot.neutral()`, exactly like `table.luau`'s
+	-- own `metricsOr` fallback — "the neutral package at authored size... which
+	-- is what the suite has always solved" (table.luau).
+	env: any?,
 }
 
 -- CLOSED SPEC (constitution §4; ARCH-1).
@@ -101,6 +126,7 @@ local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"trailing",
 	"fullSwipe",
 	"coordinator",
+	"env",
 })
 local ACTION_KEYS = specGuard.keySet({ "id", "role", "label", "icon", "onAction" })
 local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
@@ -244,18 +270,23 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	local openEdge = scope:own(core:signal(nil :: Edge?))
 	local offset = scope:own(core:signal(0))
 
-	-- per-action NATURAL (unconstrained) width, frozen the first time it is
-	-- measured (below) and never again — created eagerly, one signal per
-	-- declared action, at BUILD time rather than inside the tray's lazy
-	-- `UI.When` factory. A reactive value created INSIDE that factory would be
-	-- a FRESH `core:memo` every remount (Trays mount lazily; a row can open
-	-- and close many times), which `scope:own` would dutifully own and never
-	-- release until this whole composite disposes — a slow leak shaped
-	-- exactly like the "table with no dispose()" mistake scope_impl.luau's
-	-- own `own()` guards against, just one level up (a table WITH a
-	-- dispose(), that nothing ever calls). Building it once, here, and having
-	-- the tray factory below only ever LOOK UP an existing entry, means every
-	-- open/close cycle reuses the same handful of reactive nodes.
+	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
+	-- declared action, created eagerly at BUILD time rather than inside the
+	-- tray's lazy `UI.When` factory. A reactive value created INSIDE that
+	-- factory would be a FRESH `core:memo` every remount (Trays mount lazily;
+	-- a row can open and close many times), which `scope:own` would dutifully
+	-- own and never release until this whole composite disposes — a slow leak
+	-- shaped exactly like the "table with no dispose()" mistake
+	-- scope_impl.luau's own `own()` guards against, just one level up (a table
+	-- WITH a dispose(), that nothing ever calls). Building it once, here, and
+	-- having the tray factory below only ever LOOK UP an existing entry, means
+	-- every open/close cycle reuses the same handful of reactive nodes.
+	--
+	-- The signal itself is written by `syncGeometry`/`deriveNaturals` below,
+	-- on EVERY sync (not frozen — see the TRAY WIDTH header comment): a plain
+	-- `core:signal`, not a memo, because the write happens from an external
+	-- hook (the presenter's geometry broadcast), not from a `use()`-tracked
+	-- computation.
 	local leadingNaturals: { [string]: any } = {}
 	for _, action in leadingActions or {} do
 		leadingNaturals[action.id] = scope:own(core:signal(nil :: number?))
@@ -274,18 +305,41 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 		return total
 	end
-	-- the tray's total width IS the sum of its buttons' frozen naturals — never
-	-- the tray CONTAINER's own solved rect. Reading the container back would
-	-- be reading a number this same reveal can shrink (below), which would
-	-- feed a shrunk width back in as the "true" one and chase a collapsing
-	-- target forever; the naturals are only ever written once, before any
-	-- shrink has happened (see `syncGeometry`), so this sum is stable for the
-	-- composite's whole life.
+	-- the tray's total width IS the sum of its buttons' naturals — never the
+	-- tray CONTAINER's own solved rect (that WAS the feedback-loop bug: a
+	-- number this same reveal can shrink, chasing a collapsing target). The
+	-- naturals themselves are geometry-free (see above), so this sum moves
+	-- live with a label/text-size/theme change and can never chase itself.
 	local leadingWidth = scope:own(core:memo(function(use)
 		return sumNaturals(leadingNaturals, use)
 	end))
 	local trailingWidth = scope:own(core:memo(function(use)
 		return sumNaturals(trailingNaturals, use)
+	end))
+
+	-- ===== theme-resolved chrome (Task 4 fix) ================================
+	-- `buttonPad`/`buttonMinWidth` are theme facts with no font/size
+	-- component (unlike the label's own font/size, which arrive already
+	-- resolved through `controller.textAt` — see `deriveNaturals` below), so
+	-- they need the environment's theme snapshot directly. `spec.env` is
+	-- optional, exactly `table.luau`'s own `metricsOr`/`rowGapPx` pattern:
+	-- absent degrades to `themeSnapshot.neutral()`, present and live re-solves
+	-- on a runtime theme swap (`env:get("themeMetrics")` is itself reactive).
+	local function metricsOr(raw: any): any
+		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
+	end
+	local metricsSig = scope:own(core:memo(function(use)
+		local env = spec.env
+		if env == nil then
+			return themeSnapshot.neutral()
+		end
+		return metricsOr(use(env:get("themeMetrics")))
+	end))
+	local buttonPadPx = scope:own(core:memo(function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
+	end))
+	local buttonMinWidthPx = scope:own(core:memo(function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
 	end))
 
 	-- THE ONE SEAM (Tasks 4-6 write through this exclusively): however the
@@ -304,6 +358,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- (one persistent spring drives every open/close/settle, never one per
 	-- gesture): `motionClock:spring(0, "object")`, the same class name a drag
 	-- flight uses (drag_registry.luau:376).
+	-- `controller` arrives (if ever) via `bindController` — an EXISTING
+	-- contribution field (B-VAL2; every other consumer reaches a native
+	-- adapter capability through it), not a new seam. `controller.textAt(path)`
+	-- is the framework's own published, live-subscribed font/size facts for a
+	-- text node — the same oracle `tests/row_actions.spec.luau`'s localization
+	-- test independently re-derives against. Absent (a bare mount, no
+	-- presenter) means `deriveNaturals` below simply has nothing to read, so
+	-- naturals stay `nil` and the width props' existing fallback stands.
+	local controller: any = nil
 	local motionClock: any = nil
 	local spring: any = nil
 	local function ensureSpring()
@@ -394,11 +457,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
 		-- leak reason as the naturals above. Unmeasured, or no spring at all
 		-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
-		-- content-sized, static); once its natural width is frozen it reads
-		-- its share of the SAME observed `offset` the slide itself uses — no
-		-- second spring, no per-button spring — so a button "stretches in"
-		-- from 0 toward its natural width as `|offset|` approaches `trayWidth`
-		-- (docs/plans/row-actions-implementation.md Task 4: "SwiftUI feel").
+		-- content-sized, static, and it stays live even once measured — the
+		-- fallback and the derived branch both track the SAME live `natural`
+		-- signal, so neither ever goes stale); once its natural width IS known
+		-- it reads its share of the SAME observed `offset` the slide itself
+		-- uses — no second spring, no per-button spring — so a button
+		-- "stretches in" from 0 toward its (live) natural width as `|offset|`
+		-- approaches `trayWidth` (docs/plans/row-actions-implementation.md
+		-- Task 4: "SwiftUI feel").
 		local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
 			local props: { [string]: any } = {}
 			for _, action in actions do
@@ -529,37 +595,38 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			return false
 		end
 
-		-- SOLVED per-button geometry, fed by the contribution's syncGeometry so a
-		-- long (pseudo-localized) label — which grows a button past
-		-- buttonMinWidth — corrects the reveal target the moment the real width
-		-- is known, exactly like slider.luau's track-fraction math and
-		-- table.luau's resize preview. Each button's natural is read ONLY while
-		-- still unmeasured (`sig:get() == nil`): the FIRST solve after a tray
-		-- mounts always renders through the width props' `minMax` fallback
-		-- (nothing has frozen yet), so that first read is the true,
-		-- unconstrained content width — reading it again on a later solve,
-		-- once the width props have started shrinking the button for the
-		-- reveal, would feed the shrunk number back in as "the natural width"
-		-- and the tray would chase a collapsing target forever.
+		-- LIVE per-button natural width, fed by the contribution's syncGeometry
+		-- every sync (Task 4 fix, code review 2026-08-10): `controller.textAt`
+		-- publishes the label's font/size at the button's CURRENT path — facts
+		-- the renderer already re-derives on a `themeMetrics`/`typographyScale`/
+		-- `preferredTextOffset` change — and `text_metrics.measure(..., math.huge)`
+		-- re-measures the label at THAT font/size, unconstrained. This never
+		-- reads the button's own solved rect (the geometry-feedback bug the
+		-- header comment describes), so it is safe to recompute unconditionally
+		-- rather than freeze: a `preferredTextSize` bump, a theme swap, or a
+		-- reactive label change all reach the reveal on the very next sync.
 		local rootPath: string? = nil
-		local function freezeNaturals(
-			rectOf: (string) -> any,
-			edge: Edge,
-			actions: { ActionSpec },
-			naturals: { [string]: any }
-		)
+		local function deriveNaturals(edge: Edge, actions: { ActionSpec }, naturals: { [string]: any })
+			if controller == nil then
+				return -- no presenter (bare mount): the width props' own fallback stands
+			end
 			local tid = trayId(edge)
+			local pad = buttonPadPx:get()
+			local minWidth = buttonMinWidthPx:get()
 			for _, action in actions do
 				local sig = naturals[action.id]
-				if sig ~= nil and sig:get() == nil then
-					local r = rectOf(`{rootPath}/{tid}When/then/{tid}/Action:{action.id}`)
-					if r ~= nil then
-						sig:set(r.w)
-					end
+				if sig == nil then
+					continue
 				end
+				local facts = controller.textAt(`{rootPath}/{tid}When/then/{tid}/Action:{action.id}`)
+				if facts == nil or type(facts.font) ~= "string" or type(facts.size) ~= "number" then
+					continue -- not yet measured this pass (e.g. the button just mounted)
+				end
+				local measured = text_metrics.measure(action.label, facts.font, facts.size, math.huge)
+				sig:set(math.max(minWidth, measured.width + 2 * pad))
 			end
 		end
-		local function syncGeometry(rectOf: (string) -> any, rootNode: any?)
+		local function syncGeometry(_rectOf: (string) -> any, rootNode: any?)
 			if rootNode ~= nil then
 				rootPath = rootNode.path
 			end
@@ -567,13 +634,13 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				return
 			end
 			if leadingActions ~= nil then
-				freezeNaturals(rectOf, "leading", leadingActions, leadingNaturals)
+				deriveNaturals("leading", leadingActions, leadingNaturals)
 				if openEdge:get() == "leading" then
 					retarget(leadingWidth:get())
 				end
 			end
 			if trailingActions ~= nil then
-				freezeNaturals(rectOf, "trailing", trailingActions, trailingNaturals)
+				deriveNaturals("trailing", trailingActions, trailingNaturals)
 				if openEdge:get() == "trailing" then
 					retarget(-trailingWidth:get())
 				end
@@ -590,6 +657,13 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- the fallback `retarget` already handles.
 			bindMotion = function(clock: any)
 				motionClock = clock
+			end,
+			-- Task 4 fix: hands over the render controller — an EXISTING
+			-- contribution field, not a new seam — so `deriveNaturals` above can
+			-- reach `controller.textAt`. Same absent-means-degrade shape as
+			-- `bindMotion`.
+			bindController = function(c: any)
+				controller = c
 			end,
 		})
 	end

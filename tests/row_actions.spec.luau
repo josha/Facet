@@ -485,6 +485,55 @@ describe("RowActions control", function()
 		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
 
+	-- code review (2026-08-10): the first version of this reveal froze each
+	-- button's natural width the first time it measured it, which fixed the
+	-- feedback-loop bug but also froze against a LEGITIMATE live environment
+	-- change — the reviewer proved it empirically (preferredTextSize after
+	-- first open never moved the reserved width, even across close/reopen).
+	-- The fix derives natural width from an UNCONSTRAINED text measurement
+	-- (never solved geometry) every sync instead, so it re-derives live. This
+	-- is that proof, mirroring tests/large_text_hot_swap.spec.luau's own
+	-- "live preference swing" idiom (`env:set("preferredTextOffset", ...)`
+	-- then `pres.refresh()` on an ALREADY-presented, already-open screen).
+	it("tray button width re-derives when preferredTextSize changes (not frozen)", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = content("Body"),
+			env = env,
+			trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+		})
+		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+		pres.refresh()
+		ra._open("trailing")
+		pres.refresh()
+		settle(pres)
+		pres.refresh()
+		local before = adapter.node(DELETE_PATH).rect.w
+		expect(before >= 64).toBe(true) -- the theme's buttonMinWidth floor (Task 2)
+
+		-- THE LIVE SWING, on the SAME open row (no close/reopen) — the exact
+		-- shape the reviewer's repro used ("across close/reopen" was the other
+		-- half of the same finding; covered implicitly since this signal is
+		-- never reset between opens either).
+		env:set("preferredTextOffset", lt.LARGEST)
+		pres.refresh()
+		settle(pres)
+		pres.refresh()
+		local after = adapter.node(DELETE_PATH).rect.w
+		expect(after > before).toBe(true) -- re-derived: bigger reserved text -> wider button
+		expect(after >= 64).toBe(true) -- never narrower than the floor
+
+		local facts = handle.controller.textAt(DELETE_PATH)
+		expect(facts ~= nil).toBe(true)
+		expect(facts.lines).toBe(1) -- still one line, never wraps (Task 3's own contract)
+	end)
+
 	it("_open on an edge with no actions is a no-op", function()
 		local w = presenterWorld(function(core)
 			return row_actions.build(LuauUI, core, {
