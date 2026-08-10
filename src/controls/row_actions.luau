@@ -615,13 +615,19 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		return doCommit(edge, target)
 	end
 
-	-- ===== Task 5: the mouse gesture (axis lock, live drag, flick velocity) ===
+	-- ===== Tasks 5-6: the pointer gesture (mouse + touch; axis lock, live
+	-- drag, flick velocity) ===
 	-- One in-flight gesture at a time — the adapter's own capture model
 	-- already guarantees `onPointerDown` is never re-entered while a capture
 	-- is live (fake_target.luau `pointerDown`: "a live capture OWNS the
 	-- pointer... ignored, never a steal"; the real engine's ADR-0008 capture
-	-- is the same shape), so `drag` here is just this composite's own record
-	-- of that one gesture.
+	-- is the same shape — and this holds regardless of which class is asking:
+	-- a touch press arriving mid-mouse-drag, or a mouse press arriving
+	-- mid-touch-drag, is silently ignored by the adapter BEFORE this
+	-- composite's own `onPointerDown` is even called, exactly like a same-
+	-- class second press would be), so `drag` here is just this composite's
+	-- own record of that one gesture — CARRIED through any other class's
+	-- failed attempt to touch it, never handed off.
 	type DragState = {
 		originX: number,
 		originY: number,
@@ -685,11 +691,23 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	end
 
 	local function onPointerDown(_path: string, pos: any, _rectOf: (string) -> any): boolean?
-		if pos.pointerType ~= nil and pos.pointerType ~= "mouse" then
-			-- touch/pen: DECLINE (Task 6 builds real touch semantics; table.
-			-- luau's own rowPointerHandlers draws the identical line for the
-			-- identical reason — "TOUCH on the row body DECLINES the capture
-			-- so the native ScrollingFrame owns the pan-scroll").
+		if pos.pointerType ~= nil and pos.pointerType ~= "mouse" and pos.pointerType ~= "touch" then
+			-- pen/stylus/anything else: DECLINE — mouse and touch are the
+			-- only two classes this gesture understands. Touch spike (Task 6,
+			-- artifacts/row-actions/touch-spike.md): accepted through the
+			-- IDENTICAL tentative-accept + axis-lock-then-inert dance mouse
+			-- already uses below, on the evidence that (1) the real adapter
+			-- already delivers touch through this exact seam today
+			-- (screen_target.luau's setPointerHandlers checks
+			-- `UserInputType.Touch` alongside `MouseButton1` at every step —
+			-- row_actions.luau's own decline was the only thing blocking it),
+			-- and (2) `row_actions_state.axisVerdict`'s own tie-break
+			-- ("ties go vertical: scrolling must never lose an ambiguous
+			-- gesture") is what makes accepting safe next to a native Y-scroll
+			-- Body — unlike table.luau's own rowPointerHandlers, which
+			-- declines touch UNCONDITIONALLY because ITS gesture (vertical
+			-- reorder) is itself ambiguous with scroll; RowActions' swipe is
+			-- horizontal, so the two are axis-disambiguable, not competing.
 			return false
 		end
 		if drag ~= nil then
@@ -711,7 +729,9 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- `up` without ever reading a return value from either, only `down`
 		-- may decline. A "vertical" verdict is therefore honored by going
 		-- INERT for the rest of THIS gesture (see `onPointerMove` below), not
-		-- by un-capturing — there is no third option.
+		-- by un-capturing — there is no third option. Mouse and touch share
+		-- this identically (Task 6): no branch below distinguishes them past
+		-- this point.
 		return true
 	end
 

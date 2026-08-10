@@ -314,14 +314,17 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra.dump().offset).toBe(0)
 	end)
 
-	-- extra: proves the capture-semantics decision (task-5-report.md) actually
-	-- holds through the REAL adapter capture, not just by code inspection —
-	-- `onPointerDown` declines any non-mouse pointerType outright, so a touch
-	-- press against the SAME hit surface never captures at all.
-	it("a touch press at the hit surface declines the capture (Task 6 builds real touch)", function()
+	-- Task 6 (artifacts/row-actions/touch-spike.md): mouse and touch are the
+	-- ONLY two classes this gesture accepts now — a THIRD, exotic pointer
+	-- type (pen/stylus) still declines outright, exactly the way touch used
+	-- to under Task 5 (see the `RowActions touch gesture` describe block
+	-- below for the touch-acceptance cases this test used to assert the
+	-- opposite of). Proven through the REAL adapter capture, not just by code
+	-- inspection.
+	it("a pen press at the hit surface declines the capture (not mouse, not touch)", function()
 		local w = trailingWorld()
-		w.adapter.pointerDown(HIT, 100, 20, "touch")
-		w.adapter.pointerMove(20, 20) -- would fully open on mouse; a declined capture ignores it
+		w.adapter.pointerDown(HIT, 100, 20, "pen")
+		w.adapter.pointerMove(20, 20) -- would fully open on mouse/touch; a declined capture ignores it
 		w.adapter.pointerUp(20, 20)
 		expect(w.ra.dump().offset).toBe(0)
 		expect(w.ra._isOpen()).toBe(false)
@@ -509,5 +512,171 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		end)
 		expect(stepOk).toBe(true) -- stepping a disposed composite must never error
 		expect(#raced.fired).toBe(0) -- onAction NEVER fired for the raced row
+	end)
+end)
+
+-- Task 6 (artifacts/row-actions/touch-spike.md): touch is accepted through
+-- the IDENTICAL tentative-accept + axis-lock-then-inert dance mouse already
+-- uses (Task 5) — `onPointerDown` no longer declines `pointerType == "touch"`.
+-- These duplicate a representative slice of Task 5's own mouse cases with
+-- `pointerType = "touch"` at `pointerDown` (move/up inherit the class from
+-- the adapter's own `pointerCapture.pointerType`, matching how a real capture
+-- works), proving no branch anywhere in the gesture treats the two classes
+-- differently past `onPointerDown`'s initial accept. The last three cases are
+-- this row's real §C hot-switch citations (registry `RowActions.hotSwitch`,
+-- see tests/conformance/controls_registry.luau) — now that touch is a second
+-- live class that can genuinely touch `drag`-in-flight state, `hotSwitch =
+-- false` would be dishonest; these are the real CARRY/CANCEL cases that make
+-- it a real citation instead.
+describe("RowActions touch gesture (Task 6: touch accepted, same axis-lock dance as mouse)", function()
+	it("TOUCH: horizontal drag reveals; release past half-tray snaps open", function()
+		local trayWidth = learnTrayWidth()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(85, 20) -- dx=-15: past the 8px axis lock, resolves horizontal
+		w.tick(1.0)
+		local releaseX = 100 - trayWidth * 0.75
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		w.settle()
+		expect(w.ra._isOpen()).toBe(true)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+		expect(w.ra.dump().offset).toBeCloseTo(-trayWidth, 0.5)
+		expect(#w.fired).toBe(0)
+	end)
+
+	it("TOUCH: release under half-tray snaps closed", function()
+		local trayWidth = learnTrayWidth()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(85, 20)
+		w.tick(1.0)
+		local releaseX = 100 - trayWidth * 0.25
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		w.settle()
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().offset).toBe(0)
+	end)
+
+	-- the platform-safety case the whole spike exists for: a vertical touch
+	-- drag must go INERT (same as mouse), never move `offset` — so a real
+	-- native Y-scroll `Body` around this row is free to own it (touch-spike.md
+	-- finding: raw InputBegan/Changed/Ended are non-exclusive, non-gesture-
+	-- recognized signals — accepting them is not, by the platform's own event
+	-- model, a competing claim on the recognizer `ScrollingFrame` uses).
+	it("TOUCH: vertical drag never moves the offset (axis lock, same inert dance as mouse)", function()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(102, 60) -- dx=2, dy=40: resolves vertical (ties go vertical too)
+		expect(w.ra.dump().offset).toBe(0)
+		w.tick(FRAME)
+		w.adapter.pointerMove(140, 140) -- a LARGE further move; a declined-verdict gesture stays inert
+		expect(w.ra.dump().offset).toBe(0)
+		w.adapter.pointerUp(140, 140)
+		expect(w.ra.dump().offset).toBe(0)
+		expect(w.ra._isOpen()).toBe(false)
+	end)
+
+	it("TOUCH: a leftward flick (velocity) opens from a short drag", function()
+		local trayWidth = learnTrayWidth()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(85, 20)
+		w.tick(0.01)
+		local shortX = 100 - trayWidth * 0.3
+		w.adapter.pointerMove(shortX, 20)
+		w.adapter.pointerUp(shortX, 20)
+		w.settle()
+		expect(w.ra._isOpen()).toBe(true)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+	end)
+
+	it("TOUCH: full swipe commits: row slides off, collapses, onAction fires exactly once", function()
+		local w = trailingWorld()
+		local rowWidth = rowWidthOf(w)
+		w.adapter.pointerDown(HIT, 0, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(-15, 20)
+		w.tick(1.0)
+		local releaseX = -(rowWidth * 0.7)
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		w.settle(400)
+		expect(#w.fired).toBe(1)
+		expect(w.fired[1]).toBe("delete")
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().phase).toBe("closed")
+	end)
+
+	it("TOUCH: fullSwipe = { trailing = false } refuses to commit on trailing", function()
+		local w = trailingWorld({ trailing = false })
+		local rowWidth = rowWidthOf(w)
+		w.adapter.pointerDown(HIT, 0, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(-15, 20)
+		w.tick(1.0)
+		local releaseX = -(rowWidth * 0.9)
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		w.settle(120)
+		expect(#w.fired).toBe(0)
+		expect(w.ra._isOpen()).toBe(true)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+	end)
+
+	it("hotSwitch: a touch press arriving mid-mouse-drag is declined; the mouse drag CARRIES uninterrupted", function()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(85, 20) -- resolves horizontal (mouse)
+		local beforeAttempt = w.ra.dump().offset
+		-- the adapter's own single-capture model ignores this outright
+		-- (fake_target.luau pointerDown: "a live capture OWNS the pointer...
+		-- ignored, never a steal") — never reaches this composite's own
+		-- onPointerDown at all, exactly like a same-class second press would.
+		w.adapter.pointerDown(HIT, 200, 20, "touch")
+		expect(w.ra.dump().offset).toBe(beforeAttempt) -- the failed attempt touched nothing
+		-- the mouse drag CARRIES: it keeps tracking afterward, unaffected —
+		-- clampDrag(startOffset + dx), startOffset = 0 (a fresh row), dx = -40
+		w.adapter.pointerMove(60, 20)
+		expect(w.ra.dump().offset).toBeCloseTo(-40, 0.01)
+		w.adapter.pointerUp(60, 20)
+	end)
+
+	it("hotSwitch: a mouse press arriving mid-touch-drag is declined; the touch drag CARRIES uninterrupted", function()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(85, 20) -- resolves horizontal (touch)
+		local beforeAttempt = w.ra.dump().offset
+		w.adapter.pointerDown(HIT, 200, 20, "mouse")
+		expect(w.ra.dump().offset).toBe(beforeAttempt)
+		w.adapter.pointerMove(60, 20)
+		expect(w.ra.dump().offset).toBeCloseTo(60 - 100, 0.01)
+		w.adapter.pointerUp(60, 20)
+	end)
+
+	-- same-class capability loss (the interpretation Table's own hotSwitch
+	-- citations use for "pointer drag mid-flight + pointer capability lost")
+	-- => CANCEL, mirroring the existing mouse case exactly.
+	it("hotSwitch: touch pointer cancel mid-drag springs back to closed (capability lost => CANCEL)", function()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "touch")
+		w.tick(0.01)
+		w.adapter.pointerMove(70, 20) -- past the lock, dragging open
+		expect(w.ra.dump().offset < 0).toBe(true)
+		w.adapter.interruptCapture()
+		w.settle()
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().offset).toBe(0)
 	end)
 end)

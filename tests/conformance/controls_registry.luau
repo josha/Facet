@@ -600,8 +600,8 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
-		-- RowActions (row-actions Tasks 3-5: composite skeleton, static reveal,
-		-- spring motion, and now the mouse gesture itself).
+		-- RowActions (row-actions Tasks 3-6: composite skeleton, static reveal,
+		-- spring motion, the mouse gesture, and now touch).
 		-- A closed row (no actions revealed) is a TRUE inert passthrough — the
 		-- wrapped `content` mounts unwrapped, with no RowActions node at all —
 		-- but the moment either edge declares actions, the control attaches its
@@ -616,13 +616,19 @@ local registry: { Entry } = {
 		-- Task 5 adds the swipe GESTURE (axis lock, live drag, flick velocity,
 		-- full-swipe commit — tests/row_actions_input.spec.luau), reached
 		-- through `adapter.pointerDown/pointerMove/pointerUp` against the
-		-- `Content/Hit` grip, MOUSE only (`_pointerHandlers.onPointerDown`
-		-- declines any `pos.pointerType ~= "mouse"`, so touch/pen fall through
-		-- to whatever native handling exists underneath — same line
-		-- table.luau's own rowPointerHandlers draws). Tasks 6-8 still owe
-		-- touch/keyboard-Delete/gamepad; see the hotSwitch note below for why
-		-- this row's own in-flight gesture state does not yet demand a §C
-		-- citation.
+		-- `Content/Hit` grip, MOUSE only at the time. Task 6 (spike:
+		-- artifacts/row-actions/touch-spike.md — a live Studio session confirmed
+		-- the device emulator is now MCP-drivable, but no MCP tool in that
+		-- session could drive input into a running client at all, reconfirming
+		-- the 2026-07-23 NS-M4/NS-A6 finding under current tooling; the decision
+		-- rests on a code-trace plus table.luau's own shipped, device-verified
+		-- precedent instead — see the artifact) accepts TOUCH through the
+		-- identical seam: `onPointerDown` now declines only a pointerType that is
+		-- neither "mouse" nor "touch", and every downstream branch (axis lock,
+		-- clampDrag, settle) is unconditionally shared between the two classes —
+		-- see the hotSwitch note below for why this row's in-flight gesture state
+		-- now demands (and has) a real §C citation. Task 8 still owes
+		-- keyboard-Delete/gamepad.
 		name = "RowActions",
 		kind = "composite",
 		module = "src/controls/row_actions.luau",
@@ -650,29 +656,37 @@ local registry: { Entry } = {
 			gamepad = {
 				"RowActions gamepad affordance: the gamepad structural idiom (ten-foot focus on a revealed tray action)",
 			},
-			-- Task 5 SHIPS real in-flight gesture state (`drag`, held between
-			-- pointerDown and pointerUp/cancel: origin, start offset, and the
-			-- axis verdict itself) — this is no longer "nothing exists yet".
-			-- hotSwitch still reads `false`, because the rule is about a
-			-- MID-GESTURE CLASS FLIP (§C: a second live input class picking
-			-- up state the first one left
-			-- in flight), and this task makes that structurally impossible:
-			-- `onPointerDown` DECLINES any `pos.pointerType ~= "mouse"`
-			-- outright (see the row's own header comment above), so `drag`
-			-- can only ever be created and touched by ONE class (mouse) —
-			-- there is no second class it could hot-switch TO or FROM, and
-			-- no keyboard/gamepad entry point into `drag` at all (`_commitFirst`,
-			-- Task 8's future keyboard-Delete seam, is a separate ATOMIC
-			-- operation that never reads or writes `drag`). The row's own
-			-- "pointer cancel mid-drag springs back to closed" case is the
-			-- SAME class losing its OWN capture (a root teardown, a modal
-			-- stealing the gesture — mirrors Slider's own hotSwitch=CANCEL
-			-- shape above), not a flip to a different one, so it does not
-			-- change this reading either. Task 6 (real touch) is where a
-			-- second class first becomes able to touch gesture state, and is
-			-- where this row must become a real §C citation — left as `false`
-			-- now would be dishonest past that point, not before it.
-			hotSwitch = false,
+			-- Task 5 SHIPPED real in-flight gesture state (`drag`, held between
+			-- pointerDown and pointerUp/cancel: origin, start offset, and the axis
+			-- verdict itself) but kept `hotSwitch = false`, because at that point
+			-- `onPointerDown` DECLINED any `pos.pointerType ~= "mouse"` outright, so
+			-- `drag` could only ever be created and touched by ONE class — there was
+			-- no second class it could hot-switch TO or FROM. Task 6 (touch-spike.md)
+			-- is exactly the point the row's own prior comment named as the deadline:
+			-- `onPointerDown` now accepts BOTH "mouse" and "touch", so a real
+			-- mid-gesture class flip is possible for the first time — `drag` (one
+			-- record, either class) is what a second class's own `onPointerDown`
+			-- attempt would have to steal, and the adapter's own single-capture
+			-- model (`fake_target.luau` `pointerDown`: "a live capture OWNS the
+			-- pointer... ignored, never a steal") means it never can: a touch press
+			-- mid-mouse-drag, or a mouse press mid-touch-drag, is silently ignored
+			-- before this composite's own `onPointerDown` even runs, so the FIRST
+			-- class's gesture always CARRIES uninterrupted through a second class's
+			-- failed attempt — the same shape Table's own `hotSwitch` citations use
+			-- for "CARRY: native scroll position survives a class flip". A capture
+			-- LOSS (not a flip) still CANCELs identically for touch and mouse alike
+			-- (`onPointerCancel`'s existing `close()` on a horizontal-axis drag,
+			-- unchanged by Task 6 — same-class capability loss, matching Table's own
+			-- "pointer drag mid-flight + pointer capability lost => CANCEL" reading).
+			-- No keyboard/gamepad entry point into `drag` exists yet (`_commitFirst`,
+			-- Task 8's future keyboard-Delete seam, is a separate ATOMIC operation
+			-- that never reads or writes `drag`), so these three cases are the whole
+			-- citation for now; Task 8 revisits this list, not just this comment.
+			hotSwitch = {
+				"hotSwitch: a touch press arriving mid-mouse-drag is declined; the mouse drag CARRIES uninterrupted",
+				"hotSwitch: a mouse press arriving mid-touch-drag is declined; the touch drag CARRIES uninterrupted",
+				"hotSwitch: touch pointer cancel mid-drag springs back to closed (capability lost => CANCEL)",
+			},
 		},
 	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
