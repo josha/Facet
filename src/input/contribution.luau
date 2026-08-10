@@ -29,7 +29,7 @@
 --     bindActionSystem: (actionSystem) -> (),
 --     bindController: (controller) -> (),
 --     bindFocusGraph: (focusGraph) -> (),
---     bindMotion: (motionClock) -> (),
+--     bindMotion: (motionClock, now?) -> (),
 --     adjustTargets: (rootNode) -> { [path]: true },
 --     handleAdjust: (path, direction) -> boolean }
 --
@@ -113,7 +113,19 @@ export type Bundle = {
 	-- supported degradation: a control that wants motion MUST also work with
 	-- none, falling back to an instant write — exactly what a headless test
 	-- with no presenter needs.
-	bindMotion: ((motionClock: any) -> ())?,
+	--
+	-- second argument (row-actions Task 5, ADDITIVE like bindFocusGraph's own
+	-- second argument above — every control written before it ignores the
+	-- extra parameter and is unchanged): the SAME `now` function the clock
+	-- itself was built from (`presenterOpts.now or os.clock`, presenter.luau
+	-- `nowFn`) — the one legal time source `src/input/drag_velocity.luau` may
+	-- read (its own contract: "this module never reads os.clock... a
+	-- scripted clock replays a flick exactly"). A control threading gesture
+	-- samples through `drag_velocity` needs a timestamp for every pointer
+	-- move, and no existing seam handed one over; reusing the clock's own
+	-- `now` rather than inventing a second, potentially-divergent time axis
+	-- is what "the same source" means here.
+	bindMotion: ((motionClock: any, now: (() -> number)?) -> ())?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,
 	-- WHICH ARROWS THIS CONTROL CONSUMES (roadmap Step 8). "horizontal" (what every

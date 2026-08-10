@@ -84,6 +84,7 @@
 
 local contribution = require("../input/contribution")
 local row_actions_state = require("../input/row_actions_state")
+local drag_velocity = require("../input/drag_velocity")
 local themeSnapshot = require("../themes/snapshot")
 local text_metrics = require("../layout/text_metrics")
 local specGuard = require("../spec_guard")
@@ -252,10 +253,10 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 
 	local leadingActions = actionsFor(id, "leading", spec.leading)
 	local trailingActions = actionsFor(id, "trailing", spec.trailing)
-	-- normalized and stored now (row_actions_state.new's fullSwipeLeading/
-	-- fullSwipeTrailing opts); Task 5 is the first consumer of the gesture
-	-- decision itself.
-	local _fullSwipe = normalizeFullSwipe(id, spec.fullSwipe)
+	-- normalized at build time (row_actions_state.new's fullSwipeLeading/
+	-- fullSwipeTrailing opts); Task 5's gesture/commit paths below are the
+	-- first consumers of the decision itself.
+	local fullSwipe = normalizeFullSwipe(id, spec.fullSwipe)
 
 	local actionsById: { leading: { [string]: ActionSpec }, trailing: { [string]: ActionSpec } } =
 		{ leading = {}, trailing = {} }
@@ -269,6 +270,21 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- ===== reveal state ======================================================
 	local openEdge = scope:own(core:signal(nil :: Edge?))
 	local offset = scope:own(core:signal(0))
+	-- Task 5: the commit sequence's own height-collapse target — `nil` means
+	-- "no override" (BOX.height "content-sized when absent",
+	-- src/layout/solver.luau: `node.height or CONTENT`), which is what every
+	-- row that never commits reads forever, byte-identical to Tasks 3-4 (no
+	-- `height` prop was ever set on the root before this task). Only a commit
+	-- (`doCommit` below) ever writes a real pixel number here.
+	local rowHeightOverride = scope:own(core:signal(nil :: number?))
+	-- true once `dispose()` has run — the commit sequence's own belt-and-
+	-- suspenders guard (spec: "never fire onAction for a row whose key no
+	-- longer matches"), on top of the emergent one disposing `scope` already
+	-- gives it for free: a disposed MotionValue clears its `onSettle`
+	-- subscribers (motion.luau `value.dispose`: "table.clear(subs)"), so a
+	-- slide/collapse already in flight when disposal lands never reaches its
+	-- next `onArrive` at all. See `doCommit`'s own comment below.
+	local disposed = false
 
 	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
 	-- declared action, created eagerly at BUILD time rather than inside the
@@ -368,6 +384,18 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- naturals stay `nil` and the width props' existing fallback stands.
 	local controller: any = nil
 	local motionClock: any = nil
+	-- Task 5: the SAME function `motionClock` itself was built from
+	-- (`bindMotion`'s ADDITIVE second argument — src/input/contribution.luau,
+	-- src/present/presenter.luau `c.bundle.bindMotion(motionClock, nowFn)`),
+	-- the one legal time source the gesture's `drag_velocity` tracker below
+	-- may read. Absent has the identical shape as `controller`/`motionClock`
+	-- absent: a bare mount, no presenter.
+	local nowFn: (() -> number)? = nil
+	-- Task 5: hoisted out of `deriveNaturals`'s original home below (still
+	-- written there, on every `syncGeometry`) so the commit path's own
+	-- `currentRect`/`currentRowWidth`/`currentRowHeight` — shared, unconditional
+	-- code, reused by both the gesture and `_commitFirst` — can read it too.
+	local rootPath: string? = nil
 	local spring: any = nil
 	local function ensureSpring()
 		if spring ~= nil or motionClock == nil then
@@ -421,15 +449,329 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		retarget(0)
 	end
 
-	-- Task 5 wires the drag-release verdict (row_actions_state.settle) through
-	-- here: retargets the spring at whatever edge/target the verdict names.
-	-- `commit` (a full-swipe release) behaves like a plain open-to-target for
-	-- now — firing the edge's first action and then closing is Task 5's.
+	-- ===== Task 5: the commit path (shared by the gesture and `_commitFirst`) ===
+	-- Live geometry read through `controller` (bound the same absent-degrades
+	-- way `deriveNaturals` already reads `controller.textAt` — Task 4), never
+	-- cached: a row's width/height are facts about what actually solved, not
+	-- something this control could compute for itself.
+	local function currentRect(): any
+		if controller == nil or rootPath == nil then
+			return nil
+		end
+		return controller.rectOf(rootPath)
+	end
+	local function currentRowWidth(): number
+		local r = currentRect()
+		return if r ~= nil then r.w else 0
+	end
+	local function currentRowHeight(): number
+		local r = currentRect()
+		return if r ~= nil then r.h else 0
+	end
+
+	local function firstActionFor(edge: Edge): ActionSpec?
+		local list = if edge == "leading" then leadingActions else trailingActions
+		if list == nil or #list == 0 then
+			return nil
+		end
+		return list[1]
+	end
+
+	-- the collapse spring: a SECOND, independent `"object"`-class value from
+	-- the same family the offset spring already rides (see the big comment
+	-- above `ensureSpring`) — a different signal (row height, not offsetX),
+	-- built lazily on the one commit a row ever makes.
+	local collapseSpring: any = nil
+	local function ensureCollapseSpring(initial: number)
+		if collapseSpring ~= nil or motionClock == nil then
+			return
+		end
+		collapseSpring = scope:own(motionClock:spring(initial, "object"))
+		rowHeightOverride:set(initial) -- seed the paint before the first step
+		scope:own(core:observe(collapseSpring, function()
+			rowHeightOverride:set(collapseSpring:get())
+		end))
+	end
+
+	-- like `retarget`, but calls `onArrive` exactly once when the value
+	-- reaches its target: a spring settle (subscribed BEFORE retargeting, so
+	-- a reduced-motion synchronous placement — motion.luau `setTarget`'s
+	-- `placeNow(v, true)` — still reaches it), or immediately under the
+	-- no-clock fallback. The seam the commit sequence below chains
+	-- slide-off -> collapse -> fire through. `unsub`s itself the moment it
+	-- fires, so a LATER, unrelated retarget of the same persistent spring
+	-- (an `_open`/`_close` after a commit that did not destroy this row)
+	-- can never re-trigger it.
+	local function retargetThen(px: number, onArrive: () -> ())
+		if motionClock ~= nil then
+			ensureSpring()
+			local unsub: (() -> ())? = nil
+			unsub = spring:onSettle(function()
+				if unsub ~= nil then
+					unsub()
+				end
+				onArrive()
+			end)
+			spring:setTarget(px)
+		else
+			applyOffset(px)
+			onArrive()
+		end
+	end
+
+	local function collapseThen(fromHeight: number, onArrive: () -> ())
+		if motionClock ~= nil then
+			ensureCollapseSpring(fromHeight)
+			local unsub: (() -> ())? = nil
+			unsub = collapseSpring:onSettle(function()
+				if unsub ~= nil then
+					unsub()
+				end
+				onArrive()
+			end)
+			collapseSpring:setTarget(0)
+		else
+			rowHeightOverride:set(0)
+			onArrive()
+		end
+	end
+
+	-- a row commits at most once in its life (the caller's next move is to
+	-- mutate the data and let a keyed diff remove this instance) — this flag
+	-- makes that true even if something calls the commit path twice, on top
+	-- of the exactly-once guarantee `retargetThen`/`collapseThen`'s own
+	-- self-unsubscribing already gives each individual spring chain.
+	local committed = false
+
+	-- THE ONE COMMIT PATH (brief: `_commitFirst`, keyboard Delete's Task 8
+	-- entry point, reuses this exact function minus the gesture that got it
+	-- here). Slides `content` fully off-screen, collapses the row's own
+	-- height to 0 over the same spring family, fires the edge's FIRST action
+	-- exactly once (quarantined — a throw still closes, never refires), then
+	-- runs the same bookkeeping `_close()` already does.
+	--
+	-- THE GUARD (spec docs/plans/row-actions.md: "Commit racing a data
+	-- refresh (row rebuilt under the gesture) -> gesture cancels; never fire
+	-- onAction for a row whose key no longer matches"). From THIS composite's
+	-- own point of view, "the row was rebuilt" always manifests as its own
+	-- `dispose()`: a keyed diff destroys the old row_actions instance and
+	-- builds a fresh one for the new key, it never mutates one in place. The
+	-- `disposed` check below, plus the emergent guarantee disposing `scope`
+	-- already gives (a disposed MotionValue clears its `onSettle`
+	-- subscribers — motion.luau `value.dispose`: "table.clear(subs)" — so a
+	-- slide/collapse in flight when disposal lands never reaches its next
+	-- `onArrive` at all), together mean `action.onAction` cannot fire for a
+	-- row this composite no longer owns.
+	local function doCommit(edge: Edge, offscreenTarget: number): boolean
+		if committed then
+			return false
+		end
+		local action = firstActionFor(edge)
+		if action == nil then
+			return false
+		end
+		committed = true
+		openEdge:set(edge)
+		retargetThen(offscreenTarget, function()
+			if disposed then
+				return
+			end
+			local startHeight = currentRowHeight()
+			collapseThen(startHeight, function()
+				if not disposed then
+					-- QUARANTINED (constitution): the ONE user callback this
+					-- composite ever fires on a caller's behalf. A throw must
+					-- not skip `close()` below, nor fire a second time —
+					-- `committed` already forbids a second `doCommit`, and this
+					-- whole chain only ever runs once per row.
+					pcall(action.onAction)
+				end
+				close()
+			end)
+		end)
+		return true
+	end
+
+	-- Task 5: the drag-release verdict's commit branch (row_actions_state.
+	-- settle) routes through here; Task 8's keyboard Delete calls `doCommit`
+	-- directly via the public `_commitFirst` seam below instead.
 	local function settleTo(verdict: row_actions_state.Verdict)
+		if verdict.commit and verdict.edge ~= nil then
+			if doCommit(verdict.edge, verdict.target) then
+				return
+			end
+			-- unreachable in practice (row_actions_state only ever proposes a
+			-- commit against a real, positive tray width, which always has an
+			-- action behind it) — stay honest and settle normally rather than
+			-- silently doing nothing if that invariant is ever wrong.
+		end
 		openEdge:set(verdict.edge)
 		retarget(verdict.target)
-		-- Task 5: verdict.commit fires the edge's first action, then close().
 	end
+
+	local function commitFirst(edge: Edge): boolean
+		local rowW = currentRowWidth()
+		local target = if edge == "leading" then rowW else -rowW
+		return doCommit(edge, target)
+	end
+
+	-- ===== Task 5: the mouse gesture (axis lock, live drag, flick velocity) ===
+	-- One in-flight gesture at a time — the adapter's own capture model
+	-- already guarantees `onPointerDown` is never re-entered while a capture
+	-- is live (fake_target.luau `pointerDown`: "a live capture OWNS the
+	-- pointer... ignored, never a steal"; the real engine's ADR-0008 capture
+	-- is the same shape), so `drag` here is just this composite's own record
+	-- of that one gesture.
+	type DragState = {
+		originX: number,
+		originY: number,
+		startOffset: number,
+		axis: row_actions_state.AxisVerdict,
+	}
+	local drag: DragState? = nil
+	local tracker = drag_velocity.new()
+
+	-- the only legal time source for `tracker.push` (drag_velocity's own
+	-- contract). Falls back to `os.clock` the same way `presenter.new`
+	-- itself defaults `nowFn` when none was ever bound — a real gesture can
+	-- only reach these handlers through a live adapter capture, which only
+	-- exists once a presenter mounted this control (and every presenter has
+	-- SOME `nowFn`), so the fallback is dead code kept only so a direct unit
+	-- call against `_pointerHandlers` (no presenter at all) never errors.
+	local function currentNow(): number
+		return if nowFn ~= nil then nowFn() else os.clock()
+	end
+
+	-- a FRESH row_actions_state instance, read LIVE every time it is needed
+	-- (every move, and again at release) rather than snapshotted once at
+	-- `pointerDown`. This is not optional polish: `leadingWidth`/
+	-- `trailingWidth` are the SUM of per-button naturals a tray only
+	-- publishes once it has actually mounted and measured at least one real
+	-- frame (the header comment's own "TRAY WIDTH" section — trays mount
+	-- LAZILY, `UI.When`, only once `revealed`), so a row that has never been
+	-- opened before has BOTH still reading 0 at the exact instant of
+	-- `pointerDown` — a real chicken-and-egg a live-found repro caught this
+	-- task (a fresh row's very first-ever swipe settled CLOSED no matter how
+	-- far it was dragged, because the down-time snapshot had frozen a tray
+	-- width of 0 before the tray had ever had a chance to mount and measure
+	-- itself). Reading live means the moment the drag's own first negative
+	-- `applyOffset` reveals the tray (see the `revealed` memos below) and the
+	-- next `syncGeometry` measures it, this decision sees the REAL number —
+	-- self-correcting within a frame or two, rather than wrong for the rest
+	-- of the gesture. `row_actions_state.new` is a cheap, pure constructor
+	-- (closures over already-known scalars, no engine, no allocation beyond
+	-- itself), so rebuilding it per move costs nothing next to a solve pass.
+	local function currentDecision(): any
+		return row_actions_state.new({
+			rowWidth = currentRowWidth(),
+			leadingWidth = leadingWidth:get(),
+			trailingWidth = trailingWidth:get(),
+			fullSwipeLeading = fullSwipe.leading,
+			fullSwipeTrailing = fullSwipe.trailing,
+		})
+	end
+
+	local function onPointerDown(_path: string, pos: any, _rectOf: (string) -> any): boolean?
+		if pos.pointerType ~= nil and pos.pointerType ~= "mouse" then
+			-- touch/pen: DECLINE (Task 6 builds real touch semantics; table.
+			-- luau's own rowPointerHandlers draws the identical line for the
+			-- identical reason — "TOUCH on the row body DECLINES the capture
+			-- so the native ScrollingFrame owns the pan-scroll").
+			return false
+		end
+		if drag ~= nil then
+			return false -- a capture is already live; never steal (engine parity)
+		end
+		drag = {
+			originX = pos.x,
+			originY = pos.y,
+			startOffset = offset:get(),
+			axis = "pending",
+		}
+		tracker:reset()
+		tracker:push(pos.x, pos.y, currentNow())
+		-- TENTATIVE ACCEPT (capture-semantics investigation — task-5-report.md
+		-- carries the full writeup): the axis is genuinely unknown at down
+		-- (dx = dy = 0 here, always), and this adapter's capture model —
+		-- mirroring the real engine's ADR-0008 capture — offers no way to
+		-- hand the capture back once accepted: renderer.luau wires `move`/
+		-- `up` without ever reading a return value from either, only `down`
+		-- may decline. A "vertical" verdict is therefore honored by going
+		-- INERT for the rest of THIS gesture (see `onPointerMove` below), not
+		-- by un-capturing — there is no third option.
+		return true
+	end
+
+	local function onPointerMove(_path: string, pos: any, _rectOf: (string) -> any)
+		if drag == nil or drag.axis == "vertical" then
+			return
+		end
+		local dx = pos.x - drag.originX
+		local dy = pos.y - drag.originY
+		if drag.axis == "pending" then
+			-- axisVerdict is a pure function of dx/dy and the fixed
+			-- AXIS_LOCK_PX constant alone (never reads width/fullSwipe), so
+			-- which decision instance answers it is immaterial.
+			local verdict = currentDecision().axisVerdict(dx, dy)
+			if verdict == "pending" then
+				return -- still accumulating toward the lock radius
+			end
+			drag.axis = verdict
+			if verdict == "vertical" then
+				return -- declined: `offset` is never touched for this gesture
+			end
+			-- transitioning to "horizontal": the persistent reveal spring must
+			-- stop pushing its OWN writes into `offset` right now, or its next
+			-- step fights the manual drag this function is about to start
+			-- driving directly — the spring's interruptibility guarantee
+			-- (comment above `ensureSpring`) is for a RETARGET, not for a
+			-- live human hand on the same value.
+			if spring ~= nil then
+				spring:stop()
+			end
+		end
+		local target = currentDecision().clampDrag(drag.startOffset + dx)
+		applyOffset(target)
+		tracker:push(pos.x, pos.y, currentNow())
+	end
+
+	local function onPointerUp(_path: string, pos: any, _rectOf: (string) -> any)
+		if drag == nil then
+			return
+		end
+		local wasHorizontal = drag.axis == "horizontal"
+		if wasHorizontal then
+			tracker:push(pos.x, pos.y, currentNow())
+			local vx = tracker:velocity() -- (vx, vy); only the horizontal axis matters here
+			local verdict = currentDecision().settle(offset:get(), vx)
+			drag = nil
+			settleTo(verdict)
+		else
+			-- "pending" (a tap, never past the lock radius) or "vertical"
+			-- (declined): nothing this gesture touched needs undoing
+			drag = nil
+		end
+	end
+
+	local function onPointerCancel(_path: string, _reason: string?): boolean?
+		if drag == nil then
+			return nil
+		end
+		local wasHorizontal = drag.axis == "horizontal"
+		drag = nil
+		if wasHorizontal then
+			-- spec: "pointer cancel mid-drag springs back to closed"
+			close()
+		end
+		return nil
+	end
+
+	local pointerHandlers = {
+		onPointerDown = onPointerDown,
+		onPointerMove = onPointerMove,
+		onPointerUp = onPointerUp,
+		onPointerCancel = onPointerCancel,
+	}
 
 	local function isOpen(): boolean
 		return openEdge:get() ~= nil
@@ -563,11 +905,45 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				offsetX = offset,
 				width = { type = "fill" },
 				height = { type = "fill" },
-				children = { content },
+				children = {
+					-- Task 5: the drag hit surface. A `UI.Grip` — unfocusable by
+					-- default (never steals a Tab stop from whatever focusable
+					-- controls live inside `content`), exactly the "non-button
+					-- Active node" pointer.spec.luau exercises — sized to fill,
+					-- painted BEHIND `content` in the same array-order-is-
+					-- paint-order relationship table.luau's own row "Hit"
+					-- Button uses ahead of its "Cells" (table.luau
+					-- `rowBlueprint`): Roblox delivers InputBegan/Changed/Ended
+					-- to every Active GuiObject under the point independently
+					-- of paint order, so this background Grip still captures a
+					-- drag while a button INSIDE `content` still receives its
+					-- own tap, unaffected, when the row is not being dragged.
+					UI.Grip({
+						id = "Hit",
+						width = { type = "fill" },
+						height = { type = "fill" },
+						onPointerDown = pointerHandlers.onPointerDown,
+						onPointerMove = pointerHandlers.onPointerMove,
+						onPointerUp = pointerHandlers.onPointerUp,
+						onPointerCancel = pointerHandlers.onPointerCancel,
+					}),
+					content,
+				},
 			})
 		)
 
-		local root = UI.Anchor({ id = id, children = children })
+		-- Task 5: `height` is the ONE new root prop this task adds — bound to
+		-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
+		-- when absent") for every row that never commits, byte-identical to
+		-- Tasks 3-4 (no `height` prop existed on the root before this task).
+		local heightPx = scope:own(core:memo(function(use)
+			local px = use(rowHeightOverride)
+			if px == nil then
+				return nil
+			end
+			return { type = "fixed", px = px }
+		end))
+		local root = UI.Anchor({ id = id, height = heightPx, children = children })
 
 		local idPattern = patternEscape(id)
 		local function actionIdFromPath(edge: Edge, path: string): string?
@@ -605,7 +981,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- header comment describes), so it is safe to recompute unconditionally
 		-- rather than freeze: a `preferredTextSize` bump, a theme swap, or a
 		-- reactive label change all reach the reveal on the very next sync.
-		local rootPath: string? = nil
+		-- (`rootPath` itself is declared in the shared scope above — Task 5.)
 		local function deriveNaturals(edge: Edge, actions: { ActionSpec }, naturals: { [string]: any })
 			if controller == nil then
 				return -- no presenter (bare mount): the width props' own fallback stands
@@ -655,8 +1031,13 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- comment above `local motionClock`). No presenter (a bare mount in
 			-- a unit test) means this is simply never called, which is exactly
 			-- the fallback `retarget` already handles.
-			bindMotion = function(clock: any)
+			-- Task 5: second, ADDITIVE argument — the same `now` function the
+			-- clock itself was built from (contribution.luau bindMotion doc);
+			-- `nowFn` is what `currentNow()` (the gesture's velocity-tracker
+			-- time source) reads.
+			bindMotion = function(clock: any, now: (() -> number)?)
 				motionClock = clock
+				nowFn = now
 			end,
 			-- Task 4 fix: hands over the render controller — an EXISTING
 			-- contribution field, not a new seam — so `deriveNaturals` above can
@@ -672,15 +1053,30 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		blueprint = blueprint,
 		dump = dump,
 		dispose = function()
+			-- Task 5: set BEFORE tearing the scope down — the commit path's
+			-- own guard (see `doCommit`'s comment) reads this synchronously
+			-- inside the same `scope:dispose()` call if a spring is settling
+			-- mid-teardown.
+			disposed = true
 			scope:dispose()
 		end,
 		-- internal seam for Table + coordinator (NOT public API; underscore
-		-- prefix) — Tasks 5-8 build the gesture and keyboard paths through
-		-- these four:
+		-- prefix) — Tasks 6-8 build the touch/keyboard/gamepad paths through
+		-- these six:
 		_open = open,
 		_close = close,
 		_isOpen = isOpen,
 		_settleTo = settleTo,
+		-- Task 5: down/move/up/cancel, attached to the Content hit surface
+		-- above AND exposed here so Table (Task 10) can compose them with its
+		-- own row-level pointer handling instead of only reaching them
+		-- through the mounted node.
+		_pointerHandlers = pointerHandlers,
+		-- Task 5: the commit path minus the gesture — Task 8's keyboard
+		-- Delete entry point. `false` when `edge` has no actions (`firstActionFor`
+		-- above), which is always true for the true inert-passthrough row (no
+		-- leading or trailing actions at all).
+		_commitFirst = commitFirst,
 	}
 end
 

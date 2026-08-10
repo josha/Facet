@@ -600,7 +600,8 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
-		-- RowActions (row-actions Task 3: composite skeleton, static reveal).
+		-- RowActions (row-actions Tasks 3-5: composite skeleton, static reveal,
+		-- spring motion, and now the mouse gesture itself).
 		-- A closed row (no actions revealed) is a TRUE inert passthrough — the
 		-- wrapped `content` mounts unwrapped, with no RowActions node at all —
 		-- but the moment either edge declares actions, the control attaches its
@@ -608,15 +609,20 @@ local registry: { Entry } = {
 		-- mirroring popup_button.luau's api.handleActivate) to dispatch a tap/
 		-- Return/ButtonA on a revealed `Action:<id>` tray button, which makes it
 		-- an INTERACTIVE control by the checker's own rule (module source
-		-- contains "contribution.attach"). This task ships NO drag/swipe/pointer
-		-- gesture (Step 3 of the plan is the skeleton only) — every case below
-		-- reaches a tray action through the STANDARD UI.Button activation path
-		-- (adapter.tap / system.deviceKey against a pre-revealed tray), which is
-		-- the honest reachability/paradigm story for what this task built.
-		-- Tasks 5-8 add the swipe gesture itself (mouse/touch/keyboard-Delete/
-		-- gamepad) and MUST revisit this row: hotSwitch = false is accurate
-		-- today (no in-flight state exists yet) but will not be once a drag
-		-- owns one.
+		-- contains "contribution.attach"). Task 3's proofs below still reach a
+		-- tray action through the STANDARD UI.Button activation path
+		-- (adapter.tap / system.deviceKey against a pre-revealed tray) — the
+		-- honest reachability/paradigm story for what those tasks built;
+		-- Task 5 adds the swipe GESTURE (axis lock, live drag, flick velocity,
+		-- full-swipe commit — tests/row_actions_input.spec.luau), reached
+		-- through `adapter.pointerDown/pointerMove/pointerUp` against the
+		-- `Content/Hit` grip, MOUSE only (`_pointerHandlers.onPointerDown`
+		-- declines any `pos.pointerType ~= "mouse"`, so touch/pen fall through
+		-- to whatever native handling exists underneath — same line
+		-- table.luau's own rowPointerHandlers draws). Tasks 6-8 still owe
+		-- touch/keyboard-Delete/gamepad; see the hotSwitch note below for why
+		-- this row's own in-flight gesture state does not yet demand a §C
+		-- citation.
 		name = "RowActions",
 		kind = "composite",
 		module = "src/controls/row_actions.luau",
@@ -644,9 +650,28 @@ local registry: { Entry } = {
 			gamepad = {
 				"RowActions gamepad affordance: the gamepad structural idiom (ten-foot focus on a revealed tray action)",
 			},
-			-- no in-flight gesture state exists as of this task (no pointer
-			-- handling shipped) — nothing for a mid-gesture class flip to carry
-			-- or cancel yet. Tasks 5-8 own turning this into a real §C list.
+			-- Task 5 SHIPS real in-flight gesture state (`drag`, held between
+			-- pointerDown and pointerUp/cancel: origin, start offset, and the
+			-- axis verdict itself) — this is no longer "nothing exists yet".
+			-- hotSwitch still reads `false`, because the rule is about a
+			-- MID-GESTURE CLASS FLIP (§C: a second live input class picking
+			-- up state the first one left
+			-- in flight), and this task makes that structurally impossible:
+			-- `onPointerDown` DECLINES any `pos.pointerType ~= "mouse"`
+			-- outright (see the row's own header comment above), so `drag`
+			-- can only ever be created and touched by ONE class (mouse) —
+			-- there is no second class it could hot-switch TO or FROM, and
+			-- no keyboard/gamepad entry point into `drag` at all (`_commitFirst`,
+			-- Task 8's future keyboard-Delete seam, is a separate ATOMIC
+			-- operation that never reads or writes `drag`). The row's own
+			-- "pointer cancel mid-drag springs back to closed" case is the
+			-- SAME class losing its OWN capture (a root teardown, a modal
+			-- stealing the gesture — mirrors Slider's own hotSwitch=CANCEL
+			-- shape above), not a flip to a different one, so it does not
+			-- change this reading either. Task 6 (real touch) is where a
+			-- second class first becomes able to touch gesture state, and is
+			-- where this row must become a real §C citation — left as `false`
+			-- now would be dishonest past that point, not before it.
 			hotSwitch = false,
 		},
 	},

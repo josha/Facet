@@ -2189,8 +2189,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- (`self.motionClock` above), so a composite that wants a spring
 			-- never builds or threads its own — one clock, one driver, same as
 			-- the other three binds this function makes.
+			--
+			-- second argument is ADDITIVE (row-actions Task 5, same pattern as
+			-- bindFocusGraph's own second argument above): `nowFn` is the exact
+			-- function `motionClock` itself was built from a few lines up
+			-- (`motionClockLib.new(core, { ..., now = nowFn })`) — "the same
+			-- source the motion clock uses" a control's own gesture-velocity
+			-- tracker needs (contribution.luau bindMotion doc).
 			if c.bundle.bindMotion ~= nil then
-				c.bundle.bindMotion(motionClock)
+				c.bundle.bindMotion(motionClock, nowFn)
 			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the

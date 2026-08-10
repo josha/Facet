@@ -224,6 +224,8 @@ require("./drag_public.spec")
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)
 require("./row_actions.spec")
+-- row actions: the mouse gesture (axis lock, live drag, flick velocity, full-swipe commit)
+require("./row_actions_input.spec")
 -- focus-skip by live predicate + the active-interaction exemption (SF-L3)
 require("./focus_skip.spec")
 -- the unified collection: one VirtualList that windows, selects, reorders,
