@@ -634,12 +634,19 @@ local registry: { Entry } = {
 		-- owns input then) — tests/row_actions_input.spec.luau "RowActions
 		-- Task 8: keyboard Delete") and the gamepad ButtonX action menu (a
 		-- PopupButton-pattern popup listing every action — "RowActions Task
-		-- 8: the action menu (ButtonX)"). `Shift+Return` is NOT bound
-		-- (NEEDS_CONTEXT, scoped to a follow-up Task 8b: no modifier slot
-		-- on an IAS binding, and Return is already the base screen's
-		-- Activate key — see the Task 8 report/docs/reference/api.md's own
-		-- newRowActions section); the menu is reachable today only via
-		-- ButtonX.
+		-- 8: the action menu (ButtonX)"). Task 8 itself left `Shift+Return`
+		-- unbound (NEEDS_CONTEXT: no modifier slot on an IAS binding, and
+		-- Return was already the base screen's Activate key — see the Task
+		-- 8 report). Task 8b shipped it: an additive `modifiers` slot on
+		-- `action.bind` (src/input/actions.luau + its real-engine adapter
+		-- src/client/roblox_input.luau) lets `RowActionsMenu` bind
+		-- `Return` with `modifiers = { shift = true }` in the SAME
+		-- sink=true, priority-10000 context as Delete/ButtonX — the menu is
+		-- now reachable via keyboard (Shift+Return, toggles) OR gamepad
+		-- (ButtonX, toggles); "RowActions Task 8b: the action menu
+		-- (Shift+Return)" is the citation, including the double-fire
+		-- regression test ("Shift+Return fires ONLY the menu toggle…") the
+		-- whole follow-up existed to prove.
 		name = "RowActions",
 		kind = "composite",
 		module = "src/controls/row_actions.luau",
@@ -657,6 +664,10 @@ local registry: { Entry } = {
 				-- Delete, not Return/Activate, and it never taps a tray
 				-- button at all (the tray need not even be open).
 				"Delete on a focused row fires the first destructive action",
+				-- Task 8b: a THIRD keyboard path — Shift+Return opens/closes
+				-- the SAME action menu ButtonX reaches, via the action
+				-- system's new `modifiers` binding slot.
+				"Shift+Return opens the menu, entering focus on its first row — identical outcome to ButtonX",
 			},
 			gamepad = {
 				"RowActions gamepad: focus + ButtonA activates a revealed tray action",

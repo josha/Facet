@@ -33,6 +33,69 @@ function roblox_input.newSystem(core: any)
 		}
 	end
 
+	-- MODIFIER-GATED BINDINGS (Task 8b; Task 8 report §Shift+Return). Real
+	-- InputBinding carries no modifier concept — the engine arbitrates a
+	-- KeyCode InputBinding unconditionally, so a binding declaring
+	-- `modifiers` cannot be a normal InputBinding under its own action's
+	-- context: an always-live one would win priority/Sink arbitration over
+	-- an unmodified sibling (e.g. base Activate's own `Return`) REGARDLESS of
+	-- whether the modifier is actually held — exactly the "sinking eats
+	-- plain Return" regression the report identified as unshippable.
+	--
+	-- Realized instead as a DEDICATED companion InputContext, at the SAME
+	-- priority/Sink as the binding's own logical context, created DISABLED
+	-- and toggled live off Shift's own down/up — reusing the ALREADY-PROVEN
+	-- `Enabled` lever this framework uses everywhere a context must
+	-- conditionally not exist for arbitration (RowActionsKeys' own
+	-- `pathInsideRow` gate is the same mechanism, `context.setEnabled`
+	-- above). While disabled, the companion context does not exist for the
+	-- engine's own arbitration AT ALL — not "loses arbitration", genuinely
+	-- absent from it — so an unmodified sibling binding is undisturbed
+	-- whenever the modifier is not held, by construction, not a race.
+	--
+	-- ORDERING IS A PHYSICAL FACT, NOT AN INVARIANT THIS CODE ASSERTS. A
+	-- rejected precedent (Task 8 report) mutated a sibling context's Sink
+	-- from a same-scope Shift binding's own handler, relying on an IMPLICIT,
+	-- unenforced same-tick ordering between two independent bindings' event
+	-- delivery. This does not: Shift going down is what enables the
+	-- companion context, and "Shift+Return" cannot physically exist as a
+	-- chord unless the Shift key-down already happened — by the time ANY
+	-- Return key-down can occur, the companion context's Enabled has already
+	-- settled from a wholly separate, already-completed prior key event.
+	--
+	-- WINDOW-BLUR STUCK-MODIFIER GUARD: grepped this adapter and the rest of
+	-- the client tree for any existing WindowFocus*/blur handling before
+	-- writing this — none exists anywhere in the framework. Added here,
+	-- scoped to only the new feature: re-sync off `UserInputService:
+	-- IsKeyDown` (the engine's own live key state, the same read
+	-- `system.modifiers()` above already trusts) on window focus change, so
+	-- a player who alt-tabs away mid-hold and never gets a real KeyUp
+	-- delivered can't leave a companion context stuck enabled.
+	local shiftGatedContexts: { { instance: Instance, destroyed: boolean } } = {}
+	local function shiftHeldNow(): boolean
+		return UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) or UserInputService:IsKeyDown(Enum.KeyCode.RightShift)
+	end
+	local function syncShiftGatedContexts()
+		local held = shiftHeldNow()
+		for _, gated in shiftGatedContexts do
+			if not gated.destroyed then
+				(gated.instance :: any).Enabled = held
+			end
+		end
+	end
+	UserInputService.InputBegan:Connect(function(inputObject: InputObject)
+		if inputObject.KeyCode == Enum.KeyCode.LeftShift or inputObject.KeyCode == Enum.KeyCode.RightShift then
+			syncShiftGatedContexts()
+		end
+	end)
+	UserInputService.InputEnded:Connect(function(inputObject: InputObject)
+		if inputObject.KeyCode == Enum.KeyCode.LeftShift or inputObject.KeyCode == Enum.KeyCode.RightShift then
+			syncShiftGatedContexts()
+		end
+	end)
+	UserInputService.WindowFocusReleased:Connect(syncShiftGatedContexts)
+	UserInputService.WindowFocused:Connect(syncShiftGatedContexts)
+
 	function system.createContext(spec: { name: string, priority: number?, sink: boolean? })
 		local contextInstance = Instance.new("InputContext")
 		contextInstance.Name = spec.name
@@ -66,6 +129,7 @@ function roblox_input.newSystem(core: any)
 				connections = {} :: { RBXScriptConnection },
 				pressedHandlers = {} :: { (any) -> () },
 				releasedHandlers = {} :: { (any) -> () },
+				shiftGatedCleanup = {} :: { () -> () },
 			}
 			table.insert(
 				action.connections,
@@ -115,7 +179,79 @@ function roblox_input.newSystem(core: any)
 				uiButton: any?,
 				displayName: string?,
 				direction: number?,
+				modifiers: { shift: boolean? }?,
 			})
+				-- MODIFIER-GATED PATH (Task 8b): see the `shiftGatedContexts`
+				-- header comment above for why this cannot be a normal
+				-- InputBinding under `actionInstance`/`contextInstance` — a
+				-- companion InputContext realizes it instead, so it is a
+				-- COMPLETELY SEPARATE construction from the normal path below.
+				if spec2.modifiers ~= nil and spec2.modifiers.shift == true and spec2.keyCode ~= nil then
+					local gatedContext = Instance.new("InputContext")
+					gatedContext.Name = `{contextInstance.Name}::{action.name}::shift`
+					gatedContext.Priority = contextInstance.Priority
+					gatedContext.Sink = contextInstance.Sink
+					gatedContext.Enabled = shiftHeldNow()
+					gatedContext.Parent = host
+					local gatedAction = Instance.new("InputAction")
+					gatedAction.Name = action.name
+					gatedAction.Type = actionInstance.Type
+					gatedAction.Parent = gatedContext
+					local gatedBindingInstance = Instance.new("InputBinding")
+					gatedBindingInstance.KeyCode = (Enum.KeyCode :: any)[spec2.keyCode]
+					gatedBindingInstance.Parent = gatedAction
+
+					local gatedStateConn = gatedAction.StateChanged:Connect(function(value)
+						action.state:set(value)
+					end)
+					local gatedPressedConn = gatedAction.Pressed:Connect(function()
+						for _, fn in table.clone(action.pressedHandlers) do
+							fn(true)
+						end
+					end)
+					local gatedReleasedConn = gatedAction.Released:Connect(function()
+						for _, fn in table.clone(action.releasedHandlers) do
+							fn(false)
+						end
+					end)
+
+					local gatedRecord = { instance = gatedContext :: Instance, destroyed = false }
+					table.insert(shiftGatedContexts, gatedRecord)
+
+					local binding = {
+						action = action,
+						keyCode = spec2.keyCode,
+						scriptable = false,
+						uiButton = nil,
+						displayName = spec2.displayName,
+						direction = spec2.direction,
+						modifiers = spec2.modifiers,
+						instance = gatedBindingInstance,
+					}
+					local function teardown()
+						gatedStateConn:Disconnect()
+						gatedPressedConn:Disconnect()
+						gatedReleasedConn:Disconnect()
+						gatedRecord.destroyed = true
+						local gi = table.find(shiftGatedContexts, gatedRecord)
+						if gi then
+							table.remove(shiftGatedContexts, gi)
+						end
+						gatedContext:Destroy()
+					end
+					function binding.remove()
+						binding.removed = true
+						teardown()
+						local i = table.find(action.bindings, binding)
+						if i then
+							table.remove(action.bindings, i)
+						end
+					end
+					table.insert(action.shiftGatedCleanup, teardown)
+					table.insert(action.bindings, binding)
+					return binding
+				end
+
 				local bindingInstance = Instance.new("InputBinding")
 				if spec2.scriptable then
 					bindingInstance.Type = Enum.InputBindingType.Scriptable
@@ -316,6 +452,16 @@ function roblox_input.newSystem(core: any)
 				for _, connection in action.connections do
 					connection:Disconnect()
 				end
+				-- shift-gated companion contexts (Task 8b) live OUTSIDE
+				-- `contextInstance`'s own hierarchy (parented to `host`
+				-- directly, see the `shiftGatedContexts` header comment) so
+				-- `contextInstance:Destroy()` below never reaches them —
+				-- torn down explicitly here instead, same as every other
+				-- action-owned connection above.
+				for _, teardown in action.shiftGatedCleanup do
+					teardown()
+				end
+				table.clear(action.shiftGatedCleanup)
 				action.state:dispose()
 				table.clear(action.pressedHandlers)
 				table.clear(action.releasedHandlers)

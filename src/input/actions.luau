@@ -75,12 +75,31 @@ function actions.newSystem(core: any)
 
 		-- binding: keyCode (arbitrated) | scriptable (direct) | uiButton tag.
 		-- direction maps a key to a Direction1D value (engine composite keys).
+		--
+		-- `modifiers` (Task 8b, additive): a keyCode binding may declare a
+		-- held-modifier requirement — `shift` is the only wired flag today.
+		-- `ctrl`/`alt` are INTENTIONALLY NOT accepted: `system.modifiers()`
+		-- only distinguishes `shift` from a single merged `toggle` group
+		-- (ctrl+meta collapsed, no `alt` tracked at all — see MODIFIER_GROUP
+		-- below), so a `ctrl`/`alt` flag here would type-check but could never
+		-- be matched against real state; adding the field without the
+		-- tracking behind it is the "un-wired scope creep" this system
+		-- avoids elsewhere. Extend MODIFIER_GROUP + this table together if a
+		-- future binding genuinely needs ctrl/alt.
+		--
+		-- A binding with NO `modifiers` matches a keyCode exactly as before —
+		-- deviceKey's filter below is a no-op for it. A binding WITH
+		-- `modifiers` only matches while every declared flag is held; see
+		-- deviceKey for how this preempts an unmodified sibling on the same
+		-- key entirely through the EXISTING priority/sink arbitration (T1),
+		-- not a new rule.
 		function action.bind(spec: {
 			keyCode: string?,
 			scriptable: boolean?,
 			uiButton: string?,
 			displayName: string?,
 			direction: number?,
+			modifiers: { shift: boolean? }?,
 		})
 			local binding = {
 				action = action,
@@ -89,6 +108,7 @@ function actions.newSystem(core: any)
 				uiButton = spec.uiButton,
 				displayName = spec.displayName,
 				direction = spec.direction,
+				modifiers = spec.modifiers,
 			}
 			table.insert(action.bindings, binding)
 			-- scriptable test path: fires the action DIRECTLY (engine truth)
@@ -258,18 +278,72 @@ function actions.newSystem(core: any)
 		return state
 	end
 
+	-- STUCK-MODIFIER SAFETY VALVE (Task 8b). `modifierKeysDown` is a table
+	-- this headless model owns and mutates only from explicit `deviceKey`
+	-- calls — there is no OS/window-blur concept in a headless run, and
+	-- grepping this adapter's real-engine counterpart (roblox_input.luau)
+	-- turned up no existing blur/cancel hook anywhere in the framework to
+	-- hang a clear on. Exposed as a plain reset rather than wired to any
+	-- automatic call site: this system is test/scenario-authority only (no
+	-- production code path ever calls headless `deviceKey`; the client
+	-- always runs the real adapter, whose `system.modifiers()` live-polls
+	-- engine key state instead of caching it — see roblox_input.luau — so it
+	-- cannot get stuck the same way). A scenario that simulates an
+	-- interrupted chord (shift down, never released) can call this between
+	-- steps rather than leave the table holding a phantom `true` for the
+	-- rest of the run.
+	function system.resetModifiers()
+		table.clear(modifierKeysDown)
+	end
+
+	-- modifier match for a keyCode candidate (Task 8b). `binding.modifiers ==
+	-- nil` (every binding before this task, and every gamepad binding always,
+	-- since nothing declares modifiers on a gamepad keyCode) matches
+	-- unconditionally — BYTE-IDENTICAL to pre-Task-8b matching, regardless of
+	-- what `held` says. A declared `shift = true` only matches while shift is
+	-- actually held. `isDown == false` additionally matches whenever this
+	-- binding's own action is mid-press (`state:get() == true`) even if the
+	-- modifier was released first — a chord's key-up must always reach
+	-- whichever binding its key-down reached, or that binding's Bool state
+	-- sticks `true` forever (next legitimate press would be deduplicated
+	-- away by `_deliver`'s `previous == value` guard).
+	local function modifierMatch(
+		binding: any,
+		action: any,
+		isDown: boolean,
+		held: { shift: boolean, toggle: boolean }
+	): boolean
+		if binding.modifiers == nil then
+			return true
+		end
+		if not isDown and action.state:get() == true then
+			return true
+		end
+		if binding.modifiers.shift == true and not held.shift then
+			return false
+		end
+		return true
+	end
+
 	-- device input entry point (the arbitrated path): keyDown/keyUp resolve to
 	-- the highest-priority enabled context bound to that key; Sink consumes.
 	function system.deviceKey(keyCode: string, isDown: boolean)
 		if MODIFIER_GROUP[keyCode] ~= nil then
 			modifierKeysDown[keyCode] = isDown
 		end
+		-- PREEMPTION DECISION POINT (Task 8b): filtering a modifier-mismatched
+		-- binding out of `candidates` HERE, before the untouched sort/sink loop
+		-- below ever runs, is the whole mechanism — a modified binding's
+		-- context winning priority+sink arbitration over an unmodified
+		-- sibling's lower-priority context (T1) already does the preemption;
+		-- this only decides who is ELIGIBLE to enter that arbitration.
+		local held = system.modifiers()
 		local candidates = {}
 		for _, context in contexts do
 			if context.enabled and not context.destroyed then
 				for _, action in context.actions do
 					for _, binding in action.bindings do
-						if binding.keyCode == keyCode then
+						if binding.keyCode == keyCode and modifierMatch(binding, action, isDown, held) then
 							table.insert(candidates, { context = context, action = action, binding = binding })
 						end
 					end

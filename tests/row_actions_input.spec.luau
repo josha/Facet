@@ -976,22 +976,23 @@ end)
 -- Task 8: keyboard Delete + the Shift+Return/ButtonX action menu
 -- (docs/plans/row-actions-implementation.md Task 8, task-8-brief.md).
 --
--- SHIFT+RETURN IS NOT BOUND — NEEDS_CONTEXT (see the Task 8 report for the
--- full writeup). `Return` is already the base screen's own Activate key
+-- SHIFT+RETURN SHIPPED IN TASK 8B (this describe block covers the gamepad
+-- ButtonX half and keyboard Delete/Backspace, which never collided with
+-- anything — `Delete`/`Backspace` are unclaimed elsewhere in the shipped
+-- system). Task 8 itself left Shift+Return unbound — NEEDS_CONTEXT — because
+-- `Return` was already the base screen's own Activate key
 -- (presenter.luau:2528: `activate.bind({ keyCode = "Return" })`), IAS
--- bindings carry no modifier slot (src/input/actions.luau's `action.bind`:
--- keyCode/scriptable/uiButton/displayName/direction only), and a focused
--- leaf's own `onActivate` fires UNCONDITIONALLY, before any contribution or
--- modifier state is consulted (presenter.luau `dispatchActivate` step 1,
--- ~line 282-300) — so a SECOND context bound to Return either double-fires
--- alongside Activate on every SHIFTED press whenever the focused content is
--- itself activatable (exactly `focusableBody` below — the realistic case,
--- already proven live by Task 7's own `rowButtonContent`), or, if it sinks
--- to avoid that, silently eats PLAIN Return for the whole row while this
--- scope is active — a regression, not a fix. Only the gamepad half
--- (`ButtonX`, unclaimed anywhere else in the shipped system) is bound;
--- these tests cover it and the keyboard Delete/Backspace half, which has no
--- such collision (`Delete`/`Backspace` are unclaimed too).
+-- bindings carried no modifier slot at all, and a focused leaf's own
+-- `onActivate` fires UNCONDITIONALLY before any contribution or modifier
+-- state is consulted (presenter.luau `dispatchActivate` step 1) — so a
+-- second context bound to bare `Return` would either double-fire alongside
+-- Activate on every SHIFTED press whenever the focused content is itself
+-- activatable (exactly `focusableBody` below), or silently eat PLAIN Return
+-- for the whole row if it sank to avoid that. Task 8b's fix is an additive
+-- `modifiers` slot on `action.bind` (src/input/actions.luau +
+-- src/client/roblox_input.luau): see "RowActions Task 8b: the action menu
+-- (Shift+Return)" below for the shipped tests, including the double-fire
+-- regression test this whole follow-up task exists to prevent.
 local ROW_ACTIONS_KEY_FRAME = 1 / 60
 
 -- a focusable content Button — deliberately, not the bare `content()` Text
@@ -1047,6 +1048,17 @@ local function keyboardWorld(build: (core: any) -> any): any
 	function w.press(key: string)
 		system.deviceKey(key, true)
 		system.deviceKey(key, false)
+	end
+	-- Task 8b: a full Shift+Return chord — shift down (a real key event,
+	-- not a bare field write, same idiom `keyboard_navigation.spec.luau` and
+	-- `table.spec.luau`'s own shift-Traverse/reorder tests already use),
+	-- then Return down+up, then shift up. Physical ordering (shift always
+	-- precedes the main key in a real chord), not an artificial invariant.
+	function w.pressShiftReturn()
+		system.deviceKey("LeftShift", true)
+		system.deviceKey("Return", true)
+		system.deviceKey("Return", false)
+		system.deviceKey("LeftShift", false)
 	end
 	return w
 end
@@ -1677,6 +1689,178 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			-- oracle the tray's own pseudo-loc test uses.
 			local natural = text_metrics.measure(lt.PSEUDO, facts.font, facts.size, math.huge)
 			expect((node :: any).rect.w >= natural.width).toBe(true)
+		end
+	)
+end)
+
+-- Task 8b: the keyboard half of the action menu, now expressible via
+-- `src/input/actions.luau`'s additive `modifiers` slot (see its own spec,
+-- tests/input.spec.luau "input: modifier-gated bindings (Task 8b)", for the
+-- action-system-level preemption proof this control-level suite builds on).
+-- `RowActionsMenu` binds `Return` with `modifiers = { shift = true }` in the
+-- SAME sink=true, priority-10000 context ButtonX/Delete already use.
+describe("RowActions Task 8b: the action menu (Shift+Return)", function()
+	it("Shift+Return opens the menu, entering focus on its first row — identical outcome to ButtonX", function()
+		local fired: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "flag",
+						role = "normal",
+						label = "Flag",
+						onAction = function()
+							table.insert(fired, "flag")
+						end,
+					},
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.pressShiftReturn()
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(true)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+		-- plain Return now activates the focused MENU row (the menu's own
+		-- contribution, not the Shift-gated binding) — same as the ButtonX
+		-- describe block above proves; re-asserted here to confirm the
+		-- keyboard entry point hands off into the SAME shipped machinery.
+		w.press("Return")
+		w.pres.refresh()
+		expect(fired).toEqual({ "flag" })
+		expect(w.ra.dump().menuOpen).toBe(false)
+	end)
+
+	it("Shift+Return while the menu is open closes it (toggle, no distinct close key needed)", function()
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.pressShiftReturn()
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(true)
+		w.pressShiftReturn()
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(false)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored, same as ButtonX/Cancel
+	end)
+
+	-- THE REGRESSION TEST THIS TASK EXISTS FOR (design constraint: "while
+	-- Shift is held, Shift+Return must fire ONLY the modified binding — the
+	-- screen's plain-Return Activate must NOT also fire"). `focusableBody`
+	-- carries its own `onActivate` — exactly the shape the Task 8 report
+	-- identified as the realistic double-fire hazard (a second Return-bound
+	-- context that does not sink would deliver alongside Activate on every
+	-- shifted press). Both counters must be examined: the menu opening
+	-- ALONE is not proof the row's own Activate stayed silent.
+	it(
+		"Shift+Return fires ONLY the menu toggle — the row content's own onActivate does not also fire (no double-fire)",
+		function()
+			local activated: { string } = {}
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body", activated),
+					trailing = {
+						{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.pressShiftReturn()
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true) -- the menu toggle fired…
+			expect(activated).toEqual({}) -- …and ONLY the menu toggle
+		end
+	)
+
+	-- THE OTHER HALF OF THE SAME REGRESSION: plain (unshifted) Return on
+	-- focused row content must keep working exactly as it did before Task
+	-- 8b — the naive "sink to avoid double-fire" alternative the report
+	-- rejected would have broken this instead.
+	it("plain Return still activates the focused row content normally — byte-identical to before Task 8b", function()
+		local activated: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body", activated),
+				trailing = {
+					{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("Return")
+		w.pres.refresh()
+		expect(activated).toEqual({ "activate" })
+		expect(w.ra.dump().menuOpen).toBe(false) -- the menu never even considered it
+	end)
+
+	it(
+		"Delete while the menu is open (opened via Shift+Return) stays inert — same carve-out as the ButtonX path",
+		function()
+			local fired: { string } = {}
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body"),
+					trailing = {
+						{
+							id = "delete",
+							role = "destructive",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired, "delete")
+							end,
+						},
+						{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.pressShiftReturn() -- open via the NEW keyboard path
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true)
+			w.press("Delete") -- must be INERT: the menu owns input, not this key
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true) -- still open
+			expect(#fired).toBe(0)
+		end
+	)
+
+	it(
+		"opening via Shift+Return and closing via ButtonX (and vice versa) both work — one action, two bindings",
+		function()
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body"),
+					trailing = {
+						{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.pressShiftReturn() -- open via keyboard
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true)
+			w.press("ButtonX") -- close via gamepad
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(false)
+			w.press("ButtonX") -- open via gamepad
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true)
+			w.pressShiftReturn() -- close via keyboard
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(false)
 		end
 	)
 end)

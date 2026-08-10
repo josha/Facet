@@ -181,3 +181,132 @@ describe("input: modifier state (Phase B)", function()
 		expect(system.modifiers().toggle).toBe(false)
 	end)
 end)
+
+-- Task 8b: the additive `modifiers` slot on a keyCode binding, and the
+-- Return/Activate collision (Task 8 report §Shift+Return) it exists to
+-- resolve — a higher-priority Sink context's modified binding must preempt
+-- an unmodified sibling on the SAME key while its modifier is held, and must
+-- not touch it at all otherwise. Shaped after `spikeSetup` above (a low/high
+-- priority pair on one key) so this reuses the same engine-mirrored
+-- arbitration T1 already proves, rather than asserting a new rule.
+describe("input: modifier-gated bindings (Task 8b)", function()
+	local function shiftCollisionSetup()
+		local core = customFactory.new()
+		local system = actionsLib.newSystem(core)
+		-- mirrors the real base screen's own unconditional Activate/Return
+		local ctxBase = system.createContext({ name = "Base", priority = 1500, sink = false })
+		local actBase = ctxBase.createAction("Activate", "Bool")
+		actBase.bind({ keyCode = "Return" })
+		-- mirrors RowActionsKeys: high priority, sink=true, modifier-gated
+		local ctxMenu = system.createContext({ name = "RowActionsKeys", priority = 10000, sink = true })
+		local actMenu = ctxMenu.createAction("RowActionsMenu", "Bool")
+		actMenu.bind({ keyCode = "Return", modifiers = { shift = true } })
+		local basePresses, menuPresses = 0, 0
+		actBase.onPressed(function()
+			basePresses += 1
+		end)
+		actMenu.onPressed(function()
+			menuPresses += 1
+		end)
+		return {
+			system = system,
+			actBase = actBase,
+			actMenu = actMenu,
+			base = function()
+				return basePresses
+			end,
+			menu = function()
+				return menuPresses
+			end,
+		}
+	end
+
+	it("a modified binding fires only while its modifier is held", function()
+		local s = shiftCollisionSetup()
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		expect(s.menu()).toBe(0) -- shift not held: never a candidate
+		s.system.deviceKey("LeftShift", true)
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		expect(s.menu()).toBe(1)
+	end)
+
+	it("an unmodified sibling is unaffected when the modifier is NOT held (byte-identical)", function()
+		local s = shiftCollisionSetup()
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		expect(s.base()).toBe(1)
+		expect(s.menu()).toBe(0)
+	end)
+
+	it(
+		"a modified binding preempts an unmodified sibling on the same key when held (T1 arbitration, not a new rule)",
+		function()
+			local s = shiftCollisionSetup()
+			s.system.deviceKey("LeftShift", true)
+			s.system.deviceKey("Return", true)
+			s.system.deviceKey("Return", false)
+			s.system.deviceKey("LeftShift", false)
+			expect(s.menu()).toBe(1)
+			expect(s.base()).toBe(0) -- the base Activate context never saw it
+		end
+	)
+
+	it("plain Return keeps working normally after a shifted press (no stuck preemption)", function()
+		local s = shiftCollisionSetup()
+		s.system.deviceKey("LeftShift", true)
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		s.system.deviceKey("LeftShift", false)
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		expect(s.base()).toBe(1)
+		expect(s.menu()).toBe(1)
+	end)
+
+	it(
+		"gamepad bindings ignore modifier slots entirely: an unmodified ButtonX binding is unaffected by held shift",
+		function()
+			local core = customFactory.new()
+			local system = actionsLib.newSystem(core)
+			local ctx = system.createContext({ name = "RowActionsKeys", priority = 10000, sink = true })
+			local menuAction = ctx.createAction("RowActionsMenu", "Bool")
+			menuAction.bind({ keyCode = "ButtonX" }) -- no `modifiers` — the real shape shipped
+			local presses = 0
+			menuAction.onPressed(function()
+				presses += 1
+			end)
+			system.deviceKey("LeftShift", true) -- held throughout; irrelevant to a gamepad button
+			system.deviceKey("ButtonX", true)
+			system.deviceKey("ButtonX", false)
+			expect(presses).toBe(1)
+		end
+	)
+
+	it("a chord's key-up reaches its binding even if the modifier released first (no stuck Bool state)", function()
+		local s = shiftCollisionSetup()
+		s.system.deviceKey("LeftShift", true)
+		s.system.deviceKey("Return", true)
+		expect(s.actMenu.state:get()).toBe(true)
+		s.system.deviceKey("LeftShift", false) -- released BEFORE Return
+		s.system.deviceKey("Return", false) -- must still reach actMenu, or its Bool sticks true
+		expect(s.actMenu.state:get()).toBe(false)
+		-- proof it isn't stuck: the NEXT full shifted press fires again (a
+		-- stuck-true state would dedupe this second `_deliver(true)` away)
+		s.system.deviceKey("LeftShift", true)
+		s.system.deviceKey("Return", true)
+		s.system.deviceKey("Return", false)
+		s.system.deviceKey("LeftShift", false)
+		expect(s.menu()).toBe(2)
+	end)
+
+	it("resetModifiers clears tracked held-modifier state (the documented stuck-modifier escape hatch)", function()
+		local core = customFactory.new()
+		local system = actionsLib.newSystem(core)
+		system.deviceKey("LeftShift", true) -- simulates an interrupted chord: no matching key-up
+		expect(system.modifiers().shift).toBe(true)
+		system.resetModifiers()
+		expect(system.modifiers().shift).toBe(false)
+	end)
+end)

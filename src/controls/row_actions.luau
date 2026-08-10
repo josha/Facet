@@ -890,22 +890,25 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	--     `hasDestructive`, so an unregistered binding truly falls through
 	--     (brief) rather than existing-but-inert; additionally inert
 	--     whenever `menuOpen` (the carve-out above).
-	--   RowActionsMenu (gamepad ButtonX only — see the Task 8 report for
-	--     why a clean, non-double-firing Shift+Return binding is NOT
-	--     expressible against the current action system without a
-	--     presenter.luau change: `Return` is already claimed by the base
-	--     screen's own Activate context (`presenter.luau:2528`), IAS
-	--     bindings carry no modifier slot (`src/input/actions.luau:78-109`),
-	--     and `dispatchActivate` fires a focused leaf's own `onActivate`
-	--     UNCONDITIONALLY before any contribution's `handleActivate` or
-	--     modifier state is ever consulted (`presenter.luau:282-300`) — so a
-	--     second context bound to `Return` either double-fires alongside
-	--     Activate on every SHIFTED press (when the focused content is
-	--     itself an activatable control, e.g. `rowButtonContent` in this
-	--     file's own test), or, if it sinks to avoid that, silently eats
-	--     PLAIN Return for the whole row whenever this scope is active — a
-	--     regression, not a fix. Scoped to a follow-up (Task 8b, director-
-	--     approved) rather than shipped here; see the Task 8 report).
+	--   RowActionsMenu (gamepad ButtonX, keyboard Shift+Return — Task 8b).
+	--     Task 8 shipped ButtonX only; Shift+Return was NOT expressible then
+	--     (`Return` already claimed unconditionally by the base screen's own
+	--     Activate context, `presenter.luau:2528`, and IAS bindings carried
+	--     no modifier slot at all — Task 8 report §Shift+Return). Task 8b
+	--     added an additive `modifiers` slot to `action.bind` (this repo's
+	--     `src/input/actions.luau` + its real-engine adapter
+	--     `src/client/roblox_input.luau`): a binding may now declare
+	--     `modifiers = { shift = true }`, matched only while shift is held.
+	--     Bound in THIS SAME sink=true, priority-10000 context as Delete/
+	--     ButtonX above — the preemption of the base Activate context's
+	--     unmodified `Return` binding falls out of the EXISTING priority/
+	--     sink arbitration (spike T1: a higher-priority Sink context blocks
+	--     a lower one on the same key) the moment the modifier match makes
+	--     this binding an eligible candidate; with shift NOT held it is
+	--     never a candidate at all, so plain Return reaches the base
+	--     Activate context exactly as before Task 8b (see actions.luau's
+	--     `modifierMatch`/`deviceKey` and roblox_input.luau's companion-
+	--     context realization for the two backends' mechanics).
 	--
 	-- `sink = true` (TEXT_ENTRY_PRIORITY's own precedent, text_input.luau):
 	-- while this scope owns Delete/Backspace/ButtonX, nothing lower-priority
@@ -941,6 +944,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 		local menuAction = ctx.createAction("RowActionsMenu", "Bool")
 		menuAction.bind({ keyCode = "ButtonX" })
+		menuAction.bind({ keyCode = "Return", modifiers = { shift = true } })
 		menuAction.onPressed(function()
 			toggleMenu()
 		end)

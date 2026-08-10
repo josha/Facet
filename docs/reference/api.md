@@ -2384,6 +2384,37 @@ for input contexts — constitution E-17). Prefer the setters over writing
 `context.enabled`/`.sink` directly: a bare field write works headlessly and is
 dead on the real engine adapter.
 
+**`action.bind{ ..., modifiers = { shift: boolean? } }` (Task 8b, additive).**
+A keyCode binding may declare a held-modifier requirement; only `shift` is
+wired (`ctrl`/`alt` are not accepted — `system.modifiers()` only tracks
+`shift` distinctly from a single merged `toggle` group, so they could
+type-check but never match anything real). A binding with no `modifiers`
+matches exactly as before this field existed. A binding WITH `modifiers`
+matches only while every declared flag is held, and — through the EXISTING
+priority/Sink arbitration, not a new rule — preempts an unmodified sibling
+binding on the same key the instant it becomes an eligible candidate (the
+row-actions Shift+Return menu, `newRowActions` above, is the shipped
+example: it wins over the base screen's own unmodified `Return` Activate
+binding only while shift is held, and is not a candidate at all otherwise,
+so plain Return is unaffected). Gamepad bindings never declare `modifiers`
+and so are unaffected by any held keyboard modifier. On the real engine
+adapter, a modifier-gated binding is realized as a dedicated companion
+`InputContext` (same priority/Sink as its own logical context) toggled by
+`Enabled` off live Shift key state — real `InputBinding` carries no
+modifier concept, so this cannot be a normal binding under the caller's own
+context without the always-live binding also preempting an unmodified
+sibling regardless of whether the modifier is actually held.
+
+**`system.resetModifiers()`** clears tracked held-modifier state (the
+headless adapter's `modifierKeysDown`, e.g. `LeftShift`/`LeftControl`). A
+defensive escape hatch, not wired to any automatic call site: headless
+`deviceKey` is a test/scenario-authority surface only (no production code
+path drives it — the client always runs the real adapter, whose
+`system.modifiers()` live-polls engine key state instead of caching it, so
+it cannot get stuck the same way). A scenario simulating an interrupted
+chord (a modifier key down with no matching up) can call this between steps
+rather than leave a phantom `true` for the rest of the run.
+
 **`action._deliver(value)` and `binding._sample(x, y)` are the engine-adapter
 seam.** The leading underscore means exactly that (constitution §2): they are
 how an alternate action-system adapter — `src/client/roblox_input.luau` is the
@@ -3794,24 +3825,43 @@ destructive action found (trailing searched before leading) through the
 same slide-off + collapse sequence a full swipe uses — never a bare
 callback. No destructive action anywhere means the binding is not
 registered at all (the key falls through to whatever else wants it). A
-**gamepad ButtonX** press, same focus scope, toggles a small popup menu
-(PopupButton-pattern: transient, focus-trapped, outside-tap swallows and
-dismisses) listing every declared action — leading then trailing, document
-order — as a focusable row; activating one runs it exactly once (a
-destructive item through the same commit sequence as Delete) and closes the
-menu; Cancel (gamepad ButtonB) closes it without firing anything. **While
-the menu is open, it owns all input**: opening it moves focus onto its own
-first row, and Delete/Backspace go inert for as long as `menuOpen` is true
-— the menu's own Activate/Cancel is the only way to act on ANY action,
-destructive or not, once it is up (closing it, via Activate or Cancel,
-hands Delete/Backspace back). **`Shift+Return` is NOT bound** — the current
-action system has no modifier slot on a key binding, `Return` is already
-the base screen's own Activate key, and a focused leaf's own `onActivate`
-fires before any contribution or modifier state is consulted, so a second
-Return-bound context either double-fires alongside Activate on a shifted
-press or, sinking to avoid that, silently eats plain Return for the row.
-Filed NEEDS_CONTEXT (scoped to a follow-up, Task 8b); ButtonX is the only
-bound way to reach the menu today.
+**gamepad ButtonX press, or keyboard Shift+Return (Task 8b)**, same focus
+scope, toggles a small popup menu (PopupButton-pattern: transient,
+focus-trapped, outside-tap swallows and dismisses) listing every declared
+action — leading then trailing, document order — as a focusable row;
+activating one runs it exactly once (a destructive item through the same
+commit sequence as Delete) and closes the menu; Cancel (gamepad ButtonB)
+closes it without firing anything. **While the menu is open, it owns all
+input**: opening it moves focus onto its own first row, and Delete/Backspace
+go inert for as long as `menuOpen` is true — the menu's own Activate/Cancel
+is the only way to act on ANY action, destructive or not, once it is up
+(closing it, via Activate, Cancel, or a second Shift+Return, hands
+Delete/Backspace back).
+
+**Task 8b: `Shift+Return`.** Task 8 shipped ButtonX only — `Shift+Return`
+was NOT expressible: the action system had no modifier slot on a key
+binding, `Return` was already the base screen's own Activate key, and a
+focused leaf's own `onActivate` fires before any contribution or modifier
+state is consulted, so a second Return-bound context would either
+double-fire alongside Activate on a shifted press or, sinking to avoid
+that, silently eat plain Return for the row. Task 8b's fix is additive, in
+the action system itself, not this control: `action.bind` (both
+`src/input/actions.luau` and its real-engine adapter
+`src/client/roblox_input.luau`) now accepts `modifiers = { shift = true }`
+on a keyCode binding, matched only while shift is held. `RowActionsMenu`
+binds `Return` with that modifier in the SAME sink=true, priority-10000
+context Delete/ButtonX already use — the preemption of the base Activate
+context's unmodified `Return` binding falls out of the EXISTING
+priority/Sink arbitration (a higher-priority Sink context blocks a lower
+one on the same key) the instant the held modifier makes this binding an
+eligible candidate; with shift not held it is never a candidate, so plain
+Return reaches the base Activate context exactly as before Task 8b.
+Gamepad bindings never declare `modifiers` and are unaffected by held
+keyboard modifiers. `ctrl`/`alt` are not accepted on `modifiers` — the
+action system only tracks `shift` distinctly from a single merged `toggle`
+(ctrl+meta) group, so a `ctrl`/`alt` flag could type-check but never
+actually match; wire `MODIFIER_GROUP` (`src/input/actions.luau`) first if a
+future binding needs one.
 
 Invariants:
 
