@@ -3810,6 +3810,7 @@ Spec fields:
 | `trailing` | `{ ActionSpec }?` | no | actions revealed by swiping left (edge `"trailing"`). Same `nil`/`{}` rule. |
 | `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits its first action outright (iOS "swipe to delete"). Accepted and normalized now; the gesture that reads it ships later. |
 | `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Wired (Task 7): a gesture crossing the axis lock, or `_open`, claims it — closing whichever other row is open — and this row releases its own claim on every close/dispose. Omitted, an instance only ever manages itself. |
+| `editing` | `Readable<boolean>?` | no | Task 9: the caller's own edit-mode signal (`newTable`'s own `spec.editing` is the shipped precedent for this exact shape, and Table's `rowActions` integration passes its own straight through). Present AND true, on a row that declares a `role = "destructive"` action anywhere: a leading minus button appears (see Task 9 below). Absent (the default), the minus never appears and this control costs nothing extra. Must be a Readable when present — a plain `true`/`false` literal is a build-time error. |
 
 `ActionSpec`:
 
@@ -3878,6 +3879,26 @@ action system only tracks `shift` distinctly from a single merged `toggle`
 (ctrl+meta) group, so a `ctrl`/`alt` flag could type-check but never
 actually match; wire `MODIFIER_GROUP` (`src/input/actions.luau`) first if a
 future binding needs one.
+
+**Task 9: the edit-mode leading minus.** While `spec.editing` is a Readable
+that reads `true`, AND a `role = "destructive"` action exists on either
+edge, a small circular button (diameter `controls.rowActions.editAffordance`,
+28px; a `danger`-role disc, the same `role = "destructive"` mapping a tray's
+own destructive button already carries) appears in a LEADING gutter — the
+row's own `content` (and, if declared, the leading tray) shift right by the
+gutter width to make room, exactly like the reorder handle table.luau
+already grows in its own edit mode. It is a normal, focusable `UI.Button`
+(activates via the standard tap/Return/ButtonA path already proven for
+every other tray button above — no separate registry citation, since the
+reachability MECHANISM does not change) and does **not** delete directly:
+activating it calls the same `_open("trailing")` the public API exposes,
+revealing the trailing tray with the destructive action one tap away (iOS
+two-step: reveal, then confirm). Activating it while the trailing tray is
+already open is a no-op. Absent `editing`, or a row with no destructive
+action anywhere, this feature costs nothing — no extra `Instance`, no extra
+reactive node. Turning `editing` off does not force-close an already-open
+tray; the two are independent state (`editing` gates only the minus and its
+gutter).
 
 Invariants:
 

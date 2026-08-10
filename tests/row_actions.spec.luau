@@ -35,10 +35,17 @@ local renderer = require("../src/render/renderer")
 -- to independently verify the "no clipping" claim against the button's REAL
 -- font/size (read off controller.textAt), not a guessed one.
 local text_metrics = require("../src/layout/text_metrics")
+-- Task 9: independently derives what a `shape = "circle"` + `icon` Button
+-- actually PAINTS (`renderer.drawnButtonText`: the icon's ASCII glyph, not the
+-- semantic `label` — see `tests/button_shape.spec.luau`'s own "label survives
+-- past icon" case, which is about the BLUEPRINT prop, not the rendered one).
+local theme_package = require("../src/themes/package")
 
 local ROW = "/S/Row"
 local TRAILING_TRAY = ROW .. "/TrayTrailingWhen/then/TrayTrailing"
 local DELETE_PATH = TRAILING_TRAY .. "/Action:delete"
+local LEADING_TRAY = ROW .. "/TrayLeadingWhen/then/TrayLeading"
+local EDIT_AFFORDANCE_PATH = ROW .. "/EditAffordanceWhen/then/EditAffordance"
 
 -- a REALISTIC row height (a List/Table row is never text-line-tall) — the
 -- tray Buttons fill it, so a too-short fixture would blame the composite for
@@ -694,4 +701,200 @@ describe("RowActions control", function()
 			expect(near.adapter.node(DELETE_PATH).focusProfile).toBe("near")
 		end
 	)
+
+	-- 9. TASK 9: EDIT-MODE DELETE AFFORDANCE (iOS leading minus) --------------
+	it("rejects an editing value that is not a Readable", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			return row_actions.build(LuauUI, core, {
+				content = content(),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = true :: any,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "Readable", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("the minus is absent while not editing", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(false)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		expect(w.adapter.node(EDIT_AFFORDANCE_PATH) == nil).toBe(true)
+	end)
+
+	it("the minus is absent when the row has no destructive action, even while editing", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "flag", label = "Flag", onAction = function() end } }, -- normal, not destructive
+				editing = core:signal(true),
+			})
+		end)
+		expect(w.adapter.node(EDIT_AFFORDANCE_PATH) == nil).toBe(true)
+	end)
+
+	it("the minus is absent when the caller never wires `editing` (nil, not false)", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				-- no `editing` key at all
+			})
+		end)
+		expect(w.adapter.node(EDIT_AFFORDANCE_PATH) == nil).toBe(true)
+		-- structural, not just closed: an uninvolved consumer pays NOTHING for
+		-- this task — no `EditAffordanceWhen` node exists at all (contrast a
+		-- wired-but-not-editing row, which mounts one closed `UI.When` Frame;
+		-- see the instance-count case below).
+		expect(w.adapter.node(ROW .. "/EditAffordanceWhen") == nil).toBe(true)
+	end)
+
+	it("editing shows the minus; tapping it opens the trailing tray (does not delete directly)", function()
+		local fired: { string } = {}
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+				editing = editing,
+			})
+		end)
+		local node = w.adapter.node(EDIT_AFFORDANCE_PATH)
+		expect(node ~= nil).toBe(true)
+		expect(node.props.role).toBe("destructive")
+		-- the DRAWN content is the icon's glyph (a circle's content is one mark
+		-- — `blueprint.luau`'s own `assertShape`); the semantic `label` this
+		-- control set ("Delete", the destructive action's own accessible name)
+		-- is authored but never painted, same as every other `shape = "circle"`
+		-- + `icon` button (`tests/button_shape.spec.luau`).
+		expect(node.props.label).toBe(theme_package.iconGlyph("decrement"))
+		expect(w.ra.dump().phase).toBe("closed") -- not open yet
+
+		w.adapter.tap(EDIT_AFFORDANCE_PATH)
+		expect(w.ra.dump().openEdge).toBe("trailing") -- reveals the tray...
+		expect(#fired).toBe(0) -- ...but does NOT fire the destructive action itself
+	end)
+
+	it("activating the minus while the trailing tray is already open is a no-op", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		expect(w.ra.dump().openEdge).toBe("trailing")
+		-- second activation: no crash, state unchanged
+		w.adapter.tap(EDIT_AFFORDANCE_PATH)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+	end)
+
+	it("toggling editing off does not force-close an already-open tray (documented behavior)", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		expect(w.ra.dump().openEdge).toBe("trailing")
+		editing:set(false)
+		w.pres.refresh()
+		-- the minus itself is gone...
+		expect(w.adapter.node(EDIT_AFFORDANCE_PATH) == nil).toBe(true)
+		-- ...but the tray this row's own open/close machinery is managing stays
+		-- exactly as the player left it (`editing` only ever gates the minus and
+		-- the leading-side gutter, never the tray's own open state)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+	end)
+
+	it("editing shifts Content right by the editAffordance gutter (geometry)", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(false)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		local restX = w.adapter.node(ROW .. "/Content/Body").rect.x
+		editing:set(true)
+		w.pres.refresh()
+		local editX = w.adapter.node(ROW .. "/Content/Body").rect.x
+		expect(editX - restX).toBe(28) -- controls.rowActions.editAffordance (Task 2 default)
+	end)
+
+	it("leading actions + editing compose: the minus sits outside (before) the leading tray's reveal", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				leading = { { id = "flag", label = "Flag", onAction = function() end } },
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		w.ra._open("leading")
+		w.pres.refresh()
+		local minusRect = w.adapter.node(EDIT_AFFORDANCE_PATH).rect
+		local trayRect = w.adapter.node(LEADING_TRAY).rect
+		expect(minusRect ~= nil).toBe(true)
+		expect(trayRect ~= nil).toBe(true)
+		-- the minus's own gutter strip ends exactly where the (also gutter-
+		-- shifted) leading tray begins — adjacent, never overlapping
+		expect(minusRect.x + minusRect.w <= trayRect.x).toBe(true)
+	end)
+
+	it("the minus's own hit target floors at 44px despite its 28px visual diameter", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		local node = w.adapter.node(EDIT_AFFORDANCE_PATH)
+		expect(node.rect.w).toBe(28) -- the PAINTED size stays the theme's editAffordance metric...
+		expect(node.hitRect ~= nil).toBe(true)
+		expect(node.hitRect.w >= 44).toBe(true) -- ...while the ENGINE HIT RECT floors at targetSizes.minimum
+		expect(node.hitRect.h >= 44).toBe(true)
+	end)
 end)

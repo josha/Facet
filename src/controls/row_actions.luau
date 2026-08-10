@@ -117,6 +117,17 @@ export type Spec = {
 	-- own `metricsOr` fallback — "the neutral package at authored size... which
 	-- is what the suite has always solved" (table.luau).
 	env: any?,
+	-- Task 9 (iOS edit-mode leading minus). PUBLIC, not `_editing`: `table.luau`'s
+	-- own `editing` spec key (Spec.editing there, "owner-held edit-mode signal")
+	-- is the shipped precedent for a Readable-valued spec key living in the
+	-- open, undecorated namespace — Table (Task 10) passes its OWN `editing`
+	-- straight through to this exact field, and a standalone caller wiring an
+	-- edit-mode toggle by hand (no Table involved) wants the identical seam, not
+	-- an internal one it cannot reach. `nil` (the default) means "this row is
+	-- never in edit mode" — the minus can then never appear, structurally,
+	-- regardless of `hasDestructive`, at zero cost (see `hasEditAffordance`
+	-- below): a caller that never wires edit mode pays nothing for this task.
+	editing: any?, -- Readable<boolean>?
 }
 
 -- CLOSED SPEC (constitution §4; ARCH-1).
@@ -128,6 +139,7 @@ local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"fullSwipe",
 	"coordinator",
 	"env",
+	"editing",
 })
 local ACTION_KEYS = specGuard.keySet({ "id", "role", "label", "icon", "onAction" })
 local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
@@ -138,6 +150,9 @@ local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
 -- `slider.luau`'s `THUMB_SIZE`/`RAIL_HEIGHT`.
 local BUTTON_MIN_WIDTH = "controls.rowActions.buttonMinWidth"
 local BUTTON_PAD = "controls.rowActions.buttonPad"
+-- Task 9: the edit-mode leading minus' diameter (both axes — `shape = "circle"`
+-- below takes only ONE authored axis and derives the other).
+local EDIT_AFFORDANCE = "controls.rowActions.editAffordance"
 
 -- a node id is interpolated into a Lua PATTERN below (handleActivate's path
 -- match), so its magic characters have to be escaped first — same helper,
@@ -344,6 +359,24 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- would still be nil.
 	local api: any = nil
 
+	-- Task 9: `editing` must be a Readable<boolean> (a signal or memo) when
+	-- present — `nil` is the other legal value ("this row is never in edit
+	-- mode"), a plain `true`/`false` literal is not (unlike `table.luau`'s own
+	-- `spec.editing`, which accepts one but silently treats it as absent via
+	-- `spec.editing or scope:own(core:signal(false))` — a real, if minor,
+	-- existing footgun this control does not repeat: a caller who passes a
+	-- literal boolean here gets a loud build-time error naming the mistake,
+	-- not a silently-ignored one). `UI.isReadable` is the framework's own
+	-- published check (`blueprint.isReadable`, exposed as `LuauUI.UI.isReadable`
+	-- — `async_image.luau`'s own precedent for reaching it from a control).
+	if spec.editing ~= nil and not UI.isReadable(spec.editing) then
+		error(
+			`LuauUI newRowActions('{id}'): \`editing\` must be a Readable<boolean> (a signal or memo), or nil `
+				.. "for a row that is never in edit mode",
+			0
+		)
+	end
+
 	local leadingActions = actionsFor(id, "leading", spec.leading)
 	local trailingActions = actionsFor(id, "trailing", spec.trailing)
 	-- normalized at build time (row_actions_state.new's fullSwipeLeading/
@@ -384,6 +417,19 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 	end
+
+	-- Task 9: the minus can EVER appear only when both halves are true — a
+	-- destructive action exists somewhere, AND the caller actually wired an
+	-- edit-mode signal. Static (both inputs are build-time facts: `hasDestructive`
+	-- never changes post-build, and whether `spec.editing` was PASSED AT ALL is
+	-- likewise fixed at build time — only its VALUE is live), so every reactive
+	-- node this feature costs (`editAffordanceShown`/`editGutterPx`/the extra
+	-- `contentOffsetX` memo/the tray's own gutter `offsetX`/the `EditAffordanceWhen`
+	-- node itself) is built ONLY inside `if hasEditAffordance then` below —
+	-- a caller who never wires `editing` pays NOTHING for this task, byte-
+	-- identical to Tasks 3-8 (measured: Task 9 report §Instance Count).
+	local editingReadable = spec.editing
+	local hasEditAffordance = hasDestructive and editingReadable ~= nil
 
 	-- Task 8: every action, leading-then-trailing, DOCUMENT ORDER — the
 	-- action menu's own row order (brief: "listing EVERY action (leading
@@ -487,6 +533,35 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	local buttonMinWidthPx = scope:own(core:memo(function(use)
 		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
 	end))
+
+	-- ===== Task 9: the edit-mode gutter (leading minus + content/leading-tray
+	-- shift) — built ONLY when it can ever matter (`hasEditAffordance`), so a
+	-- caller who never wires `editing` adds none of these reactive nodes.
+	--
+	-- `editGutterPx` is the ONE live pixel amount both Content's rendered
+	-- offsetX (below) and the leading tray's own offsetX (`buildTray`) read: 0
+	-- when not currently editing, `editAffordancePx` (the resolved
+	-- `controls.rowActions.editAffordance` metric, live to a theme swap
+	-- exactly like `buttonPadPx`/`buttonMinWidthPx` above) while editing. A
+	-- SEPARATE signal from `offset` (Task 5's gesture/spring seam) by design —
+	-- see the big comment above `local editingReadable` and the one above
+	-- `contentOffsetX` below for why the two must never merge into one write.
+	local editAffordanceShown: any = nil
+	local editGutterPx: any = nil
+	if hasEditAffordance then
+		editAffordanceShown = scope:own(core:memo(function(use)
+			return use(editingReadable) == true
+		end))
+		local editAffordancePx = scope:own(core:memo(function(use)
+			return themeSnapshot.resolveNumber(use(metricsSig), EDIT_AFFORDANCE) or 0
+		end))
+		editGutterPx = scope:own(core:memo(function(use)
+			if use(editAffordanceShown) then
+				return use(editAffordancePx)
+			end
+			return 0
+		end))
+	end
 
 	-- THE ONE SEAM (Tasks 4-6 write through this exclusively): however the
 	-- pixel number is produced — the fallback instant snap, a spring chase, a
@@ -1298,6 +1373,12 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			return UI.HStack({
 				id = trayId(edge),
 				anchor = if edge == "leading" then "left" else "right",
+				-- Task 9: the LEADING tray shifts right by the same live gutter
+				-- Content does below, so the two compose instead of colliding —
+				-- "the minus sits outside the leading tray's reveal" (brief). The
+				-- trailing tray needs no such term: it is anchored to the row's
+				-- OWN right edge, untouched by a LEADING-side gutter.
+				offsetX = if edge == "leading" then editGutterPx else nil,
 				height = { type = "fill" },
 				children = buttons,
 			})
@@ -1349,12 +1430,133 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				})
 			)
 		end
+
+		-- ===== Task 9: the edit-mode leading minus =============================
+		-- iOS pattern: while editing AND a destructive action exists somewhere,
+		-- a small circular button sits in a LEADING gutter; tapping it opens the
+		-- trailing tray (the destructive action is a second tap away, never
+		-- direct). `UI.When` keyed on `editAffordanceShown` — the identical
+		-- lazy-mount idiom the trays and the menu already use (Task 3's own
+		-- header comment; `table.luau:1079-1122`'s `EditWhen` is the cited
+		-- precedent): zero Instances while not editing, beyond the one
+		-- permanent `Frame` a mounted-but-closed `UI.When` always costs (the
+		-- SAME accepted cost the menu's own `MenuRowsWhen` already documents
+		-- above) — paid only when `hasEditAffordance`, i.e. only when a caller
+		-- actually wires `editing` on a row that has a destructive action.
+		--
+		-- PAINT ORDER: inserted BEFORE `Content` (array order = paint order,
+		-- later wins — the same relationship the leading/trailing trays already
+		-- have with `Content` below), so `Content` sitting on top during a live
+		-- trailing drag (see `contentOffsetX`'s own comment for why a trailing
+		-- reveal is deliberately NOT gutter-shifted) covers the minus exactly
+		-- when a trailing swipe is genuinely in progress — acceptable, since a
+		-- mid-swipe row is not a moment the minus needs to keep receiving taps.
+		--
+		-- DIAMETER: `shape = "circle"` + ONE authored axis (`width` only —
+		-- `blueprint.luau`'s own `assertShape` rejects both) makes a true 1:1
+		-- disc at the theme's `editAffordance` metric; the framework's OWN
+		-- Button contract (`src/controls/contract.luau`: `Button.minHitSize =
+		-- 44`) already floors the ENGINE HIT RECT at `targetSizes.minimum`
+		-- regardless of the painted size (`renderer.luau`'s `effectiveHitFloor`
+		-- — B-BTN3, "the VISUAL rect is deliberately untouched... declaring a
+		-- floor here is all a new control has to do") — the documented small-
+		-- target pattern this codebase already has (the reorder Grip's own
+		-- `minHitSize = 44` is the sibling precedent), so NOTHING extra is
+		-- authored here for the hit-target rule: a 28px disc already gets a
+		-- 44px+ tappable area for free, on every input class.
+		--
+		-- COLOUR (`danger` glyph, per the brief). `role = "destructive"` is the
+		-- one existing theme-token mechanism this control family has for
+		-- "danger" (the SAME mapping the header comment above already
+		-- establishes for a destructive tray button: "role = 'destructive'
+		-- maps straight to it... paints control/content pair"). It could NOT be
+		-- composed with `surface = "raised"` (surfaceStrong) to get a literal
+		-- "danger glyph ON a surfaceStrong plate" split: `src/tokens/
+		-- sheet_model.luau`'s own comment on the role rules is explicit — "role
+		-- owns the resting fill... sit after the base/surface/selected fills"
+		-- — so a `role = "destructive"` Button's BackgroundColor3 always wins
+		-- over a `surface = "raised"` on the SAME node, regardless of prop
+		-- order; the token vocabulary has no independent "content-only danger"
+		-- tint (Text's own `role` enum is `{ "secondary", "content" }`, no
+		-- `"danger"`; the chrome `ImageColor3` role tints — `$ChromeTintDanger`
+		-- — only reach IMAGE-driven skinned art layers, not the plain-glyph
+		-- fallback path this composite otherwise relies on). Adding that split
+		-- would mean a new sheet rule in a file this task does not touch.
+		-- `role = "destructive"` reuses the ALREADY-shipped, already-tested
+		-- mapping instead: a solid danger-filled disc with an onDanger minus,
+		-- visually consistent with the trailing tray's own destructive button
+		-- one tap away — the closer real-iOS match besides.
+		if hasEditAffordance then
+			local destructiveEntry = firstDestructiveEntry()
+			table.insert(
+				children,
+				UI.When({
+					id = "EditAffordanceWhen",
+					condition = editAffordanceShown,
+					thenView = function()
+						return UI.Button({
+							id = "EditAffordance",
+							anchor = "left",
+							shape = "circle",
+							role = "destructive",
+							icon = "decrement", -- the framework's own minus glyph (standard_icons)
+							-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
+							-- unfocusable, non-activating; this IS a Button, so it
+							-- needs one). `Button.label` is the framework's own
+							-- "required even when the button renders custom content...
+							-- stays the semantic name and is not drawn" seam
+							-- (blueprint_schema.luau) — the SAME icon-only-control
+							-- precedent `shape = "circle"` exists for. Reuses the
+							-- destructive action's own label (typically "Delete") so
+							-- the announced name matches exactly what a second tap
+							-- reaches.
+							label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
+							width = { type = "fixed", px = EDIT_AFFORDANCE },
+						})
+					end,
+				})
+			)
+		end
+
+		-- Content's rendered offsetX. Deliberately NOT the same signal `offset`
+		-- itself while `hasEditAffordance` — the header comment's own THE SLIDE
+		-- MECHANISM section is explicit that every seam (spring, drag, the
+		-- instant fallback) writes `offset` as the ONE bare reveal amount, and
+		-- every piece of gesture/decision math (`targetFor`, `currentDecision`,
+		-- `retarget`'s spring target, `settleTo`'s verdict) reads it back
+		-- expecting exactly that — folding a constant gutter bias straight into
+		-- `offset` would corrupt all of it. `contentOffsetX` is instead a
+		-- SEPARATE, paint-only derived value: `offset` for the gesture, plus
+		-- the live gutter, ADDED ONLY ON THE NON-NEGATIVE (resting/leading)
+		-- side. The trailing side is deliberately left untouched: `offset`'s
+		-- own topLeft-anchor shrink math (`solver.luau`'s `offsetFill`, "pushing
+		-- a child out past the very edge it is anchored to... is deliberate")
+		-- never gives back room for a NEGATIVE offset, so adding a positive
+		-- gutter bias there would permanently under-expose the trailing tray by
+		-- the gutter width for as long as it stayed open — a real geometry bug,
+		-- not a cosmetic one. Leaving the trailing side alone means a trailing
+		-- swipe/commit behaves BYTE IDENTICAL whether or not `editing` is true;
+		-- the one accepted cost is a single-frame `editGutterPx` pop exactly at
+		-- the instant a live drag crosses `offset == 0` from the leading side
+		-- into the trailing side while editing — a genuinely rare simultaneous
+		-- gesture (real iOS does not offer swipe-to-reveal and edit-mode at
+		-- once either), documented rather than engineered around.
+		local contentOffsetX = offset
+		if hasEditAffordance then
+			contentOffsetX = scope:own(core:memo(function(use)
+				local raw = use(offset)
+				if raw < 0 then
+					return raw
+				end
+				return raw + use(editGutterPx)
+			end))
+		end
 		table.insert(
 			children,
 			UI.ZStack({
 				id = "Content",
 				anchor = "topLeft",
-				offsetX = offset,
+				offsetX = contentOffsetX,
 				width = { type = "fill" },
 				height = { type = "fill" },
 				children = {
@@ -1567,10 +1769,25 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			local tid = trayId(edge)
 			return string.match(path, `/{idPattern}/{tid}When/then/{tid}/Action:(.+)$`)
 		end
+		-- Task 9: a single fixed node (no per-action index needed, unlike the
+		-- tray's own `Action:<id>` list).
+		local editAffordancePattern = `/{idPattern}/EditAffordanceWhen/then/EditAffordance$`
 
 		-- routes a presenter/tap Activate; returns true when the path was ours
 		-- (mirrors popup_button.luau's api.handleActivate).
 		local function handleActivate(path: string, _meta: any?): boolean
+			-- Task 9: the minus never deletes directly — `_open("trailing")`,
+			-- same as the header comment/brief promise. THE REQUIRED NO-OP
+			-- (Task 7's review, now required by this task's own brief): while
+			-- THIS row's trailing tray is already open, activating the minus
+			-- again does nothing — no re-claim, no re-retarget of a spring
+			-- already at (or flying toward) the same target.
+			if hasEditAffordance and string.match(path, editAffordancePattern) ~= nil then
+				if openEdge:get() ~= "trailing" then
+					open("trailing")
+				end
+				return true
+			end
 			if leadingActions ~= nil then
 				local aid = actionIdFromPath("leading", path)
 				if aid ~= nil and actionsById.leading[aid] ~= nil then
