@@ -81,6 +81,11 @@ UI.Table{
 ```
 
 - Returning `nil` for an item = no actions on that row.
+- **Non-Table lists (director decision 2026-08-09):** the composite works on any
+  row content — a VStack/ScrollView list wraps rows itself and shares a public
+  `newRowActionsCoordinator` for one-open + scroll-close behavior. Table's
+  `rowActions` key is just this wiring done for you. (Naming note: composites
+  are factories, so the public spelling is `newRowActions`, per constitution.)
 - Table wraps each row's blueprint in `UI.RowActions` and supplies the shared
   open-state coordinator.
 - The keyboard Delete path and edit-mode minus affordance derive from the
