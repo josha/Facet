@@ -218,6 +218,46 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra.dump().phase).toBe("closed")
 	end)
 
+	-- REDTEAM ITEM 1 (BLOCKER): `doCommitAction` sets `openEdge` to the
+	-- committing edge BEFORE `retargetThen` aims the slide-off spring at the
+	-- full row width — but `syncGeometry`'s own re-aim only ever gated on
+	-- `drag == nil`, so with `openEdge` now naming an edge and no live drag,
+	-- the VERY NEXT refresh re-aimed the SAME persistent spring back at
+	-- `-trailingWidth` (the OPEN target), undoing the commit's own
+	-- `retargetThen(offscreenTarget, ...)` before the spring ever got there.
+	-- A full-swipe release therefore never actually reached `-rowWidth`: the
+	-- row settled (and `onAction` fired) at `-trayWidth` instead — silently
+	-- wrong even though `#fired == 1`/`_isOpen() == false` still held, which
+	-- is why the existing "full swipe commits" test above never caught it.
+	it(
+		"full-swipe commit reaches the OFFSCREEN target, not just the tray width (regression: syncGeometry re-aim)",
+		function()
+			local trayWidth = learnTrayWidth()
+			local w = trailingWorld()
+			local rowWidth = rowWidthOf(w)
+			w.adapter.pointerDown(HIT, 0, 20, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(-15, 20)
+			w.tick(1.0)
+			local releaseX = -(rowWidth * 0.7)
+			w.adapter.pointerMove(releaseX, 20)
+			w.tick(FRAME)
+			w.adapter.pointerUp(releaseX, 20)
+			local peak = 0
+			for _ = 1, 400 do
+				w.tick(FRAME)
+				local off = -w.ra.dump().offset
+				if off > peak then
+					peak = off
+				end
+			end
+			expect(peak).toBeGreaterThan(rowWidth * 0.95) -- reached the offscreen commit target...
+			expect(peak).toBeGreaterThan(trayWidth + 1) -- ...not just the open tray width
+			expect(#w.fired).toBe(1)
+			expect(w.fired[1]).toBe("delete")
+		end
+	)
+
 	it("commit with a throwing onAction still closes and does not refire", function()
 		local calls = 0
 		local w = pointerWorld(function(core)

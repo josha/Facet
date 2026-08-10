@@ -1920,7 +1920,28 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- from `deriveNaturals` above still updates `leadingWidth`/
 			-- `trailingWidth` for whenever the NEXT ungated sync runs (right
 			-- after release), it just doesn't retarget THIS frame.
-			if drag == nil then
+			--
+			-- REDTEAM FIX (item 1, BLOCKER): the SAME re-aim also has to yield
+			-- to a commit already under way, for the identical reason it
+			-- yields to a live drag. `doCommitAction` sets `openEdge` to the
+			-- committing edge BEFORE its own `retargetThen(offscreenTarget,
+			-- ...)` aims the persistent spring off-screen (`committed` is set
+			-- true in the very same call, ahead of both) — so with `drag ==
+			-- nil` (the gesture already released) this block used to run on
+			-- the VERY NEXT refresh and call the plain `retarget(-trailingWidth
+			-- :get())` on that SAME spring, overwriting the commit's own
+			-- off-screen target back to the merely-open one before the spring
+			-- ever got there. The commit's `retargetThen` had already
+			-- subscribed its `onSettle`, so the spring still eventually
+			-- "arrived" — just at the wrong (open, not off-screen) target —
+			-- and the whole collapse+onAction+close chain ran from there:
+			-- `onAction` fired at `-trayWidth`, not `-rowWidth`, with no
+			-- visible symptom in `#fired`/`_isOpen()` alone. `committed` is
+			-- this composite's own single source of truth for "a commit
+			-- sequence already owns `offset`/the spring" (see `doCommitAction`
+			-- above), so gating on it here is the same shape as gating on
+			-- `drag` — never re-aim a value something else already owns.
+			if drag == nil and not committed then
 				if leadingActions ~= nil and openEdge:get() == "leading" then
 					retarget(leadingWidth:get())
 				end
