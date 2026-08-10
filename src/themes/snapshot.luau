@@ -164,6 +164,14 @@ local function neutralDefinition(): any
 					ghostStackWidth = 186,
 					ghostStackHeight = 32,
 				},
+				-- Table row action tray (row-actions Task 2): a tray button never
+				-- narrower than buttonMinWidth, buttonPad is its inner horizontal
+				-- padding, editAffordance is the edit-mode minus-circle diameter.
+				rowActions = {
+					buttonMinWidth = 64,
+					buttonPad = style.space.s,
+					editAffordance = 28,
+				},
 			},
 			radii = style.radii,
 			strokes = style.strokes,

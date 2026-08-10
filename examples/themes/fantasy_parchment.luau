@@ -209,6 +209,11 @@ local GENERATED: any = {
 				rowMinHeight = 20,
 				trackHeight = 6,
 			},
+			rowActions = {
+				buttonMinWidth = 64,
+				buttonPad = 8,
+				editAffordance = 28,
+			},
 			slider = {
 				railHeight = 6,
 				readoutMinWidth = 40,

@@ -185,6 +185,7 @@ package.CONTROL_FAMILIES = table.freeze({
 		"ghostStackWidth",
 		"ghostStackHeight",
 	}),
+	rowActions = table.freeze({ "buttonMinWidth", "buttonPad", "editAffordance" }),
 })
 
 -- OPTIONAL family fields: legal to declare, never required, and filled in by

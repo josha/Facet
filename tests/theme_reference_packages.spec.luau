@@ -416,11 +416,11 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 
 	it("consuming the region left the package value-identical (the stored captures stay honest)", function()
 		-- the stamp the live Studio dump was taken against. Re-pinned in the
-		-- 2026-07-25 director fix round: the package grew the sliderTrack /
-		-- sliderThumb / badge recipes, the panel/control shadow presets and the
-		-- per-theme focus GLOW, so the stored captures are re-taken against THIS
-		-- stamp.
-		expect(built("fantasy_parchment").stamp).toBe("54b99b50")
+		-- 2026-08-10 row-actions Task 2 round: Studio Neutral (and therefore
+		-- every package deriving from it) grew `controls.rowActions.*`
+		-- (buttonMinWidth/buttonPad/editAffordance), so the stored captures are
+		-- re-taken against THIS stamp.
+		expect(built("fantasy_parchment").stamp).toBe("1604e440")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()
