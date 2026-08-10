@@ -4304,8 +4304,23 @@ function screen_target.new(opts: Opts?)
 
 	function adapter.destroyRoot(rootHandle: any)
 		-- whole-root teardown mid-drag: cancel the capture (its global UIS
-		-- connections outlive the gui otherwise) and release any cursor hint
-		endCapture("destroyed")
+		-- connections outlive the gui otherwise) — but ONLY when the capture
+		-- actually belongs to THIS root. An adapter hosts several roots at
+		-- once (this function's own per-node loop below already says so), and
+		-- the capture is a SINGLE adapter-wide slot — unconditionally ending
+		-- it here would cancel a gesture some OTHER, still-live root owns
+		-- (row-actions Task 10, live-found: the presenter's own transient
+		-- popup-catcher root is mounted/retired reactively as any
+		-- `outsideDismiss.active` readable changes — including a row's own
+		-- tray closing via the shared coordinator, itself triggered from
+		-- INSIDE a SECOND row's still-live gesture; disposing the popup
+		-- catcher unconditionally cancelled that second row's own capture out
+		-- from under it, one frame into its drag). Release any cursor hint
+		-- regardless — a hint from a capture on another root would already
+		-- be stale as of this root's own teardown.
+		if activeCapture ~= nil and (activeCapture.handle.instance :: Instance):IsDescendantOf(rootHandle.gui) then
+			endCapture("destroyed")
+		end
 		menuConn:Disconnect()
 		hoverHint = nil
 		applyCursor()

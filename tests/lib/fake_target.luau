@@ -487,9 +487,22 @@ function fake_target.new(opts: Opts?)
 			end
 		end
 		-- a kept-alive capture (lift) points at a node already REMOVED from
-		-- the map — mirror production: root teardown always ends the capture
-		-- (verifier 2026-07-20 F4)
-		if pointerCapture ~= nil then
+		-- the map — mirror production: THIS root's own teardown still ends
+		-- it. `pointerCapture.root` survives `remove()` (which clears the
+		-- `nodes` map entry, never the node's own fields), so it is still
+		-- answerable here even though the node is already gone from `nodes`.
+		--
+		-- SCOPED to `rootHandle`, not unconditional (verifier 2026-07-20 F4
+		-- shipped this unconditional; row-actions Task 10 found the gap it
+		-- left: the SAME adapter-wide `pointerCapture` slot can belong to a
+		-- gesture on a COMPLETELY DIFFERENT, still-live root — the
+		-- presenter's own transient popup-catcher root is mounted/retired
+		-- reactively as any `outsideDismiss.active` readable changes, and an
+		-- unconditional cancel here cancelled an unrelated row's own
+		-- still-live drag out from under it the instant some OTHER row's
+		-- tray closed via the shared coordinator. Mirrors the identical fix
+		-- in screen_target.luau's own `destroyRoot`.
+		if pointerCapture ~= nil and pointerCapture.root == rootHandle then
 			adapter._cancelIfCaptured(pointerCapture, "destroyed")
 		end
 		table.insert(ops, "destroyRoot")

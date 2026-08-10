@@ -33,6 +33,7 @@ local interactionTokens = require("../input/interaction_tokens")
 local solverLib = require("../layout/solver")
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
+local row_actions = require("./row_actions")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -40,6 +41,30 @@ local specGuard = require("../spec_guard")
 -- (Step 5.5 cleanup ledger C-06).
 local function patternEscape(s: string): string
 	return (s:gsub("%W", "%%%0"))
+end
+
+-- Task 10: row_actions.build's own wrapper interposes a known
+-- `RowActions-<rowKey>/Content/` segment between a wrapped row's `[key@v]/`
+-- ForEach slot and its own `Row/...` tree (row_actions.luau: root Anchor
+-- `id`, one child ZStack `id = "Content"`, `content` — this row's OWN
+-- blueprint — mounted inside it). `<rowKey>` makes the id UNIQUE per row —
+-- two row_actions instances sharing one literal id (a first-shipped version
+-- of this wiring used the constant "RowActions" for every row) corrupted
+-- each other's in-flight gesture state the moment a second row's live drag
+-- claimed the shared coordinator away from the first: the composite's own
+-- `patternEscape(id)`-based path matching (its own header comment: an id is
+-- interpolated into a Lua pattern) silently assumes local uniqueness, which
+-- a shared literal violates. Every row-relative path pattern below this
+-- point is anchored assuming `Row/...` sits DIRECTLY under `[key@v]/` — true
+-- for every unwrapped row, false by exactly this one segment for a wrapped
+-- one. Stripping it here, once (pattern, not a literal, since the id varies
+-- per row), keeps every one of those patterns correct for both without
+-- duplicating any of them; a never-wrapped table (no `spec.rowActions`)
+-- never has the segment to strip, so this is a no-op for every path in the
+-- common case.
+local ROW_ACTIONS_PATH_INFIX = "/RowActions%-[^/]+/Content/"
+local function derowActionsPath(path: string): string
+	return (string.gsub(path, ROW_ACTIONS_PATH_INFIX, "/", 1))
 end
 
 local table_control = {}
@@ -146,6 +171,24 @@ export type Spec = {
 	-- an Edit/Done toggle (gated to non-mouse input when `env` is provided).
 	editing: any?,
 	env: any?, -- optional environment for input-aware affordances
+	-- Task 10 (row-actions Table integration). Per-item callback: return
+	-- `{ leading?, trailing?, fullSwipe? }` (the same shape `newRowActions`
+	-- itself takes, minus `content`/`coordinator`/`env`/`editing` — Table
+	-- supplies all four) to wrap that row in a swipeable action tray; `nil`
+	-- (the common case) leaves the row completely unwrapped — no extra
+	-- Instance, no extra subscription (see row_actions.luau's own "TRUE
+	-- INERT PASSTHROUGH" — this is that same guarantee, one level up). Every
+	-- wrapped row shares ONE coordinator (at most one open tray at a time
+	-- across the whole table) and Table's own `editing` signal (the edit-mode
+	-- leading minus and the reorder ≡ handle can both show at once — see
+	-- row_actions.luau Task 9).
+	rowActions: ((
+		item: any
+	) -> {
+		leading: { any }?, -- { newRowActions.ActionSpec }
+		trailing: { any }?,
+		fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?,
+	}?)?,
 }
 
 -- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
@@ -164,6 +207,13 @@ local COLUMN_KEYS = specGuard.keySet({
 	"disclose",
 })
 
+-- Task 10: the closed key set for whatever `spec.rowActions(item)` returns
+-- for a single row — the same three fields `newRowActions` itself exposes
+-- besides `content`/`coordinator`/`env`/`editing` (Table supplies those
+-- four). Checked per row, at build, so a typo names the offending row rather
+-- than surfacing as a silently-ignored option (constitution §4; ARCH-1).
+local ROW_ACTIONS_RESULT_KEYS = specGuard.keySet({ "leading", "trailing", "fullSwipe" })
+
 local TABLE_KEYS = specGuard.keySet({
 	"cellFor",
 	"cellPadding",
@@ -178,6 +228,7 @@ local TABLE_KEYS = specGuard.keySet({
 	"key",
 	"onReorder",
 	"reorderable",
+	"rowActions",
 	"rowGap",
 	"rowHeight",
 	"rows",
@@ -319,6 +370,24 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- While editing, rows grow a trailing ≡ handle; on touch, ONLY the handle
 	-- starts a reorder — the row body always pans the scroll.
 	local editingSignal = spec.editing or scope:own(core:signal(false))
+	-- Task 10: ONE row-actions coordinator per table (`row_actions.
+	-- newCoordinator`, Task 7), shared by every wrapped row so at most one
+	-- tray is open across the whole list — built only when `spec.rowActions`
+	-- is actually used (a table that never wraps a row pays nothing).
+	-- `bindScroll` (any scroll closes the open tray, iOS parity) is wired
+	-- after present through the same seam `bindNativeScroll` uses (both feed
+	-- off the identical `controller.observeScroll`).
+	local rowActionsCoordinator: any = if spec.rowActions ~= nil then row_actions.newCoordinator(core) else nil
+	-- Task 10: per-row-key row_actions instance ({ blueprint, dispose, _open,
+	-- _close, _isOpen, ... } — row_actions.build's own return). `core:scope()`
+	-- (what row_actions.build calls internally) is an INDEPENDENT root, never
+	-- an implicit child of anything — unlike `selectedMemoByKey`'s own
+	-- `scope:child(...)` entries, nothing disposes one of these for free, so
+	-- Table owns the full lifecycle explicitly: built in `rowBlueprint`,
+	-- pruned by the SAME `spec.rows` observer that already prunes
+	-- `selectedMemoByKey` below (never a second rows observer — brief), and
+	-- swept on the table's own `dispose()`.
+	local rowActionsByKey: { [string]: any } = {}
 	-- gamepad grab mode (2026-07-20): A/Cross on a focused row while editing
 	-- GRABS it; d-pad up/down steps the row (or the selected block) one slot
 	-- per press through onReorder; A again drops. Cleared on leaving edit.
@@ -630,6 +699,19 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				selectedMemoByKey[rowKey] = nil
 			end
 		end
+		-- Task 10: a vanished row's row_actions wrapper disposes HERE — before
+		-- the ForEach itself unmounts the row (this observer's own comment,
+		-- above: "removed keys dispose before their rows unmount") — so a
+		-- commit racing a data refresh (the row's key removed mid-gesture)
+		-- sets the wrapper's `disposed` guard before anything else in this
+		-- same reactive flush can act on it. `core:scope()`-rooted (see
+		-- `rowActionsByKey`'s own comment), so nothing else would free it.
+		for rowKey, instance in rowActionsByKey do
+			if not live[rowKey] then
+				instance.dispose()
+				rowActionsByKey[rowKey] = nil
+			end
+		end
 		local current = selectedKeys:get()
 		local pruned: { [string]: boolean }? = nil
 		for rowKey in current do
@@ -780,39 +862,44 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		ghostY:set(pos.y - rootRect.y - 13)
 	end
 
+	-- while editing, a press landing in the LEADING handle gutter belongs to
+	-- the ≡ grip: DECLINE (return false) so the grip's own began (which the
+	-- engine may deliver before or after this one) takes the capture
+	-- (live-found 2026-07-20: the row hit won the race and the handle drag
+	-- never started). Extracted (Task 10) so the composed row-actions
+	-- dispatcher's own Hit handler can run the IDENTICAL check BEFORE it ever
+	-- defers to the axis lock — a wrapped, reorderable, editing row must keep
+	-- this exact decline, unchanged, ahead of any row-actions gesture.
+	local function isHandleZonePress(path: string, pos: any, rectOf: (string) -> any): boolean
+		if not (editingSignal:get() and string.match(path, "/Row/Hit$") ~= nil) then
+			return false
+		end
+		-- THE GRAB ZONE IS READ, NOT RE-DERIVED (director report 2026-07-28).
+		-- This used to be `rowRect.x + HANDLE_GUTTER`, which stopped
+		-- describing where the ≡ actually is the moment the zone moved
+		-- inboard by the row card's carved border — so under a skinned
+		-- package the declined band and the painted grip were 16px apart.
+		-- Asking for the zone's own rect is the same "one verdict for
+		-- measure and paint" rule the rest of this file runs on; the
+		-- arithmetic stays only as the fallback for the frame before the
+		-- zone is solved.
+		local rowPath = string.match(path, "^(.*)/Hit$")
+		local zoneRect = if rowPath ~= nil then rectOf(rowPath .. "/EditWhen/then/HandleZone") else nil
+		if zoneRect ~= nil then
+			return pos.x <= zoneRect.x + zoneRect.w
+		end
+		local rowRect = rectOf(path)
+		return rowRect ~= nil and pos.x <= rowRect.x + HANDLE_GUTTER
+	end
+
 	local function rowPointerHandlers(): any
 		if spec.reorderable ~= true then
 			return nil
 		end
 		return {
 			onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
-				-- while editing, presses landing in the LEADING handle gutter
-				-- belong to the ≡ grip: DECLINE so the grip's began (which the
-				-- engine may deliver before or after this one) takes the
-				-- capture (live-found 2026-07-20: the row hit won the race and
-				-- the handle drag never started)
-				if editingSignal:get() and string.match(path, "/Row/Hit$") ~= nil then
-					-- THE GRAB ZONE IS READ, NOT RE-DERIVED (director report
-					-- 2026-07-28). This used to be `rowRect.x + HANDLE_GUTTER`,
-					-- which stopped describing where the ≡ actually is the moment
-					-- the zone moved inboard by the row card's carved border — so
-					-- under a skinned package the declined band and the painted
-					-- grip were 16px apart. Asking for the zone's own rect is the
-					-- same "one verdict for measure and paint" rule the rest of
-					-- this file runs on; the arithmetic stays only as the fallback
-					-- for the frame before the zone is solved.
-					local rowPath = string.match(path, "^(.*)/Hit$")
-					local zoneRect = if rowPath ~= nil then rectOf(rowPath .. "/EditWhen/then/HandleZone") else nil
-					if zoneRect ~= nil then
-						if pos.x <= zoneRect.x + zoneRect.w then
-							return false
-						end
-					else
-						local rowRect = rectOf(path)
-						if rowRect ~= nil and pos.x <= rowRect.x + HANDLE_GUTTER then
-							return false
-						end
-					end
+				if isHandleZonePress(path, pos, rectOf) then
+					return false
 				end
 				-- TOUCH on the row body DECLINES the capture (return false) so the
 				-- native ScrollingFrame owns the pan-scroll (native §4 — the
@@ -1044,6 +1131,63 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			)
 		end
 		local dragHandlers = rowPointerHandlers()
+
+		-- Task 10: does THIS row wrap in a swipeable action tray? Checked
+		-- once, at this row's own mount (the composite's ActionSpec list is
+		-- itself a build-time-only fact — same rule row_actions.luau's own
+		-- `actionsById` comment states), and validated with the row's own key
+		-- in the message so a typo in a five-thousand-row table names the one
+		-- row responsible.
+		local rowActionsResult: any = nil
+		if spec.rowActions ~= nil then
+			rowActionsResult = spec.rowActions(item)
+			if rowActionsResult ~= nil then
+				specGuard.assertKnownKeys(
+					"newTable",
+					rowActionsResult,
+					ROW_ACTIONS_RESULT_KEYS,
+					`spec.rowActions result (row '{rowKey}')`
+				)
+			end
+		end
+
+		-- Hit's own handlers: the plain reorder-only wiring (unchanged,
+		-- zero-cost) when this row has no actions, or a forward-declared pair
+		-- of thin dispatch stubs backfilled once the row_actions instance
+		-- exists below (a row_actions instance needs `content` — this WHOLE
+		-- row, Hit included — to already exist, so the composed dispatcher
+		-- itself cannot exist yet at Hit-build time; `composedRef` is filled
+		-- in before `rowBlueprint` returns, long before any real pointer
+		-- event could ever reach these stubs — the same forward-declare-then-
+		-- backfill shape `handleDragHandlers` above already uses).
+		local hitOnPointerDown, hitOnPointerMove, hitOnPointerUp, hitOnPointerCancel
+		local composedRef: any = nil
+		if rowActionsResult == nil then
+			hitOnPointerDown = dragHandlers and dragHandlers.onPointerDown
+			hitOnPointerMove = dragHandlers and dragHandlers.onPointerMove
+			hitOnPointerUp = dragHandlers and dragHandlers.onPointerUp
+			hitOnPointerCancel = dragHandlers and dragHandlers.onPointerCancel
+		else
+			hitOnPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
+				-- the handle-zone decline runs FIRST, exactly as it does for
+				-- an unwrapped reorderable row — a press in the ≡ gutter must
+				-- never be deferred into the axis lock at all.
+				if dragHandlers ~= nil and isHandleZonePress(path, pos, rectOf) then
+					return false
+				end
+				return composedRef.onPointerDown(path, pos, rectOf)
+			end
+			hitOnPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
+				composedRef.onPointerMove(path, pos, rectOf)
+			end
+			hitOnPointerUp = function(path: string, pos: any, rectOf: (string) -> any)
+				composedRef.onPointerUp(path, pos, rectOf)
+			end
+			hitOnPointerCancel = function(path: string, reason: string?)
+				return composedRef.onPointerCancel(path, reason)
+			end
+		end
+
 		local rowChildren = {
 			UI.Button({
 				id = "Hit",
@@ -1056,10 +1200,10 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				focusable = selectionMode ~= "none" or spec.reorderable == true,
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
-				onPointerDown = dragHandlers and dragHandlers.onPointerDown,
-				onPointerMove = dragHandlers and dragHandlers.onPointerMove,
-				onPointerUp = dragHandlers and dragHandlers.onPointerUp,
-				onPointerCancel = dragHandlers and dragHandlers.onPointerCancel,
+				onPointerDown = hitOnPointerDown,
+				onPointerMove = hitOnPointerMove,
+				onPointerUp = hitOnPointerUp,
+				onPointerCancel = hitOnPointerCancel,
 			}),
 			UI.HStack({
 				id = "Cells",
@@ -1121,12 +1265,63 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				})
 			)
 		end
-		return UI.ZStack({
+		local rowBp = UI.ZStack({
 			id = "Row",
 			width = { type = "fill", weight = 1 },
 			height = heightDim,
 			children = rowChildren,
 		})
+
+		if rowActionsResult == nil then
+			return rowBp
+		end
+
+		-- Task 10: wrap. `externalGesture = true` whenever this row is ALSO
+		-- reorderable (Hit above already carries the composed dispatcher;
+		-- the composite must not ALSO wire its own competing Content Grip —
+		-- see row_actions.luau's own Spec.externalGesture comment). A
+		-- non-reorderable wrapped row leaves `externalGesture` false: no
+		-- composition needed, the composite's own internal Grip is the
+		-- row's only pointer surface, exactly Tasks 3-9's shipped shape.
+		local rowActionsApi = row_actions.build(LuauUI, core, {
+			id = "RowActions-" .. rowKey,
+			-- Task 10: restores the row's normal list-flow width — `content`
+			-- (rowBp, its own "Row" node) is ITSELF `width = fill`, which has
+			-- nothing intrinsic to measure against once it sits inside a
+			-- content-sized composite root (row_actions.luau's own `width`
+			-- field comment). Byte-identical to an unwrapped row's own prop.
+			width = { type = "fill", weight = 1 },
+			content = rowBp,
+			leading = rowActionsResult.leading,
+			trailing = rowActionsResult.trailing,
+			fullSwipe = rowActionsResult.fullSwipe,
+			coordinator = rowActionsCoordinator,
+			-- Task 9 composition (brief: "pass Table's own editing straight
+			-- through"): a destructive-carrying row shows BOTH the edit-mode
+			-- leading minus (row_actions' own) and the reorder ≡ handle
+			-- (Table's own, in EditWhen above) at once while editing.
+			editing = editingSignal,
+			env = spec.env,
+			externalGesture = dragHandlers ~= nil,
+		})
+		composedRef = if dragHandlers ~= nil
+			then row_actions.composeWithReorder(rowActionsApi._pointerHandlers, dragHandlers)
+			else rowActionsApi._pointerHandlers
+
+		-- a stale prior instance under the SAME rowKey (a resize-triggered
+		-- remount — `keyedItems`' own key embeds `widthsVersion`, so a
+		-- committed resize mounts a FRESH `itemScope`/tableKey for every row
+		-- while the row's own semantic key stays live) is disposed here:
+		-- `core:scope()` is an independent root (see `rowActionsByKey`'s own
+		-- comment) with nothing else to free it, and the `spec.rows` pruning
+		-- observer never sees this key go dark across a resize.
+		local staleInstance = rowActionsByKey[rowKey]
+		if staleInstance ~= nil then
+			staleInstance.dispose()
+		end
+		rowActionsByKey[rowKey] = rowActionsApi
+
+		return rowActionsApi.blueprint
 	end
 
 	-- resize grip (Phase B): a non-button, cursor-hinted pointer zone on the
@@ -1735,6 +1930,20 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		if rowKey == nil then
 			return false
 		end
+		-- Task 10 (iOS tap-to-close, director round). A tap landing on a
+		-- wrapped row's own content while THAT row's own tray is open closes
+		-- it and consumes the tap — no select, no activate. row_actions' own
+		-- `outsideDismiss` already closes it for a tap OUTSIDE this row (any
+		-- sibling, or elsewhere on screen); a tap on the SAME row's content is
+		-- an INSIDE tap by that check (the path sits under the composite's
+		-- own `rootPath`), so it never fires there — this is the one case the
+		-- composite genuinely cannot see for itself (it has no notion of
+		-- "Table's own row hit"), hence handled here instead.
+		local rowActionsInstance = rowActionsByKey[rowKey]
+		if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
+			rowActionsInstance._close()
+			return true
+		end
 		if suppressActivatePath ~= nil then
 			local suppressed = path == suppressActivatePath
 			-- one decision either way: the origin row's drag-artifact activate
@@ -1876,7 +2085,12 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			if headCol ~= nil then
 				headerHandleByCol[headCol] = node.path
 			end
-			local rowKey = string.match(node.path or "", "/Rows/%[(.-)@%d+%]/Row$")
+			-- Task 10: a wrapped row's OWN "Row" node sits one `RowActions/
+			-- Content/` infix deeper than an unwrapped one — see
+			-- `derowActionsPath`'s own comment. Matched against the cleaned
+			-- path; `node.path` itself (used below, in `focusableIn`) is
+			-- untouched, since focus navigation needs the REAL mounted path.
+			local rowKey = string.match(derowActionsPath(node.path or ""), "/Rows/%[(.-)@%d+%]/Row$")
 			if rowKey ~= nil then
 				local order: { string } = {}
 				focusableIn(node, order)
@@ -1938,8 +2152,11 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	api.selectedColumn = selectedColumn
 
 	function api.rowKeyForPath(path: string): string?
-		local encoded = string.match(path, `/{tableIdPattern}/Main/Body/Rows/%[(.-)%]/Row/Hit$`)
-			or string.match(path, `/{tableIdPattern}/Main/Body/Rows/%[(.-)%]/Row/EditWhen/then/HandleZone/Handle$`)
+		-- Task 10: strip a wrapped row's `RowActions/Content/` infix first —
+		-- see `derowActionsPath`'s own comment.
+		local clean = derowActionsPath(path)
+		local encoded = string.match(clean, `/{tableIdPattern}/Main/Body/Rows/%[(.-)%]/Row/Hit$`)
+			or string.match(clean, `/{tableIdPattern}/Main/Body/Rows/%[(.-)%]/Row/EditWhen/then/HandleZone/Handle$`)
 		if encoded == nil then
 			return nil
 		end
@@ -2180,8 +2397,19 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		end)
 		boundController = controller
 		boundScrollPath = path
+		-- Task 10: any scroll closes the currently-open row-actions tray
+		-- (iOS parity, row_actions.newCoordinator's own `bindScroll` doc) —
+		-- wired through the identical seam, the same `controller.
+		-- observeScroll` call, one line below the mirror it shares a
+		-- controller/path with. `nil` for a table with no `spec.rowActions`.
+		local unsubCoordinatorScroll = if rowActionsCoordinator ~= nil
+			then rowActionsCoordinator.bindScroll(controller, path)
+			else nil
 		return function()
 			unsub()
+			if unsubCoordinatorScroll ~= nil then
+				unsubCoordinatorScroll()
+			end
 			if boundController == controller then
 				boundController = nil
 				boundScrollPath = nil
@@ -2324,6 +2552,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		api = api,
 		dump = dump,
 		dispose = function()
+			-- Task 10: every row_actions instance is an INDEPENDENT
+			-- `core:scope()` root (see `rowActionsByKey`'s own comment) —
+			-- `scope:dispose()` below tears down everything Table itself
+			-- owns, but nothing cascades into these on its own.
+			for rowKey, instance in rowActionsByKey do
+				instance.dispose()
+				rowActionsByKey[rowKey] = nil
+			end
 			scope:dispose()
 		end,
 	}

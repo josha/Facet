@@ -128,6 +128,37 @@ export type Spec = {
 	-- regardless of `hasDestructive`, at zero cost (see `hasEditAffordance`
 	-- below): a caller that never wires edit mode pays nothing for this task.
 	editing: any?, -- Readable<boolean>?
+	-- Task 10 (Table integration). `nil` (default) leaves the root
+	-- content-sized — Tasks 3-9's own shipped shape, unchanged, and correct
+	-- for every existing caller whose `content` already carries its own
+	-- intrinsic width (a Text/Button-shaped row). A caller whose `content`
+	-- is ITSELF `width = fill` (Table's own row — see table.luau's own
+	-- rowBlueprint) has nothing intrinsic for the composite's own
+	-- content-sized root to measure: `Content` (fill) degrading to ITS
+	-- children's natural size finds only more "fill" all the way down, so
+	-- the whole composite collapses to a near-zero measured width. Table
+	-- passes `{ type = "fill", weight = 1 }` here — the exact prop the
+	-- unwrapped "Row" node carries on its own — to restore the row's normal
+	-- list-flow width; a standalone caller never sets this and is
+	-- byte-identical to before this field existed.
+	width: any?,
+	-- Task 10 (Table integration). Default false: every standalone
+	-- `newRowActions` caller (and every Table row that is NOT `reorderable`)
+	-- keeps this composite's own internal Content "Hit" Grip wired to
+	-- `_pointerHandlers` exactly as Tasks 3-9 shipped it — the composite is
+	-- fully self-sufficient. `true` skips wiring that Grip's pointer handlers
+	-- (the node itself still mounts, just inert): the caller is going to
+	-- drive `_pointerHandlers` from ITS OWN hit surface instead (Table's own
+	-- row "Hit" Button, composed with reorder via `composeWithReorder`
+	-- below). Structural reason, not a style choice: `content` (a Table row)
+	-- already carries its OWN full-fill Active pointer surface at the
+	-- identical rect this composite's Grip occupies — two independent Active
+	-- zones racing for the engine's one-at-a-time InputBegan capture
+	-- (ADR-0008) is exactly the "row hit won the race" class table.luau's own
+	-- `rowPointerHandlers` header comment already names as unsafe to leave to
+	-- firing order. Table wins deterministically by construction instead:
+	-- this composite simply never enters the race.
+	externalGesture: boolean?,
 }
 
 -- CLOSED SPEC (constitution §4; ARCH-1).
@@ -140,6 +171,8 @@ local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"coordinator",
 	"env",
 	"editing",
+	"externalGesture",
+	"width",
 })
 local ACTION_KEYS = specGuard.keySet({ "id", "role", "label", "icon", "onAction" })
 local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
@@ -348,6 +381,9 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- read is already the whole story here — the spec table itself is never
 	-- mutated after `build` returns.
 	local coordinator = spec.coordinator
+
+	-- Task 10: see the Spec field's own comment.
+	local externalGesture = spec.externalGesture == true
 
 	-- Task 7: this composite's own identity as far as the coordinator is
 	-- concerned IS the object `row_actions.build` returns below (the exact
@@ -1576,10 +1612,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 						id = "Hit",
 						width = { type = "fill" },
 						height = { type = "fill" },
-						onPointerDown = pointerHandlers.onPointerDown,
-						onPointerMove = pointerHandlers.onPointerMove,
-						onPointerUp = pointerHandlers.onPointerUp,
-						onPointerCancel = pointerHandlers.onPointerCancel,
+						-- Task 10: `externalGesture` (see the Spec field's own
+						-- comment) — nil handlers leave this a plain, inert
+						-- backing layer; the caller drives `_pointerHandlers`
+						-- from its own hit surface instead.
+						onPointerDown = if externalGesture then nil else pointerHandlers.onPointerDown,
+						onPointerMove = if externalGesture then nil else pointerHandlers.onPointerMove,
+						onPointerUp = if externalGesture then nil else pointerHandlers.onPointerUp,
+						onPointerCancel = if externalGesture then nil else pointerHandlers.onPointerCancel,
 					}),
 					content,
 				},
@@ -1762,7 +1802,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 			return { type = "fixed", px = px }
 		end))
-		local root = UI.Anchor({ id = id, height = heightPx, children = children })
+		local root = UI.Anchor({ id = id, width = spec.width, height = heightPx, children = children })
 
 		local idPattern = patternEscape(id)
 		local function actionIdFromPath(edge: Edge, path: string): string?
@@ -1999,6 +2039,164 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		_commitFirst = commitFirst,
 	}
 	return api
+end
+
+-- ===== Task 10: reorder composition (Table integration) ====================
+-- Table's own row Hit surface, when BOTH `reorderable` and `rowActions` are
+-- true for a row, has two candidate owners for the SAME raw pointer capture:
+-- this composite's swipe gesture (horizontal) and Table's own drag-to-reorder
+-- (vertical). Both ride the identical low-level onPointerDown/Move/Up/Cancel
+-- capture (ADR-0008) — the engine hands a SINGLE gesture to whichever side
+-- claims it, and neither gesture alone knows the other exists. Composed here,
+-- not in table.luau (the brief's own design), because the axis-lock rule —
+-- "ties go vertical" (`row_actions_state.AXIS_LOCK_PX`), the SAME constant
+-- this composite's own internal `onPointerMove` already applies to itself —
+-- belongs with the one other place it is authored, not duplicated.
+--
+-- THE DEFERRED-DOWN SHAPE. The axis is unknown at down (dx = dy = 0, the same
+-- "tentative accept" problem `onPointerDown`'s own header comment describes
+-- for this composite alone), so down here commits to neither engine yet: it
+-- tracks the raw origin and accepts the capture (mouse can never partially
+-- decline once accepted — same "no third option" the header comment already
+-- establishes), deferring both `rowActionsHandlers.onPointerDown` and
+-- `reorderHandlers.onPointerDown` until the FIRST move that crosses the axis
+-- lock, at which point exactly ONE is replayed from the ORIGINAL down
+-- position (never the current one — a gesture that resolves 20px into the
+-- move must still look, to whichever engine wins, like a press that just
+-- happened) and owns every subsequent move/up/cancel for the rest of this
+-- gesture. The OTHER engine never sees this gesture at all — never a down,
+-- never a move — so neither `reorderHandlers`' own `rowDrag` nor this
+-- composite's own `drag` local is ever touched by the loser, and neither can
+-- misfire later from stray state.
+--
+-- TOUCH skips the deferral entirely: table.luau's `reorderHandlers` already
+-- declines touch on the row body unconditionally (native scroll owns the
+-- pan — table.luau's own native-scroll header), so a touch gesture is
+-- unambiguously this composite's from the first frame.
+--
+-- `reorderHandlers == nil` (a Table that is not `reorderable`, or a
+-- standalone caller with nothing to compose against) returns
+-- `rowActionsHandlers` unchanged — a plain pass-through, zero overhead.
+function row_actions.composeWithReorder(rowActionsHandlers: any, reorderHandlers: any?): any
+	if reorderHandlers == nil then
+		return rowActionsHandlers
+	end
+
+	type Pending = {
+		originX: number,
+		originY: number,
+		originPos: any,
+		path: string,
+		rectOf: (string) -> any,
+		mode: "pending" | "rowActions" | "reorder",
+	}
+	local pending: Pending? = nil
+
+	-- axis verdict is a pure function of dx/dy and the fixed AXIS_LOCK_PX
+	-- constant alone (identical rule to this composite's own internal
+	-- `onPointerMove`); called only while `mode == "pending"`.
+	local function resolveAxis(pos: any)
+		local p = pending :: Pending
+		local dx, dy = pos.x - p.originX, pos.y - p.originY
+		if dx * dx + dy * dy < row_actions_state.AXIS_LOCK_PX ^ 2 then
+			return -- still accumulating toward the lock radius
+		end
+		-- ties go vertical (row_actions_state.axisVerdict's own rule):
+		-- scrolling/reordering must never lose an ambiguous gesture.
+		if math.abs(dx) > math.abs(dy) then
+			p.mode = "rowActions"
+			rowActionsHandlers.onPointerDown(p.path, p.originPos, p.rectOf)
+		else
+			p.mode = "reorder"
+			-- REPLAYED at the origin (see header comment). reorder's own down
+			-- handler re-runs its handle-zone/touch decline checks here too —
+			-- both moot in practice (touch never reaches this branch; the
+			-- handle zone is checked by Table BEFORE this dispatcher ever
+			-- runs), so this is a harmless re-check on the way to seeding
+			-- `rowDrag`.
+			reorderHandlers.onPointerDown(p.path, p.originPos, p.rectOf)
+		end
+	end
+
+	local function onPointerDown(path: string, pos: any, rectOf: (string) -> any): boolean?
+		if pending ~= nil then
+			return false -- a capture is already live; never steal
+		end
+		if pos.pointerType == "touch" then
+			pending = {
+				originX = pos.x,
+				originY = pos.y,
+				originPos = pos,
+				path = path,
+				rectOf = rectOf,
+				mode = "rowActions",
+			}
+			local accepted = rowActionsHandlers.onPointerDown(path, pos, rectOf)
+			if accepted == false then
+				pending = nil
+			end
+			return accepted
+		end
+		pending = {
+			originX = pos.x,
+			originY = pos.y,
+			originPos = pos,
+			path = path,
+			rectOf = rectOf,
+			mode = "pending",
+		}
+		return true
+	end
+
+	local function onPointerMove(path: string, pos: any, rectOf: (string) -> any)
+		if pending == nil then
+			return
+		end
+		if pending.mode == "pending" then
+			resolveAxis(pos)
+		end
+		if pending.mode == "rowActions" then
+			rowActionsHandlers.onPointerMove(path, pos, rectOf)
+		elseif pending.mode == "reorder" then
+			reorderHandlers.onPointerMove(path, pos, rectOf)
+		end
+	end
+
+	local function onPointerUp(path: string, pos: any, rectOf: (string) -> any)
+		if pending == nil then
+			return
+		end
+		local mode = pending.mode
+		pending = nil
+		if mode == "rowActions" then
+			rowActionsHandlers.onPointerUp(path, pos, rectOf)
+		elseif mode == "reorder" then
+			reorderHandlers.onPointerUp(path, pos, rectOf)
+		end
+		-- "pending" (never crossed the lock radius — a tap): neither engine
+		-- was ever told a down, so neither is told an up.
+	end
+
+	local function onPointerCancel(path: string, reason: string?): boolean?
+		if pending == nil then
+			return nil
+		end
+		local mode = pending.mode
+		pending = nil
+		if mode == "rowActions" then
+			return rowActionsHandlers.onPointerCancel(path, reason)
+		elseif mode == "reorder" then
+			return reorderHandlers.onPointerCancel(path, reason)
+		end
+		return nil
+	end
+
+	return {
+		onPointerDown = onPointerDown,
+		onPointerMove = onPointerMove,
+		onPointerUp = onPointerUp,
+		onPointerCancel = onPointerCancel,
+	}
 end
 
 return row_actions

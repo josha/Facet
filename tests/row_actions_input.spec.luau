@@ -1899,3 +1899,166 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		end
 	)
 end)
+
+-- ===== Task 10: row_actions.composeWithReorder, in isolation ================
+-- No mounting, no presenter, no adapter — a pure unit test of the dispatcher
+-- itself (the brief's own ask: "tested in isolation"), against plain spy
+-- handler tables recording every call. table.luau's own integration proof
+-- (through the REAL adapter capture) lives in tests/table.spec.luau.
+describe("row_actions.composeWithReorder (Task 10)", function()
+	local row_actions_state = require("../src/input/row_actions_state")
+	local LOCK = row_actions_state.AXIS_LOCK_PX
+
+	-- a fake `rectOf` — every real handler this file forwards to ignores it
+	-- past its own signature, and this dispatcher never reads it itself.
+	local function rectOf(_path: string): any
+		return nil
+	end
+
+	local function spy()
+		local calls = { down = {}, move = {}, up = {}, cancel = {} }
+		local handlers = {
+			onPointerDown = function(path: string, pos: any, _rectOf: any): boolean?
+				table.insert(calls.down, { path = path, pos = pos })
+				return true
+			end,
+			onPointerMove = function(path: string, pos: any, _rectOf: any)
+				table.insert(calls.move, { path = path, pos = pos })
+			end,
+			onPointerUp = function(path: string, pos: any, _rectOf: any)
+				table.insert(calls.up, { path = path, pos = pos })
+			end,
+			onPointerCancel = function(path: string, reason: string?): boolean?
+				table.insert(calls.cancel, { path = path, reason = reason })
+				return nil
+			end,
+		}
+		return handlers, calls
+	end
+
+	it("no reorderHandlers: returns rowActionsHandlers unchanged (pass-through, zero overhead)", function()
+		local rowActionsHandlers = spy()
+		local composed = row_actions.composeWithReorder(rowActionsHandlers, nil)
+		expect(composed == rowActionsHandlers).toBe(true)
+	end)
+
+	it(
+		"touch: routed to rowActions from onPointerDown, every subsequent event too — reorder never sees it",
+		function()
+			local raHandlers, raCalls = spy()
+			local reorderHandlers, reorderCalls = spy()
+			local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+			local accepted = composed.onPointerDown("/S/Row/Hit", { x = 10, y = 10, pointerType = "touch" }, rectOf)
+			expect(accepted).toBe(true)
+			expect(#raCalls.down).toBe(1)
+			composed.onPointerMove("/S/Row/Hit", { x = 40, y = 10, pointerType = "touch" }, rectOf) -- huge dx, still touch
+			composed.onPointerUp("/S/Row/Hit", { x = 40, y = 10, pointerType = "touch" }, rectOf)
+			expect(#raCalls.move).toBe(1)
+			expect(#raCalls.up).toBe(1)
+			expect(#reorderCalls.down).toBe(0)
+			expect(#reorderCalls.move).toBe(0)
+			expect(#reorderCalls.up).toBe(0)
+		end
+	)
+
+	it(
+		"mouse vertical: replays the down at the ORIGIN into reorder; rowActions never sees this gesture at all",
+		function()
+			local raHandlers, raCalls = spy()
+			local reorderHandlers, reorderCalls = spy()
+			local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+			local accepted = composed.onPointerDown("/S/Row/Hit", { x = 100, y = 20, pointerType = "mouse" }, rectOf)
+			expect(accepted).toBe(true) -- tentative accept; axis unknown yet
+			expect(#raCalls.down).toBe(0)
+			expect(#reorderCalls.down).toBe(0) -- deferred: neither engine told yet
+			-- dy = LOCK + 4, dx = 1: past the lock radius, |dy| > |dx| -> vertical
+			composed.onPointerMove("/S/Row/Hit", { x = 101, y = 20 + LOCK + 4, pointerType = "mouse" }, rectOf)
+			expect(#reorderCalls.down).toBe(1)
+			-- REPLAYED AT THE ORIGIN, not the current move position
+			expect(reorderCalls.down[1].pos.x).toBe(100)
+			expect(reorderCalls.down[1].pos.y).toBe(20)
+			expect(#raCalls.down).toBe(0) -- rowActions never entered this gesture
+			-- the SAME move that resolved the axis also delivers itself (row_actions'
+			-- own internal onPointerMove does the identical "resolve, then fall
+			-- through and act on this move too" — see its own onPointerMove)
+			expect(#reorderCalls.move).toBe(1)
+			expect(reorderCalls.move[1].pos.y).toBe(20 + LOCK + 4)
+			composed.onPointerMove("/S/Row/Hit", { x = 102, y = 20 + LOCK + 10, pointerType = "mouse" }, rectOf)
+			expect(#reorderCalls.move).toBe(2)
+			expect(reorderCalls.move[2].pos.y).toBe(20 + LOCK + 10) -- live position, not replayed
+			composed.onPointerUp("/S/Row/Hit", { x = 102, y = 20 + LOCK + 10, pointerType = "mouse" }, rectOf)
+			expect(#reorderCalls.up).toBe(1)
+			expect(#raCalls.move).toBe(0)
+			expect(#raCalls.up).toBe(0)
+		end
+	)
+
+	it("mouse horizontal: rowActions owns the gesture; reorder's rowDrag is never seeded", function()
+		local raHandlers, raCalls = spy()
+		local reorderHandlers, reorderCalls = spy()
+		local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+		composed.onPointerDown("/S/Row/Hit", { x = 100, y = 20, pointerType = "mouse" }, rectOf)
+		-- dx = LOCK + 6, dy = 1: past the lock radius, |dx| > |dy| -> horizontal
+		composed.onPointerMove("/S/Row/Hit", { x = 100 + LOCK + 6, y = 21, pointerType = "mouse" }, rectOf)
+		expect(#raCalls.down).toBe(1)
+		expect(raCalls.down[1].pos.x).toBe(100) -- replayed at the origin
+		expect(raCalls.down[1].pos.y).toBe(20)
+		expect(#reorderCalls.down).toBe(0)
+		expect(#raCalls.move).toBe(1) -- the resolving move also delivers itself
+		composed.onPointerMove("/S/Row/Hit", { x = 100 + LOCK + 20, y = 22, pointerType = "mouse" }, rectOf)
+		expect(#raCalls.move).toBe(2)
+		composed.onPointerUp("/S/Row/Hit", { x = 100 + LOCK + 20, y = 22, pointerType = "mouse" }, rectOf)
+		expect(#raCalls.up).toBe(1)
+		expect(#reorderCalls.move).toBe(0)
+		expect(#reorderCalls.up).toBe(0)
+	end)
+
+	it("ties go vertical, matching row_actions_state.axisVerdict's own rule", function()
+		local raHandlers, raCalls = spy()
+		local reorderHandlers, reorderCalls = spy()
+		local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+		composed.onPointerDown("/S/Row/Hit", { x = 0, y = 0, pointerType = "mouse" }, rectOf)
+		-- |dx| == |dy|, both past the lock radius: axisVerdict resolves vertical
+		composed.onPointerMove("/S/Row/Hit", { x = LOCK + 6, y = LOCK + 6, pointerType = "mouse" }, rectOf)
+		expect(#reorderCalls.down).toBe(1)
+		expect(#raCalls.down).toBe(0)
+	end)
+
+	it("a tap that never crosses the lock radius calls neither engine's down, and up is a no-op for both", function()
+		local raHandlers, raCalls = spy()
+		local reorderHandlers, reorderCalls = spy()
+		local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+		composed.onPointerDown("/S/Row/Hit", { x = 50, y = 50, pointerType = "mouse" }, rectOf)
+		composed.onPointerMove("/S/Row/Hit", { x = 51, y = 51, pointerType = "mouse" }, rectOf) -- inside the lock radius
+		composed.onPointerUp("/S/Row/Hit", { x = 51, y = 51, pointerType = "mouse" }, rectOf)
+		expect(#raCalls.down).toBe(0)
+		expect(#raCalls.up).toBe(0)
+		expect(#reorderCalls.down).toBe(0)
+		expect(#reorderCalls.up).toBe(0)
+	end)
+
+	it("cancel mid-vertical-drag forwards to reorder's own onPointerCancel only", function()
+		local raHandlers, raCalls = spy()
+		local reorderHandlers, reorderCalls = spy()
+		local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+		composed.onPointerDown("/S/Row/Hit", { x = 0, y = 0, pointerType = "mouse" }, rectOf)
+		composed.onPointerMove("/S/Row/Hit", { x = 1, y = LOCK + 5, pointerType = "mouse" }, rectOf)
+		expect(#reorderCalls.down).toBe(1)
+		expect(#reorderCalls.move).toBe(1) -- the resolving move also delivers itself
+		composed.onPointerCancel("/S/Row/Hit", "interrupted")
+		expect(#reorderCalls.cancel).toBe(1)
+		expect(reorderCalls.cancel[1].reason).toBe("interrupted")
+		expect(#raCalls.cancel).toBe(0)
+		-- cancel clears the pending gesture: a further move/up is a no-op
+		composed.onPointerMove("/S/Row/Hit", { x = 1, y = LOCK + 20, pointerType = "mouse" }, rectOf)
+		expect(#reorderCalls.move).toBe(1) -- unchanged
+	end)
+
+	it("a second down while one is pending declines (never steals a live capture)", function()
+		local raHandlers = spy()
+		local reorderHandlers = spy()
+		local composed = row_actions.composeWithReorder(raHandlers, reorderHandlers)
+		expect(composed.onPointerDown("/S/Row/Hit", { x = 0, y = 0, pointerType = "mouse" }, rectOf)).toBe(true)
+		expect(composed.onPointerDown("/S/Row/Hit", { x = 5, y = 5, pointerType = "mouse" }, rectOf)).toBe(false)
+	end)
+end)

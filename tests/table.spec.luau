@@ -34,7 +34,19 @@ local function world(spec: any)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
 	local system = LuauUI.newActionSystem(core)
 	local adapter = fake_target.new()
-	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	-- Task 10: `spec.now` is an OPTIONAL scripted clock (row_actions_input.
+	-- spec.luau's own `pointerWorld` pattern) — every existing caller omits
+	-- it and gets the unchanged default (`presenterOpts.now or os.clock`,
+	-- presenter.luau). A row-actions gesture test needs one: without it,
+	-- `nowFn` is REAL wall-clock time, and `drag_velocity`'s tracker divides
+	-- a real position delta by a near-zero REAL-time delta between two
+	-- synchronous pushes — an explosive, nondeterministic "velocity" that
+	-- seeds the release spring with garbage (a live-found repro building
+	-- this task: a huge bogus overshoot before decaying back to whatever it
+	-- decayed to). Reorder's own drag math never reads velocity at all,
+	-- which is why no table.spec.luau test needed this before row_actions
+	-- rode the same harness.
+	local pres = LuauUI.newPresenter(core, env, adapter, system, if spec.now then { now = spec.now } else nil)
 	local rows = core:signal(spec.rowsOverride or RACERS)
 	local tbl = table_control.build(LuauUI, core, {
 		id = "Racers",
@@ -66,6 +78,7 @@ local function world(spec: any)
 		onReorder = spec.onReorder,
 		dragLabel = spec.dragLabel,
 		editing = spec.editing,
+		rowActions = spec.rowActions,
 		-- AN ENV BY DEFAULT (director round 12, 2026-07-27). The auto Edit/Done
 		-- toggle is a TOUCH affordance — "mouse users scroll with the wheel and
 		-- drag directly, so they never need edit mode" — but a table with NO env
@@ -2164,5 +2177,430 @@ describe("Table: toolbar, header and body stack at every text preference", funct
 		-- and the whole table is taller for it, which is the point: the bands
 		-- move down together rather than one drawing through another
 		expect(largest.body.y > plain.body.y).toBe(true)
+	end)
+end)
+
+-- ============================================================================
+-- Task 10: `spec.rowActions` — Table integration (docs/plans/row-actions-
+-- implementation.md). A wrapped row mounts at `.../[key@v]/RowActions-<key>/...`
+-- (row_actions.build's own root `id = "RowActions-<rowKey>"`, one `Content` ZStack
+-- inside it, THIS row's own blueprint — Hit/Cells/EditWhen, unchanged —
+-- mounted inside THAT); an unwrapped row (nil `rowActions`, or the callback
+-- returns nil for that item) stays exactly `.../[key@v]/Row/...`, byte-
+-- identical to every table before this task (the PERF directive: zero new
+-- nodes, zero new subscriptions per row when unused).
+describe("Table: row actions (Task 10)", function()
+	-- row_actions.build's own root `id = "RowActions-<rowKey>"` (table.luau) —
+	-- UNIQUE per row, not the literal "RowActions": two instances sharing one
+	-- id corrupted each other's in-flight gesture state (see
+	-- `derowActionsPath`'s own comment in table.luau for the live-found repro
+	-- this test suite caught it with).
+	local function rowActionsRoot(version: number, key: string): string
+		return `/S/Racers/Main/Body/Rows/[{key}@{version}]/RowActions-{key}`
+	end
+	local function wrappedRowHitPath(version: number, key: string): string
+		return `{rowActionsRoot(version, key)}/Content/Row/Hit`
+	end
+	local function trayButtonPath(version: number, key: string, edge: "leading" | "trailing", actionId: string): string
+		local tid = if edge == "leading" then "TrayLeading" else "TrayTrailing"
+		return `{rowActionsRoot(version, key)}/{tid}When/then/{tid}/Action:{actionId}`
+	end
+	local function editAffordancePath(version: number, key: string): string
+		return `{rowActionsRoot(version, key)}/EditAffordanceWhen/then/EditAffordance`
+	end
+	local function deleteAction(fired: { string }?, opts: any?): any
+		opts = opts or {}
+		return {
+			id = opts.id or "delete",
+			role = opts.role or "destructive",
+			label = opts.label or "Delete",
+			onAction = function()
+				if fired ~= nil then
+					table.insert(fired, "fired")
+				end
+			end,
+		}
+	end
+
+	-- a SCRIPTED clock (row_actions_input.spec.luau's own `pointerWorld`
+	-- pattern) — see `world`'s own comment on `spec.now` for why any test
+	-- that drives a real drag-velocity-seeded gesture needs one. `tick`
+	-- pairs `pres.tick` (springs) with `pres.refresh()` (syncGeometry — the
+	-- ONLY pass that measures a just-revealed tray's live button widths;
+	-- pointerWorld's own comment: skipping it leaves `leadingWidth`/
+	-- `trailingWidth` frozen at 0 forever).
+	local function raWorld(spec: any)
+		local clockTime = 0
+		spec.now = function()
+			return clockTime
+		end
+		local core, adapter, pres, tbl, rows, handle, system, env = world(spec)
+		local function tick(dt: number)
+			clockTime += dt
+			pres.tick(dt)
+			pres.refresh()
+		end
+		local function settle(frames: number?)
+			for _ = 1, frames or 90 do
+				tick(1 / 60)
+			end
+		end
+		return {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			tbl = tbl,
+			rows = rows,
+			handle = handle,
+			system = system,
+			env = env,
+			tick = tick,
+			settle = settle,
+		}
+	end
+
+	it("wraps only rows whose callback returns actions; nil rows get no RowActions node", function()
+		local _, adapter = world({
+			header = false,
+			rowActions = function(item)
+				if item.id == "razz" then
+					return { trailing = { deleteAction() } }
+				end
+				return nil
+			end,
+		})
+		expect(adapter.node(rowActionsRoot(0, "razz")) ~= nil).toBe(true)
+		expect(adapter.node(wrappedRowHitPath(0, "razz")) ~= nil).toBe(true)
+		-- unwrapped rows are byte-identical to an ordinary table: no RowActions
+		-- node at all, `Row` sits directly under the ForEach slot
+		expect(adapter.node(rowActionsRoot(0, "bolt"))).toBe(nil)
+		expect(adapter.node(rowHitPath(0, "bolt")) ~= nil).toBe(true)
+	end)
+
+	it("unknown keys inside the returned action table error at build, naming the offending row", function()
+		local ok, err = pcall(function()
+			world({
+				header = false,
+				rowActions = function(item)
+					if item.id == "razz" then
+						return { trailing = { deleteAction() }, bogus = true }
+					end
+					return nil
+				end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "bogus") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "razz") ~= nil).toBe(true)
+	end)
+
+	it("swiping row B open closes row A (one shared coordinator through Table)", function()
+		local w = raWorld({
+			header = false,
+			rowActions = function(_item)
+				-- fullSwipe = false: any drag distance can only ever snap OPEN,
+				-- never commit — isolates the coordinator's claim/release from
+				-- the commit sequence entirely.
+				return { trailing = { deleteAction() }, fullSwipe = false }
+			end,
+		})
+		local razzHit = wrappedRowHitPath(0, "razz")
+		local boltHit = wrappedRowHitPath(0, "bolt")
+		local razzClosedX = w.adapter.node(razzHit).rect.x
+		local boltClosedX = w.adapter.node(boltHit).rect.x
+
+		local function openVia(hitPath: string, y: number)
+			w.adapter.pointerDown(hitPath, 100, y, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(60, y) -- past the 8px axis lock, horizontal
+			w.tick(1.0) -- calm gap: velocity's contribution is negligible
+			w.adapter.pointerMove(-200, y) -- huge leftward drag (well past any tray)
+			w.tick(1 / 60)
+			w.adapter.pointerUp(-200, y)
+			w.settle()
+		end
+
+		openVia(razzHit, 20)
+		expect(w.adapter.node(razzHit).rect.x < razzClosedX).toBe(true) -- razz open
+
+		openVia(boltHit, 60)
+		expect(w.adapter.node(boltHit).rect.x < boltClosedX).toBe(true) -- bolt now open
+		-- razz closed AS A RESULT of bolt's claim through the shared coordinator
+		-- (bolt's own gesture never touched razz directly)
+		expect(w.adapter.node(razzHit).rect.x).toBe(razzClosedX)
+	end)
+
+	it("mouse vertical drag on a reorderable + wrapped row still reorders", function()
+		local reorders: { any } = {}
+		local w = raWorld({
+			header = false,
+			reorderable = true,
+			onReorder = function(keys: { string }, toIndex: number)
+				table.insert(reorders, { keys = keys, toIndex = toIndex })
+			end,
+			rowActions = function(_item)
+				return { trailing = { deleteAction() } }
+			end,
+		})
+		local razzHit = wrappedRowHitPath(0, "razz")
+		w.adapter.pointerDown(razzHit, 100, 20)
+		w.adapter.pointerMove(100, 90) -- purely vertical, well past the reorder threshold
+		w.pres.refresh()
+		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine") ~= nil).toBe(true) -- reorder engaged
+		w.adapter.pointerUp(100, 90)
+		expect(#reorders).toBe(1)
+		expect(reorders[1].keys[1]).toBe("razz")
+	end)
+
+	it("mouse horizontal drag on the same reorderable + wrapped row reveals actions instead of reordering", function()
+		local reorders: { any } = {}
+		local w = raWorld({
+			header = false,
+			reorderable = true,
+			onReorder = function(keys: { string }, toIndex: number)
+				table.insert(reorders, { keys = keys, toIndex = toIndex })
+			end,
+			rowActions = function(_item)
+				return { trailing = { deleteAction() }, fullSwipe = false }
+			end,
+		})
+		local razzHit = wrappedRowHitPath(0, "razz")
+		local closedX = w.adapter.node(razzHit).rect.x
+		w.adapter.pointerDown(razzHit, 100, 20)
+		w.tick(0.01)
+		w.adapter.pointerMove(60, 20) -- purely horizontal, past the axis lock
+		w.tick(1.0)
+		w.adapter.pointerMove(-100, 20)
+		w.tick(1 / 60)
+		w.adapter.pointerUp(-100, 20)
+		w.settle()
+		expect(#reorders).toBe(0) -- reorder never engaged
+		expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- content slid: tray revealed
+		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine")).toBe(nil)
+	end)
+
+	it("editing signal shows the minus on rows with a destructive action", function()
+		local core = LuauUI.newCore()
+		local editingSignal = core:signal(false)
+		local _, adapter, pres = world({
+			core = core,
+			header = false,
+			editing = editingSignal,
+			rowActions = function(item)
+				if item.id == "razz" then
+					return { trailing = { deleteAction() } }
+				end
+				return nil
+			end,
+		})
+		expect(adapter.node(editAffordancePath(0, "razz"))).toBe(nil) -- not editing yet
+		editingSignal:set(true)
+		pres.refresh()
+		expect(adapter.node(editAffordancePath(0, "razz")) ~= nil).toBe(true)
+	end)
+
+	it("rows removed from spec.rows dispose their wrapper (no leak)", function()
+		local core = LuauUI.newCore()
+		local _, adapter, pres, _tbl, rows = world({
+			core = core,
+			header = false,
+			rowsOverride = { RACERS[1] }, -- razz only; nothing wrapped yet
+			rowActions = function(item)
+				if item.id == "bolt" then
+					return { trailing = { deleteAction() } }
+				end
+				return nil
+			end,
+		})
+		local baseline = core:counters()
+		rows:set({ RACERS[1], RACERS[2] }) -- add bolt: wraps
+		pres.refresh()
+		expect(adapter.node(rowActionsRoot(0, "bolt")) ~= nil).toBe(true)
+		rows:set({ RACERS[1] }) -- remove bolt: wrapper must dispose
+		pres.refresh()
+		expect(adapter.node(rowActionsRoot(0, "bolt"))).toBe(nil)
+		local after = core:counters()
+		for key, v in baseline :: { [string]: number } do
+			expect((after :: any)[key]).toBe(v)
+		end
+	end)
+
+	it("a data refresh mid-gesture cancels: onAction never fires for a key removed mid-commit", function()
+		local fired: { string } = {}
+		local w = raWorld({
+			header = false,
+			rowActions = function(item)
+				if item.id == "razz" then
+					return { trailing = { deleteAction(fired) } }
+				end
+				return nil
+			end,
+		})
+		local razzHit = wrappedRowHitPath(0, "razz")
+		local rowW = w.adapter.node(razzHit).rect.w
+		w.adapter.pointerDown(razzHit, 100, 20)
+		w.tick(0.01)
+		w.adapter.pointerMove(60, 20)
+		w.tick(1.0)
+		local releaseX = 100 - rowW * 0.9 -- past the 60% full-swipe commit threshold
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(1 / 60)
+		w.adapter.pointerUp(releaseX, 20)
+		-- a couple of frames into the slide-off — comfortably before onArrive
+		w.tick(1 / 60)
+		w.tick(1 / 60)
+		expect(#fired).toBe(0)
+		-- mid-flight data refresh: razz's key vanishes from the data entirely
+		w.rows:set({ RACERS[2], RACERS[3] })
+		w.pres.refresh()
+		w.settle()
+		expect(#fired).toBe(0) -- never fires for the replaced/vanished key
+	end)
+
+	it("Delete key on a focused row deletes via the row's destructive action", function()
+		local fired: { string } = {}
+		local core = LuauUI.newCore()
+		local _, adapter, pres, _tbl, _rows, _handle, system = world({
+			core = core,
+			header = false,
+			rowActions = function(item)
+				if item.id == "razz" then
+					return { trailing = { deleteAction(fired) } }
+				end
+				return nil
+			end,
+		})
+		pres.focus.focusOn(wrappedRowHitPath(0, "razz"))
+		system.deviceKey("Delete", true)
+		system.deviceKey("Delete", false)
+		pres.refresh()
+		-- TWO sequential springs settle here (slide-off, then the height
+		-- collapse — row_actions.luau's own `doCommitAction` chain), each up
+		-- to ~90 frames on its own (row_actions.spec.luau's own
+		-- SETTLE_FRAMES convention) — a wide fill-column row (this table's
+		-- own 800px viewport) slides the FULL row width off-screen, so 90
+		-- frames alone (enough for ONE spring) left the second stranded
+		-- mid-flight. Paired with `pres.refresh()` throughout (syncGeometry
+		-- has to keep running for `currentRowHeight()`'s own live read).
+		for _ = 1, 240 do
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
+		expect(#fired).toBe(1)
+	end)
+
+	it(
+		"iOS tap-to-close: a tap on a row's own content while ITS tray is open closes it — no select, no activate",
+		function()
+			local w = raWorld({
+				header = false,
+				selection = "single",
+				rowActions = function(item)
+					if item.id == "razz" then
+						return { trailing = { deleteAction() }, fullSwipe = false }
+					end
+					return nil
+				end,
+			})
+			local razzHit = wrappedRowHitPath(0, "razz")
+			local closedX = w.adapter.node(razzHit).rect.x
+			w.adapter.pointerDown(razzHit, 100, 20)
+			w.tick(0.01)
+			w.adapter.pointerMove(60, 20)
+			w.tick(1.0)
+			w.adapter.pointerMove(-200, 20)
+			w.tick(1 / 60)
+			w.adapter.pointerUp(-200, 20)
+			w.settle()
+			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- confirmed open
+
+			w.adapter.tap(razzHit) -- a genuine tap/Activate on the row's own content
+			w.pres.refresh()
+			expect(w.tbl.api.selectedKeys:get().razz).toBe(nil) -- no select
+			w.settle()
+			expect(w.adapter.node(razzHit).rect.x).toBe(closedX) -- tray closed
+		end
+	)
+
+	it(
+		"a committed delete shrinks the row's own box and moves following rows up, THEN fires onAction and lets the owner remove it via keyed diff",
+		function()
+			local fired: { string } = {}
+			local w = raWorld({
+				header = false,
+				rowActions = function(item)
+					if item.id == "razz" then
+						return { trailing = { deleteAction(fired) } }
+					end
+					return nil
+				end,
+			})
+			local razzHit = wrappedRowHitPath(0, "razz")
+			local razzOuter = rowActionsRoot(0, "razz")
+			local boltYBefore = w.adapter.node(rowHitPath(0, "bolt")).rect.y
+			local razzHeightBefore = w.adapter.node(razzOuter).rect.h
+			expect(razzHeightBefore > 0).toBe(true)
+
+			local rowW = w.adapter.node(razzHit).rect.w
+			w.adapter.pointerDown(razzHit, 100, 20)
+			w.tick(0.01)
+			w.adapter.pointerMove(60, 20)
+			w.tick(1.0)
+			local releaseX = 100 - rowW * 0.9
+			w.adapter.pointerMove(releaseX, 20)
+			w.tick(1 / 60)
+			w.adapter.pointerUp(releaseX, 20)
+
+			-- comfortably PAST the slide-off (a full -rowWidth flight across
+			-- this 800px fill-column row takes ~70 frames on its own) and
+			-- into the height collapse that follows it, well before either
+			-- spring fully settles (a live-measured trace building this test:
+			-- the slide sits at 40px — untouched — through frame ~65, then
+			-- the collapse spring visibly shrinks it every frame from ~75
+			-- onward).
+			for _ = 1, 100 do
+				w.tick(1 / 60)
+			end
+			expect(#fired).toBe(0) -- still animating: never fires early
+			local shrinkingHeight = w.adapter.node(razzOuter).rect.h
+			expect(shrinkingHeight < razzHeightBefore).toBe(true) -- the row's OWN box shrank
+			expect(w.adapter.node(rowHitPath(0, "bolt")).rect.y < boltYBefore).toBe(true) -- bolt already moved up
+
+			-- run to completion: TWO sequential springs here (slide-off, then
+			-- the height collapse), each up to ~90 frames alone against this
+			-- wide fill-column row — see the Delete-key test's own comment
+			-- for the same arithmetic.
+			w.settle(240)
+			expect(#fired).toBe(1) -- fires exactly once, after the animation
+
+			-- the owner's data mutation removes the row via keyed diff — NOT the
+			-- composite itself; row_actions only ever animates and reports
+			w.rows:set({ RACERS[2], RACERS[3] })
+			w.pres.refresh()
+			expect(w.adapter.node(razzHit)).toBe(nil)
+			expect(w.adapter.node(rowHitPath(0, "bolt")) ~= nil).toBe(true)
+		end
+	)
+
+	it("edit mode shows BOTH the row_actions minus and Table's own reorder handle at once", function()
+		local core = LuauUI.newCore()
+		local editingSignal = core:signal(true) -- start in edit mode
+		local _, adapter = world({
+			core = core,
+			header = false,
+			reorderable = true,
+			editing = editingSignal,
+			onReorder = function() end,
+			rowActions = function(item)
+				if item.id == "razz" then
+					return { trailing = { deleteAction() } }
+				end
+				return nil
+			end,
+		})
+		expect(adapter.node(editAffordancePath(0, "razz")) ~= nil).toBe(true) -- the minus
+		expect(adapter.node(`{rowActionsRoot(0, "razz")}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBe(
+			true
+		) -- Table's own reorder handle, still there
 	end)
 end)

@@ -107,10 +107,19 @@ local registry: { Entry } = {
 		-- pointer (mouse) proofs are device-true cases in table.spec.luau;
 		-- tests/table_input.spec.luau owns the touch/keyboard/gamepad device-true
 		-- cases (not the api-direct ones).
+		--
+		-- Task 10 (row-actions): `spec.rowActions` is a NEW interactive surface
+		-- on Table, composed against the SAME device-true idioms above rather
+		-- than a parallel proof set — reorder-vs-swipe axis arbitration is a
+		-- pointer-class question (the mouse citation below), and the row's own
+		-- keyboard Delete rides row_actions.luau's OWN device-true suite
+		-- (registered separately) once Table wires focus/action-system through
+		-- it, proven end-to-end through a Table mount by the keyboard citation.
 		inputProofs = {
 			pointer = {
 				"header taps cycle the owner-held sortOrder; the table never sorts the data",
 				"dragging a selected row drags the WHOLE selection as a block (director example)",
+				"mouse horizontal drag on the same reorderable + wrapped row reveals actions instead of reordering",
 			},
 			touch = {
 				"a TOUCH drag on the grip previews and commits the new column width",
@@ -120,6 +129,7 @@ local registry: { Entry } = {
 				"keyboard Down + Return select the focused row",
 				"keyboard Right/Return drive the header sort identically to the gamepad",
 				"keyboard edit-mode grab is input-agnostic: Return grabs, Down steps, Return drops",
+				"Delete key on a focused row deletes via the row's destructive action",
 			},
 			gamepad = {
 				"gamepad ButtonA selects the focused row (through presenter Activate dispatch)",
