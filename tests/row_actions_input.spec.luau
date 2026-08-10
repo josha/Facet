@@ -326,4 +326,188 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra.dump().offset).toBe(0)
 		expect(w.ra._isOpen()).toBe(false)
 	end)
+
+	-- REVIEW FINDING 1 (MAJOR, device-video repro): syncGeometry used to
+	-- re-aim the reveal spring toward `-trailingWidth` on EVERY sync whenever
+	-- `openEdge` named an edge, with no awareness of a live drag — so a
+	-- re-grab mid-snap-open-flight had its `spring:stop()` undone on the very
+	-- next frame, and the row visibly drifted even while the player's finger
+	-- held perfectly still (reviewer: "56.9px drift over 15 frames"). Drives
+	-- the reviewer's EXACT scenario: open via gesture, release (spring
+	-- flies), re-grab mid-flight, hold N frames, assert no drift; then keep
+	-- dragging and assert it still tracks (the fix must not just freeze
+	-- `offset` forever).
+	it("re-grab mid snap-open flight: syncGeometry never fights a live drag (regression)", function()
+		local trayWidth = learnTrayWidth()
+		local w = trailingWorld()
+		-- 1. gesture-open (NOT a commit): well past half the tray, well under
+		-- the 60%-of-row commit floor; released calmly (negligible velocity)
+		w.adapter.pointerDown(HIT, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(0, 20) -- dx=-100
+		w.tick(1.0)
+		w.adapter.pointerUp(0, 20)
+		expect(w.ra.dump().openEdge).toBe("trailing") -- settled to OPEN, not committed
+
+		-- 2. let the snap-open spring fly a FEW frames — genuinely mid-flight
+		-- (mirrors tests/row_actions.spec.luau's own "8 frames in: neither at
+		-- rest nor fully revealed" idiom)
+		for _ = 1, 8 do
+			w.tick(FRAME)
+		end
+		local midFlight = w.ra.dump().offset
+		-- confirmed mid-flight, not settled. The drag itself overdragged past
+		-- the tray (fullSwipe's clampDrag never clamps against the tray at
+		-- all, only the release VERDICT is bounded by rowWidth) to exactly
+		-- -100, so this flight is built and seeded from THAT live value
+		-- (`ensureSpring`'s first-ever build reads `offset:get()`) and
+		-- animates UP toward `-trayWidth` (-83-ish) — i.e. `midFlight` sits
+		-- BETWEEN -100 and -trayWidth here, not beyond it either way.
+		expect(midFlight < 0).toBe(true)
+		expect(math.abs(midFlight - -trayWidth)).toBeGreaterThan(1)
+
+		-- 3. RE-GRAB right where the row visually is, and cross the axis lock
+		local grabX = 500
+		w.adapter.pointerDown(HIT, grabX, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(grabX - 15, 20) -- past the lock, resolves horizontal, spring:stop()
+		local afterCross = w.ra.dump().offset
+		expect(afterCross).toBeCloseTo(midFlight - 15, 0.01) -- clampDrag(startOffset+dx), unclamped
+
+		-- 4. HOLD STILL: no further finger movement, but keep stepping paired
+		-- tick+refresh frames — `syncGeometry` runs on every one. THE BUG: it
+		-- used to re-aim the spring toward `-trailingWidth` every single time
+		-- (since `openEdge` still names "trailing"), fighting the stop() from
+		-- step 3 and dragging `offset` back toward the old target even though
+		-- nothing touched the pointer.
+		for _ = 1, 15 do
+			w.tick(FRAME)
+		end
+		local afterHold = w.ra.dump().offset
+		expect(afterHold).toBeCloseTo(afterCross, 0.5) -- NO drift while the finger held still
+
+		-- 5. the drag still tracks afterward — the fix gates the RE-AIM, not
+		-- the live drag path itself
+		w.adapter.pointerMove(grabX - 60, 20)
+		local tracked = w.ra.dump().offset
+		expect(tracked).toBeCloseTo(midFlight - 60, 0.01)
+		w.adapter.pointerUp(grabX - 60, 20)
+	end)
+
+	-- REVIEW FINDING 2 (IMPORTANT, director-visible fidelity gap): `settle`
+	-- already used release velocity for the OPEN/CLOSE/COMMIT decision, but
+	-- `_settleTo` never seeded the spring that actually ANIMATES it, so a
+	-- fast flick and a slow calm release looked identical in motion. Two
+	-- releases from the SAME live offset (so both resolve the identical
+	-- verdict — open, not commit — isolating the ANIMATION speed from the
+	-- DECISION), one calm (vx = 0 exactly, a long pause before release) and
+	-- one a genuine flick (a fast final leg) — the flick must reach 90% of
+	-- the open target in strictly fewer stepped frames.
+	it("flick momentum reaches 90% of target in fewer stepped frames than a calm release", function()
+		local trayWidth = learnTrayWidth()
+		local targetX = 100 - trayWidth * 0.75 -- same final live offset for both releases
+
+		-- CALM: long pause before release, samples collapse to the SAME point
+		-- (the tracker's own window keeps at least two, both at `targetX`) ->
+		-- velocity is exactly 0.
+		local calm = trailingWorld()
+		calm.adapter.pointerDown(HIT, 100, 20, "mouse")
+		calm.tick(0.01)
+		calm.adapter.pointerMove(85, 20) -- past the lock
+		calm.tick(1.0)
+		calm.adapter.pointerMove(targetX, 20)
+		calm.tick(1.0) -- long calm pause before release
+		calm.adapter.pointerUp(targetX, 20)
+
+		-- FLICK: identical final live offset, but the LAST leg is covered
+		-- fast (a real, large leftward velocity at release).
+		local flick = trailingWorld()
+		flick.adapter.pointerDown(HIT, 100, 20, "mouse")
+		flick.tick(0.01)
+		flick.adapter.pointerMove(85, 20)
+		flick.tick(1.0)
+		flick.adapter.pointerMove(targetX + trayWidth * 0.1, 20) -- short of the final point
+		flick.tick(0.01) -- FAST final leg
+		flick.adapter.pointerMove(targetX, 20)
+		flick.adapter.pointerUp(targetX, 20)
+
+		-- both resolved the SAME verdict (open, not commit) before comparing speed
+		expect(calm.ra.dump().openEdge).toBe("trailing")
+		expect(flick.ra.dump().openEdge).toBe("trailing")
+		expect(calm.ra.dump().offset).toBeCloseTo(flick.ra.dump().offset, 0.01)
+
+		local function framesTo90Percent(w: any): number
+			local goal = trayWidth * 0.9
+			for frame = 1, 200 do
+				w.tick(FRAME)
+				if math.abs(w.ra.dump().offset) >= goal then
+					return frame
+				end
+			end
+			return math.huge -- never reached: fails the comparison below honestly
+		end
+		local calmFrames = framesTo90Percent(calm)
+		local flickFrames = framesTo90Percent(flick)
+		expect(flickFrames < calmFrames).toBe(true)
+	end)
+
+	-- REVIEW FINDING 3 (IMPORTANT): the commit-vs-data-refresh dispose guard
+	-- (doCommit's own comment: "never fire onAction for a row whose key no
+	-- longer matches") worked when probed by hand but had no regression test
+	-- pinning it. Also pins the converse (the guard must not over-block a
+	-- commit that ISN'T raced).
+	it("dispose mid-slide-off never fires onAction and never errors; a normal commit still fires once", function()
+		-- a normal commit still fires exactly once (the guard doesn't over-block)
+		local normal = trailingWorld()
+		local rowWidth = rowWidthOf(normal)
+		normal.adapter.pointerDown(HIT, 0, 20, "mouse")
+		normal.tick(0.01)
+		normal.adapter.pointerMove(-15, 20)
+		normal.tick(1.0)
+		local releaseX = -(rowWidth * 0.7)
+		normal.adapter.pointerMove(releaseX, 20)
+		normal.tick(FRAME)
+		normal.adapter.pointerUp(releaseX, 20)
+		normal.settle(400)
+		expect(#normal.fired).toBe(1)
+
+		-- a commit raced by a data refresh (dispose mid-slide-off): never fires
+		local raced = trailingWorld()
+		local raced_rowWidth = rowWidthOf(raced)
+		raced.adapter.pointerDown(HIT, 0, 20, "mouse")
+		raced.tick(0.01)
+		raced.adapter.pointerMove(-15, 20)
+		raced.tick(1.0)
+		local raced_releaseX = -(raced_rowWidth * 0.7)
+		raced.adapter.pointerMove(raced_releaseX, 20)
+		raced.tick(FRAME)
+		raced.adapter.pointerUp(raced_releaseX, 20)
+		-- a FEW frames into the slide-off: mid-flight, well before the
+		-- collapse phase (let alone `onAction`) would ever start
+		for _ = 1, 8 do
+			raced.tick(FRAME)
+		end
+		expect(raced.ra.dump().offset).never().toBe(0) -- confirmed still mid-slide, not arrived
+		expect(#raced.fired).toBe(0) -- nothing has fired yet either way
+
+		-- the owner's "data refresh" — the keyed diff destroying this row
+		-- instance (tests/row_actions.spec.luau's own "dispose mid-flight
+		-- leaks nothing" pattern: dismiss the surface, then dispose the
+		-- composite)
+		local disposeOk = pcall(function()
+			raced.pres.dismiss(raced.handle)
+			raced.ra.dispose()
+		end)
+		expect(disposeOk).toBe(true) -- dispose itself must never error
+
+		-- step WAY past where the slide-off, the collapse, AND onAction would
+		-- all have completed if the guard didn't hold
+		local stepOk = pcall(function()
+			for _ = 1, 400 do
+				raced.tick(FRAME)
+			end
+		end)
+		expect(stepOk).toBe(true) -- stepping a disposed composite must never error
+		expect(#raced.fired).toBe(0) -- onAction NEVER fired for the raced row
+	end)
 end)

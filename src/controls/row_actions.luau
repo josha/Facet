@@ -632,14 +632,27 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	local tracker = drag_velocity.new()
 
 	-- the only legal time source for `tracker.push` (drag_velocity's own
-	-- contract). Falls back to `os.clock` the same way `presenter.new`
-	-- itself defaults `nowFn` when none was ever bound — a real gesture can
-	-- only reach these handlers through a live adapter capture, which only
-	-- exists once a presenter mounted this control (and every presenter has
-	-- SOME `nowFn`), so the fallback is dead code kept only so a direct unit
-	-- call against `_pointerHandlers` (no presenter at all) never errors.
+	-- contract: "this module never reads os.clock"). REVIEW FIX: the
+	-- previous `os.clock()` fallback was dead code that still violated that
+	-- contract by construction — a real gesture can only reach these
+	-- handlers through a live adapter capture, which only exists once a
+	-- presenter mounted this control, and every presenter supplies SOME
+	-- `nowFn` (`presenterOpts.now or os.clock`) that `bindMotion` always
+	-- threads through before any pointer event can fire. `nowFn == nil` here
+	-- means `_pointerHandlers` was invoked directly, with no presenter ever
+	-- having bound this composite at all — a genuine misuse of an internal
+	-- seam (`_pointerHandlers`'s own doc: "Table composes them"), not a
+	-- supported degradation the way an absent `motionClock`/`controller` is
+	-- elsewhere in this file. Fail loudly (the `assert(...)` convention this
+	-- codebase already uses for internal invariants — e.g. `virtual_list.
+	-- luau`, `text_input.luau`) rather than silently inventing a time axis.
 	local function currentNow(): number
-		return if nowFn ~= nil then nowFn() else os.clock()
+		assert(
+			nowFn ~= nil,
+			`LuauUI newRowActions('{id}'): a pointer gesture reached _pointerHandlers with no bound \`now\` `
+				.. "(bindMotion never ran) — these handlers must only be driven through a live presenter capture"
+		)
+		return nowFn()
 	end
 
 	-- a FRESH row_actions_state instance, read LIVE every time it is needed
@@ -745,6 +758,27 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			local vx = tracker:velocity() -- (vx, vy); only the horizontal axis matters here
 			local verdict = currentDecision().settle(offset:get(), vx)
 			drag = nil
+			-- REVIEW FIX (director-visible fidelity gap): `vx` already drove
+			-- the DECISION above (settle's velocity projection); it must also
+			-- drive the ANIMATION, or a flick and a slow release settle
+			-- identically — the same gesture->animation handoff
+			-- `drag_registry.luau:376-379` does at flight start. `setTarget`
+			-- itself "never touches value or velocity, so an interrupt
+			-- continues from where it is at the speed it has" (comment above
+			-- `ensureSpring`), so seeding velocity HERE, before `settleTo`
+			-- below calls `retarget`/`retargetThen` (both of which only ever
+			-- `setTarget` the SAME persistent `spring`), carries the flick's
+			-- speed into whichever flight follows — snap-open, snap-closed,
+			-- or a full-swipe commit's slide-off alike. Guarded to a real
+			-- spring only: no clock means `retarget` falls back to the
+			-- instant `applyOffset` snap, which has no velocity concept at
+			-- all; reduced motion is separately a no-op inside `setVelocity`
+			-- itself (motion.luau: "nothing is animating under reduced
+			-- motion: no seam to smooth").
+			if motionClock ~= nil then
+				ensureSpring()
+				spring:setVelocity(vx)
+			end
 			settleTo(verdict)
 		else
 			-- "pending" (a tap, never past the lock radius) or "vertical"
@@ -1011,13 +1045,34 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 			if leadingActions ~= nil then
 				deriveNaturals("leading", leadingActions, leadingNaturals)
-				if openEdge:get() == "leading" then
-					retarget(leadingWidth:get())
-				end
 			end
 			if trailingActions ~= nil then
 				deriveNaturals("trailing", trailingActions, trailingNaturals)
-				if openEdge:get() == "trailing" then
+			end
+			-- REVIEW FIX (device-video repro, 2026-08-10): re-aiming the spring
+			-- here whenever `openEdge` names an edge — regardless of a LIVE
+			-- drag — is what a re-grab mid-snap-open-flight actually hits.
+			-- `openEdge` is set at RELEASE (`settleTo`), which is exactly when
+			-- a re-grab can land: the persistent spring is still flying toward
+			-- `leadingWidth`/`trailingWidth`, the player grabs it, axis
+			-- resolves horizontal, `onPointerMove` calls `spring:stop()` — and
+			-- the VERY NEXT `syncGeometry` (the next `pres.refresh()`, which a
+			-- real host frame loop runs every frame right alongside the
+			-- pointer move) called `retarget` again unconditionally, undoing
+			-- the stop and re-launching the spring at the stale target. Drag
+			-- state is this composite's single source of truth for "who owns
+			-- `offset` right now" (comment above `DragState`): while ANY
+			-- gesture is in flight (`drag ~= nil` — pending, resolving, or
+			-- actively horizontal), the drag path through `applyOffset` is the
+			-- ONLY writer, full stop; a natural-width change reactively re-fed
+			-- from `deriveNaturals` above still updates `leadingWidth`/
+			-- `trailingWidth` for whenever the NEXT ungated sync runs (right
+			-- after release), it just doesn't retarget THIS frame.
+			if drag == nil then
+				if leadingActions ~= nil and openEdge:get() == "leading" then
+					retarget(leadingWidth:get())
+				end
+				if trailingActions ~= nil and openEdge:get() == "trailing" then
 					retarget(-trailingWidth:get())
 				end
 			end
