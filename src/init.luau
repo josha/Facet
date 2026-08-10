@@ -180,6 +180,7 @@ local LuauUI = {
 	-- produces today.
 	spatial = require("@self/input/spatial"),
 	newChip = require("@self/controls/chip").build,
+	newRowActions = require("@self/controls/row_actions").build,
 	-- async resources (§10.3): bounded, cancellable, generation-checked
 	newResourceProvider = asyncResources.newProvider,
 

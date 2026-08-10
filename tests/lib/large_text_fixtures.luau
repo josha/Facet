@@ -207,6 +207,25 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- row-actions Task 3: the trailing tray REVEALED (via the programmatic
+		-- `_open` seam — the only seam this task ships) so the sweep actually
+		-- measures the pseudo-localized tray button label, not a closed,
+		-- zero-Instance passthrough. `buttonMinWidth` is a floor, never a cap
+		-- (docs/reference/api.md `newRowActions`), so this fixture proves the
+		-- long label widens the button rather than clipping.
+		id = "RowActions",
+		class = "RowActions",
+		build = function(core)
+			local ra = LuauUI.newRowActions(LuauUI, core, {
+				id = "Ctl",
+				content = UI.Text({ id = "Title", text = "Row" }),
+				trailing = { { id = "delete", label = PSEUDO, onAction = function() end } },
+			})
+			ra._open("trailing")
+			return ra.blueprint
+		end,
+	},
+	{
 		id = "PopupButton",
 		class = "PopupButton",
 		build = function(core)

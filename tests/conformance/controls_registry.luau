@@ -599,6 +599,57 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- RowActions (row-actions Task 3: composite skeleton, static reveal).
+		-- A closed row (no actions revealed) is a TRUE inert passthrough — the
+		-- wrapped `content` mounts unwrapped, with no RowActions node at all —
+		-- but the moment either edge declares actions, the control attaches its
+		-- OWN input contribution (contribution.attach + a routed handleActivate,
+		-- mirroring popup_button.luau's api.handleActivate) to dispatch a tap/
+		-- Return/ButtonA on a revealed `Action:<id>` tray button, which makes it
+		-- an INTERACTIVE control by the checker's own rule (module source
+		-- contains "contribution.attach"). This task ships NO drag/swipe/pointer
+		-- gesture (Step 3 of the plan is the skeleton only) — every case below
+		-- reaches a tray action through the STANDARD UI.Button activation path
+		-- (adapter.tap / system.deviceKey against a pre-revealed tray), which is
+		-- the honest reachability/paradigm story for what this task built.
+		-- Tasks 5-8 add the swipe gesture itself (mouse/touch/keyboard-Delete/
+		-- gamepad) and MUST revisit this row: hotSwitch = false is accurate
+		-- today (no in-flight state exists yet) but will not be once a drag
+		-- owns one.
+		name = "RowActions",
+		kind = "composite",
+		module = "src/controls/row_actions.luau",
+		export = "newRowActions",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions.spec.luau",
+		docsAnchor = "newRowActions",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = { "RowActions pointer: a tap on a revealed tray action activates it (device-true)" },
+			touch = { "RowActions touch: a touch tap on a revealed tray action activates it (device-true)" },
+			keyboard = { "RowActions keyboard: focus + Return activates a revealed tray action" },
+			gamepad = { "RowActions gamepad: focus + ButtonA activates a revealed tray action" },
+		},
+		affordanceProofs = {
+			pointer = {
+				"RowActions pointer affordance: the pointer structural idiom (hover on a revealed tray action)",
+			},
+			touch = {
+				"RowActions touch affordance: the touch structural idiom (44px floor on a revealed tray action)",
+			},
+			keyboard = {
+				"RowActions keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate)",
+			},
+			gamepad = {
+				"RowActions gamepad affordance: the gamepad structural idiom (ten-foot focus on a revealed tray action)",
+			},
+			-- no in-flight gesture state exists as of this task (no pointer
+			-- handling shipped) — nothing for a mid-gesture class flip to carry
+			-- or cancel yet. Tasks 5-8 own turning this into a real §C list.
+			hotSwitch = false,
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

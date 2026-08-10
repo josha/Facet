@@ -3739,6 +3739,76 @@ local chip = LuauUI.newChip(LuauUI, core, {
 -- zero present opts: pointer/touch/keyboard/gamepad all just work
 pres.present(LuauUI.UI.Screen({ id = "S", children = { chip.blueprint } }))
 ```
+### `newRowActions`
+
+`LuauUI.newRowActions(LuauUI, core, spec) -> { blueprint, dump, dispose }` — a
+swipeable action tray around an arbitrary row (iOS Mail-style leading/trailing
+actions: Delete, Flag, Mark Read, ...). **This release ships the structural
+skeleton**: the spec contract, a lazily-mounted tray on each edge, and a
+programmatic (unsprung) reveal. The swipe GESTURE itself — mouse drag, touch,
+keyboard Delete, gamepad, and the spring-animated slide — lands in later
+releases; today the tray is opened and closed programmatically.
+
+A row with **no actions on either edge is a true inert passthrough**: `spec.content`
+mounts completely unwrapped (no extra node, no extra `Instance`) — the perf
+floor for a list where most rows carry no actions.
+
+Spec fields:
+
+| field | type | required | meaning |
+|---|---|---|---|
+| `id` | `string` | no (default `"RowActions"`) | the blueprint id when either edge has actions; irrelevant to the inert-passthrough shape, since nothing wraps `content` then. |
+| `content` | `Blueprint` | **yes** | the wrapped row. Slides horizontally over a revealed tray; otherwise painted exactly as authored. |
+| `leading` | `{ ActionSpec }?` | no | actions revealed by swiping right (or opening edge `"leading"`). `nil` = no leading tray; an empty table `{}` is a spec error (use `nil` for "none"). |
+| `trailing` | `{ ActionSpec }?` | no | actions revealed by swiping left (edge `"trailing"`). Same `nil`/`{}` rule. |
+| `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits its first action outright (iOS "swipe to delete"). Accepted and normalized now; the gesture that reads it ships later. |
+| `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Accepted and stored now; wired by a later release. |
+
+`ActionSpec`:
+
+| field | type | required | meaning |
+|---|---|---|---|
+| `id` | `string?` | no (default: `label`) | must be path-safe (no `/`); becomes the tray button's id, `Action:<id>`. |
+| `role` | `"normal" \| "destructive"` | no (default `"normal"`) | `"destructive"` paints the Button's own `role = "destructive"` (the shipped danger/onDanger style rule — no bespoke color). |
+| `label` | `string` | **yes** | the tray button's label. Never truncated by this control; the button widens past the theme's `controls.rowActions.buttonMinWidth` floor rather than clip a long (e.g. pseudo-localized) label. |
+| `icon` | `string?` | no | a `standard_icons` name; omitted is text-only. |
+| `onAction` | `() -> ()` | **yes** | called when the action activates (today: a tap/click/Return/ButtonA on the revealed tray button). |
+
+Return surface:
+
+- `blueprint` — mount it (usually as a row inside a list). When either edge
+  has actions, its own input contribution auto-composes the tray buttons'
+  Activate dispatch (pointer, touch, keyboard, gamepad) exactly like every
+  other interactive composite — **no `present()` opts are needed**.
+- `dump()` — a deterministic diagnostic table
+  (`{ schema = "luauui-rowactions-dump/1", id, offset, openEdge, phase }`,
+  `phase` one of `"closed" | "open"` in this release).
+- `dispose()` — disposes the control scope and nothing else.
+
+Invariants:
+
+- **Lazy trays.** A tray mounts zero `Instance`s while closed (`UI.When`
+  keyed on which edge, if any, is open) — the perf directive for a list where
+  most rows sit closed.
+- **The reveal offset is read from solved geometry, never hand-measured.** A
+  tray's pixel width comes from its own laid-out rect (fed back through the
+  input contribution's `syncGeometry`, the same mechanism `newSlider`'s
+  track-fraction math uses), so a long or pseudo-localized label that grows a
+  button past `buttonMinWidth` still reveals correctly.
+- **Labels are never truncated by this control.** The theme's
+  `controls.rowActions.buttonMinWidth` (64px) is a floor, not a cap.
+
+```lua
+local row = LuauUI.newRowActions(LuauUI, core, {
+	id = "Row1",
+	content = LuauUI.UI.Text({ id = "Title", text = "Inbox message" }),
+	trailing = {
+		{ id = "delete", label = "Delete", role = "destructive", onAction = function() print("deleted") end },
+		{ id = "flag", label = "Flag", onAction = function() print("flagged") end },
+	},
+})
+pres.present(LuauUI.UI.Screen({ id = "S", children = { row.blueprint } }))
+```
 ### `newDragSession`
 
 `LuauUI.newDragSession(opts) -> session` — the pure, engine-free drag-session
