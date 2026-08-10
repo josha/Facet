@@ -605,3 +605,17 @@ The standard icon set has no delete/trash glyph (nearest: `close`, `edit`, `more
 ## Execution order & review gates
 
 Tasks 1→10 are strictly ordered. 11–13 can interleave after 10. 14 runs last (needs the shipped feature). After Task 10 and again after Task 13: dispatch the RED-TEAM `code-reviewer` agent (fresh context) over the diff; fix findings before proceeding. Physical-device confirmation remains the standing pending rider (Studio emulator cannot produce `preferredInput=Touch`).
+
+---
+
+### Task 8b: Input Action System modifier support + Shift+Return menu binding (director-approved 2026-08-10)
+
+**Why:** Task 8 proved Shift+Return inexpressible — the action system has no key-modifier concept, and Return is the screen's Activate. Director chose the root fix over a plain-key workaround.
+
+**Files:** src/input/ (action system binding layer), src/present/presenter.luau (binding wiring), src/controls/row_actions.luau (bind Shift+Return once expressible), tests (action-system modifier specs + row_actions menu-key cases). All presenter/input files are foreign-M → surgical staging.
+
+- [ ] **Step 1: Investigate** how bindings are declared and matched today (the exact structures Task 8's report §Shift+Return analysis maps out). Design the smallest additive modifier slot: a binding may declare `modifiers = { shift = true }` (ctrl/alt reserved but valid); matching requires declared modifiers held and — decision to verify — whether a modifier-bound key must PREEMPT the unmodified binding of the same key (Shift+Return must not also fire Activate). Follow the action system's existing precedence rules; write the design into the report before coding.
+- [ ] **Step 2: TDD the action system change** in the input-system spec file (failing tests: modified binding fires only with modifier held; unmodified binding unaffected when modifier NOT held; modified binding preempts unmodified same-key binding when held; gamepad bindings ignore modifier slots).
+- [ ] **Step 3: Implement minimally**; full suite (the action system has deep existing coverage — zero regressions).
+- [ ] **Step 4: Bind RowActionsMenu to Shift+Return** in row_actions.luau; menu tests: Shift+Return toggles; plain Return still activates content; Shift+Return while menu open = close (toggle).
+- [ ] **Step 5: Registry/docs**: inputProofs citation for the keyboard menu path; api.md note. Commit `feat(row-actions): Shift+Return menu via action-system modifier support` + trailers.
