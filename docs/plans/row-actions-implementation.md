@@ -27,7 +27,7 @@
 ### Task 1: Pure state module `row_actions_state`
 
 **Files:**
-- Create: `src/controls/row_actions_state.luau`
+- Create: `src/input/row_actions_state.luau`
 - Test: `tests/row_actions_state.spec.luau`
 - Modify: `tests/run.luau` (register the new spec file the same way neighboring specs are registered)
 
@@ -69,7 +69,7 @@ Sign convention: positive offset = content pushed right = **leading** tray revea
 -- tests/row_actions_state.spec.luau
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
-local state = require("../src/controls/row_actions_state")
+local state = require("../src/input/row_actions_state")
 
 describe("row_actions_state", function()
 	local function mk(over)
@@ -161,7 +161,7 @@ end)
 Run: `lune run tests/run -- tests/row_actions_state.spec.luau`
 Expected: FAIL — module not found.
 
-- [ ] **Step 3: Implement `src/controls/row_actions_state.luau`**
+- [ ] **Step 3: Implement `src/input/row_actions_state.luau`**
 
 ```luau
 --!strict
@@ -247,7 +247,7 @@ Expected: PASS; suite count grows, zero failures.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add src/controls/row_actions_state.luau tests/row_actions_state.spec.luau tests/run.luau
+git add src/input/row_actions_state.luau tests/row_actions_state.spec.luau tests/run.luau
 git commit -m "feat(row-actions): pure swipe state module (axis lock, rubber band, settle verdicts)"
 ```
 
