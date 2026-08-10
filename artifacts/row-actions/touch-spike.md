@@ -240,6 +240,64 @@ open, not asserted closed:
   uses. This is platform-semantics reasoning, not a live trace, and is named
   as such.
 
+### Retry, same day, second session — the two named facts are STILL not obtainable live
+
+A second session was explicitly reported by the coordinator as MCP-healthy
+(`list_roblox_studios` showed `Place1` active; `get_studio_state` returned
+`Edit` cleanly) and asked for a retry scoped to exactly the two open facts:
+(a) does an accepted-then-inert touch capture on a row ever block native
+vertical scroll of the `ScrollingFrame`; (b) does the `ScrollingFrame` steal
+an in-progress horizontal pan once it starts scrolling vertically from a
+different gesture.
+
+Setup was re-verified clean and healthy at every backend step:
+
+1. `list_roblox_studios`/`get_studio_state` — healthy, `Place1` active, `Edit`.
+2. Spike fixture re-injected (identical script, same `StarterGui.TouchSpike`
+   `LocalScript`) and device emulator re-set to `iphone_6_Plus` +
+   `ActualResolution` — both `execute_luau` calls returned `ok = true`
+   immediately, same as the first session.
+3. `start_stop_play(is_start = true)` — succeeded. **Verified the state
+   actually flipped**, per the retry instructions, via a follow-up
+   `get_studio_state` call (not assumed from the start call's own return):
+   `Current Studio Mode: Play`, `Available DataModels: Client, Server`,
+   `Focused DataModel in the viewport: Client`. Play-mode entry itself is NOT
+   part of this session's failure — it is healthy.
+4. Fixture confirmed live and correctly laid out via `execute_luau` (Client):
+   `Body abs=(20,20) size=(340,480)`, four rows at their expected offsets,
+   `TouchEnabled = true`, `LastInputType = Enum.UserInputType.Touch` — an
+   exact repeat of the first session's healthy pre-drive state.
+5. `user_mouse_input` (a 4-step vertical drag on RowA: `moveTo(150,120)` →
+   `mouseButtonDown` → `moveTo(150,30)` → `mouseButtonUp`) — **timeout**.
+   Retried immediately, identical payload — **timeout** again. Two
+   consecutive failures on the input-driving tool specifically, exactly the
+   coordinator's named stop condition.
+6. Health re-checked immediately after (not assumed): `get_console_output`
+   and `get_studio_state` both returned instantly and correctly (`Play`,
+   `Client` focused) — the bridge and the running session were both healthy
+   the whole time; only `user_mouse_input` itself failed to complete, twice
+   in a row, with no partial effect (console held only the fixture's own
+   `READY` line both before and after; no `BEGAN`/`CHANGED`/`CANVASPOS` lines
+   ever appeared).
+
+Per the coordinator's explicit instruction, stopped there — cleaned up
+(`start_stop_play(is_start = false)`, deleted `StarterGui.TouchSpike`) rather
+than continuing to retry a call that had now failed identically across two
+separate sessions on two different dates in the same way (screen/input-driving
+tools time out; every backend-only call stays healthy throughout).
+
+**Facts (a) and (b) remain unobtained live, in this environment, across two
+independent attempts.** This is now a corroborated, repeatable finding — not
+a single session's bad luck — and reads as a structural limitation of
+`user_mouse_input`/`screen_capture` in whatever hosts this Studio instance
+(most consistent with no attached display for the Studio window to render
+into, unchanged from the first session's diagnosis), not a fixable retry
+target. The DECISION above does not change: it was never conditioned on
+obtaining this evidence, precisely because the first session already
+established it might not be obtainable here. Closing facts (a)/(b) now
+requires either a real attached display or a physical/retail touch device —
+recorded as the standing follow-up, same as `NS-P2`.
+
 ## Implementation note
 
 Touch differences from mouse, preserved in `src/controls/row_actions.luau`:
