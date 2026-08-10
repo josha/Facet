@@ -150,8 +150,10 @@ end
 -- definition src/present/focus_map.luau and src/layout/text_audit.luau each
 -- keep a private copy of (a leaf utility duplicated rather than reached for
 -- across the present/ layer a control must not depend on). Used to answer
--- "does the row's own content subtree currently hold focus" from the live
--- path `bindFocusGraph` hands over — see `pathInsideRow` below.
+-- "does focus currently sit somewhere inside this row's OWN mounted
+-- subtree" (content, a revealed tray button, or an open menu row — not
+-- `content` alone; see `pathInsideRow`'s own comment below for why) from
+-- the live path `bindFocusGraph` hands over.
 local function isPathPrefix(prefix: string, path: string): boolean
 	return path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/"
 end
@@ -847,16 +849,47 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	end
 
 	-- ===== Task 8: focus-scoped keyboard/gamepad bindings ===================
-	-- "active ONLY while the wrapper's content subtree holds focus" (brief).
+	-- THE REAL SCOPE (corrected, review round 1 — the brief's own "active
+	-- ONLY while the wrapper's content subtree holds focus" undersold what
+	-- is actually built and true, and the mismatch hid a real bug; see the
+	-- MENU-OPEN CARVE-OUT below for what it hid). `pathInsideRow` checks
+	-- `rootPath` — this COMPOSITE's own whole mounted subtree: `content`,
+	-- a revealed tray button, or an open menu row are ALL "inside the row"
+	-- by this check, not `content` alone. That is deliberate, not a
+	-- shortcut: a player who has tabbed onto a revealed tray button, or
+	-- into the open menu itself, is still unambiguously interacting with
+	-- THIS row, and Delete/ButtonX ought to keep meaning "this row" there
+	-- too — narrowing the check to literally `content`'s own path would
+	-- make ButtonX unable to re-close the menu it just opened (focus moves
+	-- to the menu's own first row the instant it opens — see `buildMenuRows`
+	-- below — which is immediately outside a `content`-only scope) without
+	-- gaining anything Delete/ButtonX need to refuse.
+	--
+	-- THE MENU-OPEN CARVE-OUT. That broad scope has exactly one hazard: with
+	-- the menu open, `pathInsideRow` is STILL true (a menu row is inside
+	-- `rootPath`), so nothing here stopped Delete from firing straight
+	-- through `commitDestructive()` — an entirely separate IAS path from the
+	-- menu's own `handleActivate`/`transientScope` — while a NON-destructive
+	-- menu row (e.g. "Flag") sat focused. Reproduced: the row committed and
+	-- collapsed (`phase == "closed"`) while `menuOpen` stayed `true` and the
+	-- menu's own rows stayed mounted on top of a fully collapsed row. Fixed
+	-- at the Delete handler itself (below): the open menu is the ONLY
+	-- legal path to ANY action once it is up, destructive or not, so Delete
+	-- is inert for the whole time `menuOpen` is true — the menu's own
+	-- Activate/Cancel is the one way in. ButtonX is NOT carved out the same
+	-- way: toggling it closed while a menu row holds focus is the intended
+	-- close affordance, and it never touches an action directly (only
+	-- `toggleMenu`, which the menu's own state already guards idempotently).
+	--
 	-- `bindFocusGraph` hands over the screen's live focused-path signal
-	-- (`graph.focused`, slider.luau's own precedent); `pathInsideRow` asks
-	-- whether that path sits inside THIS composite's own mounted subtree
-	-- (`rootPath`, learned by `syncGeometry` below — same "learned here,
-	-- re-ask once known" two-step slider.luau's own `syncTrackFocus` uses).
-	-- The two keys/actions this scope owns:
+	-- (`graph.focused`, slider.luau's own precedent); `rootPath` is learned
+	-- by `syncGeometry` below (same "learned here, re-ask once known"
+	-- two-step slider.luau's own `syncTrackFocus` uses). The two
+	-- keys/actions this scope owns:
 	--   RowActionsDelete (Delete, Backspace) — only ever created when
 	--     `hasDestructive`, so an unregistered binding truly falls through
-	--     (brief) rather than existing-but-inert.
+	--     (brief) rather than existing-but-inert; additionally inert
+	--     whenever `menuOpen` (the carve-out above).
 	--   RowActionsMenu (gamepad ButtonX only — see the Task 8 report for
 	--     why a clean, non-double-firing Shift+Return binding is NOT
 	--     expressible against the current action system without a
@@ -871,8 +904,8 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	--     itself an activatable control, e.g. `rowButtonContent` in this
 	--     file's own test), or, if it sinks to avoid that, silently eats
 	--     PLAIN Return for the whole row whenever this scope is active — a
-	--     regression, not a fix. NEEDS_CONTEXT filed for Shift+Return; see
-	--     the Task 8 report).
+	--     regression, not a fix. Scoped to a follow-up (Task 8b, director-
+	--     approved) rather than shipped here; see the Task 8 report).
 	--
 	-- `sink = true` (TEXT_ENTRY_PRIORITY's own precedent, text_input.luau):
 	-- while this scope owns Delete/Backspace/ButtonX, nothing lower-priority
@@ -894,6 +927,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			deleteAction.bind({ keyCode = "Delete" })
 			deleteAction.bind({ keyCode = "Backspace" })
 			deleteAction.onPressed(function()
+				-- MENU-OPEN CARVE-OUT (review round 1 MAJOR, see the big
+				-- comment above): the open menu owns ALL action dispatch
+				-- while it is up — Delete must not reach a destructive
+				-- action out from under it. `menuOpen` is checked live
+				-- (not snapshotted), so this guard tracks the menu's real
+				-- state on every single press.
+				if menuOpen:get() then
+					return
+				end
 				commitDestructive()
 			end)
 		end
@@ -1438,11 +1480,26 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- pointing at a path that no longer exists (caught live: closing
 		-- the menu via Activate or Cancel left `graph.focused` on the
 		-- just-unmounted row's own path). Splitting the permanent anchor
-		-- from the lazy rows — one extra always-mounted, zero-footprint
-		-- node per row that HAS a menu at all — is what keeps the
-		-- contribution itself in `collectContributions`'s walk across the
-		-- whole open/close cycle, so `ts.active:get()` going false is what
-		-- the presenter actually observes change, not a bundle disappearing.
+		-- from the lazy rows is what keeps the contribution itself in
+		-- `collectContributions`'s walk across the whole open/close cycle,
+		-- so `ts.active:get()` going false is what the presenter actually
+		-- observes change, not a bundle disappearing.
+		--
+		-- THE PRECISE COST of the extra always-mounted node this splits
+		-- off (review round 1 nit — "zero-footprint" overclaimed): this
+		-- `Anchor` carries no `surface`/decoration prop, so the REAL Roblox
+		-- adapter (`screen_target.luau`'s `ELIDABLE_CLASSES`, which lists
+		-- `Anchor`) elides it — no `Instance` at all, unless something
+		-- later needs one (a hit rect, an event) — but `Menu`'s own
+		-- `MenuRowsWhen` child is a `UI.When`, a class that set does NOT
+		-- list, so it always materialises 1 real `Instance` even while its
+		-- condition is false (mounting zero children) — the same "a closed
+		-- `UI.When` is a Frame, not nothing" fact Task 3's own report
+		-- already priced into the row's normal closed-state instance count
+		-- (3-4, not 2). So a row that has a menu at all costs exactly one
+		-- more permanent `Instance` while the menu is closed than a row
+		-- that doesn't — not zero, not free, but inside the budget the
+		-- tray's own lazy `UI.When`s already set.
 		local menuAnchor = contribution.attach(
 			UI.Anchor({
 				id = MENU_ID,
@@ -1625,9 +1682,10 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end,
 			-- Task 8: the action-system + focus-graph handoff that lets
 			-- `ensureKeysContext`/`syncKeysEnabled` above bind Delete/
-			-- Backspace/ButtonX SCOPED to this row's own content subtree
+			-- Backspace/ButtonX SCOPED to this row's own mounted subtree
 			-- holding focus (see the big comment above
-			-- `ROW_ACTIONS_KEY_PRIORITY`). Either arriving triggers a
+			-- `ROW_ACTIONS_KEY_PRIORITY` for the real scope and the
+			-- menu-open carve-out). Either arriving triggers a
 			-- re-check; order between the two (and against `syncGeometry`'s
 			-- own first-rootPath re-check) is not guaranteed, so all three
 			-- call the same idempotent `syncKeysEnabled`.

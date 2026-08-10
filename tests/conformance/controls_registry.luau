@@ -628,15 +628,18 @@ local registry: { Entry } = {
 		-- clampDrag, settle) is unconditionally shared between the two classes —
 		-- see the hotSwitch note below for why this row's in-flight gesture state
 		-- now demands (and has) a real §C citation. Task 8 ships keyboard
-		-- Delete/Backspace (a destructive action, scoped to the wrapper's
-		-- content subtree holding focus — tests/row_actions_input.spec.luau
-		-- "RowActions Task 8: keyboard Delete") and the gamepad ButtonX
-		-- action menu (a PopupButton-pattern popup listing every action —
-		-- "RowActions Task 8: the action menu (ButtonX)"). `Shift+Return`
-		-- is NOT bound (NEEDS_CONTEXT: no modifier slot on an IAS binding,
-		-- and Return is already the base screen's Activate key — see the
-		-- Task 8 report/docs/reference/api.md's own newRowActions section);
-		-- the menu is reachable today only via ButtonX.
+		-- Delete/Backspace (a destructive action, scoped to the row's own
+		-- mounted subtree — content, a revealed tray button, or an open
+		-- menu row — holding focus, and inert while the menu is open (it
+		-- owns input then) — tests/row_actions_input.spec.luau "RowActions
+		-- Task 8: keyboard Delete") and the gamepad ButtonX action menu (a
+		-- PopupButton-pattern popup listing every action — "RowActions Task
+		-- 8: the action menu (ButtonX)"). `Shift+Return` is NOT bound
+		-- (NEEDS_CONTEXT, scoped to a follow-up Task 8b: no modifier slot
+		-- on an IAS binding, and Return is already the base screen's
+		-- Activate key — see the Task 8 report/docs/reference/api.md's own
+		-- newRowActions section); the menu is reachable today only via
+		-- ButtonX.
 		name = "RowActions",
 		kind = "composite",
 		module = "src/controls/row_actions.luau",

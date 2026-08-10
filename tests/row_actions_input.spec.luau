@@ -23,6 +23,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local LuauUI = require("../src") :: any
 local row_actions = require("../src/controls/row_actions")
 local fake_target = require("../tests/lib/fake_target")
+local lt = require("./lib/large_text")
+local text_metrics = require("../src/layout/text_metrics")
 
 local ROW = "/S/Row"
 local HIT = ROW .. "/Content/Hit"
@@ -1457,4 +1459,224 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			expect((after :: any)[key]).toBe(v)
 		end
 	end)
+
+	-- REVIEW ROUND 1, MAJOR (reproduced deterministically): Delete used to
+	-- reach `commitDestructive` through the keys context's OWN, separate IAS
+	-- path regardless of the open menu — `pathInsideRow` is a whole-row
+	-- scope (content, tray, OR an open menu row are all "inside"), so with
+	-- the menu open and a NON-destructive row focused ("Flag"), Delete still
+	-- fired the destructive action straight through, collapsing the row
+	-- (`phase == "closed"`) while `menuOpen` stayed `true` and the menu's
+	-- own rows stayed mounted on top of it. Fixed: Delete is inert for the
+	-- whole time the menu is open (the menu owns all input then); this is
+	-- exactly the brief's own regression recipe.
+	it("Delete while the menu is open does not bypass it — the open menu owns input", function()
+		local fired: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "flag",
+						role = "normal",
+						label = "Flag",
+						onAction = function()
+							table.insert(fired, "flag")
+						end,
+					},
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("ButtonX") -- open the menu; focus enters on its first (non-destructive) row
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(true)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+
+		w.press("Delete") -- must be INERT: the menu owns input, not this key
+		w.settle(60)
+		expect(#fired).toBe(0)
+		expect(w.ra.dump().menuOpen).toBe(true) -- still open
+		expect(w.ra.dump().phase).toBe("closed") -- the tray never opened, let alone collapsed
+		-- FUNCTIONAL, not just un-fired: focus is still exactly where it was
+		-- (Delete did not disturb the menu's own mount/focus state), and the
+		-- menu's own Activate still works normally.
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+		expect(w.adapter.node("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")).never().toBe(nil)
+
+		w.press("ButtonB") -- Cancel closes without firing
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(false)
+		expect(#fired).toBe(0)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored
+
+		-- THEN: Delete on the focused row content commits normally (the
+		-- guard only blocks Delete while the menu is actually open).
+		w.press("Delete")
+		w.settle(400)
+		expect(fired).toEqual({ "delete" })
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().phase).toBe("closed")
+	end)
+
+	it(
+		"two rows on one screen: focusing row A and pressing Delete commits only A (the scope actually gates, not merely exists)",
+		function()
+			local firedA: { string } = {}
+			local firedB: { string } = {}
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new()
+			local clockTime = 0
+			local pres = LuauUI.newPresenter(core, env, adapter, system, {
+				now = function()
+					return clockTime
+				end,
+			})
+			local function trailingRow(rowId: string, fired: { string })
+				return row_actions.build(LuauUI, core, {
+					id = rowId,
+					content = focusableBody("Body"),
+					trailing = {
+						{
+							id = "delete",
+							role = "destructive",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired, "delete")
+							end,
+						},
+					},
+				})
+			end
+			local rowA = trailingRow("RowA", firedA)
+			local rowB = trailingRow("RowB", firedB)
+			local screen = LuauUI.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+			pres.present(screen, { sinkNavigation = true })
+			pres.refresh()
+			pres.focus.focusOn("/S/RowA/Content/Body")
+			system.deviceKey("Delete", true)
+			system.deviceKey("Delete", false)
+			pres.refresh()
+			for _ = 1, 400 do
+				clockTime += ROW_ACTIONS_KEY_FRAME
+				pres.tick(ROW_ACTIONS_KEY_FRAME)
+				pres.refresh()
+			end
+			expect(firedA).toEqual({ "delete" })
+			expect(#firedB).toBe(0) -- B's own Delete binding never saw it: focus never entered B's scope
+		end
+	)
+
+	it(
+		"popup parity: a tap OUTSIDE the open menu on a sibling closes the menu AND swallows the press (opposite of the tray's own no-swallow)",
+		function()
+			local menuFired: { string } = {}
+			local siblingFired: { string } = {}
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local ra = row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "flag",
+						role = "normal",
+						label = "Flag",
+						onAction = function()
+							table.insert(menuFired, "flag")
+						end,
+					},
+				},
+			})
+			local sibling = LuauUI.UI.Button({
+				id = "Sibling",
+				label = "Sibling",
+				width = { type = "fixed", px = 200 },
+				height = { type = "fixed", px = 48 },
+				onActivate = function()
+					table.insert(siblingFired, "tap")
+				end,
+			})
+			local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint, sibling } })
+			pres.present(screen, { sinkNavigation = true })
+			pres.refresh()
+			pres.focus.focusOn("/S/Row/Content/Body")
+			system.deviceKey("ButtonX", true)
+			system.deviceKey("ButtonX", false)
+			pres.refresh()
+			expect(ra.dump().menuOpen).toBe(true)
+			adapter.tap("/S/Sibling")
+			pres.refresh()
+			expect(ra.dump().menuOpen).toBe(false) -- closed
+			expect(#siblingFired).toBe(0) -- SWALLOWED — the menu behaves like PopupButton, not like the tray
+			expect(#menuFired).toBe(0) -- nothing in the row's own menu fired either
+		end
+	)
+
+	-- REVIEW ROUND 1, item 3: menu rows are `width = fill` + a THEME-fixed
+	-- `height`, carrying a player-facing label, with zero pseudo-loc coverage
+	-- before this test. Pinned rather than re-engineered (see the Task 8 fix
+	-- report for the analysis): unlike the tray — a fixed-height HStack
+	-- whose buttons are forced to a shared row height AND must not grow it,
+	-- so Task 2-4 derive each button's WIDTH from its measured natural size
+	-- — a menu row is `fill` INSIDE A CONTENT-SIZED (hugging) parent (the
+	-- `Menu` Anchor and `MenuRows` VStack both go unconstrained-width,
+	-- exactly `popup_button.luau`'s own `Popup`/rows shape when NOT given an
+	-- explicit fill width by an outer composite). A `fill` child of a
+	-- hugging parent reports its own NATURAL width — proven live below —
+	-- so nothing here ever forces a wrap: the row widens to the label
+	-- instead, the same escape hatch the tray's buttons use on the other
+	-- axis. `controlSizes.compact.height` (36px @ default theme) is a
+	-- comfortable single-line floor for the compact control type ladder,
+	-- and every existing control that uses it (PopupButton, Table headers)
+	-- carries the identical assumption — this is inherited, not new.
+	it(
+		"menu row labels survive 1.4x pseudo-loc without wrapping or clipping (fill-inside-a-hugging-parent widens instead)",
+		function()
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body"),
+					trailing = {
+						{ id = "delete", role = "destructive", label = lt.PSEUDO, onAction = function() end },
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.press("ButtonX")
+			w.pres.refresh()
+			local path = "/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:delete"
+			local node = w.adapter.node(path)
+			expect(node ~= nil).toBe(true)
+			expect((node :: any).props.label).toBe(lt.PSEUDO)
+
+			local facts = w.handle.controller.textAt(path)
+			expect(facts ~= nil).toBe(true)
+			expect(facts.truncated).toBe(false)
+			expect(facts.lines).toBe(1) -- never wraps: the row widens instead of reflowing
+
+			-- independent proof, not just the solver's own verdict: the rect the
+			-- row actually solved to is at least as wide as the label's real
+			-- natural (single-line) width at its real font/size — the same
+			-- oracle the tray's own pseudo-loc test uses.
+			local natural = text_metrics.measure(lt.PSEUDO, facts.font, facts.size, math.huge)
+			expect((node :: any).rect.w >= natural.width).toBe(true)
+		end
+	)
 end)

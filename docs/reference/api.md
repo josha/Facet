@@ -3787,24 +3787,31 @@ Return surface:
 - `dispose()` — disposes the control scope and nothing else.
 
 **Task 8: keyboard Delete + the action menu.** When either edge declares a
-`role = "destructive"` action, focusing anywhere inside `content` and
-pressing **Delete or Backspace** commits the FIRST destructive action found
-(trailing searched before leading) through the same slide-off + collapse
-sequence a full swipe uses — never a bare callback. No destructive action
-anywhere means the binding is not registered at all (the key falls through
-to whatever else wants it). A **gamepad ButtonX** press, same focus scope,
-toggles a small popup menu (PopupButton-pattern: transient, focus-trapped,
-outside-tap dismisses) listing every declared action — leading then
-trailing, document order — as a focusable row; activating one runs it
-exactly once (a destructive item through the same commit sequence as
-Delete) and closes the menu; Cancel (gamepad ButtonB) closes it without
-firing anything. **`Shift+Return` is NOT bound** — the current action system
-has no modifier slot on a key binding, `Return` is already the base
-screen's own Activate key, and a focused leaf's own `onActivate` fires
-before any contribution or modifier state is consulted, so a second
+`role = "destructive"` action, focusing anywhere inside the row's own
+mounted subtree — `content`, a revealed tray button, or (see below) an open
+menu row — and pressing **Delete or Backspace** commits the FIRST
+destructive action found (trailing searched before leading) through the
+same slide-off + collapse sequence a full swipe uses — never a bare
+callback. No destructive action anywhere means the binding is not
+registered at all (the key falls through to whatever else wants it). A
+**gamepad ButtonX** press, same focus scope, toggles a small popup menu
+(PopupButton-pattern: transient, focus-trapped, outside-tap swallows and
+dismisses) listing every declared action — leading then trailing, document
+order — as a focusable row; activating one runs it exactly once (a
+destructive item through the same commit sequence as Delete) and closes the
+menu; Cancel (gamepad ButtonB) closes it without firing anything. **While
+the menu is open, it owns all input**: opening it moves focus onto its own
+first row, and Delete/Backspace go inert for as long as `menuOpen` is true
+— the menu's own Activate/Cancel is the only way to act on ANY action,
+destructive or not, once it is up (closing it, via Activate or Cancel,
+hands Delete/Backspace back). **`Shift+Return` is NOT bound** — the current
+action system has no modifier slot on a key binding, `Return` is already
+the base screen's own Activate key, and a focused leaf's own `onActivate`
+fires before any contribution or modifier state is consulted, so a second
 Return-bound context either double-fires alongside Activate on a shifted
 press or, sinking to avoid that, silently eats plain Return for the row.
-Filed NEEDS_CONTEXT; ButtonX is the only bound way to reach the menu today.
+Filed NEEDS_CONTEXT (scoped to a follow-up, Task 8b); ButtonX is the only
+bound way to reach the menu today.
 
 Invariants:
 
