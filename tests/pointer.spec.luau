@@ -139,6 +139,83 @@ describe("Pointer seam: capture lifecycle", function()
 		expect(moves).toBe(0)
 		expect(adapter.cursorHint()).toBe(nil)
 	end)
+
+	-- Task 10 (row-actions Table integration) follow-up: destroyRoot's capture
+	-- cancellation, proven SCOPED to its own root — no Table, no row_actions,
+	-- no presenter. Live-found bug: `destroyRoot` used to end the adapter's
+	-- ONE live pointer capture unconditionally whenever ANY root tore down
+	-- (fake_target.luau's own prior comment on this exact line: "root
+	-- teardown always ends the capture" — true only when the torn-down root
+	-- is the SAME one that holds the capture), even a root the capture has
+	-- nothing to do with — an adapter legitimately hosts several roots at
+	-- once. row-actions Task 10 hit this through the presenter's own
+	-- transient popup-catcher root (mounted/retired reactively off any
+	-- `outsideDismiss.active` change) tearing down mid-gesture and cancelling
+	-- an UNRELATED row's still-live drag; this test isolates the same
+	-- invariant at the one seam it actually lives in (`destroyRoot` itself),
+	-- independent of that whole call chain.
+	local function mountRoot(adapter: any, id: string, counts: { moves: number, ups: number, cancels: number })
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local root = LuauUI.mount(
+			core,
+			LuauUI.UI.Screen({
+				id = id,
+				children = {
+					LuauUI.UI.Grip({
+						id = "G",
+						width = { type = "fixed", px = 8 },
+						height = { type = "fixed", px = 20 },
+						onPointerDown = function(): boolean?
+							return true
+						end,
+						onPointerMove = function()
+							counts.moves += 1
+						end,
+						onPointerUp = function()
+							counts.ups += 1
+						end,
+						onPointerCancel = function(): boolean?
+							counts.cancels += 1
+							return nil
+						end,
+					}),
+				},
+			})
+		)
+		local controller = LuauUI.renderer.attach(core, root, env, adapter, {})
+		controller.initialRender()
+		return root, controller
+	end
+
+	it("a live capture on root B survives root A's destroyRoot, and cancels on root B's own destroyRoot", function()
+		local adapter = fake_target.new()
+		local countsA = { moves = 0, ups = 0, cancels = 0 }
+		local countsB = { moves = 0, ups = 0, cancels = 0 }
+		local rootA, controllerA = mountRoot(adapter, "A", countsA)
+		local rootB, controllerB = mountRoot(adapter, "B", countsB)
+
+		-- capture a live gesture on root B's own grip
+		adapter.pointerDown("/B/G", 4, 10, "mouse")
+		expect(countsB.cancels).toBe(0)
+
+		-- destroying the UNRELATED root (A) must never touch B's live capture
+		controllerA.dispose()
+		rootA.dispose()
+		expect(countsB.cancels).toBe(0) -- not cancelled by an unrelated root's teardown
+		adapter.pointerMove(5, 10)
+		expect(countsB.moves).toBe(1) -- the capture survived: move still routes to it
+		adapter.pointerUp(5, 10)
+		expect(countsB.ups).toBe(1) -- ...and completes normally
+		expect(countsA.moves + countsA.ups + countsA.cancels).toBe(0) -- root A's own grip never involved
+
+		-- a FRESH capture on B, this time destroying B itself: THIS must cancel
+		adapter.pointerDown("/B/G", 4, 10, "mouse")
+		controllerB.dispose()
+		rootB.dispose()
+		expect(countsB.cancels).toBe(1) -- the capture belonged to the destroyed root
+	end)
 end)
 
 describe("Pointer seam: dynamic hints and opt-in bindings", function()
