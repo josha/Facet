@@ -1813,6 +1813,36 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- tray's own `Action:<id>` list).
 		local editAffordancePattern = `/{idPattern}/EditAffordanceWhen/then/EditAffordance$`
 
+		-- REDTEAM FIX (item 3, MAJOR): a direct tap/Activate on a REVEALED tray
+		-- button (this composite's own `handleActivate` below — distinct from
+		-- the full-swipe gesture's `doCommit` and the menu's own
+		-- `menuHandleActivate`, both of which already ran their callback
+		-- through a quarantine) used to call `action.onAction()` bare — an
+		-- uncaught throw would escape straight through the presenter's own
+		-- Activate dispatch — AND never closed the tray afterward, leaving it
+		-- open (and, for a destructive action, the row never collapsing)
+		-- after a successful fire. Fixed at the one call site both edges
+		-- share: mirrors `menuHandleActivate`'s own edge/role split exactly
+		-- (menuAnchor's own comment: "a destructive item runs through
+		-- `doCommitAction`... anything else is a quarantined, exactly-once
+		-- callback") rather than inventing a third behavior — a destructive
+		-- tray button gets the SAME full slide-off+collapse commit sequence a
+		-- full swipe or a destructive menu row already gets; a normal one
+		-- gets a quarantined fire followed by an ordinary `close()`. `close()`
+		-- runs unconditionally after the `pcall` (not gated on success) —
+		-- same "a throw must not skip close()" guarantee `doCommitAction`'s
+		-- own comment already documents for its own quarantined callback.
+		local function fireTrayAction(edge: Edge, action: ActionSpec)
+			if action.role == "destructive" then
+				local rowW = currentRowWidth()
+				local target = if edge == "leading" then rowW else -rowW
+				doCommitAction(edge, action, target)
+			else
+				pcall(action.onAction)
+				close()
+			end
+		end
+
 		-- routes a presenter/tap Activate; returns true when the path was ours
 		-- (mirrors popup_button.luau's api.handleActivate).
 		local function handleActivate(path: string, _meta: any?): boolean
@@ -1830,15 +1860,17 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 			if leadingActions ~= nil then
 				local aid = actionIdFromPath("leading", path)
-				if aid ~= nil and actionsById.leading[aid] ~= nil then
-					actionsById.leading[aid].onAction()
+				local action = if aid ~= nil then actionsById.leading[aid] else nil
+				if action ~= nil then
+					fireTrayAction("leading", action)
 					return true
 				end
 			end
 			if trailingActions ~= nil then
 				local aid = actionIdFromPath("trailing", path)
-				if aid ~= nil and actionsById.trailing[aid] ~= nil then
-					actionsById.trailing[aid].onAction()
+				local action = if aid ~= nil then actionsById.trailing[aid] else nil
+				if action ~= nil then
+					fireTrayAction("trailing", action)
 					return true
 				end
 			end

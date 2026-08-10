@@ -602,6 +602,40 @@ describe("RowActions control", function()
 		expect(w.fired[1]).toBe("delete")
 	end)
 
+	-- REDTEAM ITEM 3 (MAJOR): a direct tap/Activate on a revealed (non-swipe,
+	-- non-menu) tray action used to call `onAction` bare — an uncaught throw
+	-- escaped straight through the presenter's own Activate dispatch — and
+	-- never closed the tray afterward even on success, leaving a fired
+	-- action's tray stranded open.
+	it("a throwing tray action is contained (not a bare call) and still closes the tray", function()
+		local calls = 0
+		local w = openTrailingWorld({
+			{
+				id = "boom",
+				label = "Boom",
+				onAction = function()
+					calls += 1
+					error("kaboom")
+				end,
+			},
+		})
+		expect(w.ra._isOpen()).toBe(true)
+		local ok = pcall(function()
+			w.adapter.tap(TRAILING_TRAY .. "/Action:boom")
+		end)
+		expect(ok).toBe(true) -- the throw never escaped Activate dispatch
+		expect(calls).toBe(1)
+		expect(w.ra._isOpen()).toBe(false) -- closed even though the callback threw
+	end)
+
+	it("a successful (non-destructive) tray action fires exactly once and closes the tray", function()
+		local w = openTrailingWorld()
+		expect(w.ra._isOpen()).toBe(true)
+		w.adapter.tap(DELETE_PATH)
+		expect(w.fired).toEqual({ "delete" })
+		expect(w.ra._isOpen()).toBe(false)
+	end)
+
 	it("RowActions keyboard: focus + Return activates a revealed tray action", function()
 		local w = openTrailingWorld()
 		expect(w.pres.focus.focused:get()).toBe(DELETE_PATH)
