@@ -31,6 +31,10 @@ local lt = require("./lib/large_text")
 -- ten-foot focus), mirroring tests/chip.spec.luau's renderWorld
 local mountLib = require("../src/mount")
 local renderer = require("../src/render/renderer")
+-- the solver's OWN headless text measurement (src/layout/text_metrics), used
+-- to independently verify the "no clipping" claim against the button's REAL
+-- font/size (read off controller.textAt), not a guessed one.
+local text_metrics = require("../src/layout/text_metrics")
 
 local ROW = "/S/Row"
 local TRAILING_TRAY = ROW .. "/TrayTrailingWhen/then/TrayTrailing"
@@ -208,6 +212,38 @@ describe("RowActions control", function()
 	end)
 
 	-- 4. LOCALIZATION SAFETY ----------------------------------------------------
+	-- A tray Button with no children solves through the SOLVER'S OWN text-
+	-- measure branch (src/layout/solver.luau: `class == "Button"` with no
+	-- children -> `kind = "text"`), so `controller.textAt(path)` publishes the
+	-- SAME per-text facts tests/text_audit.spec.luau reads for a plain UI.Text
+	-- (font, size, lines, naturalLines, truncated) — the real measured-
+	-- against-the-real-box facts, not a guess.
+	--
+	-- A prior version of this test asserted `rect.w >= buttonMinWidth`
+	-- (hardcoded floor, true even for a button PINNED at exactly 64px) and
+	-- `props.label` equality (always true — this control never mutates the
+	-- string); neither could ever fail. Code review (mutating the tray
+	-- button's width to `{ type = "fixed", px = 64 }`) caught that the old
+	-- test kept passing.
+	--
+	-- Investigating that mutation live (a throwaway headless repro) found
+	-- `textFacts.truncated` can NEVER be true here regardless: `lt.PSEUDO`
+	-- (like every string `pseudoLocalize` produces) is always two "words" —
+	-- the source text plus a space-separated dot-padding suffix
+	-- (tests/fixtures/a11y_l10n_fixtures.luau `pseudoLocalize`) — so
+	-- `isSingleWord` (src/render/renderer.luau) is always false for it, the
+	-- Button never takes the single-line/clip path, and a too-narrow box
+	-- makes it WRAP instead (measured live: the 64px-pinned mutation wraps
+	-- the label to 5 lines and balloons the row from 48px to 108px tall,
+	-- `truncated` stays `false` throughout — wrapping, unlike a line-capped
+	-- ellipsis, is never "truncated"). So the fact that actually distinguishes
+	-- "grew wide enough" from "clipped/reflowed" is `lines == 1`: this
+	-- composite's contract (`buttonMinWidth` is a floor a button WIDENS past,
+	-- Task 2/docs/reference/api.md `newRowActions`) promises a tray action
+	-- reads as ONE line, never wraps — the iOS pattern this control follows
+	-- never reflows an action label. Backed by an independent measurement
+	-- (the solver's own `text_metrics.measure`, at the button's REAL font/
+	-- size) proving the box is wide enough for the natural one-line width.
 	it("labels survive 1.4x pseudo-loc without clipping (button never narrower than buttonMinWidth)", function()
 		local w = presenterWorld(function(core)
 			return row_actions.build(LuauUI, core, {
@@ -220,10 +256,20 @@ describe("RowActions control", function()
 		w.pres.refresh()
 		local node = w.adapter.node(DELETE_PATH)
 		expect(node ~= nil).toBe(true)
-		-- the composite never truncates the label itself (no clip anywhere in
-		-- this file) — the floor is the theme's buttonMinWidth (64px, Task 2)
 		expect(node.props.label).toBe(lt.PSEUDO)
-		expect(node.rect.w >= 64).toBe(true)
+		expect(node.rect.w >= 64).toBe(true) -- the theme's buttonMinWidth floor (Task 2)
+
+		local facts = w.handle.controller.textAt(DELETE_PATH)
+		expect(facts ~= nil).toBe(true)
+		expect(facts.truncated).toBe(false)
+		expect(facts.lines).toBe(1) -- never wraps: the button widens instead of reflowing
+
+		-- independent proof, not just the solver's own verdict: the box the
+		-- button actually solved to is wide enough for the label's real
+		-- natural (single-line) width at its real font/size, plus its padding.
+		local natural = text_metrics.measure(lt.PSEUDO, facts.font, facts.size, math.huge)
+		local buttonPad = 8 -- controls.rowActions.buttonPad (Task 2 default = style.space.s)
+		expect(node.rect.w >= natural.width + 2 * buttonPad).toBe(true)
 	end)
 
 	-- 5. THE STATIC REVEAL SEAM (Tasks 4-6 build motion on this) ---------------
