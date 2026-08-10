@@ -969,3 +969,492 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 		end
 	)
 end)
+
+-- ===========================================================================
+-- Task 8: keyboard Delete + the Shift+Return/ButtonX action menu
+-- (docs/plans/row-actions-implementation.md Task 8, task-8-brief.md).
+--
+-- SHIFT+RETURN IS NOT BOUND — NEEDS_CONTEXT (see the Task 8 report for the
+-- full writeup). `Return` is already the base screen's own Activate key
+-- (presenter.luau:2528: `activate.bind({ keyCode = "Return" })`), IAS
+-- bindings carry no modifier slot (src/input/actions.luau's `action.bind`:
+-- keyCode/scriptable/uiButton/displayName/direction only), and a focused
+-- leaf's own `onActivate` fires UNCONDITIONALLY, before any contribution or
+-- modifier state is consulted (presenter.luau `dispatchActivate` step 1,
+-- ~line 282-300) — so a SECOND context bound to Return either double-fires
+-- alongside Activate on every SHIFTED press whenever the focused content is
+-- itself activatable (exactly `focusableBody` below — the realistic case,
+-- already proven live by Task 7's own `rowButtonContent`), or, if it sinks
+-- to avoid that, silently eats PLAIN Return for the whole row while this
+-- scope is active — a regression, not a fix. Only the gamepad half
+-- (`ButtonX`, unclaimed anywhere else in the shipped system) is bound;
+-- these tests cover it and the keyboard Delete/Backspace half, which has no
+-- such collision (`Delete`/`Backspace` are unclaimed too).
+local ROW_ACTIONS_KEY_FRAME = 1 / 60
+
+-- a focusable content Button — deliberately, not the bare `content()` Text
+-- helper above (which cannot hold focus at all): "the wrapper's content
+-- subtree holding focus" (brief) needs something IN content that actually
+-- can. Carries its OWN `onActivate` on request, so a scoped binding that DID
+-- collide with Activate would show up in a test using it.
+local function focusableBody(id: string, fired: { string }?): any
+	return LuauUI.UI.Button({
+		id = id,
+		label = "Row",
+		width = { type = "fixed", px = 400 },
+		height = { type = "fixed", px = 48 },
+		onActivate = if fired ~= nil
+			then function()
+				table.insert(fired :: { string }, "activate")
+			end
+			else nil,
+	})
+end
+
+-- presenter harness mirroring `pointerWorld` above (a scripted clock via
+-- `bindMotion`'s `now`, needed for the commit path's springs), plus the
+-- keyboard focus/press helpers Task 8's tests need that the pointer/touch
+-- describe blocks above did not.
+local function keyboardWorld(build: (core: any) -> any): any
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local clockTime = 0
+	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		now = function()
+			return clockTime
+		end,
+	})
+	local ra = build(core)
+	local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+	local handle = pres.present(screen, { sinkNavigation = true })
+	pres.refresh()
+	local w: any = { core = core, env = env, system = system, adapter = adapter, pres = pres, ra = ra, handle = handle }
+	function w.tick(dt: number)
+		clockTime += dt
+		pres.tick(dt)
+		pres.refresh()
+	end
+	function w.settle(frames: number?)
+		for _ = 1, frames or 90 do
+			w.tick(ROW_ACTIONS_KEY_FRAME)
+		end
+	end
+	function w.press(key: string)
+		system.deviceKey(key, true)
+		system.deviceKey(key, false)
+	end
+	return w
+end
+
+describe("RowActions Task 8: keyboard Delete", function()
+	it("Delete on a focused row fires the first destructive action", function()
+		local fired: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("Delete")
+		w.settle(400)
+		expect(fired).toEqual({ "delete" })
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().phase).toBe("closed")
+	end)
+
+	it("Backspace does the same as Delete", function()
+		local fired: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("Backspace")
+		w.settle(400)
+		expect(fired).toEqual({ "delete" })
+	end)
+
+	it(
+		"Delete searches trailing before leading, and finds the destructive action even when it is not first in its edge's list",
+		function()
+			local fired: { string } = {}
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body"),
+					leading = {
+						{
+							id = "flag-lead",
+							role = "normal",
+							label = "Flag",
+							onAction = function()
+								table.insert(fired, "flag-lead")
+							end,
+						},
+						{
+							id = "delete-lead",
+							role = "destructive",
+							label = "Delete (leading)",
+							onAction = function()
+								table.insert(fired, "delete-lead")
+							end,
+						},
+					},
+					trailing = {
+						{
+							id = "flag-trail",
+							role = "normal",
+							label = "Flag",
+							onAction = function()
+								table.insert(fired, "flag-trail")
+							end,
+						},
+						{
+							id = "delete-trail",
+							role = "destructive",
+							label = "Delete (trailing)",
+							onAction = function()
+								table.insert(fired, "delete-trail")
+							end,
+						},
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.press("Delete")
+			-- checked BEFORE settling (a full settle already runs `close()`,
+			-- which resets `openEdge` to nil): the commit targets "trailing"
+			-- immediately, which is the proof that the SEARCH ORDER (trailing
+			-- first) and the ROLE lookup (not "the edge's first action" —
+			-- `_commitFirst`'s own assumption, which would have targeted
+			-- "flag-trail" instead) both hold.
+			expect(w.ra.dump().openEdge).toBe("trailing")
+			w.settle(400)
+			expect(fired).toEqual({ "delete-trail" })
+			expect(w.ra.dump().phase).toBe("closed")
+		end
+	)
+
+	it(
+		"Delete does nothing when no destructive action exists anywhere — and never registers a binding (the key reaches a sibling consumer untouched)",
+		function()
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local fired: { string } = {}
+			local ra = row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "flag",
+						role = "normal",
+						label = "Flag",
+						onAction = function()
+							table.insert(fired, "flag")
+						end,
+					},
+				},
+			})
+			local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+			pres.present(screen, { sinkNavigation = true })
+			pres.refresh()
+			-- a SIBLING consumer bound directly, bypassing row_actions entirely:
+			-- row_actions creates its OWN keys context with `sink = true`
+			-- (brief: own the key while scoped-active) — if it registered a
+			-- Delete binding at all, even one that never fires anything, a
+			-- sinking, higher-priority context would still consume the key
+			-- before this lower-priority one ever saw it. Firing here proves
+			-- no such context was ever created.
+			local sibling = system.createContext({ name = "Sibling", priority = 1 })
+			local siblingDelete = sibling.createAction("SiblingDelete", "Bool")
+			siblingDelete.bind({ keyCode = "Delete" })
+			local siblingFired = 0
+			siblingDelete.onPressed(function()
+				siblingFired += 1
+			end)
+			pres.focus.focusOn("/S/Row/Content/Body")
+			local ok = pcall(function()
+				system.deviceKey("Delete", true)
+				system.deviceKey("Delete", false)
+			end)
+			pres.refresh()
+			expect(ok).toBe(true) -- no error either
+			expect(#fired).toBe(0)
+			expect(ra._isOpen()).toBe(false)
+			expect(siblingFired).toBe(1) -- the key reached the sibling: nothing shadowed it
+		end
+	)
+
+	it("Delete does nothing while focus is outside this row (scoped to the content subtree)", function()
+		local fired: { string } = {}
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clockTime = 0
+		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clockTime
+			end,
+		})
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = focusableBody("Body"),
+			trailing = {
+				{
+					id = "delete",
+					role = "destructive",
+					label = "Delete",
+					onAction = function()
+						table.insert(fired, "delete")
+					end,
+				},
+			},
+		})
+		local other = LuauUI.UI.Button({
+			id = "Other",
+			label = "Other",
+			width = { type = "fixed", px = 200 },
+			height = { type = "fixed", px = 48 },
+		})
+		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint, other } })
+		pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		pres.focus.focusOn("/S/Other")
+		system.deviceKey("Delete", true)
+		system.deviceKey("Delete", false)
+		pres.refresh()
+		expect(#fired).toBe(0)
+		expect(ra._isOpen()).toBe(false)
+	end)
+end)
+
+describe("RowActions Task 8: the action menu (ButtonX)", function()
+	it(
+		"ButtonX opens the menu, entering focus on its first row; Activate on a non-destructive item runs it exactly once and closes",
+		function()
+			local fired: { string } = {}
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body"),
+					trailing = {
+						{
+							id = "flag",
+							role = "normal",
+							label = "Flag",
+							onAction = function()
+								table.insert(fired, "flag")
+							end,
+						},
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.press("ButtonX")
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true)
+			expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+			w.press("Return") -- Activate the focused (only) menu row
+			w.pres.refresh()
+			expect(fired).toEqual({ "flag" })
+			expect(w.ra.dump().menuOpen).toBe(false)
+			expect(w.adapter.node("/S/Row/Menu/MenuRowsWhen/then/MenuRows")).toBe(nil) -- rows really unmounted
+			expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored
+		end
+	)
+
+	it("lists every action, leading then trailing, in document order", function()
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				leading = {
+					{ id = "archive", role = "normal", label = "Archive", onAction = function() end },
+				},
+				trailing = {
+					{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+					{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("ButtonX")
+		w.pres.refresh()
+		-- leading first (its only entry), then trailing in its own declared
+		-- order — proven by walking Navigate one step at a time rather than
+		-- reading internal state, so this is the same order a keyboard/
+		-- gamepad player actually experiences.
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:archive")
+		w.press("Down")
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+		w.press("Down")
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:delete")
+	end)
+
+	it(
+		"a destructive action from the menu runs the full commit sequence (slide-off + collapse), not a bare callback",
+		function()
+			local fired: { string } = {}
+			local w = keyboardWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = focusableBody("Body"),
+					trailing = {
+						{
+							id = "delete",
+							role = "destructive",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired, "delete")
+							end,
+						},
+					},
+				})
+			end)
+			w.pres.focus.focusOn("/S/Row/Content/Body")
+			w.press("ButtonX") -- open the menu
+			w.pres.refresh()
+			w.press("Return") -- Activate the focused (only, destructive) menu row
+			w.pres.refresh()
+			-- NOT a bare callback: it has not fired yet — it fires only after
+			-- the slide-off + collapse sequence settles (`doCommitAction`'s own
+			-- guarantee, shared with the gesture and keyboard-Delete paths).
+			expect(#fired).toBe(0)
+			expect(w.ra.dump().menuOpen).toBe(false) -- the menu itself closed immediately
+			expect(w.ra.dump().openEdge).toBe("trailing") -- the row is visibly committing
+			w.settle(400)
+			expect(fired).toEqual({ "delete" })
+			expect(w.ra._isOpen()).toBe(false)
+			expect(w.ra.dump().phase).toBe("closed")
+		end
+	)
+
+	it("Cancel (gamepad ButtonB) closes the menu without firing anything, and restores focus", function()
+		local fired: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "flag",
+						role = "normal",
+						label = "Flag",
+						onAction = function()
+							table.insert(fired, "flag")
+						end,
+					},
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("ButtonX")
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(true)
+		w.press("ButtonB")
+		w.pres.refresh()
+		expect(#fired).toBe(0)
+		expect(w.ra.dump().menuOpen).toBe(false)
+		expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored to the pre-open focus
+	end)
+
+	it("menu traps focus while open (transientScope): Navigate cannot escape into content or a sibling", function()
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				leading = {
+					{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+				},
+				trailing = {
+					{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("ButtonX")
+		w.pres.refresh()
+		local menuRoot = "/S/Row/Menu/MenuRowsWhen/then/MenuRows"
+		local landed = w.pres.focus.focused:get() :: string
+		expect(string.sub(landed, 1, #menuRoot)).toBe(menuRoot)
+		for _ = 1, 6 do
+			w.press("Down")
+		end
+		local afterNav = w.pres.focus.focused:get() :: string
+		expect(string.sub(afterNav, 1, #menuRoot)).toBe(menuRoot) -- never escaped
+		expect(afterNav).never().toBe("/S/Row/Content/Body")
+	end)
+
+	it("toggling the menu 10 times leaks nothing", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local baseline = core:counters()
+
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = focusableBody("Body"),
+			trailing = {
+				{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+			},
+		})
+		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		pres.focus.focusOn("/S/Row/Content/Body")
+
+		for _ = 1, 10 do
+			system.deviceKey("ButtonX", true) -- open
+			system.deviceKey("ButtonX", false)
+			pres.refresh()
+			system.deviceKey("ButtonX", true) -- close (toggle)
+			system.deviceKey("ButtonX", false)
+			pres.refresh()
+		end
+		expect(ra.dump().menuOpen).toBe(false)
+
+		pres.dismiss(handle)
+		ra.dispose()
+
+		local after = core:counters()
+		for key, v in baseline :: { [string]: number } do
+			expect((after :: any)[key]).toBe(v)
+		end
+	end)
+end)

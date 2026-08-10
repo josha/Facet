@@ -3772,7 +3772,7 @@ Spec fields:
 | `role` | `"normal" \| "destructive"` | no (default `"normal"`) | `"destructive"` paints the Button's own `role = "destructive"` (the shipped danger/onDanger style rule — no bespoke color). |
 | `label` | `string` | **yes** | the tray button's label. Never truncated by this control; the button widens past the theme's `controls.rowActions.buttonMinWidth` floor rather than clip a long (e.g. pseudo-localized) label. |
 | `icon` | `string?` | no | a `standard_icons` name; omitted is text-only. |
-| `onAction` | `() -> ()` | **yes** | called when the action activates (today: a tap/click/Return/ButtonA on the revealed tray button). |
+| `onAction` | `() -> ()` | **yes** | called when the action activates: a tap/click/Return/ButtonA on the revealed tray button, an activation of the action's own row in the Task 8 menu, or — for a `role = "destructive"` action — keyboard Delete/Backspace. |
 
 Return surface:
 
@@ -3781,9 +3781,30 @@ Return surface:
   Activate dispatch (pointer, touch, keyboard, gamepad) exactly like every
   other interactive composite — **no `present()` opts are needed**.
 - `dump()` — a deterministic diagnostic table
-  (`{ schema = "luauui-rowactions-dump/1", id, offset, openEdge, phase }`,
-  `phase` one of `"closed" | "open"` in this release).
+  (`{ schema = "luauui-rowactions-dump/1", id, offset, openEdge, phase, menuOpen }`,
+  `phase` one of `"closed" | "open"` in this release; `menuOpen` is the action
+  menu's own open state, Task 8, independent of the tray).
 - `dispose()` — disposes the control scope and nothing else.
+
+**Task 8: keyboard Delete + the action menu.** When either edge declares a
+`role = "destructive"` action, focusing anywhere inside `content` and
+pressing **Delete or Backspace** commits the FIRST destructive action found
+(trailing searched before leading) through the same slide-off + collapse
+sequence a full swipe uses — never a bare callback. No destructive action
+anywhere means the binding is not registered at all (the key falls through
+to whatever else wants it). A **gamepad ButtonX** press, same focus scope,
+toggles a small popup menu (PopupButton-pattern: transient, focus-trapped,
+outside-tap dismisses) listing every declared action — leading then
+trailing, document order — as a focusable row; activating one runs it
+exactly once (a destructive item through the same commit sequence as
+Delete) and closes the menu; Cancel (gamepad ButtonB) closes it without
+firing anything. **`Shift+Return` is NOT bound** — the current action system
+has no modifier slot on a key binding, `Return` is already the base
+screen's own Activate key, and a focused leaf's own `onActivate` fires
+before any contribution or modifier state is consulted, so a second
+Return-bound context either double-fires alongside Activate on a shifted
+press or, sinking to avoid that, silently eats plain Return for the row.
+Filed NEEDS_CONTEXT; ButtonX is the only bound way to reach the menu today.
 
 Invariants:
 

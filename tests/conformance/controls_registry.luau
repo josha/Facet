@@ -627,8 +627,16 @@ local registry: { Entry } = {
 		-- neither "mouse" nor "touch", and every downstream branch (axis lock,
 		-- clampDrag, settle) is unconditionally shared between the two classes —
 		-- see the hotSwitch note below for why this row's in-flight gesture state
-		-- now demands (and has) a real §C citation. Task 8 still owes
-		-- keyboard-Delete/gamepad.
+		-- now demands (and has) a real §C citation. Task 8 ships keyboard
+		-- Delete/Backspace (a destructive action, scoped to the wrapper's
+		-- content subtree holding focus — tests/row_actions_input.spec.luau
+		-- "RowActions Task 8: keyboard Delete") and the gamepad ButtonX
+		-- action menu (a PopupButton-pattern popup listing every action —
+		-- "RowActions Task 8: the action menu (ButtonX)"). `Shift+Return`
+		-- is NOT bound (NEEDS_CONTEXT: no modifier slot on an IAS binding,
+		-- and Return is already the base screen's Activate key — see the
+		-- Task 8 report/docs/reference/api.md's own newRowActions section);
+		-- the menu is reachable today only via ButtonX.
 		name = "RowActions",
 		kind = "composite",
 		module = "src/controls/row_actions.luau",
@@ -640,8 +648,19 @@ local registry: { Entry } = {
 		inputProofs = {
 			pointer = { "RowActions pointer: a tap on a revealed tray action activates it (device-true)" },
 			touch = { "RowActions touch: a touch tap on a revealed tray action activates it (device-true)" },
-			keyboard = { "RowActions keyboard: focus + Return activates a revealed tray action" },
-			gamepad = { "RowActions gamepad: focus + ButtonA activates a revealed tray action" },
+			keyboard = {
+				"RowActions keyboard: focus + Return activates a revealed tray action",
+				-- Task 8: a SECOND, structurally different keyboard path —
+				-- Delete, not Return/Activate, and it never taps a tray
+				-- button at all (the tray need not even be open).
+				"Delete on a focused row fires the first destructive action",
+			},
+			gamepad = {
+				"RowActions gamepad: focus + ButtonA activates a revealed tray action",
+				-- Task 8: ButtonX opens the action menu (a second gamepad
+				-- surface this control offers, distinct from the tray).
+				"ButtonX opens the menu, entering focus on its first row; Activate on a non-destructive item runs it exactly once and closes",
+			},
 		},
 		affordanceProofs = {
 			pointer = {

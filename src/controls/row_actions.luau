@@ -146,6 +146,16 @@ local function patternEscape(s: string): string
 	return (s:gsub("%W", "%%%0"))
 end
 
+-- Task 8: "is `path` inside `prefix`'s own subtree" — the same 2-line
+-- definition src/present/focus_map.luau and src/layout/text_audit.luau each
+-- keep a private copy of (a leaf utility duplicated rather than reached for
+-- across the present/ layer a control must not depend on). Used to answer
+-- "does the row's own content subtree currently hold focus" from the live
+-- path `bindFocusGraph` hands over — see `pathInsideRow` below.
+local function isPathPrefix(prefix: string, path: string): boolean
+	return path == prefix or string.sub(path, 1, #prefix + 1) == prefix .. "/"
+end
+
 local function trayId(edge: Edge): string
 	return if edge == "leading" then "TrayLeading" else "TrayTrailing"
 end
@@ -348,6 +358,43 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		actionsById.trailing[action.id] = action
 	end
 
+	-- Task 8: does ANY edge declare a destructive action? Static (an
+	-- ActionSpec list never changes post-build — see `actionsById` above),
+	-- computed once so the keyboard Delete binding below can be skipped
+	-- ENTIRELY when the answer is false: "No destructive action anywhere = do
+	-- not register the binding at all — the key must fall through to
+	-- whatever else wants it" (brief). A REGISTERED-but-inert binding would
+	-- still shadow whatever else on the screen wants Delete/Backspace while
+	-- this row holds focus; not registering is the only way to truly not be
+	-- there.
+	local hasDestructive = false
+	for _, action in trailingActions or {} do
+		if action.role == "destructive" then
+			hasDestructive = true
+			break
+		end
+	end
+	if not hasDestructive then
+		for _, action in leadingActions or {} do
+			if action.role == "destructive" then
+				hasDestructive = true
+				break
+			end
+		end
+	end
+
+	-- Task 8: every action, leading-then-trailing, DOCUMENT ORDER — the
+	-- action menu's own row order (brief: "listing EVERY action (leading
+	-- then trailing, document order)"). Static for the same reason as
+	-- `actionsById` above.
+	local menuItemsOrdered: { { edge: Edge, action: ActionSpec } } = {}
+	for _, action in leadingActions or {} do
+		table.insert(menuItemsOrdered, { edge = "leading" :: Edge, action = action })
+	end
+	for _, action in trailingActions or {} do
+		table.insert(menuItemsOrdered, { edge = "trailing" :: Edge, action = action })
+	end
+
 	-- ===== reveal state ======================================================
 	local openEdge = scope:own(core:signal(nil :: Edge?))
 	local offset = scope:own(core:signal(0))
@@ -472,6 +519,18 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- may read. Absent has the identical shape as `controller`/`motionClock`
 	-- absent: a bare mount, no presenter.
 	local nowFn: (() -> number)? = nil
+	-- Task 8: `bindActionSystem`/`bindFocusGraph` — the SAME "presenter hands
+	-- a composite something it cannot construct for itself" shape as
+	-- `bindMotion`/`bindController` above (constitution §13: a control is
+	-- handed the action system/focus graph BY THE PRESENTER, never by its
+	-- consumer — see slider.luau's own `bindFocusGraph` for the canonical
+	-- precedent). Absent (a bare mount, no presenter) means the Delete/Menu
+	-- keyboard-and-gamepad bindings below are simply never created — the
+	-- identical absent-degrades shape every other bind* seam in this file
+	-- already has.
+	local actionSystemRef: any = nil
+	local focusGraph: any = nil
+	local keysContext: any = nil
 	-- Task 5: hoisted out of `deriveNaturals`'s original home below (still
 	-- written there, on every `syncGeometry`) so the commit path's own
 	-- `currentRect`/`currentRowWidth`/`currentRowHeight` — shared, unconditional
@@ -643,12 +702,13 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- self-unsubscribing already gives each individual spring chain.
 	local committed = false
 
-	-- THE ONE COMMIT PATH (brief: `_commitFirst`, keyboard Delete's Task 8
-	-- entry point, reuses this exact function minus the gesture that got it
-	-- here). Slides `content` fully off-screen, collapses the row's own
-	-- height to 0 over the same spring family, fires the edge's FIRST action
-	-- exactly once (quarantined — a throw still closes, never refires), then
-	-- runs the same bookkeeping `_close()` already does.
+	-- THE ONE COMMIT PATH (brief: `_commitFirst`; generalized below for Task
+	-- 8, whose keyboard Delete and menu-Activate entries fire a SPECIFIC
+	-- action, not necessarily the edge's first). Slides `content` fully
+	-- off-screen, collapses the row's own height to 0 over the same spring
+	-- family, fires `action` exactly once (quarantined — a throw still
+	-- closes, never refires), then runs the same bookkeeping `_close()`
+	-- already does.
 	--
 	-- THE GUARD (spec docs/plans/row-actions.md: "Commit racing a data
 	-- refresh (row rebuilt under the gesture) -> gesture cancels; never fire
@@ -662,12 +722,8 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- slide/collapse in flight when disposal lands never reaches its next
 	-- `onArrive` at all), together mean `action.onAction` cannot fire for a
 	-- row this composite no longer owns.
-	local function doCommit(edge: Edge, offscreenTarget: number): boolean
+	local function doCommitAction(edge: Edge, action: ActionSpec, offscreenTarget: number): boolean
 		if committed then
-			return false
-		end
-		local action = firstActionFor(edge)
-		if action == nil then
 			return false
 		end
 		committed = true
@@ -682,7 +738,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 					-- QUARANTINED (constitution): the ONE user callback this
 					-- composite ever fires on a caller's behalf. A throw must
 					-- not skip `close()` below, nor fire a second time —
-					-- `committed` already forbids a second `doCommit`, and this
+					-- `committed` already forbids a second commit, and this
 					-- whole chain only ever runs once per row.
 					pcall(action.onAction)
 				end
@@ -692,9 +748,19 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		return true
 	end
 
+	-- the gesture/`_commitFirst` shape: the edge's FIRST declared action,
+	-- whichever one that is — unchanged behavior from Tasks 5-7, now
+	-- expressed as a thin wrapper over the generalized seam above.
+	local function doCommit(edge: Edge, offscreenTarget: number): boolean
+		local action = firstActionFor(edge)
+		if action == nil then
+			return false
+		end
+		return doCommitAction(edge, action, offscreenTarget)
+	end
+
 	-- Task 5: the drag-release verdict's commit branch (row_actions_state.
-	-- settle) routes through here; Task 8's keyboard Delete calls `doCommit`
-	-- directly via the public `_commitFirst` seam below instead.
+	-- settle) routes through here.
 	local function settleTo(verdict: row_actions_state.Verdict)
 		if verdict.commit and verdict.edge ~= nil then
 			if doCommit(verdict.edge, verdict.target) then
@@ -713,6 +779,147 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		local rowW = currentRowWidth()
 		local target = if edge == "leading" then rowW else -rowW
 		return doCommit(edge, target)
+	end
+
+	-- ===== Task 8: destructive-action lookup (Delete key + menu Activate) ===
+	-- "the first `destructive` action (search trailing list first, then
+	-- leading)" (brief) — deliberately NOT `firstActionFor` above: a
+	-- destructive action is not guaranteed to sit at index 1 of its own
+	-- edge's list (a row could legally declare `{ "flag", "delete" }`), so
+	-- Delete has to find the SPECIFIC destructive entry rather than assume
+	-- position. Static lookup (actions never change post-build), searched
+	-- fresh on every press — cheap, and there is no natural place to cache
+	-- it that would not also have to invalidate on nothing (it never
+	-- changes).
+	local function firstDestructiveEntry(): { edge: Edge, action: ActionSpec }?
+		for _, action in trailingActions or {} do
+			if action.role == "destructive" then
+				return { edge = "trailing" :: Edge, action = action }
+			end
+		end
+		for _, action in leadingActions or {} do
+			if action.role == "destructive" then
+				return { edge = "leading" :: Edge, action = action }
+			end
+		end
+		return nil
+	end
+
+	-- keyboard Delete's entry point, and the menu's own commit path for a
+	-- destructive item (brief: "a destructive action from the menu runs the
+	-- same _commitFirst path — slide-off+collapse, not a bare callback"):
+	-- the SAME slide-off/collapse/quarantine/close sequence a full-swipe
+	-- commit uses, generalized via `doCommitAction` above rather than
+	-- `commitFirst`, because the destructive entry is not necessarily the
+	-- edge's first action (see `firstDestructiveEntry`'s own comment).
+	local function commitDestructive(): boolean
+		local entry = firstDestructiveEntry()
+		if entry == nil then
+			return false
+		end
+		local rowW = currentRowWidth()
+		local target = if entry.edge == "leading" then rowW else -rowW
+		return doCommitAction(entry.edge, entry.action, target)
+	end
+
+	-- ===== Task 8: the action menu (Shift+Return desktop / ButtonX gamepad) =
+	-- Own state; independent of `openEdge`/`offset` above — the menu never
+	-- reveals a tray, it is a floating popup listing every action (brief:
+	-- "PopupButton-pattern panel").
+	local menuOpen = scope:own(core:signal(false))
+	local function closeMenu()
+		menuOpen:set(false)
+	end
+	local function openMenu()
+		if #menuItemsOrdered == 0 then
+			return -- unreachable given the `else` branch below only builds
+			-- this seam when at least one action exists; stay honest anyway
+			-- rather than open an empty popup if that invariant is ever wrong.
+		end
+		menuOpen:set(true)
+	end
+	local function toggleMenu()
+		if menuOpen:get() then
+			closeMenu()
+		else
+			openMenu()
+		end
+	end
+
+	-- ===== Task 8: focus-scoped keyboard/gamepad bindings ===================
+	-- "active ONLY while the wrapper's content subtree holds focus" (brief).
+	-- `bindFocusGraph` hands over the screen's live focused-path signal
+	-- (`graph.focused`, slider.luau's own precedent); `pathInsideRow` asks
+	-- whether that path sits inside THIS composite's own mounted subtree
+	-- (`rootPath`, learned by `syncGeometry` below — same "learned here,
+	-- re-ask once known" two-step slider.luau's own `syncTrackFocus` uses).
+	-- The two keys/actions this scope owns:
+	--   RowActionsDelete (Delete, Backspace) — only ever created when
+	--     `hasDestructive`, so an unregistered binding truly falls through
+	--     (brief) rather than existing-but-inert.
+	--   RowActionsMenu (gamepad ButtonX only — see the Task 8 report for
+	--     why a clean, non-double-firing Shift+Return binding is NOT
+	--     expressible against the current action system without a
+	--     presenter.luau change: `Return` is already claimed by the base
+	--     screen's own Activate context (`presenter.luau:2528`), IAS
+	--     bindings carry no modifier slot (`src/input/actions.luau:78-109`),
+	--     and `dispatchActivate` fires a focused leaf's own `onActivate`
+	--     UNCONDITIONALLY before any contribution's `handleActivate` or
+	--     modifier state is ever consulted (`presenter.luau:282-300`) — so a
+	--     second context bound to `Return` either double-fires alongside
+	--     Activate on every SHIFTED press (when the focused content is
+	--     itself an activatable control, e.g. `rowButtonContent` in this
+	--     file's own test), or, if it sinks to avoid that, silently eats
+	--     PLAIN Return for the whole row whenever this scope is active — a
+	--     regression, not a fix. NEEDS_CONTEXT filed for Shift+Return; see
+	--     the Task 8 report).
+	--
+	-- `sink = true` (TEXT_ENTRY_PRIORITY's own precedent, text_input.luau):
+	-- while this scope owns Delete/Backspace/ButtonX, nothing lower-priority
+	-- also sees them — none of the three is claimed by any base-screen
+	-- context today, so this is a no-op in practice, and future-proof if one
+	-- ever is.
+	local ROW_ACTIONS_KEY_PRIORITY = 10000
+	local function ensureKeysContext()
+		if actionSystemRef == nil or keysContext ~= nil then
+			return
+		end
+		local ctx = actionSystemRef.createContext({
+			name = `RowActionsKeys-{id}`,
+			priority = ROW_ACTIONS_KEY_PRIORITY,
+			sink = true,
+		})
+		if hasDestructive then
+			local deleteAction = ctx.createAction("RowActionsDelete", "Bool")
+			deleteAction.bind({ keyCode = "Delete" })
+			deleteAction.bind({ keyCode = "Backspace" })
+			deleteAction.onPressed(function()
+				commitDestructive()
+			end)
+		end
+		local menuAction = ctx.createAction("RowActionsMenu", "Bool")
+		menuAction.bind({ keyCode = "ButtonX" })
+		menuAction.onPressed(function()
+			toggleMenu()
+		end)
+		ctx.setEnabled(false) -- enabled only while `pathInsideRow` — see syncKeysEnabled
+		keysContext = ctx
+		scope:own(function()
+			if keysContext ~= nil then
+				keysContext.destroy()
+				keysContext = nil
+			end
+		end)
+	end
+	local function pathInsideRow(path: string?): boolean
+		return path ~= nil and rootPath ~= nil and isPathPrefix(rootPath, path)
+	end
+	local function syncKeysEnabled()
+		ensureKeysContext()
+		if keysContext == nil then
+			return
+		end
+		keysContext.setEnabled(pathInsideRow(if focusGraph ~= nil then focusGraph.focused:get() else nil))
 	end
 
 	-- ===== Tasks 5-6: the pointer gesture (mouse + touch; axis lock, live
@@ -969,6 +1176,9 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			offset = offset:get(),
 			openEdge = edge,
 			phase = if edge == nil then "closed" else "open",
+			-- Task 8: the action menu's own open state, independent of the
+			-- tray's `openEdge`/`phase` above.
+			menuOpen = menuOpen:get(),
 		}
 	end
 
@@ -1116,6 +1326,156 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			})
 		)
 
+		-- ===== Task 8: the action menu panel (Shift+Return desktop / ButtonX
+		-- gamepad — see the big comment above `ROW_ACTIONS_KEY_PRIORITY`) =====
+		-- PopupButton-pattern panel (brief): one focusable Button per declared
+		-- action, `menuItemsOrdered`'s own leading-then-trailing document
+		-- order, mirroring `buildTray`'s own Button shape (label/icon/role)
+		-- but laid out as a VStack list rather than an HStack tray.
+		local MENU_ID = "Menu"
+		local MENU_ROW_HEIGHT = "controlSizes.compact.height" -- same theme
+		-- token popup_button.luau's own compact-menu row uses (ADR-0019 §2);
+		-- no new theme surface needed.
+		local function buildMenuRows(): { any }
+			local rows = {}
+			for _, entry in menuItemsOrdered do
+				table.insert(
+					rows,
+					UI.Button({
+						id = "Action:" .. entry.action.id,
+						label = entry.action.label,
+						icon = entry.action.icon,
+						role = if entry.action.role == "destructive" then "destructive" else "default",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fixed", px = MENU_ROW_HEIGHT },
+					})
+				)
+			end
+			return rows
+		end
+
+		-- computed once here (NOT the tray's own `idPattern` below — this
+		-- block runs before that declaration; a fresh `patternEscape` call
+		-- per Activate would be harmless but there is no reason to pay it
+		-- twice when a closure can just capture the escaped id once).
+		local menuIdPattern = patternEscape(id)
+		local function findMenuAction(aid: string): (Edge?, ActionSpec?)
+			if actionsById.leading[aid] ~= nil then
+				return "leading", actionsById.leading[aid]
+			end
+			if actionsById.trailing[aid] ~= nil then
+				return "trailing", actionsById.trailing[aid]
+			end
+			return nil, nil
+		end
+
+		-- routes a presenter/tap/keyboard/gamepad Activate landing inside the
+		-- MENU's own subtree; returns true when the path was ours. A
+		-- destructive item runs through `doCommitAction` (the FULL slide-off
+		-- + collapse sequence, brief: "not a bare callback"); anything else
+		-- is a quarantined, exactly-once callback — either way the menu
+		-- closes first, so the collapse (if any) plays out on a row whose
+		-- own menu is already gone.
+		local function menuHandleActivate(path: string, _meta: any?): boolean
+			local aid = string.match(path, `/{menuIdPattern}/{MENU_ID}/MenuRowsWhen/then/MenuRows/Action:(.+)$`)
+			if aid == nil then
+				return false
+			end
+			local edge, action = findMenuAction(aid)
+			if edge == nil or action == nil then
+				return false
+			end
+			closeMenu()
+			if action.role == "destructive" then
+				local rowW = currentRowWidth()
+				local target = if edge == "leading" then rowW else -rowW
+				doCommitAction(edge, action, target)
+			else
+				pcall(action.onAction)
+			end
+			return true
+		end
+
+		-- gamepad ButtonB / the shared handleCancel offer (matrix §B
+		-- PopupButton parity): closes the menu without firing anything.
+		-- Offered ahead of the TRAY's own `handleCancel` below because the
+		-- menu's own contribution's path (`.../Menu`) is LONGER than the row
+		-- root's — `contributionsForPath` sorts longest-prefix-first
+		-- (presenter.luau), so this wins whenever focus is actually inside
+		-- the open menu.
+		local function menuHandleCancel(_focusedPath: string?): boolean
+			if menuOpen:get() then
+				closeMenu()
+				return true
+			end
+			return false
+		end
+
+		-- a SEPARATE, SIBLING input contribution (not a field on the row's
+		-- own root bundle below) — the only way this file's shared
+		-- `contribution` seam lets one control declare TWO independent
+		-- transient-popup policies at once. The row's own root bundle
+		-- already uses `outsideDismiss.consume = false` (Task 7: a tray
+		-- must never swallow a tap meant for a sibling row); the menu is a
+		-- genuine transient popup and wants the OPPOSITE (brief: "match
+		-- popup_button's bundle wholesale, consume default swallow is
+		-- correct for the menu") — two different `consume` values on ONE
+		-- `outsideDismiss` field is inexpressible (it is a plain boolean,
+		-- not reactive), so the menu gets its own bundle.
+		--
+		-- ATTACHED TO A PERMANENT NODE (popup_button.luau's own exact
+		-- shape: an always-mounted Anchor carrying the ONE contribution,
+		-- with only the lazily-revealed content — there, the Trigger/Popup
+		-- pair; here, the rows — as children). NOT attached to a node the
+		-- `menuOpen` `UI.When` below it also unmounts: `transientScope`'s
+		-- close-time restore (src/present/presenter.luau
+		-- `syncTransientScopes`, the `elseif pushed then graph.removeScope`
+		-- branch) fires only for a contribution `collectContributions`
+		-- still finds mounted on the SAME refresh `menuOpen` goes false —
+		-- a contribution riding the content it gates vanishes from that
+		-- walk in the exact same instant, so the branch that is supposed
+		-- to pop the trap and restore focus never runs, and focus is left
+		-- pointing at a path that no longer exists (caught live: closing
+		-- the menu via Activate or Cancel left `graph.focused` on the
+		-- just-unmounted row's own path). Splitting the permanent anchor
+		-- from the lazy rows — one extra always-mounted, zero-footprint
+		-- node per row that HAS a menu at all — is what keeps the
+		-- contribution itself in `collectContributions`'s walk across the
+		-- whole open/close cycle, so `ts.active:get()` going false is what
+		-- the presenter actually observes change, not a bundle disappearing.
+		local menuAnchor = contribution.attach(
+			UI.Anchor({
+				id = MENU_ID,
+				anchor = "topLeft",
+				children = {
+					UI.When({
+						id = "MenuRowsWhen",
+						condition = menuOpen,
+						thenView = function()
+							return UI.VStack({
+								id = "MenuRows",
+								surface = "raised",
+								gap = "strokes.hairline",
+								children = buildMenuRows(),
+							})
+						end,
+					}),
+				},
+			}),
+			{
+				handleActivate = menuHandleActivate,
+				handleCancel = menuHandleCancel,
+				outsideDismiss = {
+					active = menuOpen,
+					dismiss = closeMenu,
+				},
+				transientScope = {
+					active = menuOpen,
+				},
+			}
+		)
+		table.insert(children, menuAnchor)
+
 		-- Task 5: `height` is the ONE new root prop this task adds — bound to
 		-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
 		-- when absent") for every row that never commits, byte-identical to
@@ -1188,7 +1548,19 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 		local function syncGeometry(_rectOf: (string) -> any, rootNode: any?)
 			if rootNode ~= nil then
+				local isFirstRootPath = rootPath == nil
 				rootPath = rootNode.path
+				if isFirstRootPath then
+					-- Task 8 (slider.luau's own two-step precedent: "the path
+					-- is LEARNED here... re-ask now that we know what to
+					-- compare against"): `bindFocusGraph`/`bindActionSystem`
+					-- may both have already run by the time this first sync
+					-- lands (both are bound at present time, before the
+					-- first `syncGeometry`), so `pathInsideRow` would have
+					-- compared against a still-nil `rootPath` and answered
+					-- false forever if nothing re-asked once it became known.
+					syncKeysEnabled()
+				end
 			end
 			if rootPath == nil then
 				return
@@ -1250,6 +1622,23 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- `bindMotion`.
 			bindController = function(c: any)
 				controller = c
+			end,
+			-- Task 8: the action-system + focus-graph handoff that lets
+			-- `ensureKeysContext`/`syncKeysEnabled` above bind Delete/
+			-- Backspace/ButtonX SCOPED to this row's own content subtree
+			-- holding focus (see the big comment above
+			-- `ROW_ACTIONS_KEY_PRIORITY`). Either arriving triggers a
+			-- re-check; order between the two (and against `syncGeometry`'s
+			-- own first-rootPath re-check) is not guaranteed, so all three
+			-- call the same idempotent `syncKeysEnabled`.
+			bindActionSystem = function(sys: any)
+				actionSystemRef = sys
+				syncKeysEnabled()
+			end,
+			bindFocusGraph = function(graph: any)
+				focusGraph = graph
+				scope:own(core:observe(graph.focused, syncKeysEnabled))
+				syncKeysEnabled()
 			end,
 			-- Task 7 (matrix §B PopupButton parity, popup_button.luau:338-346's
 			-- exact shape — see the big comment above `local coordinator`):
