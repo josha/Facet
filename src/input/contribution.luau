@@ -56,13 +56,22 @@
 --     surface's own behavior — so a modal that CONTAINS such a control still
 --     dismisses on a second ButtonB (ordering documented in presenter.luau).
 --
---   outsideDismiss: { active: Readable<boolean>, dismiss: () -> () }
+--   outsideDismiss: { active: Readable<boolean>, dismiss: () -> (), consume: boolean? }
 --     While `active`, a tap on a rendered node OUTSIDE the contribution's subtree
---     dismisses it (non-destructive) and is swallowed, and the presenter
---     synthesizes a transparent full-viewport catcher beneath the screen so a tap
---     on EMPTY space also dismisses (Zone-A geometry over the contribution's
---     solved rects, mirroring the modal two-zone model, ADR-0014). A real modal
---     above the screen suppresses the catcher.
+--     dismisses it (non-destructive), and the presenter synthesizes a transparent
+--     full-viewport catcher beneath the screen so a tap on EMPTY space also
+--     dismisses (Zone-A geometry over the contribution's solved rects, mirroring
+--     the modal two-zone model, ADR-0014). A real modal above the screen
+--     suppresses the catcher.
+--
+--     `consume` (default true / omitted) SWALLOWS the outside tap after
+--     dismissing — PopupButton's own "outside means dismiss, never clickthrough"
+--     semantic, appropriate for a control that behaves like a lightweight modal.
+--     `consume = false` (row-actions Task 7) dismisses WITHOUT swallowing: the
+--     tap still falls through to whatever it actually landed on afterward — the
+--     round-7 Zone-A lesson (docs/plans/row-actions.md) that a dismissal must
+--     never eat a click meant for another control (tapping row B's button while
+--     row A's tray is open must close A AND still activate B).
 --
 --   transientScope: { active: Readable<boolean>, rootPath: string? }
 --     While `active`, focus is TRAPPED within `rootPath`'s subtree (Navigate can
@@ -159,7 +168,7 @@ export type Bundle = {
 	-- Longest-path-prefix wins, like handleActivate.
 	handleTraverse: ((path: string, direction: number) -> boolean)?,
 	handleCancel: ((focusedPath: string?) -> boolean)?,
-	outsideDismiss: { active: any, dismiss: () -> () }?, -- active: Readable<boolean>
+	outsideDismiss: { active: any, dismiss: () -> (), consume: boolean? }?, -- active: Readable<boolean>
 	transientScope: { active: any, rootPath: string? }?, -- active: Readable<boolean>
 }
 

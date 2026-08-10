@@ -230,6 +230,74 @@ local function normalizeFullSwipe(rowId: string, raw: any): { leading: boolean, 
 	error(`LuauUI newRowActions('{rowId}'): \`fullSwipe\` must be a boolean or \{ leading?, trailing? \}`, 0)
 end
 
+-- ===== Task 7: the open-state coordinator =====================================
+-- PUBLIC API (`LuauUI.newRowActionsCoordinator`, director decision
+-- 2026-08-09): at most one row open per shared list surface. A VStack/
+-- ScrollView list builds its own and passes it to every wrapped row's
+-- `coordinator` spec key; Table (Task 10) does the identical wiring for its
+-- own `rowActions` rows automatically. Standalone `newRowActions` use with no
+-- coordinator stays valid — every claim/release call in `row_actions.build`
+-- below is already guarded on `coordinator ~= nil`, so an instance with none
+-- only ever manages itself, byte-identical to Tasks 3-6.
+--
+-- IDENTITY. The row instance IS its own handle here — the exact table
+-- `row_actions.build` returns (`api` in that function, the same object a
+-- caller already holds) — never a second wrapper/id scheme `claim`/`release`
+-- would have to keep in sync with the real one.
+--
+-- `core` is accepted (not `_core`) for the same construction signature every
+-- other `new*` factory in this module family uses, though nothing here reads
+-- it today: the registry is three closures over one plain local, not
+-- reactive state — there is nothing here a caller could usefully `core:observe`.
+function row_actions.newCoordinator(core: any): any
+	local claimed: any = nil -- the currently-open row instance's own API table, or nil
+
+	-- called from a row (see `open`/`onPointerMove`'s axis-lock crossing in
+	-- `row_actions.build`): closes whatever OTHER row is currently claimed via
+	-- ITS OWN `_close` — spring-animated, or an instant snap under reduced
+	-- motion / no bound motion clock, `close`'s existing behavior, entirely
+	-- unchanged by going through the coordinator — then claims `instance`.
+	-- Re-claiming the row that is already claimed is a harmless no-op past the
+	-- identity check.
+	local function claim(instance: any)
+		if claimed ~= nil and claimed ~= instance then
+			claimed._close()
+		end
+		claimed = instance
+	end
+
+	-- called from a row's own `close()`/`dispose()`. Idempotent BY DESIGN: a
+	-- row that was never claimed (it settled back to closed without ever
+	-- crossing the axis lock, say) releases unconditionally on every close and
+	-- on dispose without first checking whether it actually holds the claim.
+	local function release(instance: any)
+		if claimed == instance then
+			claimed = nil
+		end
+	end
+
+	-- ANY scroll movement closes the open row — no distance/velocity
+	-- threshold, matching iOS. A thin pass-through onto
+	-- `controller.observeScroll` (table.luau:2178's own native-scroll-mirror
+	-- call, the shipped precedent for a control binding this after present());
+	-- returns the same unsubscribe `observeScroll` itself returns, so the
+	-- consumer that called `bindScroll` owns tearing it down (present-time
+	-- wiring, same shape as `Table.bindNativeScroll`).
+	local function bindScroll(controller: any, path: string): () -> ()
+		return controller.observeScroll(path, function()
+			if claimed ~= nil then
+				claimed._close()
+			end
+		end)
+	end
+
+	return {
+		claim = claim,
+		release = release,
+		bindScroll = bindScroll,
+	}
+end
+
 function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newRowActions", spec, ROW_ACTIONS_KEYS, "spec")
 	local UI = LuauUI.UI
@@ -248,8 +316,21 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			0
 		)
 	end
-	-- accepted and stored now; Task 7 is the first consumer.
-	local _coordinator = spec.coordinator
+	-- Task 7: the shared open-state coordinator (`row_actions.newCoordinator`),
+	-- optional. Read live below rather than snapshotted, though a build-time
+	-- read is already the whole story here — the spec table itself is never
+	-- mutated after `build` returns.
+	local coordinator = spec.coordinator
+
+	-- Task 7: this composite's own identity as far as the coordinator is
+	-- concerned IS the object `row_actions.build` returns below (the exact
+	-- table a caller already holds) — no second identity scheme, no wrapper.
+	-- Forward-declared because `claim`/`release` are called from closures
+	-- defined BELOW this point (the gesture handlers, `open`, `close`,
+	-- `dispose`) that only ever run at event time, long after `api` has been
+	-- assigned at the bottom of this function — never at build time, when it
+	-- would still be nil.
+	local api: any = nil
 
 	local leadingActions = actionsFor(id, "leading", spec.leading)
 	local trailingActions = actionsFor(id, "trailing", spec.trailing)
@@ -436,17 +517,36 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		return if edge == "leading" then leadingActions ~= nil else trailingActions ~= nil
 	end
 
+	-- Task 7: one of the two coordinator claim sites (brief: "on `_open`/
+	-- gesture-reveal past the axis lock: `coordinator.claim(self)`"). Claiming
+	-- BEFORE retargeting means a previously-open sibling's animated close is
+	-- already under way by the time this row starts revealing, rather than
+	-- racing it.
 	local function open(edge: Edge)
 		if not hasActions(edge) then
 			return
+		end
+		if coordinator ~= nil then
+			coordinator.claim(api)
 		end
 		retarget(targetFor(edge))
 		openEdge:set(edge)
 	end
 
+	-- Task 7: releases this row's own coordinator claim unconditionally
+	-- (idempotent — a no-op when this row was never the claimed one, e.g. a
+	-- row that settled back to closed without ever crossing the axis lock).
+	-- Every path that ends a row's open state — a gesture settling closed, a
+	-- programmatic `_close`, `handleCancel`, an `outsideDismiss`/scroll close
+	-- routed through the coordinator itself — runs through this one function,
+	-- so the coordinator's bookkeeping never drifts from what is actually
+	-- painted.
 	local function close()
 		openEdge:set(nil)
 		retarget(0)
+		if coordinator ~= nil then
+			coordinator.release(api)
+		end
 	end
 
 	-- ===== Task 5: the commit path (shared by the gesture and `_commitFirst`) ===
@@ -753,6 +853,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			if verdict == "vertical" then
 				return -- declined: `offset` is never touched for this gesture
 			end
+			-- Task 7: the SECOND coordinator claim site (brief: "when a gesture
+			-- crosses the axis lock into horizontal... coordinator.claim(self)").
+			-- Claimed the instant the axis resolves — before the release verdict
+			-- is even known — so a sibling row already open starts its animated
+			-- close the moment this row starts visibly dragging, not only once
+			-- this row itself settles open.
+			if coordinator ~= nil then
+				coordinator.claim(api)
+			end
 			-- transitioning to "horizontal": the persistent reveal spring must
 			-- stop pushing its OWN writes into `offset` right now, or its next
 			-- step fights the manual drag this function is about to start
@@ -829,6 +938,27 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 
 	local function isOpen(): boolean
 		return openEdge:get() ~= nil
+	end
+
+	-- Task 7: the reactive twin of `isOpen()` — `outsideDismiss.active` (below)
+	-- needs a Readable<boolean> to `core:observe`/`:get()`, not a plain
+	-- function; a one-line memo over the same `openEdge` signal `isOpen`
+	-- already reads.
+	local isOpenReadable = scope:own(core:memo(function(use)
+		return use(openEdge) ~= nil
+	end))
+
+	-- Task 7 (matrix §B PopupButton parity, popup_button.luau:331-337's exact
+	-- shape): gamepad ButtonB closes an open tray, offered to the presenter's
+	-- Cancel dispatch before its modal-dismiss/passive-resign/no-op branches.
+	-- Returns false with nothing open, so Cancel falls through to whatever a
+	-- surrounding surface (a modal, a passive list) does with it.
+	local function handleCancel(_focusedPath: string?): boolean
+		if isOpen() then
+			close()
+			return true
+		end
+		return false
 	end
 
 	local function dump()
@@ -1121,10 +1251,35 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			bindController = function(c: any)
 				controller = c
 			end,
+			-- Task 7 (matrix §B PopupButton parity, popup_button.luau:338-346's
+			-- exact shape — see the big comment above `local coordinator`):
+			handleCancel = handleCancel,
+			outsideDismiss = {
+				active = isOpenReadable,
+				dismiss = close,
+				-- NOT swallowed (round-7 Zone-A lesson): an open tray is a
+				-- peripheral affordance on ONE row, not a modal — closing it on
+				-- an outside tap must never eat the press that tap was actually
+				-- for (another row's own button, e.g.). See presenter.luau's
+				-- onNodeTap for the consume/fall-through mechanics this flag
+				-- drives.
+				consume = false,
+			},
+			-- DELIBERATELY NO `transientScope` (unlike PopupButton). A
+			-- transient POPUP is the only interactive surface worth reaching
+			-- while it is up, so trapping focus inside it and restoring the
+			-- trigger on close is correct. An open row's tray is the opposite:
+			-- it is peripheral to a list a player is still navigating — Tab/
+			-- Navigate must keep moving through SIBLING rows while this row's
+			-- tray sits open (Task 8's keyboard journey depends on this), and
+			-- `transientScope`'s own default `rootPath` (the control root)
+			-- would trap focus inside THIS ONE ROW, unable to reach the very
+			-- next row in the list. A tray is not a modal; it must never
+			-- behave like one.
 		})
 	end
 
-	return {
+	api = {
 		blueprint = blueprint,
 		dump = dump,
 		dispose = function()
@@ -1133,6 +1288,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- inside the same `scope:dispose()` call if a spring is settling
 			-- mid-teardown.
 			disposed = true
+			-- Task 7: clear this row's coordinator entry BEFORE the scope
+			-- (and every spring/signal it owns) tears down — a coordinator
+			-- holding a stale reference to a disposed row would call `_close()`
+			-- on it the next time something else claims/scrolls, reaching into
+			-- a torn-down scope. Unconditional and idempotent (see `release`'s
+			-- own comment): correct whether this row was open, mid-gesture, or
+			-- never claimed at all.
+			if coordinator ~= nil then
+				coordinator.release(api)
+			end
 			scope:dispose()
 		end,
 		-- internal seam for Table + coordinator (NOT public API; underscore
@@ -1153,6 +1318,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- leading or trailing actions at all).
 		_commitFirst = commitFirst,
 	}
+	return api
 end
 
 return row_actions

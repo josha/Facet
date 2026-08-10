@@ -3762,7 +3762,7 @@ Spec fields:
 | `leading` | `{ ActionSpec }?` | no | actions revealed by swiping right (or opening edge `"leading"`). `nil` = no leading tray; an empty table `{}` is a spec error (use `nil` for "none"). |
 | `trailing` | `{ ActionSpec }?` | no | actions revealed by swiping left (edge `"trailing"`). Same `nil`/`{}` rule. |
 | `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits its first action outright (iOS "swipe to delete"). Accepted and normalized now; the gesture that reads it ships later. |
-| `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Accepted and stored now; wired by a later release. |
+| `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Wired (Task 7): a gesture crossing the axis lock, or `_open`, claims it — closing whichever other row is open — and this row releases its own claim on every close/dispose. Omitted, an instance only ever manages itself. |
 
 `ActionSpec`:
 
@@ -3809,6 +3809,40 @@ local row = LuauUI.newRowActions(LuauUI, core, {
 })
 pres.present(LuauUI.UI.Screen({ id = "S", children = { row.blueprint } }))
 ```
+
+### `newRowActionsCoordinator`
+
+`LuauUI.newRowActionsCoordinator(core) -> { claim, release, bindScroll }` — the
+open-state coordinator for a list of `newRowActions` rows: **at most one row
+open per surface**. A plain `VStack`/`ScrollView` list builds its own instance
+and passes it to every wrapped row's `spec.coordinator` key; `newTable`'s own
+`rowActions` wiring does the identical thing for its rows automatically. A row
+built with no coordinator stays valid and only ever manages itself.
+
+Return surface:
+
+| member | type | meaning |
+|---|---|---|
+| `claim` | `(instance) -> ()` | called by a row itself (a gesture crossing the axis lock into horizontal, or its `_open`): closes whichever OTHER row is currently claimed (that row's own animated `_close` — a spring, or an instant snap under reduced motion / no bound motion clock), then claims `instance`. `instance` is the exact table `newRowActions` returned for that row — no separate id. |
+| `release` | `(instance) -> ()` | called by a row on every close and on `dispose()`. Idempotent: releasing an instance that does not currently hold the claim (or nothing is claimed) is a silent no-op. |
+| `bindScroll` | `(controller, path: string) -> (() -> ())` | wires `controller.observeScroll(path, ...)` (present-time, same idiom as `Table.bindNativeScroll`) so **any** scroll movement on that host — no distance/velocity threshold, matching iOS — closes whichever row is currently open. Returns the unsubscribe. |
+
+```lua
+local coordinator = LuauUI.newRowActionsCoordinator(core)
+local rows = {}
+for _, item in items do
+	table.insert(rows, LuauUI.newRowActions(LuauUI, core, {
+		id = item.id,
+		content = rowContent(item),
+		trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() remove(item) end } },
+		coordinator = coordinator,
+	}))
+end
+local scrollHandle = LuauUI.UI.ScrollView({ id = "List", children = blueprintsOf(rows) })
+-- after present(): controller comes from pres.present/pres.refresh's own render controller
+local unbindScroll = coordinator.bindScroll(controller, "/S/List")
+```
+
 ### `newDragSession`
 
 `LuauUI.newDragSession(opts) -> session` — the pure, engine-free drag-session

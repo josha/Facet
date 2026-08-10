@@ -680,3 +680,292 @@ describe("RowActions touch gesture (Task 6: touch accepted, same axis-lock dance
 		expect(w.ra.dump().offset).toBe(0)
 	end)
 end)
+
+-- ===========================================================================
+-- Task 7: the open-state coordinator + outside-tap/scroll dismissal
+-- (docs/plans/row-actions-implementation.md Task 7; row_actions.newCoordinator,
+-- public export `LuauUI.newRowActionsCoordinator`).
+--
+-- THE ROUND-7 LESSON (docs/plans/row-actions.md: "note the round-7 Zone-A
+-- lesson: closing must not swallow unrelated clicks"). `outsideDismiss`
+-- (src/input/contribution.luau) is the SAME seam PopupButton uses
+-- (popup_button.luau:338-346), and the presenter's own onNodeTap dismiss path
+-- (src/present/presenter.luau, "transient-popup outside-tap") SWALLOWS the tap
+-- by default — `od.dismiss(); return` — which is exactly right for a modal-ish
+-- popup (nothing else should have received that tap either) but exactly WRONG
+-- for a row's tray, which sits inside a live list: closing row A on a tap that
+-- actually landed on row B's own button must not eat that press. The fix
+-- (this task) is `outsideDismiss.consume = false` on row_actions' own bundle
+-- — a presenter-level opt-out, additive and off by default, so PopupButton's
+-- existing swallow behavior is untouched. "does-not-swallow-unrelated-clicks"
+-- below is the pin; it was run once against a deliberately reverted
+-- `consume = true` and failed (firedB stayed empty) before this fix landed —
+-- see the Task 7 report for the captured failure.
+describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismissal", function()
+	-- two rows sharing one coordinator, on a plain (non-scrolling) Screen —
+	-- everything the coordinator itself needs, without a ScrollView's own
+	-- machinery in the way. `content` is a real focusable Button (not the
+	-- other describe blocks' bare Text) so "does the tap land on this row's
+	-- OWN control" is provable, not just "did offset move".
+	local function rowButtonContent(id: string, fired: { string })
+		return LuauUI.UI.Button({
+			id = id,
+			label = "Row " .. id,
+			width = { type = "fixed", px = 400 },
+			height = { type = "fixed", px = 48 },
+			onActivate = function()
+				table.insert(fired, "tap")
+			end,
+		})
+	end
+
+	local function twoRowWorld()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local coordinator = row_actions.newCoordinator(core)
+		local firedA: { string } = {}
+		local firedB: { string } = {}
+		local function trailingRow(rowId: string, fired: { string })
+			return row_actions.build(LuauUI, core, {
+				id = rowId,
+				content = rowButtonContent("Body", fired),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+				coordinator = coordinator,
+			})
+		end
+		local rowA = trailingRow("RowA", firedA)
+		local rowB = trailingRow("RowB", firedB)
+		local screen = LuauUI.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+		-- sinkNavigation: the same opt-in tests/paradigm_popup.spec.luau's own
+		-- gamepad-Cancel world uses, so ButtonB reaches this screen's own
+		-- contributions rather than leaking through as ordinary gameplay input.
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		local w: any = {
+			core = core,
+			env = env,
+			system = system,
+			adapter = adapter,
+			pres = pres,
+			handle = handle,
+			coordinator = coordinator,
+			rowA = rowA,
+			rowB = rowB,
+			firedA = firedA,
+			firedB = firedB,
+		}
+		function w.tick(dt: number)
+			pres.tick(dt)
+			pres.refresh()
+		end
+		function w.settle(frames: number?)
+			for _ = 1, frames or 20 do
+				w.tick(1 / 60)
+			end
+		end
+		return w
+	end
+
+	it("opening row B closes row A (one-open policy)", function()
+		local w = twoRowWorld()
+		w.rowA._open("trailing")
+		w.settle()
+		expect(w.rowA._isOpen()).toBe(true)
+		w.rowB._open("trailing")
+		w.settle()
+		expect(w.rowB._isOpen()).toBe(true)
+		expect(w.rowA._isOpen()).toBe(false) -- claimed away, closed
+	end)
+
+	it("scroll movement closes the open row (fire the observeScroll callback)", function()
+		local w = twoRowWorld()
+		w.rowA._open("trailing")
+		w.settle()
+		expect(w.rowA._isOpen()).toBe(true)
+
+		-- a minimal stub controller — this proves `bindScroll` itself wires
+		-- `controller.observeScroll` and reacts to ANY invocation (no
+		-- distance/velocity threshold, matching iOS); ScrollView's own real
+		-- delivery of `observeScroll` is native_scroll.spec.luau's proof, and
+		-- the VStack world below drives it through a REAL ScrollView too.
+		local observer: ((pos: { x: number, y: number }) -> ())? = nil
+		local stubController = {
+			observeScroll = function(_path: string, fn: (pos: { x: number, y: number }) -> ()): () -> ()
+				observer = fn
+				return function()
+					observer = nil
+				end
+			end,
+		}
+		local unbind = w.coordinator.bindScroll(stubController, "/S/List")
+		expect(observer ~= nil).toBe(true)
+		local fireScroll = observer :: (pos: { x: number, y: number }) -> ()
+		fireScroll({ x = 0, y = 5 })
+		expect(w.rowA._isOpen()).toBe(false)
+		unbind()
+	end)
+
+	it(
+		"outside tap closes AND the tapped control still receives its press (does-not-swallow-unrelated-clicks)",
+		function()
+			local w = twoRowWorld()
+			w.rowA._open("trailing")
+			w.pres.refresh()
+			expect(w.rowA._isOpen()).toBe(true)
+			expect(#w.firedB).toBe(0)
+			-- a tap on row B's OWN button: outside row A's subtree, so it closes
+			-- A's tray, but it must still activate row B's button — the round-7
+			-- Zone-A lesson this whole describe block exists to pin.
+			w.adapter.tap("/S/RowB/Content/Body")
+			w.pres.refresh()
+			expect(w.rowA._isOpen()).toBe(false) -- A dismissed
+			expect(w.firedB).toEqual({ "tap" }) -- B's press was NOT swallowed
+		end
+	)
+
+	it("Cancel (handleCancel) closes an open row and reports handled", function()
+		local w = twoRowWorld()
+		w.rowA._open("trailing")
+		w.pres.refresh()
+		expect(w.rowA._isOpen()).toBe(true)
+		-- Cancel is offered to the focused/longest-prefix contribution
+		-- (presenter.luau's own ordering doc) — focus must sit inside row A's
+		-- subtree for its handleCancel to be a candidate at all.
+		w.pres.focus.focusOn("/S/RowA/Content/Body")
+		w.system.deviceKey("ButtonB", true)
+		w.system.deviceKey("ButtonB", false)
+		w.pres.refresh()
+		expect(w.rowA._isOpen()).toBe(false) -- handled: closed, not left open
+
+		-- the converse (popup_button.luau's own proof shape): Cancel with
+		-- nothing open does not falsely report handled — it falls through
+		-- rather than swallowing the surface's own Cancel behavior.
+		w.pres.focus.focusOn("/S/RowB/Content/Body")
+		local cancelOk = pcall(function()
+			w.system.deviceKey("ButtonB", true)
+			w.system.deviceKey("ButtonB", false)
+		end)
+		expect(cancelOk).toBe(true)
+		expect(w.rowB._isOpen()).toBe(false)
+	end)
+
+	it("a row unmounting while open clears its coordinator entry", function()
+		local w = twoRowWorld()
+		w.rowA._open("trailing")
+		w.pres.refresh()
+		expect(w.rowA._isOpen()).toBe(true)
+
+		-- tear the whole presentation down first (the file's own "dispose
+		-- mid-slide-off" idiom above), then dispose row A's own scope while
+		-- it is still open. If the coordinator kept a stale reference to it,
+		-- the NEXT claim would call `_close()` on a torn-down scope.
+		local disposeOk = pcall(function()
+			w.pres.dismiss(w.handle)
+			w.rowA.dispose()
+		end)
+		expect(disposeOk).toBe(true)
+
+		local claimOk = pcall(function()
+			w.rowB._open("trailing")
+		end)
+		expect(claimOk).toBe(true) -- no stale `_close()` on the disposed row A
+		expect(w.rowB._isOpen()).toBe(true)
+	end)
+
+	-- ======================================================================
+	-- a REAL ScrollView > VStack of 3 wrapped rows sharing ONE coordinator —
+	-- the actual consumer shape (docs/plans/row-actions.md: "a VStack/
+	-- ScrollView list wraps rows itself and shares a public
+	-- `newRowActionsCoordinator`"), driven end to end: one-open, scroll-close
+	-- via the REAL `controller.observeScroll` (table.luau:2178's own idiom),
+	-- and the no-swallow outside-tap, all through the real presenter+adapter.
+	-- ======================================================================
+	it(
+		"a VStack of wrapped rows sharing newRowActionsCoordinator gets one-open + scroll-close + no-swallow behavior",
+		function()
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = LuauUI.newPresenter(core, env, adapter, system)
+			local coordinator = row_actions.newCoordinator(core)
+			local fired: { [string]: { string } } = { RowA = {}, RowB = {}, RowC = {} }
+			local function trailingRow(rowId: string)
+				return row_actions.build(LuauUI, core, {
+					id = rowId,
+					content = rowButtonContent("Body", fired[rowId]),
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired[rowId], "delete")
+							end,
+						},
+					},
+					coordinator = coordinator,
+				})
+			end
+			local rowA, rowB, rowC = trailingRow("RowA"), trailingRow("RowB"), trailingRow("RowC")
+			local screen = LuauUI.UI.Screen({
+				id = "S",
+				children = {
+					LuauUI.UI.ScrollView({
+						id = "List",
+						height = { type = "fixed", px = 100 }, -- < 3 * 48px rows: genuinely overflows
+						children = {
+							LuauUI.UI.VStack({
+								id = "Rows",
+								children = { rowA.blueprint, rowB.blueprint, rowC.blueprint },
+							}),
+						},
+					}),
+				},
+			})
+			local handle = pres.present(screen)
+			pres.refresh()
+			local unbindScroll = coordinator.bindScroll(handle.controller, "/S/List")
+
+			-- 1. ONE-OPEN: opening A, then B, closes A
+			rowA._open("trailing")
+			pres.refresh()
+			expect(rowA._isOpen()).toBe(true)
+			rowB._open("trailing")
+			pres.refresh()
+			expect(rowB._isOpen()).toBe(true)
+			expect(rowA._isOpen()).toBe(false)
+
+			-- 2. SCROLL CLOSES: any movement on the real ScrollView host, via the
+			-- real `controller.observeScroll` mirror (native_scroll.spec.luau's
+			-- own `driveScroll` idiom simulates the engine side)
+			adapter.driveScroll("/S/List", { x = 0, y = 20 })
+			expect(rowB._isOpen()).toBe(false)
+
+			-- 3. OUTSIDE TAP DOES NOT SWALLOW: open C, tap A's own button —
+			-- C closes, A's press still fires
+			rowC._open("trailing")
+			pres.refresh()
+			expect(rowC._isOpen()).toBe(true)
+			expect(#fired.RowA).toBe(0)
+			adapter.tap("/S/List/Rows/RowA/Content/Body")
+			pres.refresh()
+			expect(rowC._isOpen()).toBe(false) -- C dismissed
+			expect(fired.RowA).toEqual({ "tap" }) -- A's own press was NOT swallowed
+
+			unbindScroll()
+		end
+	)
+end)

@@ -2077,11 +2077,22 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				local h = handleByPath and handleByPath(path)
 				-- transient-popup outside-tap (matrix §B PopupButton; outsideDismiss):
 				-- when a base-screen contribution is dismissable-on-outside-tap and the
-				-- tapped node is OUTSIDE its subtree, dismiss it (non-destructive) and
-				-- swallow the tap. Handles a tap on a rendered sibling ABOVE the
-				-- synthesized catcher; taps on empty space route through the catcher.
-				-- An exclusive surface above already returned (it owns the policy), so
-				-- a real modal never lets a lower popup steal its outside-tap.
+				-- tapped node is OUTSIDE its subtree, dismiss it (non-destructive). By
+				-- default this SWALLOWS the tap (PopupButton's own modal-ish "outside
+				-- taps mean dismiss, never clickthrough" semantic — matches the
+				-- synthesized catcher, which has nothing else to hand the tap to
+				-- anyway). Handles a tap on a rendered sibling ABOVE the synthesized
+				-- catcher; taps on empty space route through the catcher. An exclusive
+				-- surface above already returned (it owns the policy), so a real modal
+				-- never lets a lower popup steal its outside-tap.
+				--
+				-- `od.consume == false` (row-actions Task 7, the round-7 Zone-A lesson:
+				-- "closing must not swallow unrelated clicks") opts OUT of the swallow:
+				-- the dismiss still fires, but the tap is NOT returned-and-consumed here
+				-- — it falls through to the normal dispatch below, so a tap that closes
+				-- an open row's tray on ANOTHER row's button still activates that
+				-- button. PopupButton (and anything else that never sets `consume`)
+				-- keeps the original swallowing behavior byte-for-byte.
 				if h ~= nil then
 					for _, c in h.contributions or {} do
 						local od = c.bundle.outsideDismiss
@@ -2092,7 +2103,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 							and not isPathPrefix(c.path, path)
 						then
 							od.dismiss()
-							return
+							if od.consume ~= false then
+								return
+							end
 						end
 					end
 				end

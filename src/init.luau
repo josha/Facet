@@ -181,6 +181,11 @@ local LuauUI = {
 	spatial = require("@self/input/spatial"),
 	newChip = require("@self/controls/chip").build,
 	newRowActions = require("@self/controls/row_actions").build,
+	-- row-actions Task 7: at most one row open per shared list surface. A
+	-- VStack/ScrollView list creates its own and shares it across every
+	-- wrapped row's `coordinator` spec key; Table's own `rowActions` wiring
+	-- (Task 10) does this for its rows automatically.
+	newRowActionsCoordinator = require("@self/controls/row_actions").newCoordinator,
 	-- async resources (§10.3): bounded, cancellable, generation-checked
 	newResourceProvider = asyncResources.newProvider,
 
