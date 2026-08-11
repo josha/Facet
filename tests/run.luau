@@ -240,6 +240,9 @@ require("./row_actions_state.spec")
 require("./row_actions.spec")
 -- row actions: the mouse gesture (axis lock, live drag, flick velocity, full-swipe commit)
 require("./row_actions_input.spec")
+-- row actions: the mail-style gallery scenario (Task 11) — builds/mounts clean,
+-- every scripted step drivable, both surfaces' actions proven end to end
+require("./row_actions_scenario.spec")
 -- focus-skip by live predicate + the active-interaction exemption (SF-L3)
 require("./focus_skip.spec")
 -- the unified collection: one VirtualList that windows, selects, reorders,

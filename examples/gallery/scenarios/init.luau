@@ -53,6 +53,10 @@ local ORDER = {
 	-- other stage's evidence uses. It owns no UI — it mounts one example
 	-- verbatim and adds the select/theme drive surface
 	"examples",
+	-- row-actions-implementation Task 11: the mail-style gallery fixture for
+	-- `newRowActions`/Table `rowActions` — a hand-wrapped ScrollView>VStack
+	-- list sharing one coordinator, plus a reorderable/editable Table
+	"row_actions",
 	-- roadmap Step 11 (swiftui-reference-app-validation): the five clean-room
 	-- reference proofs, one scenario per proof, each a thin delegation to its
 	-- examples/reference module (see ref_*.luau headers)
