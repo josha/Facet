@@ -1296,11 +1296,22 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 
 		-- Task 10: wrap. `externalGesture = true` whenever this row is ALSO
 		-- reorderable (Hit above already carries the composed dispatcher;
-		-- the composite must not ALSO wire its own competing Content Grip —
-		-- see row_actions.luau's own Spec.externalGesture comment). A
-		-- non-reorderable wrapped row leaves `externalGesture` false: no
-		-- composition needed, the composite's own internal Grip is the
-		-- row's only pointer surface, exactly Tasks 3-9's shipped shape.
+		-- the composite's own internal Content/Hit Grip would never receive
+		-- a single event even if it existed — see row_actions.luau's own
+		-- Spec.externalGesture comment). CORRECTED (redteam item 15, LOW):
+		-- this used to say the composite "must not ALSO wire its own
+		-- competing Content Grip," which undersold the truth — the Grip
+		-- mounted regardless, merely unwired, a genuine extra Active
+		-- (hit-testable) Instance per wrapped+reorderable row nothing here
+		-- disclosed. row_actions.luau now OMITS that node entirely under
+		-- `externalGesture`, so a wrapped+reorderable row costs exactly one
+		-- fewer Instance than it used to (proven by
+		-- table.spec.luau's own "mounts NO internal Content/Hit Grip"
+		-- case — whichever perf/instance-count accounting Task 11 later
+		-- adds should reflect this). A non-reorderable wrapped row leaves
+		-- `externalGesture` false: no composition needed, the composite's
+		-- own internal Grip is the row's only pointer surface, exactly
+		-- Tasks 3-9's shipped shape.
 		local rowActionsApi = row_actions.build(LuauUI, core, {
 			id = "RowActions-" .. rowKey,
 			-- Task 10: restores the row's normal list-flow width — `content`

@@ -2352,6 +2352,43 @@ describe("Table: row actions (Task 10)", function()
 		expect(reorders[1].keys[1]).toBe("razz")
 	end)
 
+	-- REDTEAM ITEM 15 (LOW; table.luau's own former comment above
+	-- `externalGesture`, corrected). A wrapped, REORDERABLE row's own
+	-- internal `Content/Hit` Grip used to mount unconditionally even when
+	-- `externalGesture = true` left it fully unwired (every handler nil) —
+	-- a real, if inert, extra Active (hit-testable) Instance the old
+	-- comment's "must not ALSO wire its own competing Content Grip" phrasing
+	-- glossed over (unwired is not the same as absent). Fixed by omitting
+	-- the node entirely rather than merely leaving it unwired.
+	it(
+		"a reorderable + wrapped row mounts NO internal Content/Hit Grip at all (only Table's own composed Hit)",
+		function()
+			local w = raWorld({
+				header = false,
+				reorderable = true,
+				onReorder = function() end,
+				rowActions = function(_item)
+					return { trailing = { deleteAction() } }
+				end,
+			})
+			expect(w.adapter.node(wrappedRowHitPath(0, "razz")) ~= nil).toBe(true) -- Table's own Hit: present
+			expect(w.adapter.node(`{rowActionsRoot(0, "razz")}/Content/Hit`)).toBe(nil) -- row_actions' OWN Grip: gone
+		end
+	)
+
+	-- a NON-reorderable wrapped row is unaffected: `externalGesture` stays
+	-- false, so the composite's own internal Grip remains its one pointer
+	-- surface, byte-identical to Tasks 3-9's shipped shape.
+	it("a wrapped, NON-reorderable row still mounts its own internal Content/Hit Grip", function()
+		local w = raWorld({
+			header = false,
+			rowActions = function(_item)
+				return { trailing = { deleteAction() } }
+			end,
+		})
+		expect(w.adapter.node(`{rowActionsRoot(0, "razz")}/Content/Hit`) ~= nil).toBe(true)
+	end)
+
 	it("mouse horizontal drag on the same reorderable + wrapped row reveals actions instead of reordering", function()
 		local reorders: { any } = {}
 		local w = raWorld({

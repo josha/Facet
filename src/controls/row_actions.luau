@@ -1740,6 +1740,51 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				return raw + use(editGutterPx)
 			end))
 		end
+		-- REDTEAM FIX (item 15, LOW). This block used to ALWAYS mount the
+		-- hit-surface Grip below, even under `externalGesture = true`, with
+		-- every handler set to `nil` — a real Instance that does nothing:
+		-- `screen_target.luau` sets `instance.Active = true` for EVERY
+		-- `Grip` unconditionally at create time, regardless of whether it
+		-- carries any pointer handlers at all, so an "inert" Grip still
+		-- costs a genuine extra Active (hit-testable) node — the comment
+		-- above (Task 10's own) claimed the caller "must not ALSO wire its
+		-- own competing Content Grip," which undersold what was actually
+		-- happening: the node itself still mounted, unwired, not "not
+		-- wired = doesn't exist." `externalGesture` means Table's own row
+		-- Hit (composed with reorder) is ALREADY the row's one pointer
+		-- surface — this Grip would never receive a single event even if it
+		-- did carry handlers — so it is now OMITTED entirely rather than
+		-- merely left unwired: one real Instance saved per wrapped,
+		-- reorderable Table row (proven by table.spec.luau's own "mounts NO
+		-- internal Content/Hit Grip" case).
+		local contentChildren: { any } = {}
+		if not externalGesture then
+			table.insert(
+				contentChildren,
+				-- Task 5: the drag hit surface. A `UI.Grip` — unfocusable by
+				-- default (never steals a Tab stop from whatever focusable
+				-- controls live inside `content`), exactly the "non-button
+				-- Active node" pointer.spec.luau exercises — sized to fill,
+				-- painted BEHIND `content` in the same array-order-is-
+				-- paint-order relationship table.luau's own row "Hit"
+				-- Button uses ahead of its "Cells" (table.luau
+				-- `rowBlueprint`): Roblox delivers InputBegan/Changed/Ended
+				-- to every Active GuiObject under the point independently
+				-- of paint order, so this background Grip still captures a
+				-- drag while a button INSIDE `content` still receives its
+				-- own tap, unaffected, when the row is not being dragged.
+				UI.Grip({
+					id = "Hit",
+					width = { type = "fill" },
+					height = { type = "fill" },
+					onPointerDown = pointerHandlers.onPointerDown,
+					onPointerMove = pointerHandlers.onPointerMove,
+					onPointerUp = pointerHandlers.onPointerUp,
+					onPointerCancel = pointerHandlers.onPointerCancel,
+				})
+			)
+		end
+		table.insert(contentChildren, content)
 		table.insert(
 			children,
 			UI.ZStack({
@@ -1748,34 +1793,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				offsetX = contentOffsetX,
 				width = { type = "fill" },
 				height = { type = "fill" },
-				children = {
-					-- Task 5: the drag hit surface. A `UI.Grip` — unfocusable by
-					-- default (never steals a Tab stop from whatever focusable
-					-- controls live inside `content`), exactly the "non-button
-					-- Active node" pointer.spec.luau exercises — sized to fill,
-					-- painted BEHIND `content` in the same array-order-is-
-					-- paint-order relationship table.luau's own row "Hit"
-					-- Button uses ahead of its "Cells" (table.luau
-					-- `rowBlueprint`): Roblox delivers InputBegan/Changed/Ended
-					-- to every Active GuiObject under the point independently
-					-- of paint order, so this background Grip still captures a
-					-- drag while a button INSIDE `content` still receives its
-					-- own tap, unaffected, when the row is not being dragged.
-					UI.Grip({
-						id = "Hit",
-						width = { type = "fill" },
-						height = { type = "fill" },
-						-- Task 10: `externalGesture` (see the Spec field's own
-						-- comment) — nil handlers leave this a plain, inert
-						-- backing layer; the caller drives `_pointerHandlers`
-						-- from its own hit surface instead.
-						onPointerDown = if externalGesture then nil else pointerHandlers.onPointerDown,
-						onPointerMove = if externalGesture then nil else pointerHandlers.onPointerMove,
-						onPointerUp = if externalGesture then nil else pointerHandlers.onPointerUp,
-						onPointerCancel = if externalGesture then nil else pointerHandlers.onPointerCancel,
-					}),
-					content,
-				},
+				children = contentChildren,
 			})
 		)
 
