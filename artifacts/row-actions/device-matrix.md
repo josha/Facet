@@ -326,3 +326,16 @@ Task 12: either re-baseline the perf gate to the two-edge, mount-inclusive
 numbers actually measured (both here and in Task 11), or track the
 `VirtualList` gesture-composition hook as a follow-up perf mission rather
 than block the gate on it.
+
+## Task 12 resolution (director ruling 2026-08-11)
+
+Both halves of the recommendation above were taken. The `row-actions` gate
+(`tools/lune/gate_manifest.luau`, check `row-actions-device-matrix`, run via
+`tools/check_row_actions_matrix.py`) is re-baselined to the numbers this
+artifact's Task 11b section measured (steady scroll ≤57%, fling ≤81%, ≤5
+wrapper instances/closed row) as CEILINGS — a future regression above them
+reddens the gate; the artifact's own candid "still FAIL against the original
+budget" prose above and the NEEDS_PHYSICAL_DEVICE riders are never read by
+that check. The closure path — a `VirtualList` gesture-composition hook, or
+generic cell recycling — is chartered as its own follow-up mission:
+`docs/plans/row-actions-perf-mission.md`.
