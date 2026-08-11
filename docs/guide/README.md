@@ -94,7 +94,7 @@ list, mechanically checked against the exports in both directions:
 ```lua
 local LuauUI = require(ReplicatedStorage.LuauUI)
 
-LuauUI.VERSION            -- "0.8.0"
+LuauUI.VERSION            -- "0.9.0"
 LuauUI.newCore()          -- create a reactive runtime
 LuauUI.UI                 -- the screen-description constructors (UI.Screen, UI.Text, ...)
 LuauUI.mount(...)         -- turn a description into a live node graph

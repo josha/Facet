@@ -33,7 +33,7 @@ anything below, because they decide how a call is written:
 ### `VERSION`
 
 `LuauUI.VERSION: string` — the semantic version (`MAJOR.MINOR.PATCH`),
-currently `0.8.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
+currently `0.9.0`. Governed by `docs/adr/ADR-0011-semver-and-deprecation.md`:
 pre-1.0, a minor bump may change behavior with notice; a patch bump never
 does. The version lives only here; docs and tests read it from the source.
 
@@ -2941,6 +2941,42 @@ Largest. An undisclosed clip from a too-short pin is exactly what the
 table-authored value cells and the header title it caps (a custom `cell`
 blueprint declares `disclose` on its own Text instead).
 
+**`rowActions`** (row-actions, docs/plans/row-actions-implementation.md Task
+10) wraps individual rows in a swipeable [`newRowActions`](#newrowactions)
+tray without a second construct: `rowActions: (item) -> { leading?, trailing?,
+fullSwipe? }?`, a per-item callback returning the same three fields
+`newRowActions` itself takes minus `content`/`coordinator`/`env`/`editing` —
+Table supplies all four automatically (the wrapped row content, ONE shared
+`newRowActionsCoordinator` instance for the whole table so at most one tray is
+open at a time, its own `env`, and its own `editing` signal, so the edit-mode
+leading minus and the reorder handle can both show at once). Returning `nil`
+for an item (the common case, and the only legal value besides the closed
+three-key table above) leaves that row completely unwrapped — no extra
+`Instance`, no extra subscription, the same true-inert-passthrough guarantee
+`newRowActions` itself ships. An unknown key in a returned table is a
+build-time error naming the offending row, not a silently ignored option.
+
+*Gesture arbitration with `reorderable`.* A row that is both `reorderable` and
+carries `rowActions` composes the two through
+`row_actions.composeWithReorder` rather than picking one: a **mouse** press
+accumulates until the axis lock resolves, then replays onto whichever handler
+won — a **vertical** drag drives the existing reorder session, a
+**horizontal** drag drives the tray (open/close/full-swipe), so the same
+press can reorder a row moved mostly up/down and reveal actions on the same
+row dragged mostly left/right. **Touch** always drives the tray directly (this
+control's own axis lock decides scroll-vs-reveal without a reorder branch —
+Table's touch reorder already rides the grab verbs, independent of this
+pointer path, the same split `newVirtualList` documents above). Keyboard and
+gamepad Delete/menu bind per row through the wrapper itself (Task 8/8b) with
+no separate Table wiring.
+
+*The iOS tap-to-close rule.* A tap that lands on a row's own content while
+THAT row's own tray is open closes the tray and does **not** select or
+activate the row (a second, deliberate tap is what proceeds) — a tap
+elsewhere (another row, off the list) is unaffected. This was a RED-TEAM
+finding (the row activated AND stayed open); `tests/table.spec.luau`'s
+"iOS tap-to-close" case pins the fix.
+
 ### `newVirtualList`
 
 `LuauUI.newVirtualList(LuauUI, core, spec) -> VirtualList` — fixed-height
@@ -3899,11 +3935,14 @@ pres.present(LuauUI.UI.Screen({ id = "S", children = { chip.blueprint } }))
 
 `LuauUI.newRowActions(LuauUI, core, spec) -> { blueprint, dump, dispose }` — a
 swipeable action tray around an arbitrary row (iOS Mail-style leading/trailing
-actions: Delete, Flag, Mark Read, ...). **This release ships the structural
-skeleton**: the spec contract, a lazily-mounted tray on each edge, and a
-programmatic (unsprung) reveal. The swipe GESTURE itself — mouse drag, touch,
-keyboard Delete, gamepad, and the spring-animated slide — lands in later
-releases; today the tray is opened and closed programmatically.
+actions: Delete, Flag, Mark Read, ...): the spec contract, a lazily-mounted
+tray on each edge, spring-animated reveal with proportional tray-button
+growth, and the full cross-input gesture story — mouse drag, touch, keyboard
+Delete/Backspace and Shift+Return, gamepad ButtonX/A/B, and full-swipe commit
+— every action reachable on every input device (see Tasks 5-8b below). `_open`
+and `_close` remain available as the programmatic entry points a caller (or
+the edit-mode minus, Task 9) can drive directly, animated exactly like a live
+gesture's release.
 
 A row with **no actions on either edge is a true inert passthrough**: `spec.content`
 mounts completely unwrapped (no extra node, no extra `Instance`) — the perf
@@ -3917,8 +3956,9 @@ Spec fields:
 | `content` | `Blueprint` | **yes** | the wrapped row. Slides horizontally over a revealed tray; otherwise painted exactly as authored. |
 | `leading` | `{ ActionSpec }?` | no | actions revealed by swiping right (or opening edge `"leading"`). `nil` = no leading tray; an empty table `{}` is a spec error (use `nil` for "none"). |
 | `trailing` | `{ ActionSpec }?` | no | actions revealed by swiping left (edge `"trailing"`). Same `nil`/`{}` rule. |
-| `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits its first action outright (iOS "swipe to delete"). Accepted and normalized now; the gesture that reads it ships later. |
+| `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits that edge's FIRST action outright (iOS "swipe to delete"), per edge. Committing a **`role = "destructive"`** first action runs the slide-off + row-height-collapse sequence, fires `onAction` once, and leaves the row committed (a later gesture/tray-tap on it is a no-op — the owner is expected to remove it from the data model). Committing a **non-destructive** first action fires `onAction` immediately (the identical quarantined call a direct tray-button tap makes) and springs the row back to CLOSED — it never slides off-screen or collapses height, and stays fully interactive: SwiftUI parity for a full swipe on "Flag"/"Archive"/"Mark Read"-shaped actions, which must feel exactly like tapping that button in the revealed tray, not like a deletion (RED-TEAM finding, director-ruled). An edge with `fullSwipe = false` still opens/closes on a partial swipe; it can never commit past the tray. |
 | `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Wired (Task 7): a gesture crossing the axis lock, or `_open`, claims it — closing whichever other row is open — and this row releases its own claim on every close/dispose. Omitted, an instance only ever manages itself. **When present, `id` becomes required** (see the `id` row above) — every row sharing one coordinator must carry its own unique `id`. |
+| `env` | `Environment?` | no | live theme reactivity for each tray button's reserved width (`buttonPad`, `buttonMinWidth`), the same `spec.env` precedent `newTable` already ships (a composite has no other line to the environment — font/size facts arrive fully resolved through `controller.textAt` instead; see the Invariants note below). Absent degrades to `themeSnapshot.neutral()`, exactly like `newTable`'s own fallback — the neutral package at authored size. |
 | `editing` | `Readable<boolean>?` | no | Task 9: the caller's own edit-mode signal (`newTable`'s own `spec.editing` is the shipped precedent for this exact shape, and Table's `rowActions` integration passes its own straight through). Present AND true, on a row that declares a `role = "destructive"` action anywhere: a leading minus button appears (see Task 9 below). Absent (the default), the minus never appears and this control costs nothing extra. Must be a Readable when present — a plain `true`/`false` literal is a build-time error. |
 
 `ActionSpec`:
@@ -3939,8 +3979,8 @@ Return surface:
   other interactive composite — **no `present()` opts are needed**.
 - `dump()` — a deterministic diagnostic table
   (`{ schema = "luauui-rowactions-dump/1", id, offset, openEdge, phase, menuOpen }`,
-  `phase` one of `"closed" | "open"` in this release; `menuOpen` is the action
-  menu's own open state, Task 8, independent of the tray).
+  `phase` one of `"closed" | "open"`; `menuOpen` is the action menu's own open
+  state, independent of the tray).
 - `dispose()` — disposes the control scope and nothing else.
 
 **Task 8: keyboard Delete + the action menu.** When either edge declares a
@@ -3954,7 +3994,13 @@ registered at all (the key falls through to whatever else wants it). A
 **gamepad ButtonX press, or keyboard Shift+Return (Task 8b)**, same focus
 scope, toggles a small popup menu (PopupButton-pattern: transient,
 focus-trapped, outside-tap swallows and dismisses) listing every declared
-action — leading then trailing, document order — as a focusable row;
+action — leading then trailing, document order — as a focusable row. **The
+menu is its own floating `presentModal` surface**, not a child measured
+inside this row's own tree (RED-TEAM fix: the original measured-child menu
+could grow past the row's own content height and inflate the row — and, in a
+Table, the whole list — it sat in; `tests/row_actions_input.spec.luau`'s
+"the menu contributes zero to row/list measure" cases pin a sibling row's
+solved rect byte-identical whether or not this row's menu is open);
 activating one runs it exactly once (a destructive item through the same
 commit sequence as Delete) and closes the menu; Cancel (gamepad ButtonB)
 closes it without firing anything. **While the menu is open, it owns all
@@ -4014,11 +4060,26 @@ Invariants:
 - **Lazy trays.** A tray mounts zero `Instance`s while closed (`UI.When`
   keyed on which edge, if any, is open) — the perf directive for a list where
   most rows sit closed.
-- **The reveal offset is read from solved geometry, never hand-measured.** A
-  tray's pixel width comes from its own laid-out rect (fed back through the
-  input contribution's `syncGeometry`, the same mechanism `newSlider`'s
-  track-fraction math uses), so a long or pseudo-localized label that grows a
-  button past `buttonMinWidth` still reveals correctly.
+- **A tray button's width is an independent, unconstrained measurement — never
+  hand-measured at build time, and never read back from this reveal's OWN
+  solved geometry.** Two shapes were tried and rejected (code review,
+  2026-08-10): caching a label's width at build time is wrong forever (the
+  engine has not laid anything out yet — the exact "cached before truth
+  exists" bug class `docs/research/roblox-text-bounds-boot-window.md` warns
+  about), and reading the width back from the tray's own solved rect is a
+  feedback loop the moment the reveal itself is what shrinks that geometry,
+  and permanently stale against a later `preferredTextSize`/theme change
+  (a solved rect only exists because THIS composite triggered a solve). The
+  shipped mechanism instead asks `controller.textAt(path)` — the framework's
+  own live-subscribed font/size facts for that node, the same delivery shape
+  `bindMotion` uses — for each button's label measured at UNLIMITED width
+  (`text_metrics.measure(label, font, size, math.huge)`), plus the theme's
+  `buttonPad`/`buttonMinWidth` (resolved via `spec.env`, see above). Because
+  the measurement is unconstrained, it can never read back anything this
+  reveal itself painted, so re-deriving it on every `syncGeometry` is safe by
+  construction — it also means a long or pseudo-localized label that grows a
+  button past `buttonMinWidth`, or a live preferred-text-size change, still
+  reveals correctly and never freezes stale.
 - **Labels are never truncated by this control.** The theme's
   `controls.rowActions.buttonMinWidth` (64px) is a floor, not a cap.
 

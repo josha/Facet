@@ -2974,6 +2974,53 @@ local manifest: { [string]: { Check } } = {
 			note = "SF-R6: physical touch drag feel, real gamepad drag delivery, weakest-device performance, and the human motion-feel review cannot be closed by any instrument in this build; exact procedures in review-packet.md",
 		},
 	},
+
+	["row-actions"] = {
+		-- SwiftUI-parity row swipe actions (docs/plans/row-actions.md,
+		-- docs/plans/row-actions-implementation.md): newRowActions/
+		-- newRowActionsCoordinator + Table's `rowActions` integration, full
+		-- cross-input coverage. Task 12. Six load-bearing suite cases stand in
+		-- for the ~150-case row_actions*.spec.luau corpus (Form A only, per
+		-- the header discipline above): one per structurally distinct
+		-- mechanism (mouse gesture, coordinator, axis-lock arbitration with
+		-- reorder, the presentModal menu re-home, keyboard, and the RED-TEAM
+		-- iOS tap-to-close fix), so a regression in any one of those
+		-- mechanisms reddens this gate rather than riding on the others'
+		-- coverage.
+		{
+			name = "row-actions-suite",
+			requirements = { "ROW-ACTIONS-001" },
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*full swipe commits (destructive): row slides off, collapses, onAction fires exactly once" && echo "$out" | grep -q "✓.*opening row B closes row A (one-open policy)" && echo "$out" | grep -q "✓.*vertical drag never moves the offset (axis lock)" && echo "$out" | grep -q "✓.*solved rect (y, x, height) byte-identical" && echo "$out" | grep -q "✓.*Delete on a focused row fires the first destructive action" && echo "$out" | grep -q "✓.*own content while ITS tray is open closes it"',
+			note = "the full-swipe commit trajectory (tests/row_actions_input.spec.luau), the one-open coordinator (same file), pointer axis lock (same file), the RED-TEAM item-2 menu-contributes-zero-to-measure fix (tests/row_actions_input.spec.luau 'redteam item 2' block), keyboard Delete (same file), and the iOS tap-to-close fix through Table (tests/table.spec.luau) — one case per distinct mechanism, not six cases of the same one",
+		},
+		{
+			name = "row-actions-device-matrix",
+			requirements = { "ROW-ACTIONS-001" },
+			-- The plan's own sketch here was `test -f "$f" && ! grep -q "FAIL" "$f"
+			-- && ! grep -qE "PENDING" "$f"` — which the artifact as legitimately
+			-- shipped can never pass: Task 11/11b's perf section HONESTLY records
+			-- the wrapped-row cost missing the plan's original <=5%/<=4-instance
+			-- budget ("still FAIL" appears in that prose by design), and the
+			-- NEEDS_PHYSICAL_DEVICE section is a standing, intentional rider list,
+			-- not a defect. tools/check_row_actions_matrix.py replaces the blanket
+			-- grep with three real assertions (director ruling 2026-08-11): the
+			-- five-view FUNCTIONAL matrix must contain no FAIL cell, the Task-11b
+			-- measured numbers (steady scroll, fling, wrapper instance count) must
+			-- still be present, and each must not exceed the RE-BASELINED ceiling
+			-- (57% / 81% / 5 instances) — a future regression above those numbers
+			-- reddens this check; the documented rider rows and the candid
+			-- budget-missed prose never do (see the script's own docstring).
+			run = "python3 tools/check_row_actions_matrix.py",
+			evidence = "artifacts/row-actions/device-matrix.md",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "ROW-ACTIONS-001", "UI-AGENT-001" },
+			run = "tools/test.sh 4038",
+			evidence = "artifacts/test.json",
+			note = "the row-actions stage floor: 4038 (Tasks 1-11b, incl. the RED-TEAM fix wave and its two re-review rounds, the item-2 presentModal round, and Task 8b's action-system modifier support). A regression of any test this stage added — or any prior test it broke — fails here.",
+		},
+	},
 }
 
 return manifest

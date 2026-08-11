@@ -200,6 +200,14 @@
    "specSection": "docs/plans/swiftui-reference-app-validation.md",
    "artifactDir": "artifacts/swiftui-reference-app-validation",
    "gateArtifact": "artifacts/swiftui-reference-app-validation/gate.json",
+   "next": "row-actions"
+  },
+  {
+   "gate": "row-actions",
+   "title": "SwiftUI-parity row swipe actions: newRowActions/newRowActionsCoordinator + Table rowActions, full cross-input coverage (touch/mouse/keyboard/gamepad/edit-mode), with the perf gate re-baselined to Task 11b's measured mount-dominated numbers (director ruling 2026-08-11) and the closure path tracked as a follow-up mission",
+   "specSection": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
+   "artifactDir": "artifacts/row-actions",
+   "gateArtifact": "artifacts/row-actions/gate.json",
    "next": null
   }
  ]

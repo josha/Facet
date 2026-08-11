@@ -87,7 +87,7 @@ end
 local LuauUI = {
 	-- semantic version (ADR-0011): MAJOR.MINOR.PATCH; pre-1.0 the minor
 	-- tracks the completed design phase. Bump here AND in the ADR.
-	VERSION = "0.8.0",
+	VERSION = "0.9.0",
 
 	-- deprecation ledger (ADR-0011): { surface, since, removeNoEarlierThan,
 	-- replacement, note? } per entry; a deprecated surface keeps working for

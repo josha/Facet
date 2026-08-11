@@ -51,7 +51,33 @@ change without notice. Games must not require library-internal modules.
 - `tests/api_surface.spec.luau` enforces the semver shape, the ledger schema,
   and that this ADR names the current version (update BOTH on every bump —
   the test fails otherwise, which is the point).
-- Current version: **0.8.0** — API and architecture constitution (stage
+- Current version: **0.9.0** — row-actions (docs/plans/row-actions.md,
+  docs/plans/row-actions-implementation.md): SwiftUI-parity swipe actions.
+  `newRowActions` (a swipeable leading/trailing action tray around an
+  arbitrary row: spring reveal, proportional tray-button growth, full-swipe
+  commit, an edit-mode leading minus) and `newRowActionsCoordinator` (one-open
+  policy + scroll-close for a plain list of wrapped rows) are new public
+  exports; `newTable` gains an optional `rowActions` spec key wiring the same
+  composite per row, sharing one coordinator and Table's own `editing` signal.
+  Full cross-input coverage: mouse/touch drag with axis lock and velocity
+  handoff, keyboard Delete/Backspace, gamepad ButtonX and keyboard
+  Shift+Return (via new action-system `modifiers = { shift = true }` binding
+  support, itself additive) opening a focus-trapped action menu on its own
+  `presentModal` surface (RED-TEAM fix: a measured-child menu could inflate
+  the row/list it sits in; the menu now contributes zero to its host's
+  measure), and reorder-composed gestures in Table (`row_actions.
+  composeWithReorder`). Additive MINOR: every existing `newTable` caller and
+  every other public export is unchanged; the new spec keys are optional and
+  a row/table that never sets them is byte-identical to 0.8.0. The perf gate
+  (`tools/lune/gate_manifest.luau` `row-actions` stage) is re-baselined to the
+  numbers Task 11b actually measured for a two-edge wrapped row in a
+  virtualized, actively-scrolling list (steady scroll +57%, fling +81%, 5
+  wrapper instances/closed row — mount-dominated, not reactive-graph cost;
+  see `artifacts/row-actions/device-matrix.md` and
+  `docs/plans/row-actions-perf-mission.md` for the closure path), rather than
+  the plan's original, unmet <=5%/<=4-instance ceiling — a documented,
+  director-ruled (2026-08-11) re-baseline, not a silently loosened budget.
+- Previous: **0.8.0** — API and architecture constitution (stage
   `api-architecture-consistency`, roadmap Step 7). One authoritative rule set now
   governs the public surface (`docs/reference/constitution.md`); every public item
   is classified in the stage's surface ledger. MINOR because several compatible
