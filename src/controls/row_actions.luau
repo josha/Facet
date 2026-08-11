@@ -319,9 +319,26 @@ function row_actions.newCoordinator(core: any): any
 	-- unchanged by going through the coordinator — then claims `instance`.
 	-- Re-claiming the row that is already claimed is a harmless no-op past the
 	-- identity check.
+	--
+	-- REDTEAM FIX (item 7, MAJOR, cross-row half): `_close()` alone only
+	-- ever closed the claimed-away row's TRAY. Its MENU (independent state
+	-- — `row_actions.build`'s own comment above `local menuOpen`) is a
+	-- SEPARATE popup that a row can have open with no tray revealed at all,
+	-- so a sibling row beginning a horizontal gesture (claiming here) used
+	-- to leave the previously-open row's menu — and its `transientScope`
+	-- focus trap — stranded, armed on a row the player was no longer
+	-- looking at. `_closeMenu()` runs unconditionally alongside `_close()`
+	-- for the identical reason: idempotent (a no-op via `menuOpen:set(false)`
+	-- on a row whose menu was never open), so this never has to ask first.
 	local function claim(instance: any)
 		if claimed ~= nil and claimed ~= instance then
-			claimed._close()
+			-- captured BEFORE calling `_close()`: `close()` itself calls
+			-- `coordinator.release(api)` (row_actions.build), which mutates
+			-- THIS SAME `claimed` upvalue back to `nil` as a side effect —
+			-- reading `claimed` again afterward would already be nil.
+			local previous = claimed
+			previous._close()
+			previous._closeMenu()
 		end
 		claimed = instance
 	end
@@ -750,6 +767,20 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 	end
 
+	-- Task 8's own menu state (own state; independent of `openEdge`/`offset`
+	-- above — the menu never reveals a tray). Declared HERE, ahead of
+	-- `doCommitAction` below (rather than down by `openMenu`/`toggleMenu`,
+	-- Task 8's original home for all four), so that function can read/call
+	-- `menuOpen`/`closeMenu` too (redteam item 7, MAJOR — see the big
+	-- comment on `doCommitAction`'s own use of it) — the same "Luau locals
+	-- are only visible to code following their own declaration" constraint
+	-- `committed` already ran into (item 5's own comment above `local
+	-- committed`).
+	local menuOpen = scope:own(core:signal(false))
+	local function closeMenu()
+		menuOpen:set(false)
+	end
+
 	-- ===== Task 5: the commit path (shared by the gesture and `_commitFirst`) ===
 	-- Live geometry read through `controller` (bound the same absent-degrades
 	-- way `deriveNaturals` already reads `controller.textAt` — Task 4), never
@@ -865,6 +896,23 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- `onArrive` at all), together mean `action.onAction` cannot fire for a
 	-- row this composite no longer owns.
 	local function doCommitAction(edge: Edge, action: ActionSpec, offscreenTarget: number): boolean
+		-- REDTEAM FIX (item 7, MAJOR): the ORIGINAL "menu-open carve-out"
+		-- (see the big comment above `ROW_ACTIONS_KEY_PRIORITY` further down)
+		-- only ever guarded the KEYBOARD Delete entry point — a full-swipe
+		-- POINTER gesture committing on this SAME row (same-row: this row's
+		-- own menu is open when its own tray gesture commits) was never
+		-- gated at all, stranding the menu (and its `transientScope` focus
+		-- trap) on top of a row that had just slid off and collapsed out
+		-- from under it. Closing the menu FIRST, unconditionally, at the one
+		-- root every commit path (gesture, tray tap, keyboard Delete, menu
+		-- Activate itself) already funnels through, is what keeps it from
+		-- ever outliving the row state it was popped over. (The cross-row
+		-- half of this same finding — another row's coordinator CLAIM
+		-- leaving THIS row's menu armed while ITS tray closes — is fixed at
+		-- `row_actions.newCoordinator`'s own `claim`, below.)
+		if menuOpen:get() then
+			closeMenu()
+		end
 		-- REDTEAM FIX (item 4, MAJOR — director ruling, SwiftUI behavior): a
 		-- full swipe commits differently by role. A DESTRUCTIVE first action
 		-- keeps the full slide-off + collapse sequence below unchanged. A
@@ -985,11 +1033,9 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- ===== Task 8: the action menu (Shift+Return desktop / ButtonX gamepad) =
 	-- Own state; independent of `openEdge`/`offset` above — the menu never
 	-- reveals a tray, it is a floating popup listing every action (brief:
-	-- "PopupButton-pattern panel").
-	local menuOpen = scope:own(core:signal(false))
-	local function closeMenu()
-		menuOpen:set(false)
-	end
+	-- "PopupButton-pattern panel"). `menuOpen`/`closeMenu` themselves are
+	-- declared earlier (see the comment there) so `doCommitAction` above,
+	-- defined before this point, can also read/call them.
 	local function openMenu()
 		if #menuItemsOrdered == 0 then
 			return -- unreachable given the `else` branch below only builds
@@ -2147,6 +2193,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		_close = close,
 		_isOpen = isOpen,
 		_settleTo = settleTo,
+		-- REDTEAM FIX (item 7, MAJOR): the coordinator's own `claim` (below,
+		-- `row_actions.newCoordinator`) calls this on the row it is claiming
+		-- AWAY from — closing that row's TRAY (`_close`) already ran; the
+		-- menu (independent state, see the big comment above `local
+		-- menuOpen`) needs its own explicit close or a cross-row claim left
+		-- it (and its `transientScope` focus trap) armed on a row another
+		-- row had just taken over the gesture from.
+		_closeMenu = closeMenu,
 		-- Task 5: down/move/up/cancel, attached to the Content hit surface
 		-- above AND exposed here so Table (Task 10) can compose them with its
 		-- own row-level pointer handling instead of only reaching them

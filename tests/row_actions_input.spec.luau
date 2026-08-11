@@ -989,6 +989,36 @@ describe("RowActions Task 7: open-state coordinator + outside-tap/scroll dismiss
 		expect(w.rowA._isOpen()).toBe(false) -- claimed away, closed
 	end)
 
+	-- REDTEAM ITEM 7 (MAJOR, cross-row half): the coordinator's own `claim`
+	-- used to close only the claimed-away row's TRAY (`_close`) — its MENU
+	-- is independent state, so a row with BOTH its tray revealed (which is
+	-- what actually claims the coordinator in the first place — opening
+	-- the menu alone never does, see `open`'s own `coordinator.claim` vs.
+	-- `openMenu`, which has none) AND its menu open on top of that used to
+	-- have its menu — and its `transientScope` focus trap — stay armed
+	-- while another row's gesture claimed the coordinator away from it.
+	it("row B starting a horizontal gesture closes row A's OPEN MENU too, not just its tray", function()
+		local w = twoRowWorld()
+		w.rowA._open("trailing") -- claims the coordinator (this IS what `claimed` tracks)
+		w.settle()
+		expect(w.rowA._isOpen()).toBe(true)
+
+		w.pres.focus.focusOn("/S/RowA/Content/Body")
+		w.system.deviceKey("ButtonX", true)
+		w.system.deviceKey("ButtonX", false)
+		w.pres.refresh()
+		expect(w.rowA.dump().menuOpen).toBe(true) -- BOTH tray and menu now open on row A
+
+		-- crossing the axis lock alone claims the coordinator
+		-- (`row_actions.build`'s own `onPointerMove`, Task 7's SECOND claim
+		-- site) — well before any release/settle.
+		w.adapter.pointerDown("/S/RowB/Content/Hit", 100, 20, "mouse")
+		w.adapter.pointerMove(85, 20) -- dx = -15: past the 8px axis lock
+		expect(w.rowA._isOpen()).toBe(false) -- tray closed (pre-existing behavior)
+		expect(w.rowA.dump().menuOpen).toBe(false) -- menu ALSO closed, not stranded
+		w.adapter.pointerUp(85, 20)
+	end)
+
 	it("scroll movement closes the open row (fire the observeScroll callback)", function()
 		local w = twoRowWorld()
 		w.rowA._open("trailing")
@@ -1736,6 +1766,54 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		expect(fired).toEqual({ "delete" })
 		expect(w.ra._isOpen()).toBe(false)
 		expect(w.ra.dump().phase).toBe("closed")
+	end)
+
+	-- REDTEAM ITEM 7 (MAJOR, same-row half): the ORIGINAL menu-open
+	-- carve-out (see the test above) only ever gated the KEYBOARD Delete
+	-- entry point — a full-swipe POINTER gesture committing on this SAME
+	-- row was never gated at all, stranding the menu (and its
+	-- `transientScope` focus trap) on top of a row that had just slid off
+	-- and collapsed out from under it.
+	it("a full-swipe commit under an OPEN MENU on the SAME row closes the menu first, not stranding it", function()
+		local fired: { string } = {}
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+			})
+		end)
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("ButtonX")
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(true)
+
+		local rowWidth = rowWidthOf(w)
+		w.adapter.pointerDown(HIT, 0, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(-15, 20) -- past the lock
+		w.tick(1.0)
+		local releaseX = -(rowWidth * 0.7) -- past the 60% full-swipe commit threshold
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		-- the menu closes IMMEDIATELY, synchronously with the commit
+		-- starting — not merely "eventually" once the whole slide+collapse
+		-- chain finishes several frames later.
+		expect(w.ra.dump().menuOpen).toBe(false)
+		w.settle(600)
+		expect(fired).toEqual({ "delete" })
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.adapter.node("/S/Row/Menu/MenuRowsWhen/then/MenuRows")).toBe(nil) -- unmounted, not stranded
 	end)
 
 	it(
