@@ -51,6 +51,17 @@ terms where an analogue exists:
 | **Four-input proof** | An automated conformance test asserting a control is genuinely operable with mouse, touch, keyboard, *and* gamepad. |
 | **Gate** | A named CI check that must pass before a piece of work is considered landed. There are 25 of them. |
 | **Evidence level** | How a claim was verified: **E1** headless test run, **E3** Roblox Studio device emulator, **E4** physical hardware. No E4 evidence exists yet. |
+| **Director** | The human product owner. Where this document says "director ruling", a person decided a trade-off that the framework could not decide for itself. |
+
+Three different things in this codebase are called a "contract". They are
+genuinely distinct, and knowing which is which makes several rows below
+readable:
+
+| Contract | What it governs |
+|---|---|
+| **Render-target contract** (`src/render/target_contract.luau`) | The method list every render target must implement — required, optional (each absence is one named, non-crashing degrade), and theme-related. This is the *adapter* seam; "adapter contract" and "target contract" name the same list. |
+| **Input contribution** (`src/input/contribution.luau`) | How a composite advertises its input story to the presenter, by attaching a bundle to its blueprint's root node. Mounting the control then yields its whole navigation/activation/focus story with no consumer wiring. |
+| **Control contract** (`src/controls/contract.luau`) | A per-control *declaration*: focus role, which semantic actions it consumes, its minimum hit-target size (enforced by the renderer), and a readable accessibility summary. |
 
 ---
 
@@ -113,11 +124,16 @@ two-way binding is a convention (pass the signal down) rather than a type.
 - `lastError()` on the core is sticky and cannot be reset. You can ask a
   long-lived core "were you ever in a quarantined state", but not "are you
   healthy right now."
-- The environment key that describes screen size class (`sizeClass`) is read by
-  exactly three files today — the adaptive-layout policy module and two controls
+- The *raw* environment key describing screen size class (`sizeClass`) is read
+  by exactly three files — the adaptive-layout policy module and two controls
   (`src/layout/adaptive.luau`, `src/controls/popup_button.luau`,
   `src/controls/picker.luau`). Other files read *other* environment facts; they
-  do not adapt to size class. It is a real capability with narrow adoption.
+  do not read this one. That is narrower than it sounds: application code is not
+  meant to read the raw key at all, it is meant to call the derived helpers that
+  policy module builds on top of it (`axisFor`, `columnsFor`, `navPlacement`,
+  `conditions()`), and those *are* consumed throughout — by all five reference
+  apps (§12). Read the "three files" number as "one policy module owns this key",
+  not as "almost nothing adapts to screen size."
 
 ---
 
@@ -146,7 +162,7 @@ only the smallest enclosing subtree it can affect, not the whole tree.
 | `ViewThatFits` | **Covered** | A real solver construct (`kind == "fits"`) that measures candidates against the offered box and picks the first that fits | `solver.luau`; `blueprint.luau`; `blueprint_schema.luau` |
 | Reactive-axis stack (no SwiftUI single equivalent; nearest is `AnyLayout`) | **Covered** | `UI.AdaptiveStack` — one class whose `axis` is a bound value. Flipping horizontal↔vertical re-solves without remounting the children | `blueprint.luau:566-570`; `renderer.luau:386-389` |
 | Whole-screen adaptive composition | **Covered** — exceeds SwiftUI in one respect | `UI.Composition` + `UI.Region`: ranked regions with richest→minimum-viable form ladders, legality-tested in rank order. Carries all five reference apps' adaptation (§12) with zero device-name branches. The resolver is a pure function, so it is exhaustively testable headlessly | [`ADR-0023`](../adr/ADR-0023-declared-content-composition.md); `src/layout/composition.luau` (1703 lines); `renderer.luau:394-398`; `tests/composition.spec.luau` (1988 lines) |
-| Size-class-driven adaptation (`horizontalSizeClass` etc.) | **Covered** | `src/layout/adaptive.luau` derives `sizeClass`, `heightClass`, `axisFor`, `columnsFor`, `navPlacement`, and `conditions()` from viewport facts. Consumed by all five reference apps | `src/layout/adaptive.luau` |
+| Size-class-driven adaptation (`horizontalSizeClass` etc.) | **Covered** | One policy module, `src/layout/adaptive.luau`, owns the raw `sizeClass`/`heightClass` environment keys and exposes the derived helpers callers actually use — `axisFor`, `columnsFor`, `navPlacement`, `conditions()`. Those helpers are consumed by all five reference apps | `src/layout/adaptive.luau` |
 | Safe areas | **Covered** | Four-edge insets as environment facts, with a full-bleed (`edgeToEdge`) root policy for scrims and backgrounds | `environment.luau:22-23`; `renderer.luau:2278-2315` |
 | `GeometryReader` | **Partial** | You can learn a node's solved rectangle (`controller.rectOf`, an `onGeometry` callback, a `syncGeometry` contribution) but it is a push callback keyed by node path, not a readable value you can compose into a memo | `controller.rectOf`, `opts.onGeometry`, `syncGeometry` |
 | `containerRelativeFrame` | **Composable** | The `percent` dimension type expresses "half the parent" directly | `solver.luau:481-517` |
@@ -251,7 +267,9 @@ What ships, per `tests/conformance/controls_registry.luau:612-734` and
   5 extra instances every time a row crosses the virtualization window boundary —
   not to the feature's own reactive graph (~2%). A scratch build with a
   true-inert passthrough path recovered wall time to within ~10% of baseline,
-  confirming the attribution. By director ruling (2026-08-11) the CI ceiling was
+  confirming the attribution. By director ruling (2026-08-11) — the human
+  product owner arbitrating a trade-off the framework could not settle on its
+  own — the CI ceiling was
   re-baselined to the *measured* numbers (steady ≤57%, fling ≤81%, instances ≤5,
   `tools/check_row_actions_matrix.py:52-55`), with the original budget left on
   record as "missed, not massaged." The named next lever, not started: give
@@ -279,8 +297,9 @@ The *menu* half is proven: row actions render exactly that kind of action list.
 The *trigger* half is not. A normalization and arbitration layer over Roblox's
 native gesture recognizers ships and is publicly exported
 (`src/input/touch_gestures.luau`, `LuauUI.touchGestures`) — tap, long-press, pan,
-pinch, rotate, and swipe, all wired end-to-end through the adapter contract and
-part of the formal target contract. **No control calls it.** `Button` still
+pinch, rotate, and swipe, all wired end-to-end and listed on the render-target
+contract (§1), so a target that cannot supply gestures degrades by name rather
+than crashing. **No control calls it.** `Button` still
 filters input to primary mouse button and touch only. So the blocker is no longer
 "there is no adaptation layer" but "the adaptation layer is built, tested, and
 exported, and nothing consumes it as a trigger" — a materially smaller gap, and
@@ -327,7 +346,7 @@ rendering-injection seam in the whole library is `Table`'s `cellFor`.
 | Liquid Glass (`.glassEffect()`, `GlassEffectContainer`) | **Missing**, and **the gap widened** | Apple shipped Liquid Glass as a mature production system in the interim; LuauUI has no counterpart at any layer, and none is planned in any open design record | — |
 | `.tint(_:)` cascading down a subtree | **Partial** | Per-node tinting is real and reactive: `tintRole` tints semantic icon art from the active theme's roles, `Image.tint` is a live reactive write, and a continuous colour-blend channel (`{role, blend, from?}`) can animate between two theme roles. **What is absent is inheritance** — no `.tint()` recolors an entire subtree; every tint is per-node opt-in | [`ADR-0022`](../adr/ADR-0022-sponsor-framework-gaps.md) Decision 6 |
 | Dark mode / color schemes | **Covered** | Native StyleSheets ship `Theme Dark` and `Theme Light`, swapped at runtime with no remount and no loss of focus or scroll | [`ADR-0018`](../adr/ADR-0018-native-stylesheets.md) |
-| Theme packages owning metrics and chrome, not just colors | **Covered** — no SwiftUI equivalent | A package owns typography, spacing, control heights, radii, strokes, solver-visible content insets, and asset chrome. `theme_controller.install`/`.swap` performs one transaction — a `SetDerives` plus the snapshot commit — so geometry and paint cannot disagree for a frame. Validated at definition time for contrast, completeness, legal properties, insets, and touch-target floors | [`ADR-0019`](../adr/ADR-0019-theme-packages.md); `src/themes/theme_controller.luau` |
+| Theme packages owning metrics and chrome, not just colors | **Covered** — no SwiftUI equivalent | A package owns typography, spacing, control heights, radii, strokes, solver-visible content insets, and asset chrome. `theme_controller.install`/`.swap` performs one transaction — repointing the engine's style-sheet inheritance plus committing the new metric snapshot — so geometry and paint cannot disagree for a frame. Validated at definition time for contrast, completeness, legal properties, insets, and touch-target floors | [`ADR-0019`](../adr/ADR-0019-theme-packages.md); `src/themes/theme_controller.luau` |
 | Rich, image-driven skinning | **Covered** — no SwiftUI equivalent | Up to 8 layered art slots, per-state art maps, value-display hosts drawn full-size and revealed through a clip window (so a value change costs no instance write), semantic icons with an ASCII-safe fallback that can never render as tofu, a pixel-art rendering mode, and `selectBy` to pick a package by input paradigm. 9 dedicated spec files | [`ADR-0020`](../adr/ADR-0020-rich-skinning-v2.md) |
 | Dynamic Type | **Covered** — a rigorous equivalent | The player's Roblox "Text size" preference is first-class layout input. The framework measured the actual pixel offset each preference adds and uses those **measured per-preference constants** (Medium 0, Large 4, Larger 10, Largest 14 — uniform across font, weight, and size) rather than guesses; the engine paints `TextSize + offset` and the solver reserves exactly that box. Changing the preference mid-session re-solves every mounted surface in place, preserving identity, focus, scroll, and state. Eight typography roles carry font descriptor and line height together, and the offset composes additively with ten-foot (TV) scaling | `preferredTextOffset` environment fact — `src/env/environment.luau`, consumed at `src/render/renderer.luau:2352` and `src/layout/text_fit.luau:59,117`; `docs/guide/05-styling.md` |
 | Cascade / selector model | **Covered** (supporting infrastructure) | Rules resolve by priority first, then insertion order (later wins); there is no CSS-style specificity, on purpose, so the generator and the runtime can never disagree about which rule applies. Instances are classified for the cascade by `luau-*` CollectionService tags | `ADR-0018`; `native_style.priorityFor` |
@@ -369,10 +388,10 @@ The other structural issue here is architectural: gesture machinery exists in
 | `.onKeyPress` — raw key seam | **Missing** | No raw key event surface | — |
 | Home / End / PageUp / PageDown / type-ahead | **Missing** | — | — |
 | Escape to dismiss a modal | **Partial** — an engine constraint | The Escape key is permanently reserved by Roblox for the CoreGui menu and cannot be bound. Cancel is bindable on gamepad ButtonB; keyboard and mouse users close a modal via whatever the screen provides. A keyboard-only user has no framework-level dismiss | — |
-| `GuiService.SelectedObject` mirror (engine selection bridge) | **Partial**, experimental | Ships opt-in and modal-only: `presentModal({ engineSelectionBridge = true })`, gated so passive surfaces never opt in, with explicit `Selectable` restore when selection moves off. **This does not touch VoiceOver or TalkBack** — it drives Roblox's own gamepad selection cursor, nothing more. Gated behind a physical-device check before it becomes contract | `adapter.setEngineSelection`; supersedes the risk framing in [`ADR-0014`](../adr/ADR-0014-first-responder.md), which was never updated after its own probe shipped |
+| `GuiService.SelectedObject` mirror (engine selection bridge) | **Partial**, experimental | Ships opt-in and modal-only: `presentModal({ engineSelectionBridge = true })`, gated so passive surfaces never opt in, with explicit `Selectable` restore when selection moves off. **This does not touch VoiceOver or TalkBack** — it drives Roblox's own gamepad selection cursor, nothing more. Gated behind a physical-device check before it is treated as stable, supported API | `adapter.setEngineSelection` on the render-target contract; supersedes the risk framing in [`ADR-0014`](../adr/ADR-0014-first-responder.md), which still describes driving engine selection as an unexplored risk. It is not: the investigation that record asked for was carried out (2026-07-23) and its result is the shipped, opt-in bridge described here. The record was simply never rewritten |
 | Dynamic Type / preferred text size | **Partial** | See §6 — the mechanism is thorough; the physical-phone-at-Largest check and the subjective-feel check are still owed | — |
 | `.accessibilityAction` — custom accessibility actions | **Missing** | — | — |
-| A control's accessibility description | **Partial** — prose only | `ControlContract.accessibility` is typed as a human-readable summary string; the only consumer asserts it is non-empty. It reaches no platform API | `src/controls/contract.luau:21` |
+| A control's accessibility description | **Partial** — prose only | Every control declares an `accessibility` string on its control contract (§1), but it is typed as a human-readable summary and the only consumer asserts it is non-empty. It reaches no platform API and no assistive technology | `src/controls/contract.luau:21` |
 | `.onHover` / `isHovered` | **Missing** as a consumer surface | Hover exists but is framework-internal: an automatic, pointer-gated chrome effect. No consumer-facing hover state exists. One narrow dwell-based seam exists for a single feature (revealing truncated text) | `src/render/target_contract.luau:42-47`; `screen_target.luau:3501-3529` |
 | `.pointerStyle` — cursor shape | **Partial** — seam live, no art | A `cursorHint` prop exists on `UI.Grip` only, and the cursor-art table is empty, so every hint falls back to the default arrow | — |
 | `.sensoryFeedback` — haptics tied to state changes | **Composable** — deliberately | `src/present/feedback.luau` publishes a closed, versioned taxonomy of 12 verbs (`activate, select, adjust, pickup, commit, reject, cancel, arrive, land, dismiss, supersede, celebrate`), fired synchronously on the frame that caused them, with subscriber errors quarantined. The design rule is explicit: **LuauUI plays nothing** — the game maps verbs to its own haptics and sound. No `HapticService` or `VibrationMotor` is reached anywhere, on purpose. Live-consumed in production | `games/RascalRally/code/src/client/LuauUISponsor/PlayFlow.luau:609` |
@@ -451,6 +470,14 @@ child of its row, silently inflating the row and, inside a table, the whole list
 A pinned test now asserts a sibling row's solved rectangle is byte-identical
 whether the menu is open or closed.
 
+**One term used throughout this section: priority band.** Input in LuauUI is
+routed by numeric priority, and every surface is assigned a band of priority
+numbers when it is presented — modals get a base band, each stacked depth above
+it gets a fixed increment. The band decides who receives an input first, so two
+surfaces sharing one band is a bug, not a tie-break: both would receive the same
+event. (Separately, five coarse *display-order* bands decide what paints on top
+of what — see the layering row below.)
+
 | SwiftUI capability | Verdict | What LuauUI has | Evidence |
 |---|---|---|---|
 | `.sheet` — modal presentation | **Partial** | `presenter.presentModal` with a focus trap and per-depth priority banding. Named, validated options: `cancelPolicy`, `scrim`, `outsideTapCancel` swallow semantics, `initialFocus` | `src/present/presenter.luau` |
@@ -459,7 +486,7 @@ whether the menu is open or closed.
 | `.alert` / `.confirmationDialog` | **Composable** | Recipes only. **No item-binding sugar** — SwiftUI's `.alert(item:)` pattern has no analogue; a consumer wires its own signal. Nothing orders or tints a Cancel row automatically | — |
 | `.popover` / transient panel | **Partial** | `newPopupButton` plus a presenter-managed tap-away catcher. The catcher supports a non-consuming mode, so a tap-away can close the popup *and* still reach the control underneath | `presenter.syncPopupCatcher` |
 | `.swipeActions` / `.contextMenu` as a secondary-action container | **Partial** | `LuauUI.newRowActions` — a real construct, not a recipe, with the gaps named in §5.1 | `src/controls/row_actions.luau` |
-| Floating surface that contributes nothing to its ancestor's layout | **Covered** — architecturally significant, no SwiftUI-named equivalent | `bindPresent` on the contribution contract. Deliberately routes through `presentModal`, never `present`: two screen-kind surfaces sharing one priority band would double-deliver Navigate/Activate/Cancel | `src/input/contribution.luau:138-161`; `row_actions.luau:675-838` |
+| Floating surface that contributes nothing to its ancestor's layout | **Covered** — architecturally significant, no SwiftUI-named equivalent | `bindPresent`, part of the input contribution seam (§1). Deliberately routes through `presentModal`, never `present`: two screen-kind surfaces would share one priority band, so each would receive the same input twice. (Navigate, Activate, and Cancel here are semantic *input actions* the presenter routes to whichever surface owns the band — an entirely separate vocabulary from the 12 feedback verbs in §7, which are outbound notifications and route to nothing) | `src/input/contribution.luau:138-161`; `row_actions.luau:675-838` |
 | `ButtonRole` (destructive / cancel) | **Partial** | `role: "normal" \| "destructive"` on an action paints the shipped danger style. No `cancel` role, no automatic dialog-row ordering | — |
 | `NavigationStack` — screen push/pop | **Partial** at best | Only surface stacking: `presentModal` pushes, `back()` pops the top *modal*, `depth()` reports the stack size. There are exactly two surface kinds, `"screen"` and `"modal"`. No `pushScreen`, no `navigationPath`, no `screenStack` construct exists anywhere in source | confirmed by source search |
 | `NavigationSplitView` / `.inspector` / scene management | **Missing** | Zero occurrences | — |
@@ -682,7 +709,7 @@ selection bridge. See `artifacts/large-text-accessibility/acceptance.md` and
 |---|---|
 | LuauUI version | `0.9.0` (`src/init.luau:90`) |
 | Audit date | 2026-08-11 |
-| Method | Nine independent fresh-context passes, one per area (state & reactivity, layout, controls, styling, input & accessibility, motion, performance, presentation, tooling), each verdict cited against source or a named test |
+| Method | Nine independent passes, one per area (state & reactivity, layout, controls, styling, input & accessibility, motion, performance, presentation, tooling). Each ran *fresh-context* — performed by an agent given the source tree and no prior conversation history, so no pass could inherit an earlier pass's assumptions or restate a previous conclusion as evidence. Every verdict is cited against source or a named test |
 | SwiftUI baseline | Shipping surface plus Apple's **June 2026 / Xcode 27** update (WWDC26, iOS 27) |
 | LuauUI baseline | Source only: `src/blueprint.luau`, `src/init.luau`, `src/controls/`, `src/layout/`, `src/render/`, `src/present/`, `src/client/`, `src/motion/`, `src/themes/`, `src/input/`, plus `tests/conformance/controls_registry.luau` |
 | Raw per-area findings | `.superpowers/sdd/row-actions-implementation/audit/{state-reactivity,layout,controls,styling,input-a11y,motion,performance,presentation,tooling}.md` |
