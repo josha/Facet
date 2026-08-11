@@ -2510,6 +2510,96 @@ describe("Table: row actions (Task 10)", function()
 		end
 	)
 
+	-- ===========================================================================
+	-- FINAL FIX WAVE, item 2 (MAJOR; final-review-findings.md — the reorder-vs-
+	-- tray HALF-fix). Item 10's own fix above only ever closed the tray from the
+	-- edit-mode ≡ HANDLE's own onPointerDown (`handleDragHandlers`); the composed
+	-- BODY-drag path (this composite's `_pointerHandlers` composed with
+	-- `dragHandlers` via `row_actions.composeWithReorder`) and the
+	-- gamepad/keyboard grab branch in `api.handleActivate` never went through
+	-- either copy, so dragging a wrapped+reorderable row's own BODY — or
+	-- grabbing it with a controller — while its tray was open left the tray
+	-- stranded exactly like the ≡ handle used to before item 10. Fixed by
+	-- hoisting the close into `rowPointerHandlers`'s own onPointerDown, the ONE
+	-- funnel a plain reorderable row's Hit press, the ≡ handle's own press
+	-- (`handleDragHandlers`'s `base = rowPointerHandlers()`), AND the composed
+	-- body-drag replay (`composeWithReorder`'s own `reorderHandlers.onPointerDown`)
+	-- all share — deleting the now-redundant duplicate at the ≡ handle — and
+	-- adding the identical guard at the grab branch's own separate entry point.
+	-- ===========================================================================
+	it("mouse BODY-drag reorder (not the ≡ handle) on a row whose tray is open closes the tray first", function()
+		local reorders: { any } = {}
+		local w = raWorld({
+			header = false,
+			reorderable = true,
+			onReorder = function(keys: { string }, toIndex: number)
+				table.insert(reorders, { keys = keys, toIndex = toIndex })
+			end,
+			rowActions = function(_item)
+				return { trailing = { deleteAction() } }
+			end,
+		})
+		local razzHit = wrappedRowHitPath(0, "razz")
+		local closedX = w.adapter.node(razzHit).rect.x
+
+		-- open the tray via an ordinary horizontal drag on the row's own Hit
+		w.adapter.pointerDown(razzHit, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(60, 20)
+		w.tick(1.0)
+		w.adapter.pointerMove(-200, 20)
+		w.tick(1 / 60)
+		w.adapter.pointerUp(-200, 20)
+		w.settle()
+		expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- open
+
+		-- a FRESH press on the SAME Hit, dragged VERTICAL this time: the
+		-- composed body-drag path (`composeWithReorder`, NOT the ≡ handle)
+		-- resolves "reorder" once the axis lock crosses vertical. The tray
+		-- must close, same as the handle-drag case (item 10) above.
+		w.adapter.pointerDown(razzHit, 100, 20, "mouse")
+		w.adapter.pointerMove(100, 90) -- purely vertical, past the reorder threshold
+		w.pres.refresh()
+		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine") ~= nil).toBe(true) -- reorder engaged
+		w.settle()
+		expect(w.adapter.node(razzHit).rect.x).toBe(closedX) -- tray closed, not stranded
+		w.adapter.pointerUp(100, 90)
+		expect(#reorders).toBe(1)
+	end)
+
+	it(
+		"gamepad/keyboard grab (A / action-source Activate) on a row whose tray is open closes the tray first",
+		function()
+			local w = raWorld({
+				header = false,
+				reorderable = true,
+				onReorder = function() end,
+				rowActions = function(_item)
+					return { trailing = { deleteAction() } }
+				end,
+			})
+			w.tbl.api.editing:set(true) -- grab is edit-mode only
+			w.pres.refresh()
+			local razzHit = wrappedRowHitPath(0, "razz")
+			local closedX = w.adapter.node(razzHit).rect.x
+
+			w.adapter.pointerDown(razzHit, 100, 20, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(60, 20)
+			w.tick(1.0)
+			w.adapter.pointerMove(-200, 20)
+			w.tick(1 / 60)
+			w.adapter.pointerUp(-200, 20)
+			w.settle()
+			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- open
+
+			w.tbl.api.handleActivate(razzHit, { source = "action" }) -- grab
+			expect(w.tbl.api.grabbedKey:get()).toBe("razz")
+			w.settle()
+			expect(w.adapter.node(razzHit).rect.x).toBe(closedX) -- tray closed, not stranded
+		end
+	)
+
 	it("editing signal shows the minus on rows with a destructive action", function()
 		local core = LuauUI.newCore()
 		local editingSignal = core:signal(false)

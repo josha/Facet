@@ -917,6 +917,42 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				if rowKey == nil or bodyRect == nil or rootRect == nil then
 					return
 				end
+				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md).
+				-- Hoisted here from `handleDragHandlers` below (deleted there
+				-- as a redundant duplicate) — THIS function is the one funnel
+				-- both a plain reorderable row's own Hit press AND the
+				-- edit-mode ≡ handle's press (`handleDragHandlers`'s own
+				-- `base = rowPointerHandlers()`) share, but it is ALSO what
+				-- `row_actions.composeWithReorder` replays into once a
+				-- composed BODY-drag gesture resolves "reorder" (this
+				-- function is the `reorderHandlers` it is handed — see
+				-- `rowBlueprint` below) — a path the tray-close guard used to
+				-- never reach, so dragging a wrapped+reorderable row's own
+				-- BODY (not the ≡ handle) out from under an open tray left it
+				-- visually stranded. Same for the gamepad/keyboard grab
+				-- branch in `api.handleActivate` below, which never went
+				-- through either copy at all — closed there directly instead,
+				-- at its own entry point, for the identical reason.
+				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md).
+				-- Hoisted here from `handleDragHandlers` below (deleted there
+				-- as a redundant duplicate) — THIS function is the one funnel
+				-- both a plain reorderable row's own Hit press AND the
+				-- edit-mode ≡ handle's press (`handleDragHandlers`'s own
+				-- `base = rowPointerHandlers()`) share, but it is ALSO what
+				-- `row_actions.composeWithReorder` replays into once a
+				-- composed BODY-drag gesture resolves "reorder" (this
+				-- function is the `reorderHandlers` it is handed — see
+				-- `rowBlueprint` below) — a path the tray-close guard used to
+				-- never reach, so dragging a wrapped+reorderable row's own
+				-- BODY (not the ≡ handle) out from under an open tray left it
+				-- visually stranded. Same for the gamepad/keyboard grab
+				-- branch in `api.handleActivate` below, which never went
+				-- through either copy at all — closed there directly instead,
+				-- at its own entry point, for the identical reason.
+				local rowActionsInstance = rowActionsByKey[rowKey]
+				if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
+					rowActionsInstance._close()
+				end
 				local item
 				for _, candidate in spec.rows:get() do
 					if spec.key(candidate) == rowKey then
@@ -1078,25 +1114,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			return { x = pos.x, y = pos.y, pointerType = "mouse" }
 		end
 		return {
+			-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md). The
+			-- handle-zone tray-close used to live HERE (item 10's own fix,
+			-- prior review round) — but `base` (`rowPointerHandlers()`) now
+			-- does the identical close itself, at the ONE funnel every entry
+			-- point (a plain reorderable row's Hit press, this handle's own
+			-- press, AND the composed body-drag replay) shares, so a second
+			-- copy here would only ever run twice, never cover a path the
+			-- shared one does not already reach. Deleted, not duplicated.
 			onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
-				-- REDTEAM FIX (item 10, MEDIUM; spec: docs/plans/row-actions.md:136).
-				-- A handle-zone press always starts a reorder unconditionally
-				-- (the handle wiring's own header comment: touch-scroll design,
-				-- "drags on it ALWAYS reorder") — but if THIS row's own action
-				-- tray happens to be open, dragging the row out from under a
-				-- revealed swipe tray left the tray visually stranded, sliding
-				-- along with (or detached from) a row it no longer matched.
-				-- Closed the SAME way the row-tap handler above already does
-				-- (`rowActionsByKey` lookup by path, `api.rowKeyForPath`) —
-				-- BEFORE the reorder itself begins, so the row is back to its
-				-- normal geometry the instant the drag starts, not mid-flight.
-				local rowKey = api.rowKeyForPath(path)
-				if rowKey ~= nil then
-					local rowActionsInstance = rowActionsByKey[rowKey]
-					if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
-						rowActionsInstance._close()
-					end
-				end
 				base.onPointerDown(path, asMouse(pos), rectOf)
 			end,
 			onPointerMove = function(path: string, pos: any)
@@ -1925,6 +1951,28 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		if editingSignal:get() and meta ~= nil and meta.source == "action" then
 			local rowKey = api.rowKeyForPath(path)
 			if rowKey ~= nil then
+				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md). The
+				-- pointer paths (`rowPointerHandlers`'s own funnel) close an
+				-- open tray before a reorder can engage; this device-input
+				-- grab branch is a THIRD, wholly separate way to start the
+				-- identical reorder and never went through either copy —
+				-- grabbing a row via gamepad/keyboard left its tray visually
+				-- stranded exactly like the pointer half of this same finding.
+				-- Closed the same way, at this branch's own entry point,
+				-- BEFORE the grab itself engages.
+				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md). The
+				-- pointer paths (`rowPointerHandlers`'s own funnel) close an
+				-- open tray before a reorder can engage; this device-input
+				-- grab branch is a THIRD, wholly separate way to start the
+				-- identical reorder and never went through either copy —
+				-- grabbing a row via gamepad/keyboard left its tray visually
+				-- stranded exactly like the pointer half of this same finding.
+				-- Closed the same way, at this branch's own entry point,
+				-- BEFORE the grab itself engages.
+				local rowActionsInstance = rowActionsByKey[rowKey]
+				if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
+					rowActionsInstance._close()
+				end
 				if grabbedKey:get() == rowKey then
 					grabbedKey:set(nil) -- drop
 					grabOrigin = nil
