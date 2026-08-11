@@ -135,6 +135,30 @@ export type Bundle = {
 	-- `now` rather than inventing a second, potentially-divergent time axis
 	-- is what "the same source" means here.
 	bindMotion: ((motionClock: any, now: (() -> number)?) -> ())?,
+	-- bindPresent (row-actions redteam item 2, BLOCKER: "the action menu
+	-- inflates the row" fix). Hands the control the presenter's OWN
+	-- `presentModal`/`dismiss` functions — the identical two an app-level
+	-- caller already reaches via `presenter.presentModal(...)` / `presenter.
+	-- dismiss(handle)` — for the one case a control needs a surface that is
+	-- NEVER a descendant of its own mounted tree: a floating menu/popover
+	-- anchored to a live rect, which must contribute ZERO to any ancestor's
+	-- measured box (an ordinary child, however positioned, always can).
+	-- Same shape and same degradation contract as bindMotion/bindController/
+	-- bindFocusGraph above: called once per discovered bundle, at present
+	-- time; absent (a bare mount in a unit test, no presenter) is a real,
+	-- supported degradation — a control offering this MUST also work with
+	-- neither function ever arriving (its "open a floating surface" seam
+	-- simply has nothing to call).
+	--
+	-- Deliberately `presentModal`, never the plain `present` a base screen
+	-- uses: `presenter.luau`'s own `contextPriority` comment documents that
+	-- two `kind == "screen"` surfaces share one priority band and would
+	-- double-deliver Navigate/Activate/Cancel if both sank — exactly the
+	-- failure a composite-owned floating surface would hit, so only the
+	-- collision-free primitive (`presentModal`, which stacks strictly above
+	-- any base screen and gets a focus TRAP + RESTORE for free from
+	-- `focus_graph.luau`'s own `pushScope`) is ever handed over.
+	bindPresent: ((presentModal: (blueprint: any, opts: any?) -> any, dismiss: (handle: any) -> ()) -> ())?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,
 	-- WHICH ARROWS THIS CONTROL CONSUMES (roadmap Step 8). "horizontal" (what every

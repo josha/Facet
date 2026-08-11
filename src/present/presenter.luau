@@ -2249,6 +2249,27 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			if c.bundle.bindMotion ~= nil then
 				c.bundle.bindMotion(motionClock, nowFn)
 			end
+			-- and PRESENT/DISMISS (row-actions redteam item 2, BLOCKER fix): the
+			-- same two functions any app-level caller already reaches through
+			-- `presenter.presentModal`/`presenter.dismiss` — the ONLY way a
+			-- composite can own a SIBLING top-level surface in `stack` (never a
+			-- descendant of its own mounted tree, so it can never inflate its
+			-- own — or anyone else's — measured box the way a plain child node
+			-- always can). `self.dismiss` is handed over unbound-but-closed-over
+			-- `self` (a plain function value, exactly like `self.presentModal`
+			-- itself), so a control holding both never needs a reference back to
+			-- the presenter object as a whole — the same "hand over exactly what
+			-- cannot be constructed, nothing more" shape `bindMotion`/
+			-- `bindController`/`bindFocusGraph` already establish. Deliberately
+			-- `presentModal`, never plain `present`: two `kind == "screen"`
+			-- surfaces share `BASE_SCREEN_PRIORITY` and would double-deliver
+			-- Navigate/Activate/Cancel if both sank (see `contextPriority`'s own
+			-- comment below, "present the second one as a modal instead") — a
+			-- composite-owned floating surface is exactly the case that comment
+			-- warns about, so only the collision-free primitive is exposed here.
+			if c.bundle.bindPresent ~= nil then
+				c.bundle.bindPresent(self.presentModal, self.dismiss)
+			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the
 			-- popup opens/closes (see the popup-catcher block above)

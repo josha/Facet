@@ -2734,4 +2734,60 @@ describe("Table: row actions (Task 10)", function()
 			true
 		) -- Table's own reorder handle, still there
 	end)
+
+	-- REDTEAM ITEM 2 (BLOCKER): the director's own regression test's TABLE
+	-- variant — the shape the old design could never satisfy at all, since
+	-- Table hands each row an explicit `{ type = "fixed", px = rowHeight }`
+	-- (never `fill`), so even `popup_button.luau`'s own fill-height escape
+	-- never had a lever to pull here (redteam-fixwave-report.md item 2's own
+	-- investigation). Fixed by re-homing the menu onto its own presentModal
+	-- surface (row_actions.luau, the big comment above `local function
+	-- openMenu`) — a sibling top-level surface can never contribute to ANY
+	-- row's measured box, Table's own arithmetic rowHeight included.
+	it(
+		"opening a wrapped row's menu leaves every OTHER row's solved rect byte-identical — Table's own authored rowHeight survives",
+		function()
+			local fired: { string } = {}
+			local w = raWorld({
+				header = false,
+				rowActions = function(item)
+					if item.id == "razz" then
+						return { trailing = { deleteAction(fired) } }
+					end
+					return nil -- bolt/josh stay UNWRAPPED — plain rows, the
+					-- clean oracle for "did anything about a sibling change"
+				end,
+			})
+			local razzHit = wrappedRowHitPath(0, "razz")
+			local boltPath = rowHitPath(0, "bolt")
+			local joshPath = rowHitPath(0, "josh")
+			local boltBefore = (w.adapter.node(boltPath) :: any).rect
+			local joshBefore = (w.adapter.node(joshPath) :: any).rect
+
+			w.pres.focus.focusOn(razzHit)
+			w.system.deviceKey("ButtonX", true)
+			w.system.deviceKey("ButtonX", false)
+			w.pres.refresh()
+
+			-- the menu really opened (independent proof — not just trusting
+			-- the fixture): its OWN presented surface mounted a real row.
+			-- Table's own row_actions id is `RowActions-<rowKey>`
+			-- (table.luau), so this row's menu surface is
+			-- `RowActionsMenu-RowActions-razz`.
+			expect(w.adapter.node("/RowActionsMenu-RowActions-razz/Menu/MenuRows/Action:delete") ~= nil).toBe(true)
+
+			local boltAfter = (w.adapter.node(boltPath) :: any).rect
+			local joshAfter = (w.adapter.node(joshPath) :: any).rect
+			expect(boltAfter.y).toBe(boltBefore.y)
+			expect(boltAfter.h).toBe(boltBefore.h)
+			expect(joshAfter.y).toBe(joshBefore.y)
+			expect(joshAfter.h).toBe(joshBefore.h)
+
+			-- razz's own row keeps Table's authored rowHeight too — the
+			-- exact 48px->73px repro number the red team's own charter
+			-- names, now pinned at zero delta rather than merely "smaller."
+			local razzRoot = w.adapter.node(rowActionsRoot(0, "razz")) :: any
+			expect(razzRoot.rect.h).toBe(40) -- world()'s own default rowHeight
+		end
+	)
 end)

@@ -672,6 +672,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- naturals stay `nil` and the width props' existing fallback stands.
 	local controller: any = nil
 	local motionClock: any = nil
+	-- REDTEAM FIX (item 2, BLOCKER): the presenter's own `presentModal`/
+	-- `dismiss`, arriving (if ever) via the new `bindPresent` contribution
+	-- seam (contribution.luau; presenter.luau's `bindContribution`) — what
+	-- the action menu now uses to become its OWN floating surface rather
+	-- than a measured child of this row's root. `nil` (a bare mount, no
+	-- presenter) means `openMenu` below simply has nowhere to present the
+	-- menu onto and is a no-op, the same degrade-gracefully contract
+	-- `controller`/`motionClock` already have.
+	local presentModalFn: ((blueprint: any, opts: any?) -> any)? = nil
+	local dismissFn: ((handle: any) -> ())? = nil
 	-- Task 5: the SAME function `motionClock` itself was built from
 	-- (`bindMotion`'s ADDITIVE second argument — src/input/contribution.luau,
 	-- src/present/presenter.luau `c.bundle.bindMotion(motionClock, nowFn)`),
@@ -797,9 +807,41 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- are only visible to code following their own declaration" constraint
 	-- `committed` already ran into (item 5's own comment above `local
 	-- committed`).
+	--
+	-- REDTEAM FIX (item 2, BLOCKER — director ruling: floating presenter
+	-- surface). `menuHandle` is the presentModal handle for the menu's OWN
+	-- surface (nil while closed); `menuOx`/`menuOy` are its live anchor
+	-- position, written by `syncGeometry` below from this row's own solved
+	-- rect (the full design rationale sits with the surface's construction,
+	-- further down at "Task 8: the action menu"). `closeMenu` has to live
+	-- here too, same as `menuOpen` always has, so `doCommitAction` below can
+	-- call it — its body now tears down a REAL presented surface rather
+	-- than merely flipping a signal a permanently-mounted `UI.When` reads.
 	local menuOpen = scope:own(core:signal(false))
+	local menuHandle: any = nil
+	local menuOx = scope:own(core:signal(0))
+	local menuOy = scope:own(core:signal(0))
+	-- `menuOpen:set(false)` runs FIRST, BEFORE `dismissFn(handle)` — found
+	-- live (a real bug, not a style choice): `dismissFn` synchronously
+	-- restores focus (`focus_graph.luau`'s own `restoreStack`), which fires
+	-- this row's OWN focus-change observer (`bindFocusGraph` below,
+	-- `core:observe(graph.focused, syncKeysEnabled)`) DURING the dismiss
+	-- call, before `closeMenu` would otherwise get a chance to update
+	-- `menuOpen`. `pathInsideRow`'s own `menuOpen:get()` branch has to see
+	-- the truth at that exact moment — restoring focus back onto this row's
+	-- own content is harmless either way (still a path-prefix match), but
+	-- `openMenu`'s mirror-image ordering below is NOT harmless (see its own
+	-- comment), so both are ordered the same way on principle: never let a
+	-- side effect that reads `menuOpen` run before the write it needs to see.
 	local function closeMenu()
 		menuOpen:set(false)
+		if menuHandle ~= nil then
+			local handle = menuHandle
+			menuHandle = nil
+			if dismissFn ~= nil then
+				dismissFn(handle)
+			end
+		end
 	end
 
 	-- ===== Task 5: the commit path (shared by the gesture and `_commitFirst`) ===
@@ -1054,16 +1096,312 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- ===== Task 8: the action menu (Shift+Return desktop / ButtonX gamepad) =
 	-- Own state; independent of `openEdge`/`offset` above — the menu never
 	-- reveals a tray, it is a floating popup listing every action (brief:
-	-- "PopupButton-pattern panel"). `menuOpen`/`closeMenu` themselves are
-	-- declared earlier (see the comment there) so `doCommitAction` above,
-	-- defined before this point, can also read/call them.
+	-- "PopupButton-pattern panel"). `menuOpen`/`menuHandle`/`closeMenu`
+	-- themselves are declared earlier (see the comment there) so
+	-- `doCommitAction` above, defined before this point, can also read/call
+	-- them.
+	--
+	-- REDTEAM FIX (item 2, BLOCKER; director ruling — re-architect onto the
+	-- presenter's own surface machinery). The menu USED TO be a permanently
+	-- mounted `UI.Anchor` inside this row's OWN root (a measured child of
+	-- the row's content-sized Anchor): opening it made the row's own solved
+	-- height grow (48px -> 73px in the redteam's own repro) and pushed
+	-- every following row down — defeating Table's authored, arithmetic
+	-- `rowHeight` (redteam-findings.md item 2). The fix-wave's own
+	-- investigation into item 2 (redteam-fixwave-report.md) found NO
+	-- solver-level "escapes measure" primitive anywhere in `solver.luau` —
+	-- the union-bbox measure an Anchor/ZStack runs every child through has
+	-- no exemption, and `popup_button.luau`'s own escape (a `height = fill`
+	-- root, excluded from a STACK's own Pass-1 `mainSum`) cannot transfer:
+	-- Table drives row height ARITHMETICALLY (`{ type = "fixed", px = ... }`,
+	-- never `fill`), so that one lever never engages.
+	--
+	-- FIXED HERE by never giving the menu a node in this row's tree AT ALL.
+	-- `openMenu` presents it as its own SIBLING top-level surface via
+	-- `presentModal` (arriving through the new `bindPresent` contribution
+	-- seam — contribution.luau, presenter.luau's `bindContribution`, the
+	-- same "hand a control what it cannot construct for itself" shape
+	-- `bindMotion`/`bindController`/`bindFocusGraph` already establish). A
+	-- presented handle's blueprint is never a descendant of ANY row's own
+	-- mounted tree, so it cannot contribute one pixel to any row's measured
+	-- box — not "a smaller number," simply never in the walk. THE
+	-- ZERO-INFLATION REGRESSION TEST (`tests/row_actions_input.spec.luau`,
+	-- "menu open contributes nothing to row/list measure") is the redteam's
+	-- own repro numbers turned into an assertion: sibling row y is
+	-- byte-identical open vs closed, VStack and Table both.
+	--
+	-- WHY `presentModal`, NOT plain `present()` (this is the framework's
+	-- OWN documented constraint, not a guess — presenter.luau's own
+	-- `contextPriority` comment: "two focus-driven base screens would
+	-- double-deliver on the shared focus graph... present the second one
+	-- as a modal instead"). Two `kind == "screen"` surfaces share
+	-- `BASE_SCREEN_PRIORITY`; a base screen presented with `sinkNavigation`
+	-- (this row's own OWN presenting screen, in every existing test) already
+	-- sinks at that priority, and a SECOND sinking screen at the identical
+	-- priority would double-fire Navigate/Activate/Cancel on every key —
+	-- exactly what stacking the menu as a second base screen would risk.
+	-- `presentModal` instead stacks at `topModalPriority() + 500`, strictly
+	-- above any base screen, so IAS delivers to it first with no double
+	-- delivery — the collision-free primitive, and the one the framework's
+	-- own comment names as the fix for this exact shape of problem.
+	--
+	-- TWO THINGS COME FREE FROM `presentModal` THAT THE OLD DESIGN HAD TO
+	-- HAND-WIRE, for LESS code than before, not more:
+	--   (1) a focus TRAP — `focus_graph.luau`'s own `pushScope` traps
+	--       navigation whenever `kind == "modal"` — replacing the deleted
+	--       `transientScope` contribution field (and the fragile "permanent
+	--       anchor split from the lazily-mounted rows" workaround its own
+	--       comment used to require, so `syncTransientScopes` would still
+	--       find a live contribution on the SAME refresh `menuOpen` went
+	--       false — moot now: the whole surface unmounts atomically with
+	--       `dismiss`, there is no separate "gate a child" step to race).
+	--   (2) a focus RESTORE on ANY dismiss (ours or the presenter's own) —
+	--       `pushScope`'s own `restoreStack`, recorded automatically at
+	--       present time and popped automatically by `removeScope` inside
+	--       `presenter.dismiss` — matching "Cancel... restores focus"
+	--       (Task 8's own tests) with zero bespoke bookkeeping.
+	--
+	-- `outsideTapCancel = false` and `cancelPolicy = "none"` deliberately
+	-- REFUSE the modal's own native auto-dismiss paths, so `menuOpen`'s
+	-- bookkeeping can never drift from what is actually presented: every
+	-- dismissal — a menu-row Activate, gamepad/keyboard Cancel, an outside
+	-- tap, ButtonX/Shift+Return toggling closed — still runs through the
+	-- IDENTICAL `menuHandleActivate`/`menuHandleCancel`/`outsideDismiss`
+	-- decision logic Tasks 8/8b/the fix wave already shipped and tested,
+	-- attached to the MODAL's own root instead of a permanent node on the
+	-- row's, calling `closeMenu()` explicitly either way.
+	--
+	-- `scrim = "none"`: STILL CATCHING (the presenter's own doc: "'none' is
+	-- fully transparent but STILL catching"), matching the ORIGINAL menu's
+	-- own "swallowing" `outsideDismiss` contract (an outside tap closes the
+	-- menu and is consumed, never clicking through to a sibling row) —
+	-- but never dims the row list behind it, which a real scrim would: a
+	-- row-action menu is a lightweight popover, not a modal sheet.
+	--
+	-- `rootPolicy = "edgeToEdge"`: the SAME choice `presenter.luau`'s own
+	-- `presentDisclosure` (the disclose-plate mechanism — the existing,
+	-- shipped precedent for "a presenter-owned surface anchored to
+	-- another surface's live rect") makes, for the identical reason its
+	-- own comment gives: "window space... the SAME coordinates
+	-- `screenRectOf` answers in" — an inset root (the default
+	-- `"coreSafeContent"`) would offset the menu's own Anchor from this
+	-- row's true window-space rect by whatever safe-area/inset padding
+	-- happens to apply on this platform.
+	local MENU_SURFACE_ID = "RowActionsMenu-" .. id
+	local MENU_ROOT_ID = "Menu"
+	local MENU_ROW_HEIGHT = "controlSizes.compact.height" -- same theme
+	-- token popup_button.luau's own compact-menu row uses (ADR-0019 §2);
+	-- no new theme surface needed.
+	local function buildMenuRows(): { any }
+		local rows = {}
+		for _, entry in menuItemsOrdered do
+			table.insert(
+				rows,
+				UI.Button({
+					id = "Action:" .. entry.action.id,
+					label = entry.action.label,
+					icon = entry.action.icon,
+					role = if entry.action.role == "destructive" then "destructive" else "default",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = MENU_ROW_HEIGHT },
+				})
+			)
+		end
+		return rows
+	end
+
+	-- computed once here (NOT the tray's own `idPattern` below — this
+	-- block runs before that declaration; a fresh `patternEscape` call
+	-- per Activate would be harmless but there is no reason to pay it
+	-- twice when a closure can just capture the escaped id once). Rides
+	-- `MENU_SURFACE_ID` (this control's OWN presented screen's id), not the
+	-- row's `id`, now that the menu is a sibling surface with its own root.
+	local menuIdPattern = patternEscape(MENU_SURFACE_ID)
+	local function findMenuAction(aid: string): (Edge?, ActionSpec?)
+		if actionsById.leading[aid] ~= nil then
+			return "leading", actionsById.leading[aid]
+		end
+		if actionsById.trailing[aid] ~= nil then
+			return "trailing", actionsById.trailing[aid]
+		end
+		return nil, nil
+	end
+
+	-- routes a presenter/tap/keyboard/gamepad Activate landing inside the
+	-- MENU's own surface; returns true when the path was ours. A
+	-- destructive item runs through `doCommitAction` (the FULL slide-off
+	-- + collapse sequence, brief: "not a bare callback"); anything else
+	-- is a quarantined, exactly-once callback — either way the menu
+	-- closes (and its surface dismisses) first, so the collapse (if any)
+	-- plays out on a row whose own menu is already gone.
+	local function menuHandleActivate(path: string, _meta: any?): boolean
+		local aid = string.match(path, `/{menuIdPattern}/{MENU_ROOT_ID}/MenuRows/Action:(.+)$`)
+		if aid == nil then
+			return false
+		end
+		local edge, action = findMenuAction(aid)
+		if edge == nil or action == nil then
+			return false
+		end
+		closeMenu()
+		if action.role == "destructive" then
+			local rowW = currentRowWidth()
+			local target = if edge == "leading" then rowW else -rowW
+			doCommitAction(edge, action, target)
+		else
+			pcall(action.onAction)
+		end
+		return true
+	end
+
+	-- gamepad ButtonB / the shared handleCancel offer (matrix §B
+	-- PopupButton parity): closes the menu without firing anything.
+	-- `cancelPolicy = "none"` on the modal's own present opts (below) means
+	-- this is the ONLY thing that ever answers Cancel while the menu is up
+	-- — offered to the focused contribution before any surface-level
+	-- default (presenter.luau's own documented ordering), so it always
+	-- wins over the modal's own (refused) native Cancel routing.
+	local function menuHandleCancel(_focusedPath: string?): boolean
+		if menuOpen:get() then
+			closeMenu()
+			return true
+		end
+		return false
+	end
+
+	-- live anchor position: `srcRect` is THIS row's own solved window-space
+	-- rect (`controller`/`rootPath` — the SAME facts `currentRect` above
+	-- reads); the menu opens just below the row's own left edge, matching
+	-- `popup_button.luau`'s own "menu" placement (`offsetY = TRIGGER_HEIGHT`,
+	-- just below the trigger) translated into absolute window-space
+	-- coordinates rather than a relative offset (this Anchor's own parent
+	-- is a full-viewport `edgeToEdge` screen root, not the trigger itself).
+	-- Absent `controller`/`rootPath` (no presenter, or the very first frame
+	-- before any solve — `openMenu` never runs at all without `controller`,
+	-- see its own guard below) degrades to `0, 0` rather than erroring.
+	local function computeMenuAnchor(): (number, number)
+		if controller == nil or rootPath == nil then
+			return 0, 0
+		end
+		local rect = controller.screenRectOf(rootPath)
+		if rect == nil then
+			return 0, 0
+		end
+		return rect.x, rect.y + rect.h
+	end
+
+	local function buildMenuBlueprint(): any
+		return UI.Screen({
+			id = MENU_SURFACE_ID,
+			children = {
+				contribution.attach(
+					UI.Anchor({
+						id = MENU_ROOT_ID,
+						anchor = "topLeft",
+						offsetX = menuOx,
+						offsetY = menuOy,
+						children = {
+							UI.VStack({
+								id = "MenuRows",
+								surface = "raised",
+								gap = "strokes.hairline",
+								children = buildMenuRows(),
+							}),
+						},
+					}),
+					{
+						handleActivate = menuHandleActivate,
+						handleCancel = menuHandleCancel,
+						-- NO `outsideDismiss` here (found live — a real correction,
+						-- not the original design). `outsideDismiss`'s own catcher
+						-- (presenter.luau's `syncPopupCatcher`) is BUILT for a
+						-- popup living inside a plain, non-exclusive screen — its
+						-- own comment: "an exclusive surface suppresses the popup
+						-- catcher" — and a `presentModal` handle IS exclusive, so
+						-- the field would simply never fire (proven: the "tap
+						-- OUTSIDE the open menu... closes AND swallows" test hung
+						-- open until this was found and fixed). `outsideTapCancel`
+						-- on the presentModal opts below (the NATIVE mechanism
+						-- built for exactly this — a modal-dismissal "swallow,
+						-- never clickthrough" — presenter.luau `applyOutsideOutcome`)
+						-- replaces it exactly: same "swallowing" contract, the
+						-- exclusivity-aware primitive instead of the one built for
+						-- a different (non-exclusive) shape of surface.
+					}
+				),
+			},
+		})
+	end
+
 	local function openMenu()
 		if #menuItemsOrdered == 0 then
 			return -- unreachable given the `else` branch below only builds
 			-- this seam when at least one action exists; stay honest anyway
 			-- rather than open an empty popup if that invariant is ever wrong.
 		end
+		if presentModalFn == nil or menuHandle ~= nil then
+			return -- no presenter to present onto, or already open (toggleMenu's
+			-- own guard already prevents the latter in practice — stay honest).
+		end
+		local ox, oy = computeMenuAnchor()
+		menuOx:set(ox)
+		menuOy:set(oy)
+		-- REAL BUG, caught live (not a style choice — see `closeMenu`'s own
+		-- mirror-image comment). `presentModal` synchronously paints the
+		-- surface's INITIAL focus (`makeHandle`'s own "paint the INITIAL
+		-- focus ring" step) as part of THIS call, moving `graph.focused`
+		-- onto the menu's own first row — which fires this row's OWN
+		-- focus-change observer (`bindFocusGraph` below) SYNCHRONOUSLY,
+		-- inside `presentModalFn(...)`, before `menuOpen:set(true)` would
+		-- otherwise run. `syncKeysEnabled` -> `pathInsideRow` reads
+		-- `menuOpen:get()` at exactly that moment: with the old ordering it
+		-- was STILL `false` (the new focus path is under the menu's own
+		-- surface, never a prefix of `rootPath`), so `syncKeysEnabled`
+		-- DISABLED this row's own `RowActionsKeys-<id>` context right then
+		-- — and nothing ever re-enabled it, because focus never changes
+		-- again while the menu stays open. ButtonX/Shift+Return (bound in
+		-- that now-disabled context) went permanently dead the instant the
+		-- menu opened once — caught by "toggling the menu 10 times leaks
+		-- nothing" (the SECOND press, meant to close it, silently did
+		-- nothing at all). Setting `menuOpen` true FIRST means the observer
+		-- sees the truth already in place.
 		menuOpen:set(true)
+		-- `outsideTapCancel = true` (the presenter's own default for a modal,
+		-- spelled out explicitly here anyway — see the big comment on the
+		-- deleted `outsideDismiss` field above for why THIS is now the real
+		-- mechanism): a tap outside the menu's own subtree dismisses it and
+		-- is swallowed, never clicking through to whatever it actually
+		-- landed on (`presenter.luau`'s own `applyOutsideOutcome`).
+		local handle = presentModalFn(buildMenuBlueprint(), {
+			rootPolicy = "edgeToEdge",
+			scrim = "none",
+			outsideTapCancel = true,
+			cancelPolicy = "none",
+		})
+		menuHandle = handle
+		-- KEEP `menuOpen`/`menuHandle` IN SYNC WITH EVERY DISMISS PATH, not
+		-- only the ones this file itself drives through `closeMenu` — the
+		-- outside-tap dismiss above runs entirely inside the presenter
+		-- (`applyOutsideOutcome` -> `self.dismiss`, never through
+		-- `closeMenu`), so without this, tapping outside would tear the
+		-- surface down while `menuOpen`/`dump().menuOpen` stayed stuck
+		-- `true` forever. `handle.onFeedback` is the presenter's own
+		-- per-surface event bus (`presenter.luau`, "the same bus filtered to
+		-- that surface"); a `dismiss` event fires for EVERY teardown path —
+		-- ours (`closeMenu` -> `dismissFn`) included, making this the ONE
+		-- place this bookkeeping happens rather than duplicated at every
+		-- call site. The `menuHandle == handle` guard is defensive: this
+		-- closure captures the exact handle it was registered for, so a
+		-- LATER open/close cycle's own (different) handle can never have
+		-- this stale subscription mistakenly clear ITS state.
+		if handle.onFeedback ~= nil then
+			handle.onFeedback(function(event: any)
+				if type(event) == "table" and event.type == "dismiss" and menuHandle == handle then
+					menuHandle = nil
+					menuOpen:set(false)
+				end
+			end)
+		end
 	end
 	local function toggleMenu()
 		if menuOpen:get() then
@@ -1194,7 +1532,24 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end)
 	end
+	-- REDTEAM FIX (item 2, BLOCKER, follow-on): the menu now lives under its
+	-- OWN presented surface's root (`MENU_SURFACE_ID`, not `rootPath`), so a
+	-- plain prefix check against `rootPath` alone would go false the instant
+	-- focus lands inside the open menu — disabling THIS row's own keys
+	-- context (`syncKeysEnabled` below) right as focus enters it, which
+	-- would leave ButtonX/Shift+Return unable to re-close the menu they
+	-- just opened (the exact hazard the big comment above
+	-- `ROW_ACTIONS_KEY_PRIORITY` already documents as the reason this scope
+	-- has to be broad). `menuOpen:get()` alone is a sufficient, simpler
+	-- test than a second path-prefix comparison: this row's own menu can
+	-- only ever be open while ITS OWN presentModal handle is the trapped
+	-- top of the focus stack (`focus_graph.luau`'s own `pushScope(trap =
+	-- true)`), so focus cannot be anywhere else at all while `menuOpen` is
+	-- true.
 	local function pathInsideRow(path: string?): boolean
+		if menuOpen:get() then
+			return true
+		end
 		return path ~= nil and rootPath ~= nil and isPathPrefix(rootPath, path)
 	end
 	local function syncKeysEnabled()
@@ -1646,13 +2001,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- a small circular button sits in a LEADING gutter; tapping it opens the
 		-- trailing tray (the destructive action is a second tap away, never
 		-- direct). `UI.When` keyed on `editAffordanceShown` — the identical
-		-- lazy-mount idiom the trays and the menu already use (Task 3's own
-		-- header comment; `table.luau:1079-1122`'s `EditWhen` is the cited
-		-- precedent): zero Instances while not editing, beyond the one
-		-- permanent `Frame` a mounted-but-closed `UI.When` always costs (the
-		-- SAME accepted cost the menu's own `MenuRowsWhen` already documents
-		-- above) — paid only when `hasEditAffordance`, i.e. only when a caller
-		-- actually wires `editing` on a row that has a destructive action.
+		-- lazy-mount idiom the trays already use (Task 3's own header comment;
+		-- `table.luau:1079-1122`'s `EditWhen` is the cited precedent): zero
+		-- Instances while not editing, beyond the one permanent `Frame` a
+		-- mounted-but-closed `UI.When` always costs — paid only when
+		-- `hasEditAffordance`, i.e. only when a caller actually wires `editing`
+		-- on a row that has a destructive action. (The menu no longer shares
+		-- this cost — redteam item 2's fix moved it to its own presentModal
+		-- surface, which mounts and unmounts atomically with zero permanent
+		-- node on the row at all; see the big comment above `local function
+		-- openMenu`.)
 		--
 		-- PAINT ORDER: inserted BEFORE `Content` (array order = paint order,
 		-- later wins — the same relationship the leading/trailing trays already
@@ -1818,170 +2176,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			})
 		)
 
-		-- ===== Task 8: the action menu panel (Shift+Return desktop / ButtonX
-		-- gamepad — see the big comment above `ROW_ACTIONS_KEY_PRIORITY`) =====
-		-- PopupButton-pattern panel (brief): one focusable Button per declared
-		-- action, `menuItemsOrdered`'s own leading-then-trailing document
-		-- order, mirroring `buildTray`'s own Button shape (label/icon/role)
-		-- but laid out as a VStack list rather than an HStack tray.
-		local MENU_ID = "Menu"
-		local MENU_ROW_HEIGHT = "controlSizes.compact.height" -- same theme
-		-- token popup_button.luau's own compact-menu row uses (ADR-0019 §2);
-		-- no new theme surface needed.
-		local function buildMenuRows(): { any }
-			local rows = {}
-			for _, entry in menuItemsOrdered do
-				table.insert(
-					rows,
-					UI.Button({
-						id = "Action:" .. entry.action.id,
-						label = entry.action.label,
-						icon = entry.action.icon,
-						role = if entry.action.role == "destructive" then "destructive" else "default",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fixed", px = MENU_ROW_HEIGHT },
-					})
-				)
-			end
-			return rows
-		end
-
-		-- computed once here (NOT the tray's own `idPattern` below — this
-		-- block runs before that declaration; a fresh `patternEscape` call
-		-- per Activate would be harmless but there is no reason to pay it
-		-- twice when a closure can just capture the escaped id once).
-		local menuIdPattern = patternEscape(id)
-		local function findMenuAction(aid: string): (Edge?, ActionSpec?)
-			if actionsById.leading[aid] ~= nil then
-				return "leading", actionsById.leading[aid]
-			end
-			if actionsById.trailing[aid] ~= nil then
-				return "trailing", actionsById.trailing[aid]
-			end
-			return nil, nil
-		end
-
-		-- routes a presenter/tap/keyboard/gamepad Activate landing inside the
-		-- MENU's own subtree; returns true when the path was ours. A
-		-- destructive item runs through `doCommitAction` (the FULL slide-off
-		-- + collapse sequence, brief: "not a bare callback"); anything else
-		-- is a quarantined, exactly-once callback — either way the menu
-		-- closes first, so the collapse (if any) plays out on a row whose
-		-- own menu is already gone.
-		local function menuHandleActivate(path: string, _meta: any?): boolean
-			local aid = string.match(path, `/{menuIdPattern}/{MENU_ID}/MenuRowsWhen/then/MenuRows/Action:(.+)$`)
-			if aid == nil then
-				return false
-			end
-			local edge, action = findMenuAction(aid)
-			if edge == nil or action == nil then
-				return false
-			end
-			closeMenu()
-			if action.role == "destructive" then
-				local rowW = currentRowWidth()
-				local target = if edge == "leading" then rowW else -rowW
-				doCommitAction(edge, action, target)
-			else
-				pcall(action.onAction)
-			end
-			return true
-		end
-
-		-- gamepad ButtonB / the shared handleCancel offer (matrix §B
-		-- PopupButton parity): closes the menu without firing anything.
-		-- Offered ahead of the TRAY's own `handleCancel` below because the
-		-- menu's own contribution's path (`.../Menu`) is LONGER than the row
-		-- root's — `contributionsForPath` sorts longest-prefix-first
-		-- (presenter.luau), so this wins whenever focus is actually inside
-		-- the open menu.
-		local function menuHandleCancel(_focusedPath: string?): boolean
-			if menuOpen:get() then
-				closeMenu()
-				return true
-			end
-			return false
-		end
-
-		-- a SEPARATE, SIBLING input contribution (not a field on the row's
-		-- own root bundle below) — the only way this file's shared
-		-- `contribution` seam lets one control declare TWO independent
-		-- transient-popup policies at once. The row's own root bundle
-		-- already uses `outsideDismiss.consume = false` (Task 7: a tray
-		-- must never swallow a tap meant for a sibling row); the menu is a
-		-- genuine transient popup and wants the OPPOSITE (brief: "match
-		-- popup_button's bundle wholesale, consume default swallow is
-		-- correct for the menu") — two different `consume` values on ONE
-		-- `outsideDismiss` field is inexpressible (it is a plain boolean,
-		-- not reactive), so the menu gets its own bundle.
-		--
-		-- ATTACHED TO A PERMANENT NODE (popup_button.luau's own exact
-		-- shape: an always-mounted Anchor carrying the ONE contribution,
-		-- with only the lazily-revealed content — there, the Trigger/Popup
-		-- pair; here, the rows — as children). NOT attached to a node the
-		-- `menuOpen` `UI.When` below it also unmounts: `transientScope`'s
-		-- close-time restore (src/present/presenter.luau
-		-- `syncTransientScopes`, the `elseif pushed then graph.removeScope`
-		-- branch) fires only for a contribution `collectContributions`
-		-- still finds mounted on the SAME refresh `menuOpen` goes false —
-		-- a contribution riding the content it gates vanishes from that
-		-- walk in the exact same instant, so the branch that is supposed
-		-- to pop the trap and restore focus never runs, and focus is left
-		-- pointing at a path that no longer exists (caught live: closing
-		-- the menu via Activate or Cancel left `graph.focused` on the
-		-- just-unmounted row's own path). Splitting the permanent anchor
-		-- from the lazy rows is what keeps the contribution itself in
-		-- `collectContributions`'s walk across the whole open/close cycle,
-		-- so `ts.active:get()` going false is what the presenter actually
-		-- observes change, not a bundle disappearing.
-		--
-		-- THE PRECISE COST of the extra always-mounted node this splits
-		-- off (review round 1 nit — "zero-footprint" overclaimed): this
-		-- `Anchor` carries no `surface`/decoration prop, so the REAL Roblox
-		-- adapter (`screen_target.luau`'s `ELIDABLE_CLASSES`, which lists
-		-- `Anchor`) elides it — no `Instance` at all, unless something
-		-- later needs one (a hit rect, an event) — but `Menu`'s own
-		-- `MenuRowsWhen` child is a `UI.When`, a class that set does NOT
-		-- list, so it always materialises 1 real `Instance` even while its
-		-- condition is false (mounting zero children) — the same "a closed
-		-- `UI.When` is a Frame, not nothing" fact Task 3's own report
-		-- already priced into the row's normal closed-state instance count
-		-- (3-4, not 2). So a row that has a menu at all costs exactly one
-		-- more permanent `Instance` while the menu is closed than a row
-		-- that doesn't — not zero, not free, but inside the budget the
-		-- tray's own lazy `UI.When`s already set.
-		local menuAnchor = contribution.attach(
-			UI.Anchor({
-				id = MENU_ID,
-				anchor = "topLeft",
-				children = {
-					UI.When({
-						id = "MenuRowsWhen",
-						condition = menuOpen,
-						thenView = function()
-							return UI.VStack({
-								id = "MenuRows",
-								surface = "raised",
-								gap = "strokes.hairline",
-								children = buildMenuRows(),
-							})
-						end,
-					}),
-				},
-			}),
-			{
-				handleActivate = menuHandleActivate,
-				handleCancel = menuHandleCancel,
-				outsideDismiss = {
-					active = menuOpen,
-					dismiss = closeMenu,
-				},
-				transientScope = {
-					active = menuOpen,
-				},
-			}
-		)
-		table.insert(children, menuAnchor)
+		-- REDTEAM FIX (item 2, BLOCKER): the action menu no longer builds a
+		-- node here at all — it moved to its own `presentModal` surface (see
+		-- the big comment above `local function openMenu`, further up this
+		-- function). No `menuAnchor`, nothing inserted into `children`: a row
+		-- with a menu now costs exactly the SAME instance count, open or
+		-- closed, as a row with none — an improvement over the old design's
+		-- "one permanent Instance while closed" cost (its own comment used
+		-- to price that in here), not merely a wash.
 
 		-- Task 5: `height` is the ONE new root prop this task adds — bound to
 		-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
@@ -2196,6 +2398,23 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 					retarget(-trailingWidth:get())
 				end
 			end
+			-- REDTEAM FIX (item 2, BLOCKER, follow-on): re-read this row's own
+			-- live rect and re-aim the menu's presented Anchor at it on EVERY
+			-- sync while open — this is what "the list scrolled while the
+			-- menu was open" needs (director's ruling offered "re-read the
+			-- rect... or close on scroll" as alternatives; this runs on the
+			-- exact cadence a real scroll already drives `syncGeometry` at,
+			-- asking nothing new of any caller, so re-reading is what is
+			-- implemented — the menu tracks the row frame for frame, the same
+			-- continuity a plain measured child gave for free before this
+			-- fix). A no-op the instant nothing moved (two signal reads, a
+			-- write only on an actual change — `core:signal`'s own baseline
+			-- no-op-on-same-value behavior).
+			if menuOpen:get() then
+				local ox, oy = computeMenuAnchor()
+				menuOx:set(ox)
+				menuOy:set(oy)
+			end
 		end
 
 		blueprint = contribution.attach(root, {
@@ -2220,6 +2439,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- `bindMotion`.
 			bindController = function(c: any)
 				controller = c
+			end,
+			-- REDTEAM FIX (item 2, BLOCKER): hands over `presentModal`/
+			-- `dismiss` — see the big comment above `local function openMenu`
+			-- for the full rationale. Same absent-means-degrade shape as
+			-- `bindMotion`/`bindController`: a bare mount (no presenter) means
+			-- `openMenu` simply has nothing to present onto.
+			bindPresent = function(presentModal: any, dismiss: any)
+				presentModalFn = presentModal
+				dismissFn = dismiss
 			end,
 			-- Task 8: the action-system + focus-graph handoff that lets
 			-- `ensureKeysContext`/`syncKeysEnabled` above bind Delete/
@@ -2276,6 +2504,17 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- inside the same `scope:dispose()` call if a spring is settling
 			-- mid-teardown.
 			disposed = true
+			-- REDTEAM FIX (item 2, BLOCKER, follow-on requirement: "dispose
+			-- cleanly with the wrapper"). The menu is now a SIBLING presented
+			-- surface, never a descendant of this row's own `scope` — disposing
+			-- `scope` below tears down THIS row's own mounted tree only, and
+			-- would leave an open menu's own handle stranded in the presenter's
+			-- `stack` forever (its `transientScope`-equivalent focus trap along
+			-- with it) with nothing left alive to ever close it. `closeMenu()`
+			-- is idempotent (a no-op via the `menuHandle == nil` guard when no
+			-- menu is open), so this is safe unconditionally, same as the
+			-- coordinator release below.
+			closeMenu()
 			-- Task 7: clear this row's coordinator entry BEFORE the scope
 			-- (and every spring/signal it owns) tears down — a coordinator
 			-- holding a stale reference to a disposed row would call `_close()`
@@ -2303,6 +2542,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- it (and its `transientScope` focus trap) armed on a row another
 		-- row had just taken over the gesture from.
 		_closeMenu = closeMenu,
+		-- REDTEAM FIX (item 2, BLOCKER): the menu's own presentModal handle
+		-- (nil while closed) — a test-only seam (fake_target's own adapter is
+		-- SHARED across every controller a presenter mounts, so
+		-- `w.adapter.node(menuPath)` keeps working unchanged, but
+		-- `controller.textAt`/`.rectOf` are PER-controller, so a test reading
+		-- a live fact about a node inside the menu's own separate surface
+		-- needs THIS controller, not the base screen's).
+		_menuHandle = function(): any
+			return menuHandle
+		end,
 		-- Task 5: down/move/up/cancel, attached to the Content hit surface
 		-- above AND exposed here so Table (Task 10) can compose them with its
 		-- own row-level pointer handling instead of only reaching them

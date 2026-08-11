@@ -1546,12 +1546,12 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			w.press("ButtonX")
 			w.pres.refresh()
 			expect(w.ra.dump().menuOpen).toBe(true)
-			expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+			expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 			w.press("Return") -- Activate the focused (only) menu row
 			w.pres.refresh()
 			expect(fired).toEqual({ "flag" })
 			expect(w.ra.dump().menuOpen).toBe(false)
-			expect(w.adapter.node("/S/Row/Menu/MenuRowsWhen/then/MenuRows")).toBe(nil) -- rows really unmounted
+			expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")).toBe(nil) -- rows really unmounted
 			expect(w.pres.focus.focused:get()).toBe("/S/Row/Content/Body") -- restored
 		end
 	)
@@ -1577,11 +1577,11 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		-- order — proven by walking Navigate one step at a time rather than
 		-- reading internal state, so this is the same order a keyboard/
 		-- gamepad player actually experiences.
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:archive")
+		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:archive")
 		w.press("Down")
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 		w.press("Down")
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:delete")
+		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
 	end)
 
 	it(
@@ -1667,7 +1667,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.pres.focus.focusOn("/S/Row/Content/Body")
 		w.press("ButtonX")
 		w.pres.refresh()
-		local menuRoot = "/S/Row/Menu/MenuRowsWhen/then/MenuRows"
+		local menuRoot = "/RowActionsMenu-Row/Menu/MenuRows"
 		local landed = w.pres.focus.focused:get() :: string
 		expect(string.sub(landed, 1, #menuRoot)).toBe(menuRoot)
 		for _ = 1, 6 do
@@ -1759,7 +1759,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.press("ButtonX") -- open the menu; focus enters on its first (non-destructive) row
 		w.pres.refresh()
 		expect(w.ra.dump().menuOpen).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 
 		w.press("Delete") -- must be INERT: the menu owns input, not this key
 		w.settle(60)
@@ -1769,8 +1769,8 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		-- FUNCTIONAL, not just un-fired: focus is still exactly where it was
 		-- (Delete did not disturb the menu's own mount/focus state), and the
 		-- menu's own Activate still works normally.
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
-		expect(w.adapter.node("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")).never().toBe(nil)
+		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
+		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")).never().toBe(nil)
 
 		w.press("ButtonB") -- Cancel closes without firing
 		w.pres.refresh()
@@ -1832,7 +1832,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.settle(600)
 		expect(fired).toEqual({ "delete" })
 		expect(w.ra._isOpen()).toBe(false)
-		expect(w.adapter.node("/S/Row/Menu/MenuRowsWhen/then/MenuRows")).toBe(nil) -- unmounted, not stranded
+		expect(w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")).toBe(nil) -- unmounted, not stranded
 	end)
 
 	it(
@@ -1968,12 +1968,15 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			w.pres.focus.focusOn("/S/Row/Content/Body")
 			w.press("ButtonX")
 			w.pres.refresh()
-			local path = "/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:delete"
+			local path = "/RowActionsMenu-Row/Menu/MenuRows/Action:delete"
 			local node = w.adapter.node(path)
 			expect(node ~= nil).toBe(true)
 			expect((node :: any).props.label).toBe(lt.PSEUDO)
 
-			local facts = w.handle.controller.textAt(path)
+			-- the menu is its own presented surface now (redteam item 2's
+			-- fix) — its live text facts live on ITS OWN controller, not the
+			-- base screen's (`w.handle.controller` would find nothing here).
+			local facts = w.ra._menuHandle().controller.textAt(path)
 			expect(facts ~= nil).toBe(true)
 			expect(facts.truncated).toBe(false)
 			expect(facts.lines).toBe(1) -- never wraps: the row widens instead of reflowing
@@ -2017,7 +2020,7 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 		w.pressShiftReturn()
 		w.pres.refresh()
 		expect(w.ra.dump().menuOpen).toBe(true)
-		expect(w.pres.focus.focused:get()).toBe("/S/Row/Menu/MenuRowsWhen/then/MenuRows/Action:flag")
+		expect(w.pres.focus.focused:get()).toBe("/RowActionsMenu-Row/Menu/MenuRows/Action:flag")
 		-- plain Return now activates the focused MENU row (the menu's own
 		-- contribution, not the Shift-gated binding) — same as the ButtonX
 		-- describe block above proves; re-asserted here to confirm the
@@ -2193,6 +2196,109 @@ describe("RowActions Task 8b: the action menu (Shift+Return)", function()
 			expect(w.ra.dump().menuOpen).toBe(false)
 		end
 	)
+end)
+
+-- ===== REDTEAM ITEM 2 (BLOCKER): the menu must contribute ZERO to row/list
+-- measure. Director's own regression test: the red team's exact repro
+-- numbers (a row's own solved height inflating 48px -> 73px when its menu
+-- opened, pushing every following row down) turned into an assertion, both
+-- as a hand-built VStack list here and against a real Table
+-- (`tests/table.spec.luau`'s "Table: row actions (Task 10)" describe block,
+-- whose own rowHeight is authored ARITHMETICALLY — the exact shape the old
+-- design could never satisfy, per redteam-fixwave-report.md item 2's own
+-- investigation). Before this fix, BOTH of these fail: the VStack variant
+-- because a menu-open row's own Anchor grew past its content's height, the
+-- Table variant because Table hands each row an explicit `{ type = "fixed",
+-- px = rowHeight }` a measured-child menu could never observe. Fixed by
+-- re-homing the menu onto its own `presentModal` surface — see the big
+-- comment above `local function openMenu` (row_actions.luau) for the design.
+describe("RowActions redteam item 2: the menu contributes zero to row/list measure", function()
+	it("opening row A's menu leaves row B's solved rect (y, x, height) byte-identical — VStack list", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+
+		local rowA = row_actions.build(LuauUI, core, {
+			id = "RowA",
+			content = focusableBody("Body"),
+			trailing = {
+				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+			},
+		})
+		-- a plain sibling leaf (not itself wrapped in row_actions — the
+		-- point is only to observe whether ANYTHING moves under row A, not
+		-- to exercise a second row's own actions).
+		local rowB = LuauUI.UI.Text({
+			id = "RowB",
+			text = "Row B",
+			width = { type = "fixed", px = 400 },
+			height = { type = "fixed", px = 48 },
+		})
+		local list = LuauUI.UI.VStack({ id = "List", children = { rowA.blueprint, rowB } })
+		local screen = LuauUI.UI.Screen({ id = "S", children = { list } })
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+
+		local pathB = "/S/List/RowB"
+		local before = (adapter.node(pathB) :: any).rect
+
+		pres.focus.focusOn("/S/List/RowA/Content/Body")
+		system.deviceKey("ButtonX", true)
+		system.deviceKey("ButtonX", false)
+		pres.refresh()
+		expect(rowA.dump().menuOpen).toBe(true) -- the menu really opened, not a no-op
+
+		local after = (adapter.node(pathB) :: any).rect
+		expect(after.y).toBe(before.y)
+		expect(after.x).toBe(before.x)
+		expect(after.h).toBe(before.h)
+
+		rowA.dispose()
+		pres.dismiss(handle)
+	end)
+
+	it("wrapper dispose while its menu is open dismisses the menu's own surface too — no leak", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local baseline = core:counters()
+
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = focusableBody("Body"),
+			trailing = {
+				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+			},
+		})
+		local screen = LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } })
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		pres.focus.focusOn("/S/Row/Content/Body")
+
+		system.deviceKey("ButtonX", true)
+		system.deviceKey("ButtonX", false)
+		pres.refresh()
+		expect(ra.dump().menuOpen).toBe(true)
+		local menuPath = "/RowActionsMenu-Row/Menu/MenuRows/Action:flag"
+		expect(adapter.node(menuPath) ~= nil).toBe(true)
+
+		ra.dispose()
+		pres.refresh()
+		expect(adapter.node(menuPath)).toBe(nil) -- the menu's surface tore down too, not stranded
+
+		pres.dismiss(handle)
+
+		local after = core:counters()
+		for key, v in baseline :: { [string]: number } do
+			expect((after :: any)[key]).toBe(v)
+		end
+	end)
 end)
 
 -- ===== Task 10: row_actions.composeWithReorder, in isolation ================
