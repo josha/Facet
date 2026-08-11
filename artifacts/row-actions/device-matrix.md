@@ -222,3 +222,107 @@ actively-scrolling list does not meet the stated ≤5%/≤4 ceilings, and Task 1
 (gate checks) should either re-baseline the budget for the two-edge case or
 treat this as a follow-up optimization item rather than silently passing a
 gate that greps this file.
+
+## Task 11b (director-mandated perf follow-on, 2026-08-10) — investigation + one fix shipped
+
+Full writeup: `.superpowers/sdd/row-actions-implementation/task-11b-report.md`.
+Summary here per this artifact's own "update the perf section" instruction.
+
+**Method.** Re-ran the committed `perf_workload.luau` as the baseline (numbers
+reproduce Task 11's within run-to-run noise — this Lune/CPU environment shows
+±10-15 percentage points of variance run over run on the same unmodified
+code; every number below is representative of several runs, not a single
+sample). Then, rather than guess, built a **scratch-instrumented copy** of
+`row_actions.luau` (temporary `os.clock()` phase marks around every major
+construction step: setup, reveal-state signals, naturals, theme metrics,
+edit-affordance/gesture/commit/menu/keys closures, width-props memos, tray
+declaration, content declaration, root Anchor, contribution.attach, dispose)
+and drove it through the identical steady-scroll/fling shapes to find out
+**which phase of `row_actions.build()` actually dominates the cost** —
+instead of continuing to guess between the two root causes Task 11 named.
+
+**Finding: row_actions.luau's own reactive-graph construction is NOT the
+dominant cost.** Summed across every phase (build + dispose), the module's
+own Luau-side work is ~0.03-0.04ms per mount — roughly **2% of the actual
+measured per-step wall-time delta** between wrapped and baseline. The other
+~98% is downstream: the shared renderer/solver's cost of creating, measuring,
+and later destroying the wrapper's 5 extra `Instance`s (`Anchor` root,
+`Content` ZStack, `Hit` grip, two `TrayXWhen` frames) on every virtualization
+window-membership change. Confirmed empirically, not just inferred: a
+scratch build forcing the composite to ALWAYS take the true-inert-passthrough
+path (zero extra instances, same as a row with no declared actions) measured
+steady/fling wall time within ~10% of the real unwrapped baseline; a
+scratch build keeping only `Anchor`+`Content`+`Hit` (dropping both tray
+`When`s) still cost roughly 3/4 of the full wrapped delta. **The Instance
+count is the lever, not the reactive graph.**
+
+**Why the instance count can't be safely reduced further in this task.**
+`Anchor`/`Content`/`Hit` form a load-bearing path structure:
+`tests/row_actions_input.spec.luau` and `tests/row_actions.spec.luau`
+hardcode `.../Content/Hit`, `.../Content/Body`, and
+`.../TrayLeadingWhen/then/TrayLeading` / `.../TrayTrailingWhen/then/
+TrayTrailing` as literal path constants across hundreds of call sites
+(pointer/focus injection into the fake adapter). Removing or restructuring
+any of these three nodes — the only way to materially cut the dominant
+cost — requires either (a) changing which `Instance` receives the initial
+pointer-down capture for a standalone (non-Table) row, which is unsafe: a
+gesture capture cannot survive its owning `Instance` being destroyed and
+recreated under a new parent mid-gesture, and this framework has no
+reparent-without-recreate primitive (confirmed by reading, not assumed —
+this exact class of constraint is why `composeWithReorder`'s own deferred-
+down dispatch replays onto an EXISTING, already-captured Instance rather
+than attempting to hand capture between two different ones); or (b) merging
+the two tray `When`s into one shared gate, which is instance-count-legal but
+measured to save only ~15-20% of the wrapper's OWN delta (not the whole
+budget gap) while requiring rewriting the hardcoded tray path constants
+across both spec files — a large, mechanical diff for a change too small to
+move the reported percentage outside this environment's own run-to-run
+noise band. Neither was attempted; both would be manufacturing churn for
+unproven benefit, against this repo's own standards.
+
+**What WAS shipped:** the one root cause Task 11b's own guidance named that
+profiling confirms is real, even though its magnitude is small —
+`ensureKeysContext()` used to build a real action-system context (with two
+keybound actions) unconditionally at MOUNT for every windowed row, only to
+`setEnabled(false)` immediately after, for a row nobody may ever focus.
+Confirmed safe: a disabled context is fully excluded from the action
+system's own arbitration (`src/input/actions.luau`), so "built but disabled"
+and "never built" are observationally identical everywhere. `syncKeysEnabled`
+now only builds the context once real focus has actually entered the row.
+Zero behavior change (full suite 4038/4038 green); the workload's numbers
+move within noise (this specific benchmark never focuses a row, so it can't
+exercise the win — a focus/keyboard-heavy scenario would see it directly).
+
+**Numbers (mean, ms/refresh; `lune run artifacts/row-actions/
+perf_workload.luau`, representative of several runs on this machine):**
+
+| Drive shape | Baseline | Task 11 (before) | Task 11b (after, `17719bc`) | Budget |
+|---|---|---|---|---|
+| Steady scroll (61px) | ~1.10ms | 1.73ms (+59%) | 1.75ms (+57%) | ≤5% — still FAIL |
+| Fling | ~1.60ms | 3.04ms (+88%) | 3.01ms (+81%) | ≤5% — still FAIL |
+| Idle (no boundary churn) | ~0.008ms | 0.016ms (+136%) | 0.018ms (+102%) | informational |
+| Wrapper instances/closed row | — | 5.00 | 5.00 (unchanged — not this fix's target) | ≤4 — still FAIL |
+
+Run-to-run noise on steady/fling mean deltas is roughly ±10-15 percentage
+points on this machine (observed range across 8 runs: steady +43% to +59%,
+fling +81% to +98%), so the before/after difference above is within noise
+for THIS specific scroll-only workload — expected, since the shipped fix
+targets focus-arrival cost, which this workload never exercises.
+
+**Return status: DONE_WITH_CONCERNS, floor reached.** The ≤5%/≤4 budgets
+remain MISSED after honest investigation and one real (if narrowly-scoped)
+fix. Closing the remaining gap requires one of: (1) a `virtual_list.luau`
+-level gesture-composition hook mirroring `table.luau`'s own
+`externalGesture`/`composeWithReorder` pattern, so a `newVirtualList` +
+`newRowActions` pairing (this workload's own shape, and the gallery's list
+surface) can skip the `Hit` grip the same way a `reorderable` Table row
+already does — cross-cutting to every `VirtualList` consumer, needs its own
+mission; or (2) a generic cell-recycling capability in `VirtualList` (reusing
+mounted Instances across different row keys instead of destroy+recreate on
+every window-membership change) — a much larger initiative in the shape of
+the prior Step 9 performance lab's own recycling work, not specific to
+row-actions. Both are out of this task's safe scope. Recommendation for
+Task 12: either re-baseline the perf gate to the two-edge, mount-inclusive
+numbers actually measured (both here and in Task 11), or track the
+`VirtualList` gesture-composition hook as a follow-up perf mission rather
+than block the gate on it.
