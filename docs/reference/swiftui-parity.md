@@ -76,12 +76,18 @@ explicitly, not silently dropped.
 The July doc carried these forward by inertia rather than a re-check against
 current code. Each is corrected here, not silently dropped:
 
-1. **"`sizeClass` is consumed by nothing in `src/`."** False today. Sixteen-plus
-   call sites (`renderer.luau`, `layout/adaptive.luau`, `presenter.luau`,
+1. **"`sizeClass` is consumed by nothing in `src/`."** False today, but the
+   correction must not overshoot: `grep -rln "sizeClass" src/` names exactly
+   four files — the key's own definition (`src/env/environment.luau`) and
+   three real consumers, `src/layout/adaptive.luau`, `src/controls/popup_button.luau`,
+   and `src/controls/picker.luau`. `renderer.luau`, `presenter.luau`,
    `table.luau`, `text_input.luau`, `rating.luau`, `row_actions.luau`,
-   `theme_controller.luau`, `hint.luau`, `popup_button.luau`, `picker.luau`)
-   contradict the old claim. It was true at v0.5.0 and is false at v0.9.0. —
-   §3.1 State & Reactivity, §3.3 Controls.
+   `theme_controller.luau`, and `hint.luau` read *other* environment facts
+   (`themeMetrics`, `effectiveInput`, `interactionClasses`, `typographyScale`,
+   and similar) but do not read `sizeClass` itself — they are not part of
+   this specific correction. It was true at v0.5.0 and is false at v0.9.0,
+   with three real consumers, not sixteen. — §3.1 State & Reactivity, §3.3
+   Controls.
 2. **"Every style hint is mount-time-only... a reactive `surface`/`role` write
    is silently dropped."** Fixed under "Milestone 0 (swiftui-parity-next
    investment 1)": `renderer.luau`'s `STYLE_PROPS`/`STYLE_PROP_ORDER` re-apply
@@ -167,7 +173,7 @@ motion-authority side — the two are cross-checked and agree).
 | Cycles / self-referential derivation | **Covered**, reported not hung | `evalStack` cycle detection — `custom.luau:89-96`; test `cycle-reported-not-hung` — `suite.luau:164` | Unchanged |
 | Write-during-derive illegal state | **Covered** | `write()` guard — `custom.luau:177-179`; test `write-during-memo-is-error` — `suite.luau:191` | Unchanged |
 | `.task` (async work scoped to view lifetime, cancelled on disappear/identity change) | **Partial**, stronger cancellation than SwiftUI's identity-only cancel | `LuauUI.newResourceProvider` (`src/async/resources.luau`): scope-owned handles, generation-based stale-completion rejection (`:358-366`), bounded+spaced retry | Predates 2026-07-22 unmodified in this range; the old audit never scored it against `.task` directly (only as `AsyncImage`, Composable) |
-| Environment values (`@Environment(\.foo)`) | **Covered, and now substantially exercised** — reversal of the old finding | `env:get`/`env:set` — `src/env/environment.luau:316-344`; per-key `Signal`s + derived `Memo`s (`:125-312`) | **Materially changed.** Old audit's "`sizeClass` consumed by nothing" claim is false against today's tree — 16+ call sites across `renderer.luau`, `adaptive.luau`, `presenter.luau`, `table.luau`, `text_input.luau`, `rating.luau`, `row_actions.luau:611`, `theme_controller.luau`, `hint.luau:69` |
+| Environment values (`@Environment(\.foo)`) | **Covered, and broadly exercised for environment facts in general; `sizeClass` specifically went from zero to a few real consumers** | `env:get`/`env:set` — `src/env/environment.luau:316-344`; per-key `Signal`s + derived `Memo`s (`:125-312`); `env:get(...)` is called widely for *other* facts (`themeMetrics`, `effectiveInput`, `interactionClasses`, `typographyScale`, and similar) from `renderer.luau`, `presenter.luau`, `table.luau`, `text_input.luau`, `rating.luau`, `row_actions.luau:611`, `theme_controller.luau`, `hint.luau:69` | **Materially changed, but scoped precisely.** Old audit's "`sizeClass` consumed by nothing" claim is false against today's tree — but only three files actually read `sizeClass` itself: `src/layout/adaptive.luau`, `src/controls/popup_button.luau`, `src/controls/picker.luau` (`grep -rln "sizeClass" src/`). The files above read *other* environment keys, not `sizeClass` — see §3.3.1 for the precise, unchanged-since-first-draft version of this same finding |
 | Environment derived/clamped facts | **Covered** | `typographyScale`/`effectiveTransparency`/`effectiveOverscanInsets` clamp/default on bad input — `environment.luau:125-153,200-218` | New facts (`topbarInset`, `topbarSafeInsets`, `textMeasureEpoch`, `presentationSpace`, `themeMetrics`) added post-2026-07-22 |
 | Identity & structural diffing (`ForEach(id:)`, `.id()`) | **Covered**, closer to `ForEach` than whole-tree diffing | `mountForEach` — `src/mount.luau:224-407`: add/remove/move only, duplicate keys hard-error | **New since validation**: mid-exit re-entry resumes the same mounted subtree/scope/instances (`:288-300`) rather than remounting, shipped in `2497a13` (Step 9 / ADR-0022 Decision 3) |
 | Instance-identity reuse below ForEach/When (recycling pool keyed by shape) | **Covered** — no direct SwiftUI analogue | `src/render/renderer.luau:1556-1722` (`recycleInstances`, `RECYCLE_POOL_CAP`, `recycleKey`) | **New since validation** (Step 9 perf lab + the later corpse-adoption guard, `tests/instance_park_corpse.spec.luau`) |
@@ -397,7 +403,7 @@ Verification for this area: `./run-tests.sh` — **4038 passed**;
 | Materials (blur/vibrancy/translucency) | **Missing** | No blur, backdrop-filter, vibrancy, or frosted/translucent material construct anywhere. Every "glass" hit in source is a validation-rule metaphor, not a rendering material. Theme packages own flat fills, nine-slice art, gradients (capped `GRADIENT_ALPHA_MAX = 0.9`) and layered image chrome — all still opaque-paint techniques | Apple shipped `.glassEffect()`/`.glassProminent`/`GlassEffectContainer` (Liquid Glass, iOS 26/WWDC 2025 era) as a mature production system in the interim. **The gap widened, not narrowed** |
 | Tints | **Partial** | Per-asset `tintRole` tints semantic icon art from the active theme's color roles; `Image.tint` is a real reactive `BINDING_PROPS` write; a continuous-colour blend channel (`{role, blend, from?}`, ADR-0022 Decision 6) exists for animating between two theme roles. **Absent**: an environment-cascading `.tint(Color)` that recolors an entire subtree — LuauUI's tint mechanisms are per-node opt-in, not inherited | Continuous-colour blend and full reactive `tint` are both new since baseline |
 | Dark mode / color schemes | **Available** | Native StyleSheets (ADR-0018) ship `Theme Dark`/`Theme Light`, swapped at runtime with no remount, focus/scroll retained. Theme *packages* (ADR-0019) go further: `theme_controller.install`/`.swap` performs "one transaction — `SetDerives` plus the snapshot commit" so paint and geometry land in the same frame with mount identity/focus/selection/scroll/text-entry all surviving | **Shipped entirely since the 2026-07-22 baseline** — the single largest capability delta in this area |
-| Dynamic type | **Available** (framework's own equivalent) | The player's Roblox "Text size" preference (Medium/Large/Larger/Largest) is first-class layout input: the engine paints `TextSize + offset` at a measured, per-preference constant; the solver reserves the exact painted box; a mid-session change re-solves every mounted surface in place, preserving identity/focus/scroll/state. Eight typography roles carry font descriptor + line height together | Unchanged in mechanism since baseline; now composes correctly with theme packages' typography ladders, motivated by a real clipping bug found in the gallery's own theme picker |
+| Dynamic type | **Available** (framework's own equivalent) | The player's Roblox "Text size" preference (Medium/Large/Larger/Largest) is first-class layout input: Step 8.5 (2026-08-03) replaced guessed offsets with the measured per-preference constants (Medium 0 / Large 4 / Larger 10 / Largest 14, uniform across font/weight/size), and the engine paints `TextSize + offset` at that measured constant; the solver reserves the exact painted box; a mid-session change re-solves every mounted surface in place, preserving identity/focus/scroll/state. Eight typography roles carry font descriptor + line height together | Unchanged in mechanism since baseline; now composes correctly with theme packages' typography ladders, motivated by a real clipping bug found in the gallery's own theme picker |
 | Custom styling protocols | **Missing** | No protocol lets a consumer swap *what a control renders as* while the framework keeps interaction/state. The only per-instance rendering-injection seam in the whole library is Table's `cellFor` | No change |
 | Liquid Glass-era design adoption | **Missing** | No translucent/blur material, no light-reactive surface, no `GlassEffectContainer`-style morphing group. LuauUI's answer to "rich visual identity" is data-driven: nine-slice panels/chrome slots, layered art (up to 8 layers, ADR-0020) and per-state art maps — all flat/opaque compositing | Confirmed via web search: Apple's Liquid Glass is shipped and actively used in production as of iOS 26. LuauUI has no counterpart at any layer and none is planned in any open ADR/plan file |
 | Cascade / selector model (`sheet_model`) | **Available** (supporting infrastructure) | Cascade = "Priority first, then insertion order (later wins); no specificity" — deterministic priority (`rule.priority = #rules * 10`) so the generator and `native_style.priorityFor` can never disagree. `luau-*` CollectionService tags classify instances | Unchanged in design since ADR-0018 — the whole mechanism postdates v0.5.0 |
@@ -612,7 +618,7 @@ transitions), confirmed by web search this session.
 | `.alert` | **Composable** | Recipe unchanged | **No item-binding pattern** — SwiftUI's June 2026 `.alert(item:)`/`.confirmationDialog(item:)` has no LuauUI analogue; a consumer wires its own signal |
 | `.confirmationDialog` | **Composable** | Recipe unchanged | Same gap as `.alert`; Button's new `role` prop supplies *some* of SwiftUI's role-driven tinting but nothing orders/tints a Cancel row automatically |
 | `.popover` / transient panel | **Partial** | `newPopupButton` + `presenter.syncPopupCatcher`/`topPopupCatcherPath` | No material mechanism change; the catcher now supports a `consume == false` opt-out (row-actions Task 7 finding) so a popup can let a tap-away close it without swallowing the tap for the control underneath |
-| `.contextMenu` / `.swipeActions` (generalized secondary-action container) | **Available** (first-class construct, not a recipe) | `LuauUI.newRowActions`; leading/trailing trays, `fullSwipe` commit, keyboard Delete/Backspace + Shift+Return, gamepad ButtonX/ButtonB, `newRowActionsCoordinator` | **This is the headline delta.** The v0.5.0 audit's #1 planning item ("Generalized `swipeActions` containers — Missing") has shipped as a general composite, any row content can be wrapped |
+| `.contextMenu` / `.swipeActions` (generalized secondary-action container) | **Partial** (first-class construct, not a recipe — but with named gaps a consumer will hit; reconciled here to the same rating §3.3/§3.5/§1 use, per this document's own status-scale rule that a working construct with named gaps is Partial, not Available) | `LuauUI.newRowActions`; leading/trailing trays, `fullSwipe` commit, keyboard Delete/Backspace + Shift+Return, gamepad ButtonX/ButtonB, `newRowActionsCoordinator`. Named gaps: the perf cost is re-baselined not closed (+57%/+81% scroll/fling, +5 instances/row), no RTL, and no mouse secondary-click/touch long-press trigger for the menu (§3.3.2, §3.5) | **This is the headline delta.** The v0.5.0 audit's #1 planning item ("Generalized `swipeActions` containers — Missing") has shipped as a general composite, any row content can be wrapped |
 | The row-actions floating menu (`bindPresent`) | **Available**, architecturally significant | `row_actions.luau:675-838`; contract seam `bindPresent` in `src/input/contribution.luau:138-161` — deliberately `presentModal`, never `present` (two `kind=="screen"` surfaces sharing one priority band would double-deliver Navigate/Activate/Cancel) | **New public seam.** Closes the exact RED-TEAM-caught defect where the first implementation measured the menu as a child of the row, inflating the row (and, inside a Table, the whole list). A pinned test asserts a sibling row's solved rect is byte-identical whether the menu is open or not — a reusable pattern for any future secondary-surface composite |
 | `ButtonRole` (destructive/cancel tinting) | **Partial** (upgraded from Missing) | `role: "normal" \| "destructive"` on `ActionSpec` paints the shipped danger/onDanger style rule | The prior doc stated flatly "No `ButtonRole`." `Button` now accepts a destructive role with a real style mapping. Still narrower than SwiftUI (no `cancel` role, no automatic dialog-row ordering) |
 | `NavigationStack` (screen push/pop) | **Partial**, unchanged verdict | `presenter.presentModal` pushes, `back()` pops the top *modal*, `depth()` reports stack size | **No change.** Confirmed by source grep this session: no `pushScreen`/`navigationPath`/`screenStack` construct exists anywhere. Remains modals only |
@@ -673,12 +679,12 @@ Verification for this area: `./run-tests.sh` → **4038 passed, 0 failed**
 | Capability | Status | Evidence | Change since 2026-07-22 |
 |---|---|---|---|
 | Strict spec validation, unknown-property refusal | **Covered, shipped and live** | Live repro this session: `LuauUI.UI.Button({ lable = "hi" })` → `false  LuauUI UI.Button: unknown property 'lable'. Did you mean 'label'? Valid properties: ...` | **Reversal of the old top material gap.** This was the July doc's own named blocker for further API growth |
-| Typed public constructor surface | **Covered — large expansion** | **51** exported `*Spec` types (`grep -c "^export type.*Spec" src/blueprint.luau src/controls/*.luau`); public core types re-exported at `src/init.luau:36-40` with the comment naming the prior defect directly: "the library's own boundaries said `core: any` 35 times" | **New since validation.** `grep -c ": any" src/init.luau` today returns 1, inside the explanatory comment quoted above, not a live type |
+| Typed public constructor surface | **Covered — large expansion** | **51** exported `*Spec` types framework-wide (`grep -rc "^export type.*Spec" src/ \| awk -F: '{s+=$2} END {print s}'`; 27 in `blueprint.luau` alone, the rest spread across `src/controls/`, `src/motion/`, `src/layout/`, `src/input/drag_contract.luau`, `src/render/transitions.luau`, `src/blueprint_schema.luau`); public core types re-exported at `src/init.luau:36-40` with the comment naming the prior defect directly: "the library's own boundaries said `core: any` 35 times" | **New since validation.** `grep -c ": any" src/init.luau` today returns 1, inside the explanatory comment quoted above, not a live type |
 | Property-authority reconciliation (schema ⇄ dirty-map ⇄ render-authority ⇄ adapter ⇄ layout ⇄ docs ⇄ types) | **Covered — a new checker class** | `tools/lune/check_prop_parity.luau` reconciles six independent views of every declared property — the direct fix for the old audit's named live bug (`Text.color` silently dropped) | **New since validation** |
 | Conformance registry | **Covered, exercised live during this feature** | `tests/conformance/controls_registry.luau` (919 lines); enforced by `tests/extension_checker.spec.luau` | Machinery predates 2026-07-22; row-actions is now a live trial of it — see the "core claim" below |
 | Docs/exports drift check | **Covered** | `tools/lune/check_docs.luau` + CLI; the 0.8.0 documentation package closed all 14 tolerance entries and the tolerance list has stayed at zero | Tolerance-to-zero happened before this branch; row-actions' Task 12 re-touched `docs/reference/api.md` and passed the same zero-tolerance bar |
 | Example-gallery property-authority drift lint | **Covered — new checker class** | `tools/lune/check_example_drift.luau`: reads its role vocabularies live from the framework itself, fails on raw-number style-owned props, unknown string roles, raw colors, engine reach-arounds | **New since validation** |
-| Surface-ledger coverage check | **Covered — new checker class** | `tools/lune/check_surface_ledger.luau`: verifies every top-level export and nested-namespace member of the live public surface appears in `artifacts/api-architecture-consistency/surface-ledger.md` | **New since validation.** *Live-verified this session: currently FAILING — `newRowActions`/`newRowActionsCoordinator` are not yet classified in the surface ledger. Flagged as a concern; not part of the row-actions gate's three required checks and not in scope for this document's own rewrite* |
+| Surface-ledger coverage check | **Covered — new checker class** | `tools/lune/check_surface_ledger.luau`: verifies every top-level export and nested-namespace member of the live public surface appears in `artifacts/api-architecture-consistency/surface-ledger.md`. Live-verified PASS at HEAD `a34f2fa` ("every public export and nested member is classified; constitution linked") | **New since validation.** *Was briefly FAILING earlier in this same session (`newRowActions`/`newRowActionsCoordinator` unclassified after they shipped); fixed in `a34f2fa` ("docs(row-actions): classify new exports in the surface ledger"), which landed on top of this document's own audited commit and is now HEAD. Re-verified PASS as part of closing out this correction round* |
 | Client/server require-graph boundary check | **Covered** | `tools/lune/check_boundary.luau` (97 src files, 379 consumer files, live-verified PASS this session) | Machinery predates the validation date |
 | Gate system (phase-gate manifest + integrity + prior-gates re-run) | **Covered — 25 named gates today** | Includes `row-actions` (this branch); `python3 tools/check_manifest_integrity.py` → `650 suite greps, all anchored to the pass marker`, exit 0 live-verified | **Grown by one gate** since validation |
 | row-actions gate, live-verified this session | **PASS** | `check_row_actions_matrix.py` → "functional matrix intact, perf numbers within re-baselined ceilings: steady <= 57.0%, fling <= 81.0%, instances <= 5.0"; `./run-tests.sh` → 4038 passed | This branch's own gate, closed 2026-08-11 |
@@ -731,7 +737,7 @@ Verification for this area:
 python3 tools/check_manifest_integrity.py         # exit 0: 650 suite greps, all anchored
 python3 tools/check_row_actions_matrix.py         # exit 0: functional matrix clean
 grep -c '^\t\["' tools/lune/gate_manifest.luau    # 25 gates
-grep -c '^export type.*Spec' src/blueprint.luau src/controls/*.luau  # 51 exported Spec types
+grep -rc '^export type.*Spec' src/ | awk -F: '{s+=$2} END {print s}'  # 51 exported Spec types
 grep -c ': any' src/init.luau                     # 1 (inside an explanatory comment)
 ```
 
@@ -827,7 +833,6 @@ owning area section:
 | `#Preview`-equivalent authoring loop | **Missing (no Roblox analogue), mitigated** by batch/scripted device-matrix drives, not interactive | §3.9 |
 | `*Style` protocols (`ButtonStyle` etc.) | **Missing**, the sharpest structural divergence from SwiftUI | §3.4 |
 | Cell-recycling for composite-wrapped `VirtualList` rows | **Missing** — the concrete lever the row-actions perf mission needs | §3.7, §5 |
-| Surface-ledger classification for `newRowActions`/`newRowActionsCoordinator` | **Live-failing check**, found during this audit's own verification pass; not part of the row-actions gate's three required checks, out of scope for this rewrite | §3.9 |
 
 ---
 
@@ -936,13 +941,18 @@ lune run tools/lune/check_docs_cli                 # PASS (8 documents, 77 surfa
 lune run tools/lune/check_prop_parity_cli          # PASS (25 classes, 438 properties, 2 diagnosed, 473 typed fields)
 python3 tools/check_manifest_integrity.py          # 650 suite greps, all anchored to the pass marker
 python3 tools/check_row_actions_matrix.py          # row-actions gate PASS at re-baselined ceilings
+lune run tools/lune/check_surface_ledger           # PASS — every public export and nested member
+                                                    #   is classified; constitution linked
 ```
 
-Not part of this document's own required checks, but discovered live during
-this verification pass and worth carrying forward: `lune run
-tools/lune/check_surface_ledger` currently **FAILS** — `newRowActions`/
-`newRowActionsCoordinator` are unclassified in `artifacts/api-architecture-consistency/surface-ledger.md`.
-This is not one of the row-actions gate's three required checks
-(`row-actions-suite`, `row-actions-device-matrix`, `library-suite-green`, all
-PASS per `artifacts/row-actions/gate.json`) and fixing it is out of scope for
-this document's rewrite; it is recorded here so it is not lost.
+`check_surface_ledger` briefly failed earlier in this session —
+`newRowActions`/`newRowActionsCoordinator` were unclassified in
+`artifacts/api-architecture-consistency/surface-ledger.md` immediately after
+they shipped. It was fixed in `a34f2fa` ("docs(row-actions): classify new
+exports in the surface ledger"), which landed on top of this document's own
+audited commit and is HEAD as of this correction round; the check now PASSes
+and is re-verified live above. It was never one of the row-actions gate's
+three required checks (`row-actions-suite`, `row-actions-device-matrix`,
+`library-suite-green`, all PASS per `artifacts/row-actions/gate.json`), so
+its brief failure never blocked that gate — it is recorded here only to show
+the fix, not as an open item.
