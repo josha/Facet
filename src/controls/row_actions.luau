@@ -1249,11 +1249,34 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- of the gesture. `row_actions_state.new` is a cheap, pure constructor
 	-- (closures over already-known scalars, no engine, no allocation beyond
 	-- itself), so rebuilding it per move costs nothing next to a solve pass.
+	-- REDTEAM FIX (item 9, MEDIUM): the "self-correcting within a frame or
+	-- two" story above assumes at least one `syncGeometry` (a `pres.refresh()`)
+	-- lands somewhere between `pointerDown` and `pointerUp` — true of a real
+	-- host frame loop, but not of a synthetic gesture driven with ZERO ticks
+	-- in between (down/move/up back-to-back, no refresh at all): with no
+	-- `syncGeometry` ever having run, `leadingWidth`/`trailingWidth` are
+	-- STILL exactly 0 at release, so `settle` sees `tray <= 0` on both edges
+	-- and closes no matter how far the drag actually traveled — a real
+	-- "flick that never opens" a player could hit on an unlucky single-frame
+	-- flick. `provisionalWidth` substitutes an ESTIMATE — `#actions *
+	-- buttonMinWidthPx` (the theme's own per-button floor, already resolved
+	-- live above) — only when the true measured sum is still 0, for THIS
+	-- decision's inputs alone: it never writes back to `leadingWidth`/
+	-- `trailingWidth` themselves (the reactive signals every width PROP
+	-- still reads), so the real measurement from the next `syncGeometry`
+	-- (if one ever runs) replaces it exactly as before, unchanged.
+	local function provisionalWidth(actions: { ActionSpec }?, measured: number): number
+		if measured > 0 or actions == nil then
+			return measured
+		end
+		return #actions * buttonMinWidthPx:get()
+	end
+
 	local function currentDecision(): any
 		return row_actions_state.new({
 			rowWidth = currentRowWidth(),
-			leadingWidth = leadingWidth:get(),
-			trailingWidth = trailingWidth:get(),
+			leadingWidth = provisionalWidth(leadingActions, leadingWidth:get()),
+			trailingWidth = provisionalWidth(trailingActions, trailingWidth:get()),
 			fullSwipeLeading = fullSwipe.leading,
 			fullSwipeTrailing = fullSwipe.trailing,
 		})

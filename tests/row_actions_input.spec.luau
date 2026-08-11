@@ -203,6 +203,25 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra.dump().openEdge).toBe("trailing")
 	end)
 
+	-- REDTEAM ITEM 9 (MEDIUM): `currentDecision`'s "self-correcting within a
+	-- frame or two" story (see its own header comment) assumes at least one
+	-- `syncGeometry` (a `pres.refresh()`) lands somewhere between down and
+	-- up — true of a real host frame loop, but NOT of a full gesture driven
+	-- with ZERO ticks in between (down/move/up back-to-back, exactly as
+	-- this test does): with `leadingWidth`/`trailingWidth` never measured
+	-- (still exactly 0), a fresh row's first-ever flick used to settle
+	-- CLOSED no matter how far it dragged, because `settle` saw `tray <= 0`
+	-- on both edges. `w.tick` is never called here on purpose.
+	it("down/move/up with ZERO ticks between (no syncGeometry ever ran): a real drag still opens", function()
+		local w = trailingWorld()
+		w.adapter.pointerDown(HIT, 100, 20, "mouse")
+		w.adapter.pointerMove(50, 20) -- dx = -50: past the lock, well past half the theme's buttonMinWidth (64)
+		w.adapter.pointerUp(50, 20)
+		w.settle() -- animation only, from here on — the decision is already made
+		expect(w.ra._isOpen()).toBe(true)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+	end)
+
 	-- REDTEAM ITEM 4 (MAJOR — director ruling, SwiftUI behavior): the
 	-- slide-off + height-collapse sequence is DESTRUCTIVE-only (see the
 	-- "non-destructive" test below for the sibling behavior a `normal`-role
