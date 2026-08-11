@@ -1079,6 +1079,24 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		end
 		return {
 			onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
+				-- REDTEAM FIX (item 10, MEDIUM; spec: docs/plans/row-actions.md:136).
+				-- A handle-zone press always starts a reorder unconditionally
+				-- (the handle wiring's own header comment: touch-scroll design,
+				-- "drags on it ALWAYS reorder") — but if THIS row's own action
+				-- tray happens to be open, dragging the row out from under a
+				-- revealed swipe tray left the tray visually stranded, sliding
+				-- along with (or detached from) a row it no longer matched.
+				-- Closed the SAME way the row-tap handler above already does
+				-- (`rowActionsByKey` lookup by path, `api.rowKeyForPath`) —
+				-- BEFORE the reorder itself begins, so the row is back to its
+				-- normal geometry the instant the drag starts, not mid-flight.
+				local rowKey = api.rowKeyForPath(path)
+				if rowKey ~= nil then
+					local rowActionsInstance = rowActionsByKey[rowKey]
+					if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
+						rowActionsInstance._close()
+					end
+				end
 				base.onPointerDown(path, asMouse(pos), rectOf)
 			end,
 			onPointerMove = function(path: string, pos: any)

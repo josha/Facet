@@ -2379,6 +2379,61 @@ describe("Table: row actions (Task 10)", function()
 		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine")).toBe(nil)
 	end)
 
+	-- REDTEAM ITEM 10 (MEDIUM; spec: docs/plans/row-actions.md:136). The
+	-- reorder ≡ handle ALWAYS starts a reorder, unconditionally, regardless
+	-- of the row's own tray state — a handle-zone press used to leave an
+	-- already-open tray stranded, sliding along with (or detached from) a
+	-- row being dragged out from under it. Fixed at `handleDragHandlers`'s
+	-- own `onPointerDown` in table.luau (the same `rowActionsByKey` lookup
+	-- the row-tap handler already uses).
+	it(
+		"starting a reorder-handle drag on a row whose tray is open closes the tray FIRST, before reorder proceeds",
+		function()
+			local core = LuauUI.newCore()
+			local editingSignal = core:signal(true) -- edit mode: the ≡ handle is mounted
+			local w = raWorld({
+				core = core,
+				header = false,
+				reorderable = true,
+				editing = editingSignal,
+				onReorder = function() end,
+				rowActions = function(_item)
+					return { trailing = { deleteAction() }, fullSwipe = false }
+				end,
+			})
+			local razzHit = wrappedRowHitPath(0, "razz")
+			local closedX = w.adapter.node(razzHit).rect.x
+
+			-- open the tray via an ordinary horizontal drag on the row's own Hit
+			w.adapter.pointerDown(razzHit, 100, 20, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(60, 20)
+			w.tick(1.0)
+			w.adapter.pointerMove(-200, 20)
+			w.tick(1 / 60)
+			w.adapter.pointerUp(-200, 20)
+			w.settle()
+			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- open
+
+			-- grab the ≡ handle: the tray's CLOSE is triggered the instant the
+			-- press lands (before any move, before reorder itself even
+			-- begins) — `_close()` retargets the same reveal spring the
+			-- gesture itself rides, so the pixel position animates back over
+			-- subsequent frames rather than snapping; settle to observe it.
+			local handlePath = `{rowActionsRoot(0, "razz")}/Content/Row/EditWhen/then/HandleZone/Handle`
+			w.adapter.pointerDown(handlePath, 100, 20, "mouse")
+			w.settle()
+			expect(w.adapter.node(razzHit).rect.x).toBe(closedX)
+
+			-- and reorder itself still proceeds normally afterward — the fix
+			-- only closes the tray, it does not eat or defer the handle press
+			w.adapter.pointerMove(100, 90)
+			w.pres.refresh()
+			expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine") ~= nil).toBe(true) -- reorder engaged
+			w.adapter.pointerUp(100, 90)
+		end
+	)
+
 	it("editing signal shows the minus on rows with a destructive action", function()
 		local core = LuauUI.newCore()
 		local editingSignal = core:signal(false)
