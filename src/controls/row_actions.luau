@@ -497,6 +497,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- slide/collapse already in flight when disposal lands never reaches its
 	-- next `onArrive` at all. See `doCommit`'s own comment below.
 	local disposed = false
+	-- a row commits at most once WHILE IN FLIGHT (a destructive commit's own
+	-- async slide-off+collapse chain, guarded against a second commit racing
+	-- in mid-sequence) — declared here (rather than immediately above
+	-- `doCommitAction`, where it is READ) so `close()` below, defined before
+	-- `doCommitAction`, can also WRITE it (redteam item 5, MAJOR: see the
+	-- big comment on `close()` for why resetting it there is the fix). Luau
+	-- locals are only visible to code that follows their own declaration
+	-- textually, so this has to sit ahead of every closure that touches it.
+	local committed = false
 
 	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
 	-- declared action, created eagerly at BUILD time rather than inside the
@@ -713,9 +722,29 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- routed through the coordinator itself — runs through this one function,
 	-- so the coordinator's bookkeeping never drifts from what is actually
 	-- painted.
+	--
+	-- REDTEAM FIX (item 5, MAJOR): a completed DESTRUCTIVE commit's own
+	-- collapse sequence (`doCommitAction` below) writes `rowHeightOverride`
+	-- and sets `committed = true`, but nothing ever reset either — a repro
+	-- found the row permanently pinned at 0 height and permanently
+	-- uncommittable forever afterward whenever the OWNER did not actually
+	-- remove the row instance following the commit (a throwing `onAction`
+	-- that never mutated the data, or a caller that treats a destructive
+	-- action as reversible/undo-able rather than instance-destroying) — a
+	-- "phantom row": visually collapsed to nothing, its trays and menu still
+	-- fully mounted underneath, unable to ever open or commit again. `close()`
+	-- is the ONE seam EVERY path that ends a row's open/committed state
+	-- already funnels through (the paragraph above), so resetting both HERE
+	-- is what keeps this composite's own bookkeeping from ever drifting from
+	-- what is actually painted, symmetric with the coordinator release right
+	-- below. Harmless on the ordinary (non-commit) open/close cycle:
+	-- `rowHeightOverride` is already `nil` there and `committed` is already
+	-- `false`, so both writes are no-ops.
 	local function close()
 		openEdge:set(nil)
 		retarget(0)
+		rowHeightOverride:set(nil)
+		committed = false
 		if coordinator ~= nil then
 			coordinator.release(api)
 		end
@@ -808,12 +837,12 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 	end
 
-	-- a row commits at most once in its life (the caller's next move is to
-	-- mutate the data and let a keyed diff remove this instance) — this flag
-	-- makes that true even if something calls the commit path twice, on top
-	-- of the exactly-once guarantee `retargetThen`/`collapseThen`'s own
-	-- self-unsubscribing already gives each individual spring chain.
-	local committed = false
+	-- `committed` itself is declared earlier (see the comment there) so
+	-- `close()`, defined above this point, can reset it too; this flag makes
+	-- "at most one commit in flight" true even if something calls the commit
+	-- path twice, on top of the exactly-once guarantee `retargetThen`/
+	-- `collapseThen`'s own self-unsubscribing already gives each individual
+	-- spring chain.
 
 	-- THE ONE COMMIT PATH (brief: `_commitFirst`; generalized below for Task
 	-- 8, whose keyboard Delete and menu-Activate entries fire a SPECIFIC

@@ -28,6 +28,7 @@ local text_metrics = require("../src/layout/text_metrics")
 
 local ROW = "/S/Row"
 local HIT = ROW .. "/Content/Hit"
+local TRAILING_TRAY = ROW .. "/TrayTrailingWhen/then/TrayTrailing"
 local FRAME = 1 / 60
 
 -- an explicit, realistic row width (a List/Table row is never as narrow as
@@ -221,17 +222,25 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		w.adapter.pointerMove(releaseX, 20)
 		w.tick(FRAME)
 		w.adapter.pointerUp(releaseX, 20)
-		-- three chained springs to let settle: slide off, collapse height, then
-		-- close()'s own retarget-back-to-0 — generous frame budget for all three
-		w.settle(400)
+		-- the collapse actually happened (not asserted before this fix wave —
+		-- proves the destructive branch really took the slide+collapse path):
+		-- step frame-by-frame and track the MINIMUM height reached along the
+		-- way, since item 5 (below) makes the row recover its full height by
+		-- the time the whole chain (through `close()`) finishes — the dip to
+		-- ~0 is a real, if transient, part of the sequence.
+		local minHeight = rowHeightBefore
+		for _ = 1, 400 do
+			w.tick(FRAME)
+			local h = w.handle.controller.rectOf(ROW).h
+			if h < minHeight then
+				minHeight = h
+			end
+		end
 		expect(#w.fired).toBe(1)
 		expect(w.fired[1]).toBe("delete")
 		expect(w.ra._isOpen()).toBe(false)
 		expect(w.ra.dump().phase).toBe("closed")
-		-- the collapse actually happened (not asserted before this fix wave —
-		-- proves the destructive branch really took the slide+collapse path)
-		expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(0, 0.5)
-		expect(w.handle.controller.rectOf(ROW).h < rowHeightBefore).toBe(true)
+		expect(minHeight).toBeCloseTo(0, 0.5)
 	end)
 
 	-- the sibling half of the SwiftUI ruling: a NON-destructive first action
@@ -318,6 +327,83 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 			expect(peak).toBeGreaterThan(trayWidth + 1) -- ...not just the open tray width
 			expect(#w.fired).toBe(1)
 			expect(w.fired[1]).toBe("delete")
+		end
+	)
+
+	-- REDTEAM ITEM 5 (MAJOR): `rowHeightOverride`/`committed` never reset
+	-- after a destructive commit's own slide-off+collapse+close chain
+	-- finished — a repro found the row permanently pinned at 0 height
+	-- forever whenever the OWNER did not actually remove the row instance
+	-- afterward (a throwing `onAction` that never mutated the data being the
+	-- sharpest case, but ANY non-removing destructive action hit it): a
+	-- "phantom row" — visually collapsed to nothing, its trays still fully
+	-- mounted underneath, unable to ever open or commit again. Fixed by
+	-- resetting both inside `close()` itself, the one seam every commit path
+	-- already funnels through.
+	local function fullSwipeCommit(w: any)
+		local rowWidth = rowWidthOf(w)
+		w.adapter.pointerDown(HIT, 0, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(-15, 20)
+		w.tick(1.0)
+		local releaseX = -(rowWidth * 0.7)
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		-- three chained springs (slide off, collapse, close's retarget-to-0)
+		-- plus generous headroom for the fix's own post-close settle
+		w.settle(600)
+	end
+
+	it(
+		"a throwing destructive commit still returns the (un-removed) row to full height, closed, trays unmounted",
+		function()
+			local calls = 0
+			local w = pointerWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = {
+						{
+							id = "boom",
+							label = "Boom",
+							role = "destructive",
+							onAction = function()
+								calls += 1
+								error("kaboom")
+							end,
+						},
+					},
+				})
+			end)
+			fullSwipeCommit(w)
+			expect(calls).toBe(1)
+			expect(w.ra._isOpen()).toBe(false)
+			expect(w.ra.dump().offset).toBe(0) -- not pinned at the offscreen commit target
+			expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(48, 0.5) -- NOT stuck at 0
+			expect(w.adapter.node(TRAILING_TRAY) == nil).toBe(true) -- trays unmounted (offset settled back to 0)
+			-- further settling never refires the quarantined callback
+			w.settle(120)
+			expect(calls).toBe(1)
+		end
+	)
+
+	it(
+		"a successful destructive commit ALSO recovers when the owner keeps the row alive: offset 0, full height, and a later commit is reachable again",
+		function()
+			local w = trailingWorld(nil, "destructive")
+			fullSwipeCommit(w)
+			expect(#w.fired).toBe(1)
+			expect(w.ra._isOpen()).toBe(false)
+			expect(w.ra.dump().offset).toBe(0)
+			expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(48, 0.5)
+			expect(w.adapter.node(TRAILING_TRAY) == nil).toBe(true)
+			-- `committed` reset to false: a SECOND full-swipe commit on this same
+			-- still-alive row must be reachable, not permanently blocked
+			fullSwipeCommit(w)
+			expect(#w.fired).toBe(2)
+			expect(w.ra.dump().offset).toBe(0)
+			expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(48, 0.5)
 		end
 	)
 
