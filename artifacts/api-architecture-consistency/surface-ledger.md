@@ -62,6 +62,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newTextInput` | composite | control-build, `api` variant; commented dispose deviation (endEditing-first, deliberate) | F-26 (env guard), DOC-13, PKT-1 (`disabled`) | controls |
 | `newChip` | composite | control-build, minimal — the template shape | F-2 (validation) | controls |
 | `newAsyncImage` | composite | E-8 (caller-scope; no dump/dispose) | DOC (honest entry kept), registry `dump=false` reason (ENF-1) | controls |
+| `newRowActions` | composite | control-build, `(LuauUI, core, spec)`; underscore-prefixed internal seam (`_open` `_close` `_isOpen` `_settleTo` `_closeMenu` `_menuHandle` `_pointerHandlers` `_commitFirst` `_handleActivate`) for Table's `rowActions` composition | NOTE (row-actions merge, postdates the Step 7 F-n audit round) | controls |
 | `pathShapes` · `pathShapes.arc` · `pathShapes.ring` · `pathShapes.needle` · `pathShapes.MAX_CONTROL_POINTS` | pure decision module | stateless dot module | NOTE (ring comment count) | controls |
 
 ## Runtime services
@@ -74,6 +75,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newActionSystem` | service | contexts own priority/sink/lifetime; `_deliver` = adapter seam (DOC-28) | F-29 (handler types), DOC-5/api coverage, PKT-2 (`destroy`) | services |
 | `inputHint` | reactive helper | `(core, env, …, opts?)` returning Readable | F-33 (`opts.scope`, style validation) | services |
 | `newFocusGraph` | service | logical focus; predicates at nav time | F-14 (no caller mutation), PKT-2 (`remove`), PKT-3 | services |
+| `newRowActionsCoordinator` | service | `(core) -> { claim, release, bindScroll }`; dot-object, one per shared list surface, at-most-one-row-open policy | NOTE (row-actions merge, postdates the Step 7 F-n audit round) | services |
 | `contribution` · `contribution.attach` · `contribution.read` · `contribution.PROP` | modifier + seam | best-typed seam; meta channel | DOC-9 (`PROP` naming note) | services |
 | `motion` · `motion.newClock` · `motion.registerClass` · `motion.resolveClass` · `motion.classNames` · `motion.isRegisteredClass` · `motion.resetClasses` · `motion.newValueReveal` | namespace | colon side of E-7; `newValueReveal` matches pure-model shape (verified) | DOC-3, DOC-15; registry process-global NOTE | services |
 | `adaptive` · `adaptive.sizeClass` · `adaptive.heightClass` · `adaptive.navPlacement` · `adaptive.orientationFor` · `adaptive.axisFor` · `adaptive.columnsFor` · `adaptive.conditions` · `adaptive.BREAKPOINTS` · `adaptive.HEIGHT_BREAKPOINTS` · `adaptive.DEFAULT_STACK_ABOVE` | pure decision module + reactive half | value-first pure fns; `opts.scope` ownership | F-28/F-29 (Readable typing, scope in type), DEP (`contentWidth`) | services |
