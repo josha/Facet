@@ -1016,7 +1016,23 @@ function fake_target.new(opts: Opts?)
 		-- a live capture OWNS the pointer: a began on another zone mid-drag
 		-- is ignored, never a steal (engine parity; live-found 2026-07-20)
 		if pointerCapture ~= nil then
-			return
+			-- REDTEAM FIX (item 14, LOW), mirrored from screen_target.luau's
+			-- own identical fix (see its comment there for the full repro):
+			-- `destroyRoot`'s own capture-cancel is scoped to nodes it can
+			-- still find belonging to the root it is tearing down — a
+			-- captured node destroyed through some OTHER path first (this
+			-- fake's `alive` flag models the live adapter's
+			-- `instance:IsDescendantOf(game)`) leaves `pointerCapture`
+			-- pointing at a dead node no `destroyRoot` call, on ANY root,
+			-- can ever reach again — a stuck capture blocking every future
+			-- press adapter-wide. A liveness check here treats a capture on
+			-- a node that is no longer alive as already-ended.
+			if pointerCapture.alive == false then
+				pointerCapture = nil
+				captureHint = nil
+			else
+				return
+			end
 		end
 		local node = nodes[path]
 		if node and node.pointer then

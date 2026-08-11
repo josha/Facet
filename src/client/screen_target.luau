@@ -2884,7 +2884,31 @@ function screen_target.new(opts: Opts?)
 			-- to silently kill the capture (no cancel reason -> stuck ghost,
 			-- no drop commit; live-found in the playlist place 2026-07-20)
 			if activeCapture ~= nil then
-				return
+				-- REDTEAM FIX (item 14, LOW). `destroyRoot`'s own
+				-- capture-cancel (below) only ever fires for a capture
+				-- belonging to the ROOT being destroyed — correct for a
+				-- whole-root teardown, but a captured node that dies
+				-- through some OTHER path (a single-row removal that
+				-- destroys its own Instance directly, say) leaves
+				-- `activeCapture` pointing at a destroyed instance
+				-- forever: a destroyed instance has no parent chain at
+				-- all, so `IsDescendantOf` is false against EVERY root —
+				-- no `destroyRoot` call, on ANY root, ever reaches it.
+				-- The adapter's single capture slot then blocks every
+				-- future press permanently (the comment above: "a live
+				-- capture OWNS the pointer... never a steal") — a
+				-- genuine adapter-wide input death. A pcall-guarded
+				-- liveness check (per code review) treats a capture
+				-- whose own instance is no longer part of the live tree
+				-- at all as already-ended, cleaning it up here instead
+				-- of leaving it to never end.
+				local ok, stillLive = pcall(function()
+					return (activeCapture.handle.instance :: Instance):IsDescendantOf(game)
+				end)
+				if ok and stillLive then
+					return
+				end
+				endCapture("destroyed")
 			end
 			local connections = {}
 			activeCapture = { handle = handle, connections = connections }

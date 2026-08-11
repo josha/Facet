@@ -216,6 +216,75 @@ describe("Pointer seam: capture lifecycle", function()
 		rootB.dispose()
 		expect(countsB.cancels).toBe(1) -- the capture belonged to the destroyed root
 	end)
+
+	-- REDTEAM ITEM 14 (LOW; screen_target.luau:4709 in the charter's own
+	-- numbering, mirrored here). `destroyRoot`'s own capture-cancel (proven
+	-- above) is scoped to nodes it can still find belonging to the root
+	-- being torn down — correct for that case, but a captured node whose
+	-- underlying instance dies through some OTHER path FIRST (the real
+	-- adapter's `discardParked`, for one — a pool-evicted node's Instance is
+	-- destroyed directly with no capture check at all; the live engine's
+	-- `IsDescendantOf` on an already-destroyed instance is false against
+	-- EVERY root, so no `destroyRoot` call, on ANY root, can ever reach it
+	-- again) leaves the adapter's ONE capture slot stuck forever — blocking
+	-- every future press adapter-wide. Fixed at the capture-acquisition gate
+	-- itself (`onPointerDown`/`pointerDown`, both adapters): a capture whose
+	-- own node is no longer alive is treated as already-ended rather than
+	-- as still owning the pointer. `node.alive` is flipped directly here
+	-- (not through `remove`/`park`, both of which already correctly cancel
+	-- the capture as part of their own bookkeeping, proven elsewhere in this
+	-- file) — the one honest way this fake can model an out-of-band
+	-- destruction its own tracked mutators never leave uncancelled.
+	it("a capture whose node dies through an untracked path no longer blocks a fresh press", function()
+		local movesG, movesH, upsH = 0, 0, 0
+		local _, adapter, controller = world(LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.Grip({
+					id = "G",
+					width = { type = "fixed", px = 8 },
+					height = { type = "fixed", px = 20 },
+					onPointerDown = function()
+						return true
+					end,
+					onPointerMove = function()
+						movesG += 1
+					end,
+				}),
+				LuauUI.UI.Grip({
+					id = "H",
+					width = { type = "fixed", px = 8 },
+					height = { type = "fixed", px = 20 },
+					onPointerDown = function()
+						return true
+					end,
+					onPointerMove = function()
+						movesH += 1
+					end,
+					onPointerUp = function()
+						upsH += 1
+					end,
+				}),
+			},
+		}))
+		adapter.pointerDown("/S/G", 4, 10)
+		local capturedNode = adapter.node("/S/G")
+		expect(capturedNode ~= nil).toBe(true)
+		-- simulate the node dying through a path the capture bookkeeping
+		-- never saw (the real adapter's `discardParked`)
+		capturedNode.alive = false
+
+		-- WITHOUT the fix: this decline is permanent — the stale capture
+		-- blocks every future press, on any node, forever — a fresh press
+		-- on H would silently do nothing at all.
+		adapter.pointerDown("/S/H", 4, 10)
+		adapter.pointerMove(100, 10)
+		adapter.pointerUp(100, 10)
+		expect(movesG).toBe(0) -- G's stale capture never fires again
+		expect(movesH).toBe(1) -- H genuinely captured the fresh gesture
+		expect(upsH).toBe(1)
+		controller.dispose()
+	end)
 end)
 
 describe("Pointer seam: dynamic hints and opt-in bindings", function()
