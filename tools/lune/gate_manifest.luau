@@ -3016,9 +3016,16 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "library-suite-green",
 			requirements = { "ROW-ACTIONS-001", "UI-AGENT-001" },
-			run = "tools/test.sh 4038",
+			run = "tools/test.sh 4048",
 			evidence = "artifacts/test.json",
-			note = "the row-actions stage floor: 4038 (Tasks 1-11b, incl. the RED-TEAM fix wave and its two re-review rounds, the item-2 presentModal round, and Task 8b's action-system modifier support). A regression of any test this stage added — or any prior test it broke — fails here.",
+			note = "the row-actions stage floor: 4048 (Tasks 1-11b, incl. the RED-TEAM fix wave and its two re-review rounds, the item-2 presentModal round, Task 8b's action-system modifier support, and the final whole-branch fix wave: 4038 -> 4048, ten new cases across items 1/2/3/7 of final-review-findings.md — probe B/C + sibling-claim/scroll/outside-tap-during-commit, mouse body-drag + gamepad-grab tray-close, two displayLayer-band cycling proofs, and the passive-HUD catcher-consume proof). A regression of any test this stage added — or any prior test it broke — fails here.",
+		},
+		{
+			name = "prior-gates-unregressed",
+			requirements = { "UI-AGENT-001" },
+			run = 'if [ -n "${LUAUUI_PRIOR_GATES_NESTED:-}" ]; then echo "prior-gates: NESTED - regeneration skipped (the outer prior_gates.sh run re-runs this same list)"; exit 0; fi; a=artifacts/row-actions/prior-gates-rerun.txt && tools/prior_gates.sh "$a" row-actions && grep -q "^DONE$" "$a" && failed="$(grep "^FAIL " "$a" | grep -v "^FAIL authoring-adaptive-ui " || true)" && test -z "$failed" && { ! grep -q "^FAIL authoring-adaptive-ui " "$a" || grep -q "^      PENDING  physical-and-human-rows$" "$a"; }',
+			evidence = "artifacts/row-actions/prior-gates-rerun.txt",
+			note = "final-review-findings.md item 9: all 24 prior gates RE-RUN by this check at the source being judged, via tools/prior_gates.sh (list derived from phases.json), writing artifacts/row-actions/prior-gates-rerun.txt — the same shape native-substrate/native-stylesheets/authoring-adaptive-ui/theme-packages-and-skinning/rich-skinning-v2/cross-platform-proof/sponsor-framework-gaps already carry (gate-integrity sweep 2026-07-29, defect B-1: a stored-file grep that executes nothing against the current tree is a can't-ever-fail check). authoring-adaptive-ui is CONDITIONALLY allow-listed on its own standing PENDING physical/human row and must still carry that exact row to be forgiven; every other gate must be exit-zero. Guarded by LUAUUI_PRIOR_GATES_NESTED so a sweep that reaches row-actions as somebody ELSE's prior does not re-trigger this same regeneration recursively.",
 		},
 	},
 }

@@ -303,6 +303,12 @@
    "title": "World-anchored display surface: the existing billboard target proven with a display-only fixture (live bindings, reduced motion, registry-neutral teardown, render-vs-record scoping); interactive billboard input remains explicitly out of contract",
    "spec": "roadmap Step 5; ADR-0009 riders; sponsor-view-parity C1",
    "firstGate": "sponsor-framework-gaps"
+  },
+  {
+   "id": "ROW-ACTIONS-001",
+   "title": "SwiftUI-parity row swipe actions: newRowActions/newRowActionsCoordinator plus Table's rowActions integration, full cross-input coverage (mouse/touch/keyboard/gamepad/edit-mode), destructive commits irrevocable once started, with the perf gate re-baselined to Task 11b's measured mount-dominated numbers",
+   "spec": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
+   "firstGate": "row-actions"
   }
  ]
 }
