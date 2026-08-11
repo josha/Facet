@@ -188,6 +188,54 @@ describe("toast presentation: stacking", function()
 		local late = pres.present(baseScreen())
 		expect(late.displayOrder < modal.displayOrder).toBe(true)
 	end)
+
+	-- REDTEAM FIX (item 3, MAJOR; final-review-findings.md). `displayLayer`
+	-- (the +100-per-present band-offset counter behind `late.displayOrder`
+	-- above) used to only ever count UP — a long-lived session cycling
+	-- present/dismiss never got it back down, so 100 cycles alone push a
+	-- FUTURE base screen's own displayOrder past the toast band, and 300
+	-- cycles push it past the modal band too — silently reordering surfaces
+	-- that were never even touched. Strengthened from the header-comment-only
+	-- pin above into an actual 400-cycle proof: `self.dismiss` now resets
+	-- `displayLayer` to 0 the instant the surface stack goes empty (nothing
+	-- presented depends on the counter's value at that point), so a fresh
+	-- present after any number of prior cycles starts from the SAME band
+	-- floor a first-ever present would.
+	it("400 present/dismiss cycles never push a base screen's displayOrder out of its band", function()
+		local _, _, _, _, pres = world()
+		for _ = 1, 400 do
+			local h = pres.present(baseScreen())
+			pres.dismiss(h)
+		end
+		local final = pres.present(baseScreen())
+		expect(final.displayOrder >= presenterLib.SURFACE_LAYER.base).toBe(true)
+		expect(final.displayOrder < presenterLib.SURFACE_LAYER.toast).toBe(true)
+	end)
+
+	-- the modal band survives the identical cycling, and — belt — a fresh
+	-- present right after the 400-cycle sweep lands at the SAME displayOrder
+	-- a first-ever present would (the counter genuinely reset, not merely
+	-- "still under the next band up" by coincidence of the band width).
+	it(
+		"400 present/dismiss cycles leave the NEXT present's displayOrder identical to a first-ever present's",
+		function()
+			local _, _, _, _, presA = world()
+			local first = presA.present(baseScreen())
+
+			local _, _, _, _, presB = world()
+			for _ = 1, 400 do
+				local h = presB.present(baseScreen())
+				presB.dismiss(h)
+			end
+			local afterCycling = presB.present(baseScreen())
+
+			expect(afterCycling.displayOrder).toBe(first.displayOrder)
+			local modalAfterCycling =
+				presB.presentModal(UI.Screen({ id = "M", children = { UI.Button({ id = "Y", label = "y" }) } }))
+			expect(modalAfterCycling.displayOrder >= presenterLib.SURFACE_LAYER.modal).toBe(true)
+			expect(modalAfterCycling.displayOrder < presenterLib.SURFACE_LAYER.modal + 30000).toBe(true) -- still comfortably inside the modal band, not pushed out by dragProxy's own headroom
+		end
+	)
 end)
 
 describe("toast presentation: the layer's lifetime", function()

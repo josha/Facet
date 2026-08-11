@@ -158,6 +158,17 @@ export type Bundle = {
 	-- collision-free primitive (`presentModal`, which stacks strictly above
 	-- any base screen and gets a focus TRAP + RESTORE for free from
 	-- `focus_graph.luau`'s own `pushScope`) is ever handed over.
+	-- REDTEAM FIX (item 8, MINOR; final-review-findings.md — documentation).
+	-- A surface opened through `presentModal` is FULLY EXCLUSIVE (`kind =
+	-- "modal"`), not a lightweight overlay: it participates in
+	-- `presenter.exclusiveSurfaceActive`'s own fan-out the identical way any
+	-- other modal does. A game observing that signal to gate its own input
+	-- (RascalRally's `LuauUISponsor/init.luau`: `core:observe(presenter.
+	-- exclusiveSurfaceActive, ...)` -> `inputBridge:setModalBlocked(...)`)
+	-- sees gameplay input BLOCKED for as long as ANY control using this seam
+	-- (e.g. row_actions' own action menu) holds a presented handle open —
+	-- consumers of `bindPresent` must expect and accept full modal semantics,
+	-- not a popover-weight exemption.
 	bindPresent: ((presentModal: (blueprint: any, opts: any?) -> any, dismiss: (handle: any) -> ()) -> ())?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,

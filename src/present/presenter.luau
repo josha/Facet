@@ -856,8 +856,28 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- sibling above the catcher is handled in onNodeTap (path-outside test). A
 	-- real modal/engaged surface SUPPRESSES this catcher (currentExclusive gate),
 	-- so the two mechanisms never stack.
-	local popupCatcher: any = nil -- { scope, controller, root, path, owner, contribPath, dismiss }
+	local popupCatcher: any = nil -- { scope, controller, root, path, owner, contribPath, dismiss, consume }
 
+	-- KNOWN LIMITATION (item 6, MINOR; final-review-findings.md): ONE global
+	-- catcher slot for potentially MANY simultaneously-active `outsideDismiss`
+	-- contributions on the same screen — e.g. a PopupButton AND a Table with
+	-- an open row's tray, both open at once. `currentPopupOwner` below
+	-- returns the FIRST such contribution in per-handle document order; if a
+	-- Table's `rowActions` contribution sits earlier in the tree than a
+	-- PopupButton also open on the same screen, the PopupButton's own
+	-- empty-space (Zone B) dismiss is silently starved — the catcher tracks
+	-- only one owner at a time. The RENDERED-sibling path (`onNodeTap`
+	-- below) is NOT affected: it walks every active contribution on every
+	-- tap, independent of this slot. Investigated for this fix wave: a real
+	-- fix is either (a) one catcher per active contribution — a stack of
+	-- full-viewport transparent surfaces whose relative Zone-A/Zone-B
+	-- geometry and z-order interaction is genuinely new design surface, not
+	-- a mechanical change, or (b) resolving `currentPopupOwner` by
+	-- z-order/recency instead of document order, which only narrows WHICH
+	-- one contribution wins, never fixes the two-simultaneous-consumers case
+	-- itself. Neither is a small, mechanical fix, so this wave documents the
+	-- limitation here rather than shipping a partial one; ledgered as a
+	-- follow-up (multi-owner popup catcher) rather than fixed.
 	local function currentPopupOwner(): (any?, any?)
 		if currentExclusive() ~= nil then
 			return nil, nil -- a modal / engaged-passive surface owns outside-tap
@@ -884,6 +904,30 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	-- a catcher tap: Zone A (the popup's painted panel + ring + hit rects) does
 	-- nothing (a benign near-miss / a tap on the popup itself); Zone B dismisses.
+	--
+	-- REDTEAM FIX (item 7, MINOR; final-review-findings.md). Task 7's own
+	-- investigation into this exact function (row-actions-implementation/
+	-- task-7-report.md, "The catcher-semantics investigation") found only ONE
+	-- `outsideDismiss` consumer and concluded a Zone-B tap here is always
+	-- correct to swallow: "there is nothing else at that point that could
+	-- have received the tap." That was true for a plain popup world. It is
+	-- NOT true once the `owner` surface can itself be PASSIVE (row-actions'
+	-- own Table integration, mounted over live, un-engaged gameplay — a
+	-- RascalRally-shaped HUD): empty catcher space there is not "nothing,"
+	-- it is the game underneath. `consume == false` (row_actions.luau's own
+	-- `outsideDismiss`, added by that same task for the RENDERED-sibling
+	-- path below in `onNodeTap` — "closing must not swallow unrelated
+	-- clicks") has to mean the identical thing here. The one thing it must
+	-- NOT mean: engaging `owner` as a side effect of a dismiss that pressed
+	-- nothing at all — a tray-close tap over open gameplay must never be
+	-- what sinks that gameplay's own input (the rendered-sibling path's own
+	-- "tap on a focusable inside a passive surface engages it" step,
+	-- `onNodeTap` below, is deliberately NEVER reached from here, consume or
+	-- not — there is no real focusable at an empty-space tap to engage
+	-- toward). `popupCatcher.consume` is read explicitly (not just relied
+	-- on by omission) so this stays a locked, tested invariant rather than
+	-- something a future "let it fall through like the other path does"
+	-- edit could accidentally wire straight into `owner.engage()`.
 	local function onPopupCatcherTap(meta: any)
 		if popupCatcher == nil then
 			return
@@ -895,10 +939,33 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if x ~= nil and y ~= nil and zoneAContains(owner.controller.rectOf, sub, x, y, metricsNow()) then
 			return -- Zone A
 		end
+		-- captured BEFORE `dismiss()`: the popup's own `active` readable
+		-- flipping false can synchronously fan out through `syncPopupCatcher`
+		-- (`core:observe`'s own subscriber, wired below) and dispose THIS
+		-- `popupCatcher` — reading `.consume` off it AFTER the call risks
+		-- indexing an already-nil'd local (caught live: exactly this crashed
+		-- PopupButton's own "dismisses on a tap in EMPTY space" test, whose
+		-- `consume` is nil/default-true but the read happened post-dismiss
+		-- regardless).
+		-- captured BEFORE `dismiss()`: the popup's own `active` readable
+		-- flipping false can synchronously fan out through `syncPopupCatcher`
+		-- (`core:observe`'s own subscriber, wired below) and dispose THIS
+		-- `popupCatcher` — reading `.consume` off it AFTER the call risks
+		-- indexing an already-nil'd local (caught live: exactly this crashed
+		-- PopupButton's own "dismisses on a tap in EMPTY space" test, whose
+		-- `consume` is nil/default-true but the read happened post-dismiss
+		-- regardless).
+		local consume = popupCatcher.consume
 		popupCatcher.dismiss()
+		if consume == false then
+			-- not swallowed: still no rendered node was actually pressed, so
+			-- there is nothing to activate and — see the comment above —
+			-- `owner` is never engaged as a consequence of this tap either.
+			return
+		end
 	end
 
-	local function mountPopupCatcher(owner: any, contribPath: string, dismiss: () -> ()): any
+	local function mountPopupCatcher(owner: any, contribPath: string, dismiss: () -> (), consume: boolean?): any
 		local catcher: { [string]: any } = {
 			id = "catcher",
 			label = "",
@@ -927,6 +994,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			owner = owner,
 			contribPath = contribPath,
 			dismiss = dismiss,
+			-- REDTEAM FIX (item 7, MINOR): threaded straight from the owning
+			-- contribution's own `outsideDismiss.consume` (see `syncPopupCatcher`
+			-- below) so `onPopupCatcherTap` can honor it — the same flag the
+			-- rendered-sibling path in `onNodeTap` already reads.
+			consume = consume,
 		}
 	end
 
@@ -940,7 +1012,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			return
 		end
 		disposePopupCatcher()
-		popupCatcher = mountPopupCatcher(owner, c.path, c.bundle.outsideDismiss.dismiss)
+		popupCatcher =
+			mountPopupCatcher(owner, c.path, c.bundle.outsideDismiss.dismiss, c.bundle.outsideDismiss.consume)
 	end
 	function self.topPopupCatcherPath(): string?
 		return if popupCatcher ~= nil then popupCatcher.path else nil
@@ -3568,6 +3641,31 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			return
 		end
 		table.remove(stack, index)
+		-- REDTEAM FIX (item 3, MAJOR; final-review-findings.md). `displayLayer`
+		-- (the "cross-surface z" band-offset counter above, `makeHandle`'s
+		-- `displayLayer += 100`) never went back down — a long-lived session
+		-- that opens and closes 100 present/dismiss cycles pushes every FUTURE
+		-- base screen's own `displayOrder` past the toast band (`SURFACE_LAYER
+		-- .toast`, +10000 above base), and 300 cycles pushes it past the modal
+		-- band too, silently reordering surfaces that were never touched.
+		-- Reset to its base the moment the stack goes empty — the one point a
+		-- fresh session and a long-lived one are indistinguishable (nothing is
+		-- presented, so no live `handle.displayOrder` depends on the counter's
+		-- current value), per the reviewer's own suggestion.
+		-- REDTEAM FIX (item 3, MAJOR; final-review-findings.md). `displayLayer`
+		-- (the "cross-surface z" band-offset counter above, `makeHandle`'s
+		-- `displayLayer += 100`) never went back down — a long-lived session
+		-- that opens and closes 100 present/dismiss cycles pushes every FUTURE
+		-- base screen's own `displayOrder` past the toast band (`SURFACE_LAYER
+		-- .toast`, +10000 above base), and 300 cycles pushes it past the modal
+		-- band too, silently reordering surfaces that were never touched.
+		-- Reset to its base the moment the stack goes empty — the one point a
+		-- fresh session and a long-lived one are indistinguishable (nothing is
+		-- presented, so no live `handle.displayOrder` depends on the counter's
+		-- current value), per the reviewer's own suggestion.
+		if #stack == 0 then
+			displayLayer = 0
+		end
 		handle.context.destroy()
 		-- pop any live transient popup trap scopes first, so removing the base
 		-- scope never leaves an orphaned trap on top (matrix §B PopupButton)
