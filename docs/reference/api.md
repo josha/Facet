@@ -3913,12 +3913,12 @@ Spec fields:
 
 | field | type | required | meaning |
 |---|---|---|---|
-| `id` | `string` | no (default `"RowActions"`) | the blueprint id when either edge has actions; irrelevant to the inert-passthrough shape, since nothing wraps `content` then. |
+| `id` | `string` | no (default `"RowActions"`), **required when `coordinator` is set** | the blueprint id when either edge has actions; irrelevant to the inert-passthrough shape, since nothing wraps `content` then. When `coordinator` is present, omitting `id` is a build-time error (redteam item 16, constitution strictness): every row in a shared-coordinator list defaulting to the same literal `"RowActions"` id collides — Table's own integration always supplies `"RowActions-" .. rowKey`, so this can only ever be reached by a standalone caller composing its own list. |
 | `content` | `Blueprint` | **yes** | the wrapped row. Slides horizontally over a revealed tray; otherwise painted exactly as authored. |
 | `leading` | `{ ActionSpec }?` | no | actions revealed by swiping right (or opening edge `"leading"`). `nil` = no leading tray; an empty table `{}` is a spec error (use `nil` for "none"). |
 | `trailing` | `{ ActionSpec }?` | no | actions revealed by swiping left (edge `"trailing"`). Same `nil`/`{}` rule. |
 | `fullSwipe` | `boolean \| { leading: boolean?, trailing: boolean? }` | no (default `true`) | whether a full swipe past the tray commits its first action outright (iOS "swipe to delete"). Accepted and normalized now; the gesture that reads it ships later. |
-| `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Wired (Task 7): a gesture crossing the axis lock, or `_open`, claims it — closing whichever other row is open — and this row releases its own claim on every close/dispose. Omitted, an instance only ever manages itself. |
+| `coordinator` | `table?` | no | the value `newRowActionsCoordinator` returns (single-row-open-at-a-time policy for a list of rows). Wired (Task 7): a gesture crossing the axis lock, or `_open`, claims it — closing whichever other row is open — and this row releases its own claim on every close/dispose. Omitted, an instance only ever manages itself. **When present, `id` becomes required** (see the `id` row above) — every row sharing one coordinator must carry its own unique `id`. |
 | `editing` | `Readable<boolean>?` | no | Task 9: the caller's own edit-mode signal (`newTable`'s own `spec.editing` is the shipped precedent for this exact shape, and Table's `rowActions` integration passes its own straight through). Present AND true, on a row that declares a `role = "destructive"` action anywhere: a leading minus button appears (see Task 9 below). Absent (the default), the minus never appears and this control costs nothing extra. Must be a Readable when present — a plain `true`/`false` literal is a build-time error. |
 
 `ActionSpec`:
@@ -4041,7 +4041,11 @@ open-state coordinator for a list of `newRowActions` rows: **at most one row
 open per surface**. A plain `VStack`/`ScrollView` list builds its own instance
 and passes it to every wrapped row's `spec.coordinator` key; `newTable`'s own
 `rowActions` wiring does the identical thing for its rows automatically. A row
-built with no coordinator stays valid and only ever manages itself.
+built with no coordinator stays valid and only ever manages itself. **Every
+row sharing one coordinator must pass its own unique `spec.id`** (the example
+below does, via `item.id`) — `newRowActions` refuses to build, at build time,
+a coordinator-sharing row with no `id` at all, since every such row would
+otherwise default to the same colliding `"RowActions"` id.
 
 Return surface:
 

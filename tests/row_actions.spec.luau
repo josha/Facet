@@ -192,6 +192,43 @@ describe("RowActions control", function()
 		expect(string.find(tostring(err), "normal, destructive", 1, true) ~= nil).toBe(true)
 	end)
 
+	-- REDTEAM ITEM 16 (LOW; director ruling — constitution strictness).
+	-- `id` defaults to the literal "RowActions" when absent — a standalone
+	-- caller sharing ONE coordinator across several rows (a VStack/
+	-- ScrollView list built by hand, not through Table, which always
+	-- supplies its own unique `"RowActions-" .. rowKey`) without an
+	-- explicit `id` per row would have every one of them collide on that
+	-- same literal, corrupting the presenter's own path-keyed bookkeeping
+	-- the instant a second such row mounts. Refused loudly at build time.
+	it("rejects a coordinator-sharing row with no explicit id", function()
+		local core = LuauUI.newCore()
+		local coordinator = row_actions.newCoordinator(core)
+		local ok, err = pcall(function()
+			return row_actions.build(LuauUI, core, {
+				content = content(),
+				trailing = { { label = "Delete", onAction = function() end } },
+				coordinator = coordinator,
+				-- no `id` — the mistake this validation exists to catch
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unique ids", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("a coordinator-sharing row WITH an explicit id builds normally", function()
+		local core = LuauUI.newCore()
+		local coordinator = row_actions.newCoordinator(core)
+		local ok = pcall(function()
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content(),
+				trailing = { { label = "Delete", onAction = function() end } },
+				coordinator = coordinator,
+			})
+		end)
+		expect(ok).toBe(true)
+	end)
+
 	-- 2. INERT PASSTHROUGH (perf directive) -----------------------------------
 	it("is an inert passthrough with no actions", function()
 		local w = presenterWorld(function(core)

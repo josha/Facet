@@ -393,6 +393,27 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			0
 		)
 	end
+	-- REDTEAM FIX (item 16, LOW; director ruling — constitution strictness).
+	-- `id` defaults to the literal string `"RowActions"` when absent (below)
+	-- — harmless for a single standalone row, but every row in a VStack/
+	-- ScrollView built with a SHARED `coordinator` and no explicit `id`
+	-- would default to that SAME literal, colliding: the composite's own
+	-- root node id (and every path under it — trays, menu, the edit
+	-- affordance) is not unique per row, which corrupts the presenter's
+	-- own path-keyed bookkeeping (instances, focus, contributions) the
+	-- instant a second such row mounts alongside the first. Table's own
+	-- integration always supplies a unique `id = "RowActions-" .. rowKey`
+	-- (table.luau), so this can only ever be reached by a standalone
+	-- caller composing its own list — refused loudly, at build time,
+	-- rather than left to silently corrupt the second row's own state.
+	if spec.coordinator ~= nil and spec.id == nil then
+		error(
+			"LuauUI newRowActions: rows sharing a coordinator must carry unique ids "
+				.. '(pass `id` explicitly — every row defaults to the same "RowActions" id otherwise, '
+				.. "colliding paths under one shared list)",
+			0
+		)
+	end
 	-- Task 7: the shared open-state coordinator (`row_actions.newCoordinator`),
 	-- optional. Read live below rather than snapshotted, though a build-time
 	-- read is already the whole story here — the spec table itself is never
