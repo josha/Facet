@@ -1564,12 +1564,35 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		end
 		return path ~= nil and rootPath ~= nil and isPathPrefix(rootPath, path)
 	end
+	-- Task 11b (perf): `ensureKeysContext` used to run unconditionally, every
+	-- time — meaning EVERY mounted row paid a real `actionSystemRef.
+	-- createContext` + two `createAction`/`.bind()` calls at mount (via
+	-- `bindActionSystem`'s own unconditional `syncKeysEnabled()` call below),
+	-- even though the binding is `setEnabled(false)` immediately after and
+	-- stays that way for the entire life of a row nobody ever tabs/clicks
+	-- into — exactly the "Delete-key/menu bindings only matter when the
+	-- row's subtree has focus" cost the perf directive calls out by name.
+	-- Confirmed safe to defer: a disabled context is fully excluded from
+	-- arbitration (`src/input/actions.luau`'s own dispatch checks
+	-- `context.enabled` before ever consulting a context at all — lines
+	-- ~369/420), so "context exists but disabled" and "context was never
+	-- built" are OBSERVATIONALLY IDENTICAL to every caller; the only
+	-- difference is which rows pay to allocate one. Building it here, gated
+	-- on `insideRow` being true, means the FIRST call this ever makes to
+	-- `ensureKeysContext` is the one where focus has actually just arrived —
+	-- still built exactly once per row (idempotent inside `ensureKeysContext`
+	-- itself), still torn down by the identical `scope:own` in there, just
+	-- never at all for a row nobody ever focuses.
 	local function syncKeysEnabled()
+		local insideRow = pathInsideRow(if focusGraph ~= nil then focusGraph.focused:get() else nil)
+		if not insideRow and keysContext == nil then
+			return -- never built; nothing to disable, and no reason to build one now
+		end
 		ensureKeysContext()
 		if keysContext == nil then
 			return
 		end
-		keysContext.setEnabled(pathInsideRow(if focusGraph ~= nil then focusGraph.focused:get() else nil))
+		keysContext.setEnabled(insideRow)
 	end
 
 	-- ===== Tasks 5-6: the pointer gesture (mouse + touch; axis lock, live
