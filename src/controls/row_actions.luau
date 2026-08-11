@@ -1467,6 +1467,24 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		}
 	end
 
+	-- REDTEAM FIX (item 11, MEDIUM): `handleActivate` (below, in the `else`
+	-- branch only — a true inert-passthrough row contributes nothing at
+	-- all, so it has none) is normally reached ONLY through the presenter's
+	-- own longest-prefix contribution walk (`contribution.attach` below).
+	-- `opts.onActivate` (presenter.luau's own documented consumer-override
+	-- seam: "wins outright") bypasses that walk entirely — a caller who
+	-- hands the presenter their OWN top-level Activate function (Table's
+	-- own `api.handleActivate` is the natural thing to reach for, see its
+	-- big comment there) needs an explicit way to forward a path back INTO
+	-- this composite's own dispatch, since it can no longer be found by
+	-- walking contributions. Exposed unconditionally (a safe no-op — `false`
+	-- — on a true inert-passthrough row) so a caller never has to nil-check
+	-- before calling it, the same "always callable" shape `_commitFirst`
+	-- already has.
+	local exposedHandleActivate: (string, any?) -> boolean = function(_path: string, _meta: any?)
+		return false
+	end
+
 	local blueprint: any
 	if leadingActions == nil and trailingActions == nil then
 		-- TRUE INERT PASSTHROUGH (perf directive): nothing to reveal on either
@@ -2012,6 +2030,9 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 			return false
 		end
+		-- item 11's forwarding seam (see the big comment above
+		-- `exposedHandleActivate`): now that the real function exists.
+		exposedHandleActivate = handleActivate
 
 		-- LIVE per-button natural width, fed by the contribution's syncGeometry
 		-- every sync (Task 4 fix, code review 2026-08-10): `controller.textAt`
@@ -2234,6 +2255,15 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- above), which is always true for the true inert-passthrough row (no
 		-- leading or trailing actions at all).
 		_commitFirst = commitFirst,
+		-- REDTEAM FIX (item 11, MEDIUM): forwards a presenter/tap Activate
+		-- into this composite's own dispatch — the seam a caller who has
+		-- taken over `opts.onActivate` at the presenter (bypassing the
+		-- normal contribution walk that would otherwise reach
+		-- `handleActivate` directly) needs to keep tray/menu/minus
+		-- activations working. Always callable (a safe `false` no-op on a
+		-- true inert-passthrough row), see `exposedHandleActivate`'s own
+		-- comment above.
+		_handleActivate = exposedHandleActivate,
 	}
 	return api
 end

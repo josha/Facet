@@ -1946,6 +1946,32 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		end
 		local rowKey = api.rowKeyForPath(path)
 		if rowKey == nil then
+			-- REDTEAM FIX (item 11, MEDIUM). `rowKeyForPath` only ever
+			-- recognizes a row's OWN `Row/Hit` or reorder-handle path — a
+			-- path inside a wrapped row's TRAY, MENU, or edit-mode minus
+			-- (row_actions.luau's own mounted structure) matches neither, so
+			-- it always fell through to here and returned `false`. That is
+			-- harmless when `api.handleActivate` is reached the NORMAL way
+			-- (the presenter's own longest-prefix contribution walk finds
+			-- row_actions' own `handleActivate` directly, deeper than
+			-- Table's) — but a caller who hands the presenter `opts.onActivate`
+			-- (presenter.luau's own documented consumer-override seam: "wins
+			-- outright") bypasses that walk ENTIRELY, and `tbl.api.handleActivate`
+			-- itself is the natural thing to reach for as that override —
+			-- which used to silently swallow every tray/menu/minus tap for
+			-- every wrapped row on the whole table. `RowActions-<key>` is
+			-- Table's OWN chosen root id for a wrapped row (`row_actions.build`'s
+			-- own `id` prop, above) — a path under it names its row
+			-- unambiguously, so forward straight into that row's own
+			-- dispatch via the `_handleActivate` seam it exposes for exactly
+			-- this.
+			local wrappedKey = string.match(path, `/{tableIdPattern}/Main/Body/Rows/%[.-@%d+%]/RowActions%-(.-)/`)
+			if wrappedKey ~= nil then
+				local rowActionsInstance = rowActionsByKey[wrappedKey]
+				if rowActionsInstance ~= nil then
+					return rowActionsInstance._handleActivate(path, meta)
+				end
+			end
 			return false
 		end
 		-- Task 10 (iOS tap-to-close, director round). A tap landing on a

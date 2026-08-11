@@ -2379,6 +2379,45 @@ describe("Table: row actions (Task 10)", function()
 		expect(w.adapter.node("/S/Racers/DropWhen/then/DropLine")).toBe(nil)
 	end)
 
+	-- REDTEAM ITEM 11 (MEDIUM). `rowKeyForPath` only ever recognizes a row's
+	-- OWN `Row/Hit`/reorder-handle path — a tap on a wrapped row's own TRAY
+	-- BUTTON matches neither, so `api.handleActivate` always fell through
+	-- and returned `false` for it. Harmless when the presenter reaches
+	-- `api.handleActivate` the normal way (its own longest-prefix
+	-- contribution walk finds row_actions' own `handleActivate` FIRST,
+	-- deeper than Table's) — but EVERY world in this file presents with
+	-- `opts.onActivate = function(path, meta) tbl.api.handleActivate(path,
+	-- meta) end` (see `world`'s own `pres.present` call, top of file) — a
+	-- consumer override that bypasses that walk ENTIRELY (presenter.luau:
+	-- "wins outright") — so a tray-button TAP (as opposed to a drag
+	-- gesture, which every other row-actions test in this file uses)
+	-- silently did nothing under the exact harness every one of these
+	-- tests already runs. `trayButtonPath` (declared above) had never
+	-- actually been used by any test until this one.
+	it("a tray-button TAP still fires onAction under Table's own opts.onActivate override", function()
+		local fired: { string } = {}
+		local w = raWorld({
+			header = false,
+			rowActions = function(_item)
+				return { trailing = { deleteAction(fired, { role = "normal" }) }, fullSwipe = false }
+			end,
+		})
+		local razzHit = wrappedRowHitPath(0, "razz")
+		-- reveal (not commit) the tray via an ordinary horizontal drag
+		w.adapter.pointerDown(razzHit, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(60, 20)
+		w.tick(1.0)
+		w.adapter.pointerMove(-90, 20)
+		w.tick(1 / 60)
+		w.adapter.pointerUp(-90, 20)
+		w.settle()
+		expect(#fired).toBe(0) -- revealed, not fired
+
+		w.adapter.tap(trayButtonPath(0, "razz", "trailing", "delete"))
+		expect(fired).toEqual({ "fired" })
+	end)
+
 	-- REDTEAM ITEM 10 (MEDIUM; spec: docs/plans/row-actions.md:136). The
 	-- reorder ≡ handle ALWAYS starts a reorder, unconditionally, regardless
 	-- of the row's own tray state — a handle-zone press used to leave an
