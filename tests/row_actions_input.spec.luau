@@ -2356,4 +2356,78 @@ describe("row_actions.composeWithReorder (Task 10)", function()
 		expect(composed.onPointerDown("/S/Row/Hit", { x = 0, y = 0, pointerType = "mouse" }, rectOf)).toBe(true)
 		expect(composed.onPointerDown("/S/Row/Hit", { x = 5, y = 5, pointerType = "mouse" }, rectOf)).toBe(false)
 	end)
+
+	-- REDTEAM ITEM 13 (LOW): the composed path REPLAYS the down at the true
+	-- origin POSITION but at the LOCK-CROSSING moment (composeWithReorder
+	-- has no clock of its own — deliberately, matching row_actions_state.
+	-- luau's own purity). The mislabeled-time origin sample used to sit in
+	-- the velocity tracker's own 100ms retention window right alongside the
+	-- flick's real recent samples (all pushed within milliseconds of the
+	-- lock crossing, by definition — the window's own staleness eviction
+	-- never fires on it), so "first vs last across the window" paired a
+	-- DISTANCE spanning the WHOLE real gesture (true origin to release)
+	-- against a TIME spanning only the tiny post-lock portion — an inflated
+	-- velocity a direct (uncomposed) gesture, whose true-origin sample is
+	-- correctly timestamped and gets evicted once real time has actually
+	-- passed, can never produce.
+	--
+	-- Repro (confirmed live before writing the fix): a slow, real 1.0s
+	-- creep near (never crossing) the axis lock, then a fast two-frame
+	-- flick whose RAW release distance alone sits safely under the
+	-- full-swipe commit threshold (60% of row width) — with the bug, the
+	-- composed path's inflated velocity pushed the settle() projection over
+	-- that threshold and COMMITTED (fired the destructive action, collapsed
+	-- the row) for a gesture the DIRECT path — and a player's actual
+	-- finger — only ever opened.
+	local function stubReorderHandlers()
+		return {
+			onPointerDown = function()
+				return true
+			end,
+			onPointerMove = function() end,
+			onPointerUp = function() end,
+			onPointerCancel = function()
+				return nil
+			end,
+		}
+	end
+	local function rectOf13(_path: string): any
+		return nil
+	end
+	local function driveFlick13(handlers: any, w: any)
+		handlers.onPointerDown(HIT, { x = 100, y = 20, pointerType = "mouse" }, rectOf13)
+		w.tick(0.3)
+		handlers.onPointerMove(HIT, { x = 103, y = 20 }, rectOf13) -- dx=3: still pending
+		w.tick(0.3)
+		handlers.onPointerMove(HIT, { x = 105, y = 20 }, rectOf13) -- dx=5: still pending
+		w.tick(0.4) -- 1.0s of real creep before the lock is ever crossed
+		handlers.onPointerMove(HIT, { x = 0, y = 20 }, rectOf13) -- crosses the lock, one move
+		w.tick(FRAME)
+		handlers.onPointerMove(HIT, { x = -20, y = 20 }, rectOf13) -- continuing the same flick
+		w.tick(FRAME)
+		handlers.onPointerUp(HIT, { x = -20, y = 20 }, rectOf13)
+	end
+
+	it(
+		"a slow creep then a two-frame flick settles the SAME way (open, not commit) through the composed path as the direct path",
+		function()
+			local direct = trailingWorld()
+			driveFlick13(direct.ra._pointerHandlers, direct)
+			-- the raw release position alone (mag 120, well under 60% of the
+			-- 400px row) can never commit on distance alone — only an inflated
+			-- velocity could push this over
+			expect(direct.ra.dump().offset).toBe(-120)
+			direct.settle(400)
+			expect(#direct.fired).toBe(0)
+			expect(direct.ra._isOpen()).toBe(true) -- opened, not committed
+
+			local composed = trailingWorld()
+			local composedHandlers = row_actions.composeWithReorder(composed.ra._pointerHandlers, stubReorderHandlers())
+			driveFlick13(composedHandlers, composed)
+			expect(composed.ra.dump().offset).toBe(-120) -- position tracking is unaffected by this fix
+			composed.settle(400)
+			expect(#composed.fired).toBe(0) -- NOT committed — matches the direct path
+			expect(composed.ra._isOpen()).toBe(true)
+		end
+	)
 end)

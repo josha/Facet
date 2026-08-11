@@ -1312,7 +1312,26 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			axis = "pending",
 		}
 		tracker:reset()
-		tracker:push(pos.x, pos.y, currentNow())
+		-- REDTEAM FIX (item 13, LOW): `composeWithReorder` (below) REPLAYS
+		-- this down at the true origin POSITION but at the LOCK-CROSSING
+		-- moment — a real gesture's true down time is unknowable to it (it
+		-- is deliberately clockless, mirroring `row_actions_state.luau`'s
+		-- own purity — see its own header comment); `pos.replayed` (set
+		-- only by that one replay call site, never by a real adapter event)
+		-- marks it. Seeding the tracker's FIRST sample at the true origin
+		-- but the WRONG time, immediately followed by a second sample at
+		-- the CURRENT position at essentially the SAME instant, produced a
+		-- large spatial delta over a near-zero time delta — an inflated
+		-- (real clock) or degenerate (scripted clock) velocity neither a
+		-- direct, uncomposed gesture nor touch (which never defers) can
+		-- ever produce. Skipping the seed here means the window starts
+		-- cleanly AT the lock, from whatever position/time the very next
+		-- real `onPointerMove` supplies — `tracker:reset()` above still
+		-- runs unconditionally, so a stale window from an earlier gesture
+		-- on this same row is still cleared either way.
+		if pos.replayed ~= true then
+			tracker:push(pos.x, pos.y, currentNow())
+		end
 		-- TENTATIVE ACCEPT (capture-semantics investigation — task-5-report.md
 		-- carries the full writeup): the axis is genuinely unknown at down
 		-- (dx = dy = 0 here, always), and this adapter's capture model —
@@ -2332,7 +2351,20 @@ function row_actions.composeWithReorder(rowActionsHandlers: any, reorderHandlers
 		-- scrolling/reordering must never lose an ambiguous gesture.
 		if math.abs(dx) > math.abs(dy) then
 			p.mode = "rowActions"
-			rowActionsHandlers.onPointerDown(p.path, p.originPos, p.rectOf)
+			-- REDTEAM FIX (item 13, LOW): `replayed = true` (a shallow copy —
+			-- `p.originPos` itself is left untouched, still the exact table a
+			-- caller may be holding elsewhere) tells `onPointerDown`'s own
+			-- velocity-tracker seed to skip itself here (see its own big
+			-- comment): this replay's POSITION is correct (the true origin,
+			-- still needed for `drag.originX/Y`'s own clamp math) but its
+			-- TIME is not (this dispatcher has no clock of its own, by
+			-- design), so seeding the tracker from it would corrupt a
+			-- release-velocity computed shortly after the axis resolves.
+			rowActionsHandlers.onPointerDown(
+				p.path,
+				{ x = p.originPos.x, y = p.originPos.y, pointerType = p.originPos.pointerType, replayed = true },
+				p.rectOf
+			)
 		else
 			p.mode = "reorder"
 			-- REPLAYED at the origin (see header comment). reorder's own down
