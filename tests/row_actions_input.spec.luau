@@ -410,6 +410,7 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 	it(
 		"a successful destructive commit ALSO recovers when the owner keeps the row alive: offset 0, full height, and a later commit is reachable again",
 		function()
+			local rowHeightBefore = 48
 			local w = trailingWorld(nil, "destructive")
 			fullSwipeCommit(w)
 			expect(#w.fired).toBe(1)
@@ -418,11 +419,41 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 			expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(48, 0.5)
 			expect(w.adapter.node(TRAILING_TRAY) == nil).toBe(true)
 			-- `committed` reset to false: a SECOND full-swipe commit on this same
-			-- still-alive row must be reachable, not permanently blocked
-			fullSwipeCommit(w)
+			-- still-alive row must be reachable, not permanently blocked.
+			--
+			-- REDTEAM FIX (item 4, MINOR; final-review-findings.md — "second
+			-- commit on a recovered row never collapses"): the previous
+			-- version of this test only ever counted fires — `ensureCollapse
+			-- Spring`'s own early return (the REUSED, already-at-0 spring
+			-- from the FIRST commit never got re-seeded to the row's current
+			-- height) meant the second collapse's own target — 0 — was
+			-- already where the spring sat, so it never actually MOVED: the
+			-- row's painted height stayed at 48 the whole second commit,
+			-- while `#fired` still silently reached 2. Tracked here the same
+			-- way the very first "full swipe commits (destructive)" test
+			-- above proves the FIRST collapse: step frame-by-frame and track
+			-- the minimum height actually reached.
+			local rowWidth = rowWidthOf(w)
+			w.adapter.pointerDown(HIT, 0, 20, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(-15, 20)
+			w.tick(1.0)
+			local releaseX = -(rowWidth * 0.7)
+			w.adapter.pointerMove(releaseX, 20)
+			w.tick(FRAME)
+			w.adapter.pointerUp(releaseX, 20)
+			local minHeight = rowHeightBefore
+			for _ = 1, 400 do
+				w.tick(FRAME)
+				local h = w.handle.controller.rectOf(ROW).h
+				if h < minHeight then
+					minHeight = h
+				end
+			end
 			expect(#w.fired).toBe(2)
 			expect(w.ra.dump().offset).toBe(0)
 			expect(w.handle.controller.rectOf(ROW).h).toBeCloseTo(48, 0.5)
+			expect(minHeight).toBeCloseTo(0, 0.5) -- the SECOND collapse actually moved, not stuck at 48
 		end
 	)
 
@@ -2551,6 +2582,294 @@ describe("row_actions.composeWithReorder (Task 10)", function()
 			composed.settle(400)
 			expect(#composed.fired).toBe(0) -- NOT committed — matches the direct path
 			expect(composed.ra._isOpen()).toBe(true)
+		end
+	)
+end)
+
+-- ===========================================================================
+-- FINAL FIX WAVE, item 1 (BLOCKER; .superpowers/sdd/row-actions-implementation/
+-- final-review-findings.md). Director ruling (iOS/SwiftUI-faithful): a STARTED
+-- destructive commit is IRREVOCABLE — it completes (slide-off, collapse, fire
+-- exactly once) regardless of close()/a sibling's coordinator claim/scroll/an
+-- outside tap/Cancel arriving mid-flight. `_commitFirst` starts the SAME chain
+-- a full-swipe gesture's release does (`doCommit` -> `doCommitAction`) without
+-- a real pointer choreography — what lets these probes reach "mid-flight,
+-- nothing settled yet" deterministically, the exact window the ORIGINAL bug
+-- (an orphaned `onSettle` chain surviving a `close()` that had already cleared
+-- `committed` and re-aimed the spring) needed to bite.
+-- ===========================================================================
+describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commit", function()
+	it(
+		"probe B: close() mid-commit does not cancel — fires exactly once and the row still completes its collapse (not stuck at offset 0)",
+		function()
+			local rowHeightBefore = 48
+			local w = trailingWorld(nil, "destructive")
+			expect(w.ra._commitFirst("trailing")).toBe(true)
+			expect(w.ra.dump().phase).toBe("committing")
+			expect(#w.fired).toBe(0)
+			-- the external cancel attempt: must be a total no-op while committing
+			w.ra._close()
+			expect(w.ra.dump().phase).toBe("committing") -- still committing — close() did nothing
+			expect(#w.fired).toBe(0)
+			local minHeight = rowHeightBefore
+			for _ = 1, 400 do
+				w.tick(FRAME)
+				local h = w.handle.controller.rectOf(ROW).h
+				if h < minHeight then
+					minHeight = h
+				end
+			end
+			expect(#w.fired).toBe(1)
+			expect(w.fired[1]).toBe("delete")
+			expect(minHeight).toBeCloseTo(0, 0.5) -- the collapse actually completed, not interrupted mid-flight
+			expect(w.ra._isOpen()).toBe(false)
+			expect(w.ra.dump().phase).toBe("closed")
+		end
+	)
+
+	it("probe C: a new gesture cannot start mid-commit — pointerDown declines, exactly one fire", function()
+		local w = trailingWorld(nil, "destructive")
+		expect(w.ra._commitFirst("trailing")).toBe(true)
+		expect(w.ra.dump().phase).toBe("committing")
+		-- the exposed seam directly: onPointerDown must DECLINE (false), the
+		-- same "never steal a live thing" shape as a second down mid-drag
+		local accepted = w.ra._pointerHandlers.onPointerDown(HIT, { x = 0, y = 20, pointerType = "mouse" }, function()
+			return nil
+		end)
+		expect(accepted).toBe(false)
+		-- and through the real adapter: a declined down never establishes a
+		-- capture, so a move/up landing afterward touch nothing at all —
+		-- critically, they must NOT `spring:stop()` the in-flight offscreen
+		-- slide (the deeper hazard a wrongly-accepted second gesture would
+		-- cause even with `doCommitAction`'s own `committed` re-entry guard).
+		w.adapter.pointerDown(HIT, 0, 20, "mouse")
+		w.adapter.pointerMove(-300, 20)
+		w.adapter.pointerUp(-300, 20)
+		w.settle(600)
+		expect(#w.fired).toBe(1) -- the ORIGINAL commit only, never a second
+		expect(w.fired[1]).toBe("delete")
+		expect(w.ra._isOpen()).toBe(false)
+	end)
+
+	-- a two-row world sharing one coordinator, with a REAL destructive action
+	-- (unlike the Task 7 describe block's own `twoRowWorld`, whose rows carry
+	-- a normal-role "delete" — irrelevant for probing an in-flight
+	-- irrevocable COMMIT, which only a destructive full swipe ever starts).
+	local function twoDestructiveRowWorld()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local coordinator = row_actions.newCoordinator(core)
+		local firedA: { string } = {}
+		local firedB: { string } = {}
+		local function trailingRow(rowId: string, fired: { string })
+			return row_actions.build(LuauUI, core, {
+				id = rowId,
+				content = LuauUI.UI.Button({
+					id = "Body",
+					label = "Row " .. rowId,
+					width = { type = "fixed", px = 400 },
+					height = { type = "fixed", px = 48 },
+					onActivate = function()
+						table.insert(fired, "tap")
+					end,
+				}),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+				coordinator = coordinator,
+			})
+		end
+		local rowA = trailingRow("RowA", firedA)
+		local rowB = trailingRow("RowB", firedB)
+		local screen = LuauUI.UI.Screen({ id = "S", children = { rowA.blueprint, rowB.blueprint } })
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		local w: any = {
+			core = core,
+			env = env,
+			system = system,
+			adapter = adapter,
+			pres = pres,
+			handle = handle,
+			coordinator = coordinator,
+			rowA = rowA,
+			rowB = rowB,
+			firedA = firedA,
+			firedB = firedB,
+		}
+		function w.tick(dt: number)
+			pres.tick(dt)
+			pres.refresh()
+		end
+		function w.settle(frames: number?)
+			for _ = 1, frames or 20 do
+				w.tick(1 / 60)
+			end
+		end
+		return w
+	end
+
+	it(
+		"a sibling row starting a gesture (coordinator claim) during A's commit: A's commit completes, fires exactly once",
+		function()
+			local w = twoDestructiveRowWorld()
+			expect(w.rowA._commitFirst("trailing")).toBe(true)
+			expect(w.rowA.dump().phase).toBe("committing")
+			-- row B claims the coordinator (`newCoordinator.claim`'s own cross-row
+			-- half — the exact site that used to call the OLD `_close()`, which
+			-- used to clear `committed` and re-aim A's spring)
+			w.rowB._open("trailing")
+			expect(w.rowA.dump().phase).toBe("committing") -- unaffected by the sibling claim
+			w.settle(600)
+			expect(#w.firedA).toBe(1)
+			expect(w.firedA[1]).toBe("delete")
+			expect(w.rowA._isOpen()).toBe(false)
+			expect(w.rowB._isOpen()).toBe(true) -- B's own open is unaffected either way
+		end
+	)
+
+	it("scroll movement during A's commit: A's commit completes, fires exactly once", function()
+		local w = twoDestructiveRowWorld()
+		expect(w.rowA._commitFirst("trailing")).toBe(true)
+		expect(w.rowA.dump().phase).toBe("committing")
+		local observer: ((pos: { x: number, y: number }) -> ())? = nil
+		local stubController = {
+			observeScroll = function(_path: string, fn: (pos: { x: number, y: number }) -> ()): () -> ()
+				observer = fn
+				return function()
+					observer = nil
+				end
+			end,
+		}
+		local unbind = w.coordinator.bindScroll(stubController, "/S/List")
+		local fireScroll = observer :: (pos: { x: number, y: number }) -> ()
+		fireScroll({ x = 0, y = 5 }) -- `bindScroll`'s own no-op-on-a-no-op-claimed row IS `claimed._close()`
+		expect(w.rowA.dump().phase).toBe("committing") -- unaffected by the scroll
+		w.settle(600)
+		expect(#w.firedA).toBe(1)
+		expect(w.firedA[1]).toBe("delete")
+		expect(w.rowA._isOpen()).toBe(false)
+		unbind()
+	end)
+
+	it(
+		"an outside tap during A's commit: A's commit completes, fires exactly once, and the tapped control still activates (round-7 no-swallow, unaffected)",
+		function()
+			local w = twoDestructiveRowWorld()
+			expect(w.rowA._commitFirst("trailing")).toBe(true)
+			expect(w.rowA.dump().phase).toBe("committing")
+			expect(#w.firedB).toBe(0)
+			-- a tap on row B's own button: outside row A's subtree, so it
+			-- reaches A's `outsideDismiss.dismiss` (== `close`) — which must
+			-- be a no-op while A is committing — and must still activate B.
+			w.adapter.tap("/S/RowB/Content/Body")
+			w.pres.refresh()
+			expect(w.rowA.dump().phase).toBe("committing") -- unaffected by the outside tap
+			expect(w.firedB).toEqual({ "tap" }) -- B's press was not swallowed
+			w.settle(600)
+			expect(#w.firedA).toBe(1)
+			expect(w.firedA[1]).toBe("delete")
+			expect(w.rowA._isOpen()).toBe(false)
+		end
+	)
+end)
+
+-- ===========================================================================
+-- FINAL FIX WAVE, item 7 (MINOR; final-review-findings.md). The synthesized
+-- popup catcher (presenter.luau's `onPopupCatcherTap`, a Zone-B empty-space
+-- tap) used to swallow unconditionally regardless of `outsideDismiss.consume`
+-- — correct by construction when Task 7's own investigation checked it
+-- (docs: "there is nothing else at that point that could have received the
+-- tap"), which is no longer true once the OWNER surface is itself PASSIVE:
+-- row_actions' Table integration commonly mounts over live, un-engaged
+-- gameplay (a RascalRally-shaped HUD), where empty catcher space IS
+-- something else — the game underneath. Fixed by threading `consume`
+-- through to the catcher and honoring it there too, WITHOUT ever engaging
+-- the (possibly passive) owner as a side effect of a dismiss that pressed
+-- nothing at all.
+-- ===========================================================================
+describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface catcher consume", function()
+	it(
+		"outside tap on the catcher over a passive HUD: tray closes, HUD is NOT engaged, gameplay input is still delivered",
+		function()
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new()
+			local pres = LuauUI.newPresenter(core, env, adapter, system)
+
+			-- a fake gameplay stack UNDERNEATH the HUD (mirrors tests/responder.spec.luau's
+			-- own `gameplay` harness): a non-sinking CharacterContext with Jump<-Space.
+			local jumpCount = 0
+			local char = system.createContext({ name = "CharacterContext", priority = 1000, sink = false })
+			local jump = char.createAction("Jump", "Bool")
+			jump.bind({ keyCode = "Space" })
+			jump.onPressed(function()
+				jumpCount += 1
+			end)
+
+			local fired: { string } = {}
+			local ra = row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+			})
+			local screen = LuauUI.UI.Screen({ id = "HUD", children = { ra.blueprint } })
+			local handle = pres.present(screen, { responder = "passive" })
+			pres.refresh()
+			expect(handle.responder:get()).toBe("passive")
+
+			-- reveal the tray (programmatic, not a gesture — the catcher's own
+			-- outsideDismiss.active reacts to this the identical way a real swipe
+			-- would)
+			ra._open("trailing")
+			pres.refresh()
+			expect(ra._isOpen()).toBe(true)
+
+			-- gameplay works untouched while the tray sits open, same as (a) above
+			system.deviceKey("Space", true)
+			system.deviceKey("Space", false)
+			expect(jumpCount).toBe(1)
+
+			local catcher = pres.topPopupCatcherPath()
+			expect(catcher).never().toBeNil()
+			-- (700, 550): far below the row — Zone B, empty space, same coordinate
+			-- shape paradigm_popup.spec.luau's own "dismisses on a tap in EMPTY
+			-- space" case uses.
+			adapter.tap(catcher :: string, { x = 700, y = 550 })
+			pres.refresh()
+
+			expect(ra._isOpen()).toBe(false) -- the tray closed
+			expect(#fired).toBe(0) -- a dismiss, never a commit
+			-- THE FIX: the HUD must NOT have been engaged as a side effect of a
+			-- dismiss that pressed nothing at all
+			expect(handle.responder:get()).toBe("passive")
+			expect(pres.exclusiveSurfaceActive:get()).toBe(false)
+			-- ...and gameplay input is still delivered afterward (nothing sank it)
+			system.deviceKey("Space", true)
+			system.deviceKey("Space", false)
+			expect(jumpCount).toBe(2)
 		end
 	)
 end)

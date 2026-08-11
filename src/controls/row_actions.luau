@@ -544,6 +544,12 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- locals are only visible to code that follows their own declaration
 	-- textually, so this has to sit ahead of every closure that touches it.
 	local committed = false
+	-- REDTEAM FIX (item 1, BLOCKER): incremented once per commit that
+	-- actually starts (`doCommitAction`'s destructive branch); the two
+	-- `onSettle` chains it launches capture the value at start and refuse to
+	-- run past a generation that has moved on. See `doCommitAction`'s own
+	-- comment for why this exists on top of `committed`/`disposed` alone.
+	local commitEpoch = 0
 
 	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
 	-- declared action, created eagerly at BUILD time rather than inside the
@@ -752,6 +758,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- already under way by the time this row starts revealing, rather than
 	-- racing it.
 	local function open(edge: Edge)
+		-- REDTEAM FIX (item 1, BLOCKER): irrevocable-commit ruling — a commit
+		-- in flight owns `offset`/`openEdge`; a programmatic re-open (e.g. a
+		-- caller-driven `_open` racing the tail of a commit) must not re-aim
+		-- the same persistent spring out from under it any more than a fresh
+		-- gesture may (`onPointerDown`'s own identical guard, below).
+		if committed then
+			return
+		end
 		if not hasActions(edge) then
 			return
 		end
@@ -780,15 +794,30 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- that never mutated the data, or a caller that treats a destructive
 	-- action as reversible/undo-able rather than instance-destroying) — a
 	-- "phantom row": visually collapsed to nothing, its trays and menu still
-	-- fully mounted underneath, unable to ever open or commit again. `close()`
-	-- is the ONE seam EVERY path that ends a row's open/committed state
-	-- already funnels through (the paragraph above), so resetting both HERE
-	-- is what keeps this composite's own bookkeeping from ever drifting from
-	-- what is actually painted, symmetric with the coordinator release right
-	-- below. Harmless on the ordinary (non-commit) open/close cycle:
-	-- `rowHeightOverride` is already `nil` there and `committed` is already
-	-- `false`, so both writes are no-ops.
-	local function close()
+	-- fully mounted underneath, unable to ever open or commit again.
+	--
+	-- REDTEAM FIX (item 1, BLOCKER; final-review-findings.md; director
+	-- ruling — a STARTED destructive commit is IRREVOCABLE, iOS-style: it
+	-- completes — slide-off, collapse, fire exactly once — regardless of
+	-- close()/claim/scroll/outside-tap/Cancel arriving mid-flight). Split
+	-- into two functions rather than one more `if committed then` patch at
+	-- each of close()'s own call sites (a coordinator claiming a sibling
+	-- away, a scroll, an outside tap, `handleCancel`, `dispose` — every one
+	-- of which already funnels through `close()`, the paragraph above):
+	-- `resetToClosed()` is the actual reset body, unconditional — the ONE
+	-- place allowed to clear `committed` back to false, called ONLY from
+	-- `close()` itself (the ordinary, non-commit path, where `committed` is
+	-- already false so the guard below is a no-op) and from the commit
+	-- chain's OWN natural completion (`doCommitAction`'s final
+	-- `collapseThen` callback, which bypasses `close()` entirely to reach
+	-- this directly). `close()` is what every OTHER caller in this file
+	-- still calls, and it is now a no-op for the WHOLE reset — animation,
+	-- `openEdge`, `rowHeightOverride`, coordinator release — while a commit
+	-- owns the row: bookkeeping that does not touch `committed` (e.g. a
+	-- sibling's `_closeMenu()`, called separately by the coordinator, never
+	-- through here) is unaffected, exactly the ruling's "bookkeeping...may
+	-- still run" carve-out.
+	local function resetToClosed()
 		openEdge:set(nil)
 		retarget(0)
 		rowHeightOverride:set(nil)
@@ -796,6 +825,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		if coordinator ~= nil then
 			coordinator.release(api)
 		end
+	end
+
+	local function close()
+		if committed then
+			-- irrevocable: a commit in flight owns `offset`/`rowHeightOverride`
+			-- until its own onSettle chain reaches the end on its own —
+			-- see `resetToClosed`'s comment above for who may still clear this.
+			return
+		end
+		resetToClosed()
 	end
 
 	-- Task 8's own menu state (own state; independent of `openEdge`/`offset`
@@ -875,17 +914,44 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- the collapse spring: a SECOND, independent `"object"`-class value from
 	-- the same family the offset spring already rides (see the big comment
 	-- above `ensureSpring`) — a different signal (row height, not offsetX),
-	-- built lazily on the one commit a row ever makes.
+	-- built lazily on the FIRST commit a row ever makes and reused (never
+	-- rebuilt) by every commit after — see item 4's fix below for why reuse
+	-- needs its own re-seed step.
 	local collapseSpring: any = nil
+	-- REDTEAM FIX (item 4, MINOR; final-review-findings.md). A row that
+	-- survives its first destructive commit (the owner kept it alive — see
+	-- `resetToClosed`'s own "phantom row" comment) can be committed again,
+	-- and the SECOND collapse silently never moved: `collapseSpring` already
+	-- existed from the first commit, so the `collapseSpring ~= nil` guard
+	-- returned early WITHOUT re-seeding either the spring's own resting
+	-- value (still 0, exactly where the first collapse left it settled) or
+	-- `rowHeightOverride` (already `nil`, i.e. painting the row at its full
+	-- content-sized height again, since `resetToClosed` reset it after the
+	-- first commit finished) back to `initial`. `collapseThen` then aimed
+	-- this already-at-0 spring at 0 again — no motion, no visible collapse,
+	-- yet the chain still completed normally (probe: min height stayed 48,
+	-- never dipped toward 0). `spring:snap(v)` (motion.luau: "come to rest
+	-- on `v` right now... a PLACEMENT, not an arrival" — no `onSettle` fan-
+	-- out, so this never fires a stray callback) puts a REUSED spring back
+	-- at the new starting height before this collapse aims it at 0, exactly
+	-- what building a fresh spring already did for the first commit for
+	-- free. `rowHeightOverride:set(initial)` now runs unconditionally
+	-- (moved out of the "build" branch) for the identical reason: the paint
+	-- has to be seeded before the first step on EVERY commit, not only the
+	-- first ever.
 	local function ensureCollapseSpring(initial: number)
-		if collapseSpring ~= nil or motionClock == nil then
+		if motionClock == nil then
 			return
 		end
-		collapseSpring = scope:own(motionClock:spring(initial, "object"))
+		if collapseSpring == nil then
+			collapseSpring = scope:own(motionClock:spring(initial, "object"))
+			scope:own(core:observe(collapseSpring, function()
+				rowHeightOverride:set(collapseSpring:get())
+			end))
+		else
+			collapseSpring:snap(initial)
+		end
 		rowHeightOverride:set(initial) -- seed the paint before the first step
-		scope:own(core:observe(collapseSpring, function()
-			rowHeightOverride:set(collapseSpring:get())
-		end))
 	end
 
 	-- like `retarget`, but calls `onArrive` exactly once when the value
@@ -932,11 +998,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	end
 
 	-- `committed` itself is declared earlier (see the comment there) so
-	-- `close()`, defined above this point, can reset it too; this flag makes
-	-- "at most one commit in flight" true even if something calls the commit
-	-- path twice, on top of the exactly-once guarantee `retargetThen`/
-	-- `collapseThen`'s own self-unsubscribing already gives each individual
-	-- spring chain.
+	-- `close()`/`resetToClosed()`, defined above this point, can read/reset
+	-- it too; this flag makes "at most one commit in flight" true even if
+	-- something calls the commit path twice, on top of the exactly-once
+	-- guarantee `retargetThen`/`collapseThen`'s own self-unsubscribing
+	-- already gives each individual spring chain, and — since the director's
+	-- irrevocable-commit ruling — is now also the ONE thing that makes a
+	-- commit uncancellable: see `close()`'s own guard and `resetToClosed`'s
+	-- comment above it.
 
 	-- THE ONE COMMIT PATH (brief: `_commitFirst`; generalized below for Task
 	-- 8, whose keyboard Delete and menu-Activate entries fire a SPECIFIC
@@ -976,6 +1045,19 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		if menuOpen:get() then
 			closeMenu()
 		end
+		-- RULING (director-delegated, final-review-findings.md): "The
+		-- non-destructive branch...must sit below the committed guard." A
+		-- commit already in flight (destructive, irrevocable) owns this row
+		-- until its own chain completes — nothing else, destructive or not,
+		-- may commit on top of it (item 1's own "does not allow a new
+		-- gesture/commit on the row" requirement; `onPointerDown` below
+		-- separately refuses a brand-new GESTURE for the identical reason).
+		-- Checked FIRST, ahead of the role branch below, so a non-destructive
+		-- action reached some other way while committed (menu Activate,
+		-- keyboard) can never race the collapse either.
+		if committed then
+			return false
+		end
 		-- REDTEAM FIX (item 4, MAJOR — director ruling, SwiftUI behavior): a
 		-- full swipe commits differently by role. A DESTRUCTIVE first action
 		-- keeps the full slide-off + collapse sequence below unchanged. A
@@ -994,26 +1076,41 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			close()
 			return true
 		end
-		if committed then
-			return false
-		end
 		committed = true
+		-- REDTEAM FIX (item 1, BLOCKER): a commit "generation" counter,
+		-- captured by both `onSettle` chains below (belt, on top of the
+		-- `committed`/`disposed` guards this whole function and `close()`
+		-- already carry): a chain from a PREVIOUS commit generation — which
+		-- should be structurally unreachable now that `committed` blocks a
+		-- second commit and `close()` can no longer clear it mid-flight —
+		-- must still never fire a stale callback if that invariant is ever
+		-- wrong elsewhere. Cheap (one integer compare) and makes the
+		-- invariant local to the two places that actually need it, rather
+		-- than trusted from a distance.
+		commitEpoch += 1
+		local myEpoch = commitEpoch
 		openEdge:set(edge)
 		retargetThen(offscreenTarget, function()
-			if disposed then
+			if disposed or commitEpoch ~= myEpoch then
 				return
 			end
 			local startHeight = currentRowHeight()
 			collapseThen(startHeight, function()
-				if not disposed then
-					-- QUARANTINED (constitution): the ONE user callback this
-					-- composite ever fires on a caller's behalf. A throw must
-					-- not skip `close()` below, nor fire a second time —
-					-- `committed` already forbids a second commit, and this
-					-- whole chain only ever runs once per row.
-					pcall(action.onAction)
+				if disposed or commitEpoch ~= myEpoch then
+					return
 				end
-				close()
+				-- QUARANTINED (constitution): the ONE user callback this
+				-- composite ever fires on a caller's behalf. A throw must
+				-- not skip `resetToClosed()` below, nor fire a second time —
+				-- `committed` already forbids a second commit, and this
+				-- whole chain only ever runs once per row.
+				pcall(action.onAction)
+				-- the ONE place allowed to clear `committed` mid-flight (see
+				-- `resetToClosed`'s own comment above `close()`): this IS the
+				-- commit's own natural completion, not an external cancel —
+				-- `close()` itself would no-op here since `committed` is
+				-- still true.
+				resetToClosed()
 			end)
 		end)
 		return true
@@ -1716,6 +1813,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		if drag ~= nil then
 			return false -- a capture is already live; never steal (engine parity)
 		end
+		-- REDTEAM FIX (item 1, BLOCKER; director ruling): a commit already in
+		-- flight is irrevocable — a NEW gesture must never be able to grab
+		-- this row's own `offset`/spring out from under it (that IS the
+		-- BLOCKER'S own repro: a second swipe starting mid-commit). Declined
+		-- the same way a live capture already is, one line above: no partial
+		-- accept-then-decline, this row simply does not participate in a new
+		-- gesture until the commit's own chain reaches `resetToClosed()`.
+		if committed then
+			return false
+		end
 		drag = {
 			originX = pos.x,
 			originY = pos.y,
@@ -1858,16 +1965,37 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		onPointerCancel = onPointerCancel,
 	}
 
+	-- REDTEAM FIX (item 5, MINOR; final-review-findings.md): `_isOpen()`
+	-- reporting `true` for the WHOLE duration of an in-flight commit (the row
+	-- is sliding off-screen and about to be destroyed, not "open" in any
+	-- sense a caller should act on) is what let finding 1's own BLOCKER hide
+	-- everywhere it did — Table's row-tap close guard and the reorder-vs-tray
+	-- guards (table.luau) all gate on this one function, and every one of
+	-- them would have tried to `_close()`/re-grab an irrevocably-committing
+	-- row had this kept saying "open". `committed` wins outright.
+	-- REDTEAM FIX (item 5, MINOR; final-review-findings.md): `_isOpen()`
+	-- reporting `true` for the WHOLE duration of an in-flight commit (the row
+	-- is sliding off-screen and about to be destroyed, not "open" in any
+	-- sense a caller should act on) is what let finding 1's own BLOCKER hide
+	-- everywhere it did — Table's row-tap close guard and the reorder-vs-tray
+	-- guards (table.luau) all gate on this one function, and every one of
+	-- them would have tried to `_close()`/re-grab an irrevocably-committing
+	-- row had this kept saying "open". `committed` wins outright.
 	local function isOpen(): boolean
-		return openEdge:get() ~= nil
+		return not committed and openEdge:get() ~= nil
 	end
 
 	-- Task 7: the reactive twin of `isOpen()` — `outsideDismiss.active` (below)
 	-- needs a Readable<boolean> to `core:observe`/`:get()`, not a plain
 	-- function; a one-line memo over the same `openEdge` signal `isOpen`
-	-- already reads.
+	-- already reads. `committed` is a plain (non-signal) local, but every
+	-- write to it in this file is always paired, same-call, with an
+	-- `openEdge` write (`doCommitAction`'s `committed = true` before
+	-- `openEdge:set(edge)`; `resetToClosed`'s `openEdge:set(nil)` before
+	-- `committed = false`) — so reading it here still recomputes at exactly
+	-- the right moments, never one commit-generation stale.
 	local isOpenReadable = scope:own(core:memo(function(use)
-		return use(openEdge) ~= nil
+		return not committed and use(openEdge) ~= nil
 	end))
 
 	-- Task 7 (matrix §B PopupButton parity, popup_button.luau:331-337's exact
@@ -1883,14 +2011,34 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		return false
 	end
 
+	-- REDTEAM FIX (item 5, MINOR): a fourth phase word — "committing" — names
+	-- what `dump().phase` used to call "open" for the entire duration of an
+	-- in-flight commit, indistinguishable from an ordinary revealed tray to
+	-- anything reading the dump. `committed` wins outright, ahead of the
+	-- `edge == nil` check, for the identical reason `isOpen()` above checks
+	-- it first.
+	-- REDTEAM FIX (item 5, MINOR): a fourth phase word — "committing" — names
+	-- what `dump().phase` used to call "open" for the entire duration of an
+	-- in-flight commit, indistinguishable from an ordinary revealed tray to
+	-- anything reading the dump. `committed` wins outright, ahead of the
+	-- `edge == nil` check, for the identical reason `isOpen()` above checks
+	-- it first.
 	local function dump()
 		local edge = openEdge:get()
+		local phase
+		if committed then
+			phase = "committing"
+		elseif edge == nil then
+			phase = "closed"
+		else
+			phase = "open"
+		end
 		return {
 			schema = "luauui-rowactions-dump/1",
 			id = id,
 			offset = offset:get(),
 			openEdge = edge,
-			phase = if edge == nil then "closed" else "open",
+			phase = phase,
 			-- Task 8: the action menu's own open state, independent of the
 			-- tray's `openEdge`/`phase` above.
 			menuOpen = menuOpen:get(),

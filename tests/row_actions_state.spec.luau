@@ -78,6 +78,12 @@ describe("row_actions_state", function()
 		local v = mk().settle(-200, 0) -- 320 * 0.6 = 192
 		expect(v.commit).toBe(true)
 		expect(v.edge).toBe("trailing")
+		-- final-review-findings.md item 11 (one-liner): the unit-level pin
+		-- Task 1's own ledger deferred — a commit verdict's `target` is the
+		-- OFFSCREEN row width, signed toward the committing edge
+		-- (`math.sign(projected) * opts.rowWidth`), never the mere tray
+		-- width `v.edge`'s own "settles open" sibling test above asserts.
+		expect(v.target).toBe(-320)
 	end)
 
 	it("never commits when fullSwipe is off for that edge", function()
