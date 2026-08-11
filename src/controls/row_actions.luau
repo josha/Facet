@@ -1161,21 +1161,33 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	--       `presenter.dismiss` — matching "Cancel... restores focus"
 	--       (Task 8's own tests) with zero bespoke bookkeeping.
 	--
-	-- `outsideTapCancel = false` and `cancelPolicy = "none"` deliberately
-	-- REFUSE the modal's own native auto-dismiss paths, so `menuOpen`'s
-	-- bookkeeping can never drift from what is actually presented: every
-	-- dismissal — a menu-row Activate, gamepad/keyboard Cancel, an outside
-	-- tap, ButtonX/Shift+Return toggling closed — still runs through the
-	-- IDENTICAL `menuHandleActivate`/`menuHandleCancel`/`outsideDismiss`
-	-- decision logic Tasks 8/8b/the fix wave already shipped and tested,
-	-- attached to the MODAL's own root instead of a permanent node on the
-	-- row's, calling `closeMenu()` explicitly either way.
+	-- `outsideTapCancel = true` and `cancelPolicy = "none"` — corrected
+	-- (this comment used to claim BOTH were refused; only `cancelPolicy`
+	-- is). `cancelPolicy = "none"` refuses the modal's own native
+	-- Cancel-dismiss branch, so gamepad/keyboard Cancel is decided
+	-- EXCLUSIVELY by `menuHandleCancel` below (offered to the focused
+	-- contribution before any surface-level default either way, so this is
+	-- belt-and-suspenders, not load-bearing — but it keeps Cancel on the
+	-- SAME explicit `closeMenu()` path as Activate). Outside-tap dismissal,
+	-- by contrast, is NOT hand-wired: `outsideTapCancel = true` is the
+	-- modal's own NATIVE mechanism (`presenter.luau`'s `applyOutsideOutcome`)
+	-- doing the dismiss itself — a real correction from an earlier attempt
+	-- that tried to reuse the row's own contribution-level `outsideDismiss`
+	-- field for the menu too (the ORIGINAL, pre-item-2 menu's own shape):
+	-- that field's catcher (`presenter.luau`'s `syncPopupCatcher`) is built
+	-- for a popup living inside a plain, non-exclusive screen, and its own
+	-- comment says so — "an exclusive surface suppresses the popup catcher"
+	-- — so it silently never fired once the menu became a `presentModal`
+	-- (caught live: a tap outside the open menu had no effect at all).
+	-- `menuHandle`'s own `onFeedback` subscription (`openMenu` below) is
+	-- what keeps `menuOpen`/`menuHandle` in sync with THIS dismiss path,
+	-- since it runs entirely inside the presenter, never through
+	-- `closeMenu`.
 	--
 	-- `scrim = "none"`: STILL CATCHING (the presenter's own doc: "'none' is
-	-- fully transparent but STILL catching"), matching the ORIGINAL menu's
-	-- own "swallowing" `outsideDismiss` contract (an outside tap closes the
-	-- menu and is consumed, never clicking through to a sibling row) —
-	-- but never dims the row list behind it, which a real scrim would: a
+	-- fully transparent but STILL catching") — an outside tap closes the
+	-- menu and is consumed, never clicking through to a sibling row — but
+	-- never dims the row list behind it, which a real scrim would: a
 	-- row-action menu is a lightweight popover, not a modal sheet.
 	--
 	-- `rootPolicy = "edgeToEdge"`: the SAME choice `presenter.luau`'s own

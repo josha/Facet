@@ -2221,11 +2221,28 @@ describe("RowActions redteam item 2: the menu contributes zero to row/list measu
 		local adapter = fake_target.new()
 		local pres = LuauUI.newPresenter(core, env, adapter, system)
 
+		-- THREE actions (leading + two trailing), not one (re-review finding,
+		-- MAJOR): a single-action menu is ONE row at the theme's compact
+		-- control height (~36px) — SHORTER than the row's own 48px content —
+		-- so under the OLD (buggy, measured-child) design the Anchor's own
+		-- union-bbox height was `max(48, 36) = 48` either way and this test
+		-- passed WITHOUT the fix (it never actually bit). Three menu rows
+		-- (leading-then-trailing document order: archive, flag, delete)
+		-- comfortably exceed 48px, reproducing the red team's own repro
+		-- shape (48px content vs. a taller menu) so the assertions below
+		-- fail for real against the pre-fix code. Proved directly: source
+		-- reverted to 0c43f1b with tests at HEAD -> this test fails;
+		-- restored -> passes (redteam-fixwave-report.md item 2's own
+		-- bite-proof section has the exact transcript).
 		local rowA = row_actions.build(LuauUI, core, {
 			id = "RowA",
 			content = focusableBody("Body"),
+			leading = {
+				{ id = "archive", role = "normal", label = "Archive", onAction = function() end },
+			},
 			trailing = {
 				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+				{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
 			},
 		})
 		-- a plain sibling leaf (not itself wrapped in row_actions — the
