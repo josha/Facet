@@ -1893,15 +1893,35 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- routes a presenter/tap Activate; returns true when the path was ours
 		-- (mirrors popup_button.luau's api.handleActivate).
 		local function handleActivate(path: string, _meta: any?): boolean
-			-- Task 9: the minus never deletes directly — `_open("trailing")`,
-			-- same as the header comment/brief promise. THE REQUIRED NO-OP
-			-- (Task 7's review, now required by this task's own brief): while
-			-- THIS row's trailing tray is already open, activating the minus
-			-- again does nothing — no re-claim, no re-retarget of a spring
-			-- already at (or flying toward) the same target.
+			-- Task 9: the minus never deletes directly — it opens the tray
+			-- holding the destructive action, same as the header comment/
+			-- brief promise. THE REQUIRED NO-OP (Task 7's review, now
+			-- required by this task's own brief): while that edge's tray is
+			-- already open, activating the minus again does nothing — no
+			-- re-claim, no re-retarget of a spring already at (or flying
+			-- toward) the same target.
+			--
+			-- REDTEAM FIX (item 6, MAJOR): this used to hard-code
+			-- `open("trailing")` — dead for a row whose ONLY destructive
+			-- action sits on the LEADING edge (`hasDestructive` (build-time,
+			-- above) scans BOTH edges, so `hasEditAffordance`/the minus
+			-- itself can be true with no trailing destructive action at
+			-- all). Opens whichever edge `firstDestructiveEntry` (Task 8's
+			-- own Delete-key lookup, "search trailing list first, then
+			-- leading") actually finds the minus's own destructive action
+			-- on — the SAME edge the minus's own accessible `label` already
+			-- borrows from (`destructiveEntry` below, at the button's own
+			-- build site). `hasEditAffordance` already guarantees
+			-- `hasDestructive`, so a `nil` entry here is unreachable in
+			-- practice; `"trailing"` is kept as the honest fallback rather
+			-- than asserting, matching this file's own house style
+			-- elsewhere (e.g. `settleTo`'s "unreachable in practice... stay
+			-- honest").
 			if hasEditAffordance and string.match(path, editAffordancePattern) ~= nil then
-				if openEdge:get() ~= "trailing" then
-					open("trailing")
+				local destructiveEntry = firstDestructiveEntry()
+				local edge: Edge = if destructiveEntry ~= nil then destructiveEntry.edge else "trailing"
+				if openEdge:get() ~= edge then
+					open(edge)
 				end
 				return true
 			end

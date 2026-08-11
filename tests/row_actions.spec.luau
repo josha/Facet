@@ -830,6 +830,44 @@ describe("RowActions control", function()
 		expect(#fired).toBe(0) -- ...but does NOT fire the destructive action itself
 	end)
 
+	-- REDTEAM ITEM 6 (MAJOR): `handleActivate`'s edit-mode minus used to
+	-- hard-code `open("trailing")` — dead for a row whose ONLY destructive
+	-- action sits on the LEADING edge (`hasDestructive`/`hasEditAffordance`
+	-- scan both edges, so this shape is reachable). A leading-only
+	-- destructive row's minus must open the LEADING tray, not silently
+	-- no-op (`openEdge:get() ~= "trailing"` was already true — "trailing" —
+	-- so the old code's own no-op guard never even fired; `open("trailing")`
+	-- itself was simply a no-op because this row has no trailing actions at
+	-- all, see `hasActions`).
+	it("editing (leading-only destructive): tapping the minus opens the LEADING tray, not trailing", function()
+		local fired: { string } = {}
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				leading = {
+					{
+						id = "archive",
+						label = "Archive",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "archive")
+						end,
+					},
+				},
+				editing = editing,
+			})
+		end)
+		expect(w.ra.dump().phase).toBe("closed")
+		w.adapter.tap(EDIT_AFFORDANCE_PATH)
+		expect(w.ra.dump().openEdge).toBe("leading") -- NOT "trailing" (there is no trailing tray)
+		expect(#fired).toBe(0)
+		w.pres.refresh() -- mounts the now-revealed leading tray (UI.When)
+		expect(w.adapter.node(LEADING_TRAY .. "/Action:archive") ~= nil).toBe(true)
+	end)
+
 	-- Task 9 four-input reachability: the minus is a normal focusable Button
 	-- routed through the SAME `handleActivate` dispatch every tray button
 	-- above already proves reachable (tests/row_actions.spec.luau:598-619's
