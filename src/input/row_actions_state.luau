@@ -62,7 +62,15 @@ function row_actions_state.new(opts: {
 			return { target = 0, edge = nil, commit = false }
 		end
 		local mag = math.abs(projected)
-		if fullSwipe and mag >= opts.rowWidth * row_actions_state.COMMIT_FRACTION then
+		-- REDTEAM FIX (item 8, MEDIUM): `opts.rowWidth <= 0` (an unmeasured
+		-- row — geometry not solved yet, e.g. the very first frame of a
+		-- gesture that started before any refresh) used to make this
+		-- condition `mag >= 0`, true for ANY nonzero drag: a 1px nudge
+		-- against a real, non-fullSwipe-guarded tray could "commit" at
+		-- `target = sign(projected) * 0 == 0` — a phantom commit nobody
+		-- dragged far enough to ask for. A commit needs a real row width to
+		-- measure 60% of in the first place.
+		if fullSwipe and opts.rowWidth > 0 and mag >= opts.rowWidth * row_actions_state.COMMIT_FRACTION then
 			return { target = math.sign(projected) * opts.rowWidth, edge = edge, commit = true }
 		end
 		if mag >= tray * row_actions_state.OPEN_FRACTION then

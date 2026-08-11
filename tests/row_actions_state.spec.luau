@@ -86,4 +86,20 @@ describe("row_actions_state", function()
 		expect(v.target).toBe(80)
 		expect(v.edge).toBe("leading")
 	end)
+
+	-- REDTEAM ITEM 8 (MEDIUM): `rowWidth <= 0` (an unmeasured row) used to
+	-- make the full-swipe commit threshold `mag >= 0` — true for ANY
+	-- nonzero drag against a fullSwipe-eligible edge, "committing" a 1px
+	-- nudge nobody dragged far enough to ask for.
+	it("never commits when rowWidth is 0 (unmeasured), at any offset — even a huge one", function()
+		local s = mk({ rowWidth = 0 })
+		expect(s.settle(-1, 0).commit).toBe(false)
+		expect(s.settle(-500, 0).commit).toBe(false)
+		expect(s.settle(-500, -10000).commit).toBe(false) -- a huge flick can't force it either
+	end)
+
+	it("never commits when rowWidth is negative (defensive: same guard as zero)", function()
+		local s = mk({ rowWidth = -50 })
+		expect(s.settle(-1, 0).commit).toBe(false)
+	end)
 end)
