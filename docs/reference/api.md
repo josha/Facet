@@ -3968,7 +3968,7 @@ Spec fields:
 | `id` | `string?` | no (default: `label`) | must be path-safe (no `/`); becomes the tray button's id, `Action:<id>`. |
 | `role` | `"normal" \| "destructive"` | no (default `"normal"`) | `"destructive"` paints the Button's own `role = "destructive"` (the shipped danger/onDanger style rule — no bespoke color). |
 | `label` | `string` | **yes** | the tray button's label. Never truncated by this control; the button widens past the theme's `controls.rowActions.buttonMinWidth` floor rather than clip a long (e.g. pseudo-localized) label. |
-| `icon` | `string?` | no | a `standard_icons` name; omitted is text-only. |
+| `icon` | `string?` | no | a `standard_icons` name, carried on the action's tray/menu button as `compactLabel = { icon = … }` — `label` draws in full whenever the button has room (the common case; a menu row's fill width almost always does), and degrades to the framework icon only when it does not (e.g. mid-swipe, as a tray button's width shrinks toward `buttonMinWidth`). `Button.icon` itself is circle-only, so this never reaches that prop directly. Omitted is text-only, unconditionally. |
 | `onAction` | `() -> ()` | **yes** | called when the action activates: a tap/click/Return/ButtonA on the revealed tray button, an activation of the action's own row in the Task 8 menu, or — for a `role = "destructive"` action — keyboard Delete/Backspace. |
 
 Return surface:

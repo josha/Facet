@@ -156,6 +156,36 @@ def edit() -> Image.Image:
     return img
 
 
+def trash() -> Image.Image:
+    """A waste bin: a handle loop, a lid bar, and a tapered open container.
+
+    Three independent strokes, the same budget as `menu`'s three bars. The lid
+    (28-100) reads wider than the body's top corners (36-92) and the handle
+    loop rides above the lid's centre -- the real object's own silhouette, not
+    a modelling accident -- so the mark still reads as a bin rather than a
+    generic box once it downsamples to 16px.
+    """
+    img, d = _canvas()
+    _stroke(d, [(54, 40), (54, 28), (74, 28), (74, 40)])  # handle: a loop above the lid
+    _stroke(d, [(28, 40), (100, 40)])  # lid
+    _stroke(d, [(36, 44), (42, 100), (86, 100), (92, 44)])  # body: tapered open container
+    return img
+
+
+def flag() -> Image.Image:
+    """A pole and a pennant: a vertical stroke with a filled triangular flag.
+
+    The pole runs the full mark height so it sits at the same optical size as
+    the taller chevrons and the plus/minus pair; the pennant is filled (like
+    the pencil tip in `edit`) rather than stroked, so its point does not thin
+    to nothing at 16px.
+    """
+    img, d = _canvas()
+    _stroke(d, [(34, 26), (34, 102)])  # pole
+    _poly(d, [(34, 30), (98, 46), (34, 62)])  # pennant
+    return img
+
+
 ICONS = {
     "luauui_icon_chevron_left": lambda: chevron("left"),
     "luauui_icon_chevron_right": lambda: chevron("right"),
@@ -168,6 +198,8 @@ ICONS = {
     "luauui_icon_menu": menu,
     "luauui_icon_more": more,
     "luauui_icon_edit": edit,
+    "luauui_icon_trash": trash,
+    "luauui_icon_flag": flag,
 }
 
 

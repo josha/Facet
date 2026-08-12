@@ -49,16 +49,23 @@ drawn at. A 128 px preview would prove nothing.
 | luauui_icon_menu.png | 128×128 | `menu` | `=` | content |
 | luauui_icon_more.png | 128×128 | `more` | `...` | content |
 | luauui_icon_edit.png | 128×128 | `edit` | `/` | content |
+| luauui_icon_trash.png | 128×128 | `trash` | `U` | content |
+| luauui_icon_flag.png | 128×128 | `flag` | `P` | content |
 
-11 files, 21 KB of PNG on disk (84 KB including the source and contact sheet).
+13 files, 24 KB of PNG on disk (~100 KB including the source and contact sheet).
 
 ## Notes the consuming stage must know
 
-1. **`edit` is the only new semantic name**, added with this set. Its ASCII floor
-   is `/` — the pencil reduced to its dominant stroke, the same move that made the
-   checkmark a `v` and the menu an `=`. It collides with nothing already in
-   `ICON_FALLBACK_GLYPHS`, and it is the mark a `compactLabel = { icon = "edit" }`
-   button draws until the art resolves.
+1. **`edit`, `trash` and `flag` are the new semantic names**, added on top of the
+   original ten chevron/checkmark/close/stepper/menu/more set. `edit`'s ASCII
+   floor is `/` — the pencil reduced to its dominant stroke, the same move that
+   made the checkmark a `v` and the menu an `=`. `trash` (row-actions stage,
+   2026-08-11) is `U`, a waste bin's own open-container silhouette; `flag` is
+   `P`, a pole with a pennant riding its top-right — the same "reduce to the
+   dominant silhouette" move, not a letter standing in for the word. None
+   collides with anything already in `ICON_FALLBACK_GLYPHS`, and each is the
+   mark its `compactLabel = { icon = … }` / row-actions tray button draws until
+   its art resolves.
 2. **`tintRole` is `content` for all eleven, including the stepper's `+`/`-`.**
    The shipped packages tint their own stepper glyphs `accent`, which is right for
    art authored against a known palette. Framework art is painted under packages
@@ -68,9 +75,9 @@ drawn at. A 128 px preview would prove nothing.
 3. **No per-state variants.** One silhouette per name; a package that wants a
    hover variant declares one and takes the rung above. `resolveIcon` therefore
    always reports `state = "default"` for framework art.
-4. **All eleven are drawn inside a 96 px content area centred in the 128 px box**,
-   so the set shares one optical weight and one margin. That margin is what keeps
-   a 20 px icon off a 20 px plate's edge; do not crop it out.
+4. **All thirteen are drawn inside a 96 px content area centred in the 128 px
+   box**, so the set shares one optical weight and one margin. That margin is
+   what keeps a 20 px icon off a 20 px plate's edge; do not crop it out.
 5. **Stroke weight is 13 px in 128-space** with round caps and joins. PIL has no
    round cap, so the generator draws caps and joins as explicit circles — that is
    what stops a chevron's tip looking chipped at 16 px.
@@ -94,9 +101,45 @@ Open Cloud (`POST /assets/v1/assets` with **`assetType = "Image"` — not
 writes `upload-manifest.json` and pushes the returned ids into
 `src/themes/standard_icons.luau`, which is the registry the framework reads. No
 Studio, no human step, no hand-transcribed id. `--recheck` re-reads each asset's
-moderation state and asset type afterwards; all eleven came back **Approved** and
-**`Image`** on 2026-07-27. Another project reproducing this set uploads the same
-PNGs under its own account and substitutes its ids — no hidden assets.
+moderation state and asset type afterwards; the original eleven came back
+**Approved** and **`Image`** on 2026-07-27. Another project reproducing this set
+uploads the same PNGs under its own account and substitutes its ids — no hidden
+assets.
+
+## Pending upload — `trash` and `flag` (row-actions stage, 2026-08-12)
+
+`trash` and `flag` are generated, registered (`standard_icons.ART`, `contentId =
+nil`) and covered by their ASCII floor (`U`/`P`) — the documented legal
+pre-upload state this whole set was built to land green in — but **not yet
+uploaded**. `tools/upload_icons.py` failed twice against `ROBLOX_API_KEY` in
+`GameStudio/tools/API_KEYS.txt`, both times with a real (not network/parse)
+rejection from Roblox's own API:
+
+```
+HTTP 401 from https://apis.roblox.com/assets/v1/assets
+{"errors":[{"code":0,"message":"Invalid API Key"}]}
+```
+
+The key is present in the file but Open Cloud rejects it outright — expired or
+revoked, not a transient failure; a fresh key is needed from whoever owns the
+credential. Every other icon in this set (all eleven original entries) is
+unaffected and stays **Approved**/`Image`.
+
+**To resume:** refresh `ROBLOX_API_KEY` (scope `assets`, read+write), then from
+`GameStudio/ui/LuauUI/` run:
+
+```
+.venv/bin/python tools/upload_icons.py
+```
+
+(`.venv` is the shared one at the monorepo root,
+`/Users/josha/Library/CloudStorage/Dropbox/Documents/UntitledRacingGame/.venv`.)
+It re-derives its target list from `standard_icons.luau` itself, so it will
+skip all eleven existing ids and upload only `luauui_icon_trash.png` and
+`luauui_icon_flag.png`, writing the returned ids into both
+`upload-manifest.json` and the registry with no hand-transcription. Then rerun
+`./tools/test.sh` and `lune run tools/lune/check_docs_cli` — nothing else in
+this stage's code changes.
 
 **License:** same license as the repository; the art is generated by repository
 code and carries no external claims.

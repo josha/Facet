@@ -180,6 +180,17 @@ local function actionsFor(model: any, itemId: string): any
 				id = "delete",
 				role = "destructive",
 				label = "Delete",
+				-- Task 15: the framework's own trash glyph, carried on the
+				-- tray button as `compactLabel = { icon = … }` (row_actions.luau's
+				-- `buildTray`/`buildMenuRows` — `Button.icon` itself is
+				-- circle-only). "Delete" draws in full at rest; this row's
+				-- own icon shows only once its button narrows below that,
+				-- mid-swipe. Pre-upload today (Open Cloud key expired, see
+				-- assets/icons/provenance.md "Pending upload"), so that icon
+				-- is the ASCII fallback "U" until a real content id lands —
+				-- deliberately exercising that fallback path live rather
+				-- than only in a unit test.
+				icon = "trash",
 				onAction = function()
 					model.remove(itemId)
 				end,
@@ -188,6 +199,7 @@ local function actionsFor(model: any, itemId: string): any
 				id = "flag",
 				role = "normal",
 				label = "Flag",
+				icon = "flag",
 				onAction = function()
 					model.toggleFlag(itemId)
 				end,

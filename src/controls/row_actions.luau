@@ -1309,7 +1309,13 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				UI.Button({
 					id = "Action:" .. entry.action.id,
 					label = entry.action.label,
-					icon = entry.action.icon,
+					-- same reasoning as the tray build above: `icon` alone
+					-- needs `shape = "circle"`, and a menu row keeps its
+					-- label, so the action icon rides `compactLabel`. A
+					-- fill-width menu row rarely runs out of room, so this
+					-- mostly keeps the label — that is the correct default
+					-- for a menu, not a defect.
+					compactLabel = if entry.action.icon ~= nil then { icon = entry.action.icon } else nil,
 					role = if entry.action.role == "destructive" then "destructive" else "default",
 					width = { type = "fill", weight = 1 },
 					height = { type = "fixed", px = MENU_ROW_HEIGHT },
@@ -2110,7 +2116,16 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 					UI.Button({
 						id = "Action:" .. action.id,
 						label = action.label,
-						icon = action.icon,
+						-- `Button.icon` (the top-level prop) is circle-only —
+						-- a tray button is rectangular and keeps its label, so
+						-- an action icon rides `compactLabel` instead: full
+						-- label when the button has room (the common case, at
+						-- its natural/settled width), the framework icon when
+						-- it does not (mid-swipe, `widthProps` shrinks this
+						-- toward BUTTON_MIN_WIDTH as the tray reveals) — the
+						-- same "says less when there is less room" ladder
+						-- every other compactLabel caller gets, not a new one.
+						compactLabel = if action.icon ~= nil then { icon = action.icon } else nil,
 						role = if action.role == "destructive" then "destructive" else "default",
 						width = widthProps[action.id],
 						height = { type = "fill" },

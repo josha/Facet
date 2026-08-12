@@ -460,6 +460,25 @@ describe("compactLabel: the icon form degrades and the image form does not", fun
 			expect(themes.iconGlyph(name) ~= nil).toBe(true)
 		end
 	end)
+
+	it("standard_icons.resolve() itself answers nil for both un-uploaded and unknown names", function()
+		-- pins resolve()'s own two nil cases directly, below the control-level
+		-- glyph fallback tested above: a name the set does not know at all
+		-- (typo), and a name it knows but has no content id for yet -- the
+		-- exact pre-upload state `trash`/`flag` ship in today. Either nil is
+		-- what sends the caller (package.resolveIcon) on to the ASCII glyph.
+		expect(standard_icons.resolve("not.a.real.icon.name")).toBeNil()
+		local trashEntry = (standard_icons.ART :: any)["trash"]
+		expect(trashEntry ~= nil).toBe(true)
+		expect(trashEntry.contentId).toBeNil()
+		expect(standard_icons.resolve("trash")).toBeNil()
+		-- and the full chain still draws the invented ASCII glyph today, live
+		-- through drawAt -- the "land green before a single byte is uploaded"
+		-- property the whole set was built on, now exercised by a real caller
+		-- (the row-actions gallery scenario) rather than just this table.
+		local tight = drawAt({ label = "Delete", compactLabel = { icon = "trash" } }, 30)
+		expect(tight.label).toBe("U")
+	end)
 end)
 
 describe("compactLabel: measured under every reference package", function()

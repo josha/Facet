@@ -103,6 +103,19 @@ standard_icons.ART = table.freeze({
 		contentId = "rbxassetid://97349995335189",
 		tintRole = "content",
 	}),
+	-- added row-actions stage, 2026-08-11: the Delete/Flag tray actions'
+	-- `icon` names. Same recipe as the rest of the set (generate_icons.py,
+	-- Open Cloud upload via tools/upload_icons.py) -- not new art paradigms.
+	["trash"] = table.freeze({
+		assetName = "luauui_icon_trash",
+		contentId = nil,
+		tintRole = "content",
+	}),
+	["flag"] = table.freeze({
+		assetName = "luauui_icon_flag",
+		contentId = nil,
+		tintRole = "content",
+	}),
 })
 
 -- resolve(name) -> the framework's art record for a name, or nil.

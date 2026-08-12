@@ -898,6 +898,13 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	-- that had to be invented rather than inherited. It collides with nothing
 	-- already in this table.
 	["edit"] = "/",
+	-- row-actions stage, 2026-08-11. `U` is a waste bin's own silhouette (an
+	-- open, tapered container) rather than a letter standing in for the word,
+	-- the same move `edit` made with the pencil's `/`; `P` is a pole with a
+	-- pennant riding its top-right, the flag's own silhouette the same way.
+	-- Neither collides with anything already in this table.
+	["trash"] = "U",
+	["flag"] = "P",
 })
 
 -- isSafeGlyph(s): plain ASCII and nothing else. Falsifiable — a private-use
