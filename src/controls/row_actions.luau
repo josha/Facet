@@ -28,7 +28,7 @@
 -- guides are the shipped precedent for binding a live signal straight to it:
 -- an `offsetX`/`offsetY` write re-arranges ONE node, never re-measures the
 -- tree. Every write — the fallback instant snap, Task 4's spring, Task 5's
--- live drag sample — goes through the ONE seam `applyOffset(px)` below.
+-- live drag sample — goes through the ONE seam `applySlide(px)` below.
 --
 -- THE MOTION SEAM (Task 4). A composite has no direct line to the
 -- presenter's motion clock — `bindActionSystem`/`bindController`/
@@ -43,7 +43,7 @@
 -- flight rather than snapping (the spring's own guarantee); with none — a
 -- bare `mountLib.mount` + `renderer.attach` in a unit test, which never runs
 -- a presenter's `bindContribution` walk at all — every retarget falls back to
--- Task 3's instant `applyOffset`, unchanged. `retarget(px)` is that one
+-- Task 3's instant `applySlide`, unchanged. `retarget(px)` is that one
 -- fork; `open`/`close`/`settleTo` never write `offset` directly.
 --
 -- TRAY WIDTH (revised: code review, 2026-08-10 — see the Task 4 fix-report
@@ -161,6 +161,49 @@ export type Spec = {
 	externalGesture: boolean?,
 }
 
+-- HOSTED MODE (row-actions perf mission, Task 2; design:
+-- docs/plans/row-actions-hosted-mode-design.md §"Hosted mode: a closed row
+-- mounts NOTHING"). `row_actions.buildHosted` runs the SAME engine `build`
+-- runs — one shared `buildEngine` below, not a fork — and builds NO BLUEPRINT
+-- AT ALL: the host (VirtualList) already mounts a per-row hit surface and can
+-- paint the slide through its own presentation channel, so a closed hosted row
+-- costs zero extra Instances. What the host must supply is exactly what the
+-- missing blueprint used to answer:
+--   * `paths` — the rects/text facts this engine reads live (the row's own
+--     node, and the shared tray overlay's own tray containers). `build` fills
+--     the identical lookups from its OWN mounted node ids; every one of them
+--     now goes through `pathsOf` below, so neither mode hardcodes the other's.
+--   * `onSlide` — the paint. `applySlide` still writes the internal `offset`
+--     signal (every gesture/commit decision in this file reads it back), and
+--     additionally hands the host the pixel number to paint with.
+--   * `onCommitHeight` — the commit's height collapse, same shape.
+-- The host reaches the presenter-only seams (`bindMotion`/`bindController`/…)
+-- by FORWARDING them from its own contribution — a hosted engine has no node
+-- to attach one to.
+export type HostedPaths = {
+	content: string, -- the host's own row node: the row's live rect/screen rect
+	trayLeading: string?, -- the shared overlay's leading tray container
+	trayTrailing: string?,
+}
+
+export type HostedSpec = {
+	id: string?,
+	leading: { ActionSpec }?,
+	trailing: { ActionSpec }?,
+	fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?,
+	coordinator: any?,
+	env: any?,
+	paths: HostedPaths,
+	onSlide: (px: number) -> (),
+	onCommitHeight: ((px: number?) -> ())?,
+}
+
+type HostedOpts = {
+	paths: HostedPaths,
+	onSlide: (px: number) -> (),
+	onCommitHeight: ((px: number?) -> ())?,
+}
+
 -- CLOSED SPEC (constitution §4; ARCH-1).
 local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"id",
@@ -174,6 +217,23 @@ local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"externalGesture",
 	"width",
 })
+-- The hosted spec is NOT the standalone spec plus three keys: `content`,
+-- `width`, `editing` and `externalGesture` are all statements about a
+-- blueprint this mode never builds (`externalGesture` is implied — there is
+-- no internal Hit Grip to suppress), so each is refused by name rather than
+-- silently ignored.
+local HOSTED_KEYS = specGuard.keySet({
+	"id",
+	"leading",
+	"trailing",
+	"fullSwipe",
+	"coordinator",
+	"env",
+	"paths",
+	"onSlide",
+	"onCommitHeight",
+})
+local HOSTED_PATH_KEYS = specGuard.keySet({ "content", "trayLeading", "trayTrailing" })
 local ACTION_KEYS = specGuard.keySet({ "id", "role", "label", "icon", "onAction" })
 local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
 
@@ -375,15 +435,26 @@ function row_actions.newCoordinator(core: any): any
 	}
 end
 
-function row_actions.build(LuauUI: any, core: any, spec: Spec)
-	specGuard.assertKnownKeys("newRowActions", spec, ROW_ACTIONS_KEYS, "spec")
+-- THE ONE ENGINE (Task 2). `row_actions.build` and `row_actions.buildHosted`
+-- (both at the bottom of this file) are the two entry points into this single
+-- function — the state signals, axis lock, velocity tracker, coordinator
+-- claim, commit ladder, menu and keyboard bindings are all shared code, never
+-- a fork. `hosted == nil` is the standalone/Table composite (blueprint and
+-- all); `hosted ~= nil` skips every node this file would otherwise build and
+-- routes the two things a node used to answer — paths and paint — through
+-- `pathsOf`/`applySlide` below. Each entry point validates its OWN spec
+-- against its own closed key set before calling in here.
+local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts?)
 	local UI = LuauUI.UI
 	local id = spec.id or "RowActions"
 	local scope = core:scope("row-actions-" .. tostring(id))
+	-- read once: `hosted` is a build-time fact, never live
+	local isHosted = hosted ~= nil
 
-	if type(spec.content) ~= "table" or (spec.content :: any).class == nil then
+	if not isHosted and (type(spec.content) ~= "table" or (spec.content :: any).class == nil) then
 		error(`LuauUI newRowActions('{id}'): \`content\` is required and must be a Blueprint`, 0)
 	end
+	-- nil in hosted mode: the HOST mounts the row, this engine wraps nothing
 	local content = spec.content
 
 	if spec.coordinator ~= nil and type(spec.coordinator) ~= "table" then
@@ -420,8 +491,11 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- mutated after `build` returns.
 	local coordinator = spec.coordinator
 
-	-- Task 10: see the Spec field's own comment.
-	local externalGesture = spec.externalGesture == true
+	-- Task 10: see the Spec field's own comment. Hosted mode is the same
+	-- statement taken to its fixed point (the host's own row surface drives
+	-- these handlers), except there is no internal Grip to suppress at all —
+	-- this whole file builds no node in that mode.
+	local externalGesture = isHosted or spec.externalGesture == true
 
 	-- Task 7: this composite's own identity as far as the coordinator is
 	-- concerned IS the object `row_actions.build` returns below (the exact
@@ -656,8 +730,34 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- pixel number is produced — the fallback instant snap, a spring chase, a
 	-- live drag sample — it reaches the Content anchor's offsetX through here
 	-- alone.
-	local function applyOffset(px: number)
+	--
+	-- Task 2 (hosted): the `offset` signal write is NOT conditional. It is this
+	-- engine's own state — `onPointerDown`'s `startOffset`, `settle`'s release
+	-- verdict, `targetFor`, the tray-reveal memos and `dump()` all read it back
+	-- — so both modes keep it. What hosted mode ADDS is the paint: the host
+	-- owns the row's node (this file mounts none), so it is handed the same
+	-- pixel number to translate its own row content by. One seam, so a host
+	-- cannot miss a write: the spring's every step, the drag's every sample and
+	-- the commit's slide-off all already come through here.
+	local onSlide = if hosted ~= nil then hosted.onSlide else nil
+	local function applySlide(px: number)
 		offset:set(px)
+		if onSlide ~= nil then
+			onSlide(px)
+		end
+	end
+
+	-- the same shape for the commit's height collapse: `rowHeightOverride` is
+	-- the root's own `height` prop in standalone mode, and in hosted mode the
+	-- host's own row-height override seam (design doc §5) — `nil` meaning "no
+	-- override, back to content height" in both. Optional: a host that does not
+	-- collapse rows simply never passes one.
+	local onCommitHeight = if hosted ~= nil then hosted.onCommitHeight else nil
+	local function applyCommitHeight(px: number?)
+		rowHeightOverride:set(px)
+		if onCommitHeight ~= nil then
+			onCommitHeight(px)
+		end
 	end
 
 	-- ===== the motion seam (Task 4) ==========================================
@@ -711,7 +811,43 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- written there, on every `syncGeometry`) so the commit path's own
 	-- `currentRect`/`currentRowWidth`/`currentRowHeight` — shared, unconditional
 	-- code, reused by both the gesture and `_commitFirst` — can read it too.
-	local rootPath: string? = nil
+	-- Task 2 (hosted): LEARNED from the first `syncGeometry` in standalone mode
+	-- (this composite's own mounted root), SEEDED at build time from the host's
+	-- own row path in hosted mode — where nothing this file owns ever mounts,
+	-- so there is no root node to learn one from.
+	local hostedPaths: HostedPaths? = if hosted ~= nil then hosted.paths else nil
+	local rootPath: string? = if hostedPaths ~= nil then hostedPaths.content else nil
+
+	-- THE PATH INDIRECTION (Task 2). Every live lookup this file makes — the
+	-- row's own rect/screen rect, the focus-prefix test, a tray button's text
+	-- facts, the Activate path match — asks HERE for the path instead of
+	-- interpolating node ids inline. Standalone answers with exactly the
+	-- strings it always did (this composite's own mounted ids under the
+	-- learned `rootPath`); hosted answers with the host's own
+	-- (`spec.paths`) — one seam, two fills, no second copy of any lookup.
+	-- Multiple returns rather than a table: `deriveNaturals` calls this once
+	-- per action per sync, and a per-call allocation there is the kind of
+	-- thing the perf mission this task belongs to exists to remove.
+	--
+	-- `edge == nil` asks for the ROW's own path; an edge asks for that tray's
+	-- own CONTAINER path (its buttons are `{trayPath}/Action:{id}` in both
+	-- modes). `nil` back means "not knowable yet" (standalone, before the
+	-- first sync learns `rootPath`) or "the host declared no tray on that
+	-- edge" — every caller already handles a missing path.
+	local function pathsOf(edge: Edge?): string?
+		if edge == nil then
+			return rootPath
+		end
+		if hostedPaths ~= nil then
+			return if edge == "leading" then hostedPaths.trayLeading else hostedPaths.trayTrailing
+		end
+		if rootPath == nil then
+			return nil
+		end
+		local tid = trayId(edge)
+		return `{rootPath}/{tid}When/then/{tid}`
+	end
+
 	local spring: any = nil
 	local function ensureSpring()
 		if spring ~= nil or motionClock == nil then
@@ -721,7 +857,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- dispose pattern mirrors drag_registry.luau:388-396 (unsubscribe, then
 		-- dispose the value) — one axis here instead of drag's two.
 		scope:own(core:observe(spring, function()
-			applyOffset(spring:get())
+			applySlide(spring:get())
 		end))
 	end
 
@@ -735,7 +871,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			ensureSpring()
 			spring:setTarget(px)
 		else
-			applyOffset(px)
+			applySlide(px)
 		end
 	end
 
@@ -820,7 +956,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	local function resetToClosed()
 		openEdge:set(nil)
 		retarget(0)
-		rowHeightOverride:set(nil)
+		applyCommitHeight(nil)
 		committed = false
 		if coordinator ~= nil then
 			coordinator.release(api)
@@ -889,10 +1025,11 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- cached: a row's width/height are facts about what actually solved, not
 	-- something this control could compute for itself.
 	local function currentRect(): any
-		if controller == nil or rootPath == nil then
+		local path = pathsOf()
+		if controller == nil or path == nil then
 			return nil
 		end
-		return controller.rectOf(rootPath)
+		return controller.rectOf(path)
 	end
 	local function currentRowWidth(): number
 		local r = currentRect()
@@ -946,12 +1083,12 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		if collapseSpring == nil then
 			collapseSpring = scope:own(motionClock:spring(initial, "object"))
 			scope:own(core:observe(collapseSpring, function()
-				rowHeightOverride:set(collapseSpring:get())
+				applyCommitHeight(collapseSpring:get())
 			end))
 		else
 			collapseSpring:snap(initial)
 		end
-		rowHeightOverride:set(initial) -- seed the paint before the first step
+		applyCommitHeight(initial) -- seed the paint before the first step
 	end
 
 	-- like `retarget`, but calls `onArrive` exactly once when the value
@@ -975,7 +1112,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end)
 			spring:setTarget(px)
 		else
-			applyOffset(px)
+			applySlide(px)
 			onArrive()
 		end
 	end
@@ -992,7 +1129,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end)
 			collapseSpring:setTarget(0)
 		else
-			rowHeightOverride:set(0)
+			applyCommitHeight(0)
 			onArrive()
 		end
 	end
@@ -1395,10 +1532,11 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- before any solve — `openMenu` never runs at all without `controller`,
 	-- see its own guard below) degrades to `0, 0` rather than erroring.
 	local function computeMenuAnchor(): (number, number)
-		if controller == nil or rootPath == nil then
+		local path = pathsOf()
+		if controller == nil or path == nil then
 			return 0, 0
 		end
-		local rect = controller.screenRectOf(rootPath)
+		local rect = controller.screenRectOf(path)
 		if rect == nil then
 			return 0, 0
 		end
@@ -1665,7 +1803,8 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		if menuOpen:get() then
 			return true
 		end
-		return path ~= nil and rootPath ~= nil and isPathPrefix(rootPath, path)
+		local row = pathsOf()
+		return path ~= nil and row ~= nil and isPathPrefix(row, path)
 	end
 	-- Task 11b (perf): `ensureKeysContext` used to run unconditionally, every
 	-- time — meaning EVERY mounted row paid a real `actionSystemRef.
@@ -1757,7 +1896,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- far it was dragged, because the down-time snapshot had frozen a tray
 	-- width of 0 before the tray had ever had a chance to mount and measure
 	-- itself). Reading live means the moment the drag's own first negative
-	-- `applyOffset` reveals the tray (see the `revealed` memos below) and the
+	-- `applySlide` reveals the tray (see the `revealed` memos below) and the
 	-- next `syncGeometry` measures it, this decision sees the REAL number —
 	-- self-correcting within a frame or two, rather than wrong for the rest
 	-- of the gesture. `row_actions_state.new` is a cheap, pure constructor
@@ -1908,7 +2047,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 		local target = currentDecision().clampDrag(drag.startOffset + dx)
-		applyOffset(target)
+		applySlide(target)
 		tracker:push(pos.x, pos.y, currentNow())
 	end
 
@@ -1935,7 +2074,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- speed into whichever flight follows — snap-open, snap-closed,
 			-- or a full-swipe commit's slide-off alike. Guarded to a real
 			-- spring only: no clock means `retarget` falls back to the
-			-- instant `applyOffset` snap, which has no velocity concept at
+			-- instant `applySlide` snap, which has no velocity concept at
 			-- all; reduced motion is separately a no-op inside `setVelocity`
 			-- itself (motion.luau: "nothing is animating under reduced
 			-- motion: no seam to smooth").
@@ -2056,334 +2195,360 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	end
 
 	local blueprint: any
-	if leadingActions == nil and trailingActions == nil then
+	-- the contribution field bundle (see its own comment where it is built)
+	local contributionFields: any = nil
+	if not isHosted and leadingActions == nil and trailingActions == nil then
 		-- TRUE INERT PASSTHROUGH (perf directive): nothing to reveal on either
 		-- edge, so this control adds NOTHING — not an Anchor, not a wrapper, not
 		-- an extra GuiObject. `content` mounts exactly as the caller wrote it.
 		blueprint = content
 	else
-		-- per-action WIDTH prop: one `core:memo` per declared action, built HERE
-		-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
-		-- leak reason as the naturals above. Unmeasured, or no spring at all
-		-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
-		-- content-sized, static, and it stays live even once measured — the
-		-- fallback and the derived branch both track the SAME live `natural`
-		-- signal, so neither ever goes stale); once its natural width IS known
-		-- it reads its share of the SAME observed `offset` the slide itself
-		-- uses — no second spring, no per-button spring — so a button
-		-- "stretches in" from 0 toward its (live) natural width as `|offset|`
-		-- approaches `trayWidth` (docs/plans/row-actions-implementation.md
-		-- Task 4: "SwiftUI feel").
-		local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
-			local props: { [string]: any } = {}
-			for _, action in actions do
-				local natural = naturals[action.id]
-				props[action.id] = scope:own(core:memo(function(use)
-					local n = use(natural)
-					if spring == nil or n == nil then
-						return { type = "minMax", min = BUTTON_MIN_WIDTH }
-					end
-					local trayW = use(traySig)
-					local frac = if trayW > 0 then math.clamp(math.abs(use(offset)) / trayW, 0, 1) else 0
-					return { type = "fixed", px = math.floor(n * frac + 0.5) }
-				end))
+		-- ===== THE BLUEPRINT (standalone/Table mode only) ================
+		-- HOSTED MODE BUILDS NONE OF THIS (Task 2). Not "builds it and hides
+		-- it": every node, every per-action width memo and every reveal memo
+		-- below is skipped outright, which is the whole point — a closed
+		-- hosted row must cost the host nothing at all. The engine seams the
+		-- nodes used to answer for (paths, paint, the presenter handoffs) are
+		-- `pathsOf`/`applySlide`/`contributionFields` instead.
+		local root: any = nil
+		if not isHosted then
+			-- per-action WIDTH prop: one `core:memo` per declared action, built HERE
+			-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
+			-- leak reason as the naturals above. Unmeasured, or no spring at all
+			-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
+			-- content-sized, static, and it stays live even once measured — the
+			-- fallback and the derived branch both track the SAME live `natural`
+			-- signal, so neither ever goes stale); once its natural width IS known
+			-- it reads its share of the SAME observed `offset` the slide itself
+			-- uses — no second spring, no per-button spring — so a button
+			-- "stretches in" from 0 toward its (live) natural width as `|offset|`
+			-- approaches `trayWidth` (docs/plans/row-actions-implementation.md
+			-- Task 4: "SwiftUI feel").
+			local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
+				local props: { [string]: any } = {}
+				for _, action in actions do
+					local natural = naturals[action.id]
+					props[action.id] = scope:own(core:memo(function(use)
+						local n = use(natural)
+						if spring == nil or n == nil then
+							return { type = "minMax", min = BUTTON_MIN_WIDTH }
+						end
+						local trayW = use(traySig)
+						local frac = if trayW > 0 then math.clamp(math.abs(use(offset)) / trayW, 0, 1) else 0
+						return { type = "fixed", px = math.floor(n * frac + 0.5) }
+					end))
+				end
+				return props
 			end
-			return props
-		end
-		local leadingWidthProps = buildWidthProps(leadingNaturals, leadingWidth, leadingActions or {})
-		local trailingWidthProps = buildWidthProps(trailingNaturals, trailingWidth, trailingActions or {})
+			local leadingWidthProps = buildWidthProps(leadingNaturals, leadingWidth, leadingActions or {})
+			local trailingWidthProps = buildWidthProps(trailingNaturals, trailingWidth, trailingActions or {})
 
-		local function buildTray(edge: Edge, actions: { ActionSpec })
-			local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
-			local buttons = {}
-			for _, action in actions do
+			local function buildTray(edge: Edge, actions: { ActionSpec })
+				local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
+				local buttons = {}
+				for _, action in actions do
+					table.insert(
+						buttons,
+						UI.Button({
+							id = "Action:" .. action.id,
+							label = action.label,
+							-- `Button.icon` (the top-level prop) is circle-only —
+							-- a tray button is rectangular and keeps its label, so
+							-- an action icon rides `compactLabel` instead: full
+							-- label when the button has room (the common case, at
+							-- its natural/settled width), the framework icon when
+							-- it does not (mid-swipe, `widthProps` shrinks this
+							-- toward BUTTON_MIN_WIDTH as the tray reveals) — the
+							-- same "says less when there is less room" ladder
+							-- every other compactLabel caller gets, not a new one.
+							compactLabel = if action.icon ~= nil then { icon = action.icon } else nil,
+							role = if action.role == "destructive" then "destructive" else "default",
+							width = widthProps[action.id],
+							height = { type = "fill" },
+							padding = { left = BUTTON_PAD, right = BUTTON_PAD },
+						})
+					)
+				end
+				return UI.HStack({
+					id = trayId(edge),
+					anchor = if edge == "leading" then "left" else "right",
+					-- Task 9: the LEADING tray shifts right by the same live gutter
+					-- Content does below, so the two compose instead of colliding —
+					-- "the minus sits outside the leading tray's reveal" (brief). The
+					-- trailing tray needs no such term: it is anchored to the row's
+					-- OWN right edge, untouched by a LEADING-side gutter.
+					offsetX = if edge == "leading" then editGutterPx else nil,
+					height = { type = "fill" },
+					children = buttons,
+				})
+			end
+
+			local children = {}
+			if leadingActions ~= nil then
+				-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL LIVE
+				-- (Task 4). `openEdge` flips the instant `close()`/a new `open()` on
+				-- the other edge is called, but the spring keeps animating `offset`
+				-- back toward 0 over several frames — unmounting on `openEdge`
+				-- alone would make the tray vanish INSTANTLY while Content is still
+				-- visibly sliding back over empty space. Reusing `offset` (the same
+				-- signal `Content.offsetX` and the width props above already read)
+				-- keeps the outgoing tray mounted for exactly as long as it is
+				-- still on screen, with no new coupling.
+				local revealed = scope:own(core:memo(function(use)
+					if use(openEdge) == "leading" then
+						return true
+					end
+					return use(offset) > 0
+				end))
 				table.insert(
-					buttons,
-					UI.Button({
-						id = "Action:" .. action.id,
-						label = action.label,
-						-- `Button.icon` (the top-level prop) is circle-only —
-						-- a tray button is rectangular and keeps its label, so
-						-- an action icon rides `compactLabel` instead: full
-						-- label when the button has room (the common case, at
-						-- its natural/settled width), the framework icon when
-						-- it does not (mid-swipe, `widthProps` shrinks this
-						-- toward BUTTON_MIN_WIDTH as the tray reveals) — the
-						-- same "says less when there is less room" ladder
-						-- every other compactLabel caller gets, not a new one.
-						compactLabel = if action.icon ~= nil then { icon = action.icon } else nil,
-						role = if action.role == "destructive" then "destructive" else "default",
-						width = widthProps[action.id],
-						height = { type = "fill" },
-						padding = { left = BUTTON_PAD, right = BUTTON_PAD },
+					children,
+					UI.When({
+						id = "TrayLeadingWhen",
+						condition = revealed,
+						thenView = function()
+							return buildTray("leading", leadingActions :: { ActionSpec })
+						end,
 					})
 				)
 			end
-			return UI.HStack({
-				id = trayId(edge),
-				anchor = if edge == "leading" then "left" else "right",
-				-- Task 9: the LEADING tray shifts right by the same live gutter
-				-- Content does below, so the two compose instead of colliding —
-				-- "the minus sits outside the leading tray's reveal" (brief). The
-				-- trailing tray needs no such term: it is anchored to the row's
-				-- OWN right edge, untouched by a LEADING-side gutter.
-				offsetX = if edge == "leading" then editGutterPx else nil,
-				height = { type = "fill" },
-				children = buttons,
-			})
-		end
+			if trailingActions ~= nil then
+				local revealed = scope:own(core:memo(function(use)
+					if use(openEdge) == "trailing" then
+						return true
+					end
+					return use(offset) < 0
+				end))
+				table.insert(
+					children,
+					UI.When({
+						id = "TrayTrailingWhen",
+						condition = revealed,
+						thenView = function()
+							return buildTray("trailing", trailingActions :: { ActionSpec })
+						end,
+					})
+				)
+			end
 
-		local children = {}
-		if leadingActions ~= nil then
-			-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL LIVE
-			-- (Task 4). `openEdge` flips the instant `close()`/a new `open()` on
-			-- the other edge is called, but the spring keeps animating `offset`
-			-- back toward 0 over several frames — unmounting on `openEdge`
-			-- alone would make the tray vanish INSTANTLY while Content is still
-			-- visibly sliding back over empty space. Reusing `offset` (the same
-			-- signal `Content.offsetX` and the width props above already read)
-			-- keeps the outgoing tray mounted for exactly as long as it is
-			-- still on screen, with no new coupling.
-			local revealed = scope:own(core:memo(function(use)
-				if use(openEdge) == "leading" then
-					return true
-				end
-				return use(offset) > 0
-			end))
+			-- ===== Task 9: the edit-mode leading minus =============================
+			-- iOS pattern: while editing AND a destructive action exists somewhere,
+			-- a small circular button sits in a LEADING gutter; tapping it opens the
+			-- trailing tray (the destructive action is a second tap away, never
+			-- direct). `UI.When` keyed on `editAffordanceShown` — the identical
+			-- lazy-mount idiom the trays already use (Task 3's own header comment;
+			-- `table.luau:1079-1122`'s `EditWhen` is the cited precedent): zero
+			-- Instances while not editing, beyond the one permanent `Frame` a
+			-- mounted-but-closed `UI.When` always costs — paid only when
+			-- `hasEditAffordance`, i.e. only when a caller actually wires `editing`
+			-- on a row that has a destructive action. (The menu no longer shares
+			-- this cost — redteam item 2's fix moved it to its own presentModal
+			-- surface, which mounts and unmounts atomically with zero permanent
+			-- node on the row at all; see the big comment above `local function
+			-- openMenu`.)
+			--
+			-- PAINT ORDER: inserted BEFORE `Content` (array order = paint order,
+			-- later wins — the same relationship the leading/trailing trays already
+			-- have with `Content` below), so `Content` sitting on top during a live
+			-- trailing drag (see `contentOffsetX`'s own comment for why a trailing
+			-- reveal is deliberately NOT gutter-shifted) covers the minus exactly
+			-- when a trailing swipe is genuinely in progress — acceptable, since a
+			-- mid-swipe row is not a moment the minus needs to keep receiving taps.
+			--
+			-- DIAMETER: `shape = "circle"` + ONE authored axis (`width` only —
+			-- `blueprint.luau`'s own `assertShape` rejects both) makes a true 1:1
+			-- disc at the theme's `editAffordance` metric; the framework's OWN
+			-- Button contract (`src/controls/contract.luau`: `Button.minHitSize =
+			-- 44`) already floors the ENGINE HIT RECT at `targetSizes.minimum`
+			-- regardless of the painted size (`renderer.luau`'s `effectiveHitFloor`
+			-- — B-BTN3, "the VISUAL rect is deliberately untouched... declaring a
+			-- floor here is all a new control has to do") — the documented small-
+			-- target pattern this codebase already has (the reorder Grip's own
+			-- `minHitSize = 44` is the sibling precedent), so NOTHING extra is
+			-- authored here for the hit-target rule: a 28px disc already gets a
+			-- 44px+ tappable area for free, on every input class.
+			--
+			-- COLOUR (`danger` glyph, per the brief). `role = "destructive"` is the
+			-- one existing theme-token mechanism this control family has for
+			-- "danger" (the SAME mapping the header comment above already
+			-- establishes for a destructive tray button: "role = 'destructive'
+			-- maps straight to it... paints control/content pair"). It could NOT be
+			-- composed with `surface = "raised"` (surfaceStrong) to get a literal
+			-- "danger glyph ON a surfaceStrong plate" split: `src/tokens/
+			-- sheet_model.luau`'s own comment on the role rules is explicit — "role
+			-- owns the resting fill... sit after the base/surface/selected fills"
+			-- — so a `role = "destructive"` Button's BackgroundColor3 always wins
+			-- over a `surface = "raised"` on the SAME node, regardless of prop
+			-- order; the token vocabulary has no independent "content-only danger"
+			-- tint (Text's own `role` enum is `{ "secondary", "content" }`, no
+			-- `"danger"`; the chrome `ImageColor3` role tints — `$ChromeTintDanger`
+			-- — only reach IMAGE-driven skinned art layers, not the plain-glyph
+			-- fallback path this composite otherwise relies on). Adding that split
+			-- would mean a new sheet rule in a file this task does not touch.
+			-- `role = "destructive"` reuses the ALREADY-shipped, already-tested
+			-- mapping instead: a solid danger-filled disc with an onDanger minus,
+			-- visually consistent with the trailing tray's own destructive button
+			-- one tap away — the closer real-iOS match besides.
+			if hasEditAffordance then
+				local destructiveEntry = firstDestructiveEntry()
+				table.insert(
+					children,
+					UI.When({
+						id = "EditAffordanceWhen",
+						condition = editAffordanceShown,
+						thenView = function()
+							return UI.Button({
+								id = "EditAffordance",
+								anchor = "left",
+								shape = "circle",
+								role = "destructive",
+								icon = "decrement", -- the framework's own minus glyph (standard_icons)
+								-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
+								-- unfocusable, non-activating; this IS a Button, so it
+								-- needs one). `Button.label` is the framework's own
+								-- "required even when the button renders custom content...
+								-- stays the semantic name and is not drawn" seam
+								-- (blueprint_schema.luau) — the SAME icon-only-control
+								-- precedent `shape = "circle"` exists for. Reuses the
+								-- destructive action's own label (typically "Delete") so
+								-- the announced name matches exactly what a second tap
+								-- reaches.
+								label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
+								width = { type = "fixed", px = EDIT_AFFORDANCE },
+							})
+						end,
+					})
+				)
+			end
+
+			-- Content's rendered offsetX. Deliberately NOT the same signal `offset`
+			-- itself while `hasEditAffordance` — the header comment's own THE SLIDE
+			-- MECHANISM section is explicit that every seam (spring, drag, the
+			-- instant fallback) writes `offset` as the ONE bare reveal amount, and
+			-- every piece of gesture/decision math (`targetFor`, `currentDecision`,
+			-- `retarget`'s spring target, `settleTo`'s verdict) reads it back
+			-- expecting exactly that — folding a constant gutter bias straight into
+			-- `offset` would corrupt all of it. `contentOffsetX` is instead a
+			-- SEPARATE, paint-only derived value: `offset` for the gesture, plus
+			-- the live gutter, ADDED ONLY ON THE NON-NEGATIVE (resting/leading)
+			-- side. The trailing side is deliberately left untouched: `offset`'s
+			-- own topLeft-anchor shrink math (`solver.luau`'s `offsetFill`, "pushing
+			-- a child out past the very edge it is anchored to... is deliberate")
+			-- never gives back room for a NEGATIVE offset, so adding a positive
+			-- gutter bias there would permanently under-expose the trailing tray by
+			-- the gutter width for as long as it stayed open — a real geometry bug,
+			-- not a cosmetic one. Leaving the trailing side alone means a trailing
+			-- swipe/commit behaves BYTE IDENTICAL whether or not `editing` is true;
+			-- the one accepted cost is a single-frame `editGutterPx` pop exactly at
+			-- the instant a live drag crosses `offset == 0` from the leading side
+			-- into the trailing side while editing — a genuinely rare simultaneous
+			-- gesture (real iOS does not offer swipe-to-reveal and edit-mode at
+			-- once either), documented rather than engineered around.
+			local contentOffsetX = offset
+			if hasEditAffordance then
+				contentOffsetX = scope:own(core:memo(function(use)
+					local raw = use(offset)
+					if raw < 0 then
+						return raw
+					end
+					return raw + use(editGutterPx)
+				end))
+			end
+			-- REDTEAM FIX (item 15, LOW). This block used to ALWAYS mount the
+			-- hit-surface Grip below, even under `externalGesture = true`, with
+			-- every handler set to `nil` — a real Instance that does nothing:
+			-- `screen_target.luau` sets `instance.Active = true` for EVERY
+			-- `Grip` unconditionally at create time, regardless of whether it
+			-- carries any pointer handlers at all, so an "inert" Grip still
+			-- costs a genuine extra Active (hit-testable) node — the comment
+			-- above (Task 10's own) claimed the caller "must not ALSO wire its
+			-- own competing Content Grip," which undersold what was actually
+			-- happening: the node itself still mounted, unwired, not "not
+			-- wired = doesn't exist." `externalGesture` means Table's own row
+			-- Hit (composed with reorder) is ALREADY the row's one pointer
+			-- surface — this Grip would never receive a single event even if it
+			-- did carry handlers — so it is now OMITTED entirely rather than
+			-- merely left unwired: one real Instance saved per wrapped,
+			-- reorderable Table row (proven by table.spec.luau's own "mounts NO
+			-- internal Content/Hit Grip" case).
+			local contentChildren: { any } = {}
+			if not externalGesture then
+				table.insert(
+					contentChildren,
+					-- Task 5: the drag hit surface. A `UI.Grip` — unfocusable by
+					-- default (never steals a Tab stop from whatever focusable
+					-- controls live inside `content`), exactly the "non-button
+					-- Active node" pointer.spec.luau exercises — sized to fill,
+					-- painted BEHIND `content` in the same array-order-is-
+					-- paint-order relationship table.luau's own row "Hit"
+					-- Button uses ahead of its "Cells" (table.luau
+					-- `rowBlueprint`): Roblox delivers InputBegan/Changed/Ended
+					-- to every Active GuiObject under the point independently
+					-- of paint order, so this background Grip still captures a
+					-- drag while a button INSIDE `content` still receives its
+					-- own tap, unaffected, when the row is not being dragged.
+					UI.Grip({
+						id = "Hit",
+						width = { type = "fill" },
+						height = { type = "fill" },
+						onPointerDown = pointerHandlers.onPointerDown,
+						onPointerMove = pointerHandlers.onPointerMove,
+						onPointerUp = pointerHandlers.onPointerUp,
+						onPointerCancel = pointerHandlers.onPointerCancel,
+					})
+				)
+			end
+			table.insert(contentChildren, content)
 			table.insert(
 				children,
-				UI.When({
-					id = "TrayLeadingWhen",
-					condition = revealed,
-					thenView = function()
-						return buildTray("leading", leadingActions :: { ActionSpec })
-					end,
-				})
-			)
-		end
-		if trailingActions ~= nil then
-			local revealed = scope:own(core:memo(function(use)
-				if use(openEdge) == "trailing" then
-					return true
-				end
-				return use(offset) < 0
-			end))
-			table.insert(
-				children,
-				UI.When({
-					id = "TrayTrailingWhen",
-					condition = revealed,
-					thenView = function()
-						return buildTray("trailing", trailingActions :: { ActionSpec })
-					end,
-				})
-			)
-		end
-
-		-- ===== Task 9: the edit-mode leading minus =============================
-		-- iOS pattern: while editing AND a destructive action exists somewhere,
-		-- a small circular button sits in a LEADING gutter; tapping it opens the
-		-- trailing tray (the destructive action is a second tap away, never
-		-- direct). `UI.When` keyed on `editAffordanceShown` — the identical
-		-- lazy-mount idiom the trays already use (Task 3's own header comment;
-		-- `table.luau:1079-1122`'s `EditWhen` is the cited precedent): zero
-		-- Instances while not editing, beyond the one permanent `Frame` a
-		-- mounted-but-closed `UI.When` always costs — paid only when
-		-- `hasEditAffordance`, i.e. only when a caller actually wires `editing`
-		-- on a row that has a destructive action. (The menu no longer shares
-		-- this cost — redteam item 2's fix moved it to its own presentModal
-		-- surface, which mounts and unmounts atomically with zero permanent
-		-- node on the row at all; see the big comment above `local function
-		-- openMenu`.)
-		--
-		-- PAINT ORDER: inserted BEFORE `Content` (array order = paint order,
-		-- later wins — the same relationship the leading/trailing trays already
-		-- have with `Content` below), so `Content` sitting on top during a live
-		-- trailing drag (see `contentOffsetX`'s own comment for why a trailing
-		-- reveal is deliberately NOT gutter-shifted) covers the minus exactly
-		-- when a trailing swipe is genuinely in progress — acceptable, since a
-		-- mid-swipe row is not a moment the minus needs to keep receiving taps.
-		--
-		-- DIAMETER: `shape = "circle"` + ONE authored axis (`width` only —
-		-- `blueprint.luau`'s own `assertShape` rejects both) makes a true 1:1
-		-- disc at the theme's `editAffordance` metric; the framework's OWN
-		-- Button contract (`src/controls/contract.luau`: `Button.minHitSize =
-		-- 44`) already floors the ENGINE HIT RECT at `targetSizes.minimum`
-		-- regardless of the painted size (`renderer.luau`'s `effectiveHitFloor`
-		-- — B-BTN3, "the VISUAL rect is deliberately untouched... declaring a
-		-- floor here is all a new control has to do") — the documented small-
-		-- target pattern this codebase already has (the reorder Grip's own
-		-- `minHitSize = 44` is the sibling precedent), so NOTHING extra is
-		-- authored here for the hit-target rule: a 28px disc already gets a
-		-- 44px+ tappable area for free, on every input class.
-		--
-		-- COLOUR (`danger` glyph, per the brief). `role = "destructive"` is the
-		-- one existing theme-token mechanism this control family has for
-		-- "danger" (the SAME mapping the header comment above already
-		-- establishes for a destructive tray button: "role = 'destructive'
-		-- maps straight to it... paints control/content pair"). It could NOT be
-		-- composed with `surface = "raised"` (surfaceStrong) to get a literal
-		-- "danger glyph ON a surfaceStrong plate" split: `src/tokens/
-		-- sheet_model.luau`'s own comment on the role rules is explicit — "role
-		-- owns the resting fill... sit after the base/surface/selected fills"
-		-- — so a `role = "destructive"` Button's BackgroundColor3 always wins
-		-- over a `surface = "raised"` on the SAME node, regardless of prop
-		-- order; the token vocabulary has no independent "content-only danger"
-		-- tint (Text's own `role` enum is `{ "secondary", "content" }`, no
-		-- `"danger"`; the chrome `ImageColor3` role tints — `$ChromeTintDanger`
-		-- — only reach IMAGE-driven skinned art layers, not the plain-glyph
-		-- fallback path this composite otherwise relies on). Adding that split
-		-- would mean a new sheet rule in a file this task does not touch.
-		-- `role = "destructive"` reuses the ALREADY-shipped, already-tested
-		-- mapping instead: a solid danger-filled disc with an onDanger minus,
-		-- visually consistent with the trailing tray's own destructive button
-		-- one tap away — the closer real-iOS match besides.
-		if hasEditAffordance then
-			local destructiveEntry = firstDestructiveEntry()
-			table.insert(
-				children,
-				UI.When({
-					id = "EditAffordanceWhen",
-					condition = editAffordanceShown,
-					thenView = function()
-						return UI.Button({
-							id = "EditAffordance",
-							anchor = "left",
-							shape = "circle",
-							role = "destructive",
-							icon = "decrement", -- the framework's own minus glyph (standard_icons)
-							-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
-							-- unfocusable, non-activating; this IS a Button, so it
-							-- needs one). `Button.label` is the framework's own
-							-- "required even when the button renders custom content...
-							-- stays the semantic name and is not drawn" seam
-							-- (blueprint_schema.luau) — the SAME icon-only-control
-							-- precedent `shape = "circle"` exists for. Reuses the
-							-- destructive action's own label (typically "Delete") so
-							-- the announced name matches exactly what a second tap
-							-- reaches.
-							label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
-							width = { type = "fixed", px = EDIT_AFFORDANCE },
-						})
-					end,
-				})
-			)
-		end
-
-		-- Content's rendered offsetX. Deliberately NOT the same signal `offset`
-		-- itself while `hasEditAffordance` — the header comment's own THE SLIDE
-		-- MECHANISM section is explicit that every seam (spring, drag, the
-		-- instant fallback) writes `offset` as the ONE bare reveal amount, and
-		-- every piece of gesture/decision math (`targetFor`, `currentDecision`,
-		-- `retarget`'s spring target, `settleTo`'s verdict) reads it back
-		-- expecting exactly that — folding a constant gutter bias straight into
-		-- `offset` would corrupt all of it. `contentOffsetX` is instead a
-		-- SEPARATE, paint-only derived value: `offset` for the gesture, plus
-		-- the live gutter, ADDED ONLY ON THE NON-NEGATIVE (resting/leading)
-		-- side. The trailing side is deliberately left untouched: `offset`'s
-		-- own topLeft-anchor shrink math (`solver.luau`'s `offsetFill`, "pushing
-		-- a child out past the very edge it is anchored to... is deliberate")
-		-- never gives back room for a NEGATIVE offset, so adding a positive
-		-- gutter bias there would permanently under-expose the trailing tray by
-		-- the gutter width for as long as it stayed open — a real geometry bug,
-		-- not a cosmetic one. Leaving the trailing side alone means a trailing
-		-- swipe/commit behaves BYTE IDENTICAL whether or not `editing` is true;
-		-- the one accepted cost is a single-frame `editGutterPx` pop exactly at
-		-- the instant a live drag crosses `offset == 0` from the leading side
-		-- into the trailing side while editing — a genuinely rare simultaneous
-		-- gesture (real iOS does not offer swipe-to-reveal and edit-mode at
-		-- once either), documented rather than engineered around.
-		local contentOffsetX = offset
-		if hasEditAffordance then
-			contentOffsetX = scope:own(core:memo(function(use)
-				local raw = use(offset)
-				if raw < 0 then
-					return raw
-				end
-				return raw + use(editGutterPx)
-			end))
-		end
-		-- REDTEAM FIX (item 15, LOW). This block used to ALWAYS mount the
-		-- hit-surface Grip below, even under `externalGesture = true`, with
-		-- every handler set to `nil` — a real Instance that does nothing:
-		-- `screen_target.luau` sets `instance.Active = true` for EVERY
-		-- `Grip` unconditionally at create time, regardless of whether it
-		-- carries any pointer handlers at all, so an "inert" Grip still
-		-- costs a genuine extra Active (hit-testable) node — the comment
-		-- above (Task 10's own) claimed the caller "must not ALSO wire its
-		-- own competing Content Grip," which undersold what was actually
-		-- happening: the node itself still mounted, unwired, not "not
-		-- wired = doesn't exist." `externalGesture` means Table's own row
-		-- Hit (composed with reorder) is ALREADY the row's one pointer
-		-- surface — this Grip would never receive a single event even if it
-		-- did carry handlers — so it is now OMITTED entirely rather than
-		-- merely left unwired: one real Instance saved per wrapped,
-		-- reorderable Table row (proven by table.spec.luau's own "mounts NO
-		-- internal Content/Hit Grip" case).
-		local contentChildren: { any } = {}
-		if not externalGesture then
-			table.insert(
-				contentChildren,
-				-- Task 5: the drag hit surface. A `UI.Grip` — unfocusable by
-				-- default (never steals a Tab stop from whatever focusable
-				-- controls live inside `content`), exactly the "non-button
-				-- Active node" pointer.spec.luau exercises — sized to fill,
-				-- painted BEHIND `content` in the same array-order-is-
-				-- paint-order relationship table.luau's own row "Hit"
-				-- Button uses ahead of its "Cells" (table.luau
-				-- `rowBlueprint`): Roblox delivers InputBegan/Changed/Ended
-				-- to every Active GuiObject under the point independently
-				-- of paint order, so this background Grip still captures a
-				-- drag while a button INSIDE `content` still receives its
-				-- own tap, unaffected, when the row is not being dragged.
-				UI.Grip({
-					id = "Hit",
+				UI.ZStack({
+					id = "Content",
+					anchor = "topLeft",
+					offsetX = contentOffsetX,
 					width = { type = "fill" },
 					height = { type = "fill" },
-					onPointerDown = pointerHandlers.onPointerDown,
-					onPointerMove = pointerHandlers.onPointerMove,
-					onPointerUp = pointerHandlers.onPointerUp,
-					onPointerCancel = pointerHandlers.onPointerCancel,
+					children = contentChildren,
 				})
 			)
+
+			-- REDTEAM FIX (item 2, BLOCKER): the action menu no longer builds a
+			-- node here at all — it moved to its own `presentModal` surface (see
+			-- the big comment above `local function openMenu`, further up this
+			-- function). No `menuAnchor`, nothing inserted into `children`: a row
+			-- with a menu now costs exactly the SAME instance count, open or
+			-- closed, as a row with none — an improvement over the old design's
+			-- "one permanent Instance while closed" cost (its own comment used
+			-- to price that in here), not merely a wash.
+
+			-- Task 5: `height` is the ONE new root prop this task adds — bound to
+			-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
+			-- when absent") for every row that never commits, byte-identical to
+			-- Tasks 3-4 (no `height` prop existed on the root before this task).
+			local heightPx = scope:own(core:memo(function(use)
+				local px = use(rowHeightOverride)
+				if px == nil then
+					return nil
+				end
+				return { type = "fixed", px = px }
+			end))
+			root = UI.Anchor({ id = id, width = spec.width, height = heightPx, children = children })
 		end
-		table.insert(contentChildren, content)
-		table.insert(
-			children,
-			UI.ZStack({
-				id = "Content",
-				anchor = "topLeft",
-				offsetX = contentOffsetX,
-				width = { type = "fill" },
-				height = { type = "fill" },
-				children = contentChildren,
-			})
-		)
-
-		-- REDTEAM FIX (item 2, BLOCKER): the action menu no longer builds a
-		-- node here at all — it moved to its own `presentModal` surface (see
-		-- the big comment above `local function openMenu`, further up this
-		-- function). No `menuAnchor`, nothing inserted into `children`: a row
-		-- with a menu now costs exactly the SAME instance count, open or
-		-- closed, as a row with none — an improvement over the old design's
-		-- "one permanent Instance while closed" cost (its own comment used
-		-- to price that in here), not merely a wash.
-
-		-- Task 5: `height` is the ONE new root prop this task adds — bound to
-		-- `rowHeightOverride`, which stays `nil` (BOX.height "content-sized
-		-- when absent") for every row that never commits, byte-identical to
-		-- Tasks 3-4 (no `height` prop existed on the root before this task).
-		local heightPx = scope:own(core:memo(function(use)
-			local px = use(rowHeightOverride)
-			if px == nil then
-				return nil
-			end
-			return { type = "fixed", px = px }
-		end))
-		local root = UI.Anchor({ id = id, width = spec.width, height = heightPx, children = children })
 
 		local idPattern = patternEscape(id)
+		-- Task 2 (hosted): the standalone form matches a SUFFIX keyed on this
+		-- composite's own node ids, deliberately not on the full path — it has
+		-- to answer before the first `syncGeometry` has taught this file its own
+		-- `rootPath` (an Activate can reach `_handleActivate` from a caller that
+		-- took over `opts.onActivate`, at any time). A hosted engine has no ids
+		-- of its own to key on, so it matches under the host's own tray path
+		-- from `pathsOf` — which, unlike `rootPath`, is known at build time.
 		local function actionIdFromPath(edge: Edge, path: string): string?
+			if hostedPaths ~= nil then
+				local trayPath = pathsOf(edge)
+				if trayPath == nil then
+					return nil
+				end
+				return string.match(path, `{patternEscape(trayPath)}/Action:(.+)$`)
+			end
 			local tid = trayId(edge)
 			return string.match(path, `/{idPattern}/{tid}When/then/{tid}/Action:(.+)$`)
 		end
@@ -2493,7 +2658,14 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			if controller == nil then
 				return -- no presenter (bare mount): the width props' own fallback stands
 			end
-			local tid = trayId(edge)
+			-- Task 2: the tray's own container path — this composite's lazily
+			-- mounted `UI.When` subtree in standalone mode, the host's shared
+			-- overlay in hosted mode. `nil` = the host declared no tray on this
+			-- edge, so there is nothing to measure.
+			local trayPath = pathsOf(edge)
+			if trayPath == nil then
+				return
+			end
 			local pad = buttonPadPx:get()
 			local minWidth = buttonMinWidthPx:get()
 			for _, action in actions do
@@ -2501,7 +2673,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				if sig == nil then
 					continue
 				end
-				local facts = controller.textAt(`{rootPath}/{tid}When/then/{tid}/Action:{action.id}`)
+				local facts = controller.textAt(`{trayPath}/Action:{action.id}`)
 				if facts == nil or type(facts.font) ~= "string" or type(facts.size) ~= "number" then
 					continue -- not yet measured this pass (e.g. the button just mounted)
 				end
@@ -2509,7 +2681,12 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 				sig:set(math.max(minWidth, measured.width + 2 * pad))
 			end
 		end
-		local function syncGeometry(_rectOf: (string) -> any, rootNode: any?)
+		-- Task 2: both arguments are optional now. The presenter always passes
+		-- both (a contribution's `syncGeometry(rectOf, rootNode)`); a HOST calls
+		-- `engine.syncGeometry()` bare from its own sync pass — it has no root
+		-- node of this control's to hand over, and `rootPath` was seeded from
+		-- `spec.paths.content` at build time rather than learned here.
+		local function syncGeometry(_rectOf: ((string) -> any)?, rootNode: any?)
 			if rootNode ~= nil then
 				local isFirstRootPath = rootPath == nil
 				rootPath = rootNode.path
@@ -2548,7 +2725,7 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- state is this composite's single source of truth for "who owns
 			-- `offset` right now" (comment above `DragState`): while ANY
 			-- gesture is in flight (`drag ~= nil` — pending, resolving, or
-			-- actively horizontal), the drag path through `applyOffset` is the
+			-- actively horizontal), the drag path through `applySlide` is the
 			-- ONLY writer, full stop; a natural-width change reactively re-fed
 			-- from `deriveNaturals` above still updates `leadingWidth`/
 			-- `trailingWidth` for whenever the NEXT ungated sync runs (right
@@ -2601,7 +2778,13 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 
-		blueprint = contribution.attach(root, {
+		-- THE PRESENTER HANDOFF BUNDLE (Task 2). Built once, used twice: in
+		-- standalone/Table mode it is handed to `contribution.attach` below and
+		-- the presenter discovers it by walking this control's own mounted node;
+		-- in hosted mode there IS no node to walk, so the host forwards the same
+		-- members from ITS OWN contribution through the engine api. One table,
+		-- so a seam can never be wired in one mode and forgotten in the other.
+		contributionFields = {
 			handleActivate = handleActivate,
 			syncGeometry = syncGeometry,
 			-- Task 4: the presenter hands over its motion clock the same way it
@@ -2676,7 +2859,62 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 			-- would trap focus inside THIS ONE ROW, unable to reach the very
 			-- next row in the list. A tray is not a modal; it must never
 			-- behave like one.
-		})
+		}
+
+		if not isHosted then
+			blueprint = contribution.attach(root, contributionFields)
+		end
+	end
+
+	-- ===== Task 2 (hosted): what a shared tray overlay needs =================
+	-- ONE Readable answering "which tray, if any, does the host have to be
+	-- showing right now, and how far is it revealed" — the whole interface
+	-- between this engine and the host's single per-list overlay (design doc
+	-- §4: one overlay for the list, never a tray per row, because the
+	-- coordinator's one-open policy means at most one row is ever engaged).
+	--
+	-- The edge answer is the SAME rule the standalone trays' own `revealed`
+	-- memos use (built above, inside the blueprint branch): `openEdge` names
+	-- it while open, and while a CLOSE flight is still live `openEdge` has
+	-- already gone nil but `offset` has not reached 0 yet — an overlay that
+	-- unmounted on `openEdge` alone would blink the tray away while the row
+	-- is still visibly sliding back over it. Not a duplicate rule so much as
+	-- the same one asked once for the pair rather than once per edge.
+	--
+	-- Built ONLY in hosted mode: a standalone/Table row would pay two live
+	-- reactive nodes for something nothing reads (its trays are declarative).
+	-- The returned table is one of two STATIC tables, so `trayState` changes
+	-- identity only when the edge itself changes — a host `UI.When`/memo over
+	-- it does not churn on every pixel of the drag; the pixels ride
+	-- `revealPx`, its own signal.
+	local trayState: any = nil
+	if isHosted then
+		local revealPx = scope:own(core:memo(function(use)
+			return math.abs(use(offset))
+		end))
+		local leadingState = if leadingActions ~= nil
+			then { edge = "leading" :: Edge, actions = leadingActions, revealPx = revealPx }
+			else nil
+		local trailingState = if trailingActions ~= nil
+			then { edge = "trailing" :: Edge, actions = trailingActions, revealPx = revealPx }
+			else nil
+		trayState = scope:own(core:memo(function(use)
+			local edge = use(openEdge)
+			if edge == nil then
+				local px = use(offset)
+				if px > 0 then
+					edge = "leading"
+				elseif px < 0 then
+					edge = "trailing"
+				end
+			end
+			if edge == "leading" then
+				return leadingState
+			elseif edge == "trailing" then
+				return trailingState
+			end
+			return nil
+		end))
 	end
 
 	api = {
@@ -2756,7 +2994,97 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		-- comment above.
 		_handleActivate = exposedHandleActivate,
 	}
+
+	-- ===== Task 2 (hosted): the host-facing surface =========================
+	-- Added only in hosted mode, so the standalone/Table api is byte-identical
+	-- to what every existing caller already holds. Three groups:
+	--   * `pointerHandlers`/`open`/`close`/`trayState` — the engine proper.
+	--     `pointerHandlers` is the SAME table `_pointerHandlers` exposes (the
+	--     `(path, pos, rectOf)` contract Table already composes through
+	--     `composeWithReorder`), under the undecorated name a host wires
+	--     straight onto its own row hit surface.
+	--   * the presenter handoffs (`bindMotion`/`bindController`/`bindPresent`/
+	--     `bindActionSystem`/`bindFocusGraph`) and `syncGeometry` — the exact
+	--     members `contributionFields` carries, which a mounted control gets
+	--     from the presenter's own contribution walk and a hosted engine gets
+	--     by the host forwarding them from ITS contribution. `bindMotion` is
+	--     not optional in practice: the gesture's velocity tracker asserts a
+	--     bound `now` (`currentNow`).
+	--   * `handleCancel`/`_handleActivate` — the host offers Cancel and routes
+	--     an Activate landing inside its own tray overlay back in here.
+	-- `_close`/`_closeMenu` come from the shared api above and are what the
+	-- COORDINATOR calls on a row it claims away, so a hosted engine is a
+	-- first-class coordinator citizen with no adapter of any kind.
+	if isHosted then
+		api.pointerHandlers = pointerHandlers
+		api.open = open
+		api.close = close
+		api.trayState = trayState
+		api.syncGeometry = contributionFields.syncGeometry
+		api.bindMotion = contributionFields.bindMotion
+		api.bindController = contributionFields.bindController
+		api.bindPresent = contributionFields.bindPresent
+		api.bindActionSystem = contributionFields.bindActionSystem
+		api.bindFocusGraph = contributionFields.bindFocusGraph
+		api.handleCancel = contributionFields.handleCancel
+	end
 	return api
+end
+
+-- THE STANDALONE/TABLE ENTRY POINT — `LuauUI.newRowActions`. Unchanged
+-- behavior: the whole composite, blueprint and all.
+function row_actions.build(LuauUI: any, core: any, spec: Spec)
+	specGuard.assertKnownKeys("newRowActions", spec, ROW_ACTIONS_KEYS, "spec")
+	return buildEngine(LuauUI, core, spec, nil)
+end
+
+-- THE HOSTED ENTRY POINT (Task 2) — engine only, NO blueprint. Internal, not
+-- public API: `newVirtualList`'s own `rowActions` spec key (Task 3) is what a
+-- caller reaches, exactly as Table already owns its own row-actions wiring.
+-- See the HOSTED MODE comment at the top of this file for the contract, and
+-- docs/plans/row-actions-hosted-mode-design.md for why the host owns the
+-- nodes.
+function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): any
+	specGuard.assertKnownKeys("newRowActionsHosted", spec, HOSTED_KEYS, "spec")
+	local id = spec.id or "RowActions"
+	local paths: any = spec.paths
+	if type(paths) ~= "table" then
+		error(
+			`LuauUI newRowActionsHosted('{id}'): \`paths\` is required — a hosted engine mounts nothing of its `
+				.. "own, so the host must name the nodes it reads live rects and text facts from",
+			0
+		)
+	end
+	specGuard.assertKnownKeys("newRowActionsHosted", paths, HOSTED_PATH_KEYS, "spec.paths")
+	if type(paths.content) ~= "string" or paths.content == "" then
+		error(`LuauUI newRowActionsHosted('{id}'): \`paths.content\` must be the host's own row path (a string)`, 0)
+	end
+	if type(spec.onSlide) ~= "function" then
+		error(
+			`LuauUI newRowActionsHosted('{id}'): \`onSlide\` must be a function — the host paints the slide `
+				.. "(this engine owns no node to paint)",
+			0
+		)
+	end
+	if spec.onCommitHeight ~= nil and type(spec.onCommitHeight) ~= "function" then
+		error(`LuauUI newRowActionsHosted('{id}'): \`onCommitHeight\` must be a function, or nil`, 0)
+	end
+	-- REFUSED, not silently degraded: a hosted engine with nothing to reveal on
+	-- either edge is a host that built a row engine it never needed. The
+	-- standalone "inert passthrough" answer (return `content` unwrapped) has no
+	-- meaning here — there is no content to hand back.
+	if spec.leading == nil and spec.trailing == nil then
+		error(
+			`LuauUI newRowActionsHosted('{id}'): a hosted engine needs actions on at least one edge — build no `
+				.. "engine at all for a row with none",
+			0
+		)
+	end
+	return buildEngine(LuauUI, core, spec, {
+		paths = paths,
+		onSlide = spec.onSlide,
+		onCommitHeight = spec.onCommitHeight,
+	})
 end
 
 -- ===== Task 10: reorder composition (Table integration) ====================

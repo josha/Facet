@@ -240,6 +240,10 @@ require("./row_actions_state.spec")
 require("./row_actions.spec")
 -- row actions: the mouse gesture (axis lock, live drag, flick velocity, full-swipe commit)
 require("./row_actions_input.spec")
+-- row actions: HOSTED mode (perf mission Task 2) — `buildHosted`, the same
+-- engine with no blueprint at all: the host owns the hit surface, paints the
+-- slide, drives the collapse and builds one shared tray overlay from trayState
+require("./row_actions_hosted.spec")
 -- row actions: the mail-style gallery scenario (Task 11) — builds/mounts clean,
 -- every scripted step drivable, both surfaces' actions proven end to end
 require("./row_actions_scenario.spec")
