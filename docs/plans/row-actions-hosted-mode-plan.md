@@ -107,7 +107,7 @@ Mechanics:
 
 **Interfaces:** consumes everything above; produces the shipping proof the charter requires.
 
-- [ ] **Step 1 (parity):** Port the SEMANTICS (not paths) of the core standalone suite to hosted mode: leading & trailing reveal, open threshold vs snap-back, fullSwipe commit, irrevocable commit (sibling claim + scroll + outside tap during commit — mirror the three Task-1 tests), one-open across rows, keyboard Delete on focused Hit, `fullSwipe = false` variant, and focus TRAVERSAL into a revealed tray (Tab/D-pad must reach the tray buttons — Task 4 review flagged hosted tray buttons as outside the list's focus group; fix or get an explicit ruling, don't drop it). Each as its own `it(...)`.
+- [ ] **Step 1 (parity):** Port the SEMANTICS (not paths) of the core standalone suite to hosted mode: leading & trailing reveal, open threshold vs snap-back, fullSwipe commit, irrevocable commit (sibling claim + scroll + outside tap during commit — mirror the three Task-1 tests), one-open across rows, keyboard Delete on focused Hit, `fullSwipe = false` variant, focus TRAVERSAL into a revealed tray (Tab/D-pad must reach the tray buttons — Task 4 review flagged hosted tray buttons as outside the list's focus group; fix or get an explicit ruling, don't drop it), and the ACTIVATE-SEAM close (Task 4 re-review K1: keyboard Return / bare Activate on ANOTHER row leaves the open tray up because handleActivate has no dismiss block and the presenter's outside-dismiss sees the whole list as one contribution — mirror the dispatcher's close block into handleActivate after the tray-button branch and keyOfHit, skipping key == engagedKey; hosted-only, standalone/Table are per-row contributions and immune). Each as its own `it(...)`.
 - [ ] **Step 2 (identity):** Differential proof (incremental-layout precedent): build plain list world A and `rowActions` list world B with identical items; assert `adapter.paths()` of B == A ∪ {overlay When node} and every shared path's node class/rect identical; then engage+disengage a row in B and re-assert (tree returns to closed shape, zero leaks — engine count may stay 1, instances must not).
 - [ ] **Step 3:** Suite green; update the row-actions gate's suite-check names if any new named ✓ lines are worth pinning (`tools/lune/gate_manifest.luau:2990-2995` pattern). stylua; commit `test(virtual-list): hosted parity + mount-identity differential proof`.
 
@@ -159,3 +159,9 @@ Mechanics (design §Measured floors):
 
 - Tasks 1 and 10 are independent of 2-9. Tasks 2→3→4→5 are strictly ordered. 6 after 4. 7 after 4 (needs hosted mode). 8 after 7. 9 last.
 - Suite floor bookkeeping: after each task that adds tests, bump the `tools/test.sh` floor argument you verify with to the new pass count; Task 9 updates the gate manifest floor (`tools/lune/gate_manifest.luau:3019`) to the final count.
+
+## Device-pass riders (carried — headless cannot answer these; goes in the mission handback)
+
+1. Overlay input transparency: the bare Anchor overlay must not eat touches meant for rows/scroll on the live adapter (Task 4).
+2. The row's hit rect must follow the row under its live presentation transform (engine hit-testing vs slid content) (Task 4).
+3. Empty-canvas tap-to-close: iOS closes an open tray on a tap below the last row; hosted mode currently doesn't. Both candidate fixes are priced at the dismiss site in virtual_list.luau (permanent Grip = +1 instance/list; Canvas Instance.Active risks eating native scroll) — the device pass decides (Task 4 F2).
