@@ -227,6 +227,29 @@ local HOSTED_TRAY_GROUP_ID = "RowActionsTray"
 -- table per recompute would dirty the keyed region for no change at all.
 local HOSTED_NO_OVERLAY: { any } = {}
 
+--[[ EVERY FOCUSABLE BUTTON UNDER THE OVERLAY, in document order — the revealed
+	tray's actions, for the focus group `buildFocusGroups` contributes. The
+	eligibility rules are `focus_map.luau`'s own (`FOCUSABLE`, `focusable = false`,
+	`enabled = false`, a retiring subtree), restricted to the one class a tray can
+	contain: a tray action IS a `UI.Button` in both modes (row_actions' own
+	`buildTray`). Module scope, not per-instance: it is a pure function of its
+	arguments. ]]
+local function collectTrayFocusables(node: any, out: { string })
+	if node.retiring == true then
+		return
+	end
+	local props = node.props
+	if node.class == "Button" then
+		if not (props ~= nil and (props.focusable == false or props.enabled == false)) then
+			table.insert(out, node.path)
+		end
+		return
+	end
+	for _, child in node.children or {} do
+		collectTrayFocusables(child, out)
+	end
+end
+
 -- the closed key set for whatever `spec.rowActions(item)` returns for ONE row —
 -- exactly the three fields `newRowActions` exposes besides the ones this control
 -- supplies itself (`paths`/`coordinator`/`onSlide`/`onCommitHeight`/`id`).
@@ -1840,6 +1863,34 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if key == nil then
 			return false
 		end
+		if hostedEnabled then
+			--[[ THE ACTIVATE HALF OF THE IN-LIST DISMISS (Task 4 re-review, K1 —
+				the same gap the POINTER seam was fixed for in round 1, found again
+				one seam over). A keyboard Return or a gamepad ButtonA on ANOTHER row
+				arrives here and NOWHERE else: it produces no pointer-down, so the
+				shared dispatcher's own close block never runs, and the presenter's
+				outside-dismiss cannot see it either because every row is inside the
+				ONE list contribution (Table and standalone rows are per-row
+				contributions and are immune by construction). The open tray simply
+				stayed up while the player operated a different row.
+
+				Placed directly under `keyOfHit` for the same reason the pointer half
+				sits above both declines: "is this Activate on a row of this list" is
+				the only precondition a dismiss has. Above the armed/suppress branches
+				so it holds however this particular Activate is then dispatched.
+
+				The ENGAGED row is skipped: an Activate on the open row's own hit is
+				already answered by the pointer seam's `suppressActivatePath` (tap =
+				close and nothing else), and closing here would take that verdict away
+				from the seam that owns it. ]]
+			local engaged = engagedKey:get()
+			if engaged ~= nil and engaged ~= key then
+				local other = hostedEngines[engaged]
+				if other ~= nil then
+					other.close()
+				end
+			end
+		end
 		local reg = registry()
 		-- ARMED: this Activate is the COMMIT half of arm→navigate→commit, and it
 		-- goes through the same session's drop — legal commits, illegal rejects,
@@ -2002,7 +2053,25 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			hostedNoticeMount()
 		end
 		local order: { any } = {}
+		--[[ THE REVEALED TRAY'S BUTTONS, collected on the way past the overlay
+			(Task 5 parity; Task 4 carried item 1). A CONTRIBUTION OWNS ITS SUBTREE'S
+			FOCUS: `focus_map.autoGroups` emits this control's groups and does NOT
+			descend into it, so a focusable this function never names is unreachable
+			by Tab AND by the d-pad. Standalone and Table rows get their trays into
+			the map for free — nobody contributes for them, so the presenter's own
+			document walk finds the buttons — but a hosted tray lives inside the
+			LIST's contribution, and until now the list named only row hits. A player
+			could swipe a row open with a finger and then have no keyboard or gamepad
+			way to reach the action they revealed. ]]
+		local hostedTrayOrder: { string } = {}
+		local hostedOverlayPath: string? = if hostedEnabled and mountedScrollPath ~= nil
+			then `{mountedScrollPath}/Canvas/{HOSTED_OVERLAY_ID}`
+			else nil
 		local function walk(node: any)
+			if hostedOverlayPath ~= nil and node.path == hostedOverlayPath then
+				collectTrayFocusables(node, hostedTrayOrder)
+				return -- the overlay holds no row hits; its buttons are collected
+			end
 			if node.path ~= nil and string.match(node.path, hitPattern) ~= nil then
 				local rowPath = node.path
 				if spec.rowFocusable ~= nil then
@@ -2036,6 +2105,38 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			end
 		end
 		walk(rootNode)
+		--[[ ...and they join the ONE group this list contributes, directly AFTER
+			the engaged row's own hit. That position is the whole point: the d-pad
+			player is on the row they just opened, and Down steps into its first
+			action and Up comes back — which is the traversal a per-row tray gives
+			standalone by document adjacency. (Tab reads the presenter's own
+			document-order RANK instead, so a tray still TABS at its document
+			position — after the windowed rows, because the overlay is a sibling of
+			the rows region rather than a child of the row. That difference is
+			structural to hosting one shared overlay and is documented as such.)
+			Only the REVEALED tray exists in the tree at all — the engine's own
+			reveal `When`s mount it — so a list with every row closed names exactly
+			the row hits it always did, and this whole block costs one nil compare.
+			An engaged row that is NOT in the window (its tray still mounts: the
+			overlay is keyed on the engagement, not on the window) has no hit to
+			anchor to, and the buttons go at the end rather than nowhere. ]]
+		if #hostedTrayOrder > 0 then
+			local engaged = engagedKey:get()
+			local anchor = if engaged ~= nil then hitPathOf(engaged) else nil
+			local at = #order
+			if anchor ~= nil then
+				for index, entry in order do
+					local entryPath = if type(entry) == "table" then entry.id else entry
+					if entryPath == anchor then
+						at = index
+						break
+					end
+				end
+			end
+			for offset, path in hostedTrayOrder do
+				table.insert(order, at + offset, path)
+			end
+		end
 		if #order == 0 then
 			return {}
 		end

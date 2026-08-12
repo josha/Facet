@@ -118,11 +118,18 @@ local function world(opts: any?): any
 	local system = LuauUI.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
-	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+	-- KEYBOARD NAVIGATION IS OPT-IN at the presenter (director playtest
+	-- 2026-08-03), so only the Tab case asks for it — everything else drives the
+	-- arrows/d-pad, which every surface answers.
+	local presenterOpts: any = {
 		now = function()
 			return clockTime
 		end,
-	})
+	}
+	if options.keyboardNavigation ~= nil then
+		presenterOpts.keyboardNavigation = options.keyboardNavigation
+	end
+	local pres = LuauUI.newPresenter(core, env, adapter, system, presenterOpts)
 	local rows = core:signal(makeRows(options.count or 100))
 	local activations: { string } = {}
 	local spec: any = {
@@ -188,6 +195,7 @@ local function world(opts: any?): any
 		env = env,
 		viewportHeight = viewportHeight,
 		adapter = adapter,
+		system = system,
 		pres = pres,
 		list = list,
 		rows = rows,
@@ -238,6 +246,40 @@ local function world(opts: any?): any
 		w.tick(FRAME)
 		adapter.pointerMove(originX - dx, y)
 		w.tick(FRAME)
+		lastPos = { x = originX - dx, y = y }
+	end
+	--[[ THE SAME SWIPE, RIGHTWARD: the LEADING edge's gesture. Starts near the
+		row's left edge so a full-width drag has somewhere to go, and every sign is
+		mirrored — a positive `engagedOffset` is a leading reveal. ]]
+	function w.dragRight(key: string, dx: number, pointerType: string?)
+		local hit = rowHit(key)
+		local rect = adapter.node(hit).rect
+		local originX = rect.x + 20
+		local y = rect.y + rect.h / 2
+		adapter.pointerDown(hit, originX, y, pointerType or "mouse")
+		w.tick(FRAME)
+		adapter.pointerMove(originX + (LOCK + 2), y)
+		w.tick(FRAME)
+		adapter.pointerMove(originX + dx, y)
+		w.tick(FRAME)
+		lastPos = { x = originX + dx, y = y }
+	end
+	--[[ A SWIPE WITH NO FLICK IN IT — the idiom the standalone suite's own
+		threshold cases use (tests/row_actions_input.spec.luau, "release under
+		half-tray snaps closed"): cross the axis lock in ONE move and then hold
+		still for a whole second, so the velocity tracker has decayed to ~0 by the
+		release and the settle verdict is the OFFSET's alone. `dragLeft`'s
+		three-move shape ends on a 20px-per-frame move, which projects a flick and
+		would open a row the test meant to snap back. ]]
+	function w.dragLeftNoFlick(key: string, dx: number)
+		local hit = rowHit(key)
+		local rect = adapter.node(hit).rect
+		local originX = rect.x + rect.w - 20
+		local y = rect.y + rect.h / 2
+		adapter.pointerDown(hit, originX, y, "mouse")
+		w.tick(0.01)
+		adapter.pointerMove(originX - dx, y) -- one move, past the lock
+		w.tick(1.0)
 		lastPos = { x = originX - dx, y = y }
 	end
 	-- a VERTICAL pan/fling that happens to begin on a row — what a phone user
@@ -1255,5 +1297,533 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(#w.adapter.paths()).toBe(closed)
 		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
 		expect(w.debug().engagedKey).toBeNil()
+	end)
+end)
+
+-- =============================================================================
+--[[ TASK 5 — BEHAVIOR PARITY WITH THE STANDALONE SUITE, and the seam fixes the
+	parity sweep found. Hosted mode reuses the SHARED engine (`buildHosted`), so
+	these cases are not re-tests of `row_actions_state`'s arithmetic: they prove
+	the semantics survive the HOST — the shared dispatcher, the one overlay, the
+	presentation slide and the list's own Activate/focus contribution — because
+	every one of those is a place a verdict can be lost on the way to the player.
+
+	WHAT IS ALREADY PROVEN ABOVE, and is therefore not restated here (the parity
+	list's own items, audited case by case):
+	  * fullSwipe commit end-to-end — (t), with the destructive collapse in (s),
+	    the double-commit guard in (l) and the return flight in (y);
+	  * the one-open policy mid-gesture — (b2)/(x);
+	  * outside-tap and in-list dismissal — (v1), (v2), (v2b), (v2c), (v3);
+	  * scroll-close — (e).
+
+	WHAT THIS BLOCK ADDS: both edges, the open/snap-back threshold with no flick
+	in the gesture, `fullSwipe = false`, the three irrevocable-commit probes
+	against the HOST's own close paths, the settled one-open handoff, keyboard
+	Delete (with its lazy-engine gap named), focus TRAVERSAL into a revealed tray
+	(the fix in `buildFocusGroups`), and the ACTIVATE-SEAM close (the fix in
+	`handleActivate`). ]]
+describe("VirtualList rowActions (Task 5): behavior parity", function()
+	-- a row with BOTH edges declared, and a destructive `role` on request
+	local function bothEdges(fired: { string }, role: string?): (item: any) -> any
+		return function(item: any): any
+			return {
+				leading = {
+					{
+						id = "flag",
+						label = "Flag",
+						onAction = function()
+							table.insert(fired, `flag:{item.id}`)
+						end,
+					},
+				},
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = role,
+						onAction = function()
+							table.insert(fired, item.id)
+						end,
+					},
+				},
+			}
+		end
+	end
+
+	local function destructiveActions(fired: { string }): (item: any) -> any
+		return function(item: any): any
+			return {
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, item.id)
+						end,
+					},
+				},
+			}
+		end
+	end
+
+	it("(P1) both edges reveal: a leftward swipe opens the TRAILING tray, a rightward one the LEADING", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		-- TRAILING: the row slides left, and only the trailing tray mounts
+		w.dragLeft("r2", 60)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.list.engagedOffset:get() < 0).toBe(true)
+		expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
+		expect(w.adapter.node(tray("r2", "leading"))).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(-expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete"))
+		w.close()
+
+		-- LEADING: the same row, the other direction — mirrored sign, and the
+		-- tray that mounts is the other one
+		w.dragRight("r2", 60)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.list.engagedOffset:get() > 0).toBe(true)
+		expect(w.adapter.node(trayAction("r2", "leading", "flag"))).never().toBeNil()
+		expect(w.adapter.node(tray("r2", "trailing"))).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(expectedTrayWidth(w, trayAction("r2", "leading", "flag"), "Flag"))
+		-- the leading tray is anchored at the row's LEFT edge, where it was revealed
+		expect(w.adapter.node(trayAction("r2", "leading", "flag")).rect.x).toBe(0)
+		-- ...and the leading action is the one that fires
+		w.adapter.tap(trayAction("r2", "leading", "flag"))
+		w.settle()
+		expect(fired).toEqual({ "flag:r2" })
+	end)
+
+	it("(P2) the OPEN THRESHOLD: a release past half the tray width settles open, under it snaps back", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		-- learn the tray width from the framework's own oracle, so the two drags
+		-- below straddle a number this test never guessed
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local trayWidth = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+		w.close()
+
+		-- UNDER half, with no flick in the gesture: back to closed, tray gone
+		local short = trayWidth * 0.4
+		expect(short > LOCK).toBe(true) -- still a real horizontal gesture
+		w.dragLeftNoFlick("r2", short)
+		expect(w.list.engagedOffset:get()).toBeCloseTo(-short, 0.001) -- it tracked the finger...
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil() -- ...and then snapped back
+		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+
+		-- PAST half, same shape of gesture: settles open at the measured width
+		w.dragLeftNoFlick("r2", trayWidth * 0.7)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+	end)
+
+	it("(P2b) REGRESSION: every later short swipe on the SAME row also snaps back (the reused spring)", function()
+		--[[ FOUND BY THIS PARITY SWEEP, and it was in the SHARED engine — so
+			standalone rows and Table's own rows had it too (reproduced there
+			before the fix: three short swipes left a standalone row at 0, -20,
+			-40). A live drag drives `offset` directly after stopping the
+			persistent spring, and `ensureSpring` seeds a spring only when it
+			CREATES one — so from the second gesture onward the spring stood where
+			the last flight left it. A snap-back aims it at 0, which is exactly
+			where it already was: no steps, no writes, and the row stayed parked at
+			the drag's last offset with `engagedKey` still set and no tray to close
+			it. Fixed by re-seeding at the drag's end (`spring:snap(offset:get())`,
+			src/controls/row_actions.luau), mirroring the collapse spring's own
+			re-seed.
+
+			The FIRST swipe was always correct, which is why the whole suite was
+			green: every existing case swipes a fresh row once. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local trayWidth: number? = nil
+		for _ = 1, 3 do
+			w.dragLeftNoFlick("r2", 30) -- a real gesture, under the open threshold
+			expect(w.list.engagedOffset:get()).toBeCloseTo(-30, 0.001)
+			w.release()
+			w.settle()
+			-- ...back to rest, EVERY time — never 30px further out than last time
+			expect(w.list.engagedOffset:get()).toBe(0)
+			expect(w.debug().engagedKey).toBeNil()
+			expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+			expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		end
+		-- and the row still OPENS normally afterwards (the re-seed did not cost
+		-- the spring its aim)
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		trayWidth = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-(trayWidth :: number))
+		expect(#fired).toBe(0)
+	end)
+
+	it("(P2c) REGRESSION: an INTERRUPTED drag on a re-used row springs back too", function()
+		--[[ The other end a manual drag can have: the engine cancels the capture
+			(the Roblox menu opening — `adapter.interruptCapture` is that seam), and
+			row_actions answers a horizontal cancel with `close()`. That close
+			retargets the same persistent spring, so it had the same stale-seed hole
+			as the release path and is re-seeded at the same moment. Proven on a row
+			that has ALREADY been opened and closed once, because that is what parks
+			the spring at 0 in the first place. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		w.close()
+		expect(w.list.engagedOffset:get()).toBe(0)
+
+		w.dragLeftNoFlick("r2", 30)
+		expect(w.list.engagedOffset:get()).toBeCloseTo(-30, 0.001)
+		w.adapter.interruptCapture()
+		w.settle()
+		expect(w.list.engagedOffset:get()).toBe(0) -- not left parked at -30
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		expect(#fired).toBe(0)
+	end)
+
+	it("(P3) fullSwipe = false: a full swipe past the commit threshold refuses to commit and settles OPEN", function()
+		--[[ The standalone mirror is "fullSwipe = { trailing = false } refuses to
+			commit on trailing". Hosted mode passes `fullSwipe` straight through to
+			the shared engine, so what this proves is the HANDOFF: the spec field
+			survives `rowActions(item)` -> `buildHosted`, and the row that would
+			have committed is left open with its action unfired. ]]
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				return {
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							role = "destructive",
+							onAction = function()
+								table.insert(fired, item.id)
+							end,
+						},
+					},
+					fullSwipe = { trailing = false },
+				}
+			end,
+		})
+		local rect = w.adapter.node(rowHit("r2")).rect
+		w.dragLeft("r2", rect.w * 0.75) -- past 60% of the row: a commit gesture
+		w.release()
+		w.settle(400)
+		expect(fired).toEqual({}) -- NOT committed
+		expect(w.debug().engagedKey).toBe("r2") -- left open instead
+		expect(w.list.engagedOffset:get()).toBe(-expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete"))
+		-- ...and the row never collapsed on the way (a commit's own signature)
+		expect(w.adapter.node(rowPath("r2")).rect.h).toBe(40)
+		-- the action is still reachable the ordinary way (a destructive tap runs
+		-- the whole slide-off/collapse ladder before it fires — case (s)'s length)
+		w.adapter.tap(trayAction("r2", "trailing", "delete"))
+		w.settle(400)
+		expect(fired).toEqual({ "r2" })
+	end)
+
+	--[[ (P4)/(P5)/(P6) THE IRREVOCABLE COMMIT, through the HOST's own close paths.
+		A destructive commit in flight owns the row: `close()` is a no-op until it
+		lands (row_actions' redteam item 1, mirrored by the three standalone cases
+		in "RowActions final fix wave (redteam item 1, BLOCKER)"). Hosted mode
+		matters here because it has THREE close callers the composite does not —
+		the shared dispatcher's press-on-another-row, the coordinator shim over
+		`scrollTop`, and the list's own `outsideDismiss` — and each one reaches the
+		engine by a different route. A route that cancelled a commit would eat a
+		delete the player already committed to. ]]
+	local function commitInFlight(w: any, key: string): number
+		local rect = w.adapter.node(rowHit(key)).rect
+		w.dragLeft(key, rect.w * 0.75)
+		w.release()
+		-- run a few frames: far enough that the slide-off has started, early
+		-- enough that the action has NOT fired yet — the window under test
+		for _ = 1, 6 do
+			w.tick(FRAME)
+		end
+		return rect.w
+	end
+
+	it("(P4) a sibling row starting a gesture during a commit: the commit still fires exactly once", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		local rowWidth = commitInFlight(w, "r2")
+		expect(fired).toEqual({}) -- mid-flight, before the fire
+		expect(w.list.engagedOffset:get() < -rowWidth * 0.6).toBe(true)
+		-- r4 presses: the dispatcher asks r2's engine to close (the in-list
+		-- dismiss) AND the coordinator claim moves — neither may cancel r2
+		w.dragLeft("r4", 80)
+		expect(fired).toEqual({})
+		w.release()
+		w.settle(400)
+		expect(fired).toEqual({ "r2" }) -- completed, exactly once
+		expect(w.adapter.node(rowPath("r2")).rect.h).toBe(40) -- and recovered
+	end)
+
+	it("(P5) a scroll during a commit: the commit still fires exactly once", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		commitInFlight(w, "r2")
+		expect(fired).toEqual({})
+		-- the coordinator's own scroll-close (case (e)'s mechanism) arrives
+		-- mid-commit
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 25 })
+		w.pres.refresh()
+		expect(fired).toEqual({})
+		w.settle(400)
+		expect(fired).toEqual({ "r2" })
+		expect(w.debug().engagedKey).toBeNil()
+	end)
+
+	it("(P6) an outside tap during a commit: the commit fires once and the tapped control still activates", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired), sibling = true })
+		commitInFlight(w, "r2")
+		expect(fired).toEqual({})
+		-- the list's own `outsideDismiss.dismiss` (== the engaged engine's close)
+		-- fires here, and must be a no-op while committing — while the round-7
+		-- no-swallow rule still delivers the tap
+		w.adapter.tap("/S/Outside")
+		w.pres.refresh()
+		expect(fired).toEqual({})
+		expect(w.activations).toEqual({ "outside" })
+		w.settle(400)
+		expect(fired).toEqual({ "r2" })
+	end)
+
+	it("(P7) one open at a time: a SETTLED open row closes when another row settles open", function()
+		--[[ (b2)/(x) prove the handoff while the second gesture is still LIVE. The
+			settled pair is the state a player actually leaves the list in, and it
+			is the one that can strand a tray: both rows have engines, both have
+			been released, and only one may be open. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local trayWidth = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+
+		w.dragLeft("r4", 80)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r4")
+		expect(w.debug().engineCount).toBe(2) -- both rows kept their engines...
+		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+		-- ...and r2 is closed: no tray, no slide, and its own content is flat
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		expect(w.adapter.node(trayGroup("r4"))).never().toBeNil()
+		-- and back again: r2 re-opens, r4 closes — the policy holds both ways
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.adapter.node(trayGroup("r4"))).toBeNil()
+		expect(#fired).toBe(0) -- nothing fired through any of it
+	end)
+
+	it("(P8) keyboard Delete on the focused row hit fires its first destructive action", function()
+		--[[ The standalone mirror is "Delete on a focused row fires the first
+			destructive action" (Task 8). The engine binds that key context itself,
+			scoped to focus being inside the row — and `pathInsideRow` already
+			accepts the host's tray paths (Task 2, finding 2). What hosted mode adds
+			is the RELAY: a node-less engine can only be handed the action system and
+			the focus graph by the LIST's contribution, and only ever at build. If
+			either handoff were dropped, this key would be dead. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		-- the row's engine exists (see (P8b) for why that is a precondition):
+		-- swipe r1 and put it away again
+		w.dragLeft("r1", 80)
+		w.release()
+		w.settle()
+		w.close()
+		expect(w.debug().engagedKey).toBeNil()
+		-- focus sits on the first row's hit (the presenter's own initial focus)
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(400)
+		expect(fired).toEqual({ "r1" })
+		expect(w.activations).toEqual({}) -- Delete is not an activate
+		-- and it does not fire twice for one press
+		w.settle(200)
+		expect(fired).toEqual({ "r1" })
+	end)
+
+	it("(P8b) KNOWN GAP: Delete on a row NOBODY has swiped does nothing (hosted engines are lazy)", function()
+		--[[ Recorded rather than asserted away. The Delete key context belongs to
+			the ENGINE, and a hosted engine is built on the first pointer gesture
+			that resolves horizontal — so a row a keyboard-only player has merely
+			focused has no engine and therefore no Delete binding. Standalone/Table
+			rows have a composite each, always, so they have never had this gap.
+
+			Closing it means building an engine when focus ARRIVES on a row, which
+			is a real behavior change (a d-pad held down the list would build one
+			engine per row it passes through) and belongs to the docs/device task
+			with a measurement behind it — see the Task 5 report. This case pins
+			today's answer so the change is visible when it happens. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.debug().engineCount).toBe(0)
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(200)
+		expect(fired).toEqual({}) -- TODAY'S BEHAVIOR, not the wanted one
+		expect(w.debug().engineCount).toBe(0)
+	end)
+
+	it("(P9) focus TRAVERSAL: the d-pad reaches the revealed tray's button, and Activate fires it", function()
+		--[[ THE FIX (Task 4 carried item 1). A contribution OWNS its subtree's
+			focus — `focus_map.autoGroups` emits this control's groups and does not
+			descend — so a focusable the list never names is unreachable by every
+			non-pointer input there is. The tray buttons under the shared overlay
+			were exactly that: a player could swipe a row open with a finger and
+			then have no way to press the action they had just revealed.
+
+			`buildFocusGroups` now names the REVEALED tray's buttons, positioned
+			directly after the engaged row's own hit — so Down from the row the
+			player just opened lands on its first action. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local action = trayAction("r2", "trailing", "delete")
+		-- CLOSED, the group names row hits and nothing else
+		local closedOrder = w.handle.focusOrder().navigation[1].order
+		for _, entry in closedOrder do
+			expect(string.find(tostring(entry), "RowActionsOverlay", 1, true)).toBeNil()
+		end
+
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		-- OPEN: the button is in the group, immediately after r2's hit
+		local order = w.handle.focusOrder().navigation[1].order
+		local at: number? = nil
+		for index, entry in order do
+			if entry == rowHit("r2") then
+				at = index
+			end
+		end
+		expect(at).never().toBeNil()
+		expect(order[(at :: number) + 1]).toBe(action)
+
+		-- ...and the d-pad walks it: r1 (initial focus) -> r2 -> its Delete
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		expect(w.pres.focus.focused:get()).toBe(action)
+		expect(w.adapter.node(action).focused).toBe(true) -- and the ring is painted
+		-- ButtonA on it fires the action, exactly as a tap does — and closes the row
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		w.settle()
+		expect(fired).toEqual({ "r2" })
+		expect(w.activations).toEqual({}) -- never the row's own activate
+		expect(w.debug().engagedKey).toBeNil()
+		-- the tray is gone, so the group is back to row hits only
+		local afterOrder = w.handle.focusOrder().navigation[1].order
+		for _, entry in afterOrder do
+			expect(string.find(tostring(entry), "RowActionsOverlay", 1, true)).toBeNil()
+		end
+	end)
+
+	it("(P9b) Tab reaches the revealed tray button too (the presenter's document-order rank)", function()
+		--[[ The d-pad walks the GROUP; Tab walks the presenter's RANK, which is
+			document order (traversal-document-order, 2026-08-03). The overlay is a
+			sibling of the rows region rather than a child of the row, so a hosted
+			tray tabs AFTER the windowed rows rather than beside its own row — a
+			structural consequence of hosting ONE shared overlay, named here so the
+			difference from standalone is recorded rather than discovered. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired), keyboardNavigation = true })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local action = trayAction("r2", "trailing", "delete")
+		local ranked = w.handle.focusOrder().traversal
+		expect(ranked[#ranked].path).toBe(action) -- last in the reading order
+		-- Tab all the way round: the button IS reached, and the ring lands on it
+		local seen = false
+		for _ = 1, #ranked do
+			w.system.deviceKey("Tab", true)
+			w.system.deviceKey("Tab", false)
+			if w.pres.focus.focused:get() == action then
+				seen = true
+				break
+			end
+		end
+		expect(seen).toBe(true)
+		w.system.deviceKey("Return", true)
+		w.system.deviceKey("Return", false)
+		w.settle()
+		expect(fired).toEqual({ "r2" })
+	end)
+
+	it("(P10) the ACTIVATE SEAM closes the open row: Return on ANOTHER row puts the tray away", function()
+		--[[ K1 (Task 4 re-review). The pointer half of the in-list dismiss lives in
+			the shared dispatcher, on the DOWN — and a keyboard Return or a gamepad
+			ButtonA produces no pointer event at all. The presenter's own
+			outside-dismiss cannot cover it either: every row is inside the ONE list
+			contribution, so "another row" is never outside. The open tray simply
+			stayed up while the player operated a different row — hosted-only,
+			because standalone and Table rows are per-row contributions. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		-- r5 is open (by finger), and focus is still on r1 where it started
+		w.dragLeft("r5", 80)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r5")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		w.system.deviceKey("Return", true)
+		w.system.deviceKey("Return", false)
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r5"))).toBeNil()
+		expect(w.adapter.node(rowPath("r5")).presentationOffset.x).toBe(0)
+		-- ...and the Activate was NOT swallowed: r1 still activated (round 7's
+		-- rule, the same one `consume = false` carries at the pointer seam)
+		expect(w.activations).toEqual({ "r1" })
+		expect(#fired).toBe(0)
+	end)
+
+	it("(P10b) the same Activate on the OPEN row itself is left to the pointer seam", function()
+		--[[ The engaged row is skipped by (P10)'s close block on purpose: a tap on
+			the open row's own content already means "close, and only close" through
+			`suppressActivatePath` (case (v3)), which is the seam that owns that
+			verdict. This pins that the Activate seam does not take it over — a
+			gamepad ButtonA on the open row activates the row, exactly as it does
+			with nothing open. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r1", 80)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r1")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		expect(w.activations).toEqual({ "r1" })
+		expect(w.debug().engagedKey).toBe("r1") -- still open, still that row's
+		expect(#fired).toBe(0)
 	end)
 end)

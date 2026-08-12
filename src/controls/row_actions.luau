@@ -2252,6 +2252,30 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- motion: no seam to smooth").
 			if motionClock ~= nil then
 				ensureSpring()
+				--[[ RE-SEED THE PERSISTENT SPRING AT THE DRAG'S OWN OFFSET before
+					aiming it (found by Task 5's hosted parity sweep; the identical
+					bug the COLLAPSE spring's own `snap` comment describes, in the
+					one other place a reused spring is re-aimed).
+
+					A live drag drives `offset` DIRECTLY (`applySlide` in
+					`onPointerMove`) after stopping the spring, so from that moment
+					the spring's internal value is wherever the last flight left it —
+					not where the finger is. `ensureSpring` seeds a spring only when
+					it CREATES one, so the first gesture on a row was always correct
+					and every later one was not: on the second short swipe of the
+					same row the spring still sat at 0, `settleTo` aimed it at 0, and
+					a target it was already at produced NO steps and NO writes. The
+					row stayed parked at the drag's last offset — visibly slid, with
+					`_isOpen()` false, so nothing would ever put it back — and each
+					further swipe ratcheted it further out (measured: 0, -20, -40).
+
+					`snap(v)` is placement, not arrival: value and target both go to
+					`v`, velocity is zeroed and no settle event fires — so it can
+					never announce an arrival the caller did not ask for. It runs
+					BEFORE `setVelocity`/`setTarget` for exactly that reason. On a
+					spring that IS already at `offset` (the first gesture, or a
+					second one after an ordinary settled flight) it is a no-op. ]]
+				spring:snap(offset:get())
 				spring:setVelocity(vx)
 			end
 			settleTo(verdict)
@@ -2269,6 +2293,14 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		local wasHorizontal = drag.axis == "horizontal"
 		drag = nil
 		if wasHorizontal then
+			-- ...and the SAME re-seed the release does (see `onPointerUp`): a
+			-- cancel ends a manual drag too, so `close()`'s retarget would
+			-- otherwise aim a spring that is still standing where the previous
+			-- flight left it — and a cancel's target is 0, the very value a row
+			-- that has already been closed once is parked at.
+			if spring ~= nil then
+				spring:snap(offset:get())
+			end
 			-- spec: "pointer cancel mid-drag springs back to closed"
 			close()
 		end
