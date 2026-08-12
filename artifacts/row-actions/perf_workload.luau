@@ -49,6 +49,15 @@
 -- ~30% of a 5% budget spent on schedule. ABBA gives each world one leader
 -- slot and one follower slot, so a monotone drift cancels to first order.
 --
+-- THE A/A CONTROL IS LOAD-BEARING, NOT A ONE-TIME SANITY CHECK: ABBA's own
+-- block asymmetry (B's two blocks are CONTIGUOUS; A re-enters COLD after B
+-- runs both of its blocks back to back) nets to ~0 empirically on this
+-- workload (measured residual -0.01pp steady / -0.24pp fling, 6 runs) —
+-- that is a measured result, not a structural guarantee. Re-run the A/A
+-- control whenever the schedule (block count/order) or the drive constants
+-- (SAMPLES, WARMUP, ROW_COUNT, viewport, step sizes) change, before trusting
+-- a budget call against the new numbers.
+--
 -- Run-to-run noise on top of this is large (per-run sd ~2.3pp on fling,
 -- and single runs have printed both +6% and -1.5% for the same code): a
 -- budget call needs the MEAN OF >=5 RUNS. A single run is not a result.

@@ -2986,39 +2986,71 @@ local manifest: { [string]: { Check } } = {
 		-- reorder, the presentModal menu re-home, keyboard, and the RED-TEAM
 		-- iOS tap-to-close fix), so a regression in any one of those
 		-- mechanisms reddens this gate rather than riding on the others'
-		-- coverage.
+		-- coverage. row-actions-hosted-mode-plan Task 5 (VirtualList/Table
+		-- host `rowActions` directly) added five more load-bearing cases,
+		-- named here Task 8: the tray focus-traversal + restore fix, the
+		-- Activate-seam close, the reused-spring snap-back regression, and
+		-- the mount-identity differential's two shipping claims (exactly one
+		-- extra overlay node, zero instance leaks across engage/disengage).
+		-- Names verified against a live `./run-tests.sh` run before being
+		-- pinned here, not copied from a report untouched.
 		{
 			name = "row-actions-suite",
 			requirements = { "ROW-ACTIONS-001" },
-			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*full swipe commits (destructive): row slides off, collapses, onAction fires exactly once" && echo "$out" | grep -q "✓.*opening row B closes row A (one-open policy)" && echo "$out" | grep -q "✓.*vertical drag never moves the offset (axis lock)" && echo "$out" | grep -q "✓.*solved rect (y, x, height) byte-identical" && echo "$out" | grep -q "✓.*Delete on a focused row fires the first destructive action" && echo "$out" | grep -q "✓.*own content while ITS tray is open closes it"',
-			note = "the full-swipe commit trajectory (tests/row_actions_input.spec.luau), the one-open coordinator (same file), pointer axis lock (same file), the RED-TEAM item-2 menu-contributes-zero-to-measure fix (tests/row_actions_input.spec.luau 'redteam item 2' block), keyboard Delete (same file), and the iOS tap-to-close fix through Table (tests/table.spec.luau) — one case per distinct mechanism, not six cases of the same one",
+			run = 'out="$(./run-tests.sh 2>&1)" && echo "$out" | grep -q "✓.*full swipe commits (destructive): row slides off, collapses, onAction fires exactly once" && echo "$out" | grep -q "✓.*opening row B closes row A (one-open policy)" && echo "$out" | grep -q "✓.*vertical drag never moves the offset (axis lock)" && echo "$out" | grep -q "✓.*solved rect (y, x, height) byte-identical" && echo "$out" | grep -q "✓.*Delete on a focused row fires the first destructive action" && echo "$out" | grep -q "✓.*own content while ITS tray is open closes it" && echo "$out" | grep -q "✓.*(P9) focus TRAVERSAL: the d-pad reaches the revealed tray, and the ring comes BACK to the row" && echo "$out" | grep -q "✓.*(P10) the ACTIVATE SEAM closes the open row: Return on ANOTHER row puts the tray away" && echo "$out" | grep -q "✓.*(P2b) REGRESSION: every later short swipe on the SAME row also snaps back (the reused spring)" && echo "$out" | grep -q "✓.*a hosted list.s mounted paths are the plain list.s PLUS exactly the one overlay node" && echo "$out" | grep -q "✓.*engaging and disengaging returns the tree to the closed shape, with zero instance leaks"',
+			note = "the full-swipe commit trajectory (tests/row_actions_input.spec.luau), the one-open coordinator (same file), pointer axis lock (same file), the RED-TEAM item-2 menu-contributes-zero-to-measure fix (tests/row_actions_input.spec.luau 'redteam item 2' block), keyboard Delete (same file), and the iOS tap-to-close fix through Table (tests/table.spec.luau) — one case per distinct mechanism, not six cases of the same one. Plus, from the hosted-mode plan (Task 5, tests/virtual_list_row_actions.spec.luau + tests/virtual_list_row_actions_identity.spec.luau): tray d-pad focus traversal + the R1 focus-restore fix (P9), the K1 Activate-seam close (P10), the shared-engine reused-spring regression (P2b), and the mount-identity differential's two shipping claims (exactly one extra overlay node; zero instance leaks across five engage/disengage cycles) — the apostrophes in the two identity-spec names ('list's') are matched with `.` (single-char wildcard), not a literal `'`, because this whole `run` value is itself a Lua SINGLE-quoted string: a literal apostrophe inside it would terminate the Lua string early rather than reach the shell as part of the grep pattern.",
 		},
 		{
 			name = "row-actions-device-matrix",
 			requirements = { "ROW-ACTIONS-001" },
 			-- The plan's own sketch here was `test -f "$f" && ! grep -q "FAIL" "$f"
 			-- && ! grep -qE "PENDING" "$f"` — which the artifact as legitimately
-			-- shipped can never pass: Task 11/11b's perf section HONESTLY records
-			-- the wrapped-row cost missing the plan's original <=5%/<=4-instance
-			-- budget ("still FAIL" appears in that prose by design), and the
-			-- NEEDS_PHYSICAL_DEVICE section is a standing, intentional rider list,
-			-- not a defect. tools/check_row_actions_matrix.py replaces the blanket
-			-- grep with three real assertions (director ruling 2026-08-11): the
-			-- five-view FUNCTIONAL matrix must contain no FAIL cell, the Task-11b
-			-- measured numbers (steady scroll, fling, wrapper instance count) must
-			-- still be present, and each must not exceed the RE-BASELINED ceiling
-			-- (57% / 81% / 5 instances) — a future regression above those numbers
+			-- shipped can never pass, since it legitimately contains candid
+			-- "FAIL"/"superseded" prose in its own history. tools/check_row_actions_matrix.py
+			-- replaces the blanket grep with three real assertions: the
+			-- five-view FUNCTIONAL matrix must contain no FAIL cell, the
+			-- artifact's "Current numbers" table (steady scroll, fling, wrapper
+			-- instance count) must still be present, and each must not exceed
+			-- the ceiling below — a future regression above those numbers
 			-- reddens this check; the documented rider rows and the candid
-			-- budget-missed prose never do (see the script's own docstring).
+			-- superseded-history prose never do (see the script's own docstring).
+			--
+			-- RE-BASELINE HISTORY. 2026-08-11 (director ruling, interim): the
+			-- manual per-row `newRowActions` wrap Task 11/11b measured missed
+			-- the plan's original <=5%/<=4-instance budget badly (steady +57%,
+			-- fling +81%, +5 instances/row — mount-dominated), so the gate was
+			-- re-baselined to those SHIPPED numbers as an interim ceiling, with
+			-- the VirtualList-gesture-hook mission chartered as the closure
+			-- path (docs/plans/row-actions-perf-mission.md).
+			--
+			-- 2026-08-12 BUDGET RESTORED (row-actions-hosted-mode-plan Task 8,
+			-- this change). That closure mission landed: VirtualList/Table now
+			-- host `rowActions` directly, so a closed row mounts no per-row
+			-- `Hit` grip or gesture engine. Task 7's de-biased (ABBA-
+			-- interleaved, >=5-run-mean) re-measurement of that hosted
+			-- integration found the real cost sits back inside the plan's
+			-- ORIGINAL <=5% timing budget with real headroom (hosted steady
+			-- -0.28% mean, fling +2.83% mean — see device-matrix.md's "Current
+			-- numbers" table and
+			-- .superpowers/sdd/row-actions-hosted-mode-plan/task-7-report.md
+			-- Sec 0), so the ceiling is restored to <=5%/<=5% on the timing
+			-- side. The instance ceiling is TIGHTENED past the plan's original
+			-- <=4 to <=1: the hosted design's own closed-row cost is
+			-- integer-deterministic at +0.08 nodes/windowed-row (one shared
+			-- overlay instance for the whole list, not one per row), so <=1 is
+			-- the sharp regression detector two independent review rounds
+			-- specified for a number that precise — <=4 would leave 12x of
+			-- slack for a future regression toward the legacy per-row shape to
+			-- hide in.
 			run = "python3 tools/check_row_actions_matrix.py",
 			evidence = "artifacts/row-actions/device-matrix.md",
 		},
 		{
 			name = "library-suite-green",
 			requirements = { "ROW-ACTIONS-001", "UI-AGENT-001" },
-			run = "tools/test.sh 4048",
+			run = "tools/test.sh 4136",
 			evidence = "artifacts/test.json",
-			note = "the row-actions stage floor: 4048 (Tasks 1-11b, incl. the RED-TEAM fix wave and its two re-review rounds, the item-2 presentModal round, Task 8b's action-system modifier support, and the final whole-branch fix wave: 4038 -> 4048, ten new cases across items 1/2/3/7 of final-review-findings.md — probe B/C + sibling-claim/scroll/outside-tap-during-commit, mouse body-drag + gamepad-grab tray-close, two displayLayer-band cycling proofs, and the passive-HUD catcher-consume proof). A regression of any test this stage added — or any prior test it broke — fails here.",
+			note = "the row-actions stage floor: 4048 (Tasks 1-11b, incl. the RED-TEAM fix wave and its two re-review rounds, the item-2 presentModal round, Task 8b's action-system modifier support, and the final whole-branch fix wave: 4038 -> 4048, ten new cases across items 1/2/3/7 of final-review-findings.md — probe B/C + sibling-claim/scroll/outside-tap-during-commit, mouse body-drag + gamepad-grab tray-close, two displayLayer-band cycling proofs, and the passive-HUD catcher-consume proof), bumped to 4136 by the row-actions-hosted-mode-plan (Tasks 1-7: hosted VirtualList/Table `rowActions` integration, parity + mount-identity differential specs, workload de-bias). A regression of any test this stage added — or any prior test it broke — fails here.",
 		},
 		{
 			name = "prior-gates-unregressed",
