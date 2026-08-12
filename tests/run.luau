@@ -135,6 +135,7 @@ require("./text_input.spec")
 require("./auto_input.spec")
 require("./table_input.spec")
 require("./virtual_list_input.spec")
+require("./virtual_list_row_actions.spec")
 require("./auto_input_screens.spec")
 -- device round 1 (RascalRally, 2026-07-31): contributions mounted by a keyed
 -- region AFTER present, and the focus-visible rule a finger must obey

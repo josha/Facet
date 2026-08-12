@@ -130,11 +130,40 @@
 --   rowFocusable? ((item) -> boolean), autoscroll? (boolean | autoscroll opts),
 --   focusPolicy? ("key" | "index", default "key" — does the cursor follow the
 --     ITEM across a re-sort, or stay on the SLOT; see FOCUS POLICY above),
+--   rowActions? ((item) -> { leading?, trailing?, fullSwipe? }?) — HOSTED ROW
+--     ACTIONS (see below); nil per item = that row is unwrapped,
 --   navigation? ({ name?, wrap?, containment?, entry?, exit? }) — overrides for
 --     the ONE focus group this list contributes; absent = today's group verbatim }
+--
+-- HOSTED ROW ACTIONS (spec.rowActions; design doc
+-- docs/plans/row-actions-hosted-mode-design.md). Table's own `rowActions` wraps
+-- every actionable row in a `newRowActions` COMPOSITE — five extra instances per
+-- row, mounted whether the row is ever touched or not. A virtualized list cannot
+-- pay that: the measured cost is ~+45% steady / ~+82% fling per refresh, and the
+-- rows it would be paid on are overwhelmingly rows nobody ever swipes.
+--
+-- So VirtualList hosts the feature instead of delegating it. A closed row mounts
+-- NOTHING extra:
+--   * ONE shared four-function pointer dispatcher per list, wired onto the row
+--     `Hit` Button that already mounts. A closed row's whole marginal cost is
+--     four static props on an existing node — no wrapper, no memo, no
+--     subscription. A list with no `rowActions` declares none of them and builds
+--     the byte-identical Hit it always did.
+--   * The gesture/state engine (`row_actions.buildHosted` — the SAME axis lock,
+--     velocity, commit ladder and one-open coordinator the composite runs, with
+--     no blueprint) is built LAZILY, on the first pointer-down that lands on
+--     that row. Scrolling a thousand closed rows builds zero engines.
+--   * The engine paints nothing itself: it reports the slide through `onSlide`,
+--     which this control mirrors into `engagedKey`/`engagedOffset` — the two
+--     signals the shared tray overlay and the presentation-channel slide read.
+-- `rowActions` + `reorderable` on one list is refused in v1: VirtualList's
+-- reorder rides the declarative `UI.draggable` contract, and composing that with
+-- the raw-handler funnel is its own task (Table does it with
+-- `row_actions.composeWithReorder`, over a hit it owns outright).
 
 local autoscrollLib = require("../input/autoscroll")
 local contribution = require("../input/contribution")
+local row_actions = require("./row_actions")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 
@@ -151,6 +180,34 @@ local virtual_list = {}
 -- the internal reorder payload kind. Namespaced with the list id so two lists on
 -- one surface can never accept each other's row moves by accident.
 local REORDER_KIND = "__luauui_reorder"
+
+--[[ THE HOSTED TRAY OVERLAY'S OWN PATHS — the contract between this control and
+	the shared overlay (Task 4 mounts it; Task 3 only has to NAME it, because a
+	hosted engine is handed its tray paths at build time and measures/anchors
+	against them from then on).
+
+	ONE overlay per list, not one per row: the coordinator policy is at most one
+	open row across the whole list, so a tray per row would be N-1 permanently
+	dead subtrees. It sits in the canvas, AFTER the rows ForEach, so the revealed
+	tray buttons are natively tappable above the row that slid off them:
+
+	    {scrollRoot}/Canvas/RowActionsOverlay/then/RowActionsTray/TrayLeading
+	    {scrollRoot}/Canvas/RowActionsOverlay/then/RowActionsTray/TrayTrailing
+
+	`RowActionsOverlay` is a `UI.When` (hence the `/then` branch segment —
+	src/mount.luau), `RowActionsTray` is the group positioned at the engaged
+	row's canvas offset, and the ONE tray under it carries the engaged edge's id.
+	The action buttons inside a tray are `{trayPath}/Action:{id}`, which is
+	row_actions' own convention in both modes. ]]
+local HOSTED_OVERLAY_ID = "RowActionsOverlay"
+local HOSTED_TRAY_GROUP_ID = "RowActionsTray"
+
+-- the closed key set for whatever `spec.rowActions(item)` returns for ONE row —
+-- exactly the three fields `newRowActions` exposes besides the ones this control
+-- supplies itself (`paths`/`coordinator`/`onSlide`/`onCommitHeight`/`id`).
+-- Checked per row, at engine build, with the row's key in the message (§4;
+-- newTable's own ROW_ACTIONS_RESULT_KEYS precedent).
+local HOSTED_ROW_ACTIONS_KEYS = specGuard.keySet({ "leading", "trailing", "fullSwipe" })
 
 -- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
@@ -172,6 +229,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"reorderable",
 	"rowDropTarget",
 	"rowFocusable",
+	"rowActions",
 	"rowGap",
 	"rowHeight",
 	"rows",
@@ -290,6 +348,28 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 	local focusGroupName: string = navigation.name or `vl:{id}`
 	local reorderable = spec.reorderable == true
+	--[[ HOSTED ROW ACTIONS: a BUILD-TIME fact, read once (see the header). Every
+		branch below is static on `hostedEnabled`, never on a live value — a list
+		without the field must construct exactly the rows it always did, and a
+		branch a plain list can still evaluate per row is already a cost it did
+		not have.
+
+		The v1 refusal is a hard `error`, not a degrade: both features want the
+		same raw pointer capture on the same node, and silently letting one win
+		would give a player a list whose rows sometimes reorder and sometimes
+		reveal depending on which handler got there first. ]]
+	local hostedRowActions: any = spec.rowActions
+	if hostedRowActions ~= nil then
+		assert(
+			type(hostedRowActions) == "function",
+			"VirtualList.rowActions must be a function (item) -> { leading?, trailing?, fullSwipe? }? "
+				.. "(nil for a row with no actions)"
+		)
+		if reorderable then
+			error("newVirtualList: rowActions + reorderable is unsupported (v1)", 0)
+		end
+	end
+	local hostedEnabled = hostedRowActions ~= nil
 	local isDropSurface = spec.dropSurface == true or spec.rowDropTarget ~= nil
 	-- ROWS ARE DRAGGABLE when they can be reordered, and DROP TARGETS when either
 	-- an external payload may land on them or a sibling row may be moved onto
@@ -944,6 +1024,334 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return step
 	end
 
+	-- ===== hosted row actions (design doc; see the header) ====================
+	-- Everything in this section is inert on a list without `spec.rowActions`:
+	-- the two plain tables below are the only allocations, they are PER LIST
+	-- (never per row), and nothing reactive, no coordinator and no engine is
+	-- constructed unless the feature is on.
+
+	-- key -> the row's own gesture engine, built on first touch and kept for the
+	-- life of the LIST. A windowed-out row KEEPS its engine on purpose: it is
+	-- coming back (that is what virtualization is), rebuilding one per scroll
+	-- pass would defeat the laziness this design exists for, and the row cannot
+	-- be left open behind the player's back anyway — any scroll closes the
+	-- engaged row through the shared coordinator before it can leave the window.
+	-- Disposal rides the list scope (registered below): `buildHosted` opens its
+	-- own independent `core:scope()`, so nothing else would ever free them.
+	local hostedEngines: { [string]: any } = {}
+	-- the CURRENTLY MOUNTED rows' hit paths, both directions. Maintained by the
+	-- row factory (an item scope removes its own entry on unmount) and rebuilt
+	-- lazily, never PARSED out of a path: a data key is arbitrary text and a
+	-- pattern over `[{key}]` is a guess about what a key may contain.
+	local hostedHitPathByKey: { [string]: string } = {}
+	local hostedKeyByHitPath: { [string]: string } = {}
+	local hostedWindowKeys: { [string]: boolean } = {}
+	local hostedPathMapDirty = true
+
+	-- ONE open row across the whole list (row_actions' own policy object, the
+	-- same one Table hands its wrapped rows), and the two signals the Task 4
+	-- overlay + presentation slide read: WHICH row is engaged, and by HOW MANY
+	-- px. `engagedOffset` is signed exactly as the engine's own offset is
+	-- (negative = revealing the trailing edge).
+	local hostedCoordinator: any = nil
+	local engagedKey: any = nil
+	local engagedOffset: any = nil
+	-- the engine's commit collapse, forwarded verbatim: `nil` = no override.
+	-- Task 4 composes it into the row height dim; Task 3 only records it, so the
+	-- ladder's own height writes are never silently dropped on the floor.
+	local hostedCommitHeight: any = nil
+	if hostedEnabled then
+		hostedCoordinator = row_actions.newCoordinator(core)
+		engagedKey = listScope:own(core:signal(nil :: string?))
+		engagedOffset = listScope:own(core:signal(0))
+		hostedCommitHeight = listScope:own(core:signal(nil :: any))
+	end
+
+	-- what the PRESENTER handed this list's contribution, held so a lazily-built
+	-- engine can be given the identical handoffs the moment it exists. A hosted
+	-- engine has no node of its own for the presenter's contribution walk to
+	-- find, so the host relays (row_actions Task 2 report, "contribution seams").
+	local hostedMotionClock: any = nil
+	local hostedNow: any = nil
+	local hostedActionSystem: any = nil
+	local hostedFocusGraph: any = nil
+	local hostedPresentModal: any = nil
+	local hostedDismiss: any = nil
+
+	local function hostedTrayPath(edge: string): string?
+		local root = mountedScrollPath
+		if root == nil then
+			return nil
+		end
+		local tray = if edge == "leading" then "TrayLeading" else "TrayTrailing"
+		return `{root}/Canvas/{HOSTED_OVERLAY_ID}/then/{HOSTED_TRAY_GROUP_ID}/{tray}`
+	end
+
+	-- the row factory's two-line registration. The item scope owns the removal,
+	-- so a row leaving the window takes its own map entries with it and no
+	-- pruning pass has to exist.
+	local function hostedRegisterRow(key: string, itemScope: any)
+		hostedWindowKeys[key] = true
+		hostedPathMapDirty = true
+		itemScope:own(function()
+			hostedWindowKeys[key] = nil
+			hostedPathMapDirty = true
+		end)
+	end
+
+	local function hostedSyncPathMap()
+		local root = mountedScrollPath
+		if not hostedPathMapDirty or root == nil then
+			return -- stays dirty until the list has actually been presented
+		end
+		table.clear(hostedHitPathByKey)
+		table.clear(hostedKeyByHitPath)
+		for key in hostedWindowKeys do
+			local path = `{root}/Canvas/W/[{key}]/Row/Hit`
+			hostedHitPathByKey[key] = path
+			hostedKeyByHitPath[path] = key
+		end
+		hostedPathMapDirty = false
+	end
+
+	local hostedRootPrefix: string? = nil
+	local function hostedKeyOfHit(path: string): string?
+		-- a re-present moves the whole tree under a new screen root; the map is
+		-- keyed on the mounted prefix, so notice the move rather than answering
+		-- from a map describing the previous mount
+		if hostedRootPrefix ~= mountedScrollPath then
+			hostedRootPrefix = mountedScrollPath
+			hostedPathMapDirty = true
+		end
+		hostedSyncPathMap()
+		return hostedKeyByHitPath[path]
+	end
+
+	-- the row whose POINTER GESTURE is live right now (down..up/cancel). Not
+	-- state row_actions publishes — it is the host's own fact, and it is the one
+	-- that settles the two-rows-sliding-at-once race below.
+	local hostedActiveKey: string? = nil
+
+	--[[ THE SLIDE SEAM. The engine owns the number; this control owns only WHO is
+		engaged and BY HOW MUCH, because those two are what the shared tray overlay
+		and the presentation write (Task 4) are derived from. Zero means closed:
+		the row disengages, which is what unmounts the overlay.
+
+		TWO ROWS SLIDE AT ONCE, routinely. Starting a swipe on row B claims the
+		coordinator, which CLOSES row A — and A's close is a spring, so for the
+		next several frames A is still writing a shrinking non-zero slide while B
+		is writing a growing one. Last-writer-wins would hand the tray back and
+		forth between them (A's spring steps AFTER B's move, every frame), which is
+		exactly the defect this rule exists to prevent: a row that is neither
+		driving the live gesture nor already the engaged one is a row FINISHING ITS
+		CLOSE, and a close never claims a tray. Its own content still slides — that
+		is the engine's `offset`, which it kept — it simply does not take the
+		overlay with it.
+
+		Both writes ride ONE transaction so a memo over the pair can never observe
+		the new row against the previous row's pixels. ]]
+	local function hostedApplySlide(key: string, px: number)
+		if px ~= 0 then
+			local engaged = engagedKey:get()
+			if engaged == key then
+				engagedOffset:set(px)
+			elseif engaged == nil or hostedActiveKey == key then
+				core:transaction(function()
+					engagedKey:set(key)
+					engagedOffset:set(px)
+				end)
+			end
+		elseif engagedKey:get() == key then
+			core:transaction(function()
+				engagedOffset:set(0)
+				engagedKey:set(nil)
+			end)
+		end
+	end
+
+	local function hostedApplyCommitHeight(key: string, px: number?)
+		if px == nil then
+			local current = hostedCommitHeight:get()
+			if current ~= nil and current.key == key then
+				hostedCommitHeight:set(nil)
+			end
+			return
+		end
+		hostedCommitHeight:set({ key = key, px = px })
+	end
+
+	-- BUILD-ON-FIRST-TOUCH. Returns nil — and therefore declines the capture —
+	-- for a row the consumer gave no actions, a row that is not mounted, and a
+	-- list that has not been presented yet (no mounted paths to hand the engine).
+	local function hostedEngineFor(key: string): any?
+		local existing = hostedEngines[key]
+		if existing ~= nil then
+			return existing
+		end
+		local item = itemForKey(key)
+		if item == nil then
+			return nil
+		end
+		local fields = hostedRowActions(item)
+		if fields == nil then
+			return nil -- an unwrapped row: the common case, and it costs nothing
+		end
+		specGuard.assertKnownKeys(
+			"newVirtualList",
+			fields,
+			HOSTED_ROW_ACTIONS_KEYS,
+			`spec.rowActions result (row '{key}')`
+		)
+		if fields.leading == nil and fields.trailing == nil then
+			return nil -- declared, but with nothing on either edge
+		end
+		local rowPath = mountedRowPath(key)
+		if rowPath == nil then
+			return nil
+		end
+		local engine = row_actions.buildHosted(LuauUI, core, {
+			-- unique per row: rows sharing a coordinator must carry unique ids
+			-- (row_actions' own refusal), and the id is what a dump names
+			id = `{id}:{key}`,
+			leading = fields.leading,
+			trailing = fields.trailing,
+			fullSwipe = fields.fullSwipe,
+			coordinator = hostedCoordinator,
+			paths = {
+				-- the row node, NOT the cell: it is what the engine reads a live
+				-- rect from (the commit threshold is a fraction of the row width)
+				-- and the prefix its "is focus still inside this row" test uses.
+				-- Keyed, so it is stable across every scroll the row survives.
+				content = rowPath,
+				trayLeading = if fields.leading ~= nil then hostedTrayPath("leading") else nil,
+				trayTrailing = if fields.trailing ~= nil then hostedTrayPath("trailing") else nil,
+			},
+			onSlide = function(px: number)
+				hostedApplySlide(key, px)
+			end,
+			onCommitHeight = function(px: number?)
+				hostedApplyCommitHeight(key, px)
+			end,
+		})
+		-- relay every presenter handoff this list has already received: an engine
+		-- born mid-session must be as wired as one born at present time
+		if hostedMotionClock ~= nil then
+			engine.bindMotion(hostedMotionClock, hostedNow)
+		end
+		if boundController ~= nil then
+			engine.bindController(boundController)
+		end
+		if hostedActionSystem ~= nil then
+			engine.bindActionSystem(hostedActionSystem)
+		end
+		if hostedFocusGraph ~= nil then
+			engine.bindFocusGraph(hostedFocusGraph)
+		end
+		if hostedPresentModal ~= nil then
+			engine.bindPresent(hostedPresentModal, hostedDismiss)
+		end
+		hostedEngines[key] = engine
+		-- one geometry pass immediately, so the engine has whatever rects exist
+		-- before the gesture it was built for is dispatched into it
+		engine.syncGeometry()
+		return engine
+	end
+
+	-- the engine a LIVE gesture belongs to: never a builder, because a move/up
+	-- that never had a down is not the event that may create state
+	local function hostedLiveEngine(path: string): any?
+		local key = hostedKeyOfHit(path)
+		if key == nil then
+			return nil
+		end
+		return hostedEngines[key]
+	end
+
+	--[[ THE ONE SHARED DISPATCHER. Four functions for the whole list, allocated
+		once at build: every row's `Hit` carries the SAME four values, so a row
+		mounting costs four static prop reads and no closure at all. The hit's own
+		path is the routing key (the renderer passes it to every handler —
+		render/renderer.luau's pointer wiring), which is exactly why this can be
+		shared: a per-row closure would exist only to remember something the event
+		already carries. ]]
+	local hostedDispatch = {
+		onPointerDown = function(path: string, pos: any, rectOf: (string) -> any): boolean?
+			local key = hostedKeyOfHit(path)
+			if key == nil then
+				return false
+			end
+			local engine = hostedEngineFor(key)
+			if engine == nil then
+				-- DECLINE: an unwrapped row must behave exactly like a row on a
+				-- list with no `rowActions` at all, and that row holds no capture
+				return false
+			end
+			local accepted = engine.pointerHandlers.onPointerDown(path, pos, rectOf)
+			if accepted ~= false then
+				hostedActiveKey = key
+			end
+			return accepted
+		end,
+		onPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
+			local engine = hostedLiveEngine(path)
+			if engine ~= nil then
+				engine.pointerHandlers.onPointerMove(path, pos, rectOf)
+			end
+		end,
+		onPointerUp = function(path: string, pos: any, rectOf: (string) -> any)
+			local engine = hostedLiveEngine(path)
+			if hostedActiveKey == hostedKeyOfHit(path) then
+				hostedActiveKey = nil
+			end
+			if engine ~= nil then
+				engine.pointerHandlers.onPointerUp(path, pos, rectOf)
+			end
+		end,
+		onPointerCancel = function(path: string, reason: string?): boolean?
+			local engine = hostedLiveEngine(path)
+			if hostedActiveKey == hostedKeyOfHit(path) then
+				hostedActiveKey = nil
+			end
+			if engine ~= nil then
+				return engine.pointerHandlers.onPointerCancel(path, reason)
+			end
+			return nil
+		end,
+	}
+
+	-- the engaged row's engine, or nil — the one every list-level verb (Cancel
+	-- now; the overlay and outside-tap in Task 4) routes through
+	local function hostedEngagedEngine(): any?
+		local key = if engagedKey ~= nil then engagedKey:get() else nil
+		return if key ~= nil then hostedEngines[key] else nil
+	end
+
+	if hostedEnabled then
+		--[[ SCROLL CLOSES THE OPEN ROW (iOS parity; `newCoordinator.bindScroll`'s
+			own rule). That coordinator method takes a render controller and a path
+			and rides `observeScroll` — but this list ALREADY owns the engine's
+			CanvasPosition mirror as a signal (`scrollTop`, written by
+			`bindNativeScroll` or by a test), and it is live before any controller
+			is bound. So the coordinator's own code path is reused verbatim against
+			a one-method shim over that signal, rather than a second subscription to
+			the same engine scroll that could arrive later, or not at all. ]]
+		listScope:own(hostedCoordinator.bindScroll({
+			observeScroll = function(_path: string, onScroll: (any) -> ()): () -> ()
+				return core:observe(scrollTop, function(y: any)
+					onScroll({ x = 0, y = y })
+				end)
+			end,
+		}, ""))
+		-- engines are independent scope roots (`buildHosted` opens its own), so
+		-- the list is what frees them
+		listScope:own(function()
+			for key, engine in hostedEngines do
+				hostedEngines[key] = nil
+				engine.dispose()
+			end
+		end)
+	end
+
 	-- ===== keyboard/gamepad plumbing (ui_todo §0; mirrors Table's seams) ======
 	local function keyOfHit(path: string): string?
 		return (string.match(path, hitPattern))
@@ -1133,6 +1541,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	local function handleCancel(_focused: string?): boolean
+		if hostedEnabled then
+			-- an engaged row owns Cancel first: ButtonB over a revealed tray means
+			-- "put it back", and the engine answers false with nothing open so
+			-- Cancel still falls through to the armed session / the surface
+			local engine = hostedEngagedEngine()
+			if engine ~= nil and engine.handleCancel(_focused) then
+				return true
+			end
+		end
 		local reg = registry()
 		if reg ~= nil and reg.mode() == "armed" then
 			reg.cancel("cancel")
@@ -1319,7 +1736,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- selection off — or with `selectionPaint = "none"`, which keeps the
 				-- state and drops only its paint — declares nothing here, and its
 				-- rows are byte-identical.
-				local hit = UI.Button({
+				local hitProps: any = {
 					id = "Hit",
 					label = "",
 					selected = if selectionMode == "none" or selectionPaint == "none"
@@ -1328,7 +1745,21 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					focusable = true,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
-				})
+				}
+				if hostedEnabled then
+					-- HOSTED ROW ACTIONS: the row's whole marginal cost. Four
+					-- props whose values are the SAME four shared functions for
+					-- every row on the list — no closure, no memo, no wrapper
+					-- node — plus one map entry the item scope removes on its own
+					-- unmount. A list without `spec.rowActions` never reaches this
+					-- branch and builds the Hit it always did, prop for prop.
+					hostedRegisterRow(entry.key, itemScope)
+					hitProps.onPointerDown = hostedDispatch.onPointerDown
+					hitProps.onPointerMove = hostedDispatch.onPointerMove
+					hitProps.onPointerUp = hostedDispatch.onPointerUp
+					hitProps.onPointerCancel = hostedDispatch.onPointerCancel
+				end
+				local hit = UI.Button(hitProps)
 				if reorderable then
 					hit = UI.draggable(hit, {
 						payload = { kind = REORDER_KIND, key = entry.key, list = id },
@@ -1442,23 +1873,74 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					watchSession(reg)
 				end
 			end
+			if hostedEnabled then
+				for _, engine in hostedEngines do
+					engine.bindController(controller)
+				end
+			end
 		end,
 	}
-	if focusPolicy == "index" then
+	if focusPolicy == "index" or hostedEnabled then
 		-- the index policy is the one flow here that MOVES focus instead of
-		-- reporting a move; a default list asks for nothing and is bound nothing
+		-- reporting a move; a default list asks for nothing and is bound nothing.
+		-- A hosted list ALSO relays the graph, because a hosted engine has no
+		-- node of its own for the presenter's contribution walk to reach.
 		bundle.bindFocusGraph = function(graph: any)
-			focusGraph = graph
+			if focusPolicy == "index" then
+				focusGraph = graph
+			end
+			if hostedEnabled then
+				hostedFocusGraph = graph
+				for _, engine in hostedEngines do
+					engine.bindFocusGraph(graph)
+				end
+			end
+		end
+	end
+	if hostedEnabled then
+		--[[ THE RELAY (see `hostedEngineFor`). Every one of these is a handoff
+			the presenter makes to a mounted contribution — and a hosted engine is
+			deliberately node-less, so the LIST's contribution takes delivery and
+			passes it on: to every engine that already exists now, and to every
+			engine built later, at its own construction. Held in the locals above
+			so the two paths can never diverge. ]]
+		bundle.bindMotion = function(clock: any, now: (() -> number)?)
+			hostedMotionClock = clock
+			hostedNow = now
+			for _, engine in hostedEngines do
+				engine.bindMotion(clock, now)
+			end
+		end
+		bundle.bindActionSystem = function(actionSystem: any)
+			hostedActionSystem = actionSystem
+			for _, engine in hostedEngines do
+				engine.bindActionSystem(actionSystem)
+			end
+		end
+		bundle.bindPresent = function(presentModal: any, dismiss: any)
+			hostedPresentModal = presentModal
+			hostedDismiss = dismiss
+			for _, engine in hostedEngines do
+				engine.bindPresent(presentModal, dismiss)
+			end
+		end
+		-- the per-frame geometry pass a hosted engine needs to measure its tray
+		-- naturals and the live row rect. Broadcast, idempotent, and cheap: the
+		-- engines that exist are the rows a player has actually touched.
+		bundle.syncGeometry = function()
+			for _, engine in hostedEngines do
+				engine.syncGeometry()
+			end
 		end
 	end
 	if reorderable then
 		bundle.navigateIntercept = navigateIntercept
 	end
-	if reorderable or rowsAreTargets then
+	if reorderable or rowsAreTargets or hostedEnabled then
 		-- handleCancel rides with EVERY armed-paradigm participation, not just
 		-- reorder (director virtual-controller round: a drop-target list armed a
 		-- card and B had no cancel handler at all — the session simply survived
-		-- the press)
+		-- the press) — and with an engaged row-actions tray, which Cancel closes
 		bundle.handleCancel = handleCancel
 	end
 	blueprint = contribution.attach(blueprint, bundle)
@@ -1481,6 +1963,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		stepAutoscroll = stepAutoscroll,
 		bindNativeScroll = bindNativeScroll,
 		scrollTo = scrollTo,
+		-- HOSTED ROW ACTIONS (nil on a list without `spec.rowActions`): which row
+		-- is currently revealing a tray, and by how many signed px. Published
+		-- because the shared overlay and the presentation slide (Task 4) are
+		-- derived from exactly these two, and a fixture proving a swipe reveal has
+		-- nothing else to read.
+		engagedKey = engagedKey,
+		engagedOffset = engagedOffset,
 	}
 	function list.clearSelection()
 		selectedKey:set(nil)
@@ -1518,6 +2007,24 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			autoscroll = autoscrollState:get().state,
 			window = windowKeys,
 			totalRows = #(spec.rows:get() :: { any }),
+		}
+	end
+	--[[ TEST-ONLY (the `_` prefix says so): the two facts the hosted-mode
+		laziness guarantee is made of. `engineCount` is what proves scrolling a
+		list of actionable rows builds nothing, and `engagedKey` is what proves a
+		gesture reached the right row. Deliberately NOT in `dump()`: a dump is a
+		diagnostic a consumer may ship, and these are internals of an optimization,
+		not state a consumer should be reacting to (`engagedKey` is published as a
+		signal on the list for that). Answers on a plain list too, so a test can
+		assert "nothing hosted" without branching. ]]
+	function list._hostedDebug(): { engineCount: number, engagedKey: string? }
+		local count = 0
+		for _ in hostedEngines do
+			count += 1
+		end
+		return {
+			engineCount = count,
+			engagedKey = if engagedKey ~= nil then engagedKey:get() else nil,
 		}
 	end
 	function list.debugWindow(): { [string]: boolean }
