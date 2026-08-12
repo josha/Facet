@@ -688,6 +688,30 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- locals are only visible to code that follows their own declaration
 	-- textually, so this has to sit ahead of every closure that touches it.
 	local committed = false
+	--[[ REVIEW FIX (hosted-mode round 2, D1 — SHARED, both modes). `committed`
+		covers the commit's OWN flight, and `onPointerDown` already refuses a new
+		gesture while it is set. What neither covered is the window AFTER the
+		commit completes: the chain's last step fires the action and calls
+		`resetToClosed()`, which clears `committed` and starts a spring home from
+		the parked slide-off position — a whole row width away. Measured on the
+		hosted list: the row sits at exactly -800 while the height collapse plays,
+		fires at ~frame 115, and then flies -800 -> 0 over ~65 more frames with
+		`committed` already false.
+
+		A press landing in THAT window was accepted, and `drag.startOffset` read
+		the live `offset` — so a gesture that never travelled anywhere began at
+		-800, and the very next release handed `settle()` a magnitude past the 60%
+		commit threshold. Swipe-to-delete fired twice, on one swipe.
+
+		`commitLatched` closes the whole window: set the moment either role branch
+		of `doCommitAction` decides to fire, cleared only when the row is actually
+		back at rest (`applySlide` sees exactly 0 — the terminal write every path
+		makes, spring or instant). While it is set, `onPointerDown` refuses, so
+		the commit ladder cannot be re-entered from a position the player never
+		dragged to. Standalone and Table have the identical hole and are fixed by
+		the same lines: this is shared code, and the shared window is the reason
+		it must be fixed here rather than in the host. ]]
+	local commitLatched = false
 	-- REDTEAM FIX (item 1, BLOCKER): incremented once per commit that
 	-- actually starts (`doCommitAction`'s destructive branch); the two
 	-- `onSettle` chains it launches capture the value at start and refuse to
@@ -824,6 +848,13 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local function applySlide(px: number)
 		local changed = px ~= offset:get()
 		offset:set(px)
+		-- D1: the row is home. This is the ONE seam every offset write goes
+		-- through, so it is the one place that can say "back at rest" without
+		-- caring which path got here — a spring's terminal write, the no-clock
+		-- instant snap, or a reduced-motion placement all land on exactly 0.
+		if px == 0 then
+			commitLatched = false
+		end
 		if onSlide ~= nil and changed then
 			onSlide(px)
 		end
@@ -1301,11 +1332,18 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		-- swipe (or tray tap) on the same still-alive row must be able to
 		-- fire again, exactly like a direct tray-button tap already can.
 		if action.role ~= "destructive" then
+			-- D1: this branch fires and springs home from wherever the full
+			-- swipe reached — a distance well past the commit threshold. Latched
+			-- for the same reason the destructive branch is: until the row is
+			-- actually back at 0, a new gesture would inherit that position as
+			-- its own starting point and re-commit on release.
+			commitLatched = true
 			pcall(action.onAction)
 			close()
 			return true
 		end
 		committed = true
+		commitLatched = true
 		-- REDTEAM FIX (item 1, BLOCKER): a commit "generation" counter,
 		-- captured by both `onSettle` chains below (belt, on top of the
 		-- `committed`/`disposed` guards this whole function and `close()`
@@ -2089,6 +2127,14 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		-- accept-then-decline, this row simply does not participate in a new
 		-- gesture until the commit's own chain reaches `resetToClosed()`.
 		if committed then
+			return false
+		end
+		-- D1 (see `commitLatched`'s own comment): a commit has fired and the row
+		-- has not finished travelling home. Refused for the SAME reason
+		-- `committed` is one line above — the difference is only that this one
+		-- outlives the commit chain itself, covering the spring back from the
+		-- parked slide-off position that `startOffset` would otherwise inherit.
+		if commitLatched then
 			return false
 		end
 		drag = {

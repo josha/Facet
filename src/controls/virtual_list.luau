@@ -1059,9 +1059,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		every press (an unwrapped row must not hold the capture — see the
 		dispatcher) while the BUILD half is deferred to the axis lock, and calling
 		a consumer callback twice per gesture to answer the same question is a
-		cost with no reason. Same lifetime and same drop rule as `hostedEngines`;
-		row_actions' own action list is a build-time fact in every mode. ]]
+		cost with no reason.
+
+		CACHED AGAINST THE ITEM, NOT THE KEY ALONE. `spec.rowActions(item)` is a
+		function of the item, and a list's items change under a stable key all the
+		time — a row locks and unlocks, ownership transfers, a race finishes. A
+		key-only cache froze the FIRST press's verdict forever: a row that
+		answered nil while locked stayed declined for the rest of the session, and
+		a row that lost its actions kept firing them. `hostedItemByKey` records
+		which item each answer was derived from, and the rows observer below drops
+		the answer AND the engine the moment that identity moves. ]]
 	local hostedFieldsByKey: { [string]: any } = {}
+	local hostedItemByKey: { [string]: any } = {}
 	--[[ mounted hit path -> row key. NEVER parsed out of a path (a data key is
 		arbitrary text, so a pattern over `[{key}]` is a guess about what a key may
 		contain) — CONSTRUCTED from `windowItems`, which is already this control's
@@ -1219,6 +1228,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if item == nil then
 			return nil -- not in the data; nothing to cache either
 		end
+		hostedItemByKey[key] = item
 		local fields = hostedRowActions(item)
 		if fields ~= nil then
 			specGuard.assertKnownKeys(
@@ -1369,6 +1379,16 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			if key == nil then
 				return false
 			end
+			if pos.pointerType ~= nil and pos.pointerType ~= "mouse" and pos.pointerType ~= "touch" then
+				-- PEN/STYLUS/anything else: declined HERE, at the down, exactly as
+				-- row_actions' own `onPointerDown` declines it. Deferring the
+				-- decision to the replayed down would have meant holding the
+				-- capture for the whole gesture and building an engine for a
+				-- pointer class the engine then refuses — a build that can never
+				-- do anything. The shipping adapter only ever emits mouse/touch,
+				-- so this is a guard against a future one, not a live repro.
+				return false
+			end
 			if hostedFieldsFor(key) == nil then
 				-- DECLINE: an unwrapped row must behave exactly like a row on a
 				-- list with no `rowActions` at all, and that row holds no capture.
@@ -1448,6 +1468,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		local engine = hostedEngines[key]
 		hostedEngines[key] = nil
 		hostedFieldsByKey[key] = nil
+		hostedItemByKey[key] = nil
 		if hostedActiveKey == key then
 			hostedActiveKey = nil
 			hostedPending = nil
@@ -1476,12 +1497,26 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		threshold can never trip, and the tray can never be measured. Nothing about
 		that is recoverable in place, and it does not need to be: engines are lazy,
 		so dropping the cache costs one rebuild on the next real gesture. ]]
+	--[[ Called from `buildFocusGroups` — the ONE place this control learns its
+		mounted path, and the presenter runs it on every present and every
+		refresh. That is what makes the drop correct: the root is compared and
+		RECORDED here, so a re-mount is noticed on the very next refresh whether
+		or not anyone ever touches the list again, and a run where the root has
+		not moved costs one string compare (`hostedMapRoot` used to be written
+		only by `hostedKeyOfHit`, so this cloned the engine table on every
+		refresh until the next pointer-down). Recording it also invalidates the
+		path map — the map is keyed on this same root, and a stale one would
+		answer with paths from the previous mount. ]]
 	local function hostedNoticeMount()
 		local root = mountedScrollPath
-		if root == hostedMapRoot or hostedMapRoot == nil then
-			-- unchanged, or the very first mount (nothing was built under a
-			-- previous root, because there was no previous root)
+		if root == hostedMapRoot then
 			return
+		end
+		local previousRoot = hostedMapRoot
+		hostedMapRoot = root
+		hostedMapWindow = nil -- force the path map to rebuild under the new root
+		if previousRoot == nil then
+			return -- the very first mount: nothing was built under a previous root
 		end
 		for key in table.clone(hostedEngines) do
 			hostedDropEngine(key)
@@ -1504,14 +1539,32 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				end)
 			end,
 		}, ""))
-		-- A ROW THAT LEAVES THE DATA takes its engine with it — the same pruning
-		-- Table does for its own wrapped rows. Unlike a windowed-out row (which
-		-- is coming back, and keeps its engine on purpose), a deleted key never
-		-- returns, and an engine still holding the tray for it would pin the
-		-- overlay over a row that is gone.
-		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
-			for key in table.clone(hostedEngines) do
-				if map[key] == nil then
+		--[[ THE ITEM BEHIND A TOUCHED KEY MOVED. One observer answers both halves
+			of the same question, because they have one root cause — a cached
+			answer outliving the item it was derived from:
+			  * the row LEFT the data. A deleted key never comes back (unlike a
+			    windowed-out row, which keeps its engine on purpose), and an
+			    engine still holding the tray for it would pin the overlay over a
+			    row that is gone.
+			  * the row's ITEM CHANGED under a stable key — locked to unlocked,
+			    ownership transferred, a racer finished. `spec.rowActions(item)`
+			    is a function of the item, so both the cached verdict and the
+			    engine built from it are now answers to an old question.
+			Dropping the engine covers both directions (a row that GAINS actions
+			and a row that LOSES them), and it is lazy, so the cost is one rebuild
+			on the next real gesture.
+
+			An untouched list pays NOTHING here: `hostedItemByKey` is empty until
+			a press, and `indexByKey` is a memo this control already recomputes on
+			every data change for its own focus pruning. ]]
+		listScope:own(core:observe(spec.rows, function(items: { any })
+			if next(hostedItemByKey) == nil then
+				return
+			end
+			local index = indexByKey:get() :: { [string]: number }
+			for key, item in table.clone(hostedItemByKey) do
+				local at = index[key]
+				if at == nil or items[at] ~= item then
 					hostedDropEngine(key)
 				end
 			end

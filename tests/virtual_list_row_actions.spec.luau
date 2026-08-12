@@ -537,6 +537,155 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		expect(w.list.dump().dropSurface).toBe(true)
 	end)
 
+	--[[ (l) D1 — THE DOUBLE DELETE. A destructive full swipe fires, and the
+		commit chain then springs the row home from its parked slide-off position
+		(measured: exactly -800 on this 800px row, for ~65 frames AFTER the action
+		fired and `committed` was already cleared). A press landing in that window
+		used to be accepted with `drag.startOffset` = -800, so the very next
+		release handed `settle()` a magnitude past the 60% commit threshold and
+		the row committed a SECOND time. Fixed in the shared engine
+		(`commitLatched`, src/controls/row_actions.luau) — see the standalone
+		mirror of this case in tests/row_actions_input.spec.luau. ]]
+	it("(l) a destructive full swipe fires exactly ONCE, even if re-swiped during the commit", function()
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				return {
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							role = "destructive",
+							onAction = function()
+								table.insert(fired, item.id)
+							end,
+						},
+					},
+				}
+			end,
+		})
+		local hit = rowHit("r2")
+		local rect = w.adapter.node(hit).rect
+		local originX = rect.x + rect.w - 20
+		local y = rect.y + rect.h / 2
+		w.dragLeft("r2", rect.w * 0.75) -- past 60% of the row
+		w.release()
+		-- run only as far as the FIRE — a destructive commit slides off, collapses
+		-- its height, and only then fires; the row is still a whole row width from
+		-- home at that moment, and `committed` has just been cleared
+		local firedAt: number? = nil
+		for i = 1, 400 do
+			w.tick(FRAME)
+			if #fired == 1 then
+				firedAt = i
+				break
+			end
+		end
+		expect(firedAt).never().toBeNil()
+		expect(w.list.engagedOffset:get()).toBeLessThan(-rect.w * 0.5) -- parked, mid-flight
+		-- ...and swipe it again, right here — the whole repro
+		w.adapter.pointerDown(hit, originX, y, "mouse")
+		w.tick(FRAME)
+		w.adapter.pointerMove(originX - (LOCK + 2), y)
+		w.tick(FRAME)
+		w.adapter.pointerMove(originX - 40, y) -- a SHORT drag: nowhere near 60%
+		w.tick(FRAME)
+		w.adapter.pointerUp(originX - 40, y)
+		-- run the WHOLE ladder out: a second commit would slide off and then
+		-- collapse before firing, so a short settle would miss it and pass
+		w.settle(400)
+		expect(fired).toEqual({ "r2" }) -- still exactly one
+	end)
+
+	it("(m) N1: a row that GAINS actions when its item changes stops being declined", function()
+		local fired: { string } = {}
+		local w = world({
+			count = 6,
+			rowActions = function(item: any): any
+				if item.locked then
+					return nil -- no actions while locked
+				end
+				return {
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired, item.id)
+							end,
+						},
+					},
+				}
+			end,
+		})
+		w.rows:set({ { id = "r1" }, { id = "r2", locked = true }, { id = "r3" } })
+		w.pres.refresh()
+		w.dragLeft("r2", 80)
+		expect(w.debug().engagedKey).toBeNil() -- locked: declined
+		expect(w.debug().engineCount).toBe(0)
+		w.release()
+		-- ...unlocked. The cached "no actions" verdict was derived from the OLD
+		-- item and must not survive it.
+		w.rows:set({ { id = "r1" }, { id = "r2" }, { id = "r3" } })
+		w.pres.refresh()
+		w.dragLeft("r2", 80)
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.debug().engineCount).toBe(1)
+	end)
+
+	it("(n) N1: a row that LOSES its actions when its item changes drops its engine", function()
+		local fired: { string } = {}
+		local w = world({
+			count = 6,
+			rowActions = function(item: any): any
+				if item.locked then
+					return nil
+				end
+				return {
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired, item.id)
+							end,
+						},
+					},
+				}
+			end,
+		})
+		w.rows:set({ { id = "r1" }, { id = "r2" }, { id = "r3" } })
+		w.pres.refresh()
+		w.dragLeft("r2", 80)
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.debug().engineCount).toBe(1)
+		w.release()
+		w.settle()
+		-- the row locks: the engine built from the unlocked item must go
+		w.rows:set({ { id = "r1" }, { id = "r2", locked = true }, { id = "r3" } })
+		w.pres.refresh()
+		expect(w.debug().engineCount).toBe(0)
+		expect(w.debug().engagedKey).toBeNil()
+		w.dragLeft("r2", 80)
+		expect(w.debug().engagedKey).toBeNil() -- declined now
+		expect(w.debug().engineCount).toBe(0)
+		expect(#fired).toBe(0)
+	end)
+
+	it("(o) N2: a pen press is declined at the down — no capture, no engine", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local hit = rowHit("r2")
+		local rect = w.adapter.node(hit).rect
+		w.adapter.pointerDown(hit, rect.x + rect.w - 20, rect.y + rect.h / 2, "pen")
+		w.tick(FRAME)
+		expect(w.debug().engineCount).toBe(0)
+		-- the capture was DECLINED, so a mouse press on another row still lands
+		-- (one live capture owns the pointer)
+		w.dragLeft("r4", 80)
+		expect(w.debug().engagedKey).toBe("r4")
+	end)
+
 	it("(g) engines survive their row leaving the window, and dispose with the list", function()
 		local fired: { string } = {}
 		local w = world({ rowActions = trailingActions(fired) })

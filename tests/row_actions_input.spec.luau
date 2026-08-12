@@ -262,6 +262,50 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(minHeight).toBeCloseTo(0, 0.5)
 	end)
 
+	--[[ REVIEW FIX (hosted-mode round 2, D1) — THE STANDALONE MIRROR of the
+		VirtualList case in tests/virtual_list_row_actions.spec.luau. The fix is
+		in SHARED code (`commitLatched`, src/controls/row_actions.luau), so the
+		hole was never hosted-only: after the destructive chain fires and calls
+		`resetToClosed()`, `committed` is already false while the row is still
+		springing home from its parked slide-off position a whole row width away.
+		A press landing in that window seeded `drag.startOffset` from the live
+		`offset`, so a gesture that travelled 40px released with a magnitude past
+		the 60% commit threshold — and deleted the row a second time. ]]
+	it("a re-swipe DURING the commit's return flight cannot fire the action twice", function()
+		local w = trailingWorld(nil, "destructive")
+		local rowWidth = rowWidthOf(w)
+		w.adapter.pointerDown(HIT, 0, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(-15, 20)
+		w.tick(1.0)
+		local releaseX = -(rowWidth * 0.7)
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		-- run the chain until the action has fired and the row has begun its
+		-- flight home (the window `committed` no longer covers)
+		local firedAt = nil
+		for i = 1, 400 do
+			w.tick(FRAME)
+			if firedAt == nil and #w.fired == 1 then
+				firedAt = i
+				break
+			end
+		end
+		expect(firedAt).never().toBeNil()
+		expect(w.ra.dump().offset).toBeLessThan(-rowWidth * 0.5) -- parked, mid-flight
+		-- ...and swipe again, right here
+		w.adapter.pointerDown(HIT, 0, 20, "mouse")
+		w.tick(FRAME)
+		w.adapter.pointerMove(-15, 20)
+		w.tick(FRAME)
+		w.adapter.pointerMove(-40, 20) -- a SHORT drag: nowhere near 60%
+		w.tick(FRAME)
+		w.adapter.pointerUp(-40, 20)
+		w.settle(400)
+		expect(#w.fired).toBe(1)
+	end)
+
 	-- the sibling half of the SwiftUI ruling: a NON-destructive first action
 	-- fires immediately and the row springs back to CLOSED — never sliding
 	-- off-screen, never collapsing height at all, exactly like tapping that
