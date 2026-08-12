@@ -165,3 +165,9 @@ Mechanics (design §Measured floors):
 1. Overlay input transparency: the bare Anchor overlay must not eat touches meant for rows/scroll on the live adapter (Task 4).
 2. The row's hit rect must follow the row under its live presentation transform (engine hit-testing vs slid content) (Task 4).
 3. Empty-canvas tap-to-close: iOS closes an open tray on a tap below the last row; hosted mode currently doesn't. Both candidate fixes are priced at the dismiss site in virtual_list.luau (permanent Grip = +1 instance/list; Canvas Instance.Active risks eating native scroll) — the device pass decides (Task 4 F2).
+4. D-pad focus ring actually painted on a revealed tray button, and the tray hit rect under the row's presentation transform (Task 5).
+
+## Known defects booked OUTSIDE this mission (pre-existing; follow-ups, not gate blockers)
+
+1. Table tray focus traversal: Table's focus-group walk stops at the Row node, so Table-composed row-actions tray buttons (and the edit-minus affordance) land in NO focus group — Tab/D-pad cannot reach them. Pre-existing since the Table composition shipped; hosted mode fixed its own copy in Task 5 (Task 5 review finding 4).
+2. Keyboard/pad-only Delete on an unswiped hosted row (P8b pin): lazy engines mean no engine exists until a swipe; the priced fix is a list-level Delete binding resolving the focused row key → hostedEngineFor(key) → commitDestructive() — one engine, built on the keypress. Cross-platform reachability item (RED-TEAM charter class), not implemented this mission.
