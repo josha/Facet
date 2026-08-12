@@ -7,8 +7,13 @@
 -- device result). Standalone script (not wired into the gated bench/budget
 -- files) so this one-off comparison does not touch shared perf gates.
 -- Reproduce: `lune run artifacts/row-actions/perf_workload.luau` from the
--- repo root. Results are in artifacts/row-actions/device-matrix.md's perf
--- section.
+-- repo root.
+--
+-- WHERE THE RESULTS LIVE: device-matrix.md's perf section still records the
+-- SUPERSEDED one-pass wrapper numbers (measured 2026-08-10, before this
+-- file was de-biased and before the hosted integration existed) — do not
+-- read them as this script's output. The hosted results land there in the
+-- gate task, as >=5-run MEANS; a single run of this script is not a result.
 --
 -- ===================================================================
 -- WHY THE MEASUREMENT IS INTERLEAVED (row-actions hosted mode, Task 7)
@@ -30,17 +35,23 @@
 -- A/B is therefore not a gate, it is a coin flip.
 --
 -- The fix here changes only the SCHEDULE, never the drive: per shape each
--- world is measured in TWO blocks of SAMPLES/2, interleaved
--- base -> other -> base -> other, and each world's two blocks are
+-- world is measured in TWO blocks of SAMPLES/2, run in ABBA order
+-- (base -> other -> other -> base), and each world's two blocks are
 -- concatenated. Every world still walks its own 30-warmup + 150-sample
 -- drive sequence in exactly the committed order (the drive state is
 -- threaded across a world's two blocks, so block 2 continues where block 1
 -- stopped) — the sample SET per world is byte-identical to the one-pass
--- version; only who holds the CPU when is different. Drift that used to
--- land entirely on world B is now split evenly between A and B.
+-- version; only who holds the CPU when is different.
 --
--- Run-to-run noise on top of this is +-10-15pp on the deltas: use MEANS
--- OVER >=3 RUNS, never a single run, for any budget call.
+-- ABBA, NOT ABAB (review round 1): the first interleaved cut used ABAB,
+-- which still left the second world second in BOTH pairs. Its own A/A
+-- control measured a one-sided residual of +1.15pp fling / +2.57pp steady —
+-- ~30% of a 5% budget spent on schedule. ABBA gives each world one leader
+-- slot and one follower slot, so a monotone drift cancels to first order.
+--
+-- Run-to-run noise on top of this is large (per-run sd ~2.3pp on fling,
+-- and single runs have printed both +6% and -1.5% for the same code): a
+-- budget call needs the MEAN OF >=5 RUNS. A single run is not a result.
 --
 -- THREE WORLDS ARE MEASURED:
 --   baseline  — plain rows (the budget's denominator)
@@ -53,7 +64,9 @@
 --               cost the hosted design removed stays visible. Measured
 --               against its OWN freshly built baseline world (`baseline2`),
 --               interleaved the same way, so its numbers are un-biased too
---               rather than inheriting the hosted pair's ordering.
+--               rather than inheriting the hosted pair's ordering. Both are
+--               built AFTER the budgeted pair has been measured, so their
+--               281 extra resident nodes cannot compress the budgeted delta.
 
 local LuauUI = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
@@ -64,8 +77,8 @@ local ROW_HEIGHT = 56
 local ROW_GAP = 4
 local SAMPLES = 150
 local WARMUP = 30
--- the interleave: SAMPLES split into two blocks per world (base, other,
--- base, other). Halves of an even 150 => 75 + 75 = the full 150.
+-- the interleave: SAMPLES split into two blocks per world, run ABBA (base,
+-- other, other, base). Halves of an even 150 => 75 + 75 = the full 150.
 local BLOCK = SAMPLES // 2
 
 local function buildItems(): { any }
@@ -320,10 +333,18 @@ local function concat(a: { number }, b: { number }): { number }
 	return out
 end
 
---[[ THE INTERLEAVED PAIR. Four blocks — A, B, A, B — of SAMPLES/2 each, with
+--[[ THE INTERLEAVED PAIR, in ABBA ORDER — A, B, B, A — of SAMPLES/2 each, with
 	the 30-sample warmup paid on each world's FIRST block only (the world is
 	warm for its second). Each world's two blocks are concatenated, so both
-	summaries are over the same 150 samples of the same drive positions. ]]
+	summaries are over the same 150 samples of the same drive positions.
+
+	WHY ABBA AND NOT ABAB (review round 1, P1). Splitting into blocks halves how
+	much first-world drift world B eats, but ABAB leaves B second in BOTH pairs,
+	so the residual is one-sided: an A/A control through the ABAB schedule still
+	measured +1.15pp on fling and +2.57pp on steady — ~30% of a 5% budget spent
+	on schedule alone. ABBA puts each world once in the "leader" slot and once
+	in the "follower" slot, so a monotone drift over the four blocks cancels to
+	first order instead of accumulating on one side. ]]
 local function interleavedPair(shape: string, driver: any, worldA: any, worldB: any, labelA: string, labelB: string)
 	local driveA, driveB = newDrive(), newDrive()
 	local a1 = driver(worldA, driveA, BLOCK, WARMUP)
@@ -331,11 +352,11 @@ local function interleavedPair(shape: string, driver: any, worldA: any, worldB: 
 	if worldB.mode == "hosted" then
 		assertHostedIdle(worldB, `{shape} block 1`)
 	end
-	local a2 = driver(worldA, driveA, SAMPLES - BLOCK, 0)
 	local b2 = driver(worldB, driveB, SAMPLES - BLOCK, 0)
 	if worldB.mode == "hosted" then
 		assertHostedIdle(worldB, `{shape} block 2`)
 	end
+	local a2 = driver(worldA, driveA, SAMPLES - BLOCK, 0)
 	return summarize(`{labelA}-{shape}`, concat(a1, a2)), summarize(`{labelB}-{shape}`, concat(b1, b2))
 end
 
@@ -376,8 +397,36 @@ print(
 )
 print(("  hosted engines at build: %d"):format(assertHostedIdle(hosted, "build")))
 
-print("Building baseline2 (the legacy world's own un-biased denominator)...")
+-- census: same method as the committed workload — (variant total - baseline
+-- total) / windowed rows.
+local hostedNodesPerRow = (hostedTotal - baseTotal) / hostedWindowed
+print(("  HOSTED COST: +%.2f nodes/row (closed)"):format(hostedNodesPerRow))
+
+--[[ THE BUDGETED PAIR RUNS FIRST, AND ALONE (review round 1, P3): the legacy
+	world and its baseline2 are built AFTER it. Building all four up front left
+	281 extra adapter nodes (legacy's 5-instance-per-row composites plus a whole
+	second baseline) resident on the heap for the whole budgeted measurement —
+	symmetric across baseline and hosted, but it inflates both sides' absolute
+	cost and so COMPRESSES the delta the budget is read from. The informational
+	pair pays that cost instead, where it cannot flatter the number that gates. ]]
+print("\nInterleaved steady scroll (base/hosted, ABBA)...")
+local baseScroll, hostedScroll =
+	interleavedPair("steady-scroll", runSteadyScroll, baseline, hosted, "baseline", "hosted")
+print("Interleaved fling (base/hosted, ABBA)...")
+local baseFling, hostedFling = interleavedPair("fling", runFling, baseline, hosted, "baseline", "hosted")
+print("Interleaved idle scroll (base/hosted, ABBA)...")
+local baseIdle, hostedIdle = interleavedPair("idle-scroll", runIdleScroll, baseline, hosted, "baseline", "hosted")
+
+print("\nBuilding baseline2 (the legacy world's own un-biased denominator)...")
 local baseline2 = buildWorld("base")
+local base2Total, base2Windowed = instancesPerRow(baseline2)
+print(
+	("  windowed rows: %d, total adapter nodes: %d, nodes/windowed-row: %.2f"):format(
+		base2Windowed,
+		base2Total,
+		base2Total / base2Windowed
+	)
+)
 print("Building legacy-standalone-wrap (manual newRowActions per cell, 200)...")
 local legacy = buildWorld("legacy")
 local legacyTotal, legacyWindowed = instancesPerRow(legacy)
@@ -388,28 +437,18 @@ print(
 		legacyTotal / legacyWindowed
 	)
 )
+-- legacy's census is taken against BASELINE2 (review round 1, P4) — the same
+-- world that is its time denominator, so the instance number and the ms number
+-- are statements about the same pair.
+local legacyNodesPerRow = (legacyTotal - base2Total) / legacyWindowed
+print(("  LEGACY COST: +%.2f nodes/row (closed, vs baseline2) [informational]"):format(legacyNodesPerRow))
 
--- census: same method as the committed workload — (variant total - baseline
--- total) / windowed rows.
-local hostedNodesPerRow = (hostedTotal - baseTotal) / hostedWindowed
-local legacyNodesPerRow = (legacyTotal - baseTotal) / legacyWindowed
-print(("  HOSTED COST: +%.2f nodes/row (closed)"):format(hostedNodesPerRow))
-print(("  LEGACY COST: +%.2f nodes/row (closed) [informational]"):format(legacyNodesPerRow))
-
-print("\nInterleaved steady scroll (base/hosted x2)...")
-local baseScroll, hostedScroll =
-	interleavedPair("steady-scroll", runSteadyScroll, baseline, hosted, "baseline", "hosted")
-print("Interleaved fling (base/hosted x2)...")
-local baseFling, hostedFling = interleavedPair("fling", runFling, baseline, hosted, "baseline", "hosted")
-print("Interleaved idle scroll (base/hosted x2)...")
-local baseIdle, hostedIdle = interleavedPair("idle-scroll", runIdleScroll, baseline, hosted, "baseline", "hosted")
-
-print("\n[informational] Interleaved steady scroll (base2/legacy x2)...")
+print("\n[informational] Interleaved steady scroll (base2/legacy, ABBA)...")
 local base2Scroll, legacyScroll =
 	interleavedPair("steady-scroll", runSteadyScroll, baseline2, legacy, "baseline2", "legacy")
-print("[informational] Interleaved fling (base2/legacy x2)...")
+print("[informational] Interleaved fling (base2/legacy, ABBA)...")
 local base2Fling, legacyFling = interleavedPair("fling", runFling, baseline2, legacy, "baseline2", "legacy")
-print("[informational] Interleaved idle scroll (base2/legacy x2)...")
+print("[informational] Interleaved idle scroll (base2/legacy, ABBA)...")
 local base2Idle, legacyIdle = interleavedPair("idle-scroll", runIdleScroll, baseline2, legacy, "baseline2", "legacy")
 
 print("\n=== RESULTS: HOSTED (budgeted) ===")
@@ -424,7 +463,7 @@ report(base2Fling, legacyFling, "legacy")
 report(base2Idle, legacyIdle, "legacy")
 
 print(("\nhosted nodes/closed-row: %.2f (budget: <=4)"):format(hostedNodesPerRow))
-print(("legacy nodes/closed-row: %.2f [informational]"):format(legacyNodesPerRow))
+print(("legacy nodes/closed-row: %.2f (vs baseline2) [informational]"):format(legacyNodesPerRow))
 
 local budgetScrollOk = pctDelta(baseScroll.mean_ms, hostedScroll.mean_ms) <= 5
 local budgetFlingOk = pctDelta(baseFling.mean_ms, hostedFling.mean_ms) <= 5
@@ -432,7 +471,7 @@ local budgetWrapperOk = hostedNodesPerRow <= 4
 print(("\nBUDGET hosted steady-scroll <=5%%: %s"):format(if budgetScrollOk then "PASS" else "FAIL"))
 print(("BUDGET hosted fling <=5%%: %s"):format(if budgetFlingOk then "PASS" else "FAIL"))
 print(("BUDGET hosted <=4 instances/row: %s"):format(if budgetWrapperOk then "PASS" else "FAIL"))
-print("(single-run deltas carry +-10-15pp noise — call the budget on >=3-run MEANS)")
+print("(single-run deltas carry ~2.3pp sd — call the budget on >=5-run MEANS)")
 
 baseline.list.dispose()
 hosted.list.dispose()
