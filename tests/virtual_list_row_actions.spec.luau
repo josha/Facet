@@ -1016,6 +1016,73 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(#fired).toBe(0)
 	end)
 
+	--[[ (v2b)/(v2c) F1 (review round 1). The in-list dismiss used to sit BELOW
+		both of this dispatcher's declines, so a press that could never become a
+		gesture never closed anything: on a MIXED list — some rows actionable,
+		some not, which is the whole reason `rowActions(item)` may answer nil —
+		pressing an actionless row left the tray open and the row slid, with no
+		way back except pressing an actionable row. Dismissal has nothing to do
+		with whether this press can become a gesture, and now says so. ]]
+	local function mixedList(fired: { string }): (item: any) -> any
+		return function(item: any): any
+			if item.id == "r5" then
+				return nil -- an actionless row, in the middle of actionable ones
+			end
+			return {
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, item.id)
+						end,
+					},
+				},
+			}
+		end
+	end
+
+	it("(v2b) F1: pressing an ACTIONLESS row closes the open one", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = mixedList(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		-- r5 has no actions: it declines the capture, builds nothing — and still
+		-- puts the open tray away
+		w.adapter.touchTap(rowHit("r5"))
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		-- ...and the actionless row is still an ordinary row: it activated, and
+		-- no engine was built for it
+		expect(w.activations).toEqual({ "r5" })
+		expect(w.debug().engineCount).toBe(1) -- r2's, and only r2's
+		expect(#fired).toBe(0)
+	end)
+
+	it("(v2c) F1: a PEN press closes the open row too, and is still declined", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local hit = rowHit("r5")
+		local rect = w.adapter.node(hit).rect
+		w.adapter.pointerDown(hit, rect.x + rect.w - 20, rect.y + rect.h / 2, "pen")
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		-- the DECLINE still holds (N2): no engine was built for the pen's row,
+		-- and the capture was never taken — a mouse press on another row lands
+		expect(w.debug().engineCount).toBe(1)
+		w.dragLeft("r4", 80)
+		expect(w.debug().engagedKey).toBe("r4")
+	end)
+
 	it("(v3) a tap on the OPEN row's own slid content closes it, and fires no activate", function()
 		-- iOS parity: with a tray open, a tap on the row means "put it away" and
 		-- means only that — the alternative is swipe-then-tap opening whatever the

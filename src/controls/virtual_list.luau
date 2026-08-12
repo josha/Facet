@@ -1483,6 +1483,50 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			if key == nil then
 				return false
 			end
+			--[[ THE IN-LIST HALF OF OUTSIDE-DISMISS. The presenter's own
+				`outsideDismiss` (contributed below) answers a tap OUTSIDE this
+				list's subtree — but the whole list is one contribution here, so
+				every row is "inside" it and a press on a DIFFERENT row would
+				never reach that path. Table gets this free precisely because its
+				rows each contribute separately; a hosted list has to say it.
+
+				ABOVE EVERY DECLINE, and that placement is the fix for a real bug
+				(review round 1, F1): a press on a row that CANNOT swipe — one
+				whose `rowActions(item)` answered nil, or a pen press — still
+				means "put the open tray away". It used to sit below both
+				`return false`s, so a mixed list (some rows actionable, some not)
+				left the tray open and the row slid when the player pressed an
+				actionless row, with no way back except pressing an actionable
+				one. Dismissal has nothing to do with whether THIS press can
+				become a gesture.
+
+				The press is NOT swallowed (the same `consume = false` rule the
+				engine's own `outsideDismiss` carries, round 7's lesson: closing
+				must not eat unrelated clicks), so pressing another row still
+				selects/activates it exactly as it would with nothing open. The
+				same-row half rides the UP instead — see `onPointerUp`, because
+				at the down it is not yet knowable whether this is a tap or a
+				re-grab of the open row.
+
+				STILL NOT COVERED (review round 1, F2 — carried, and named here
+				rather than left silent): a tap on the list's own EMPTY CANVAS,
+				below the last row. iOS closes there. It reaches neither seam —
+				the presenter's outside-tap test says "inside this contribution"
+				for the whole list, and this dispatcher only ever hears from a row
+				`Hit`. Closing it needs a hit surface over the empty canvas, and
+				every shape of that is a real cost or a real risk: a permanent
+				`Grip` is an instance per list this whole mission exists to avoid,
+				and making the Canvas itself `active` would put an input-consuming
+				node between a finger and the native ScrollingFrame — a touch-scroll
+				regression only a device pass could clear. Deferred to the device
+				pass with that evidence, not fixed blind. ]]
+			local engaged = engagedKey:get()
+			if engaged ~= nil and engaged ~= key then
+				local other = hostedEngines[engaged]
+				if other ~= nil then
+					other.close()
+				end
+			end
 			if pos.pointerType ~= nil and pos.pointerType ~= "mouse" and pos.pointerType ~= "touch" then
 				-- PEN/STYLUS/anything else: declined HERE, at the down, exactly as
 				-- row_actions' own `onPointerDown` declines it. Deferring the
@@ -1498,27 +1542,6 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- list with no `rowActions` at all, and that row holds no capture.
 				-- Answered from the cached spec result, NOT by building anything.
 				return false
-			end
-			--[[ THE IN-LIST HALF OF OUTSIDE-DISMISS. The presenter's own
-				`outsideDismiss` (contributed below) answers a tap OUTSIDE this
-				list's subtree — but the whole list is one contribution here, so
-				every row is "inside" it and a press on a DIFFERENT row would
-				never reach that path. Table gets this free precisely because its
-				rows each contribute separately; a hosted list has to say it.
-
-				The press is NOT swallowed (the same `consume = false` rule the
-				engine's own `outsideDismiss` carries, round 7's lesson: closing
-				must not eat unrelated clicks), so pressing another row still
-				selects/activates it exactly as it would with nothing open. The
-				same-row half rides the UP instead — see `onPointerUp`, because
-				at the down it is not yet knowable whether this is a tap or a
-				re-grab of the open row. ]]
-			local engaged = engagedKey:get()
-			if engaged ~= nil and engaged ~= key then
-				local other = hostedEngines[engaged]
-				if other ~= nil then
-					other.close()
-				end
 			end
 			hostedActiveKey = key
 			hostedPending = {
