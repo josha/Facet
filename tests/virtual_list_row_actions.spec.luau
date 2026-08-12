@@ -21,12 +21,12 @@
 -- with a SCRIPTED `now` so the springs and the gesture's velocity tracker are
 -- deterministic.
 --
--- WHAT IS DELIBERATELY NOT HERE YET (Task 4 owns it): the shared tray overlay.
--- Without a mounted tray, `trailingWidth` never measures, so `targetFor(edge)`
--- is 0 and a released gesture settles back to 0 px — an "open at the tray
--- width" assertion cannot exist until the overlay does. Every engagement
--- assertion below is therefore made on a LIVE (held) gesture, which is the real
--- state the shared signals and the coordinator claim are driven from anyway.
+-- TASK 4 ADDS the second half, in its own describe block at the bottom: the ONE
+-- shared tray overlay (a keyed region over the at-most-one engaged row), the
+-- presentation-channel slide, the commit-height collapse, and outside-dismiss.
+-- Task 3's own cases still assert engagement on a LIVE (held) gesture where
+-- that is the state under test — but a RELEASED gesture now settles at the real
+-- MEASURED tray width, because the tray it measures finally exists.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -34,6 +34,8 @@ local describe, it, expect = t.describe, t.it, t.expect
 local LuauUI = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local row_actions_state = require("../src/input/row_actions_state")
+local text_metrics = require("../src/layout/text_metrics")
+local themeSnapshot = require("../src/themes/snapshot")
 local fake_target = require("../tests/lib/fake_target")
 
 local LOCK = row_actions_state.AXIS_LOCK_PX
@@ -50,6 +52,56 @@ end
 -- the mounted row-hit path — the node the shared dispatcher is wired onto
 local function rowHit(key: string): string
 	return `/S/VL/Canvas/W/[{key}]/Row/Hit`
+end
+local function rowPath(key: string): string
+	return `/S/VL/Canvas/W/[{key}]/Row`
+end
+
+-- ===== the Task 4 overlay's own paths (the contract in virtual_list.luau's
+-- header): a KEYED region over the at-most-one engaged row, holding the engine's
+-- own tray `When`s — so the tail below is row_actions' shape, unchanged.
+local function trayGroup(key: string): string
+	return `/S/VL/Canvas/RowActionsOverlay/[{key}]/RowActionsTray`
+end
+local function tray(key: string, edge: string): string
+	local id = if edge == "leading" then "TrayLeading" else "TrayTrailing"
+	return `{trayGroup(key)}/{id}When/then/{id}`
+end
+local function trayAction(key: string, edge: string, action: string): string
+	return `{tray(key, edge)}/Action:{action}`
+end
+
+--[[ THE TRAY WIDTH A ROW MUST SETTLE OPEN AT, derived independently of this
+	control: the framework's own measurement oracle (`text_metrics.measure`,
+	unconstrained) over the label at the font/size THE RENDERER published for that
+	button (`controller.textAt` — the same fact the engine reads, taken from the
+	live tree rather than guessed here), padded and floored by the given theme's
+	own `controls.rowActions` metrics. The same shape
+	tests/row_actions_hosted.spec.luau's own `expectedTrayWidth` uses, with the
+	real renderer standing in for that file's stub controller. ]]
+local function expectedTrayWidth(w: any, path: string, label: string, metrics: any?): number
+	local snap = metrics or themeSnapshot.neutral()
+	local pad = themeSnapshot.resolveNumber(snap, "controls.rowActions.buttonPad") or 0
+	local minWidth = themeSnapshot.resolveNumber(snap, "controls.rowActions.buttonMinWidth") or 0
+	local facts = w.handle.controller.textAt(path)
+	expect(facts).never().toBeNil()
+	return math.max(minWidth, text_metrics.measure(label, facts.font, facts.size, math.huge).width + 2 * pad)
+end
+
+-- a metrics snapshot with ONE control family retuned — a theme package's whole
+-- effect on a tray, without authoring a whole compliant package. Cloned down to
+-- the one table that moves; everything else stays the neutral snapshot by
+-- reference, so nothing else in the tree solves differently.
+local function retunedRowActions(buttonPad: number, buttonMinWidth: number): any
+	local base = themeSnapshot.neutral()
+	local controls: any = table.clone(base.controls)
+	local family: any = table.clone(controls.rowActions)
+	family.buttonPad = buttonPad
+	family.buttonMinWidth = buttonMinWidth
+	controls.rowActions = family
+	local snap: any = table.clone(base)
+	snap.controls = controls
+	return snap
 end
 
 --[[ A presented VirtualList with a scripted clock. `opts.rowActions` is handed
@@ -88,7 +140,17 @@ local function world(opts: any?): any
 		onActivate = function(item: any)
 			table.insert(activations, item.id)
 		end,
+		-- the live theme metrics the tray's natural width is measured against.
+		-- Passed on every list here (a plain list simply never reads it) so the
+		-- hosted/plain mount-identity control stays a control.
+		env = env,
 	}
+	-- a LIVE viewport height (this control accepts a Readable), for the one case
+	-- that needs the window to change without a scroll
+	local viewportHeight = if options.liveViewport ~= nil then core:signal(options.liveViewport) else nil
+	if viewportHeight ~= nil then
+		spec.viewportHeight = viewportHeight
+	end
 	if options.rowActions ~= nil then
 		spec.rowActions = options.rowActions
 	end
@@ -102,13 +164,29 @@ local function world(opts: any?): any
 		spec.rowDropTarget = options.rowDropTarget
 	end
 	local list = virtual_list.build(LuauUI, core, spec)
-	local screen = LuauUI.UI.Screen({ id = "S", children = { list.blueprint } })
+	local children: { any } = { list.blueprint }
+	if options.sibling then
+		-- a rendered node OUTSIDE the list, for the outside-tap half of dismiss
+		table.insert(
+			children,
+			LuauUI.UI.Button({
+				id = "Outside",
+				label = "Outside",
+				onActivate = function()
+					table.insert(activations, "outside")
+				end,
+			})
+		)
+	end
+	local screen = LuauUI.UI.Screen({ id = "S", children = children })
 	local handle = pres.present(screen)
 	pres.refresh()
 	local unbindScroll = list.bindNativeScroll(handle.controller)
 
 	local w: any = {
 		core = core,
+		env = env,
+		viewportHeight = viewportHeight,
 		adapter = adapter,
 		pres = pres,
 		list = list,
@@ -122,6 +200,15 @@ local function world(opts: any?): any
 		clockTime += dt
 		pres.tick(dt)
 		pres.refresh()
+	end
+	-- CLOSE THE OPEN ROW the way Task 3 already proves works — a scroll, through
+	-- the shared coordinator (case (e)) — so a tree-shape assertion never rests
+	-- on Task 4's own tap-to-close. One pixel: not enough to move the window, so
+	-- the mounted path SET is untouched by the scroll itself.
+	function w.close()
+		w.adapter.driveScroll("/S/VL", { x = 0, y = 1 })
+		w.pres.refresh()
+		w.settle()
 	end
 	function w.settle(frames: number?)
 		for _ = 1, frames or 90 do
@@ -363,9 +450,19 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		for path in a do
 			expect(b[path]).toBe(true)
 		end
+		--[[ ...and the hosted list adds EXACTLY ONE node: the closed tray overlay
+			(design §"What must be proven before ship" — "identical to an unwrapped
+			list except the one overlay node"). It is a structural region with no
+			branch mounted, i.e. one Frame for the whole LIST, amortized over the
+			window at ~0.08 nodes/row — not one per row, which is the entire point
+			of hosting the feature instead of wrapping every row in a composite. ]]
+		local extra: { string } = {}
 		for path in b do
-			expect(a[path]).toBe(true)
+			if a[path] == nil then
+				table.insert(extra, path)
+			end
 		end
+		expect(extra).toEqual({ "/S/VL/Canvas/RowActionsOverlay" })
 		-- ...and every shared node is the same CLASS at the same solved rect
 		for path in a do
 			local pn, hn = plain.adapter.node(path), hosted.adapter.node(path)
@@ -392,6 +489,13 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
+		-- OPEN, and the tree says so (Task 4: a released gesture now settles at
+		-- the measured tray width instead of snapping back to 0 for want of a
+		-- tray to measure)
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(#w.adapter.paths() > before).toBe(true)
+		-- ...and closing it returns the tree to exactly the closed shape
+		w.close()
 		expect(#w.adapter.paths()).toBe(before)
 		expect(w.debug().engagedKey).toBeNil()
 	end)
@@ -701,5 +805,388 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		expect(w.debug().engineCount).toBe(1)
 		w.list.dispose()
 		expect(w.debug().engineCount).toBe(0)
+	end)
+end)
+
+-- =============================================================================
+--[[ TASK 4 — the shared tray overlay, the presentation slide, the commit height.
+	Everything here is about what the player can actually SEE and TOUCH:
+	  * the overlay mounts ONE keyed region at the engaged row's canvas offset,
+	    holding that engine's OWN tray views (`row_actions`' `trayViews` — the
+	    same blueprints a standalone row parents under its own root);
+	  * the row's content slides through the PRESENTATION channel, so a
+	    disengaged row declares no reactive offset prop at all;
+	  * a released gesture now settles at the MEASURED tray width (Task 3's
+	    carried item 3: with no tray there was nothing to measure and the row
+	    snapped back to 0);
+	  * a commit collapses the committing row's height, and only that row's;
+	  * outside-dismiss, both halves — outside the list (the presenter's own
+	    `outsideDismiss`) and inside it (the shared dispatcher). ]]
+describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
+	it("(p) the overlay mounts at the engaged row's offset; the row slides by presentation", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		-- the group spans the ROW's own box: r2's slot is (2-1)*40 tall by the
+		-- full row width, so a tray anchored to an edge is anchored to the row's
+		local group = w.adapter.node(trayGroup("r2"))
+		expect(group).never().toBeNil()
+		expect(group.rect.y).toBe(40)
+		expect(group.rect.h).toBe(40)
+		expect(group.rect.w).toBe(800)
+		-- ...with the TRAILING tray's button inside it, at the row's right edge
+		local button = w.adapter.node(trayAction("r2", "trailing", "delete"))
+		expect(button).never().toBeNil()
+		expect(button.rect.x + button.rect.w).toBe(800)
+		expect(button.rect.y).toBe(40)
+		-- the leading tray is not declared on this row, so nothing mounts for it
+		expect(w.adapter.node(tray("r2", "leading"))).toBeNil()
+
+		--[[ THE SLIDE IS PRESENTATION, NOT LAYOUT (design §3). The row's SOLVED
+			rect never moves — that is what makes a disengaged row free — and the
+			translation lives on the presentation channel, exactly where the
+			DropLine and the drag ghost already live. ]]
+		local row = w.adapter.node(rowPath("r2"))
+		expect(row.rect.x).toBe(0)
+		expect(row.presentationOffset.x).toBe(-80)
+		expect(row.presentationOffset.x).toBe(w.list.engagedOffset:get())
+		-- and no OTHER row is translated
+		expect(w.adapter.node(rowPath("r3")).presentationOffset.x).toBe(0)
+	end)
+
+	it("(w) a released gesture settles at the MEASURED tray width (Task 3 carried item 3)", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		--[[ THE POINT OF THIS CASE. `targetFor(edge)` reads the MEASURED tray
+			width — `deriveNaturals` asking `controller.textAt` for the button at
+			the host's own tray path — so before the overlay existed it was 0 and
+			every release settled back to closed. The expectation is the framework
+			measurement oracle at the theme's own pad/floor, never this control's
+			arithmetic restated. ]]
+		local expected = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-expected)
+		expect(w.debug().engagedKey).toBe("r2")
+		-- ...and the number is the button's actual painted width, not a
+		-- coincidence: the row is open at exactly the width of what it revealed
+		local button = w.adapter.node(trayAction("r2", "trailing", "delete"))
+		expect(button.rect.w).toBe(expected)
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(-expected)
+	end)
+
+	it("(u) the tray is measured against the LIST'S OWN env, not the neutral theme (Task 3 carried item 1)", function()
+		--[[ `buttonPad`/`buttonMinWidth` are theme facts with no font component,
+			so the engine resolves them from `spec.env`'s live `themeMetrics`.
+			Before Task 4 nothing handed a hosted engine an environment at all, so
+			a theme package moved the painted tray and NOT the width the row
+			settles open at — the row would have stopped short of, or past, its own
+			buttons. The differential is a retuned pad/floor. ]]
+		local retuned = retunedRowActions(24, 30)
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local action = trayAction("r2", "trailing", "delete")
+		-- open once under the NEUTRAL theme, to have the number this must differ
+		-- from (a floor-dominated retune would prove nothing about the pad at all)
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local neutralWidth = expectedTrayWidth(w, action, "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-neutralWidth)
+		local retunedWidth = expectedTrayWidth(w, action, "Delete", retuned)
+		expect(retunedWidth ~= neutralWidth).toBe(true) -- a real differential
+		w.close()
+
+		w.env:set("themeMetrics", retuned)
+		w.pres.refresh()
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		expect(w.list.engagedOffset:get()).toBe(-retunedWidth)
+		-- ...and the PAINTED button agrees, which is the whole point: measured
+		-- and painted are the same number under the same theme
+		expect(w.adapter.node(trayAction("r2", "trailing", "delete")).rect.w).toBe(retunedWidth)
+	end)
+
+	it("(q) a tap on a tray button fires its action exactly ONCE and closes the row", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local before = w.adapter.node(trayAction("r2", "trailing", "delete"))
+		expect(before).never().toBeNil()
+		--[[ The Activate arrives at the LIST's contribution (the overlay is the
+			list's own subtree, and a hosted engine has no node for the presenter to
+			walk to), and the list hands it to the engaged engine, whose
+			`_handleActivate` matches under the tray path this control gave it. ]]
+		w.adapter.tap(trayAction("r2", "trailing", "delete"))
+		w.settle()
+		expect(fired).toEqual({ "r2" })
+		-- a tray tap is NOT a row activate
+		expect(w.activations).toEqual({})
+		-- ...and the row closed behind it: overlay gone, slide restored
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+	end)
+
+	it("(r) disengaging unmounts the overlay, clears the slide, and returns the tree to the closed shape", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local closed = #w.adapter.paths()
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		expect(#w.adapter.paths() > closed).toBe(true)
+		expect(w.adapter.node(trayGroup("r2"))).never().toBeNil()
+		w.close()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		-- the tree is the CLOSED tree again, node for node
+		expect(#w.adapter.paths()).toBe(closed)
+		-- ...and the slide is CLEARED, not merely zeroed somewhere else
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+	end)
+
+	it("(x) engagement moving straight from one row to another repaints the overlay for the NEW row", function()
+		--[[ WHY THE OVERLAY IS A KEYED REGION AND NOT A `UI.When`. Swiping r4
+			while r2 is open switches `engagedKey` r2 -> r4 with no nil in between
+			(r4 drives the live gesture; r2 is merely finishing its close). A
+			`When`'s branch factory runs only on false -> true, so the overlay would
+			have gone on painting r2's actions over r4's row for as long as r4
+			stayed open. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		expect(w.adapter.node(trayGroup("r2"))).never().toBeNil()
+		w.dragLeft("r4", 80)
+		expect(w.debug().engagedKey).toBe("r4")
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		local group = w.adapter.node(trayGroup("r4"))
+		expect(group).never().toBeNil()
+		expect(group.rect.y).toBe(120) -- (4-1) * 40: r4's own slot, not r2's
+		expect(w.adapter.node(trayAction("r4", "trailing", "delete"))).never().toBeNil()
+		-- ...and the slide moved with it: r2 is flat again, r4 is translated
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		expect(w.adapter.node(rowPath("r4")).presentationOffset.x).toBe(-80)
+	end)
+
+	it("(v1) a tap OUTSIDE the list closes the open row, and does not swallow that tap", function()
+		--[[ The presenter's own `outsideDismiss`, contributed by the list: it
+			compares the tapped path against THIS CONTRIBUTION's path, so "outside"
+			means outside the whole list. `consume = false` (verbatim from the
+			engine's own seam) means the tap that closed the tray still does what it
+			was going to do — row-actions' round-7 rule: closing must never swallow
+			an unrelated click. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired), sibling = true })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		w.adapter.tap("/S/Outside")
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.activations).toEqual({ "outside" }) -- NOT swallowed
+		expect(#fired).toBe(0)
+	end)
+
+	it("(v2) a press on ANOTHER row closes the open one, and still activates the row pressed", function()
+		--[[ THE IN-LIST HALF. Every row is inside the ONE list contribution, so
+			the presenter's outside-tap path can never see this — Table gets it free
+			only because its rows each contribute separately. The shared dispatcher
+			says it instead, on the down, without swallowing the press. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		w.adapter.touchTap(rowHit("r5"))
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.activations).toEqual({ "r5" })
+		expect(#fired).toBe(0)
+	end)
+
+	it("(v3) a tap on the OPEN row's own slid content closes it, and fires no activate", function()
+		-- iOS parity: with a tray open, a tap on the row means "put it away" and
+		-- means only that — the alternative is swipe-then-tap opening whatever the
+		-- row's own `onActivate` opens.
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		w.adapter.touchTap(rowHit("r2"))
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.activations).toEqual({})
+		expect(#fired).toBe(0)
+		-- ...and the row is an ordinary row again: the NEXT tap activates
+		w.adapter.touchTap(rowHit("r2"))
+		expect(w.activations).toEqual({ "r2" })
+	end)
+
+	it("(s) a destructive commit collapses THAT row's height, and only that row's", function()
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				return {
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							role = "destructive",
+							onAction = function()
+								table.insert(fired, item.id)
+							end,
+						},
+					},
+				}
+			end,
+		})
+		local rect = w.adapter.node(rowHit("r2")).rect
+		w.dragLeft("r2", rect.w * 0.75) -- past 60% of the row
+		w.release()
+		-- run to the frame the collapse is actually visible on
+		local collapsedAt: number? = nil
+		for i = 1, 400 do
+			w.tick(FRAME)
+			if w.adapter.node(rowPath("r2")).rect.h < 40 then
+				collapsedAt = i
+				break
+			end
+		end
+		expect(collapsedAt).never().toBeNil()
+		local collapsed = w.adapter.node(rowPath("r2")).rect.h
+		expect(collapsed < 40).toBe(true)
+		-- ONLY that row: every other row keeps the list's uniform height, and the
+		-- slots do not move (the canvas is index x pitch — a virtual list's
+		-- geometry, unlike a stack's, does not close the gap)
+		expect(w.adapter.node(rowPath("r1")).rect.h).toBe(40)
+		expect(w.adapter.node(rowPath("r3")).rect.h).toBe(40)
+		expect(w.adapter.node(rowPath("r3")).rect.y).toBe(80)
+		-- ...and the tray collapses WITH the row it belongs to
+		expect(w.adapter.node(trayGroup("r2")).rect.h).toBe(collapsed)
+		-- the ladder finishes: the action fires once and the override is released
+		w.settle(400)
+		expect(fired).toEqual({ "r2" })
+		expect(w.adapter.node(rowPath("r2")).rect.h).toBe(40)
+		expect(w.debug().engagedKey).toBeNil()
+	end)
+
+	it("(y) the PHANTOM ROW: a fired commit's return flight keeps its tray and takes no gesture", function()
+		--[[ The consumer that does NOT remove a destructively-committed row
+			(row_actions' own redteam item 5). Between the fire and the row
+			arriving home, `commitLatched` refuses every new gesture — so the
+			question Task 4 has to answer is what the OVERLAY does in that window.
+
+			It paints the tray, and that is deliberate: the overlay parents the
+			ENGINE's own tray views, whose reveal memo is `openEdge`, falling back
+			to the SIGN of `offset` — the same rule a standalone row uses, for the
+			same reason (a row still visibly off its rest position has visibly
+			vacated the strip the tray occupies; blanking it would flash empty
+			space under a sliding row). No extra guard, and none wanted: parity
+			with standalone/Table is the specification here. ]]
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				return {
+					trailing = {
+						{
+							id = "delete",
+							label = "Delete",
+							role = "destructive",
+							onAction = function()
+								table.insert(fired, item.id) -- and the row STAYS in the data
+							end,
+						},
+					},
+				}
+			end,
+		})
+		local rect = w.adapter.node(rowHit("r2")).rect
+		w.dragLeft("r2", rect.w * 0.75)
+		w.release()
+		for _ = 1, 400 do
+			w.tick(FRAME)
+			if #fired == 1 then
+				break
+			end
+		end
+		expect(fired).toEqual({ "r2" })
+		-- parked mid-flight, and the tray is still there with it
+		expect(w.list.engagedOffset:get() < -rect.w * 0.5).toBe(true)
+		expect(w.adapter.node(trayGroup("r2"))).never().toBeNil()
+		expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
+		-- ...and the latched row takes no new gesture (D1's own guard, unchanged)
+		w.dragLeft("r2", 40)
+		expect(w.list.engagedOffset:get() < -rect.w * 0.5).toBe(true)
+		w.release()
+		w.settle(400)
+		expect(fired).toEqual({ "r2" }) -- still exactly one
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+	end)
+
+	it("(z) an open row that unmounts and comes back is still slid", function()
+		--[[ THE RENDERER FORGETS a path's presentation transform when that path is
+			removed (`lastTransform` is cleared on removal, renderer.luau) — so a
+			signal-driven-only slide would leave a row that left the window and came
+			back painted FLAT while this control still believed it was translated,
+			with no further write coming (the engagement never moved). Reachable
+			without any scroll at all: a LIVE viewport that shrinks past the open row
+			and grows again — and a scroll would not do, because a scroll closes the
+			open row through the coordinator before it can leave. The slide is
+			re-asserted every sync pass, which is what heals it. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired), liveViewport = 400 })
+		local height = w.viewportHeight
+		expect(w.list.debugWindow().r12).toBe(true) -- 10 visible + 2 overscan
+		w.dragLeft("r12", 80)
+		w.release()
+		w.settle()
+		local open = w.list.engagedOffset:get()
+		expect(open < 0).toBe(true)
+		expect(w.adapter.node(rowPath("r12")).presentationOffset.x).toBe(open)
+		-- the viewport shrinks past r12: the row unmounts, and NOTHING closes it
+		-- (no scroll happened)
+		height:set(120)
+		w.pres.refresh()
+		expect(w.list.debugWindow().r12).toBeNil()
+		expect(w.debug().engagedKey).toBe("r12")
+		-- ...and it comes back still slid
+		height:set(400)
+		w.pres.refresh()
+		expect(w.list.debugWindow().r12).toBe(true)
+		expect(w.adapter.node(rowPath("r12")).presentationOffset.x).toBe(open)
+	end)
+
+	it("(t) a FULL SWIPE commits end-to-end on the mounted tree", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local closed = #w.adapter.paths()
+		local rect = w.adapter.node(rowHit("r2")).rect
+		w.dragLeft("r2", rect.w * 0.75)
+		-- mid-swipe the tray is mounted and the row is translated past the tray's
+		-- own width — the full-swipe reveal, not merely the open one
+		expect(w.adapter.node(trayGroup("r2"))).never().toBeNil()
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(-rect.w * 0.75)
+		w.release()
+		w.settle(400)
+		expect(fired).toEqual({ "r2" })
+		-- and the tree is back to the closed shape, slide cleared
+		expect(#w.adapter.paths()).toBe(closed)
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		expect(w.debug().engagedKey).toBeNil()
 	end)
 end)

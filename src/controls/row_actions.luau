@@ -246,6 +246,9 @@ export type HostedEngine = {
 	close: () -> (),
 	-- `Readable<nil | { edge: Edge, actions: { ActionSpec }, revealPx: Readable<number> }>`
 	trayState: any,
+	-- the tray `UI.When` blueprints — the SAME ones standalone mode parents under
+	-- its row root, for the host to parent under its shared overlay (Task 4)
+	trayViews: { any },
 	syncGeometry: ((rectOf: ((string) -> any)?, rootNode: any?) -> ())?,
 	bindMotion: (clock: any, now: (() -> number)?) -> (),
 	bindController: (controller: any) -> (),
@@ -2363,6 +2366,147 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		return false
 	end
 
+	--[[ ===== THE TRAY VIEWS — BUILT ONCE, USED BY BOTH MODES (Task 4) =========
+		A tray is the same thing in both modes: the same buttons, the same
+		compactLabel degrade ladder, the same destructive role, the same
+		per-action width props, revealed by the same memo over `openEdge`/
+		`offset`. The only difference is WHO PARENTS IT — this composite's own
+		row root in standalone/Table, the host's ONE shared overlay in hosted
+		mode (`virtual_list.luau`'s `RowActionsOverlay`) — and a parent is not a
+		reason to have two tray builders that can drift apart. So the whole
+		construction lives here, once, and the two modes differ only in where
+		the resulting blueprints are handed: `children` below, or `api.trayViews`.
+
+		The `When` wrappers are part of the shared view for the same reason: a
+		host that mounted a bare tray would have to reinvent "stay mounted while
+		the close flight is still visibly running", and get the edge-vs-offset
+		rule below right a second time.
+
+		A hosted engine is itself lazy (built at the axis lock, for one row the
+		player actually swiped), so building these eagerly here costs a list
+		nothing until a real gesture — and it must be eager for the same
+		reuse-not-leak reason the naturals above are: a reactive node created
+		inside a `When`'s factory would be a fresh one every remount. ]]
+	local trayViews: { any } = {}
+	if leadingActions ~= nil or trailingActions ~= nil then
+		-- per-action WIDTH prop: one `core:memo` per declared action, built HERE
+		-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
+		-- leak reason as the naturals above. Unmeasured, or no spring at all
+		-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
+		-- content-sized, static, and it stays live even once measured — the
+		-- fallback and the derived branch both track the SAME live `natural`
+		-- signal, so neither ever goes stale); once its natural width IS known
+		-- it reads its share of the SAME observed `offset` the slide itself
+		-- uses — no second spring, no per-button spring — so a button
+		-- "stretches in" from 0 toward its (live) natural width as `|offset|`
+		-- approaches `trayWidth` (docs/plans/row-actions-implementation.md
+		-- Task 4: "SwiftUI feel").
+		local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
+			local props: { [string]: any } = {}
+			for _, action in actions do
+				local natural = naturals[action.id]
+				props[action.id] = scope:own(core:memo(function(use)
+					local n = use(natural)
+					if spring == nil or n == nil then
+						return { type = "minMax", min = BUTTON_MIN_WIDTH }
+					end
+					local trayW = use(traySig)
+					local frac = if trayW > 0 then math.clamp(math.abs(use(offset)) / trayW, 0, 1) else 0
+					return { type = "fixed", px = math.floor(n * frac + 0.5) }
+				end))
+			end
+			return props
+		end
+		local leadingWidthProps = buildWidthProps(leadingNaturals, leadingWidth, leadingActions or {})
+		local trailingWidthProps = buildWidthProps(trailingNaturals, trailingWidth, trailingActions or {})
+
+		local function buildTray(edge: Edge, actions: { ActionSpec })
+			local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
+			local buttons = {}
+			for _, action in actions do
+				table.insert(
+					buttons,
+					UI.Button({
+						id = "Action:" .. action.id,
+						label = action.label,
+						-- `Button.icon` (the top-level prop) is circle-only —
+						-- a tray button is rectangular and keeps its label, so
+						-- an action icon rides `compactLabel` instead: full
+						-- label when the button has room (the common case, at
+						-- its natural/settled width), the framework icon when
+						-- it does not (mid-swipe, `widthProps` shrinks this
+						-- toward BUTTON_MIN_WIDTH as the tray reveals) — the
+						-- same "says less when there is less room" ladder
+						-- every other compactLabel caller gets, not a new one.
+						compactLabel = if action.icon ~= nil then { icon = action.icon } else nil,
+						role = if action.role == "destructive" then "destructive" else "default",
+						width = widthProps[action.id],
+						height = { type = "fill" },
+						padding = { left = BUTTON_PAD, right = BUTTON_PAD },
+					})
+				)
+			end
+			return UI.HStack({
+				id = trayId(edge),
+				anchor = if edge == "leading" then "left" else "right",
+				-- Task 9: the LEADING tray shifts right by the same live gutter
+				-- Content does below, so the two compose instead of colliding —
+				-- "the minus sits outside the leading tray's reveal" (brief). The
+				-- trailing tray needs no such term: it is anchored to the row's
+				-- OWN right edge, untouched by a LEADING-side gutter.
+				offsetX = if edge == "leading" then editGutterPx else nil,
+				height = { type = "fill" },
+				children = buttons,
+			})
+		end
+
+		if leadingActions ~= nil then
+			-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL LIVE
+			-- (Task 4). `openEdge` flips the instant `close()`/a new `open()` on
+			-- the other edge is called, but the spring keeps animating `offset`
+			-- back toward 0 over several frames — unmounting on `openEdge`
+			-- alone would make the tray vanish INSTANTLY while Content is still
+			-- visibly sliding back over empty space. Reusing `offset` (the same
+			-- signal `Content.offsetX` and the width props above already read)
+			-- keeps the outgoing tray mounted for exactly as long as it is
+			-- still on screen, with no new coupling.
+			local revealed = scope:own(core:memo(function(use)
+				if use(openEdge) == "leading" then
+					return true
+				end
+				return use(offset) > 0
+			end))
+			table.insert(
+				trayViews,
+				UI.When({
+					id = "TrayLeadingWhen",
+					condition = revealed,
+					thenView = function()
+						return buildTray("leading", leadingActions :: { ActionSpec })
+					end,
+				})
+			)
+		end
+		if trailingActions ~= nil then
+			local revealed = scope:own(core:memo(function(use)
+				if use(openEdge) == "trailing" then
+					return true
+				end
+				return use(offset) < 0
+			end))
+			table.insert(
+				trayViews,
+				UI.When({
+					id = "TrayTrailingWhen",
+					condition = revealed,
+					thenView = function()
+						return buildTray("trailing", trailingActions :: { ActionSpec })
+					end,
+				})
+			)
+		end
+	end
+
 	local blueprint: any
 	-- the contribution field bundle (see its own comment where it is built)
 	local contributionFields: any = nil
@@ -2381,123 +2525,10 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		-- `pathsOf`/`applySlide`/`contributionFields` instead.
 		local root: any = nil
 		if not isHosted then
-			-- per-action WIDTH prop: one `core:memo` per declared action, built HERE
-			-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
-			-- leak reason as the naturals above. Unmeasured, or no spring at all
-			-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
-			-- content-sized, static, and it stays live even once measured — the
-			-- fallback and the derived branch both track the SAME live `natural`
-			-- signal, so neither ever goes stale); once its natural width IS known
-			-- it reads its share of the SAME observed `offset` the slide itself
-			-- uses — no second spring, no per-button spring — so a button
-			-- "stretches in" from 0 toward its (live) natural width as `|offset|`
-			-- approaches `trayWidth` (docs/plans/row-actions-implementation.md
-			-- Task 4: "SwiftUI feel").
-			local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
-				local props: { [string]: any } = {}
-				for _, action in actions do
-					local natural = naturals[action.id]
-					props[action.id] = scope:own(core:memo(function(use)
-						local n = use(natural)
-						if spring == nil or n == nil then
-							return { type = "minMax", min = BUTTON_MIN_WIDTH }
-						end
-						local trayW = use(traySig)
-						local frac = if trayW > 0 then math.clamp(math.abs(use(offset)) / trayW, 0, 1) else 0
-						return { type = "fixed", px = math.floor(n * frac + 0.5) }
-					end))
-				end
-				return props
-			end
-			local leadingWidthProps = buildWidthProps(leadingNaturals, leadingWidth, leadingActions or {})
-			local trailingWidthProps = buildWidthProps(trailingNaturals, trailingWidth, trailingActions or {})
-
-			local function buildTray(edge: Edge, actions: { ActionSpec })
-				local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
-				local buttons = {}
-				for _, action in actions do
-					table.insert(
-						buttons,
-						UI.Button({
-							id = "Action:" .. action.id,
-							label = action.label,
-							-- `Button.icon` (the top-level prop) is circle-only —
-							-- a tray button is rectangular and keeps its label, so
-							-- an action icon rides `compactLabel` instead: full
-							-- label when the button has room (the common case, at
-							-- its natural/settled width), the framework icon when
-							-- it does not (mid-swipe, `widthProps` shrinks this
-							-- toward BUTTON_MIN_WIDTH as the tray reveals) — the
-							-- same "says less when there is less room" ladder
-							-- every other compactLabel caller gets, not a new one.
-							compactLabel = if action.icon ~= nil then { icon = action.icon } else nil,
-							role = if action.role == "destructive" then "destructive" else "default",
-							width = widthProps[action.id],
-							height = { type = "fill" },
-							padding = { left = BUTTON_PAD, right = BUTTON_PAD },
-						})
-					)
-				end
-				return UI.HStack({
-					id = trayId(edge),
-					anchor = if edge == "leading" then "left" else "right",
-					-- Task 9: the LEADING tray shifts right by the same live gutter
-					-- Content does below, so the two compose instead of colliding —
-					-- "the minus sits outside the leading tray's reveal" (brief). The
-					-- trailing tray needs no such term: it is anchored to the row's
-					-- OWN right edge, untouched by a LEADING-side gutter.
-					offsetX = if edge == "leading" then editGutterPx else nil,
-					height = { type = "fill" },
-					children = buttons,
-				})
-			end
-
-			local children = {}
-			if leadingActions ~= nil then
-				-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL LIVE
-				-- (Task 4). `openEdge` flips the instant `close()`/a new `open()` on
-				-- the other edge is called, but the spring keeps animating `offset`
-				-- back toward 0 over several frames — unmounting on `openEdge`
-				-- alone would make the tray vanish INSTANTLY while Content is still
-				-- visibly sliding back over empty space. Reusing `offset` (the same
-				-- signal `Content.offsetX` and the width props above already read)
-				-- keeps the outgoing tray mounted for exactly as long as it is
-				-- still on screen, with no new coupling.
-				local revealed = scope:own(core:memo(function(use)
-					if use(openEdge) == "leading" then
-						return true
-					end
-					return use(offset) > 0
-				end))
-				table.insert(
-					children,
-					UI.When({
-						id = "TrayLeadingWhen",
-						condition = revealed,
-						thenView = function()
-							return buildTray("leading", leadingActions :: { ActionSpec })
-						end,
-					})
-				)
-			end
-			if trailingActions ~= nil then
-				local revealed = scope:own(core:memo(function(use)
-					if use(openEdge) == "trailing" then
-						return true
-					end
-					return use(offset) < 0
-				end))
-				table.insert(
-					children,
-					UI.When({
-						id = "TrayTrailingWhen",
-						condition = revealed,
-						thenView = function()
-							return buildTray("trailing", trailingActions :: { ActionSpec })
-						end,
-					})
-				)
-			end
+			-- the trays (built once, above, for both modes) come FIRST, in
+			-- declared order: array order is paint order, and Content — inserted
+			-- last, below — slides over them.
+			local children = table.clone(trayViews)
 
 			-- ===== Task 9: the edit-mode leading minus =============================
 			-- iOS pattern: while editing AND a destructive action exists somewhere,
@@ -3204,6 +3235,15 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		api.open = open
 		api.close = close
 		api.trayState = trayState
+		--[[ THE TRAY BLUEPRINTS, for the host to parent under its own overlay
+			(Task 4). The SAME array standalone mode puts in its row root: same
+			buttons, same compactLabel ladder, same roles/icons, same width props,
+			same reveal `When`s — see `trayViews`' own comment for why there is one
+			construction rather than two. The host must mount them under a node
+			whose path is what it named in `spec.paths.trayLeading`/`trayTrailing`
+			(each `{trayRoot}/{Tray*}When/then/{Tray*}`, this file's own convention
+			in both modes), because that is where `deriveNaturals` measures. ]]
+		api.trayViews = trayViews
 		api.syncGeometry = contributionFields.syncGeometry
 		api.bindMotion = contributionFields.bindMotion
 		api.bindController = contributionFields.bindController

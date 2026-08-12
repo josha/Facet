@@ -132,6 +132,13 @@
 --     ITEM across a re-sort, or stay on the SLOT; see FOCUS POLICY above),
 --   rowActions? ((item) -> { leading?, trailing?, fullSwipe? }?) — HOSTED ROW
 --     ACTIONS (see below); nil per item = that row is unwrapped,
+--   env? (the surface environment — Table's own `env` key, and read for the same
+--     reason: the row-action tray's `buttonPad`/`buttonMinWidth` are theme facts
+--     with no font component, so measuring a tray's natural width needs the live
+--     `themeMetrics`. Absent degrades to the NEUTRAL snapshot, which is right
+--     until a theme package moves those two metrics and then silently is not —
+--     pass it on any list with `rowActions`. Nothing else in this control reads
+--     it),
 --   navigation? ({ name?, wrap?, containment?, entry?, exit? }) — overrides for
 --     the ONE focus group this list contributes; absent = today's group verbatim }
 --
@@ -183,25 +190,42 @@ local virtual_list = {}
 local REORDER_KIND = "__luauui_reorder"
 
 --[[ THE HOSTED TRAY OVERLAY'S OWN PATHS — the contract between this control and
-	the shared overlay (Task 4 mounts it; Task 3 only has to NAME it, because a
-	hosted engine is handed its tray paths at build time and measures/anchors
-	against them from then on).
+	the shared overlay (Task 4 mounts it; Task 3 named it, because a hosted engine
+	is handed its tray paths at build time and measures/anchors against them from
+	then on).
 
 	ONE overlay per list, not one per row: the coordinator policy is at most one
 	open row across the whole list, so a tray per row would be N-1 permanently
 	dead subtrees. It sits in the canvas, AFTER the rows ForEach, so the revealed
 	tray buttons are natively tappable above the row that slid off them:
 
-	    {scrollRoot}/Canvas/RowActionsOverlay/then/RowActionsTray/TrayLeading
-	    {scrollRoot}/Canvas/RowActionsOverlay/then/RowActionsTray/TrayTrailing
+	    {scrollRoot}/Canvas/RowActionsOverlay/[{key}]/RowActionsTray/TrayLeadingWhen/then/TrayLeading
+	    {scrollRoot}/Canvas/RowActionsOverlay/[{key}]/RowActionsTray/TrayTrailingWhen/then/TrayTrailing
 
-	`RowActionsOverlay` is a `UI.When` (hence the `/then` branch segment —
-	src/mount.luau), `RowActionsTray` is the group positioned at the engaged
-	row's canvas offset, and the ONE tray under it carries the engaged edge's id.
-	The action buttons inside a tray are `{trayPath}/Action:{id}`, which is
-	row_actions' own convention in both modes. ]]
+	A `UI.ForEach` OVER THE AT-MOST-ONE ENGAGED ROW, not the `UI.When` Task 3
+	sketched, and the reason is engagement moving DIRECTLY from one row to
+	another: swiping row B while row A is still open switches `engagedKey` A -> B
+	with no nil in between (`hostedApplySlide`'s claim rule — B is driving the
+	live gesture, A is merely finishing its close). A `When`'s branch factory runs
+	only on false -> true, so the overlay would have kept painting A's actions
+	over B's row for as long as B stayed open. A keyed region remounts on exactly
+	that change, which is what a keyed region is for — and the key in the path
+	also names, in any dump, which row a tray belongs to. Closed cost is identical
+	(one structural Frame either way; a `[{key}]` segment is a path prefix, not a
+	node — src/mount.luau's `mountForEach`).
+
+	`RowActionsTray` is the group positioned at the engaged row's canvas offset,
+	and under it sit the engine's OWN tray `When`s (`engine.trayViews` — the same
+	blueprints standalone mode parents under its row root), so the `{Tray*}When/
+	then/{Tray*}` shape below is row_actions' own, unchanged. The action buttons
+	inside a tray are `{trayPath}/Action:{id}`, that file's convention in both
+	modes. ]]
 local HOSTED_OVERLAY_ID = "RowActionsOverlay"
 local HOSTED_TRAY_GROUP_ID = "RowActionsTray"
+-- "nothing is engaged", as ONE shared empty table: the overlay's items memo
+-- answers this for the whole closed life of every hosted list, and a fresh empty
+-- table per recompute would dirty the keyed region for no change at all.
+local HOSTED_NO_OVERLAY: { any } = {}
 
 -- the closed key set for whatever `spec.rowActions(item)` returns for ONE row —
 -- exactly the three fields `newRowActions` exposes besides the ones this control
@@ -216,6 +240,7 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"autoscroll",
 	"cell",
 	"dropSurface",
+	"env",
 	"focusPolicy",
 	"grabOnActivate",
 	"id",
@@ -1088,18 +1113,48 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- overlay + presentation slide read: WHICH row is engaged, and by HOW MANY
 	-- px. `engagedOffset` is signed exactly as the engine's own offset is
 	-- (negative = revealing the trailing edge).
+	--[[ SWALLOW EXACTLY ONE ACTIVATE, on this path. Two producers, one rule:
+		  * a promoted pointer drag ends with an engine Activated on the origin row
+		    (whichever side of InputEnded it lands), or every reorder would also
+		    read as a tap on the row it started from;
+		  * a tap on an OPEN hosted row means "close the tray" and nothing else —
+		    iOS parity, and the alternative is a swipe-then-tap opening whatever
+		    the row's `onActivate` opens.
+		Declared here rather than beside its reorder producer because the hosted
+		dispatcher below is textually earlier and writes it too. ]]
+	local suppressActivatePath: string? = nil
+
 	local hostedCoordinator: any = nil
 	local engagedKey: any = nil
 	local engagedOffset: any = nil
-	-- the engine's commit collapse, forwarded verbatim: `nil` = no override.
-	-- Task 4 composes it into the row height dim; Task 3 only records it, so the
-	-- ladder's own height writes are never silently dropped on the floor.
-	local hostedCommitHeight: any = nil
+	--[[ the engine's commit collapse (the height the committing row's box is
+		animating down to), forwarded verbatim and composed into that row's
+		`rowHeightDim` below. `hostedCommitKey == nil` = no override anywhere.
+
+		TWO SIGNALS, NOT ONE `{ key, px }` TABLE, and the reason is fine-grained
+		reactivity: EVERY mounted row's height memo has to read the key (to answer
+		"is it me?"), but only the ONE committing row ever reads the px. Split, a
+		collapse spring's ~20 per-frame px writes invalidate exactly one memo; as a
+		single table they would have invalidated every row in the window, every
+		frame of every commit. ]]
+	local hostedCommitKey: any = nil
+	local hostedCommitPx: any = nil
 	if hostedEnabled then
 		hostedCoordinator = row_actions.newCoordinator(core)
 		engagedKey = listScope:own(core:signal(nil :: string?))
 		engagedOffset = listScope:own(core:signal(0))
-		hostedCommitHeight = listScope:own(core:signal(nil :: any))
+		hostedCommitKey = listScope:own(core:signal(nil :: string?))
+		hostedCommitPx = listScope:own(core:signal(0))
+	end
+
+	-- ONE row's height, commit override included: the row box itself and the
+	-- overlay's tray group (which fills that same box) read it through here, so a
+	-- collapsing row can never leave its tray standing at the old height.
+	local function hostedRowHeightIn(use: any, key: string): number
+		if use(hostedCommitKey) == key then
+			return use(hostedCommitPx)
+		end
+		return rowHeightIn(use)
 	end
 
 	-- what the PRESENTER handed this list's contribution, held so a lazily-built
@@ -1113,13 +1168,17 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local hostedPresentModal: any = nil
 	local hostedDismiss: any = nil
 
-	local function hostedTrayPath(edge: string): string?
+	-- WHERE THIS ROW'S TRAY WILL MOUNT (see the path contract at the top of the
+	-- file). Keyed on the row, because the overlay is a keyed region; the
+	-- `{Tray*}When/then/{Tray*}` tail is row_actions' own shape, since the trays
+	-- under the group ARE that engine's own `trayViews`.
+	local function hostedTrayPath(key: string, edge: string): string?
 		local root = mountedScrollPath
 		if root == nil then
 			return nil
 		end
 		local tray = if edge == "leading" then "TrayLeading" else "TrayTrailing"
-		return `{root}/Canvas/{HOSTED_OVERLAY_ID}/then/{HOSTED_TRAY_GROUP_ID}/{tray}`
+		return `{root}/Canvas/{HOSTED_OVERLAY_ID}/[{key}]/{HOSTED_TRAY_GROUP_ID}/{tray}When/then/{tray}`
 	end
 
 	local function hostedKeyOfHit(path: string): string?
@@ -1203,15 +1262,55 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 	end
 
+	--[[ THE SLIDE ITSELF — the PRESENTATION CHANNEL, not a layout prop (design §3;
+		ADR-0022's presentation authority, the same door the DropLine and the drag
+		ghost translate through). A disengaged row declares NO reactive offset prop
+		at all — that is the whole point, and it is what the floor experiment
+		measured: a per-row reactive `offsetX` cost +6.7-8.8% fling on rows nobody
+		swiped. Here the engaged row is translated from OUTSIDE the tree, so a
+		closed row's blueprint is byte-identical to a plain list's.
+
+		WHY IT IS RE-ASSERTED EVERY FRAME (from `bundle.syncGeometry`) rather than
+		only on the signal: the renderer FORGETS a path's transform when that path
+		is removed (`lastTransform` is cleared on removal — renderer.luau), so a
+		row that unmounts and comes back mid-slide would otherwise be left flat
+		while this control still believed it was translated. The write is
+		change-gated inside the renderer, so re-asserting an unchanged transform
+		costs one comparison. ]]
+	local hostedSlidPath: string? = nil
+	local function hostedWriteSlide()
+		local ctrl = boundController
+		if ctrl == nil then
+			return -- not presented yet; the next sync writes it
+		end
+		local key = engagedKey:get()
+		local px = if key ~= nil then engagedOffset:get() else 0
+		local path = if key ~= nil and px ~= 0 then mountedRowPath(key) else nil
+		if hostedSlidPath ~= nil and hostedSlidPath ~= path then
+			-- RESTORED, not zeroed: nil clears the presentation transform outright
+			-- (and decrements the renderer's own live-presentation count), so a
+			-- disengaged row is exactly as untransformed as one that never slid.
+			ctrl.setPresentationTransform(hostedSlidPath, nil)
+			hostedSlidPath = nil
+		end
+		if path == nil then
+			return
+		end
+		ctrl.setPresentationTransform(path, { x = px, y = 0 })
+		hostedSlidPath = path
+	end
+
 	local function hostedApplyCommitHeight(key: string, px: number?)
 		if px == nil then
-			local current = hostedCommitHeight:get()
-			if current ~= nil and current.key == key then
-				hostedCommitHeight:set(nil)
+			if hostedCommitKey:get() == key then
+				hostedCommitKey:set(nil)
 			end
 			return
 		end
-		hostedCommitHeight:set({ key = key, px = px })
+		core:transaction(function()
+			hostedCommitKey:set(key)
+			hostedCommitPx:set(px)
+		end)
 	end
 
 	--[[ DOES THIS ROW HAVE ACTIONS AT ALL? Answered on every press (the capture
@@ -1270,14 +1369,19 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			trailing = fields.trailing,
 			fullSwipe = fields.fullSwipe,
 			coordinator = hostedCoordinator,
+			-- the live theme metrics the tray's own natural width is measured
+			-- against (`buttonPad`/`buttonMinWidth`). Optional on both sides:
+			-- absent, row_actions degrades to the neutral snapshot exactly as it
+			-- does for a Table row built without one.
+			env = spec.env,
 			paths = {
 				-- the row node, NOT the cell: it is what the engine reads a live
 				-- rect from (the commit threshold is a fraction of the row width)
 				-- and the prefix its "is focus still inside this row" test uses.
 				-- Keyed, so it is stable across every scroll the row survives.
 				content = rowPath,
-				trayLeading = if fields.leading ~= nil then hostedTrayPath("leading") else nil,
-				trayTrailing = if fields.trailing ~= nil then hostedTrayPath("trailing") else nil,
+				trayLeading = if fields.leading ~= nil then hostedTrayPath(key, "leading") else nil,
+				trayTrailing = if fields.trailing ~= nil then hostedTrayPath(key, "trailing") else nil,
 			},
 			onSlide = function(px: number)
 				hostedApplySlide(key, px)
@@ -1395,6 +1499,27 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- Answered from the cached spec result, NOT by building anything.
 				return false
 			end
+			--[[ THE IN-LIST HALF OF OUTSIDE-DISMISS. The presenter's own
+				`outsideDismiss` (contributed below) answers a tap OUTSIDE this
+				list's subtree — but the whole list is one contribution here, so
+				every row is "inside" it and a press on a DIFFERENT row would
+				never reach that path. Table gets this free precisely because its
+				rows each contribute separately; a hosted list has to say it.
+
+				The press is NOT swallowed (the same `consume = false` rule the
+				engine's own `outsideDismiss` carries, round 7's lesson: closing
+				must not eat unrelated clicks), so pressing another row still
+				selects/activates it exactly as it would with nothing open. The
+				same-row half rides the UP instead — see `onPointerUp`, because
+				at the down it is not yet knowable whether this is a tap or a
+				re-grab of the open row. ]]
+			local engaged = engagedKey:get()
+			if engaged ~= nil and engaged ~= key then
+				local other = hostedEngines[engaged]
+				if other ~= nil then
+					other.close()
+				end
+			end
 			hostedActiveKey = key
 			hostedPending = {
 				key = key,
@@ -1427,6 +1552,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end,
 		onPointerUp = function(path: string, pos: any, rectOf: (string) -> any)
 			local engine = hostedLiveEngine()
+			local key = hostedActiveKey
 			local unresolved = hostedPending ~= nil
 			-- CLEARED UNCONDITIONALLY, both of them: this gesture is over however
 			-- it ends, and a stale active key would misroute the next one
@@ -1434,9 +1560,19 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			hostedActiveKey = nil
 			if engine ~= nil and not unresolved then
 				engine.pointerHandlers.onPointerUp(path, pos, rectOf)
+				return
 			end
 			-- unresolved (a tap, or a gesture that never left the lock radius):
-			-- the engine was never told a down, so it is never told an up
+			-- the engine was never told a down, so it is never told an up. But a
+			-- tap on the OPEN row's own slid content means close, and means ONLY
+			-- close — the activate it would otherwise fire is swallowed.
+			if unresolved and key ~= nil then
+				local open = hostedEngines[key]
+				if open ~= nil and open._isOpen() then
+					open.close()
+					suppressActivatePath = path
+				end
+			end
 		end,
 		onPointerCancel = function(path: string, reason: string?): boolean?
 			local engine = hostedLiveEngine()
@@ -1482,10 +1618,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				engagedKey:set(nil)
 			end)
 		end
-		local height = hostedCommitHeight:get()
-		if height ~= nil and height.key == key then
-			hostedCommitHeight:set(nil)
+		if hostedCommitKey:get() == key then
+			hostedCommitKey:set(nil)
 		end
+		-- the row is gone or rebuilding: whatever it was translated by is not a
+		-- fact about anything any more
+		hostedWriteSlide()
 	end
 
 	--[[ A RE-PRESENT INVALIDATES EVERY ENGINE. Each one captured its row path and
@@ -1523,7 +1661,27 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 	end
 
+	--[[ THE OVERLAY'S ITEM LIST: the at-most-one engaged row, as a keyed region's
+		items (see the path contract at the top of the file for why a keyed region
+		and not a `When`). Recomputes only when the engagement MOVES — never per
+		drag pixel, which rides `engagedOffset` and the presentation channel. ]]
+	local hostedOverlayItems: any = nil
 	if hostedEnabled then
+		hostedOverlayItems = listScope:own(core:memo(function(use)
+			local key = use(engagedKey)
+			if key == nil then
+				return HOSTED_NO_OVERLAY
+			end
+			return { { key = key } }
+		end))
+	end
+
+	if hostedEnabled then
+		-- the slide, written the instant the engagement or the offset moves. Both
+		-- signals are written inside ONE transaction by `hostedApplySlide`, so a
+		-- move that changes both still resolves to a single pair of reads.
+		listScope:own(core:observe(engagedKey, hostedWriteSlide))
+		listScope:own(core:observe(engagedOffset, hostedWriteSlide))
 		--[[ SCROLL CLOSES THE OPEN ROW (iOS parity; `newCoordinator.bindScroll`'s
 			own rule). That coordinator method takes a render controller and a path
 			and rides `observeScroll` — but this list ALREADY owns the engine's
@@ -1596,10 +1754,6 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 	end
 
-	-- a promoted pointer drag ends with an engine Activated on the origin row
-	-- (whichever side of InputEnded it lands): swallow exactly one, or every
-	-- reorder would also read as a tap on the row it started from
-	local suppressActivatePath: string? = nil
 	local unwatchRegistry: (() -> ())? = nil
 	local function watchSession(reg: any)
 		if unwatchRegistry ~= nil then
@@ -1646,6 +1800,19 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- ACTIVATE (tap / Return / ButtonA): route the focused (or tapped) row-hit
 	-- path to the item-level onActivate; the row also becomes the logical focus.
 	local function handleActivate(path: string, meta: any?): boolean
+		if hostedEnabled then
+			--[[ A TRAY BUTTON. Its Activate arrives at the LIST's contribution
+				(the overlay is the list's own subtree, and a hosted engine has no
+				node for the presenter to walk to), and the engine already knows
+				how to route one: `_handleActivate` matches under exactly the tray
+				path this control handed it at build. Asked FIRST, and only of the
+				engaged row — a tray path is never a row hit, so this can never
+				shadow a row activate. ]]
+			local engine = hostedEngagedEngine()
+			if engine ~= nil and engine._handleActivate(path, meta) then
+				return true
+			end
+		end
 		local key = keyOfHit(path)
 		if key == nil then
 			return false
@@ -1944,9 +2111,22 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					-- slots, never to the row that follows it
 					return (index - 1) * pitchIn(use)
 				end))
-				local rowHeightDim = itemScope:own(core:memo(function(use)
-					return { type = "fixed", px = rowHeightIn(use) }
-				end))
+				--[[ THE ROW BOX. A plain list builds today's memo, unchanged and
+					unconditional; a `rowActions` list builds one that also composes
+					the commit collapse (the engine's own height ladder, arriving
+					through `onCommitHeight`) for the ONE row committing. STATIC on
+					`hostedEnabled` — the branch is chosen at build, so a plain
+					list's memo body is byte-identical to what it always was, and
+					every row on a hosted list reads exactly one extra signal (the
+					commit KEY; the px is only read by the row it names — see
+					`hostedRowHeightIn`). ]]
+				local rowHeightDim = itemScope:own(core:memo(if hostedEnabled
+					then function(use)
+						return { type = "fixed", px = hostedRowHeightIn(use, entry.key) }
+					end
+					else function(use)
+						return { type = "fixed", px = rowHeightIn(use) }
+					end))
 				-- a full-row focusable Button hit sits BEHIND the cell
 				-- content (ZStack, z = tree order): it gives the row a
 				-- focus ring and a tap-activate. There is NO pointer/pan
@@ -2030,6 +2210,56 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			end,
 		}),
 	}
+	if hostedEnabled then
+		--[[ THE ONE SHARED TRAY OVERLAY (design §4; the path contract at the top of
+			this file). AFTER the rows, so the revealed tray buttons sit above the
+			row that slid off them and are natively tappable — the whole reason the
+			overlay lives in the canvas rather than over the ScrollView.
+
+			It carries NO paint of its own: the group is a bare Anchor (never an
+			Active hit target on the live adapter — only Buttons and Grips are), so
+			the strip it spans over the un-slid part of the row swallows nothing.
+
+			The trays under it are the ENGINE's own `trayViews` — the same
+			blueprints, reveal `When`s included, that a standalone row parents under
+			its own root. Nothing about a tray is re-authored here, which is why the
+			compactLabel ladder, the destructive role, the icons and the
+			stretch-in width props are the same in both modes by construction. ]]
+		table.insert(
+			canvasChildren,
+			UI.ForEach({
+				id = HOSTED_OVERLAY_ID,
+				items = hostedOverlayItems,
+				key = function(entry: any)
+					return entry.key
+				end,
+				row = function(entry: any, itemScope: any)
+					local engine = hostedEngines[entry.key]
+					return UI.Anchor({
+						id = HOSTED_TRAY_GROUP_ID,
+						anchor = "topLeft",
+						-- the engaged row's own canvas offset — the SAME slot
+						-- arithmetic the row itself uses, read from the same memo,
+						-- so the tray cannot drift from the row by a gap
+						offsetY = itemScope:own(core:memo(function(use)
+							local index = (use(indexByKey) :: { [string]: number })[entry.key]
+							if index == nil then
+								return 0
+							end
+							return (index - 1) * pitchIn(use)
+						end)),
+						width = { type = "fill", weight = 1 },
+						-- ...and the row's own height, commit collapse included, so
+						-- a committing row's tray shrinks with it
+						height = itemScope:own(core:memo(function(use)
+							return { type = "fixed", px = hostedRowHeightIn(use, entry.key) }
+						end)),
+						children = if engine ~= nil then engine.trayViews else {},
+					})
+				end,
+			})
+		)
+	end
 	if reorderable then
 		-- the insertion indicator: one hairline, parked off-canvas until a row is
 		-- lifted, translated by the presentation channel while it is
@@ -2110,6 +2340,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				for _, engine in hostedEngines do
 					engine.bindController(controller)
 				end
+				-- a controller arriving (or re-arriving, after a re-present) is the
+				-- first moment the slide can be painted at all
+				hostedWriteSlide()
 			end
 		end,
 	}
@@ -2164,7 +2397,34 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			for _, engine in hostedEngines do
 				engine.syncGeometry()
 			end
+			-- ...and re-assert the slide, which is how it survives a row that
+			-- unmounted and came back (see `hostedWriteSlide`'s own comment)
+			hostedWriteSlide()
 		end
+		--[[ OUTSIDE-TAP CLOSES THE OPEN ROW — the OUT-of-list half. The presenter
+			compares the tapped path against this CONTRIBUTION's path (Zone A over
+			its solved rects, and a synthesized catcher for empty space), so
+			"outside" here means outside the whole list: a tap on a sibling
+			control, or on nothing at all, closes the tray. The in-list half —
+			another row, or the open row's own slid content — cannot come through
+			here for the same reason (every row is inside this one contribution)
+			and rides the shared dispatcher instead.
+
+			`consume = false` verbatim from the engine's own seam (row-actions
+			round 7: closing must never swallow an unrelated click), so the tap
+			that closed the tray still does whatever it was going to do. ]]
+		bundle.outsideDismiss = {
+			active = listScope:own(core:memo(function(use)
+				return use(engagedKey) ~= nil
+			end)),
+			dismiss = function()
+				local engine = hostedEngagedEngine()
+				if engine ~= nil then
+					engine.close()
+				end
+			end,
+			consume = false,
+		}
 	end
 	if reorderable then
 		bundle.navigateIntercept = navigateIntercept
