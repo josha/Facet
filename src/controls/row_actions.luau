@@ -1979,14 +1979,6 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 	-- guards (table.luau) all gate on this one function, and every one of
 	-- them would have tried to `_close()`/re-grab an irrevocably-committing
 	-- row had this kept saying "open". `committed` wins outright.
-	-- REDTEAM FIX (item 5, MINOR; final-review-findings.md): `_isOpen()`
-	-- reporting `true` for the WHOLE duration of an in-flight commit (the row
-	-- is sliding off-screen and about to be destroyed, not "open" in any
-	-- sense a caller should act on) is what let finding 1's own BLOCKER hide
-	-- everywhere it did — Table's row-tap close guard and the reorder-vs-tray
-	-- guards (table.luau) all gate on this one function, and every one of
-	-- them would have tried to `_close()`/re-grab an irrevocably-committing
-	-- row had this kept saying "open". `committed` wins outright.
 	local function isOpen(): boolean
 		return not committed and openEdge:get() ~= nil
 	end
@@ -2017,12 +2009,6 @@ function row_actions.build(LuauUI: any, core: any, spec: Spec)
 		return false
 	end
 
-	-- REDTEAM FIX (item 5, MINOR): a fourth phase word — "committing" — names
-	-- what `dump().phase` used to call "open" for the entire duration of an
-	-- in-flight commit, indistinguishable from an ordinary revealed tray to
-	-- anything reading the dump. `committed` wins outright, ahead of the
-	-- `edge == nil` check, for the identical reason `isOpen()` above checks
-	-- it first.
 	-- REDTEAM FIX (item 5, MINOR): a fourth phase word — "committing" — names
 	-- what `dump().phase` used to call "open" for the entire duration of an
 	-- in-flight commit, indistinguishable from an ordinary revealed tray to

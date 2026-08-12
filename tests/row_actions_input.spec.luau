@@ -2724,6 +2724,9 @@ describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commi
 		"a sibling row starting a gesture (coordinator claim) during A's commit: A's commit completes, fires exactly once",
 		function()
 			local w = twoDestructiveRowWorld()
+			w.rowA._open("trailing") -- claims the coordinator (this IS what `claimed` tracks)
+			w.settle()
+			expect(w.rowA._isOpen()).toBe(true)
 			expect(w.rowA._commitFirst("trailing")).toBe(true)
 			expect(w.rowA.dump().phase).toBe("committing")
 			-- row B claims the coordinator (`newCoordinator.claim`'s own cross-row
@@ -2741,6 +2744,9 @@ describe("RowActions final fix wave (redteam item 1, BLOCKER): irrevocable commi
 
 	it("scroll movement during A's commit: A's commit completes, fires exactly once", function()
 		local w = twoDestructiveRowWorld()
+		w.rowA._open("trailing") -- claims the coordinator (this IS what `claimed` tracks)
+		w.settle()
+		expect(w.rowA._isOpen()).toBe(true)
 		expect(w.rowA._commitFirst("trailing")).toBe(true)
 		expect(w.rowA.dump().phase).toBe("committing")
 		local observer: ((pos: { x: number, y: number }) -> ())? = nil
