@@ -1,6 +1,6 @@
 --!strict
 -- Task 11 perf row (Global Constraints director directive 2026-08-10):
--- 200 wrapped-but-CLOSED rows vs 200 unwrapped baseline rows, same content,
+-- 200 actionable-but-CLOSED rows vs 200 plain baseline rows, same content,
 -- same viewport, same scroll/fling drive shape `bench/perf_scenes.luau`'s
 -- own "lab-dense-scroll" scene uses (scrollTop:set + pres.refresh(), timed
 -- with os.clock() — headless Lune / evidence class E1, trend-only, NOT a
@@ -8,7 +8,52 @@
 -- files) so this one-off comparison does not touch shared perf gates.
 -- Reproduce: `lune run artifacts/row-actions/perf_workload.luau` from the
 -- repo root. Results are in artifacts/row-actions/device-matrix.md's perf
--- section (measured 2026-08-10).
+-- section.
+--
+-- ===================================================================
+-- WHY THE MEASUREMENT IS INTERLEAVED (row-actions hosted mode, Task 7)
+-- ===================================================================
+-- The original version of this file built and measured the baseline world
+-- first and the wrapped world second, in one pass each. An A/A CONTROL —
+-- the identical script with BOTH worlds built plain, so the true delta is
+-- zero by construction — showed that fixed order carries a systematic
+-- second-world penalty:
+--
+--   A/A control, 3 runs, this machine (2026-08-12):
+--     steady mean delta  +0.77% / +0.96% / +2.20%   (mean +1.3pp)
+--     fling  mean delta  +5.96% / +5.69% / +5.23%   (mean +5.6pp)
+--     idle   mean delta  +4.02% / +0.57% / +1.34%
+--
+-- i.e. two IDENTICAL worlds "failed" a <=5% fling budget purely on
+-- measurement order (allocator/GC state accumulated by the first world's
+-- 180 refreshes is paid by the second). A ceiling applied to a one-pass
+-- A/B is therefore not a gate, it is a coin flip.
+--
+-- The fix here changes only the SCHEDULE, never the drive: per shape each
+-- world is measured in TWO blocks of SAMPLES/2, interleaved
+-- base -> other -> base -> other, and each world's two blocks are
+-- concatenated. Every world still walks its own 30-warmup + 150-sample
+-- drive sequence in exactly the committed order (the drive state is
+-- threaded across a world's two blocks, so block 2 continues where block 1
+-- stopped) — the sample SET per world is byte-identical to the one-pass
+-- version; only who holds the CPU when is different. Drift that used to
+-- land entirely on world B is now split evenly between A and B.
+--
+-- Run-to-run noise on top of this is +-10-15pp on the deltas: use MEANS
+-- OVER >=3 RUNS, never a single run, for any budget call.
+--
+-- THREE WORLDS ARE MEASURED:
+--   baseline  — plain rows (the budget's denominator)
+--   hosted    — `rowActions = actionsFor` on the list spec: the BLESSED
+--               integration (VirtualList hosts the feature; a closed row
+--               mounts nothing extra and builds no engine). BUDGETED.
+--   legacy-standalone-wrap — the old shape: every cell manually wrapped in
+--               `newRowActions`, a 5-instance composite per row whether or
+--               not it is ever touched. INFORMATIONAL ONLY, printed so the
+--               cost the hosted design removed stays visible. Measured
+--               against its OWN freshly built baseline world (`baseline2`),
+--               interleaved the same way, so its numbers are un-biased too
+--               rather than inheriting the hosted pair's ordering.
 
 local LuauUI = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
@@ -19,6 +64,9 @@ local ROW_HEIGHT = 56
 local ROW_GAP = 4
 local SAMPLES = 150
 local WARMUP = 30
+-- the interleave: SAMPLES split into two blocks per world (base, other,
+-- base, other). Halves of an even 150 => 75 + 75 = the full 150.
+local BLOCK = SAMPLES // 2
 
 local function buildItems(): { any }
 	local out = {}
@@ -73,7 +121,10 @@ local function actionsFor(item: any): any
 	}
 end
 
-local function buildWorld(wrapped: boolean)
+-- mode: "base" (plain rows) | "hosted" (spec.rowActions) | "legacy" (manual
+-- per-cell newRowActions wrap). Everything else is held identical by
+-- construction — same items, same viewport, same content, same spec.
+local function buildWorld(mode: string)
 	local core = LuauUI.newCore()
 	local env = LuauUI.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = VIEWPORT.w, h = VIEWPORT.h })
@@ -84,7 +135,7 @@ local function buildWorld(wrapped: boolean)
 
 	local items = buildItems()
 	local rows = core:signal(items)
-	local list = LuauUI.newVirtualList(LuauUI, core, {
+	local spec: any = {
 		id = "Rows",
 		rows = rows,
 		key = function(item: any)
@@ -95,9 +146,13 @@ local function buildWorld(wrapped: boolean)
 		viewportHeight = VIEWPORT.h - 40,
 		overscan = 2,
 		selection = "none",
+		-- read ONLY by hosted row actions (tray metrics), and only when an
+		-- engine is actually built; passed on all three worlds so the specs
+		-- differ in exactly one key.
+		env = env,
 		cell = function(item: any, cellCtx: any): any
 			local content = rowContent(UI, core, item)
-			if not wrapped then
+			if mode ~= "legacy" then
 				return content
 			end
 			local actions = actionsFor(item)
@@ -112,11 +167,17 @@ local function buildWorld(wrapped: boolean)
 			cellCtx.scope:own(built.dispose)
 			return built.blueprint
 		end,
-	})
+	}
+	if mode == "hosted" then
+		-- THE BLESSED INTEGRATION: the same actions table the legacy world
+		-- hands to `newRowActions`, declared on the list instead.
+		spec.rowActions = actionsFor
+	end
+	local list = LuauUI.newVirtualList(LuauUI, core, spec)
 	local screen = UI.Screen({ id = "PerfWorkload", padding = 8, children = { list.blueprint } })
 	local handle = pres.present(screen)
 	pres.refresh()
-	return { core = core, adapter = adapter, pres = pres, list = list, handle = handle }
+	return { core = core, adapter = adapter, pres = pres, list = list, handle = handle, mode = mode }
 end
 
 local function windowedCount(list: any): number
@@ -128,8 +189,8 @@ local function windowedCount(list: any): number
 end
 
 -- INSTANCE CENSUS: total adapter-tracked nodes for the mounted (windowed)
--- rows, divided by the windowed row count — same content both variants, so
--- the delta IS the wrapper's per-row instance cost.
+-- rows, divided by the windowed row count — same content every variant, so
+-- the delta IS the variant's per-row instance cost.
 local function instancesPerRow(world: any): (number, number)
 	local total = 0
 	for _ in world.adapter.paths() do
@@ -139,6 +200,16 @@ local function instancesPerRow(world: any): (number, number)
 	return total, windowed
 end
 
+-- SANITY GUARD (hosted only): a budgeted hosted measurement is only honest
+-- if every row stayed CLOSED and UNTOUCHED for the whole run — no gesture,
+-- no lazily built engine. Asserted at the end of every hosted block.
+local function assertHostedIdle(world: any, where: string): number
+	local dbg = world.list._hostedDebug()
+	assert(dbg.engineCount == 0, `hosted world built {dbg.engineCount} engine(s) during {where} — not a closed run`)
+	assert(dbg.engagedKey == nil, `hosted world engaged row '{tostring(dbg.engagedKey)}' during {where}`)
+	return dbg.engineCount
+end
+
 local function percentile(samples: { number }, p: number): number
 	local sorted = table.clone(samples)
 	table.sort(sorted)
@@ -146,21 +217,27 @@ local function percentile(samples: { number }, p: number): number
 	return sorted[idx]
 end
 
+-- DRIVE STATE, threaded across a world's two measurement blocks so the
+-- interleave never restarts a drive: block 2 continues exactly where block 1
+-- stopped, and a world's full 30+150 sequence is the committed one.
+local function newDrive(): any
+	return { y = 0, dir = 1 }
+end
+
 -- STEADY SCROLL: 61px increments (deliberately not a row multiple — same
 -- reasoning bench/perf_scenes.luau's own lab-dense-scroll uses: every
 -- iteration lands on a fresh partial boundary, never re-measuring the same
 -- solved state twice).
-local function runSteadyScroll(world: any, samples: number, warmup: number): { number }
+local function runSteadyScroll(world: any, drive: any, samples: number, warmup: number): { number }
 	local extent = ROW_COUNT * (ROW_HEIGHT + ROW_GAP) - (VIEWPORT.h - 40)
-	local y = 0
 	local timings = {}
 	for i = 1, warmup + samples do
-		y += 61
-		if y > extent then
-			y = 0
+		drive.y += 61
+		if drive.y > extent then
+			drive.y = 0
 		end
 		local t0 = os.clock()
-		world.list.scrollTop:set(y)
+		world.list.scrollTop:set(drive.y)
 		world.pres.refresh()
 		local dt = os.clock() - t0
 		if i > warmup then
@@ -177,16 +254,15 @@ end
 -- the window is NOT changing membership). Reported alongside the 61px number
 -- rather than instead of it, because the shipped codebase's own
 -- `lab-dense-scroll` scene IS the 61px boundary-churn shape.
-local function runIdleScroll(world: any, samples: number, warmup: number): { number }
-	local y = 0
+local function runIdleScroll(world: any, drive: any, samples: number, warmup: number): { number }
 	local timings = {}
 	for i = 1, warmup + samples do
-		y += 4
-		if y > 40 then -- well under one row (60px); resets before ever crossing one
-			y = 0
+		drive.y += 4
+		if drive.y > 40 then -- well under one row (60px); resets before ever crossing one
+			drive.y = 0
 		end
 		local t0 = os.clock()
-		world.list.scrollTop:set(y)
+		world.list.scrollTop:set(drive.y)
 		world.pres.refresh()
 		local dt = os.clock() - t0
 		if i > warmup then
@@ -199,22 +275,20 @@ end
 -- FLING: a large single jump (a third of the scrollable extent) per
 -- iteration — the ballistic-release shape a real fling produces, distinct
 -- from steady scroll's small per-frame delta.
-local function runFling(world: any, samples: number, warmup: number): { number }
+local function runFling(world: any, drive: any, samples: number, warmup: number): { number }
 	local extent = math.max(1, ROW_COUNT * (ROW_HEIGHT + ROW_GAP) - (VIEWPORT.h - 40))
 	local timings = {}
-	local dir = 1
-	local y = 0
 	for i = 1, warmup + samples do
-		y += dir * (extent / 3)
-		if y > extent then
-			y = extent
-			dir = -1
-		elseif y < 0 then
-			y = 0
-			dir = 1
+		drive.y += drive.dir * (extent / 3)
+		if drive.y > extent then
+			drive.y = extent
+			drive.dir = -1
+		elseif drive.y < 0 then
+			drive.y = 0
+			drive.dir = 1
 		end
 		local t0 = os.clock()
-		world.list.scrollTop:set(y)
+		world.list.scrollTop:set(drive.y)
 		world.pres.refresh()
 		local dt = os.clock() - t0
 		if i > warmup then
@@ -238,8 +312,49 @@ local function summarize(label: string, timings: { number }): any
 	}
 end
 
-print("Building unwrapped baseline (200 rows)...")
-local baseline = buildWorld(false)
+local function concat(a: { number }, b: { number }): { number }
+	local out = table.clone(a)
+	for _, v in b do
+		table.insert(out, v)
+	end
+	return out
+end
+
+--[[ THE INTERLEAVED PAIR. Four blocks — A, B, A, B — of SAMPLES/2 each, with
+	the 30-sample warmup paid on each world's FIRST block only (the world is
+	warm for its second). Each world's two blocks are concatenated, so both
+	summaries are over the same 150 samples of the same drive positions. ]]
+local function interleavedPair(shape: string, driver: any, worldA: any, worldB: any, labelA: string, labelB: string)
+	local driveA, driveB = newDrive(), newDrive()
+	local a1 = driver(worldA, driveA, BLOCK, WARMUP)
+	local b1 = driver(worldB, driveB, BLOCK, WARMUP)
+	if worldB.mode == "hosted" then
+		assertHostedIdle(worldB, `{shape} block 1`)
+	end
+	local a2 = driver(worldA, driveA, SAMPLES - BLOCK, 0)
+	local b2 = driver(worldB, driveB, SAMPLES - BLOCK, 0)
+	if worldB.mode == "hosted" then
+		assertHostedIdle(worldB, `{shape} block 2`)
+	end
+	return summarize(`{labelA}-{shape}`, concat(a1, a2)), summarize(`{labelB}-{shape}`, concat(b1, b2))
+end
+
+local function pctDelta(base: number, over: number): number
+	if base <= 0 then
+		return 0
+	end
+	return (over - base) / base * 100
+end
+
+local function report(base: any, over: any, overName: string)
+	print(("%-28s p50=%.4fms mean=%.4fms p95=%.4fms"):format(base.label, base.p50_ms, base.mean_ms, base.p95_ms))
+	print(("%-28s p50=%.4fms mean=%.4fms p95=%.4fms"):format(over.label, over.p50_ms, over.mean_ms, over.p95_ms))
+	print(("  %s delta (p50): %.2f%%"):format(overName, pctDelta(base.p50_ms, over.p50_ms)))
+	print(("  %s delta (mean): %.2f%%"):format(overName, pctDelta(base.mean_ms, over.mean_ms)))
+end
+
+print("Building baseline (plain rows, 200)...")
+local baseline = buildWorld("base")
 local baseTotal, baseWindowed = instancesPerRow(baseline)
 print(
 	("  windowed rows: %d, total adapter nodes: %d, nodes/windowed-row: %.2f"):format(
@@ -249,94 +364,77 @@ print(
 	)
 )
 
-print("Building wrapped-but-closed (200 rows)...")
-local wrapped = buildWorld(true)
-local wrapTotal, wrapWindowed = instancesPerRow(wrapped)
+print("Building hosted (spec.rowActions, all rows closed, 200)...")
+local hosted = buildWorld("hosted")
+local hostedTotal, hostedWindowed = instancesPerRow(hosted)
 print(
 	("  windowed rows: %d, total adapter nodes: %d, nodes/windowed-row: %.2f"):format(
-		wrapWindowed,
-		wrapTotal,
-		wrapTotal / wrapWindowed
+		hostedWindowed,
+		hostedTotal,
+		hostedTotal / hostedWindowed
+	)
+)
+print(("  hosted engines at build: %d"):format(assertHostedIdle(hosted, "build")))
+
+print("Building baseline2 (the legacy world's own un-biased denominator)...")
+local baseline2 = buildWorld("base")
+print("Building legacy-standalone-wrap (manual newRowActions per cell, 200)...")
+local legacy = buildWorld("legacy")
+local legacyTotal, legacyWindowed = instancesPerRow(legacy)
+print(
+	("  windowed rows: %d, total adapter nodes: %d, nodes/windowed-row: %.2f"):format(
+		legacyWindowed,
+		legacyTotal,
+		legacyTotal / legacyWindowed
 	)
 )
 
-local wrapperNodesPerRow = (wrapTotal - baseTotal) / wrapWindowed
-print(("  WRAPPER COST: +%.2f nodes/row (closed)"):format(wrapperNodesPerRow))
+-- census: same method as the committed workload — (variant total - baseline
+-- total) / windowed rows.
+local hostedNodesPerRow = (hostedTotal - baseTotal) / hostedWindowed
+local legacyNodesPerRow = (legacyTotal - baseTotal) / legacyWindowed
+print(("  HOSTED COST: +%.2f nodes/row (closed)"):format(hostedNodesPerRow))
+print(("  LEGACY COST: +%.2f nodes/row (closed) [informational]"):format(legacyNodesPerRow))
 
-print("\nSteady scroll: baseline...")
-local baseScroll = summarize("baseline-steady-scroll", runSteadyScroll(baseline, SAMPLES, WARMUP))
-print("Steady scroll: wrapped...")
-local wrapScroll = summarize("wrapped-steady-scroll", runSteadyScroll(wrapped, SAMPLES, WARMUP))
+print("\nInterleaved steady scroll (base/hosted x2)...")
+local baseScroll, hostedScroll =
+	interleavedPair("steady-scroll", runSteadyScroll, baseline, hosted, "baseline", "hosted")
+print("Interleaved fling (base/hosted x2)...")
+local baseFling, hostedFling = interleavedPair("fling", runFling, baseline, hosted, "baseline", "hosted")
+print("Interleaved idle scroll (base/hosted x2)...")
+local baseIdle, hostedIdle = interleavedPair("idle-scroll", runIdleScroll, baseline, hosted, "baseline", "hosted")
 
-print("Fling: baseline...")
-local baseFling = summarize("baseline-fling", runFling(baseline, SAMPLES, WARMUP))
-print("Fling: wrapped...")
-local wrapFling = summarize("wrapped-fling", runFling(wrapped, SAMPLES, WARMUP))
+print("\n[informational] Interleaved steady scroll (base2/legacy x2)...")
+local base2Scroll, legacyScroll =
+	interleavedPair("steady-scroll", runSteadyScroll, baseline2, legacy, "baseline2", "legacy")
+print("[informational] Interleaved fling (base2/legacy x2)...")
+local base2Fling, legacyFling = interleavedPair("fling", runFling, baseline2, legacy, "baseline2", "legacy")
+print("[informational] Interleaved idle scroll (base2/legacy x2)...")
+local base2Idle, legacyIdle = interleavedPair("idle-scroll", runIdleScroll, baseline2, legacy, "baseline2", "legacy")
 
-print("Idle scroll (no boundary churn): baseline...")
-local baseIdle = summarize("baseline-idle-scroll", runIdleScroll(baseline, SAMPLES, WARMUP))
-print("Idle scroll (no boundary churn): wrapped...")
-local wrapIdle = summarize("wrapped-idle-scroll", runIdleScroll(wrapped, SAMPLES, WARMUP))
+print("\n=== RESULTS: HOSTED (budgeted) ===")
+report(baseScroll, hostedScroll, "hosted")
+report(baseFling, hostedFling, "hosted")
+report(baseIdle, hostedIdle, "hosted")
+print(("hosted engines built over the whole run: %d (rows stayed closed)"):format(assertHostedIdle(hosted, "final")))
 
-local function pctDelta(base: number, over: number): number
-	if base <= 0 then
-		return 0
-	end
-	return (over - base) / base * 100
-end
+print("\n=== RESULTS: LEGACY STANDALONE WRAP (informational, NOT budgeted) ===")
+report(base2Scroll, legacyScroll, "legacy")
+report(base2Fling, legacyFling, "legacy")
+report(base2Idle, legacyIdle, "legacy")
 
-print("\n=== RESULTS ===")
-print(
-	("baseline steady-scroll p50=%.4fms mean=%.4fms p95=%.4fms"):format(
-		baseScroll.p50_ms,
-		baseScroll.mean_ms,
-		baseScroll.p95_ms
-	)
-)
-print(
-	("wrapped  steady-scroll p50=%.4fms mean=%.4fms p95=%.4fms"):format(
-		wrapScroll.p50_ms,
-		wrapScroll.mean_ms,
-		wrapScroll.p95_ms
-	)
-)
-print(("  delta (p50): %.2f%%"):format(pctDelta(baseScroll.p50_ms, wrapScroll.p50_ms)))
-print(("  delta (mean): %.2f%%"):format(pctDelta(baseScroll.mean_ms, wrapScroll.mean_ms)))
+print(("\nhosted nodes/closed-row: %.2f (budget: <=4)"):format(hostedNodesPerRow))
+print(("legacy nodes/closed-row: %.2f [informational]"):format(legacyNodesPerRow))
 
-print(
-	("baseline fling p50=%.4fms mean=%.4fms p95=%.4fms"):format(baseFling.p50_ms, baseFling.mean_ms, baseFling.p95_ms)
-)
-print(
-	("wrapped  fling p50=%.4fms mean=%.4fms p95=%.4fms"):format(wrapFling.p50_ms, wrapFling.mean_ms, wrapFling.p95_ms)
-)
-print(("  delta (p50): %.2f%%"):format(pctDelta(baseFling.p50_ms, wrapFling.p50_ms)))
-print(("  delta (mean): %.2f%%"):format(pctDelta(baseFling.mean_ms, wrapFling.mean_ms)))
-
-print(
-	("baseline idle-scroll p50=%.4fms mean=%.4fms p95=%.4fms"):format(
-		baseIdle.p50_ms,
-		baseIdle.mean_ms,
-		baseIdle.p95_ms
-	)
-)
-print(
-	("wrapped  idle-scroll p50=%.4fms mean=%.4fms p95=%.4fms"):format(
-		wrapIdle.p50_ms,
-		wrapIdle.mean_ms,
-		wrapIdle.p95_ms
-	)
-)
-print(("  delta (p50): %.2f%%"):format(pctDelta(baseIdle.p50_ms, wrapIdle.p50_ms)))
-print(("  delta (mean): %.2f%%"):format(pctDelta(baseIdle.mean_ms, wrapIdle.mean_ms)))
-
-print(("\nwrapper nodes/closed-row: %.2f (budget: <=4)"):format(wrapperNodesPerRow))
-
-local budgetScrollOk = pctDelta(baseScroll.mean_ms, wrapScroll.mean_ms) <= 5
-local budgetFlingOk = pctDelta(baseFling.mean_ms, wrapFling.mean_ms) <= 5
-local budgetWrapperOk = wrapperNodesPerRow <= 4
-print(("\nBUDGET steady-scroll <=5%%: %s"):format(if budgetScrollOk then "PASS" else "FAIL"))
-print(("BUDGET fling <=5%%: %s"):format(if budgetFlingOk then "PASS" else "FAIL"))
-print(("BUDGET wrapper<=4 instances/row: %s"):format(if budgetWrapperOk then "PASS" else "FAIL"))
+local budgetScrollOk = pctDelta(baseScroll.mean_ms, hostedScroll.mean_ms) <= 5
+local budgetFlingOk = pctDelta(baseFling.mean_ms, hostedFling.mean_ms) <= 5
+local budgetWrapperOk = hostedNodesPerRow <= 4
+print(("\nBUDGET hosted steady-scroll <=5%%: %s"):format(if budgetScrollOk then "PASS" else "FAIL"))
+print(("BUDGET hosted fling <=5%%: %s"):format(if budgetFlingOk then "PASS" else "FAIL"))
+print(("BUDGET hosted <=4 instances/row: %s"):format(if budgetWrapperOk then "PASS" else "FAIL"))
+print("(single-run deltas carry +-10-15pp noise — call the budget on >=3-run MEANS)")
 
 baseline.list.dispose()
-wrapped.list.dispose()
+hosted.list.dispose()
+baseline2.list.dispose()
+legacy.list.dispose()

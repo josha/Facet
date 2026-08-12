@@ -1,4 +1,13 @@
 --!strict
+-- HISTORICAL EVIDENCE — KEEP. This is the scoping experiment whose numbers
+-- docs/plans/row-actions-hosted-mode-design.md §"Measured floors" cites (it is
+-- what proved the hosted design's floor, and what surfaced the one-pass
+-- measurement-order bias the A/A control row records). It measures a SIMULATED
+-- floor, not the shipped feature: the budgeted measurement of the real hosted
+-- integration lives in perf_workload.luau, which is de-biased (interleaved) and
+-- is the file to run for any budget call. Kept unmodified so the design doc's
+-- table stays reproducible.
+--
 -- FLOOR EXPERIMENT (row-actions perf mission scoping, 2026-08-12; TEMP, not a
 -- gate artifact): measures the closed-row cost floor of the proposed "hosted
 -- row-actions" design — baseline rows plus ONLY what a closed hosted row would
