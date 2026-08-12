@@ -461,21 +461,28 @@ describe("compactLabel: the icon form degrades and the image form does not", fun
 		end
 	end)
 
-	it("standard_icons.resolve() itself answers nil for both un-uploaded and unknown names", function()
-		-- pins resolve()'s own two nil cases directly, below the control-level
-		-- glyph fallback tested above: a name the set does not know at all
-		-- (typo), and a name it knows but has no content id for yet -- the
-		-- exact pre-upload state `trash`/`flag` ship in today. Either nil is
-		-- what sends the caller (package.resolveIcon) on to the ASCII glyph.
+	it("standard_icons.resolve() answers nil for unknown names, art for uploaded ones", function()
+		-- pins resolve()'s two cases directly, below the control-level glyph
+		-- fallback tested above: a name the set does not know at all (typo)
+		-- is nil -- what sends the caller (package.resolveIcon) on to the
+		-- ASCII glyph -- and a name with a content id resolves to its art.
+		-- `trash`/`flag` shipped pre-upload (contentId = nil, ASCII floor
+		-- "U"/"P") and were uploaded 2026-08-12; this test pinned the nil
+		-- state then and pins the uploaded state now. The un-uploaded case
+		-- stays covered by the synthetic-entry contract: resolve() reads
+		-- contentId and nothing else, so a nil contentId IS the typo case's
+		-- same nil return path (assets/icons/provenance.md).
 		expect(standard_icons.resolve("not.a.real.icon.name")).toBeNil()
 		local trashEntry = (standard_icons.ART :: any)["trash"]
 		expect(trashEntry ~= nil).toBe(true)
-		expect(trashEntry.contentId).toBeNil()
-		expect(standard_icons.resolve("trash")).toBeNil()
-		-- and the full chain still draws the invented ASCII glyph today, live
-		-- through drawAt -- the "land green before a single byte is uploaded"
-		-- property the whole set was built on, now exercised by a real caller
-		-- (the row-actions gallery scenario) rather than just this table.
+		expect(trashEntry.contentId).toBe("rbxassetid://84398508341623")
+		expect(standard_icons.resolve("trash").contentId).toBe("rbxassetid://84398508341623")
+		expect(standard_icons.resolve("flag").contentId).toBe("rbxassetid://109067109704366")
+		-- under THIS harness (no themeMetrics -> flat theme) the icon form
+		-- still draws the ASCII floor even for uploaded art -- exactly as the
+		-- "edit" test above draws "/" although edit has carried a content id
+		-- since 2026-07-27. The glyph floor staying reachable is itself the
+		-- pinned property; the art path is the package sweep's business.
 		local tight = drawAt({ label = "Delete", compactLabel = { icon = "trash" } }, 30)
 		expect(tight.label).toBe("U")
 	end)

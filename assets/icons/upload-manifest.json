@@ -83,6 +83,17 @@
       "sha256": "a0f62fc4b1a2b2176b9e12b97a7d5f8ab8539cdbb266e3248e27e092ff212c5f",
       "assetType": "Image"
     },
+    "luauui_icon_flag": {
+      "file": "luauui_icon_flag.png",
+      "contentId": "rbxassetid://109067109704366",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.flag",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "ada43c6afd8bcf65e04bc18691ebfa0fa52662899086f71cd581b06c3fab1a6d",
+      "assetType": "Image"
+    },
     "luauui_icon_menu": {
       "file": "luauui_icon_menu.png",
       "contentId": "rbxassetid://119066409501208",
@@ -126,6 +137,17 @@
       "moderation": "Approved",
       "sha256": "ac3007a3c503fd1bb1218a5721986d0b7e532d0014c4ff8cacb3e1d5b0701d1c",
       "assetType": "Image"
+    },
+    "luauui_icon_trash": {
+      "file": "luauui_icon_trash.png",
+      "contentId": "rbxassetid://84398508341623",
+      "size": "128x128",
+      "sliceBorder": 0,
+      "slot": "icons.trash",
+      "state": "default",
+      "moderation": "Approved",
+      "sha256": "2c4837ba2f4b87026b9f302a57e252c96a2a424782c4e29b4c52450b400e6e8f",
+      "assetType": "Image"
     }
   },
   "uploadedBy": "compact-label stage (the standard icon set that makes compactLabel's image form usable)",
@@ -137,9 +159,11 @@
     "luauui_icon_chevron_up",
     "luauui_icon_close",
     "luauui_icon_edit",
+    "luauui_icon_flag",
     "luauui_icon_menu",
     "luauui_icon_minus",
     "luauui_icon_more",
-    "luauui_icon_plus"
+    "luauui_icon_plus",
+    "luauui_icon_trash"
   ]
 }

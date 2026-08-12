@@ -108,12 +108,12 @@ standard_icons.ART = table.freeze({
 	-- Open Cloud upload via tools/upload_icons.py) -- not new art paradigms.
 	["trash"] = table.freeze({
 		assetName = "luauui_icon_trash",
-		contentId = nil,
+		contentId = "rbxassetid://84398508341623",
 		tintRole = "content",
 	}),
 	["flag"] = table.freeze({
 		assetName = "luauui_icon_flag",
-		contentId = nil,
+		contentId = "rbxassetid://109067109704366",
 		tintRole = "content",
 	}),
 })
