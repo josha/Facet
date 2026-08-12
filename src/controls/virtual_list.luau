@@ -164,6 +164,7 @@
 local autoscrollLib = require("../input/autoscroll")
 local contribution = require("../input/contribution")
 local row_actions = require("./row_actions")
+local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 
@@ -227,9 +228,9 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"overscan",
 	"reorderMotion",
 	"reorderable",
+	"rowActions",
 	"rowDropTarget",
 	"rowFocusable",
-	"rowActions",
 	"rowGap",
 	"rowHeight",
 	"rows",
@@ -527,10 +528,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return window
 	end, sameWindow))
 
+	-- ONE definition of a row's path shape under a given root (`{root}` is the
+	-- standalone `/{id}` for the public form and the mounted ScrollView path for
+	-- the screen-rooted one). Every caller that needs a row or hit path goes
+	-- through here, so the ForEach's `W/[{key}]` convention (src/mount.luau) is
+	-- written down exactly once.
+	local function rowPathUnder(root: string, key: string): string
+		return `{root}/Canvas/W/[{key}]/Row`
+	end
 	local function pathOf(key: string): string?
 		for _, entry in windowItems:get() :: { any } do
 			if entry.key == key then
-				return `/{id}/Canvas/W/[{key}]/Row`
+				return rowPathUnder(`/{id}`, key)
 			end
 		end
 		return nil
@@ -547,7 +556,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if root == nil then
 			return nil
 		end
-		return `{root}/Canvas/W/[{key}]/Row`
+		return rowPathUnder(root, key)
 	end
 	local function hitPathOf(key: string): string?
 		local path = mountedRowPath(key)
@@ -1030,23 +1039,40 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- (never per row), and nothing reactive, no coordinator and no engine is
 	-- constructed unless the feature is on.
 
-	-- key -> the row's own gesture engine, built on first touch and kept for the
-	-- life of the LIST. A windowed-out row KEEPS its engine on purpose: it is
-	-- coming back (that is what virtualization is), rebuilding one per scroll
-	-- pass would defeat the laziness this design exists for, and the row cannot
-	-- be left open behind the player's back anyway — any scroll closes the
-	-- engaged row through the shared coordinator before it can leave the window.
-	-- Disposal rides the list scope (registered below): `buildHosted` opens its
-	-- own independent `core:scope()`, so nothing else would ever free them.
+	--[[ RETENTION POLICY, stated once so nothing has to infer it:
+		  * ONE engine per row KEY, built at the moment that row's gesture first
+		    resolves horizontal, kept for the life of the LIST — never rebuilt per
+		    scroll pass, because a windowed-out row is coming back (that is what
+		    virtualization is) and rebuilding would defeat the laziness this whole
+		    design exists for. Leaving one behind is safe: any scroll closes the
+		    engaged row through the shared coordinator before it can leave the
+		    window.
+		  * The cache is DROPPED WHOLESALE on a re-present (see
+		    `hostedNoticeMount`), because every engine captured its row/tray paths
+		    at build and those paths name the previous mount.
+		  * Disposal otherwise rides the list scope (registered below):
+		    `buildHosted` opens its own independent `core:scope()`, so nothing
+		    else would ever free them. ]]
 	local hostedEngines: { [string]: any } = {}
-	-- the CURRENTLY MOUNTED rows' hit paths, both directions. Maintained by the
-	-- row factory (an item scope removes its own entry on unmount) and rebuilt
-	-- lazily, never PARSED out of a path: a data key is arbitrary text and a
-	-- pattern over `[{key}]` is a guess about what a key may contain.
-	local hostedHitPathByKey: { [string]: string } = {}
+	--[[ key -> whatever `spec.rowActions(item)` answered, or `false` for "this
+		row has no actions". Cached because the DECIDE-and-DECLINE half runs on
+		every press (an unwrapped row must not hold the capture — see the
+		dispatcher) while the BUILD half is deferred to the axis lock, and calling
+		a consumer callback twice per gesture to answer the same question is a
+		cost with no reason. Same lifetime and same drop rule as `hostedEngines`;
+		row_actions' own action list is a build-time fact in every mode. ]]
+	local hostedFieldsByKey: { [string]: any } = {}
+	--[[ mounted hit path -> row key. NEVER parsed out of a path (a data key is
+		arbitrary text, so a pattern over `[{key}]` is a guess about what a key may
+		contain) — CONSTRUCTED from `windowItems`, which is already this control's
+		one source of truth for "which rows are mounted" (`pathOf`/`mountedRowPath`
+		derive from it too). Rebuilt only when that memo's identity changes, which
+		its own `sameWindow` equality makes exactly "the key sequence changed", so
+		a same-window scroll rebuilds nothing and a row costs no registration
+		closure at all. ]]
 	local hostedKeyByHitPath: { [string]: string } = {}
-	local hostedWindowKeys: { [string]: boolean } = {}
-	local hostedPathMapDirty = true
+	local hostedMapWindow: any = nil
+	local hostedMapRoot: string? = nil
 
 	-- ONE open row across the whole list (row_actions' own policy object, the
 	-- same one Table hands its wrapped rows), and the two signals the Task 4
@@ -1087,50 +1113,45 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return `{root}/Canvas/{HOSTED_OVERLAY_ID}/then/{HOSTED_TRAY_GROUP_ID}/{tray}`
 	end
 
-	-- the row factory's two-line registration. The item scope owns the removal,
-	-- so a row leaving the window takes its own map entries with it and no
-	-- pruning pass has to exist.
-	local function hostedRegisterRow(key: string, itemScope: any)
-		hostedWindowKeys[key] = true
-		hostedPathMapDirty = true
-		itemScope:own(function()
-			hostedWindowKeys[key] = nil
-			hostedPathMapDirty = true
-		end)
-	end
-
-	local function hostedSyncPathMap()
-		local root = mountedScrollPath
-		if not hostedPathMapDirty or root == nil then
-			return -- stays dirty until the list has actually been presented
-		end
-		table.clear(hostedHitPathByKey)
-		table.clear(hostedKeyByHitPath)
-		for key in hostedWindowKeys do
-			local path = `{root}/Canvas/W/[{key}]/Row/Hit`
-			hostedHitPathByKey[key] = path
-			hostedKeyByHitPath[path] = key
-		end
-		hostedPathMapDirty = false
-	end
-
-	local hostedRootPrefix: string? = nil
 	local function hostedKeyOfHit(path: string): string?
-		-- a re-present moves the whole tree under a new screen root; the map is
-		-- keyed on the mounted prefix, so notice the move rather than answering
-		-- from a map describing the previous mount
-		if hostedRootPrefix ~= mountedScrollPath then
-			hostedRootPrefix = mountedScrollPath
-			hostedPathMapDirty = true
+		local root = mountedScrollPath
+		if root == nil then
+			return nil -- not presented: there are no mounted paths to answer with
 		end
-		hostedSyncPathMap()
+		local window = windowItems:get() :: { any }
+		if hostedMapWindow ~= window or hostedMapRoot ~= root then
+			hostedMapWindow = window
+			hostedMapRoot = root
+			table.clear(hostedKeyByHitPath)
+			for _, entry in window do
+				hostedKeyByHitPath[rowPathUnder(root, entry.key) .. "/Hit"] = entry.key
+			end
+		end
 		return hostedKeyByHitPath[path]
 	end
 
-	-- the row whose POINTER GESTURE is live right now (down..up/cancel). Not
-	-- state row_actions publishes — it is the host's own fact, and it is the one
-	-- that settles the two-rows-sliding-at-once race below.
+	--[[ THE LIVE GESTURE, owned by the host. `hostedActiveKey` is the row a press
+		is currently on (down .. up/cancel) and `hostedPending` is that gesture
+		before its axis has resolved.
+
+		WHY THE KEY IS HELD RATHER THAN LOOKED UP PER EVENT. A row can UNMOUNT
+		mid-gesture — scrolled out from under a held finger, or removed from the
+		data outright — and the adapter's own remove-then-cancel arrives AFTER the
+		row is gone from the window. A path lookup would answer nil at exactly that
+		moment, so the engine would never be told its gesture died: its internal
+		`drag` would stay non-nil forever, and the "a non-active row may not claim"
+		rule below would then refuse that row every future press. Holding the key
+		makes the cancel land on the right engine no matter what the tree did, and
+		it is also strictly cheaper than the lookup it replaces. ]]
 	local hostedActiveKey: string? = nil
+	type HostedPending = {
+		key: string,
+		path: string,
+		originPos: any,
+		rectOf: (string) -> any,
+		declined: boolean,
+	}
+	local hostedPending: HostedPending? = nil
 
 	--[[ THE SLIDE SEAM. The engine owns the number; this control owns only WHO is
 		engaged and BY HOW MUCH, because those two are what the shared tray overlay
@@ -1141,12 +1162,16 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		coordinator, which CLOSES row A — and A's close is a spring, so for the
 		next several frames A is still writing a shrinking non-zero slide while B
 		is writing a growing one. Last-writer-wins would hand the tray back and
-		forth between them (A's spring steps AFTER B's move, every frame), which is
-		exactly the defect this rule exists to prevent: a row that is neither
-		driving the live gesture nor already the engaged one is a row FINISHING ITS
-		CLOSE, and a close never claims a tray. Its own content still slides — that
-		is the engine's `offset`, which it kept — it simply does not take the
-		overlay with it.
+		forth between them (A's spring steps AFTER B's move, every frame).
+
+		THE RULE, exactly as implemented: the engaged row keeps writing its own
+		pixels; any OTHER row may take the tray only when it is driving the live
+		gesture (`hostedActiveKey`), or when nothing is engaged at all. The second
+		clause is what lets a programmatic `_open` — no gesture anywhere — engage a
+		row; the first is what stops a row that is merely FINISHING ITS CLOSE from
+		taking the tray back off the row the player is actually dragging. A closing
+		row's content still slides — that is the engine's `offset`, which it kept —
+		it simply does not take the overlay with it.
 
 		Both writes ride ONE transaction so a memo over the pair can never observe
 		the new row against the previous row's pixels. ]]
@@ -1180,30 +1205,48 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		hostedCommitHeight:set({ key = key, px = px })
 	end
 
-	-- BUILD-ON-FIRST-TOUCH. Returns nil — and therefore declines the capture —
-	-- for a row the consumer gave no actions, a row that is not mounted, and a
-	-- list that has not been presented yet (no mounted paths to hand the engine).
+	--[[ DOES THIS ROW HAVE ACTIONS AT ALL? Answered on every press (the capture
+		verdict depends on it — an unwrapped row must not hold one), cached per
+		key, and deliberately SEPARATE from building the engine: the build waits
+		for the axis lock, this does not. `false` is the memo for "asked, and the
+		answer was no". ]]
+	local function hostedFieldsFor(key: string): any?
+		local cached = hostedFieldsByKey[key]
+		if cached ~= nil then
+			return if cached == false then nil else cached
+		end
+		local item = itemForKey(key)
+		if item == nil then
+			return nil -- not in the data; nothing to cache either
+		end
+		local fields = hostedRowActions(item)
+		if fields ~= nil then
+			specGuard.assertKnownKeys(
+				"newVirtualList",
+				fields,
+				HOSTED_ROW_ACTIONS_KEYS,
+				`spec.rowActions result (row '{key}')`
+			)
+			if fields.leading == nil and fields.trailing == nil then
+				fields = nil -- declared, but with nothing on either edge
+			end
+		end
+		hostedFieldsByKey[key] = if fields == nil then false else fields
+		return fields
+	end
+
+	-- BUILD. Called at the AXIS LOCK, never at pointer-down (see the dispatcher):
+	-- a vertical pan, a fling and a tap must all cost zero engines. Returns nil
+	-- for a row with no actions, a row that is not mounted, and a list that has
+	-- not been presented yet (no mounted paths to hand the engine).
 	local function hostedEngineFor(key: string): any?
 		local existing = hostedEngines[key]
 		if existing ~= nil then
 			return existing
 		end
-		local item = itemForKey(key)
-		if item == nil then
-			return nil
-		end
-		local fields = hostedRowActions(item)
+		local fields = hostedFieldsFor(key)
 		if fields == nil then
-			return nil -- an unwrapped row: the common case, and it costs nothing
-		end
-		specGuard.assertKnownKeys(
-			"newVirtualList",
-			fields,
-			HOSTED_ROW_ACTIONS_KEYS,
-			`spec.rowActions result (row '{key}')`
-		)
-		if fields.leading == nil and fields.trailing == nil then
-			return nil -- declared, but with nothing on either edge
+			return nil
 		end
 		local rowPath = mountedRowPath(key)
 		if rowPath == nil then
@@ -1257,62 +1300,130 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return engine
 	end
 
-	-- the engine a LIVE gesture belongs to: never a builder, because a move/up
-	-- that never had a down is not the event that may create state
-	local function hostedLiveEngine(path: string): any?
-		local key = hostedKeyOfHit(path)
-		if key == nil then
-			return nil
+	-- the engine the LIVE gesture belongs to, by held key — never by path lookup
+	-- (see `hostedActiveKey`'s own comment: the row may already be unmounted)
+	local function hostedLiveEngine(): any?
+		return if hostedActiveKey ~= nil then hostedEngines[hostedActiveKey] else nil
+	end
+
+	--[[ RESOLVE THE AXIS, then build. Identical rule to the composite's own
+		`onPointerMove` and to `row_actions.composeWithReorder`'s `resolveAxis`: a
+		pure function of dx/dy against the one lock constant, ties go VERTICAL so
+		an ambiguous gesture is never taken away from the native scroll.
+
+		This is where the engine is BORN. Deferring past the lock is the whole
+		laziness story on touch: a phone user pans and flings THROUGH rows
+		constantly, and every one of those gestures starts with a pointer-down on
+		a row. Building there would have made "lazy" mean "lazy until the player
+		scrolls once". A tap resolves the same way — it never crosses the lock, so
+		it never builds anything either. ]]
+	local function hostedResolveAxis(pending: HostedPending, pos: any)
+		local dx, dy = pos.x - pending.originPos.x, pos.y - pending.originPos.y
+		if dx * dx + dy * dy < row_actions_state.AXIS_LOCK_PX ^ 2 then
+			return -- still accumulating toward the lock radius
 		end
-		return hostedEngines[key]
+		if math.abs(dx) <= math.abs(dy) then
+			pending.declined = true -- vertical: the native scroll owns this gesture
+			return
+		end
+		local engine = hostedEngineFor(pending.key)
+		if engine == nil then
+			pending.declined = true
+			return
+		end
+		--[[ REPLAY the down at the TRUE ORIGIN, marked `replayed`. The position
+			has to be the origin (the engine's own clamp math measures every later
+			move against it), but the TIME is now, not then — so `replayed = true`
+			tells the engine's velocity tracker to skip its seed rather than record
+			a hundreds-of-px jump over one frame. Exactly the affordance
+			`composeWithReorder` uses for the identical reason. ]]
+		local accepted = engine.pointerHandlers.onPointerDown(pending.path, {
+			x = pending.originPos.x,
+			y = pending.originPos.y,
+			pointerType = pending.originPos.pointerType,
+			replayed = true,
+		}, pending.rectOf)
+		if accepted == false then
+			-- the engine REFUSED the gesture (a commit still in flight, or — the
+			-- bug class C1 exists for — a previous gesture whose end it never
+			-- heard, leaving its own `drag` live). Go inert rather than push moves
+			-- into a drag this gesture does not own: reading a delta against some
+			-- earlier gesture's origin is worse than doing nothing.
+			pending.declined = true
+			return
+		end
+		hostedPending = nil
 	end
 
 	--[[ THE ONE SHARED DISPATCHER. Four functions for the whole list, allocated
 		once at build: every row's `Hit` carries the SAME four values, so a row
 		mounting costs four static prop reads and no closure at all. The hit's own
-		path is the routing key (the renderer passes it to every handler —
-		render/renderer.luau's pointer wiring), which is exactly why this can be
-		shared: a per-row closure would exist only to remember something the event
-		already carries. ]]
+		path is the routing key on the DOWN (the renderer passes it to every
+		handler — render/renderer.luau's pointer wiring), which is exactly why this
+		can be shared: a per-row closure would exist only to remember something the
+		event already carries. Every later event of that gesture routes by the HELD
+		key instead, so an unmounting row cannot lose its own cancel. ]]
 	local hostedDispatch = {
 		onPointerDown = function(path: string, pos: any, rectOf: (string) -> any): boolean?
 			local key = hostedKeyOfHit(path)
 			if key == nil then
 				return false
 			end
-			local engine = hostedEngineFor(key)
-			if engine == nil then
+			if hostedFieldsFor(key) == nil then
 				-- DECLINE: an unwrapped row must behave exactly like a row on a
-				-- list with no `rowActions` at all, and that row holds no capture
+				-- list with no `rowActions` at all, and that row holds no capture.
+				-- Answered from the cached spec result, NOT by building anything.
 				return false
 			end
-			local accepted = engine.pointerHandlers.onPointerDown(path, pos, rectOf)
-			if accepted ~= false then
-				hostedActiveKey = key
-			end
-			return accepted
+			hostedActiveKey = key
+			hostedPending = {
+				key = key,
+				path = path,
+				originPos = pos,
+				rectOf = rectOf,
+				declined = false,
+			}
+			-- TENTATIVE ACCEPT, the same verdict row_actions' own `onPointerDown`
+			-- returns and for the same reason: the axis is genuinely unknown at
+			-- down (dx = dy = 0), and the capture model offers no way to hand one
+			-- back later — a vertical verdict is honored by going inert instead.
+			return true
 		end,
 		onPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
-			local engine = hostedLiveEngine(path)
+			local pending = hostedPending
+			if pending ~= nil then
+				if pending.declined then
+					return
+				end
+				hostedResolveAxis(pending, pos)
+				if hostedPending ~= nil then
+					return -- still pending, or declined by this very move
+				end
+			end
+			local engine = hostedLiveEngine()
 			if engine ~= nil then
 				engine.pointerHandlers.onPointerMove(path, pos, rectOf)
 			end
 		end,
 		onPointerUp = function(path: string, pos: any, rectOf: (string) -> any)
-			local engine = hostedLiveEngine(path)
-			if hostedActiveKey == hostedKeyOfHit(path) then
-				hostedActiveKey = nil
-			end
-			if engine ~= nil then
+			local engine = hostedLiveEngine()
+			local unresolved = hostedPending ~= nil
+			-- CLEARED UNCONDITIONALLY, both of them: this gesture is over however
+			-- it ends, and a stale active key would misroute the next one
+			hostedPending = nil
+			hostedActiveKey = nil
+			if engine ~= nil and not unresolved then
 				engine.pointerHandlers.onPointerUp(path, pos, rectOf)
 			end
+			-- unresolved (a tap, or a gesture that never left the lock radius):
+			-- the engine was never told a down, so it is never told an up
 		end,
 		onPointerCancel = function(path: string, reason: string?): boolean?
-			local engine = hostedLiveEngine(path)
-			if hostedActiveKey == hostedKeyOfHit(path) then
-				hostedActiveKey = nil
-			end
-			if engine ~= nil then
+			local engine = hostedLiveEngine()
+			local unresolved = hostedPending ~= nil
+			hostedPending = nil
+			hostedActiveKey = nil
+			if engine ~= nil and not unresolved then
 				return engine.pointerHandlers.onPointerCancel(path, reason)
 			end
 			return nil
@@ -1324,6 +1435,57 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local function hostedEngagedEngine(): any?
 		local key = if engagedKey ~= nil then engagedKey:get() else nil
 		return if key ~= nil then hostedEngines[key] else nil
+	end
+
+	--[[ FREE ONE ROW'S ENGINE, and leave no state pointing at it. `dispose()`
+		releases the coordinator claim and tears the engine's own scope down, but
+		it deliberately does NOT run the close ladder (row_actions.luau's own
+		`dispose`), so a row disposed while REVEALED would otherwise leave
+		`engagedKey`/`engagedOffset` pinned to a row that no longer exists — a
+		stuck-open tray over a dead row once Task 4 paints one. Clearing them here
+		is the host's job, because they are the host's signals. ]]
+	local function hostedDropEngine(key: string)
+		local engine = hostedEngines[key]
+		hostedEngines[key] = nil
+		hostedFieldsByKey[key] = nil
+		if hostedActiveKey == key then
+			hostedActiveKey = nil
+			hostedPending = nil
+		end
+		if engine ~= nil then
+			engine.dispose()
+		end
+		if engagedKey:get() == key then
+			core:transaction(function()
+				engagedOffset:set(0)
+				engagedKey:set(nil)
+			end)
+		end
+		local height = hostedCommitHeight:get()
+		if height ~= nil and height.key == key then
+			hostedCommitHeight:set(nil)
+		end
+	end
+
+	--[[ A RE-PRESENT INVALIDATES EVERY ENGINE. Each one captured its row path and
+		its tray paths at BUILD time (a hosted engine owns no nodes, so it can only
+		be told where to look), and those strings name the mount it was built
+		under. Dismiss the surface and present again — a new screen root, a
+		different id, a keyed region remounting — and every one of them points at a
+		tree that no longer exists: `controller.rectOf` answers nil, the commit
+		threshold can never trip, and the tray can never be measured. Nothing about
+		that is recoverable in place, and it does not need to be: engines are lazy,
+		so dropping the cache costs one rebuild on the next real gesture. ]]
+	local function hostedNoticeMount()
+		local root = mountedScrollPath
+		if root == hostedMapRoot or hostedMapRoot == nil then
+			-- unchanged, or the very first mount (nothing was built under a
+			-- previous root, because there was no previous root)
+			return
+		end
+		for key in table.clone(hostedEngines) do
+			hostedDropEngine(key)
+		end
 	end
 
 	if hostedEnabled then
@@ -1342,12 +1504,23 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				end)
 			end,
 		}, ""))
+		-- A ROW THAT LEAVES THE DATA takes its engine with it — the same pruning
+		-- Table does for its own wrapped rows. Unlike a windowed-out row (which
+		-- is coming back, and keeps its engine on purpose), a deleted key never
+		-- returns, and an engine still holding the tray for it would pin the
+		-- overlay over a row that is gone.
+		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
+			for key in table.clone(hostedEngines) do
+				if map[key] == nil then
+					hostedDropEngine(key)
+				end
+			end
+		end))
 		-- engines are independent scope roots (`buildHosted` opens its own), so
 		-- the list is what frees them
 		listScope:own(function()
-			for key, engine in hostedEngines do
-				hostedEngines[key] = nil
-				engine.dispose()
+			for key in table.clone(hostedEngines) do
+				hostedDropEngine(key)
 			end
 		end)
 	end
@@ -1579,6 +1752,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- to it — the presenter calls this on every present/refresh.
 	local function buildFocusGroups(rootNode: any): { any }
 		mountedScrollPath = rootNode.path
+		if hostedEnabled then
+			-- the one place this control learns it has been (re-)mounted, and
+			-- therefore the one place a hosted engine's captured paths can be
+			-- known stale (see `hostedNoticeMount`)
+			hostedNoticeMount()
+		end
 		local order: { any } = {}
 		local function walk(node: any)
 			if node.path ~= nil and string.match(node.path, hitPattern) ~= nil then
@@ -1747,13 +1926,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					height = { type = "fill", weight = 1 },
 				}
 				if hostedEnabled then
-					-- HOSTED ROW ACTIONS: the row's whole marginal cost. Four
-					-- props whose values are the SAME four shared functions for
-					-- every row on the list — no closure, no memo, no wrapper
-					-- node — plus one map entry the item scope removes on its own
-					-- unmount. A list without `spec.rowActions` never reaches this
-					-- branch and builds the Hit it always did, prop for prop.
-					hostedRegisterRow(entry.key, itemScope)
+					-- HOSTED ROW ACTIONS: the row's whole marginal cost, and it is
+					-- four prop assignments. The VALUES are the SAME four shared
+					-- functions for every row on the list — no closure, no memo, no
+					-- wrapper node, and no registration hook either (the path -> key
+					-- map is derived from `windowItems`, which already knows exactly
+					-- which rows are mounted). A list without `spec.rowActions`
+					-- never reaches this branch and builds the Hit it always did,
+					-- prop for prop.
 					hitProps.onPointerDown = hostedDispatch.onPointerDown
 					hitProps.onPointerMove = hostedDispatch.onPointerMove
 					hitProps.onPointerUp = hostedDispatch.onPointerUp
