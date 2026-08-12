@@ -125,6 +125,15 @@ revoked, not a transient failure; a fresh key is needed from whoever owns the
 credential. Every other icon in this set (all eleven original entries) is
 unaffected and stays **Approved**/`Image`.
 
+**Cross-repo impact: none today.** RascalRally (`games/RascalRally/code`, which
+consumes this `src/` directly via both Rojo projects — root `CLAUDE.md` "LuauUI
+and Rascal Rally move together") has zero `newRowActions`/`ActionSpec.icon`
+call sites as of this stage — confirmed by `artifacts/row-actions/rr-compat.md`
+(Task 13's consumer-compatibility audit, which greps every changed surface
+across `games/RascalRally/code/src` and finds no caller). So the pending
+upload blocks nothing live; a merge ahead of the real content ids lands the
+ASCII floor for a feature no shipped game has adopted yet.
+
 **To resume:** refresh `ROBLOX_API_KEY` (scope `assets`, read+write), then from
 `GameStudio/ui/LuauUI/` run:
 

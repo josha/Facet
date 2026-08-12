@@ -308,13 +308,30 @@ describe("RowActions control", function()
 	-- (the solver's own `text_metrics.measure`, at the button's REAL font/
 	-- size) proving the box is wide enough for the natural one-line width.
 	it("labels survive 1.4x pseudo-loc without clipping (button never narrower than buttonMinWidth)", function()
-		local w = presenterWorld(function(core)
-			return row_actions.build(LuauUI, core, {
-				id = "Row",
-				content = content("Body"),
-				trailing = { { id = "delete", label = lt.PSEUDO, onAction = function() end } },
-			})
-		end)
+		-- Task 15 review: an action's `icon` rides `compactLabel` (row_actions.luau
+		-- buildTray), which only ever DEGRADES the drawn form when the label
+		-- does not fit — at rest, with room to spare, it must be a pure no-op
+		-- on the solved width. Proved directly, not by a pinned pixel number
+		-- (which would be fragile to any future theme-metric change): an
+		-- identical action WITHOUT `icon` is the control, and the two worlds
+		-- must land on the exact same width.
+		local function build(icon: string?)
+			return presenterWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = { { id = "delete", label = lt.PSEUDO, icon = icon, onAction = function() end } },
+				})
+			end)
+		end
+		local ref = build(nil)
+		ref.ra._open("trailing")
+		ref.pres.refresh()
+		settle(ref.pres)
+		ref.pres.refresh()
+		local refRect = ref.adapter.node(DELETE_PATH).rect
+
+		local w = build("trash")
 		w.ra._open("trailing")
 		w.pres.refresh()
 		-- Task 4: the reveal (and each button's proportional width) now
@@ -325,8 +342,9 @@ describe("RowActions control", function()
 		w.pres.refresh()
 		local node = w.adapter.node(DELETE_PATH)
 		expect(node ~= nil).toBe(true)
-		expect(node.props.label).toBe(lt.PSEUDO)
+		expect(node.props.label).toBe(lt.PSEUDO) -- full label draws: it fits, so compactLabel never degrades
 		expect(node.rect.w >= 64).toBe(true) -- the theme's buttonMinWidth floor (Task 2)
+		expect(node.rect.w).toBe(refRect.w) -- icon must not shrink label space at rest
 
 		local facts = w.handle.controller.textAt(DELETE_PATH)
 		expect(facts ~= nil).toBe(true)
@@ -441,6 +459,43 @@ describe("RowActions control", function()
 		expect(frac > 0.05 and frac < 0.95).toBe(true) -- genuinely mid-flight
 		local midWidth = w.adapter.node(DELETE_PATH).rect.w
 		expect(midWidth).toBeCloseTo(fullWidth * frac, 1) -- SAME observed value, no second spring
+	end)
+
+	-- Task 15 review: same mid-flight shape as the case directly above, now
+	-- with an action that carries `icon = "trash"` — the ladder `compactLabel`
+	-- exists for (docs/reference/api.md ActionSpec.icon): the settled, fully
+	-- open button has room, so the full label draws; the same button mid-swipe
+	-- is narrower than its own natural width, so it degrades to the framework
+	-- icon instead of clipping or wrapping. `trash` has no uploaded content id
+	-- yet (assets/icons/provenance.md "Pending upload"), so the icon form is
+	-- today's ASCII floor, `U` — proving the fallback renders through a real
+	-- caller, live, not just in standard_icons' own unit tests.
+	it("an icon action shows the full label settled, and the framework icon mid-swipe", function()
+		local function build()
+			return presenterWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = { { id = "delete", label = "Delete", icon = "trash", onAction = function() end } },
+				})
+			end)
+		end
+
+		local settled = build()
+		settled.ra._open("trailing")
+		settled.pres.refresh()
+		settle(settled.pres)
+		settled.pres.refresh()
+		expect(settled.adapter.node(DELETE_PATH).props.label).toBe("Delete")
+
+		local w = build()
+		w.ra._open("trailing")
+		w.pres.refresh()
+		for _ = 1, 8 do
+			w.pres.tick(FRAME)
+		end
+		w.pres.refresh()
+		expect(w.adapter.node(DELETE_PATH).props.label).toBe("U") -- standard_icons trash fallback (package.luau ICON_FALLBACK_GLYPHS)
 	end)
 
 	it("reduced motion snaps the reveal in one frame", function()
