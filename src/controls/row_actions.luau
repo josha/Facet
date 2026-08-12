@@ -204,6 +204,60 @@ type HostedOpts = {
 	onCommitHeight: ((px: number?) -> ())?,
 }
 
+-- fix round 1, finding 6: `row_actions.buildHosted`'s own return type, named
+-- rather than the `any` it shipped with. `pointerHandlers`'s four members
+-- carry the SAME `(path, pos, rectOf)` signature as `_pointerHandlers`
+-- (mirrored below rather than reused — the header's own struct literal, not a
+-- named type, is what `onPointerDown`/etc. are declared against). Every
+-- `bind*`/`dump`/`trayState` member stays `any` on purpose, matching this
+-- file's own existing convention for a Readable-valued or presenter-supplied
+-- field (see `HostedSpec.coordinator`/`Spec.editing` above): the real shapes
+-- (`Readable<T>`, a presenter's action-system/focus-graph/motion-clock
+-- handles) live in modules this control deliberately does not import a type
+-- from (`core/contract.luau`, `input/actions.luau`, `present/focus_map.luau`,
+-- `motion/clock.luau`) — a documented `any` here, same as everywhere else in
+-- this file a presenter hands over something it cannot construct for itself.
+export type HostedEngine = {
+	blueprint: nil, -- always nil: a hosted engine mounts no node of its own
+	dump: () -> any,
+	dispose: () -> (),
+	_open: (edge: Edge) -> (),
+	_close: () -> (),
+	_isOpen: () -> boolean,
+	_settleTo: any,
+	_closeMenu: () -> (),
+	_menuHandle: () -> any,
+	_pointerHandlers: {
+		onPointerDown: (path: string, pos: any, rectOf: (string) -> any) -> boolean?,
+		onPointerMove: (path: string, pos: any, rectOf: (string) -> any) -> (),
+		onPointerUp: (path: string, pos: any, rectOf: (string) -> any) -> (),
+		onPointerCancel: (path: string, reason: string?) -> boolean?,
+	},
+	_commitFirst: (edge: Edge) -> boolean,
+	_handleActivate: (path: string, meta: any?) -> boolean,
+	-- hosted-only (never present on `row_actions.build`'s own return):
+	pointerHandlers: {
+		onPointerDown: (path: string, pos: any, rectOf: (string) -> any) -> boolean?,
+		onPointerMove: (path: string, pos: any, rectOf: (string) -> any) -> (),
+		onPointerUp: (path: string, pos: any, rectOf: (string) -> any) -> (),
+		onPointerCancel: (path: string, reason: string?) -> boolean?,
+	},
+	open: (edge: Edge) -> (),
+	close: () -> (),
+	-- `Readable<nil | { edge: Edge, actions: { ActionSpec }, revealPx: Readable<number> }>`
+	trayState: any,
+	syncGeometry: ((rectOf: ((string) -> any)?, rootNode: any?) -> ())?,
+	bindMotion: (clock: any, now: (() -> number)?) -> (),
+	bindController: (controller: any) -> (),
+	bindPresent: (presentModal: any, dismiss: any) -> (),
+	bindActionSystem: (system: any) -> (),
+	bindFocusGraph: (graph: any) -> (),
+	handleCancel: (focusedPath: string?) -> boolean,
+	-- `{ active: Readable<boolean>, dismiss: () -> (), consume: boolean }` —
+	-- fix round 1, finding 3.
+	outsideDismiss: any,
+}
+
 -- CLOSED SPEC (constitution §4; ARCH-1).
 local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"id",
@@ -271,32 +325,37 @@ local function trayId(edge: Edge): string
 end
 
 -- validate ONE ActionSpec entry, naming the edge and index in every error so
--- a bad row in a five-action tray is not a guessing game.
-local function buildActionSpec(rowId: string, edge: Edge, index: number, raw: any): ActionSpec
+-- a bad row in a five-action tray is not a guessing game. `label` is the
+-- CALLING entry point's own public name (`newRowActions` or
+-- `newRowActionsHosted` — fix round 1, finding 5): this validation is shared,
+-- unconditional code (`buildEngine` calls it for both modes), and a hosted
+-- caller's bad ActionSpec used to get an error naming the WRONG entry point
+-- (always the literal `"newRowActions"`) — greppable but misleading.
+local function buildActionSpec(label: string, rowId: string, edge: Edge, index: number, raw: any): ActionSpec
 	if type(raw) ~= "table" then
-		error(`LuauUI newRowActions('{rowId}'): \`{edge}[{index}]\` must be a table (ActionSpec)`, 0)
+		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}]\` must be a table (ActionSpec)`, 0)
 	end
-	specGuard.assertKnownKeys("newRowActions", raw, ACTION_KEYS, `spec.{edge}[{index}]`)
+	specGuard.assertKnownKeys(label, raw, ACTION_KEYS, `spec.{edge}[{index}]`)
 	if type(raw.label) ~= "string" or raw.label == "" then
-		error(`LuauUI newRowActions('{rowId}'): \`{edge}[{index}].label\` must be a non-empty string`, 0)
+		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}].label\` must be a non-empty string`, 0)
 	end
 	local role = raw.role
 	if role ~= nil and role ~= "normal" and role ~= "destructive" then
 		error(
-			`LuauUI newRowActions('{rowId}'): \`{edge}[{index}].role\` '{tostring(role)}' is not a role. `
+			`LuauUI {label}('{rowId}'): \`{edge}[{index}].role\` '{tostring(role)}' is not a role. `
 				.. "Valid: normal, destructive.",
 			0
 		)
 	end
 	if type(raw.onAction) ~= "function" then
-		error(`LuauUI newRowActions('{rowId}'): \`{edge}[{index}].onAction\` must be a function`, 0)
+		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}].onAction\` must be a function`, 0)
 	end
 	local actionId = if raw.id ~= nil then raw.id else raw.label
 	if type(actionId) ~= "string" or actionId == "" then
-		error(`LuauUI newRowActions('{rowId}'): \`{edge}[{index}].id\` must be a non-empty string`, 0)
+		error(`LuauUI {label}('{rowId}'): \`{edge}[{index}].id\` must be a non-empty string`, 0)
 	end
 	if string.find(actionId, "/", 1, true) ~= nil then
-		error(`LuauUI newRowActions('{rowId}'): {edge} action id '{actionId}' must be path-safe (no "/")`, 0)
+		error(`LuauUI {label}('{rowId}'): {edge} action id '{actionId}' must be path-safe (no "/")`, 0)
 	end
 	return {
 		id = actionId,
@@ -310,28 +369,30 @@ end
 -- `nil` = "no actions on this edge" (legal, common); `{}` is very likely an
 -- authoring mistake (a caller that meant to omit the edge, or forgot to fill
 -- it in) — refused loudly rather than silently rendering an empty tray.
-local function actionsFor(rowId: string, edge: Edge, raw: any): { ActionSpec }?
+-- `label` — see `buildActionSpec`'s own comment above.
+local function actionsFor(label: string, rowId: string, edge: Edge, raw: any): { ActionSpec }?
 	if raw == nil then
 		return nil
 	end
 	if type(raw) ~= "table" then
-		error(`LuauUI newRowActions('{rowId}'): \`{edge}\` must be an array of ActionSpec, or nil for none`, 0)
+		error(`LuauUI {label}('{rowId}'): \`{edge}\` must be an array of ActionSpec, or nil for none`, 0)
 	end
 	if #raw == 0 then
 		error(
-			`LuauUI newRowActions('{rowId}'): \`{edge}\` is an empty table — use nil for "no actions on this `
+			`LuauUI {label}('{rowId}'): \`{edge}\` is an empty table — use nil for "no actions on this `
 				.. `edge", not \{\}`,
 			0
 		)
 	end
 	local out: { ActionSpec } = {}
 	for i, entry in raw do
-		table.insert(out, buildActionSpec(rowId, edge, i, entry))
+		table.insert(out, buildActionSpec(label, rowId, edge, i, entry))
 	end
 	return out
 end
 
-local function normalizeFullSwipe(rowId: string, raw: any): { leading: boolean, trailing: boolean }
+-- `label` — see `buildActionSpec`'s own comment above.
+local function normalizeFullSwipe(label: string, rowId: string, raw: any): { leading: boolean, trailing: boolean }
 	if raw == nil then
 		return { leading = true, trailing = true }
 	end
@@ -339,15 +400,15 @@ local function normalizeFullSwipe(rowId: string, raw: any): { leading: boolean, 
 		return { leading = raw, trailing = raw }
 	end
 	if type(raw) == "table" then
-		specGuard.assertKnownKeys("newRowActions", raw, FULL_SWIPE_KEYS, "spec.fullSwipe")
+		specGuard.assertKnownKeys(label, raw, FULL_SWIPE_KEYS, "spec.fullSwipe")
 		local leading = if raw.leading == nil then true else raw.leading
 		local trailing = if raw.trailing == nil then true else raw.trailing
 		if type(leading) ~= "boolean" or type(trailing) ~= "boolean" then
-			error(`LuauUI newRowActions('{rowId}'): \`fullSwipe.leading\`/\`trailing\` must be booleans`, 0)
+			error(`LuauUI {label}('{rowId}'): \`fullSwipe.leading\`/\`trailing\` must be booleans`, 0)
 		end
 		return { leading = leading, trailing = trailing }
 	end
-	error(`LuauUI newRowActions('{rowId}'): \`fullSwipe\` must be a boolean or \{ leading?, trailing? \}`, 0)
+	error(`LuauUI {label}('{rowId}'): \`fullSwipe\` must be a boolean or \{ leading?, trailing? \}`, 0)
 end
 
 -- ===== Task 7: the open-state coordinator =====================================
@@ -450,16 +511,25 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local scope = core:scope("row-actions-" .. tostring(id))
 	-- read once: `hosted` is a build-time fact, never live
 	local isHosted = hosted ~= nil
+	-- fix round 1, finding 5: every error this shared function (and the
+	-- validation helpers it calls — `actionsFor`/`buildActionSpec`/
+	-- `normalizeFullSwipe`) raises names the CALLING entry point, not always
+	-- the standalone one. Both `row_actions.build` and `row_actions.buildHosted`
+	-- already assert their OWN closed key set under their own name before
+	-- ever reaching here (`"newRowActions"`/`"newRowActionsHosted"` at the
+	-- `assertKnownKeys` call sites) — this is that same label, reused for
+	-- every OTHER error this shared body can still raise.
+	local label = if isHosted then "newRowActionsHosted" else "newRowActions"
 
 	if not isHosted and (type(spec.content) ~= "table" or (spec.content :: any).class == nil) then
-		error(`LuauUI newRowActions('{id}'): \`content\` is required and must be a Blueprint`, 0)
+		error(`LuauUI {label}('{id}'): \`content\` is required and must be a Blueprint`, 0)
 	end
 	-- nil in hosted mode: the HOST mounts the row, this engine wraps nothing
 	local content = spec.content
 
 	if spec.coordinator ~= nil and type(spec.coordinator) ~= "table" then
 		error(
-			`LuauUI newRowActions('{id}'): \`coordinator\` must be a table (the value newRowActionsCoordinator `
+			`LuauUI {label}('{id}'): \`coordinator\` must be a table (the value newRowActionsCoordinator `
 				.. "returns) — Task 7 wires it",
 			0
 		)
@@ -479,7 +549,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- rather than left to silently corrupt the second row's own state.
 	if spec.coordinator ~= nil and spec.id == nil then
 		error(
-			"LuauUI newRowActions: rows sharing a coordinator must carry unique ids "
+			`LuauUI {label}: rows sharing a coordinator must carry unique ids `
 				.. '(pass `id` explicitly — every row defaults to the same "RowActions" id otherwise, '
 				.. "colliding paths under one shared list)",
 			0
@@ -519,18 +589,18 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- — `async_image.luau`'s own precedent for reaching it from a control).
 	if spec.editing ~= nil and not UI.isReadable(spec.editing) then
 		error(
-			`LuauUI newRowActions('{id}'): \`editing\` must be a Readable<boolean> (a signal or memo), or nil `
+			`LuauUI {label}('{id}'): \`editing\` must be a Readable<boolean> (a signal or memo), or nil `
 				.. "for a row that is never in edit mode",
 			0
 		)
 	end
 
-	local leadingActions = actionsFor(id, "leading", spec.leading)
-	local trailingActions = actionsFor(id, "trailing", spec.trailing)
+	local leadingActions = actionsFor(label, id, "leading", spec.leading)
+	local trailingActions = actionsFor(label, id, "trailing", spec.trailing)
 	-- normalized at build time (row_actions_state.new's fullSwipeLeading/
 	-- fullSwipeTrailing opts); Task 5's gesture/commit paths below are the
 	-- first consumers of the decision itself.
-	local fullSwipe = normalizeFullSwipe(id, spec.fullSwipe)
+	local fullSwipe = normalizeFullSwipe(label, id, spec.fullSwipe)
 
 	local actionsById: { leading: { [string]: ActionSpec }, trailing: { [string]: ActionSpec } } =
 		{ leading = {}, trailing = {} }
@@ -739,10 +809,22 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- pixel number to translate its own row content by. One seam, so a host
 	-- cannot miss a write: the spring's every step, the drag's every sample and
 	-- the commit's slide-off all already come through here.
+	-- fix round 1, finding 4: change-gated, mirroring `offset`'s own signal
+	-- (`eq = defaultEq`, `src/core/imperative.luau`'s `node.set` — a write
+	-- that does not change the value never marks the node dirty or fires its
+	-- observers). `offset:set(px)` below already no-ops internally on a
+	-- repeat value; `onSlide` used to fire anyway, EVERY call, because it sat
+	-- outside that suppression — `resetToClosed`'s `retarget(0)` on every
+	-- ORDINARY close (offset already 0 the whole time: the row never left
+	-- closed) sent the host a spurious `onSlide(0)`. Reading `offset:get()`
+	-- BEFORE the write is what `defaultEq` itself compares against, so this
+	-- is the identical decision the signal already makes, made visible to the
+	-- one caller sitting outside its notification path.
 	local onSlide = if hosted ~= nil then hosted.onSlide else nil
 	local function applySlide(px: number)
+		local changed = px ~= offset:get()
 		offset:set(px)
-		if onSlide ~= nil then
+		if onSlide ~= nil and changed then
 			onSlide(px)
 		end
 	end
@@ -752,10 +834,20 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- host's own row-height override seam (design doc §5) — `nil` meaning "no
 	-- override, back to content height" in both. Optional: a host that does not
 	-- collapse rows simply never passes one.
+	--
+	-- fix round 1, finding 4: the identical change-gate as `applySlide` above
+	-- — `resetToClosed`'s unconditional `applyCommitHeight(nil)` used to fire
+	-- `onCommitHeight(nil)` on EVERY ordinary close, including one that never
+	-- collapsed anything at all (`rowHeightOverride` already `nil` the whole
+	-- time), which the report's own case (c) already distinguishes from the
+	-- real, load-bearing `nil` a completed commit sends ("no override, back
+	-- to content height" — a real transition, still forwarded because `px ~=
+	-- rowHeightOverride:get()` is true exactly when the value actually moves).
 	local onCommitHeight = if hosted ~= nil then hosted.onCommitHeight else nil
 	local function applyCommitHeight(px: number?)
+		local changed = px ~= rowHeightOverride:get()
 		rowHeightOverride:set(px)
-		if onCommitHeight ~= nil then
+		if onCommitHeight ~= nil and changed then
 			onCommitHeight(px)
 		end
 	end
@@ -1799,12 +1891,43 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- top of the focus stack (`focus_graph.luau`'s own `pushScope(trap =
 	-- true)`), so focus cannot be anywhere else at all while `menuOpen` is
 	-- true.
+	-- fix round 1, finding 2: in hosted mode a revealed tray's buttons live in
+	-- the HOST'S SHARED OVERLAY (`hostedPaths.trayLeading`/`trayTrailing`),
+	-- never under `pathsOf()` (the row's own content path, `hostedPaths.
+	-- content`) — the two are siblings, not parent/child, unlike standalone
+	-- mode where a tray IS a descendant of this composite's own root (see
+	-- `pathsOf`'s own standalone branch: `{rootPath}/{tid}When/then/{tid}`).
+	-- Without this, a player who has tabbed onto a revealed tray button in a
+	-- hosted list reads as OUTSIDE the row to the plain prefix check below,
+	-- so `syncKeysEnabled` would disable this row's own Delete/ButtonX keys
+	-- context at the exact moment a tray button holds focus — the header
+	-- comment above's whole "a player who has tabbed onto a revealed tray
+	-- button... is still unambiguously interacting with THIS row" contract,
+	-- broken specifically for hosted rows. Standalone is untouched: `pathsOf`
+	-- for a tray edge already returns a path INSIDE `rootPath` there, so the
+	-- extra checks below are always false when `hostedPaths == nil`.
 	local function pathInsideRow(path: string?): boolean
 		if menuOpen:get() then
 			return true
 		end
+		if path == nil then
+			return false
+		end
 		local row = pathsOf()
-		return path ~= nil and row ~= nil and isPathPrefix(row, path)
+		if row ~= nil and isPathPrefix(row, path) then
+			return true
+		end
+		if hostedPaths ~= nil then
+			local leadingTray = pathsOf("leading")
+			if leadingTray ~= nil and isPathPrefix(leadingTray, path) then
+				return true
+			end
+			local trailingTray = pathsOf("trailing")
+			if trailingTray ~= nil and isPathPrefix(trailingTray, path) then
+				return true
+			end
+		end
+		return false
 	end
 	-- Task 11b (perf): `ensureKeysContext` used to run unconditionally, every
 	-- time — meaning EVERY mounted row paid a real `actionSystemRef.
@@ -1877,7 +2000,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local function currentNow(): number
 		assert(
 			nowFn ~= nil,
-			`LuauUI newRowActions('{id}'): a pointer gesture reached _pointerHandlers with no bound \`now\` `
+			`LuauUI {label}('{id}'): a pointer gesture reached _pointerHandlers with no bound \`now\` `
 				.. "(bindMotion never ran) — these handlers must only be driven through a live presenter capture"
 		)
 		return nowFn()
@@ -3012,6 +3135,21 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	--     bound `now` (`currentNow`).
 	--   * `handleCancel`/`_handleActivate` — the host offers Cancel and routes
 	--     an Activate landing inside its own tray overlay back in here.
+	--   * `outsideDismiss` — fix round 1, finding 3. `contributionFields`
+	--     already carries this (built ONCE, shared by both modes — the header
+	--     comment above `contributionFields` itself), and standalone/Table
+	--     wires it through `contribution.attach` automatically; a hosted
+	--     engine has no node of its own for a presenter's contribution walk to
+	--     find it on, so without this forward the seam existed but was simply
+	--     unreachable — a host would have had to reinvent "close this row's
+	--     tray on an outside tap, without swallowing the tap" (the `consume =
+	--     false` rule — see the field's own comment) from scratch, and could
+	--     just as easily forget the `consume` rule as get it right. Forwarded
+	--     verbatim, same `{ active, dismiss, consume }` shape a presenter's
+	--     contribution walk already expects, so a host can hand it straight to
+	--     its OWN outside-tap plumbing (the shared overlay's whole reason to
+	--     exist) exactly the way `bindMotion`/`bindController`/etc. are handed
+	--     back from the host's own contribution.
 	-- `_close`/`_closeMenu` come from the shared api above and are what the
 	-- COORDINATOR calls on a row it claims away, so a hosted engine is a
 	-- first-class coordinator citizen with no adapter of any kind.
@@ -3027,6 +3165,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		api.bindActionSystem = contributionFields.bindActionSystem
 		api.bindFocusGraph = contributionFields.bindFocusGraph
 		api.handleCancel = contributionFields.handleCancel
+		api.outsideDismiss = contributionFields.outsideDismiss
 	end
 	return api
 end
@@ -3044,7 +3183,7 @@ end
 -- See the HOSTED MODE comment at the top of this file for the contract, and
 -- docs/plans/row-actions-hosted-mode-design.md for why the host owns the
 -- nodes.
-function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): any
+function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): HostedEngine
 	specGuard.assertKnownKeys("newRowActionsHosted", spec, HOSTED_KEYS, "spec")
 	local id = spec.id or "RowActions"
 	local paths: any = spec.paths
@@ -3080,11 +3219,38 @@ function row_actions.buildHosted(LuauUI: any, core: any, spec: HostedSpec): any
 			0
 		)
 	end
+	-- fix round 1, finding 1: a declared edge with no tray path for that edge
+	-- used to degrade SILENTLY rather than refuse. Without `paths.trayLeading`/
+	-- `paths.trayTrailing`, `pathsOf(edge)` (above) answers `nil` for that
+	-- edge, `deriveNaturals` returns early forever (never measures a natural
+	-- width), `targetFor(edge)` stays 0 (leadingWidth/trailingWidth never grow
+	-- past their zero start), and `_open`/a gesture past the axis lock still
+	-- sets `openEdge` and claims the coordinator — so the row LOOKS open to
+	-- every piece of state that matters (`_isOpen()` is true, the coordinator
+	-- thinks it owns the claim) while `offset` never leaves 0 and no tray ever
+	-- paints. Every symptom the review named: refused by name, at build time,
+	-- instead.
+	if spec.leading ~= nil and (type(paths.trayLeading) ~= "string" or paths.trayLeading == "") then
+		error(
+			`LuauUI newRowActionsHosted('{id}'): \`leading\` actions require \`paths.trayLeading\` (the host's `
+				.. "own leading tray container path) — without it the tray can never be measured or found to "
+				.. "paint, and the row would silently claim to be open with nothing revealed",
+			0
+		)
+	end
+	if spec.trailing ~= nil and (type(paths.trayTrailing) ~= "string" or paths.trayTrailing == "") then
+		error(
+			`LuauUI newRowActionsHosted('{id}'): \`trailing\` actions require \`paths.trayTrailing\` (the host's `
+				.. "own trailing tray container path) — without it the tray can never be measured or found to "
+				.. "paint, and the row would silently claim to be open with nothing revealed",
+			0
+		)
+	end
 	return buildEngine(LuauUI, core, spec, {
 		paths = paths,
 		onSlide = spec.onSlide,
 		onCommitHeight = spec.onCommitHeight,
-	})
+	}) :: HostedEngine
 end
 
 -- ===== Task 10: reorder composition (Table integration) ====================

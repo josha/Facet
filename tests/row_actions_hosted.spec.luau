@@ -69,6 +69,39 @@ local function rectOf(_path: string): any
 	return nil
 end
 
+-- fix round 1, finding 2's own test double: the minimal shape `ensureKeysContext`/
+-- `syncKeysEnabled` (src/controls/row_actions.luau) actually calls —
+-- `createContext({name, priority, sink}) -> ctx`, `ctx.createAction(name, kind)
+-- -> action` (`.bind`/`.onPressed`, both no-ops here — only whether/when
+-- `ctx.setEnabled` is called matters to this test), `ctx.setEnabled(bool)`,
+-- `ctx.destroy()`. Every built context is recorded so a test can inspect the
+-- ONE context this engine ever builds (`ensureKeysContext` is idempotent —
+-- see its own comment) and read back its live enabled state.
+local function fakeActionSystem(): any
+	local contexts: { any } = {}
+	local api: any = { contexts = contexts }
+	function api.createContext(_opts: any): any
+		local enabled = true
+		local ctx: any = {}
+		function ctx.createAction(_name: string, _kind: string): any
+			local action: any = {}
+			function action.bind(_opts: any) end
+			function action.onPressed(_fn: () -> ()) end
+			return action
+		end
+		function ctx.setEnabled(v: boolean)
+			enabled = v
+		end
+		function ctx.isEnabled(): boolean
+			return enabled
+		end
+		function ctx.destroy() end
+		table.insert(contexts, ctx)
+		return ctx
+	end
+	return api
+end
+
 type World = any
 
 local function hostedWorld(overrides: any?): World
@@ -105,8 +138,22 @@ local function hostedWorld(overrides: any?): World
 			table.insert(heights, { px = px })
 		end,
 	}
+	-- `overrides.__unset` — the leading-edge test (below) needs to CLEAR the
+	-- base spec's default `trailing`/`paths.trayTrailing`, and `trailing = nil`
+	-- in an override table literal cannot do that: Lua never stores a nil
+	-- value, so `pairs(overrides)` never visits a key written as `= nil` in
+	-- the literal — the merge loop below would never see it, and the base
+	-- default would silently survive. Named keys to delete, applied AFTER the
+	-- merge, sidesteps the footgun rather than relying on a value Lua cannot
+	-- represent.
+	local unset: { string }? = if overrides ~= nil then (overrides :: any).__unset else nil
 	for key, value in overrides or {} do
-		spec[key] = value
+		if key ~= "__unset" then
+			spec[key] = value
+		end
+	end
+	for _, key in unset or {} do
+		spec[key] = nil
 	end
 
 	local engine = row_actions.buildHosted(LuauUI, core, spec)
@@ -373,8 +420,8 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 	it("a leading tray reveals from the other edge through the same engine", function()
 		local w = hostedWorld({
 			leading = { { id = "flag", label = "Flag", onAction = function() end } },
-			trailing = nil,
 			paths = { content = ROW, trayLeading = TRAY_LEADING },
+			__unset = { "trailing" }, -- see `hostedWorld`'s own comment: `= nil` cannot clear a default
 		})
 		w.tick(FRAME)
 		w.down(100, 20)
@@ -393,5 +440,134 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		expect(w.engine._isOpen()).toBe(true)
 		expect(w.engine.dump().openEdge).toBe("leading")
 		expect(w.engine.dump().offset).toBeCloseTo(expectedTrayWidth("Flag"), 0.01)
+	end)
+
+	-- ===== fix round 1 (review findings) ====================================
+
+	it("(finding 1) refuses trailing actions with no paths.trayTrailing, by name", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+				paths = { content = ROW }, -- no trayTrailing
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(err, "paths.trayTrailing", 1, true)).never().toBeNil()
+	end)
+
+	it("(finding 1) refuses leading actions with no paths.trayLeading, by name", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				leading = { { id = "flag", label = "Flag", onAction = function() end } },
+				paths = { content = ROW }, -- no trayLeading
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(err, "paths.trayLeading", 1, true)).never().toBeNil()
+	end)
+
+	it("(finding 2) a focused hosted tray button counts as inside the row, keeping the keys context enabled", function()
+		local w = hostedWorld()
+		w.tick(FRAME)
+		local actionSystem = fakeActionSystem()
+		local focused = w.core:signal(nil :: string?)
+		-- bound in the same order a presenter's own contribution walk binds
+		-- them (contribution.luau) — neither bind alone builds the context;
+		-- both fire `syncKeysEnabled`, still false (focus is nowhere yet).
+		w.engine.bindActionSystem(actionSystem)
+		w.engine.bindFocusGraph({ focused = focused })
+		expect(#actionSystem.contexts).toBe(0) -- never built for a row nobody has focused (Task 11b)
+		-- focus lands on a TRAY BUTTON's path — the host's shared overlay,
+		-- never a descendant of `paths.content` — not on the row itself.
+		focused:set(TRAY_TRAILING .. "/Action:delete")
+		expect(#actionSystem.contexts).toBe(1)
+		local ctx = actionSystem.contexts[1]
+		expect(ctx.isEnabled()).toBe(true)
+		-- focus leaves the row entirely: the context goes back to disabled.
+		focused:set("/S/List/Canvas/Row-2/Hit")
+		expect(ctx.isEnabled()).toBe(false)
+	end)
+
+	it("(finding 3) forwards outsideDismiss — active tracks isOpen, dismiss is close, never consumed", function()
+		local w = hostedWorld()
+		w.tick(FRAME)
+		expect(type(w.engine.outsideDismiss)).toBe("table")
+		expect(w.engine.outsideDismiss.consume).toBe(false)
+		expect(w.engine.outsideDismiss.dismiss).toBe(w.engine.close)
+		expect(w.engine.outsideDismiss.active:get()).toBe(false)
+		w.engine._open("trailing")
+		w.settle()
+		expect(w.engine.outsideDismiss.active:get()).toBe(true)
+		w.engine.outsideDismiss.dismiss()
+		w.settle()
+		expect(w.engine._isOpen()).toBe(false)
+		expect(w.engine.outsideDismiss.active:get()).toBe(false)
+	end)
+
+	it("(finding 4) an ordinary close with nothing to collapse sends no spurious onSlide/onCommitHeight", function()
+		local w = hostedWorld()
+		w.tick(FRAME)
+		-- never opened: `offset` is already 0 and `rowHeightOverride` is
+		-- already nil for this row's entire life, so close()'s own
+		-- `resetToClosed` has nothing to actually change.
+		w.engine.close()
+		w.settle(5)
+		expect(#w.slides).toBe(0)
+		expect(#w.heights).toBe(0)
+	end)
+
+	it(
+		"(finding 4) a real close still forwards the settle's own onSlide(0) — the gate is on VALUE, not on close()",
+		function()
+			local w = hostedWorld()
+			w.tick(FRAME)
+			w.engine._open("trailing")
+			w.settle()
+			expect(#w.slides).toBeGreaterThan(0)
+			w.engine.close()
+			w.settle()
+			expect(w.lastSlide()).toBe(0) -- the real transition away from open is still forwarded
+			expect(w.engine.dump().offset).toBe(0)
+		end
+	)
+
+	it("(finding 5) labels a hosted action-spec error with the hosted entry point, not the standalone one", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				trailing = { { label = "Delete" } }, -- missing onAction
+				paths = { content = ROW, trayTrailing = TRAY_TRAILING },
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+		-- discriminates from a substring match: "newRowActions(" (with the
+		-- opening paren) only ever appears in the STANDALONE label's own
+		-- message shape (`LuauUI newRowActions('id')`), never inside
+		-- "newRowActionsHosted('id')".
+		expect(string.find(err, "newRowActions('", 1, true)).toBeNil()
+	end)
+
+	it("(finding 5) labels a hosted coordinator-type error with the hosted entry point too", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				coordinator = "not-a-table",
+				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+				paths = { content = ROW, trayTrailing = TRAY_TRAILING },
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
 	end)
 end)
