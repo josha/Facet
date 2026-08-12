@@ -1,15 +1,16 @@
 # settle: max=45s threshold=2 (1-min load average)
 PASS phase-0-foundation
-PASS phase-1-minimal-screen
+FAIL phase-1-minimal-screen (exit 1) [load at start: 2.73]
+      FAIL_RECOVERABLE  bench-reproducible
 PASS phase-2-settings-parity
 PASS phase-3-pilot
-FAIL part-2-director (exit 1) [load at start: 3.72]
-      FAIL_RECOVERABLE  ws1-adr-and-bench
+PASS part-2-director
 PASS phase-4-hardening
       FAIL_ENVIRONMENT  physical-device-confirmation
 PASS input-adaptation-audit
       FAIL_ENVIRONMENT  physical-device-confirmation
-PASS expansion-textinput
+FAIL expansion-textinput (exit 1) [load at start: 4.58]
+      FAIL_RECOVERABLE  expansion-adr-bench-rollback
       FAIL_ENVIRONMENT  physical-device-confirmation
 PASS input-paradigms
       FAIL_ENVIRONMENT  physical-device-confirmation
@@ -26,4 +27,18 @@ PASS cross-platform-proof
       FAIL_ENVIRONMENT  physical-and-human-rows
 PASS sponsor-framework-gaps
       FAIL_ENVIRONMENT  physical-and-human-rows
+FAIL code-simplicity-cleanup (exit 1) [load at start: 3.72]
+      FAIL_RECOVERABLE  performance-unregressed
+FAIL api-architecture-consistency (exit 1) [load at start: 3.22]
+      FAIL_RECOVERABLE  performance-unregressed
+      FAIL_ENVIRONMENT  physical-rows
+PASS desktop-keyboard-navigation
+      FAIL_ENVIRONMENT  physical-and-contended-rows
+PASS traversal-document-order
+PASS large-text-accessibility
+PASS performance-stress-places
+FAIL example-quality-pass (exit 1) [load at start: 4.18]
+      FAIL_RECOVERABLE  rascalrally-consumer
+      PENDING  physical-and-human-rows
+PASS swiftui-reference-app-validation
 DONE

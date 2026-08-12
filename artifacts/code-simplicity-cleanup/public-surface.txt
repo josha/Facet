@@ -1,4 +1,4 @@
-VERSION 0.8.0
+VERSION 0.9.0
 UI : table
   UI.AdaptiveStack : function
   UI.Anchor : function
@@ -55,6 +55,7 @@ adaptive : table
   adaptive.columnsFor : function
   adaptive.conditions : function
   adaptive.heightClass : function
+  adaptive.navPlacement : function
   adaptive.orientationFor : function
   adaptive.sizeClass : function
 composition : table
@@ -103,6 +104,8 @@ newPresenter : function
 newProgressView : function
 newRating : function
 newResourceProvider : function
+newRowActions : function
+newRowActionsCoordinator : function
 newSlider : function
 newStepper : function
 newTable : function
