@@ -3045,7 +3045,10 @@ and the same terminals.
 Reads and verbs added: `selectedKey`, `armedKey`, `dropIndex` (the 1-based slot a
 live reorder would commit to), `autoscroll` (a Signal of `{ state, band }` for
 the edge affordance), `focusGroupName`, `select`, `clearSelection`, `toggleGrab`,
-`stepAutoscroll(now)`.
+`stepAutoscroll(now)`, `engagedKey` (Readable: which row is currently revealing
+a hosted row-actions tray, nil when none), `engagedOffset` (Readable: that
+row's signed reveal offset in px). Both are nil on a list without
+`rowActions`.
 
 **Naming the list to its neighbours.** A screen that puts this list beside an
 authored row of controls has to state how focus crosses between them ("left from
@@ -3105,6 +3108,12 @@ pointer-handler funnel this feature rides is its own future task.
 
 *Shipped behavior worth knowing, beyond parity with Table/standalone:*
 
+- **Keyboard/pad Delete reaches a hosted row only once that row has an
+  engine — i.e. after a swipe.** Standalone's `newRowActions` binds Delete
+  the moment the composite mounts; hosted mode's engine is lazy (see above),
+  so an unswiped hosted row has no engine and therefore no Delete binding
+  yet. A list-level Delete binding that reaches every row without a prior
+  swipe is a booked follow-up, not shipped here.
 - **A row refuses a new gesture until it is home.** After a full-swipe
   commit fires, the row's own persistent spring carries it the rest of the
   way closed (or, for a destructive action, collapses its height first) — and

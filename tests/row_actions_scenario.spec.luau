@@ -355,13 +355,43 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 		teardown(world)
 	end)
 
-	it("dispose() tears the hosted list down cleanly", function()
-		local world = vlistWorld()
-		world.presenter.dismiss(world.handle)
-		expect(function()
-				world.built.dispose()
-			end)
-			.never()
-			.toThrow()
-	end)
+	it(
+		"dispose() tears the hosted list down cleanly (engine, overlay and slide transform all live at teardown)",
+		function()
+			-- M8 (final whole-branch review): the original version of this case
+			-- disposed a list with NO gesture ever started, so `hostedEngines` was
+			-- empty and the hosted teardown loop
+			-- (`listScope:own(function() for key in table.clone(hostedEngines) do
+			-- hostedDropEngine(key) end end)`, virtual_list.luau) ran zero
+			-- iterations — "cleanly" was proven by nothing. Swipe a row open first
+			-- (mid-gesture, no release needed) so the engine, the shared tray
+			-- overlay and the presentation slide transform all genuinely exist
+			-- when dispose runs.
+			local world = vlistWorld()
+			local rowHit = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[m1]/Row/Hit"
+			local rect = world.adapter.node(rowHit).rect
+			local startX = rect.x + rect.w - 10
+			local endX = startX - rect.w * 0.3
+			world.adapter.pointerDown(rowHit, startX, rect.y + rect.h / 2, "mouse")
+			world.adapter.pointerMove(endX, rect.y + rect.h / 2, "mouse") -- purely horizontal
+			world.presenter.refresh()
+			-- confirm there is genuinely something hosted to tear down before
+			-- trusting the dispose assertions below
+			local debugBeforeDispose = world.built.steps.vlistDebug(world.built)
+			expect(debugBeforeDispose.engineCount).toBe(1)
+			expect(debugBeforeDispose.engagedKey).toBe("m1")
+			world.presenter.dismiss(world.handle)
+			expect(function()
+					world.built.dispose()
+				end)
+				.never()
+				.toThrow()
+			-- a QUARANTINED cleanup error (a throwing owned resource inside the
+			-- scope walk, src/core/scope_impl.luau) never surfaces as a thrown
+			-- error from dispose() — it is caught and reported through
+			-- `core:lastError()` instead, so `never().toThrow()` alone cannot see
+			-- a broken hosted-engine teardown. This is the assertion that does.
+			expect(world.core:lastError()).toBeNil()
+		end
+	)
 end)

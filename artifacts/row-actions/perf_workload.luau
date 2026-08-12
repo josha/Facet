@@ -9,11 +9,11 @@
 -- Reproduce: `lune run artifacts/row-actions/perf_workload.luau` from the
 -- repo root.
 --
--- WHERE THE RESULTS LIVE: device-matrix.md's perf section still records the
--- SUPERSEDED one-pass wrapper numbers (measured 2026-08-10, before this
--- file was de-biased and before the hosted integration existed) — do not
--- read them as this script's output. The hosted results land there in the
--- gate task, as >=5-run MEANS; a single run of this script is not a result.
+-- WHERE THE RESULTS LIVE: artifacts/row-actions/device-matrix.md's "Current
+-- numbers" table, as >=5-run MEANS recorded in `b7a57b3` — a single run of
+-- this script is not a result, and device-matrix.md's superseded one-pass
+-- wrapper numbers (measured 2026-08-10) are kept as history, not read as
+-- this script's output.
 --
 -- ===================================================================
 -- WHY THE MEASUREMENT IS INTERLEAVED (row-actions hosted mode, Task 7)
@@ -56,7 +56,9 @@
 -- that is a measured result, not a structural guarantee. Re-run the A/A
 -- control whenever the schedule (block count/order) or the drive constants
 -- (SAMPLES, WARMUP, ROW_COUNT, viewport, step sizes) change, before trusting
--- a budget call against the new numbers.
+-- a budget call against the new numbers. Run it with
+-- `ROWACTIONS_WORLD_B=baseline lune run artifacts/row-actions/perf_workload.luau`
+-- (see WORLD_B below) — a clean checkout needs no hand edit to reproduce it.
 --
 -- Run-to-run noise on top of this is large (per-run sd ~2.3pp on fling,
 -- and single runs have printed both +6% and -1.5% for the same code): a
@@ -77,6 +79,7 @@
 --               built AFTER the budgeted pair has been measured, so their
 --               281 extra resident nodes cannot compress the budgeted delta.
 
+local process = require("@lune/process")
 local LuauUI = require("../../src") :: any
 local fake_target = require("../../tests/lib/fake_target")
 
@@ -89,6 +92,16 @@ local WARMUP = 30
 -- the interleave: SAMPLES split into two blocks per world, run ABBA (base,
 -- other, other, base). Halves of an even 150 => 75 + 75 = the full 150.
 local BLOCK = SAMPLES // 2
+
+-- A/A CONTROL SWITCH: the budgeted pair's "other" world is `buildWorld(WORLD_B)`
+-- below. Default "hosted" is the real measurement; set
+-- ROWACTIONS_WORLD_B=baseline to build it "base" instead — two IDENTICAL
+-- worlds, so the delta is zero by construction. This is the load-bearing A/A
+-- control the header rule above requires re-running on any schedule/drive
+-- change; a clean checkout can now do that with an env var, not a hand edit.
+local WORLD_B = if process.env.ROWACTIONS_WORLD_B ~= nil and process.env.ROWACTIONS_WORLD_B ~= ""
+	then process.env.ROWACTIONS_WORLD_B
+	else "hosted"
 
 local function buildItems(): { any }
 	local out = {}
@@ -394,8 +407,8 @@ print(
 	)
 )
 
-print("Building hosted (spec.rowActions, all rows closed, 200)...")
-local hosted = buildWorld("hosted")
+print(("Building hosted (WORLD_B=%s, all rows closed, 200)..."):format(WORLD_B))
+local hosted = buildWorld(WORLD_B)
 local hostedTotal, hostedWindowed = instancesPerRow(hosted)
 print(
 	("  windowed rows: %d, total adapter nodes: %d, nodes/windowed-row: %.2f"):format(
@@ -471,15 +484,15 @@ report(base2Scroll, legacyScroll, "legacy")
 report(base2Fling, legacyFling, "legacy")
 report(base2Idle, legacyIdle, "legacy")
 
-print(("\nhosted nodes/closed-row: %.2f (budget: <=4)"):format(hostedNodesPerRow))
+print(("\nhosted nodes/closed-row: %.2f (budget: <=1)"):format(hostedNodesPerRow))
 print(("legacy nodes/closed-row: %.2f (vs baseline2) [informational]"):format(legacyNodesPerRow))
 
 local budgetScrollOk = pctDelta(baseScroll.mean_ms, hostedScroll.mean_ms) <= 5
 local budgetFlingOk = pctDelta(baseFling.mean_ms, hostedFling.mean_ms) <= 5
-local budgetWrapperOk = hostedNodesPerRow <= 4
+local budgetWrapperOk = hostedNodesPerRow <= 1
 print(("\nBUDGET hosted steady-scroll <=5%%: %s"):format(if budgetScrollOk then "PASS" else "FAIL"))
 print(("BUDGET hosted fling <=5%%: %s"):format(if budgetFlingOk then "PASS" else "FAIL"))
-print(("BUDGET hosted <=4 instances/row: %s"):format(if budgetWrapperOk then "PASS" else "FAIL"))
+print(("BUDGET hosted <=1 instance/row: %s"):format(if budgetWrapperOk then "PASS" else "FAIL"))
 print("(single-run deltas carry ~2.3pp sd — call the budget on >=5-run MEANS)")
 
 baseline.list.dispose()

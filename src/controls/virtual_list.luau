@@ -1283,9 +1283,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		gesture (`hostedActiveKey`), or when nothing is engaged at all. The second
 		clause is what lets a programmatic `_open` — no gesture anywhere — engage a
 		row; the first is what stops a row that is merely FINISHING ITS CLOSE from
-		taking the tray back off the row the player is actually dragging. A closing
-		row's content still slides — that is the engine's `offset`, which it kept —
-		it simply does not take the overlay with it.
+		taking the tray back off the row the player is actually dragging. The
+		engine keeps counting down its own `offset` regardless — but `hostedWriteSlide`
+		below paints only the ENGAGED row, so a row that loses engagement while its
+		close spring is still in flight is NOT painted through the rest of that
+		flight: it snaps flat instantly, on the very frame it stops being engaged
+		(pinned by `tests/virtual_list_row_actions.spec.luau`'s "r2 is flat again").
+		Device-pass rider: iOS animates the previously-open row closed under it;
+		hosted mode jumps it. Not fixed here — recorded for the device pass.
 
 		Both writes ride ONE transaction so a memo over the pair can never observe
 		the new row against the previous row's pixels. ]]
@@ -1544,6 +1549,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		key instead, so an unmounting row cannot lose its own cancel. ]]
 	local hostedDispatch = {
 		onPointerDown = function(path: string, pos: any, rectOf: (string) -> any): boolean?
+			-- A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE. `suppressActivatePath`
+			-- is armed on the up of a same-row re-grab (below) and normally cleared by
+			-- the Activate that follows it — but a release that produces no Activated
+			-- (e.g. the up lands off the button) leaves it armed with nothing left to
+			-- clear it, and it would then swallow the NEXT Activate on that row. Safe
+			-- to clear unconditionally here: a real Activated always fires between a
+			-- pointer-up and the next pointer-down, so a still-live suppression can
+			-- never legitimately survive to see another down.
+			suppressActivatePath = nil
 			local key = hostedKeyOfHit(path)
 			if key == nil then
 				return false

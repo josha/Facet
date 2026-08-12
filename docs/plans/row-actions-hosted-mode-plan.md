@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A `newRowActions`-shaped swipe-actions capability hosted natively by `newVirtualList` whose CLOSED rows cost ≤5% time and ≤4 instances over unwrapped rows under `artifacts/row-actions/perf_workload.luau`.
+**Goal:** A `newRowActions`-shaped swipe-actions capability hosted natively by `newVirtualList` whose CLOSED rows cost ≤5% time and ≤4 instances over unwrapped rows under `artifacts/row-actions/perf_workload.luau`. (Shipped: the instance ceiling landed at ≤1, tighter than planned — see Task 8.)
 
 **Architecture:** Per `docs/plans/row-actions-hosted-mode-design.md` (read it first, it is the spec): a shared per-list pointer dispatcher on VirtualList's existing per-row `Hit` Button; a lazily-built per-row gesture engine (row_actions core, no blueprint); slide via the presentation channel (`setPresentationOffset`); one shared tray overlay `When` per list; commit-height through the existing `rowHeightDim` memo. Standalone and Table row_actions modes stay byte-identical.
 
@@ -133,10 +133,12 @@ Mechanics (design §Measured floors):
 
 ### Task 8: Gate ceilings 5/5/4 + mutation-bite proof + evidence regen
 
+(Shipped ceilings: 5.0 / 5.0 / **1.0**, not 5/5/4 — see Step 1 below.)
+
 **Files:**
 - Modify: `tools/check_row_actions_matrix.py:54-56`, `artifacts/row-actions/device-matrix.md` (perf section: new 3-run mean numbers, methodology note, legacy numbers), `tools/lune/gate_manifest.luau:2999-3012` (re-baseline note → restored-budget note)
 
-- [ ] **Step 1:** `STEADY_CEILING_PCT = 5.0`, `FLING_CEILING_PCT = 5.0`, `INSTANCE_CEILING = 4.0`; update device-matrix.md numbers from Task 7's runs.
+- [ ] **Step 1:** `STEADY_CEILING_PCT = 5.0`, `FLING_CEILING_PCT = 5.0`, `INSTANCE_CEILING = 4.0`; update device-matrix.md numbers from Task 7's runs. (Shipped `INSTANCE_CEILING = 1.0`: the hosted design's own closed-row cost is integer-deterministic at +0.08 nodes/windowed-row, so 4.0 would leave 12x of slack for a regression toward the legacy per-row shape to hide in.)
 - [ ] **Step 2 (mutation bite):** (a) temporarily write `6.1%` into device-matrix.md's steady cell → `python3 tools/check_row_actions_matrix.py` must EXIT NONZERO; restore. (b) same for fling and instances cells. (c) temporarily loosen a ceiling constant to 60 → must pass → restore (proves the constant is live). Record all three in the commit body.
 - [ ] **Step 3:** `python3 tools/check_row_actions_matrix.py` PASS; commit `gate(row-actions): budget restored to ≤5%/≤5%/≤4 with mutation-bite proof`.
 

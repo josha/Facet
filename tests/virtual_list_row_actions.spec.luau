@@ -2122,6 +2122,14 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(menuNodes()).toBe(0) -- the menu went with the tray
 		expect(w.debug().engagedKey).toBeNil()
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		-- HEADLESS ARTIFACT, not a device promise: `fake_target.touchTap` fires
+		-- onActivate unconditionally after down/up, but a real tap here would land
+		-- on the still-modal menu (`outsideTapCancel = true`,
+		-- src/controls/row_actions.luau:1761-1766), whose `applyOutsideOutcome` would
+		-- dismiss it and CONSUME the tap -- r5 would not activate on a real device.
+		-- The case's real claim (the menu goes with the tray) is proven above and is
+		-- mutation-bitten; only this activation count rides the harness's
+		-- unconditional tap.
 		expect(w.activations).toEqual({ "r5" }) -- and the press was not swallowed
 		expect(#fired).toBe(0)
 	end)

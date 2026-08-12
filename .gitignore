@@ -13,6 +13,7 @@ artifacts/**/*.jpeg
 artifacts/**/*.mov
 artifacts/**/*.mp4
 artifacts/**/*.json
+artifacts/**/*.log
 
 # build output + editor/OS noise
 build/

@@ -483,6 +483,24 @@ return {
 			env = ctx.env,
 		})
 
+		-- I5 fix: the vlist surface's own native-scroll binding. A "fixture"
+		-- scenario (this file) gets NONE of the host's generic per-example
+		-- auto-bind (examples/gallery/client/init.client.luau's
+		-- `nativeScrollBinderOf` loop only runs on the tutorial-example path,
+		-- ~347-356) — and unlike "list"'s row_actions coordinator, which the
+		-- driven `bindScroll` step binds on demand, real touch/mouse on
+		-- "vlist" can land before any step ever runs at all (its own hint
+		-- below: "no scripted step reaches this surface"). Without this,
+		-- `boundScrollPath` stays nil forever, so keep-visible never scrolls a
+		-- focused row into view and `scrollTop` never mirrors the engine.
+		-- Self-wired the same idiom sponsor_list.luau/sponsor_drop.luau use
+		-- (`ensureBound`/`ensureWired` off `pres.onTick`), keyed off `result`
+		-- below — the same table `init.client.luau` mutates with `.handle`
+		-- right after `pres.present`, so the first tick after the surface
+		-- actually exists is the one that binds it.
+		local unbindVlistScroll: any = nil
+		local unbindVlistTick: any = nil
+
 		local vlistBody = UI.VStack({
 			id = "VListPane",
 			gap = "s",
@@ -568,7 +586,8 @@ return {
 			ctx.actionSystem.deviceKey(key, false)
 		end
 
-		return {
+		local result: any
+		result = {
 			screen = screen,
 			present = {},
 
@@ -675,11 +694,35 @@ return {
 			end,
 
 			dispose = function()
+				if unbindVlistTick ~= nil then
+					unbindVlistTick()
+				end
+				if unbindVlistScroll ~= nil then
+					unbindVlistScroll()
+				end
 				if tbl.dispose ~= nil then
 					tbl.dispose()
 				end
 				vlist.dispose()
 			end,
 		}
+
+		unbindVlistTick = ctx.presenter.onTick(function()
+			if unbindVlistScroll ~= nil or result.handle == nil then
+				return
+			end
+			-- "vlist" is one of three surfaces a shared `UI.When` alternates
+			-- (default mode is "list"), so this list's own mounted path is nil
+			-- until the player actually switches to it — `bindNativeScroll`
+			-- asserts on a nil path, so wait for a real mount and retry every
+			-- tick until then. The path is stable once mounted (fixed `id`s),
+			-- so binding once is enough even across a later switch away and back.
+			if vlist.scrollPath() == nil then
+				return
+			end
+			unbindVlistScroll = vlist.bindNativeScroll(result.handle.controller)
+		end)
+
+		return result
 	end,
 }

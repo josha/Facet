@@ -97,4 +97,7 @@ device-matrix evidence.
   the shared engine).
 - Budget restored under the (de-biased) committed workload: ≤5% steady, ≤5%
   fling, ≤4 instances; `check_row_actions_matrix.py` ceilings tightened to
-  5/5/4 with mutation-bite proof.
+  5/5/4 with mutation-bite proof. (Shipped: the instance ceiling landed at
+  **1.0**, not 4.0 — the hosted design's own closed-row cost is
+  integer-deterministic at +0.08 nodes/windowed-row, so ≤4 would leave 12x of
+  slack for a regression toward the legacy per-row shape to hide in.)
