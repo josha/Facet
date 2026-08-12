@@ -2235,12 +2235,38 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					break
 				end
 			end
+			--[[ THE REVEALED TRAY WINS ITS OWN EDGE, and an author's `navigation.exit`
+				for that direction is suspended for exactly as long as the tray is up
+				(review round 2, X1).
+
+				The alternative — letting the author's exit stand — was the first
+				draft, and it is a trap: a list that declares `exit.right` (a very
+				ordinary thing, "Right leaves this list for the detail panel") would
+				make a revealed tray COMPLETELY unreachable by d-pad, because a
+				contained group has no other way in. The player would swipe a row
+				open with a finger and then have no non-pointer way to press what
+				they revealed — the same defect this whole traversal fix exists to
+				remove, reintroduced by an author doing nothing wrong.
+
+				So the precedence is stated the way a modal's is: a tray is
+				transient, player-invoked and momentary, and while it is up it owns
+				the one direction that reaches it. The author's exit is not
+				overwritten anywhere — it is rebuilt from `navigation.exit` on the
+				very next refresh, so the frame the tray closes is the frame Right
+				means "leave the list" again. Every OTHER direction the author
+				declared keeps working the whole time.
+
+				(The two rejected candidates, for the record: falling back to another
+				free orthogonal direction makes the entry direction depend on what
+				the author happened to declare, so no player could learn it; a
+				build-time error refuses a combination that is perfectly sensible —
+				and would fire on a list that never reveals a tray at all.) ]]
 			local merged: any = if navigation.exit ~= nil then table.clone(navigation.exit) else {}
 			if trayIsLeading then
-				merged.left = merged.left or hostedTrayGroupName
+				merged.left = hostedTrayGroupName
 				trayExit = { right = focusGroupName }
 			else
-				merged.right = merged.right or hostedTrayGroupName
+				merged.right = hostedTrayGroupName
 				trayExit = { left = focusGroupName }
 			end
 			rowExit = merged
@@ -2267,7 +2293,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			order = order,
 		}
 		if #hostedTrayOrder == 0 then
-			return { rowGroup }
+			return if #order == 0 then {} else { rowGroup }
 		end
 		--[[ THE REVEALED TRAY: its own HORIZONTAL group, CONTAINED (fix round 1,
 			R2). Left/Right step between the actions — the traversal a strip of
@@ -2303,6 +2329,16 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			exit = trayExit,
 			order = hostedTrayOrder,
 		}
+		--[[ A ROW GROUP WITH NOTHING IN IT IS NOT EMITTED (review round 2, X2). The
+			early-out above used to be "no rows AND no tray", which made an
+			empty-order group emittable the moment a tray was up with no row hit
+			mounted at all. Nothing reaches that today — an engagement cannot
+			outlive its own row's data, and a windowed list with rows always mounts
+			some — but an empty `order` is a shape no consumer of this map should
+			have to think about, and refusing to emit one costs a comparison. ]]
+		if #order == 0 then
+			return { trayGroup }
+		end
 		if trayIsLeading then
 			return { trayGroup, rowGroup }
 		end

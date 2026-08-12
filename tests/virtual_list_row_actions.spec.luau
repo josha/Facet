@@ -161,6 +161,15 @@ local function world(opts: any?): any
 	if options.rowActions ~= nil then
 		spec.rowActions = options.rowActions
 	end
+	-- the list's own focus-group overrides ({ name?, wrap?, containment?, entry?,
+	-- exit? }) and the live focus-skip predicate — both public spec keys, both
+	-- unplumbed here until the tray got a group of its own to collide with them
+	if options.navigation ~= nil then
+		spec.navigation = options.navigation
+	end
+	if options.rowFocusable ~= nil then
+		spec.rowFocusable = options.rowFocusable
+	end
 	if options.reorderable ~= nil then
 		spec.reorderable = options.reorderable
 	end
@@ -1972,6 +1981,101 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		-- rule, the same one `consume = false` carries at the pointer seam)
 		expect(w.activations).toEqual({ "r1" })
 		expect(#fired).toBe(0)
+	end)
+
+	it("(P12) X1: an AUTHOR'S OWN exit does not lock the player out of a revealed tray", function()
+		--[[ THE REGRESSION THIS ROUND FIXED. The tray's group is CONTAINED, so the
+			exit the row group declares toward it is the ONLY way a d-pad gets in —
+			and the first draft merged that exit non-destructively (`merged.right =
+			merged.right or trayGroup`). A list that declares `navigation.exit.right`
+			(an ordinary thing: "Right leaves this list for the detail panel") would
+			therefore have had a revealed tray that no non-pointer input could reach
+			at all.
+
+			THE RULE NOW: while a tray is up it wins the one direction that reaches
+			it, exactly as a modal trumps ambient navigation — and the author's exit
+			is not overwritten anywhere, it is rebuilt from the spec every refresh,
+			so it is back the frame the tray closes. Both halves are asserted here,
+			against a REAL neighbouring group (the sibling button's own auto group)
+			rather than a name that resolves to nothing. ]]
+		local fired: { string } = {}
+		local w = world({
+			rowActions = trailingActions(fired),
+			sibling = true,
+			navigation = { exit = { right = "auto-flat-1" } },
+		})
+		-- the neighbour really is there, under the name the author declared
+		local names: { string } = {}
+		for _, group in w.handle.focusOrder().navigation do
+			table.insert(names, group.name)
+		end
+		expect(table.find(names, "auto-flat-1") ~= nil).toBe(true)
+
+		-- CLOSED: the author's exit is what Right means
+		press(w, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe("/S/Outside")
+
+		-- ...a tray is revealed, and now Right reaches the ACTIONS
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		-- (the swipe was a pointer gesture, which leaves the ring where it was)
+		w.pres.focus.focusOn(rowHit("r2"))
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "trailing", "delete"))
+		-- ...and back out the way it came in
+		press(w, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+
+		-- ...the tray closes, and the author's exit is back — not overwritten
+		w.close()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe("/S/Outside")
+		expect(#fired).toBe(0)
+	end)
+
+	it("(P13) X2: with EVERY row focus-skipped, the revealed tray is still reachable", function()
+		--[[ `rowFocusable` is a live predicate (SF-L3), and a list may legitimately
+			answer false for every row it currently holds — at which point the row
+			group is all-ineligible and the graph treats it as transparent rather
+			than as a wall. The question this round asked is what that does to a
+			revealed tray, whose group is reached BY an exit from those very rows.
+
+			The answer is that the tray stays reachable, because Tab walks the
+			presenter's rank over the whole scope rather than the exits: the tray
+			button is the only eligible stop on the surface, and it is where the ring
+			lands. (The d-pad's own way in is gone with the rows it started from —
+			there is nothing focusable to press Right FROM — which is a property of
+			the author's predicate, not of the tray.) ]]
+		local fired: { string } = {}
+		local w = world({
+			rowActions = trailingActions(fired),
+			rowFocusable = function(): boolean
+				return false
+			end,
+			keyboardNavigation = true,
+		})
+		-- nothing in the list takes focus at all while it is closed
+		expect(w.pres.focus.focused:get()).toBeNil()
+		expect(#w.handle.focusOrder().navigation).toBe(1)
+
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		local action = trayAction("r2", "trailing", "delete")
+		press(w, "Tab")
+		expect(w.pres.focus.focused:get()).toBe(action)
+		press(w, "Return")
+		w.settle()
+		expect(fired).toEqual({ "r2" })
+		-- ...and the map is back to the one (all-ineligible) row group afterwards
+		expect(w.debug().engagedKey).toBeNil()
+		expect(#w.handle.focusOrder().navigation).toBe(1)
 	end)
 
 	it("(P11) closing another row takes its action MENU with it, not just its tray", function()
