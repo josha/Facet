@@ -302,3 +302,66 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		teardown(world)
 	end)
 end)
+
+describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowActions)", function()
+	local function vlistWorld()
+		local world = makeWorld()
+		step(world, "mode", "vlist")
+		return world
+	end
+
+	it("switching to vlist mode mounts the VirtualList and unmounts the other two surfaces", function()
+		local world = vlistWorld()
+		expect(world.adapter.node("/MailActions/VListWhen/then/VListPane/VList") ~= nil).toBe(true)
+		expect(world.adapter.node("/MailActions/ListWhen/then/List")).toBe(nil)
+		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane")).toBe(nil)
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
+	it("a closed row holds no gesture engine (hosted mode's own laziness guarantee)", function()
+		local world = vlistWorld()
+		local debug = world.built.steps.vlistDebug(world.built)
+		expect(debug.engineCount).toBe(0)
+		expect(debug.engagedKey).toBeNil()
+		teardown(world)
+	end)
+
+	it("a horizontal drag on a row reveals its trailing tray; a full swipe commits Delete end to end", function()
+		local world = vlistWorld()
+		local rowHit = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[m1]/Row/Hit"
+		local before = world.built.report().vlistIds
+		local rect = world.adapter.node(rowHit).rect
+		local startX = rect.x + rect.w - 10
+		local endX = startX - rect.w * 0.7 -- past the 60% commit threshold
+		world.adapter.pointerDown(rowHit, startX, rect.y + rect.h / 2, "mouse")
+		world.adapter.pointerMove(endX, rect.y + rect.h / 2, "mouse") -- purely horizontal
+		world.presenter.refresh()
+		local debugMidSwipe = world.built.steps.vlistDebug(world.built)
+		expect(debugMidSwipe.engineCount).toBe(1)
+		expect(debugMidSwipe.engagedKey).toBe("m1")
+		world.adapter.pointerUp(endX, rect.y + rect.h / 2, "mouse")
+		world.settle(400) -- the commit collapses the row over a spring before firing onAction
+		local after = world.built.report().vlistIds
+		local found = false
+		for _, id in after do
+			if id == "m1" then
+				found = true
+			end
+		end
+		expect(found).toBe(false)
+		expect(#after).toBe(#before - 1)
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
+	it("dispose() tears the hosted list down cleanly", function()
+		local world = vlistWorld()
+		world.presenter.dismiss(world.handle)
+		expect(function()
+				world.built.dispose()
+			end)
+			.never()
+			.toThrow()
+	end)
+end)

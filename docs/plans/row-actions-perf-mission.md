@@ -1,7 +1,14 @@
 # Row-actions perf mission — scoping
 
-**Status: NOT STARTED.** A charter to seed a future brainstorm, not an
-implementation plan. Distilled from `.superpowers/sdd/row-actions-implementation/
+**Status: CLOSED, superseded by
+`docs/plans/row-actions-hosted-mode-design.md`.** That design (ACCEPTED
+2026-08-12) picked hosted mode over both charter paths below and shipped it —
+`newVirtualList.rowActions`, documented in `docs/reference/api.md`'s
+`newVirtualList` section. The scoping and measurements below are kept for
+their historical record of the problem and the ruled-out approaches; they are
+not the current plan.
+
+Distilled from `.superpowers/sdd/row-actions-implementation/
 task-11b-report.md` and the "Task 11b" section of
 `artifacts/row-actions/device-matrix.md`. The `row-actions` gate
 (`tools/lune/gate_manifest.luau`) is re-baselined to the numbers below

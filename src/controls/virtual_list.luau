@@ -2219,9 +2219,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			row's right, so Right enters it; a leading tray at the left, so Left
 			does. Both are ORTHOGONAL to this group's own axis, which is what makes
 			them reachable at all (`focus_graph.navigateDirection`: an orthogonal
-			press consults the exit map). An AUTHOR'S OWN `navigation.exit` wins
-			wherever it is declared — this only fills a direction the author left
-			open, and only while a tray is up. ]]
+			press consults the exit map). While a tray is revealed it WINS its own
+			edge over an author's own `navigation.exit` for that one direction —
+			see the block comment below for the full rationale and the two
+			rejected alternatives. ]]
 		local rowExit: any = navigation.exit
 		local rowEntry: any = navigation.entry or "nearest"
 		local trayExit: any = nil

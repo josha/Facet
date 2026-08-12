@@ -1,10 +1,11 @@
 --!strict
 -- Scenario 'row_actions' (roadmap Task 11, docs/plans/row-actions-
--- implementation.md). A mail-style list: the SwiftUI-parity swipe-actions
--- gallery fixture, in the two shapes a game actually builds a list with.
+-- implementation.md; hosted mode: docs/plans/row-actions-hosted-mode-design.
+-- md). A mail-style list: the SwiftUI-parity swipe-actions gallery fixture, in
+-- the three shapes a game actually builds a list with.
 --
--- TWO SURFACES, one shared mail model per surface (independent state, so
--- deleting in one never touches the other):
+-- THREE SURFACES, one shared mail model per surface (independent state, so
+-- deleting in one never touches the others):
 --   "list"  a plain ScrollView > VStack of HAND-WRAPPED rows, each built with
 --           `LuauUI.newRowActions` directly and sharing ONE
 --           `LuauUI.newRowActionsCoordinator()` — the non-Table path Task 7
@@ -14,6 +15,15 @@
 --   "table" a reorderable, editable `LuauUI.newTable` using the public
 --           `rowActions` spec key (Task 10) — Table owns the wrapping, the
 --           shared coordinator, and the reorder/swipe axis-lock dispatcher.
+--   "vlist" a `LuauUI.newVirtualList` using its own public `rowActions` spec
+--           key (row-actions perf mission) — a CLOSED row here mounts NOTHING
+--           beyond the row `Hit` it always had; the gesture engine builds
+--           lazily on the first gesture that resolves horizontal past the
+--           axis lock. There is no per-row wrapper to reach into (unlike
+--           "list"'s `_open`/`_close`/`_commitFirst`), so this surface has no
+--           scripted open/close/commit steps of its own — a real swipe is the
+--           only way in, the same standing limitation the "table" surface's
+--           own comment below already names for its own swipe.
 --
 -- Actions (same shape on both surfaces): trailing = Delete (destructive) +
 -- Flag; leading = Mark Read. `fullSwipe = true` on both edges, so a full
@@ -185,11 +195,11 @@ local function actionsFor(model: any, itemId: string): any
 				-- `buildTray`/`buildMenuRows` — `Button.icon` itself is
 				-- circle-only). "Delete" draws in full at rest; this row's
 				-- own icon shows only once its button narrows below that,
-				-- mid-swipe. Pre-upload today (Open Cloud key expired, see
-				-- assets/icons/provenance.md "Pending upload"), so that icon
-				-- is the ASCII fallback "U" until a real content id lands —
-				-- deliberately exercising that fallback path live rather
-				-- than only in a unit test.
+				-- mid-swipe. `trash`/`flag` are LIVE content ids now
+				-- (assets/icons/provenance.md "Upload closed" —
+				-- rbxassetid://84398508341623 / rbxassetid://109067109704366,
+				-- both verified Approved/Image), so this row draws the real
+				-- glyph rather than the ASCII fallback.
 				icon = "trash",
 				onAction = function()
 					model.remove(itemId)
@@ -210,8 +220,8 @@ local function actionsFor(model: any, itemId: string): any
 end
 
 return {
-	title = "Row actions (Task 11): mail-style list + table",
-	ledgerRows = { "ROW-ACTIONS-EX1", "ROW-ACTIONS-EX2" },
+	title = "Row actions (Task 11 + row-actions perf mission): mail-style list + table + hosted VirtualList",
+	ledgerRows = { "ROW-ACTIONS-EX1", "ROW-ACTIONS-EX2", "ROW-ACTIONS-EX3" },
 	build = function(ctx: any)
 		local LuauUI = ctx.LuauUI
 		local UI = LuauUI.UI
@@ -387,6 +397,108 @@ return {
 			},
 		})
 
+		-- ===== surface 3: `newVirtualList` with hosted `rowActions` ============
+		-- No composite, no per-row wrapper: a closed row here is the SAME row a
+		-- plain (no-`rowActions`) VirtualList would mount, plus four static
+		-- handler props on its `Hit`. `cell` returns plain row content — the
+		-- list's own `Hit` already supplies the whole-row focus ring and
+		-- tap/Return/ButtonA activate, so unlike "list"'s `rowContent` this one
+		-- is not itself a `UI.Button`.
+		local vlModel = newMailModel(core)
+		local function vlRowContent(item: any): any
+			local unreadDot = vlModel.readFor[item.id]
+			local flagged = vlModel.flaggedFor[item.id]
+			local showDot = core:memo(function(use)
+				return not use(unreadDot)
+			end)
+			return UI.HStack({
+				id = "RowBody",
+				gap = "s",
+				align = "center",
+				width = { type = "fill", weight = 1 },
+				padding = { top = 10, bottom = 10, left = 14, right = 14 },
+				children = {
+					UI.When({
+						id = "DotWhen",
+						condition = showDot,
+						thenView = function()
+							return UI.Box({
+								id = "Dot",
+								width = { type = "fixed", px = 8 },
+								height = { type = "fixed", px = 8 },
+								surface = "accent",
+							})
+						end,
+					}),
+					UI.VStack({
+						id = "Text",
+						gap = 2,
+						width = { type = "fill", weight = 1 },
+						children = {
+							UI.HStack({
+								id = "TopLine",
+								gap = "s",
+								children = {
+									UI.Text({ id = "From", text = item.from, textSize = 15 }),
+									UI.When({
+										id = "FlagWhen",
+										condition = flagged,
+										thenView = function()
+											return UI.Text({ id = "Flag", text = "\u{1F6A9}", textSize = 13 })
+										end,
+									}),
+								},
+							}),
+							UI.Text({ id = "Subject", text = item.subject, textSize = 14 }),
+							UI.Text({ id = "Preview", text = item.preview, textSize = 12, role = "secondary" }),
+						},
+					}),
+				},
+			})
+		end
+
+		local vlist = LuauUI.newVirtualList(LuauUI, core, {
+			id = "VList",
+			rows = vlModel.rows,
+			key = function(item: any)
+				return item.id
+			end,
+			rowHeight = 84,
+			viewportHeight = 336, -- 4 rows visible
+			overscan = 2,
+			cell = function(item: any)
+				return vlRowContent(item)
+			end,
+			onActivate = function(item: any)
+				vlModel.markRead(item.id)
+			end,
+			-- the public hosted-mode seam (docs/reference/api.md's `newVirtualList`
+			-- `rowActions` field): same three-key shape "list"/"table" already
+			-- share via `actionsFor`, so the fixture proves one action set draws
+			-- identically wrapped, hosted, or standalone.
+			rowActions = function(item: any): any
+				local actions = actionsFor(vlModel, item.id)
+				return { leading = actions.leading, trailing = actions.trailing, fullSwipe = actions.fullSwipe }
+			end,
+			env = ctx.env,
+		})
+
+		local vlistBody = UI.VStack({
+			id = "VListPane",
+			gap = "s",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				UI.Text({
+					id = "VListHint",
+					text = "Swipe a row (real touch/mouse — no scripted step reaches this surface)",
+					textSize = 12,
+					role = "secondary",
+				}),
+				vlist.blueprint,
+			},
+		})
+
 		local screen = UI.Screen({
 			id = "MailActions",
 			surface = "base",
@@ -412,6 +524,13 @@ return {
 								mode:set("table")
 							end,
 						}),
+						UI.Button({
+							id = "ModeVList",
+							label = "VirtualList",
+							onActivate = function()
+								mode:set("vlist")
+							end,
+						}),
 					},
 				}),
 				UI.When({
@@ -432,6 +551,15 @@ return {
 						return tableBody
 					end,
 				}),
+				UI.When({
+					id = "VListWhen",
+					condition = core:memo(function(use)
+						return use(mode) == "vlist"
+					end),
+					thenView = function()
+						return vlistBody
+					end,
+				}),
 			},
 		})
 
@@ -448,8 +576,8 @@ return {
 				-- state drivers -----------------------------------------------------
 				mode = function(_built: any, payload: string?)
 					local m = tostring(payload)
-					if m ~= "list" and m ~= "table" then
-						return { ok = false, reason = "mode must be 'list' or 'table'" }
+					if m ~= "list" and m ~= "table" and m ~= "vlist" then
+						return { ok = false, reason = "mode must be 'list', 'table' or 'vlist'" }
 					end
 					mode:set(m)
 					return { ok = true, mode = m }
@@ -519,7 +647,14 @@ return {
 					return { ok = true, unbind = unbind ~= nil }
 				end,
 				list = function()
-					return { list = listModel.ids(), table = tableModel.ids() }
+					return { list = listModel.ids(), table = tableModel.ids(), vlist = vlModel.ids() }
+				end,
+				-- the hosted surface's own debug seam (`_hostedDebug`, the SAME
+				-- leading-underscore driving-hook convention as the "list" surface's
+				-- `_open`/`_close`/`_commitFirst`): how many gesture engines exist and
+				-- which row is engaged, without a per-row handle to ask
+				vlistDebug = function()
+					return vlist._hostedDebug()
 				end,
 			},
 
@@ -532,8 +667,10 @@ return {
 					mode = mode:get(),
 					listIds = listModel.ids(),
 					tableIds = tableModel.ids(),
+					vlistIds = vlModel.ids(),
 					tableEditing = editingSignal:get(),
 					listRowDumps = dumps,
+					vlistHosted = vlist._hostedDebug(),
 				}
 			end,
 
@@ -541,6 +678,7 @@ return {
 				if tbl.dispose ~= nil then
 					tbl.dispose()
 				end
+				vlist.dispose()
 			end,
 		}
 	end,

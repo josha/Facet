@@ -3034,11 +3034,13 @@ and the same terminals.
 | `reorderable` + `onReorder(key, toIndex)` | rows become draggable. `toIndex` is the **1-based index the row will occupy in the resulting order**; a drop that reproduces the current order emits nothing. Order is owner state: the list renders what it is handed. |
 | `reorderMotion` | motion class for the slide to a new slot (default `"object"`, `"instant"` to opt out — finding F6). Needs `motionClock`; the slide rides the presentation channel, so it never re-solves. |
 | `dropSurface` / `rowDropTarget(item)` | each row becomes a drop target. `rowDropTarget` returns `{ accepts, onDrop }` for that row; `onDrop(payload, info)` gets `info.key`, `info.item`, `info.index`. |
+| `rowActions(item)` | `(item) -> { leading?, trailing?, fullSwipe? }?` — **hosted row actions** (see below). Returning `nil` for an item leaves that row completely unwrapped. Refused together with `reorderable` (v1). |
 | `rowFocusable(item)` | the SF-L3 focus-skip predicate, evaluated at navigation time. |
 | `focusPolicy` | `"key"` (default) or `"index"` — **when the ORDER changes under the player, does the cursor follow the ITEM or stay on the SLOT?** `"key"` is the pre-field control byte for byte: focus follows the item, so a list re-sorting every 250 ms walks the pad cursor up and down the rows on its own. `"index"` pins the slot: when a data update moves the focused item off the slot it was focused at, focus **retargets to whoever occupies that slot now**, clamped to the last slot if the list shrank. This is the answer a live standings list needs ("selection riding a racer's button visibly JUMPS slots on every overtake"). The retarget drives BOTH halves of focus — the logical `focusedKey` *and* the screen's focus graph, which the presenter hands the control through the contribution's `bindFocusGraph` — so there is one focus authority and no consumer-side re-pin loop. It is an **ordinary focus move**: keep-visible applies, and it never summons a focus ring the player put away (the ring-visibility origin is left alone). It **declines** in exactly two situations: while a drag session is live (a policy that re-aimed a gesture mid-flight would fight the player's hand), and when the slot's new occupant fails `rowFocusable` — parking the ring where Activate can do nothing is worse than the jump the policy prevents, so focus falls through to the item. Construction-only, and an illegal value is refused naming both. `dump()` reports `focusPolicy` and the live `pinnedSlot`. |
 | `navigation` | `{ name?, wrap?, containment?, entry?, exit? }` — overrides for the ONE navigation group this list contributes. Absent, the group is `vl:<id>`, vertical, `entry = "nearest"`, unwrapped and with no declared exits (unchanged). An unknown field is refused at construction. `list.focusGroupName` reports the resolved name so a **sibling** group can declare `exit = { down = list.focusGroupName }` without hardcoding the `vl:` convention. |
 | `autoscroll` | `false` to disable, or an options table. Defaults on whenever the list is reorderable or a drop surface. |
 | `grabOnActivate` | whether a non-pointer Activate **arms** the row. Defaults true when the list is reorderable and declares no `onActivate` (so the two verbs never shadow each other); bind `list.toggleGrab()` to a key when it declares both. |
+| `env` | the surface environment (Table's own `env` key, and read for the identical reason). Only consulted by `rowActions`: a hosted tray's `buttonPad`/`buttonMinWidth` are theme facts with no font component, so measuring a tray's natural width needs the live `themeMetrics`. Absent degrades to the neutral snapshot — right until a theme package moves those two metrics, and silently wrong from then on. Accepted (and unread) on a list without `rowActions`. |
 
 Reads and verbs added: `selectedKey`, `armedKey`, `dropIndex` (the 1-based slot a
 live reorder would commit to), `autoscroll` (a Signal of `{ state, band }` for
@@ -3069,6 +3071,85 @@ alongside `clock:step`). It applies the scroll through `controller.scrollTo` and
 re-runs the drop hit-test **in the same frame**, which is the correctness core of
 SF-L2. Non-pointer sessions never autoscroll: focus-follows-navigation already
 scrolls the host.
+
+**Hosted row actions (`rowActions`, docs/plans/row-actions-hosted-mode-design.md).**
+Table's own `rowActions` wraps every actionable row in a `newRowActions`
+COMPOSITE — five extra `Instance`s per row, mounted whether the row is ever
+touched or not (~+45% steady / ~+82% fling per refresh, measured). A
+virtualized list cannot pay that on rows nobody ever swipes, so VirtualList
+**hosts** the feature instead of delegating it: `rowActions: (item) -> {
+leading?, trailing?, fullSwipe? }?`, a per-item callback returning the same
+three fields `newRowActions` itself takes minus
+`content`/`coordinator`/`env`/`editing` (VirtualList supplies the row's own
+content, one shared `newRowActionsCoordinator` for the whole list, and its own
+`env` automatically; there is no per-row edit-mode minus in v1 — that is
+Table-only). Returning `nil` for an item — the common case — leaves that row
+completely unwrapped: no extra `Instance`, no extra subscription, the same
+true-inert-passthrough guarantee `newRowActions` itself ships. An unknown key
+in a returned table is a build-time error naming the offending row.
+
+*The closed-row cost story.* A closed row's entire marginal cost is **four
+static handler props** on the row's `Hit` Button, which already mounts for
+every list whether or not it declares `rowActions` — no wrapper node, no
+per-row closure, no subscription, and the four prop VALUES are the same four
+shared dispatcher functions for every row on the list. The gesture/state
+engine (axis lock, velocity, commit ladder, one-open coordinator — the same
+machinery the standalone composite runs) is built **lazily**, on the first
+gesture that resolves HORIZONTAL past the axis lock on that row: a vertical
+pan, a fling that merely began on the row, and a tap all build nothing.
+Scrolling a thousand closed rows builds zero engines. `rowActions` +
+`reorderable` on one list is refused at construction in v1
+(`"newVirtualList: rowActions + reorderable is unsupported (v1)"`) — reorder
+rides the declarative `UI.draggable` contract, and composing that with the raw
+pointer-handler funnel this feature rides is its own future task.
+
+*Shipped behavior worth knowing, beyond parity with Table/standalone:*
+
+- **A row refuses a new gesture until it is home.** After a full-swipe
+  commit fires, the row's own persistent spring carries it the rest of the
+  way closed (or, for a destructive action, collapses its height first) — and
+  a press landing anywhere in that return flight is refused, for roughly
+  0.3–1.1s depending on how far the row has to travel. This is shared
+  `row_actions.luau` behavior, not hosted-only: standalone and Table rows have
+  the identical window (a real double-commit bug this same branch fixed, in
+  the shared engine body).
+- **`rowActions(item)` re-runs only on item table-identity change.** The
+  per-row answer (and any engine already built from it) is cached against the
+  specific item table a key was last asked with, not merely the key. A row
+  that returns different actions when its item changes — locked/unlocked,
+  ownership transferred, a racer finished — picks that up the moment a NEW
+  item table lands at that key; a row re-rendering with the same item table
+  costs nothing extra.
+- **A committed row's slot does not close up.** A destructive commit
+  collapses that row's own box height, but the canvas geometry is index ×
+  pitch, so the rows below it do not slide up to fill the gap the way a stack
+  layout's would. Removing the item from `rows` — typically inside the
+  destructive action's own `onAction` — is what closes the gap; that is
+  correct virtual-list geometry, not a bug to work around.
+- **Tab reaches a revealed tray, but after the windowed rows.** The tray
+  lives in the list's own shared overlay, a sibling of the rows region rather
+  than a child of the row that opened it, so the presenter's document-order
+  Tab rank visits it last, not beside its row. The d-pad has the better
+  experience — Left/Right enters and leaves the tray directly from the row,
+  because that ride's the focus GROUP `buildFocusGroups` splices in for the
+  revealed tray, not raw document order. That group also **wins its own edge
+  over an author's `navigation.exit`** for the one direction it is revealed
+  on, for as long as it is up: a tray is transient and player-invoked, so a
+  player who just swiped a row open must be able to reach what they revealed
+  even if the list declares that same edge as its own exit. The author's exit
+  is never overwritten — only suspended until the tray closes, at which point
+  the very next refresh restores it.
+- **A dev-drive Activate does not dismiss a revealed tray.** A real finger
+  tap and a real keyboard/gamepad Activate both close the engaged row when
+  they land elsewhere (armed by the true pointer-up sequence, or by
+  `meta.source == "action"`), but an Activate delivered with no meta at all —
+  or one merely TAGGED `source = "action"` without going through a real
+  pointer sequence — bypasses that suppression and activates the row instead,
+  leaving its tray open — `adapter.tap` and a bare `driveActivate(path)` are
+  both this case, dev-drive shortcuts that were never armed by a real pointer
+  sequence. Exercise dismissal instead with a real tap (down/move/up), a
+  device key, or `driveActivate(path, { source = "action" })` — the explicit
+  tag routes it through the keyboard/gamepad branch, which closes the row.
 
 ---
 
