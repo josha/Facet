@@ -168,6 +168,123 @@ local function extraPaths(a: { [string]: boolean }, b: { [string]: boolean }): {
 	return out
 end
 
+--[[ ===== WHAT "IDENTICAL" IS ALLOWED TO MEAN =========================== ]]
+--[[ Class and rect are not enough, and the gap is not theoretical: a hosted row
+	that acquired (say) a `stroke` or a `corner` prop would materialize a real
+	UIStroke/UICorner per row on the engine — the exact per-row instance cost this
+	whole design exists to avoid — while its class and its solved box stayed byte
+	identical. `fake_target` records what LuauUI asked the target to hold, so the
+	honest comparison is the NODE, whole: its class, its box, every prop it
+	carries (deeply — a prop's value is often a table), the decoration hint and
+	elision that decide whether it is a real instance at all, and which handler
+	slots it holds. ]]
+local HANDLER_SLOTS = {
+	"onActivate",
+	"pointer",
+	"scrollHandler",
+	"scrollObserver",
+	"dragDetector",
+	"touchGestures",
+	"textHandlers",
+	"hoverEnabled",
+}
+
+local function deepEqual(a: any, b: any): boolean
+	if a == b then
+		return true
+	end
+	if type(a) ~= "table" or type(b) ~= "table" then
+		return false
+	end
+	for k, v in a do
+		if not deepEqual(v, (b :: any)[k]) then
+			return false
+		end
+	end
+	for k in b do
+		if (a :: any)[k] == nil then
+			return false
+		end
+	end
+	return true
+end
+
+local function deepCopy(v: any): any
+	if type(v) ~= "table" then
+		return v
+	end
+	local out: any = {}
+	for k, value in v do
+		out[k] = deepCopy(value)
+	end
+	return out
+end
+
+-- everything about one mounted node that a differential should care about
+local function signature(node: any): any
+	local handlers: { [string]: boolean } = {}
+	for _, slot in HANDLER_SLOTS do
+		if node[slot] ~= nil and node[slot] ~= false then
+			handlers[slot] = true
+		end
+	end
+	return {
+		class = node.class,
+		rect = deepCopy(node.rect),
+		props = deepCopy(node.props),
+		decorationHint = node.decorationHint,
+		elided = node.elided,
+		canvasGroup = node.canvasGroupInstance ~= nil,
+		handlers = handlers,
+	}
+end
+
+-- the whole live tree as comparable signatures (a COPY: `liveNodes` hands back
+-- the adapter's own table, which the next frame mutates in place)
+local function signatures(w: any): { [string]: any }
+	local out: { [string]: any } = {}
+	for path, node in w.adapter.liveNodes() do
+		out[path] = signature(node)
+	end
+	return out
+end
+
+-- every path where two signature maps disagree, with the reason, sorted
+local function signatureDiff(a: { [string]: any }, b: { [string]: any }): { string }
+	local out: { string } = {}
+	for path, sa in a do
+		local sb = b[path]
+		if sb == nil then
+			table.insert(out, `{path}: missing`)
+		else
+			for _, field in { "class", "rect", "props", "decorationHint", "elided", "canvasGroup", "handlers" } do
+				if not deepEqual((sa :: any)[field], (sb :: any)[field]) then
+					table.insert(out, `{path}: {field}`)
+				end
+			end
+		end
+	end
+	for path in b do
+		if a[path] == nil then
+			table.insert(out, `{path}: added`)
+		end
+	end
+	table.sort(out)
+	return out
+end
+
+-- how many row hits are mounted right now — the independent number the shared
+-- comparisons below are sized against
+local function mountedRows(w: any): number
+	local n = 0
+	for _, path in w.adapter.paths() do
+		if string.match(path, "/Canvas/W/%[.-%]/Row/Hit$") ~= nil then
+			n += 1
+		end
+	end
+	return n
+end
+
 -- =============================================================================
 describe("VirtualList rowActions: mount identity (the shipping differential)", function()
 	it("a hosted list's mounted paths are the plain list's PLUS exactly the one overlay node", function()
@@ -185,35 +302,59 @@ describe("VirtualList rowActions: mount identity (the shipping differential)", f
 		expect(hosted.adapter.liveCount() - plain.adapter.liveCount()).toBe(1)
 	end)
 
-	it("every shared path is the same CLASS at the same solved RECT", function()
+	it("every shared path is the same node: class, rect, PROPS, elision and handler slots", function()
 		--[[ A path set can match while the tree still differs in the way that
-			matters: one extra modifier, one different container class, one row
-			solved a pixel narrower because a sibling took space. The identity claim
-			is geometric, so it is checked geometrically — node for node, over every
-			path the two worlds share. ]]
+			matters: one extra modifier prop (a `stroke` is a real UIStroke per row
+			on the engine), one different container class, one row solved a pixel
+			narrower because a sibling took space, one node that stopped being
+			elidable. The identity claim is about the NODE, so the whole node is what
+			gets compared. ]]
 		local plain, hosted = world(false), world(true)
-		local shared = 0
-		for path in plain.pathSet() do
-			local pn, hn = plain.adapter.node(path), hosted.adapter.node(path)
-			expect(hn).never().toBeNil()
-			expect(hn.class).toBe(pn.class)
-			if pn.rect ~= nil then
-				expect(hn.rect).never().toBeNil()
-				expect(hn.rect.x).toBe(pn.rect.x)
-				expect(hn.rect.y).toBe(pn.rect.y)
-				expect(hn.rect.w).toBe(pn.rect.w)
-				expect(hn.rect.h).toBe(pn.rect.h)
+		local a, b = signatures(plain), signatures(hosted)
+		-- the ONE node hosting adds is not a shared path, so it is not part of this
+		-- comparison; every other path must be identical in every recorded field,
+		-- EXCEPT the row hits, whose one difference is the point of the next block.
+		local hostedOnly = b[OVERLAY]
+		expect(hostedOnly).never().toBeNil()
+		b[OVERLAY] = nil
+		local rows = mountedRows(plain)
+		expect(rows).toBe(12) -- 10 visible + 2 overscan: a real window, stated
+		expect(mountedRows(hosted)).toBe(rows)
+		local hitDiffs: { string } = {}
+		for path in a do
+			if string.match(path, "/Row/Hit$") ~= nil then
+				local hit = a[path]
+				a[path] = nil
+				b[path] = nil
+				table.insert(hitDiffs, path)
 			end
-			shared += 1
 		end
-		-- a real tree was compared, and ALL of it: every node the plain world holds
-		expect(shared).toBe(plain.adapter.liveCount())
-		expect(shared > 30).toBe(true)
-		--[[ THE ONE DIFFERENCE INSIDE A ROW is behavioral, not structural: the
-			shared four-function dispatcher rides the row `Hit` that already mounts.
-			(The count that difference costs is the next case's business.) ]]
-		expect(plain.adapter.node(rowHit("r1")).pointer).toBeNil()
-		expect(hosted.adapter.node(rowHit("r1")).pointer).never().toBeNil()
+		expect(#hitDiffs).toBe(rows)
+		expect(signatureDiff(a, b)).toEqual({}) -- everything else: node for node
+		--[[ THE ROW HIT'S ONE DIFFERENCE, stated exactly rather than excused: the
+			shared four-function dispatcher rides the `Hit` that already mounts, and
+			the renderer folds those four props into the ONE thing the target
+			actually holds — a pointer-handler slot (`setPointerHandlers`; the live
+			adapter's own capture surface). Everything else about the hit, its own
+			props table included, is the plain list's. The whole-list delta is
+			therefore exactly one handler per mounted ROW — never one per row
+			SUBTREE, which is what a per-row composite would have cost. ]]
+		expect(hosted.adapter.handlerCount() - plain.adapter.handlerCount()).toBe(rows)
+		local ph = signature(plain.adapter.node(rowHit("r1")))
+		local hh = signature(hosted.adapter.node(rowHit("r1")))
+		expect(ph.class).toBe(hh.class)
+		expect(deepEqual(ph.rect, hh.rect)).toBe(true)
+		expect(ph.elided).toBe(hh.elided)
+		expect(ph.decorationHint).toBe(hh.decorationHint)
+		expect(deepEqual(ph.props, hh.props)).toBe(true)
+		--[[ ...and the HANDLER SETS differ by exactly one slot. The plain hit is
+			already a live control — it carries the row's own Activate and, on a
+			mouse, its hover — so "no handlers" would be the wrong claim; the claim
+			is that hosting adds the pointer-capture slot and NOTHING else. ]]
+		local expected: { [string]: boolean } = table.clone(ph.handlers)
+		expected.pointer = true
+		expect(deepEqual(hh.handlers, expected)).toBe(true)
+		expect(ph.handlers.pointer).toBeNil()
 	end)
 
 	it("engaging and disengaging returns the tree to the closed shape, with zero instance leaks", function()
@@ -224,6 +365,7 @@ describe("VirtualList rowActions: mount identity (the shipping differential)", f
 		local plain = world(false)
 		local hosted = world(true)
 		local closed = hosted.pathSet()
+		local closedSignatures = signatures(hosted)
 		local closedCount = hosted.adapter.liveCount()
 		local closedHandlers = hosted.adapter.handlerCount()
 		local closedRoots = hosted.adapter.rootCount()
@@ -246,6 +388,10 @@ describe("VirtualList rowActions: mount identity (the shipping differential)", f
 			expect(extraPaths(closed, now)).toEqual({})
 			expect(extraPaths(now, closed)).toEqual({})
 			expect(hosted.adapter.liveCount()).toBe(closedCount)
+			-- ...and node for node in every recorded field, so a cycle that left a
+			-- prop, a handler, a transform or an elision flag behind on a node that
+			-- happens to still exist is caught as well as a node that does
+			expect(signatureDiff(closedSignatures, signatures(hosted))).toEqual({})
 			-- ...and nothing the adapter HOLDS accumulated either: no orphaned
 			-- pointer/activate handler (the census is the honest headless stand-in
 			-- for engine connections), no leftover synthesized catcher root

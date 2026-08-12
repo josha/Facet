@@ -587,6 +587,74 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		expect(w.ra._isOpen()).toBe(false)
 	end)
 
+	--[[ THE REUSED SPRING (found by the hosted row-actions parity sweep, LuauUI
+		row-actions perf mission Task 5; fixed in `onPointerUp`/`onPointerCancel`
+		with `spring:snap(offset:get())`).
+
+		A live drag stops the persistent reveal spring and drives `offset` DIRECTLY,
+		and `ensureSpring` seeds a spring only when it CREATES one — so from the
+		SECOND gesture on a row onward the spring stood wherever the last flight
+		left it rather than where the finger is. A snap-back aims it at 0, which is
+		exactly where a row that has already been closed once is parked: no steps,
+		no writes, and the row stayed sitting at the drag's last offset with
+		`_isOpen()` false and no tray to put it away. Measured before the fix, on
+		this very shape: 0, then -20, then -40 — a row that ratchets further out of
+		place with every short swipe a player makes.
+
+		THE FIRST GESTURE WAS ALWAYS CORRECT, which is why the whole standalone
+		corpus was green: every other case here swipes a fresh row exactly once.
+		The three-swipe repetition IS the test. ]]
+	it("a SECOND (and third) short swipe on the same row also snaps back to closed", function()
+		local w = trailingWorld()
+		for _ = 1, 3 do
+			w.adapter.pointerDown(HIT, 100, 20, "mouse")
+			w.tick(0.01)
+			w.adapter.pointerMove(80, 20) -- dx = -20: past the lock, under half the tray
+			w.tick(1.0) -- a long, calm gap: no flick in the release
+			expect(w.ra.dump().offset).toBeCloseTo(-20, 0.001)
+			w.adapter.pointerUp(80, 20)
+			w.settle()
+			expect(w.ra.dump().offset).toBe(0) -- home, EVERY time — never -20, -40, …
+			expect(w.ra._isOpen()).toBe(false)
+		end
+		-- ...and the row still opens normally afterwards: the re-seed costs the
+		-- spring its stale position, not its aim
+		local trayWidth = learnTrayWidth()
+		w.adapter.pointerDown(HIT, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(85, 20)
+		w.tick(1.0)
+		local releaseX = 100 - trayWidth * 0.75
+		w.adapter.pointerMove(releaseX, 20)
+		w.tick(FRAME)
+		w.adapter.pointerUp(releaseX, 20)
+		w.settle()
+		expect(w.ra._isOpen()).toBe(true)
+		expect(w.ra.dump().offset).toBeCloseTo(-trayWidth, 0.5)
+		expect(#w.fired).toBe(0)
+	end)
+
+	it("a CANCELLED drag on a row that has already been opened once springs back too", function()
+		-- the other end a manual drag can have (`onPointerCancel` -> `close()`),
+		-- with the same stale-seed hole: proven on a row whose spring is already
+		-- parked at 0 from a previous flight
+		local w = trailingWorld()
+		w.ra._open("trailing")
+		w.settle()
+		w.ra._close()
+		w.settle()
+		expect(w.ra.dump().offset).toBe(0)
+		w.adapter.pointerDown(HIT, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(80, 20)
+		w.tick(1.0)
+		expect(w.ra.dump().offset).toBeCloseTo(-20, 0.001)
+		w.adapter.interruptCapture()
+		w.settle()
+		expect(w.ra.dump().offset).toBe(0)
+		expect(w.ra._isOpen()).toBe(false)
+	end)
+
 	it("pointer cancel mid-drag springs back to closed", function()
 		local w = trailingWorld()
 		w.adapter.pointerDown(HIT, 100, 20, "mouse")

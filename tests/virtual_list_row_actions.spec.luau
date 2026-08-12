@@ -477,7 +477,18 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		expect(string.find(tostring(err), "rowActions + reorderable is unsupported (v1)", 1, true) ~= nil).toBe(true)
 	end)
 
-	it("(d) MOUNT IDENTITY: a rowActions list's mounted paths are identical to a plain list's", function()
+	it("(d) MOUNT IDENTITY: a hosted list adds exactly ONE node, and no pointer surface per row", function()
+		--[[ THE FULL DIFFERENTIAL LIVES IN tests/virtual_list_row_actions_identity.spec.luau
+			— one builder, two worlds, every shared node compared in every recorded
+			field (class, rect, props, elision, handler slots) and over five
+			engage/disengage cycles. It is deliberately NOT restated here: this file
+			had a class+rect copy of it, which is a second place to keep in step and
+			a second place to share the same blind spot (a per-row modifier prop
+			passes class+rect untouched).
+
+			What stays here is the claim this file's own cases lean on: the hosted
+			tree is the plain tree plus the ONE overlay node, and a closed hosted row
+			is not a pointer-capture surface until the dispatcher rides its hit. ]]
 		local plain = world()
 		local fired: { string } = {}
 		local hosted = world({ rowActions = trailingActions(fired) })
@@ -489,15 +500,6 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 			return set
 		end
 		local a, b = pathSet(plain), pathSet(hosted)
-		for path in a do
-			expect(b[path]).toBe(true)
-		end
-		--[[ ...and the hosted list adds EXACTLY ONE node: the closed tray overlay
-			(design §"What must be proven before ship" — "identical to an unwrapped
-			list except the one overlay node"). It is a structural region with no
-			branch mounted, i.e. one Frame for the whole LIST, amortized over the
-			window at ~0.08 nodes/row — not one per row, which is the entire point
-			of hosting the feature instead of wrapping every row in a composite. ]]
 		local extra: { string } = {}
 		for path in b do
 			if a[path] == nil then
@@ -505,21 +507,9 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 			end
 		end
 		expect(extra).toEqual({ "/S/VL/Canvas/RowActionsOverlay" })
-		-- ...and every shared node is the same CLASS at the same solved rect
 		for path in a do
-			local pn, hn = plain.adapter.node(path), hosted.adapter.node(path)
-			expect(hn.class).toBe(pn.class)
-			if pn.rect ~= nil then
-				expect(hn.rect).never().toBeNil()
-				expect(hn.rect.x).toBe(pn.rect.x)
-				expect(hn.rect.y).toBe(pn.rect.y)
-				expect(hn.rect.w).toBe(pn.rect.w)
-				expect(hn.rect.h).toBe(pn.rect.h)
-			end
+			expect(b[path]).toBe(true)
 		end
-		-- the ONE difference is the four handler props on the row Hit: the plain
-		-- list's Hit is not even a pointer surface (`node.pointer` is nil), the
-		-- hosted one is
 		expect(plain.adapter.node(rowHit("r1")).pointer).toBeNil()
 		expect(hosted.adapter.node(rowHit("r1")).pointer).never().toBeNil()
 	end)
@@ -1673,11 +1663,16 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			focused has no engine and therefore no Delete binding. Standalone/Table
 			rows have a composite each, always, so they have never had this gap.
 
-			Closing it means building an engine when focus ARRIVES on a row, which
-			is a real behavior change (a d-pad held down the list would build one
-			engine per row it passes through) and belongs to the docs/device task
-			with a measurement behind it — see the Task 5 report. This case pins
-			today's answer so the change is visible when it happens. ]]
+			THE OPTION, stated properly (fix round 1): this does NOT have to mean
+			building an engine per focused row. The LIST already relays the action
+			system, so it can hold ONE Delete binding of its own, resolve the
+			focused row's key when the key is actually pressed, and build (or reuse)
+			that single row's engine THERE — one engine per Delete press, not one
+			per row a d-pad passes over. That is a real feature with a real
+			surface — which action a bare Delete means, what it does to a row with
+			no destructive action, how it interacts with the tray being open — so it
+			belongs to a task that can design it, not to a parity sweep. This case
+			pins today's answer so the change is visible when it happens. ]]
 		local fired: { string } = {}
 		local w = world({ rowActions = destructiveActions(fired) })
 		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
@@ -1689,61 +1684,234 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(w.debug().engineCount).toBe(0)
 	end)
 
-	it("(P9) focus TRAVERSAL: the d-pad reaches the revealed tray's button, and Activate fires it", function()
-		--[[ THE FIX (Task 4 carried item 1). A contribution OWNS its subtree's
-			focus — `focus_map.autoGroups` emits this control's groups and does not
-			descend — so a focusable the list never names is unreachable by every
-			non-pointer input there is. The tray buttons under the shared overlay
-			were exactly that: a player could swipe a row open with a finger and
-			then have no way to press the action they had just revealed.
+	-- press a device key (down + up), the shape every case here drives focus with
+	local function press(w: any, key: string)
+		w.system.deviceKey(key, true)
+		w.system.deviceKey(key, false)
+	end
 
-			`buildFocusGroups` now names the REVEALED tray's buttons, positioned
-			directly after the engaged row's own hit — so Down from the row the
-			player just opened lands on its first action. ]]
+	it("(P9) focus TRAVERSAL: the d-pad reaches the revealed tray, and the ring comes BACK to the row", function()
+		--[[ THE FIX (Task 4 carried item 1, reshaped by fix round 1 R1/R2). A
+			contribution OWNS its subtree's focus — `focus_map.autoGroups` emits this
+			control's groups and does not descend — so a focusable the list never
+			names is unreachable by every non-pointer input there is. The tray
+			buttons under the shared overlay were exactly that: a player could swipe
+			a row open with a finger and then have no way to press the action they
+			had just revealed.
+
+			The revealed tray is now its OWN horizontal group (R2 — a strip of
+			buttons spliced into the vertical row group made Left/Right dead and Down
+			walk visually rightward), entered from the row by pressing toward the
+			edge the tray is on, and left the way it was entered — landing back on
+			the ENGAGED row, not on the top of the window. ]]
 		local fired: { string } = {}
 		local w = world({ rowActions = trailingActions(fired) })
 		local action = trayAction("r2", "trailing", "delete")
-		-- CLOSED, the group names row hits and nothing else
-		local closedOrder = w.handle.focusOrder().navigation[1].order
-		for _, entry in closedOrder do
+		-- CLOSED: ONE group, row hits and nothing else
+		local closed = w.handle.focusOrder().navigation
+		expect(#closed).toBe(1)
+		for _, entry in closed[1].order do
 			expect(string.find(tostring(entry), "RowActionsOverlay", 1, true)).toBeNil()
 		end
 
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
-		-- OPEN: the button is in the group, immediately after r2's hit
-		local order = w.handle.focusOrder().navigation[1].order
-		local at: number? = nil
-		for index, entry in order do
-			if entry == rowHit("r2") then
-				at = index
-			end
+		--[[ OPEN: TWO groups. The row group is untouched (still only row hits) and
+			gains ONE exit — `right`, because a trailing tray is revealed at the
+			row's right edge; the tray group is horizontal, contained, and exits back
+			left into the rows. ]]
+		local groups = w.handle.focusOrder().navigation
+		expect(#groups).toBe(2)
+		for _, entry in groups[1].order do
+			expect(string.find(tostring(entry), "RowActionsOverlay", 1, true)).toBeNil()
 		end
-		expect(at).never().toBeNil()
-		expect(order[(at :: number) + 1]).toBe(action)
+		expect(groups[1].axis).toBe("vertical")
+		expect(groups[2].axis).toBe("horizontal") -- a strip of buttons, not a column
+		expect(groups[2].order).toEqual({ action })
+		-- (the dump carries name/axis/order only, so the exit map, the containment
+		-- and the restore entry are proven where they are felt — by driving the
+		-- pad, below and in (P9c)/(P9d))
 
-		-- ...and the d-pad walks it: r1 (initial focus) -> r2 -> its Delete
+		-- ...and the d-pad walks it: r1 (initial focus) -> r2 -> right, into the tray
 		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
-		w.system.deviceKey("DPadDown", true)
-		w.system.deviceKey("DPadDown", false)
+		press(w, "DPadDown")
 		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
-		w.system.deviceKey("DPadDown", true)
-		w.system.deviceKey("DPadDown", false)
+		press(w, "DPadRight")
 		expect(w.pres.focus.focused:get()).toBe(action)
 		expect(w.adapter.node(action).focused).toBe(true) -- and the ring is painted
-		-- ButtonA on it fires the action, exactly as a tap does — and closes the row
-		w.system.deviceKey("ButtonA", true)
-		w.system.deviceKey("ButtonA", false)
+		-- ...back out the way it came in: onto the ENGAGED row, not row 1
+		press(w, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+
+		-- ButtonA on the action fires it, exactly as a tap does — and closes the row
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(action)
+		press(w, "ButtonA")
 		w.settle()
 		expect(fired).toEqual({ "r2" })
 		expect(w.activations).toEqual({}) -- never the row's own activate
 		expect(w.debug().engagedKey).toBeNil()
-		-- the tray is gone, so the group is back to row hits only
-		local afterOrder = w.handle.focusOrder().navigation[1].order
-		for _, entry in afterOrder do
-			expect(string.find(tostring(entry), "RowActionsOverlay", 1, true)).toBeNil()
+		--[[ R1: THE RING SURVIVES THE TRAY IT WAS ON. The button it sat on has
+			unmounted, and the graph's own answer for a vanished focus in a grouped
+			scope is `entryFocus` — the first focusable in the whole scope, i.e. r1
+			(on a real screen, whatever sits at the top). It must be the row the
+			player was working on. ]]
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		expect(w.adapter.node(rowHit("r2")).focused).toBe(true)
+		-- the tray is gone, so the map is one group again
+		expect(#w.handle.focusOrder().navigation).toBe(1)
+	end)
+
+	it("(P9a) R1: EVERY close returns the ring to the row — scroll, Cancel and an outside tap too", function()
+		--[[ The tray-button Activate above is the close a player takes on purpose.
+			These are the ones that happen TO them while the ring sits on a tray
+			button, and each reaches the engagement through a different seam — so
+			each is its own chance to strand the ring at the top of the surface. ]]
+		local fired: { string } = {}
+		local function toTray(w: any)
+			w.dragLeft("r2", 80)
+			w.release()
+			w.settle()
+			press(w, "DPadDown")
+			press(w, "DPadRight")
+			expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "trailing", "delete"))
 		end
+
+		-- (1) a SCROLL (the coordinator's own close)
+		local scrolled = world({ rowActions = trailingActions(fired) })
+		toTray(scrolled)
+		scrolled.close()
+		expect(scrolled.pres.focus.focused:get()).toBe(rowHit("r2"))
+
+		-- (2) CANCEL / ButtonB (the list's handleCancel -> the engine)
+		local cancelled = world({ rowActions = trailingActions(fired) })
+		toTray(cancelled)
+		press(cancelled, "ButtonB")
+		cancelled.settle()
+		expect(cancelled.debug().engagedKey).toBeNil()
+		expect(cancelled.pres.focus.focused:get()).toBe(rowHit("r2"))
+
+		-- (3) a tap OUTSIDE the list (the presenter's outsideDismiss)
+		local tapped = world({ rowActions = trailingActions(fired), sibling = true })
+		toTray(tapped)
+		tapped.adapter.tap("/S/Outside")
+		tapped.settle()
+		expect(tapped.debug().engagedKey).toBeNil()
+		-- ...and here the ring follows the TAP, which is the right answer and the
+		-- reason this case is worth having: the restore must not fight a focus move
+		-- the player just made themselves, and it does not — what it prevents is
+		-- the ring being stranded at the top of the surface, which is neither of
+		-- these two paths
+		expect(tapped.pres.focus.focused:get()).toBe("/S/Outside")
+		expect(#fired).toBe(0) -- none of these is a commit
+	end)
+
+	it("(P9c) a MULTI-ACTION tray navigates HORIZONTALLY, and is contained", function()
+		--[[ R2's own case, and the one every other case in this file was blind to:
+			a ONE-action tray cannot tell a horizontal group from a vertical one.
+			With two actions the difference is the whole feature — Left/Right step
+			between them, and the vertical presses that used to walk the row group
+			(landing on the NEXT ROW while the ring appeared to move sideways) do
+			nothing at all inside a contained strip. ]]
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				return {
+					trailing = {
+						{
+							id = "flag",
+							label = "Flag",
+							onAction = function()
+								table.insert(fired, `flag:{item.id}`)
+							end,
+						},
+						{
+							id = "delete",
+							label = "Delete",
+							onAction = function()
+								table.insert(fired, item.id)
+							end,
+						},
+					},
+				}
+			end,
+		})
+		local flag = trayAction("r2", "trailing", "flag")
+		local delete = trayAction("r2", "trailing", "delete")
+		w.dragLeft("r2", 120)
+		w.release()
+		w.settle()
+		local groups = w.handle.focusOrder().navigation
+		expect(groups[2].order).toEqual({ flag, delete }) -- document order, left to right
+
+		press(w, "DPadDown")
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(flag) -- the near end: entered from the row
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(delete)
+		-- CONTAINED: no exit past the far end, and none along the other axis —
+		-- the row group is one press away, but only through the way in
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(delete)
+		press(w, "DPadDown")
+		expect(w.pres.focus.focused:get()).toBe(delete)
+		press(w, "DPadUp")
+		expect(w.pres.focus.focused:get()).toBe(delete)
+		-- ...and back out, one step at a time, onto the row it belongs to
+		press(w, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(flag)
+		press(w, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		-- the SECOND action is reachable and fires alone
+		press(w, "DPadRight")
+		press(w, "DPadRight")
+		press(w, "ButtonA")
+		w.settle()
+		expect(fired).toEqual({ "r2" }) -- Delete, not Flag
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+	end)
+
+	it("(P9d) a LEADING tray is entered from the other side (the edge decides the direction)", function()
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				return {
+					leading = {
+						{
+							id = "flag",
+							label = "Flag",
+							onAction = function()
+								table.insert(fired, `flag:{item.id}`)
+							end,
+						},
+					},
+				}
+			end,
+		})
+		local flag = trayAction("r2", "leading", "flag")
+		w.dragRight("r2", 60)
+		w.release()
+		w.settle()
+		--[[ a leading tray sits at the row's LEFT edge, so LEFT is what enters it
+			and RIGHT is what comes back — the mirror of the trailing case. It also
+			sits BEFORE the row group in the array, which is what keeps the
+			UNdeclared directions honest: an uncontained group falls through the
+			group array in order, so with the tray pinned last a Right press reached
+			a LEADING tray for want of anywhere else to fall through to. ]]
+		local groups = w.handle.focusOrder().navigation
+		expect(#groups).toBe(2)
+		expect(groups[1].order).toEqual({ flag })
+		expect(groups[2].order[1]).toBe(rowHit("r1"))
+		press(w, "DPadDown")
+		-- RIGHT does nothing: there is no trailing tray to enter (the row group's
+		-- only tray exit is the edge the revealed tray is actually on)
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		press(w, "DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(flag)
+		press(w, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
 	end)
 
 	it("(P9b) Tab reaches the revealed tray button too (the presenter's document-order rank)", function()
@@ -1806,13 +1974,65 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(#fired).toBe(0)
 	end)
 
-	it("(P10b) the same Activate on the OPEN row itself is left to the pointer seam", function()
-		--[[ The engaged row is skipped by (P10)'s close block on purpose: a tap on
-			the open row's own content already means "close, and only close" through
-			`suppressActivatePath` (case (v3)), which is the seam that owns that
-			verdict. This pins that the Activate seam does not take it over — a
-			gamepad ButtonA on the open row activates the row, exactly as it does
-			with nothing open. ]]
+	it("(P11) closing another row takes its action MENU with it, not just its tray", function()
+		--[[ A row's action menu (ButtonX) is INDEPENDENT state from its tray
+			(`row_actions.luau`'s own `menuOpen`), which is why the coordinator's
+			claim calls `_closeMenu()` alongside `_close()` on the row it claims away
+			from (redteam item 7). But a claim only happens when a gesture crosses
+			the axis lock, and this control's own close seams are not gestures: a TAP
+			on another row claims nothing at all. Closing only the tray there would
+			strand the menu — and its `transientScope` focus trap — over a row the
+			player had already moved on from.
+
+			BOTH SEAMS (the pointer dispatcher and Activate) go through the one
+			`hostedCloseRow`, so they cannot diverge. Only the pointer one is
+			REACHABLE with a menu up, and that is not an accident: while the menu is
+			open it traps focus, so a keyboard Activate can only ever be dispatched
+			to a node inside the menu itself. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		local function menuNodes(): number
+			local n = 0
+			for _, path in w.adapter.paths() do
+				if string.find(path, "RowActionsMenu", 1, true) ~= nil then
+					n += 1
+				end
+			end
+			return n
+		end
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r2"))
+		w.system.deviceKey("ButtonX", true)
+		w.system.deviceKey("ButtonX", false)
+		w.pres.refresh()
+		expect(menuNodes() > 0).toBe(true) -- tray AND menu are up on r2
+		expect(w.debug().engagedKey).toBe("r2")
+
+		-- a plain TAP on another row: no gesture, so nothing claims the coordinator
+		w.adapter.touchTap(rowHit("r5"))
+		w.settle()
+		expect(menuNodes()).toBe(0) -- the menu went with the tray
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		expect(w.activations).toEqual({ "r5" }) -- and the press was not swallowed
+		expect(#fired).toBe(0)
+	end)
+
+	it("(P10b) R3: a NON-POINTER Activate on the OPEN row's own hit closes it, exactly as a tap does", function()
+		--[[ THE DEVICE SPLIT (fix round 1, R3). A tap on the open row means "put it
+			away, and only that" — the pointer seam says so on the UP, through
+			`suppressActivatePath` (case (v3)). That mechanism is armed by
+			`onPointerUp` and NOTHING else, so a keyboard Return or a gamepad ButtonA
+			on the very same row used to activate it AND leave the tray standing:
+			one row, one verb, two answers depending on which device the player
+			happened to be holding.
+
+			`meta.source == "action"` is how this control already tells a non-pointer
+			Activate from a tap, and it is what decides it here. ]]
 		local fired: { string } = {}
 		local w = world({ rowActions = trailingActions(fired) })
 		w.dragLeft("r1", 80)
@@ -1822,8 +2042,18 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.activations).toEqual({ "r1" })
-		expect(w.debug().engagedKey).toBe("r1") -- still open, still that row's
+		w.settle()
+		-- closed, and the press was SWALLOWED — the same verdict the tap gets
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.list.engagedOffset:get()).toBe(0)
+		expect(w.adapter.node(trayGroup("r1"))).toBeNil()
+		expect(w.adapter.node(rowPath("r1")).presentationOffset.x).toBe(0)
+		expect(w.activations).toEqual({})
 		expect(#fired).toBe(0)
+		-- ...and the row is an ordinary row again: the NEXT one activates, exactly
+		-- as (v3) proves for the tap
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		expect(w.activations).toEqual({ "r1" })
 	end)
 end)

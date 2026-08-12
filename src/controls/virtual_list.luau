@@ -232,8 +232,15 @@ local HOSTED_NO_OVERLAY: { any } = {}
 	eligibility rules are `focus_map.luau`'s own (`FOCUSABLE`, `focusable = false`,
 	`enabled = false`, a retiring subtree), restricted to the one class a tray can
 	contain: a tray action IS a `UI.Button` in both modes (row_actions' own
-	`buildTray`). Module scope, not per-instance: it is a pure function of its
-	arguments. ]]
+	`buildTray`).
+
+	THE `Button`-ONLY TEST IS A DELIBERATE NARROWING of `focus_map.FOCUSABLE`
+	(`Button`/`Toggle`/`TextField`), not a copy of it that has drifted: a tray's
+	contents are this framework's own construction, and if row_actions ever put a
+	focusable that is NOT a Button inside one, silently omitting it here would be
+	an unreachable control — so the answer is to widen this test in the same
+	commit, deliberately, rather than to have it quietly accept whatever appears.
+	Module scope, not per-instance: it is a pure function of its arguments. ]]
 local function collectTrayFocusables(node: any, out: { string })
 	if node.retiring == true then
 		return
@@ -396,6 +403,11 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		)
 	end
 	local focusGroupName: string = navigation.name or `vl:{id}`
+	-- ...and the SECOND group a hosted list contributes while a row's tray is
+	-- revealed (see `buildFocusGroups`). Derived from the row group's own name so
+	-- two lists on one surface can never collide, and so a dump names which list a
+	-- tray group belongs to.
+	local hostedTrayGroupName: string = `{focusGroupName}:rowActions`
 	local reorderable = spec.reorderable == true
 	--[[ HOSTED ROW ACTIONS: a BUILD-TIME fact, read once (see the header). Every
 		branch below is static on `hostedEnabled`, never on a live value — a list
@@ -1195,13 +1207,24 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- file). Keyed on the row, because the overlay is a keyed region; the
 	-- `{Tray*}When/then/{Tray*}` tail is row_actions' own shape, since the trays
 	-- under the group ARE that engine's own `trayViews`.
-	local function hostedTrayPath(key: string, edge: string): string?
+	-- this row's whole overlay region — the prefix everything a revealed tray
+	-- mounts sits under, and therefore the test for "is that path inside THIS
+	-- row's tray"
+	local function hostedOverlayRowPath(key: string): string?
 		local root = mountedScrollPath
 		if root == nil then
 			return nil
 		end
+		return `{root}/Canvas/{HOSTED_OVERLAY_ID}/[{key}]`
+	end
+
+	local function hostedTrayPath(key: string, edge: string): string?
+		local region = hostedOverlayRowPath(key)
+		if region == nil then
+			return nil
+		end
 		local tray = if edge == "leading" then "TrayLeading" else "TrayTrailing"
-		return `{root}/Canvas/{HOSTED_OVERLAY_ID}/[{key}]/{HOSTED_TRAY_GROUP_ID}/{tray}When/then/{tray}`
+		return `{region}/{HOSTED_TRAY_GROUP_ID}/{tray}When/then/{tray}`
 	end
 
 	local function hostedKeyOfHit(path: string): string?
@@ -1492,6 +1515,25 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		hostedPending = nil
 	end
 
+	--[[ CLOSE ANOTHER ROW — the ONE way this control ever puts a row away on
+		behalf of a press or an Activate somewhere else. Both the tray and the
+		row's own action MENU go, because they are independent state
+		(`row_actions.luau`'s `menuOpen`, and the reason `newCoordinator.claim`
+		calls `_closeMenu()` alongside `_close()` on the row it claims away from —
+		redteam item 7). Without the menu half, a press on another row could leave
+		the first row's menu — and its `transientScope` focus trap — armed over a
+		row the player had already moved on from. The coordinator's claim covers
+		this ONLY for a press that becomes a gesture; a tap, or a keyboard
+		Activate, never claims anything, which is exactly when this runs. ]]
+	local function hostedCloseRow(key: string)
+		local engine = hostedEngines[key]
+		if engine == nil then
+			return
+		end
+		engine.close()
+		engine._closeMenu()
+	end
+
 	--[[ THE ONE SHARED DISPATCHER. Four functions for the whole list, allocated
 		once at build: every row's `Hit` carries the SAME four values, so a row
 		mounting costs four static prop reads and no closure at all. The hit's own
@@ -1545,10 +1587,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				pass with that evidence, not fixed blind. ]]
 			local engaged = engagedKey:get()
 			if engaged ~= nil and engaged ~= key then
-				local other = hostedEngines[engaged]
-				if other ~= nil then
-					other.close()
-				end
+				hostedCloseRow(engaged)
 			end
 			if pos.pointerType ~= nil and pos.pointerType ~= "mouse" and pos.pointerType ~= "touch" then
 				-- PEN/STYLUS/anything else: declined HERE, at the down, exactly as
@@ -1722,11 +1761,56 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end))
 	end
 
+	--[[ WHEN THE TRAY GOES AWAY, THE RING COMES BACK TO ITS ROW (fix round 1, R1).
+		A revealed tray's buttons are focusables that exist only while the row is
+		engaged, so closing the row while one of them holds focus is a structural
+		change under the ring. The graph's own answer for a grouped scope whose
+		focused path vanished is `entryFocus`, which is the FIRST focusable in the
+		WHOLE SCOPE (`focus_graph.replaceGroups`) — measured: focus on r2's Delete,
+		close, and the ring lands on r1's hit; on a real screen, whatever sits at
+		the top of the surface. That is a teleport away from what the player was
+		doing, and it happens on every close path there is (a tray tap, Cancel, a
+		scroll, another row).
+
+		So the ring is moved HERE, while both the tray and the row are still
+		mounted: the engagement leaving a row whose tray holds focus puts focus on
+		THAT ROW'S OWN HIT — the thing the player was working on, and what "Up
+		comes back" means once the tray is gone. Only when focus is genuinely
+		inside the departing row's overlay region: a player whose ring is anywhere
+		else (another control, another row) is never yanked. ]]
+	local hostedFocusRow: string? = nil
+	local function hostedRestoreFocusOnDisengage()
+		local key = engagedKey:get()
+		local previous = hostedFocusRow
+		hostedFocusRow = key
+		if previous == nil or previous == key then
+			return
+		end
+		local graph = hostedFocusGraph
+		if graph == nil then
+			return
+		end
+		local focused = graph.focused:get()
+		local region = hostedOverlayRowPath(previous)
+		if focused == nil or region == nil or string.sub(focused, 1, #region + 1) ~= region .. "/" then
+			return
+		end
+		local hit = hitPathOf(previous)
+		if hit ~= nil then
+			-- ...and if the row is no longer mounted (scrolled away while open)
+			-- there is nothing to put the ring on, so the graph's own survivor
+			-- rule is left to answer — the same fall-through every other
+			-- unmount-under-focus takes.
+			graph.focusOn(hit)
+		end
+	end
+
 	if hostedEnabled then
 		-- the slide, written the instant the engagement or the offset moves. Both
 		-- signals are written inside ONE transaction by `hostedApplySlide`, so a
 		-- move that changes both still resolves to a single pair of reads.
 		listScope:own(core:observe(engagedKey, hostedWriteSlide))
+		listScope:own(core:observe(engagedKey, hostedRestoreFocusOnDisengage))
 		listScope:own(core:observe(engagedOffset, hostedWriteSlide))
 		--[[ SCROLL CLOSES THE OPEN ROW (iOS parity; `newCoordinator.bindScroll`'s
 			own rule). That coordinator method takes a render controller and a path
@@ -1866,28 +1950,40 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if hostedEnabled then
 			--[[ THE ACTIVATE HALF OF THE IN-LIST DISMISS (Task 4 re-review, K1 —
 				the same gap the POINTER seam was fixed for in round 1, found again
-				one seam over). A keyboard Return or a gamepad ButtonA on ANOTHER row
-				arrives here and NOWHERE else: it produces no pointer-down, so the
-				shared dispatcher's own close block never runs, and the presenter's
+				one seam over). A keyboard Return or a gamepad ButtonA arrives here
+				and NOWHERE else: it produces no pointer-down, so the shared
+				dispatcher's own close block never runs, and the presenter's
 				outside-dismiss cannot see it either because every row is inside the
-				ONE list contribution (Table and standalone rows are per-row
-				contributions and are immune by construction). The open tray simply
-				stayed up while the player operated a different row.
+				ONE list contribution. (Standalone rows ARE per-row contributions and
+				are immune. TABLE IS NOT — it contributes `focusGroups` for the whole
+				table, so the same seam is open there; it is a separate pre-existing
+				defect, tracked in the Task 5 report, and deliberately not fixed from
+				here.) The open tray simply stayed up while the player operated a
+				different row.
 
 				Placed directly under `keyOfHit` for the same reason the pointer half
 				sits above both declines: "is this Activate on a row of this list" is
-				the only precondition a dismiss has. Above the armed/suppress branches
-				so it holds however this particular Activate is then dispatched.
+				the only precondition a dismiss has.
 
-				The ENGAGED row is skipped: an Activate on the open row's own hit is
-				already answered by the pointer seam's `suppressActivatePath` (tap =
-				close and nothing else), and closing here would take that verdict away
-				from the seam that owns it. ]]
+				THE ENGAGED ROW'S OWN ACTIVATE (fix round 1, R3). A tap on the open
+				row means "put it away, and only that" — the pointer seam says so on
+				the UP via `suppressActivatePath`. But that mechanism is POINTER-ONLY:
+				it is armed by `onPointerUp`, and a keyboard Return produces no
+				pointer event at all, so the same row answered the same verb two
+				different ways depending on the device — Return activated the row AND
+				left the tray standing. `meta.source == "action"` is how this file
+				already tells a non-pointer Activate from a tap (the arm branch
+				below), so it is what discriminates here: a non-pointer Activate on
+				the open row closes it and is swallowed, exactly as the tap is. A
+				POINTER Activate on that row still belongs to the pointer seam, which
+				has already decided it. ]]
 			local engaged = engagedKey:get()
-			if engaged ~= nil and engaged ~= key then
-				local other = hostedEngines[engaged]
-				if other ~= nil then
-					other.close()
+			if engaged ~= nil then
+				if engaged ~= key then
+					hostedCloseRow(engaged)
+				elseif meta ~= nil and meta.source == "action" then
+					hostedCloseRow(engaged)
+					return true
 				end
 			end
 		end
@@ -2057,12 +2153,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			(Task 5 parity; Task 4 carried item 1). A CONTRIBUTION OWNS ITS SUBTREE'S
 			FOCUS: `focus_map.autoGroups` emits this control's groups and does NOT
 			descend into it, so a focusable this function never names is unreachable
-			by Tab AND by the d-pad. Standalone and Table rows get their trays into
-			the map for free — nobody contributes for them, so the presenter's own
-			document walk finds the buttons — but a hosted tray lives inside the
-			LIST's contribution, and until now the list named only row hits. A player
-			could swipe a row open with a finger and then have no keyboard or gamepad
-			way to reach the action they revealed. ]]
+			by Tab AND by the d-pad. Standalone rows get their trays into the map for
+			free — nobody contributes for them, so the presenter's own document walk
+			finds the buttons. (TABLE DOES NOT: it contributes `focusGroups` whose
+			walk stops at each Row node, so a Table tray's buttons land in no group
+			either. That is a pre-existing defect of Table's own focus contribution,
+			named in the Task 5 report and deliberately not fixed from here.) A
+			hosted tray lives inside the LIST's contribution, and until now the list
+			named only row hits: a player could swipe a row open with a finger and
+			then have no keyboard or gamepad way to reach the action they revealed. ]]
 		local hostedTrayOrder: { string } = {}
 		local hostedOverlayPath: string? = if hostedEnabled and mountedScrollPath ~= nil
 			then `{mountedScrollPath}/Canvas/{HOSTED_OVERLAY_ID}`
@@ -2105,52 +2204,109 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			end
 		end
 		walk(rootNode)
-		--[[ ...and they join the ONE group this list contributes, directly AFTER
-			the engaged row's own hit. That position is the whole point: the d-pad
-			player is on the row they just opened, and Down steps into its first
-			action and Up comes back — which is the traversal a per-row tray gives
-			standalone by document adjacency. (Tab reads the presenter's own
-			document-order RANK instead, so a tray still TABS at its document
-			position — after the windowed rows, because the overlay is a sibling of
-			the rows region rather than a child of the row. That difference is
-			structural to hosting one shared overlay and is documented as such.)
-			Only the REVEALED tray exists in the tree at all — the engine's own
-			reveal `When`s mount it — so a list with every row closed names exactly
-			the row hits it always did, and this whole block costs one nil compare.
-			An engaged row that is NOT in the window (its tray still mounts: the
-			overlay is keyed on the engagement, not on the window) has no hit to
-			anchor to, and the buttons go at the end rather than nowhere. ]]
-		if #hostedTrayOrder > 0 then
-			local engaged = engagedKey:get()
-			local anchor = if engaged ~= nil then hitPathOf(engaged) else nil
-			local at = #order
-			if anchor ~= nil then
-				for index, entry in order do
-					local entryPath = if type(entry) == "table" then entry.id else entry
-					if entryPath == anchor then
-						at = index
-						break
-					end
-				end
-			end
-			for offset, path in hostedTrayOrder do
-				table.insert(order, at + offset, path)
-			end
-		end
-		if #order == 0 then
+		if #order == 0 and #hostedTrayOrder == 0 then
 			return {}
 		end
-		return {
-			{
-				name = focusGroupName,
-				axis = "vertical",
-				entry = navigation.entry or "nearest",
-				wrap = navigation.wrap,
-				containment = navigation.containment,
-				exit = navigation.exit,
-				order = order,
-			},
+		--[[ THE ROW GROUP, exactly as it always was — plus, while a tray is
+			revealed, ONE EXIT INTO IT. The tray is a SECOND group and never members
+			of this one: this group is `axis = "vertical"`, and splicing a
+			horizontal strip of buttons into it made Left/Right dead on a
+			two-action tray and made Down walk visually RIGHTWARD — the precise
+			defect `focus_map.luau`'s own layout-aware runs exist to prevent
+			("an HStack row of focusables navigates HORIZONTALLY").
+
+			THE EXIT IS THE EDGE THE TRAY IS ON: a trailing tray is revealed at the
+			row's right, so Right enters it; a leading tray at the left, so Left
+			does. Both are ORTHOGONAL to this group's own axis, which is what makes
+			them reachable at all (`focus_graph.navigateDirection`: an orthogonal
+			press consults the exit map). An AUTHOR'S OWN `navigation.exit` wins
+			wherever it is declared — this only fills a direction the author left
+			open, and only while a tray is up. ]]
+		local rowExit: any = navigation.exit
+		local rowEntry: any = navigation.entry or "nearest"
+		local trayExit: any = nil
+		local trayIsLeading = false
+		if #hostedTrayOrder > 0 then
+			local engaged = engagedKey:get()
+			local leading = if engaged ~= nil then hostedTrayPath(engaged, "leading") else nil
+			for _, path in hostedTrayOrder do
+				if leading ~= nil and string.sub(path, 1, #leading) == leading then
+					trayIsLeading = true
+					break
+				end
+			end
+			local merged: any = if navigation.exit ~= nil then table.clone(navigation.exit) else {}
+			if trayIsLeading then
+				merged.left = merged.left or hostedTrayGroupName
+				trayExit = { right = focusGroupName }
+			else
+				merged.right = merged.right or hostedTrayGroupName
+				trayExit = { left = focusGroupName }
+			end
+			rowExit = merged
+			--[[ ...and COMING BACK lands on the row the tray belongs to. Leaving the
+				tray is an orthogonal entry into this group, so the entry POLICY
+				decides where it lands — and "nearest" would use the tray button's own
+				index (1) and drop the player on the first row of the WINDOW, a
+				teleport away from the row they were working on. "restore" is
+				remembered per group (`focus_graph.recordFocus`) and survives the
+				per-refresh `replaceGroups`, so it is exactly the row focus left from.
+				Only while a tray is revealed, and only when the author declared no
+				entry of their own. ]]
+			if navigation.entry == nil then
+				rowEntry = "restore"
+			end
+		end
+		local rowGroup: any = {
+			name = focusGroupName,
+			axis = "vertical",
+			entry = rowEntry,
+			wrap = navigation.wrap,
+			containment = navigation.containment,
+			exit = rowExit,
+			order = order,
 		}
+		if #hostedTrayOrder == 0 then
+			return { rowGroup }
+		end
+		--[[ THE REVEALED TRAY: its own HORIZONTAL group, CONTAINED (fix round 1,
+			R2). Left/Right step between the actions — the traversal a strip of
+			buttons must have, and the one a multi-action tray had none of while its
+			buttons sat in the vertical row group.
+
+			ITS ONLY EXIT IS BACK TOWARD THE ROW, in the direction the row is (out
+			of a trailing tray that is Left; out of a leading tray, Right), landing
+			on the engaged row through the `entry = "restore"` above.
+
+			NO up/down exit, DELIBERATELY, and this is a considered deviation from
+			the review's suggested shape. An exit along the ROW group's own axis
+			bypasses its entry policy entirely (`focus_graph.enterGroup`: "entry
+			along the group's own axis lands at the NEAR END"), so `exit.down` would
+			put the player on the FIRST row of the window and `exit.up` on the last
+			— reintroducing, by a second route, exactly the teleport R1 is about.
+			Contained instead: Up/Down inside a revealed tray do nothing, and the
+			two ways out are the way in (Left/Right) and Cancel, which closes the
+			tray and returns focus to the row.
+
+			THE GROUP ARRAY IS ORDERED BY THE EDGE, because an uncontained group's
+			undeclared direction falls through the array in order
+			(`focus_graph.exitFrom`): with the tray always last, Right out of a row
+			reached a LEADING tray — on the wrong side of the row — for want of any
+			other group to fall through to. Sitting the tray on the side of the row
+			group that matches the edge it is painted on makes the fallthrough agree
+			with the exit map instead of contradicting it. ]]
+		local trayGroup: any = {
+			name = hostedTrayGroupName,
+			axis = "horizontal",
+			entry = "nearest",
+			containment = true,
+			exit = trayExit,
+			order = hostedTrayOrder,
+		}
+		if trayIsLeading then
+			return { trayGroup, rowGroup }
+		end
+		return { rowGroup, trayGroup }
 	end
 
 	-- wire the engine CanvasPosition mirror. `scrollPath` defaults to the mounted
