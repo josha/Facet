@@ -107,7 +107,7 @@ Mechanics:
 
 **Interfaces:** consumes everything above; produces the shipping proof the charter requires.
 
-- [ ] **Step 1 (parity):** Port the SEMANTICS (not paths) of the core standalone suite to hosted mode: leading & trailing reveal, open threshold vs snap-back, fullSwipe commit, irrevocable commit (sibling claim + scroll + outside tap during commit — mirror the three Task-1 tests), one-open across rows, keyboard Delete on focused Hit, `fullSwipe = false` variant. Each as its own `it(...)`.
+- [ ] **Step 1 (parity):** Port the SEMANTICS (not paths) of the core standalone suite to hosted mode: leading & trailing reveal, open threshold vs snap-back, fullSwipe commit, irrevocable commit (sibling claim + scroll + outside tap during commit — mirror the three Task-1 tests), one-open across rows, keyboard Delete on focused Hit, `fullSwipe = false` variant, and focus TRAVERSAL into a revealed tray (Tab/D-pad must reach the tray buttons — Task 4 review flagged hosted tray buttons as outside the list's focus group; fix or get an explicit ruling, don't drop it). Each as its own `it(...)`.
 - [ ] **Step 2 (identity):** Differential proof (incremental-layout precedent): build plain list world A and `rowActions` list world B with identical items; assert `adapter.paths()` of B == A ∪ {overlay When node} and every shared path's node class/rect identical; then engage+disengage a row in B and re-assert (tree returns to closed shape, zero leaks — engine count may stay 1, instances must not).
 - [ ] **Step 3:** Suite green; update the row-actions gate's suite-check names if any new named ✓ lines are worth pinning (`tools/lune/gate_manifest.luau:2990-2995` pattern). stylua; commit `test(virtual-list): hosted parity + mount-identity differential proof`.
 
