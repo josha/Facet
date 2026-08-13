@@ -322,6 +322,55 @@ local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
 -- horizontal padding. Theme strings only; resolved by the solver exactly like
 -- `slider.luau`'s `THUMB_SIZE`/`RAIL_HEIGHT`.
 local BUTTON_MIN_WIDTH = "controls.rowActions.buttonMinWidth"
+--[[ THE LEGIBILITY FLOOR — below this a revealing plate stops being drawable.
+
+	DEVICE REPORT, game director, 2026-08-13 (`pop.mov`, Glossy Touch): on close
+	the tray buttons "go past the end of the rows, overlap, and then pop out."
+
+	MEASURED, per frame, before anything was changed. The plates do not slide out
+	from under the row — each plate's WIDTH is scaled by the reveal fraction, so
+	they squeeze in place: on a settled-open close the trailing pair goes
+	75/58 -> 33/26 -> 9/7 -> 3/2 -> 1/1 -> gone. That is by design (round 2's C9a
+	made plate width track the finger, to stop the whole band painting before the
+	row had moved) and the director's ruling of 2026-08-13 KEEPS it.
+
+	WHAT IT IS NOT is drawable at the bottom of that ramp, and the theme is what
+	exposes it. A package like `glossy_touch` paints every plate with a corner
+	radius, a stroke and a gradient. At 3px wide the radius and the stroke have
+	nowhere to go: the engine renders a smeared lens rather than a button, which
+	reads as a coloured sliver overlapping the row's edge — and then it hits 0 and
+	vanishes, which reads as the pop. On a flat package the same 3px is an
+	unremarkable thin rectangle, which is exactly why this was invisible until
+	somebody filmed the glossy theme.
+
+	So a plate narrower than this is drawn at ZERO instead. The row is still
+	travelling when it happens (8px of 159 remaining, ~5% of the flight, ~2
+	frames at the settle end of the spring), so the band simply finishes early
+	rather than crushing — and finishing early is SAFE against the invariant the
+	open direction asserts, which is one-directional: never MORE band than the
+	row has travelled. Less is allowed; more is the defect.
+
+	SO IT IS ONE THRESHOLD, NOT TWO. The first attempt floored each PLATE's width
+	and left the band's own box alone, which broke the band-tracks-travel invariant
+	the open direction asserts: the plates went to zero while the container kept
+	its inter-plate gaps and its row-facing gutter, so the box stopped agreeing
+	with `|offset|` by several px. The coherent version is the one below — this is
+	`REVEAL_EPS`, the single place that decides whether a tray is revealed AT ALL.
+	Below this much travel there is nothing legible to draw, so the tray is
+	closed, container and plates together, and the invariant holds by
+	construction.
+
+	It replaces a 0.5px epsilon whose only job was "not exactly zero" (C9b, device
+	round 2026-08-12 — the unmount used to wait for an exact 0 that a
+	position-domain spring reaches several frames after it visually arrives).
+	Raising 0.5 -> 8 keeps that fix and adds this one: the last 8px of travel is
+	~5% of a full reveal and about two frames at the settle end of the spring.
+
+	A literal rather than a theme metric, deliberately: this is a floor on what
+	the ENGINE can render legibly, not a design value a package should be able to
+	tune. A package that wants a wider plate raises `buttonMinWidth`, which is a
+	different question with its own metric. ]]
+local PLATE_LEGIBLE_MIN_PX = 8
 local BUTTON_PAD = "controls.rowActions.buttonPad"
 -- ...and the gutter BETWEEN two adjacent tray buttons (director device round
 -- 2026-08-12: "Delete 645-777, Flag 780-905, corners touching"). Zero read as one
@@ -365,7 +414,7 @@ local EDIT_AFFORDANCE = "controls.rowActions.editAffordance"
 	the row anywhere else, so it is the honest place to call the reveal finished —
 	the same "arrival is a RADIUS, not an epsilon" rule `chase.luau` already
 	states. ]]
-local REVEAL_EPS = 0.5
+local REVEAL_EPS = PLATE_LEGIBLE_MIN_PX
 -- PUBLISHED, because a HOST has to end its engagement on the same test. The
 -- VirtualList clears the engaged row (and with it the presentation transform and
 -- the shared overlay entry) from its own `onSlide`, and if that used a different
