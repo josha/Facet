@@ -50,13 +50,13 @@ namespaces' members and the blessed client entry points) has a row here; the
 
 | Item | Kind | Pattern / exception | Dispositions | Fragment |
 |---|---|---|---|---|
-| `newTable` | composite | control-build, `api`-nested variant | F-24 (gallery bind), F-25 (dump), F-27 (header align), PKT-1, PKT-9 | controls |
+| `newTable` | composite | control-build, `api`-nested variant; `onPrimaryAction` joins the spec in parity round 2 §3.4 (a second interactive verb on the same rows, four-input, cited in the registry row) | F-24 (gallery bind), F-25 (dump), F-27 (header align), PKT-1, PKT-9, NOTE (parity round 2 §3.4) | controls |
 | `newVirtualList` | composite | control-build, flat variant (pre-rule) | F-25 (dump proof), DOC-11, PKT-1 | controls |
 | `newPopupButton` | composite | control-build, `api` variant | F-1 (memo guard), DOC-22, PKT-6, PKT-1 (`presentation`) | controls |
 | `newStepper` | composite | control-build, value family — the reference implementation | none (clean) | controls |
 | `newSlider` | composite | control-build, value family | PKT-7 (`onInteractionClassLost`), PKT-1 | controls |
 | `newRating` | composite | control-build; one-Grip strip | F-25 (dump/dispose proof), PKT-7 | controls |
-| `newProgressView` | composite | control-build, non-interactive | DOC-12 | controls |
+| `newProgressView` | composite | control-build, non-interactive; `value` is OPTIONAL since parity round 2 §3.1 (`value = nil` = indeterminate), and `presentation` / `motionClock` join the spec — still no input contribution, so the registry row stays `inputProofs = false` | DOC-12, NOTE (parity round 2 §3.1, postdates the Step 7 F-n audit round) | controls |
 | `newLabel` | composite | control-build, non-interactive | F-23 (`semanticText` Readable) | controls |
 | `newPicker` | composite | control-build; adaptive presentation | DOC-22, PKT-6 | controls |
 | `newDisclosureGroup` | composite | control-build; focus-restore | NOTE (dual bindFocus path — constitution names contribution as canonical) | controls |

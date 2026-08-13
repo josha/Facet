@@ -345,6 +345,19 @@ is **not** exported (see CTRL-11).
 
 ### `LuauUI.newProgressView` — composite control (`src/controls/progress_view.luau`)
 
+> **ADDENDUM 2026-08-13 (parity round 2 §3.1) — this section is the Step 7 audit
+> snapshot and its `:line` citations are that snapshot's, not today's.** Since it
+> was written, `value` became OPTIONAL (`value = nil` selects an indeterminate
+> view), `presentation` (`"bar" | "spinner"`) and `motionClock` joined the spec,
+> and `dump()` gained `indeterminate` / `presentation` (plus `phase` / `animating`
+> on the indeterminate path). The determinate path's shape, geometry and every
+> pre-existing dump key are unchanged and pinned on both sides — framework
+> (`tests/display_controls.spec.luau`) and consumer
+> (`games/RascalRally/code/tests/luauui_sponsor_results.spec.luau`, "the rally bar
+> is still the DETERMINATE ProgressView"). It still attaches **no** input
+> contribution, so "none (non-interactive, declared)" in the shape table above
+> still holds.
+
 - **Shipped shape:** `build(LuauUI, core, spec: Spec) -> { blueprint, model,
   semanticText, dump, dispose }` (`:44`, `:108-145`). Spec (`:33-42`): `id?, label?,
   value (number | Readable<number>), min? = 0, max? = 1, format?, showValue?,
