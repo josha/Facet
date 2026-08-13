@@ -248,6 +248,7 @@ local row_actions = require("./row_actions")
 local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
+local rowCapability = require("../row_capability")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -365,8 +366,15 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"reorderMotion",
 	"reorderable",
 	"rowActions",
+	-- PER-ROW CAPABILITY OPT-OUTS (parity round 3, item C). Positive polarity,
+	-- matching `rowFocusable` two lines down rather than SwiftUI's negative
+	-- `moveDisabled`/`selectionDisabled`/`deleteDisabled` — see
+	-- `src/row_capability.luau` for why, and for the inverse mapping.
+	"rowDeletable",
 	"rowDropTarget",
 	"rowFocusable",
+	"rowMovable",
+	"rowSelectable",
 	"rowGap",
 	"rowHeight", -- deprecated alias of itemExtent (ADR-0011)
 	"rows",
@@ -379,6 +387,35 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 
 function virtual_list.build(LuauUI: any, core: any, spec: any)
 	specGuard.assertKnownKeys("newVirtualList", spec, VIRTUAL_LIST_KEYS, "spec")
+	--[[ PER-ROW OPT-OUTS MAY ONLY SUBTRACT (parity round 3, item C).
+		A predicate that narrows a capability this list does not have is an
+		accepted property that does nothing — constitution §4's exact
+		prohibition, and the defect class the placement audit was written to
+		end. Refused at construction, naming what is missing. ]]
+	rowCapability.assertNarrowsSomething(
+		"newVirtualList",
+		"rowSelectable",
+		spec.rowSelectable,
+		spec.selection ~= nil and spec.selection ~= "none",
+		'selection is absent or "none", so no row is selectable to begin with',
+		'Declare selection = "single" (and an onSelect), or drop spec.rowSelectable.'
+	)
+	rowCapability.assertNarrowsSomething(
+		"newVirtualList",
+		"rowMovable",
+		spec.rowMovable,
+		spec.onReorder ~= nil,
+		"onReorder is absent, so no row moves at all",
+		"Declare reorderable = true and an onReorder handler, or drop spec.rowMovable."
+	)
+	rowCapability.assertNarrowsSomething(
+		"newVirtualList",
+		"rowDeletable",
+		spec.rowDeletable,
+		spec.rowActions ~= nil,
+		"rowActions is absent, so no row carries a destructive action to refuse",
+		"Declare a rowActions callback returning a destructive action, or drop spec.rowDeletable."
+	)
 	--[[ THE SCROLL AXIS (spec §2.3). CONSTRUCTION-ONLY, for exactly the reason
 		`ScrollView.axis` is (constitution §16 E-6): the axis decides which native
 		scroll state the engine holds, so a reactive one would rebuild that state
@@ -1086,12 +1123,33 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return (indexByKey:get() :: { [string]: number })[key]
 	end
 
+	--[[ HOISTED (parity round 3): this used to sit ~110 lines further down, and
+		the per-row capability gates in `commitReorderAt` and `toggleGrab` need
+		it. A local declared LATER in the file is NOT an upvalue — it binds a nil
+		global and calls it, which is exactly
+		`docs/lessons/later-locals-are-not-upvalues.md`, a trap this repo has now
+		been bitten by five times. It depends only on `indexOfKey` and `spec`,
+		both already in scope here. ]]
+	local function itemForKey(key: string): any?
+		local index = indexOfKey(key)
+		if index == nil then
+			return nil
+		end
+		return (spec.rows:get() :: { any })[index]
+	end
+
 	-- move `key` so it occupies 1-based index `to` in the resulting order. A
 	-- no-op is SUPPRESSED: a drop that reproduces the current order must not emit
 	-- a mutation nobody asked for (the mutation lifecycle applies — a reorder is
 	-- a request, and pending never means success).
 	local function commitReorderAt(key: string, to: number?)
 		if spec.onReorder == nil or to == nil then
+			return
+		end
+		-- THE FUNNEL. Every drop — pointer, gamepad grab, cross-container —
+		-- lands here, so a pinned row is refused once rather than at each
+		-- gesture's own entry point.
+		if not rowCapability.allows(spec.rowMovable, itemForKey(key)) then
 			return
 		end
 		local from = indexOfKey(key)
@@ -1189,14 +1247,6 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	-- ===== drop targets ======================================================
-	local function itemForKey(key: string): any?
-		local index = indexOfKey(key)
-		if index == nil then
-			return nil
-		end
-		return (spec.rows:get() :: { any })[index]
-	end
-
 	local function rowTargetOpts(key: string): any
 		local item = itemForKey(key)
 		if item == nil or spec.rowDropTarget == nil then
@@ -2207,6 +2257,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if selectionMode == "none" then
 			return
 		end
+		-- PER-ROW OPT-OUT, AT THE FUNNEL. Every tap, arrow, pad press and
+		-- programmatic call routes through here, which is why the gate is here
+		-- and not on the affordance: `table.luau:1015-1030` records this
+		-- control family being bitten by "a third, wholly separate way to
+		-- start the identical reorder" that missed a guard.
+		if not rowCapability.allows(spec.rowSelectable, itemForKey(key)) then
+			return
+		end
 		selectedKey:set(key)
 		if spec.onSelect ~= nil then
 			local item = itemForKey(key)
@@ -2394,6 +2452,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 		local target = key or focusedKey:get()
 		if target == nil then
+			return false
+		end
+		-- a PINNED row never arms: arming it would put the player in a drag
+		-- they can never legally drop, which is a worse outcome than refusing
+		-- the grab outright.
+		if not rowCapability.allows(spec.rowMovable, itemForKey(target)) then
 			return false
 		end
 		local hitPath = hitPathOf(target)

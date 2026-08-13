@@ -308,6 +308,7 @@ require("./drag_public.spec")
 require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)
 require("./row_actions.spec")
+require("./row_capability_optouts.spec")
 -- row actions: the mouse gesture (axis lock, live drag, flick velocity, full-swipe commit)
 require("./row_actions_input.spec")
 -- row actions: HOSTED mode (perf mission Task 2) — `buildHosted`, the same

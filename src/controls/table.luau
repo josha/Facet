@@ -40,6 +40,7 @@ local interactionTokens = require("../input/interaction_tokens")
 local solverLib = require("../layout/solver")
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
+local rowCapability = require("../row_capability")
 local row_actions = require("./row_actions")
 -- the axis-lock constant only (never a decision instance): the row Hit's own
 -- dispatch has to know whether a gesture it forwarded became a SWIPE, and the
@@ -256,8 +257,13 @@ local TABLE_KEYS = specGuard.keySet({
 	"onReorder",
 	"reorderable",
 	"rowActions",
+	-- PER-ROW CAPABILITY OPT-OUTS (parity round 3, item C). Positive polarity;
+	-- see src/row_capability.luau for why, and for the SwiftUI inverse mapping.
+	"rowDeletable",
 	"rowGap",
 	"rowHeight",
+	"rowMovable",
+	"rowSelectable",
 	"rows",
 	"scrolls",
 	"selection",
@@ -266,6 +272,33 @@ local TABLE_KEYS = specGuard.keySet({
 
 function table_control.build(LuauUI: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newTable", spec, TABLE_KEYS, "spec")
+	--[[ PER-ROW OPT-OUTS MAY ONLY SUBTRACT (parity round 3, item C) — a
+		predicate narrowing a capability this table does not have would be an
+		accepted property that does nothing (constitution §4). ]]
+	rowCapability.assertNarrowsSomething(
+		"newTable",
+		"rowSelectable",
+		spec.rowSelectable,
+		spec.selection ~= nil and spec.selection ~= "none",
+		'selection is absent or "none", so no row is selectable to begin with',
+		'Declare selection = "single" or "multi", or drop spec.rowSelectable.'
+	)
+	rowCapability.assertNarrowsSomething(
+		"newTable",
+		"rowMovable",
+		spec.rowMovable,
+		spec.reorderable == true and spec.onReorder ~= nil,
+		"reorderable/onReorder are absent, so no row moves at all",
+		"Declare reorderable = true and an onReorder handler, or drop spec.rowMovable."
+	)
+	rowCapability.assertNarrowsSomething(
+		"newTable",
+		"rowDeletable",
+		spec.rowDeletable,
+		spec.rowActions ~= nil,
+		"rowActions is absent, so no row carries a destructive action to refuse",
+		"Declare a rowActions callback returning a destructive action, or drop spec.rowDeletable."
+	)
 	local UI = LuauUI.UI
 	local scope = core:scope(`Table-{spec.id or "table"}`)
 	local tableId = spec.id or "Table"
@@ -1987,6 +2020,21 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		return keys
 	end
 
+	--[[ HOISTED (parity round 3): this used to sit ~170 lines below, and the
+		per-row capability gates in `api.select` and `api.moveRow` need it. A
+		local declared LATER in the file is NOT an upvalue — it binds a nil
+		global and calls it
+		(`docs/lessons/later-locals-are-not-upvalues.md`). It depends only on
+		`spec`, already in scope. ]]
+	local function itemForKey(rowKey: string): any?
+		for _, item in spec.rows:get() :: { any } do
+			if spec.key(item) == rowKey then
+				return item
+			end
+		end
+		return nil
+	end
+
 	local function rangeKeys(fromKey: string, toKey: string): { [string]: boolean }
 		local keys = orderedKeys()
 		local fromIndex = table.find(keys, fromKey)
@@ -2048,6 +2096,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- Phase A idioms — single replaces, multi toggles additively (touch).
 	function api.select(rowKey: string, opts: { mode: string? }?)
 		if selectionMode == "none" then
+			return
+		end
+		--[[ PER-ROW OPT-OUT, AT THE FUNNEL AND ABOVE THE MODE BRANCH.
+			`api.select` has four branches below (single, replace, range,
+			additive toggle) and every pointer/key/pad path in this control
+			routes through this one function. Gating here rather than inside a
+			branch is deliberate: a guard on the single-select branch alone
+			would pass a naive test and leak on the touch idiom's toggle. ]]
+		if not rowCapability.allows(spec.rowSelectable, itemForKey(rowKey)) then
 			return
 		end
 		local mode = opts and opts.mode
@@ -2151,15 +2208,6 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	local nowFn: () -> number = os.clock
 	local lastClickKey: string? = nil
 	local lastClickAt: number = 0
-
-	local function itemForKey(rowKey: string): any?
-		for _, item in spec.rows:get() :: { any } do
-			if spec.key(item) == rowKey then
-				return item
-			end
-		end
-		return nil
-	end
 
 	local function firePrimaryAction(rowKey: string): boolean
 		local handler = spec.onPrimaryAction
@@ -2789,6 +2837,36 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		local i = table.find(keys, rowKey)
 		if i == nil then
 			return false
+		end
+		--[[ THE MOVE FUNNEL. Table has FIVE ways to start a reorder (pointer
+			pickup, the edit-mode handle, the gamepad grab, this verb, and the
+			composed body-drag replay) and this is the one they all resolve
+			through — `:1015-1030` records this file being bitten by "a third,
+			wholly separate way to start the identical reorder" that missed a
+			guard, which is why the gate is here.
+
+			SOURCE **AND** DESTINATION. `moveDisabled`'s source-vs-destination
+			question is one Apple does not document (its page is an abstract and
+			a declaration, no discussion), so LuauUI decides: a pinned row holds
+			its INDEX. A move that would displace one is refused, because
+			otherwise "pinned" would mean "cannot be dragged but can be shoved",
+			which is not what an author means by it. ]]
+		if not rowCapability.allows(spec.rowMovable, itemForKey(rowKey)) then
+			return false
+		end
+		if spec.rowMovable ~= nil then
+			local lo = math.min(i, i + delta)
+			local hi = math.max(i, i + delta)
+			for at = lo, hi do
+				local other = keys[at]
+				if
+					other ~= nil
+					and other ~= rowKey
+					and not rowCapability.allows(spec.rowMovable, itemForKey(other))
+				then
+					return false
+				end
+			end
 		end
 		-- POST-removal slot (matches the pointer drag): final 1-based position
 		-- is i + delta, so the remaining-above count is i + delta - 1
