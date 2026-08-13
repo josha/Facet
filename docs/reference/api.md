@@ -1944,10 +1944,18 @@ commit — it raises **after `fn` has already been applied**: the change landed
 instantly with no flight, so a caller catching it must **not** retry the mutation
 or it lands twice.
 
-**Beyond a per-frame cap the commit lands instantly and emits a diagnostic**
-naming the count. The cap is per frame rather than per call because each call
-costs two full presenter passes, and it is measured against real work (subtree
-rect writes, elision materializations) rather than spring count.
+**There is no cap on how many records one frame may install.** An earlier draft
+of this entry described a per-frame ceiling past which the commit would land
+instantly with a diagnostic; that ceiling was designed but never built, and the
+paragraph describing it was a claim the code did not honour — the exact defect
+constitution §14 rates as severely as the reverse. It is recorded as a gap
+rather than quietly implemented, because the design required the number to be
+*derived* from measured work (subtree rect writes, elision materializations)
+rather than picked, and no such measurement has been taken. In practice the
+roots-only rule keeps the count near the number of things that actually started
+moving, and the adversarial review found no frame-budget problem — so this is a
+missing guard, not a live defect. `presenter.animationRecordCount()` reports the
+live count if you want to assert a bound yourself.
 
 `presenter.animationRecordCount()` and `presenter.commitCount()` are diagnostics
 for tests, not features.
@@ -3125,23 +3133,67 @@ without it. Reachable on all four inputs with no invented gesture:
 | Pointer | double-click (500 ms window, the shared Windows/macOS default) |
 | Keyboard | `Return` on the focused row |
 | Gamepad | **A** / Cross on the focused row |
-| Touch | tap an **already-selected** row; with `selection = "none"`, any tap |
+| Touch | a plain **single tap** on any row; **edit mode** is where touch selection lives instead |
 
-**The touch rule is a deliberate divergence from the pointer idiom.** A blanket
-"single tap opens" would make every selection open a row, and a double-*tap* is
-not a touch idiom — it is a zoom gesture everywhere else on a phone, and it has no
-hover to telegraph itself with. Tap-to-select-then-tap-again-to-open is a real,
-common mobile pattern, it needs no new gesture, and it keeps touch fully reachable
-rather than telling a phone player to find some other affordance. With
-`selection = "none"` there is no "already selected" state to reach, so any tap
-opens.
+**The name is ours; the touch rule is Apple's.** SwiftUI has no `onPrimaryAction`
+symbol — it delivers this verb as the `primaryAction:` argument of
+`contextMenu(forSelectionType:menu:primaryAction:)`, and that API's
+documentation is the model implemented here, verbatim: *"In macOS, a single click
+on a row in a selectable container selects that row, and a double click performs
+the primary action. In iOS and iPadOS, tapping on the row activates the primary
+action. To select a row without performing an action, either enter edit mode or
+hold shift or command on a keyboard while tapping the row."* (The keyboard's
+`Return` is **not** parity — Apple documents no key for row activation. It is a
+reasonable convention, and matches `NSTableView` practice, but it is ours.)
 
-Two consequences worth stating. A **modified** click (Shift / Cmd / Ctrl) is a
-selection gesture and never opens, on any input. And a touch tap that opens does
-**not** re-toggle the selection — which means that on a `selection = "multi"`
-table, declaring `onPrimaryAction` spends the tap-to-deselect gesture on opening;
-`api.clearSelection()` and selecting elsewhere remain exact, and a table whose
-rows open is a table whose author said so.
+**Edit mode is the touch selection mode**, and it is the half that makes the
+first half affordable — `EditMode`: *"On devices without an attached keyboard and
+mouse or trackpad, people can make multiple selections in lists only when edit
+mode is active"*; the HIG's Lists and tables: *"In iOS and iPadOS, people must
+enter an edit mode before they can select table items."* So while `api.editing`
+is `true` a tap **toggles selection and never opens** — which hands back
+`multi`'s tap-to-**deselect** gesture in exactly the mode a player enters to
+manage selection.
+
+**Reaching edit mode is not left to the consumer.** The built-in Edit/Done toggle
+auto-shows whenever edit mode is the **only route to a capability the table
+declares** — today that means a `reorderable` table, **or a selectable table that
+declares `onPrimaryAction`**, whose touch selection lives nowhere else. It is
+gated to a non-mouse session when `env` is supplied (a mouse click already
+selects), and suppressed entirely when the consumer passes `spec.editing`, which
+makes the affordance theirs. Without that second clause a
+`selection = "single"|"multi"` + `onPrimaryAction` + non-`reorderable` table had
+no route into edit mode at all, so its own `selection` was unreachable on touch —
+closed 2026-08-13. `spec.editing` / `api.editing` remains the seam for a consumer
+who wants to own the toggle.
+
+Auto-showing it is **ours, not Apple's**: SwiftUI's `EditButton` is placed by hand
+and Apple documents no condition on its appearance. What Apple conditions on
+declared capabilities is the *content* of edit mode (`EditMode`: a `List` whose
+`ForEach` carries `onDelete(perform:)`/`onMove(perform:)` "provides controls to
+delete or move list items while in edit mode"). The auto-show is what LuauUI's
+four-input reachability rule requires on top of that.
+
+**The cost is real, deliberate, and yours to weigh.** With a primary action
+declared, touch loses tap-to-select in **normal mode entirely** — including the
+single selection iOS 16+ would otherwise allow by tap (`List`: *"When people make
+a single selection by tapping or clicking, the selected cell changes its
+appearance… To enable multiple selections with tap gestures, put the list into
+edit mode"*). Declaring the action is precisely what makes a list retreat into
+edit mode for selection. Apple accepts that trade; so does this control. **The
+corollary:** if a table's dominant touch use is *selecting* rather than
+*opening*, the right call is to not declare `onPrimaryAction` on that table at
+all.
+
+A double-*tap* was never a candidate, and that avoidance is documented too: the
+HIG's Gestures lists double tap as **zoom**, and watchOS warns explicitly that it
+conflicts with list navigation.
+
+Two more consequences worth stating. A **modified** click (Shift / Cmd / Ctrl) is
+a selection gesture and never opens, on any input. And a touch tap that opens
+does **not** touch the selection at all — it neither adds, replaces nor clears,
+so a selection made in edit mode survives every row you open afterwards;
+`api.clearSelection()` remains exact.
 
 **Input is auto-composed** by the presenter
 with no `present()` opts (ui_todo §0; ADR-0013): row select, sort, focus-nav

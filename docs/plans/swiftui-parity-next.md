@@ -1,8 +1,20 @@
 # Plan: the next work toward SwiftUI-quality authoring on Roblox
 
-**Status:** Revised proposal, 2026-07-24. This plan changes no runtime code.  
+**Status:** Written 2026-07-24 as a revised proposal; **status table refreshed
+against shipped reality 2026-08-13** (see "Where this stands today" and the
+milestone table at the end). This plan changes no runtime code.  
 **Governing platform correction:**
 [`roblox-native-audit-corrections.md`](roblox-native-audit-corrections.md).
+
+> **Read the audit verdict below as a dated snapshot, not as current state.**
+> It was written on 2026-07-24 and several of its findings — "no `ViewThatFits`,
+> adaptive stack, or custom-layout protocol", "the current primitive calculates
+> overflow but does not provide native scrolling" — describe a build that no
+> longer exists. The current inventory is
+> [`../reference/swiftui-parity.md`](../reference/swiftui-parity.md), rewritten
+> 2026-08-13 with a citation on every verdict. The ten investments and the
+> priority rules are still the governing plan; only the *state* claims are
+> historical.
 
 ## Outcome
 
@@ -330,19 +342,64 @@ cost remain correct across the device matrix.
 
 ## Milestone order
 
-| Milestone | Investments | Exit condition |
-|---|---|---|
-| 0 — trustworthy authoring | 1 | Invalid public UI fails clearly; guides and types match the runtime |
-| A — adaptive foundation | 2, 5, 6 | Common screens scroll and adapt without device-specific copies |
-| B — everyday controls | 3, 4, 7 | Button, value, progress, label, and selection families pass all supported profiles |
-| B.5 — theme packages | Cross-cutting styling contract | Public packages change paint, font/metrics, and bounded chrome; the solver reflows without remount or source edits |
-| C — rich interaction | 8, 9 | Collections, gestures, presentation, semantics, and motion use shared contracts |
-| D — proof and future platform seam | 10 | Real-device evidence exists; spatial extension is possible without claiming untested support |
+| Milestone | Investments | Exit condition | Status (2026-08-13) |
+|---|---|---|---|
+| 0 — trustworthy authoring | 1 | Invalid public UI fails clearly; guides and types match the runtime | **DONE.** Strict schema with did-you-mean refusals, 55 exported `*Spec` types, `check_prop_parity` reconciling six views of every property plus a class-restriction cross-check, `check_docs`, `check_surface_ledger`, `check_registration`, 25 gates |
+| A — adaptive foundation | 2, 5, 6 | Common screens scroll and adapt without device-specific copies | **DONE**, and extended past its own bar. Native `ScrollingFrame`-backed `ScrollView` on both axes; `ViewThatFits`, `AdaptiveStack`, `Composition`/`Region`; the everyday layout vocabulary completed by parity round 2 (`distribute`, `layoutPriority` × `shrinkWeight`, `lineAlign`, `GridRow` + `gridSpan`, `containerRelativeFrame`) — see §4.1 of the parity doc for the resulting native-flex superset |
+| B — everyday controls | 3, 4, 7 | Button, value, progress, label, and selection families pass all supported profiles | **DONE.** `Button` as a container with roles and an enforced hit floor; `newSlider`/`newStepper`/`newRating`; `newPicker`, `newPopupButton`, `newDisclosureGroup`, `newLabel`, `Divider`; `newProgressView` now determinate **and** indeterminate (bar + spinner). 15 of 15 interactive controls prove four-input and the paradigm axis. `Gauge` remains unbuilt (the `Path2D` spike bar was never met) |
+| B.5 — theme packages | Cross-cutting styling contract | Public packages change paint, font/metrics, and bounded chrome; the solver reflows without remount or source edits | **DONE.** [`ADR-0019`](../adr/ADR-0019-theme-packages.md) + [`ADR-0020`](../adr/ADR-0020-rich-skinning-v2.md): 17 decoration slots, up to 8 art layers each, atomic install/swap, a `"pixel"` rendering mode, `selectBy` |
+| C — rich interaction | 8, 9 | Collections, gestures, presentation, semantics, and motion use shared contracts | **MOSTLY DONE, with two named holes.** Delivered: drag sessions with typed payloads and three acquisition paths; edge autoscroll; `newRowActions`/`newRowActionsCoordinator` with turnkey integration on **both** `Table` and `newVirtualList`; `Table.onPrimaryAction`; the closed 12-verb feedback bus, now authorable as `UI.sensoryFeedback` with an opt-in `HapticEffect` adapter; presentation surfaces, toasts, focus trap/restore, `bindPresent`; and `presenter.withAnimation` closing the last of the three motion kinds this investment asked for. **Not delivered: screen-path navigation** (no `NavigationStack`, no alerts/confirmation-dialog constructs, no `TabView`) and **no single virtualized + selectable + reorderable substrate** — `Table` and `VirtualList` still divide those capabilities |
+| D — proof and future platform seam | 10 | Real-device evidence exists; spatial extension is possible without claiming untested support | **NOT DONE, and the blocker is unchanged.** The headless half is complete and then some — 20 named scenes, p50/p95/p99, five executable ratio budgets, 12 profiler scopes, and a measurement discipline (stated same-arm noise floor, interleaved ABBA arms, ≥5-run means). **Zero physical-device measurements exist**; `artifacts/phase-4/perf.json` still records `deviceRun: false`, and `phone-physical` / `desktop-retail` / `console-physical` are all `PENDING_PHYSICAL`. The spatial seam is preserved and no VR claim is made ([`ADR-0021`](../adr/ADR-0021-spatial-seam.md)) |
 
 Milestone 0 should finish before the public surface grows. Native StyleSheet work may
 run alongside Milestones A and B after property authority is settled. Sponsor-required
 framework work can pull a later item forward, but must use the same reusable contract
 and cannot embed RascalRally policy in LuauUI.
+
+## Where this stands today (2026-08-13)
+
+Milestones 0, A, B and B.5 are closed; C is closed but for navigation and the
+unified collection substrate; **D is the only milestone whose exit condition is
+still structurally unmet**, and the thing standing in its way is a person with a
+phone, not more code.
+
+**What parity round 2 closed** (`swiftui-parity-round2.md`, merged as `a42ef97`
+and `be37e92`; suite 4534 green):
+
+| Gap this plan named | Closed by |
+|---|---|
+| investment 6 — `layoutPriority` | `layoutPriority` (tiers) × `shrinkWeight` (proportional), running in **both** solver passes |
+| investment 5 — container-relative conditions | `UI.containerRelativeFrame(bp, { axis, fraction })` and the paging form, measured against the nearest ancestor viewport rather than the immediate parent |
+| investment 6 — the everyday layout vocabulary | `distribute`, `lineAlign`, `UI.GridRow` + `gridSpan`, and the inert-placement-prop audit that makes "a property that is accepted must do something" checkable |
+| investment 9 — motion as a framework service | `presenter.withAnimation(class, fn)` — position only, decorative, reduced-motion branch that installs nothing |
+| investment 9 — sensory feedback | `UI.sensoryFeedback(bp, { trigger, event })` over the closed 12-verb bus, plus one opt-in `HapticEffect` client adapter, default off |
+| investment 7 — indeterminate progress | `value = nil` selects indeterminate; `presentation = "bar" \| "spinner"`; registered `informational` so reduced motion steps it rather than freezing it |
+| investment 8 — collection interaction | `Table.onPrimaryAction`; hosted `rowActions` on `newVirtualList`, which also restored the row-actions perf gate to its **original** ≤5 %/≤5 %/≤1 ceilings |
+
+**Decisions this round made that close items rather than deferring them:**
+
+- **No `*Style` protocols, ever** — investment 4's "Roblox-native styling replaces
+  the proposed custom style-protocol priority" is now a settled architectural
+  position, not a sequencing choice. The mapping a SwiftUI author needs is in
+  §6.1 of the parity doc.
+- **No `LazyVStack`/`LazyHStack` names.** `newVirtualList` is the one lazy
+  collection surface and gained both axes; a constructor wearing SwiftUI's name
+  over a uniform-extent requirement would be a parity claim the code does not
+  honour.
+- **`sensoryFeedback` emits; it never plays.** The adapter is the game's opt-in.
+
+**What is now explicitly queued rather than vague:**
+
+| Open work | Where it is scoped |
+|---|---|
+| Variable item extents in the virtualized collection | parity doc §4.2 — requirement plus both candidate designs and what each costs |
+| Flow-wrap (`UIListLayout.Wraps`) — the one place LuauUI is behind Roblox's own layout controls | parity doc §4.1, §4.3 — its own mission, not a prop |
+| `Toggle` cannot compose a `Label` (it is a leaf, not a container) | parity doc §5.3 |
+| Baseline alignment and `.alignmentGuide` | parity doc §4.4 |
+| Screen-path navigation, alerts, `TabView` | investment 9, unstarted |
+| One virtualized + selectable + reorderable collection substrate | investment 8, unstarted |
+| Physical-device performance evidence | investment 10 — the whole of milestone D |
+| Unfulfilled placement intents found by the §2.1 audit (migrations that would move real pixels, each with its measured cost) | [`unfulfilled-placement-intents.md`](unfulfilled-placement-intents.md) |
 
 ## Relationship to Sponsor Mode
 

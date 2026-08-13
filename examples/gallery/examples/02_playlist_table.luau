@@ -30,7 +30,9 @@
 --     keyboard/gamepad too (the field is the first thing focus lands on)
 --   * click a star, or press and DRAG left/right across the stars, to rate
 --     (drag past the left edge to clear); focus + Activate also works
---   * click rows to select them (multi-select: clicks toggle additively)
+--   * click rows to select them (multi-select: Cmd/Ctrl-click toggles
+--     additively; on TOUCH, selection lives in edit mode, because a plain tap
+--     plays the track — see THE PRIMARY ACTION below)
 --   * DOUBLE-click a row (or focus it and press Return / A) to play it — the
 --     "Now playing" line above the table names the track
 --   * mouse: drag a row up or down to rearrange; wheel scrolls
@@ -238,18 +240,24 @@ function example.build(LuauUI: any, core: any, deps: any)
 		rowGap = "controls.table.rowGap",
 		header = true,
 		selection = "multi",
-		-- THE PRIMARY ACTION (parity round 2 §3.4). "Open this row" — here, play
-		-- this track. The Table reaches it on all four inputs with no gesture this
-		-- example has to invent: double-click on a mouse, Return on a keyboard, A /
-		-- Cross on a gamepad, and a SINGLE TAP on touch (a double-tap is a zoom
-		-- gesture on a phone, so the framework diverges deliberately and says so).
+		-- THE PRIMARY ACTION (parity round 2 §3.4, corrected 2026-08-13). "Open
+		-- this row" — here, play this track. The Table reaches it on all four
+		-- inputs with no gesture this example has to invent: double-click on a
+		-- mouse, Return on a keyboard, A / Cross on a gamepad, and a PLAIN SINGLE
+		-- TAP on touch — the first tap, on any row, selected or not. That is
+		-- Apple's own documented rule ("In iOS and iPadOS, tapping on the row
+		-- activates the primary action"), not a divergence; a double-tap is a
+		-- ZOOM gesture on a phone, which is why nobody uses it to open things.
 		--
-		-- THE TOUCH DIVERGENCE HAS A PRICE, AND THIS EXAMPLE PAYS IT: in `multi`,
-		-- a touch tap on an already-selected row used to be the DESELECT gesture,
-		-- and declaring a primary action spends it on playing instead — for this
-		-- table only, because this table's author declared that its rows open.
-		-- Clearing a selection on touch is still exact through the table's own
-		-- `api.clearSelection`. See `src/controls/table.luau`'s divergence note.
+		-- THE PRICE, AND THIS EXAMPLE PAYS IT: once a table declares a primary
+		-- action, a normal-mode touch tap no longer selects at all — it opens,
+		-- and leaves any existing selection exactly alone. Touch selection moves
+		-- into EDIT MODE, which is also where multi's tap-to-DESELECT lives. That
+		-- is the same trade Apple makes deliberately.
+		--
+		-- THE COROLLARY, which matters more than the rule: if a table's dominant
+		-- touch use is SELECTING rather than opening, do not declare a primary
+		-- action on it at all. See `src/controls/table.luau`'s primary-action note.
 		onPrimaryAction = function(item: any, _key: string)
 			nowPlaying:set(item.name)
 		end,

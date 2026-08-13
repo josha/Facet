@@ -465,17 +465,48 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		end
 	end)
 
-	it("multi-select: tapping two rows keeps BOTH selected (additive toggle)", function()
-		local core, adapter, presenter, built = playlistWorld()
-		local first = built.rows:get()[1].id
-		local second = built.rows:get()[2].id
-		adapter.tap(rowHit(first))
-		adapter.tap(rowHit(second))
-		presenter.refresh()
-		expect(adapter.node(rowHit(first)).props.selected).toBe(true)
-		expect(adapter.node(rowHit(second)).props.selected).toBe(true)
-		expect(core:lastError()).toBeNil()
-	end)
+	-- RE-POINTED 2026-08-13 with Table's touch contract. This example declares
+	-- `onPrimaryAction`, so under Apple's documented rule a plain tap OPENS a row
+	-- and EDIT MODE is where touch selection lives (`EditMode`; HIG Lists and
+	-- tables). The old body drove `adapter.tap` with NO meta — the table's
+	-- unknown-device fallback, which is the touch idiom — and asserted additive
+	-- selection; that is now the edit-mode gesture, so the case drives the
+	-- example's OWN auto-shown Edit toggle first and proves the same additive
+	-- multi-select through the surface a phone player actually reaches. No
+	-- assertion was dropped: both rows are still asserted selected, and the
+	-- deselect half (the gesture the rule gives back) is asserted on top.
+	it(
+		"multi-select on touch: EDIT MODE is where taps select, and both rows stay selected (additive toggle)",
+		function()
+			local ex = require("../examples/gallery/examples/02_playlist_table")
+			local core, _, adapter, presenter, deps = makeHarness()
+			local built = ex.build(LuauUI, core, deps)
+			presenter.present(built.screen, built.present)
+			presenter.refresh()
+			local first = built.rows:get()[1].id
+			local second = built.rows:get()[2].id
+			-- the Edit affordance auto-shows for a touch session (the same gate the
+			-- reorder case below drives); it is the surface a phone player reaches
+			deps.env:set("preferredInput", "Touch")
+			presenter.refresh()
+			local togglePath = "/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle"
+			adapter.touchTap(togglePath)
+			presenter.refresh()
+			adapter.touchTap(rowHit(first))
+			adapter.touchTap(rowHit(second))
+			presenter.refresh()
+			expect(adapter.node(rowHit(first)).props.selected).toBe(true)
+			expect(adapter.node(rowHit(second)).props.selected).toBe(true)
+			-- nothing played: activation is unreachable in edit mode, on purpose
+			expect(built.nowPlaying:get()).toBeNil()
+			-- and the gesture the new rule GIVES BACK: a second tap deselects
+			adapter.touchTap(rowHit(second))
+			presenter.refresh()
+			expect(adapter.node(rowHit(second)).props.selected).toBeFalsy()
+			expect(adapter.node(rowHit(first)).props.selected).toBe(true)
+			expect(core:lastError()).toBeNil()
+		end
+	)
 
 	-- THE PRIMARY ACTION ON A TUTORIAL EXAMPLE (parity round 2 §3.4). The
 	-- four-input proof for the Table's own gesture table lives in
@@ -548,26 +579,25 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(built.nowPlaying:get()).toBeNil()
 	end)
 
-	it(
-		"onPrimaryAction: on TOUCH a second tap on the already-selected row plays it (the documented divergence)",
-		function()
-			local _, adapter, presenter, built, _, clock = playingWorld()
-			local key = built.rows:get()[3].id
-			local name = built.rows:get()[3].name
-			adapter.touchTap(rowHit(key))
-			presenter.refresh()
-			expect(built.nowPlaying:get()).toBeNil()
-			expect(adapter.node(rowHit(key)).props.selected).toBe(true)
-			-- an arbitrarily long pause: on touch this is a MODE, not a measurement
-			clock.t += 30
-			adapter.touchTap(rowHit(key))
-			presenter.refresh()
-			expect(built.nowPlaying:get()).toBe(name)
-			-- the price this example pays, on the record: in `multi` that second tap
-			-- used to DESELECT, and the row is deliberately still selected
-			expect(adapter.node(rowHit(key)).props.selected).toBe(true)
-		end
-	)
+	it("onPrimaryAction: on TOUCH the FIRST plain tap plays the track (Apple's iOS/iPadOS rule)", function()
+		local _, adapter, presenter, built, _, clock = playingWorld()
+		local key = built.rows:get()[3].id
+		local name = built.rows:get()[3].name
+		adapter.touchTap(rowHit(key))
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBe(name)
+		-- THE PRICE THIS EXAMPLE PAYS, ON THE RECORD: a normal-mode tap does not
+		-- select at all any more — selection retreats into edit mode, which is
+		-- exactly what Apple documents once a primary action is declared
+		expect(adapter.node(rowHit(key)).props.selected).toBeFalsy()
+		-- and touch activation is a MODE, not a measurement: a second tap after an
+		-- arbitrarily long pause plays it again rather than doing something else
+		local other = built.rows:get()[2].id
+		clock.t += 30
+		adapter.touchTap(rowHit(other))
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBe(built.rows:get()[2].name)
+	end)
 
 	it("Restore puts the playlist back INCLUDING what was playing", function()
 		local _, adapter, presenter, built, _, clock = playingWorld()

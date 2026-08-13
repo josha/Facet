@@ -119,11 +119,20 @@ local registry: { Entry } = {
 		-- `onPrimaryAction` (parity round 2 §3.4) is a SECOND interactive verb on
 		-- the same rows — "open this", as distinct from "select this" — so it
 		-- carries its own device-true case in every one of the four classes.
-		-- Touch DIVERGES from the pointer idiom on purpose (tap an
-		-- already-selected row; any tap when `selection = "none"`), because a
-		-- double-TAP is not a touch gesture and a blanket single tap would make
-		-- every selection open a row; the divergence is written down in
-		-- table.luau beside the dispatch and proved by the touch citations below.
+		-- Touch follows Apple's documented model rather than the pointer one: a
+		-- plain SINGLE TAP activates, and EDIT MODE is the touch selection mode
+		-- (`contextMenu(forSelectionType:menu:primaryAction:)` + `EditMode`; a
+		-- double-TAP is documented as ZOOM and was never a candidate). All THREE
+		-- halves are cited below — the tap case is the activation reachability
+		-- proof, the edit-mode case is the price and the escape, and the third is
+		-- the proof that the escape is REACHABLE on the table shape that has no
+		-- other reason to offer it (selectable + primary action + NOT reorderable:
+		-- the auto Edit/Done toggle used to appear for `reorderable` alone, which
+		-- left touch SELECTION unreachable on exactly that shape, 2026-08-13). A
+		-- capability whose only route is edit mode is not proven by a case that
+		-- reaches edit mode for an unrelated reason, so the edit-mode case above it
+		-- does not stand in for this one. The rule is written down in table.luau
+		-- beside the dispatch and beside the toggle predicate.
 		inputProofs = {
 			pointer = {
 				"header taps cycle the owner-held sortOrder; the table never sorts the data",
@@ -135,8 +144,10 @@ local registry: { Entry } = {
 			touch = {
 				"a TOUCH drag on the grip previews and commits the new column width",
 				"a TOUCH grip drag clamps to the column minWidth",
-				"Table touch: the first tap selects and the SECOND tap on the same (selected) row opens it",
-				'Table touch: with selection = "none" a single tap opens, because there is no selected state to reach',
+				"Table touch: a plain single tap on a row activates it — the first tap, on any row",
+				"Table touch: EDIT MODE is the selection mode — tap toggles selection (multi's DESELECT is back) and never opens",
+				'Table touch: with selection = "none" a single tap opens, exactly as it does in every other mode',
+				"Table touch: a selectable NON-reorderable table with a primary action can still be put into edit mode, so touch can select at all",
 			},
 			keyboard = {
 				"keyboard Down + Return select the focused row",

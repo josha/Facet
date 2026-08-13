@@ -970,11 +970,31 @@ end)
 -- the code under test. The slow-pair case below only bites with a scripted one.
 -- =============================================================================
 describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamepad", function()
-	local function primaryWorld(opts: { selection: string?, rows: number? }?)
+	-- THE FIXTURE CARRIES A REAL ENVIRONMENT, and every case says which INPUT it
+	-- is a phone/desktop/pad session of. The auto Edit/Done toggle is gated on the
+	-- live interaction classes (ADR-0015), so a fixture with no `env` would mount
+	-- the toggle in EVERY case — including the mouse ones, where the whole point
+	-- is that it must not appear. `input` defaults to "mouse" because that is what
+	-- the pointer/keyboard/gamepad cases below are sessions of.
+	local function primaryWorld(opts: {
+		selection: string?,
+		rows: number?,
+		reorderable: boolean?,
+		input: string?,
+		primaryAction: boolean?,
+		ownEditing: boolean?,
+	}?)
 		local o = opts or {}
 		local core = LuauUI.newCore()
 		local env = LuauUI.newEnvironment(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		if o.input == "touch" then
+			env:set("preferredInput", "Touch")
+			env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		else
+			env:set("preferredInput", "KeyboardAndMouse")
+			env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
+		end
 		local system = LuauUI.newActionSystem(core)
 		local adapter = fake_target.new()
 		local clock = { t = 100 }
@@ -984,6 +1004,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			end,
 		})
 		local opened: { { key: string, name: string } } = {}
+		local ownedEditing = if o.ownEditing then core:signal(false) else nil
 		local rows = core:signal(bigRows(o.rows or 3))
 		local tbl = table_control.build(LuauUI, core, {
 			id = "T",
@@ -1003,9 +1024,22 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			},
 			selection = o.selection or "single",
 			rowHeight = 40,
-			onPrimaryAction = function(item: any, key: string)
-				table.insert(opened, { key = key, name = item.name })
-			end,
+			-- `reorderable` is what auto-shows the table's own Edit/Done toggle, and
+			-- edit mode is where touch selection lives under the Apple rule below —
+			-- so the edit-mode cases need a table a phone player can actually put
+			-- INTO edit mode, through the control's own affordance.
+			reorderable = o.reorderable,
+			onReorder = if o.reorderable then function() end else nil,
+			env = env,
+			-- the CONSUMER-OWNED escape, built on THIS world's core so the signal the
+			-- table observes and the signal the case flips are the same object under
+			-- the same scheduler
+			editing = ownedEditing,
+			onPrimaryAction = if o.primaryAction == false
+				then nil
+				else function(item: any, key: string)
+					table.insert(opened, { key = key, name = item.name })
+				end,
 		})
 		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
 		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
@@ -1014,6 +1048,8 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		expect(#handle.controller.diagnostics()).toBe(0)
 		return {
 			core = core,
+			env = env,
+			ownedEditing = ownedEditing,
 			system = system,
 			adapter = adapter,
 			pres = pres,
@@ -1023,6 +1059,7 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 			clock = clock,
 		}
 	end
+	local TOGGLE = "/S/T/Main/ToggleWhen/then/Toolbar/EditToggle"
 
 	local function mouseTap(w: any, key: string)
 		local rect = w.adapter.node(hit(key)).rect
@@ -1089,62 +1126,256 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		expect(#w.opened).toBe(0)
 	end)
 
-	it("Table touch: the first tap selects and the SECOND tap on the same (selected) row opens it", function()
-		local w = primaryWorld()
+	-- ===== TOUCH: APPLE'S DOCUMENTED MODEL, NOT AN INVENTED ONE ==============
+	-- `contextMenu(forSelectionType:menu:primaryAction:)`, verbatim: "In iOS and
+	-- iPadOS, tapping on the row activates the primary action. To select a row
+	-- without performing an action, either enter edit mode or hold shift or
+	-- command on a keyboard while tapping the row." So a plain tap OPENS, and
+	-- EDIT MODE is where touch selection lives (`EditMode`: "On devices without
+	-- an attached keyboard and mouse or trackpad, people can make multiple
+	-- selections in lists only when edit mode is active"; HIG Lists and tables:
+	-- "In iOS and iPadOS, people must enter an edit mode before they can select
+	-- table items"). Both halves are cases below, because the price of the first
+	-- is only acceptable BECAUSE of the second.
+
+	it("Table touch: a plain single tap on a row activates it — the first tap, on any row", function()
+		local w = primaryWorld({ input = "touch" })
 		w.adapter.touchTap(hit("r2"))
-		expect(#w.opened).toBe(0)
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
-		-- an arbitrarily long pause: this is a mode, not a measurement
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r2")
+		expect(w.opened[1].name).toBe("Row 2")
+		-- a DIFFERENT row opens on ITS first tap too: there is no per-row state
+		-- to enter first, which is the whole substance of the change
+		w.adapter.touchTap(hit("r3"))
+		expect(#w.opened).toBe(2)
+		expect(w.opened[2].key).toBe("r3")
+		-- and touch activation is a MODE, not a MEASUREMENT: the same row opens
+		-- again after an arbitrarily long pause (no double-click window on touch)
 		w.clock.t += 30
-		w.adapter.touchTap(hit("r2"))
-		expect(#w.opened).toBe(1)
-		expect(w.opened[1].key).toBe("r2")
-		-- the row it opened is STILL selected — a second tap in `multi` would
-		-- otherwise deselect exactly the row it just opened
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		w.adapter.touchTap(hit("r3"))
+		expect(#w.opened).toBe(3)
+		expect(w.opened[3].key).toBe("r3")
+		expect(#w.handle.controller.diagnostics()).toBe(0)
 	end)
 
-	it("Table touch: a tap on a row that is NOT yet selected only selects it — every input's first tap is a selection", function()
-		local w = primaryWorld({ selection = "multi" })
-		w.adapter.touchTap(hit("r1"))
-		w.adapter.touchTap(hit("r2"))
-		expect(#w.opened).toBe(0) -- two additive selections, nothing opened
-		expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
-		-- and now the already-selected row opens, without disturbing either
-		w.adapter.touchTap(hit("r2"))
-		expect(#w.opened).toBe(1)
-		expect(w.opened[1].key).toBe("r2")
-		expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
-		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
-	end)
+	-- THE PRICE OF THE APPLE RULE, PINNED RATHER THAN HIDDEN (see the note in
+	-- table.luau). With a primary action declared, touch loses tap-to-select in
+	-- normal mode ENTIRELY — including the SINGLE selection iOS 16+ would
+	-- otherwise allow by tap. Apple accepts that deliberately; so do we, and the
+	-- corollary is written down beside the rule: a table whose dominant touch use
+	-- is SELECTING rather than OPENING should not declare `onPrimaryAction` at
+	-- all. The "and only on that table" half is the no-action case at the end of
+	-- this block, where every touch tap still selects exactly as it always did.
+	it(
+		"Table touch: THE COST — a normal-mode tap opens WITHOUT selecting, and leaves an existing selection exactly alone",
+		function()
+			for _, mode in { "single", "multi" } do
+				local w = primaryWorld({ selection = mode, input = "touch" })
+				-- the table genuinely CAN hold a selection in this fixture — proven
+				-- here, so the assertions below are about the tap and not about a
+				-- table that was never able to select in the first place
+				w.tbl.api.select("r3")
+				expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+				w.adapter.touchTap(hit("r1"))
+				expect(#w.opened).toBe(1)
+				expect(w.opened[1].key).toBe("r1")
+				-- the tap neither added r1, nor replaced r3 with it, nor cleared
+				expect(w.tbl.api.selectedKeys:get().r1).toBeNil()
+				expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+				-- tapping the SELECTED row opens it too, and still does not toggle it
+				w.adapter.touchTap(hit("r3"))
+				expect(#w.opened).toBe(2)
+				expect(w.opened[2].key).toBe("r3")
+				expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
+				expect(#w.handle.controller.diagnostics()).toBe(0)
+			end
+		end
+	)
 
-	-- THE PRICE OF THE TOUCH RULE, PINNED RATHER THAN HIDDEN (see the divergence
-	-- note in table.luau). In `multi`, a tap on a selected row USED TO be the
-	-- deselect gesture. Declaring `onPrimaryAction` spends that gesture on
-	-- opening — for that table only, and only because its author declared that
-	-- its rows open. This test exists so the trade is a decision on the record
-	-- rather than a surprise in a bug report.
-	it("Table touch: declaring onPrimaryAction spends multi's tap-to-DESELECT gesture, and only on that table", function()
-		local withAction = primaryWorld({ selection = "multi" })
-		withAction.adapter.touchTap(hit("r1"))
-		withAction.adapter.touchTap(hit("r1"))
-		expect(withAction.tbl.api.selectedKeys:get().r1).toBe(true) -- opened, not deselected
-		expect(#withAction.opened).toBe(1)
-		-- the consumer-side escape is unchanged and still exact
-		withAction.tbl.api.clearSelection()
-		expect(withAction.tbl.api.selectedKeys:get().r1).toBe(nil)
-	end)
+	it(
+		"Table touch: EDIT MODE is the selection mode — tap toggles selection (multi's DESELECT is back) and never opens",
+		function()
+			local w = primaryWorld({ selection = "multi", reorderable = true, input = "touch" })
+			local toggle = TOGGLE
+			-- a phone player reaches edit mode through the table's OWN affordance
+			expect(w.tbl.api.editing:get()).toBe(false)
+			w.adapter.touchTap(toggle)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(true)
+			w.adapter.touchTap(hit("r2"))
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(#w.opened).toBe(0) -- activation is unreachable here, on purpose
+			w.adapter.touchTap(hit("r1"))
+			expect(w.tbl.api.selectedKeys:get().r1).toBe(true) -- additive, as multi is
+			expect(#w.opened).toBe(0)
+			-- THE RESTORED GESTURE: a second tap on a selected row DESELECTS it. This
+			-- is the gesture the old tap-to-open rule spent; edit mode gives it back.
+			w.adapter.touchTap(hit("r2"))
+			expect(w.tbl.api.selectedKeys:get().r2).toBeNil()
+			expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+			expect(#w.opened).toBe(0)
+			-- Done, and the plain tap opens again — the mode is a mode, not a latch
+			w.adapter.touchTap(toggle)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(false)
+			w.adapter.touchTap(hit("r2"))
+			expect(#w.opened).toBe(1)
+			expect(w.opened[1].key).toBe("r2")
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
 
-	it('Table touch: with selection = "none" a single tap opens, because there is no selected state to reach', function()
-		local w = primaryWorld({ selection = "none" })
+	it('Table touch: with selection = "none" a single tap opens, exactly as it does in every other mode', function()
+		local w = primaryWorld({ selection = "none", input = "touch" })
 		w.adapter.touchTap(hit("r3"))
 		expect(#w.opened).toBe(1)
 		expect(w.opened[1].key).toBe("r3")
 		w.adapter.touchTap(hit("r1"))
 		expect(#w.opened).toBe(2)
 		expect(w.opened[2].key).toBe("r1")
+		expect(#w.handle.controller.diagnostics()).toBe(0)
 	end)
+
+	-- ===== THE ROUTE INTO EDIT MODE HAS TO EXIST, OR TOUCH SELECTION DOESN'T ==
+	-- Moving touch selection into edit mode only keeps `selection` reachable on a
+	-- phone if the phone player can REACH edit mode. The auto Edit/Done toggle used
+	-- to appear for `reorderable` tables and nothing else, which left a selectable,
+	-- primary-action, NON-reorderable table with no route at all: every tap opened,
+	-- and no affordance existed to stop them opening. Apple ships `EditButton` as a
+	-- standard control for exactly this reason. The predicate the toggle now uses —
+	-- "edit mode is the ONLY route to a capability this table declares, and the
+	-- consumer has not taken the signal over" — is stated in table.luau's header and
+	-- pinned from all four sides here: the shape that NEEDS it, and the three shapes
+	-- that must not grow a button (mouse session, nothing to select, nothing that
+	-- opens) plus the consumer-owned escape.
+
+	it(
+		"Table touch: a selectable NON-reorderable table with a primary action can still be put into edit mode, so touch can select at all",
+		function()
+			local w = primaryWorld({ selection = "multi", input = "touch" })
+			-- the table is genuinely selectable — proven through the model, so what
+			-- follows is a statement about the GESTURE and not about a table that could
+			-- never select in the first place
+			w.tbl.api.select("r1")
+			expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+			w.tbl.api.clearSelection()
+			expect(w.tbl.api.selectedKeys:get().r1).toBeNil()
+			-- ...and in NORMAL mode a finger cannot say it: every tap opens instead
+			w.adapter.touchTap(hit("r2"))
+			expect(#w.opened).toBe(1)
+			expect(w.tbl.api.selectedKeys:get().r2).toBeNil()
+			-- THE ROUTE: the table's own affordance, mounted on a touch session even
+			-- though nothing about this table is reorderable
+			expect(w.adapter.node(TOGGLE) ~= nil).toBe(true)
+			expect(w.adapter.node(TOGGLE).props.label).toBe("Edit")
+			w.adapter.touchTap(TOGGLE)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(true)
+			expect(w.adapter.node(TOGGLE).props.label).toBe("Done")
+			-- and NOW a finger can select, which is the entire point
+			w.adapter.touchTap(hit("r2"))
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			w.adapter.touchTap(hit("r3"))
+			expect(w.tbl.api.selectedKeys:get().r3).toBe(true) -- additive, as multi is
+			expect(#w.opened).toBe(1) -- still the one from normal mode: edit taps never open
+			-- Done returns the table to opening, with the selection it just made intact
+			w.adapter.touchTap(TOGGLE)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(false)
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			w.adapter.touchTap(hit("r2"))
+			expect(#w.opened).toBe(2)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	it(
+		"the auto toggle stays OFF a mouse session: a click already selects, so there is nothing edit mode is the only route to",
+		function()
+			local w = primaryWorld({ selection = "multi", input = "mouse" })
+			expect(w.adapter.node(TOGGLE)).toBe(nil)
+			-- the reason it is absent, asserted rather than assumed: a plain mouse click
+			-- selects this table in NORMAL mode
+			local rect = w.adapter.node(hit("r2")).rect
+			w.adapter.tap(hit("r2"), { source = "pointer", pointer = "mouse", x = rect.x + 1, y = rect.y + 1 })
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(#w.opened).toBe(0)
+			-- and it ARRIVES the moment a touch capability goes live mid-session
+			-- (ADR-0015: affordances follow the live class set, never a stale preference)
+			w.env:set("capabilities", { keyboard = true, mouse = true, touch = true, gamepad = false })
+			w.pres.refresh()
+			expect(w.adapter.node(TOGGLE) ~= nil).toBe(true)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	it(
+		'the auto toggle stays off a touch table with selection = "none": edit mode is the only route to NOTHING there',
+		function()
+			local w = primaryWorld({ selection = "none", input = "touch" })
+			expect(w.adapter.node(TOGGLE)).toBe(nil)
+			-- and the same table, made selectable, grows one — so the absence above is
+			-- the `selection` half of the predicate and not the fixture being inert
+			local selectable = primaryWorld({ selection = "single", input = "touch" })
+			expect(selectable.adapter.node(TOGGLE) ~= nil).toBe(true)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	it(
+		"the auto toggle stays off a touch table with NO primary action — the shipped RascalRally racer-list shape",
+		function()
+			-- `selection = "single"`, no `onPrimaryAction`, not `reorderable`: a plain tap
+			-- still SELECTS in normal mode, so edit mode is the only route to nothing and
+			-- a button here would be a visible regression on a shipped game screen.
+			local w = primaryWorld({ selection = "single", primaryAction = false, input = "touch" })
+			expect(w.adapter.node(TOGGLE)).toBe(nil)
+			w.adapter.touchTap(hit("r2"))
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true) -- reachable without edit mode
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	it(
+		"the auto toggle stays off when the CONSUMER owns the editing signal — their affordance, their business",
+		function()
+			local w = primaryWorld({ selection = "multi", input = "touch", ownEditing = true })
+			expect(w.adapter.node(TOGGLE)).toBe(nil)
+			-- and the consumer's own signal still drives the mode it owns: edit mode is
+			-- reachable, just not through a button the table planted
+			w.ownedEditing:set(true)
+			w.pres.refresh()
+			w.adapter.touchTap(hit("r2"))
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(#w.opened).toBe(0)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	it(
+		"control-owned edit mode CANCELS when touch leaves the session, exactly as it does for a reorderable table",
+		function()
+			-- the toggle unmounts when neither touch nor gamepad is live; a control-owned
+			-- `editing` left standing would strand the table in edit mode with no way out
+			-- (a wedge). Widening which tables auto-show the toggle widens this too.
+			local w = primaryWorld({ selection = "multi", input = "touch" })
+			w.adapter.touchTap(TOGGLE)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(true)
+			-- pure pointer: touch AND gamepad both gone, preference included (a live
+			-- `preferredInput = "Touch"` forces the touch class on by itself)
+			w.env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
+			w.env:set("preferredInput", "KeyboardAndMouse")
+			w.pres.refresh()
+			expect(w.adapter.node(TOGGLE)).toBe(nil)
+			expect(w.tbl.api.editing:get()).toBe(false)
+			-- and the table is back to its normal-mode behaviour, not stuck mid-mode
+			local rect = w.adapter.node(hit("r2")).rect
+			w.adapter.tap(hit("r2"), { source = "pointer", pointer = "mouse", x = rect.x + 1, y = rect.y + 1 })
+			expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
 
 	it("Table keyboard: Return on the focused row fires onPrimaryAction for THAT row", function()
 		local w = primaryWorld()

@@ -173,15 +173,23 @@ export type Spec = {
 	reorderable: boolean?,
 	onReorder: ((keys: { string }, toIndex: number) -> ())?,
 	dragLabel: ((item: any) -> string)?, -- ghost chip text (default: the key)
-	-- THE PRIMARY ACTION (SwiftUI `onPrimaryAction`; parity round 2 §3.4).
+	-- THE PRIMARY ACTION (parity round 2 §3.4). THE NAME IS OURS: SwiftUI has no
+	-- `onPrimaryAction` symbol — it delivers this verb as the `primaryAction:`
+	-- argument of `contextMenu(forSelectionType:menu:primaryAction:)`, whose
+	-- documented gesture model is what the dispatch below implements.
 	-- "Open this row" — the verb that is NOT selection. Reachable on all four
-	-- inputs with no invented gesture (see `firePrimaryAction` below for the
-	-- gesture table and the touch divergence). Absent = the table has no
-	-- primary action and every gesture below behaves exactly as it does today.
+	-- inputs with no invented gesture (see the primary-action block below for the
+	-- gesture table, Apple's own words, and the cost of the touch rule). Absent =
+	-- the table has no primary action and every gesture below behaves exactly as
+	-- it does today.
 	onPrimaryAction: ((item: any, key: string) -> ())?,
-	-- touch-scroll design (2026-07-20): owner-held edit-mode signal. nil +
-	-- reorderable => the table manages its own (api.editing) and auto-shows
-	-- an Edit/Done toggle (gated to non-mouse input when `env` is provided).
+	-- touch-scroll design (2026-07-20): owner-held edit-mode signal. When it is
+	-- nil the table manages its own (api.editing), and auto-shows an Edit/Done
+	-- toggle whenever edit mode is the ONLY route to a capability this table
+	-- declares — `reorderable`, or a selectable table that declares
+	-- `onPrimaryAction` (gated to non-mouse input when `env` is provided). The
+	-- full predicate, the principle behind it, and what Apple does and does not
+	-- document about `EditButton` are at THE AUTO EDIT/DONE TOGGLE below.
 	editing: any?,
 	env: any?, -- optional environment for input-aware affordances
 	-- Task 10 (row-actions Table integration). Per-item callback: return
@@ -450,13 +458,81 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	local function clampScroll(value: number, bodyHeight: number): number
 		return math.clamp(value, 0, math.max(0, contentHeight() - bodyHeight))
 	end
-	-- auto Edit/Done toggle visibility + label (see ToggleWhen below).
-	-- Keyed off the LIVE interaction-class set (ADR-0015), never
-	-- preferredInput alone: any session where touch or gamepad is live needs
-	-- the edit affordance (touch reorders by handle; gamepad grab mode starts
-	-- from edit mode), even while the engine still reports a KeyboardAndMouse
-	-- preference (director repro 2026-07-21: physical pad, stale preference).
-	local showAutoToggle = if spec.reorderable == true and spec.editing == nil
+	--[[ THE AUTO EDIT/DONE TOGGLE, AND THE PRINCIPLE BEHIND IT ===================
+
+		THE PREDICATE, IN WORDS: the toggle appears when this table declares ANY
+		capability that is reachable ONLY in edit mode, and the consumer has not
+		taken the `editing` signal over. It is a UNION over the edit-mode-only
+		capability set, not a rule about any one feature — when a future capability
+		becomes edit-mode-only it joins by adding one named clause below, and
+		nothing about this decision has to be re-derived.
+
+		THE SET, TODAY, IS EXACTLY TWO (audited against every `editingSignal` read
+		in this file, 2026-08-13):
+
+		  * REORDER — the ≡ handle is `condition = editingSignal` and is the only
+		    touch route to a reorder (a touch drag on the row body is declined so
+		    the native scroll can own the pan), and gamepad grab mode refuses
+		    outright unless `editingSignal` is true. Declared by `reorderable`.
+		  * TOUCH SELECTION — under Apple's rule (THE PRIMARY ACTION, below) a plain
+		    touch tap on a table that declares `onPrimaryAction` OPENS the row and
+		    never selects, so touch selection lives in edit mode and nowhere else.
+		    Declared by `selection ~= "none"` TOGETHER WITH `onPrimaryAction`:
+		    either alone leaves selection reachable by a plain tap.
+
+		WHAT IS NOT IN THE SET, and why the union is a judgement rather than a
+		reflex: `spec.rowActions`' edit-mode leading minus (row_actions.luau Task 9)
+		shows in edit mode too, but it is a SECOND route to a destructive action the
+		swipe tray already reaches in normal mode on every input — an affordance,
+		not a capability. Only "no other route exists" earns a clause here.
+
+		THE SECOND CLAUSE WAS MISSING UNTIL 2026-08-13, and the omission was a
+		reachability HOLE rather than a nicety: moving touch selection into edit
+		mode RELOCATED the four-input failure instead of removing it, because a
+		`selection = "single"|"multi"` + `onPrimaryAction` + NOT-`reorderable` table
+		had no route into edit mode at all, so its own `selection` was unreachable
+		on touch entirely.
+
+		AUTO-SHOWING IT IS OURS, NOT APPLE'S — and that is worth stating plainly,
+		because the reverse is the easy assumption. `EditButton` is a control the
+		developer PLACES BY HAND (Apple's own example puts one in a `.toolbar` with
+		no condition on it), and Apple documents NO rule for when it should appear;
+		it is also iOS/iPadOS/Mac Catalyst/visionOS only. What Apple does condition
+		on declared capabilities is the CONTENT of edit mode, not the button:
+		"Because the `ForEach` in the above example defines behaviors for
+		`onDelete(perform:)` and `onMove(perform:)`, the editable list displays the
+		delete and move UI when the user taps Edit" (EditButton), and "a `List` with
+		a `ForEach` that's configured with the `onDelete(perform:)` or
+		`onMove(perform:)` modifier provides controls to delete or move list items
+		while in edit mode. On devices without an attached keyboard and mouse or
+		trackpad, people can make multiple selections in lists only when edit mode
+		is active" (EditMode). So the capability→edit-mode half is Apple's and is
+		exactly the principle above; the auto-SHOW is our own, and it is forced by a
+		bar SwiftUI does not carry: our four-input rule makes every declared verb
+		reachable on every input, and a consumer who simply forgot to place a toggle
+		would otherwise ship a table whose `selection` no finger can reach.
+
+		THE THREE SHAPES THAT MUST NOT GROW A BUTTON are the predicate read
+		backwards, and each is a case in tests/table_input.spec.luau: `selection =
+		"none"` (edit mode is the only route to nothing), no `onPrimaryAction` (a
+		plain tap still selects in normal mode — the shipped RascalRally racer
+		list), and a consumer-held `spec.editing` (their affordance, their
+		business).
+
+		`showAutoToggle` then gates the whole thing on INPUT. Keyed off the LIVE
+		interaction-class set (ADR-0015), never preferredInput alone: any session
+		where touch or gamepad is live needs the edit affordance, even while the
+		engine still reports a KeyboardAndMouse preference (director repro
+		2026-07-21: physical pad, stale preference). A mouse user reaches both
+		capabilities without it — they drag rows directly and a plain click selects
+		— so a mouse-only session shows nothing. Without an `env` the table cannot
+		know the input, so the toggle always shows.
+	]]
+	local reorderNeedsEditMode = spec.reorderable == true
+	local touchSelectionNeedsEditMode = selectionMode ~= "none" and spec.onPrimaryAction ~= nil
+	-- the union, plus the consumer's escape. ADD A CLAUSE, NEVER A SPECIAL CASE.
+	local autoEditRoute = spec.editing == nil and (reorderNeedsEditMode or touchSelectionNeedsEditMode)
+	local showAutoToggle = if autoEditRoute
 		then (if spec.env ~= nil
 			then scope:own(core:memo(function(use)
 				local classes = use(spec.env:get("interactionClasses"))
@@ -1665,11 +1741,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		UI.When({
 			id = "ToggleWhen",
 			-- built-in Edit/Done affordance (touch-scroll design): shown
-			-- automatically when reordering is on, the OWNER supplied no
-			-- editing signal, and the environment prefers a non-mouse
-			-- input (mouse users scroll with the wheel and drag directly,
-			-- so they never need edit mode). Without an env the table
-			-- cannot know the input, so the toggle always shows.
+			-- automatically when edit mode is the ONLY route to a
+			-- capability this table declares (reordering, or touch
+			-- selection on a table that declares `onPrimaryAction`), the
+			-- OWNER supplied no editing signal, and a non-mouse class is
+			-- live (mouse users scroll with the wheel, drag directly and
+			-- select by plain click, so they never need edit mode). The
+			-- whole predicate and its principle are written out at THE AUTO
+			-- EDIT/DONE TOGGLE, above. Without an env the table cannot know
+			-- the input, so the toggle always shows.
 			--
 			-- IT IS A TOOLBAR ROW, NOT A FLOATING BADGE (director round 12,
 			-- 2026-07-27: "the edit button is overlapping the table in all
@@ -1935,28 +2015,57 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		  keyboard   Return on the focused row          (meta.source == "action")
 		  gamepad    A / Cross on the focused row       (same seam — the presenter
 		                                                 binds both to Activate)
-		  touch      tap an ALREADY-SELECTED row; with `selection = "none"`,
-		             any tap
+		  touch      a plain SINGLE TAP on any row; edit mode is where touch
+		             selection lives instead
 
-		THE TOUCH RULE IS A DELIBERATE DIVERGENCE FROM THE POINTER IDIOM, and it
-		is the one that needed a decision. A blanket "single tap opens" would make
-		every selection open a row — on a table whose whole point is that you can
-		select rows — and a double-TAP is not a touch idiom (it is a zoom gesture
-		everywhere else on a phone, and it has no hover to telegraph itself with).
-		Tap-to-select-then-tap-again-to-open is a real, common mobile pattern
-		(Files, Photos, every mail app's edit mode), it needs no new gesture, and
-		it keeps touch FULLY REACHABLE rather than telling a phone player to find
-		some other affordance. With `selection = "none"` there is no "already
-		selected" state to reach, so any tap opens — which is also the only
-		behaviour a selection-less table could possibly have.
+		THE NAME IS OURS, THE TOUCH RULE IS APPLE'S. SwiftUI has no
+		`onPrimaryAction` symbol at all — it delivers this verb as the
+		`primaryAction:` argument of
+		`contextMenu(forSelectionType:menu:primaryAction:)`, whose documentation
+		is the rule implemented here, verbatim: "In macOS, a single click on a row
+		in a selectable container selects that row, and a double click performs
+		the primary action. In iOS and iPadOS, tapping on the row activates the
+		primary action. To select a row without performing an action, either enter
+		edit mode or hold shift or command on a keyboard while tapping the row."
+
+		EDIT MODE IS THE TOUCH SELECTION MODE, and that is the half that makes the
+		first half affordable — `EditMode`: "On devices without an attached
+		keyboard and mouse or trackpad, people can make multiple selections in
+		lists only when edit mode is active"; HIG Lists and tables: "In iOS and
+		iPadOS, people must enter an edit mode before they can select table
+		items". So in edit mode a tap TOGGLES selection and never opens — which
+		hands back `multi`'s tap-to-DESELECT gesture in the one mode a phone
+		player is deliberately in to manage selection. REACHING that mode is not
+		left to chance: because touch selection is edit-mode-only, declaring
+		`onPrimaryAction` on a selectable table is itself enough to auto-show
+		Table's Edit/Done toggle on a non-mouse session (THE AUTO EDIT/DONE TOGGLE,
+		above — the toggle follows the capability set, and this is one of its two
+		members). `spec.editing` / `api.editing` remains the seam for a consumer who
+		would rather own the affordance.
+
+		THE COST IS REAL AND DELIBERATE, NOT AN OVERSIGHT. With a primary action
+		declared, touch loses tap-to-select in NORMAL mode entirely — including
+		the SINGLE selection iOS 16+ would otherwise allow ("When people make a
+		single selection by tapping or clicking, the selected cell changes its
+		appearance… To enable multiple selections with tap gestures, put the list
+		into edit mode"): declaring the action is exactly what makes a list retreat
+		into edit mode for selection. Apple accepts that trade; so do we. THE
+		COROLLARY IS THE AUTHOR'S CALL: if a table's dominant touch use is
+		SELECTING rather than OPENING, the right move is not to declare
+		`onPrimaryAction` on it at all — with no action declared every gesture
+		below behaves exactly as it always did, on every input.
+
+		A double-TAP was never a candidate, and that avoidance was right: HIG
+		Gestures documents double tap as ZOOM, and watchOS explicitly warns that
+		it conflicts with list navigation.
 
 		Two things the rule deliberately does NOT do:
 		  * A modified click (Shift / Cmd / Ctrl) is a SELECTION gesture. It never
 		    opens, on any input, even if it happens to land twice inside the
 		    double-click window.
-		  * A touch tap that opens does NOT also re-toggle the selection. In
-		    `multi` the second tap would otherwise DESELECT the row it just
-		    opened, which is the one outcome nobody means.
+		  * A touch tap that opens does NOT touch the selection at all — it
+		    neither adds, replaces, nor clears. Opening is not a selection verb,
+		    and a selection made in edit mode survives the taps that open rows.
 	]]
 	-- Windows and macOS both default to 500 ms; nothing on the platform exposes
 	-- the player's own setting, so this is the honest shared default rather than
@@ -2156,13 +2265,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 		if meta == nil or meta.pointer == "touch" then
-			-- TOUCH: tap-to-select, tap-again-to-open (see firePrimaryAction's own
-			-- comment for why this diverges from the pointer idiom). The
-			-- already-selected read happens BEFORE `api.select`, because
-			-- `api.select` is what would have flipped it.
-			local reopens = selectionMode == "none" or selectedKeys:get()[rowKey] == true
-			if reopens and firePrimaryAction(rowKey) then
-				return true -- selection deliberately untouched: opening is not toggling
+			-- TOUCH, APPLE'S RULE (see the primary-action block above): a plain tap
+			-- ACTIVATES whenever a primary action is declared, and EDIT MODE is the
+			-- selection mode. The tap never falls through to `api.select` on the way
+			-- — including when the row left the data between gesture and dispatch,
+			-- where selecting a row nobody can see would be worse than nothing.
+			if spec.onPrimaryAction ~= nil and not editingSignal:get() then
+				firePrimaryAction(rowKey)
+				return true
 			end
 			api.select(rowKey)
 		elseif meta.toggle then
@@ -2723,15 +2833,13 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- touch edit-mode CANCEL to pure pointer: the auto Edit/Done toggle
 			-- unmounts when neither touch nor gamepad is live (ADR-0015). A
 			-- CONTROL-OWNED editing signal must reset with it, or the ≡ grips linger
-			-- with no way to exit (a wedge). An OWNER-held signal is the owner's
-			-- business — never touched here.
-			if
-				spec.reorderable == true
-				and spec.editing == nil
-				and editingSignal:get() == true
-				and classes.touch ~= true
-				and classes.gamepad ~= true
-			then
+			-- (or, for a selectable primary-action table, the row taps keep toggling
+			-- selection instead of opening) with no way to exit — a wedge. The
+			-- condition is `autoEditRoute`, the toggle's OWN predicate, so widening
+			-- which tables auto-show the button widens which ones can be rescued from
+			-- it by exactly the same set. An OWNER-held signal is the owner's
+			-- business — never touched here (and `autoEditRoute` is false then).
+			if autoEditRoute and editingSignal:get() == true and classes.touch ~= true and classes.gamepad ~= true then
 				editingSignal:set(false)
 			end
 		end))

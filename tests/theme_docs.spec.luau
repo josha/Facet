@@ -300,3 +300,181 @@ describe("documentation gate: the rich-skinning surface and its docs agree", fun
 		expect(problemsMentioning(result, "docs/guide/99-nope.md")).toBe(1)
 	end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- THE SWIFTUI CITATION GATE (parity round 2, 2026-08-13)
+--
+-- Claims about OUR side are reconciled against the build by three checkers.
+-- Claims about APPLE's side were guarded by nothing until this one, and a
+-- citation pass found ten of them wrong — including an API we had named after
+-- `gridCellUnsizedAxis`, a SwiftUI symbol that does not exist. Every wrong claim
+-- had stood uncited. So the rule is mechanical: a verdict row that says
+-- "SwiftUI" carries a citation id, and an id resolves to a §16 row with a page,
+-- a verbatim quote and a date.
+--
+-- The rule cannot check that a quote is TRUE. That is the point of the shape of
+-- these tests: each one proves the checker refuses a *missing* citation, never
+-- that it can judge a real one.
+-- ---------------------------------------------------------------------------
+
+local PARITY = "docs/reference/swiftui-parity.md"
+
+local GOOD_ROW = "| `zIndex` — SwiftUI controls the display order of overlapping views ([SW-01]) "
+	.. "| **Covered** | a shared box prop | — |"
+local GOOD_CITATION = "| **SW-01** | [`zIndex(_:)`](https://developer.apple.com/documentation/swiftui/view/zindex(_:)) "
+	.. "| \u{201C}Controls the display order of overlapping views.\u{201D} | iOS 13+ | 2026-08-13 |"
+
+-- A minimal parity document with the shape the checker reads: one verdict table
+-- of claims, the two rows a concurrently-running task owns (which CITATION_EXEMPT
+-- excuses, and which must therefore be present or the exemptions are stale), and
+-- a §16 citation table.
+local function parityFixture(claimRows: string, citationRows: string): string
+	return table.concat({
+		"# fixture",
+		"",
+		"| SwiftUI capability | Verdict | What LuauUI has | Evidence |",
+		"|---|---|---|---|",
+		claimRows,
+		"",
+		"| SwiftUI item | Verdict | What LuauUI has | Evidence |",
+		"|---|---|---|---|",
+		"| `Table.onPrimaryAction` (SwiftUI: the item-based context menu) | **Covered** | owned elsewhere | — |",
+		"| Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` | **Missing** | owned elsewhere | — |",
+		"",
+		"## 16. Citations — fixture",
+		"",
+		"Where a page says nothing, the row says Apple documents no behaviour here.",
+		"",
+		"| Id | Apple's page | The sentence the claim rests on | Availability | Checked |",
+		"|---|---|---|---|---|",
+		citationRows,
+		"",
+	}, "\n")
+end
+
+describe("documentation gate: every claim about SwiftUI carries a citation", function()
+	it("the live parity document passes, and cites a substantial body of Apple pages", function()
+		local result = checker.check()
+		if not result.ok then
+			error("check_docs problems:\n  " .. table.concat(result.problems, "\n  "))
+		end
+		-- a floor, so a gutted §16 cannot pass by citing nothing
+		expect(result.counts.citations).toBeGreaterThanOrEqual(100)
+	end)
+
+	it("passes on a minimal well-formed document (the fixture is not accidentally red)", function()
+		local result = checker.check({
+			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW, GOOD_CITATION) },
+		})
+		if not result.ok then
+			error("fixture should be clean:\n  " .. table.concat(result.problems, "\n  "))
+		end
+		expect(result.counts.citations).toBe(1)
+	end)
+
+	it("fails when a verdict row asserts something about SwiftUI with no citation", function()
+		local uncited = "| `Grid` — SwiftUI sizes a column to its widest cell | **Covered** | ours | — |"
+		local result = checker.check({
+			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW .. "\n" .. uncited, GOOD_CITATION) },
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "asserts something about SwiftUI with no citation")).toBe(1)
+	end)
+
+	it("fails when a cited id has no §16 row to resolve against", function()
+		local dangling =
+			"| `Layout` — SwiftUI's layout protocol defines geometry ([SW-42]) | **Missing** | — | — |"
+		local result = checker.check({
+			fileOverrides = { [PARITY] = parityFixture(GOOD_ROW .. "\n" .. dangling, GOOD_CITATION) },
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "SW-42 is cited but §16 does not define it")).toBe(1)
+	end)
+
+	it("fails when a §16 row is defined but nothing cites it", function()
+		local orphan = GOOD_CITATION
+			.. "\n| **SW-77** | [`tint(_:)`](https://developer.apple.com/documentation/swiftui/view/tint(_:)) "
+			.. "| \u{201C}Sets the tint color within this view.\u{201D} | iOS 15+ | 2026-08-13 |"
+		local result = checker.check({ fileOverrides = { [PARITY] = parityFixture(GOOD_ROW, orphan) } })
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "SW-77 is defined in §16 but nothing cites it")).toBe(1)
+	end)
+
+	it("fails when a citation carries no Apple URL, no quote, or no date", function()
+		local cases = {
+			{
+				citation = "| **SW-01** | `zIndex(_:)` | \u{201C}Controls the display order of overlapping views.\u{201D} "
+					.. "| iOS 13+ | 2026-08-13 |",
+				problem = "SW-01 has no developer.apple.com URL",
+			},
+			{
+				citation = "| **SW-01** | [`zIndex(_:)`](https://developer.apple.com/documentation/swiftui/view/zindex(_:)) "
+					.. "| it says roughly that overlapping views are ordered | iOS 13+ | 2026-08-13 |",
+				problem = "SW-01 quotes nothing",
+			},
+			{
+				citation = "| **SW-01** | [`zIndex(_:)`](https://developer.apple.com/documentation/swiftui/view/zindex(_:)) "
+					.. "| \u{201C}Controls the display order of overlapping views.\u{201D} | iOS 13+ | recently |",
+				problem = "SW-01 carries no ISO date",
+			},
+		}
+		for _, case in cases do
+			-- the anchor list still needs the convention date somewhere in the file
+			local doc = parityFixture(GOOD_ROW, case.citation) .. "\nConvention: dates are ISO, e.g. 2026-08-13.\n"
+			local result = checker.check({ fileOverrides = { [PARITY] = doc } })
+			expect(result.ok).toBe(false)
+			expect(problemsMentioning(result, case.problem)).toBe(1)
+		end
+	end)
+
+	it("fails when an exemption stops matching, or when the row it excused gets cited", function()
+		-- the row went away: the exemption is stale and must be deleted
+		local noExemptRows = table.concat({
+			"# fixture",
+			"",
+			"| SwiftUI capability | Verdict | What LuauUI has | Evidence |",
+			"|---|---|---|---|",
+			GOOD_ROW,
+			"",
+			"## 16. Citations — fixture",
+			"",
+			"Apple documents no behaviour here, where a page is silent.",
+			"",
+			"| Id | Apple's page | The sentence | Availability | Checked |",
+			"|---|---|---|---|---|",
+			GOOD_CITATION,
+			"",
+		}, "\n")
+		local gone = checker.check({ fileOverrides = { [PARITY] = noExemptRows } })
+		expect(gone.ok).toBe(false)
+		expect(problemsMentioning(gone, "matches no row")).toBe(2)
+
+		-- the debt was paid: the exempt row now carries a citation, so the
+		-- exemption is the thing that is now wrong
+		local cited = string.gsub(
+			parityFixture(GOOD_ROW, GOOD_CITATION),
+			"| `Table.onPrimaryAction` %(SwiftUI: the item%-based context menu%)",
+			"| `Table.onPrimaryAction` (SwiftUI: the item-based context menu, [SW-01])",
+			1
+		)
+		local paid = checker.check({ fileOverrides = { [PARITY] = cited } })
+		expect(paid.ok).toBe(false)
+		expect(problemsMentioning(paid, "now carries a citation")).toBe(1)
+	end)
+
+	it("fails when the parity document loses the citation convention itself", function()
+		local result = checker.check({
+			fileOverrides = { [PARITY] = "# parity\n\nNo citations, no §16, no dates.\n" },
+		})
+		expect(result.ok).toBe(false)
+		expect(problemsMentioning(result, "## 16. Citations")).toBeGreaterThanOrEqual(1)
+		expect(problemsMentioning(result, "Apple documents no behaviour here")).toBeGreaterThanOrEqual(1)
+	end)
+
+	it("names the citation obligations in the CLI's --list output", function()
+		local joined = table.concat(checker.OBLIGATIONS, "\n")
+		for _, needle in { "[SW-nn]", "swiftui-parity.md", "Apple documents no", "CITATION_EXEMPT" } do
+			expect(string.find(joined, needle, 1, true) ~= nil).toBe(true)
+		end
+	end)
+end)

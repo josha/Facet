@@ -18,7 +18,11 @@
 --   6. every LOCAL link in the two new documents resolves to a real path;
 --   7. stale language: the styling guide may not still call the package
 --      contract unshipped;
---   8. every scenario step the guide teaches still exists in the scenario.
+--   8. every scenario step the guide teaches still exists in the scenario;
+--   9. every row of docs/reference/swiftui-parity.md that asserts something
+--      about SwiftUI carries a citation id, and every id resolves to a §16 row
+--      with an Apple URL, a verbatim quote (or an explicit "Apple documents no
+--      behaviour here") and the date the page was read.
 --
 -- check(opts?) -> { ok, problems, counts }. `opts` injects synthetic drift for
 -- the checker's own tests (tests/theme_docs.spec.luau) — the same shape
@@ -271,6 +275,47 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	},
 }
 
+-- ---- SwiftUI citations (parity round 2, 2026-08-13) -----------------------
+--
+-- The parity document's whole value is a comparison, and until this check only
+-- HALF of it was guarded. Claims about LuauUI are reconciled against the build
+-- by this checker, check_prop_parity and check_registration; claims about
+-- SwiftUI were guarded by nothing, and a citation pass found ten of them wrong
+-- -- an API named after a symbol that does not exist (`gridCellUnsizedAxis`), a
+-- sizing rule attributed to Apple that Apple never documents, two Xcode
+-- features attributed to the wrong release. Every one had stood uncited, which
+-- is why nobody had opened the page.
+--
+-- So: a row in a VERDICT table that asserts something with the word "SwiftUI" in
+-- it must carry a citation id, and every id must resolve to a §16 row carrying a
+-- developer.apple.com URL, a quoted sentence (or an explicit statement that
+-- Apple documents nothing), and an ISO date. This cannot check that a quote is
+-- TRUE -- only a human opening the URL does that -- but it stops a new uncited
+-- assertion landing, which is the failure mode that produced all ten.
+--
+-- Deliberately narrow, because a noisy checker gets disabled: it fires only on a
+-- table row, only in a table whose header says "Verdict", and only when the row
+-- literally says "SwiftUI". Prose is not covered.
+local PARITY = "docs/reference/swiftui-parity.md"
+local CITE_DATE = "2026%-08%-13"
+local NO_BEHAVIOUR = "Apple documents no behaviour here"
+
+-- Rows that assert something about SwiftUI and carry no citation, with the
+-- reason. An exemption is a debt, not a permission: the checker fails when one
+-- stops matching (the row went away) AND when the exempt row starts carrying a
+-- citation (the debt was paid), so neither entry can rot here unnoticed.
+local CITATION_EXEMPT: { { match: string, why: string } } = {
+	{
+		match = "`Table.onPrimaryAction`",
+		why = "owned by the concurrently running Table task on 2026-08-13; the row quotes Apple's "
+			.. "contextMenu(forSelectionType:menu:primaryAction:) discussion inline but does not link it",
+	},
+	{
+		match = "Per-row capability opt-outs",
+		why = "same task, same day: the §13 pointer row for the selectionDisabled/deleteDisabled/moveDisabled family",
+	},
+}
+
 -- The scenario steps the guide teaches. Each must exist in BOTH the guide (so
 -- the chapter still teaches it) and the scenario (so it still exists to teach).
 local SCENARIO_STEPS = {
@@ -406,6 +451,7 @@ function check_docs.check(opts: Opts?)
 	local problems: { string } = {}
 	local anchorsChecked = 0
 	local linksChecked = 0
+	local citationsChecked = 0
 
 	local function problem(file: string, what: string, fix: string)
 		table.insert(problems, `{file}: {what}\n      fix: {fix}`)
@@ -767,12 +813,158 @@ function check_docs.check(opts: Opts?)
 		end
 	end
 
+	-- ---- 9. every SwiftUI behavioural claim carries a live citation ---------
+	local parity = read(PARITY)
+	if parity == nil then
+		problem(
+			PARITY,
+			"the SwiftUI parity document is missing",
+			"restore docs/reference/swiftui-parity.md, or drop section 9 of this checker with it"
+		)
+	else
+		local lines: { string } = {}
+		for line in string.gmatch(parity :: string .. "\n", "([^\n]*)\n") do
+			table.insert(lines, line)
+		end
+
+		-- 9a. §16 rows: `| **SW-nn** | page | quote | availability | date |`
+		local defined: { [string]: boolean } = {}
+		for _, line in lines do
+			local id = string.match(line, "^| %*%*(SW%-%d+)%*%* |")
+			if id == nil then
+				continue
+			end
+			citationsChecked += 1
+			if defined[id] then
+				problem(PARITY, `citation {id} is defined twice in §16`, "give the second one its own id")
+			end
+			defined[id] = true
+			if not contains(line, "https://developer.apple.com/") then
+				problem(
+					PARITY,
+					`citation {id} has no developer.apple.com URL`,
+					"cite the page a reader should open, or delete the citation and the claim that leans on it"
+				)
+			end
+			if string.match(line, "%d%d%d%d%-%d%d%-%d%d") == nil then
+				problem(
+					PARITY,
+					`citation {id} carries no ISO date`,
+					"append the YYYY-MM-DD you read the page on — an undated citation rots invisibly"
+				)
+			end
+			if not (contains(line, "\u{201C}") or contains(line, NO_BEHAVIOUR)) then
+				problem(
+					PARITY,
+					`citation {id} quotes nothing`,
+					`quote the sentence the claim rests on, or say "{NO_BEHAVIOUR}" — an unsupported `
+						.. "citation is worse than none, because it looks checked"
+				)
+			end
+		end
+
+		-- 9b. references resolve, and nothing is defined that nobody cites
+		local referenced: { [string]: boolean } = {}
+		for _, line in lines do
+			for id in string.gmatch(line, "%[(SW%-%d+)%]") do
+				referenced[id] = true
+				if not defined[id] then
+					problem(
+						PARITY,
+						`{id} is cited but §16 does not define it`,
+						`add the {id} row to §16 (page, verbatim quote, availability, date read)`
+					)
+				end
+			end
+		end
+		for id in defined do
+			if not referenced[id] then
+				problem(
+					PARITY,
+					`citation {id} is defined in §16 but nothing cites it`,
+					"cite it, or delete it — an unused citation is a claim that was removed without its evidence"
+				)
+			end
+		end
+
+		-- 9c. a verdict row that says "SwiftUI" carries a citation
+		local exemptSeen: { [number]: boolean } = {}
+		local inVerdictTable = false
+		for index, line in lines do
+			if string.sub(line, 1, 1) ~= "|" then
+				inVerdictTable = false
+				continue
+			end
+			if string.match(line, "^|[%s%-:|]+|$") ~= nil then
+				local header = lines[index - 1]
+				inVerdictTable = header ~= nil and contains(header, "Verdict")
+				continue
+			end
+			if not inVerdictTable or not contains(line, "SwiftUI") then
+				continue
+			end
+			local cited = contains(line, "[SW-")
+			local exempt = nil
+			for slot, entry in CITATION_EXEMPT do
+				if contains(line, entry.match) then
+					exempt = slot
+					exemptSeen[slot] = true
+					break
+				end
+			end
+			if exempt ~= nil then
+				if cited then
+					problem(
+						PARITY,
+						`the exempt row '{CITATION_EXEMPT[exempt].match}' now carries a citation`,
+						"delete its entry from CITATION_EXEMPT in tools/lune/check_docs.luau — the debt is paid"
+					)
+				end
+			elseif not cited then
+				problem(
+					PARITY,
+					`line {index} asserts something about SwiftUI with no citation`,
+					"add a [SW-nn] id and its §16 row (Apple's page, the sentence quoted verbatim, the date "
+						.. "read), or reword the row so it stops making a claim about SwiftUI"
+				)
+			end
+		end
+		for slot, entry in CITATION_EXEMPT do
+			if not exemptSeen[slot] then
+				problem(
+					PARITY,
+					`the citation exemption for '{entry.match}' matches no row`,
+					"remove it from CITATION_EXEMPT in tools/lune/check_docs.luau — the row it excused is gone"
+				)
+			end
+		end
+
+		-- 9d. the convention itself is stated where a reader will meet it
+		for _, anchor in
+			{
+				{ term = "## 16. Citations", why = "the citation table §§3-11 resolve their ids against" },
+				{ term = CITE_DATE:gsub("%%", ""), why = "the date every citation in this pass was read on" },
+				{ term = NO_BEHAVIOUR, why = "the words this document uses when Apple documents nothing" },
+			}
+		do
+			anchorsChecked += 1
+			if not contains(parity :: string, anchor.term) then
+				problem(
+					PARITY,
+					`no longer contains '{anchor.term}' ({anchor.why})`,
+					"restore it, or update the anchor list in tools/lune/check_docs.luau if the convention changed"
+				)
+			end
+		end
+	end
+
 	return {
 		ok = #problems == 0,
 		problems = problems,
 		counts = {
-			documents = 8,
+			documents = 9,
 			anchors = anchorsChecked,
+			citations = citationsChecked,
 			links = linksChecked,
 			themeExports = exportsDocumented,
 			scenarioSteps = #SCENARIO_STEPS + #RICH_SCENARIO_STEPS,
@@ -814,6 +1006,12 @@ check_docs.OBLIGATIONS = table.freeze({
 		.. "no public reusable theme-package API",
 	"every theme_authoring scenario step the guide teaches exists in the scenario, and every step in the checker's "
 		.. "list is taught by the guide",
+	-- ---- SwiftUI citations (parity round 2) --------------------------------
+	"every row of a VERDICT table in docs/reference/swiftui-parity.md that asserts something about SwiftUI carries "
+		.. "a [SW-nn] citation id (or is one of the named, self-expiring exemptions in CITATION_EXEMPT)",
+	"every [SW-nn] id cited in the parity document resolves to a §16 row, every §16 row is cited by something, and "
+		.. 'each one carries a developer.apple.com URL, a quoted sentence (or the words "Apple documents no '
+		.. 'behaviour here") and an ISO date — the citation cannot be checked for truth, only for existence',
 	-- ---- rich skinning v2 (ADR-0020 R8, ledger row RS-A15) -----------------
 	"docs/guide/README.md links 10-rich-skinning.md and that guide exists",
 	"docs/extending/skinned-control.md (the rung-3 playbook) exists",

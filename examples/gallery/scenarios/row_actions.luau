@@ -438,11 +438,12 @@ return {
 				tableModel.reorder(keys, toIndex)
 			end,
 			editing = editingSignal,
-			-- THE SECOND VERB (parity round 2 §3.4). Selecting a row and OPENING it
-			-- are different things, and this surface is where you can feel the
-			-- difference: click a row once and it is selected, DOUBLE-click (or
-			-- Return / ButtonA on the focused row, or — on touch — tap the row you
-			-- already selected) and it opens, which here means "read it". The tray
+			-- THE SECOND VERB (parity round 2 §3.4, corrected 2026-08-13).
+			-- Selecting a row and OPENING it are different things, and this surface
+			-- is where you can feel the difference: click a row once and it is
+			-- selected, DOUBLE-click (or Return / ButtonA on the focused row, or —
+			-- on touch — a PLAIN SINGLE TAP, Apple's own rule) and it opens, which
+			-- here means "read it". On touch, selection moves into edit mode. The tray
 			-- gestures are untouched: a tap that closes an open tray is consumed
 			-- before this ever runs, so swiping never opens a message by accident.
 			onPrimaryAction = function(item: any, key: string)
