@@ -441,6 +441,90 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		expect(world.core:lastError()).toBeNil()
 		teardown(world)
 	end)
+
+	--[[ THE TOUCH REVEAL, ON THE SHAPE THE DIRECTOR REPORTED ─────────────────
+		Director device round 2026-08-13, finding 2: "on iOS with touch you can
+		swipe a row (either side) to get the edit controls even if the table
+		isn't in edit mode — we lost that."
+
+		Every swipe case in this file above drives `"mouse"`. That was enough
+		while the touch model was the pointer model, and it stopped being enough
+		in parity round 2, which gave the ACTIVATE path an early `return true`
+		whenever a primary action is declared and the table is not editing. A
+		swipe is a POINTER-phase gesture and an activate is a separate dispatch,
+		so the two should not meet — but "should not" is a story, and the shape
+		the report describes (touch + primary action + not editing) had no case.
+
+		So this drives the real finger sequence on the real scenario surface,
+		both edges, and asserts the three things that have to be simultaneously
+		true: the tray reveals, edit mode is NOT a prerequisite and does not turn
+		itself on, and the primary action does NOT fire on a swipe.
+	]]
+	it(
+		"RowActions touch: a swipe reveals the tray on a table NOT in edit mode that declares a primary action",
+		function()
+			local world = tableWorld()
+			local rowHit =
+				"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+			local function trayPath(edge: string, action: string): string
+				local band = if edge == "leading" then "TrayLeading" else "TrayTrailing"
+				return `/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/{band}When/then/{band}/Action:{action}`
+			end
+			-- the preconditions this case is ABOUT, asserted rather than assumed
+			expect(world.built.report().tableEditing).toBe(false)
+			expect(world.built.report().tableOpenedKey).toBe(nil)
+			expect(world.adapter.node(trayPath("trailing", "delete"))).toBe(nil)
+
+			local rect = world.adapter.node(rowHit).rect
+			local function swipe(dxFraction: number)
+				local startX = if dxFraction < 0 then rect.x + rect.w - 8 else rect.x + 8
+				local y = rect.y + rect.h / 2
+				local dx = rect.w * dxFraction
+				world.adapter.pointerDown(rowHit, startX, y, "touch")
+				for i = 1, 8 do
+					world.adapter.pointerMove(startX + dx * (i / 8), y, "touch")
+				end
+				world.presenter.refresh()
+				world.adapter.pointerUp(startX + dx, y, "touch")
+				world.settle(120)
+			end
+
+			-- TRAILING (Apple's default edge)
+			swipe(-0.3)
+			expect(world.adapter.node(trayPath("trailing", "delete")) ~= nil).toBe(true)
+			expect(world.built.report().tableEditing).toBe(false) -- never a prerequisite, never turned on
+			expect(world.built.report().tableOpenedKey).toBe(nil) -- a swipe is not a tap
+			expect(world.built.report().tableIds[1]).toBe("m1") -- and not a reorder either
+
+			expect(world.core:lastError()).toBeNil()
+			expect(#world.handle.controller.diagnostics()).toBe(0)
+			teardown(world)
+
+			-- LEADING — "either side", in the director's words. A FRESH world,
+			-- not a second swipe on the one above: swiping the other way out of
+			-- an already-open tray is the CLOSE gesture, which would have passed
+			-- this case for entirely the wrong reason.
+			local lead = tableWorld()
+			local leadRect = lead.adapter.node(rowHit).rect
+			local startX = leadRect.x + 8
+			local y = leadRect.y + leadRect.h / 2
+			local dx = leadRect.w * 0.3
+			expect(lead.adapter.node(trayPath("leading", "read"))).toBe(nil)
+			lead.adapter.pointerDown(rowHit, startX, y, "touch")
+			for i = 1, 8 do
+				lead.adapter.pointerMove(startX + dx * (i / 8), y, "touch")
+			end
+			lead.presenter.refresh()
+			lead.adapter.pointerUp(startX + dx, y, "touch")
+			lead.settle(120)
+			expect(lead.adapter.node(trayPath("leading", "read")) ~= nil).toBe(true)
+			expect(lead.built.report().tableEditing).toBe(false)
+			expect(lead.built.report().tableOpenedKey).toBe(nil)
+			expect(lead.core:lastError()).toBeNil()
+			expect(#lead.handle.controller.diagnostics()).toBe(0)
+			teardown(lead)
+		end
+	)
 end)
 
 describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowActions)", function()

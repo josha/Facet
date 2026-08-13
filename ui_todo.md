@@ -168,3 +168,39 @@ dropped:
 - Cursor art assets for pointer hints (`CURSOR_ART` empty); touch
   reorder-vs-scroll design + gamepad grab-mode before any scrolling/console
   reorder consumer (part-2 riders).
+
+## 5. Deferred: a BLOCK table publishes a scroll path it has no host for (2026-08-13)
+
+`Table.api.scrollPath()` returns `<root>/Main/Body` unconditionally, including
+for a table built with `scrolls = false` — a table that is deliberately a BLOCK,
+whose rows are scrolled by the page around it. That node paints nothing, so the
+renderer elides it and the engine has no `ScrollingFrame` there at all. The
+gallery bootstrap's auto-bind then hands that path to
+`Table.bindNativeScroll`, which registers two `observeScroll` callbacks on it (the
+`scrollTop` CanvasPosition mirror, and — for a table with `rowActions` — the
+coordinator's scroll-closes-the-open-tray).
+
+The immediate consequence was a live crash, and that half IS fixed:
+`screen_target.observeScroll` indexed a nil instance and threw, so the shipped
+playlist example logged "'Playlist table' failed to mount" on the real client and
+abandoned its mount there. All four public scroll-seam entry points now guard a
+nil instance the way their four `indicator*` neighbours already did, pinned by
+`tests/native_scroll.spec.luau`.
+
+What is NOT fixed, and is the real design question:
+
+* a block table's `scrollTop` mirror is bound to a node that can never report a
+  scroll, so it stays 0 while the PAGE scrolls under it — and the reorder drag
+  math and keep-visible both read that mirror;
+* `rowActions`' "any scroll closes the open tray" never fires on a block table
+  for the same reason. On the playlist example you can open a tray, scroll the
+  page, and the tray rides along still open;
+* `tests/examples_gallery.spec.luau`'s "the bootstrap auto-bind reaches a
+  returned Table's api.bindNativeScroll" asserts `dump().scrollTop == 120` after
+  driving a scroll on that path — true headlessly (the fake target's handle IS
+  the node) and unreachable on the engine. The case still guards the CTRL-05a
+  regression it was written for; it just cannot speak for a block table.
+
+The likely shape of the fix is that a `scrolls = false` table either reports no
+scroll path at all, or is told which ancestor scroller owns it, so both the
+mirror and the tray-close bind to the node that actually moves.

@@ -6,7 +6,8 @@
 -- WHAT THIS TEACHES (combining the old star-rating and track-browser examples)
 --   * the Table control  — keyed rows, columns that own their cells, a header
 --   * custom cells       — an INTERACTIVE star-rating control living inside a
---                          table cell (five small buttons per row)
+--                          table cell (ONE `newRating` control per row, not five
+--                          buttons — see STAR CELL below for why that matters)
 --   * reactive cells     — each star's glyph is bound to that track's rating
 --                          signal, so a tap repaints exactly five labels and
 --                          never rebuilds the row
@@ -23,6 +24,11 @@
 --                          "play this track", the verb that is NOT selection.
 --                          Double-click on a mouse, Return on a keyboard, A /
 --                          Cross on a gamepad, a single tap on touch
+--   * SWIPE ACTIONS      — `rowActions` on BOTH edges (the iOS Mail idiom):
+--                          swipe a row left for Remove, right for Top. They work
+--                          OUTSIDE edit mode and are a DIFFERENT mechanism from
+--                          edit mode's own per-row controls; edit mode then also
+--                          shows a red ⊖ that leads to the same Remove
 --
 -- Interactions to try in the running place:
 --   * type in the Filter field to narrow the list (case-insensitive, matches
@@ -38,6 +44,11 @@
 --   * mouse: drag a row up or down to rearrange; wheel scrolls
 --   * touch: tap the Edit button (auto-shown), then drag a row's ≡ handle to
 --     rearrange; a plain drag on rows pans/scrolls the list
+--   * SWIPE a row sideways — either way, and WITHOUT entering edit mode: left
+--     reveals Remove (swipe all the way across to remove outright), right
+--     reveals Top
+--   * keyboard/gamepad reach those same two actions with no swipe to imitate:
+--     Delete on a focused row runs Remove, Shift+Return opens its action menu
 --   * gamepad: D-pad navigates the filter, rows, and stars, A (Cross on
 --     PlayStation) activates; in edit mode A grabs the focused row, D-pad moves
 --     it a slot per press, A again drops it
@@ -52,7 +63,9 @@
 local example = {}
 example.title = "Playlist Table"
 
--- the playlist data: id, display name, length in seconds, starting rating
+-- the playlist data: id, display name, starting rating (the track LENGTH
+-- column was removed 2026-08-13 — see the columns list below for the
+-- measurement that removed it; the field stays because Restore reseeds from here)
 local TRACKS = {
 	{ id = "neon", name = "Neon Straightaway", length = 214, rating = 4 },
 	{ id = "drift", name = "Drift City Nights", length = 187, rating = 3 },
@@ -61,10 +74,6 @@ local TRACKS = {
 	{ id = "photo", name = "Photo Finish", length = 201, rating = 0 },
 	{ id = "apex", name = "Apex Bloom", length = 176, rating = 3 },
 }
-
-local function formatLength(seconds: number): string
-	return string.format("%d:%02d", math.floor(seconds / 60), seconds % 60)
-end
 
 function example.build(LuauUI: any, core: any, deps: any)
 	local UI = LuauUI.UI
@@ -162,6 +171,47 @@ function example.build(LuauUI: any, core: any, deps: any)
 		return ratingControls[item.id].blueprint
 	end
 
+	-- THE SWIPE ACTIONS' COMMANDS --------------------------------------------
+	-- Both edit the SAME owner-held `baseRows` the drag-reorder drop writes, so
+	-- this example has ONE order and three ways to change it. Both are written
+	-- against the track ID rather than a row index, because a swipe can fire
+	-- from a FILTERED view where the visible index says nothing about `baseRows`.
+	local function removeTrack(id: string)
+		local out = {}
+		for _, track in baseRows:get() :: { any } do
+			if track.id ~= id then
+				table.insert(out, track)
+			end
+		end
+		baseRows:set(out)
+		-- a track that has left the playlist cannot still be the one playing
+		for _, track in TRACKS do
+			if track.id == id and nowPlaying:get() == track.name then
+				nowPlaying:set(nil)
+			end
+		end
+	end
+	-- Move-to-top IS allowed while filtered and the drag-reorder drop below is
+	-- not, and the two differ for a reason rather than by accident: a drop names
+	-- a SLOT among the visible rows and the meaning of that slot against the
+	-- hidden ones is genuinely ambiguous, while "put this at the top" names no
+	-- slot at all and reads the same whatever is on screen.
+	local function moveToTop(id: string)
+		local moved, rest = nil, {}
+		for _, track in baseRows:get() :: { any } do
+			if track.id == id then
+				moved = track
+			else
+				table.insert(rest, track)
+			end
+		end
+		if moved == nil then
+			return
+		end
+		table.insert(rest, 1, moved)
+		baseRows:set(rest)
+	end
+
 	-- THE TABLE --------------------------------------------------------------
 	-- Columns own their content: `value` renders a plain text cell; `cell`
 	-- renders any blueprint — here, the interactive star control. `rows` is the
@@ -177,14 +227,32 @@ function example.build(LuauUI: any, core: any, deps: any)
 					return item.name
 				end,
 			},
-			{
-				id = "length",
-				title = "Length",
-				width = { type = "fixed", px = 70 },
-				value = function(item)
-					return formatLength(item.length)
-				end,
-			},
+			-- NO LENGTH COLUMN, AND IT IS THE SWIPE-ACTIONS ROUND THAT REMOVED IT
+			-- (director device round 2026-08-13). A third FIXED column and a
+			-- `fill` Name column share a row, so the Name column is whatever the
+			-- fixed ones leave — and once this table gained `rowActions` with a
+			-- destructive action, EDIT MODE spends two leading gutters on a row
+			-- rather than one: 32px for the reorder ≡ plus the theme's own
+			-- `editAffordance` gutter for the red ⊖. Measured on the narrowest
+			-- viewport the overflow sweep covers (320x640, in edit mode) that
+			-- left the Name CELL 6px wide and its text 0px, and the solver said
+			-- so six times over: "content box collapses to 0px on x".
+			--
+			-- Removing the fixed 70px Length column is what gave the name room
+			-- back, and the two alternatives were measured rather than argued.
+			-- Narrowing the rating column to 120 also silenced the diagnostic but
+			-- left the name 14px — legal and still unreadable — while breaking
+			-- the measured 136px widest-touch-star-run this file documents below.
+			-- Dropping Length gives 60px of name at 320x640 and 99px at 359x718.
+			--
+			-- AND IT WAS ALREADY WRONG BEFORE THE SWIPE ACTIONS, which is the
+			-- part worth keeping: the same measurement on the shipped example at
+			-- 320x640 in edit mode gave the name 26px — about two characters, no
+			-- diagnostic, and nobody had looked. A track duration is the least
+			-- valuable thing in a row whose subject is the track's NAME, and it
+			-- taught nothing the Name column does not.
+
+			-- THE RATING COLUMN, AND WHY ITS WIDTH IS A FIXED NUMBER --------------
 			-- FIXED, and it has to be for now. The director's 2026-07-27 note —
 			-- "if the control's max width is 100px, then the hstack or table view
 			-- might give the extra space to another control, like a text field,
@@ -269,6 +337,73 @@ function example.build(LuauUI: any, core: any, deps: any)
 		-- automatically get an Edit/Done toggle (reordering by handle) while
 		-- mouse users keep direct row drags and wheel scrolling
 		env = deps and deps.env,
+		-- SWIPE ACTIONS, ON BOTH EDGES (`spec.rowActions`; SwiftUI's
+		-- `swipeActions(edge:allowsFullSwipe:content:)` — §16 [SW-37]).
+		--
+		-- THIS IS NOT EDIT MODE, AND THAT IS THE POINT. Edit mode is a MODE you
+		-- enter with the Edit button, and while it is on, rows grow a ≡ reorder
+		-- handle and taps select. Swipe actions are a per-row GESTURE that works
+		-- with the table sitting in its NORMAL state — no mode, no button, no
+		-- selection change. Apple separates the two the same way: as of the
+		-- 2026-08-13 citation pass, the `swipeActions` page says nothing about
+		-- edit mode and the `EditMode`/`EditButton` pages say nothing about
+		-- swiping. So this is a SECOND route to Remove, not a replacement for
+		-- edit mode's ⊖ — which is exactly why `table.luau`'s auto-Edit predicate
+		-- deliberately does NOT count `rowActions` as an edit-mode-only
+		-- capability (see THE AUTO EDIT/DONE TOGGLE there).
+		--
+		-- WHICH EDGE GETS WHAT. Apple's default edge is trailing — "The default
+		-- is `HorizontalEdge.trailing`" ([SW-37]) — and that is where a
+		-- destructive action belongs, so Remove is trailing and Top is leading.
+		--
+		-- FULL SWIPE, PER EDGE. "By default, the user can perform the first
+		-- action for a given swipe direction with a full swipe... You can opt out
+		-- of this behavior for an edge by setting the `allowsFullSwipe` parameter
+		-- to `false`. For example, you can disable the full swipe on the leading
+		-- edge" ([SW-37]). We take Apple's own worked example: a full trailing
+		-- swipe removes the track outright, and a full leading swipe does NOT
+		-- silently re-order the playlist — Top stays reveal-then-tap.
+		--
+		-- IT COMPOSES WITH THE PRIMARY ACTION RATHER THAN FIGHTING IT. A tap
+		-- plays the track; a sideways drag opens a tray and plays nothing; a
+		-- mostly-vertical drag still scrolls the page. The axis lock decides
+		-- which of the three a gesture is before any of them can fire
+		-- (`row_actions.composeWithReorder`), so none of them has to know about
+		-- the others.
+		--
+		-- ...AND IT IS REACHABLE WITHOUT A SWIPE. `newRowActions` binds Delete on
+		-- the focused row to its destructive action and Shift+Return to the row's
+		-- action menu, so a keyboard and a gamepad reach Remove and Top with no
+		-- gesture to imitate. That is the four-input rule, not a bonus.
+		rowActions = function(item: any)
+			-- CAPTURE THE KEY, NOT THE ROW: a row's position in `baseRows` moves
+			-- under it, and the id is the only thing that stays true.
+			local id = item.id
+			return {
+				leading = {
+					{
+						id = "top",
+						label = "Top",
+						icon = "chevron.up",
+						onAction = function()
+							moveToTop(id)
+						end,
+					},
+				},
+				trailing = {
+					{
+						id = "remove",
+						label = "Remove",
+						icon = "trash",
+						role = "destructive",
+						onAction = function()
+							removeTrack(id)
+						end,
+					},
+				},
+				fullSwipe = { leading = false, trailing = true },
+			}
+		end,
 		-- The drop contract: `keys` are the dragged rows in document order and
 		-- `toIndex` is the insertion slot among the rows NOT being dragged.
 		-- REORDER-UNDER-FILTER RULE: reordering is DISABLED while a filter is
@@ -363,7 +498,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 					filterControl.blueprint,
 					UI.Text({
 						id = "Hint",
-						text = "Type to filter · tap stars to rate · drag rows to reorder",
+						text = "Type to filter · tap stars to rate · swipe a row either way for its actions",
 						textSize = "label",
 						role = "secondary",
 					}),

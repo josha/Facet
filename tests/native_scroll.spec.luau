@@ -474,3 +474,146 @@ describe("A-SV2: the keep-visible clamp exists exactly once", function()
 		expect(fromIndex).toBe(200)
 	end)
 end)
+
+-- ===========================================================================
+-- THE ADAPTER'S OWN OBSERVER CONTRACT (2026-08-13, playlist swipe-actions round)
+-- ===========================================================================
+-- `observeScroll` is a MULTI-observer seam on the real target: ScreenTarget
+-- opens an independent `GetPropertyChangedSignal("CanvasPosition")` connection
+-- per call and hands back a closure that disconnects only that one. The fake
+-- target held a SINGLE slot, so the second registration silently replaced the
+-- first -- and `Table.bindNativeScroll` genuinely registers two on the same
+-- body path (the `scrollTop` mirror, then a `rowActions` coordinator's
+-- scroll-closes-the-tray). Headlessly the mirror went dead and reported 0.
+--
+-- These cases pin the instrument, because a fake target that cannot hold what
+-- the real one holds does not fail loudly -- it reports a wrong number.
+
+describe("fake target: observeScroll holds every observer, like the engine does", function()
+	local function scrollNode()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local bp = UI.Screen({
+			id = "S",
+			padding = 0,
+			children = {
+				UI.ScrollView({
+					id = "List",
+					height = { type = "fixed", px = 100 },
+					children = { UI.Text({ id = "R", text = "row", height = { type = "fixed", px = 400 } }) },
+				}),
+			},
+		})
+		local adapter = fake_target.new()
+		local root = mountLib.mount(core, bp)
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return adapter, controller, "/S/List"
+	end
+
+	it("TWO observers on one node BOTH fire (the single-slot bug, pinned)", function()
+		local adapter, controller, path = scrollNode()
+		local a, b = {}, {}
+		controller.observeScroll(path, function(pos)
+			table.insert(a, pos.y)
+		end)
+		controller.observeScroll(path, function(pos)
+			table.insert(b, pos.y)
+		end)
+		adapter.driveScroll(path, { x = 0, y = 40 })
+		-- the SECOND registration used to evict the first: `a` stayed empty
+		expect(#a).toBe(1)
+		expect(#b).toBe(1)
+		expect(a[1]).toBe(40)
+		expect(b[1]).toBe(40)
+	end)
+
+	it("unsubscribing one leaves the other live, and is idempotent", function()
+		local adapter, controller, path = scrollNode()
+		local a, b = {}, {}
+		local offA = controller.observeScroll(path, function(pos)
+			table.insert(a, pos.y)
+		end)
+		controller.observeScroll(path, function(pos)
+			table.insert(b, pos.y)
+		end)
+		offA()
+		offA() -- a second call must not evict SOMEBODY ELSE'S entry
+		adapter.driveScroll(path, { x = 0, y = 60 })
+		expect(#a).toBe(0)
+		expect(#b).toBe(1)
+		expect(b[1]).toBe(60)
+	end)
+
+	it("an observer that unsubscribes itself mid-fire does not skip its sibling", function()
+		local adapter, controller, path = scrollNode()
+		local seen = {}
+		local off
+		off = controller.observeScroll(path, function()
+			table.insert(seen, "first")
+			off()
+		end)
+		controller.observeScroll(path, function()
+			table.insert(seen, "second")
+		end)
+		adapter.driveScroll(path, { x = 0, y = 30 })
+		expect(table.concat(seen, ",")).toBe("first,second")
+		-- ...and the self-removal really took effect
+		adapter.driveScroll(path, { x = 0, y = 70 })
+		expect(table.concat(seen, ",")).toBe("first,second,second")
+	end)
+end)
+
+--[[ THE ENGINE ADAPTER'S NIL-INSTANCE CONTRACT (live showcase, 2026-08-13) ────
+	`src/client/screen_target.luau` is engine-only (module-level `game` requires),
+	so it cannot be mounted here — the house pattern for pinning an invariant in
+	it is a SOURCE anchor (tests/adaptive.spec.luau and tests/button_shape.spec
+	.luau both do exactly this). What is pinned is a FAMILY invariant rather than
+	one line: every function in the scroll seam must tolerate a handle whose
+	instance is nil, because the renderer elides a node that paints nothing and a
+	`Table` with `scrolls = false` still publishes `<root>/Main/Body` as its
+	scroll path. `observeScroll` was the one member that did not, and it threw on
+	the real client — "'Playlist table' failed to mount: screen_target:3338:
+	attempt to index nil with 'IsA'" — abandoning the example's mount there.
+]]
+describe("screen_target: the scroll seam tolerates an elided (instance-less) handle", function()
+	local SEAM = { "setScrollRegion", "setScrollPosition", "getScrollPosition", "observeScroll" }
+
+	it("every scroll-seam adapter function guards a nil instance before indexing it", function()
+		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		local missing = {}
+		for _, name in SEAM do
+			-- the function body from its declaration to the next top-level
+			-- `\n\tfunction ` (or end of file)
+			local from = string.find(source, `\n\tfunction adapter.{name}(`, 1, true)
+			expect(`{name} declared: {from ~= nil}`).toBe(`{name} declared: true`)
+			local rest = string.sub(source, (from :: number) + 1)
+			local nextFn = string.find(rest, "\n\tfunction adapter.", 1, true)
+			local body = if nextFn ~= nil then string.sub(rest, 1, nextFn) else rest
+			-- it must READ handle.instance (otherwise the guard question is moot
+			-- and this case would pass on a function that no longer does the job)
+			expect(`{name} reads handle.instance: {string.find(body, "handle.instance", 1, true) ~= nil}`).toBe(
+				`{name} reads handle.instance: true`
+			)
+			local guarded = string.find(body, "instance == nil", 1, true) ~= nil
+				or string.find(body, "instance ~= nil", 1, true) ~= nil
+			if not guarded then
+				table.insert(missing, name)
+			end
+		end
+		expect(`unguarded: {table.concat(missing, ",")}`).toBe("unguarded: ")
+	end)
+
+	it("...and so do the indicator helpers that share the same handle", function()
+		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- the sibling precedent the guard above is modelled on — if these ever
+		-- lose it, the "every neighbour already does this" argument is stale
+		local count = 0
+		for _ in string.gmatch(source, 'if instance == nil or not instance:IsA%("ScrollingFrame"%) then') do
+			count += 1
+		end
+		expect(count >= 6).toBe(true)
+	end)
+end)

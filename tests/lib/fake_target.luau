@@ -729,22 +729,75 @@ function fake_target.new(opts: Opts?)
 			y = math.clamp(pos.y, 0, math.max(0, (region.contentH or 0) - rect.h)),
 		}
 	end
+	--[[ MANY OBSERVERS PER NODE, BECAUSE THE ENGINE HAS MANY (2026-08-13) --------
+		This used to be ONE slot -- `handle.scrollObserver = fn` -- so a second
+		`observeScroll` on the same node silently REPLACED the first, and the
+		replaced one's unsubscribe then did nothing. `ScreenTarget.observeScroll`
+		does the opposite: it opens an INDEPENDENT `GetPropertyChangedSignal(
+		"CanvasPosition")` connection per call and returns a closure that
+		disconnects only that one -- which is why its own connection census lists
+		the CanvasPosition observer under "connections captured in closures rather
+		than stored on a handle".
+
+		The divergence was not theoretical. `Table.bindNativeScroll` registers TWO
+		observers on the SAME body path -- the `scrollTop` CanvasPosition mirror,
+		then (for a table that declares `rowActions`) the coordinator's
+		scroll-closes-the-open-tray -- and the second landing on top of the first
+		left the mirror DEAD in every headless fixture: `dump().scrollTop` read 0
+		after a scroll the engine would have reported as 120. A fake target that
+		cannot hold what the real one holds does not fail loudly; it reports a
+		wrong number confidently, which is worse.
+
+		So: a LIST, fired in registration order, each unsubscribe removing exactly
+		its own entry and idempotent (calling it twice must not evict somebody
+		else's). `handle.scrollObserver` is kept as a mirror of the FIRST live
+		registration so the handler-slot census below counts a scroll observer
+		exactly as it did before.
+	]]
+	local function fireScrollObservers(handle: any)
+		local list = handle.scrollObservers
+		if list == nil then
+			return
+		end
+		-- iterate a COPY: an observer may unsubscribe itself or a sibling while it
+		-- runs, and a live-mutated array would skip the next entry
+		for _, entry in table.clone(list) do
+			if entry.live then
+				entry.fn(handle.scrollPosition)
+			end
+		end
+	end
 	function adapter.setScrollPosition(handle: any, pos: { x: number, y: number })
 		local clamped = clampScroll(handle, pos)
 		local previous = handle.scrollPosition
 		handle.scrollPosition = clamped
 		table.insert(ops, `scrollpos {handle.path}={clamped.x},{clamped.y}`)
 		local changed = previous == nil or previous.x ~= clamped.x or previous.y ~= clamped.y
-		if changed and handle.scrollObserver ~= nil then
-			handle.scrollObserver(handle.scrollPosition)
+		if changed then
+			fireScrollObservers(handle)
 		end
 	end
 	function adapter.observeScroll(handle: any, fn: (pos: { x: number, y: number }) -> ()): () -> ()
-		handle.scrollObserver = fn
+		local list = handle.scrollObservers
+		if list == nil then
+			list = {}
+			handle.scrollObservers = list
+		end
+		local entry = { fn = fn, live = true }
+		table.insert(list, entry)
+		handle.scrollObserver = (list :: any)[1].fn
 		return function()
-			if handle.scrollObserver == fn then
-				handle.scrollObserver = nil
+			if not entry.live then
+				return
 			end
+			entry.live = false
+			for i, other in list do
+				if other == entry then
+					table.remove(list, i)
+					break
+				end
+			end
+			handle.scrollObserver = if #list > 0 then (list :: any)[1].fn else nil
 		end
 	end
 	-- engine-selection bridge (NS-A12): records the mirrored path so tests can
@@ -1088,9 +1141,7 @@ function fake_target.new(opts: Opts?)
 		local node = nodes[path]
 		assert(node ~= nil, `driveScroll: no node {path}`)
 		node.scrollPosition = clampScroll(node, pos)
-		if node.scrollObserver ~= nil then
-			node.scrollObserver(node.scrollPosition)
-		end
+		fireScrollObservers(node)
 	end
 
 	-- a captured zone that unmounts mid-drag cancels — unless the cancel

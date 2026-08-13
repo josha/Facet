@@ -170,6 +170,36 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string, why: string } } =
 			.. "docs/plans/device-bug-round-2026-08-12.md, Group B.",
 	},
 	{
+		fixture = "02_playlist_table",
+		prefix = "/Playlist/Page/Tracks/Main/Header/Head-name",
+		why = "the LENGTH COLUMN IS GONE and the `fill` Name column absorbed its 70px, header included -- "
+			.. "574 -> 644 on tablet, 1034 -> 1104 on desktop, 144 -> 214 on the phone, which is the removed "
+			.. "column's own fixed width to the pixel at every viewport. Removed on 2026-08-13 because a "
+			.. "THIRD fixed column plus edit mode's TWO leading gutters (Table's 32px reorder \u{2261} and, "
+			.. "new this round, the theme's `editAffordance` gutter for `rowActions`' red minus) solved the "
+			.. 'Name cell to 6px and its text to 0px at 320x640 -- six "content box collapses to 0px on x" '
+			.. "diagnostics. The shipped example was already spending the name down to 26px there with no "
+			.. "diagnostic and nobody looking. Narrowing the rating column to 120 was measured as the "
+			.. "alternative and rejected: it silenced the solver and still left 14px of name. Only "
+			.. "`Head-name` moves -- `Head-rating` is byte-identical, because a fill column absorbs leftover "
+			.. "at its own end. The example's own columns list carries the full measurement.",
+	},
+	{
+		fixture = "02_playlist_table",
+		prefix = "/Playlist/Page/Hint",
+		why = 'THE HINT NAMES THE SWIPE NOW (director device round 2026-08-13, finding 2: "on iOS with touch '
+			.. "you can swipe a row (either side) to get the edit controls even if the table isn't in edit "
+			.. 'mode -- we lost that"). The example gained `rowActions` on BOTH edges, so the one line of '
+			.. "on-screen teaching this page has had to say so; it used to name only the drag-reorder. "
+			.. 'A LONGER STRING IS THE WHOLE DELTA AND NOTHING REFLOWS: the label is `policy = "none"` '
+			.. "text in a fill column, so its WIDTH follows the string (495 -> 651 on desktop and tablet, "
+			.. "356 -> 330 on the phone, where it already wrapped to two lines and the second line is now "
+			.. "shorter) while its HEIGHT is byte-identical at all three viewports -- 17, 17, 34 before and "
+			.. "after. Nothing below it moves, which is why this needs no y-shift waiver to go with it. The "
+			.. "rows themselves are wrapped in a `RowActions-<key>/Content/` segment by the same change, and "
+			.. "that is already covered by this fixture's `/Playlist/` RESHAPED_SUBTREES entry below.",
+	},
+	{
 		fixture = "07_match3",
 		prefix = "/Match3/Page/Reset",
 		why = "the one consequence of the entry above, on the one viewport where the artwork Grid takes three "
@@ -236,6 +266,14 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 }
 
 local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
+	{
+		path = "/Playlist/Page/Hint",
+		why = 'the same 2026-08-13 swipe-actions change as the rect entry above: `text` only. "Type to filter '
+			.. '\u{b7} tap stars to rate \u{b7} drag rows to reorder" -> "Type to filter \u{b7} tap stars to '
+			.. 'rate \u{b7} swipe a row either way for its actions". Every other prop on the node -- role, '
+			.. "textSize, textFont -- is byte-identical, which is the point of listing the path rather than "
+			.. "waiving a prefix.",
+	},
 	{
 		path = "/Vocabulary/Name/ClearWhen/then/Clear",
 		why = 'surface="" -> chip: from the same iPhone 15 Pro pass. With the default control surface the '
@@ -329,7 +367,18 @@ local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = 
 			.. "example now wraps its content in a page `UI.ScrollView` and the table is a BLOCK "
 			.. "(`scrolls = false`), so every node gains one `/Page` path segment. That segment is the whole "
 			.. "delta: no control changed, and the table's own `$`-anchored matchers still match because they "
-			.. "anchor on the table id, not on the screen root.",
+			.. "anchor on the table id, not on the screen root. "
+			.. "A SECOND SEGMENT, AND WHAT IT COSTS (2026-08-13, swipe actions). The example now declares "
+			.. "`rowActions` on both edges, and `Table` wraps every row that has them, so a row's path gains "
+			.. "`RowActions-<key>/Content/` between its `[key@v]` ForEach slot and its own `Row/...` tree. "
+			.. "This entry therefore forgives 306 more node paths than it did, and that is a REAL loss of "
+			.. "node-for-node coverage against 0.6.0 rather than a formality -- the compared count drops "
+			.. "1773 -> 1467. It is recorded here rather than hidden because the alternative was re-pinning "
+			.. "the example fixtures a third time, which this file's header argues against for exactly this "
+			.. "reason. What replaces the lost record inside `./run-tests.sh`: "
+			.. "tests/example_readouts.spec.luau (every published readout path still resolves) and the six "
+			.. "device-round cases in tests/examples_gallery.spec.luau, which drive the wrapped rows' own "
+			.. "paths on a phone class set end to end.",
 	},
 	{
 		fixture = "02_playlist_table",

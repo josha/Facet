@@ -220,17 +220,17 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		return core, adapter, presenter, built, handle
 	end
 	local function rowHit(key: string): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/Row/Hit`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
 	end
 	-- ONE CONTROL, NOT FIVE BUTTONS (director round 10, 2026-07-26). The rating
 	-- cell is `LuauUI.newRating`, so the glyphs are Texts under a single Grip:
 	-- `star()` still names a glyph to READ, but there is nothing to tap there —
 	-- every input class lands on the strip.
 	local function star(key: string, index: number): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/Row/Cells/Cell-rating/Rating/Stars/Star{index}`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Cells/Cell-rating/Rating/Stars/Star{index}`
 	end
 	local function ratingStrip(key: string): string
-		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/Row/Cells/Cell-rating/Rating/Strip`
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Cells/Cell-rating/Rating/Strip`
 	end
 	local FILTER_FIELD = "/Playlist/Page/Filter/Field"
 	local FILTER_CLEAR = "/Playlist/Page/Filter/ClearWhen/then/Clear"
@@ -243,7 +243,10 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	local function mountedRowKeys(adapter: any, rows: any): { string }
 		local out: { string } = {}
 		for _, track in rows:get() do
-			if adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{track.id}@0]/Row`) ~= nil then
+			if
+				adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{track.id}@0]/RowActions-{track.id}/Content/Row`)
+				~= nil
+			then
 				table.insert(out, track.id)
 			end
 		end
@@ -257,13 +260,13 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		presenter.refresh()
 		expect(#built.rows:get()).toBe(1)
 		expect(built.rows:get()[1].id).toBe("drift")
-		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[drift@0]/Row`) ~= nil).toBeTruthy()
-		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon@0]/Row`)).toBe(nil)
+		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[drift@0]/RowActions-drift/Content/Row`) ~= nil).toBeTruthy()
+		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon@0]/RowActions-neon/Content/Row`)).toBe(nil)
 		-- clear through the REAL tap path restores every row
 		adapter.tap(FILTER_CLEAR)
 		presenter.refresh()
 		expect(#built.rows:get()).toBe(6)
-		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon@0]/Row`) ~= nil).toBeTruthy()
+		expect(adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[neon@0]/RowActions-neon/Content/Row`) ~= nil).toBeTruthy()
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
 	end)
@@ -271,7 +274,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	it("case-insensitive match; surviving rows keep their mounted identity (no remount)", function()
 		local core, adapter, presenter, built, handle = playlistWorld()
 		-- capture a row that survives both filters below (Apex Bloom)
-		local apexRowPath = `/Playlist/Page/Tracks/Main/Body/Rows/[apex@0]/Row`
+		local apexRowPath = `/Playlist/Page/Tracks/Main/Body/Rows/[apex@0]/RowActions-apex/Content/Row`
 		typeFilter(adapter, "A") -- upper-case query, lower-case data -> several match
 		presenter.refresh()
 		local apexBefore = adapter.node(apexRowPath)
@@ -370,18 +373,34 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		presenter.dismiss(handle)
 	end)
 
-	it("mounts an iTunes-style table: name, length, and rating columns aligned under the header", function()
+	-- The Length column was removed on 2026-08-13 (its own comment in the example
+	-- carries the measurement: with two edit-mode gutters on a row, a third fixed
+	-- column left the `fill` Name cell 6px wide at 320x640). Its "length renders
+	-- mm:ss" assertion proved that a column's `value` FUNCTION reaches its cell,
+	-- so that claim moves onto the Name column below rather than being dropped —
+	-- same mechanism, a column that still exists.
+	it("mounts an iTunes-style table: name and rating columns aligned under their headers", function()
 		local core, adapter, _, built = playlistWorld()
 		expect(core:lastError()).toBeNil()
-		local headerName = adapter.node("/Playlist/Page/Tracks/Main/Header/Head-name").rect
 		local firstKey = built.rows:get()[1].id
-		local nameCell = adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}@0]/Row/Cells/Cell-name`).rect
-		expect(nameCell.x).toBe(headerName.x)
-		expect(nameCell.w).toBe(headerName.w)
-		-- length renders mm:ss
-		local lengthText =
-			adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}@0]/Row/Cells/Cell-length/Value`)
-		expect(string.match(lengthText.props.text, "^%d+:%d%d$") ~= nil).toBeTruthy()
+		local firstName = built.rows:get()[1].name
+		local function cell(id: string): any
+			return adapter.node(
+				`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}@0]/RowActions-{firstKey}/Content/Row/Cells/Cell-{id}`
+			).rect
+		end
+		for _, id in { "name", "rating" } do
+			local header = adapter.node(`/Playlist/Page/Tracks/Main/Header/Head-{id}`).rect
+			expect(cell(id).x).toBe(header.x)
+			expect(cell(id).w).toBe(header.w)
+		end
+		-- a column's `value` function reaches its cell
+		local nameText = adapter.node(
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{firstKey}@0]/RowActions-{firstKey}/Content/Row/Cells/Cell-name/Value`
+		)
+		expect(nameText.props.text).toBe(firstName)
+		-- and the `fill` column really is the one absorbing the leftover
+		expect(cell("name").w > cell("rating").w).toBe(true)
 	end)
 
 	-- CTRL-05a (api-architecture-consistency F-24). The gallery bootstrap's
@@ -653,14 +672,16 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		presenter.refresh()
 		local first = built.rows:get()[1].id
 		local second = built.rows:get()[2].id
-		local handlePath = `/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/Row/EditWhen/then/HandleZone/Handle`
+		local handlePath =
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row/EditWhen/then/HandleZone/Handle`
 		expect(adapter.node(handlePath) ~= nil).toBeTruthy()
 		local handleRect = adapter.node(handlePath).rect
 		-- DERIVED FROM THE ROW, not a literal. This drag was 60px, which crossed
 		-- one 34px row; raising rowHeight to 48 for the phone made 60px land
 		-- inside the SAME row and the test failed on a change that was correct.
 		-- A reorder test should say "past the next row", not "60 pixels".
-		local rowRect = adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/Row`).rect
+		local rowRect =
+			adapter.node(`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row`).rect
 		local dropY = handleRect.y + 5 + rowRect.h * 1.5
 		adapter.pointerDown(handlePath, handleRect.x + 5, handleRect.y + 5, "touch")
 		adapter.pointerMove(handleRect.x + 5, dropY, "touch")
@@ -693,7 +714,9 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		press("DPadDown")
 		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
 		press("DPadDown")
-		expect(presenter.focus.focused:get()).toBe(`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/Row/Hit`)
+		expect(presenter.focus.focused:get()).toBe(
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row/Hit`
+		)
 		-- right into the rating — ONE stop, not five, and the bumpers rate it.
 		-- As five buttons this was three DPadRights to cross one cell and an A
 		-- press per star; now the whole strip is the target and Adjust is the verb.
@@ -718,7 +741,9 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(built.rows:get()[1].id).toBe(second)
 		expect(built.rows:get()[2].id).toBe(first)
 		-- focus stayed with the grabbed row (key-based path)
-		expect(presenter.focus.focused:get()).toBe(`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/Row/Hit`)
+		expect(presenter.focus.focused:get()).toBe(
+			`/Playlist/Page/Tracks/Main/Body/Rows/[{first}@0]/RowActions-{first}/Content/Row/Hit`
+		)
 		press("ButtonA")
 		expect(built.table_.api.grabbedKey:get()).toBeNil()
 		expect(core:lastError()).toBeNil()
@@ -740,7 +765,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local first = built.rows:get()[1].id
 		local second = built.rows:get()[2].id
 		local function hitOf(key: string): string
-			return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/Row/Hit`
+			return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
 		end
 		press("DPadDown") -- filter field -> toolbar
 		press("DPadDown") -- toolbar -> first row
@@ -813,6 +838,290 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(built.filterText:get()).toBe("")
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
+	end)
+
+	-- =======================================================================
+	-- THE DEVICE-ROUND PINS (director device round, 2026-08-13)
+	-- =======================================================================
+	--
+	-- FINDING 1 ("the Edit button doesn't actually make rows editable") and
+	-- FINDING 2 ("on iOS you can swipe a row either side to get the edit
+	-- controls even if the table isn't in edit mode — we lost that").
+	--
+	-- The framework half of BOTH was measured and found intact: on the live
+	-- showcase place the Edit toggle mounts, flips to Done, mounts the ≡ gutter
+	-- on every row, insets the cells by it, drags to reorder, and an edit-mode
+	-- tap selects without playing. What was missing was in THIS example: it
+	-- declared no `rowActions`, so there was nothing to swipe and edit mode
+	-- surfaced a reorder handle and nothing else.
+	--
+	-- These cases pin what the measurement found, in the two shapes the suite
+	-- could not previously see.
+
+	-- A PHONE IS NOT A DESKTOP WITH A FINGER. Every touch case above this one
+	-- sets `preferredInput = "Touch"` on the harness's DEFAULT capabilities,
+	-- which are `{ keyboard = true, mouse = true, touch = false }` — so what
+	-- they actually drive is a HYBRID (`interactionClasses.pointer == true`),
+	-- and the one class a real iPhone does not have is the one they all kept.
+	-- Three table decisions branch on `classes.pointer`, so "the suite is green
+	-- on touch" was never the same sentence as "this works on a phone".
+	local function phoneWorld(vw: number?, vh: number?)
+		local ex = require("../examples/gallery/examples/02_playlist_table")
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = vw or 390, h = vh or 844 })
+		env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		-- ...and PreferredInput reads KeyboardAndMouse on a phone nobody has
+		-- touched yet (the engine default, not a fact — environment.luau's own
+		-- 2026-07-29 note). Boot in exactly that state.
+		env:set("preferredInput", "KeyboardAndMouse")
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 0 }
+		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local built =
+			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		local handle = presenter.present(built.screen, built.present)
+		presenter.refresh()
+		local world: any = {
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			built = built,
+			handle = handle,
+		}
+		function world.settle(frames: number?)
+			for _ = 1, frames or 120 do
+				clock.t += 1 / 60
+				presenter.tick(1 / 60)
+				presenter.refresh()
+			end
+		end
+		return world
+	end
+	local TOGGLE = "/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle"
+	local function rowRoot(key: string): string
+		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+	end
+	-- swipe the row's own Hit surface sideways. `frac` is signed: negative is a
+	-- trailing (leftward) swipe, positive a leading one, as a fraction of the
+	-- row's own width — never a pixel count, so a row-height/width change
+	-- cannot silently make this test stop crossing the reveal threshold.
+	local function swipeRow(world: any, key: string, frac: number, pointerType: string?)
+		local hit = `{rowRoot(key)}/Content/Row/Hit`
+		local rect = world.adapter.node(hit).rect
+		local startX = if frac < 0 then rect.x + rect.w - 8 else rect.x + 8
+		local y = rect.y + rect.h / 2
+		local dx = rect.w * frac
+		world.adapter.pointerDown(hit, startX, y, pointerType or "touch")
+		for i = 1, 8 do
+			world.adapter.pointerMove(startX + dx * (i / 8), y, pointerType or "touch")
+		end
+		world.presenter.refresh()
+		world.adapter.pointerUp(startX + dx, y, pointerType or "touch")
+		world.settle(120)
+	end
+
+	it("PHONE (no mouse capability): Edit mounts the ≡ gutter, a handle drag reorders, and a tap selects", function()
+		local world = phoneWorld()
+		local classes = world.env:get("interactionClasses"):get()
+		-- the discriminator: this world is genuinely NOT the hybrid the older
+		-- touch cases drive, so what follows is proved on the phone's class set
+		expect(classes.pointer).toBe(false)
+		expect(classes.touch).toBe(true)
+		expect(classes.primary).toBe("touch")
+
+		expect(world.adapter.node(TOGGLE) ~= nil).toBeTruthy()
+		expect(world.adapter.node(TOGGLE).props.label).toBe("Edit")
+		local first = world.built.rows:get()[1].id
+		local second = world.built.rows:get()[2].id
+		-- the gutter is NOT there before Edit — otherwise "it mounted" proves
+		-- nothing about the button
+		local handlePath = `{rowRoot(first)}/Content/Row/EditWhen/then/HandleZone/Handle`
+		expect(world.adapter.node(handlePath)).toBe(nil)
+
+		world.adapter.touchTap(TOGGLE)
+		world.presenter.refresh()
+		expect(world.built.table_.api.editing:get()).toBe(true)
+		expect(world.adapter.node(TOGGLE).props.label).toBe("Done")
+		expect(world.adapter.node(handlePath) ~= nil).toBeTruthy()
+
+		-- ...and the cells moved over to make room for it, rather than the ≡
+		-- painting on top of the first column (the shape of "the button did
+		-- something visible but nothing usable")
+		local nameCell = `{rowRoot(first)}/Content/Row/Cells/Cell-name`
+		local handleRect = world.adapter.node(handlePath).rect
+		expect(world.adapter.node(nameCell).rect.x >= handleRect.x + handleRect.w).toBe(true)
+
+		-- the ≡ drag actually reorders on touch
+		local rowRect = world.adapter.node(`{rowRoot(first)}/Content/Row`).rect
+		local dropY = handleRect.y + 5 + rowRect.h * 1.5
+		world.adapter.pointerDown(handlePath, handleRect.x + 5, handleRect.y + 5, "touch")
+		world.adapter.pointerMove(handleRect.x + 5, dropY, "touch")
+		world.presenter.refresh()
+		world.adapter.pointerUp(handleRect.x + 5, dropY, "touch")
+		world.presenter.refresh()
+		expect(world.built.rows:get()[1].id).toBe(second)
+		expect(world.built.rows:get()[2].id).toBe(first)
+
+		-- and an edit-mode tap SELECTS rather than playing (the other half of
+		-- what "editable" has to mean once a primary action is declared)
+		local hit = `{rowRoot(second)}/Content/Row/Hit`
+		world.adapter.touchTap(hit)
+		world.presenter.refresh()
+		expect(world.adapter.node(hit).props.selected).toBe(true)
+		expect(world.built.nowPlaying:get()).toBeNil()
+
+		expect(world.core:lastError()).toBeNil()
+		expect(#world.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	it("TRAILING swipe reveals Remove OUTSIDE edit mode, and firing it drops the track", function()
+		local world = phoneWorld()
+		-- NOT editing — the whole point of finding 2
+		expect(world.built.table_.api.editing:get()).toBe(false)
+		local key = world.built.rows:get()[1].id
+		local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+		expect(world.adapter.node(trayAction)).toBe(nil)
+
+		swipeRow(world, key, -0.3)
+		expect(world.built.table_.api.editing:get()).toBe(false) -- still not a mode
+		expect(world.adapter.node(trayAction) ~= nil).toBeTruthy()
+		-- a swipe is not a tap: the primary action never fired
+		expect(world.built.nowPlaying:get()).toBeNil()
+		expect(#world.built.baseRows:get()).toBe(6)
+
+		world.adapter.touchTap(trayAction)
+		world.settle(400) -- the commit collapses the row over a spring first
+		local ids = {}
+		for _, track in world.built.baseRows:get() do
+			table.insert(ids, track.id)
+		end
+		expect(#ids).toBe(5)
+		expect(table.find(ids, key)).toBeNil()
+		expect(world.core:lastError()).toBeNil()
+		expect(#world.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	it("LEADING swipe reveals Top OUTSIDE edit mode, and firing it moves the track to the front", function()
+		local world = phoneWorld()
+		local key = world.built.rows:get()[3].id -- NOT already first
+		expect(world.built.baseRows:get()[1].id).never().toBe(key)
+		local trayAction = `{rowRoot(key)}/TrayLeadingWhen/then/TrayLeading/Action:top`
+		expect(world.adapter.node(trayAction)).toBe(nil)
+
+		-- A FULL swipe, deliberately past the commit threshold a trailing swipe
+		-- would fire on. The leading edge OPTS OUT of full-swipe commit
+		-- (`fullSwipe = { leading = false, trailing = true }`, Apple's own worked
+		-- example — §16 [SW-37]), so this must REVEAL and commit nothing. A 30%
+		-- swipe would have passed whether the opt-out existed or not.
+		swipeRow(world, key, 0.9)
+		expect(world.built.table_.api.editing:get()).toBe(false)
+		expect(world.adapter.node(trayAction) ~= nil).toBeTruthy()
+		expect(world.built.nowPlaying:get()).toBeNil()
+		expect(world.built.baseRows:get()[1].id).never().toBe(key)
+
+		world.adapter.touchTap(trayAction)
+		world.settle(120)
+		expect(world.built.baseRows:get()[1].id).toBe(key)
+		expect(#world.built.baseRows:get()).toBe(6) -- moved, not copied
+		expect(world.core:lastError()).toBeNil()
+		expect(#world.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	it("a plain TAP still plays the track and opens no tray — the two gestures do not fight", function()
+		local world = phoneWorld()
+		local key = world.built.rows:get()[2].id
+		local name = world.built.rows:get()[2].name
+		world.adapter.touchTap(`{rowRoot(key)}/Content/Row/Hit`)
+		world.presenter.refresh()
+		expect(world.built.nowPlaying:get()).toBe(name)
+		expect(world.adapter.node(`{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`)).toBe(nil)
+		expect(world.adapter.node(`{rowRoot(key)}/TrayLeadingWhen/then/TrayLeading/Action:top`)).toBe(nil)
+		expect(world.core:lastError()).toBeNil()
+	end)
+
+	it("edit mode ADDS the ⊖ that leads to the same Remove, and the swipe still works while editing", function()
+		local world = phoneWorld()
+		local key = world.built.rows:get()[1].id
+		local minus = `{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`
+		expect(world.adapter.node(minus)).toBe(nil)
+		world.adapter.touchTap(TOGGLE)
+		world.presenter.refresh()
+		expect(world.adapter.node(minus) ~= nil).toBeTruthy()
+		expect(world.adapter.node(minus).props.icon).toBe("decrement")
+		expect(world.adapter.node(minus).props.role).toBe("destructive")
+		-- the ≡ handle is there TOO: two affordances, one row, at once
+		expect(world.adapter.node(`{rowRoot(key)}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBeTruthy()
+		-- and the ⊖ is a ROUTE to Remove, not a second Remove: it reveals the
+		-- trailing tray, so the destructive action is still one more tap away
+		local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+		expect(world.adapter.node(trayAction)).toBe(nil)
+		world.adapter.touchTap(minus)
+		world.settle(120)
+		expect(world.adapter.node(trayAction) ~= nil).toBeTruthy()
+		expect(#world.built.baseRows:get()).toBe(6) -- revealed, nothing removed
+		expect(world.core:lastError()).toBeNil()
+		expect(#world.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	--[[ EDIT MODE COSTS ROW WIDTH, AND THE SWEEP CANNOT SEE IT ────────────────
+		`tests/overflow_sweep.spec.luau` mounts every surface AT REST, so it has
+		nothing to say about edit mode — and edit mode is exactly where this row
+		gets expensive: a `rowActions` row with a destructive action spends the
+		theme's `editAffordance` gutter on the red ⊖ AND Table's own 32px gutter
+		on the reorder ≡, both leading, both only while editing.
+
+		That is what tipped this example over on 2026-08-13: with a third fixed
+		column still in the row, the `fill` Name cell solved to 6px at 320x640 and
+		its text to 0px, and the only thing that said so was the solver. So the
+		narrowest swept viewport gets its own edit-mode case, in both
+		orientations, asking the solver directly.
+	]]
+	it("edit mode is diagnostic-clean at the NARROWEST swept viewport, in both orientations", function()
+		for _, view in { { w = 320, h = 640 }, { w = 640, h = 320 } } do
+			local world = phoneWorld(view.w, view.h)
+			-- the discriminator: reach edit mode, or this measures the resting
+			-- layout the sweep already covers and proves nothing new
+			world.adapter.touchTap(TOGGLE)
+			world.presenter.refresh()
+			expect(world.built.table_.api.editing:get()).toBe(true)
+			local key = world.built.rows:get()[1].id
+			expect(world.adapter.node(`{rowRoot(key)}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBeTruthy()
+			expect(world.adapter.node(`{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`) ~= nil).toBeTruthy()
+			-- ...and the track name still has room to be a track name
+			local nameText = world.adapter.node(`{rowRoot(key)}/Content/Row/Cells/Cell-name/Value`)
+			expect(nameText ~= nil).toBeTruthy()
+			expect((nameText.rect.w > 24) or error(`{view.w}x{view.h}: name text solved to {nameText.rect.w}px`, 2)).toBe(
+				true
+			)
+			local diagnostics = world.handle.controller.diagnostics()
+			local detail = {}
+			for _, d in diagnostics do
+				table.insert(detail, `{d.node or "?"}: {d.issue or "?"}`)
+			end
+			expect(`{view.w}x{view.h}: {table.concat(detail, " / ")}`).toBe(`{view.w}x{view.h}: `)
+			expect(world.core:lastError()).toBeNil()
+		end
+	end)
+
+	it("Restore brings a REMOVED track back (the way out of the destructive action)", function()
+		local world = phoneWorld()
+		local key = world.built.rows:get()[1].id
+		swipeRow(world, key, -0.3)
+		world.adapter.touchTap(`{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`)
+		world.settle(400)
+		expect(#world.built.baseRows:get()).toBe(5)
+		world.adapter.touchTap(world.built.restorePath)
+		world.presenter.refresh()
+		expect(#world.built.baseRows:get()).toBe(6)
+		expect(world.built.baseRows:get()[1].id).toBe(key)
+		expect(world.core:lastError()).toBeNil()
 	end)
 end)
 

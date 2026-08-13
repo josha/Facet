@@ -184,14 +184,26 @@ that is the declarative cycle, with the live-vs-commit distinction on top.
 File: `examples/gallery/examples/02_playlist_table.luau`
 
 New concepts: **the Table control, columns that own their cells, interactive
-controls inside cells, filter-as-you-type over a derived rows list, and
-drag-and-drop row reordering.**
+controls inside cells, filter-as-you-type over a derived rows list,
+drag-and-drop row reordering, and swipe actions on either edge of a row.**
 
 This example combines what were previously two separate lessons (a star-rating
 control and a track list) into the screen a music app would actually ship: an
-iTunes-style playlist with a filter field, a header, and three columns — Name,
-Length, and a star Rating you can click — whose rows you can drag into a new
-order.
+iTunes-style playlist with a filter field, a header, and two columns — Name and
+a star Rating you can drag across — whose rows you can drag into a new order and
+swipe sideways for their actions.
+
+**There used to be a third column, Length, and measuring edit mode removed it**
+(2026-08-13). A `fill` column gets whatever the fixed ones leave, and once this
+table declared `rowActions` with a destructive action, edit mode began spending
+*two* leading gutters on every row: 32px for the reorder ≡, plus the theme's
+`editAffordance` gutter for the red ⊖. On the narrowest viewport the sweep covers
+(320×640) that solved the Name cell to 6px and its text to 0px. Removing the
+70px Length column gives the name 60px back there. The shipped example had
+already been squeezing the name down to 26px on that phone with nothing
+complaining, so this was a pre-existing problem the new gutter merely made
+visible — the numbers and the two rejected alternatives are in the example's own
+columns list.
 
 **Restore.** Reordering rows and re-rating tracks are both destructive to the
 shipped playlist, and there was no way back short of leaving the place. A
@@ -266,19 +278,23 @@ splice is applied to the full `baseRows` (the post-removal contract below).
 ### Columns own their cells
 
 A table column can render plain text with `value`, or any blueprint with
-`cell`. Name and Length are `value` columns; Rating is a `cell` column that
-builds five small buttons whose labels are derived values over that track's
+`cell`. Name is a `value` column; Rating is a `cell` column that mounts a real
+`LuauUI.newRating` control — one control, not five buttons, built once per track
+and owned by the example — whose glyphs are derived values over that track's
 rating signal:
 
 ```lua
-local glyph = core:memo(function(use)
-	return if use(rating) >= i then "★" else "☆"
-end)
-starButtons[i] = UI.Button({ id = `Star{i}`, label = glyph, padding = 2, width = { type = "fixed", px = 22 } })
+ratingControls[track.id] = LuauUI.newRating(LuauUI, core, {
+	id = "Rating", env = deps.env, value = ratings[track.id], count = 5,
+})
 ```
 
-Because the label is a bound derived value, tapping a star is pure repaint:
-the test asserts the row's factory-run counter does not move.
+Because each glyph is a bound derived value, rating a track is pure repaint: the
+test asserts the row's factory-run counter does not move. (This *was* five
+`UI.Button`s built inline, and a device pass showed why that is the wrong shape —
+a Button is a `control` to every theme, so the rating painted as five plates,
+five focus stops and five overlapping 44px hit targets in one cell. The example's
+own comment carries that history.)
 
 ### Activation lives on the node
 
@@ -316,6 +332,59 @@ end
 `toIndex` counts positions among the rows NOT being dragged (drop the moved
 rows out, then insert the block after that slot) — this "post-removal"
 convention makes multi-row drags unambiguous.
+
+### Swipe actions on either edge
+
+Swiping a row sideways reveals its actions — left for **Remove**, right for
+**Top**. This is `rowActions`, the turnkey form of `LuauUI.newRowActions` that
+`Table` hosts for you: return `{ leading, trailing, fullSwipe }` for a row and
+that row gets a tray on each edge you filled in.
+
+```lua
+rowActions = function(item)
+	local id = item.id
+	return {
+		leading  = { { id = "top",    label = "Top",    icon = "chevron.up", onAction = ... } },
+		trailing = { { id = "remove", label = "Remove", icon = "trash",
+		               role = "destructive", onAction = ... } },
+		fullSwipe = { leading = false, trailing = true },
+	}
+end
+```
+
+**This is not edit mode, and the difference is the whole point.** Edit mode is a
+*mode* you enter with the Edit button, and while it is on, rows grow a ≡ reorder
+handle and taps select. Swipe actions are a per-row *gesture* that works with the
+table sitting in its normal state — no mode, no button, no selection change.
+SwiftUI draws the same line: its `swipeActions` documentation never mentions edit
+mode, and its `EditMode`/`EditButton` documentation never mentions swiping.
+
+**Which edge gets what.** Apple's default edge is trailing ("The default is
+`HorizontalEdge.trailing`", [SW-37]), and that is where a destructive action
+belongs — so Remove is trailing and Top is leading. Within an edge, actions
+appear in the order you list them, starting from the swipe's originating edge.
+
+**Full swipe is per edge.** By default a full swipe performs the first action for
+that direction, and you opt an edge out with `allowsFullSwipe: false` — Apple's
+own worked example disables it on the leading edge, and this example does the
+same. So a full swipe *left* removes the track outright; a full swipe *right*
+only reveals Top, which still needs a tap.
+
+**It composes with the primary action rather than fighting it.** A tap plays the
+track, a sideways drag opens a tray and plays nothing, and a mostly-vertical drag
+still scrolls the page. The Table's axis lock decides which of the three a
+gesture is before any of them can fire, so none of them has to know about the
+others.
+
+**And it is reachable without a swipe.** On a focused row, **Delete** runs the
+destructive action and **Shift+Return** opens the row's action menu — so a
+keyboard and a gamepad reach Remove and Top with no gesture to imitate. That is
+the four-input rule, not a bonus.
+
+**Edit mode adds a second route to the same Remove.** Because the trailing tray
+carries a `role = "destructive"` action, entering edit mode also puts a small red
+⊖ in a leading gutter on every row. Tapping it *reveals the trailing tray* rather
+than deleting outright — the destructive action stays one more tap away.
 
 ### Scrolling vs. reordering on touch
 

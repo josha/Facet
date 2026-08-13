@@ -3182,7 +3182,7 @@ function screen_target.new(opts: Opts?)
 
 	function adapter.setScrollRegion(handle: any, region: any)
 		local instance = handle.instance
-		if not instance:IsA("ScrollingFrame") then
+		if instance == nil or not instance:IsA("ScrollingFrame") then
 			return
 		end
 		if region == nil then
@@ -3236,7 +3236,7 @@ function screen_target.new(opts: Opts?)
 
 	function adapter.setScrollPosition(handle: any, pos: { x: number, y: number })
 		local instance = handle.instance
-		if instance:IsA("ScrollingFrame") then
+		if instance ~= nil and instance:IsA("ScrollingFrame") then
 			instance.CanvasPosition = Vector2.new(pos.x, pos.y)
 		end
 	end
@@ -3326,16 +3326,42 @@ function screen_target.new(opts: Opts?)
 
 	function adapter.getScrollPosition(handle: any): { x: number, y: number }?
 		local instance = handle.instance
-		if not instance:IsA("ScrollingFrame") then
+		if instance == nil or not instance:IsA("ScrollingFrame") then
 			return nil
 		end
 		local p = instance.CanvasPosition
 		return { x = p.X, y = p.Y }
 	end
 
+	--[[ AN ELIDED HOST HAS NO INSTANCE TO OBSERVE (live showcase, 2026-08-13) ──
+		Every function in this scroll seam already degrades to a no-op when the
+		handle's instance is not a `ScrollingFrame` — that is the documented
+		contract ("An adapter without these degrades to the clip-only fallback...
+		the renderer feature-detects and never crashes", target_contract.luau) —
+		and the four `indicator*` helpers above spell the test the same way. These
+		four public entry points wrote `not instance:IsA(...)` and left the NIL
+		case to throw.
+
+		A nil instance is not hypothetical: the renderer ELIDES a node that paints
+		nothing (`handle.elided`, no instance created), and a `Table` built with
+		`scrolls = false` publishes `<root>/Main/Body` from `api.scrollPath()`
+		regardless — that node is a plain block, so it is elided. The gallery
+		bootstrap then auto-binds it, `observeScroll` indexed nil, and the
+		SHIPPED playlist example logged "'Playlist table' failed to mount:
+		screen_target:3338: attempt to index nil with 'IsA'" on the real client
+		with the whole mount abandoned at that point. Reproduced on the live
+		showcase place both with and without this round's `rowActions`, so it
+		predates them.
+
+		The headless suite structurally could not see it: `fake_target`'s handle
+		IS the node table, so `handle.instance` never enters the picture at all,
+		and its own `observeScroll` accepted the bind happily. The nil guard is
+		the fix; whether a block Table should publish a scroll path it has no
+		host for is the separate, larger question, recorded in ui_todo.
+	]]
 	function adapter.observeScroll(handle: any, fn: (pos: { x: number, y: number }) -> ()): () -> ()
 		local instance = handle.instance
-		if not instance:IsA("ScrollingFrame") then
+		if instance == nil or not instance:IsA("ScrollingFrame") then
 			return function() end
 		end
 		local conn = instance:GetPropertyChangedSignal("CanvasPosition"):Connect(function()

@@ -717,7 +717,16 @@ local registry: { Entry } = {
 		dumpFunction = "function dump",
 		inputProofs = {
 			pointer = { "RowActions pointer: a tap on a revealed tray action activates it (device-true)" },
-			touch = { "RowActions touch: a touch tap on a revealed tray action activates it (device-true)" },
+			touch = {
+				"RowActions touch: a touch tap on a revealed tray action activates it (device-true)",
+				-- ...and the REVEAL itself, which the case above assumes rather
+				-- than proves (director device round 2026-08-13, finding 2). Every
+				-- swipe case in the suite drove `"mouse"`, so the one gesture this
+				-- control exists for had no touch proof on the shape the report
+				-- named: touch + a declared primary action + NOT in edit mode.
+				-- Both edges, on the hosted Table surface.
+				"RowActions touch: a swipe reveals the tray on a table NOT in edit mode that declares a primary action",
+			},
 			keyboard = {
 				"RowActions keyboard: focus + Return activates a revealed tray action",
 				-- Task 8: a SECOND, structurally different keyboard path —
