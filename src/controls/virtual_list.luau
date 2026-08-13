@@ -1839,14 +1839,34 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		key instead, so an unmounting row cannot lose its own cancel. ]]
 	local hostedDispatch = {
 		onPointerDown = function(path: string, pos: any, rectOf: (string) -> any): boolean?
-			-- A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE. `suppressActivatePath`
-			-- is armed on the up of a same-row re-grab (below) and normally cleared by
-			-- the Activate that follows it — but a release that produces no Activated
-			-- (e.g. the up lands off the button) leaves it armed with nothing left to
-			-- clear it, and it would then swallow the NEXT Activate on that row. Safe
-			-- to clear unconditionally here: a real Activated always fires between a
-			-- pointer-up and the next pointer-down, so a still-live suppression can
-			-- never legitimately survive to see another down.
+			--[[ A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE. `suppressActivatePath`
+				is armed at the axis lock (`hostedResolveAxis`, above) and on the up of
+				a same-row re-grab (`onPointerUp`, below), and is normally cleared by
+				the Activate that follows it — but a release that produces no Activated
+				(e.g. the up lands off the translated `Hit`) leaves it armed with
+				nothing left to clear it, and it would then swallow the NEXT Activate
+				on that row.
+
+				THIS IS THE WEAKEST OF THE FOUR CLEARS, NOT THE ONLY ONE, and the
+				first draft of it carried a premise that is simply false (redteam
+				NEW-2, 2026-08-13 — `table.luau`'s twin comment carries the identical
+				correction, because it is one rule in two controls): "a real Activated
+				always fires between a pointer-up and the next pointer-down, so a
+				still-live suppression can never legitimately survive to see another
+				down." TWO ACTIVATE PRODUCERS CARRY NO POINTER-DOWN AT ALL — an IAS
+				device Activate (gamepad A / keyboard Return, `meta.source ==
+				"action"`), and the minimum-target hit expander, a SEPARATE
+				`GuiButton` whose press produces no pointer event on this row's `Hit`
+				at all (`screen_target.luau`'s `pointerActivateMeta`). Either of them
+				can reach `handleActivate` while an arm from a silently-ended swipe is
+				still live, and be eaten by it. So the arm is cleared on a CANCEL too
+				(`onPointerCancel`, below), and `handleActivate` refuses to spend it
+				on a device Activate at all.
+
+				The standing rule this cost us — an arm owes three answers where it is
+				set: where it is armed, what clears it, and what class of event may
+				spend it — is
+				`docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`. ]]
 			suppressActivatePath = nil
 			local key = hostedKeyOfHit(path)
 			if key == nil then

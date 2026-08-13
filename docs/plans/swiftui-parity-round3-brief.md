@@ -205,6 +205,31 @@ surface; `api.md`'s round-2 prose skim; and the shrink-pass design gaps in the
 RED-TEAM list (a shrinkable label can still land outside its box;
 `shrinkWeight` changes which `ViewThatFits` candidate wins, undefined).
 
+**E2. Owed to the device pass, with the measurement already taken: a vertical
+pan that begins on a hosted row still fires that row's `onActivate`.**
+RED-TEAM final pass, 2026-08-13 — **recorded, deliberately not fixed**.
+`virtual_list.luau`'s `hostedResolveAxis` declines a gesture that resolves
+vertical (`pending.declined = true`) and arms nothing, so the `Activated` the
+row's `Hit` fires at the end of a scroll pan started on that row reaches
+`spec.onActivate`. Measured on the clean-room hosted list
+(`tests/virtual_list_row_actions.spec.luau`'s `world` + `dragDown` +
+`releaseActivating`, 40px rows): **1 stray activation in all four combinations**
+— `dy=20` (release still inside the row rect) and `dy=90`, on both release
+orders, with `engagedKey=nil` and no tray action fired. **Unchanged by
+`79649d6`**; pre-existing.
+
+**The open premise is the reason it is not fixed from a desk.** Leaving it
+unarmed is only correct if a native `ScrollingFrame` drag *cancels* its child
+button's `Activated` — in which case the stray cannot happen on a device and any
+arm we add would be a suppression that eats real taps. That is the very premise
+the **horizontal** branch refuses to rely on (it arms at the axis lock instead),
+nothing in the repo tests it, and there is no device evidence for it anywhere.
+So the device pass answers one question — *does a real touch pan over a hosted
+row fire that row's `Activated`?* — and the code decision (arm on the vertical
+resolve too, vs. leave it to the engine) follows the answer. Carried in
+`row-actions-hosted-mode-plan.md`'s device-pass riders as item 5. Do not block
+round 3 on it.
+
 ## Orchestration rules — earned the hard way in round 2
 
 These are about running the mission, not about the code. Each cost real time or
