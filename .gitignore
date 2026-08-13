@@ -19,3 +19,6 @@ artifacts/**/*.log
 build/
 sourcemap.json
 .DS_Store
+
+# Studio holds an open place open with a .lock beside it — never a repo artifact
+*.rbxl.lock
