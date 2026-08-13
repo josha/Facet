@@ -203,11 +203,38 @@ unregistered plan is a plan nobody reads.
 | Plan | What it governs | State |
 |---|---|---|
 | [`swiftui-parity-round2-brief.md`](swiftui-parity-round2-brief.md) | The binding scope | — |
-| [`swiftui-parity-round2.md`](swiftui-parity-round2.md) | The design: Phases 0–6, grouped **M1** = 1–2, **M2** = 3–4, **M3** = 5–6 | M1 built |
+| [`swiftui-parity-round2.md`](swiftui-parity-round2.md) | The design: Phases 0–6, grouped **M1** = 1–2, **M2** = 3–4, **M3** = 5–6 | Phases 0–6 built; gate stage `swiftui-parity-round2` registered 2026-08-13 |
 | [`device-bug-round-2026-08-12.md`](device-bug-round-2026-08-12.md) | The device phase: nine director findings in three causes | Groups B and C closed; the TD-13/TD-14 re-record **owed** |
 | [`unfulfilled-placement-intents.md`](unfulfilled-placement-intents.md) | The director's queue from the §2.1 placement audit | Awaiting per-row rulings |
 
-Two standing facts from it that outlive the mission, because both reverse an
+**The mission ran UNGATED, and that is on the record rather than tidied away.**
+Phase-gate verification of `13fd3c6` found no round-2 entry in `phases.json` and
+no block in `tools/lune/gate_manifest.luau`, so `tools/gate.sh` had no stage to
+run for any of M1, M2 or M3: every milestone closed on hand-run suites, a
+hand-run checker battery and reviewer judgement. The stage was registered after
+the fact on 2026-08-13 as `swiftui-parity-round2` (26th and last in
+`phases.json`), with twelve checks — suite floor 4589, `withAnimation`, the
+layout vocabulary, indicators + `sensoryFeedback`, the four-input proofs, gallery
+coverage, the overflow sweep, the eight-checker battery, the parity doc's
+falsifiability, the Rascal Rally consumer contracts, the carried traversal red,
+and the prior-gates sweep. Two consequences of the gap were fixed with it:
+
+- **the floor.** The highest `tools/test.sh` floor in the manifest was 4136
+  against an actual 4589, so nothing pinned this mission's finishing count. 4589
+  is measured from a pristine `git archive 13fd3c6` export, twice.
+- **the four-input proofs.** `check_registration` keys `inputProofs` on
+  *controls*; round 2 added interactive **props** (`Table.onPrimaryAction`, the
+  playlist table's hosted `rowActions`), which that checker structurally cannot
+  see. The proofs are now enforced in the gate as `✓`-anchored suite greps —
+  stronger than the checker's source-string rule, which proves a case is
+  registered and never that it passes. **Named gap, not closed:** a *future*
+  modifier or prop shipping interactive behaviour with no proofs is still
+  uncaught, because a modifier has no mechanical interactivity signal to derive
+  and a heuristic prop-schema scan is the noisy checker the simplicity ladder
+  says gets disabled. `UI.sensoryFeedback` is deliberately outside the rule: it
+  declares no input of its own.
+
+Two more standing facts from the mission outlive it, because both reverse an
 earlier decision and a future agent will otherwise "restore" the old one:
 
 - **the 8px scroll-bar reserve is published under the overlay policy too**

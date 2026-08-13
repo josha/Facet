@@ -208,6 +208,14 @@
    "specSection": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
    "artifactDir": "artifacts/row-actions",
    "gateArtifact": "artifacts/row-actions/gate.json",
+   "next": "swiftui-parity-round2"
+  },
+  {
+   "gate": "swiftui-parity-round2",
+   "title": "SwiftUI parity round 2: presenter.withAnimation at the presentation layer, the everyday layout vocabulary (distribute, layoutPriority x shrinkWeight, lineAlign, GridRow + gridSpan, containerRelativeFrame, VirtualList axis), indeterminate indicators + Spinner, UI.sensoryFeedback over the semantic bus with a default-off haptics adapter, Table onPrimaryAction across four inputs, every round-2 API reachable in a gallery scenario the suite executes headlessly, the parity doc rewritten as one cited falsifiable draft, and a fast test tier - registered AFTER the mission closed, which is itself the finding: M1/M2/M3 all ran with no stage for tools/gate.sh to run",
+   "specSection": "docs/plans/swiftui-parity-round2-brief.md (binding scope) + docs/plans/swiftui-parity-round2.md (per-phase design)",
+   "artifactDir": "artifacts/swiftui-parity-round2",
+   "gateArtifact": "artifacts/swiftui-parity-round2/gate.json",
    "next": null
   }
  ]
