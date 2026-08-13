@@ -14,12 +14,16 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the all-controls fixture", function()
+	it("lists every tutorial example plus the two fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(8)
+		expect(#demos).toBe(9)
 		-- the all-controls fixture leads: it is the one that answers "what does
-		-- this look like on my device"
+		-- this look like on my device"; the row-actions fixture follows it for
+		-- the same feel-first reason (hosted row-actions device pass)
 		expect(demos[1].id).toBe("all-controls")
+		expect(demos[2].id).toBe("row-actions")
+		expect(demos[2].kind).toBe("fixture")
+		expect(demos[2].module).toBe("row_actions")
 		expect(demos[1].kind).toBe("fixture")
 		local examples = 0
 		for _, d in demos do

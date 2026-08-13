@@ -100,6 +100,17 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "adaptive_controls",
 	},
+	-- the second fixture, for the same reason the first one leads: swipe row
+	-- actions are a FEEL feature, and this is the surface a device pass drives
+	-- (its ModeBar switches the same mail model between the hand-wrapped list,
+	-- the Table integration, and the VirtualList-hosted mode)
+	{
+		id = "row-actions",
+		title = "Swipe row actions",
+		blurb = "Mail-style swipe actions: hand-wrapped list, Table, and hosted VirtualList",
+		kind = "fixture",
+		module = "row_actions",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

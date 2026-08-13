@@ -395,3 +395,45 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 		end
 	)
 end)
+
+describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogue entry)", function()
+	-- The in-game demo picker mounts kind="fixture" entries with the BUILD-TIME
+	-- subset of the runner ctx (examples/gallery/client/init.client.luau
+	-- `mountDemo`): {LuauUI, core, env, actionSystem, presenter} — no adapter,
+	-- no record, no flags, and no step is ever run. This scenario binds
+	-- `presenter.onTick` at build, so this case pins that the picker's exact
+	-- ctx shape builds, presents, ticks, and disposes clean — the contract the
+	-- "row-actions" catalogue row (demo_picker.luau) depends on.
+	it("builds, presents, ticks and disposes under the picker's ctx", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 700 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local built = scenario.build({
+			LuauUI = LuauUI,
+			core = core,
+			env = env,
+			actionSystem = system,
+			presenter = presenter,
+		})
+		built.handle = presenter.present(built.screen)
+		presenter.refresh()
+		-- the picker never drives steps: the default surface must stand on its
+		-- own, and a few ticks must not error (the vlist onTick binder retries
+		-- until its surface mounts, which in picker use may be never)
+		for _ = 1, 5 do
+			presenter.refresh()
+		end
+		expect(adapter.node("/MailActions/ListWhen/then/List") ~= nil).toBe(true)
+		expect(core:lastError()).toBeNil()
+		-- the picker's own teardown order (init.client.luau mountDemo): the
+		-- fixture's dispose first, then the presented surface goes down
+		if built.dispose ~= nil then
+			built.dispose()
+		end
+		presenter.dismiss(built.handle)
+		expect(core:lastError()).toBeNil()
+	end)
+end)

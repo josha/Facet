@@ -331,9 +331,19 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		if demo.kind == "fixture" then
 			assert(scenariosFolder ~= nil, "showcase: LuauUIScenarios is not replicated")
 			local mod = require(scenariosFolder:FindFirstChild(demo.module)) :: any
-			-- the MINIMAL ctx: this fixture reads exactly these three, which is
-			-- why it can run outside the verification runner at all
-			built = mod.build({ LuauUI = LuauUI, core = demoCore, env = env })
+			-- the MINIMAL ctx: the build-time subset of the runner's ctx. The
+			-- adaptive-controls fixture reads {LuauUI, core, env}; row_actions
+			-- additionally binds `presenter.onTick` at build (its VirtualList
+			-- waits for a mounted scroll path). `actionSystem` rides along for
+			-- the same reason it does in the runner — a fixture's steps never
+			-- run here, but nothing a fixture reads at BUILD may be absent.
+			built = mod.build({
+				LuauUI = LuauUI,
+				core = demoCore,
+				env = env,
+				actionSystem = system,
+				presenter = pres,
+			})
 			built.handle = pres.present(built.screen)
 		else
 			local mod = require(examplesFolder:FindFirstChild(demo.module)) :: any
