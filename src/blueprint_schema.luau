@@ -788,6 +788,37 @@ local DISTRIBUTE: PropSpec = p({
 		.. "children did not take, so a `fill` child leaves it nothing — and says so in the diagnostics",
 })
 
+-- FLOW-WRAP (docs/plans/swiftui-parity-round3.md item A) — Roblox's
+-- `UIListLayout.Wraps`, which LuauUI had no spelling for at all.
+--
+-- A PROP, NOT A CLASS, and the ladder decides it. Constitution §1 asks whether a
+-- thing "needs its own layout/paint/input semantics an existing class cannot
+-- compose"; a wrapping stack has the same children, the same paint (none), the
+-- same input (none), the same `gap`, the same `align`, the same `lineAlign` and
+-- the same `distribute` as the stack it is a mode of. What changes is ONE fact:
+-- whether the main axis is allowed a second line. `AdaptiveStack` is the precedent
+-- — one class with a reactive axis — and it exists precisely because swapping
+-- CLASSES through a `When` remounts every child and loses their state. A separate
+-- `UI.FlowStack` would have re-declared BOX + CONTAINER_LAYOUT + gap + align +
+-- distribute to say one boolean, and made "wrap this row on a phone" a remount.
+--
+-- REACTIVE, therefore, and `dirty = { "measure" }`: it changes where the lines
+-- break, which is a measure fact, and a bound flip is a re-solve in place.
+--
+-- IT IS NOT ON `Screen`, `AdaptiveStack` or any other container, deliberately. A
+-- prop only two arrange branches read is a prop every other class must refuse
+-- (§4), and the schema is what refuses it.
+local WRAP: PropSpec = p({
+	types = { "boolean" },
+	reactive = true,
+	dirty = { "measure" },
+	channel = "layout",
+	doc = "wrap the children onto more than one line when they do not fit the main axis "
+		.. "(Roblox `UIListLayout.Wraps`). The block of lines is placed by `align`, an item inside "
+		.. "its line by `lineAlign`, and each line's leftover by `distribute` — no new words. "
+		.. '`align = "stretch"` is refused here: it would mean two things at once',
+})
+
 -- Horizontal alignment of a node's OWN text inside its own box. Until now the
 -- adapter hard-coded TextXAlignment.Left, so there was no way to centre text
 -- anywhere in LuauUI at all — which is why a Stepper's value readout could not
@@ -1032,13 +1063,13 @@ class("Screen", {
 class("VStack", {
 	container = true,
 	structural = false,
-	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE }),
+	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE, wrap = WRAP }),
 })
 
 class("HStack", {
 	container = true,
 	structural = false,
-	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE }),
+	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE, wrap = WRAP }),
 })
 
 class("ZStack", {

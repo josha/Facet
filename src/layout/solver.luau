@@ -19,7 +19,8 @@
 -- one, so it cannot change what anything measures.
 --
 -- Snapshot node shape (plain immutable tables):
--- { kind = "vstack"|"hstack"|"zstack"|"grid"|"gridrow"|"scroll"|"anchor"|"text"|"box"|"spacer",
+-- { kind = "vstack"|"hstack"|"vwrap"|"hwrap"|"zstack"|"grid"|"gridrow"|"scroll"|
+--          "anchor"|"text"|"box"|"spacer",   -- *wrap = the same stack, wrapping
 --   id = string, width/height = Dim?, gap = number?,
 --   padding = number | {top,right,bottom,left}?,
 --   margin = number | {top,right,bottom,left}?,
@@ -369,6 +370,12 @@ type Ctx = {
 	-- reason: a grid that measured one set of columns and arranged another is this
 	-- file's documented recurring defect class.
 	gridColumns: { [string]: { key: string, value: any } },
+	-- FLOW-WRAP LINE PARTITIONS (round 3 item A), computed once per wrapping stack
+	-- per box and read by both passes — the same table shape, the same key shape
+	-- and the same reason as `gridColumns` one line up. A wrapping stack that
+	-- measured one partition and arranged another is the identical defect class,
+	-- and this file has fixed it four times already.
+	flowLines: { [string]: { key: string, value: any } },
 	-- ...and the resolved columns handed DOWN from a grid to the row it is about to
 	-- arrange, so the `gridrow` branch places its cells in the columns the grid
 	-- derived from every row rather than re-deriving a private answer from its own.
@@ -1103,6 +1110,130 @@ local function restoreScope(ctx: Ctx, w: number, h: number, key: string)
 	ctx.containerW, ctx.containerH, ctx.scopeKey = w, h, key
 end
 
+--[[ ===== FLOW-WRAP (docs/plans/swiftui-parity-round3.md, item A) =============
+
+	`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` reach this file as the
+	kinds `hwrap` / `vwrap`: Roblox's `UIListLayout.Wraps`, which LuauUI had no
+	spelling for at all. It is a NATIVE branch and deliberately not a public
+	`Layout` protocol — the round-3 Phase 0 verdict, whose one carrying reason is
+	that this file's three newest correctness mechanisms (the measure memo's cache
+	key, the incremental-arrange reuse skip, the placement-prop audit) are each
+	sound only as an ENUMERATION over a closed file, and consumer code inside the
+	solve makes all three unenumerable at once.
+
+	IT ADDS ONE PROP AND NO ALIGNMENT VOCABULARY, and that is a measurement rather
+	than a preference. Probed live in Studio on 2026-08-13 (300x400 box, six 100x40
+	items, so 80px of lines in 400px of container): wrapped lines are packed with
+	NO extra space between them, and the whole BLOCK is placed on the cross axis by
+	the container's existing alignment property — `Top` 0, `Center` 160, `Bottom`
+	320, exactly. A ragged line put line 2 at y=90, its tallest item, not at 40. So
+
+	    the block of lines  -> `align`      (Roblox VerticalAlignment/Horizontal…)
+	    an item in its line -> `lineAlign`  (Roblox ItemLineAlignment)
+	    along the main axis -> `distribute` (Roblox HorizontalFlex/VerticalFlex)
+
+	map one-to-one onto words that already ship, and CSS's `align-content` (space
+	between LINES) has no native counterpart to be parity with.
+
+	ONE `gap`, BOTH AXES, for the same reason: `UIListLayout` has a single
+	`Padding`, and a `rowGap` on `UI.HStack`/`UI.VStack` would be accepted and
+	ignored on every stack that does not wrap — the §4 violation the placement
+	audit exists to end. (`UI.Grid` has `rowGap` because its two pitches are
+	genuinely different arithmetic; here they are the same number.)
+]]
+
+-- THE LINE PARTITION, AND IT IS A PURE FUNCTION ON PURPOSE.
+--
+-- `(childMainExtents, innerMain, gap) -> lines`, reading nothing else — no node,
+-- no ctx, no clock. Two properties fall out of that and both are load-bearing:
+-- measure and arrange cannot derive different partitions for the same numbers
+-- (this file's four-times-fixed defect class, see `gridColumnPlan`), and the
+-- partition is drivable by a headless fuzz with no tree at all
+-- (`tests/flow_wrap.spec.luau`).
+--
+-- GREEDY, which is what the engine does and what CSS does: an item joins the
+-- current line if it still fits with a gap in front of it, and starts a new one if
+-- it does not. An item that fits on NO line still gets a line — of its own —
+-- because the alternative is dropping it; `arrange` clamps it to the line and
+-- files the diagnostic. An UNBOUNDED offer (`math.huge`, reachable from measure
+-- and from a sideways scroller) yields exactly one line, which is the honest
+-- answer: infinity cannot be wrapped.
+local function flowPartition(
+	mains: { number },
+	innerMain: number,
+	gap: number
+): { { first: number, last: number, main: number, cross: number } }
+	local lines: { { first: number, last: number, main: number, cross: number } } = {}
+	local first, used = 1, 0
+	for i = 1, #mains do
+		local m = mains[i]
+		if i == first then
+			used = m
+		elseif used + gap + m <= innerMain then
+			used += gap + m
+		else
+			table.insert(lines, { first = first, last = i - 1, main = used, cross = 0 })
+			first = i
+			used = m
+		end
+	end
+	if #mains > 0 then
+		table.insert(lines, { first = first, last = #mains, main = used, cross = 0 })
+	end
+	return lines
+end
+
+-- ...AND THE PLAN THE TWO PASSES SHARE, cached on the context and keyed by the
+-- box, exactly as `gridColumnPlan` is and for the identical reason.
+--
+-- It owns the measurement as well as the partition: the child extents ARE the
+-- partition's input, so deriving them in one pass and the lines in the other is
+-- the disagreement this shape exists to make impossible. Every extent here
+-- INCLUDES the child's margins, because a margin occupies line space.
+local function flowPlan(ctx: Ctx, node: Node, isH: boolean, innerMain: number, innerCross: number, gap: number): any
+	local key = `{innerMain}|{innerCross}|{gap}`
+	local cached = ctx.flowLines[node.id]
+	if cached ~= nil and cached.key == key then
+		return cached.value
+	end
+	local children = node.children or {}
+	local mains: { number } = {}
+	local crosses: { number } = {}
+	local sizes: { any } = {}
+	for idx, child in children do
+		local mt, mr, mb, ml = sides(child.margin)
+		local w, h = measure(ctx, child, if isH then innerMain else innerCross, if isH then innerCross else innerMain)
+		sizes[idx] = { w = w, h = h, mt = mt, mr = mr, mb = mb, ml = ml }
+		-- A `fill` MAIN DIMENSION TAKES THE WHOLE LINE, and it has to be said here
+		-- rather than left to `measure`. `resolveAxis` can only report CONTENT for a
+		-- `fill` axis (the same fact the aspect-with-fill repair above `measure`
+		-- documents), so a `fill`-width Box would enter the partition at ZERO and
+		-- three of them would share one line at zero pixels each — a row of invisible
+		-- children with nothing to say. "Fill" means "take the extent the parent
+		-- offers", and on a wrapping stack the extent it offers IS the line, so it
+		-- takes the line. `arrange` files the diagnostic that says so.
+		local mainDim = dim(child, if isH then "w" else "h")
+		local ownMain = if isH then w + ml + mr else h + mt + mb
+		mains[idx] = if mainDim.type == "fill" and innerMain ~= math.huge then innerMain else ownMain
+		crosses[idx] = if isH then h + mt + mb else w + ml + mr
+	end
+	local lines = flowPartition(mains, innerMain, gap)
+	local totalCross, maxMain = 0, 0
+	for li, line in lines do
+		local lineCross = 0
+		for i = line.first, line.last do
+			lineCross = math.max(lineCross, crosses[i])
+		end
+		line.cross = lineCross
+		-- the lines are PACKED (the probe): one gap between them and nothing else
+		totalCross += lineCross + (if li > 1 then gap else 0)
+		maxMain = math.max(maxMain, line.main)
+	end
+	local value = { lines = lines, sizes = sizes, mains = mains, totalCross = totalCross, maxMain = maxMain }
+	ctx.flowLines[node.id] = { key = key, value = value }
+	return value
+end
+
 -- content sizes per kind (pre-dim resolution), used by measure
 local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
 	-- padding accepts a number or per-side table, exactly like margins
@@ -1461,6 +1592,30 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			end
 		end
 		return reportedW + pl + pr, totalH + pt + pb
+	end
+
+	-- THE WRAPPING STACKS (round 3 item A). Content is the WIDEST LINE by the SUM
+	-- of the line extents, one gap between lines — the whole measure, because the
+	-- plan above already owns both the child measurement and the partition.
+	--
+	-- The report is deliberately NOT clamped to the offer: an item wider than the
+	-- line makes `maxMain` exceed it, and reporting the honest larger number lets a
+	-- `hug` parent grow to fit rather than silently cropping. `arrange` clamps what
+	-- is left over and says so.
+	if node.kind == "hwrap" or node.kind == "vwrap" then
+		local wrapH = node.kind == "hwrap"
+		local plan = flowPlan(
+			ctx,
+			node,
+			wrapH,
+			if wrapH then innerMaxW else innerMaxH,
+			if wrapH then innerMaxH else innerMaxW,
+			gap
+		)
+		if wrapH then
+			return plan.maxMain + pl + pr, plan.totalCross + pt + pb
+		end
+		return plan.totalCross + pl + pr, plan.maxMain + pt + pb
 	end
 
 	-- vstack / hstack
@@ -1928,6 +2083,18 @@ local PLACEMENT_READS: { [string]: { [string]: boolean } } = {
 	-- calls `shrinkStack` at all.
 	vstack = { lineAlign = true, layoutPriority = true, shrinkWeight = true },
 	hstack = { lineAlign = true, layoutPriority = true, shrinkWeight = true },
+	-- ...AND THE WRAPPING STACKS, WHICH ARE NOT THE SAME ROW (round 3 item A).
+	-- `lineAlign` is if anything MORE meaningful here — wrapping is what multiplies
+	-- the lines it aligns inside — but the SHRINK PAIR is deliberately absent:
+	-- wrapping IS the answer to a main-axis deficit, so there is no deficit left for
+	-- `layoutPriority`/`shrinkWeight` to share out and a wrapping stack that
+	-- accepted them would be accepting-and-ignoring. This row is also why the kind
+	-- had to be distinct at all: `auditPlacement` returns nil for a kind it does not
+	-- know and polices NOTHING, so a wrapping stack keyed as `hstack` would have
+	-- accepted the shrink pair and a wrapping stack keyed as neither would have
+	-- accepted every one of the nine.
+	vwrap = { lineAlign = true },
+	hwrap = { lineAlign = true },
 	-- A SCROLLER READS BOTH OFFSETS, not just its axis's. The off-axis nudge is a
 	-- no-op today, but the scroll machinery itself writes the pair (scroll
 	-- offsetting and the row-culling park, `arrange`'s scroll branch), so pinning
@@ -1952,6 +2119,8 @@ local PLACEMENT_SELF_READ: { [string]: { [string]: boolean } } = {
 local PLACEMENT_BY: { [string]: string } = {
 	vstack = "stacking them down a line",
 	hstack = "stacking them across a line",
+	vwrap = "stacking them down a column and wrapping into the next one",
+	hwrap = "stacking them across a line and wrapping onto the next one",
 	zstack = "layering them over its whole box",
 	anchor = "pinning them to a corner",
 	grid = "flowing them into equal columns",
@@ -1969,6 +2138,18 @@ local function SHRINK_PAIR_INSTEAD(prop: string, insteadDoes: string): string
 			.. "parent whose main axis came out short; %s",
 		prop,
 		insteadDoes
+	)
+end
+-- ...and the wrapping stacks' version of it. A wrapping stack's main axis cannot
+-- come out short — it wraps instead of overflowing — so the shrink pass is not
+-- merely unread here, it has nothing to run on.
+local function WRAP_SHRINK_INSTEAD(prop: string): string
+	return string.format(
+		"`%s` is one of the SHRINK pass's two inputs, and a WRAPPING stack never runs it: its main "
+			.. "axis cannot come out short because it wraps instead. Drop `wrap` if you wanted the row "
+			.. "squeezed onto one line, or drop `%s`",
+		prop,
+		prop
 	)
 end
 -- Per (parent kind, prop): the spelling that DOES work there. A refusal that
@@ -1992,6 +2173,35 @@ local PLACEMENT_INSTEAD: { [string]: { [string]: string } } = {
 		offsetX = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
 		offsetY = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
 		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+	},
+	-- THE WRAPPING PAIR (round 3 item A). Same advice as the stack it is a mode of,
+	-- plus the one message that is genuinely different: the shrink pair is not
+	-- "read by a stack whose axis came out short" here, because this stack's axis
+	-- CANNOT come out short — it wraps instead. `WRAP_SHRINK_INSTEAD` says exactly
+	-- that rather than pointing an author at a pass that will never run.
+	vwrap = {
+		alignH = "use `lineAlign` (start|center|end|stretch), which a wrapping stack does read off each child",
+		alignV = "a wrapping vstack's cross axis is X — use `lineAlign` (start|center|end|stretch) for one "
+			.. "child in its line, `align` for where the block of lines sits, and `distribute` for the "
+			.. "main axis of each line",
+		anchor = "wrap this child in a `UI.Anchor`, which does place by corner",
+		offsetX = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		offsetY = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+		layoutPriority = WRAP_SHRINK_INSTEAD("layoutPriority"),
+		shrinkWeight = WRAP_SHRINK_INSTEAD("shrinkWeight"),
+	},
+	hwrap = {
+		alignH = "a wrapping hstack's cross axis is Y — use `lineAlign` (start|center|end|stretch) for one "
+			.. "child in its line, `align` for where the block of lines sits, and `distribute` for the "
+			.. "main axis of each line",
+		alignV = "use `lineAlign` (start|center|end|stretch), which a wrapping stack does read off each child",
+		anchor = "wrap this child in a `UI.Anchor`, which does place by corner",
+		offsetX = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		offsetY = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+		layoutPriority = WRAP_SHRINK_INSTEAD("layoutPriority"),
+		shrinkWeight = WRAP_SHRINK_INSTEAD("shrinkWeight"),
 	},
 	zstack = {
 		anchor = "use `alignH`/`alignV` (start|center|end), which a zstack does read off each child",
@@ -3197,6 +3407,162 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		return
 	end
 
+	-- THE WRAPPING STACKS (round 3 item A). This is the flow-`grid` loop above with
+	-- a RAGGED advance instead of `i += cols`: form a line, take its cross extent
+	-- from its tallest item, place, advance — except that the partition is not
+	-- re-derived here. It comes from `flowPlan`, which measure also called, so the
+	-- two passes cannot disagree about where the lines break.
+	if node.kind == "hwrap" or node.kind == "vwrap" then
+		local isH = node.kind == "hwrap"
+		local children = node.children or {}
+		local innerMain = if isH then innerW else innerH
+		local innerCross = if isH then innerH else innerW
+		local plan = flowPlan(ctx, node, isH, innerMain, innerCross, gap)
+
+		-- `stretch` IS REFUSED HERE, NOT REINTERPRETED. On a single-line stack the
+		-- word has one meaning — "a child fills its line on the cross axis". On a
+		-- wrapping one it could equally mean "the LINES grow to fill the container",
+		-- and one word meaning two things is the exact ambiguity `lineAlign` was
+		-- created to end (§2.1). A literal `align = "stretch"` is a construction
+		-- error (`blueprint.luau`); this is the same rule for a value only a solve
+		-- can see, because `align` is reactive.
+		local blockAlign = node.align
+		if blockAlign == "stretch" then
+			if ctx.hiddenDepth == 0 then
+				table.insert(ctx.diagnostics, {
+					node = node.id,
+					issue = string.format(
+						'align = "stretch" has two readings on a wrapping %s — "each child fills its line" '
+							.. 'and "the lines fill the container" — so it is refused and treated as "start". '
+							.. 'Put `lineAlign = "stretch"` on the children that should fill their line',
+						node.kind
+					),
+				})
+			end
+			blockAlign = nil
+		end
+
+		-- THE BLOCK OF LINES IS PLACED BY `align`, packed, exactly as the engine
+		-- places it (probed 2026-08-13: Top 0, Center 160, Bottom 320 in a 400px box
+		-- holding 80px of lines).
+		local crossCursor = (if isH then innerY else innerX) + alignOffset(blockAlign, innerCross, plan.totalCross)
+		if ctx.hiddenDepth == 0 and plan.totalCross > innerCross then
+			-- THE DIRECTION A WRAPPING STACK RUNS OUT OF ROOM IS ITS CROSS AXIS, and
+			-- before this nothing looked there: the main-axis diagnostic beside it
+			-- cannot fire on a stack whose whole job is to never exceed its main axis.
+			-- Same `hiddenDepth` gate and same reuse replay as that one.
+			table.insert(ctx.diagnostics, {
+				node = node.id,
+				issue = string.format(
+					"the wrapped lines overflow this %s by %dpx on the cross axis; they will paint outside "
+						.. "its box (wrap it in a ScrollView, or give it room)",
+					node.kind,
+					plan.totalCross - innerCross
+				),
+			})
+		end
+
+		local mainOrigin = if isH then innerX else innerY
+		for _, line in plan.lines do
+			local count = line.last - line.first + 1
+			local slack = if innerMain == math.huge then 0 else math.max(0, innerMain - line.main)
+			-- MAIN-AXIS DISTRIBUTION IS PER LINE (§2.6's `distributionOf`, unchanged).
+			-- There is no `fill` conflict to report here the way the plain stack has
+			-- one: a `fill` main child takes a whole line, which is the diagnostic
+			-- filed below, so a line holding one has no leftover by construction.
+			local lead, step = 0, 0
+			local mode = node.distribute
+			if mode ~= nil and mode ~= "start" then
+				lead, step = distributionOf(mode, slack, count)
+			end
+			local cursor = mainOrigin + math.floor(lead)
+			local gapsPlaced, gapExtraApplied = 0, 0
+			for i = line.first, line.last do
+				local child = children[i]
+				local s = plan.sizes[i]
+				local mainMargin = if isH then s.ml + s.mr else s.mt + s.mb
+				local crossMargin = if isH then s.mt + s.mb else s.ml + s.mr
+				-- AN ITEM WIDER THAN ITS LINE IS CLAMPED TO THE LINE, and said so. It
+				-- already has a line to itself (the partition gives it one rather than
+				-- dropping it); painting it at its full extent would put it outside a
+				-- box that reports fitting, which is the "painted at a size nobody
+				-- measured" family this repo keeps paying for.
+				local natural = plan.mains[i]
+				local boxMain = if innerMain == math.huge then natural else math.min(natural, innerMain)
+				if ctx.hiddenDepth == 0 and boxMain < natural then
+					table.insert(ctx.diagnostics, {
+						node = node.id,
+						issue = string.format(
+							"'%s' is %dpx wider than this %s's line on the main axis and was CLAMPED to it — "
+								.. "it is painting at a size it never asked for (give the container room, or let "
+								.. "this child shrink)",
+							child.id,
+							natural - boxMain,
+							node.kind
+						),
+					})
+				end
+				local mainSize = math.max(0, boxMain - mainMargin)
+				if ctx.hiddenDepth == 0 and dim(child, if isH then "w" else "h").type == "fill" then
+					table.insert(ctx.diagnostics, {
+						node = node.id,
+						issue = string.format(
+							"'%s' declares `fill` on this %s's MAIN axis, so it takes a whole line to itself — a "
+								.. "wrapping stack has no single leftover to share (drop the fill dimension, or "
+								.. "drop `wrap`)",
+							child.id,
+							node.kind
+						),
+					})
+				end
+				local crossAvail = math.max(0, line.cross - crossMargin)
+				-- the same ladder the plain stack's arrange uses, one line up from the
+				-- container's word — which here is the BLOCK's word, exactly as Roblox's
+				-- `ItemLineAlignment = Automatic` defers to the container's alignment
+				local childAlign = child.lineAlign or child.align or blockAlign
+				local crossDim = dim(child, if isH then "h" else "w")
+				-- AN ASPECT CHILD KEEPS THE PAIR MEASURE RESOLVED, and that is a rule
+				-- rather than an omission: the partition is a function of the measured
+				-- MAIN extents, so re-deriving one here from a stretched cross extent
+				-- would make arrange disagree with the lines measure already broke.
+				-- `measureUncached`'s `pairedExtent` already resolves aspect-with-fill
+				-- against the offer, so the pair this reads is a real one.
+				local crossSize = if crossDim.type ~= "aspect"
+						and (crossDim.type == "fill" or childAlign == "stretch")
+					then crossAvail
+					else math.min(if isH then s.h else s.w, crossAvail)
+				local childRect: Rect
+				if isH then
+					childRect = {
+						x = cursor + s.ml,
+						y = crossCursor + s.mt + alignOffset(childAlign, crossAvail, crossSize),
+						w = mainSize,
+						h = crossSize,
+					}
+				else
+					childRect = {
+						x = crossCursor + s.ml + alignOffset(childAlign, crossAvail, crossSize),
+						y = cursor + s.mt,
+						w = crossSize,
+						h = mainSize,
+					}
+				end
+				cursor += mainMargin + mainSize + gap
+				-- the same carried fraction as the plain stack's cursor: the k-th gap's
+				-- extra is `floor(k x step)`, so the leftover lands as whole pixels
+				if step > 0 and i < line.last then
+					gapsPlaced += 1
+					local extra = math.floor(gapsPlaced * step)
+					cursor += extra - gapExtraApplied
+					gapExtraApplied = extra
+				end
+				arrange(ctx, child, childRect, out)
+			end
+			crossCursor += line.cross + gap
+		end
+		return
+	end
+
 	-- vstack / hstack. Main axis, in order: fixed/content children keep their
 	-- desired size unless they declared a `shrinkWeight` and the axis is SHORT (the
 	-- shrink pass, §2.4); `fill` children then share any surplus by weight
@@ -3547,6 +3913,7 @@ function solver.solve(
 		scopeKey = "0",
 		hasContainerRelative = false,
 		gridColumns = {},
+		flowLines = {},
 		gridRowPlan = {},
 		-- per-solve measure memo (see `measure`). Weak keys are unnecessary: the
 		-- whole ctx dies with the solve.
@@ -3622,6 +3989,11 @@ function solver.solve(
 end
 
 solver.sides = sides
+-- THE LINE PARTITION, EXPORTED (round 3 item A). It is pure — `(mains, innerMain,
+-- gap) -> lines`, reading no node and no ctx — so a fuzz can drive it with no tree
+-- at all, which is half of why it was written this way. The other half is that
+-- measure and arrange both go through it and therefore cannot disagree.
+solver.flowPartition = flowPartition
 
 -- ---- THE STAGE-1 REPORT -----------------------------------------------------
 --

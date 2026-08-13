@@ -394,7 +394,15 @@ local function toLayoutNode(
 	if class == "Screen" then
 		kind = "vstack"
 	elseif class == "VStack" then
-		kind = "vstack"
+		-- ONE PUBLIC CLASS, TWO SOLVER KINDS (round 3 item A). `wrap` is a prop
+		-- because a wrapping stack is the same class in a second mode (schema
+		-- `WRAP`); the KIND is distinct because `solver.auditPlacement` is keyed on
+		-- it and a wrapping stack reads a genuinely different placement set — no
+		-- shrink pair, because wrapping is what a main-axis deficit does here. Same
+		-- prop-decides-kind seam `AdaptiveStack.axis` uses two lines down, and it
+		-- carries the same guarantee: the class never changes, so a flip re-solves
+		-- and never remounts.
+		kind = if props.wrap == true then "vwrap" else "vstack"
 	elseif class == "AdaptiveStack" then
 		-- ONE class, reactive axis (A-AL2): the flip is a re-solve, never a
 		-- remount, so children keep their identity and state
@@ -412,7 +420,7 @@ local function toLayoutNode(
 	elseif class == "Divider" then
 		kind = "box"
 	elseif class == "HStack" then
-		kind = "hstack"
+		kind = if props.wrap == true then "hwrap" else "hstack"
 	elseif class == "ZStack" then
 		kind = "zstack"
 	elseif class == "ScrollView" then
@@ -931,7 +939,12 @@ local function toLayoutNode(
 	if #node.children > 0 then
 		layoutNode.children = {}
 		-- the axis this container imposes on its children (nil = not a stack)
-		local childAxis: string? = if kind == "hstack" then "x" elseif kind == "vstack" then "y" else nil
+		-- a wrapping stack imposes the SAME axis as the stack it is a mode of: a
+		-- Divider inside a wrapping row is still a vertical rule (round 3 item A)
+		local childAxis: string? = if kind == "hstack" or kind == "hwrap"
+			then "x"
+			elseif kind == "vstack" or kind == "vwrap" then "y"
+			else nil
 		local function appendChild(child: any)
 			-- structural regions (When/ForEach) own MOUNTING, not layout:
 			-- their children splice into the parent's flow so fill dims and

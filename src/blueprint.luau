@@ -150,8 +150,12 @@ export type ScreenSpec = BoxProps & ContainerProps & {
 	-- "end" | "spaceBetween" | "spaceAround" | "spaceEvenly"
 	distribute: Bound<string>?,
 }
-export type VStackSpec = ScreenSpec
-export type HStackSpec = ScreenSpec
+-- ...plus the one word `Screen` does not get: FLOW-WRAP (round 3 item A). A
+-- wrapping stack is the SAME class in a second mode — Roblox's
+-- `UIListLayout.Wraps` — so it is a prop rather than a class, and it is reactive,
+-- so "wrap this row on a phone" is a re-solve and never a remount.
+export type VStackSpec = ScreenSpec & { wrap: Bound<boolean>? }
+export type HStackSpec = ScreenSpec & { wrap: Bound<boolean>? }
 export type ZStackSpec = BoxProps & ContainerProps & { canvasGroup: boolean? }
 export type AnchorSpec = BoxProps & ContainerProps
 export type ScrollViewSpec = BoxProps & ContainerProps & {
@@ -559,6 +563,27 @@ local function make(class: string, spec: any): Blueprint
 	-- value that can change later cannot drive it.
 	if props.overflow == "clip" and props.clipChildren == nil and known.clipChildren ~= nil then
 		props.clipChildren = true
+	end
+	-- `align = "stretch"` ON A WRAPPING STACK MEANS TWO THINGS, so it means none
+	-- (round 3 item A). On a single-line stack the word has exactly one reading —
+	-- "a child fills its line on the cross axis" — and on a wrapping one it could
+	-- equally be "the LINES grow to fill the container". One word doing two jobs is
+	-- the ambiguity `lineAlign` was created to end (§2.1), so it is refused rather
+	-- than picked for the author.
+	--
+	-- THIS CATCHES THE LITERAL CASE ONLY, and that is the whole of what a
+	-- construction check can honestly claim: both props are reactive, so a value
+	-- that only a solve can know is refused by the solver's own wrapping branch,
+	-- with the same message. Two seams, one rule; the equality below cannot see a
+	-- bound value and does not pretend to.
+	if props.wrap == true and props.align == "stretch" then
+		error(
+			`LuauUI UI.{class}: \`align = "stretch"\` has two readings on a wrapping stack — "each child `
+				.. `fills its line" and "the lines fill the container" — so it is refused. Put `
+				.. '`lineAlign = "stretch"` on the children that should fill their line, and use `align` '
+				.. "(start|center|end) for where the block of lines sits.",
+			0
+		)
 	end
 	-- IMMUTABLE ALL THE WAY DOWN (api-architecture-consistency F-22 / ledger
 	-- BP-F18). api.md says "blueprints are immutable plain tables" and the whole
