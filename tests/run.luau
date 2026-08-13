@@ -172,6 +172,14 @@ require("./stack_distribution.spec")
 -- covers several columns and widens none of them), selected by the children — and
 -- the flow grid every existing caller has stays byte-identical, pinned first
 require("./grid_row.spec")
+-- round 3 item A: FLOW-WRAP. `UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }`
+-- — Roblox's `UIListLayout.Wraps`, which LuauUI had no spelling for. One prop, one
+-- native arrange branch (never a public `Layout` protocol — see the round-3 design
+-- doc's Phase 0 verdict), and NO new alignment vocabulary: the engine's cross-axis
+-- rule was measured live and it is `align` for the block of lines and `lineAlign`
+-- for an item inside its line. The line partition is a PURE function, cached on
+-- the ctx exactly as `gridColumnPlan` is, so the two passes cannot disagree
+require("./flow_wrap.spec")
 -- §2.1 SILENTLY-INERT PLACEMENT PROPS. `anchor`, `offsetX`, `offsetY`, `alignH`,
 -- `alignV`, `lineAlign` and `gridSpan` are shared BOX props — legal on every node
 -- — but each is an instruction addressed to a particular kind of PARENT, and

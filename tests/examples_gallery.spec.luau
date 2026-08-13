@@ -2402,6 +2402,107 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 end)
 
 -- ---------------------------------------------------------------------------
+-- progress_ring — the CIRCULAR progress indicator, both forms (round 3 D2)
+--
+-- The showcase obligation for a new public API, met the same way `card_rail` and
+-- `with_animation` meet it: the fixture is mounted exactly as the host mounts it,
+-- and what is asserted here is the thing the fixture exists to demonstrate —
+-- which the always-on overflow sweep structurally cannot ask.
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: circular progress, both forms", function()
+	local module = require("../examples/gallery/scenarios/progress_ring") :: any
+	local PAGE = "/ProgressRing/Page"
+	local RING = PAGE .. "/Ring/Ring"
+	local BUSY = PAGE .. "/Busy/Ring"
+
+	local function ringWorld(view: any?)
+		local w = fixtureWorld(view or DESKTOP)
+		local built = mountFixture(w, module)
+		return w, built
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = ringWorld(view)
+			expectNoDiagnostics(`progress_ring at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("both forms are on screen: a filled ring, a rotating head, and the dot spinner", function()
+		local w, built = ringWorld()
+		-- determinate: an arc over its capacity ring
+		expect(w.adapter.node(RING .. "/Track") ~= nil).toBe(true)
+		expect(w.adapter.node(RING .. "/Arc") ~= nil).toBe(true)
+		-- indeterminate: the head alone, no capacity ring behind it
+		expect(w.adapter.node(BUSY .. "/Arc") ~= nil).toBe(true)
+		expect(w.adapter.node(BUSY .. "/Track")).toBeNil()
+		-- ...and the five-dot spinner is still here: it is the fallback if the
+		-- arc's per-frame paint ever fails on a device, and the fixture is where
+		-- the two are compared
+		expect(w.adapter.node(PAGE .. "/Dots/Spinner/Dot5") ~= nil).toBe(true)
+		expect(built.report().busyAnimating).toBe(true)
+		built.dispose()
+	end)
+
+	it("the steps drive the ring's sweep, and the arc follows the value", function()
+		local w, built = ringWorld()
+		local function endpoint(): { x: number, y: number }
+			local pts = w.adapter.node(RING .. "/Arc").props.points
+			return pts[#pts]
+		end
+		expect(built.report().fraction).toBe(0.25)
+		local at25 = endpoint()
+		built.steps.setProgress65()
+		settleFixture(w.presenter)
+		expect(built.report().fraction).toBe(0.65)
+		local at65 = endpoint()
+		-- 25% ends at 3 o'clock; 65% is past 6 o'clock, on the other side
+		expect(`moved:{math.abs(at65.x - at25.x) > 0.01 or math.abs(at65.y - at25.y) > 0.01}`).toBe("moved:true")
+		-- the arc is inset from the box edge by half its stroke (CIRCULAR_RADIUS =
+		-- 0.8), so 3 o'clock is x = 0.9 exactly, not the box edge
+		expect(`x25=0.9:{math.abs(at25.x - 0.9) < 1e-6} x65<0.5:{at65.x < 0.5}`).toBe("x25=0.9:true x65<0.5:true")
+		built.steps.setProgress100()
+		settleFixture(w.presenter)
+		expect(built.report().fraction).toBe(1)
+		built.dispose()
+	end)
+
+	it("the indeterminate head TRAVELS when the surface's clock advances", function()
+		local w, built = ringWorld()
+		local function head(): number
+			local p = w.adapter.node(BUSY .. "/Arc").props.points[1]
+			return (math.deg(math.atan2(p.x - 0.5, 0.5 - p.y)) + 360) % 360
+		end
+		local before = head()
+		built.steps.advance(built, "20")
+		settleFixture(w.presenter)
+		expect(`travelled:{math.abs(head() - before) > 0.001}`).toBe("travelled:true")
+		expect(built.report().busyPhase > 0).toBe(true)
+		built.dispose()
+	end)
+
+	it("its copy survives a 1.4x pseudo-localization without clipping", function()
+		underPseudoLocalization(module, function()
+			for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE } do
+				local w, built = ringWorld(view)
+				expectNoDiagnostics(`progress_ring pseudo-localized at {view.w}x{view.h}`, w, built)
+				expectUnclipped(`progress_ring at {view.w}x{view.h}`, built, {
+					PAGE .. "/Title",
+					PAGE .. "/Caption",
+					PAGE .. "/Ring/Label",
+					PAGE .. "/Busy/Label",
+					PAGE .. "/Dots/Label",
+				})
+				built.dispose()
+			end
+		end)
+		expect(string.find(module.copy.title, "Circular", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
 -- adaptive_controls — the round-2 LAYOUT VOCABULARY (§2.1/2.2/2.4/2.5/2.6, §3.3)
 --
 -- The standing obligation is that every new public API this round added appears

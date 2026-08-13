@@ -274,6 +274,7 @@ Three groups recur in the column below and are worth naming once:
 | `padding` | layout containers, `Button`, and the text-bearing leaves `Text`, `Toggle`, `TextField` | inner spacing; on a control it is the text inset the adapter must match, and on a `Text` the measure adds it. A number, a spacing-step name (`"xs"`…`"xl"`), or per-side values of either |
 | `gap` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `ScrollView`, `Grid`, `Button` | spacing between children along the stack axis; a number or a spacing-step name (`"xs"`…`"xl"`). On a `Button` it spaces the button's own content |
 | `align` | `Screen`, `VStack`, `HStack`, `AdaptiveStack`, `Button` | cross-axis alignment of children (`start`/`center`/`end`/`stretch`) |
+| `wrap` | `VStack`, `HStack` | let the children run onto more than one line when they do not fit the main axis (Roblox `UIListLayout.Wraps`). See `VStack` / `HStack` below — it adds no new alignment words, and `align = "stretch"` is refused beside it |
 | `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
@@ -368,10 +369,54 @@ presented screen; fills the presenter-resolved content rect (safe-area aware).
 
 ### `VStack` / `HStack`
 
-`UI.VStack{ id?, gap?, padding?, align?, distribute?, width?, height?, offsetX?, offsetY?, surface?, children? }`
+`UI.VStack{ id?, gap?, padding?, align?, distribute?, wrap?, width?, height?, offsetX?, offsetY?, surface?, children? }`
 — vertical / horizontal stacks. Children with `fill` dims share leftover
 main-axis space by weight; `align` = `start | center | end | stretch` on the
 cross axis. Stack children never overlap along the stack axis.
+
+**`wrap = true` lets the children run onto more than one line** — Roblox's
+`UIListLayout.Wraps`, and a stack that does not fit its main axis wraps instead of
+painting past its own box. It is a **prop, not a class**: a wrapping stack is the
+same stack in a second mode, so it keeps every other word it had, and it is
+reactive — `wrap = adaptive.conditions(…).compact` re-solves in place and never
+remounts a child. SwiftUI ships no flow layout at all (verified 2026-08-13), so
+this is native parity, not SwiftUI parity.
+
+It adds **no new alignment vocabulary**, because the engine's own rule was
+measured rather than guessed (Studio, 2026-08-13): the lines are packed with no
+extra space between them, and the whole *block* of lines is placed on the cross
+axis by the alignment the container already had. So
+
+| where | the word |
+|---|---|
+| the block of lines, on the cross axis | `align` (`start`/`center`/`end`) |
+| one item inside its own line | `lineAlign`, on the child |
+| each line's leftover, on the main axis | `distribute`, per line |
+
+and a line is as tall as its tallest item. One `gap` spaces both the items and the
+lines, exactly as `UIListLayout.Padding` does.
+
+Four rules worth knowing before you reach them:
+
+- **`align = "stretch"` is refused** on a wrapping stack — it would mean both "each
+  child fills its line" and "the lines grow to fill the container". Put
+  `lineAlign = "stretch"` on the children that should fill their line. A literal
+  one is a construction error; a bound one is reported on `controller.diagnostics()`
+  and treated as `start`.
+- **an item wider than the line** gets a line of its own, is clamped to the line,
+  and says so on `controller.diagnostics()`.
+- **the lines can overflow the CROSS axis** — that is the direction a wrapping
+  stack runs out of room — and that is reported too.
+- **a `fill` main-axis child takes a whole line to itself**, since a wrapping stack
+  has no single leftover to share; that is reported rather than left to surprise
+  you. The shrink pair (`layoutPriority`/`shrinkWeight`) is not read at all here:
+  wrapping *is* what this stack does with a deficit.
+
+**It does not compose with `newVirtualList`** — that is a deliberate non-goal. The
+virtualizer windows by `index × pitch` and needs a uniform item extent; a wrapped
+line has ragged extents and a variable items-per-line, so `index × pitch` cannot
+window it. `newVirtualList`'s spec is closed, so `wrap` there is a construction
+error.
 
 **`distribute` spreads the LEFTOVER main-axis space**: `start` (the default, and
 byte-identical to the packing every stack did before it existed) | `center` |

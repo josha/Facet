@@ -112,6 +112,11 @@ local SCENARIOS = {
 	-- phone has left.
 	"card_rail",
 	"with_animation",
+	-- parity round 3 D2: the circular indicator's showcase surface. Its ring is a
+	-- fixed square from a theme metric — the one shape in the family that cannot
+	-- shrink with its container — so a swept viewport is exactly where a page that
+	-- no longer fits shows up
+	"progress_ring",
 }
 
 local EXAMPLES = {

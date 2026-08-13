@@ -129,6 +129,16 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "with_animation",
 	},
+	-- the fifth fixture, for the same reason as the two above it: a rotating arc
+	-- cannot be shown by a still screenshot, and the determinate ring beside it is
+	-- what makes "one function of one scalar" legible rather than a claim
+	{
+		id = "progress-ring",
+		title = "Circular progress",
+		blurb = "A ring that fills, a ring that spins — one arc on UI.Path",
+		kind = "fixture",
+		module = "progress_ring",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

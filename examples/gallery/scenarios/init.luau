@@ -73,6 +73,11 @@ local ORDER = {
 	-- they are pickable in-experience and not only by workspace attribute.
 	"card_rail",
 	"with_animation",
+	-- SwiftUI-parity round 3 (docs/plans/swiftui-parity-round3.md item D2): the
+	-- circular progress indicator in BOTH forms — a determinate ring driven by the
+	-- steps and an indeterminate one rotating on the surface's own clock — beside
+	-- the five-dot spinner it does not replace. Also in `demo_picker.DEMOS`.
+	"progress_ring",
 }
 
 local scenarios = {}
