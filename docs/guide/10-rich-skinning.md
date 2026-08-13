@@ -316,6 +316,23 @@ spinner = { kind = "nineSlice", asset = "ornate_spinner_dot", sliced = false,
             fallback = "native" },
 ```
 
+**The circular indicator has no slot at all, and that is deliberate.**
+`presentation = "circular"` — the ring that fills to a value, and the rotating
+one that has no value to report — is drawn as a *stroke* on `UI.Path`, not as a
+picture. There is nothing to skin: a stroke has a colour and a thickness and
+nothing else. So it takes its colour from the ordinary style roles (the arc is
+`accent`, the unfilled capacity ring behind it is `secondary`) and its size from
+two theme metrics, `controls.progress.circularSize` and
+`controls.progress.circularThickness`. Both are **optional** in a package — leave
+them out and the snapshot fills them from your own `space` scale, so an existing
+package gains a correctly-sized ring without editing a line. Author them if you
+want a chunkier ring; the thickness the snapshot fills is deliberately kept
+inside a fifth of the diameter, because a Path stroke is centred on its curve and
+a thicker one would paint outside the box the layout measured. One thing a
+package cannot do is fade it: `Path2D` has no transparency at all. Fade the
+container instead — put the control inside a `UI.ZStack({ canvasGroup = true })`
+of your own, which is the same idiom the framework's own refusal names.
+
 Measured live across the sweep 0 / 1 / 50 / 99 / 100 %: the fill art keeps the
 same width, the same origin, the same `Image`, the same `ScaleType` and the same
 `SliceCenter` at every stop, while the window reveals 0 / 12 / 598 / 1183 / 1195

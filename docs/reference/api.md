@@ -3980,9 +3980,9 @@ class, including Adjust.
 ### `newProgressView`
 
 `LuauUI.newProgressView(LuauUI, core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
-— linear progress, determinate or indeterminate. `spec = { id?, label?, value?
-(number | Readable), min? = 0, max? = 1, format?, showValue?, height?,
-presentation? ("bar" | "spinner"), motionClock?, scope? }`.
+— progress, determinate or indeterminate, linear or circular. `spec = { id?,
+label?, value? (number | Readable), min? = 0, max? = 1, format?, showValue?,
+height?, presentation? ("bar" | "circular" | "spinner"), motionClock?, scope? }`.
 
 **Indeterminate is selected by `value = nil`** — SwiftUI's own rule
 (`ProgressView()` with no value is indeterminate). There is deliberately no
@@ -3993,25 +3993,81 @@ value, declaring one *without* a value is an authoring error rather than a silen
 no-op. The mode is construction-fixed, exactly as SwiftUI's two initializers are
 two different views.
 
-`presentation` picks the shape. `"bar"` (the default) is the track; indeterminate
-it grows a segment that sweeps to the far end and folds back. `"spinner"` is a
-ring of five pulsing dots and is **indeterminate only** — a determinate spinner is
-an arc, and the blueprint has no rotation or trim channel to draw one with, so the
-combination is refused with that reason instead of silently degrading. The dots
+`presentation` picks the shape, and **the shape and the mode are two independent
+axes** — three shapes, two modes. Which cells are legal is a **capability
+registry** in the control (`PRESENTATIONS`), and every refusal below is generated
+from it rather than hand-written per shape, so a new shape joins by adding a row:
+
+| `presentation` | indeterminate | determinate | `height` | `showValue` |
+|---|---|---|---|---|
+| `"bar"` (default) | ✅ | ✅ | ✅ the track's thickness | ✅ beside the track |
+| `"circular"` | ✅ | ✅ | ❌ refused | ❌ refused |
+| `"spinner"` | ✅ | ❌ refused | ❌ refused | ❌ refused |
+
+`"bar"` is the track; indeterminate it grows a segment that sweeps to the far end
+and folds back.
+
+**`"circular"` is a ring, and it takes both modes** because both are the same
+function of one scalar: determinate binds `arc(0, 360 × fraction)` — a fixed head
+with a growing sweep, over a static capacity ring — and indeterminate binds
+`arc(360 × phase, 90°)`, a fixed sweep whose *start angle* advances, which is how
+it rotates without any rotation existing. There is no native radial primitive in
+the engine (searched, 2026-08-13: `UIGradient` has no angular mode, `ImageLabel`
+no fractional fill, `EditableImage` no arc, and `GuiObject.Rotation` cannot move
+its pivot and is documented incompatible with `ClipsDescendants`), so both forms
+are strokes on the `UI.Path` primitive that already ships, drawn from
+`LuauUI.pathShapes.arc`. `points` is `dirty = { "paint" }`, so a value change and
+a frame of rotation are each **one prop write and zero re-solves**. It adds **no
+blueprint prop and no decoration slot**: the arc's paint identity is the Path's
+own `role` (`accent`, over a `secondary` capacity ring), and its size is the pair
+of optional theme metrics `controls.progress.circularSize` /
+`circularThickness` — small by default off the theme's own `space` scale, with no
+per-call diameter, because Apple's only size guidance here is "prefer an activity
+indicator when space is constrained". Two consequences worth knowing before you
+reach for one: **it cannot fade** (`Path2D` has no `Transparency` — wrap it in
+your own `UI.ZStack({ canvasGroup = true })` if you need to), and a `UI.Path` that
+is not *fully* inside every clip host above it **does not paint at all** rather
+than being cropped (`tests/path.spec.luau`, RS-PATHCLIP) — a stroke has no
+half-crop, so a ring in a scrolling list winks out at the edge instead of being
+sliced.
+
+**Do not read the circular ring as `ProgressView` parity.** On iOS/macOS/tvOS
+`ProgressView(value:).progressViewStyle(.circular)` is *indeterminate* — the
+determinate ring is a **`Gauge`** (`.accessoryCircularCapacity`, "a closed ring
+that's partially filled in"), which LuauUI does not otherwise ship. The
+indeterminate form is the `ProgressView` parity claim; the determinate one is the
+Gauge shape, offered on the same control because the arithmetic is identical.
+
+`"spinner"` is a ring of five pulsing dots and is **indeterminate only** — a
+determinate ring is `presentation = "circular"`, which the refusal now names. (It
+used to say "the blueprint has no rotation or trim channel to draw one with",
+which stopped being true when `circular` shipped.) It is kept, unchanged, as the
+fallback if the arc's per-frame paint ever proves too expensive on a device. The
+dots
 are fixed squares whose PULSE rides the `tint` channel rather than their size: a
 loading indicator lives inside a vertical `ScrollView`, and a fraction of an
 unbounded axis is not a size — so the ring animates for zero re-solves and can be
 dropped into any container. They paint through one new decoration slot, `spinner`;
 the bar paints through `barTrack` / `barFill` exactly as it always has.
 
-**`height` is the bar's track thickness, and only the bar's.** A spinner has no
-track, so `presentation = "spinner"` with a `height` is **refused** rather than
-silently reinterpreted as the dot's size — which is what it used to do, turning a
+**`height` is the bar's track thickness, and only the bar's.** No other shape has
+a track, so `presentation = "spinner"` or `"circular"` with a `height` is
+**refused** rather than silently reinterpreted as the dot's size or the ring's
+diameter — which is what it used to do, turning a
 `height` chosen for a chunky bar into five oversized dots and a much wider row. The
 dot is the theme metric `controls.progress.spinnerDotSize`, which is where a size
 every spinner should agree on belongs. This is the same rule as the `min` / `max` /
 `format` / `showValue` refusals above: a field whose meaning does not survive the
 mode is an authoring error, never a silent reinterpretation.
+
+**`showValue` is refused on `"circular"` for the same reason**, and it is the one
+place this control deliberately does *not* copy Apple. `.accessoryCircularCapacity`
+centres the value inside the ring — but that is a complication-sized dial, while
+this indicator is theme-sized and small with no per-call diameter to grow it, so a
+centred readout has no size it is guaranteed to fit inside; and putting it *beside*
+the ring, where the bar puts it, would ship a different design under Apple's
+description. Both alternatives are named in the refusal: compose your own
+`UI.Text` next to the control (what the gallery fixture does), or use the bar.
 
 `motionClock` is the surface's motion clock (`presenter.motionClock`), and only
 the indeterminate cycle reads it — a determinate bar never touches it. With no
@@ -4059,7 +4115,14 @@ less motion. Both policies are covered in `tests/display_controls.spec.luau`.
 The fill is a **percent** dimension, so the bar reflows with its container without
 recomputing pixels, and paint is style-owned through the **bar family**: the
 track declares the `barTrack` decoration slot and the fill declares `barFill`, so
-retheming those slots — or shipping art for them — restyles every progress bar.
+The circular indicator's paint is not a slot at all: a Path stroke has a colour
+and a thickness and nothing else, so it takes the ordinary style roles and the two
+optional theme metrics named above. Both indeterminate shapes read the **same
+single** phase value from the **same** `clock:glide(…, kind = "informational")`
+call, so a rotating ring acquires no clock entry the five dots did not already
+cost, and the reduced-motion policy above applies to it verbatim.
+
+Retheming those slots — or shipping art for them — restyles every progress bar.
 It does **not** borrow the `control` and `accent` surfaces any more, and that is
 the point: those are treatments meant for buttons and panels, so an ornate
 package stretched a button plate across the track and a panel gradient's alpha

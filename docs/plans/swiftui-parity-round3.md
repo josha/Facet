@@ -748,3 +748,170 @@ The most valuable half of the audit, each with its evidence:
 *(Phases 1–6 follow. This document is written as they land; a section that is not
 here yet has not been decided yet, and that is deliberate — round 2's lesson is
 that a plausible story ahead of the data is worse than no story.)*
+
+---
+
+## D2 shipped — the circular progress indicator, both forms
+
+`presentation = "circular"` ships. Everything below is what was decided while
+building, what was measured, and the one question that is still open.
+
+### 1. The capability registry replaced the three hand-written refusals
+
+Standing rule 2 bit the existing code first. `presentation` is the **shape**;
+`value` nil-or-not is the **mode**; they are two independent axes (three shapes ×
+two modes), and every refusal is a function of the *pair*. That was three
+hand-written `if`s, and adding a shape that takes both modes and has no track
+would have meant a fourth and fifth branch for a sibling case — so the chain was
+the bug. It is now one table (`progress_view.luau`), with a fourth column the
+mission's design added:
+
+```luau
+bar      = { indeterminate = true, determinate = true,  hasTrack = true,  valueLabel = true  }
+circular = { indeterminate = true, determinate = true,  hasTrack = false, valueLabel = false }
+spinner  = { indeterminate = true, determinate = false, hasTrack = false, valueLabel = false }
+```
+
+**Four refusals are now generated from it** — unknown presentation (which lists
+the rows), illegal mode, `height` without a track, `showValue` without a label
+host — and each row carries the *sentence* its refusal borrows, so the reason
+lives beside the fact. `circular` joined by adding a row. The rendering side is a
+dispatch table keyed by the same name rather than a chain, so a shape is added in
+one place at both ends; the three builders are genuinely different geometry (a
+track, five dots, a stroked arc), which is what separates a dispatch from the
+`if` chain the refusals used to be.
+
+**The spinner's old refusal message is gone.** It said *"the blueprint has no
+rotation or trim channel to draw one with"*, which stopped being true the moment
+`circular` shipped. It now names `presentation = "circular"`, and
+`display_controls.spec` fails if the old sentence ever comes back.
+
+### 2. The `canvasGroup` decision: NO holder, and the caller owns the fade
+
+`Path2D` has no `Transparency` — re-confirmed by the Phase 0 probe (both the read
+and the write pcall returned false). `canvasGroup` fixes a node's engine class at
+creation and cannot be added later, so this had to be decided now.
+
+**Decided: the control declares no `canvasGroup`.** Declaring one would force a
+CanvasGroup instance — an off-screen render target and a permanent opt-out of
+container elision — on *every* caller, to buy a fade nobody asked for and whose
+effect on a `Path2D` child is itself unverified. A caller who needs the ring to
+fade wraps `blueprint` in their own `UI.ZStack({ canvasGroup = true })`, which is
+exactly the idiom `sheet_model.tintTransparency`'s existing refusal already names.
+Recorded in the control's header and in `docs/guide/10-rich-skinning.md` so a
+theme author looking for a "ring slot" finds the answer instead.
+
+### 3. The `showValue` decision: REFUSED, with both alternatives named
+
+Apple's centred readout is real and was verified from the JSON twin
+(`accessoryCircularCapacity`: *"This style displays the gauge's
+`currentValueLabel` value at the center of the gauge"* — SW-131). It is also a
+**`Gauge`** on a complication-sized dial. This indicator is small by construction:
+its diameter is a theme metric off the `space` scale and there is **no per-call
+diameter**, so a centred readout has no size it is guaranteed to fit inside — and
+putting it *beside* the ring, where the bar puts it, would ship a different design
+under Apple's description. So `showValue` is refused on `circular` (in both
+polarities — `showValue = false` is refused too, because the field has no meaning
+here either way), and the message names the two things that do work: compose your
+own `UI.Text` beside the control, or use the bar. The gallery fixture does exactly
+the former, so the documented alternative is one a reader can see working.
+
+**The parity claim is split accordingly.** On iOS/tvOS `ProgressView(.circular)`
+is not guaranteed to be determinate — Apple's own words, now cited: *"In cases
+where no determinate circular progress view style is available, circular progress
+views use an indeterminate style"* (SW-130). So `swiftui-parity.md` claims
+`ProgressView` parity for the **indeterminate** ring only; the determinate ring is
+cited against `Gauge(.accessoryCircularCapacity)` (SW-131), which is also the one
+`Gauge` shape LuauUI now has.
+
+### 4. Sizing: two optional metrics, and the arithmetic lives where the numbers do
+
+`controls.progress.circularSize` and `circularThickness` join
+`spinnerDotSize` in `package.CONTROL_FAMILY_OPTIONAL.progress`, filled by
+`snapshot.resolve` from the theme's own `space` scale (`space.l`, and `space.xs`
+for the stroke). **No shipped package's authored metrics move, so no package's
+content stamp moves.**
+
+The non-obvious half: a Path2D stroke is **centred on its curve**, so a ring at
+radius fraction `R` in a box of `D` paints out to `R·D/2 + thickness/2`. The
+control only ever sees metric *names* — it never resolves a snapshot — so the
+relationship can only be guaranteed inside `snapshot.resolve`, where both numbers
+exist. `CIRCULAR_RADIUS = 0.8` leaves a fifth of the diameter as the stroke's
+budget and the fill clamps to it (pre-snapped **down** onto a pixel theme's grid,
+because §4b snaps every published length **up**). `progress_circular.spec` asserts
+`R·D/2 + t/2 ≤ D/2` for the neutral snapshot and all eight shipped packages —
+this is the "painted at a size nobody measured" family, which no headless
+diagnostic can see, so the invariant is checked as arithmetic instead.
+
+### 5. Performance — tier 1 (headless Lune), and the prediction held exactly
+
+Falsifiable prediction, stated before measuring: `commit` rises, `react` rises
+slightly, **`measure`/`arrange` stay FLAT** — any movement there means the arc
+leaked into geometry. Measured over 600 frames of live cycle at 400×600:
+
+| shape (indeterminate) | instances | ops/frame | solves | propWrites | rectWrites | arranged | measured | ms/frame |
+|---|---|---|---|---|---|---|---|---|
+| `bar` | 6 | 1.98 | **+600** | 0 | 1188 | 6 → 6 | 27 → 27 | 0.044 |
+| `spinner` (dots) | 8 | 5.00 | 0 | 3000 | 0 | 8 → 8 | 26 → 26 | 0.021 |
+| **`circular`** | **4** | **1.00** | **0** | 600 | 0 | 4 → 4 | 8 → 8 | **0.004** |
+
+And 100 determinate value changes:
+
+| shape | ops | solves | propWrites | rectWrites |
+|---|---|---|---|---|
+| `bar` | 100 | **+100** | 0 | 100 |
+| **`circular`** | 100 | **0** | 100 | 0 |
+
+`measure`/`arrange` are flat in every row, `solves` is zero for both circular
+forms, and the rotating ring is the **cheapest** indicator in the family — one
+prop write per frame against the dot spinner's five, on half the instances, and
+0.004 ms/frame against the indeterminate bar's 0.044 ms with its 600 re-solves.
+The five-dot spinner is kept anyway, unchanged and demoted in the docs, because
+the number that matters is a **device** number and nobody has taken it.
+
+**Off-path cost is exactly zero**, asserted rather than asserted-about: a surface
+with a bar and a dot spinner, driven 120 clock steps, materialises no `Path`
+instance (instance delta 0) and emits no `.points` op (op delta 0). Mutation
+M14 (a stray `UI.Path` added to the bar's builder) reddens that case.
+
+Everything above is **tier 1 (headless Lune)**. Nothing here is a phone number:
+the arc's per-frame `SetControlPoints` cost on device is **`PENDING_PHYSICAL`**,
+and `Path2D:UpdateControlPoint` — the cheap in-place mitigation if it is needed —
+**refuses on an unparented Path2D** (Phase 0 probe) and has not been re-probed
+under Play.
+
+### 6. The risk this mission could NOT close: clipping
+
+Phase 0 booked "does the ring clip inside a ScrollView" as a Play-mode canary.
+It is **still open**, and the honest statement is in two halves:
+
+* **The framework half is closed, and it was already closed before D2 started.**
+  `renderer` culls a `UI.Path` that is not *fully* inside every clip host above
+  it — all-or-nothing, because a stroke has no half-crop — and
+  `tests/path.spec.luau`'s RS-PATHCLIP block pins it over a real `ScrollView`
+  host, including the partial-overlap case and the no-clip-host case. So a
+  circular indicator in a scrolling list **winks out at the edge**; it does not
+  paint outside the window. That is a behaviour a caller must know (it is now in
+  `api.md`), not a defect.
+* **The engine half is untested.** Whether the engine *itself* would have cropped
+  the stroke is unanswered, and `GetBoundingRect` cannot answer it: it reports
+  geometry that knows nothing about a host's crop. Answering it needs a rendered
+  capture under Play, which this mission did not take. It does not block the
+  control — the framework's cull runs first and is deterministic — but the
+  D2 row in any device-canary ledger should read **PENDING_PHYSICAL**, and the
+  `progress_ring` fixture is the surface to drive when someone takes it.
+
+### 7. What shipped, and where it is proved
+
+`src/controls/progress_view.luau` (registry + both forms) ·
+`src/themes/package.luau` + `src/themes/snapshot.luau` (two optional metrics) ·
+`tests/progress_circular.spec.luau` (11 cases) · six new cases in
+`tests/display_controls.spec.luau` · five in `tests/examples_gallery.spec.luau` ·
+`examples/gallery/scenarios/progress_ring.luau`, registered in the scenario
+`ORDER`, `demo_picker.DEMOS` and the always-on `overflow_sweep` list ·
+`docs/reference/api.md`, `docs/reference/swiftui-parity.md` (rows + citations
+SW-130/SW-131), `docs/guide/10-rich-skinning.md` · and one extended framework
+rider in Rascal Rally's `tests/luauui_sponsor_results.spec.luau`, which asserts
+the bar's three registry cells directly (mutating `bar.valueLabel` to `false`
+reddens that one case and nothing else; mutating `bar.hasTrack` reddens 388,
+because the rally bar stops presenting).
