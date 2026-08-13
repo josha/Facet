@@ -953,7 +953,33 @@ describe("RowActions control", function()
 		expect(w.adapter.node(ROW .. "/EditAffordanceWhen") == nil).toBe(true)
 	end)
 
-	it("editing shows the minus; tapping it opens the trailing tray (does not delete directly)", function()
+	-- RE-DECIDED 2026-08-13 (game-director ruling, round 3 item C), NOT
+	-- re-baselined. This case and the leading-only one below previously
+	-- asserted the OPPOSITE — that the minus reveals the tray and fires
+	-- nothing — and they asserted it as CORRECT, citing "the iOS pattern".
+	--
+	-- Two things changed the ruling. (1) The device report: a player in edit
+	-- mode taps the minus and expects the row to go. (2) The justification did
+	-- not survive checking — Apple documents the control's APPEARANCE
+	-- (`UITableViewCell.EditingStyle.delete`, "a red circle enclosing a minus
+	-- sign") and documents that edit mode "provides controls to delete or move
+	-- list items", but documents NO behaviour for tapping it. The source
+	-- comment's "the iOS pattern" was an uncited recollection, and round 2 was
+	-- wrong three times that way.
+	--
+	-- What made the report legitimate rather than a misunderstanding: the
+	-- minus deliberately borrows the destructive action's own accessible label
+	-- (typically "Delete"), so it ANNOUNCED itself as Delete and then did not
+	-- delete. The fix makes the label true.
+	--
+	-- The mechanism is deliberately not new: the minus becomes a THIRD caller
+	-- of `commitDestructive()`, the same funnel keyboard Delete/Backspace
+	-- (`tests/row_actions_input.spec.luau`, "Delete on a focused row fires the
+	-- first destructive action") and the action menu's destructive item
+	-- already use. That is what buys the full slide-off + height-collapse
+	-- sequence — including round 2's C8a fix, where nothing stands painted
+	-- once the row is carried clear — instead of a bare callback.
+	it("editing shows the minus; tapping it DELETES the row directly (one funnel: commitDestructive)", function()
 		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
@@ -977,17 +1003,78 @@ describe("RowActions control", function()
 		local node = w.adapter.node(EDIT_AFFORDANCE_PATH)
 		expect(node ~= nil).toBe(true)
 		expect(node.props.role).toBe("destructive")
-		-- the DRAWN content is the icon's glyph (a circle's content is one mark
-		-- — `blueprint.luau`'s own `assertShape`); the semantic `label` this
-		-- control set ("Delete", the destructive action's own accessible name)
-		-- is authored but never painted, same as every other `shape = "circle"`
-		-- + `icon` button (`tests/button_shape.spec.luau`).
-		expect(node.props.label).toBe(theme_package.iconGlyph("decrement"))
-		expect(w.ra.dump().phase).toBe("closed") -- not open yet
+		expect(w.ra.dump().phase).toBe("closed")
 
 		w.adapter.tap(EDIT_AFFORDANCE_PATH)
-		expect(w.ra.dump().openEdge).toBe("trailing") -- reveals the tray...
-		expect(#fired).toBe(0) -- ...but does NOT fire the destructive action itself
+		w.pres.refresh()
+		settle(w.pres)
+		-- the action fires, exactly once...
+		expect(fired).toEqual({ "delete" })
+		-- ...and the commit ends closed, the same terminal state the keyboard
+		-- Delete path asserts. A minus that fired but left a tray standing
+		-- would be the C8a defect in a new costume.
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().phase).toBe("closed")
+	end)
+
+	-- The tray-revealing behaviour still EXISTS and is still reachable — by
+	-- the swipe, which is the gesture that means "show me this row's actions".
+	-- Pinned here so the ruling above cannot be over-applied into deleting the
+	-- reveal itself.
+	it("the ruling is about the MINUS only — a swipe still reveals the trailing tray and fires nothing", function()
+		local fired: { string } = {}
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+				editing = editing,
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		expect(w.ra.dump().openEdge).toBe("trailing")
+		expect(#fired).toBe(0)
+	end)
+
+	-- The minus still WEARS the destructive action's accessible name — that is
+	-- what makes it announce correctly to a screen reader, and after the
+	-- ruling above the name is finally honest. The DRAWN content is the icon's
+	-- glyph (a circle's content is one mark — `blueprint.luau`'s `assertShape`);
+	-- the semantic `label` is authored and never painted, same as every other
+	-- `shape = "circle"` + `icon` button (`tests/button_shape.spec.luau`).
+	it("the minus wears the destructive action's own accessible name, and now that name is true", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function() end,
+					},
+				},
+				editing = editing,
+			})
+		end)
+		local node = w.adapter.node(EDIT_AFFORDANCE_PATH)
+		expect(node.props.label).toBe(theme_package.iconGlyph("decrement"))
 	end)
 
 	-- REDTEAM ITEM 6 (MAJOR): `handleActivate`'s edit-mode minus used to
@@ -1022,10 +1109,18 @@ describe("RowActions control", function()
 		end)
 		expect(w.ra.dump().phase).toBe("closed")
 		w.adapter.tap(EDIT_AFFORDANCE_PATH)
-		expect(w.ra.dump().openEdge).toBe("leading") -- NOT "trailing" (there is no trailing tray)
-		expect(#fired).toBe(0)
-		w.pres.refresh() -- mounts the now-revealed leading tray (UI.When)
-		expect(w.adapter.node(LEADING_TRAY .. "/Action:archive") ~= nil).toBe(true)
+		w.pres.refresh()
+		settle(w.pres)
+		-- RE-DECIDED with the case above: the minus commits rather than
+		-- reveals. What this case still guards is the half of REDTEAM item 6
+		-- that has nothing to do with the ruling — `firstDestructiveEntry`
+		-- searching BOTH edges. A row whose only destructive action sits on
+		-- the LEADING edge must still delete; the old hard-coded
+		-- `open("trailing")` was silently dead here, and a hard-coded
+		-- `commit(trailing)` would be dead in exactly the same way.
+		expect(fired).toEqual({ "archive" })
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().phase).toBe("closed")
 	end)
 
 	-- Task 9 four-input reachability: the minus is a normal focusable Button
@@ -1033,83 +1128,174 @@ describe("RowActions control", function()
 	-- above already proves reachable (tests/row_actions.spec.luau:598-619's
 	-- own idiom) — content("Body") is a plain UI.Text (no focusable children),
 	-- so the minus is the tree's only focus stop and Navigate lands on it first.
-	it("RowActions keyboard: focus + Return activates the minus, opening the trailing tray", function()
+	-- RE-DECIDED 2026-08-13, and these two were the dangerous pair: after the
+	-- minus-deletes ruling they kept PASSING while asserting a behaviour that
+	-- no longer happens. `doCommitAction` sets `openEdge` to the committing
+	-- edge for the duration of the flight, so `dump().openEdge == "trailing"`
+	-- reads true mid-commit — the assertion survived, the name became a lie,
+	-- and the four-input proof it carries silently stopped proving anything.
+	-- That is the vacuous-test class this file already knows (see the
+	-- claim-count spy below): a green assertion satisfied by a transient state
+	-- rather than by the outcome. Both now assert the OUTCOME, after a settle.
+	it("RowActions keyboard: focus + Return activates the minus, which DELETES the row", function()
+		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
 			return row_actions.build(LuauUI, core, {
 				id = "Row",
 				content = content("Body"),
-				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
 				editing = editing,
 			})
 		end)
 		expect(w.pres.focus.focused:get()).toBe(EDIT_AFFORDANCE_PATH)
 		w.system.deviceKey("Return", true)
 		w.system.deviceKey("Return", false)
-		expect(w.ra.dump().openEdge).toBe("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		expect(fired).toEqual({ "delete" })
+		expect(w.ra._isOpen()).toBe(false)
 	end)
 
-	it("RowActions gamepad: focus + ButtonA activates the minus, opening the trailing tray", function()
+	it("RowActions gamepad: focus + ButtonA activates the minus, which DELETES the row", function()
+		local fired: { string } = {}
 		local editing
 		local w = presenterWorld(function(core)
 			editing = core:signal(true)
 			return row_actions.build(LuauUI, core, {
 				id = "Row",
 				content = content("Body"),
-				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
 				editing = editing,
 			})
 		end)
 		expect(w.pres.focus.focused:get()).toBe(EDIT_AFFORDANCE_PATH)
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
-		expect(w.ra.dump().openEdge).toBe("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		expect(fired).toEqual({ "delete" })
+		expect(w.ra._isOpen()).toBe(false)
 	end)
 
-	it(
-		"activating the minus while the trailing tray is already open is a no-op (proven via a claim-count spy)",
-		function()
-			-- `dump().openEdge` alone cannot prove this: `open("trailing")` called a
-			-- SECOND time on an already-"trailing" row is a no-op in its OWN right
-			-- (`retarget` re-aims the SAME persistent spring at the value it is
-			-- already at; `openEdge:set("trailing")` is equality-diffed by the core
-			-- and never refires a subscriber) — so `dump().openEdge` reads
-			-- "trailing" identically whether row_actions.luau's own no-op guard
-			-- exists or not, and a mutation deleting that guard leaves this
-			-- assertion green (the exact vacuous-test class this file's own
-			-- localization test comment already warns about). The one thing that
-			-- DOES differ is whether `open()` runs its BODY at all: wrap the real
-			-- coordinator's `claim` in a counting spy (a coordinator is a plain
-			-- table of closures — `row_actions.newCoordinator`'s own return shape
-			-- — so wrapping one field is ordinary Lua, no framework hook needed)
-			-- and assert it is called exactly ONCE for two activations.
-			local coordinator = row_actions.newCoordinator(LuauUI.newCore())
-			local claimCount = 0
-			local realClaim = coordinator.claim
-			coordinator.claim = function(...)
-				claimCount += 1
-				return realClaim(...)
-			end
-			local editing
-			local w = presenterWorld(function(core)
-				editing = core:signal(true)
-				return row_actions.build(LuauUI, core, {
-					id = "Row",
-					content = content("Body"),
-					trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
-					editing = editing,
-					coordinator = coordinator,
-				})
-			end)
-			w.adapter.tap(EDIT_AFFORDANCE_PATH) -- first activation: opens the tray, claims once
-			expect(w.ra.dump().openEdge).toBe("trailing")
-			expect(claimCount).toBe(1)
-			w.adapter.tap(EDIT_AFFORDANCE_PATH) -- second activation: already open — must NOT re-claim
-			expect(w.ra.dump().openEdge).toBe("trailing")
-			expect(claimCount).toBe(1) -- unchanged: this is the bite the guard exists to prove
+	it("two activations of the minus DELETE EXACTLY ONCE (two independent guards, both required)", function()
+		-- RE-DECIDED 2026-08-13 with the director's minus-deletes ruling.
+		-- This case used to prove "activating the minus while the tray is
+		-- already open is a no-op", because the minus opened a tray. It
+		-- commits now, so that guarantee no longer exists — but the
+		-- SAFETY question underneath it got sharper, not weaker: an
+		-- accidental double-tap on a destructive control must not delete
+		-- twice.
+		--
+		-- WHAT PROTECTS IT, ESTABLISHED BY MUTATION RATHER THAN BY
+		-- READING. The first draft of this comment credited
+		-- `doCommitAction`'s `committed` latch, which is what the code
+		-- reads like. That was wrong: disabling the latch alone leaves the
+		-- whole suite green AND leaves this row deleting exactly once,
+		-- because the commit fires at the END of the slide-off and a
+		-- second `commitEpoch` generation check (`:1563`, `:1612`) guards
+		-- the settle chain independently. The two guards are deliberate
+		-- defence in depth — the epoch's own comment calls itself "belt,
+		-- on top of the `committed`/`disposed` guards".
+		--
+		-- So the honest statement is: this property has TWO independent
+		-- owners, and it takes breaking BOTH to produce a double delete.
+		-- Verified: with `committed` neutered and the epoch compare
+		-- reduced to `if disposed then`, a probe fires the destructive
+		-- action TWICE and this case reddens. With either guard alone
+		-- restored, it fires once. Anyone who "simplifies" one of the two
+		-- away will not be caught by this test — that is a known and
+		-- accepted limit of it, written down rather than discovered.
+		--
+		-- THE ORIGINAL'S INSTRUMENT DISCIPLINE IS KEPT, because it is the
+		-- reason this case is worth anything. `dump().openEdge` could not
+		-- see the old guard (a second `open("trailing")` is a no-op in its
+		-- own right — `retarget` re-aims a spring at the value it already
+		-- holds, and `openEdge:set` is equality-diffed by the core), so a
+		-- mutation deleting the guard left the assertion green. The
+		-- claim-count spy was added to make it bite. The same trap applies
+		-- here: `#fired` is the observable that actually distinguishes one
+		-- commit from two, so that is what is counted — and the spy stays,
+		-- because a commit that re-claimed the coordinator would be a
+		-- second defect the fire count alone cannot see.
+		-- `dump().openEdge` alone cannot prove this: `open("trailing")` called a
+		-- SECOND time on an already-"trailing" row is a no-op in its OWN right
+		-- (`retarget` re-aims the SAME persistent spring at the value it is
+		-- already at; `openEdge:set("trailing")` is equality-diffed by the core
+		-- and never refires a subscriber) — so `dump().openEdge` reads
+		-- "trailing" identically whether row_actions.luau's own no-op guard
+		-- exists or not, and a mutation deleting that guard leaves this
+		-- assertion green (the exact vacuous-test class this file's own
+		-- localization test comment already warns about). The one thing that
+		-- DOES differ is whether `open()` runs its BODY at all: wrap the real
+		-- coordinator's `claim` in a counting spy (a coordinator is a plain
+		-- table of closures — `row_actions.newCoordinator`'s own return shape
+		-- — so wrapping one field is ordinary Lua, no framework hook needed)
+		-- and assert it is called exactly ONCE for two activations.
+		local coordinator = row_actions.newCoordinator(LuauUI.newCore())
+		local claimCount = 0
+		local realClaim = coordinator.claim
+		coordinator.claim = function(...)
+			claimCount += 1
+			return realClaim(...)
 		end
-	)
+		local fired: { string } = {}
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+				editing = editing,
+				coordinator = coordinator,
+			})
+		end)
+		-- two activations with NO settle between them — the accidental
+		-- double-tap, landing while the first commit is still in flight,
+		-- which is precisely where the `committed` latch has to hold.
+		w.adapter.tap(EDIT_AFFORDANCE_PATH)
+		w.adapter.tap(EDIT_AFFORDANCE_PATH)
+		w.pres.refresh()
+		settle(w.pres)
+		expect(fired).toEqual({ "delete" }) -- ONCE. Two would be a destroyed row's worth of defect.
+		expect(w.ra._isOpen()).toBe(false)
+		-- ZERO, and the zero is the interesting part. The old minus opened
+		-- a tray, so it claimed the one-open-at-a-time coordinator; a
+		-- commit reveals nothing, so it claims nothing. The spy therefore
+		-- proves the behaviour CHANGE as well as its idempotence — if a
+		-- future edit reintroduced a reveal before the commit, this count
+		-- would go to 1 and say so. Kept for that, not out of habit.
+		expect(claimCount).toBe(0)
+	end)
 
 	it(
 		"a full trailing reveal EXPOSES the same tray with or without editing (the gutter is an inset, never a lost reveal)",

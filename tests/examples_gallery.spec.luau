@@ -1092,7 +1092,20 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(world.core:lastError()).toBeNil()
 	end)
 
-	it("edit mode ADDS the ⊖ that leads to the same Remove, and the swipe still works while editing", function()
+	-- RE-DECIDED 2026-08-13 (game-director ruling, parity round 3 item C).
+	-- THIS IS THE DIRECTOR'S OWN DEVICE SCENARIO, headless: the showcase
+	-- playlist table, on a phone, in edit mode, tapping the ⊖. It used to
+	-- assert `#baseRows == 6` — "revealed, nothing removed" — as the CORRECT
+	-- outcome. The report was that a player doing exactly this expects the row
+	-- to go, and the ruling agreed. So the assertion inverts: the row goes.
+	--
+	-- Why the old behaviour read as a bug rather than a design: the ⊖ borrows
+	-- the destructive action's accessible label, so it announced itself as
+	-- "Remove" and then removed nothing. The source justified the two-step as
+	-- "the iOS pattern"; Apple documents the control's appearance and edit
+	-- mode's purpose but documents NO tap behaviour, so that was an uncited
+	-- recollection (standing rule 7).
+	it("edit mode ADDS the ⊖, and tapping it REMOVES the row (the director's device scenario)", function()
 		local world = phoneWorld()
 		local key = world.built.rows:get()[1].id
 		local minus = `{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`
@@ -1104,14 +1117,22 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(world.adapter.node(minus).props.role).toBe("destructive")
 		-- the ≡ handle is there TOO: two affordances, one row, at once
 		expect(world.adapter.node(`{rowRoot(key)}/Content/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBeTruthy()
-		-- and the ⊖ is a ROUTE to Remove, not a second Remove: it reveals the
-		-- trailing tray, so the destructive action is still one more tap away
-		local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
-		expect(world.adapter.node(trayAction)).toBe(nil)
+
+		expect(#world.built.baseRows:get()).toBe(6)
 		world.adapter.touchTap(minus)
 		world.settle(120)
-		expect(world.adapter.node(trayAction) ~= nil).toBeTruthy()
-		expect(#world.built.baseRows:get()).toBe(6) -- revealed, nothing removed
+		-- THE ROW IS GONE. This is the whole ruling, asserted on the real
+		-- showcase fixture rather than on a unit world.
+		expect(#world.built.baseRows:get()).toBe(5)
+		-- and it is the row that was tapped, not merely "some row"
+		for _, row in world.built.baseRows:get() do
+			expect(row.id ~= key).toBeTruthy()
+		end
+		-- nothing stands painted behind it: the ⊖ commits through the same
+		-- slide-off + collapse the swipe uses, so the tray it never revealed
+		-- is not left mounted (round 2's C8a, in its edit-mode costume)
+		local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+		expect(world.adapter.node(trayAction)).toBe(nil)
 		expect(world.core:lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 	end)

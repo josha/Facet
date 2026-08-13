@@ -3341,36 +3341,50 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		-- routes a presenter/tap Activate; returns true when the path was ours
 		-- (mirrors popup_button.luau's api.handleActivate).
 		local function handleActivate(path: string, _meta: any?): boolean
-			-- Task 9: the minus never deletes directly — it opens the tray
-			-- holding the destructive action, same as the header comment/
-			-- brief promise. THE REQUIRED NO-OP (Task 7's review, now
-			-- required by this task's own brief): while that edge's tray is
-			-- already open, activating the minus again does nothing — no
-			-- re-claim, no re-retarget of a spring already at (or flying
-			-- toward) the same target.
+			-- THE MINUS DELETES. Game-director ruling, 2026-08-13 (parity
+			-- round 3, item C), from a device report: a player in edit mode
+			-- taps the minus and expects the row to go.
 			--
-			-- REDTEAM FIX (item 6, MAJOR): this used to hard-code
-			-- `open("trailing")` — dead for a row whose ONLY destructive
-			-- action sits on the LEADING edge (`hasDestructive` (build-time,
-			-- above) scans BOTH edges, so `hasEditAffordance`/the minus
-			-- itself can be true with no trailing destructive action at
-			-- all). Opens whichever edge `firstDestructiveEntry` (Task 8's
-			-- own Delete-key lookup, "search trailing list first, then
-			-- leading") actually finds the minus's own destructive action
-			-- on — the SAME edge the minus's own accessible `label` already
-			-- borrows from (`destructiveEntry` below, at the button's own
-			-- build site). `hasEditAffordance` already guarantees
-			-- `hasDestructive`, so a `nil` entry here is unreachable in
-			-- practice; `"trailing"` is kept as the honest fallback rather
-			-- than asserting, matching this file's own house style
-			-- elsewhere (e.g. `settleTo`'s "unreachable in practice... stay
-			-- honest").
+			-- It used to REVEAL the tray instead, and the comment here
+			-- justified that as "the iOS pattern". That justification did not
+			-- survive being checked: Apple documents the control's APPEARANCE
+			-- (`UITableViewCell.EditingStyle.delete` — "a red circle
+			-- enclosing a minus sign") and documents that edit mode "provides
+			-- controls to delete or move list items", but documents NO
+			-- behaviour for tapping it. It was an uncited recollection.
+			--
+			-- What made the report legitimate rather than a misunderstanding
+			-- is one line further down this file: the minus borrows the
+			-- destructive action's own accessible `label`, so it ANNOUNCED
+			-- itself as "Delete" and then did not delete. The ruling makes
+			-- the name true.
+			--
+			-- ONE FUNNEL, NOT A NEW PATH. `commitDestructive()` is what
+			-- keyboard Delete/Backspace and the action menu's destructive
+			-- item already call, and it is what carries the full slide-off +
+			-- height-collapse sequence — including the C8a fix, where nothing
+			-- stands painted once the row is carried clear. Calling
+			-- `entry.action.onAction` directly here would have been a bare
+			-- callback and a fourth way to delete a row; this file's own
+			-- history (`table.luau:1015-1030`, "a third, wholly separate way
+			-- to start the identical reorder") is why it is not.
+			--
+			-- It also subsumes REDTEAM item 6 for free: `commitDestructive`
+			-- resolves its edge through `firstDestructiveEntry` ("search
+			-- trailing first, then leading"), so a row whose ONLY destructive
+			-- action sits on the LEADING edge still deletes. A hard-coded
+			-- trailing commit would have been dead there in exactly the way
+			-- the old hard-coded `open("trailing")` was.
+			--
+			-- THE NO-OP GUARD IS GONE ON PURPOSE. It existed because opening
+			-- an already-open tray is a meaningless re-retarget. A commit is
+			-- not idempotent-by-nature, so the protection that matters is the
+			-- one `doCommitAction` already owns — its `committed` latch,
+			-- which is what makes a second press during a commit's flight do
+			-- nothing (`tests/row_actions_input.spec.luau`, "a re-swipe the
+			-- instant a commit clears...").
 			if hasEditAffordance and string.match(path, editAffordancePattern) ~= nil then
-				local destructiveEntry = firstDestructiveEntry()
-				local edge: Edge = if destructiveEntry ~= nil then destructiveEntry.edge else "trailing"
-				if openEdge:get() ~= edge then
-					open(edge)
-				end
+				commitDestructive()
 				return true
 			end
 			if leadingActions ~= nil then
