@@ -51,6 +51,47 @@ verdict. The point is not a score. The point is that a developer (or an agent)
 picking up LuauUI can find out, in one read, whether the thing they need exists,
 exists-with-caveats, or does not exist at all.
 
+### This document covers a bounded catalog — read this before you trust a silence
+
+**A capability that is absent from this document was not necessarily
+considered.** That sentence is the most important one in §1, and until
+2026-08-13 the document did not say it.
+
+The four verdicts below are *findings*: **Missing** means we looked and we do not
+have it. But a SwiftUI capability that never entered the catalog at all is
+neither Covered nor Missing — it is **unexamined**, and from inside this document
+the two are indistinguishable. A reader who looks up `onAppear`, `Section`,
+`.disabled()`, rich text, or scroll snapping finds nothing here and could
+reasonably conclude those were weighed and judged irrelevant. All five were
+simply never weighed.
+
+A completeness audit measured the bound on 2026-08-13
+([`../plans/parity-completeness-audit-2026-08-13.md`](../plans/parity-completeness-audit-2026-08-13.md)).
+Against Apple's own editorial groupings — 365 scored capability groups across 49
+SwiftUI collection pages — this document had **examined 127**. Of the remainder,
+120 have no Roblox substrate to bind to (OS windows, Apple frameworks, UIKit
+interop, Apple-only input devices), 54 are applicable but deliberately out of
+scope, and **64 were genuinely unexamined**, deduplicating to **39 named
+capabilities**.
+
+The blind spots are not randomly scattered, which is the useful part. Four
+collections supply 19 of the 64: [scroll
+views](https://developer.apple.com/documentation/swiftui/scroll-views) (6
+unexamined of 12), [view
+groupings](https://developer.apple.com/documentation/swiftui/view-groupings) (5
+of 7), [preferences](https://developer.apple.com/documentation/swiftui/preferences)
+(**5 of 5** — the largest single hole), and [custom
+layout](https://developer.apple.com/documentation/swiftui/custom-layout) (3 of
+4). That is this document inheriting the shape of a framework built control-first
+and layout-first, where scroll *behaviour*, *grouping semantics* and *extension
+points* were never their own areas.
+
+So: **strength in the areas below is real; silence outside them is not
+evidence.** Where a gap has since been examined it has moved into the tables and
+carries a verdict like anything else. The audit found no *false* row — every one
+of its findings was an absence, which is the failure mode a catalog has and a
+checker cannot see.
+
 There is a second yardstick, and §4.1 uses it: **Roblox's own layout controls.**
 SwiftUI parity says nothing about whether LuauUI is worth using *on this
 platform*. The standing bar from the director is that LuauUI must do **more**
@@ -1157,6 +1198,7 @@ selection bridge. See `artifacts/large-text-accessibility/acceptance.md` and
 | SwiftUI baseline | The shipping surface as documented on developer.apple.com on **2026-08-13**, including Apple's **June 2026** update — the one that pairs with Xcode 27 and the 27.0 OS releases ([SW-129]). Three items in that update touch this comparison directly and are reflected above: drag reordering generalised to stacks, grids and custom layouts (`reorderable()` / `reorderContainer`, §4), swipe actions generalised out of `List` (§5), and item- and error-driven alerts (§9) |
 | Roblox baseline | `UIListLayout` / `UIFlexItem` / `UIFlexAlignment` / `ItemLineAlignment` / `UIFlexMode` documentation re-read on create.roblox.com, 2026-08-13 (§4.1) |
 | LuauUI baseline | Source only: `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/init.luau`, `src/controls/`, `src/layout/`, `src/render/`, `src/present/`, `src/client/`, `src/motion/`, `src/themes/`, `src/tokens/`, `src/input/`, `src/focus/`, plus `tests/conformance/controls_registry.luau` |
+| **The SwiftUI-side denominator** | **365** scored capability groups, being the `groupMarker` headings across Apple's 49 SwiftUI collection landing pages, pulled from the DocC symbol index (`developer.apple.com/tutorials/data/index/swiftui`, 10,988 nodes) on 2026-08-13; 392 groups found, 27 dropped as navigation scaffolding. Of the 365: **127 examined by this document**, 120 with no Roblox substrate, 54 applicable but deliberately out of scope, and **64 unexamined** (deduplicating to 39 named capabilities). Method, reproduction script and the full ranked list: [`../plans/parity-completeness-audit-2026-08-13.md`](../plans/parity-completeness-audit-2026-08-13.md). **This is a bounded catalog, not a percentage score for all of SwiftUI** — §1 says what that means for a reader |
 
 **Claims about SwiftUI that citing them proved WRONG.** Every one had stood
 uncited, which is exactly why. Each is corrected in place, in the section named:
