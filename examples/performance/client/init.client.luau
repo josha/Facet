@@ -194,9 +194,32 @@ local runner = require(registry.runner) :: any
 -- ONE frame scope around the lab's own driving. `LuauUI/scenario` is a declared
 -- phase, so the capture shows the driver's per-frame share beside the framework's
 -- — which is what stops "the lab is slow" from being mistaken for "LuauUI is slow".
-local heartbeat = RunService.Heartbeat:Connect(function(dt: number)
+--[[ THE TICK IS NOT DRIVEN HERE — `motion_driver.bind(pres)` above already does
+	it, on PreRender, which is where it belongs (Heartbeat runs AFTER render, so
+	ticking there adds a frame of latency to every visual the tick drives).
+
+	IT USED TO BE DRIVEN IN BOTH PLACES, and the first physical-device capture is
+	what made that visible (game director, 2026-08-13, Galaxy A10e). The dump
+	showed `LuauUI/present` and `LuauUI/tick` each occurring SIXTY times across
+	thirty frames — twice per frame — with `LuauUI/scenario` wrapping exactly one
+	of each pair. Measured cost of the duplication on that device: 0.072 ms/frame
+	of duplicate tick plus 0.208 ms/frame of duplicate present+focusmap, i.e.
+	0.279 ms/frame, which was 45% of ALL LuauUI time in the capture.
+
+	`motion_driver`'s own header already called this out — "a second bind of the
+	same presenter is a mistake the double-tick would make visible, so it is
+	rejected loudly" — but its guard only refuses a second BIND. A bind plus a
+	hand-rolled `tick` on another signal walks straight past it, which is what
+	happened here. Recorded rather than only fixed, because the guard's shape is
+	the reusable finding: a rule that polices one spelling does not police the
+	behaviour.
+
+	NOTE FOR THE NEXT CAPTURE: `present` was ALSO occurring twice per frame, and
+	only one of those is the `refresh` below. The second has not been traced to
+	its call site and is NOT claimed fixed by this change — re-read the scope
+	counts on the next device dump and see whether `present` is 30 or 60. ]]
+local heartbeat = RunService.Heartbeat:Connect(function(_dt: number)
 	profile.span("scenario", function()
-		pres.tick(dt)
 		pres.refresh()
 	end)
 end)

@@ -2391,6 +2391,85 @@ return {
 			}
 		end
 
+		--[[ PROFILE ONE WORKLOAD, ON A LOOP, UNTIL SOMEBODY TAKES THE DUMP.
+
+			WHY THIS EXISTS, from the first physical-device capture this project ever
+			had (game director, 2026-08-13, Galaxy A10e, `perfPlace2gb.html`). The
+			director armed the MicroProfiler, pressed `Run all` twice, and dumped
+			during the second sweep. The dump held **30 frames — 1.08 seconds**. A
+			`Run all` sweep is tens of seconds long, so it sampled a random second of
+			it, and the second it drew was `dense-scroll-native`: the one workload
+			with **no LuauUI code in it at all**.
+
+			The result: `measure`, `arrange`, `commit`, `mount`, `react` and `reset`
+			had ZERO occurrences in the window, and `mutate`/`resource` had never been
+			entered in the whole session. Nine of the twelve scopes produced no data,
+			and those six are exactly the ones every device estimate in
+			`artifacts/performance-stress-places/` rests on. The workloads were fine;
+			the SAMPLING failed.
+
+			`Run all` cannot be fixed by pressing it harder. A capture window is ~1s
+			and a sweep is ~30s, so any single dump sees ~3% of it and cannot be aimed.
+			This step inverts that: it mounts ONE workload and repeats its declared
+			pass forever, so wherever the 1s window lands it lands INSIDE the thing
+			being measured. Press it, arm the profiler, dump whenever.
+
+			It is deliberately not time-boxed. A fixed duration would just re-create
+			the aiming problem one level down — the person taking the dump would have
+			to hit a window again. It runs until `Stop`. ]]
+		steps.profileWindow = function(_self: any, payload: string?)
+			local id = payload
+			if id == nil or id == "" then
+				id = settings.scenario
+			end
+			local known = false
+			for _, candidate in WORKLOAD_ORDER do
+				if candidate == id then
+					known = true
+					break
+				end
+			end
+			if not known then
+				local names = table.concat(WORKLOAD_ORDER, ", ")
+				error(
+					`[LuauUI PerfLab] profileWindow: unknown workload '{tostring(id)}'. `
+						.. `Legal: {names}. Omit the payload to profile the selected workload.`,
+					0
+				)
+			end
+			emergencyStopped = false
+			unmount()
+			steps.select(nil, `scenario={id}`)
+			mount()
+			refreshCounters()
+			local laps = 0
+			-- THE LOOP IS THE FEATURE. Each `run` executes the workload's own declared
+			-- pass sequence and yields inside it, so the frame loop advances and the
+			-- profiler records real frames between iterations.
+			while not emergencyStopped do
+				laps += 1
+				statusLine:set(`PROFILING {id} · lap {laps} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`)
+				local ok, err = pcall(function()
+					steps.run()
+				end)
+				if not ok then
+					statusLine:set(`PROFILING {id} FAILED on lap {laps}: {tostring(err)}`)
+					break
+				end
+			end
+			pcall(unmount)
+			refreshCounters()
+			statusLine:set(`profileWindow stopped after {laps} lap(s) of {id}`)
+			return {
+				scenario = id,
+				laps = laps,
+				stopped = emergencyStopped,
+				note = "one workload on a loop, so a ~1s MicroProfiler window cannot miss it. "
+					.. "Press Stop to end. Dump: Ctrl+F6 (Cmd+F6 on macOS), Ctrl+P to pause, "
+					.. "then Dump -> Dump in binary format.",
+			}
+		end
+
 		steps.workloads = function()
 			return { order = WORKLOAD_ORDER, workloads = WORKLOADS, scenarioVersion = SCENARIO_VERSION }
 		end
@@ -2406,6 +2485,17 @@ return {
 				-- implementation, two places to press it
 				run = function()
 					overlayModel.onRunAll()
+				end,
+			},
+			{
+				id = "Profile1",
+				label = "Profile 1",
+				-- profile the SELECTED workload on a loop; the whole point is that a
+				-- ~1s capture window cannot miss what it is aimed at
+				run = function()
+					task.spawn(function()
+						steps.profileWindow(nil, nil)
+					end)
 				end,
 			},
 			{
