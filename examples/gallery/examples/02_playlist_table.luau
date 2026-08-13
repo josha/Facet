@@ -19,6 +19,10 @@
 --                          drop line appear; releasing commits the new order
 --                          through onReorder and THIS example re-orders its
 --                          own data (the table never mutates your rows)
+--   * the PRIMARY ACTION — `onPrimaryAction` (SwiftUI parity round 2 §3.4):
+--                          "play this track", the verb that is NOT selection.
+--                          Double-click on a mouse, Return on a keyboard, A /
+--                          Cross on a gamepad, a single tap on touch
 --
 -- Interactions to try in the running place:
 --   * type in the Filter field to narrow the list (case-insensitive, matches
@@ -27,6 +31,8 @@
 --   * click a star, or press and DRAG left/right across the stars, to rate
 --     (drag past the left edge to clear); focus + Activate also works
 --   * click rows to select them (multi-select: clicks toggle additively)
+--   * DOUBLE-click a row (or focus it and press Return / A) to play it — the
+--     "Now playing" line above the table names the track
 --   * mouse: drag a row up or down to rearrange; wheel scrolls
 --   * touch: tap the Edit button (auto-shown), then drag a row's ≡ handle to
 --     rearrange; a plain drag on rows pans/scrolls the list
@@ -67,6 +73,11 @@ function example.build(LuauUI: any, core: any, deps: any)
 	local baseRows = core:signal(table.clone(TRACKS))
 	-- The filter text is owner-held (the TextInput never creates its value).
 	local filterText = core:signal("")
+	-- THE PRIMARY ACTION'S RESULT. `nil` until a row is opened. It is a separate
+	-- signal from the table's selection on purpose: selecting rows and playing one
+	-- are two different verbs, and the whole point of `onPrimaryAction` is that the
+	-- table stops having to overload the first to express the second.
+	local nowPlaying = core:signal(nil :: string?)
 
 	-- The rows the table actually shows are a MEMO derived from (baseRows,
 	-- filterText): a case-insensitive substring match on the track name. Using
@@ -227,6 +238,21 @@ function example.build(LuauUI: any, core: any, deps: any)
 		rowGap = "controls.table.rowGap",
 		header = true,
 		selection = "multi",
+		-- THE PRIMARY ACTION (parity round 2 §3.4). "Open this row" — here, play
+		-- this track. The Table reaches it on all four inputs with no gesture this
+		-- example has to invent: double-click on a mouse, Return on a keyboard, A /
+		-- Cross on a gamepad, and a SINGLE TAP on touch (a double-tap is a zoom
+		-- gesture on a phone, so the framework diverges deliberately and says so).
+		--
+		-- THE TOUCH DIVERGENCE HAS A PRICE, AND THIS EXAMPLE PAYS IT: in `multi`,
+		-- a touch tap on an already-selected row used to be the DESELECT gesture,
+		-- and declaring a primary action spends it on playing instead — for this
+		-- table only, because this table's author declared that its rows open.
+		-- Clearing a selection on touch is still exact through the table's own
+		-- `api.clearSelection`. See `src/controls/table.luau`'s divergence note.
+		onPrimaryAction = function(item: any, _key: string)
+			nowPlaying:set(item.name)
+		end,
 		reorderable = true,
 		dragLabel = function(item)
 			return item.name
@@ -290,10 +316,24 @@ function example.build(LuauUI: any, core: any, deps: any)
 	local function restore()
 		filterText:set("")
 		baseRows:set(table.clone(TRACKS))
+		nowPlaying:set(nil)
 		for _, track in TRACKS do
 			ratings[track.id]:set(track.rating)
 		end
 	end
+
+	-- THE PRIMARY ACTION'S ONE VISIBLE CONSEQUENCE. `policy = "none"` text (§15.3):
+	-- it declares no `lineLimit`, so a long track name under a ~1.4x localization
+	-- expansion WRAPS inside the page rather than clipping. Its em dash is the
+	-- localizable half of the string, which is why the whole sentence is built
+	-- here rather than concatenated out of a label and a value at paint time.
+	local nowPlayingText = core:memo(function(use)
+		local track = use(nowPlaying)
+		if track == nil then
+			return "Nothing playing — double-click a row, or press Return on a focused one"
+		end
+		return `Now playing — {track}`
+	end)
 
 	-- STYLE AUTHORITY: typography ROLES and spacing STEPS, so the theme picker
 	-- mounted beside this example actually moves it. `surface = "base"` gives the
@@ -316,6 +356,12 @@ function example.build(LuauUI: any, core: any, deps: any)
 					UI.Text({
 						id = "Hint",
 						text = "Type to filter · tap stars to rate · drag rows to reorder",
+						textSize = "label",
+						role = "secondary",
+					}),
+					UI.Text({
+						id = "NowPlaying",
+						text = nowPlayingText,
 						textSize = "label",
 						role = "secondary",
 					}),
@@ -347,6 +393,8 @@ function example.build(LuauUI: any, core: any, deps: any)
 		baseRows = baseRows, -- the full ordered playlist (reorder writes here)
 		filterText = filterText, -- the filter query (the field's value)
 		filterControl = filterControl, -- the filter TextInput control
+		nowPlaying = nowPlaying, -- the primary action's result (nil until a row opens)
+		nowPlayingPath = "/Playlist/Page/NowPlaying",
 		ratingFor = function(id: string)
 			return ratings[id]
 		end,
@@ -362,9 +410,11 @@ function example.build(LuauUI: any, core: any, deps: any)
 			for _, control in ratingControls do
 				control.dispose()
 			end
+			nowPlayingText:dispose()
 			filteredRows:dispose()
 			baseRows:dispose()
 			filterText:dispose()
+			nowPlaying:dispose()
 			for _, rating in ratings do
 				rating:dispose()
 			end

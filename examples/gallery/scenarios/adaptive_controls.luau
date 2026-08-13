@@ -6,6 +6,37 @@
 -- layout adapts from `LuauUI.adaptive.conditions` (space + viewing distance) and
 -- from `UI.ViewThatFits` (the container's real measured space). Every Milestone B
 -- control appears, so a single matrix sweep covers them all.
+--
+-- ...AND, SINCE SwiftUI-PARITY ROUND 2, THE LAYOUT VOCABULARY THAT ROUND ADDED
+-- (`docs/plans/swiftui-parity-round2.md` §2.1/2.2/2.4/2.5/2.6, §3.3). The plan
+-- names this fixture as the natural home for the ADAPTIVE members of that
+-- vocabulary, and the reason is the same one that put the compact-label ladder
+-- here: this is the surface the five-view device matrix and the always-on
+-- overflow sweep already drive from a 320px phone to a ten-foot console, so a
+-- prop whose whole subject is "what happens when the space changes" is under
+-- observation at every width for free. The block lives at the bottom of the HUD
+-- column and is headed `VocabHeading` on screen. What it carries:
+--
+--   * `distribute`               (§2.6) — the legend row spreads its three
+--                                 markers edge to edge instead of packing left
+--   * `layoutPriority` +         (§2.4) — the three bars below it overflow a
+--     `shrinkWeight`                     phone and give way in priority order:
+--                                        Optional first, then Useful, and
+--                                        Essential never (it declares no weight)
+--   * `lineAlign`                (§2.1) — Essential is a short bar sitting on
+--                                        the BOTTOM of a line its siblings set
+--   * `containerRelativeFrame`   (§2.5) — the page card is one third of the
+--                                        SCROLLER's viewport, not of its own
+--                                        parent column, which is the whole
+--                                        distinction from a `percent` dim
+--   * `UI.GridRow` + `gridSpan`  (§2.2) — a two-column spec table whose columns
+--                                        line up across rows, headed by a cell
+--                                        spanning both
+--   * `UI.sensoryFeedback`       (§3.3) — the quality picker emits `select` and
+--                                        the volume stepper emits `adjust` on
+--                                        the presenter's feedback bus. LuauUI
+--                                        still plays nothing; it says what
+--                                        happened and a subscriber decides.
 
 return {
 	title = "Adaptive controls (write-once)",
@@ -144,9 +175,18 @@ return {
 			children = {
 				UI.Text({ id = "Heading", text = "Settings", textSize = 22 }),
 				UI.Divider({}),
-				stepper.blueprint,
+				-- §3.3 `UI.sensoryFeedback`, on the two controls whose semantics are
+				-- already in the closed twelve. `adjust` is the continuous verb
+				-- (a stepper ticks; a subscriber rate-limits it — the framework does
+				-- not), `select` the discrete one. The declaration rides `meta`, so
+				-- the control's own blueprint is returned unchanged apart from it,
+				-- and BOTH stay exactly the controls they were: nothing here plays a
+				-- sound, a haptic or a particle, and nothing downstream of LuauUI
+				-- does either unless a game subscribes the bus and decides to
+				-- (`src/present/feedback.luau:4-5`).
+				UI.sensoryFeedback(stepper.blueprint, { trigger = volume, event = "adjust" }),
 				slider.blueprint,
-				picker.blueprint,
+				UI.sensoryFeedback(picker.blueprint, { trigger = quality, event = "select" }),
 				UI.Divider({}),
 				disclosure.blueprint,
 			},
@@ -293,6 +333,137 @@ return {
 			)
 		end
 
+		-- ===== THE ROUND-2 LAYOUT VOCABULARY (see the header) ================
+		--
+		-- ONE ROW PER PROP, and each one is chosen so the prop is VISIBLY doing
+		-- something at a phone width AND at a desktop width — a demonstration that
+		-- only fires at one end of the matrix teaches half the rule.
+		--
+		-- §2.6 `distribute`. Three hug-width markers naming the three tiers of the
+		-- shrink row below. `spaceBetween` puts the leftover in the GAPS, so the
+		-- first sits at the row's start edge and the last is flush to its end at
+		-- every viewport — which is exactly the tab-bar case §2.6 was written for,
+		-- and today's only alternative is hand-placed Spacers.
+		local function marker(id: string, text: string)
+			return UI.Text({ id = id, text = text, textSize = 12, role = "secondary" })
+		end
+		local vocabLegend = UI.HStack({
+			id = "Legend",
+			distribute = "spaceBetween",
+			width = { type = "fill", weight = 1 },
+			children = {
+				marker("LegendLow", "Optional"),
+				marker("LegendMid", "Useful"),
+				marker("LegendHigh", "Essential"),
+			},
+		})
+		-- §2.4 the shrink pass, and §2.1 `lineAlign` riding the same row.
+		--
+		-- 140 x 3 + two 6px gaps = 432, which FITS the HUD column on a desktop and
+		-- does NOT fit it on a phone — deliberately, because "what happens when the
+		-- main axis is short" is the entire feature and a row that always fits
+		-- would never once execute it. When it is short:
+		--   * `Optional` is tier -1, so it gives way FIRST, down to its declared
+		--     24px floor (`minMax.min`, the first rung of the floor stack);
+		--   * `Useful` is tier 0 and only starts giving once tier -1 is spent;
+		--   * `Essential` declares NO `shrinkWeight`, and 0 is the default, so it
+		--     is rigid at every width — Roblox's own `UIFlexMode.None`.
+		-- The narrowest column any swept viewport gives this row is 280px and the
+		-- row's total floor is 24 + 0 + 140 + 12 = 176, so it absorbs its deficit
+		-- everywhere rather than falling through to the overflow diagnostic.
+		--
+		-- `align = "start"` on the row is what makes `lineAlign = "end"` legible:
+		-- the line is 24px tall (the two full-height bars set it) and Essential is
+		-- 16px, so without the per-child override it would sit at the top with its
+		-- siblings. `lineAlign` is the shared BOX prop §2.1 promoted out of the
+		-- overloaded word `align`, and a stack is the only parent that reads it.
+		local function bar(id: string, extra: { [string]: any })
+			local props: { [string]: any } = {
+				id = id,
+				surface = "control",
+				width = { type = "fixed", px = 140 },
+				height = { type = "fixed", px = 24 },
+			}
+			for key, value in extra do
+				props[key] = value
+			end
+			return UI.Box(props)
+		end
+		local vocabShrink = UI.HStack({
+			id = "Shrink",
+			gap = 6,
+			align = "start",
+			width = { type = "fill", weight = 1 },
+			children = {
+				bar("VocabOptional", {
+					width = { type = "minMax", min = 24, preferred = 140 },
+					shrinkWeight = 1,
+					layoutPriority = -1,
+				}),
+				bar("VocabUseful", { shrinkWeight = 1 }),
+				bar("VocabEssential", { height = { type = "fixed", px = 16 }, lineAlign = "end" }),
+			},
+		})
+		-- §2.5 `containerRelativeFrame`. A paging card: one of three across the
+		-- SCROLLER's viewport, gutters included. The card is a child of this HUD
+		-- column, and on a desktop the column is about half the scroller wide — so
+		-- a `percent` dim would have measured against the column and produced a
+		-- different number. That difference IS the feature, and it is the thing the
+		-- headless case in tests/examples_gallery.spec.luau asserts.
+		local vocabPage = UI.containerRelativeFrame(
+			UI.Box({ id = "Page", surface = "control", height = { type = "fixed", px = 28 } }),
+			{ axis = "horizontal", count = 3, span = 1, spacing = 8 }
+		)
+		-- §2.2 `UI.GridRow` + `gridSpan`. Row mode is selected by the CHILDREN, not
+		-- by a mode prop: this Grid declares GridRows, so its columns are the widest
+		-- natural cell per column across every row rather than one shared width, and
+		-- the two `Spec*Key` cells line up under each other however long their values
+		-- are. The header cell spans both columns and contributes to neither
+		-- column's maximum, which is SwiftUI's rule.
+		local function specCell(id: string, text: string, extra: { [string]: any }?)
+			local props: { [string]: any } = { id = id, text = text, textSize = 12 }
+			for key, value in extra or {} do
+				props[key] = value
+			end
+			return UI.Text(props)
+		end
+		local vocabSpecs = UI.Grid({
+			id = "Specs",
+			gap = 6,
+			width = { type = "fill", weight = 1 },
+			children = {
+				UI.GridRow({
+					id = "SpecHead",
+					-- `fill` IS LOAD-BEARING, not decoration: a hug cell would be its own
+					-- 60px natural whether it spanned one column or two, so the span
+					-- would be accepted and invisible — the exact "assertion its own
+					-- starting value already satisfies" shape. Filling makes the cell
+					-- take the two columns AND the gap between them, which is the
+					-- arithmetic §2.2 specifies and the headless case asserts.
+					children = {
+						specCell("SpecTitle", "Row grid", {
+							gridSpan = 2,
+							width = { type = "fill", weight = 1 },
+						}),
+					},
+				}),
+				UI.GridRow({
+					id = "SpecA",
+					children = {
+						specCell("SpecAKey", "Columns", { role = "secondary" }),
+						specCell("SpecAVal", "align"),
+					},
+				}),
+				UI.GridRow({
+					id = "SpecB",
+					children = {
+						specCell("SpecBKey", "Span", { role = "secondary" }),
+						specCell("SpecBVal", "the header"),
+					},
+				}),
+			},
+		})
+
 		local hudColumn = UI.VStack({
 			id = "Hud",
 			gap = 8,
@@ -326,6 +497,13 @@ return {
 						badgedTile("t4", "7"),
 					},
 				}),
+				-- the round-2 layout vocabulary, built above
+				UI.Divider({}),
+				UI.Text({ id = "VocabHeading", text = "Layout vocabulary", textSize = 18 }),
+				vocabLegend,
+				vocabShrink,
+				vocabPage,
+				vocabSpecs,
 			},
 		})
 
@@ -399,6 +577,13 @@ return {
 				setProgress = function()
 					progress:set(0.8)
 					return progress:get()
+				end,
+				-- the `select` half of §3.3's declaration, drivable without a pointer:
+				-- moving `quality` is what the picker's own press moves, so the
+				-- scripted step and the player's press take the identical route
+				cycleQuality = function()
+					quality:set(if quality:get() == "fidelity" then "balanced" else "fidelity")
+					return quality:get()
 				end,
 				-- the STATE SNAPSHOT a live orientation change must preserve (D-2)
 				snapshot = function()

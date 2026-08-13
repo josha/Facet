@@ -1486,9 +1486,11 @@ larger restructure `[SHOWCASE-CHROME]: CONCERNS 16` scoped and it is **not
 built** — until it is, the reduced-motion axis of a device canary is reachable
 only while this demo is the one on screen.
 
-**The `.rbxl` is not rebuilt by this task** (game-director instruction): the
-places are rebuilt once at phase end, so a checked-in showcase predating this
-entry is expected, not a regression.
+**The `.rbxl` was not rebuilt by this task** (game-director instruction): the
+places are rebuilt once at phase end. That rebuild has since happened — see
+"Shipped 2026-08-13" at the end of this section — so the checked-in showcase now
+carries this demo. Between the two commits a showcase predating this entry was
+expected, not a regression.
 
 ### The rest of Phase 4
 
@@ -1504,6 +1506,69 @@ Then the **showcase rule** in full, per the brief §"Showcase rule": register in
 rebuild `examples/places/LuauUI-Showcase.rbxl` with `tools/build_places.sh` and
 commit it; drive the device canary — including the 320×640 sweep — through the
 in-experience picker, never through a workspace attribute.
+
+#### Shipped 2026-08-13 — the coverage audit, and why NO new scenario was added
+
+The audit ran the round's whole public surface against the scenarios rather than
+against this document, and it closed the gaps **in existing natural homes**.
+That is the outcome the section above asked for, and the reason it is worth
+writing down is that the tempting alternative — one new `layout_vocabulary`
+scenario carrying six props — would have added a fortieth surface to the sweep,
+a fifteenth row to the picker, and a demo whose subject is a *prop list* rather
+than a thing a player can do. Every gap had a home.
+
+| Round-2 public API | Gallery scenario that executes it headlessly | Where |
+|---|---|---|
+| `presenter.withAnimation` | `with_animation` | shipped earlier in Phase 4 |
+| `ProgressView` indeterminate bar + `presentation = "spinner"` | `with_animation` | shipped earlier in Phase 4 |
+| `newVirtualList{ axis = "x" }` | `card_rail` | shipped earlier in Phase 4 |
+| Table `onPrimaryAction` | `row_actions` **and** tutorial example `02_playlist_table` | the tutorial half is new |
+| `distribute` | `adaptive_controls` — the `Legend` row | new |
+| `layoutPriority` + `shrinkWeight` | `adaptive_controls` — the `Shrink` row | new |
+| `lineAlign` | `adaptive_controls` — `VocabEssential` on the `Shrink` row | new |
+| `UI.GridRow` + `gridSpan` | `adaptive_controls` — the `Specs` grid | new |
+| `UI.containerRelativeFrame` | `adaptive_controls` — the `Page` card | new |
+| `UI.sensoryFeedback` | `adaptive_controls` — the volume stepper (`adjust`) and the quality picker (`select`) | new |
+
+`adaptive_controls` is the home this section named for the adaptive members, and
+it earned the rest for the same reason: it is already driven from 320×640 to a
+ten-foot console by both the always-on overflow sweep and the five-view device
+matrix, so a prop whose entire subject is "what happens when the space changes"
+is under observation at every width without a new surface to maintain.
+
+**Three implementation notes, each of which is a defect if it is dropped.**
+
+1. **The shrink row is sized so the deficit is REAL.** Three 140px bars plus two
+   6px gaps is 432, which fits the HUD column on a desktop and does not fit the
+   280px that column gets at 320×640. A row that always fitted would have
+   declared `layoutPriority` and never once executed it — the "fixture that never
+   reaches the state it means to measure" shape. The row's total floor is
+   24 + 0 + 140 + 12 = 176, so it absorbs its deficit at every swept viewport
+   rather than falling through to the overflow diagnostic.
+2. **The spanning grid cell declares `fill`.** A hugging cell is its own natural
+   width whether it spans one column or two, so `gridSpan` would have been
+   accepted and invisible — an assertion its own starting value already
+   satisfies.
+3. **`containerRelativeFrame` is only *distinguishable* on a desktop.** At
+   320×640 the Body stacks, so the HUD column IS the scroller's viewport and a
+   `percent` dim would return the identical number. The case that proves which
+   container was measured therefore runs at 1232×1067, where the column is 588
+   and the viewport 1192.
+
+Thirteen headless cases in `tests/examples_gallery.spec.luau` cover the table
+above, and all thirteen are mutation-proved: dropping `shrinkWeight`, flipping
+`distribute` to `"start"`, moving `layoutPriority` into the shared tier, dropping
+`lineAlign`, zeroing the container spacing, replacing `containerRelativeFrame`
+with a percent-of-parent dim, dropping `gridSpan`, renaming the sensory verb,
+capping the shrink row so it squeezes on a desktop too, making the example's
+`onPrimaryAction` inert, widening the framework's double-click window, and
+dropping `restore`'s `nowPlaying:set(nil)` each redden a named case.
+
+**No picker or `ORDER` change was needed**, because both surfaces were already
+registered: "All controls" (`adaptive_controls`) and "Playlist table"
+(`02_playlist_table`) are `demo_picker.DEMOS` entries 1 and 6. The sweep stays at
+39 surfaces × 8 viewports and is green, 320×640 and 640×320 included. The
+`.rbxl` is rebuilt and committed with this change.
 
 ---
 

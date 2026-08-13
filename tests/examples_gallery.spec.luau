@@ -477,6 +477,112 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(core:lastError()).toBeNil()
 	end)
 
+	-- THE PRIMARY ACTION ON A TUTORIAL EXAMPLE (parity round 2 §3.4). The
+	-- four-input proof for the Table's own gesture table lives in
+	-- tests/table_input.spec.luau §5; what is proved HERE is the other half — that
+	-- this example declares it, that the handler reaches the example's own state,
+	-- and that the page says so. THE CLOCK IS SCRIPTED, because a double-click is
+	-- a MEASUREMENT: with `os.clock`, two `adapter.tap` calls in a spec are
+	-- microseconds apart and the window would be satisfied by the test's own speed
+	-- rather than by the code under test. The slow-pair case below only bites with
+	-- a scripted one.
+	local function playingWorld()
+		local ex = require("../examples/gallery/examples/02_playlist_table")
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 100 }
+		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local built =
+			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		local handle = presenter.present(built.screen, built.present)
+		presenter.refresh()
+		return core, adapter, presenter, built, handle, clock
+	end
+	local function mouseTap(adapter: any, key: string)
+		local rect = adapter.node(rowHit(key)).rect
+		adapter.tap(rowHit(key), {
+			source = "pointer",
+			pointer = "mouse",
+			x = rect.x + rect.w / 2,
+			y = rect.y + rect.h / 2,
+		})
+	end
+
+	it("onPrimaryAction: a DOUBLE-click plays the track and the page says so; a single click only selects", function()
+		local core, adapter, presenter, built, _, clock = playingWorld()
+		local key = built.rows:get()[2].id
+		local name = built.rows:get()[2].name
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBeNil()
+		expect(string.find(adapter.node(built.nowPlayingPath).props.text, "Nothing playing", 1, true) ~= nil).toBeTruthy()
+		-- one click is a SELECTION and nothing else
+		mouseTap(adapter, key)
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBeNil()
+		expect(adapter.node(rowHit(key)).props.selected).toBe(true)
+		-- ...and a second one inside the window is the primary action
+		clock.t += 0.2
+		mouseTap(adapter, key)
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBe(name)
+		expect(adapter.node(built.nowPlayingPath).props.text).toBe(`Now playing — {name}`)
+		-- opening is not a selection verb: the row it opened is still selected
+		expect(adapter.node(rowHit(key)).props.selected).toBe(true)
+		expect(core:lastError()).toBeNil()
+	end)
+
+	it("onPrimaryAction: two clicks SLOWER than the double-click window play nothing", function()
+		local _, adapter, presenter, built, _, clock = playingWorld()
+		local key = built.rows:get()[1].id
+		mouseTap(adapter, key)
+		clock.t += 0.6 -- past the 500 ms window
+		mouseTap(adapter, key)
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBeNil()
+	end)
+
+	it(
+		"onPrimaryAction: on TOUCH a second tap on the already-selected row plays it (the documented divergence)",
+		function()
+			local _, adapter, presenter, built, _, clock = playingWorld()
+			local key = built.rows:get()[3].id
+			local name = built.rows:get()[3].name
+			adapter.touchTap(rowHit(key))
+			presenter.refresh()
+			expect(built.nowPlaying:get()).toBeNil()
+			expect(adapter.node(rowHit(key)).props.selected).toBe(true)
+			-- an arbitrarily long pause: on touch this is a MODE, not a measurement
+			clock.t += 30
+			adapter.touchTap(rowHit(key))
+			presenter.refresh()
+			expect(built.nowPlaying:get()).toBe(name)
+			-- the price this example pays, on the record: in `multi` that second tap
+			-- used to DESELECT, and the row is deliberately still selected
+			expect(adapter.node(rowHit(key)).props.selected).toBe(true)
+		end
+	)
+
+	it("Restore puts the playlist back INCLUDING what was playing", function()
+		local _, adapter, presenter, built, _, clock = playingWorld()
+		local key = built.rows:get()[1].id
+		mouseTap(adapter, key)
+		clock.t += 0.2
+		mouseTap(adapter, key)
+		presenter.refresh()
+		expect(built.nowPlaying:get()).never().toBeNil()
+		adapter.tap(built.restorePath)
+		presenter.refresh()
+		expect(built.nowPlaying:get()).toBeNil()
+		expect(string.find(adapter.node(built.nowPlayingPath).props.text, "Nothing playing", 1, true) ~= nil).toBeTruthy()
+	end)
+
 	it("scrubbing left/right across the stars sets the rating live (pointer drag)", function()
 		local core, adapter, presenter, built = playlistWorld()
 		local key = built.rows:get()[1].id
@@ -1887,4 +1993,206 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		end)
 		expect(string.find(module.copy.title, "withAnimation", 1, true) ~= nil).toBe(true)
 	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- adaptive_controls — the round-2 LAYOUT VOCABULARY (§2.1/2.2/2.4/2.5/2.6, §3.3)
+--
+-- The standing obligation is that every new public API this round added appears
+-- in at least one gallery scenario this file runs headlessly. `card_rail` and
+-- `with_animation` above carry `newVirtualList{ axis = "x" }`,
+-- `presenter.withAnimation` and the two indeterminate indicators. The six that
+-- are left — `distribute`, `layoutPriority`, `shrinkWeight`, `lineAlign`,
+-- `UI.GridRow`/`gridSpan` and `UI.containerRelativeFrame` — plus
+-- `UI.sensoryFeedback` ride the all-controls fixture, which is where the plan
+-- puts the adaptive ones (§Phase 4) and which is already picked from the chip
+-- strip as "All controls".
+--
+-- EVERY CASE BELOW IS A DIFFERENCE, not a value. A layout prop is only doing
+-- something if the geometry without it would be different, and the cheapest way
+-- to ship an inert prop is to assert a number the default already produces. So
+-- each case names the arrangement the DEFAULT would have given and asserts the
+-- fixture is not at it — which is also what makes the mutation proofs bite.
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: all controls — the round-2 layout vocabulary", function()
+	local module = require("../examples/gallery/scenarios/adaptive_controls") :: any
+	local HUD = "/AdaptiveScreen/BodyScroll/Body/Hud"
+	local SCROLL = "/AdaptiveScreen/BodyScroll"
+	local SETTINGS = "/AdaptiveScreen/BodyScroll/Body/Settings"
+
+	local function vocabWorld(view: any)
+		local w = fixtureWorld(view)
+		local built = mountFixture(w, module)
+		return w, built
+	end
+	local function rectOf(w: any, path: string): any
+		local node = w.adapter.node(path)
+		if node == nil or node.rect == nil then
+			error(`no rect at {path} — the assertion below would be vacuous`, 0)
+		end
+		return node.rect
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = vocabWorld(view)
+			expectNoDiagnostics(`adaptive_controls at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	-- §2.6 -------------------------------------------------------------------
+	it(
+		"§2.6 `distribute = spaceBetween` puts the leftover in the GAPS: first at the start edge, last flush to the end",
+		function()
+			for _, view in { NARROW_PORTRAIT, DESKTOP } do
+				local w, built = vocabWorld(view)
+				local row = rectOf(w, HUD .. "/Legend")
+				local low = rectOf(w, HUD .. "/Legend/LegendLow")
+				local mid = rectOf(w, HUD .. "/Legend/LegendMid")
+				local high = rectOf(w, HUD .. "/Legend/LegendHigh")
+				expect(`low.x@{view.w}={low.x}`).toBe(`low.x@{view.w}={row.x}`)
+				expect(`high.right@{view.w}={high.x + high.w}`).toBe(`high.right@{view.w}={row.x + row.w}`)
+				-- ...and this is NOT what packing from the start would have produced:
+				-- the middle marker sits well past `row.x + low.w`, which is exactly
+				-- where `distribute = "start"` (the default) would have put it
+				expect(`spread@{view.w}={mid.x > row.x + low.w + 1}`).toBe(`spread@{view.w}=true`)
+				built.dispose()
+			end
+		end
+	)
+
+	-- §2.4 -------------------------------------------------------------------
+	it("§2.4 with room, nothing shrinks: all three bars are at their natural 140", function()
+		local w, built = vocabWorld(DESKTOP)
+		for _, id in { "VocabOptional", "VocabUseful", "VocabEssential" } do
+			expect(`{id}={rectOf(w, `{HUD}/Shrink/{id}`).w}`).toBe(`{id}=140`)
+		end
+		built.dispose()
+	end)
+
+	it(
+		"§2.4 when the axis is short the LOWEST tier gives way first, and a weightless child never gives at all",
+		function()
+			-- 320x640: the HUD column is 280px and the row's natural is 432, so the
+			-- deficit is real rather than arranged for the assertion
+			local w, built = vocabWorld(NARROW_PORTRAIT)
+			local row = rectOf(w, HUD .. "/Shrink")
+			local optional = rectOf(w, HUD .. "/Shrink/VocabOptional")
+			local useful = rectOf(w, HUD .. "/Shrink/VocabUseful")
+			local essential = rectOf(w, HUD .. "/Shrink/VocabEssential")
+			expect(`row={row.w}`).toBe("row=280")
+			-- tier -1 is spent to its declared floor before tier 0 gives a pixel...
+			expect(`optional={optional.w}`).toBe("optional=24")
+			-- ...tier 0 then gives the remainder, and only the remainder
+			expect(`useful={useful.w}`).toBe("useful=104")
+			-- ...and `shrinkWeight = 0` (the default) is rigid whatever its siblings do
+			expect(`essential={essential.w}`).toBe("essential=140")
+			-- the row absorbed its whole deficit: it fits, so the overflow diagnostic
+			-- that fires when everything is at its floor is NOT what made this pass
+			expect(`sum={optional.w + useful.w + essential.w + 12}`).toBe(`sum={row.w}`)
+			expectNoDiagnostics("adaptive_controls shrink row at 320x640", w, built)
+			built.dispose()
+		end
+	)
+
+	-- §2.1 -------------------------------------------------------------------
+	it("§2.1 `lineAlign = end` sits the short bar on the BOTTOM of a line its siblings set", function()
+		local w, built = vocabWorld(DESKTOP)
+		local row = rectOf(w, HUD .. "/Shrink")
+		local tall = rectOf(w, HUD .. "/Shrink/VocabUseful")
+		local short = rectOf(w, HUD .. "/Shrink/VocabEssential")
+		expect(`line={row.h} tall={tall.h} short={short.h}`).toBe("line=24 tall=24 short=16")
+		-- bottom edges flush...
+		expect(`short.bottom={short.y + short.h}`).toBe(`short.bottom={row.y + row.h}`)
+		-- ...which is 8px BELOW where the row's own `align = "start"` puts its
+		-- siblings, so the per-child override is what moved it
+		expect(`short.y={short.y} tall.y={tall.y}`).toBe(`short.y={row.y + 8} tall.y={row.y}`)
+		built.dispose()
+	end)
+
+	-- §2.5 -------------------------------------------------------------------
+	it("§2.5 `containerRelativeFrame` measures against the SCROLLER's viewport, not the parent column", function()
+		for _, view in { NARROW_PORTRAIT, DESKTOP } do
+			local w, built = vocabWorld(view)
+			local scroll = rectOf(w, SCROLL)
+			local page = rectOf(w, HUD .. "/Page")
+			-- (viewport - spacing x (count - 1)) / count x span, viewport = the
+			-- scroller's inner width (its box less the bar it reserves)
+			local viewport = scroll.w - fake_target.SCROLL_BAR_THICKNESS
+			expect(`page@{view.w}={page.w}`).toBe(`page@{view.w}={math.floor((viewport - 16) / 3)}`)
+			built.dispose()
+		end
+	end)
+
+	it("§2.5 ...and on a desktop that answer DIFFERS from a third of the parent column", function()
+		-- THE CASE THAT DISTINGUISHES THE FEATURE, and it only exists at a width
+		-- where the two candidates disagree. At 320 the Body stacks, so the HUD
+		-- column IS the scroller's viewport and a `percent` dim would have given the
+		-- identical number — an assertion there proves nothing about which container
+		-- was measured. On a desktop the Body is side by side and the column is about
+		-- half the scroller, so the two answers are ~200px apart.
+		local w, built = vocabWorld(DESKTOP)
+		local scroll = rectOf(w, SCROLL)
+		local column = rectOf(w, HUD)
+		local page = rectOf(w, HUD .. "/Page")
+		local viewport = scroll.w - fake_target.SCROLL_BAR_THICKNESS
+		expect(`column={column.w} viewport={viewport}`).toBe(`column=588 viewport=1192`)
+		expect(`page={page.w}`).toBe(`page={math.floor((viewport - 16) / 3)}`)
+		-- the parent-relative reading, which this is NOT
+		expect(page.w > math.floor((column.w - 16) / 3) + 100).toBe(true)
+		built.dispose()
+	end)
+
+	-- §2.2 -------------------------------------------------------------------
+	it(
+		"§2.2 a Grid of `UI.GridRow`s aligns its columns across rows, and `gridSpan` covers both plus the gap",
+		function()
+			local w, built = vocabWorld(DESKTOP)
+			local aKey, aVal = rectOf(w, HUD .. "/Specs/SpecA/SpecAKey"), rectOf(w, HUD .. "/Specs/SpecA/SpecAVal")
+			local bKey, bVal = rectOf(w, HUD .. "/Specs/SpecB/SpecBKey"), rectOf(w, HUD .. "/Specs/SpecB/SpecBVal")
+			local title = rectOf(w, HUD .. "/Specs/SpecHead/SpecTitle")
+			-- COLUMN 1 is the widest natural key, not each row's own width: "Span" is
+			-- narrower than "Columns" and still starts its value at the same x
+			expect(`bKey.w={bKey.w} aKey.w={aKey.w}`).toBe(`bKey.w={bKey.w} aKey.w=53`)
+			expect(bKey.w < aKey.w).toBe(true)
+			expect(`aVal.x={aVal.x}`).toBe(`aVal.x={bVal.x}`)
+			expect(`aKey.x={aKey.x}`).toBe(`aKey.x={bKey.x}`)
+			-- COLUMN 2 is the widest natural value across the rows
+			local col1, col2 = aKey.w, bVal.w
+			expect(`aVal.x={aVal.x}`).toBe(`aVal.x={aKey.x + col1 + 6}`)
+			-- THE SPAN covers both columns AND the gap between them — a spanning cell
+			-- that forgot the gap would be 6px short, and one that took a single
+			-- column would be `col1`
+			expect(`title.w={title.w}`).toBe(`title.w={col1 + 6 + col2}`)
+			expect(title.w > col1).toBe(true)
+			built.dispose()
+		end
+	)
+
+	-- §3.3 -------------------------------------------------------------------
+	it(
+		"§3.3 `UI.sensoryFeedback` emits the declared verb on the presenter's bus, stamped with the mounted path",
+		function()
+			local w, built = vocabWorld(DESKTOP)
+			local events: { any } = {}
+			local unsubscribe = w.presenter.onFeedback(function(event: any)
+				table.insert(events, event)
+			end)
+			-- nothing fires from mounting alone: the modifier is a CHANGE, not a value
+			expect(#events).toBe(0)
+			built.steps.bumpVolume()
+			expect(#events).toBe(1)
+			expect(`{events[1].type} {events[1].path}`).toBe(`adjust {SETTINGS}/Volume`)
+			built.steps.cycleQuality()
+			expect(#events).toBe(2)
+			expect(`{events[2].type} {events[2].path}`).toBe(`select {SETTINGS}/Quality`)
+			-- ...and the fixture is still exactly the controls it was: LuauUI plays
+			-- nothing, so the only trace of either verb is the event above
+			expect(w.core:lastError()).toBeNil()
+			unsubscribe()
+			built.dispose()
+		end
+	)
 end)
