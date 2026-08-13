@@ -696,7 +696,55 @@ written to redden *with a message naming the cause* if a framework round makes
 
 ---
 
-*(Phases 1–6 follow once Phase 0's remaining reconnaissance track reports. This
-document is written as they land; a section that is not here yet has not been
-decided yet, and that is deliberate — round 2's lesson is that a plausible story
-ahead of the data is worse than no story.)*
+## Phase 0 verdict — item E: the owed ledger, verified rather than inherited
+
+The brief names six owed items. Verifying each against the tree found that **four
+of the named six are still owed, one is stale as written, and five things the
+brief does not name are owed too** — plus five items already closed that a
+mission would otherwise have re-opened.
+
+### Already closed — do not re-open these
+
+The most valuable half of the audit, each with its evidence:
+
+| Brief/round-2 claim | Actual state |
+|---|---|
+| `check_flat_baseline` red, 382 uncharacterized deltas (§6.6) | **GREEN, exit 0**, 1461 nodes. And it was not papered over: a re-pin was *declined*, two narrower waiver kinds were added, disappearance still has **no** waiver, and the real regression it caught — `06_tile_game`'s readouts leaving their published paths — was fixed by `732a520` |
+| "an instrument nobody runs" | **Both instruments now run.** `tests/overflow_sweep.spec.luau` is required at `tests/run.luau:205`; the disappearance question got its own twin, `tests/example_readouts.spec.luau`, at `:212`. Correct as retrospective, stale as an owed item |
+| The hit expander drops the pointer kind (round 2 §3.4.1, "owed, not fixed here") | **CLOSED** in `79649d6` — `screen_target.luau:3341-3350` now passes `pointerActivateMeta(inputObject)`, and the lesson file exists |
+| The `api.md` revert incident's damage | **REPAIRED** — all three checkers exit 0 and every reverted surface is back on disk. What survives is the *prose* skim, a smaller and different job |
+| The floating row-actions `Menu` placement defect | **CLOSED and re-verified** 2026-08-13. (The separate viewport-*clamp* question is still open — do not conflate them) |
+
+### Still owed, ranked — the ones this round takes
+
+| # | Item | State, verified | Blocked on |
+|---|---|---|---|
+| 1 | **`traversal-document-order` re-record** | `check_traversal_evidence.py` → **exit 1, "STALE EVIDENCE"**. The `Body` ScrollView is still at `keyboard_navigation.luau:84-85`; the artifact still holds 18 pre-`Body` paths. The six recorded steps are still accurate | Studio |
+| 2 | **Places were stale** | **DONE this round** — all fifteen rebuilt; see the commit. The underlying defect (no build stamp, nothing compares a `.rbxl` to its sources) is booked | — |
+| 3 | **Studio device canary on the rebuilt showcase** | **Not run.** No canary artifact exists for round 2 at all. Now unblocked by the rebuild | Studio |
+| 4 | **Chrome is unreachable by keyboard and gamepad** | **CONFIRMED IN SOURCE, and it is worse than "without a pointer".** Both pickers present `responder = "passive"` (`demo_picker.luau:464`, `theme_picker.luau:797`); a passive surface's nav context is created **disabled** (`presenter.luau:2595-2603`) and Tab/Space bind **only while the responder is engaged** (`:2839-2842`); the **only** `engage()` call in `src/` is inside the *tap* handler (`:2248`). So mouse ✓, touch ✓, **keyboard ✗, gamepad ✗**. `demo_picker.luau:225` carries a comment promising "the gamepad/keyboard path" above a `showNext()` whose only callers are the test driver. **No key and no pad button is bound to it.** A standing-rule-7 violation inside the artifact the showcase rule exists to protect | headless, then Studio |
+| 5 | **`api.md` round-2 prose skim** | **12 concrete defects**, listed below. The mechanical half is closed; `check_prop_parity` is a bare substring test, so one mention anywhere satisfies it | headless |
+| 6 | **Shrink gap (a): a shrinkable label lands outside its box** | **TRUE, measured.** Three `shrinkWeight=1` texts in a 120px box solve to `x0 w120 / x120 w120 / x240 w100` — two land wholly outside. `absorbTier` absorbs at most `Σ(basis−floor)`; residual deficit is simply not absorbed and nothing clips. The shrink pass is **best-effort and its own diagnostic says so** | headless + a ruling |
+| 7 | **Shrink gap (b): `shrinkWeight` flips the `ViewThatFits` winner** | **TRUE, measured — and round 2's §2.4 claim is FALSE.** That doc says `ViewThatFits` "picks its candidate before any of this and is therefore unaffected"; PASS 1.5 (the measure-side shrink, landed a day later) invalidated it. Swept 150→420px, adding `shrinkWeight=1` to a candidate's children flips the winner at **10 of 28 widths (290–380px)**, because the candidate now *reports* a shrunk extent and `fitsW` becomes true | headless + a ruling |
+| 8 | **Table tray-focus: trays are in no focus group** | **OPEN, confirmed.** `buildFocusGroups` collects focusables *inside* the Row node; tray buttons live under the `RowActions/` wrapper, which is the Row's **parent**. Siblings, not descendants — so Tab and D-pad reach neither a Table-composed tray nor its edit-minus | headless |
+| 9 | **Keyboard/pad Delete on an unswiped hosted row** | **OPEN.** Lazy engines mean no engine exists until a swipe. The fix is already priced | headless |
+| 10 | **A BLOCK table publishes a scroll path it has no host for** | **OPEN, not named by the brief.** `table.luau:2869-2871` returns `…/Main/Body` unconditionally with no `scrolls` check. The crash half is fixed; the design half is live in the shipped playlist example — open a tray, scroll the page, and the tray rides along still open, because "any scroll closes the tray" binds to a node that never scrolls | headless + a ruling |
+| 11 | **Reduced-motion settings surface** | **NOT BUILT.** `with_animation` writes the real env fact but restores it on dispose (`:159`, `:486`), so the reduced-motion axis is reachable only while that one demo is on screen. **Hard-blocked behind #4** — a settings surface only a finger can open cannot run the keyboard or gamepad axis of a canary | headless |
+| 12 | **Row-actions menu not clamped to the viewport** | **OPEN**, comment unchanged. Trigger at y=508 on a 600px viewport → menu at y=556..629 | a ruling |
+| 13 | **The "Edit item" wrap rule** | **OPEN.** `renderer.luau:452` unchanged. The honest rule, per the doc's own root-cause: wrapping is right only when the phrase's **longest word** fits the drawable width | a ruling |
+| 14 | **The overflow sweep cannot see cross-axis findings** | `overflow_sweep.spec.luau:129` filters on `"on the main axis"`, so the five recorded non-main-axis findings structurally cannot fail it. **The five themselves are not re-verified** — documented only | headless |
+
+### Deferred, with the reason
+
+`presenter.animator()` (build it when a composite asks, not before) · size animation in `withAnimation` (its own mission; the five blocking mechanisms stand) · variable item extents (needs a consumer; both candidate designs are recorded) · §6.4's perf follow-ups (**worse than reported** — `perf_lab.spec` is now 16,494 ms, **37 %** of the suite, against round 2's 13.7 s/32 % — but it is runtime, not correctness) · the five unfulfilled placement intents and the rendered-canary-set proposal (**both are director decisions, surfaced not built**) · every `PENDING_PHYSICAL` row, including brief item **E2**, which the brief itself says not to block on and is right: its fix rests on an unverified engine premise that only a device can settle.
+
+### Two process findings worth more than any single item
+
+1. **No round-2 review artifact exists in the tree.** `artifacts/swiftui-parity-round2/` holds three files and none is a review; `[SHOWCASE-CHROME]: CONCERNS 16` survives only as prose citations, and `gate.json` cites a `prior-gates-rerun.txt` that **does not exist**. Every round-2 review finding is unrecoverable except as summary. *Reviews must land as artifacts.*
+2. **The tree was not exclusively this mission's, and checking is what proved it.** A concurrent session's `tools/gate.sh swiftui-parity-round2` had been hung for 2 h 37 m holding `/tmp/luauui_prior_gates.lock`, which is why round 2's `prior-gates-unregressed` reads `FAIL_RECOVERABLE`. The reconnaissance recommended clearing the lock as "the cheapest unblock in the ledger"; **`pgrep` showed a live process holding it, and clearing it blind would have broken that run.** It also explains the perf place changing mid-session. Killed with director authorisation, 2026-08-13, along with three further orphans. *`ListAgents` is not enough — check the process table.*
+
+---
+
+*(Phases 1–6 follow. This document is written as they land; a section that is not
+here yet has not been decided yet, and that is deliberate — round 2's lesson is
+that a plausible story ahead of the data is worse than no story.)*
