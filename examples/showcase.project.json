@@ -1,6 +1,8 @@
 {
   "name": "LuauUI-Showcase",
-  "globIgnorePaths": ["**/*.spec.luau"],
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
   "tree": {
     "$className": "DataModel",
     "Workspace": {
@@ -8,15 +10,29 @@
         "LuauUI_Showcase": true,
         "LuauUI_NativeStyle": true
       },
-      "$properties": { "FilteringEnabled": true },
+      "$properties": {
+        "FilteringEnabled": true
+      },
       "Baseplate": {
         "$className": "Part",
         "$properties": {
           "Anchored": true,
           "Locked": true,
-          "Size": [512, 20, 512],
-          "Position": [0, -10, 0],
-          "Color": [0.35, 0.37, 0.39],
+          "Size": [
+            512,
+            20,
+            512
+          ],
+          "Position": [
+            0,
+            -10,
+            0
+          ],
+          "Color": [
+            0.35,
+            0.37,
+            0.39
+          ],
           "TopSurface": "Smooth",
           "BottomSurface": "Smooth"
         }
@@ -25,28 +41,56 @@
         "$className": "SpawnLocation",
         "$properties": {
           "Anchored": true,
-          "Size": [12, 1, 12],
-          "Position": [0, 0.5, 0],
+          "Size": [
+            12,
+            1,
+            12
+          ],
+          "Position": [
+            0,
+            0.5,
+            0
+          ],
           "Duration": 0,
           "Neutral": true
         }
       }
     },
     "Players": {
-      "$properties": { "CharacterAutoLoads": false }
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
     },
     "ReplicatedStorage": {
-      "LuauUI": { "$path": "../src" },
-      "LuauUIExamples": { "$path": "gallery/examples" },
-      "LuauUIScenarios": { "$path": "gallery/scenarios" },
-      "LuauUIThemes": { "$path": "themes" }
+      "LuauUI": {
+        "$path": "../src"
+      },
+      "LuauUIExamples": {
+        "$path": "gallery/examples"
+      },
+      "LuauUIScenarios": {
+        "$path": "gallery/scenarios"
+      },
+      "LuauUIThemes": {
+        "$path": "themes"
+      }
     },
     "StarterGui": {
-      "$properties": { "ScreenOrientation": "Sensor" }
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
     },
     "StarterPlayer": {
       "StarterPlayerScripts": {
-        "Gallery": { "$path": "gallery/client" }
+        "Gallery": {
+          "$path": "gallery/client"
+        }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "LightingStyle": "Soft",
+        "PrioritizeLightingQuality": false
       }
     }
   }

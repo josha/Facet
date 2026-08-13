@@ -37,6 +37,12 @@ for entry in "${EXAMPLES[@]}"; do
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "\$className": "DataModel",
+    "Lighting": {
+      "\$properties": {
+        "LightingStyle": "Soft",
+        "PrioritizeLightingQuality": false
+      }
+    },
     "Workspace": {
       $attributes
       "\$properties": { "FilteringEnabled": true },
@@ -98,6 +104,12 @@ cat >"$project" <<'JSON'
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "$className": "DataModel",
+    "Lighting": {
+      "$properties": {
+        "LightingStyle": "Soft",
+        "PrioritizeLightingQuality": false
+      }
+    },
     "Workspace": {
       "$attributes": {
         "LuauUI_Showcase": true,

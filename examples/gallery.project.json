@@ -1,29 +1,44 @@
 {
   "name": "LuauUI-Gallery",
-  "globIgnorePaths": ["**/*.spec.luau"],
+  "globIgnorePaths": [
+    "**/*.spec.luau"
+  ],
   "tree": {
     "$className": "DataModel",
-
     "Workspace": {
-      "$properties": { "FilteringEnabled": true },
+      "$properties": {
+        "FilteringEnabled": true
+      },
       "Baseplate": {
         "$className": "Part",
         "$properties": {
           "Anchored": true,
           "Locked": true,
-          "Size": [512, 20, 512],
-          "Position": [0, -10, 0],
-          "Color": [0.35, 0.37, 0.39],
+          "Size": [
+            512,
+            20,
+            512
+          ],
+          "Position": [
+            0,
+            -10,
+            0
+          ],
+          "Color": [
+            0.35,
+            0.37,
+            0.39
+          ],
           "TopSurface": "Smooth",
           "BottomSurface": "Smooth"
         }
       }
     },
-
     "Players": {
-      "$properties": { "CharacterAutoLoads": false }
+      "$properties": {
+        "CharacterAutoLoads": false
+      }
     },
-
     "ReplicatedStorage": {
       "LuauUI": {
         "$path": "../src"
@@ -41,15 +56,22 @@
         "$path": "themes"
       }
     },
-
     "StarterGui": {
-      "$properties": { "ScreenOrientation": "Sensor" }
+      "$properties": {
+        "ScreenOrientation": "Sensor"
+      }
     },
     "StarterPlayer": {
       "StarterPlayerScripts": {
         "Gallery": {
           "$path": "gallery/client"
         }
+      }
+    },
+    "Lighting": {
+      "$properties": {
+        "LightingStyle": "Soft",
+        "PrioritizeLightingQuality": false
       }
     }
   }

@@ -28,6 +28,12 @@ for entry in "${PROOFS[@]}"; do
   "globIgnorePaths": ["**/*.spec.luau"],
   "tree": {
     "\$className": "DataModel",
+    "Lighting": {
+      "\$properties": {
+        "LightingStyle": "Soft",
+        "PrioritizeLightingQuality": false
+      }
+    },
     "Workspace": {
       "\$attributes": { "LuauUI_Scenario": "$scenario" },
       "\$properties": { "FilteringEnabled": true },
