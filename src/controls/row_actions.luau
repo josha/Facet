@@ -1441,32 +1441,6 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		applyCommitHeight(initial) -- seed the paint before the first step
 	end
 
-	-- like `retarget`, but calls `onArrive` exactly once when the value
-	-- reaches its target: a spring settle (subscribed BEFORE retargeting, so
-	-- a reduced-motion synchronous placement — motion.luau `setTarget`'s
-	-- `placeNow(v, true)` — still reaches it), or immediately under the
-	-- no-clock fallback. The seam the commit sequence below chains
-	-- slide-off -> collapse -> fire through. `unsub`s itself the moment it
-	-- fires, so a LATER, unrelated retarget of the same persistent spring
-	-- (an `_open`/`_close` after a commit that did not destroy this row)
-	-- can never re-trigger it.
-	local function retargetThen(px: number, onArrive: () -> ())
-		if motionClock ~= nil then
-			ensureSpring()
-			local unsub: (() -> ())? = nil
-			unsub = spring:onSettle(function()
-				if unsub ~= nil then
-					unsub()
-				end
-				onArrive()
-			end)
-			spring:setTarget(px)
-		else
-			applySlide(px)
-			onArrive()
-		end
-	end
-
 	local function collapseThen(fromHeight: number, onArrive: () -> ())
 		if motionClock ~= nil then
 			ensureCollapseSpring(fromHeight)
@@ -1488,7 +1462,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- `close()`/`resetToClosed()`, defined above this point, can read/reset
 	-- it too; this flag makes "at most one commit in flight" true even if
 	-- something calls the commit path twice, on top of the exactly-once
-	-- guarantee `retargetThen`/`collapseThen`'s own self-unsubscribing
+	-- guarantee `collapseThen`'s own self-unsubscribing
 	-- already gives each individual spring chain, and — since the director's
 	-- irrevocable-commit ruling — is now also the ONE thing that makes a
 	-- commit uncancellable: see `close()`'s own guard and `resetToClosed`'s
@@ -1588,32 +1562,72 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		commitEpoch += 1
 		local myEpoch = commitEpoch
 		openEdge:set(edge)
-		retargetThen(offscreenTarget, function()
+		--[[ THE TWO FLIGHTS RUN TOGETHER, NOT ONE AFTER THE OTHER ───────────────
+			Director device round 2026-08-13: "there's an odd pause once the row
+			goes away before the others animate up after i swipe and click delete."
+
+			MEASURED, frame by frame on the playlist example at 60fps. The slide
+			carried the row off-screen over frames 1-38 — it was completely out of
+			view by about frame 20 — and then NOTHING in the tree moved for 27
+			frames (~0.45s). Only at frame 65 did the height collapse begin and the
+			rows below start closing the gap. Counted from the moment the row
+			actually disappeared, the list sat still with a hole in it for the
+			better part of a second.
+
+			THE CAUSE WAS SERIALISATION ON A SETTLE. The chain was slide-off ->
+			collapse -> fire, handed off on `spring:onSettle` — the NUMERIC settle,
+			`|x - target| <= 1e-3 AND |v| <= 1e-3` (spring.luau `DEFAULT_EPS`).
+			`spring.luau`'s own header warns about exactly this: "position-domain
+			springs (hundreds of px) settle a few frames after they visually arrive
+			— which is exactly why perceptual arrival is a RADIUS, not this epsilon
+			(chase.luau)". This was the largest position-domain spring in the
+			library, a whole row width, so the visible half of the animation waited
+			on an invisible object converging through its last thousandth of a pixel.
+
+			WHY CONCURRENT RATHER THAN A RADIUS. A perceptual-arrival radius was
+			built first and it did fix the timing — rows started moving at frame 23
+			instead of 65 — but it had to observe the spring's VALUE to see the
+			radius, which meant `onArrive` (and through it the consumer's
+			`onAction`) fired from inside a core commit. That is a real hazard, not
+			a theoretical one: `presenter.withAnimation` refuses outright from
+			inside a commit, so a consumer animating its own deletion started
+			raising "nothing flushed, so it could not force its own commit". Two
+			concurrent flights need no observer at all — the collapse keeps its own
+			plain `onSettle`, which motion.luau fires from its `post()` phase,
+			after the write and outside the commit, exactly as this code always did.
+
+			It is also the better animation. iOS collapses the row WHILE it slides;
+			the gap closing is what tells you the deletion took. Nothing about the
+			C8a ruling changes: the tray still unmounts the instant the commit
+			starts (`committingSig`), and the row's paint is still not put back
+			before the owner's removal lands (`finishCommit`).
+
+			`onAction` now chains off the COLLAPSE, which is the correct one of the
+			two to wait for — the row must genuinely be at zero height before the
+			owner removes it, or the rows below jump the last few pixels. The slide
+			is aimed and left to fly; nothing waits on it.
+		]]
+		retarget(offscreenTarget)
+		collapseThen(currentRowHeight(), function()
 			if disposed or commitEpoch ~= myEpoch then
 				return
 			end
-			local startHeight = currentRowHeight()
-			collapseThen(startHeight, function()
-				if disposed or commitEpoch ~= myEpoch then
-					return
-				end
-				-- QUARANTINED (constitution): the ONE user callback this
-				-- composite ever fires on a caller's behalf. A throw must
-				-- not skip `finishCommit()` below, nor fire a second time —
-				-- `committed` already forbids a second commit, and this
-				-- whole chain only ever runs once per row.
-				pcall(action.onAction)
-				-- the ONE place allowed to clear `committed` mid-flight (see
-				-- `resetToClosed`'s own comment above `close()`): this IS the
-				-- commit's own natural completion, not an external cancel —
-				-- `close()` itself would no-op here since `committed` is
-				-- still true. C8a (device round 2026-08-12): `finishCommit`
-				-- rather than `resetToClosed`, so the row's PAINT is not put
-				-- back — full height, flying home from a row width away —
-				-- before the owner's own removal has landed. See its comment
-				-- above `close()`.
-				finishCommit()
-			end)
+			-- QUARANTINED (constitution): the ONE user callback this
+			-- composite ever fires on a caller's behalf. A throw must
+			-- not skip `finishCommit()` below, nor fire a second time —
+			-- `committed` already forbids a second commit, and this
+			-- whole chain only ever runs once per row.
+			pcall(action.onAction)
+			-- the ONE place allowed to clear `committed` mid-flight (see
+			-- `resetToClosed`'s own comment above `close()`): this IS the
+			-- commit's own natural completion, not an external cancel —
+			-- `close()` itself would no-op here since `committed` is
+			-- still true. C8a (device round 2026-08-12): `finishCommit`
+			-- rather than `resetToClosed`, so the row's PAINT is not put
+			-- back — full height, flying home from a row width away —
+			-- before the owner's own removal has landed. See its comment
+			-- above `close()`.
+			finishCommit()
 		end)
 		return true
 	end
@@ -3196,6 +3210,41 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					padding = contentPadding,
 					width = { type = "fill" },
 					height = { type = "fill" },
+					--[[ THE COLLAPSE IS AN INTENTIONAL OVERLAP, AND THE SOLVER WAS
+						SAYING SO (director device round 2026-08-13, found while
+						timing the commit pause).
+
+						A destructive commit drives the root's height to 0 over a
+						spring while `content` — the caller's own row — keeps its
+						natural height. That is the whole point of the collapse: the
+						row shrinks out from under its contents. But it is also,
+						literally, a child overflowing its ZStack, and the solver
+						filed a diagnostic for it on EVERY destructive commit:
+						"/…/Content/Body: this child overflows its zstack by 0x69px…
+						or set overflow = 'intentionalOverlap'".
+
+						Nobody had read it because no case ever sampled
+						`diagnostics()` DURING the collapse — the C8a cases above run
+						200 frames past the fire, by which point `resetToClosed` has
+						put the height back and the diagnostic is long gone
+						(docs/lessons/the-solver-already-told-you.md, again).
+
+						So take the solver's own suggestion, and take it ONLY while it
+						is true — and key it on `rowHeightOverride` rather than on
+						`committingSig`, which was the first thing tried and is one
+						frame short. `finishCommit` clears `committingSig` when the
+						action fires, but the height override outlives it by a frame:
+						measured, the row spends exactly one solve back at offset 0
+						with its height still 0, and the diagnostic landed on that
+						frame alone. The override IS the collapse — it is non-nil for
+						precisely as long as this control is driving the row's height
+						under its own contents — so it is the honest condition. A row
+						that is not collapsing declares nothing, and a real overflow
+						on a resting row still reports.
+					]]
+					overflow = scope:own(core:memo(function(use)
+						return if use(rowHeightOverride) ~= nil then "intentionalOverlap" else nil
+					end)),
 					children = contentChildren,
 				})
 			)

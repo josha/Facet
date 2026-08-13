@@ -2772,25 +2772,48 @@ describe("Table: row actions (Task 10)", function()
 			w.tick(1 / 60)
 			w.adapter.pointerUp(releaseX, 20)
 
-			-- comfortably PAST the slide-off (a full -rowWidth flight across
-			-- this 800px fill-column row takes ~70 frames on its own) and
-			-- into the height collapse that follows it, well before either
-			-- spring fully settles (a live-measured trace building this test:
-			-- the slide sits at 40px — untouched — through frame ~65, then
-			-- the collapse spring visibly shrinks it every frame from ~75
-			-- onward).
-			for _ = 1, 100 do
-				w.tick(1 / 60)
-			end
-			expect(#fired).toBe(0) -- still animating: never fires early
-			local shrinkingHeight = w.adapter.node(razzOuter).rect.h
-			expect(shrinkingHeight < razzHeightBefore).toBe(true) -- the row's OWN box shrank
-			expect(w.adapter.node(rowHitPath(0, "bolt")).rect.y < boltYBefore).toBe(true) -- bolt already moved up
+			--[[ MID-FLIGHT, DERIVED RATHER THAN COUNTED (2026-08-13) ───────────
+				This used to run a fixed 100 frames and assert "still animating"
+				there, with a comment describing the slide sitting untouched
+				through frame ~65 and the collapse only starting from ~75. That
+				number was measured against a commit whose two springs ran
+				STRICTLY IN SERIES — and the 27-frame dead window between them
+				is the "odd pause once the row goes away before the others
+				animate up" the director reported on 2026-08-13. The flights are
+				concurrent now and the whole commit completes around frame 54,
+				so 100 is past the end and the old sample point measured nothing.
 
-			-- run to completion: TWO sequential springs here (slide-off, then
-			-- the height collapse), each up to ~90 frames alone against this
-			-- wide fill-column row — see the Delete-key test's own comment
-			-- for the same arithmetic.
+				The invariant this case is actually about needs no frame budget
+				at all: `onAction` must never fire while the row still has
+				height, whatever the timing — so ask that of EVERY frame instead
+				of one. Strictly stronger than the single sample it replaces, and
+				immune to the next motion retune.
+			]]
+			local sawShrink, sawBoltUp, fireFrame = false, false, nil :: number?
+			for i = 1, 240 do
+				w.tick(1 / 60)
+				local h = w.adapter.node(razzOuter).rect.h
+				if #fired > 0 then
+					-- NEVER EARLY: at the fire the row is already carried away
+					expect(`fired at frame {i} with the row {h}px tall`).toBe(
+						`fired at frame {i} with the row 0px tall`
+					)
+					fireFrame = i
+					break
+				end
+				if h < razzHeightBefore then
+					sawShrink = true -- the row's OWN box shrank
+				end
+				if w.adapter.node(rowHitPath(0, "bolt")).rect.y < boltYBefore then
+					sawBoltUp = true -- ...and bolt moved up behind it
+				end
+			end
+			-- both halves of the flight were genuinely observed BEFORE the fire,
+			-- so "never fires early" is a statement about a real animation
+			expect(sawShrink).toBe(true)
+			expect(sawBoltUp).toBe(true)
+			expect(fireFrame ~= nil).toBe(true)
+
 			w.settle(240)
 			expect(#fired).toBe(1) -- fires exactly once, after the animation
 

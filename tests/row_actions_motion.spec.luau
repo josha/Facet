@@ -83,7 +83,7 @@ end
 -- tests/row_actions_input.spec.luau's `pointerWorld` (the same `w.tick` pairing of
 -- `pres.tick` with `pres.refresh`, for the same reason: `syncGeometry` only runs
 -- on the refresh, and the naturals this whole file is about are derived there).
-local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?)
+local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?, cageWidth: number?)
 	local core = LuauUI.newCore()
 	local env = LuauUI.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
@@ -105,7 +105,17 @@ local function flight(build: (core: any) -> any, envSetup: ((any) -> ())?)
 		-- list row's is, and `deriveNaturals`' clamp branch behaves like the shipped
 		-- surfaces rather than like a hug row
 		children = {
-			LuauUI.UI.VStack({ id = "Cage", width = { type = "fixed", px = 360 }, children = { ra.blueprint } }),
+			--[[ 360 UNLESS A CASE ASKS OTHERWISE (2026-08-13). The width is the
+				row's TRAVEL, and a spring's settle tail scales with it — so a
+				case about WHEN a commit hands off cannot be asked at 360px and
+				believed at 703px, which is what a phone-width playlist row
+				actually is. `cageWidth` exists for exactly that one case;
+				every other case passes nothing and is byte-identical. ]]
+			LuauUI.UI.VStack({
+				id = "Cage",
+				width = { type = "fixed", px = cageWidth or 360 },
+				children = { ra.blueprint },
+			}),
 		},
 	})
 	local handle = pres.present(screen)
@@ -580,6 +590,131 @@ describe("RowActions flight — C8a: a destructive commit leaves nothing standin
 		expect(w.ra._isOpen()).toBe(false)
 		expect(w.ra.dump().offset).toBe(0)
 		expect(w.rect(ROW).h).toBeCloseTo(restHeight, 1)
+		expect(#w.diagnostics()).toBe(0)
+	end)
+end)
+
+describe("RowActions flight — the commit's own handoff (director device round 2026-08-13)", function()
+	--[[ VERBATIM: "there's an odd pause once the row goes away before the others
+		animate up after i swipe and click delete."
+
+		MEASURED on the playlist example before the fix: the slide carried the row
+		off-screen over frames 1-38 (gone from view by about frame 20), then NOTHING
+		in the whole tree moved for 27 frames (~0.45s), and only at frame 65 did the
+		height collapse begin and the rows below start closing the gap.
+
+		The cause was this control chaining slide-off -> collapse on
+		`spring:onSettle`, the NUMERIC settle (`|x - target| <= 1e-3 AND |v| <=
+		1e-3`), on the largest position-domain spring in the library. `spring.luau`'s
+		own header warns about precisely that, and `chase.luau` already carries the
+		answer — perceptual arrival is a RADIUS, settle is only the fallback.
+
+		WHAT THIS CASE ASSERTS is the symptom, not the implementation: the collapse
+		must begin while the slide is still visibly moving, or within a frame or two
+		of it stopping. It deliberately does NOT pin the radius, the spring class or
+		the frame numbers — any of those may be retuned; a dead window may not
+		reappear. It also deliberately measures only up to the fire, because the
+		collapse's OWN settle tail plays out on a row already at zero height, where
+		being late costs nothing and is not what the director saw.
+	]]
+	it("the collapse begins as the slide ARRIVES, not when it numerically settles", function()
+		local fired: { string } = {}
+		-- 703px: the width a playlist row actually solves to on the phone the
+		-- director filmed. The dead window was 27 frames THERE and only a
+		-- handful at this file's default 360, because a spring's settle tail
+		-- scales with its travel — measured, a mutation that restores the old
+		-- serial handoff does not even redden at 360.
+		local w = flight(function(core)
+			return twoActionRow(core, fired)
+		end, nil, 703)
+		w.run(3)
+		local restHeight = w.rect(ROW).h
+		expect(restHeight > 1).toBe(true)
+		-- ...and the row really is wide enough for the defect to be visible here.
+		-- Proven necessary: a mutation restoring the old serial handoff does NOT
+		-- redden this case at the file's 360px default, so a future edit that
+		-- narrows the cage would quietly turn this into a check that proves
+		-- nothing.
+		expect(`row width for this case: {w.rect(ROW).w >= 600}`).toBe("row width for this case: true")
+		w.ra._commitFirst("trailing")
+
+		local samples: { { offset: number, rowH: number } } = {}
+		for _ = 1, 400 do
+			local s = w.step()
+			table.insert(samples, { offset = s.offset, rowH = s.rowH })
+			-- the solver, EVERY FRAME of the flight — not just once at the end.
+			-- The collapse's own overflow diagnostic was invisible for a whole
+			-- mission because the settled-state cases sampled it 200 frames late
+			-- (docs/lessons/the-solver-already-told-you.md).
+			local detail = {}
+			for _, d in w.diagnostics() do
+				table.insert(detail, `{d.node or "?"}: {d.issue or "?"}`)
+			end
+			expect(`mid-flight diagnostics: {table.concat(detail, " / ")}`).toBe("mid-flight diagnostics: ")
+			if #fired > 0 then
+				break
+			end
+		end
+		expect(#fired).toBe(1)
+
+		--[[ THE TWO QUANTITIES, AND WHY NOT THE OBVIOUS ONE ─────────────────
+			The first metric tried here was "frames between the slide finishing
+			and the collapse starting", and it did not bite: after the action
+			fires, `finishCommit` springs the row HOME from a full row width
+			away, and that homeward flight is the LAST visible slide in the
+			trace. The measure was reading the wrong flight.
+
+			So: the OUTBOUND slide only — frames on which |offset| is still
+			growing — against the first frame the height moves. The claim is
+			that the collapse begins while the row is still flying out, which
+			is what "concurrent, not chained" means and what the eye reads as
+			a single motion. Measured: frame 2 concurrent, frame 66 when
+			chained on the slide's numeric settle.
+		]]
+		local lastOutboundSlide, firstHeightChange = 0, nil :: number?
+		for i = 2, #samples do
+			local prev, cur = samples[i - 1], samples[i]
+			if math.abs(cur.offset) - math.abs(prev.offset) >= 1 then
+				lastOutboundSlide = i
+			end
+			if firstHeightChange == nil and math.abs(cur.rowH - prev.rowH) >= 1 then
+				firstHeightChange = i
+			end
+		end
+		-- both halves of the animation must actually have happened, or the
+		-- comparison below is between two numbers that mean nothing
+		expect(`the row never flew out at all over {#samples} frames: {lastOutboundSlide > 1}`).toBe(
+			`the row never flew out at all over {#samples} frames: true`
+		)
+		expect(`the height never collapsed at all over {#samples} frames: {firstHeightChange ~= nil}`).toBe(
+			`the height never collapsed at all over {#samples} frames: true`
+		)
+		local began = firstHeightChange :: number
+		expect(`collapse began on frame {began}, outbound slide ran to frame {lastOutboundSlide}`).toBe(
+			`collapse began on frame {math.min(began, lastOutboundSlide)}, outbound slide ran to frame {lastOutboundSlide}`
+		)
+		local detail = {}
+		for _, d in w.diagnostics() do
+			table.insert(detail, `{d.node or "?"}: {d.issue or "?"}`)
+		end
+		expect(`diagnostics: {table.concat(detail, " / ")}`).toBe("diagnostics: ")
+	end)
+
+	-- ...and the handoff still happens EXACTLY ONCE. The radius and the settle are
+	-- two subscriptions racing each other, so "fires once" stops being free the
+	-- moment there are two of them.
+	it("the action still fires exactly once, and the row still ends up gone", function()
+		local fired: { string } = {}
+		local w = flight(function(core)
+			return twoActionRow(core, fired)
+		end)
+		w.run(3)
+		w.ra._commitFirst("trailing")
+		w.run(400)
+		expect(#fired).toBe(1)
+		expect(fired[1]).toBe("delete")
+		expect(w.ra._isOpen()).toBe(false)
+		expect(w.ra.dump().offset).toBe(0)
 		expect(#w.diagnostics()).toBe(0)
 	end)
 end)
