@@ -146,6 +146,8 @@ under a minute with the `row_actions` scenario already selected and Playing.
 | Shift-release-mid-chord | Press Shift, press Return, **release Shift before releasing Return**: confirm the menu still opens exactly once (no double-fire, no stuck-open state) — the real-hardware release-ordering case a scripted `deviceKey` sequence can't reproduce. |
 | Same-frame chord | On a gamepad, press ButtonX and a D-pad direction in the same physical input frame: confirm the menu opens and D-pad navigation inside it isn't swallowed by the same-frame ambiguity. |
 | Multi-touch bleed | With two fingers, touch down on two different rows simultaneously and drag both outward (opposite trays): confirm each row's tray opens independently and the shared coordinator doesn't cross-close one because of the other's claim (MED12 from the RED-TEAM pass, `docs/plans/row-actions-implementation.md` ledger). |
+| Re-capture tray visuals | Re-take the tray captures on any view: they predate icon-first trays + the `trayGap` gutter (2026-08-12 director device round) — the current captures show word plates with no gap; confirm glyph plates with the theme's `space.xs` gutter and update the capture set. |
+| Icon-action announcement | Accessibility rider (api.md ActionSpec.icon): an icon-first tray plate carries NO engine `Text`, so the action's semantic name reaches the player only through the Shift+Return/long-press menu row — resurface this when the platform-wide `Button.label` screen-reader question is next opened. |
 
 ## Perf budget row — RESTORED (row-actions-hosted-mode-plan Task 7/8, 2026-08-12)
 
