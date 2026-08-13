@@ -122,3 +122,17 @@ pinned by a test rather than only written down — `tests/table_input.spec.luau`
 "a meta-less Activate is the TOUCH verb: it opens a primary-action table" — and
 `driveActivate`'s own comment in `screen_target.luau` names the consequence at the
 seam a dev reaches for.
+
+## Codicil, 2026-08-13 (second): the same two producers, one question later
+
+This lesson is about the **meta** those two producers carry. A redteam pass the
+next day found that the same enumeration answers a different question — *which
+Activates arrive with no pointer-down in front of them* — and that a one-shot
+gesture arm in `Table` and `VirtualList` had been written on the premise that none
+do. Both producers named here (the host button's own `Activated`, the
+minimum-target hit expander) plus the IAS device Activate are the counterexamples,
+and a swipe that ended without an `Activated` was eating the next device press on
+that row.
+
+Recorded separately, because the rule it yields is about arms rather than metas:
+[an-arm-set-by-a-gesture-must-name-what-may-spend-it.md](./an-arm-set-by-a-gesture-must-name-what-may-spend-it.md).

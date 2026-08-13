@@ -535,6 +535,19 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 			expect(world.built.report().tableEditing).toBe(false) -- never a prerequisite, never turned on
 			expect(world.built.report().tableOpenedKey).toBe(nil) -- a swipe is not a tap
 			expect(world.built.report().tableIds[1]).toBe("m1") -- and not a reorder either
+			--[[ ...AND IT IS NOT A SELECTION EITHER, which is the assertion that
+				makes the MOUSE cases bite (redteam NEW-3, 2026-08-13). The four
+				verdicts above are what a TOUCH Activate would have disturbed: on
+				touch, this table's `onPrimaryAction` opens the row, so `after`
+				closed the tray and `before` set `tableOpenedKey`. A MOUSE
+				`Activated` does neither — a single click REPLACE-SELECTS the row —
+				and nothing here was looking at selection, so `RowActions mouse:
+				... (before)` was vacuous for its own combination: every one of its
+				assertions held against unfixed source (measured: selection went
+				`{"m1"}` unfixed, `{}` fixed, with the other four verdicts identical
+				either way). A swipe selects nothing on ANY pointer kind, so this
+				belongs on all four cases and only reads as redundant on two. ]]
+			expect(world.built.report().tableSelectedKeys).toEqual({})
 			expect(world.core:lastError()).toBeNil()
 			expect(#world.handle.controller.diagnostics()).toBe(0)
 			teardown(world)
@@ -550,6 +563,7 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 			expect(lead.built.report().tableEditing).toBe(false)
 			expect(lead.built.report().tableOpenedKey).toBe(nil)
 			expect(lead.built.report().tableIds[1]).toBe("m1")
+			expect(lead.built.report().tableSelectedKeys).toEqual({})
 			expect(lead.core:lastError()).toBeNil()
 			expect(#lead.handle.controller.diagnostics()).toBe(0)
 			teardown(lead)

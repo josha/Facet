@@ -1395,13 +1395,22 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- overlay + presentation slide read: WHICH row is engaged, and by HOW MANY
 	-- px. `engagedOffset` is signed exactly as the engine's own offset is
 	-- (negative = revealing the trailing edge).
-	--[[ SWALLOW EXACTLY ONE ACTIVATE, on this path. Two producers, one rule:
+	--[[ SWALLOW EXACTLY ONE ACTIVATE, on this path. THREE producers, one rule:
 		  * a promoted pointer drag ends with an engine Activated on the origin row
 		    (whichever side of InputEnded it lands), or every reorder would also
 		    read as a tap on the row it started from;
+		  * a HOSTED SWIPE ends the same way, and is armed at the axis lock rather
+		    than at the release — see `hostedResolveAxis` (redteam NEW-1);
 		  * a tap on an OPEN hosted row means "close the tray" and nothing else —
 		    iOS parity, and the alternative is a swipe-then-tap opening whatever
 		    the row's `onActivate` opens.
+		WHAT MAY SPEND IT is as much of the rule as where it is armed (redteam
+		NEW-2, and the lesson `docs/lessons/an-arm-set-by-a-gesture-must-name-what-
+		may-spend-it.md`): all three producers are POINTER gestures leaving a
+		POINTER Activated behind, so a DEVICE Activate (`meta.source == "action"`,
+		no pointer-down anywhere) is never it and never consumed by it. Cleared by
+		the one pointer Activate it swallows, by a cancel, by a device Activate, or
+		by the next down.
 		Declared here rather than beside its reorder producer because the hosted
 		dispatcher below is textually earlier and writes it too. ]]
 	local suppressActivatePath: string? = nil
@@ -1774,6 +1783,30 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			pending.declined = true
 			return
 		end
+		--[[ A HOSTED SWIPE IS UNDONE BY ITS OWN RELEASE, unless this arms here
+			(redteam NEW-1, BLOCKER, 2026-08-13). A row's `Hit` is a real engine
+			`GuiButton`, so the SAME pointer sequence that swipes it also ends in a
+			native `Activated` on it — "whichever side of `InputEnded` it lands",
+			the fact this file's own `suppressActivatePath` declaration already
+			records. The arm existed only in `onPointerUp`'s UNRESOLVED branch (a
+			tap on an already-open row): a gesture that resolved HORIZONTAL — every
+			real swipe — armed nothing, so `handleActivate` fell straight past the
+			`engaged == key` test (which answers only `meta.source == "action"`)
+			and past the `suppressActivatePath == path` test, into `spec.onActivate`.
+			Worse than the Table defect it mirrors, which was order-dependent:
+			measured RED on BOTH orders, BOTH edges and BOTH pointer kinds — 8 of a
+			12-combination matrix. On the shipped playlist analogue that reads
+			"swipe to reveal Remove, and the track plays".
+
+			ARMED AT THE LOCK, NOT AT THE RELEASE, exactly as `table.luau`'s host
+			dispatcher arms it and for the identical reason: an `Activated` that
+			lands BEFORE `InputEnded` has already been dispatched by the time any
+			`onPointerUp` could arm anything. THIS is the lock — the one place this
+			control decides a gesture went sideways — so there is no second copy of
+			the rule to keep in step. Armed once and left armed through the release:
+			it is cleared by the one POINTER Activate it swallows, by a cancel, by a
+			device Activate, or by the next down. ]]
+		suppressActivatePath = pending.path
 		hostedPending = nil
 	end
 
@@ -1935,6 +1968,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			local unresolved = hostedPending ~= nil
 			hostedPending = nil
 			hostedActiveKey = nil
+			-- A CANCELLED GESTURE HAS NO ARTIFACT COMING (redteam NEW-2's rule,
+			-- applied to this dispatcher too): the engine fires no `Activated` for
+			-- a capture it took away, so an arm left standing here would be spent
+			-- on the next producer that carries no pointer-down — an IAS device
+			-- Activate, or the minimum-target hit expander's own `Activated` —
+			-- costing the player a dead press on the row they just swiped. Same
+			-- clear, same reason, as `table.luau`'s `hitOnPointerCancel`.
+			suppressActivatePath = nil
 			if engine ~= nil and not unresolved then
 				return engine.pointerHandlers.onPointerCancel(path, reason)
 			end
@@ -2278,9 +2319,23 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			armedKey:set(nil)
 			return true
 		end
+		--[[ THE DRAG/SWIPE ARTIFACT, SWALLOWED — and only a POINTER may spend it
+			(redteam NEW-2's rule, applied to this control too). A promoted drag,
+			a hosted swipe and a tap on an open row are all POINTER gestures, and
+			the stray `Activated` each leaves behind is a pointer's
+			(`screen_target.luau`'s `pointerActivateMeta`: `source == "pointer"`).
+			An IAS device Activate — gamepad A, keyboard Return, `source ==
+			"action"` — cannot be that artifact under any ordering: it carries no
+			pointer at all, and by the time the action system dispatches one the
+			gesture's own `Activated` has either already arrived (and cleared this)
+			or is never coming. Swallowing it cost a dead press on the row the
+			player had just swiped. ]]
 		if suppressActivatePath == path then
+			local deviceActivate = meta ~= nil and meta.source == "action"
 			suppressActivatePath = nil
-			return true
+			if not deviceActivate then
+				return true
+			end
 		end
 		local item = itemForKey(key)
 		if item == nil then

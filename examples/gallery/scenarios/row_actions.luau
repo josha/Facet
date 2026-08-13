@@ -849,6 +849,16 @@ return {
 					vlistIds = vlModel.ids(),
 					tableEditing = editingSignal:get(),
 					tableOpenedKey = openedKey:get(),
+					--[[ THE TABLE'S SELECTION, sorted and deterministic (the control's
+						own `dump()` does the sorting, because `selectedKeys` is a SET).
+						ADDED for the redteam NEW-3 finding: the mouse "before" release-
+						Activate case had no assertion that could see what a mouse
+						`Activated` on a row actually DOES — it REPLACE-SELECTS it —
+						so every other verdict in that case (tray open, not editing,
+						nothing opened, order unchanged) was equally true of the
+						unfixed code, and the case could not fail for its own
+						combination. Selection is what makes it bite. ]]
+					tableSelectedKeys = tbl.dump().selectedKeys,
 					listRowDumps = dumps,
 					vlistHosted = vlist._hostedDebug(),
 				}

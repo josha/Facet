@@ -223,7 +223,10 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		-- in the family that keeps running after it is built, and the only thing
 		-- that stops it is disposal — so it refuses to exist without something that
 		-- will do the disposing.
-		if type(spec.scope) ~= "table" or type((spec.scope :: any).own) ~= "function" then
+		-- ONLY "is there one" here; WHAT it must be is the shape guard below,
+		-- which runs for a determinate view too (`:child` is called on any scope
+		-- that is passed, whatever the presentation).
+		if spec.scope == nil then
 			error(
 				"LuauUI newProgressView: an indeterminate view (`value = nil`) runs a motion cycle for as long "
 					.. "as it exists, so it needs `scope` — the Scope that owns it, exactly as newAsyncImage "
@@ -232,6 +235,30 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 				0
 			)
 		end
+	end
+	--[[ A SCOPE HAS TO BE ONE, and the guard names BOTH methods this control
+		uses (redteam follow-up, 2026-08-13). The refusal above asked only for
+		`own`, while the very next statement calls `:child(...)` — so a
+		scope-like object carrying an `own` and no `child` walked past the
+		authored refusal and died three lines later on "attempt to call a nil
+		value", which tells a caller nothing about what they got wrong. HERE
+		rather than inside the indeterminate branch, because `:child` is called
+		on ANY scope that is passed and a determinate view had no shape check on
+		`scope` at all. ]]
+	if
+		spec.scope ~= nil
+		and (
+			type(spec.scope) ~= "table"
+			or type((spec.scope :: any).own) ~= "function"
+			or type((spec.scope :: any).child) ~= "function"
+		)
+	then
+		error(
+			"LuauUI newProgressView: `scope` must be a LuauUI Scope — what `core:scope(...)` returns, or a "
+				.. "presented surface's own `handle.scope`. This control asks it for `own` and `child`, and the "
+				.. "value passed answers neither.",
+			0
+		)
 	end
 	-- a CHILD of the caller's scope when there is one, so disposing theirs disposes
 	-- this whole control — memos, motion value and all — with no second call
@@ -332,8 +359,17 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 				chrome_slots.attachHint(
 					UI.Box({
 						id = `Dot{index}`,
-						width = { type = "fixed", px = spec.height or SPINNER_DOT },
-						height = { type = "fixed", px = spec.height or SPINNER_DOT },
+						-- THE THEME METRIC, FULL STOP (redteam follow-up,
+						-- 2026-08-13). `spec.height or SPINNER_DOT` was dead
+						-- code only because the refusal above rejects
+						-- `presentation = "spinner"` WITH a height — so the
+						-- silent reinterpretation the refusal exists to
+						-- prevent (five 40x40 dots for a caller who asked for
+						-- a chunky BAR) was sitting here waiting for the day
+						-- somebody relaxed that refusal. A dot's size is a
+						-- theme metric, and this is now the only thing it can be.
+						width = { type = "fixed", px = SPINNER_DOT },
+						height = { type = "fixed", px = SPINNER_DOT },
 						tint = pulse,
 					}),
 					{ slot = "spinner" }
@@ -346,7 +382,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 				id = "Spinner",
 				gap = "xs",
 				align = "center",
-				height = { type = "fixed", px = spec.height or SPINNER_DOT },
+				height = { type = "fixed", px = SPINNER_DOT },
 				children = dots,
 			})
 		)

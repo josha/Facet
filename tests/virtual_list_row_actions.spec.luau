@@ -327,6 +327,20 @@ local function world(opts: any?): any
 		adapter.pointerUp(lastPos.x, lastPos.y)
 		w.tick(FRAME)
 	end
+	--[[ THE RELEASE THE ENGINE ACTUALLY PERFORMS (redteam NEW-1, 2026-08-13).
+		A hosted row's `Hit` is a real `GuiButton`, so the same gesture that swipes
+		it also ends in that button's `Activated` — on either side of `InputEnded`.
+		`w.release()` above is the SILENT release (an up landing off the translated
+		hit), and until this existed it was the only release this whole file could
+		drive: every hosted swipe case here proved the control against a sequence
+		the engine does not produce, which is exactly why a defect that fired
+		`onActivate` on EVERY swipe survived 2000 lines of hosted specs.
+		`fake_target.pointerUpActivating` delivers the real thing, with the full
+		pointer meta. ]]
+	function w.releaseActivating(order: "before" | "after")
+		adapter.pointerUpActivating(lastPos.x, lastPos.y, order)
+		w.tick(FRAME)
+	end
 	-- a FULL SWIPE: past 60% of the row, released. The only gesture whose
 	-- verdict depends on a LIVE row rect, which is why it is the differential
 	-- the stale-path case (I2) is proven with.
@@ -348,6 +362,35 @@ local function trailingActions(fired: { string }): (item: any) -> any
 				{
 					id = "delete",
 					label = "Delete",
+					onAction = function()
+						table.insert(fired, item.id)
+					end,
+				},
+			},
+		}
+	end
+end
+
+-- one "Flag" leading and one "Delete" trailing per row — the both-edges list.
+-- MODULE SCOPE, because two describes need it: Task 5's parity block and the
+-- release-Activate matrix at the bottom of this file.
+local function bothEdges(fired: { string }, role: string?): (item: any) -> any
+	return function(item: any): any
+		return {
+			leading = {
+				{
+					id = "flag",
+					label = "Flag",
+					onAction = function()
+						table.insert(fired, `flag:{item.id}`)
+					end,
+				},
+			},
+			trailing = {
+				{
+					id = "delete",
+					label = "Delete",
+					role = role,
 					onAction = function()
 						table.insert(fired, item.id)
 					end,
@@ -1382,32 +1425,6 @@ end)
 	`handleActivate`). ]]
 describe("VirtualList rowActions (Task 5): behavior parity", function()
 	-- a row with BOTH edges declared, and a destructive `role` on request
-	local function bothEdges(fired: { string }, role: string?): (item: any) -> any
-		return function(item: any): any
-			return {
-				leading = {
-					{
-						id = "flag",
-						label = "Flag",
-						onAction = function()
-							table.insert(fired, `flag:{item.id}`)
-						end,
-					},
-				},
-				trailing = {
-					{
-						id = "delete",
-						label = "Delete",
-						role = role,
-						onAction = function()
-							table.insert(fired, item.id)
-						end,
-					},
-				},
-			}
-		end
-	end
-
 	local function destructiveActions(fired: { string }): (item: any) -> any
 		return function(item: any): any
 			return {
@@ -2226,5 +2243,221 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.system.deviceKey("ButtonA", true)
 		w.system.deviceKey("ButtonA", false)
 		expect(w.activations).toEqual({ "r1" })
+	end)
+end)
+
+-- =============================================================================
+--[[ THE RELEASE ACTIVATE, ON THE HOSTED SURFACE (redteam NEW-1, BLOCKER;
+	2026-08-13) ─────────────────────────────────────────────────────────────────
+	A hosted row's `Hit` is a real engine `GuiButton`. The same pointer sequence
+	that swipes it therefore ends in that button's own `Activated` — "whichever
+	side of `InputEnded` it lands", the fact `virtual_list.luau`'s
+	`suppressActivatePath` declaration has recorded since Task 3. The arm for it
+	existed in exactly ONE place: `hostedDispatch.onPointerUp`'s `unresolved`
+	branch, i.e. a TAP on an already-open row. A gesture that resolved HORIZONTAL
+	— every real swipe — armed nothing at all, so `handleActivate` fell past the
+	`engaged == key` test (which answers only `meta.source == "action"`), past the
+	`suppressActivatePath == path` test, and into `spec.onActivate`.
+
+	Table's twin was order-dependent. This one was not: measured RED on BOTH
+	orders, BOTH edges and BOTH pointer kinds — 8 of these 12 combinations. On the
+	shipped playlist analogue that reads "swipe to reveal Remove, and the track
+	plays".
+
+	WHY 2000 LINES OF HOSTED SPECS DID NOT SEE IT: every swipe in this file ended
+	at `w.release()`, a SILENT up. That is a real release — an up landing off the
+	translated hit produces one — but it is not the common one, and the four
+	silent rows below are the CONTROL, not the coverage. The other eight drive
+	`w.releaseActivating(order)`, which delivers the engine's own `Activated` with
+	the full pointer meta.
+
+	Each case asserts the two things that have to be simultaneously true and were
+	not: the tray is revealed and stays revealed, and `onActivate` did not fire.
+	`fired` is checked too — a swipe must not run an ACTION either. ]]
+describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its own release Activate", function()
+	--[[ ONE swipe, on the hosted surface, released the way the case names.
+		`edge` picks the direction and therefore which tray must appear. Returns
+		nothing: every verdict is read off the world afterwards, from the mounted
+		tree and the recorded callbacks. ]]
+	local function swipe(w: any, key: string, edge: string, pointerType: string, order: ("before" | "after")?)
+		if edge == "leading" then
+			w.dragRight(key, 80, pointerType)
+		else
+			w.dragLeft(key, 80, pointerType)
+		end
+		if order == nil then
+			w.release()
+		else
+			w.releaseActivating(order)
+		end
+		w.settle()
+	end
+
+	--[[ The twelve titles are written out in full rather than interpolated, for
+		the same reason `row_actions_scenario.spec.luau`'s own four are: a check
+		that greps for a case name cannot find a title assembled at runtime. ]]
+	local RELEASE_CASES = {
+		{
+			pointerType = "touch",
+			order = nil :: ("before" | "after")?,
+			title = "RowActions hosted touch: a VirtualList swipe reveals the tray and fires no onActivate (silent release, control)",
+		},
+		{
+			pointerType = "touch",
+			order = "after" :: ("before" | "after")?,
+			title = "RowActions hosted touch: a VirtualList swipe reveals the tray and survives its release Activate (after)",
+		},
+		{
+			pointerType = "touch",
+			order = "before" :: ("before" | "after")?,
+			title = "RowActions hosted touch: a VirtualList swipe reveals the tray and survives its release Activate (before)",
+		},
+		{
+			pointerType = "mouse",
+			order = nil :: ("before" | "after")?,
+			title = "RowActions hosted mouse: a VirtualList swipe reveals the tray and fires no onActivate (silent release, control)",
+		},
+		{
+			pointerType = "mouse",
+			order = "after" :: ("before" | "after")?,
+			title = "RowActions hosted mouse: a VirtualList swipe reveals the tray and survives its release Activate (after)",
+		},
+		{
+			pointerType = "mouse",
+			order = "before" :: ("before" | "after")?,
+			title = "RowActions hosted mouse: a VirtualList swipe reveals the tray and survives its release Activate (before)",
+		},
+	}
+	for _, case in RELEASE_CASES do
+		local pointerType, order = case.pointerType, case.order
+		it(case.title, function()
+			-- TRAILING (Apple's default edge)
+			local fired: { string } = {}
+			local w = world({ rowActions = bothEdges(fired) })
+			expect(w.debug().engagedKey).toBeNil()
+			expect(w.adapter.node(tray("r2", "trailing"))).toBeNil()
+
+			swipe(w, "r2", "trailing", pointerType, order)
+			expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
+			expect(w.debug().engagedKey).toBe("r2") -- revealed, and STILL revealed
+			expect(w.list.engagedOffset:get() < 0).toBe(true)
+			expect(w.activations).toEqual({}) -- a swipe is not a tap
+			expect(fired).toEqual({}) -- and it ran no action either
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+
+			-- LEADING — the other edge, on a FRESH world. Swiping the other way
+			-- out of an already-open tray is the CLOSE gesture, which would have
+			-- passed this case for entirely the wrong reason.
+			local leadFired: { string } = {}
+			local lead = world({ rowActions = bothEdges(leadFired) })
+			expect(lead.adapter.node(tray("r2", "leading"))).toBeNil()
+
+			swipe(lead, "r2", "leading", pointerType, order)
+			expect(lead.adapter.node(trayAction("r2", "leading", "flag"))).never().toBeNil()
+			expect(lead.debug().engagedKey).toBe("r2")
+			expect(lead.list.engagedOffset:get() > 0).toBe(true)
+			expect(lead.activations).toEqual({})
+			expect(leadFired).toEqual({})
+			expect(#lead.handle.controller.diagnostics()).toBe(0)
+		end)
+	end
+
+	--[[ THE SUPPRESSION IS ONE POINTER ACTIVATE WIDE, and a DEVICE Activate is
+		never it (redteam NEW-2's rule, on this control). The arm is spent by the
+		artifact it was raised for; the very next tap on the row is genuine. ]]
+	it("the arm is one activate wide: the tap AFTER a swipe's release Activate still closes the tray", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		w.dragLeft("r2", 80, "touch")
+		w.releaseActivating("after")
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		expect(w.activations).toEqual({})
+		-- the next tap on the open row means CLOSE, exactly as it does with no
+		-- release Activate in the story at all
+		w.adapter.touchTap(rowHit("r2"))
+		w.settle()
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.activations).toEqual({})
+		-- ...and the one after THAT is an ordinary activate
+		w.adapter.touchTap(rowHit("r2"))
+		w.settle()
+		expect(w.activations).toEqual({ "r2" })
+	end)
+
+	--[[ A SWIPE THAT ENDS WITH NO ACTIVATED AT ALL MUST NOT EAT THE NEXT DEVICE
+		PRESS (redteam NEW-2, on this control) ──────────────────────────────────
+		Arming at the axis lock is right, but an arm has to be cleared by
+		something. `a6229e0` justified clearing it only at the next pointer-DOWN,
+		on a premise that is false: "a real Activated always fires between a
+		pointer-up and the next pointer-down". TWO producers carry no pointer-down
+		— an IAS device Activate, and the minimum-target hit expander's own
+		`Activated` on a SEPARATE GuiButton. So a swipe whose release delivers
+		nothing (a cancel, or an up landing off the translated hit) left the arm
+		standing, and the next gamepad A on that row was swallowed whole. ]]
+	it("a hosted swipe CANCELLED mid-gesture does not swallow the next gamepad Activate", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		w.dragLeft("r2", 80, "touch")
+		-- the Roblox menu opens / the capture is taken away: NO Activated follows
+		w.adapter.interruptCapture()
+		w.settle()
+		expect(w.activations).toEqual({})
+		w.pres.focus.focusOn(rowHit("r2"))
+		w.pres.refresh()
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		w.settle()
+		expect(w.activations).toEqual({ "r2" }) -- the press LANDED
+		expect(fired).toEqual({})
+	end)
+
+	--[[ THE OTHER PRODUCER WITH NO POINTER-DOWN: the minimum-target hit expander.
+		A SEPARATE `GuiButton` overlapping a short row, whose press fires THIS
+		row's activate handler with a full POINTER meta and no pointer event on
+		the row's own `Hit` (screen_target.luau's `pointerActivateMeta`).
+		`adapter.driveActivate` is that seam's headless mirror. Being a pointer
+		Activate it is not covered by the `meta.source == "action"` half of the
+		fix, so the CANCEL clear is the only thing between a cancelled swipe and a
+		dead press — this is the case that proves that clear is load-bearing. ]]
+	it("a hosted swipe CANCELLED mid-gesture does not swallow the hit expander's Activate either", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		w.dragLeft("r2", 80, "touch")
+		w.adapter.interruptCapture()
+		w.settle()
+		local rect = w.adapter.node(rowHit("r2")).rect
+		w.adapter.driveActivate(rowHit("r2"), {
+			source = "pointer",
+			pointer = "touch",
+			x = rect.x + rect.w / 2,
+			y = rect.y - 2, -- the 44px overhang: outside the row, inside the target
+		})
+		w.settle()
+		expect(w.activations).toEqual({ "r2" })
+		expect(fired).toEqual({})
+	end)
+
+	it("a hosted swipe with a SILENT release still answers the next gamepad Activate with a close", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		w.dragLeft("r2", 80, "touch")
+		w.release() -- the up landed off the translated hit: no Activated at all
+		w.settle()
+		expect(w.debug().engagedKey).toBe("r2")
+		w.pres.focus.focusOn(rowHit("r2"))
+		w.pres.refresh()
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		w.settle()
+		-- the device verb on an open row is CLOSE, and it was not eaten by a
+		-- suppression left over from the swipe
+		expect(w.debug().engagedKey).toBeNil()
+		expect(w.activations).toEqual({})
+		-- ...and the row is an ordinary row again on the very next press
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		w.settle()
+		expect(w.activations).toEqual({ "r2" })
 	end)
 end)

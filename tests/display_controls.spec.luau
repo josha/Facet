@@ -1127,6 +1127,31 @@ describe("ProgressView: an indeterminate view is OWNED, and stops with its owner
 			LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = {} })
 		end)
 		expect(ok2).toBe(false)
+		--[[ ...INCLUDING THE HALF-SCOPE (redteam follow-up, 2026-08-13). The
+			guard asked only for `own`, and the very next statement calls
+			`:child(...)`, so an object answering `own` and nothing else walked
+			past the authored refusal and died on "attempt to call a nil value" —
+			a caller told nothing about what they got wrong. Both presentations,
+			because `:child` is called on ANY scope that is passed: the
+			determinate view had no shape check on `scope` whatsoever. ]]
+		local halfScope: any = {
+			own = function(_self: any, value: any)
+				return value
+			end,
+		}
+		for _, spec in
+			{
+				{ id = "L", motionClock = clock, scope = halfScope },
+				{ id = "L", motionClock = clock, scope = halfScope, value = 0.5 },
+			}
+		do
+			local ok3, err3 = pcall(function()
+				LuauUI.newProgressView(LuauUI, core, spec)
+			end)
+			expect(ok3).toBe(false)
+			expect(string.find(tostring(err3), "must be a LuauUI Scope", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(err3), "attempt to call", 1, true)).toBeNil()
+		end
 		clock:dispose()
 	end)
 

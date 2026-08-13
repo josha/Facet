@@ -3297,6 +3297,20 @@ elsewhere (another row, off the list) is unaffected. This was a RED-TEAM
 finding (the row activated AND stayed open); `tests/table.spec.luau`'s
 "iOS tap-to-close" case pins the fix.
 
+*A swipe survives its own release.* A row's hit surface is a real engine
+`GuiButton`, so the pointer sequence that swipes it **also** fires that button's
+`Activated`, on either side of `InputEnded`. Both hosts (`newTable`'s wrapped
+rows and `newVirtualList`'s hosted rows) therefore swallow exactly one Activate
+on the origin row, armed the moment the gesture crosses the axis lock sideways —
+so a swipe never selects the row, never fires `onPrimaryAction`/`onActivate`, and
+never closes the tray it just opened, on either edge, either pointer kind, and
+either ordering. The suppression is **one pointer Activate wide**: the next tap
+on the row is genuine, and a **device** Activate (gamepad A / keyboard Return) is
+never consumed by it — it carries no pointer and so can never be a pointer
+gesture's artifact. A gesture that ends in a cancel disarms it outright. Pinned
+by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
+`tests/virtual_list_row_actions.spec.luau`'s twelve-combination hosted matrix.
+
 ### `newVirtualList`
 
 `LuauUI.newVirtualList(LuauUI, core, spec) -> VirtualList` — fixed-height

@@ -1573,3 +1573,224 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		expect(tbl.api.selectedKeys:get().r2).toBe(nil)
 	end)
 end)
+
+-- =============================================================================
+-- 6. THE SWIPE SUPPRESSION IS NOT A TRAP FOR THE NEXT DEVICE PRESS
+--    (redteam NEW-2, MEDIUM; 2026-08-13 — a regression introduced by a6229e0)
+--
+-- `a6229e0` armed `suppressActivatePath` at the axis lock (the BLOCKER fix: a
+-- swipe must survive its own release `Activated`) and cleared it in ONE place,
+-- `hitOnPointerDown`, on this stated rule:
+--
+--   "A real Activated always fires between a pointer-up and the next
+--    pointer-down, so a still-live suppression can never legitimately survive
+--    to see another down."
+--
+-- THE RULE IS FALSE, for the two Activate producers that carry no pointer-down
+-- at all: an IAS device Activate (gamepad A / keyboard Return — `meta.source ==
+-- "action"`, dispatched by the action system, no pointer event anywhere), and
+-- the minimum-target hit expander, a SEPARATE `GuiButton` whose press produces
+-- no pointer event on the row's own `Hit` (screen_target.luau's
+-- `pointerActivateMeta`). So any swipe that ends WITHOUT an `Activated` — a
+-- cancel (capture loss, row unmount, scroll steal) or a release landing off the
+-- translated `Hit` — left the arm standing, and the next device press on that
+-- row was swallowed whole. Measured on both trees with the same probe:
+--
+--                                              13fd3c6      a6229e0
+--   swipe cancelled, then gamepad A        fired 0 -> 1   fired 0 -> 0
+--   swipe silent release, then gamepad A   tray closes    tray stays open
+--
+-- Two clears close it: a CANCEL clears the arm (the engine fires no `Activated`
+-- for a capture it took away), and `handleActivate` refuses to spend the arm on
+-- a device Activate at all — a pointer gesture's artifact is a POINTER's.
+-- =============================================================================
+describe("table_input: a swipe that ends with no Activated does not eat the next device press", function()
+	local function swipeWorld()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		-- A PAD PLUS A KEYBOARD: the one session class that can drive ButtonA at
+		-- the rows, the same choice `primaryWorld({ input = "gamepad" })` makes.
+		env:set("preferredInput", "Gamepad")
+		env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 100 }
+		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local opened: { string } = {}
+		local fired: { string } = {}
+		local tbl = table_control.build(
+			LuauUI,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(3)),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Racer",
+						width = { type = "fill", weight = 1 },
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				selection = "single",
+				rowHeight = 40,
+				env = env,
+				onPrimaryAction = function(_item: any, key: string)
+					table.insert(opened, key)
+				end,
+				rowActions = function(_item: any): any
+					return {
+						trailing = {
+							{
+								id = "delete",
+								role = "destructive",
+								label = "Delete",
+								onAction = function()
+									table.insert(fired, "delete")
+								end,
+							},
+						},
+					}
+				end,
+			} :: any
+		)
+		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		local w: any = {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			system = system,
+			tbl = tbl,
+			handle = handle,
+			opened = opened,
+			fired = fired,
+		}
+		function w.settle(frames: number?)
+			for _ = 1, frames or 150 do
+				clock.t += 1 / 60
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		return w
+	end
+
+	-- the wrapped row's own hit, and the tray the swipe reveals
+	local function wrappedHit(key: string): string
+		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+	end
+	local function trayAction(key: string, action: string): string
+		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}/TrayTrailingWhen/then/TrayTrailing/Action:{action}`
+	end
+
+	-- a horizontal swipe past the axis lock; `finish` is how the gesture ends
+	local function swipe(w: any, key: string, finish: "cancel" | "silent")
+		local rect = w.adapter.node(wrappedHit(key)).rect
+		local originX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		w.adapter.pointerDown(wrappedHit(key), originX, y, "touch")
+		w.settle(1)
+		for i = 1, 8 do
+			w.adapter.pointerMove(originX - (rect.w * 0.3) * (i / 8), y, "touch")
+			w.settle(1)
+		end
+		if finish == "cancel" then
+			w.adapter.interruptCapture() -- the Roblox menu opened: no Activated follows
+		else
+			w.adapter.pointerUp(originX - rect.w * 0.3, y) -- an up off the translated Hit
+		end
+		w.settle()
+	end
+
+	-- an IAS DEVICE Activate on a named row: gamepad A, through the real action
+	-- system, `meta.source == "action"`, and no pointer event whatsoever
+	local function gamepadActivate(w: any, key: string)
+		w.pres.focus.focusOn(wrappedHit(key))
+		w.pres.refresh()
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		w.settle(60)
+	end
+
+	it("a swipe CANCELLED mid-gesture does not swallow the next gamepad Activate on that row", function()
+		local w = swipeWorld()
+		swipe(w, "r1", "cancel")
+		expect(#w.opened).toBe(0)
+		gamepadActivate(w, "r1")
+		expect(w.opened).toEqual({ "r1" }) -- the press LANDED
+		expect(w.fired).toEqual({})
+	end)
+
+	--[[ THE OTHER PRODUCER WITH NO POINTER-DOWN: the minimum-target hit expander.
+		It is a SEPARATE `GuiButton` overlapping a short row, and pressing it fires
+		THIS row's activate handler with a full pointer meta and no pointer event
+		on the row's own `Hit` at all (screen_target.luau's `pointerActivateMeta`,
+		reached through `handle.activate`). `adapter.driveActivate` is that seam's
+		headless mirror — the same call into the same registered handler.
+
+		It is a POINTER Activate, so the `meta.source == "action"` half of the fix
+		does not cover it: the CANCEL clear is the only thing standing between a
+		cancelled swipe and a dead press on that row. This is the case that proves
+		the clear is load-bearing rather than belt-and-braces. ]]
+	it("a swipe CANCELLED mid-gesture does not swallow the hit expander's Activate either", function()
+		local w = swipeWorld()
+		swipe(w, "r1", "cancel")
+		local rect = w.adapter.node(wrappedHit("r1")).rect
+		w.adapter.driveActivate(wrappedHit("r1"), {
+			source = "pointer",
+			pointer = "touch",
+			x = rect.x + rect.w / 2,
+			y = rect.y - 2, -- the 44px overhang: outside the row, inside the target
+		})
+		w.settle(30)
+		expect(w.opened).toEqual({ "r1" })
+	end)
+
+	it("a swipe with a SILENT release still answers the next gamepad Activate with a tray close", function()
+		local w = swipeWorld()
+		swipe(w, "r1", "silent")
+		expect(w.adapter.node(trayAction("r1", "delete"))).never().toBeNil()
+		gamepadActivate(w, "r1")
+		-- the device verb on an open row is CLOSE, and it was not eaten
+		expect(w.adapter.node(trayAction("r1", "delete"))).toBeNil()
+		expect(#w.opened).toBe(0)
+		-- ...and the row is an ordinary row again on the very next press
+		gamepadActivate(w, "r1")
+		expect(w.opened).toEqual({ "r1" })
+	end)
+
+	--[[ THE CONTROL, and the reason this pair is not a licence to stop
+		suppressing: a swipe whose release DID carry an `Activated` still eats
+		exactly that one artifact — the a6229e0 BLOCKER fix, unweakened — and a
+		device press after it behaves normally. Without this, "clear the arm more
+		often" would pass by simply never arming. ]]
+	it("a swipe whose release DID Activate still swallows that artifact, and the tray survives it", function()
+		local w = swipeWorld()
+		local rect = w.adapter.node(wrappedHit("r1")).rect
+		local originX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		w.adapter.pointerDown(wrappedHit("r1"), originX, y, "touch")
+		w.settle(1)
+		for i = 1, 8 do
+			w.adapter.pointerMove(originX - (rect.w * 0.3) * (i / 8), y, "touch")
+			w.settle(1)
+		end
+		w.adapter.pointerUpActivating(originX - rect.w * 0.3, y, "after")
+		w.settle()
+		expect(w.adapter.node(trayAction("r1", "delete"))).never().toBeNil() -- tray survived
+		expect(#w.opened).toBe(0) -- and the artifact fired nothing
+		gamepadActivate(w, "r1")
+		expect(w.adapter.node(trayAction("r1", "delete"))).toBeNil()
+		expect(#w.opened).toBe(0)
+	end)
+end)

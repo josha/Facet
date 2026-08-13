@@ -1326,14 +1326,28 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				if dragHandlers ~= nil and isHandleZonePress(path, pos, rectOf) then
 					return false
 				end
-				-- A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE (the reason
-				-- `virtual_list.luau`'s own hosted dispatcher clears it here too):
-				-- a release that produces no Activated at all — the up landing off
-				-- the button — leaves the arm below with nothing left to clear it,
-				-- and it would then swallow the NEXT genuine Activate on this row.
-				-- A real Activated always fires between a pointer-up and the next
-				-- pointer-down, so a still-live suppression can never legitimately
-				-- survive to see another down.
+				--[[ A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE (the reason
+					`virtual_list.luau`'s own hosted dispatcher clears it here too):
+					a release that produces no Activated at all — the up landing off
+					the button — leaves the arm below with nothing left to clear it.
+
+					THIS IS THE WEAKEST OF THE FOUR CLEARS, NOT THE ONLY ONE, and
+					the first draft of it carried a premise that is simply false
+					(redteam NEW-2, 2026-08-13): "a real Activated always fires
+					between a pointer-up and the next pointer-down, so a still-live
+					suppression can never legitimately survive to see another down."
+					TWO ACTIVATE PRODUCERS CARRY NO POINTER-DOWN AT ALL — an IAS
+					device Activate (gamepad A / keyboard Return, `meta.source ==
+					"action"`), and the minimum-target hit expander, a SEPARATE
+					`GuiButton` whose press produces no pointer event on this row's
+					`Hit` at all (`screen_target.luau`'s `pointerActivateMeta`).
+					Either of them can reach `handleActivate` while an arm from a
+					silently-ended swipe is still live, and be eaten by it: measured
+					on a swipe cancelled mid-gesture (0 -> 0 primary actions where
+					13fd3c6 gave 0 -> 1) and on a swipe with a silent release
+					(the tray stayed open under a device press that must close it).
+					So the arm is cleared on a CANCEL too, and `handleActivate`
+					refuses to spend it on a device Activate at all. ]]
 				suppressActivatePath = nil
 				local accepted = composedRef.onPointerDown(path, pos, rectOf)
 				swipeGesture = if accepted == false
@@ -1355,7 +1369,8 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 						-- arms at ITS threshold for the identical reason
 						-- (`rowPointerHandlers.onPointerMove` above). Armed once
 						-- and left armed through the release: it is cleared by
-						-- the one Activate it swallows, or by the next down.
+						-- the one POINTER Activate it swallows, by the cancel
+						-- below, by a device Activate, or by the next down.
 						suppressActivatePath = path
 					end
 				end
@@ -1367,6 +1382,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			end
 			hitOnPointerCancel = function(path: string, reason: string?)
 				swipeGesture = nil
+				-- A CANCELLED GESTURE HAS NO ARTIFACT COMING (redteam NEW-2,
+				-- 2026-08-13). The engine fires no `Activated` for a capture it
+				-- took away — the Roblox menu opening, this row unmounting, a
+				-- scroll stealing the gesture — so an arm left standing here has
+				-- nothing of its own left to swallow and would spend itself on
+				-- the next producer that carries no pointer-down: measured as a
+				-- dead gamepad A on the very row the player just swiped.
+				-- `cancelDrag` clears it on the reorder half for this reason.
+				suppressActivatePath = nil
 				return composedRef.onPointerCancel(path, reason)
 			end
 		end
@@ -2311,9 +2335,22 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			the tray open, so "an open tray means the tap means close" fired on the
 			swipe's own artifact and shut the tray in the frame it appeared. ]]
 		if suppressActivatePath ~= nil then
-			local suppressed = path == suppressActivatePath
+			--[[ ...AND IT IS A POINTER'S ARTIFACT, so only a POINTER may spend it
+				(redteam NEW-2, 2026-08-13). A drag or a swipe is a pointer gesture
+				and the stray `Activated` it leaves behind is a pointer's
+				(`screen_target.luau`'s `pointerActivateMeta`: `source ==
+				"pointer"`). An IAS device Activate — gamepad A, keyboard Return,
+				`source == "action"` — cannot be that artifact under any ordering:
+				it carries no pointer at all, and by the time the action system
+				dispatches one the gesture's own `Activated` has either already
+				arrived (and cleared this) or is never coming. Swallowing it cost
+				the player a dead press on the row they had just swiped — the whole
+				visible symptom of NEW-2, on both of its reachable paths. ]]
+			local deviceActivate = meta ~= nil and meta.source == "action"
+			local suppressed = path == suppressActivatePath and not deviceActivate
 			-- one decision either way: the origin row's drag-artifact activate
-			-- is swallowed; an activate on any OTHER row is genuine and clears
+			-- is swallowed; an activate on any OTHER row — or from any device —
+			-- is genuine and clears
 			suppressActivatePath = nil
 			if suppressed then
 				return true
