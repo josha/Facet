@@ -2732,6 +2732,19 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			--                                          padding form avoids)
 			-- With no edit affordance the padding is absent and every number above
 			-- is byte-identical to what shipped.
+			--
+			-- THE ONE DIFFERENCE FROM AN OFFSET, stated so nobody rediscovers it as
+			-- a bug: a padding PARTICIPATES IN MEASURE. On a row whose width is
+			-- content-sized (hug), turning `editing` on therefore makes the row
+			-- itself 28px wider, where the old offset form left the hug width alone
+			-- and displaced the content inside it. That is the correct reading of
+			-- "reserve a gutter" — the row genuinely needs the room — and it is
+			-- inert for every shipped caller: a list row is `fill` (Table hands its
+			-- own `width = { type = "fill", weight = 1 }` straight through to
+			-- `spec.width`, and a bare caller in a list gives the same), so the box
+			-- is the row's assigned width in both states and only the inner content
+			-- moves. A HUG row that also wires `editing` is the one shape that sees
+			-- it, and it sees a row that grew to fit its own affordance.
 			local contentOffsetX = offset
 			local contentPadding: any = nil
 			if hasEditAffordance then

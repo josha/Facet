@@ -17,6 +17,16 @@ selection** — see "What this matrix is (and is not)" below. Perf rows are
 (E4) result; those rows exist with zero entries in the NEEDS_PHYSICAL_DEVICE
 section, stated rather than omitted.
 
+**CAPTURE STALENESS (director device round, 2026-08-12).** The functional-matrix
+tray captures below **predate icon-first**: they show tray plates wearing WORDS
+("Delete" / "Flag"), and a tray plate now wears its icon at every width when the
+action declares one (api.md `ActionSpec.icon`). Tray gutters
+(`controls.rowActions.trayGap`) are likewise absent from them. **Re-capture is a
+device-pass item**, not a blocker for this matrix's claims: the layout,
+diagnostic, swipe/commit and reorder mechanics the functional rows assert are
+unchanged, and the **perf numbers are unaffected** (no node was added or removed
+by the change — same instance count, same tray structure, one extra solved gap).
+
 ## What this matrix is (and is not)
 
 The plan's five-view driver (`tools/studio/device_matrix.luau` +

@@ -237,7 +237,12 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	shape: string?,
 	icon: string?,
 	label: Bound<string | number>,
-	compactLabel: (string | { text: string?, icon: string?, image: string? })?,
+	-- `prefer` is a MODIFIER rather than a content form — it names nothing to
+	-- draw, so it rides alongside whichever of text/icon/image was declared (see
+	-- `blueprint_schema.COMPACT_MODIFIERS` and api.md's Button section). Declared
+	-- here because api.md documents it as public — without it a `--!strict`
+	-- caller cannot write the very spelling the docs prescribe.
+	compactLabel: (string | { text: string?, icon: string?, image: string?, prefer: boolean? })?,
 	enabled: Bound<boolean>?,
 	selected: Bound<boolean>?,
 	focusable: Bound<boolean>?,

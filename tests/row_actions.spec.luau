@@ -40,6 +40,9 @@ local text_metrics = require("../src/layout/text_metrics")
 -- semantic `label` — see `tests/button_shape.spec.luau`'s own "label survives
 -- past icon" case, which is about the BLUEPRINT prop, not the rendered one).
 local theme_package = require("../src/themes/package")
+-- the SAME resolver the control itself uses, so a theme-metric leg asserts the
+-- theme's number rather than a literal that silently drifts from it
+local themeSnapshot = require("../src/themes/snapshot")
 
 local ROW = "/S/Row"
 local TRAILING_TRAY = ROW .. "/TrayTrailingWhen/then/TrayTrailing"
@@ -346,10 +349,22 @@ describe("RowActions control", function()
 		local buttonPad = 8 -- controls.rowActions.buttonPad (Task 2 default = style.space.s)
 		expect(node.rect.w >= natural.width + 2 * buttonPad).toBe(true)
 
-		-- THE ICON ROW, against the icon-first contract: the same pseudo-localized
-		-- label, now never drawn — so the expansion cannot clip anything, and the
-		-- plate is the theme's floor rather than a word's width. This is the
-		-- l10n-safety ARGUMENT for icon-first, asserted rather than assumed.
+		-- THE ICON ROW — the l10n ARGUMENT for icon-first: the same pseudo-localized
+		-- label, now neither drawn NOR reserved for.
+		--
+		-- WHICH LEVER EACH LEG BITES, stated because the two are separable and one
+		-- of them cannot be tested here. Icon-first is two changes: `prefer` (what
+		-- the button DRAWS) and `deriveNaturals` measuring the glyph (what the
+		-- button is SIZED for). A pseudo-localized label is ~9x the glyph, so it
+		-- fails the fit test at any sane plate width — meaning the drawn form is
+		-- "U" with or without `prefer`, and no leg here can bite the `prefer`
+		-- lever. That bite lives in "an icon action wears its icon at EVERY width",
+		-- whose short-label ("Do") leg is specifically built to fit and therefore
+		-- to distinguish preferred from merely-did-not-fit.
+		--
+		-- What these legs DO bite is the sizing lever: measure `action.label`
+		-- instead of the glyph and the plate balloons to the pseudo width, which is
+		-- exactly the clipping-risk surface this test is named for.
 		local w = build("trash")
 		w.ra._open("trailing")
 		w.pres.refresh()
@@ -357,7 +372,12 @@ describe("RowActions control", function()
 		w.pres.refresh()
 		local iconNode = w.adapter.node(DELETE_PATH)
 		expect(iconNode.props.label).toBe("U") -- standard_icons trash ASCII floor, at the SETTLED width
-		expect(iconNode.rect.w).toBe(64) -- buttonMinWidth: a glyph never needs more
+		-- the floor comes from the THEME, not a literal — the same reason the
+		-- label-only legs above measure rather than pin a pixel number.
+		local minWidth = themeSnapshot.resolveNumber(themeSnapshot.neutral(), "controls.rowActions.buttonMinWidth")
+		expect(iconNode.rect.w).toBe(minWidth)
+		-- ...and, the point of the whole leg: the expansion bought no width at all.
+		expect(iconNode.rect.w < node.rect.w).toBe(true)
 		local iconFacts = w.handle.controller.textAt(DELETE_PATH)
 		expect(iconFacts.truncated).toBe(false)
 		expect(iconFacts.lines).toBe(1)
@@ -1111,10 +1131,19 @@ describe("RowActions control", function()
 			-- its own minus for the whole gesture and snapped back in one frame
 			-- at `offset == 0` (frames f022-f034). Both halves are asserted below,
 			-- so neither can regress into the other.
+			-- A FIXED-WIDTH ROW, on purpose. The default fixture root is content-
+			-- sized, and a padding participates in measure — so a hug row genuinely
+			-- grows by the gutter and its Content box's right edge is NOT comparable
+			-- across the two worlds. Production rows are `fill` (Table hands its own
+			-- `width = { type = "fill", weight = 1 }` straight through), which is
+			-- the shape this invariant is about, and a fixed width is the
+			-- deterministic stand-in for it.
+			local ROW_W = 400
 			local function openTrailing(withEditing: boolean): any
 				local w = presenterWorld(function(core)
 					local spec: any = {
 						id = "Row",
+						width = { type = "fixed", px = ROW_W },
 						content = content("Body"),
 						trailing = {
 							{ id = "delete", label = "Delete", role = "destructive", onAction = function() end },
@@ -1138,16 +1167,22 @@ describe("RowActions control", function()
 				w.pres.refresh()
 				settle(w.pres)
 				w.pres.refresh()
+				local box = w.adapter.node(ROW .. "/Content").rect
 				return {
 					offset = w.ra.dump().offset,
+					rightEdge = box.x + box.w,
 					bodyX = w.adapter.node(ROW .. "/Content/Body").rect.x,
 				}
 			end
 			local edit, plain = openTrailing(true), openTrailing(false)
-			-- the reveal itself: the row travelled the same distance, so the same
-			-- amount of tray is uncovered — the guarantee the old branch existed for
-			expect(edit.offset).toBe(plain.offset)
-			expect(edit.offset < 0).toBe(true) -- and it really opened (no vacuous pass)
+			expect(edit.offset < 0).toBe(true) -- it really opened (no vacuous pass)
+			-- THE REVEAL: the content's right edge is where the uncovered tray
+			-- begins, so this IS "the same amount of tray exposed". Written as the
+			-- edge rather than as `offset == offset`, which two identically-specced
+			-- rows satisfy by construction and would pass even if the gutter ate
+			-- the reveal.
+			expect(edit.rightEdge).toBe(plain.rightEdge)
+			expect(edit.rightEdge).toBe(ROW_W + edit.offset) -- ...and it is the travel, not a coincidence
 			-- ...and the gutter is an INSET, present at this offset like every other
 			expect(edit.bodyX - plain.bodyX).toBe(28) -- controls.rowActions.editAffordance
 		end
@@ -1291,10 +1326,16 @@ describe("RowActions control", function()
 				end
 			end
 			expect(biggest > 0).toBe(true) -- the flight really flew (guards a vacuous pass)
-			-- THE ANTI-POP: the final movement into rest is the SMALLEST of the
-			-- flight, not a step the settle frame invents.
-			expect(last <= biggest).toBe(true)
-			expect(last < biggest).toBe(true)
+			-- THE ANTI-POP. This assertion IS finding 1's whole disposition (it
+			-- shipped as a pin, not a fix), so it has to be tight enough to catch
+			-- the thing the director reported. `last < biggest` was NOT: the
+			-- largest step of this flight is ~11.7px, so a 5px terminal pop —
+			-- exactly the shape of the defect — sailed through it (review round,
+			-- injected and confirmed green). The real terminal step is 6.1e-5px,
+			-- so both caps below hold with four orders of magnitude of headroom
+			-- while a pop of even one pixel fails.
+			expect(last <= 0.5).toBe(true) -- SUB-PIXEL: a step nobody could see
+			expect(last <= 0.05 * biggest).toBe(true) -- ...and vanishing against the flight itself
 		end
 	)
 
@@ -1324,7 +1365,11 @@ describe("RowActions control", function()
 			-- what the branch it replaced could not say (it held only for offset
 			-- >= 0 and stepped by the whole gutter at the crossing).
 			local body = w.adapter.node(ROW .. "/Content/Body").rect
-			expect(body.x - w.ra.dump().offset).toBeCloseTo(28, 6)
+			-- testkit's second argument is an ABSOLUTE tolerance, so the `6` this
+			-- was written with meant ±6px — wide enough for a 5px gutter collapse
+			-- to pass (review round, injected and confirmed green). The identity is
+			-- exact arithmetic on the same double; 1e-6 is float noise only.
+			expect(body.x - w.ra.dump().offset).toBeCloseTo(28, 1e-6)
 		end
 		checkFrame()
 		w.ra._open("trailing")
