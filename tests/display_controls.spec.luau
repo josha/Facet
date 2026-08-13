@@ -1356,22 +1356,129 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 end)
 
 describe("ProgressView: the refusals that keep the two modes from contradicting", function()
-	it("refuses a spinner with a value — a determinate spinner is an arc nothing can draw", function()
+	it("refuses a spinner with a value — and names the shape that DOES draw one", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
 			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "spinner" })
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "indeterminate only", 1, true) ~= nil).toBe(true)
+		-- THE OLD MESSAGE IS NOW FALSE AND MUST NOT SURVIVE (parity round 3 D2). It
+		-- said "the blueprint has no rotation or trim channel to draw one with",
+		-- which stopped being true the moment `circular` shipped: a message naming a
+		-- limit the framework no longer has sends an author away from the answer.
+		expect(string.find(tostring(err), "circular", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "trim channel", 1, true)).toBeNil()
 	end)
 
-	it("refuses an unknown presentation, listing the two that exist", function()
+	it("refuses an unknown presentation, listing the three that exist", function()
 		local core = customFactory.new()
 		local ok, err = pcall(function()
-			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "circular" })
+			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "dial" })
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "spinner", 1, true) ~= nil).toBe(true)
+		for _, name in { "bar", "circular", "spinner" } do
+			expect(`{name} listed: {string.find(tostring(err), name, 1, true) ~= nil}`).toBe(`{name} listed: true`)
+		end
+	end)
+
+	--[[ THE SHAPE/MODE MATRIX, GENERATED FROM ONE TABLE (parity round 3 D2).
+		`presentation` is the SHAPE and `value` nil-or-not is the MODE: two
+		INDEPENDENT axes, three shapes x two modes. Until this round the control
+		hand-wrote one `if` per illegal cell, which is why adding a shape that
+		accepts BOTH modes and has no track would have meant writing a fourth and
+		fifth branch — the chain was the bug, and it is now a capability registry
+		the refusals are generated from.
+
+		This case is the whole matrix, stated once. It fails if a cell flips in
+		either direction: a legal combination that starts refusing is as much a
+		regression as an illegal one that starts building. ]]
+	it("every shape x mode cell is exactly as the capability registry declares", function()
+		local CELLS = {
+			{ presentation = nil, indeterminate = false, legal = true }, -- the default IS the bar
+			{ presentation = "bar", indeterminate = false, legal = true },
+			{ presentation = "bar", indeterminate = true, legal = true },
+			{ presentation = "circular", indeterminate = false, legal = true },
+			{ presentation = "circular", indeterminate = true, legal = true },
+			{ presentation = "spinner", indeterminate = false, legal = false },
+			{ presentation = "spinner", indeterminate = true, legal = true },
+		}
+		local core = customFactory.new()
+		for _, cell in CELLS do
+			local spec: any = { id = "L", presentation = cell.presentation }
+			if cell.indeterminate then
+				spec.scope = core:scope(`s-{tostring(cell.presentation)}`)
+			else
+				spec.value = 0.5
+			end
+			local ok, err = pcall(function()
+				local p = LuauUI.newProgressView(LuauUI, core, spec)
+				p.dispose()
+			end)
+			local label =
+				`{tostring(cell.presentation)}/{if cell.indeterminate then "indeterminate" else "determinate"}`
+			expect(`{label} builds={ok} {if ok then "" else tostring(err)}`).toBe(
+				`{label} builds={cell.legal} {if cell.legal then "" else tostring(err)}`
+			)
+		end
+	end)
+
+	it("refuses `height` on a circular indicator, naming the metric that owns its size", function()
+		-- the SAME rule the spinner's refusal states, and it now comes from the same
+		-- registry row rather than from a second hand-written branch: `height` is
+		-- the bar's TRACK, and a ring silently becoming that thick is the identical
+		-- silent reinterpretation.
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "circular", height = 40 })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "circularSize", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "track", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("refuses `showValue` on a circular indicator rather than putting it beside the ring", function()
+		-- Apple centres the readout INSIDE the ring — and that is `Gauge`
+		-- (`.accessoryCircularCapacity`), a complication-sized dial. This indicator
+		-- is small by construction (a theme metric, no per-call diameter), so a
+		-- centred readout has no size it is guaranteed to fit inside, and rendering
+		-- it BESIDE the ring would be a different design shipped under Apple's name.
+		-- Refused, with both alternatives named.
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, {
+				id = "L",
+				value = 0.5,
+				presentation = "circular",
+				showValue = true,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "showValue", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "UI.Text", 1, true) ~= nil).toBe(true)
+		-- ...and `showValue = false` is refused too: the field has no meaning here
+		-- either way, and accepting the falsy one would be the silent no-op the
+		-- closed spec exists to prevent
+		local okFalse = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, {
+				id = "L2",
+				value = 0.5,
+				presentation = "circular",
+				showValue = false,
+			})
+		end)
+		expect(okFalse).toBe(false)
+	end)
+
+	it("...and `showValue` still renders beside the BAR, which is the shape that has room", function()
+		-- the other half: the circular refusal must not be the same as deleting the
+		-- feature from the shape that declares it
+		local core, _, adapter, _, pres = harness()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.5, showValue = true })
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(adapter.node("/S/Load/Value") ~= nil).toBe(true)
+		p.dispose()
 	end)
 
 	it("refuses `height` on a spinner rather than silently making it the DOT size", function()

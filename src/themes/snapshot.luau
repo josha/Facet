@@ -704,6 +704,41 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(progressFamily) == "table" and type(progressFamily.spinnerDotSize) ~= "number" then
 		progressFamily.spinnerDotSize = out.space.s
 	end
+	-- ...and the CIRCULAR indicator (parity round 3 D2), filled here for the same
+	-- stamp reason. `space.l` because the HIG's only size guidance is "prefer an
+	-- activity indicator when space is constrained" — so it is the small end of
+	-- the theme's own scale, not a number this control invented.
+	--
+	-- THE THICKNESS IS FILLED AGAINST THE SIZE, and that is the whole reason it is
+	-- computed HERE rather than picked in the control. A Path2D stroke is centred
+	-- on its curve, so a ring drawn at radius fraction R inside a box of D paints
+	-- out to `R*D/2 + thickness/2`; a stroke thicker than `(1-R)*D` paints outside
+	-- the box the solver measured, which is the "painted at a size nobody
+	-- measured" family and is invisible to every headless diagnostic. The control
+	-- receives both numbers only as METRIC NAMES (it never resolves a snapshot),
+	-- so this function — where both numbers exist — is the only place the
+	-- relationship can be guaranteed rather than hoped for. A package that authors
+	-- its own thickness still wins; it also owns the consequence.
+	if type(progressFamily) == "table" then
+		if type(progressFamily.circularSize) ~= "number" then
+			progressFamily.circularSize = out.space.l
+		end
+		if type(progressFamily.circularThickness) ~= "number" then
+			-- (1 - CIRCULAR_RADIUS) = 0.2 of the diameter is the stroke's whole
+			-- budget; `space.xs` unless the theme's small step is wider than that.
+			local budget = math.floor(progressFamily.circularSize * 0.2)
+			local thickness = math.max(1, math.min(out.space.xs, budget))
+			-- ...and it is pre-snapped DOWN onto a pixel theme's grid, because 4b
+			-- below snaps every published length UP: a value that is already a
+			-- multiple of the unit is left alone, while one that is not would be
+			-- rounded up past the budget this line just computed.
+			local unit = pkg.pixelUnitOf(package)
+			if unit ~= nil then
+				thickness = math.max(unit, math.floor(thickness / unit) * unit)
+			end
+			progressFamily.circularThickness = thickness
+		end
+	end
 
 	-- 4b. PIXEL SNAP (ADR-0020 R5, generation rule 3; probe rs-m5). A pixel
 	-- package declares an integer coordinate system, and every LENGTH the

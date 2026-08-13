@@ -16,11 +16,53 @@
 -- `format`/`showValue` all describe a value, so declaring one WITHOUT a value is
 -- an authoring error rather than a silent no-op (constitution §4).
 --
--- `presentation = "bar" | "spinner"` picks the shape. `"spinner"` is
--- indeterminate-only: a determinate spinner is an ARC, and the blueprint has no
--- rotation or trim channel to draw one with — offering it would mean inventing a
--- styling system this control is explicitly not allowed to grow (§3.1: "No new
--- styling system"). Refused with that reason, not silently degraded.
+-- `presentation` picks the SHAPE, and the shape/mode relationship is a REGISTRY
+-- (`PRESENTATIONS` below) rather than a chain of refusals — see the comment on
+-- the table for why. `"bar"` (default) takes both modes; `"circular"` takes both
+-- and draws an arc on `UI.Path`; `"spinner"` is the five-dot ring and is
+-- indeterminate-only.
+--
+-- ===== THE CIRCULAR INDICATOR IS ONE FUNCTION OF ONE SCALAR ==================
+-- There is no native Roblox radial primitive — searched, not assumed (parity
+-- round 3 §D2): `UIGradient` has no angular mode, `ImageLabel` has no fractional
+-- fill, `EditableImage` has no arc, and `GuiObject.Rotation` cannot move its
+-- pivot and is documented incompatible with `ClipsDescendants` (which would
+-- matter, because a loading indicator's home is inside a ScrollView). So both
+-- forms are `pathShapes.arc(start, sweep)` on the `UI.Path` primitive that
+-- already ships:
+--
+--   determinate    arc(0, 360 * fraction)      a fixed head, a growing sweep
+--   indeterminate  arc(360 * phase, SPIN_SWEEP) a fixed sweep, a travelling head
+--
+-- One call, two bindings, no second `if`. `Path.points` is `dirty = { "paint" },
+-- channel = "binding"` and this control owns the binding, so BOTH forms animate
+-- for zero re-solves — the same trick the dot spinner's `tint` uses. The
+-- presentation-channel `rotation` is deliberately NOT used: it is presenter-owned
+-- and keyed by node path, so a control cannot reach it; recomputing the start
+-- angle needs no channel, contends no authority, and sidesteps the Rotation ⊥
+-- ClipsDescendants incompatibility outright.
+--
+-- NO `canvasGroup` HOLDER, AND THAT IS A DECISION, NOT AN OMISSION. `Path2D` has
+-- no `Transparency` (re-probed live 2026-08-13: both the read and the write
+-- pcall returned false), which is why `sheet_model.tintTransparency` refuses
+-- `tint.transparency` on a Path and names the working idiom — fade a
+-- `canvasGroup` container. `canvasGroup` fixes a node's engine CLASS at creation
+-- and cannot be added later, so the choice had to be made here rather than
+-- discovered later: this control does NOT declare one. Declaring it would force a
+-- CanvasGroup instance, and with it an off-screen render target and a permanent
+-- opt-out of container elision, on every caller — to buy a fade nobody has asked
+-- for and whose effect on a Path2D child is itself unverified. A caller who needs
+-- the ring to fade wraps `blueprint` in their own `UI.ZStack({ canvasGroup = true })`,
+-- which is exactly the idiom the refusal already names and costs nothing to
+-- anyone else.
+--
+-- `showValue` IS REFUSED ON `circular` rather than rendered beside the ring.
+-- Apple's centred-readout ring is `Gauge(.accessoryCircularCapacity)`, not
+-- `ProgressView`, and it is a complication-sized dial; this indicator is SMALL by
+-- construction (a theme metric off the `space` scale, with no per-call diameter
+-- to grow it), so a centred readout has no size it is guaranteed to fit inside
+-- and the bar's beside-the-track placement would silently be a different design
+-- from the one Apple documents. Refused with both alternatives named.
 --
 -- `height` IS THE BAR'S TRACK, AND ONLY THE BAR'S. A spinner has no track, and
 -- reinterpreting the number as the dot's size was the silent-reinterpretation
@@ -93,6 +135,7 @@
 -- `spinner` — same rule, same own-paint guarantee, no new styling system.
 
 local chrome_slots = require("../tokens/chrome_slots")
+local path_shapes = require("./path_shapes")
 local value_model = require("./value_model")
 local specGuard = require("../spec_guard")
 
@@ -106,6 +149,20 @@ local ROW_MIN_HEIGHT = "controls.progress.rowMinHeight"
 -- resolve fills it from the theme's own space scale, so no existing package's
 -- authored metrics — and therefore no package's content stamp — move for it)
 local SPINNER_DOT = "controls.progress.spinnerDotSize"
+-- the circular indicator's diameter and its stroke — optional in a package for
+-- the same reason and by the same route (parity round 3 D2)
+local CIRCULAR_SIZE = "controls.progress.circularSize"
+local CIRCULAR_THICKNESS = "controls.progress.circularThickness"
+
+-- THE ARC'S RADIUS, as a fraction of the box's half-extent. Not 1: a Path2D
+-- stroke is CENTRED on its curve, so a ring at radius 1 paints `thickness / 2`
+-- outside the rect the solver measured — the painted-vs-measured family. The
+-- remaining 0.2 of the diameter is the stroke's budget, and `snapshot.resolve`
+-- fills `circularThickness` against it (the control sees metric NAMES, never
+-- numbers, so the arithmetic can only live where both numbers do). Exported so
+-- the per-theme fit check asserts against this constant rather than a copy of it.
+local CIRCULAR_RADIUS = 0.8
+progress_view.CIRCULAR_RADIUS = CIRCULAR_RADIUS
 
 -- ===== the indeterminate cycle ==============================================
 -- ONE sawtooth phase, 0 -> 1, restarting: both presentations are pure functions
@@ -116,6 +173,11 @@ local CYCLE_S = 1
 -- rather than a dot, narrow enough that its travel is obvious.
 local SEGMENT = 0.3
 local SPINNER_DOTS = 5
+-- the indeterminate ARC's fixed sweep: a HEAD, not a ring. Wide enough to read as
+-- a moving stroke rather than a dot, narrow enough that the gap makes the
+-- rotation unmistakable — the circular twin of `SEGMENT` above, and the only
+-- thing about the indeterminate ring that is not the phase.
+local SPIN_SWEEP = 90
 -- a dot at the far side of the ring is still a DOT, not a gap: the trough is a
 -- visible resting blend, so the ring never looks like it lost a member
 local DOT_TROUGH = 0.15
@@ -177,35 +239,111 @@ local PROGRESS_VIEW_KEYS = specGuard.keySet({
 	"value",
 })
 
-local PRESENTATIONS: { [string]: boolean } = { bar = true, spinner = true }
+-- ===== THE SHAPE/MODE REGISTRY ==============================================
+-- `presentation` is the SHAPE; `value` nil-or-not is the MODE. They are two
+-- INDEPENDENT axes — three shapes x two modes — and every refusal below is a
+-- function of the PAIR, which is why this is a REGISTRY rather than a
+-- two-member union. It was a chain of three hand-written `if`s until round 3,
+-- and adding one shape that accepts both modes and has no track would have meant
+-- writing a fourth and fifth branch for a sibling case: the chain, not the new
+-- shape, was the bug. A row cannot forget a refusal; a branch can.
+--
+-- Each row states what the shape CAN do; the strings are the alternatives the
+-- generated refusals name, so the reason lives beside the fact rather than in a
+-- message far from it.
+type Capability = {
+	-- the two MODES
+	indeterminate: boolean,
+	determinate: boolean,
+	-- a caller-sized track — i.e. whether `height` means anything on this shape.
+	-- Only the bar has one; every other shape's extent is a theme metric.
+	hasTrack: boolean,
+	-- can this shape host the `showValue` readout beside it?
+	valueLabel: boolean,
+	-- the theme metric that owns this shape's size, named in the `height` refusal
+	sizeMetric: string?,
+	-- ...and the sentences the generated refusals borrow
+	modeAlt: string?,
+	valueLabelAlt: string?,
+}
+
+local PRESENTATIONS: { [string]: Capability } = {
+	bar = {
+		indeterminate = true,
+		determinate = true,
+		hasTrack = true,
+		valueLabel = true,
+	},
+	circular = {
+		indeterminate = true,
+		determinate = true,
+		hasTrack = false,
+		valueLabel = false,
+		sizeMetric = CIRCULAR_SIZE,
+		valueLabelAlt = "the ring is theme-sized and small by construction, so a readout has no size it is "
+			.. "guaranteed to fit inside it; put your own `UI.Text` beside the control, or use the default "
+			.. '`presentation = "bar"`, whose `showValue` sits beside the track',
+	},
+	spinner = {
+		indeterminate = true,
+		determinate = false,
+		hasTrack = false,
+		valueLabel = false,
+		sizeMetric = SPINNER_DOT,
+		-- REWRITTEN in round 3. The old text said "the blueprint has no rotation or
+		-- trim channel to draw one with", which stopped being true the moment
+		-- `circular` shipped — a message that names a limit the framework no longer
+		-- has is worse than no message, so it names the working shape instead.
+		modeAlt = 'a determinate ring is `presentation = "circular"`, which draws exactly that arc on ' .. "`UI.Path`",
+	},
+}
+
+local PRESENTATION_NAMES: { string } = {}
+for name in PRESENTATIONS do
+	table.insert(PRESENTATION_NAMES, name)
+end
+table.sort(PRESENTATION_NAMES)
+local PRESENTATION_LIST = `"{table.concat(PRESENTATION_NAMES, '", "')}"`
 
 function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newProgressView", spec, PROGRESS_VIEW_KEYS, "spec")
 	local UI = LuauUI.UI
 	local id = spec.id or "Progress"
 	local presentation = spec.presentation or "bar"
-	if not PRESENTATIONS[presentation] then
+	local caps = PRESENTATIONS[presentation]
+	if caps == nil then
 		error(
-			`LuauUI newProgressView: unknown presentation '{tostring(presentation)}'. Use "bar" (default) or `
-				.. '"spinner" (indeterminate only).',
+			`LuauUI newProgressView: unknown presentation '{tostring(presentation)}'. Use one of `
+				.. `{PRESENTATION_LIST} ("bar" is the default; "spinner" is indeterminate only).`,
 			0
 		)
 	end
 	local indeterminate = spec.value == nil
-	if not indeterminate and presentation == "spinner" then
+	-- ===== EVERY REFUSAL BELOW IS GENERATED FROM THE ROW, NOT WRITTEN PER SHAPE =
+	if not (if indeterminate then caps.indeterminate else caps.determinate) then
+		local mode = if indeterminate then "indeterminate" else "determinate"
+		local other = if indeterminate then "determinate" else "indeterminate"
 		error(
-			'LuauUI newProgressView: presentation = "spinner" is indeterminate only — drop `value` for a '
-				.. "spinner, or keep the value and use the default bar. A determinate spinner is an arc, and the "
-				.. "blueprint has no rotation or trim channel to draw one with.",
+			`LuauUI newProgressView: presentation = "{presentation}" is {other} only — `
+				.. (if indeterminate
+					then "give the view a `value`"
+					else "drop `value` for it, or keep the value and use the default bar")
+				.. `. {caps.modeAlt or `there is no {mode} form of this shape`}.`,
 			0
 		)
 	end
-	if presentation == "spinner" and spec.height ~= nil then
+	if spec.height ~= nil and not caps.hasTrack then
 		error(
-			"LuauUI newProgressView: `height` is the BAR's track thickness, and a spinner has no track — it "
-				.. "would silently become the DOT's size, and the ring's whole width with it. Drop it (the dot "
-				.. "is the theme metric `controls.progress.spinnerDotSize`), or use the default "
-				.. '`presentation = "bar"`.',
+			`LuauUI newProgressView: \`height\` is the BAR's track thickness, and a "{presentation}" has no `
+				.. "track — it would silently become this shape's own size instead. Drop it (the size is the "
+				.. `theme metric \`{tostring(caps.sizeMetric)}\`), or use the default \`presentation = "bar"\`.`,
+			0
+		)
+	end
+	if not indeterminate and spec.showValue ~= nil and not caps.valueLabel then
+		error(
+			`LuauUI newProgressView: \`showValue\` has nowhere to go on a "{presentation}" — `
+				.. `{tostring(caps.valueLabelAlt)}.`,
 			0
 		)
 	end
@@ -328,7 +466,13 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		table.insert(children, UI.Text({ id = "Label", text = spec.label, textSize = "label" }))
 	end
 
-	if presentation == "spinner" then
+	-- ONE BUILDER PER SHAPE, dispatched from the registry below rather than
+	-- selected by a chain: the refusals are generated from the row, and the
+	-- geometry is looked up by the same key, so a shape is added in one place at
+	-- both ends. (The geometries themselves are genuinely different code — a
+	-- track, a ring of dots and a stroked arc share no nodes — which is what
+	-- separates this from the `if` chain the refusals used to be.)
+	local function buildSpinner(): any
 		-- ===== THE SPINNER =====================================================
 		-- DOTS, NOT AN ARC, and that is a platform fact rather than a taste: the
 		-- blueprint has no rotation channel and no path trim, so a rotating gear of
@@ -376,17 +520,79 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 				)
 			)
 		end
+		return UI.HStack({
+			id = "Spinner",
+			gap = "xs",
+			align = "center",
+			height = { type = "fixed", px = SPINNER_DOT },
+			children = dots,
+		})
+	end
+
+	local function buildCircular(): any
+		-- ===== THE CIRCULAR INDICATOR ==========================================
+		-- BOTH FORMS ARE ONE `arc` CALL (see the header). The only difference is
+		-- which of its two arguments the phase/value drives, and that difference is
+		-- one expression rather than a second shape.
+		local ringChildren: { any } = {}
+		if not indeterminate then
+			-- THE CAPACITY RING. Apple's determinate circular form is documented as
+			-- "a closed ring that's partially filled in" — without the unfilled part
+			-- drawn, a 20% arc reads as a stroke fragment rather than as one fifth
+			-- of something. Static points and static paint: it binds nothing, never
+			-- re-computes, and costs one leaf.
+			table.insert(
+				ringChildren,
+				UI.Path({
+					id = "Track",
+					points = path_shapes.ring({ radius = CIRCULAR_RADIUS }),
+					closed = true,
+					thickness = CIRCULAR_THICKNESS,
+					role = "secondary",
+					width = { type = "fixed", px = CIRCULAR_SIZE },
+					height = { type = "fixed", px = CIRCULAR_SIZE },
+				})
+			)
+		end
+		-- THE ONE BINDING. `points` is `dirty = { "paint" }` and this control owns
+		-- its binding channel, so every frame of the indeterminate rotation — and
+		-- every value change of the determinate ring — is a single prop write and
+		-- zero re-solves. Nothing here is a dim, so nothing here can reach the
+		-- solver, which is why the rotation cannot leak into geometry by accident.
+		local arcPoints = scope:own(core:memo(function(use)
+			if indeterminate then
+				return path_shapes.arc(360 * phase(use), SPIN_SWEEP, { radius = CIRCULAR_RADIUS })
+			end
+			return path_shapes.arc(0, 360 * model.fraction(read(use)), { radius = CIRCULAR_RADIUS })
+		end))
 		table.insert(
-			children,
-			UI.HStack({
-				id = "Spinner",
-				gap = "xs",
-				align = "center",
-				height = { type = "fixed", px = SPINNER_DOT },
-				children = dots,
+			ringChildren,
+			UI.Path({
+				id = "Arc",
+				points = arcPoints,
+				thickness = CIRCULAR_THICKNESS,
+				role = "accent",
+				width = { type = "fixed", px = CIRCULAR_SIZE },
+				height = { type = "fixed", px = CIRCULAR_SIZE },
 			})
 		)
-	else
+		-- NO DECORATION SLOT AND NO NEW PROP (§3.1). The arc's paint identity is
+		-- `role`, the Path class's own declared style channel — so this shape adds
+		-- exactly nothing to the styling system, which is strictly less than the
+		-- dot spinner cost when it added the `spinner` slot.
+		--
+		-- ...AND NO `canvasGroup`: see the header. A Path2D cannot fade, and the
+		-- container that could fade it is the caller's to declare, not a cost this
+		-- control imposes on everyone who mounts a ring.
+		return UI.ZStack({
+			id = "Ring",
+			width = { type = "fixed", px = CIRCULAR_SIZE },
+			height = { type = "fixed", px = CIRCULAR_SIZE },
+			children = ringChildren,
+		})
+	end
+
+	local function buildBar(): any
 		-- ===== THE BAR =========================================================
 		local barChildren: { any }
 		if indeterminate then
@@ -438,19 +644,23 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 				),
 			}
 		end
-		table.insert(
-			children,
-			chrome_slots.attachHint(
-				UI.ZStack({
-					id = "Bar",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
-					children = barChildren,
-				}),
-				{ slot = "barTrack" }
-			)
+		return chrome_slots.attachHint(
+			UI.ZStack({
+				id = "Bar",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fixed", px = spec.height or TRACK_HEIGHT },
+				children = barChildren,
+			}),
+			{ slot = "barTrack" }
 		)
 	end
+
+	local SHAPES: { [string]: () -> any } = {
+		bar = buildBar,
+		circular = buildCircular,
+		spinner = buildSpinner,
+	}
+	table.insert(children, SHAPES[presentation]())
 
 	local readout: any = nil
 	local semantic: any = nil

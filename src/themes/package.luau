@@ -213,7 +213,15 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	-- `space` scale, so every package answers `controls.progress.spinnerDotSize`
 	-- while no package's authored metrics — and therefore no package's content
 	-- stamp — move for a value nobody wrote.
-	progress = table.freeze({ "spinnerDotSize" }),
+	-- ...plus the CIRCULAR indicator's diameter and stroke (parity round 3 D2),
+	-- which are optional for the same reason and take the identical route. Apple
+	-- publishes no numeric size for a circular progress view; the only sentence
+	-- the HIG gives is "prefer an activity indicator when space is constrained",
+	-- so the size is small-by-default from the theme's own `space` scale rather
+	-- than a number invented here — and `circularThickness` is filled AGAINST the
+	-- resolved size, because a stroke wider than the box's own inset paints
+	-- outside the rect the solver measured (see snapshot.resolve).
+	progress = table.freeze({ "spinnerDotSize", "circularSize", "circularThickness" }),
 })
 
 -- VALUE-DISPLAY HOSTS whose extent is a METRIC the package resolves (RS-A16-D3).

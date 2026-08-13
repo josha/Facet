@@ -231,6 +231,9 @@ require("./compact_label.spec")
 require("./value_controls.spec")
 require("./rating.spec")
 require("./display_controls.spec")
+-- parity round 3 D2: the circular progress indicator, both forms — the geometry,
+-- the paint-only contract, the zero off-path cost and the per-theme stroke fit
+require("./progress_circular.spec")
 require("./theme_package.spec")
 require("./theme_snapshot.spec")
 require("./theme_roles.spec")
