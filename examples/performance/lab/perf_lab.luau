@@ -452,16 +452,34 @@ return {
 					r.h or 0
 				)}]`
 			end
-			local shown = {}
-			for i = 1, math.min(4, #findings) do
-				table.insert(
-					shown,
-					`{tostring(findings[i].node)}{rectStr(findings[i].node)}: {tostring(findings[i].issue)}`
+			--[[ ONE FINDING PER LINE, TO THE CONSOLE, BEFORE THE RAISE.
+
+				Device report, game director, 2026-08-13: tapping `mount-ramp` or
+				`resize-relayout` on a phone produced this error and it was
+				**cut off on screen** — the message packed a count, two sentences
+				of explanation and up to four `path [rect] : issue` triples into
+				one string, which is unreadable on a 698px-wide device and
+				truncates before the findings it exists to deliver.
+
+				That is the diagnostic defeating itself. The whole point of this
+				check is that "the solver already knew and nobody read it"; a
+				message nobody CAN read is the same failure wearing the opposite
+				costume.
+
+				So the findings go to the output as one `warn` per line — which a
+				phone's developer console shows scrollably and a Studio session
+				shows in Output — and the RAISED error stays short enough to fit
+				on the status line. ALL of them are warned, not the first four:
+				the truncation existed to keep the string short, and the string
+				is no longer where they live. ]]
+			for i = 1, #findings do
+				warn(
+					`[perf lab] {label} finding {i}/{#findings}: `
+						.. `{tostring(findings[i].node)}{rectStr(findings[i].node)} — {tostring(findings[i].issue)}`
 				)
 			end
-			return `[perf lab] the solver reported {#findings} layout finding(s) on the {label} surface at {where} — `
-				.. `it is painting outside its own boxes, so any number taken from it describes a screen nobody `
-				.. `would ship. {table.concat(shown, " | ")}`
+			return `[perf lab] {#findings} layout finding(s) on the {label} surface at {where} — see the console, `
+				.. `one line each. Any number taken from this surface describes a screen nobody would ship.`
 		end
 
 		-- BOTH SURFACES, not just the workload. The overlay is its own ScreenGui with

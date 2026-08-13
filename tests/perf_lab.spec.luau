@@ -670,7 +670,21 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "layout finding") ~= nil).toBe(true)
-		expect(string.find(tostring(err), "painting outside its own boxes") ~= nil).toBe(true)
+		-- WORDING UPDATED 2026-08-13, and the reason is a device report rather than
+		-- a rename. The raised message used to carry two sentences of explanation
+		-- plus up to four `path [rect]: issue` triples inline, and on a phone it was
+		-- CUT OFF ON SCREEN before reaching the findings it exists to deliver — the
+		-- diagnostic defeating its own purpose, which is that "the solver already
+		-- knew and nobody read it". The findings now go to the console one `warn`
+		-- per line (all of them, not the first four) and the raise stays short
+		-- enough to fit a status line.
+		--
+		-- What this case guards is unchanged: the mount is REFUSED and the reason
+		-- names the layout findings. The "describes a screen nobody would ship"
+		-- clause is the surviving half of the old sentence and is what keeps this
+		-- from passing on any error that merely mentions the words.
+		expect(string.find(tostring(err), "see the console") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "nobody would ship") ~= nil).toBe(true)
 		built.dispose()
 	end)
 end)
