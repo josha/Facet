@@ -51,6 +51,33 @@
 -- undocumented. The adapter therefore owns its own on/off switch and makes no
 -- claim about honouring the player's — that is a device-only question.
 --
+-- EVERY EFFECT THIS ADAPTER BUILDS IS PARENTED INTO THE DATA MODEL, so `Stop()`
+-- is only half of putting one away — `Stop()` ends the sensation, `Destroy()`
+-- ends the Instance, and dropping the Lua reference ends neither. A settings
+-- screen with a haptics toggle flips this switch as often as the player likes, so
+-- the disable path is the one that has to be airtight: `setEnabled(false)`,
+-- `undecorate` and `dispose` all destroy what they release, and `pooled` is
+-- DERIVED from the effects that actually exist (the press effect included) rather
+-- than kept as a counter beside them. Measured before the fix: five enable/disable
+-- cycles left `constructions = 15, destroys = 0, live-parented = 15` while
+-- `diagnostics().pooled` reported 0 — an instrument that hid the leak it was there
+-- to show. The rule that follows: this module's own counters are never the
+-- evidence for its own lifetime; the spec counts Instances.
+--
+-- DECORATION IS PER-ROOT. The press effect is shared adapter-wide (that is the
+-- point — one Instance, every button), but the RECORD of which instances carry it
+-- is kept per attached root, so detaching one surface touches only that surface's
+-- buttons: no global strip, no re-sweep of every survivor, and the shared effect
+-- outlives every detach. It dies at `setEnabled(false)` and at `dispose`, which
+-- are the two moments the adapter genuinely stops. `decorate` also RE-READS the
+-- property instead of trusting the record, so a second adapter (or anything else)
+-- clearing the reference cannot leave a button permanently unfelt.
+--
+-- AFTER `dispose()` THE ADAPTER IS INERT, never throwing: `setEnabled` already
+-- refused to re-enable a disposed adapter, and `bind`/`attachButtons` now match it
+-- rather than opening a subscription and a `DescendantAdded` connection that
+-- nothing will ever drain.
+--
 -- REQUIRE-SAFE: nothing at module scope touches an engine global, so this file
 -- requires cleanly under Lune and in Studio Edit, and every engine call inside it
 -- is pcall-guarded.
@@ -199,7 +226,6 @@ function haptics.new(opts: Options?): any
 	-- ONE effect per mapped verb, plus one for the button property route. Never
 	-- constructed per fire (the "fewer than 100 simultaneous effects" budget).
 	local pool: { [string]: any } = {}
-	local pooled = 0
 	local pressEffect: any = nil
 
 	local deviceVerdict: Support = "unknown"
@@ -212,18 +238,24 @@ function haptics.new(opts: Options?): any
 		unmapped = 0,
 		enumMisses = 0,
 		probes = 0,
-		decorated = 0,
+		-- `pooled` and `decorated` are deliberately ABSENT from this table: both are
+		-- derived from the live state at read time (`pooledCount`, `decoratedCount`),
+		-- because the counter they replaced is exactly what reported 0 while fifteen
+		-- effects sat in Workspace.
 		lastError = nil :: string?,
 	}
 	local lastAdjustAt: number? = nil
 
 	local subscriptions: { () -> () } = {}
 	local deviceConnections: { any } = {}
-	-- attached roots, and every instance this adapter has written a reference
-	-- onto (weak keys: an instance destroyed by the game must not be held alive
-	-- by this table)
-	local roots: { { root: any, connection: any } } = {}
-	local decorated: { [any]: boolean } = setmetatable({}, { __mode = "k" }) :: any
+	-- ATTACHED ROOTS, each carrying its OWN weak record of the instances it
+	-- decorated. Per-root is what makes a detach local (see the header); weak keys
+	-- are what stop an instance the game destroyed from being held alive here.
+	-- `destroying` is the other half of that: a surface torn down without an
+	-- explicit detach releases its entry from this list instead of sitting in it
+	-- forever, because a ScreenGui's own destruction is the detach nobody wrote.
+	type Root = { root: any, connection: any, destroying: any, decorated: { [any]: boolean } }
+	local roots: { Root } = {}
 
 	local function guard<T>(fn: () -> T): T?
 		local ok, result = pcall(fn)
@@ -267,6 +299,15 @@ function haptics.new(opts: Options?): any
 	end
 
 	local function construct(effectTypeName: string): any?
+		-- THE VERDICT IS ALREADY IN. A client that cannot create the class will not
+		-- start being able to, so re-attempting per event turned 50 feedback events
+		-- into 50 failed pcalls (measured) while `support()` had said `absent` since
+		-- the first one. `blocked` is deliberately NOT short-circuited: that is the
+		-- "refused for some other reason" bucket, and this module does not claim to
+		-- know that it is permanent.
+		if constructionVerdict == "absent" then
+			return nil
+		end
 		local enumValue = resolveEffectType(effectTypeName)
 		if enumValue == nil then
 			return nil -- never `Custom`, never a guess
@@ -310,8 +351,43 @@ function haptics.new(opts: Options?): any
 			return nil
 		end
 		pool[verb] = effect
-		pooled += 1
 		return effect
+	end
+
+	-- PUTTING AN EFFECT AWAY IS TWO CALLS, NOT ONE. `Stop()` ends the sensation
+	-- (an effect mid-play must not outlive the switch); `Destroy()` ends the
+	-- Instance, which is parented into the DataModel at construction and is
+	-- otherwise immortal however thoroughly Lua forgets it.
+	local function retire(effect: any)
+		if effect == nil then
+			return
+		end
+		guard(function()
+			effect:Stop()
+			return nil
+		end)
+		guard(function()
+			effect:Destroy()
+			return nil
+		end)
+	end
+
+	-- DERIVED, NEVER COUNTED. The counter this replaced read 0 while fifteen
+	-- effects sat in Workspace, because it was maintained beside the pool instead
+	-- of from it and never knew the press effect existed at all.
+	local function pooledCount(): number
+		local n = if pressEffect ~= nil then 1 else 0
+		for _ in pool do
+			n += 1
+		end
+		return n
+	end
+
+	local function retirePool()
+		for verb, effect in pool do
+			retire(effect)
+			pool[verb] = nil
+		end
 	end
 
 	-- ===== the device probe =================================================
@@ -416,49 +492,94 @@ function haptics.new(opts: Options?): any
 	-- handing over a reference is the whole mechanism. `HoverHapticEffect` is
 	-- deliberately left alone: a felt cursor is nobody's request, and on a
 	-- pointer device it would tick on every mouse-over.
-	local function decorate(instance: any)
-		if not enabled or decorated[instance] == true or not isGuiButton(instance) then
+	--
+	-- THE RECORD IS A CACHE, THE PROPERTY IS THE TRUTH. `entry.decorated` used to
+	-- be the sole authority, which meant a second adapter's detach (or any other
+	-- writer) clearing `PressHapticEffect` left this one saying "done" forever and
+	-- the button silently unfelt for the session. So the property is re-read and
+	-- re-assigned whenever it is not already our effect; the record only saves the
+	-- write when it is.
+	local function decorate(entry: Root, instance: any)
+		if not enabled or disposed or not isGuiButton(instance) then
 			return
 		end
 		local effect = pressEffectHandle()
 		if effect == nil then
 			return
 		end
-		local ok = guard(function()
-			instance.PressHapticEffect = effect
-			return true
+		local current = guard(function()
+			return instance.PressHapticEffect
 		end)
-		if ok == true then
-			decorated[instance] = true
-			diag.decorated += 1
+		if current ~= effect then
+			local ok = guard(function()
+				instance.PressHapticEffect = effect
+				return true
+			end)
+			if ok ~= true then
+				return
+			end
 		end
+		entry.decorated[instance] = true
 	end
 
-	local function undecorate()
-		for instance in decorated do
-			guard(function()
-				instance.PressHapticEffect = nil
-				return nil
-			end)
+	-- is `instance` still carried by some OTHER attached root? A button under two
+	-- attached surfaces (nested ScreenGuis, an adapter attached twice) must keep
+	-- its reference until the last of them lets go.
+	local function decoratedElsewhere(instance: any, except: Root): boolean
+		for _, other in roots do
+			if other ~= except and other.decorated[instance] == true then
+				return true
+			end
 		end
-		table.clear(decorated)
-		diag.decorated = 0
-		if pressEffect ~= nil then
-			guard(function()
-				pressEffect:Stop()
-				return nil
-			end)
-			pressEffect = nil
-		end
+		return false
 	end
 
-	local function sweep(root: any)
-		decorate(root)
+	-- release ONE root's decorations. Nothing global happens here — no other
+	-- surface is stripped, nothing is re-swept, and the shared press effect stays
+	-- alive for the roots that are still attached (header).
+	local function undecorateEntry(entry: Root)
+		for instance in entry.decorated do
+			if not decoratedElsewhere(instance, entry) then
+				guard(function()
+					instance.PressHapticEffect = nil
+					return nil
+				end)
+			end
+		end
+		table.clear(entry.decorated)
+	end
+
+	-- ...and the two moments the adapter genuinely stops: every root released, and
+	-- the shared effect destroyed rather than merely forgotten.
+	local function undecorateAll()
+		for _, entry in roots do
+			undecorateEntry(entry)
+		end
+		retire(pressEffect)
+		pressEffect = nil
+	end
+
+	local function decoratedCount(): number
+		local seen: { [any]: boolean } = {}
+		local n = 0
+		for _, entry in roots do
+			for instance in entry.decorated do
+				if seen[instance] == nil then
+					seen[instance] = true
+					n += 1
+				end
+			end
+		end
+		return n
+	end
+
+	local function sweep(entry: Root)
+		decorate(entry, entry.root)
 		local descendants = guard(function()
-			return root:GetDescendants()
+			return entry.root:GetDescendants()
 		end)
 		for _, child in descendants or {} do
-			decorate(child)
+			decorate(entry, child)
 		end
 	end
 
@@ -516,6 +637,12 @@ function haptics.new(opts: Options?): any
 				0
 			)
 		end
+		-- INERT AFTER DISPOSE, exactly as setEnabled already is. `dispose` drains
+		-- `subscriptions` once and returns early on re-entry, so a subscription
+		-- opened after it is one nothing will ever close.
+		if disposed then
+			return function() end
+		end
 		local unsubscribe = presenter.onFeedback(onEvent)
 		table.insert(subscriptions, unsubscribe)
 		return function()
@@ -530,37 +657,59 @@ function haptics.new(opts: Options?): any
 	-- attachButtons(root) -> detach. Point it at the LuauUI ScreenGui: every
 	-- GuiButton under it, now and later, gets the press reference.
 	function adapter.attachButtons(root: any): () -> ()
-		local connection = guard(function()
+		-- INERT AFTER DISPOSE (see `bind`): the `DescendantAdded` connection this
+		-- would open is one `dispose` has already finished draining.
+		if disposed then
+			return function() end
+		end
+		local entry: Root = {
+			root = root,
+			connection = nil,
+			destroying = nil,
+			decorated = setmetatable({}, { __mode = "k" }) :: any,
+		}
+		entry.connection = guard(function()
 			return root.DescendantAdded:Connect(function(child: any)
-				decorate(child)
+				decorate(entry, child)
 			end)
 		end)
-		local entry = { root = root, connection = connection }
 		table.insert(roots, entry)
-		sweep(root)
-		return function()
+
+		local function release()
 			local index = table.find(roots, entry)
 			if index == nil then
 				return
 			end
 			table.remove(roots, index)
-			if entry.connection ~= nil then
-				guard(function()
-					entry.connection:Disconnect()
-					return nil
-				end)
+			for _, connection in { entry.connection, entry.destroying } do
+				if connection ~= nil then
+					guard(function()
+						connection:Disconnect()
+						return nil
+					end)
+				end
 			end
-			-- THE CLEAR IS GLOBAL, SO THE SURVIVORS ARE RE-EARNED. `decorated` is
-			-- one weak set for the whole adapter (a shared press effect is the
-			-- point), so there is no per-root subset to clear — detaching one
-			-- surface would otherwise strip the references off every OTHER surface
-			-- still attached. Clearing and re-sweeping what remains costs one walk
-			-- per live root at detach time and cannot leave a stale reference.
-			undecorate()
-			for _, remaining in roots do
-				sweep(remaining.root)
-			end
+			entry.connection = nil
+			entry.destroying = nil
+			-- ONLY THIS ROOT. The decoration record is per-root (header), so a
+			-- detach neither strips the surviving surfaces nor re-sweeps them, and
+			-- the shared press effect — which the survivors are still pointing at —
+			-- stays alive. Measured before the fix: three attach/detach round trips
+			-- on EMPTY guis destroyed and rebuilt it three times, leaking each one.
+			undecorateEntry(entry)
 		end
+
+		-- THE DETACH NOBODY WROTE. A surface destroyed without calling the returned
+		-- function used to sit in `roots` for the process lifetime, strongly held
+		-- and re-walked at every later detach. `Destroying` is the engine's own
+		-- answer; a root that has no such signal (a plain table in a test) simply
+		-- keeps the explicit detach, which is what `guard` returning nil means here.
+		entry.destroying = guard(function()
+			return root.Destroying:Connect(release)
+		end)
+
+		sweep(entry)
+		return release
 	end
 
 	function adapter.setEnabled(on: boolean)
@@ -573,20 +722,16 @@ function haptics.new(opts: Options?): any
 			probe()
 			connectDevices()
 			for _, entry in roots do
-				sweep(entry.root)
+				sweep(entry)
 			end
 		else
 			disconnectDevices()
-			undecorate()
-			-- a pooled effect that is mid-play must not outlive the switch
-			for verb, effect in pool do
-				guard(function()
-					effect:Stop()
-					return nil
-				end)
-				pool[verb] = nil
-			end
-			pooled = 0
+			-- NOTHING SURVIVES THE SWITCH. A pooled effect that is mid-play must
+			-- stop, and every effect this adapter built must leave the DataModel:
+			-- `Stop()` alone left the Instance parented to Workspace forever, so a
+			-- settings toggle leaked up to eight of them per flip.
+			undecorateAll()
+			retirePool()
 			lastAdjustAt = nil
 		end
 	end
@@ -620,8 +765,8 @@ function haptics.new(opts: Options?): any
 			unmapped = diag.unmapped,
 			enumMisses = diag.enumMisses,
 			probes = diag.probes,
-			pooled = pooled,
-			decorated = diag.decorated,
+			pooled = pooledCount(),
+			decorated = decoratedCount(),
 			lastError = diag.lastError,
 		}
 	end
@@ -639,12 +784,20 @@ function haptics.new(opts: Options?): any
 			end)
 		end
 		table.clear(subscriptions)
+		-- UNCONDITIONAL, not "whatever setEnabled(false) happened to do". Disposing
+		-- an adapter that was ALREADY off takes the early return in setEnabled, so
+		-- this is the only place that is guaranteed to run — and an adapter that was
+		-- switched off and then re-decorated by nothing still owns its roots.
+		undecorateAll()
+		retirePool()
 		for _, entry in table.clone(roots) do
-			if entry.connection ~= nil then
-				guard(function()
-					entry.connection:Disconnect()
-					return nil
-				end)
+			for _, connection in { entry.connection, entry.destroying } do
+				if connection ~= nil then
+					guard(function()
+						connection:Disconnect()
+						return nil
+					end)
+				end
 			end
 		end
 		table.clear(roots)

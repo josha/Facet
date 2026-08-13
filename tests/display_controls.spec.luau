@@ -797,6 +797,9 @@ end)
 local motionClockLib = require("../src/motion/clock")
 
 describe("ProgressView: indeterminate is selected by value = nil (§3.1)", function()
+	-- `scope` rides along because an indeterminate view REQUIRES one (it owns a
+	-- live clock entry for as long as it exists — see the control's header). Every
+	-- case below hands it the same scope it would hand a surface's.
 	local function clockWorld(policy: string?)
 		local core, _, adapter, _, pres = harness()
 		local t = { now = 0 }
@@ -806,7 +809,7 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 			end,
 			motionPolicy = core:signal(policy or "full"),
 		})
-		return core, adapter, pres, clock, t
+		return core, adapter, pres, clock, t, core:scope("surface")
 	end
 
 	it("the DETERMINATE tree and dump are exactly what they were before indeterminate existed", function()
@@ -839,8 +842,8 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 	end)
 
 	it("value = nil builds the sweeping segment instead of a value-tracking fill", function()
-		local core, adapter, pres, clock = clockWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		local core, adapter, pres, clock, _, scope = clockWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -863,8 +866,8 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- back to the left edge). Mutating `triangle` to the identity left it green
 		-- — so the peak's POSITION in the cycle is asserted instead, plus the
 		-- symmetry of the quarter points, and both bite.
-		local core, adapter, pres, clock, t = clockWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		local core, adapter, pres, clock, t, scope = clockWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local bar = adapter.node("/S/Load/Bar").rect
@@ -904,8 +907,8 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 		-- A LOADER THAT RUNS ONCE IS A LOADER THAT LIES. Deleting the restart from
 		-- the settle handler left every other case green, because none of them ran
 		-- past the first cycle's terminus — so this one does, deliberately.
-		local core, adapter, pres, clock, t = clockWorld()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		local core, adapter, pres, clock, t, scope = clockWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		local function sweep(): number
@@ -936,9 +939,9 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 	end)
 
 	it("REDUCED MOTION keeps the indicator advancing — quantized, never frozen (§3.1)", function()
-		local core, adapter, pres, clock, t = clockWorld("reduced")
+		local core, adapter, pres, clock, t, scope = clockWorld("reduced")
 		expect(clock:isReduced()).toBe(true)
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
 		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		-- the motion is INFORMATIONAL, which is the whole decision: a decorative
@@ -979,8 +982,8 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 	it("FULL motion writes far more often than reduced motion over the same wall clock", function()
 		-- the differential the two policies are ABOUT, measured rather than asserted
 		local function distinctPositions(policy: string): number
-			local core, adapter, pres, clock, t = clockWorld(policy)
-			local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+			local core, adapter, pres, clock, t, scope = clockWorld(policy)
+			local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
 			pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 			pres.refresh()
 			local seen: { [number]: boolean } = {}
@@ -1007,7 +1010,10 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 
 	it("with NO clock the indeterminate view holds its rest pose and says so", function()
 		local core, _, adapter, _, pres = harness()
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load" })
+		-- the owner is required even with no clock: adding a clock later must not
+		-- turn a working call into an authoring error
+		local scope = core:scope("surface")
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", scope = scope })
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
 		expect(#handle.controller.diagnostics()).toBe(0)
@@ -1025,12 +1031,145 @@ describe("ProgressView: indeterminate is selected by value = nil (§3.1)", funct
 				return 0
 			end,
 		})
-		local p = LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock })
+		local scope = core:scope("surface")
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = scope })
 		p.dispose()
+		scope:dispose()
 		clock:dispose()
 		expect(core:counters().scopes).toBe(baseline.scopes)
 		expect(core:counters().observers).toBe(baseline.observers)
 		expect(core:counters().signals).toBe(baseline.signals)
+	end)
+end)
+
+--[[ ===== THE INDETERMINATE VIEW'S OWNER ====================================
+	The one control in this family that keeps DOING something after it is built,
+	and the RED-TEAM measurement that says so: a view presented and then
+	dismissed, and a view built and never presented at all, each kept one clock
+	entry active and wrote its phase signal 121 times over 120 steps — forever,
+	because the only thing that stops the cycle is disposal and nothing called it.
+
+	Every case below measures the CLOCK (`activeCount`, `stats().writes`), never
+	the control's own `dump().animating`: a control reporting on its own liveness
+	is exactly the shape that let the haptics adapter report `pooled = 0` while
+	fifteen instances leaked.
+]]
+describe("ProgressView: an indeterminate view is OWNED, and stops with its owner", function()
+	local function ownedWorld()
+		local core, _, _, _, pres = harness()
+		local t = { now = 0 }
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return t.now
+			end,
+			motionPolicy = core:signal("full"),
+		})
+		return core, pres, clock, t, core:scope("surface")
+	end
+
+	local function spin(clock: any, t: any, steps: number): number
+		local before = clock:stats().writes
+		for _ = 1, steps do
+			t.now += 1 / 60
+			clock:step()
+		end
+		return clock:stats().writes - before
+	end
+
+	it("keeps writing while it is alive, and stops DEAD when its owner is disposed", function()
+		local core, pres, clock, t, scope = ownedWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		-- the positive control: without it, a check that only measures silence
+		-- passes on a control that never started
+		expect(spin(clock, t, 120) > 100).toBe(true)
+		expect(clock:activeCount()).toBe(1)
+		pres.dismiss(handle)
+		pres.refresh()
+		-- DISMISSAL ALONE IS NOT ENOUGH, and that is the honest half of this
+		-- design: the mounted tree stops being pulled, but the cycle is the
+		-- OWNER's to retire. This is the line a surface-scoped owner erases.
+		expect(clock:activeCount()).toBe(1)
+		scope:dispose()
+		expect(spin(clock, t, 120)).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		clock:dispose()
+	end)
+
+	it("a view built and NEVER presented stops with its owner too", function()
+		local core, _, clock, t, scope = ownedWorld()
+		LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock, scope = scope })
+		expect(spin(clock, t, 120) > 100).toBe(true)
+		scope:dispose()
+		expect(spin(clock, t, 120)).toBe(0)
+		expect(clock:activeCount()).toBe(0)
+		clock:dispose()
+	end)
+
+	it("`value = nil` without an owner is an authoring error that names the seam", function()
+		local core = customFactory.new()
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return 0
+			end,
+		})
+		local ok, err = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "scope", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "newAsyncImage", 1, true) ~= nil).toBe(true)
+		-- and nothing was left running by the attempt
+		expect(clock:activeCount()).toBe(0)
+		-- a table that is not a Scope is refused too, rather than failing later
+		local ok2 = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = {} })
+		end)
+		expect(ok2).toBe(false)
+		clock:dispose()
+	end)
+
+	it("dispose() and the owner's disposal are safe in EITHER order, and in both", function()
+		for _, disposeFirst in { true, false } do
+			local core, _, clock, t, scope = ownedWorld()
+			local p = LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock, scope = scope })
+			if disposeFirst then
+				p.dispose()
+				scope:dispose()
+			else
+				scope:dispose()
+				p.dispose()
+			end
+			expect(spin(clock, t, 60)).toBe(0)
+			-- and no double-disposal was reported: being careful must not be a
+			-- diagnostic (`scope_impl`'s detector writes to core:lastError)
+			expect(core:lastError()).toBeNil()
+			clock:dispose()
+		end
+	end)
+
+	it("the DETERMINATE path takes no clock entry at all, and needs no owner", function()
+		-- THE NEGATIVE CONTROL, and Rascal Rally's exact shape (`ResultsScreen`'s
+		-- rally bar: a value, a height, no clock). If this ever attaches to the
+		-- clock, the fix above has changed the wrong half.
+		local core, pres, clock, t = ownedWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.25, height = 40 })
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(clock:activeCount()).toBe(0)
+		expect(spin(clock, t, 120)).toBe(0)
+		expect(p.dump().fraction).toBe(0.25)
+		p.dispose()
+		-- ...and it is the VALUE that decides, not the absence of a clock: handing a
+		-- determinate view the surface's clock must still attach nothing. (Without
+		-- this half, dropping `indeterminate and` from the cycle's condition passes.)
+		local withClock = LuauUI.newProgressView(LuauUI, core, { id = "Load2", value = 0.25, motionClock = clock })
+		expect(clock:activeCount()).toBe(0)
+		expect(spin(clock, t, 120)).toBe(0)
+		expect(withClock.dump().animating).toBeNil() -- a determinate dump has no such key
+		withClock.dispose()
+		clock:dispose()
 	end)
 end)
 
@@ -1048,6 +1187,7 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
+			scope = core:scope("surface"),
 		})
 		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 		pres.refresh()
@@ -1093,6 +1233,7 @@ describe("ProgressView: the spinner presentation (§3.1)", function()
 			id = "Load",
 			presentation = "spinner",
 			motionClock = clock,
+			scope = core:scope("surface"),
 		})
 		local handle = pres.present(UI.Screen({
 			id = "S",
@@ -1206,6 +1347,37 @@ describe("ProgressView: the refusals that keep the two modes from contradicting"
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "spinner", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("refuses `height` on a spinner rather than silently making it the DOT size", function()
+		-- MEASURED BEFORE THE REFUSAL: `presentation = "spinner", height = 40`
+		-- painted five 40x40 dots in a 216px-wide row. Defensible, undocumented,
+		-- and the same silent-reinterpretation class as `min` on a view with no
+		-- value — so it is refused for the same reason and names the theme metric
+		-- that owns the dot instead.
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, {
+				id = "L",
+				presentation = "spinner",
+				height = 40,
+				scope = core:scope("s"),
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "spinnerDotSize", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "track", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("...and `height` keeps its ONE meaning on the bar: the track's thickness", function()
+		-- the other half of the refusal. Deleting the refusal must not be the same
+		-- as deleting `height`.
+		local core, _, adapter, _, pres = harness()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.5, height = 40 })
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(adapter.node("/S/Load/Bar").rect.h).toBe(40)
+		p.dispose()
 	end)
 
 	it("refuses min/max/format/showValue on a view with no value, rather than dropping them", function()

@@ -324,16 +324,22 @@ return {
 		-- Reduced and the puck stops travelling while these two go on sweeping,
 		-- four steps a second instead of sixty. A demo that showed the decorative
 		-- half alone would teach that reduced motion means no motion.
+		-- ...and each names its OWNER. An indeterminate view runs a motion cycle
+		-- for as long as it exists, so `scope` is required exactly as it is for
+		-- newAsyncImage's provider handle: this scenario's scope already retires
+		-- everything else it built, and now retires these two cycles with it.
 		local busyBar = LuauUI.newProgressView(LuauUI, core, {
 			id = "Busy",
 			label = COPY.busyLabel,
 			motionClock = clock,
+			scope = scope,
 		})
 		local busySpinner = LuauUI.newProgressView(LuauUI, core, {
 			id = "Working",
 			label = COPY.spinnerLabel,
 			presentation = "spinner",
 			motionClock = clock,
+			scope = scope,
 		})
 
 		local informational = UI.VStack({

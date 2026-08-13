@@ -36,16 +36,26 @@ local feedbackLib = require("../src/present/feedback")
 -- `UserInputService` and `HapticService` are all injected, which is the only
 -- reason any of this is provable headless.
 
-type Log = { constructions: number, plays: number, effects: { any } }
+-- THE FAKE MODELS DESTRUCTION, and that is not a detail. The version this
+-- replaced had `function effect:Destroy() end` — a no-op — and no notion of
+-- parenting at all, so every lifetime assertion in this file could only ever read
+-- the adapter's own counters. A RED-TEAM pass measured what those counters could
+-- not see: five enable/disable cycles left fifteen `HapticEffect` instances
+-- parented to Workspace while `diagnostics().pooled` reported 0. So the fake now
+-- carries the two facts a leak is made of — `Parent` and whether `Destroy()` was
+-- called — and `liveEffects` counts the INSTANCES, never the module's opinion of
+-- them.
+type Log = { constructions: number, destroys: number, plays: number, effects: { any } }
 
 local function newLog(): Log
-	return { constructions = 0, plays = 0, effects = {} }
+	return { constructions = 0, destroys = 0, plays = 0, effects = {} }
 end
 
 local function fakeInstanceNew(log: Log)
 	return function(className: string): any
 		log.constructions += 1
-		local effect: any = { ClassName = className, Type = nil, Parent = nil, played = 0, stopped = 0 }
+		local effect: any =
+			{ ClassName = className, Type = nil, Parent = nil, played = 0, stopped = 0, destroyed = false }
 		function effect:Play()
 			log.plays += 1
 			effect.played += 1
@@ -53,10 +63,34 @@ local function fakeInstanceNew(log: Log)
 		function effect:Stop()
 			effect.stopped += 1
 		end
-		function effect:Destroy() end
+		function effect:Destroy()
+			log.destroys += 1
+			effect.destroyed = true
+			effect.Parent = nil -- what the engine does: out of the DataModel
+		end
 		table.insert(log.effects, effect)
 		return effect
 	end
+end
+
+-- the count that cannot inherit the bug: instances that were built, parented, and
+-- never destroyed — read off the instances themselves
+local function liveEffects(log: Log): number
+	local n = 0
+	for _, effect in log.effects do
+		if not effect.destroyed and effect.Parent ~= nil then
+			n += 1
+		end
+	end
+	return n
+end
+
+-- a stand-in for Workspace, so the effects this file builds are actually
+-- PARENTED. Without it `resolveParent` finds no `game` under Lune and every
+-- effect sits unparented, which is precisely the state a leak check must not
+-- measure from.
+local function fakeWorkspace(): any
+	return { Name = "Workspace" }
 end
 
 -- the six real `Enum.HapticEffectType` members (API dump, client 0.734.0.7340915)
@@ -122,6 +156,50 @@ local function fakeHapticService(answer: any): any
 	return hs
 end
 
+-- ---- the surface under the adapter ---------------------------------------
+-- Module-level rather than describe-local: the lifetime cases below attach and
+-- detach the same shapes the property-route cases do, and two copies of a fake
+-- engine is two chances for them to disagree about what a surface is.
+local function fakeButton(name: string): any
+	local inst: any = { Name = name, HoverHapticEffect = nil, PressHapticEffect = nil, descendants = {} }
+	function inst:IsA(className: string): boolean
+		return className == "GuiButton"
+	end
+	return inst
+end
+
+local function fakeFrame(name: string): any
+	local inst: any = { Name = name, descendants = {} }
+	function inst:IsA(): boolean
+		return false
+	end
+	return inst
+end
+
+-- `sweeps` counts GetDescendants calls, which is how the "a detach does not
+-- re-walk the survivors" case measures the O(live roots x descendants) cost that
+-- used to be paid on every dismissal. `destroy()` fires the engine's own
+-- `Destroying` — the detach nobody wrote.
+local function fakeRoot(children: { any }): any
+	local root: any =
+		{ Name = "Screen", DescendantAdded = fakeSignal(), Destroying = fakeSignal(), children = children, sweeps = 0 }
+	function root:IsA(): boolean
+		return false
+	end
+	function root:GetDescendants(): { any }
+		root.sweeps += 1
+		return root.children
+	end
+	function root.add(child: any)
+		table.insert(root.children, child)
+		root.DescendantAdded.fire(child)
+	end
+	function root.destroy()
+		root.Destroying.fire(root)
+	end
+	return root
+end
+
 -- a bus that behaves exactly like a presenter's (it IS the presenter's bus
 -- factory), wrapped in the smallest object `bind` accepts
 local function fakePresenter()
@@ -156,7 +234,10 @@ local function rig(opts: any?)
 		inputService = given.inputService or uis,
 		hapticService = given.hapticService or fakeHapticService(true),
 		enums = given.enums or fakeEnums(),
-		parent = given.parent,
+		-- DEFAULTS TO A PARENT, because the module's default is Workspace and an
+		-- unparented effect cannot demonstrate the leak this file now measures.
+		-- `parent = false` still means "there is none".
+		parent = if given.parent ~= nil then given.parent else fakeWorkspace(),
 	})
 	local presenter, bus = fakePresenter()
 	adapter.bind(presenter)
@@ -514,37 +595,6 @@ describe("haptics: a client without the class degrades, it does not crash", func
 end)
 
 describe("haptics: `activate` takes the PROPERTY route (the engine plays it)", function()
-	local function fakeButton(name: string): any
-		local inst: any = { Name = name, HoverHapticEffect = nil, PressHapticEffect = nil, descendants = {} }
-		function inst:IsA(className: string): boolean
-			return className == "GuiButton"
-		end
-		return inst
-	end
-
-	local function fakeFrame(name: string): any
-		local inst: any = { Name = name, descendants = {} }
-		function inst:IsA(): boolean
-			return false
-		end
-		return inst
-	end
-
-	local function fakeRoot(children: { any }): any
-		local root: any = { Name = "Screen", DescendantAdded = fakeSignal(), children = children }
-		function root:IsA(): boolean
-			return false
-		end
-		function root:GetDescendants(): { any }
-			return root.children
-		end
-		function root.add(child: any)
-			table.insert(root.children, child)
-			root.DescendantAdded.fire(child)
-		end
-		return root
-	end
-
 	it("assigns PressHapticEffect and NEVER calls Play", function()
 		local adapter, _, log = rig({ enabled = true })
 		local button = fakeButton("Go")
@@ -646,6 +696,240 @@ describe("haptics: `activate` takes the PROPERTY route (the engine plays it)", f
 	end)
 end)
 
+--[[ ===== THE INSTANCE LEDGER ==============================================
+	Every case in this block counts INSTANCES — `liveEffects(log)`, read off the
+	fake engine's own objects — and never `diagnostics()`. That is the whole
+	lesson of the RED-TEAM finding these cases close: the adapter's `pooled`
+	counter reported 0 while fifteen `HapticEffect`s sat parented in Workspace, so
+	a leak check that consults the module's instrument inherits the module's bug.
+	`diagnostics().pooled` is asserted here too, but always AGAINST the instance
+	count rather than instead of it.
+]]
+describe("haptics: an effect is DESTROYED, never merely dropped", function()
+	it("five enable/disable cycles leave nothing in the DataModel", function()
+		-- the RED-TEAM measurement, verbatim: 5 cycles x 3 mapped verbs. Before the
+		-- fix this read constructions=15 destroys=0 live=15 pooled=0.
+		local adapter, bus, log = rig()
+		for _ = 1, 5 do
+			adapter.setEnabled(true)
+			for _, verb in { "select", "reject", "land" } do
+				bus.emit({ type = verb, path = "/S/B" })
+			end
+			adapter.setEnabled(false)
+		end
+		expect(log.constructions).toBe(15)
+		expect(log.destroys).toBe(15)
+		expect(liveEffects(log)).toBe(0)
+		-- and each one was STOPPED before it was destroyed: an effect mid-play must
+		-- not outlive the switch, which Destroy alone does not promise
+		for _, effect in log.effects do
+			expect(effect.stopped >= 1).toBe(true)
+		end
+		expect(adapter.diagnostics().pooled).toBe(liveEffects(log))
+	end)
+
+	it("`pooled` counts what actually exists — the press effect included", function()
+		-- THE DIAGNOSTIC IS THE OTHER HALF OF THE DEFECT. `pooled` used to be a
+		-- counter maintained beside the pool that had never heard of the press
+		-- effect, so it under-reported by one for every decorated surface.
+		local adapter, bus, log = rig({ enabled = true })
+		bus.emit({ type = "select", path = "/S/B" })
+		adapter.attachButtons(fakeRoot({ fakeButton("Go") }))
+		expect(liveEffects(log)).toBe(2) -- one pooled verb + one press effect
+		expect(adapter.diagnostics().pooled).toBe(2)
+		adapter.setEnabled(false)
+		expect(liveEffects(log)).toBe(0)
+		expect(adapter.diagnostics().pooled).toBe(0)
+	end)
+
+	it("dispose destroys the pool AND the press effect", function()
+		local adapter, bus, log = rig({ enabled = true })
+		bus.emit({ type = "select", path = "/S/B" })
+		adapter.attachButtons(fakeRoot({ fakeButton("Go") }))
+		expect(liveEffects(log)).toBe(2)
+		adapter.dispose()
+		expect(liveEffects(log)).toBe(0)
+		expect(log.destroys).toBe(log.constructions)
+		expect(adapter.diagnostics().pooled).toBe(0)
+	end)
+
+	it("disposing an already-OFF adapter destroys nothing twice", function()
+		-- `dispose` runs the teardown unconditionally rather than relying on
+		-- setEnabled(false), which takes an early return when it is already off —
+		-- so the risk this pins is the opposite one: a double Destroy.
+		local adapter, bus, log = rig({ enabled = true })
+		bus.emit({ type = "select", path = "/S/B" })
+		adapter.setEnabled(false)
+		expect(log.destroys).toBe(1)
+		adapter.dispose()
+		adapter.dispose()
+		expect(log.destroys).toBe(1)
+		expect(liveEffects(log)).toBe(0)
+	end)
+end)
+
+describe("haptics: a detach is LOCAL", function()
+	it("detaching a surface that contributed nothing builds and destroys nothing", function()
+		-- the RED-TEAM measurement: three attach/detach round trips on EMPTY guis
+		-- used to read constructions=4 destroys=0 live=4, because the global
+		-- undecorate dropped the shared press effect (leaking it) and the next
+		-- sweep rebuilt one.
+		local adapter, _, log = rig({ enabled = true })
+		local a, b = fakeButton("A"), fakeButton("B")
+		adapter.attachButtons(fakeRoot({ a }))
+		adapter.attachButtons(fakeRoot({ b }))
+		expect(log.constructions).toBe(1)
+		local shared = a.PressHapticEffect
+		for _ = 1, 3 do
+			adapter.attachButtons(fakeRoot({}))()
+		end
+		expect(log.constructions).toBe(1)
+		expect(log.destroys).toBe(0)
+		expect(liveEffects(log)).toBe(1)
+		-- the survivors keep the SAME effect object, not a replacement
+		expect(a.PressHapticEffect == shared).toBe(true)
+		expect(b.PressHapticEffect == shared).toBe(true)
+	end)
+
+	it("a detach does not re-walk the surviving roots", function()
+		-- the O(live roots x descendants) cost a game attaching per presented
+		-- surface (toasts, modals) used to pay on every dismissal
+		local adapter = rig({ enabled = true })
+		local survivor = fakeRoot({ fakeButton("Keep"), fakeFrame("Plate") })
+		adapter.attachButtons(survivor)
+		expect(survivor.sweeps).toBe(1) -- its own attach
+		local detach = adapter.attachButtons(fakeRoot({ fakeButton("Going") }))
+		detach()
+		expect(survivor.sweeps).toBe(1) -- and nothing since
+	end)
+
+	it("a button under TWO attached roots keeps its reference until the last lets go", function()
+		local adapter = rig({ enabled = true })
+		local shared = fakeButton("Shared")
+		local detachFirst = adapter.attachButtons(fakeRoot({ shared }))
+		local detachSecond = adapter.attachButtons(fakeRoot({ shared }))
+		detachFirst()
+		expect(shared.PressHapticEffect ~= nil).toBeTruthy()
+		detachSecond()
+		expect(shared.PressHapticEffect).toBeNil()
+	end)
+
+	it("a surface DESTROYED without a detach releases its entry", function()
+		-- `roots` is a strong list, so a ScreenGui torn down by the game used to be
+		-- retained for the process lifetime. `Destroying` is the detach nobody wrote.
+		local adapter = rig({ enabled = true })
+		local button = fakeButton("Go")
+		local root = fakeRoot({ button })
+		adapter.attachButtons(root)
+		expect(button.PressHapticEffect ~= nil).toBeTruthy()
+		root.destroy()
+		expect(button.PressHapticEffect).toBeNil()
+		expect(root.DescendantAdded.count()).toBe(0)
+		expect(root.Destroying.count()).toBe(0)
+		expect(adapter.diagnostics().decorated).toBe(0)
+	end)
+
+	it("a root with no `Destroying` signal at all still attaches and detaches", function()
+		-- the guard degrades: a plain table (or a future engine object without it)
+		-- keeps the explicit detach and never throws
+		local adapter = rig({ enabled = true })
+		local button = fakeButton("Go")
+		local bare: any = { Name = "Bare", DescendantAdded = fakeSignal(), children = { button } }
+		function bare:IsA(): boolean
+			return false
+		end
+		function bare:GetDescendants(): { any }
+			return bare.children
+		end
+		local detach = adapter.attachButtons(bare)
+		expect(button.PressHapticEffect ~= nil).toBeTruthy()
+		detach()
+		expect(button.PressHapticEffect).toBeNil()
+	end)
+
+	it("another writer clearing the property does not leave the button unfelt forever", function()
+		-- TWO ADAPTERS ON ONE SURFACE. A's detach clears `PressHapticEffect`; B's
+		-- record still says "done", so before the fix B's next sweep skipped the
+		-- button and it silently lost its press haptic for the session.
+		local logA, logB = newLog(), newLog()
+		local function build(log: Log): any
+			return haptics.new({
+				enabled = true,
+				instanceNew = fakeInstanceNew(log),
+				enums = fakeEnums(),
+				inputService = false,
+				hapticService = false,
+				parent = fakeWorkspace(),
+			})
+		end
+		local a, b = build(logA), build(logB)
+		local button = fakeButton("Go")
+		local rootA, rootB = fakeRoot({ button }), fakeRoot({ button })
+		local detachA = a.attachButtons(rootA)
+		b.attachButtons(rootB)
+		local fromB = button.PressHapticEffect
+		expect(fromB ~= nil).toBeTruthy()
+		detachA() -- A lets go, and takes B's reference with it
+		expect(button.PressHapticEffect).toBeNil()
+		-- ...and B's record still says "done". The moment B sees this button again
+		-- — a recycled instance re-parented under its root, which is exactly what
+		-- this framework's instance recycling does — it must RE-READ the property
+		-- rather than believe the record and skip it.
+		rootB.add(button)
+		expect(button.PressHapticEffect ~= nil).toBeTruthy()
+		expect(button.PressHapticEffect == fromB).toBe(true)
+		expect(logB.constructions).toBe(1) -- restored, never rebuilt
+	end)
+end)
+
+describe("haptics: an `absent` class is asked exactly once", function()
+	it("50 events cost ONE construction attempt, not 50", function()
+		local attempts = 0
+		local adapter = haptics.new({
+			enabled = true,
+			instanceNew = function(): any
+				attempts += 1
+				error("Unable to create an Instance of type HapticEffect")
+			end,
+			enums = fakeEnums(),
+			inputService = false,
+			hapticService = false,
+		})
+		local bus = feedbackLib.new()
+		adapter.bind({ onFeedback = bus.subscribe })
+		for _ = 1, 50 do
+			bus.emit({ type = "select", path = "/S/B" })
+		end
+		expect(attempts).toBe(1)
+		expect(adapter.support()).toBe("absent")
+	end)
+
+	it("...and `blocked` is NOT short-circuited — the two verdicts are not the same fact", function()
+		-- the negative control. `absent` means the class does not exist on this
+		-- client and will not start existing; `blocked` is the "refused for some
+		-- other reason" bucket, and this module does not claim to know that it is
+		-- permanent.
+		local attempts = 0
+		local adapter = haptics.new({
+			enabled = true,
+			instanceNew = function(): any
+				attempts += 1
+				error("permission denied")
+			end,
+			enums = fakeEnums(),
+			inputService = false,
+			hapticService = false,
+		})
+		local bus = feedbackLib.new()
+		adapter.bind({ onFeedback = bus.subscribe })
+		for _ = 1, 5 do
+			bus.emit({ type = "select", path = "/S/B" })
+		end
+		expect(attempts).toBe(5)
+		expect(adapter.support()).toBe("blocked")
+	end)
+end)
+
 describe("haptics: lifetime", function()
 	it("unbind stops delivery and leaves the bus clean", function()
 		local log = newLog()
@@ -675,6 +959,33 @@ describe("haptics: lifetime", function()
 		expect(adapter.isEnabled()).toBe(false)
 		expect(adapter.diagnostics().pooled).toBe(0)
 		expect(bus.count()).toBe(0)
+	end)
+
+	it("attachButtons AFTER dispose opens no connection for nothing to close", function()
+		-- `dispose` drains its lists once and returns early on re-entry, so a
+		-- `DescendantAdded` connection opened after it is permanent.
+		local adapter, _, log = rig({ enabled = true })
+		adapter.dispose()
+		local button = fakeButton("Go")
+		local root = fakeRoot({ button })
+		local detach = adapter.attachButtons(root)
+		expect(root.DescendantAdded.count()).toBe(0)
+		expect(root.Destroying.count()).toBe(0)
+		expect(button.PressHapticEffect).toBeNil()
+		expect(log.constructions).toBe(0)
+		expect(type(detach)).toBe("function")
+		detach() -- and the returned release is safe to call
+	end)
+
+	it("bind AFTER dispose opens no subscription for nothing to drain", function()
+		local adapter = rig({ enabled = true })
+		adapter.dispose()
+		local bus = feedbackLib.new()
+		local unbind = adapter.bind({ onFeedback = bus.subscribe })
+		expect(bus.count()).toBe(0)
+		bus.emit({ type = "select", path = "/S/B" })
+		expect(adapter.diagnostics().plays).toBe(0)
+		unbind()
 	end)
 
 	it("binding something that is not a presenter is an authoring error that NAMES the seam", function()

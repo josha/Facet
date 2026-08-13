@@ -22,6 +22,39 @@
 -- styling system this control is explicitly not allowed to grow (§3.1: "No new
 -- styling system"). Refused with that reason, not silently degraded.
 --
+-- `height` IS THE BAR'S TRACK, AND ONLY THE BAR'S. A spinner has no track, and
+-- reinterpreting the number as the dot's size was the silent-reinterpretation
+-- twin of the refusals above: `presentation = "spinner", height = 40` painted
+-- five 40x40 dots in a 216px-wide row, so a caller who asked for a chunky bar and
+-- then switched presentation got something else entirely, with no diagnostic.
+-- Refused for the same reason `min` on an indeterminate view is refused — the dot
+-- is a THEME metric (`controls.progress.spinnerDotSize`), which is where a size
+-- that every spinner should agree on belongs.
+--
+-- ===== AN INDETERMINATE VIEW OWNS A LIVE CLOCK ENTRY, SO IT NAMES AN OWNER ====
+-- `scope` is REQUIRED when `value = nil`, exactly as `newAsyncImage` requires one
+-- for the provider handle it acquires, and for exactly the same reason: this is
+-- the one control in the family that keeps DOING something after it is built.
+-- Measured before the requirement existed: a view presented and then dismissed,
+-- and a view built and never presented at all, both kept one clock entry active
+-- and wrote their phase signal 121 times over 120 steps — forever, because the
+-- only thing that stops the cycle is `dispose()` and nothing called it. Every
+-- other control in this library is inert the moment you drop it; this one was not.
+--
+-- The alternatives were measured, not weighed in the abstract:
+--   * "release it when the value's consumers unmount" needs an unmount event, and
+--     there is none — after `presenter.dismiss` the phase memos are simply never
+--     pulled again (0 adapter ops over 10 frames), and re-presenting the SAME
+--     blueprint recomputes nothing (measured: computes stays 1). So a cycle that
+--     parked itself on "nobody read me" could never learn it was back on screen —
+--     a frozen spinner, which is the one lie this control must not tell.
+--   * a `stop()`/`resume()` keyed off surface visibility needs a per-node
+--     lifecycle seam the framework deliberately does not have.
+-- Naming the owner at construction makes the leak unrepresentable instead, with
+-- no new machinery: `scope` is the library's existing ownership idiom, the
+-- presenter's own `handle.scope` is the surface-lifetime one to hand it, and
+-- `dispose()` stays public and idempotent for a caller who owns it directly.
+--
 -- ===== REDUCED MOTION, AND IT IS THE OPPOSITE OF THE USUAL DECISION ==========
 -- Everything else this framework animates is decoration: under reduced motion it
 -- snaps, and nothing is lost because the information was in the end state all
@@ -117,8 +150,12 @@ export type Spec = {
 	max: number?, -- default 1
 	format: ((value: number) -> string)?,
 	showValue: boolean?, -- render the formatted value beside the bar
-	height: number?,
+	height: number?, -- the BAR's track thickness; refused for a spinner
 	presentation: string?, -- "bar" (default) | "spinner" (indeterminate only)
+	-- REQUIRED when `value = nil`: the owner of the indeterminate cycle's clock
+	-- entry (see the header). Optional for a determinate view, which acquires
+	-- nothing beyond memos and takes the clock entry no one.
+	scope: any?,
 	-- the surface's motion clock (`presenter.motionClock`). Read only by the
 	-- indeterminate cycle; a determinate bar never touches it.
 	motionClock: any?,
@@ -135,6 +172,7 @@ local PROGRESS_VIEW_KEYS = specGuard.keySet({
 	"min",
 	"motionClock",
 	"presentation",
+	"scope",
 	"showValue",
 	"value",
 })
@@ -162,6 +200,15 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 			0
 		)
 	end
+	if presentation == "spinner" and spec.height ~= nil then
+		error(
+			"LuauUI newProgressView: `height` is the BAR's track thickness, and a spinner has no track — it "
+				.. "would silently become the DOT's size, and the ring's whole width with it. Drop it (the dot "
+				.. "is the theme metric `controls.progress.spinnerDotSize`), or use the default "
+				.. '`presentation = "bar"`.',
+			0
+		)
+	end
 	if indeterminate then
 		for _, key in { "min", "max", "format", "showValue" } do
 			if (spec :: any)[key] ~= nil then
@@ -172,8 +219,25 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 				)
 			end
 		end
+		-- AN OWNER, NAMED AT CONSTRUCTION (see the header). This is the one control
+		-- in the family that keeps running after it is built, and the only thing
+		-- that stops it is disposal — so it refuses to exist without something that
+		-- will do the disposing.
+		if type(spec.scope) ~= "table" or type((spec.scope :: any).own) ~= "function" then
+			error(
+				"LuauUI newProgressView: an indeterminate view (`value = nil`) runs a motion cycle for as long "
+					.. "as it exists, so it needs `scope` — the Scope that owns it, exactly as newAsyncImage "
+					.. "does. Pass the surface's own scope (`handle.scope` retires it with the surface), or any "
+					.. "scope you dispose. `dispose()` is still there for a caller who owns it directly.",
+				0
+			)
+		end
 	end
-	local scope = core:scope("progress-" .. tostring(id))
+	-- a CHILD of the caller's scope when there is one, so disposing theirs disposes
+	-- this whole control — memos, motion value and all — with no second call
+	local scope = if spec.scope ~= nil
+		then (spec.scope :: any):child("progress-" .. tostring(id))
+		else core:scope("progress-" .. tostring(id))
 
 	-- ===== the indeterminate cycle ==========================================
 	-- One informational sawtooth on the surface's clock (see the header's
@@ -181,6 +245,21 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	-- every dim below is written once and does not care whether it is animating.
 	local phaseValue: any = nil
 	local settleRelease: (() -> ())? = nil
+	-- THE CYCLE'S RELEASE IS A SCOPE RESOURCE, not something only `dispose()`
+	-- reaches. Owned FIRST, so the scope's reverse-order walk runs it LAST: every
+	-- memo that reads the phase is released before the phase itself is, and no
+	-- write can land on a disposed reader.
+	local function releaseCycle()
+		if settleRelease ~= nil then
+			settleRelease()
+			settleRelease = nil
+		end
+		if phaseValue ~= nil then
+			phaseValue:dispose()
+			phaseValue = nil
+		end
+	end
+	scope:own(releaseCycle)
 	if indeterminate and spec.motionClock ~= nil then
 		local clock = spec.motionClock
 		-- a GLIDE, not a spring: an indicator's whole job is a CONSTANT sweep, and
@@ -411,16 +490,14 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 		}
 	end
 
+	-- IDEMPOTENT, because there are now two ways in: this call, and the owning
+	-- scope disposing its child. A caller who does both must not trip the core's
+	-- double-disposal detector for being careful.
 	function api.dispose()
-		if settleRelease ~= nil then
-			settleRelease()
-			settleRelease = nil
+		if scope:isDisposed() then
+			return
 		end
-		if phaseValue ~= nil then
-			phaseValue:dispose()
-			phaseValue = nil
-		end
-		scope:dispose()
+		scope:dispose() -- runs releaseCycle last (owned first)
 	end
 
 	return api

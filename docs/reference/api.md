@@ -3923,7 +3923,7 @@ class, including Adjust.
 `LuauUI.newProgressView(LuauUI, core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
 — linear progress, determinate or indeterminate. `spec = { id?, label?, value?
 (number | Readable), min? = 0, max? = 1, format?, showValue?, height?,
-presentation? ("bar" | "spinner"), motionClock? }`.
+presentation? ("bar" | "spinner"), motionClock?, scope? }`.
 
 **Indeterminate is selected by `value = nil`** — SwiftUI's own rule
 (`ProgressView()` with no value is indeterminate). There is deliberately no
@@ -3945,11 +3945,46 @@ unbounded axis is not a size — so the ring animates for zero re-solves and can
 dropped into any container. They paint through one new decoration slot, `spinner`;
 the bar paints through `barTrack` / `barFill` exactly as it always has.
 
+**`height` is the bar's track thickness, and only the bar's.** A spinner has no
+track, so `presentation = "spinner"` with a `height` is **refused** rather than
+silently reinterpreted as the dot's size — which is what it used to do, turning a
+`height` chosen for a chunky bar into five oversized dots and a much wider row. The
+dot is the theme metric `controls.progress.spinnerDotSize`, which is where a size
+every spinner should agree on belongs. This is the same rule as the `min` / `max` /
+`format` / `showValue` refusals above: a field whose meaning does not survive the
+mode is an authoring error, never a silent reinterpretation.
+
 `motionClock` is the surface's motion clock (`presenter.motionClock`), and only
 the indeterminate cycle reads it — a determinate bar never touches it. With no
 clock the indeterminate view holds its rest pose and reports
 `dump().animating = false`: honest, rather than a spinner that silently is not
 spinning.
+
+**`scope` is REQUIRED when `value = nil`, and it is the only control in this
+family that demands one** — for the same reason `newAsyncImage` does: an
+indeterminate view *acquires* something with a lifetime. It holds a live entry on
+the motion clock and writes its phase signal every frame for as long as it exists,
+and the only thing that stops it is disposal. Measured before the requirement:
+a view presented and then **dismissed**, and a view **built and never presented**,
+each kept one clock entry active and wrote 121 times over 120 steps — forever,
+because nothing called `dispose()`. Every other control in this library is inert
+the moment you drop it; this one was not.
+
+Pass the scope that owns the surface — the presenter's own `handle.scope` retires
+the cycle exactly when the surface's mounted tree is disposed — or any scope you
+dispose yourself. The control builds a **child** of it, so disposing yours disposes
+the whole control (memos, motion value and all) with no second call. `dispose()`
+remains public and is **idempotent**, so calling it *and* letting the scope fall is
+safe in either order.
+
+There is deliberately no automatic release keyed off "nobody is watching": measured,
+`presenter.dismiss` produces no unmount event a control can see (the phase memos are
+simply never pulled again, 0 adapter ops over 10 frames), and re-presenting the same
+blueprint recomputes nothing — so a cycle that parked itself on "nobody read me"
+could never learn it was back on screen, and a frozen spinner is the one lie a
+loading indicator must not tell. Naming the owner at construction makes the leak
+unrepresentable instead. A determinate view acquires no clock entry at all
+(`activeCount` stays `0` even when handed a clock), so `scope` stays optional there.
 
 **Reduced motion, and it is the opposite of the usual decision.** Everything else
 this framework animates is decoration, and under reduced motion it snaps (see
@@ -5081,7 +5116,32 @@ Effects are **pooled**, one per mapped verb plus one for the press property, and
 never constructed per fire (Roblox documents a "fewer than 100 simultaneous
 effects" budget). The enum is resolved defensively **by name** before anything is
 constructed and **never falls back to `Custom`** — a `Custom` effect with no
-waveform is a guaranteed silent no-op.
+waveform is a guaranteed silent no-op. If the client cannot create the class at
+all (`support() == "absent"`) the attempt is made **once**, not per event.
+
+**Every effect is `Stop()`ped *and* `Destroy()`ed** when it is released —
+`setEnabled(false)`, `dispose()`, and the shared press effect's teardown. A pooled
+effect is parented into the DataModel at construction, so dropping the Lua
+reference ends nothing: before this was fixed, five toggles of a settings-screen
+haptics switch left fifteen `HapticEffect` instances in `Workspace` while
+`diagnostics().pooled` reported `0`. `pooled` and `decorated` are now **derived
+from the live state** at read time — the press effect included — so the instrument
+counts what exists rather than what it remembers building.
+
+**A detach is local.** `attachButtons` records its decorations **per root**, so the
+function it returns clears only that surface's buttons: no other attached surface
+is stripped, none is re-walked, and the shared press effect survives (it is torn
+down at `setEnabled(false)` / `dispose()`, the two moments the adapter genuinely
+stops). A button under two attached roots keeps its reference until the last one
+lets go, and a root **destroyed without a detach** releases itself through
+`Destroying` rather than being retained. The record is a cache, not the authority:
+`decorate` re-reads `PressHapticEffect` and restores it if something else — a
+second adapter, a recycled instance — cleared it.
+
+**After `dispose()` the adapter is inert, never throwing.** `setEnabled(true)`,
+`bind` and `attachButtons` all become no-ops (`bind`/`attachButtons` still return a
+safe release function), so nothing can open a subscription or a `DescendantAdded`
+connection that the drained `dispose()` will never close.
 
 **`support()` is a lattice, not a boolean**: `supported | unsupported | unknown |
 blocked | absent`. There is no capability API for `HapticEffect` at all, and the
