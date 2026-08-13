@@ -373,7 +373,19 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		local core, deps, adapter = makeWorld()
 		local game = tileGame.build(LuauUI, core, deps)
 		deps.presenter.refresh()
-		expect(adapter.node("/TileGame/Page/Stats/StatsRow/Progress").props.text).toBe("0 of 7 tiles placed")
+		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("0 of 7 tiles placed")
+		-- ...AND THAT IT IS ARRANGED TO SOMETHING. This test was called "visible"
+		-- while proving only that a node with that path carried that text, and both
+		-- are equally true of a node the solver arranged to a zero rect — which is
+		-- exactly what a losing `ViewThatFits` candidate is, and how these two
+		-- readouts spent a mission off their published paths under a green suite
+		-- (2026-08-13). The sweep across every viewport lives in
+		-- tests/example_readouts.spec.luau; this is the same claim at the size this
+		-- example's own tests use.
+		for _, path in { "/TileGame/Page/Stats/Score", "/TileGame/Page/Stats/Progress" } do
+			local rect = adapter.node(path).rect
+			expect(rect.w > 0 and rect.h > 0).toBe(true)
+		end
 		expect(game.finished()).toBe(false)
 		local placed = 0
 		for r = 1, 5 do
@@ -388,7 +400,7 @@ describe("examples/07 tile game (Scrabble-style)", function()
 		expect(placed).toBe(7)
 		expect(game.finished()).toBe(true)
 		deps.presenter.refresh()
-		expect(adapter.node("/TileGame/Page/Stats/StatsRow/Progress").props.text).toBe("7 of 7 tiles placed")
+		expect(adapter.node("/TileGame/Page/Stats/Progress").props.text).toBe("7 of 7 tiles placed")
 		expect(string.find(game.hintText(), "Start over", 1, true) ~= nil).toBe(true)
 		game.dispose()
 	end)

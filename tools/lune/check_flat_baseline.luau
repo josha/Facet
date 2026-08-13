@@ -44,6 +44,33 @@
 -- ACCIDENTAL change to either one still fails here.
 --
 -- Record: artifacts/example-quality-pass/flat-baseline-rebaseline.json.
+--
+-- ...AND THE BASELINE WAS NOT MOVED AGAIN (2026-08-13, swiftui-parity round 2).
+-- That round left 379 example deltas here, and the temptation was to re-pin the
+-- example fixtures a second time on the same reasoning. It was declined: 357 of
+-- the 379 are ONE inserted line's worth of translation in `02_playlist_table`, 22
+-- are two containers that changed shape, and every one of them is now a written
+-- entry below. Re-pinning would have bought quiet at the price of the only
+-- node-for-node record the examples have, and this round is exactly the argument
+-- against that — the six findings that mattered were `06_tile_game`'s two readouts
+-- leaving `/Stats/Score` and `/Stats/Progress`, and a re-pin would have swallowed
+-- them along with the noise.
+--
+-- TWO WAIVER KINDS WERE ADDED INSTEAD, both narrower than the rect-prefix one:
+--   * ALLOWED_Y_SHIFT forgives a subtree that moved DOWN BY ONE NUMBER and did
+--     nothing else — the shape of "a line was inserted above it" — and fails if
+--     the subtree disagrees with itself or if any x/w/h moved. It reports the
+--     shift it forgave on the PASS line.
+--   * ALLOWED_CLASS_DRIFT forgives one named node changing from one named class
+--     to another named class. Class is otherwise never allowed to differ, which
+--     is how a control being quietly swapped for something else shows up here.
+--
+-- DISAPPEARANCE IS STILL THE ONE THING WITH NO WAIVER AT ALL (outside a declared
+-- RESHAPED_SUBTREES), and it earned that this round: it was the only instrument in
+-- the repo that noticed the tile game's two readouts had left their published
+-- paths. `tests/example_readouts.spec.luau` now asks the same question of every
+-- tutorial example on every `./run-tests.sh`, because this check is not in the
+-- suite and only speaks when somebody runs it.
 
 local process = require("@lune/process")
 local serde = require("@lune/serde")
@@ -108,6 +135,104 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string, why: string } } =
 			.. "the snapshot's derived `iconArt` set, so a theme that draws only the character reserves "
 			.. "only the character, and both were re-measured live at their original sizes.",
 	},
+	{
+		fixture = "06_tile_game",
+		prefix = "/TileGame/Page/Stats",
+		why = "THE STATS LINE WRAPS (2026-08-13). The two readouts need 307px of row and a 320x640 phone's "
+			.. "padded page width is 280, so as a plain HStack the line painted outside its own box — the "
+			.. "always-on overflow sweep reported +19px there. It is a `UI.Grid` with `minColumnWidth = "
+			.. '"intrinsic"` now, the same answer 07_match3\'s artwork row takes: the column count is derived '
+			.. "from the widest child's own measured width every solve, so the readouts ride side by side "
+			.. "wherever two columns fit and stack where they do not, with no viewport arithmetic to keep in "
+			.. "sync. TWO NODES MOVE AND NO CONTENT DOES. The `Stats` container goes from a hug 307 to the "
+			.. "page's full `fill` width (a Grid's columns are a fact about the offered box), and `Progress` "
+			.. "starts at its own column rather than one `m` gap after `Score`. `Score`'s rect is "
+			.. "byte-identical at all three flat viewports — every one of which is wide enough for two columns "
+			.. "— so the line is still 22px tall and NOTHING below `Stats` moves. "
+			.. "THE ALTERNATIVE THIS REPLACED was a `UI.ViewThatFits` candidate ladder, which needed each "
+			.. "readout written twice and left the losing copy mounted at a deliberate zero rect: the two "
+			.. "readouts left `/Stats/Score` and `/Stats/Progress` for a whole mission, the suite could not "
+			.. "tell (a losing candidate answers `adapter.node(path)` with the right `text` too), and THIS "
+			.. "CHECK was the only thing that said so. tests/example_readouts.spec.luau now asks the same "
+			.. "question of every tutorial example inside `./run-tests.sh`.",
+	},
+	{
+		fixture = "07_match3",
+		prefix = "/Match3/Page/Art",
+		why = 'THE ARTWORK CONTROLS WRAP (device report 2026-08-12, IMG_3690: "Fail a load" sliced by the '
+			.. "right screen edge on a portrait phone). Three buttons carrying full sentences need ~580px of "
+			.. "row and a 359px phone has 327; as an HStack the row painted past its own box, and the solver "
+			.. 'said so on every phone viewport ("content overflows this hstack by 253px on the main axis") '
+			.. 'with nothing reading it. It is a `UI.Grid` with `minColumnWidth = "intrinsic"` now: one '
+			.. "column on a phone, one row on a desktop. The three buttons stay DIRECT children, so every "
+			.. "path this example publishes is unchanged — `Reload`'s rect is byte-identical everywhere (it "
+			.. "is the first cell) and only `Deliver` and `Break` move to their column starts. Recorded in "
+			.. "docs/plans/device-bug-round-2026-08-12.md, Group B.",
+	},
+	{
+		fixture = "07_match3",
+		prefix = "/Match3/Page/Reset",
+		why = "the one consequence of the entry above, on the one viewport where the artwork Grid takes three "
+			.. "rows instead of one: at 390x844 the block grows 46 -> 154 and the New-board button below it "
+			.. "moves down by exactly that 108. Unmoved on tablet and desktop, where the Grid is still a row.",
+	},
+}
+
+-- A PURE VERTICAL TRANSLATION, WHICH IS NOT THE SAME WAIVER AS "rects may drift
+-- here". Inserting one line into a page moves every node below it and changes
+-- nothing else about any of them — hundreds of deltas, one fact. `ALLOWED_RECT_DRIFT`
+-- could absorb that with a prefix, but it would then be blind to a REAL regression
+-- under the same prefix forever, which is too much to spend on a paragraph of text.
+--
+-- So this list waives a shift instead of a scope. A rect or hit rect under one of
+-- these prefixes is forgiven only if x, width and height are byte-identical and
+-- the y delta is the SAME NUMBER for every waived node in that fixture and
+-- viewport. Two different shifts under one entry, or any change to x/w/h, is still
+-- a failure — and the shift that WAS observed is printed on the PASS line, so the
+-- waiver reports its own size rather than hiding behind a prefix.
+local ALLOWED_Y_SHIFT: { { fixture: string, prefix: string, why: string } } = {
+	{
+		fixture = "02_playlist_table",
+		prefix = "/Playlist/Page/Tracks",
+		why = "the example gained a NOW-PLAYING line above the table (swiftui-parity round 2, Phase 3: the "
+			.. 'Table primary action had no visible result, so the tutorial\'s "open a row" gesture proved '
+			.. "nothing on screen). It is one `label`-sized secondary Text between the hint and the table, and "
+			.. "every node in the page ScrollView below it moves down by exactly its height plus the page gap "
+			.. "— 42px at 390x844, where the sentence wraps to two lines in 348px, and 25px on the tablet and "
+			.. "desktop rows, where it fits on one. Nothing changes width, height or x: this entry FAILS if "
+			.. "any of the 357 nodes it covers does anything but move down by that one number.",
+	},
+	{
+		fixture = "02_playlist_table",
+		prefix = "/Playlist/Page/Restore",
+		why = "the same single insertion, one sibling further down the page (see the entry above).",
+	},
+}
+
+-- A CLASS CHANGE ON ONE NAMED NODE, spelled out both ways. Class is otherwise
+-- never allowed to differ anywhere, and it should not be: it is how a control
+-- being quietly replaced by something else would show up. An entry here names the
+-- fixture, the EXACT path (not a prefix), and both the old and the new class, so
+-- it waives one substitution and nothing else — a third class on the same node
+-- still fails.
+local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: string, why: string } } = {
+	{
+		fixture = "06_tile_game",
+		path = "/TileGame/Page/Stats",
+		from = "HStack",
+		to = "Grid",
+		why = "the stats line wraps — see the ALLOWED_RECT_DRIFT entry of the same name for the whole "
+			.. "reasoning. The container changes; its two children do not, and they are still its DIRECT "
+			.. "children at the paths this example has always published.",
+	},
+	{
+		fixture = "07_match3",
+		path = "/Match3/Page/Art",
+		from = "HStack",
+		to = "Grid",
+		why = "the artwork controls wrap — see the ALLOWED_RECT_DRIFT entry of the same name. Same shape of "
+			.. "change, same mission, three buttons still direct children.",
+	},
 }
 
 local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
@@ -170,6 +295,15 @@ local ALLOWED_NEW_NODES: { { path: string, why: string } } = {
 	{
 		path = "/Vocabulary/More/Header/Label",
 		why = "the header's visible text, split out so the caret's glyph suppression cannot reach it (F3)",
+	},
+	{
+		path = "/Playlist/Page/NowPlaying",
+		why = "the table's primary action had no VISIBLE RESULT (swiftui-parity round 2, Phase 3). The "
+			.. 'tutorial tells the reader to "open a row", and opening one changed a signal nothing on screen '
+			.. "read — so the gesture proved nothing to a player and nothing to a screenshot. One `label`-sized "
+			.. "secondary Text between the hint and the table now says what is playing. Its only geometric "
+			.. "consequence is that everything below it in the page ScrollView moves down by one line, which "
+			.. "is pinned as a uniform shift in ALLOWED_Y_SHIFT rather than waived as free rect drift.",
 	},
 }
 
@@ -320,6 +454,39 @@ local function reasonFor(list: { { path: string, why: string } }, path: string):
 	return nil
 end
 
+-- "<x>,<y> <w>x<h>" -> four numbers, or nil for anything else (the dump writes the
+-- string "nil" for a node with no hit rect, and a rect that appears on one side
+-- only is a change this must NOT quietly call a translation).
+local function parseRect(text: string?): { x: number, y: number, w: number, h: number }?
+	if text == nil then
+		return nil
+	end
+	local x, y, w, h = string.match(text, "^(-?%d+),(-?%d+) (%d+)x(%d+)$")
+	if x == nil then
+		return nil
+	end
+	return { x = tonumber(x) :: number, y = tonumber(y) :: number, w = tonumber(w) :: number, h = tonumber(h) :: number }
+end
+
+-- the ALLOWED_Y_SHIFT entry covering this node, or nil
+local function yShiftScope(fixture: string, path: string): number?
+	for i, entry in ALLOWED_Y_SHIFT do
+		if entry.fixture == fixture and string.find(path, entry.prefix, 1, true) == 1 then
+			return i
+		end
+	end
+	return nil
+end
+
+local function classDriftAllowed(fixture: string, path: string, from: string?, to: string?): boolean
+	for _, entry in ALLOWED_CLASS_DRIFT do
+		if entry.fixture == fixture and entry.path == path and entry.from == from and entry.to == to then
+			return true
+		end
+	end
+	return false
+end
+
 if process.args[1] == "--list" then
 	print("check_flat_baseline: characterized deltas vs " .. BASELINE_3_5)
 	for _, entry in ALLOWED_PROP_DRIFT do
@@ -330,6 +497,15 @@ if process.args[1] == "--list" then
 	end
 	for _, entry in ALLOWED_ADDED_PROPS do
 		print(`  added prop {entry.prop} (any node)\n        {entry.why}`)
+	end
+	for _, entry in ALLOWED_RECT_DRIFT do
+		print(`  rect  {entry.fixture} {entry.prefix}\n        {entry.why}`)
+	end
+	for _, entry in ALLOWED_Y_SHIFT do
+		print(`  y-shift {entry.fixture} {entry.prefix} (one uniform dy, x/w/h byte-identical)\n        {entry.why}`)
+	end
+	for _, entry in ALLOWED_CLASS_DRIFT do
+		print(`  class {entry.fixture} {entry.path} {entry.from} -> {entry.to}\n        {entry.why}`)
 	end
 	for _, entry in RESHAPED_SUBTREES do
 		print(`  reshaped {entry.fixture} {entry.prefix}\n        {entry.why}`)
@@ -364,6 +540,10 @@ end
 local base = index(BASELINE_3_5)
 local now = index(temp)
 local checked = 0
+-- Every y-translation an ALLOWED_Y_SHIFT entry forgave, bucketed per entry and per
+-- (fixture, viewport). The waiver is only granted once the whole bucket agrees on
+-- one number, which is decided after the loop.
+local shifts: { [string]: { [number]: boolean } } = {}
 for key, node in now do
 	local was = base[key]
 	if was == nil then
@@ -373,6 +553,8 @@ for key, node in now do
 		continue
 	end
 	checked += 1
+	local fixture = string.match(key, "^([^|]+)|") or ""
+	local viewport = string.match(key, "^[^|]+|([^|]+)|") or ""
 	local rectDriftAllowed = false
 	for _, entry in ALLOWED_RECT_DRIFT do
 		if string.find(key, entry.fixture, 1, true) ~= nil and string.find(node.path, entry.prefix, 1, true) == 1 then
@@ -380,10 +562,28 @@ for key, node in now do
 			break
 		end
 	end
+	local shiftEntry = yShiftScope(fixture, node.path)
 	for _, field in { "class", "rect", "hit" } do
 		if was[field] ~= node[field] then
+			if field == "class" and classDriftAllowed(fixture, node.path, was.class, node.class) then
+				continue
+			end
 			if (field == "rect" or field == "hit") and rectDriftAllowed then
 				continue
+			end
+			if (field == "rect" or field == "hit") and shiftEntry ~= nil then
+				local a, b = parseRect(was[field]), parseRect(node[field])
+				-- a translation and only a translation: everything but y identical
+				if a ~= nil and b ~= nil and a.x == b.x and a.w == b.w and a.h == b.h then
+					local bucket = `{shiftEntry}|{fixture}|{viewport}`
+					local seen = shifts[bucket]
+					if seen == nil then
+						seen = {}
+						shifts[bucket] = seen
+					end
+					seen[b.y - a.y] = true
+					continue
+				end
 			end
 			table.insert(problems, `{key}: {field} changed '{was[field]}' -> '{node[field]}' (never allowed)`)
 		end
@@ -391,6 +591,39 @@ for key, node in now do
 	local nowProps = withoutAddedProps(was.props, node.props)
 	if was.props ~= nowProps and reasonFor(ALLOWED_PROP_DRIFT, node.path) == nil then
 		table.insert(problems, `{key}: props changed '{was.props}' -> '{node.props}' and is not characterized`)
+	end
+end
+-- THE SHIFT HAS TO BE ONE NUMBER. An entry says "a line was inserted above this
+-- subtree"; if two nodes under it moved by different amounts then something else
+-- moved too, and that is a finding rather than a translation.
+local shiftReport: { string } = {}
+local shiftBuckets: { string } = {}
+for bucket in shifts do
+	table.insert(shiftBuckets, bucket)
+end
+table.sort(shiftBuckets)
+for _, bucket in shiftBuckets do
+	local values: { number } = {}
+	for dy in shifts[bucket] do
+		table.insert(values, dy)
+	end
+	table.sort(values)
+	local entryIndex = tonumber(string.match(bucket, "^(%d+)|")) :: number
+	local entry = ALLOWED_Y_SHIFT[entryIndex]
+	local where = string.match(bucket, "^%d+|(.+)$") or bucket
+	if #values ~= 1 then
+		local list: { string } = {}
+		for _, dy in values do
+			table.insert(list, tostring(dy))
+		end
+		table.insert(
+			problems,
+			`{where} {entry.prefix}: ALLOWED_Y_SHIFT forgives ONE uniform vertical shift and this subtree `
+				.. `moved by {#values} different amounts ({table.concat(list, ", ")}) — that is not an insertion `
+				.. "above it, so it is not characterized"
+		)
+	else
+		table.insert(shiftReport, `{where} {entry.prefix} +{values[1]}px`)
 	end
 end
 for key, node in base do
@@ -416,5 +649,13 @@ print(
 		-- rect/hit/class changes" unconditionally, which would have gone on
 		-- saying so beside a characterized rect delta — a true-sounding sentence
 		-- about a check that did not happen.
-		.. `{#ALLOWED_RECT_DRIFT} characterized rect-drift scope(s); no other rect/hit/class change)`
+		.. `{#ALLOWED_RECT_DRIFT} characterized rect-drift scope(s), `
+		.. `{#ALLOWED_CLASS_DRIFT} characterized class substitution(s); no other rect/hit/class change)`
 )
+-- THE WAIVER REPORTS ITS OWN SIZE. A y-shift entry is only as trustworthy as the
+-- number it turned out to forgive, so the number is printed rather than implied —
+-- a shift that silently doubled would otherwise pass with the same sentence.
+if #shiftReport > 0 then
+	table.sort(shiftReport)
+	print(`  uniform vertical shifts forgiven: {table.concat(shiftReport, "; ")}`)
+end

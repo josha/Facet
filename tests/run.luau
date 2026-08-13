@@ -203,6 +203,13 @@ require("./zstack_fill_diagnostic.spec")
 -- FAILED on them, so the answer sat unread through a green suite, a green gate,
 -- a five-view matrix and four reviews, twice
 require("./overflow_sweep.spec")
+-- ...and its twin question at the same viewports: is the content each tutorial
+-- example DECLARES actually rendered? The overflow sweep sees content that spills
+-- out of its box; it is blind to content that left the tree, or that is arranged
+-- to a zero rect because it ended up inside a losing `ViewThatFits` candidate —
+-- which is exactly how `06_tile_game`'s score and progress readouts left their
+-- published paths for a whole mission under a green suite (2026-08-13)
+require("./example_readouts.spec")
 -- ...and the paint half of the same round: a padded `UI.Text` is drawn INSIDE its
 -- padding. The solver's text measure had always added it to the box; the renderer
 -- and both adapters only ever painted a Button's, so a padded label sat flush

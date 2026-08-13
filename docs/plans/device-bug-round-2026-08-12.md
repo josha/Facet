@@ -142,7 +142,7 @@ and eleven were unreported. Every one is now green.
 | `sponsor_list` | `/ListLab` +101px and every row's `Card/Labels` +11px | (see the sponsor_list fix) |
 | `composition` | `/CompositionScreen` +162px | body ScrollView |
 | `keyboard_navigation` | `/KbdNav` +239px | body ScrollView |
-| `06_tile_game` | `/TileGame/Page/Stats` +19px | stats row wraps |
+| `06_tile_game` | `/TileGame/Page/Stats` +19px | the stats row is a `minColumnWidth = "intrinsic"` Grid (see the correction below) |
 | `p4_foyer` | `HomeBody` +5px | (see the foyer fix) |
 
 **B7(b) was a framework defect and is fixed as one.** `UI.padding` on a `UI.Text`
@@ -154,6 +154,47 @@ label+12 wide with the glyphs drawn from its leading edge. The seam now carries 
 padded `Text` too, all four sides, in both adapters.
 `tests/text_padding_paint.spec.luau` pins it, including the instance budget in
 both directions.
+
+### Correction — the tile-game fix cost visible content (2026-08-13)
+
+The `06_tile_game` row above was originally fixed with a **`UI.ViewThatFits`
+candidate ladder**: an `HStack` candidate and a `VStack` candidate, each carrying
+its own copy of `Score` and `Progress`. It closed the overflow and it was wrong,
+for a reason the overflow sweep structurally cannot see.
+
+A candidate ladder makes you write the content **twice**, once per candidate, and
+the two copies need different ids to be different nodes — so the two readouts left
+`/TileGame/Page/Stats/Score` and `/TileGame/Page/Stats/Progress`, the paths this
+example has published since Step 10, and became
+`/Stats/StatsRow/Score` and `/Stats/StatsColumn/Score`. Measured at eleven
+viewports, the *winning* candidate always rendered: the readouts were never
+actually invisible to a player. What was lost was every claim anything made about
+them. `./run-tests.sh` stayed green, including the example's own test named
+*"progress and completion are visible"* — because that test proved a node with
+that path carried that text, and a **losing** candidate satisfies both (the
+framework keeps losers mounted at a deliberate zero rect,
+`src/layout/solver.luau`). The only instrument that noticed was
+`tools/lune/check_flat_baseline`, which is not in the suite.
+
+**The fix is a different composition, not a better ladder.** `UI.Grid` with
+`minColumnWidth = "intrinsic"` — the same answer `07_match3`'s artwork row and
+`row_actions`' `ModeBar` take in the table above — states the same intent with the
+content written once: side by side where two columns fit, stacked where they do
+not. The readouts are direct children again, at their published paths, with real
+rects at all eight swept viewports (320x640 and 640x320 included), and
+`tests/overflow_sweep.spec.luau` stays green, so the overflow this round fixed has
+not come back.
+
+**And the suite now asks the question.** `tests/example_readouts.spec.luau` mounts
+all seven tutorial examples at the same eight viewports and fails if any declared
+readout is missing from the render or arranged to a zero rect. It is the twin of
+the overflow sweep — that one sees content spilling *out* of its box, this one sees
+content that left the tree or collapsed to nothing — and it is deliberately a
+named list rather than a rule over every node, because "every Text with text must
+have area" is false by construction here: a losing candidate is *supposed* to
+measure to zero, and a check that has to exempt the case that hid the defect is
+noise. Both sweeps read their viewport table from `tests/lib/device_views.luau`, so
+a size only one of them visits cannot exist.
 
 ### Found and NOT fixed (recorded, out of Group B's scope)
 

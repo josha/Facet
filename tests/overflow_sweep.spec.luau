@@ -56,41 +56,22 @@ local describe, it = t.describe, t.it
 local LuauUI = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
+local device_views = require("./lib/device_views")
 
 -- The five canonical rows of docs/plans/studio-device-verification.md at the
--- viewports the driver RECORDED (artifacts/rich-skinning-v2/rs-a16-matrix.json),
--- kept identical to tests/theme_matrix_audit.spec.luau's VIEWS, plus the
--- narrowest supported viewport in both orientations (the lesson's "sweep the
--- narrowest supported viewport, not your own" — and its rotation, because a
--- short landscape is where a screen's fixed chrome eats the whole canvas).
-local VIEWS = {
-	{ id = "compact-phone-portrait", w = 359, h = 718, displaySize = "Small", input = "Touch" },
-	{ id = "compact-phone-landscape", w = 705, h = 338, displaySize = "Small", input = "Touch" },
-	{ id = "tablet-landscape", w = 1079, h = 809, displaySize = "Small", input = "Touch" },
-	{ id = "desktop-standard", w = 1232, h = 1067, displaySize = "Medium", input = "KeyboardAndMouse" },
-	{ id = "console-ten-foot", w = 1920, h = 1078, displaySize = "Large", input = "Gamepad" },
-	{ id = "narrow-portrait", w = 320, h = 640, displaySize = "Small", input = "Touch" },
-	{ id = "narrow-landscape", w = 640, h = 320, displaySize = "Small", input = "Touch" },
-	-- the DESKTOP Studio client the director drove on 2026-08-12, at the size the
-	-- right-edge clipping was captured at. It is here because "a defect that
-	-- survives at 1320px wide is a stronger signal than one that only appears at
-	-- 320px" — a sweep that only runs compact sizes teaches the wrong lesson about
-	-- what overflow is.
-	{ id = "desktop-studio-1320", w = 1320, h = 742, displaySize = "Medium", input = "KeyboardAndMouse" },
-}
-
-local CAPABILITIES: { [string]: any } = {
-	Touch = { touch = true, mouse = false, keyboard = false, gamepad = false },
-	KeyboardAndMouse = { touch = false, mouse = true, keyboard = true, gamepad = false },
-	Gamepad = { touch = false, mouse = false, keyboard = false, gamepad = true },
-}
+-- viewports the driver RECORDED, plus the narrowest supported viewport in both
+-- orientations. The table itself lives in `tests/lib/device_views.luau` because
+-- `tests/example_readouts.spec.luau` sweeps the SAME sizes with a different
+-- question, and a viewport only one of them visits is a viewport where one of the
+-- two questions is never asked.
+local VIEWS = device_views.VIEWS
+local CAPABILITIES = device_views.CAPABILITIES
 
 -- The CoreGui topbar inset every matrix row measured, plus the strip the showcase
 -- reserves for its two picker chips — `barReservation(coreTop, nil, slack)` is
 -- the same call `init.client` makes on the frame before any chip geometry exists,
 -- which is the floor it never goes below.
-local CORE_TOP = 58
-local SHOWCASE_TOP = demo_picker.barReservation(CORE_TOP, nil, 8)
+local SHOWCASE_TOP = demo_picker.barReservation(device_views.CORE_TOP, nil, 8)
 
 -- Engine-free gallery scenarios. `examples` and the five `ref_*` scenarios are
 -- absent ON PURPOSE: both are thin delegations that resolve their real module

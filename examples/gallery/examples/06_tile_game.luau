@@ -271,42 +271,37 @@ local function build(LuauUI: any, core: any, deps: any)
 				children = {
 					UI.Text({ id = "Title", text = "LuauUI Tiles", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
-					-- CONTAINER-RELATIVE, not a viewport threshold (`UI.ViewThatFits`):
-					-- the score and the progress readout ride side by side wherever
-					-- they fit, and stack on their own lines where they do not — found
-					-- live by the overflow sweep at 320x640, where the row needed 19px
-					-- more than the page's own padded width.
-					UI.ViewThatFits({
+					-- THE STATS LINE WRAPS (overflow sweep, 320x640: as a plain HStack
+					-- the two readouts needed 307px of row and the page's padded
+					-- width there is 280, so the line simply painted past its own
+					-- box). `UI.Grid` with `minColumnWidth = "intrinsic"` is the
+					-- declarative form of "side by side where they fit, stacked where
+					-- they do not": the column count is derived from the widest
+					-- child's own measured width under the ACTIVE theme's font, every
+					-- solve — two columns on a phone, one on a 320px phone, no
+					-- viewport arithmetic to keep in sync. It is the same answer
+					-- 07_match3's artwork row takes, for the same reason.
+					--
+					-- NOT `UI.ViewThatFits`. A candidate ladder would need each
+					-- readout written TWICE, once per candidate, and the framework
+					-- keeps the losing candidate mounted at a deliberate zero rect —
+					-- so half the declared content is unreachable at every viewport
+					-- and both copies answer `adapter.node(...)` identically. The
+					-- readouts stay DIRECT children here, at the paths this example
+					-- has always published (`/Stats/Score`, `/Stats/Progress`), which
+					-- is what tests/example_readouts.spec.luau pins.
+					UI.Grid({
 						id = "Stats",
+						minColumnWidth = "intrinsic",
+						gap = "s",
 						width = { type = "fill", weight = 1 },
 						children = {
-							UI.HStack({
-								id = "StatsRow",
-								gap = "m",
-								align = "center",
-								children = {
-									UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
-									UI.Text({
-										id = "Progress",
-										text = progressText,
-										textSize = "label",
-										role = "secondary",
-									}),
-								},
-							}),
-							UI.VStack({
-								id = "StatsColumn",
-								gap = "xs",
-								align = "center",
-								children = {
-									UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
-									UI.Text({
-										id = "Progress",
-										text = progressText,
-										textSize = "label",
-										role = "secondary",
-									}),
-								},
+							UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
+							UI.Text({
+								id = "Progress",
+								text = progressText,
+								textSize = "label",
+								role = "secondary",
 							}),
 						},
 					}),
