@@ -27,6 +27,12 @@ Prefer an explicit allowlist over deleting provenance. Consolidate durable lesso
 into public guides, architecture, ADRs, or contributor docs. Keep historical evidence
 in an excluded internal/archive area instead of rewriting or destroying it.
 
+Preserve Step 13's product-language boundary and clear-writing standard. The clean
+tree must not restore a retired vendor comparison, branded path, internal shorthand,
+or unclear legacy paragraph. If the dedicated comparison reference ships, keep it
+separate from the Roblox-first guide. Guide comparisons remain optional, labeled,
+and non-authoritative.
+
 ## Supported sharing forms
 
 The required output is a reproducible clean source tree with:
@@ -87,6 +93,7 @@ outside the monorepo.
 
 Add allowlist/drift checks for accidental internal additions, missing public files,
 stale agent links, undocumented public-surface changes, and artifact-size growth.
+Run Step 13's language-boundary and clear-document checks against the exported tree.
 Verify third-party licenses and asset provenance.
 
 ## Clean-context verification

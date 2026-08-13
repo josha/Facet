@@ -216,6 +216,14 @@
    "specSection": "docs/plans/swiftui-parity-round2-brief.md (binding scope) + docs/plans/swiftui-parity-round2.md (per-phase design)",
    "artifactDir": "artifacts/swiftui-parity-round2",
    "gateArtifact": "artifacts/swiftui-parity-round2/gate.json",
+   "next": "declarative-3d-architecture"
+  },
+  {
+   "gate": "declarative-3d-architecture",
+   "title": "Declarative 3D architecture decision: whether and how the studio builds a declarative fine-grained-reactive system for Roblox Parts/Models - a reviewed plain-language ADR (LuauUI extension vs sibling-with-shared-kernel vs independent system vs no build) backed by an isolated disproof spike with topology, lifecycle, and cost evidence. PASS means the decision is proved, not that LuauUI supports 3D; the stage merges nothing into LuauUI, extracts no core, and starts no production package",
+   "specSection": "docs/plans/declarative-3d-architecture.md",
+   "artifactDir": "artifacts/declarative-3d-architecture",
+   "gateArtifact": "artifacts/declarative-3d-architecture/gate.json",
    "next": null
   }
  ]

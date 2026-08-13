@@ -113,6 +113,89 @@ ship and were never rowed** (`newAsyncImage`, `canvasGroup`,
 `TextField.keyboardType`, `effectiveTransparency`) — row them, that is free
 parity we are not claiming.
 
+**D2. Circular progress indicators — both forms, and they are missing.**
+Game-director request, 2026-08-13, citing Apple's HIG
+[Progress indicators](https://developer.apple.com/design/human-interface-guidelines/progress-indicators):
+the **determinate circular** (a ring that fills) and the **indeterminate
+circular spinner** (the rotating one). LuauUI ships **neither**.
+
+What actually ships today: `presentation = "bar" | "spinner"` where `"spinner"`
+is **indeterminate-only** — a determinate spinner is refused at construction
+(`src/controls/progress_view.luau:19-23`) — and the thing called a spinner is
+**five pulsing dots**, not a rotating circular indicator at all.
+
+**The refusal was right for its phase and is wrong now.** Its stated reason is
+*"the blueprint has no rotation or trim channel to draw one with — offering it
+would mean inventing a styling system this control is explicitly not allowed to
+grow (§3.1: No new styling system)"*. Correct under round 2's constraint. But
+two sanctioned vehicles already exist and it did not reach for either:
+
+- **`Path2D`** — `UI.Path` and `src/controls/path_shapes.luau` ship, and
+  `swiftui-parity-next.md` investment 7 already names this exact case: *"`Gauge`
+  and radial progress on `Path2D` only after the path spike proves authored
+  curves, clipping, layering, and device cost."* The spike has happened.
+- **Rotation is already a presentation-channel property** — the transform
+  carries `rotation` and the adapter writes `instance.Rotation`
+  (`screen_target.luau`'s `applyPresentationPaint`).
+
+So: **check for a native Roblox radial/arc primitive first** (standing rule 1 —
+do not trust memory that the platform lacks one), and if there is none, build
+both forms on `Path2D` rather than inventing a channel. Requirements:
+
+- **both** determinate (ring fills to `value`) and indeterminate (rotates);
+- **small by default** — the director asked for a *smaller* indicator, so the
+  size comes from a theme metric beside `controls.progress.spinnerDotSize`, not
+  a per-call number, and the existing `height`-is-the-bar's-track refusal
+  (`:25-32`) tells you where a spinner's size is allowed to come from;
+- the **reduced-motion policy is already decided and must be inherited**: the
+  indeterminate cycle is `informational`, so under reduced motion it keeps
+  advancing on the quantized tick rather than freezing — *"a frozen spinner and
+  a hung process look identical"* (`:50`, `:63`);
+- the indeterminate cycle **acquires a clock entry**, so it inherits round 2's
+  `scope` requirement — the leak must stay unrepresentable;
+- device cost measured on the **MicroProfiler** path (standing rule 3), because
+  a rotating arc is the first per-frame *paint* this control has drawn.
+
+**D3. Re-prove the five clean-room reference apps against the new surface.**
+Game-director request, 2026-08-13. `examples/reference/p1_glade`, `p2_cartwheel`,
+`p3_sipworks`, `p4_foyer`, `p5_wardrobe` — LuauUI's answer to Apple's sample
+apps, and the only artefacts in the repo built **clean-room**: written from a
+spec by an author who did not read framework internals, which is what makes them
+evidence rather than demos.
+
+**So this is a re-proof, not a refresh, and the finding is more valuable than the
+diff.** Round 2 added `withAnimation`, `distribute`, `layoutPriority` ×
+`shrinkWeight`, `lineAlign`, `GridRow` + `gridSpan`, `containerRelativeFrame`, a
+horizontal `newVirtualList`, indeterminate progress, `sensoryFeedback`, Table
+`onPrimaryAction` and hosted swipe actions. The question these apps exist to
+answer: **does an author reach for them unprompted?** Work each app the way its
+original author would — from the guide and `api.md`, not from the source — and
+record, per adoption:
+
+- **found unaided** — the API was discoverable from the docs alone;
+- **found only after being told** — a documentation defect, and the more useful
+  result. Fix the doc, do not just adopt the API;
+- **wanted and absent** — a genuine gap; cross-check it against
+  `parity-completeness-audit-2026-08-13.md`'s 39, since these apps are the most
+  likely place its clustered blind spots (preferences 5/5, view groupings 5/7)
+  actually bite.
+
+**Hunt the obsolete workarounds specifically.** Each app carries hand-tuning that
+predates the new vocabulary and is now the wrong shape — `p4_foyer`'s
+`ViewThatFits` ladder for its wings, any hand-placed `Spacer` doing a
+`distribute`'s job, any percent-of-parent dim that wanted
+`containerRelativeFrame`, any manual compression that wanted `shrinkWeight`.
+Replacing one is a *stronger* proof than adding a new call, because it shows the
+framework absorbed something the author previously had to hand-build. Note the
+live precedent and its trap: `06_tile_game`'s `ViewThatFits` ladder forced its
+readouts to be written twice, which moved them off their published paths and
+past a green suite — so when a ladder comes out, assert the paths.
+
+**These apps are gated.** Their specs (`tests/reference/*_spec.luau`) run in the
+suite and `swiftui-reference-app-validation` is a registered gate stage; the
+five places are built by `tools/build_places.sh`. Any change ships with its
+specs, its rebuilt place, and the showcase rule in full.
+
 **E. Owed from round 2** — the full list is in `swiftui-parity-round2.md` and
 `device-bug-round-2026-08-12.md`; the load-bearing ones: the Studio device
 canary on the rebuilt showcase; the `traversal-document-order` re-record (that
@@ -121,6 +204,50 @@ pointer — `[SHOWCASE-CHROME]: CONCERNS 16`); the reduced-motion settings
 surface; `api.md`'s round-2 prose skim; and the shrink-pass design gaps in the
 RED-TEAM list (a shrinkable label can still land outside its box;
 `shrinkWeight` changes which `ViewThatFits` candidate wins, undefined).
+
+## Orchestration rules — earned the hard way in round 2
+
+These are about running the mission, not about the code. Each cost real time or
+real work.
+
+**A gate that returns no verdict has not run.** Five specialist verifier
+dispatches ended on their opening sentence after 30–55 tool calls of genuine
+work, producing nothing — while the harness reported `completed`. That converts
+a mandatory gate into a no-op with every outward sign it ran. **Redispatch to
+`general-purpose` rather than nudging** (the nudge worked once and failed once,
+at higher cost each time), put the delivery instruction *in* the brief, and
+never close a milestone on a verifier's silence. Full write-up:
+[`../lessons/a-specialist-verifier-that-reports-nothing.md`](../lessons/a-specialist-verifier-that-reports-nothing.md).
+
+**Never tell an agent the tree is exclusively its own unless you have just
+checked.** Round 2's orchestrator said so while another agent was live in the
+same files; that agent hit a filename collision, read the state as corruption,
+ran `git checkout`, and discarded ~114 lines of uncommitted work. Two separate
+`git checkout` incidents destroyed uncommitted work in one mission. Verify with
+`ListAgents` before claiming exclusivity, keep concurrent agents in disjoint
+files, and back up to the session scratchpad — never a generic `/tmp` name.
+
+**Do not narrate a plausible story ahead of the data.** The orchestrator twice
+described a defect to the director more confidently than the evidence supported
+— "the score display is gone" (it rendered correctly at all eleven viewports;
+what was lost was its *path*) and "my predicate change caused the Edit button
+bug" (the declaration disproved it before any measurement). Both were corrected
+by an agent that measured. State the symptom and the hypothesis separately.
+
+**Two device reports can be one cause.** "The Edit button doesn't make rows
+editable" and "we lost swipe-to-reveal" were the same complaint: the table
+declared no `rowActions`, so edit mode surfaced a reorder handle and nothing
+else. Root-cause before splitting work.
+
+**A test can be satisfied by a hidden copy.** A losing `ViewThatFits` candidate
+stays mounted with its props and text intact at 0×0 — so an assertion that "a
+node at this path has this text" passes against content no player can see. If a
+check is about *visibility*, assert a non-zero rect, not presence.
+
+**An instrument nobody runs is a comment.** `check_flat_baseline` caught the
+tile-game regression and is not in `./run-tests.sh`; the overflow diagnostic
+described nine device bugs in words before they shipped and nothing called it.
+When you add a check, decide where it *runs*, not just that it exists.
 
 ## The bar, unchanged from round 2
 

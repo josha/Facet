@@ -1,6 +1,6 @@
 # LuauUI consolidated roadmap — Roblox-native, SwiftUI-shaped, device-profiled, Sponsor-proven
 
-**Date:** 2026-08-03
+**Date:** 2026-08-13
 
 This is the entry point for LuauUI work. Running the prompts in order is intended to
 produce these outcomes:
@@ -33,8 +33,9 @@ produce these outcomes:
    inside Roblox and distinguish framework gaps from Roblox/Apple platform differences;
 14. a measured architecture decision determines whether declarative 3D should become
    a sibling system without forcing world objects into the 2D UI solver;
-15. a fresh Fable release review finds and remediates whole-framework defects and
-   makes the public guide/API catalogs complete and drift-checked;
+15. a fresh Fable release review finds and remediates whole-framework defects, makes
+   the guide/API catalogs complete and plain, and removes vendor-framework language
+   outside the two explicit comparison areas;
 16. a reproducible clean source release excludes internal/game context and gives
    human and AI authors accurate, tested onboarding without requiring Roblox Packages;
    and
@@ -191,7 +192,7 @@ Key corrections to the earlier roadmap:
 | 10 | Tutorial gallery quality pass | All seven examples are played, styled, understandable, and governed by a canonical gate |
 | 11 | SwiftUI-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
-| 13 | Fresh release-candidate and documentation review | Whole-framework findings are resolved; guide/API catalogs match the public surface and are drift-checked |
+| 13 | Fresh release-candidate and documentation review | Findings are resolved; clear guide/API catalogs match the public surface; platform-language boundaries are checked |
 | 14 | Source sharing and agent onboarding | A clean source export works outside the monorepo; `AGENTS.md` and the thin skill guide fresh agents; no Roblox Package is required |
 
 ### Milestone 1 — SwiftUI parity round 2 (in flight; NOT a numbered step)
@@ -1138,6 +1139,8 @@ Sponsor, or claim assistive-technology parity Roblox cannot expose.
 
 ## Step 9 — Ship a publish-ready LuauUI performance lab
 
+**DONE**
+
 This step turns Step 4's measurement infrastructure into a reproducible Roblox place
 that can be opened, manually published as a private test place, and profiled on the
 supported low-end Android floor. It starts with one scenario-driven place and adds a
@@ -1218,6 +1221,8 @@ reviews, and updated guide. Report results, artifact paths, and pending physical
 
 ## Step 10 — Make every tutorial example teach and play correctly
 
+**DONE**
+
 This final pass treats the gallery as a product and a learning surface. It audits all
 seven examples in play, makes styling consistent with the native StyleSheet
 architecture, repairs the unclear settings-sync lesson, turns the word example into a
@@ -1297,6 +1302,8 @@ resolved reviews, and accurate docs. Report results, artifacts, and pending rows
 ```
 
 ## Step 11 — Validate three SwiftUI-scale apps with clean-room Roblox proofs
+
+**DONE**
 
 This stage answers a narrower, more useful question than “does LuauUI have every
 SwiftUI type?” It builds representative in-experience loops and distinguishes real
@@ -1434,75 +1441,75 @@ publish/deploy or silently begin the follow-on build.
 
 This is the whole-framework adversarial pass requested before distribution. It first
 reviews from a frozen baseline without editing, then diagnoses and remediates confirmed
-defects without turning missing wishlist features into bugs.
+defects. It also makes every human document clear and makes LuauUI describe itself in
+Roblox and LuauUI terms. Missing wishlist features do not become bugs.
 
 ### Fable-led goal prompt
 
 ```text
-/goal Perform a fresh-context, whole-framework LuauUI release-candidate review and
-remediate confirmed defects until the review gate is honestly green.
+/goal Run a fresh-context LuauUI release-candidate review, fix confirmed defects,
+make all human documentation clear, and remove Apple/SwiftUI references outside the
+two permitted comparison locations.
 
-Run in a new task with Claude Fable 5 at its highest practical effort; the lead must
-not have implemented Steps 7–12. Fable owns adversarial coverage, live diagnosis,
-severity/disposition, integration, and reruns. Dispatch fixes to Opus 5 at `xhigh`
-only after cause, interface, regression test, and done evidence are unambiguous.
+Run in a new task with Claude Fable 5 at highest practical effort; the lead must not
+have implemented Steps 7–12. Fable owns diagnosis, disposition, integration, and
+reruns. Dispatch an Opus 5 `xhigh` fix only after its cause, test, and result are clear.
 
 Read:
-- GameStudio/ENGINEERING.md
-- GameStudio/MODELS.md
-- GameStudio/specialists/CODE_REVIEWER.md
+- GameStudio/ENGINEERING.md and GameStudio/specialists/CODE_REVIEWER.md
 - GameStudio/ui/LuauUI/docs/plans/release-candidate-review.md
 - GameStudio/ui/LuauUI/docs/plans/api-architecture-consistency.md
-- GameStudio/ui/LuauUI/docs/plans/large-text-accessibility.md
 - GameStudio/ui/LuauUI/docs/plans/agent-execution-contract.md
-- GameStudio/ui/LuauUI/docs/guide/02-architecture.md
-- GameStudio/ui/LuauUI/docs/reference/api.md
-- GameStudio/ui/LuauUI/tools/lune/gate_manifest.luau
+- GameStudio/ui/LuauUI/docs/guide/ and docs/reference/api.md
 
-Outcome: no unresolved confirmed blocker/high defect; every other finding is fixed or
-explicitly dispositioned; current public behavior, evidence, and performance remain
-intact. A declared missing feature is not a defect unless the API/docs claim it.
+The release plan is the full brief. Outcome: no unresolved confirmed blocker/high;
+every finding is fixed or dispositioned; behavior/performance stay intact; catalogs
+match the public surface; and a new Roblox author can use the docs unaided.
 
-Before editing, freeze source/build identity, public API, full and prior gates,
-lifecycle/resource counters, perf baselines, and representative Studio scenarios.
-Register `release-candidate-review` and create a finding ledger. Review first without
-changing code. Report every issue, including uncertain/low-severity, with severity,
-confidence, failure scenario, affected callers, evidence, and smallest corrective
-test.
+Freeze source/API identity, gates, lifecycle/perf baselines, and Studio scenarios.
+Register `release-candidate-review`; create the ledger; review before edits. Record
+severity, confidence, failure, callers, evidence, and smallest test.
 
-Hunt the complete production surface: reactive runtime and error quarantine; scopes,
-disposal and churn; blueprint/mount/dirty/layout/property authority; native render,
-StyleSheet/theme and fallback paths; responder/focus/keyboard/touch/gamepad/hybrid
-arbitration; controls, collections, motion, async and replication; API constitution,
-types/deprecations/extensions; docs/examples/registrations/boundaries; leaks,
-per-frame work and sibling regressions. Reproduce live-observable defects before fix.
+Review the complete runtime, layout/render/style, input/focus, controls, lifecycle,
+async/replication, API/extensions, docs/examples, boundaries, and performance surface.
+Reproduce live defects. A missing feature is a defect only when promised.
 
-Rebuild documentation truth from current exports, schemas, registrations, and live
-examples. Make `docs/guide/README.md` name every available public layout/composition
-primitive, control/value input, collection interaction, presentation/navigation,
-focus/input/adaptation/accessibility service, styling/theme/motion facility, state/
-lifecycle/async/replication service, render target, and authoring extension category.
-It may link to a detailed catalog, but a new author must discover the full surface
-from the guide index. Link every item to useful guidance/API detail, remove stale or
-aspirational claims, keep `reference/api.md` exhaustive, and add drift checks tying
-exports/constructors/registrations to both.
+Rebuild docs from current exports, schemas, registrations, and examples. The guide
+must name/link every public family; the API stays exhaustive. Remove stale claims and
+bind both catalogs to drift checks.
 
-Fix all confirmed blocker/high findings. Fix medium/low when safe or record owner,
-risk, reason, and trigger; requirement/public-contract failures cannot be waived.
-Keep fixes narrow—no new parity family, broad refactor, release packaging, or cosmetic
-cleanup. Add durable regressions and rerun affected live slices.
+Audit maintained LuauUI code/comments/tests/tools, examples, docs, paths, links,
+identifiers, gates, and scenarios. Remove Apple/SwiftUI product, platform, sample,
+trade-dress, URL, and attribution references. Use Roblox/LuauUI or neutral form-factor
+and style terms. Do not rename a stable generic API only because another framework
+uses the word. Repair all consumers after a necessary rename.
 
-Treat the execution contract as binding. Run focused/full suites, fuzz/fault/soak,
-perf, registration/docs/boundary, affected prior gates, and representative five-view
-real-adapter scenarios. Give independent architecture, runtime, platform, and phase
-reviewers raw baseline, ledger, diffs, and evidence without conclusions; resolve
-requirement findings.
+Only `docs/reference/swiftui-parity.md` and labeled optional comparison blocks in
+`docs/guide/**` may retain them. Comparisons cannot define a contract. No other current
+doc can name/link them. Immutable evidence can stay outside the maintained/shared
+surface for provenance. After reading this prompt/plan, replace or move their temporary
+prohibited-name text. Add an exact-allowlist check and prove a violation fails; its
+private match data is the sole machine-only exception.
 
-Complete only with gate exit zero/artifact, no unresolved confirmed blocker/high,
-explicit dispositions for all findings, green affected evidence, complete categorized
-guide/API catalogs with drift checks, and preserved performance/behavior. Report
-outcome, coverage edges, artifacts, and physical/human pendings. Do not publish or
-package a release.
+Rewrite all human-readable docs with the plan's ASD-STE100-inspired rules. Use one
+term per concept, active voice, concrete verbs, short sentences/paragraphs, one action
+per step, conditions before actions, and defined technical terms. Remove idioms,
+marketing, vague pronouns, unexplained acronyms, phase codes, and shorthand. Keep API
+names, Roblox classes, paths, commands, and code exact. Do not claim STE certification.
+Have a fresh author and agent complete docs-only tasks; fix instruction failures.
+
+Fix every blocker/high finding. Fix safe medium/low findings or record owner, risk,
+reason, and trigger. Contract failures cannot be waived. This authorized naming/docs
+migration does not authorize features, broad code refactors, packaging, or polish.
+
+Run the execution contract's focused/full, fault/soak/perf, docs/boundary,
+renamed-path, prior-gate, and real-adapter checks. Give required reviewers raw
+evidence; fix requirement findings.
+
+Complete only with gate exit 0/artifact; all findings dispositioned; no confirmed
+blocker/high; brand scan/intentional-failure proof green; fresh-reader tasks pass;
+clear complete guide/API catalogs; affected evidence green; and behavior/performance
+preserved. Report artifacts and honest pendings. Do not publish/package.
 ```
 
 ## Step 14 — Prepare clean source sharing and agent onboarding
@@ -1535,6 +1542,7 @@ Outcome: outside the monorepo, a clean consumer can use the allowlisted source t
 documented Rojo/copy paths and mount/theme/adapt/interact/tear down a sample. Fresh
 agents can safely build and extend with shipped `AGENTS.md`, a thin skill, and public
 docs. Internal history remains available but excluded.
+Preserve Step 13's product-language boundary and clear-writing checks in the export.
 
 First define and document user, contributor, and internal-maintainer boundaries.
 Export by explicit allowlist. Include runtime/assets/notices; version/compatibility/
@@ -1638,10 +1646,16 @@ The roadmap has achieved its goals only when all of these are true:
   no spike or spatial-event contract is presented as production 3D/VR support;
 - the fresh release-candidate review has no unresolved confirmed blocker/high defect,
   and every remaining finding has an explicit evidence-backed disposition;
+- maintained LuauUI code, examples, and documentation contain no Apple/SwiftUI
+  references outside the dedicated parity document and optional, labeled guide
+  comparisons; the exact-allowlist drift check proves the boundary;
 - the guide index names and categorizes every current public layout, control,
   collection, service, target, and extension family; each item leads to useful guide
   or API detail, and automated drift checks bind the guide and exhaustive API
   reference to current exports, constructors, and registrations;
+- human-readable documentation uses consistent terms, direct active sentences,
+  defined technical words, short procedures, and no unexplained internal shorthand;
+  fresh readers can complete the documented tasks without repository history;
 - a reproducible allowlisted source export works outside the monorepo, contains no
   internal review/game material, preserves provenance, and requires no Roblox Package;
 - its root `AGENTS.md` and thin `skills/use-luauui/SKILL.md` route agents to current

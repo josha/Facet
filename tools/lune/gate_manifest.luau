@@ -3182,6 +3182,99 @@ local manifest: { [string]: { Check } } = {
 			note = "All 25 prior gates RE-RUN by this check at the source being judged, via tools/prior_gates.sh with the list derived from phases.json — the same shape row-actions and seven stages before it carry, and for the same reason (gate-integrity sweep 2026-07-29, defect B-1: a stored-file grep that executes nothing against the current tree is a can't-ever-fail check). Guarded by LUAUUI_PRIOR_GATES_NESTED so a sweep that reaches this stage as somebody else's prior does not recurse. The verdict logic is the row-actions allowlist VERBATIM plus ONE addition: (traversal-document-order, studio-evidence). That pair is the honestly-red item described in the row above — stale Studio evidence awaiting a human re-record, red since 2026-08-12, and it will redden that gate on every sweep until the re-record happens. It is allow-listed BY NAME rather than by widening the rule, so it stays visible in the roll-up and in this note instead of being absorbed into a tolerance, and the `traversal-evidence-red-carried` row makes it a gate failure to erase it. Every other FAIL_RECOVERABLE outside the eight bench-shelling pairs still fails this check outright. NOT YET RUN, AND SAID PLAINLY: at registration time this stage's sweep had not been executed — two other agents were live in the tree and one was mutation-testing, a sweep re-runs 25 gates each invoking the full suite, and a concurrent sweep already held /tmp/luauui_prior_gates.lock (the header of tools/prior_gates.sh records what two concurrent sweeps did to each other's artifacts the last time). So this row is registered live and RED for the honest reason that its evidence does not exist yet. It is the one check in this block that was not mutation-proven, because proving it would have meant running the sweep this stage is forbidden to run.",
 		},
 	},
+	["declarative-3d-architecture"] = {
+		-- Declarative 3D architecture DECISION stage (docs/plans/
+		-- declarative-3d-architecture.md). This stage decides whether and how the
+		-- studio builds a declarative fine-grained-reactive system for Roblox
+		-- Parts/Models; it does NOT build one. PASS means the decision is proved:
+		-- a reviewed plain-language ADR, an alternatives comparison, an isolated
+		-- runnable disproof spike, topology/lifecycle traces, measured costs, and
+		-- four fresh-context reviews with factual findings resolved.
+		--
+		-- REGISTERED BEFORE ANY OTHER STAGE WORK, per the round-2 block directly
+		-- above (a mission that ran with no stage for tools/gate.sh to run). Every
+		-- row lands as PENDING and becomes a `run` only when its implementation
+		-- and evidence exist (manifest header rule).
+		--
+		-- ISOLATION IS A STANDING CLAIM OF THIS STAGE: the spike lives under
+		-- spikes/declarative-3d/ (a directory this stage creates), never under
+		-- src/, and the stage changes no LuauUI public export, extracts no core,
+		-- edits no game code, and creates no production package. The durable
+		-- checks below assert the spike's own structure; the one-time fact that
+		-- src/ was untouched at close is recorded in the evidence and confirmed by
+		-- the fresh-context phase-gate review, because a live `git status src/`
+		-- re-run by a future prior-gates sweep would assert something about THAT
+		-- day's tree, not about this stage.
+		--
+		-- NO prior-gates sweep row, DECIDED RATHER THAN FORGOTTEN: this stage
+		-- writes no line of library source, so the sweep obligation (defect B-1's
+		-- target: code changes regressing earlier gates) has no code to bite. The
+		-- suite-floor row below is the regression evidence proportionate to a
+		-- docs+spike+artifacts stage; the next code-bearing stage carries the full
+		-- sweep as usual.
+		{
+			name = "adr-decisive",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "docs/adr/ADR-0023-declarative-3d.md",
+			note = "The plain-language ADR exists, states ONE decision (build/no-build and, if build, the boundary), names shared vs deliberately-separate concepts, the server/client/replication trust model, the extraction-vs-migration-risk call, the first bounded milestone, non-goals, risks, and the future device/performance proof still owed.",
+		},
+		{
+			name = "alternatives-compared",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/declarative-3d-architecture/alternatives.md",
+			note = "The four alternatives (extend LuauUI / sibling with shared kernel / independent system / no build) each evaluated against the same criteria: package boundary, topology, authority, identity/diffing, streaming, ownership, failure recovery, performance, testing, and double-construction prevention.",
+		},
+		{
+			name = "use-case-inventory",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/declarative-3d-architecture/use-cases.md",
+			note = "Concrete inventory: static layout, keyed collections, reactive visual properties, attachments/assemblies, server-owned shared objects, client-local decoration, streaming, teardown — with the out-of-scope list (physics controllers, terrain generation, networking replacement, general game engine) stated in the artifact itself.",
+		},
+		{
+			name = "spike-headless-green",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/declarative-3d-architecture/spike-headless.txt",
+			note = "The isolated spike's headless specs run green under Lune from spikes/declarative-3d/: keyed add/remove/reorder preserving survivors, local transform composition, bounded reactive writes, invalid-authoring and callback-failure containment, and counters returning to baseline on teardown.",
+		},
+		{
+			name = "spike-isolated",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			note = "Durable structure check: every spike file lives under spikes/declarative-3d/; the spike requires nothing from src/ except the candidate kernel modules it is explicitly evaluating for sharing (core/contract, core/custom, core/scope_impl); src/blueprint.luau and the public surface carry no world-node constructor from this stage.",
+		},
+		{
+			name = "studio-topology-evidence",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/declarative-3d-architecture/studio-topology.json",
+			note = "Live Studio record, content-checked via tools/check_spike.py (never test -f): server-owned root built exactly once on the server, client-local root built exactly once per client, the same declared object never constructed by both endpoints, streaming-like disappearance and reappearance handled without duplicate rebuild, reparent and destroy release instances and connections.",
+		},
+		{
+			name = "spike-costs-measured",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/declarative-3d-architecture/costs.json",
+			note = "Measured, not asserted: instance count, connection count, and per-update Instance-write counts for the spike's scenarios, with the desktop-only caveat recorded in the artifact (no production-performance claim from a desktop spike).",
+		},
+		{
+			name = "reviews-resolved",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/declarative-3d-architecture/reviews.md",
+			note = "Four fresh-context reviews (architecture, reactive-runtime, Roblox-platform, phase-gate) run against the ADR, alternatives, raw spike, topology traces, and costs; every factual finding resolved or explicitly deferred with the reason; verdicts recorded verbatim.",
+		},
+		{
+			name = "library-suite-green",
+			requirements = { "UI-AGENT-001" },
+			state = "PENDING",
+			evidence = "artifacts/test.json",
+			note = "The library suite floor at stage close — the proportionate no-regression evidence for a stage that changes no library source (see block header for why there is no prior-gates sweep row). Becomes `run = tools/test.sh <floor>` with the floor measured from a fresh full run at close.",
+		},
+	},
 }
 
 return manifest
