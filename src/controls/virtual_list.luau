@@ -1,11 +1,65 @@
 --!strict
 -- VirtualList (design §10.5; native-substrate §4/§6; UI-RUNTIME-002,
--- UI-FOCUS-001, UI-LIFE-002): fixed-height keyed-row virtualization riding the
+-- UI-FOCUS-001, UI-LIFE-002): fixed-extent keyed-item virtualization riding the
 -- NATIVE scroll substrate. The control root is a UI.ScrollView (engine
 -- ScrollingFrame on the live adapter): the engine owns the live offset (wheel,
 -- touch drag, momentum, elastic, scroll bars), and the framework owns ONLY the
 -- content geometry and the windowing decision — the exact split the native
 -- plan §4/§6 draws (geometry headless, scroll physics at the edge).
+--
+--[[ TWO AXES, ONE VIRTUALIZER (spec: docs/plans/swiftui-parity-round2.md §2.3;
+	game-director decision 2026-08-12). `spec.axis` is `"y"` (a vertical list of
+	rows — the DEFAULT, and what every existing caller builds) or `"x"` (a
+	sideways strip of items). It is CONSTRUCTION-ONLY for the same reason
+	`ScrollView.axis` is: a reactive engine scroll axis would rebuild native
+	scroll state mid-gesture (constitution §16 E-6).
+
+	READ THE REST OF THIS HEADER WITH THE AXIS IN MIND. Everything below is
+	written in the vocabulary of the DEFAULT vertical axis — "row", "height",
+	"top", "down" — because that is the shape every shipped consumer builds and
+	the shape the prose reads best in. On `axis = "x"` every one of those words
+	transposes, exactly and without exception:
+
+	    axis = "y" (default)          axis = "x"
+	    ─────────────────────         ──────────────────────
+	    row height                    item width
+	    viewport height               viewport width
+	    canvas is full-HEIGHT         canvas is full-WIDTH
+	    windowed by CanvasPosition.Y  windowed by CanvasPosition.X
+	    row offsetY = (i-1)*pitch     item offsetX = (i-1)*pitch
+	    focus group axis "vertical"   focus group axis "horizontal"
+	    Up/Down + DPadUp/Down step    Left/Right + DPadLeft/Right step
+	    autoscroll bands top/bottom   autoscroll bands left/right
+
+	THE ARITHMETIC IS SHARED, NOT DUPLICATED: `contentIn`, `pitchIn`,
+	`windowItems`, `clampedTop`, `keepVisibleTarget` and `insertSlotAt` are
+	written once, in one dimension, and the axis decides only WHICH engine
+	coordinate and WHICH blueprint dim they are wired to. Getting this wrong
+	looks like a list that scrolls one way and windows the other.
+
+	The axis-neutral names are `itemExtent` and `viewportExtent`. `rowHeight`
+	and `viewportHeight` are DEPRECATED ALIASES of exactly those two and KEEP
+	WORKING unchanged (ADR-0011: at least one MINOR of notice; both spellings
+	are in `LuauUI.DEPRECATIONS`). Passing a name and its alias together is
+	refused — it is one field, and two answers to it is an authoring mistake.
+	Nothing else was renamed: `rowGap` is still `rowGap` (a gap is a gap, and it
+	applies along whichever axis the list scrolls), and `scrollTop` is still
+	`scrollTop` (see its own declaration — on `axis = "x"` it mirrors
+	`CanvasPosition.X`, and the name predates the field).
+
+	ROW ACTIONS ARE REFUSED ON A HORIZONTAL LIST, at construction. A row-actions
+	tray is opened by a SIDEWAYS swipe, and a sideways swipe on a sideways list
+	is already how the player scrolls it. One gesture cannot mean both, and
+	picking one silently is how a gesture becomes unpredictable — so the
+	combination is named and refused rather than resolved by whichever handler
+	got there first.
+
+	VARIABLE ITEM EXTENTS ARE A RECORDED GAP, NOT A HALF-BUILT SEAM. Nothing in
+	this file is staged for them and no field is reserved: the window is
+	`index × pitch`, which is O(1) and exact precisely BECAUSE the pitch is one
+	number. §2.3 states the problem (an item's extent is only known by building
+	it, which is the thing virtualization exists to avoid) and records both
+	candidate designs; it does not sanction starting one. ]]
 --
 -- THE UNIFIED COLLECTION (ADR-0022 Decision 5, rows SF-L1/L2/L3). One construct
 -- windows, selects, reorders and accepts drops at the same time, because the
@@ -19,29 +73,34 @@
 -- CANVAS DESIGN (native §6). A native ScrollingFrame renders one Frame per
 -- child, so a naive windowed list — ~15 mounted rows — would give the engine a
 -- 15-row canvas, not the full virtual extent. FIX: the ScrollView holds ONE
--- child, a full-height Anchor "Canvas" (height = the content extent, a live
--- memo), and the windowed rows are ABSOLUTELY-positioned anchor children at
--- offsetY = (index-1)*PITCH. The solver sums the scroll axis, so
--- contentSize == the Canvas height == the full virtual height; the renderer
--- maps that to CanvasSize (native-substrate NS-A2). Row offsets are CANVAS
--- offsets, engine-independent (a scroll never re-arranges them — the ENGINE
--- translates via CanvasPosition), so a same-window scroll delta is now ZERO
--- framework writes (was rect-writes-only under the old Anchor+offsetY trick).
+-- child, a full-MAIN-AXIS Anchor "Canvas" (its main-axis dim = the content
+-- extent, a live memo; its cross-axis dim fills), and the windowed rows are
+-- ABSOLUTELY-positioned anchor children at offsetY = (index-1)*PITCH on
+-- `axis = "y"` / offsetX = (index-1)*PITCH on `axis = "x"`. The solver sums the
+-- scroll axis, so contentSize == the Canvas's main-axis size == the full
+-- virtual extent; the renderer maps that to CanvasSize (native-substrate
+-- NS-A2). Row offsets are CANVAS offsets, engine-independent (a scroll never
+-- re-arranges them — the ENGINE translates via CanvasPosition), so a
+-- same-window scroll delta is now ZERO framework writes (was rect-writes-only
+-- under the old Anchor+offsetY trick).
 --
--- PITCH vs ROW (spec.rowGap). The slot a row occupies is `rowHeight + rowGap`
--- tall; the row's own node stays `rowHeight` tall, so the gutter is DEAD SPACE
+-- PITCH vs ROW (spec.rowGap). The slot a row occupies is `itemExtent + rowGap`
+-- tall; the row's own node stays `itemExtent` tall, so the gutter is DEAD SPACE
 -- that belongs to neither neighbour — exactly what a `UIListLayout.Padding`
--- gives, and exactly why the alternative (hand in the pitch AS the row height
+-- gives, and exactly why the alternative (hand in the pitch AS the item extent
 -- and inset the cell) is wrong: that inflates the row's HIT into the gutter, so
 -- a press between two plates activates one of them. EVERY windowing number is
 -- on the pitch (canvas extent, clamp, window membership, keep-visible, the
 -- insertion slot, the reorder slide); the row box and the row rect are not. The
 -- content extent carries no TRAILING gutter — N rows span
--- N*rowHeight + (N-1)*rowGap. `rowGap = 0` is the default and reproduces the
--- pre-field arithmetic byte for byte.
+-- N*itemExtent + (N-1)*rowGap. `rowGap = 0` is the default and reproduces the
+-- pre-field arithmetic byte for byte. On `axis = "x"` "tall" reads "wide" and
+-- the gutter is the horizontal space between items; the field is not renamed
+-- because a gap is a gap on either axis.
 --
--- scrollTop is a MIRROR of the engine CanvasPosition, never a hand-managed
--- offset. It is written ONLY by (i) the presenter/consumer wiring the engine
+-- scrollTop is a MIRROR of the engine CanvasPosition ALONG THE LIST'S AXIS
+-- (`.Y` on `axis = "y"`, `.X` on `axis = "x"` — the name predates the field
+-- and is kept because it is public API), never a hand-managed offset. It is written ONLY by (i) the presenter/consumer wiring the engine
 -- mirror — call list.bindNativeScroll(controller) after present() to feed
 -- (VirtualList publishes the seam FLAT on its returned table; there is no `api`
 -- member here — Table is the one that nests it. CTRL-05a)
@@ -53,7 +112,8 @@
 -- CanvasPosition flows back through the mirror.
 --
 -- KEEP-VISIBLE (focusKey / keyboard+gamepad scroll-into-view): the control
--- COMPUTES the target canvas y and issues the framework's one programmatic
+-- COMPUTES the target canvas offset on its own axis and issues the framework's
+-- one programmatic
 -- scroll write, controller.scrollTo(scrollPath, {x,y}) through the bound
 -- controller (a no-op when unbound). On the live engine that moves
 -- CanvasPosition and echoes back through the mirror; headlessly the fake
@@ -94,10 +154,14 @@
 --     the capture so the native pan keeps working, which is why touch reaches
 --     reorder through the non-pointer grab verbs instead (Table precedent).
 --   * keyboard: a contributed focusGroups exposes the WINDOWED row hits as one
---     vertical group (re-derived per refresh window slide); Up/Down steps rows;
---     focus moving to an off-band row scrolls it into view via the keep-visible
---     scrollTo; Return activates the focused row.
---   * gamepad: D-pad is identical to arrows and ButtonA activates. When the list
+--     group along the LIST'S OWN AXIS (`vertical` on `axis = "y"`, `horizontal`
+--     on `axis = "x"`) — re-derived per refresh window slide. Up/Down steps rows
+--     on a vertical list, Left/Right on a horizontal one; there is ONE focus
+--     map, read two ways (constitution §9), never a second order. Focus moving
+--     to an off-band row scrolls it into view via the keep-visible scrollTo;
+--     Return activates the focused row.
+--   * gamepad: D-pad is identical to arrows (so DPadLeft/DPadRight step a
+--     horizontal list) and ButtonA activates. When the list
 --     is reorderable it contributes a navigateIntercept: while a row is ARMED,
 --     Navigate moves the predicted drop target instead of focus, Activate
 --     commits and Cancel cancels — the same session, the same legality.
@@ -112,12 +176,20 @@
 --   scrollTo(controller, y), scrollPath() -> path?,
 --   debugWindow() -> {key=true}, dump(), dispose()
 -- }
--- spec: { id?, rows (Readable {T}), key (T)->string, rowHeight (px number or
---   Readable<number>), rowGap? (px number or Readable<number>, default 0 — the
---   gutter between row SLOTS; the pitch is rowHeight + rowGap and the row's own
---   node stays rowHeight tall), viewportHeight (px number or Readable<number>),
---   overscan? (rows, default 2),
---   cell (item, ctx: {scope}) -> Blueprint, width? (row width Dim),
+-- spec: { id?, rows (Readable {T}), key (T)->string,
+--   axis? ("y" | "x", default "y" — construction-only; see TWO AXES above),
+--   itemExtent (px number or Readable<number> — one item's MAIN-AXIS size,
+--     uniform per list; DEPRECATED ALIAS: rowHeight, still accepted, and
+--     passing both is refused),
+--   rowGap? (px number or Readable<number>, default 0 — the
+--   gutter between item SLOTS; the pitch is itemExtent + rowGap and the item's
+--   own node stays itemExtent along the axis),
+--   viewportExtent (px number or Readable<number> — the scroll host's
+--     MAIN-AXIS size; DEPRECATED ALIAS: viewportHeight, same rules),
+--   overscan? (items, default 2),
+--   cell (item, ctx: {scope}) -> Blueprint, width? (the list's width Dim —
+--     axis = "y" ONLY, where width is the CROSS axis; refused on axis = "x",
+--     where the width IS viewportExtent),
 --   onActivate? ((item, meta) -> ()),
 --   selection? ("none" | "single"), onSelect? ((item, key) -> ()),
 --   selectionPaint? ("native" | "none" — "none" keeps the selection and drops
@@ -131,7 +203,9 @@
 --   focusPolicy? ("key" | "index", default "key" — does the cursor follow the
 --     ITEM across a re-sort, or stay on the SLOT; see FOCUS POLICY above),
 --   rowActions? ((item) -> { leading?, trailing?, fullSwipe? }?) — HOSTED ROW
---     ACTIONS (see below); nil per item = that row is unwrapped,
+--     ACTIONS (see below); nil per item = that row is unwrapped. VERTICAL LISTS
+--     ONLY — refused on axis = "x", because the tray's reveal gesture and the
+--     list's own scroll gesture would be the same sideways swipe,
 --   env? (the surface environment — Table's own `env` key, and read for the same
 --     reason: the row-action tray's `buttonPad`/`buttonMinWidth` are theme facts
 --     with no font component, so measuring a tray's natural width needs the live
@@ -268,12 +342,19 @@ local HOSTED_ROW_ACTIONS_KEYS = specGuard.keySet({ "leading", "trailing", "fullS
 -- reads — an unknown one is an authoring mistake, never a silent no-op.
 local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"autoscroll",
+	-- the scroll axis, construction-only ("y" default | "x")
+	"axis",
 	"cell",
 	"dropSurface",
 	"env",
 	"focusPolicy",
 	"grabOnActivate",
 	"id",
+	-- the canonical, axis-neutral extent names. `rowHeight` / `viewportHeight`
+	-- below are their DEPRECATED ALIASES and stay in this set because they stay
+	-- accepted (ADR-0011) — removing them from the set is what the removal
+	-- release does, not this one.
+	"itemExtent",
 	"key",
 	"motionClock",
 	"navigation",
@@ -287,28 +368,66 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"rowDropTarget",
 	"rowFocusable",
 	"rowGap",
-	"rowHeight",
+	"rowHeight", -- deprecated alias of itemExtent (ADR-0011)
 	"rows",
 	"selection",
 	"selectionPaint",
-	"viewportHeight",
+	"viewportExtent",
+	"viewportHeight", -- deprecated alias of viewportExtent (ADR-0011)
 	"width",
 })
 
 function virtual_list.build(LuauUI: any, core: any, spec: any)
 	specGuard.assertKnownKeys("newVirtualList", spec, VIRTUAL_LIST_KEYS, "spec")
-	local rowHeightSpec = spec.rowHeight
-	-- ROW HEIGHT MAY BE DERIVED, BUT IT IS ONE NUMBER FOR THE WHOLE LIST
-	-- (finding F13). A Readable is accepted so a height derived from the theme
-	-- metrics snapshot (or the preferred-text offset) re-derives on a swap
-	-- without rebuilding the list; what is NOT accepted is a per-row height,
-	-- because the windowing arithmetic is index×height and a per-row wrap
-	-- difference would silently mis-window at the largest text offset.
-	local rowHeightIsLive = type(rowHeightSpec) == "table" and type(rowHeightSpec.get) == "function"
+	--[[ THE SCROLL AXIS (spec §2.3). CONSTRUCTION-ONLY, for exactly the reason
+		`ScrollView.axis` is (constitution §16 E-6): the axis decides which native
+		scroll state the engine holds, so a reactive one would rebuild that state
+		mid-gesture — the player's finger would be mid-fling on a host that had
+		just changed which way it scrolls. `"y"` is the default AND a legal
+		explicit answer, and it is the pre-field control byte for byte: every
+		branch below is STATIC on this value, chosen once at build. ]]
+	local axis: string = spec.axis or "y"
 	assert(
-		rowHeightIsLive or (type(rowHeightSpec) == "number" and rowHeightSpec > 0),
-		"VirtualList.rowHeight must be a positive number or a Readable<number> (fixed-height rows, uniform per list; "
-			.. "derive it from the theme metrics snapshot at the call site — variable heights are a §17 Phase 5 gate)"
+		axis == "y" or axis == "x",
+		`VirtualList.axis must be "y" (a vertical list of rows — the default) or "x" (a sideways strip of items) — `
+			.. `got '{tostring(spec.axis)}'. It is construction-only: a reactive scroll axis would rebuild the engine's `
+			.. "native scroll state mid-gesture (constitution §16 E-6, the same rule ScrollView.axis follows)."
+	)
+	local isX = axis == "x"
+	--[[ ONE FIELD, TWO NAMES (ADR-0011). `itemExtent` / `viewportExtent` are the
+		canonical, axis-neutral names; `rowHeight` / `viewportHeight` are their
+		DEPRECATED ALIASES and keep working unchanged for at least one MINOR —
+		both spellings are registered in `LuauUI.DEPRECATIONS`, and an existing
+		vertical caller needs no edit at all.
+
+		PASSING BOTH IS REFUSED rather than resolved by precedence. They are one
+		field; two answers to it means the author believes they are two, and
+		whichever one silently lost would be the bug report. ]]
+	local function oneOf(canonicalName: string, canonical: any, aliasName: string, alias: any): any
+		if canonical ~= nil and alias ~= nil then
+			error(
+				`newVirtualList: {canonicalName} and {aliasName} are the SAME field under two names `
+					.. `({aliasName} is the deprecated alias of {canonicalName}, ADR-0011) — pass exactly one`,
+				0
+			)
+		end
+		return if canonical ~= nil then canonical else alias
+	end
+	local itemExtentSpec = oneOf("itemExtent", spec.itemExtent, "rowHeight", spec.rowHeight)
+	-- THE ITEM EXTENT MAY BE DERIVED, BUT IT IS ONE NUMBER FOR THE WHOLE LIST
+	-- (finding F13). A Readable is accepted so an extent derived from the theme
+	-- metrics snapshot (or the preferred-text offset) re-derives on a swap
+	-- without rebuilding the list; what is NOT accepted is a per-item extent,
+	-- because the windowing arithmetic is index×extent and a per-row wrap
+	-- difference would silently mis-window at the largest text offset.
+	local itemExtentIsLive = type(itemExtentSpec) == "table" and type(itemExtentSpec.get) == "function"
+	assert(
+		itemExtentIsLive or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
+		"VirtualList.itemExtent (deprecated alias: rowHeight — both are accepted, one at a time) must be a positive "
+			.. "number or a Readable<number>: ONE item's size along the list's own axis (its height on axis=\"y\", its "
+			.. 'width on axis="x"), uniform per list. Derive it from the theme metrics snapshot at the call site. '
+			.. "Variable item extents are a RECORDED GAP with no implementation and no reserved seam "
+			.. "(docs/plans/swiftui-parity-round2.md §2.3)."
 	)
 	--[[ THE GUTTER BETWEEN ROW SLOTS, one number for the whole list for exactly
 		the reason the row height is one number: the windowing arithmetic is
@@ -326,22 +445,39 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local rowGapIsLive = type(rowGapSpec) == "table" and type(rowGapSpec.get) == "function"
 	assert(
 		rowGapIsLive or (type(rowGapSpec) == "number" and rowGapSpec == rowGapSpec and rowGapSpec >= 0),
-		"VirtualList.rowGap must be a non-negative number or a Readable<number> (the vertical gutter between row "
-			.. "slots, uniform per list; the row itself stays rowHeight tall and the gutter is dead space)"
+		"VirtualList.rowGap must be a non-negative number or a Readable<number> (the gutter between item slots ALONG "
+			.. "THE LIST'S AXIS, uniform per list; the item itself stays itemExtent along that axis and the gutter is "
+			.. "dead space). The name is not axis-specific on purpose: a gap is a gap on either axis."
 	)
-	-- VIEWPORT HEIGHT MAY BE LIVE for the same reason rowHeight may (P5-F5): a
-	-- list filling a container, or re-deriving after an environment change,
-	-- hands in a Readable and BOTH consumers of the number — the host's height
-	-- dim (reactive, dirty=measure) and the windowing arithmetic — track it, so
-	-- the painted box and the window can never disagree.
-	local viewportSpec = spec.viewportHeight
+	-- THE VIEWPORT EXTENT MAY BE LIVE for the same reason itemExtent may (P5-F5):
+	-- a list filling a container, or re-deriving after an environment change,
+	-- hands in a Readable and BOTH consumers of the number — the host's
+	-- main-axis dim (reactive, dirty=measure) and the windowing arithmetic —
+	-- track it, so the painted box and the window can never disagree.
+	local viewportSpec = oneOf("viewportExtent", spec.viewportExtent, "viewportHeight", spec.viewportHeight)
 	local viewportIsLive = type(viewportSpec) == "table" and type(viewportSpec.get) == "function"
 	assert(
 		viewportIsLive or (type(viewportSpec) == "number" and viewportSpec > 0),
-		"VirtualList.viewportHeight must be a positive number or a Readable<number>"
+		"VirtualList.viewportExtent (deprecated alias: viewportHeight — both are accepted, one at a time) must be a "
+			.. "positive number or a Readable<number>: the scroll host's size along the list's own axis (its height on "
+			.. 'axis="y", its width on axis="x")'
 	)
 	assert(type(spec.key) == "function", "VirtualList.key is required")
 	assert(type(spec.cell) == "function", "VirtualList.cell is required")
+	--[[ `width` IS THE CROSS AXIS, and only a vertical list has one there. On
+		`axis = "x"` the width IS the main axis — it is what `viewportExtent`
+		declares — so accepting both would be two answers to one dim, and
+		silently letting either win is the class of bug the extent aliases are
+		refused for above. The cross axis of a horizontal list is its HEIGHT, and
+		it FILLS: wrap the list in a box of the height you want. ]]
+	if isX then
+		assert(
+			spec.width == nil,
+			'VirtualList.width is an axis="y" field (there, width is the CROSS axis). On axis="x" the width IS the '
+				.. "scroll axis — declare it as viewportExtent. The cross axis of a horizontal list is its height, "
+				.. "which fills its container; wrap the list to fix it."
+		)
+	end
 	local UI = LuauUI.UI
 	local id = spec.id or "VirtualList"
 	local function viewportIn(use: any): number
@@ -429,6 +565,26 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if reorderable then
 			error("newVirtualList: rowActions + reorderable is unsupported (v1)", 0)
 		end
+		--[[ ...AND ROW ACTIONS ARE VERTICAL-ONLY, for a reason that is about the
+			PLAYER'S HAND rather than about this file. A tray is revealed by a
+			SIDEWAYS swipe; on a sideways list, a sideways swipe is already how the
+			player scrolls. One gesture cannot mean both "scroll the list" and "open
+			the tray", and whichever handler happened to claim it first would make
+			the answer depend on the axis lock's tie-break — a list whose rows
+			sometimes slide and sometimes scroll.
+
+			Refused, not degraded, and refused HERE at construction rather than at
+			the first swipe: an author who declares both has a design question to
+			answer, and the honest place to raise it is the build. ]]
+		if isX then
+			error(
+				'newVirtualList: rowActions is unsupported on axis = "x". A row-actions tray is opened by a SIDEWAYS '
+					.. "swipe, and on a horizontal list a sideways swipe is already the scroll gesture — one gesture "
+					.. "cannot mean both, and picking one silently makes the list unpredictable. Put the actions on a "
+					.. 'vertical list, or reach them another way (a long-press menu, a detail view) on axis = "x".',
+				0
+			)
+		end
 	end
 	local hostedEnabled = hostedRowActions ~= nil
 	local isDropSurface = spec.dropSurface == true or spec.rowDropTarget ~= nil
@@ -442,11 +598,51 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		then spec.grabOnActivate == true
 		else (reorderable and spec.onActivate == nil)
 
-	local function rowHeightNow(): number
-		return if rowHeightIsLive then (rowHeightSpec :: any):get() else rowHeightSpec
+	--[[ ===== THE AXIS SEAM =====================================================
+		Everything above this line is one-dimensional arithmetic that does not care
+		which way the list runs. These four helpers are the ONLY place the axis
+		turns into a coordinate, and every write below goes through one of them —
+		so "which way does this list scroll" is answered once, not per call site.
+
+		`mainOf` reads the main-axis component of an engine/pointer point or a
+		rect origin; `vec` builds the {x,y} pair the renderer's scroll and
+		presentation writes take. `crossFill` and the two dim helpers keep the
+		blueprint side symmetric. ]]
+	--[[ A FRESH `fill` DIM PER NODE, never one shared table. Every site below used
+		to write the literal inline, so a fresh table per node is the pre-field
+		allocation profile byte for byte — and it is what keeps a dim a VALUE. One
+		shared constant would put the same table on the canvas, on every row and on
+		the drop line at once, which costs nothing today and is a trap the first
+		time anything treats a dim as its own. ]]
+	local function fill(): any
+		return { type = "fill", weight = 1 }
 	end
-	local function rowHeightIn(use: any): number
-		return if rowHeightIsLive then use(rowHeightSpec) else rowHeightSpec
+	-- `any`, not `number`: the drag registry's live state publishes `x`/`y` that
+	-- are nil between sessions, and the one caller that can see that nil tests
+	-- for it. Every other caller reads a point that always has both.
+	local function mainOf(point: any): any
+		return if isX then point.x else point.y
+	end
+	-- an {x,y} carrying `value` on the main axis and 0 on the cross axis: what
+	-- `controller.scrollTo` and `setPresentationTransform` both take
+	local function vec(value: number): { x: number, y: number }
+		return if isX then { x = value, y = 0 } else { x = 0, y = value }
+	end
+	-- ...and the blueprint side: given the dim that belongs on the SCROLL axis
+	-- and the dim that belongs ACROSS it, which is the `width` and which the
+	-- `height`. Every node this control builds sizes itself through this pair.
+	local function widthOf(main: any, cross: any): any
+		return if isX then main else cross
+	end
+	local function heightOf(main: any, cross: any): any
+		return if isX then cross else main
+	end
+
+	local function itemExtentNow(): number
+		return if itemExtentIsLive then (itemExtentSpec :: any):get() else itemExtentSpec
+	end
+	local function itemExtentIn(use: any): number
+		return if itemExtentIsLive then use(itemExtentSpec) else itemExtentSpec
 	end
 	local function rowGapNow(): number
 		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
@@ -457,10 +653,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- THE PITCH: one slot, gutter included. Every windowing number is on this,
 	-- and nothing that describes the ROW is (see the header).
 	local function pitchNow(): number
-		return rowHeightNow() + rowGapNow()
+		return itemExtentNow() + rowGapNow()
 	end
 	local function pitchIn(use: any): number
-		return rowHeightIn(use) + rowGapIn(use)
+		return itemExtentIn(use) + rowGapIn(use)
 	end
 	-- ...and the CONTENT EXTENT the canvas spans: N slots with NO trailing
 	-- gutter, because the gap is BETWEEN rows exactly as a UIListLayout's padding
@@ -469,18 +665,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if count <= 0 then
 			return 0
 		end
-		return count * rowHeightIn(use) + (count - 1) * rowGapIn(use)
+		return count * itemExtentIn(use) + (count - 1) * rowGapIn(use)
 	end
 	local function contentNow(): number
 		local count = #(spec.rows:get() :: { any })
 		if count <= 0 then
 			return 0
 		end
-		return count * rowHeightNow() + (count - 1) * rowGapNow()
+		return count * itemExtentNow() + (count - 1) * rowGapNow()
 	end
 
 	-- id -> path-pattern piece: a row hit path looks like
-	-- <root>/<id>/Canvas/W/[<key>]/Row/Hit (the Canvas anchor is the full-height
+	-- <root>/<id>/Canvas/W/[<key>]/Row/Hit (the Canvas anchor is the full-extent
 	-- scroll canvas), so escape the id for string.match reuse
 	local hitPattern = patternEscape(id) .. "/Canvas/W/%[(.-)%]/Row/Hit$"
 
@@ -517,8 +713,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	local listScope = core:scope(`virtual-list-{id}`)
-	-- scrollTop: the engine CanvasPosition MIRROR (native-substrate NS-A2). Fed
-	-- by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
+	--[[ scrollTop: the engine CanvasPosition MIRROR (native-substrate NS-A2). Fed
+		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
+
+		IT IS THE OFFSET ON THE LIST'S OWN AXIS — `CanvasPosition.Y` on
+		`axis = "y"`, `CanvasPosition.X` on `axis = "x"`. The NAME is vertical and
+		is kept anyway, deliberately: it is public API that consumers and tests
+		read by name, and renaming it would be a breaking change this field does
+		not need. Read it as "the offset from the start of the canvas". ]]
 	local scrollTop = listScope:own(core:signal(0))
 	local focusedKey = listScope:own(core:signal(nil))
 	local selectedKey = listScope:own(core:signal(nil :: string?))
@@ -537,10 +739,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return map
 	end))
 
-	-- the full virtual extent as a live fixed Dim: the ScrollView's single
-	-- Canvas child is this tall, so the solver's scroll-axis sum == the full
-	-- virtual height and the renderer pushes it as CanvasSize (native §6). Rows
-	-- mount only in the window, but the canvas always spans the whole list.
+	-- the full virtual extent as a live fixed Dim: the ScrollView's single Canvas
+	-- child is this big ALONG THE SCROLL AXIS, so the solver's scroll-axis sum ==
+	-- the full virtual extent and the renderer pushes it as CanvasSize (native §6).
+	-- Rows mount only in the window, but the canvas always spans the whole list.
 	local canvasDim = listScope:own(core:memo(function(use)
 		local count = #(use(spec.rows) :: { any })
 		return { type = "fixed", px = contentIn(use, count) }
@@ -575,7 +777,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		local items = use(spec.rows) :: { any }
 		local top = use(clampedTop)
 		-- SLOTS, not rows: a viewport spans `viewport / pitch` whole slots and the
-		-- canvas y of slot k is (k-1)*pitch, so both halves read the pitch
+		-- canvas offset of slot k is (k-1)*pitch, so both halves read the pitch
 		local pitch = pitchIn(use)
 		local firstVisible = math.floor(top / pitch) + 1
 		local visibleCount = math.ceil(viewportIn(use) / pitch)
@@ -667,8 +869,8 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return math.max(0, contentNow() - viewportNow())
 	end
 
-	-- keep-visible target: the canvas y that brings row `index` fully into the
-	-- viewport, minimal scroll both directions; nil when it is already in band
+	-- keep-visible target: the canvas offset that brings row `index` fully into
+	-- the viewport, minimal scroll both directions; nil when it is already in band
 	-- keep-visible from the row INDEX, because a row outside the window is not
 	-- mounted and therefore has no solved rect the renderer's substrate could read.
 	-- The minimum-distance CLAMP is the shared one (A-SV2): only the span's source
@@ -679,7 +881,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local function keepVisibleTarget(index: number): number?
 		return solverLib.keepVisibleOffset(
 			(index - 1) * pitchNow(),
-			rowHeightNow(),
+			itemExtentNow(),
 			clampedTop:get(),
 			viewportNow(),
 			contentNow()
@@ -691,14 +893,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if index == nil then
 			return nil
 		end
-		-- keep-visible: compute the target canvas y and issue the framework's ONE
+		-- keep-visible: compute the target canvas offset and issue the framework's ONE
 		-- programmatic scroll write through the bound controller (native §4). On
 		-- the engine this moves CanvasPosition and echoes back to scrollTop; the
 		-- fake target echoes synchronously, so the window materializes the row.
 		-- Unbound: a no-op (a standalone control with no engine to scroll).
 		local target = keepVisibleTarget(index)
 		if target ~= nil and boundController ~= nil and boundScrollPath ~= nil then
-			boundController.scrollTo(boundScrollPath, { x = 0, y = target })
+			boundController.scrollTo(boundScrollPath, vec(target))
 			-- EVERY scroll write moves the drop targets, and a live session must
 			-- see that on the same frame — the identical rule edge autoscroll
 			-- follows, applied to the keep-visible write. Without it a keyboard or
@@ -811,7 +1013,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end))
 	end
 
-	-- window-space pointer y -> canvas y. The solver arranges rows in the host's
+	-- window-space pointer -> canvas offset. The solver arranges rows in the host's
 	-- own space and the engine shifts them by CanvasPosition, so the drop slot is
 	-- only correct if the live scroll offset is added back (the same correction
 	-- Table's reorder makes).
@@ -831,27 +1033,31 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return read(path)
 	end
 
-	local function canvasYFor(pointerY: number): number?
+	-- a pointer point (window space) -> the CANVAS offset along the scroll axis.
+	-- `pointerMain` is the pointer's component on that axis: its y on a vertical
+	-- list, its x on a horizontal one — the caller reads it through `mainOf`, so
+	-- the two never disagree about which coordinate the rect is being compared to.
+	local function canvasOffsetFor(pointerMain: number): number?
 		local rect = hostScreenRect()
 		if type(rect) ~= "table" then
 			return nil
 		end
-		return pointerY - rect.y + clampedTop:get()
+		return pointerMain - mainOf(rect) + clampedTop:get()
 	end
 
-	-- the canvas y the insertion LINE is drawn at for a 0-based slot: the middle
-	-- of the gutter above it, so the hairline reads as "between these two rows"
-	-- rather than as a lid on the lower one. Clamped into the content extent so
-	-- the first and last boundaries stay inside the canvas the host clips to. At
-	-- rowGap 0 this is `slot * rowHeight`, clamped exactly as before.
+	-- the canvas offset the insertion LINE is drawn at for a 0-based slot: the
+	-- middle of the gutter above it, so the hairline reads as "between these two
+	-- rows" rather than as a lid on the lower one. Clamped into the content extent
+	-- so the first and last boundaries stay inside the canvas the host clips to.
+	-- At rowGap 0 this is `slot * itemExtent`, clamped exactly as before.
 	local function slotBoundary(slot: number): number
 		local gap = rowGapNow()
 		return math.clamp(slot * pitchNow() - gap / 2, 0, contentNow())
 	end
 
-	-- the insertion slot for a canvas y: the number of whole SLOTS above it, using
-	-- each slot's MIDPOINT so the line snaps to the nearer boundary. Returns the
-	-- 0-based insertion slot and its canvas boundary y.
+	-- the insertion slot for a canvas offset: the number of whole SLOTS before it,
+	-- using each slot's MIDPOINT so the line snaps to the nearer boundary. Returns
+	-- the 0-based insertion slot and its canvas boundary offset.
 	local function insertSlotAt(canvasY: number): (number, number)
 		local pitch = pitchNow()
 		local count = #(spec.rows:get() :: { any })
@@ -861,10 +1067,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	-- the drop line rides the PRESENTATION channel, not layout: it is mounted
-	-- once at canvas y 0 and translated, so a 60 Hz drag costs one presentation
-	-- write per move instead of a re-solve per move. Parked far above the canvas
-	-- when idle (the scroll host clips it) rather than unmounted, so there is no
-	-- structural churn on every pickup.
+	-- once at canvas offset 0 and translated along the scroll axis, so a 60 Hz
+	-- drag costs one presentation write per move instead of a re-solve per move.
+	-- Parked far BEFORE the canvas origin when idle (the scroll host clips it)
+	-- rather than unmounted, so there is no structural churn on every pickup.
 	local DROP_LINE_PARK = -10000
 	local function writeDropLine(y: number?)
 		local ctrl = boundController
@@ -872,7 +1078,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if ctrl == nil or host == nil or type(ctrl.setPresentationTransform) ~= "function" then
 			return
 		end
-		ctrl.setPresentationTransform(host .. "/Canvas/DropLine", { x = 0, y = if y ~= nil then y else DROP_LINE_PARK })
+		ctrl.setPresentationTransform(host .. "/Canvas/DropLine", vec(if y ~= nil then y else DROP_LINE_PARK))
 	end
 
 	-- ===== reorder ===========================================================
@@ -900,12 +1106,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		spec.onReorder(key, index)
 	end
 
-	-- POINTER commit: the insertion LINE decides, so the top half of a row means
-	-- "before it" and the bottom half means "after it". Removing the dragged row
-	-- first shifts every slot below it up by one, which is the whole of the
+	-- POINTER commit: the insertion LINE decides, so the LEADING half of a row
+	-- (its top on a vertical list, its left on a horizontal one) means "before it"
+	-- and the trailing half means "after it". Removing the dragged row first
+	-- shifts every later slot up by one, which is the whole of the
 	-- full-list-slot → resulting-index conversion.
-	local function commitReorderFromPointer(key: string, pointerY: number)
-		local canvasY = canvasYFor(pointerY)
+	local function commitReorderFromPointer(key: string, pointerMain: number)
+		local canvasY = canvasOffsetFor(pointerMain)
 		if canvasY == nil then
 			return
 		end
@@ -953,7 +1160,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				if ctrl == nil or path == nil or type(ctrl.setPresentationTransform) ~= "function" then
 					return
 				end
-				ctrl.setPresentationTransform(path, { x = 0, y = value:get() })
+				ctrl.setPresentationTransform(path, vec(value:get()))
 			end)
 		else
 			-- keep the value where it is and re-aim: interruptibility is the whole
@@ -1021,8 +1228,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- ARMED: the target row IS the answer — the lifted row takes its
 				-- place, which is what "commit on this row" means with no pointer
 				-- to read a half from.
-				if info ~= nil and info.mode == "pointer" and info.pointerY ~= nil then
-					commitReorderFromPointer(payload.key, info.pointerY)
+				-- the release point's component on THIS list's scroll axis: the
+				-- registry publishes both (`pointerX`/`pointerY`), so a horizontal
+				-- list reads the one its slots are measured along.
+				local releaseMain = if info ~= nil then (if isX then info.pointerX else info.pointerY) else nil
+				if info ~= nil and info.mode == "pointer" and releaseMain ~= nil then
+					commitReorderFromPointer(payload.key, releaseMain)
 				else
 					commitReorderAt(payload.key, indexOfKey(key))
 				end
@@ -1049,6 +1260,41 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		then autoscrollLib.new(if type(spec.autoscroll) == "table" then spec.autoscroll else nil)
 		else nil
 
+	--[[ THE MODEL IS 1-D AND STAYS 1-D. `input/autoscroll.luau` owns the
+		band/dwell/ramp/clamp policy along ONE axis and answers a signed delta; it
+		is not axis-aware and deliberately is not made so. A horizontal host feeds
+		it TRANSPOSED numbers instead — the identical move the renderer's own
+		scroll-chain autoscroll makes for an `axis = "x"` host
+		(`render/renderer.luau`, "the model is written for the scroll axis as a 1-D
+		problem"). One policy, two wirings, no second dwell machine.
+
+		The BAND NAME is translated on the way out for exactly the reason this
+		whole change exists: the model answers "top"/"bottom" because that is the
+		vocabulary it was written in, and a horizontal list publishing "top" on
+		`list.autoscroll` would be a lying name in a Signal a consumer paints a
+		chevron from. "left"/"right" is the spelling the renderer already accepts
+		for a horizontal host, so the two agree. ]]
+	local function autoscrollPoint(point: any): any
+		if point == nil or not isX then
+			return point
+		end
+		return { x = point.y, y = point.x }
+	end
+	local function autoscrollRect(rect: any): any
+		if rect == nil or not isX then
+			return rect
+		end
+		return { x = rect.y, y = rect.x, w = rect.h, h = rect.w }
+	end
+	local function autoscrollBand(): string?
+		local band = autoscrollModel :: any
+		band = if band ~= nil then band:band() else nil
+		if band == nil or not isX then
+			return band
+		end
+		return if band == "top" then "left" else "right"
+	end
+
 	-- Drive this once per frame while the surface is alive (the client's
 	-- PreRender shim, alongside `clock:step`). Returns the step, or nil when the
 	-- list is not autoscrolling.
@@ -1072,13 +1318,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		local hostRect = hostScreenRect()
 		local step = autoscrollModel:step({
 			now = now,
-			pointerPos = reg.pointerPosition(),
-			hostRect = hostRect,
+			pointerPos = autoscrollPoint(reg.pointerPosition()),
+			hostRect = autoscrollRect(hostRect),
 			canvasPos = clampedTop:get(),
 			maxScroll = maxTop(),
 		})
 		if step.delta ~= 0 then
-			ctrl.scrollTo(host, { x = 0, y = clampedTop:get() + step.delta })
+			ctrl.scrollTo(host, vec(clampedTop:get() + step.delta))
 			-- THE FRAME-ACCURATE RE-RESOLVE (SF-L2's correctness core): the rects
 			-- the session hit-tests against are the solver's, shifted by the LIVE
 			-- scroll offset — so re-running the hover immediately after the write,
@@ -1087,8 +1333,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			reg.refreshTargets()
 		end
 		local current = autoscrollState:get()
-		if current.state ~= step.state or current.band ~= autoscrollModel:band() then
-			autoscrollState:set({ state = step.state, band = autoscrollModel:band() })
+		local band = autoscrollBand()
+		if current.state ~= step.state or current.band ~= band then
+			autoscrollState:set({ state = step.state, band = band })
 		end
 		return step
 	end
@@ -1164,7 +1411,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local engagedOffset: any = nil
 	--[[ the engine's commit collapse (the height the committing row's box is
 		animating down to), forwarded verbatim and composed into that row's
-		`rowHeightDim` below. `hostedCommitKey == nil` = no override anywhere.
+		`rowExtentDim` below. `hostedCommitKey == nil` = no override anywhere.
 
 		TWO SIGNALS, NOT ONE `{ key, px }` TABLE, and the reason is fine-grained
 		reactivity: EVERY mounted row's height memo has to read the key (to answer
@@ -1185,11 +1432,11 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- ONE row's height, commit override included: the row box itself and the
 	-- overlay's tray group (which fills that same box) read it through here, so a
 	-- collapsing row can never leave its tray standing at the old height.
-	local function hostedRowHeightIn(use: any, key: string): number
+	local function hostedItemExtentIn(use: any, key: string): number
 		if use(hostedCommitKey) == key then
 			return use(hostedCommitPx)
 		end
-		return rowHeightIn(use)
+		return itemExtentIn(use)
 	end
 
 	-- what the PRESENTER handed this list's contribution, held so a lazily-built
@@ -1294,8 +1541,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 
 		Both writes ride ONE transaction so a memo over the pair can never observe
 		the new row against the previous row's pixels. ]]
+	--[[ SUB-PIXEL IS HOME (device bug round 2026-08-12, finding C9b). This tested
+		`px ~= 0`, and a position-domain spring only reaches its target at
+		`spring.luau`'s 1e-3 epsilon — 35 frames after the row has visually arrived,
+		measured. `row_actions.REVEAL_EPS` is the SAME half-pixel the engine's own
+		tray reveal uses, and the two must be the same number: the engagement ending
+		is what clears the presentation transform, drops the shared overlay entry and
+		puts the focus ring back on the row (`hostedRestoreFocusOnDisengage`), and if
+		the tray's focused button unmounted first the ring would have nowhere left to
+		come back from. ]]
+	local HOSTED_HOME_EPS: number = (row_actions :: any).REVEAL_EPS
 	local function hostedApplySlide(key: string, px: number)
-		if px ~= 0 then
+		if math.abs(px) >= HOSTED_HOME_EPS then
 			local engaged = engagedKey:get()
 			if engaged == key then
 				engagedOffset:set(px)
@@ -1925,8 +2182,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 						writeDropLine(slotBoundary(index - 1))
 						return
 					end
-				elseif state.y ~= nil then
-					local canvasY = canvasYFor(state.y)
+					-- POINTER: the live point on THIS list's scroll axis decides the
+					-- predicted slot. The registry publishes both components; reading
+					-- the wrong one would draw a drop line that tracks the finger
+					-- across the list instead of along it.
+				elseif mainOf(state) ~= nil then
+					local canvasY = canvasOffsetFor(mainOf(state))
 					if canvasY ~= nil then
 						local slot, boundary = insertSlotAt(canvasY)
 						local from = indexOfKey(payload.key)
@@ -2083,10 +2344,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			-- pin the ring while the aim stepped invisibly (director round)
 			return false
 		end
-		if direction ~= "up" and direction ~= "down" then
-			return true -- consumed: an armed row does not wander sideways
+		--[[ THE TWO DIRECTIONS THAT STEP ARE THE LIST'S OWN AXIS. Up/Down on a
+			vertical list, Left/Right on a horizontal one — the same pair the
+			contributed focus group declares below, because the armed cursor and
+			the focus ring must walk the same order (constitution §9: ONE focus
+			map, read two ways). The ORTHOGONAL pair is consumed and does nothing:
+			an armed row does not wander across the list. ]]
+		local forward = if isX then "right" else "down"
+		local backward = if isX then "left" else "up"
+		if direction ~= forward and direction ~= backward then
+			return true -- consumed: an armed row does not wander off its own axis
 		end
-		local delta = if direction == "down" then 1 else -1
+		local delta = if direction == forward then 1 else -1
 		local items = spec.rows:get() :: { any }
 		local hovered = reg.interactionTarget()
 		local currentIndex = if hovered ~= nil then indexOfKey(keyOfHit(hovered) or "") else nil
@@ -2222,8 +2491,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			return {}
 		end
 		--[[ THE ROW GROUP, exactly as it always was — plus, while a tray is
-			revealed, ONE EXIT INTO IT. The tray is a SECOND group and never members
-			of this one: this group is `axis = "vertical"`, and splicing a
+			revealed, ONE EXIT INTO IT. (A tray can only exist on a VERTICAL list —
+			`rowActions` is refused on `axis = "x"` at construction — so every
+			sentence in this block and the two below is about `axis = "y"`; a
+			horizontal list emits the row group alone.) The tray is a SECOND group
+			and never members
+			of this one: this group is `axis = "vertical"` there, and splicing a
 			horizontal strip of buttons into it made Left/Right dead on a
 			two-action tray and made Down walk visually RIGHTWARD — the precise
 			defect `focus_map.luau`'s own layout-aware runs exist to prevent
@@ -2298,9 +2571,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				rowEntry = "restore"
 			end
 		end
+		--[[ THE GROUP'S AXIS IS THE LIST'S AXIS — the one line that makes arrows,
+			the D-pad and `navigateIntercept` agree about which way this list runs.
+			The ORDER is untouched: it is the same document-order walk of the same
+			mounted row hits, so there is ONE focus map here and the axis only says
+			how to read it (constitution §9). A second order — "rows down, and also
+			rows right" — is precisely what this must not build. ]]
 		local rowGroup: any = {
 			name = focusGroupName,
-			axis = "vertical",
+			axis = if isX then "horizontal" else "vertical",
 			entry = rowEntry,
 			wrap = navigation.wrap,
 			containment = navigation.containment,
@@ -2371,7 +2650,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			"VirtualList.bindNativeScroll: scroll path unknown — present the control (so its mounted path is captured) or pass it explicitly"
 		)
 		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
-			scrollTop:set(pos.y)
+			scrollTop:set(mainOf(pos))
 		end)
 		boundController = controller
 		boundScrollPath = path
@@ -2398,12 +2677,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 
 	-- public programmatic scroll: clamp into the band and write CanvasPosition
 	-- through the given (or bound) controller. Consumers use it for "scroll to
-	-- top" and the like; keep-visible uses keepVisibleTarget/focusKey internally.
-	local function scrollTo(controller: any, y: number)
+	-- the start" and the like; keep-visible uses keepVisibleTarget/focusKey
+	-- internally. The argument is the offset along the LIST'S OWN AXIS — the
+	-- canvas y on `axis = "y"`, the canvas x on `axis = "x"` — and the parameter
+	-- is named `offset` rather than `y` so a horizontal caller is not misled.
+	local function scrollTo(controller: any, offset: number)
 		local ctrl = controller or boundController
 		local path = boundScrollPath or mountedScrollPath
 		if ctrl ~= nil and path ~= nil then
-			ctrl.scrollTo(path, { x = 0, y = math.clamp(y, 0, maxTop()) })
+			ctrl.scrollTo(path, vec(math.clamp(offset, 0, maxTop())))
 		end
 	end
 
@@ -2416,8 +2698,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	-- the control root IS the native scroll host (UI.ScrollView -> ScrollingFrame
-	-- on the live adapter). Its single child is the full-height Canvas anchor;
-	-- the windowed rows sit at absolute canvas offsets inside it.
+	-- on the live adapter). Its single child is the Canvas anchor, which spans the
+	-- FULL virtual extent along the scroll axis and fills across it; the windowed
+	-- rows sit at absolute canvas offsets inside it.
 	local canvasChildren: { any } = {
 		UI.ForEach({
 			id = "W",
@@ -2427,19 +2710,19 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			end,
 			row = function(entry: any, itemScope: any)
 				-- per-row placement memo at the ABSOLUTE CANVAS offset
-				-- (index-1)*rowHeight — engine-independent, so a scroll
-				-- never re-arranges it (the engine translates via
+				-- (index-1)*pitch along the scroll axis — engine-independent,
+				-- so a scroll never re-arranges it (the engine translates via
 				-- CanvasPosition). Depends only on the index (and the one
-				-- uniform row height), not the scroll: a same-window scroll
+				-- uniform item extent), not the scroll: a same-window scroll
 				-- delta is zero writes. Owned by the item scope, so it dies
 				-- with its row.
-				local offsetY = itemScope:own(core:memo(function(use)
+				local slotOffset = itemScope:own(core:memo(function(use)
 					local index = (use(indexByKey) :: { [string]: number })[entry.key]
 					if index == nil then
 						return 0 -- row is leaving; the unmount is in flight
 					end
-					-- the SLOT's top: the gutter belongs to the space between
-					-- slots, never to the row that follows it
+					-- the SLOT's LEADING edge: the gutter belongs to the
+					-- space between slots, never to the row that follows it
 					return (index - 1) * pitchIn(use)
 				end))
 				--[[ THE ROW BOX. A plain list builds today's memo, unchanged and
@@ -2450,13 +2733,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					list's memo body is byte-identical to what it always was, and
 					every row on a hosted list reads exactly one extra signal (the
 					commit KEY; the px is only read by the row it names — see
-					`hostedRowHeightIn`). ]]
-				local rowHeightDim = itemScope:own(core:memo(if hostedEnabled
+					`hostedItemExtentIn`). ]]
+				local rowExtentDim = itemScope:own(core:memo(if hostedEnabled
 					then function(use)
-						return { type = "fixed", px = hostedRowHeightIn(use, entry.key) }
+						return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
 					end
 					else function(use)
-						return { type = "fixed", px = rowHeightIn(use) }
+						return { type = "fixed", px = itemExtentIn(use) }
 					end))
 				-- a full-row focusable Button hit sits BEHIND the cell
 				-- content (ZStack, z = tree order): it gives the row a
@@ -2530,12 +2813,26 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 						onDrop = rowOnDrop(entry.key),
 					})
 				end
+				-- ONE fresh cross-axis fill for this row, handed to whichever of the
+				-- two dims the axis puts it on (the other takes `rowExtentDim`), so a
+				-- row allocates exactly the one dim table it always did
+				local rowCross = fill()
+				--[[ THE ROW NODE. `anchor = "topLeft"` and the offset prop the
+						axis chooses: `offsetY` places a row down a vertical canvas,
+						`offsetX` places an item across a horizontal one. Both are
+						ARRANGE-ONLY anchor props (blueprint_schema), so a slot move
+						re-arranges one node without re-measuring it — the property
+						this control's windowing has always depended on, on either
+						axis. The item is `itemExtent` along the scroll axis and FILLS
+						across it, which is what makes the canvas's own cross-axis fill
+						the item's cross-axis size. ]]
 				return UI.ZStack({
 					id = "Row",
 					anchor = "topLeft",
-					offsetY = offsetY,
-					width = { type = "fill", weight = 1 },
-					height = rowHeightDim,
+					offsetY = if isX then nil else slotOffset,
+					offsetX = if isX then slotOffset else nil,
+					width = widthOf(rowExtentDim, rowCross),
+					height = heightOf(rowExtentDim, rowCross),
 					children = { hit, spec.cell(entry.item, { scope = itemScope }) },
 				})
 			end,
@@ -2566,6 +2863,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				end,
 				row = function(entry: any, itemScope: any)
 					local engine = hostedEngines[entry.key]
+					-- VERTICAL ONLY, and unconditionally so: this whole branch is
+					-- under `hostedEnabled`, which `axis = "x"` refuses at
+					-- construction (see the header). `offsetY` and the fill width are
+					-- therefore facts, not an axis choice left unmade.
 					return UI.Anchor({
 						id = HOSTED_TRAY_GROUP_ID,
 						anchor = "topLeft",
@@ -2583,7 +2884,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 						-- ...and the row's own height, commit collapse included, so
 						-- a committing row's tray shrinks with it
 						height = itemScope:own(core:memo(function(use)
-							return { type = "fixed", px = hostedRowHeightIn(use, entry.key) }
+							return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
 						end)),
 						children = if engine ~= nil then engine.trayViews else {},
 					})
@@ -2593,36 +2894,46 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 	if reorderable then
 		-- the insertion indicator: one hairline, parked off-canvas until a row is
-		-- lifted, translated by the presentation channel while it is
+		-- lifted, translated by the presentation channel while it is.
+		-- Its THICKNESS is the SHARED drop-line metric
+		-- (`controls.table.indicatorThickness`, documented in the snapshot as
+		-- "resize preview + drop line"): two list constructs drawing the same
+		-- affordance at two thicknesses would be a theming bug, so they read one
+		-- number. Thickness lands on the SCROLL axis and the indicator fills across
+		-- it — a hairline lying across a vertical list, standing upright in a
+		-- horizontal one.
+		local lineThickness: any = { type = "fixed", px = "controls.table.indicatorThickness" }
 		table.insert(
 			canvasChildren,
 			UI.Box({
 				id = "DropLine",
 				anchor = "topLeft",
 				surface = "accent",
-				width = { type = "fill", weight = 1 },
-				-- the SHARED drop-line metric (`controls.table.indicatorThickness`,
-				-- documented in the snapshot as "resize preview + drop line"). Two
-				-- list constructs drawing the same affordance at two thicknesses
-				-- would be a theming bug, so they read one number.
-				height = { type = "fixed", px = "controls.table.indicatorThickness" },
-				offsetY = DROP_LINE_PARK,
+				width = widthOf(lineThickness, fill()),
+				height = heightOf(lineThickness, fill()),
+				offsetY = if isX then nil else DROP_LINE_PARK,
+				offsetX = if isX then DROP_LINE_PARK else nil,
 			})
 		)
 	end
 
+	-- a LIVE viewport hands the host a Readable<dim> (dims are reactive,
+	-- dirty=measure), so the painted box re-solves with the same number the
+	-- windowing math reads. It sits on the SCROLL AXIS; the cross axis is
+	-- `spec.width` on a vertical list (refused on a horizontal one — see the
+	-- construction check) and fills otherwise.
+	local viewportDim: any = if viewportIsLive
+		then listScope:own(core:memo(function(use)
+			return { type = "fixed", px = viewportIn(use) }
+		end))
+		else { type = "fixed", px = viewportSpec }
+	local crossDim: any = spec.width or fill()
+	local canvasCross = fill()
 	local blueprint = UI.ScrollView({
 		id = id,
-		width = spec.width or { type = "fill", weight = 1 },
-		-- a LIVE viewport hands the host a Readable<dim> (dims are reactive,
-		-- dirty=measure), so the painted box re-solves with the same number the
-		-- windowing math reads
-		height = if viewportIsLive
-			then listScope:own(core:memo(function(use)
-				return { type = "fixed", px = viewportIn(use) }
-			end))
-			else { type = "fixed", px = viewportSpec },
-		axis = "y",
+		width = widthOf(viewportDim, crossDim),
+		height = heightOf(viewportDim, crossDim),
+		axis = axis,
 		padding = 0,
 		gap = 0,
 		-- native scroll + clip host (native-substrate NS-A2): the adapter mounts a
@@ -2633,10 +2944,13 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		children = {
 			UI.Anchor({
 				id = "Canvas",
-				width = { type = "fill", weight = 1 },
-				-- the FULL virtual height (a live fixed Dim): this single child is
-				-- what the solver sums into contentSize == CanvasSize (native §6)
-				height = canvasDim,
+				-- the FULL virtual extent (a live fixed Dim) along the scroll axis:
+				-- this single child is what the solver sums into
+				-- contentSize == CanvasSize (native §6). Across the axis it FILLS, so
+				-- the canvas is exactly as wide (or as tall) as the viewport and the
+				-- items inherit that through their own cross-axis fill.
+				width = widthOf(canvasDim, canvasCross),
+				height = heightOf(canvasDim, canvasCross),
 				children = canvasChildren,
 			}),
 		},
@@ -2808,12 +3122,21 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		for _, entry in windowItems:get() :: { any } do
 			table.insert(windowKeys, entry.key)
 		end
-		return {
+		--[[ THE DUMP CARRIES THE AXIS-NEUTRAL NAMES ALWAYS, and the deprecated
+			ones ONLY on the axis they are true of. `rowHeight` / `viewportHeight`
+			are exactly `itemExtent` / `viewportExtent` on a vertical list, so an
+			existing reader of either key sees the number it always saw; on a
+			HORIZONTAL list they are absent rather than lying, because "the row
+			height is 120" about a list of 120-px-wide items is a sentence that
+			would send someone the wrong way. Nothing shipped reads them off a
+			horizontal list — there were no horizontal lists until this field. ]]
+		local d: any = {
 			schema = "luauui-virtual-list-dump/1",
 			id = id,
-			rowHeight = rowHeightNow(),
+			axis = axis,
+			itemExtent = itemExtentNow(),
+			viewportExtent = viewportNow(),
 			rowGap = rowGapNow(),
-			viewportHeight = viewportNow(),
 			overscan = overscan,
 			scrollTop = clampedTop:get(),
 			focusedKey = focusedKey:get(),
@@ -2832,6 +3155,11 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			window = windowKeys,
 			totalRows = #(spec.rows:get() :: { any }),
 		}
+		if not isX then
+			d.rowHeight = d.itemExtent
+			d.viewportHeight = d.viewportExtent
+		end
+		return d
 	end
 	--[[ TEST-ONLY (the `_` prefix says so): the two facts the hosted-mode
 		laziness guarantee is made of. `engineCount` is what proves scrolling a

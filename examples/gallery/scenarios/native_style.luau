@@ -32,65 +32,114 @@ return {
 			actionSystem = ctx.actionSystem,
 		})
 
+		-- The body SCROLLS (overflow sweep, 2026-08-12): Title + Subtitle + Panel +
+		-- SurfaceRow + the nested Scroll demo ran 61-352px past the screen on a
+		-- narrow phone and on every landscape phone, with nothing to move it — the
+		-- adaptive_controls "BodyScroll" shape (fill-width/fill-height ScrollView
+		-- absorbing the whole column). This adds one path segment under every
+		-- descendant (`/NativeStyle/Body/...`), so every path this module and
+		-- `tests/native_style_scenario.spec.luau` reference moved with it.
 		local screen = UI.Screen({
 			id = "NativeStyle",
 			padding = 16,
 			gap = 8,
 			surface = "base",
 			children = {
-				UI.Text({ id = "Title", text = "Native stylesheet fixture", textSize = 24 }),
-				UI.Text({ id = "Subtitle", text = "secondary text", textSize = 14, role = "secondary" }),
-				UI.VStack({
-					id = "Panel",
-					surface = "raised",
-					padding = 12,
-					gap = 8,
-					children = {
-						UI.Button({ id = "RowA", label = "Row A (selected)", selected = selectedA }),
-						UI.Button({ id = "RowB", label = "Row B", selected = selectedB, enabled = rowBEnabled }),
-						UI.Button({ id = "Primary", label = "Primary action", surface = "accent" }),
-						UI.Toggle({ id = "Music", label = "Music", value = toggleOn }),
-						field.blueprint,
-					},
-				}),
-				-- remaining handed-off surfaces (arch verifier 2026-07-24: chip/
-				-- badge/scrim/plain were headless-only) + a focusable Grip for
-				-- the native grip-focus tag rule
-				UI.HStack({
-					id = "SurfaceRow",
-					gap = 8,
-					height = { type = "fixed", px = 56 },
-					children = {
-						UI.Box({ id = "Chip", surface = "chip", width = { type = "fixed", px = 90 } }),
-						UI.Image({ id = "Badge", surface = "badge", width = { type = "fixed", px = 56 } }),
-						UI.Box({ id = "ScrimPatch", surface = "scrim", width = { type = "fixed", px = 90 } }),
-						UI.Button({
-							id = "PlainBtn",
-							label = "plain",
-							surface = "plain",
-							width = { type = "fixed", px = 90 },
-						}),
-						UI.Grip({ id = "Grip", focusable = true, width = { type = "fixed", px = 12 } }),
-					},
-				}),
 				UI.ScrollView({
-					id = "Scroll",
-					height = { type = "fixed", px = 120 },
-					children = (function()
-						local rows = {}
-						for i = 1, 8 do
-							table.insert(
-								rows,
-								UI.Text({
-									id = "ScrollRow" .. i,
-									text = "Scroll row " .. i,
-									textSize = 16,
-									height = { type = "fixed", px = 28 },
-								})
-							)
-						end
-						return rows
-					end)(),
+					id = "Body",
+					axis = "y",
+					gap = 8,
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.Text({ id = "Title", text = "Native stylesheet fixture", textSize = 24 }),
+						UI.Text({ id = "Subtitle", text = "secondary text", textSize = 14, role = "secondary" }),
+						UI.VStack({
+							id = "Panel",
+							surface = "raised",
+							padding = 12,
+							gap = 8,
+							children = {
+								UI.Button({ id = "RowA", label = "Row A (selected)", selected = selectedA }),
+								UI.Button({
+									id = "RowB",
+									label = "Row B",
+									selected = selectedB,
+									enabled = rowBEnabled,
+								}),
+								UI.Button({ id = "Primary", label = "Primary action", surface = "accent" }),
+								UI.Toggle({ id = "Music", label = "Music", value = toggleOn }),
+								field.blueprint,
+							},
+						}),
+						-- remaining handed-off surfaces (arch verifier 2026-07-24: chip/
+						-- badge/scrim/plain were headless-only) + a focusable Grip for
+						-- the native grip-focus tag rule.
+						--
+						-- A Grid rather than the original HStack (overflow sweep,
+						-- 2026-08-12): five fixed-width chips ran 43-82px past a narrow
+						-- phone's width with nothing to wrap them. Each surface keeps its
+						-- own declared size (a non-fill Grid cell keeps content sizing,
+						-- per the solver), so this only changes how many sit on one row —
+						-- never what they look like.
+						UI.Grid({
+							id = "SurfaceRow",
+							minColumnWidth = 90,
+							gap = 8,
+							children = {
+								UI.Box({
+									id = "Chip",
+									surface = "chip",
+									width = { type = "fixed", px = 90 },
+									height = { type = "fixed", px = 56 },
+								}),
+								UI.Image({
+									id = "Badge",
+									surface = "badge",
+									width = { type = "fixed", px = 56 },
+									height = { type = "fixed", px = 56 },
+								}),
+								UI.Box({
+									id = "ScrimPatch",
+									surface = "scrim",
+									width = { type = "fixed", px = 90 },
+									height = { type = "fixed", px = 56 },
+								}),
+								UI.Button({
+									id = "PlainBtn",
+									label = "plain",
+									surface = "plain",
+									width = { type = "fixed", px = 90 },
+									height = { type = "fixed", px = 56 },
+								}),
+								UI.Grip({
+									id = "Grip",
+									focusable = true,
+									width = { type = "fixed", px = 12 },
+									height = { type = "fixed", px = 56 },
+								}),
+							},
+						}),
+						UI.ScrollView({
+							id = "Scroll",
+							height = { type = "fixed", px = 120 },
+							children = (function()
+								local rows = {}
+								for i = 1, 8 do
+									table.insert(
+										rows,
+										UI.Text({
+											id = "ScrollRow" .. i,
+											text = "Scroll row " .. i,
+											textSize = 16,
+											height = { type = "fixed", px = 28 },
+										})
+									)
+								end
+								return rows
+							end)(),
+						}),
+					},
 				}),
 			},
 		})
@@ -99,11 +148,11 @@ return {
 			screen = screen,
 			present = {
 				onActivate = function(path: string)
-					if path == "/NativeStyle/Panel/RowA" then
+					if path == "/NativeStyle/Body/Panel/RowA" then
 						selectedA:set(not selectedA:get())
-					elseif path == "/NativeStyle/Panel/RowB" then
+					elseif path == "/NativeStyle/Body/Panel/RowB" then
 						selectedB:set(not selectedB:get())
-					elseif path == "/NativeStyle/Panel/Music" then
+					elseif path == "/NativeStyle/Body/Panel/Music" then
 						toggleOn:set(not toggleOn:get())
 					end
 				end,
@@ -173,34 +222,37 @@ return {
 				-- grip focus: native mode must paint via the "Grip focus" tag
 				-- rule, never an explicit write (arch verifier fix)
 				focusGrip = function()
-					return ctx.presenter.focus.focusOn("/NativeStyle/SurfaceRow/Grip")
+					return ctx.presenter.focus.focusOn("/NativeStyle/Body/SurfaceRow/Grip")
 				end,
 				focusRowA = function()
-					return ctx.presenter.focus.focusOn("/NativeStyle/Panel/RowA")
+					return ctx.presenter.focus.focusOn("/NativeStyle/Body/Panel/RowA")
 				end,
 				styledExtras = function()
 					return {
-						chip = ctx.nativeStyle.styledOf("/NativeStyle/SurfaceRow/Chip", "BackgroundColor3"),
-						badge = ctx.nativeStyle.styledOf("/NativeStyle/SurfaceRow/Badge", "BackgroundColor3"),
+						chip = ctx.nativeStyle.styledOf("/NativeStyle/Body/SurfaceRow/Chip", "BackgroundColor3"),
+						badge = ctx.nativeStyle.styledOf("/NativeStyle/Body/SurfaceRow/Badge", "BackgroundColor3"),
 						scrimT = ctx.nativeStyle.styledOf(
-							"/NativeStyle/SurfaceRow/ScrimPatch",
+							"/NativeStyle/Body/SurfaceRow/ScrimPatch",
 							"BackgroundTransparency"
 						),
-						plainT = ctx.nativeStyle.styledOf("/NativeStyle/SurfaceRow/PlainBtn", "BackgroundTransparency"),
-						gripFill = ctx.nativeStyle.styledOf("/NativeStyle/SurfaceRow/Grip", "BackgroundColor3"),
-						gripT = ctx.nativeStyle.styledOf("/NativeStyle/SurfaceRow/Grip", "BackgroundTransparency"),
+						plainT = ctx.nativeStyle.styledOf(
+							"/NativeStyle/Body/SurfaceRow/PlainBtn",
+							"BackgroundTransparency"
+						),
+						gripFill = ctx.nativeStyle.styledOf("/NativeStyle/Body/SurfaceRow/Grip", "BackgroundColor3"),
+						gripT = ctx.nativeStyle.styledOf("/NativeStyle/Body/SurfaceRow/Grip", "BackgroundTransparency"),
 					}
 				end,
 				-- resolved styled reads for the probe matrix
 				styledPanel = function()
 					return {
-						panel = ctx.nativeStyle.styledOf("/NativeStyle/Panel", "BackgroundColor3"),
-						rowA = ctx.nativeStyle.styledOf("/NativeStyle/Panel/RowA", "BackgroundColor3"),
-						rowB = ctx.nativeStyle.styledOf("/NativeStyle/Panel/RowB", "BackgroundColor3"),
-						primary = ctx.nativeStyle.styledOf("/NativeStyle/Panel/Primary", "BackgroundColor3"),
-						title = ctx.nativeStyle.styledOf("/NativeStyle/Title", "TextColor3"),
-						subtitle = ctx.nativeStyle.styledOf("/NativeStyle/Subtitle", "TextColor3"),
-						rowBText = ctx.nativeStyle.styledOf("/NativeStyle/Panel/RowB", "TextTransparency"),
+						panel = ctx.nativeStyle.styledOf("/NativeStyle/Body/Panel", "BackgroundColor3"),
+						rowA = ctx.nativeStyle.styledOf("/NativeStyle/Body/Panel/RowA", "BackgroundColor3"),
+						rowB = ctx.nativeStyle.styledOf("/NativeStyle/Body/Panel/RowB", "BackgroundColor3"),
+						primary = ctx.nativeStyle.styledOf("/NativeStyle/Body/Panel/Primary", "BackgroundColor3"),
+						title = ctx.nativeStyle.styledOf("/NativeStyle/Body/Title", "TextColor3"),
+						subtitle = ctx.nativeStyle.styledOf("/NativeStyle/Body/Subtitle", "TextColor3"),
+						rowBText = ctx.nativeStyle.styledOf("/NativeStyle/Body/Panel/RowB", "TextTransparency"),
 					}
 				end,
 				resolveTokens = function()

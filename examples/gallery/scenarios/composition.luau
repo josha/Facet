@@ -23,6 +23,12 @@
 --
 -- Every string here is the framework's own placeholder copy. This fixture
 -- belongs to LuauUI, not to a game.
+--
+-- THE SCREEN BODY SCROLLS. The offer bar and the offer frame live inside a
+-- `UI.ScrollView` (`Body`) rather than directly under the screen, because the
+-- offer frame's own height is the device profile being simulated and can
+-- exceed what a short landscape phone actually has to give the real screen —
+-- see the note beside `Body` below.
 
 local OFFERS: { [string]: { w: number, h: number } } = {
 	compactPortrait = { w = 360, h = 740 },
@@ -328,38 +334,58 @@ return {
 			},
 		})
 
+		-- THE BODY SCROLLS (BodyScroll precedent, adaptive_controls.luau). The offer
+		-- frame is deliberately sized to whichever device profile is selected —
+		-- that IS the demo, "the composition adapts to a box, not to the viewport"
+		-- — so on a short landscape phone the frame can be taller than the real
+		-- screen has to give it (found live by the overflow sweep at 705x338 and
+		-- 640x320: the phoneLandscape/tablet/desktop/tenFoot offers are all taller
+		-- than those two device profiles' own chrome-reserved height). A
+		-- `UI.ScrollView` gives the frame somewhere to go instead of painting past
+		-- the screen; the OfferFrame's horizontal centering (an `align = "center"`
+		-- a scroll region's cross axis does not read — a scroller pins content to
+		-- its start edge, deliberately, so a drag always has a heading) is not
+		-- worth a second wrapper node on a dev fixture nothing else depends on, so
+		-- the frame now sits left-aligned inside the scrollable body.
 		local screen = UI.Screen({
 			id = "CompositionScreen",
 			padding = 12,
-			gap = 8,
-			align = "center",
 			children = {
-				UI.HStack({
-					id = "OfferBar",
+				UI.ScrollView({
+					id = "Body",
+					axis = "y",
 					gap = 8,
 					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Text({ id = "OfferLabel", text = "Offer", textSize = 14 }),
-						UI.Text({ id = "OfferName", text = offerName, textSize = 14 }),
-						UI.Spacer({}),
-						UI.Text({
-							id = "Visits",
-							text = core:memo(function(use)
-								return `visits {use(visits)}`
-							end),
-							textSize = 14,
+						UI.HStack({
+							id = "OfferBar",
+							gap = 8,
+							width = { type = "fill", weight = 1 },
+							children = {
+								UI.Text({ id = "OfferLabel", text = "Offer", textSize = 14 }),
+								UI.Text({ id = "OfferName", text = offerName, textSize = 14 }),
+								UI.Spacer({}),
+								UI.Text({
+									id = "Visits",
+									text = core:memo(function(use)
+										return `visits {use(visits)}`
+									end),
+									textSize = 14,
+								}),
+							},
+						}),
+						-- THE OFFER FRAME. The composition adapts to THIS box, not to the
+						-- viewport — which is what makes the same screen resolve
+						-- differently inside a pane on an unchanged display.
+						UI.VStack({
+							id = "OfferFrame",
+							surface = "base",
+							width = offerDim("w"),
+							height = offerDim("h"),
+							children = { composition },
 						}),
 					},
-				}),
-				-- THE OFFER FRAME. The composition adapts to THIS box, not to the
-				-- viewport — which is what makes the same screen resolve differently
-				-- inside a pane on an unchanged display.
-				UI.VStack({
-					id = "OfferFrame",
-					surface = "base",
-					width = offerDim("w"),
-					height = offerDim("h"),
-					children = { composition },
 				}),
 			},
 		})
@@ -435,7 +461,7 @@ return {
 					-- the resolution itself: WHICH arrangement, WHICH form per region,
 					-- and the rule every richer candidate broke
 					resolution = if ctx.composition ~= nil
-						then ctx.composition("/CompositionScreen/OfferFrame/Summary")
+						then ctx.composition("/CompositionScreen/Body/OfferFrame/Summary")
 						else nil,
 				}
 			end,

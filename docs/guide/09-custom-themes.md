@@ -269,10 +269,11 @@ uses:
 | `sliderThumb` | a Slider's thumb |
 | `badge` | the seal behind a badge's **count** (never an image badge — see below) |
 
-Seven more ship for image value displays and are documented in
+Eight more ship for image value displays and are documented in
 [chapter 10](10-rich-skinning.md): `barTrack`, `barFill`, `barCap`, `barCenter`,
-`stepperPlate`, `toggleTrack` and `toggleKnob`. A package that declares none of
-them costs exactly what it costs today.
+`stepperPlate`, `toggleTrack`, `toggleKnob` and `spinner` (one dot of an
+indeterminate ProgressView's ring). A package that declares none of them costs
+exactly what it costs today.
 
 Three of the nine above were added in the Step 3.5 director round. Two things
 about them are worth knowing:

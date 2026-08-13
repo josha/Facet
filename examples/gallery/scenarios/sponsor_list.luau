@@ -8,7 +8,19 @@
 -- the live text facts (typography scale + preferred-text offset), which is the
 -- lesson a px height fixed against unfixed content taught: the detail line is
 -- `lineLimit`-capped at 2 so growth stays uniform per list (finding F13), and the
--- height re-derives on a theme swap because `rowHeight` accepts a Readable.
+-- height re-derives on a theme swap because `rowHeight` accepts a Readable. The
+-- derivation reads every token the `Card`/`Labels` arrangement itself spends
+-- (the label VStack's inter-line gap, the card's own padding AND its own
+-- margin) rather than a second, approximate copy of them — the overflow sweep
+-- caught the row 11px short on every mounted row because the old formula
+-- counted the padding but not the gap or the margin (docs/lessons/
+-- the-solver-already-told-you.md, "the arrangement and the height are ONE
+-- decision").
+--
+-- THE SCREEN BODY SCROLLS. Title + controls + the (already viewport-sized)
+-- list + the inspect line can still sum taller than a short landscape phone
+-- offers, so they live inside a `UI.ScrollView` (`Body`) rather than directly
+-- under the screen — the same BodyScroll shape `adaptive_controls.luau` uses.
 --
 -- STATE FILL AND CONTINUOUS WASH ARE DIFFERENT NODES ON PURPOSE. A tinted Box
 -- claims its fill for the instance's lifetime, so painting the row's card with
@@ -35,7 +47,9 @@ return {
 		local clock = pres.motionClock
 
 		local SCREEN = "/ListLab"
-		local LIST = SCREEN .. "/Rows"
+		-- the screen body scrolls (below, `Body`) so `Rows` sits one level deeper
+		-- than the screen itself
+		local LIST = SCREEN .. "/Body/Rows"
 
 		local trace: { any } = {}
 		local elapsed = 0
@@ -107,10 +121,25 @@ return {
 				local lineHeight = (if type(role) == "table" then role.lineHeight else 1.2) or 1.2
 				return math.ceil((size * (scale or 1) + (offset or 0)) * lineHeight)
 			end
-			-- one name line + the capped two detail lines + a space step at each edge
-			local content = lineBox(metrics.type.body) + 2 * lineBox(metrics.type.caption)
+			-- THE ARRANGEMENT AND THE HEIGHT ARE ONE DECISION (the row-height lesson,
+			-- restated here because this row is exactly its worked example). Every
+			-- number this memo adds is a number the `Card`/`Labels` arrangement below
+			-- ALSO spends, read from the same token so there is no second copy of the
+			-- decision to drift out of sync:
+			--   * one name line + the `Labels` VStack's own `gap = "xs"` between Name
+			--     and Detail (found live: overflowing every row by 11px on the sweep —
+			--     this gap was the row's own layout decision, uncounted here) + the
+			--     capped two detail lines;
+			--   * the `Card` HStack's own vertical `padding = "s"`;
+			--   * the `Card`'s own vertical `margin = "xs"` (the hairline-ish inset
+			--     that keeps the list's focus ring visible around the card) — the
+			--     ZStack `Row` wrapper hands `Card` its box MINUS this margin, so it is
+			--     room the row's content never gets either, exactly like the padding.
+			local labelGap = metrics.space.xs or 4
+			local content = lineBox(metrics.type.body) + labelGap + 2 * lineBox(metrics.type.caption)
 			local padV = 2 * (metrics.space.s or 8)
-			return math.max(metrics.targetSizes.minimum or 44, content + padV)
+			local marginV = 2 * (metrics.space.xs or 4)
+			return math.max(metrics.targetSizes.minimum or 44, content + padV + marginV)
 		end))
 
 		-- THE WINDOW IS A LIVE NUMBER (review R2-F7). `newVirtualList` takes a
@@ -382,42 +411,60 @@ return {
 			runDue()
 		end))
 
+		-- THE BODY SCROLLS (the overflow-sweep fix, precedent BodyScroll in
+		-- adaptive_controls.luau): the title, the controls row, the list and the
+		-- inspect line are content-sized in total, and on a short landscape phone
+		-- their SUM already exceeds the box the screen offers before the list even
+		-- windows — found live by the overflow sweep at 705x338 and 640x320. A
+		-- `UI.ScrollView` reads `gap`/`axis`/multiple children exactly like a
+		-- VStack (solver's `scroll` measure sums the main axis, same as
+		-- `vstack`/`hstack`), so it drops in as the screen's one child with no
+		-- second wrapper node — `LIST` above already accounts for the one path
+		-- segment (`Body`) this adds.
 		local screen = UI.Screen({
 			id = "ListLab",
 			padding = "m",
-			gap = "s",
 			children = {
-				UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
-				UI.HStack({
-					id = "Controls",
+				UI.ScrollView({
+					id = "Body",
+					axis = "y",
 					gap = "s",
 					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Button({
-							id = "BtnChurn",
-							label = "Churn",
-							selected = churning,
-							height = { type = "minMax", min = "targetSizes.minimum" },
-							onActivate = function()
-								churning:set(not churning:get())
-								if churning:get() then
-									scheduleChurn()
-								end
-							end,
+						UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
+						UI.HStack({
+							id = "Controls",
+							gap = "s",
+							width = { type = "fill", weight = 1 },
+							children = {
+								UI.Button({
+									id = "BtnChurn",
+									label = "Churn",
+									selected = churning,
+									height = { type = "minMax", min = "targetSizes.minimum" },
+									onActivate = function()
+										churning:set(not churning:get())
+										if churning:get() then
+											scheduleChurn()
+										end
+									end,
+								}),
+								UI.Button({
+									id = "BtnEligibility",
+									label = "Eligibility",
+									selected = mixedEligibility,
+									height = { type = "minMax", min = "targetSizes.minimum" },
+									onActivate = function()
+										mixedEligibility:set(not mixedEligibility:get())
+									end,
+								}),
+							},
 						}),
-						UI.Button({
-							id = "BtnEligibility",
-							label = "Eligibility",
-							selected = mixedEligibility,
-							height = { type = "minMax", min = "targetSizes.minimum" },
-							onActivate = function()
-								mixedEligibility:set(not mixedEligibility:get())
-							end,
-						}),
+						list.blueprint,
+						UI.Text({ id = "InspectLine", text = inspect, textSize = "caption", role = "secondary" }),
 					},
 				}),
-				list.blueprint,
-				UI.Text({ id = "InspectLine", text = inspect, textSize = "caption", role = "secondary" }),
 			},
 		})
 

@@ -3,7 +3,9 @@
 -- progress ring and a gauge needle via the engine's Path2D, with the arc
 -- BOUND to a progress signal — steps sweep the value and the stroke updates
 -- as paint-only prop writes (never a re-solve). Shape math is the pure,
--- headlessly-tested LuauUI.pathShapes; the engine only strokes.
+-- headlessly-tested LuauUI.pathShapes; the engine only strokes. The column
+-- (Title/Value/gauge) is hosted in a `fill` ScrollView so it stays reachable
+-- on a short landscape phone instead of clipping off the bottom.
 
 return {
 	title = "Path2D ring + needle (NS-A7)",
@@ -25,40 +27,57 @@ return {
 			return string.format("progress %d%%", use(progress) * 100 + 0.5)
 		end)
 
+		-- The 180x180 gauge is a fixed-size decorative square (the ring reads
+		-- wrong at any other aspect), so it cannot itself shrink to fit a short
+		-- landscape phone the way `scroll_host`'s demo regions do. The page as
+		-- a whole is what overflowed (Title + Value + a 180px gauge taller than
+		-- a short landscape safe area — overflow_sweep, device bug round
+		-- 2026-08-12), and there is no pre-existing ScrollView here to nest
+		-- inside, so the shipped precedent applies directly (`adaptive_controls`
+		-- BodyScroll / tutorial example 01): host the column in a `fill`
+		-- ScrollView so it's reachable instead of clipped off the bottom.
 		local screen = UI.Screen({
 			id = "PathRing",
 			padding = 16,
-			gap = 8,
 			children = {
-				UI.Text({ id = "Title", text = "Path2D progress ring", textSize = 22 }),
-				UI.Text({ id = "Value", text = label, textSize = 14 }),
-				UI.ZStack({
-					id = "Gauge",
-					width = { type = "fixed", px = 180 },
-					height = { type = "fixed", px = 180 },
+				UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					gap = 8,
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
 					children = {
-						UI.Path({
-							id = "Track",
-							points = shapes.ring({ radius = 0.9 }),
-							thickness = 3,
-							role = "secondary",
+						UI.Text({ id = "Title", text = "Path2D progress ring", textSize = 22 }),
+						UI.Text({ id = "Value", text = label, textSize = 14 }),
+						UI.ZStack({
+							id = "Gauge",
 							width = { type = "fixed", px = 180 },
 							height = { type = "fixed", px = 180 },
-						}),
-						UI.Path({
-							id = "Ring",
-							points = ringPoints,
-							thickness = 8,
-							role = "accent",
-							width = { type = "fixed", px = 180 },
-							height = { type = "fixed", px = 180 },
-						}),
-						UI.Path({
-							id = "Needle",
-							points = needlePoints,
-							thickness = 4,
-							width = { type = "fixed", px = 180 },
-							height = { type = "fixed", px = 180 },
+							children = {
+								UI.Path({
+									id = "Track",
+									points = shapes.ring({ radius = 0.9 }),
+									thickness = 3,
+									role = "secondary",
+									width = { type = "fixed", px = 180 },
+									height = { type = "fixed", px = 180 },
+								}),
+								UI.Path({
+									id = "Ring",
+									points = ringPoints,
+									thickness = 8,
+									role = "accent",
+									width = { type = "fixed", px = 180 },
+									height = { type = "fixed", px = 180 },
+								}),
+								UI.Path({
+									id = "Needle",
+									points = needlePoints,
+									thickness = 4,
+									width = { type = "fixed", px = 180 },
+									height = { type = "fixed", px = 180 },
+								}),
+							},
 						}),
 					},
 				}),

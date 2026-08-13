@@ -258,15 +258,22 @@ local function packCard(ctx: any, pack: any, wide: boolean, scope: any): any
 		table.insert(
 			body,
 			1,
-			-- decorative and duplicated by the hero's own position, so the chip caps
-			-- its own growth rather than pushing the card around
+			--[[ decorative and duplicated by the hero's own position, so the chip
+				caps its own growth rather than pushing the card around.
+
+				IT USED TO CARRY `alignH = "end"` TOO — a request to sit at the card's
+				trailing edge. Its parent `Pack_*` is a VSTACK, which reads no `alignH`
+				off a child, so the chip has always sat at the LEADING edge instead
+				(§2.1 placement audit, 2026-08-13). `lineAlign = "end"` is the exact
+				spelling that would deliver it and it WOULD move pixels, so the prop is
+				deleted and the intent is queued in
+				`docs/plans/unfulfilled-placement-intents.md`. ]]
 			UI.Text({
 				id = "BestValue",
 				text = ctx.L("shop.bestValue"),
 				surface = "chip",
 				textSize = "caption",
 				lineLimit = 1,
-				alignH = "end",
 			})
 		)
 	end

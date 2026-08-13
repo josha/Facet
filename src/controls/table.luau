@@ -6,8 +6,15 @@
 -- Column resize (the MODEL: setColumnWidth) works by overriding a column to a
 -- fixed dim and remounting rows (cheap at list sizes; per-pixel drag preview
 -- is Phase B adapter work). Selection: none | single | multi (activate
--- toggles additively in multi — the touch idiom; modifier-key semantics are
--- Phase B). Variable row heights via rowHeight(item). Headerless mode for
+-- toggles additively in multi — the touch idiom). MODIFIER-KEY SEMANTICS
+-- SHIPPED: Shift-click extends a range from the anchor and Cmd/Ctrl-click
+-- toggles one row (`api.select`'s "range"/"toggle" modes below, driven by the
+-- activate meta the adapter fills in, wired to real keys in screen_target and
+-- covered in tests/table.spec.luau). This header said "Phase B" for both of
+-- them long after they landed, the implementation comment 1800 lines below said
+-- otherwise, and the stale half reached a mission brief as fact — see
+-- docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md.
+-- Variable row heights via rowHeight(item). Headerless mode for
 -- borderless lists (director's racer-list case). Custom cells: cellFor
 -- returns any Blueprint — nested interactive controls stay live because cell
 -- content renders ABOVE the row hit and non-active nodes pass taps through.
@@ -166,6 +173,12 @@ export type Spec = {
 	reorderable: boolean?,
 	onReorder: ((keys: { string }, toIndex: number) -> ())?,
 	dragLabel: ((item: any) -> string)?, -- ghost chip text (default: the key)
+	-- THE PRIMARY ACTION (SwiftUI `onPrimaryAction`; parity round 2 §3.4).
+	-- "Open this row" — the verb that is NOT selection. Reachable on all four
+	-- inputs with no invented gesture (see `firePrimaryAction` below for the
+	-- gesture table and the touch divergence). Absent = the table has no
+	-- primary action and every gesture below behaves exactly as it does today.
+	onPrimaryAction: ((item: any, key: string) -> ())?,
 	-- touch-scroll design (2026-07-20): owner-held edit-mode signal. nil +
 	-- reorderable => the table manages its own (api.editing) and auto-shows
 	-- an Edit/Done toggle (gated to non-mouse input when `env` is provided).
@@ -226,6 +239,7 @@ local TABLE_KEYS = specGuard.keySet({
 	"height",
 	"id",
 	"key",
+	"onPrimaryAction",
 	"onReorder",
 	"reorderable",
 	"rowActions",
@@ -1911,6 +1925,91 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		selectionAnchor = nil
 	end
 
+	--[[ ===== THE PRIMARY ACTION (parity round 2 §3.4) =========================
+		SELECTING a row and OPENING it are two different verbs, and a table that
+		can only say one of them is a table you cannot build a detail screen on.
+		`onPrimaryAction` is the second verb, and it is reachable on all four
+		inputs with NO invented gesture:
+
+		  pointer    double-click                       (the desktop idiom)
+		  keyboard   Return on the focused row          (meta.source == "action")
+		  gamepad    A / Cross on the focused row       (same seam — the presenter
+		                                                 binds both to Activate)
+		  touch      tap an ALREADY-SELECTED row; with `selection = "none"`,
+		             any tap
+
+		THE TOUCH RULE IS A DELIBERATE DIVERGENCE FROM THE POINTER IDIOM, and it
+		is the one that needed a decision. A blanket "single tap opens" would make
+		every selection open a row — on a table whose whole point is that you can
+		select rows — and a double-TAP is not a touch idiom (it is a zoom gesture
+		everywhere else on a phone, and it has no hover to telegraph itself with).
+		Tap-to-select-then-tap-again-to-open is a real, common mobile pattern
+		(Files, Photos, every mail app's edit mode), it needs no new gesture, and
+		it keeps touch FULLY REACHABLE rather than telling a phone player to find
+		some other affordance. With `selection = "none"` there is no "already
+		selected" state to reach, so any tap opens — which is also the only
+		behaviour a selection-less table could possibly have.
+
+		Two things the rule deliberately does NOT do:
+		  * A modified click (Shift / Cmd / Ctrl) is a SELECTION gesture. It never
+		    opens, on any input, even if it happens to land twice inside the
+		    double-click window.
+		  * A touch tap that opens does NOT also re-toggle the selection. In
+		    `multi` the second tap would otherwise DESELECT the row it just
+		    opened, which is the one outcome nobody means.
+	]]
+	-- Windows and macOS both default to 500 ms; nothing on the platform exposes
+	-- the player's own setting, so this is the honest shared default rather than
+	-- a number invented for this control.
+	local DOUBLE_CLICK_WINDOW_S = 0.5
+	-- The presenter's own `now` arrives through `bindMotion` (contribution.luau:
+	-- "the same source the motion clock uses"), so a scripted suite and the live
+	-- client read the same clock. `os.clock` is the bare-mount fallback, exactly
+	-- as renderer.luau's own tap-echo window does it.
+	local nowFn: () -> number = os.clock
+	local lastClickKey: string? = nil
+	local lastClickAt: number = 0
+
+	local function itemForKey(rowKey: string): any?
+		for _, item in spec.rows:get() :: { any } do
+			if spec.key(item) == rowKey then
+				return item
+			end
+		end
+		return nil
+	end
+
+	local function firePrimaryAction(rowKey: string): boolean
+		local handler = spec.onPrimaryAction
+		if handler == nil then
+			return false
+		end
+		local item = itemForKey(rowKey)
+		if item == nil then
+			-- the row left the data between the gesture and the dispatch; there is
+			-- nothing to open, and inventing an item would be worse than nothing
+			return false
+		end
+		handler(item, rowKey)
+		return true
+	end
+
+	-- A SECOND CLICK IS ONLY A DOUBLE CLICK ON THE SAME ROW, INSIDE THE WINDOW.
+	-- Consuming the pair (rather than leaving the timestamp standing) is what
+	-- keeps a TRIPLE click from being two double clicks — the third press starts
+	-- a fresh pair instead of firing again.
+	local function consumeDoubleClick(rowKey: string): boolean
+		local at = nowFn()
+		if lastClickKey == rowKey and (at - lastClickAt) <= DOUBLE_CLICK_WINDOW_S then
+			lastClickKey = nil
+			lastClickAt = 0
+			return true
+		end
+		lastClickKey = rowKey
+		lastClickAt = at
+		return false
+	end
+
 	-- routes a presenter activate; returns true when the path was a row hit.
 	-- meta (pointer kind + held modifiers) picks the device-correct semantics:
 	-- touch/no-meta = additive toggle, plain mouse/key = replace,
@@ -2057,6 +2156,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 		if meta == nil or meta.pointer == "touch" then
+			-- TOUCH: tap-to-select, tap-again-to-open (see firePrimaryAction's own
+			-- comment for why this diverges from the pointer idiom). The
+			-- already-selected read happens BEFORE `api.select`, because
+			-- `api.select` is what would have flipped it.
+			local reopens = selectionMode == "none" or selectedKeys:get()[rowKey] == true
+			if reopens and firePrimaryAction(rowKey) then
+				return true -- selection deliberately untouched: opening is not toggling
+			end
 			api.select(rowKey)
 		elseif meta.toggle then
 			api.select(rowKey, { mode = "toggle" })
@@ -2064,6 +2171,16 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			api.select(rowKey, { mode = "range" })
 		else
 			api.select(rowKey, { mode = "replace" })
+			-- A DEVICE Activate IS the primary action (Return / ButtonA on the
+			-- focused row); a MOUSE click only is when it completes a double click.
+			-- `meta.source == "action"` is the same seam the row grab and the
+			-- header's two verbs already use to tell a device press from a tap.
+			if spec.onPrimaryAction ~= nil then
+				local device = meta.source == "action" or meta.pointer == "keyboard" or meta.pointer == "gamepad"
+				if device or consumeDoubleClick(rowKey) then
+					firePrimaryAction(rowKey)
+				end
+			end
 		end
 		return true
 	end
@@ -2650,6 +2767,18 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- name it. Re-called on every structural sync; assignment is idempotent.
 			bindController = function(controller)
 				renderController = controller
+			end,
+			-- THE CLOCK, FOR ONE MEASUREMENT ONLY (parity round 2 §3.4): the
+			-- double-click window. Table animates nothing, so it takes the `now`
+			-- half of this seam and ignores the clock itself — that is exactly what
+			-- the ADDITIVE second argument is for (contribution.luau: "the same
+			-- source the motion clock uses"). Without a presenter (a bare-mounted
+			-- Table in a spec) `nowFn` stays `os.clock`, so the gesture still works;
+			-- with one, a scripted `now` makes the window deterministic.
+			bindMotion = function(_clock: any, now: (() -> number)?)
+				if now ~= nil then
+					nowFn = now
+				end
 			end,
 		}),
 		api = api,

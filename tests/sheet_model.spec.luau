@@ -292,6 +292,9 @@ local BASE_SLOT_FILL: { [string]: any } = {
 	sliderThumb = { token = "$SurfaceStrong", from = default_style.colors.surfaceStrong },
 	barTrack = { token = "$Control", from = default_style.extra.control },
 	barFill = { token = "$Accent", from = default_style.colors.accent },
+	-- the indeterminate spinner's dot (parity round 2 §3.1): an unskinned
+	-- spinner is a ring of accent dots, so it carries barFill's own flat truth
+	spinner = { token = "$Accent", from = default_style.colors.accent },
 }
 
 local function baseRule(name: string): any
@@ -338,8 +341,9 @@ describe("build: the value-control own-paint family (RS-A16-D4)", function()
 			local corner = baseRule(`Slot — {slot} corner`)
 			expect(corner ~= nil).toBe(true)
 			expect(corner.selector).toBe(`.{tag}::UICorner`)
-			if slot == "sliderThumb" then
-				-- a thumb is a CIRCLE: a square fallback reads as a different control
+			if slot == "sliderThumb" or slot == "spinner" then
+				-- a thumb and a spinner dot are CIRCLES: a square fallback reads as a
+				-- different control, not as a degraded one (sheet_model's SLOT_ROUND)
 				expect(corner.props.CornerRadius.scale).toBe(0.5)
 				expect(corner.props.CornerRadius.offset).toBe(0)
 			else

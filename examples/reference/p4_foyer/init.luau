@@ -679,9 +679,19 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		return use(services.sections)
 	end)
 
+	-- TabRow-to-FeedPage GAP IS "s", NOT "m" (overflow sweep, narrow-landscape
+	-- 640x320): `FeedPage` is the spec's ONE scroll authority (§2) and stays
+	-- `fill` — it is not this fixture's job to give IT more room, so the fix
+	-- lives in what sits ABOVE it. `TabRow`'s two touch-target tabs are already
+	-- their real, accessible height (not shrinkable), and at that viewport
+	-- `Middle`'s box has exactly 64px for the whole of `HomeBody` — one `"m"`
+	-- (16px) gap on top of TabRow's 53px already overflows the box before
+	-- `FeedPage` gets a single pixel. One token step down closes it with room
+	-- to spare, everywhere, and touches neither TabRow's touch targets nor
+	-- FeedPage's own fill/scroll contract.
 	local homeBody = UI.VStack({
 		id = "HomeBody",
-		gap = "m",
+		gap = "s",
 		align = "stretch",
 		height = { type = "fill", weight = 1 },
 		children = {
@@ -691,10 +701,20 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 				padding = { left = "m", right = "m" },
 				children = { tabButton("forYou", "tab.forYou"), tabButton("charts", "tab.charts") },
 			}),
+			-- PADDING IS "s", NOT "m" (overflow sweep + live report: this scroll —
+			-- the spec's ONE scroll authority, §2 — was already silently drawing
+			-- NOTHING on the canonical compact-phone-landscape row, 705x338: its own
+			-- 16+16 padding alone exceeded the 13px TabRow left it, before this fix
+			-- even touched HomeBody's gap. A smaller, still-real padding step gives
+			-- it an honest content box on every viewport that has room for a feed at
+			-- all; the narrowest swept viewport (640x320) has so little of Middle's
+			-- box left after TabRow's own accessible height that no padding choice
+			-- can make FeedPage show content there without shrinking a real touch
+			-- target — that residual is reported, not hidden.
 			UI.ScrollView({
 				id = "FeedPage",
 				gap = "l",
-				padding = "m",
+				padding = "s",
 				height = { type = "fill", weight = 1 },
 				children = {
 					UI.ScrollView({

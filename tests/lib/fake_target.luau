@@ -85,6 +85,15 @@ end
 local SCALE_MODE_ENGINE_NAME: { [string]: string } = { fit = "Fit", fill = "Crop", crop = "Crop", stretch = "Stretch" }
 fake_target.SCALE_MODE_ENGINE_NAME = table.freeze(SCALE_MODE_ENGINE_NAME)
 
+-- The engine scrollbar's thickness, in LOCKSTEP with `SCROLL_BAR_THICKNESS` in
+-- src/client/screen_target.luau. It is the thickness of the INSTANCE the live
+-- adapter creates on every scroll host, and — since the 2026-08-12 reversal of
+-- the zero-reserve ruling — also the layout reserve it publishes
+-- (`adapter.scrollBarThickness`), under BOTH indicator policies, because the
+-- engine charges the window for the instance however the bar is painted.
+-- `setScrollRegion` below models that window.
+fake_target.SCROLL_BAR_THICKNESS = 8
+
 -- the theme a tint resolves against here: the library's own style, which is what
 -- a target with no package installed uses on the live path too
 local NEUTRAL_THEME = { colors = default_style.colors, extra = default_style.extra }
@@ -300,6 +309,31 @@ function fake_target.new(opts: Opts?)
 		end
 		handle.props[prop] = value
 		table.insert(ops, `prop {handle.path}.{prop}={tostring(value)}`)
+		-- A PADDED TEXT LEAF'S `UIPadding`, mirrored (device round 2026-08-12,
+		-- IMG_3691). The live adapter materializes ONE `UIPadding` under a padded
+		-- TextLabel and writes all four sides into it, and materializes NOTHING for
+		-- an unpadded label. Mirrored here for the same reason the gradient child
+		-- below is: the defect being closed was a padding the solver MEASURED and
+		-- nothing PAINTED, so "the glyphs are really drawn inside the box" has to be
+		-- an assertion rather than a write nobody follows to the engine.
+		if prop == "padding" and handle.class == "Text" then
+			local sides = { top = 0, right = 0, bottom = 0, left = 0 }
+			if type(value) == "number" then
+				sides = { top = value, right = value, bottom = value, left = value }
+			elseif type(value) == "table" then
+				for _, side in { "top", "right", "bottom", "left" } do
+					sides[side] = if type((value :: any)[side]) == "number" then (value :: any)[side] else 0
+				end
+			end
+			local any = sides.top ~= 0 or sides.right ~= 0 or sides.bottom ~= 0 or sides.left ~= 0
+			if handle.textPadding == nil and any then
+				handle.textPadding = { className = "UIPadding", creations = 0 }
+			end
+			if handle.textPadding ~= nil then
+				handle.textPadding.creations += 1
+				handle.textPadding.sides = sides
+			end
+		end
 		-- THE PER-VIEW GRADIENT'S CHILD, mirrored (charter cap 11). The real
 		-- adapter materializes ONE named `UIGradient` from this data and REUSES
 		-- it; the same contract is mirrored here — same reason
@@ -606,22 +640,26 @@ function fake_target.new(opts: Opts?)
 	-- region + programmatic position, and driveScroll() is the HEADLESS SCROLL
 	-- DRIVER — it stands in for the engine moving CanvasPosition and fires the
 	-- renderer's observer exactly like a real user fling would.
-	-- scroll indicator policy, mirrored (director ruling 2026-08-09). The fake
-	-- records the POLICY FACTS and derives the same reserve rule the live
-	-- adapter derives, so a headless world proves the layout consequence (auto
-	-- = overlay = zero reserve) and the event order (flash on first overflow,
-	-- show on scroll, fade scheduled) without an engine. The configured
-	-- thickness a spec opted into is captured on the first call, because the
-	-- presenter applies the boot policy during construction.
+	-- scroll indicator policy, mirrored (director ruling 2026-08-09; reserve half
+	-- reversed 2026-08-12). The fake records the POLICY FACTS and derives the same
+	-- reserve rule the live adapter derives — which is now "the policy does not
+	-- move it" — so a headless world proves the event order (flash on first
+	-- overflow, show on scroll, fade scheduled) and the layout invariant without
+	-- an engine. The configured thickness a spec opted into is captured on the
+	-- first call, because the presenter applies the boot policy during
+	-- construction.
 	function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)
 		if adapter._configuredBarThickness == nil then
 			adapter._configuredBarThickness = adapter.scrollBarThickness or 0
 		end
 		adapter.scrollIndicatorPolicy = if policy == "auto" then "auto" else "always"
 		adapter.scrollIndicatorReduced = reduced == true
-		adapter.scrollBarThickness = if adapter.scrollIndicatorPolicy == "auto"
-			then 0
-			else adapter._configuredBarThickness
+		-- THE POLICY NO LONGER MOVES THE RESERVE (director ruling 2026-08-12,
+		-- reversing 2026-08-09), in lockstep with the live adapter: the engine
+		-- charges the window for the bar instance whatever the policy paints, so a
+		-- zero reserve under "auto" laid every touch scroller out 8px wider than
+		-- its own window. The configured thickness now stands under both policies.
+		adapter.scrollBarThickness = adapter._configuredBarThickness
 		table.insert(ops, `indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
 	end
 
@@ -629,12 +667,53 @@ function fake_target.new(opts: Opts?)
 		handle.scrollRegion = region
 		handle.indicatorsOff = region ~= nil and region.indicators == "none" or nil
 		handle.scrollPosition = handle.scrollPosition or { x = 0, y = 0 }
+		-- THE WINDOW IS NOT THE FRAME (device round 2026-08-12; the instrument this
+		-- suite did not have). A `ScrollingFrame`'s VISIBLE box is narrower than its
+		-- own rect by the BAR THICKNESS on the cross axis whenever the scroll axis
+		-- overflows — even at `ScrollBarInset.None`, which is the engine fact
+		-- `src/client/screen_target.luau` records at its cross-axis canvas clamp and
+		-- spends on the canvas only. The LAYOUT reserve is a separate number
+		-- (`adapter.scrollBarThickness`), so the two CAN disagree — and when they
+		-- did, the difference was content laid out outside the window and clipped by
+		-- the engine, which no headless check could see because the fake modelled no
+		-- window at all. They agree now: the 2026-08-12 reversal publishes the
+		-- reserve under every indicator policy, and this model is what proves it.
+		--
+		-- The instance thickness is NOT the published reserve: the live adapter
+		-- creates every scroll host with `ScrollBarThickness = SCROLL_BAR_THICKNESS`
+		-- and only zeroes it for a host that declared `indicators = "none"`. Kept in
+		-- lockstep with that file, exactly like `SCALE_MODE_ENGINE_NAME`.
+		local rect = handle.rect
+		if region == nil or rect == nil then
+			handle.windowRect = nil
+			handle.barInstanceThickness = nil
+		else
+			local bar = if region.indicators == "none" then 0 else fake_target.SCROLL_BAR_THICKNESS
+			handle.barInstanceThickness = bar
+			local isX = region.axis == "x"
+			local overflows = if isX then (region.contentW or 0) > rect.w + 1 else (region.contentH or 0) > rect.h + 1
+			local lost = if overflows then bar else 0
+			handle.windowRect = {
+				x = rect.x,
+				y = rect.y,
+				w = if isX then rect.w else math.max(0, rect.w - lost),
+				h = if isX then math.max(0, rect.h - lost) else rect.h,
+			}
+		end
 		table.insert(
 			ops,
 			if region == nil
 				then `scrollregion {handle.path}=nil`
 				else `scrollregion {handle.path} axis={region.axis} content={region.contentW}x{region.contentH}`
 		)
+	end
+
+	-- the engine window of a scroll host, or nil for anything that is not one /
+	-- has no region yet. The rect a test should compare a descendant against when
+	-- the question is "can the player SEE this", rather than `node(path).rect`.
+	function adapter.windowRectOf(path: string): any
+		local handle = nodes[path]
+		return if handle ~= nil then handle.windowRect else nil
 	end
 	-- engine-faithful clamp (verifier F3): CanvasPosition clamps to the
 	-- scrollable extent (measured live: write 1000 -> 800 on a 1200/400 host)
@@ -895,8 +974,9 @@ function fake_target.new(opts: Opts?)
 	-- a headless target (it paints nothing natively) and let a test read back
 	-- what the framework asked for.
 
-	-- reduced motion: the renderer suppresses the target's NATIVE transition
-	-- layer. Headless there is no such layer, so this records the request.
+	-- reduced motion, SHEET half: the renderer suppresses the target's NATIVE
+	-- transition layer. Headless there is no such layer, so this records the
+	-- request. (The BESPOKE half is `setReducedMotion` below.)
 	local nativeTransitions: boolean? = nil
 	function adapter.setNativeTransitionsEnabled(on: boolean)
 		nativeTransitions = on
@@ -904,6 +984,53 @@ function fake_target.new(opts: Opts?)
 	end
 	function adapter.nativeTransitionsEnabled(): boolean?
 		return nativeTransitions
+	end
+
+	--[[ ADAPTER-OWNED MOTION, MODELLED (C1, 2026-08-12) ─────────────────────────
+		The live ScreenTarget answers a press with a UIScale dip: a TweenService
+		tween under full motion and NO tween at all under reduced motion, where the
+		scale is written instantly instead (`screen_target.luau`
+		`wireNativePressDip` / `recoverPressDip`, and the same fork in `setFill`
+		and `applyToggleValue`). That decision is the ADAPTER'S, so a fake that
+		modelled none of it could never see whether the fact reached the target —
+		which is exactly why C1 survived: the only checks that mentioned
+		`isReducedMotion` matched the SOURCE TEXT of screen_target.luau, and source
+		text is true of a closure nobody calls.
+
+		Headless there is no TweenService, so the fake records the DECISION the
+		live adapter makes from the same input: one entry per press in
+		`motionOps()`, `kind = "tween"` (full motion) or `kind = "instant"`
+		(reduced). The fact it reads is the one the RENDERER pushes — there is no
+		construction-time closure here on purpose, because a fake that accepted one
+		would let the forgotten-opt defect back in through the instrument.
+	]]
+	local reducedMotion = false
+	local motionOps: { { path: string, kind: string } } = {}
+	function adapter.setReducedMotion(reduced: boolean)
+		reducedMotion = reduced == true
+		table.insert(ops, `reducedmotion={tostring(reducedMotion)}`)
+	end
+	-- what the target currently believes, for a spec that wants the fact itself
+	function adapter.reducedMotion(): boolean
+		return reducedMotion
+	end
+	-- every adapter-side motion decision since the last read, oldest first.
+	-- Deliberately NOT part of `ops`: `takeOps()` is asserted positionally by
+	-- several specs, and a press must not shift their indices.
+	function adapter.takeMotionOps(): { { path: string, kind: string } }
+		local out = motionOps
+		motionOps = {}
+		return out
+	end
+	-- the press dip itself, played from the drivers that model a real press
+	-- (`tap`, `touchTap`). `driveActivate` is the DEV-DRIVE verb — it calls the
+	-- handler without a press, exactly as the live adapter does — so it plays no
+	-- dip, and neither does a node the framework never made interactive.
+	local function playPressDip(path: string)
+		if nodes[path] == nil or nodes[path].onActivate == nil then
+			return
+		end
+		table.insert(motionOps, { path = path, kind = if reducedMotion then "instant" else "tween" })
 	end
 
 	-- native paint report. A headless target has NO native StyleSheet paint, so
@@ -1178,6 +1305,8 @@ function fake_target.new(opts: Opts?)
 	function adapter.tap(path: string, meta: any?)
 		local node = nodes[path]
 		if node and node.onActivate then
+			-- a press is motion before it is a callback (see playPressDip)
+			playPressDip(path)
 			node.onActivate(meta)
 		end
 	end
@@ -1221,6 +1350,7 @@ function fake_target.new(opts: Opts?)
 		local y = if pos ~= nil then pos.y else rect.y + (rect.h or 0) / 2
 		adapter.pointerDown(path, x, y, "touch")
 		adapter.pointerUp(x, y)
+		playPressDip(path)
 		if node.onActivate then
 			local m: any = { source = "pointer", pointer = "touch", x = x, y = y }
 			if type(meta) == "table" then

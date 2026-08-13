@@ -238,3 +238,127 @@ the fix, stated plainly, one message before the measurement found it.
 `controller.diagnostics()` for the failing configuration and read it as a sentence. And any
 fixture that can produce a finding must assert the list is EMPTY, so the next one fails
 loudly instead of printing into the dark.
+
+---
+
+## 14. It said it a THIRD time, and the answer was to make it un-ignorable (2026-08-12)
+
+Three device reports from a phone, all one family: a mail table entirely below the
+fold in landscape with nothing to scroll it (`IMG_3689`), a Match-3 button row
+sliced by the right screen edge (`IMG_3690`), an all-controls fixture running past
+its box (`IMG_3691`). §1 of this file says to read `controller.diagnostics()`. §13
+says a fixture must *fail* on them. Both were written, and the suite still could
+not see any of the three, because reading them was still something a person had to
+decide to do — per fixture, per stage, per mission.
+
+The fix is not another instruction. It is `tests/overflow_sweep.spec.luau`: every
+showcase surface (25 gallery scenarios, 7 tutorial examples, 5 reference proofs)
+mounted at the five recorded device-matrix viewports plus the narrowest supported
+one in **both** orientations plus the desktop size the director actually drives,
+failing on any main-axis overflow. It runs on `./run-tests.sh` and nobody has to
+remember it.
+
+**It found eleven more on its first run.** Not three defects — fourteen surfaces.
+`probe`, `scroll_host`, `path_ring`, `drag_session`, `virtual_list_native`,
+`native_style`, `authoring`, `sponsor_list`, `composition`, `keyboard_navigation`,
+`06_tile_game` and the `p4_foyer` reference proof were all overflowing at a
+viewport the device matrix has been *driven at* for months. That is the measure of
+what "a diagnostic nobody reads" was costing.
+
+Four things this round adds to the list above.
+
+**A sweep is only as honest as its ENVIRONMENT.** The first version laid every
+surface out against the bare viewport. In the showcase every one of them is reached
+through the demo picker, which reserves a 62px chip strip by writing
+`coreSafeInsets.top` — so the bare-viewport sweep was measuring a screen 62px taller
+than any player has ever seen, and that 62px was the whole margin several of these
+lived in. The sweep reads the number from `demo_picker.barReservation` rather than
+holding its own copy.
+
+**A sweep only covers the CONFIGURATIONS its fixture builds** (§13.1, again). The
+row-actions fixture is one screen with three surfaces behind a mode signal, and the
+default mount builds one of them. The other two held a `viewportHeight = 336 -- 4
+rows visible` that painted 245px past its pane on every landscape phone. The sweep
+now drives declared variants; that defect appeared the minute it did.
+
+**Two attempts at a viewport-derived constant were both wrong, and the third was
+not a constant.** `viewportHeight - chrome` was off by 64px on a portrait phone
+because the mode bar re-columns to two rows there — the chrome is the *solver's*
+decision, not a number the fixture can hold (§9, in a new place). The window is fed
+from the pane's own solved rect through `onGeometry` now, exactly as the picker
+strip publishes its own measured height. It cannot chase its tail because the pane
+takes `fill`, so its height never depends on the list inside it.
+
+**The chrome gives way, not the content.** Every fix in this round is the same
+sentence: a screen whose subject is a list spends a short viewport on the list.
+`adaptive.conditions(...).isShort` is the framework's own signal for it and it is a
+Readable, so it survives a rotation (§5). A `title`-sized heading, a mode bar and a
+toolbar are what a 200px-tall landscape phone cannot afford.
+
+### ...and the corollary that made it worth doing
+
+The sweep's failure message carries the offending node's solved box, not just the
+overflow (§11). Eleven of the twelve extra surfaces were diagnosed and fixed from
+that one line, without a capture.
+
+## 15. The overflow message now has TWO forms, and they call for different repairs (2026-08-12)
+
+Parity round 2 §2.4 gave the solver a shrink pass, so "content overflows this
+`<stack>` by `<N>`px on the main axis" is no longer the whole story. Read the tail
+of the line:
+
+| What you see | What it means | The repair |
+|---|---|---|
+| `…(wrap it in a ScrollView, or give it room)` | the historic message, unchanged. **Nothing in this stack was allowed to shrink** — no child declared a `shrinkWeight`, which is the default | give it room, scroll it, or let a child give way (`shrinkWeight = 1`) |
+| `… — every shrinkable child is already at its floor (layoutPriority order tried: 0, 2)` | the shrink pass ran, worked through those priority tiers lowest-first, and took every pixel it could. The row still does not fit | the floors are the constraint: a `minMax.min`, a label's longest word. Widen the box, shorten the content, or raise a floor's owner into a higher tier |
+
+The distinction is the whole point of appending it: *"nothing was allowed to
+shrink"* and *"everything is already at its floor"* look identical in a rect dump
+and want opposite edits.
+
+There is a second new line on the same channel, and it is an authoring conflict
+rather than a fit problem: `distribute = "spaceBetween" has nothing to distribute
+on this hstack: a `fill` child already takes the whole leftover`. `fill` resolves
+first and consumes the remainder, so `distribute` is spreading nothing. Drop the
+fill dimension or leave `distribute` at `"start"`.
+
+## 16. A THIRD kind of line now rides the channel: "this prop did nothing" (2026-08-13)
+
+Every message above is about a box that does not fit. Parity round 2 §2.1 added a
+different question to the same channel — *was anything you asked for actually
+read?* — and the line looks like this:
+
+```
+`alignH` is a placement prop this parent never reads: a vstack's arrange places
+its children by stacking them down a line, so `alignH` here is accepted and then
+ignored — nothing moves. Use `lineAlign` (start|center|end|stretch), which a stack
+does read off each child
+```
+
+`anchor`, `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign` and `gridSpan` are
+shared BOX props — legal on **every** node — but not one of them is a fact the node
+has of its own. Each is an instruction addressed to a particular kind of **parent**,
+and every arrange branch reads only the ones it knows. Anywhere else the framework
+accepted the prop and then ignored it, which constitution §4 forbids.
+
+**Why this belongs in this file and not in a refusal.** A child cannot catch it —
+it does not know its parent at its own construction — so the *parent* does
+(`solver.auditPlacement`, called from `renderer.toLayoutNode`, reported by
+`arrange`). And a construction-time refusal, which is the house shape and was
+built, turned out to redden five live Rascal Rally screens; the diagnostic carries
+the same information without changing a shipped build. That is the trade this
+channel exists to make.
+
+**What it cost to leave unread, measured on the day it landed:** twelve live call
+sites across the framework, the game and the examples. The loudest was
+`row_actions`' floating menu asking to sit at its trigger's screen coordinates and
+being placed at the origin — silently, with `diagnostics()` empty, through a green
+suite. Four more were an alignment an author asked for and never got. Every one is
+written up in
+[`docs/plans/unfulfilled-placement-intents.md`](../plans/unfulfilled-placement-intents.md).
+
+**The rule, same as §13's:** a fixture must FAIL on it, or the list is a log nobody
+reads. Three suites already assert an *empty* `diagnostics()` for their screens
+(Glade twice, the Rascal Rally results screen once) — those three assertions are
+what made this tier land as a real gate rather than a log, and they passed
+unedited once the twelve call sites were cleared.

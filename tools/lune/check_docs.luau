@@ -133,6 +133,7 @@ local RICH_GUIDE_ANCHORS: { Anchor } = {
 	{ term = "barCap", why = "the ornaments that must survive every percent" },
 	{ term = "toggleKnob", why = "the sliding switch's knob slot" },
 	{ term = "stepperPlate", why = "the whole-image-by-default plate and its `sliced = true`" },
+	{ term = "spinner", why = "the indeterminate ProgressView's dot slot (parity round 2 §3.1)" },
 	{ term = "iconSizes", why = "icon size rides the metric snapshot" },
 	{ term = "tintRole", why = "an icon is tinted by its asset's role" },
 	{ term = 'rendering = "pixel"', why = "pixel mode's flag" },
@@ -251,7 +252,7 @@ local FORBIDDEN: { { file: string, phrase: string, why: string } } = {
 	{
 		file = GUIDE,
 		phrase = "There are nine **decoration slots**, and the list is closed",
-		why = "v2 ships sixteen slots (the bar family, stepperPlate, toggleTrack/Knob) — chapter 10 documents them",
+		why = "v2 ships seventeen slots (the bar family, stepperPlate, toggleTrack/Knob, spinner) — chapter 10 documents them",
 	},
 	{
 		file = GUIDE,

@@ -34,14 +34,15 @@ namespaces' members and the blessed client entry points) has a row here; the
 
 | Item | Kind | Pattern / exception | Dispositions | Fragment |
 |---|---|---|---|---|
-| Containers: `UI.Screen` `UI.VStack` `UI.HStack` `UI.ZStack` `UI.ScrollView` `UI.Anchor` `UI.AdaptiveStack` `UI.Grid` | blueprint primitives | construction-strict single-spec-table; E-4 (`Screen`), E-6 (`ScrollView.axis`) | F-19 (`overflow="clip"`), DOC-10 | blueprints |
+| Containers: `UI.Screen` `UI.VStack` `UI.HStack` `UI.ZStack` `UI.ScrollView` `UI.Anchor` `UI.AdaptiveStack` `UI.Grid` `UI.GridRow` | blueprint primitives | construction-strict single-spec-table; E-4 (`Screen`), E-6 (`ScrollView.axis`) | F-19 (`overflow="clip"`), DOC-10 | blueprints |
 | Adaptive containers: `UI.ViewThatFits` `UI.Composition` `UI.Region` | blueprint primitives | construction-strict + bespoke semantic passes; E-5 (`Region` no BOX) | DOC-10, F-29 (`eligible` typed) | blueprints |
 | Leaves: `UI.Text` `UI.Image` `UI.Box` `UI.Spacer` `UI.Divider` `UI.Path` `UI.Stage` `UI.Grip` `UI.Toggle` `UI.TextField` | blueprint primitives | construction-strict; E-1 (`fill`/`crop`), E-2 (`focusable` polarity) | F-20 (thickness metric), DOC-13 (`TextField` data-only fields); `UI.Stage`'s engine content rides the adapter seam `controller.stageHost` (2026-08-08 ViewportFrame adoption) | blueprints |
 | `UI.Button` | blueprint primitive (container) | construction-strict + largest semantic block | DOC-10 (docs called it a leaf) | blueprints |
 | Structural: `UI.When` `UI.ForEach` `UI.ErrorBoundary` | structural regions | only mount/unmount owners; strict | F-18 (drag refusal on them), NOTE (ErrorBoundary adoption) | blueprints |
 | Style modifiers: `UI.shadow` `UI.gradient` `UI.corners` `UI.stroke` `UI.strokeData` `UI.shadowData` `UI.gradientData` `UI.cornersData` `UI.styleGroup` | modifiers | `(bp, spec, style?) -> new frozen bp`; E-3 (`styleGroup` order) | F-4, F-5, F-7, PKT-10; `strokeData` sibling gap → DOC/PKT-5 class | blueprints |
-| Layout modifiers: `UI.frame` `UI.padding` `UI.offset` `UI.aspectRatio` `UI.alignment` `UI.overlay` `UI.background` | modifiers | blueprint-first; positional sub-family (`offset`/`aspectRatio`/`alignment`) | F-3 (`background` meta), F-7 (attribution), F-21 | blueprints |
+| Layout modifiers: `UI.frame` `UI.padding` `UI.offset` `UI.aspectRatio` `UI.alignment` `UI.overlay` `UI.background` `UI.containerRelativeFrame` | modifiers | blueprint-first; positional sub-family (`offset`/`aspectRatio`/`alignment`) | F-3 (`background` meta), F-7 (attribution), F-21 | blueprints |
 | `UI.draggable` `UI.dropTarget` | modifiers (meta channel) | typed specs; one legality path | F-18 (class gate) | blueprints |
+| `UI.sensoryFeedback` | modifier (meta channel) | typed spec; closed-taxonomy verb + Readable trigger; composes (list, not last-wins) | F-18 (structural class gate, same ruling as the drag pair); plays nothing — the emission is one bus event | blueprints |
 | `UI.schema` (11 members) `UI.isReadable` `UI.PROP_DIRTY` | tooling accessors | dot module; frozen after F-6/F-34 | F-6, F-34, DOC-9 | blueprints |
 | Shared vocabularies: transitions, `tint`, dims/sides, metric names | closed grammars | one validator, many readers | DOC-10; BP-F25 timing NOTE | blueprints |
 
@@ -111,6 +112,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `client/theme_controller` | engine adapter | capability-checked install; best lifecycle story | DOC-23 | seams |
 | `client/edit_preview` | dev tooling | E-11 | DOC-7 | seams |
 | `client/motion_driver` | engine adapter | bind → unbind (documented footgun stays documented) | DOC-7 | services |
+| `client/haptics` | engine adapter | opts factory; opt-in, DEFAULT OFF; bind → unbind + attachButtons → detach | five-state capability lattice (no platform capability API); total verb map with explicit silences; pooled effects; unreachable from `src/` outside `src/client` | seams |
 
 ## Extension seams and process
 

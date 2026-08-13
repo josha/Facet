@@ -954,3 +954,268 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 		expect(w2.reorders[1].toIndex).toBe(unscrolled)
 	end)
 end)
+
+-- =============================================================================
+-- 5. onPrimaryAction — THE FOUR-INPUT PROOF (parity round 2 §3.4)
+--
+-- "Open this row" is the verb that is NOT selection, and every input has to be
+-- able to say it. Each case here drives the DEVICE seam (adapter.tap /
+-- adapter.touchTap / system.deviceKey) through the presenter's zero-opt auto
+-- composition — never `tbl.api.handleActivate` — so what is proven is the path a
+-- player's finger, mouse, key and stick actually take.
+--
+-- The clock is SCRIPTED (`now`), because the pointer gesture is a MEASUREMENT:
+-- with os.clock, two `adapter.tap` calls in a spec are microseconds apart and
+-- the double-click window is satisfied by the test's own speed rather than by
+-- the code under test. The slow-pair case below only bites with a scripted one.
+-- =============================================================================
+describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamepad", function()
+	local function primaryWorld(opts: { selection: string?, rows: number? }?)
+		local o = opts or {}
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 100 }
+		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local opened: { { key: string, name: string } } = {}
+		local rows = core:signal(bigRows(o.rows or 3))
+		local tbl = table_control.build(LuauUI, core, {
+			id = "T",
+			rows = rows,
+			key = function(r: any)
+				return r.id
+			end,
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					value = function(r: any)
+						return r.name
+					end,
+				},
+			},
+			selection = o.selection or "single",
+			rowHeight = 40,
+			onPrimaryAction = function(item: any, key: string)
+				table.insert(opened, { key = key, name = item.name })
+			end,
+		})
+		local screen = LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } })
+		local handle = pres.present(screen) -- ZERO present opts: full auto-composition
+		pres.refresh()
+		-- the solver's own verdict, on every fixture (docs/lessons/the-solver-already-told-you.md)
+		expect(#handle.controller.diagnostics()).toBe(0)
+		return {
+			core = core,
+			system = system,
+			adapter = adapter,
+			pres = pres,
+			handle = handle,
+			tbl = tbl,
+			opened = opened,
+			clock = clock,
+		}
+	end
+
+	local function mouseTap(w: any, key: string)
+		local rect = w.adapter.node(hit(key)).rect
+		w.adapter.tap(hit(key), {
+			source = "pointer",
+			pointer = "mouse",
+			x = rect.x + rect.w / 2,
+			y = rect.y + rect.h / 2,
+		})
+	end
+
+	it("Table pointer: a double-click on a row fires onPrimaryAction once, and a single click never does", function()
+		local w = primaryWorld()
+		mouseTap(w, "r2")
+		expect(#w.opened).toBe(0) -- one click selects and nothing else
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		w.clock.t += 0.2 -- inside the 500 ms window
+		mouseTap(w, "r2")
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r2")
+		expect(w.opened[1].name).toBe("Row 2")
+		-- and the row is still selected: opening is not a selection verb
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+	end)
+
+	it("Table pointer: two clicks SLOWER than the window are two single clicks, not an open", function()
+		local w = primaryWorld()
+		mouseTap(w, "r2")
+		w.clock.t += 0.6 -- past 500 ms
+		mouseTap(w, "r2")
+		expect(#w.opened).toBe(0)
+		-- a third click inside the window of the SECOND one does open it: the
+		-- pair is re-formed rather than lost
+		w.clock.t += 0.1
+		mouseTap(w, "r2")
+		expect(#w.opened).toBe(1)
+	end)
+
+	it("Table pointer: two fast clicks on DIFFERENT rows are not a double-click", function()
+		local w = primaryWorld()
+		mouseTap(w, "r1")
+		w.clock.t += 0.05
+		mouseTap(w, "r2")
+		expect(#w.opened).toBe(0)
+	end)
+
+	it("Table pointer: a modified click is a SELECTION gesture and never opens", function()
+		local w = primaryWorld({ selection = "multi" })
+		local function modTap(key: string, mods: any)
+			local rect = w.adapter.node(hit(key)).rect
+			local meta: any = { source = "pointer", pointer = "mouse", x = rect.x + 1, y = rect.y + 1 }
+			for k, v in mods do
+				meta[k] = v
+			end
+			w.adapter.tap(hit(key), meta)
+		end
+		modTap("r2", { toggle = true })
+		w.clock.t += 0.05
+		modTap("r2", { toggle = true })
+		expect(#w.opened).toBe(0)
+		modTap("r3", { shift = true })
+		w.clock.t += 0.05
+		modTap("r3", { shift = true })
+		expect(#w.opened).toBe(0)
+	end)
+
+	it("Table touch: the first tap selects and the SECOND tap on the same (selected) row opens it", function()
+		local w = primaryWorld()
+		w.adapter.touchTap(hit("r2"))
+		expect(#w.opened).toBe(0)
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		-- an arbitrarily long pause: this is a mode, not a measurement
+		w.clock.t += 30
+		w.adapter.touchTap(hit("r2"))
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r2")
+		-- the row it opened is STILL selected — a second tap in `multi` would
+		-- otherwise deselect exactly the row it just opened
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+	end)
+
+	it("Table touch: a tap on a row that is NOT yet selected only selects it — every input's first tap is a selection", function()
+		local w = primaryWorld({ selection = "multi" })
+		w.adapter.touchTap(hit("r1"))
+		w.adapter.touchTap(hit("r2"))
+		expect(#w.opened).toBe(0) -- two additive selections, nothing opened
+		expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+		-- and now the already-selected row opens, without disturbing either
+		w.adapter.touchTap(hit("r2"))
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r2")
+		expect(w.tbl.api.selectedKeys:get().r1).toBe(true)
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(true)
+	end)
+
+	-- THE PRICE OF THE TOUCH RULE, PINNED RATHER THAN HIDDEN (see the divergence
+	-- note in table.luau). In `multi`, a tap on a selected row USED TO be the
+	-- deselect gesture. Declaring `onPrimaryAction` spends that gesture on
+	-- opening — for that table only, and only because its author declared that
+	-- its rows open. This test exists so the trade is a decision on the record
+	-- rather than a surprise in a bug report.
+	it("Table touch: declaring onPrimaryAction spends multi's tap-to-DESELECT gesture, and only on that table", function()
+		local withAction = primaryWorld({ selection = "multi" })
+		withAction.adapter.touchTap(hit("r1"))
+		withAction.adapter.touchTap(hit("r1"))
+		expect(withAction.tbl.api.selectedKeys:get().r1).toBe(true) -- opened, not deselected
+		expect(#withAction.opened).toBe(1)
+		-- the consumer-side escape is unchanged and still exact
+		withAction.tbl.api.clearSelection()
+		expect(withAction.tbl.api.selectedKeys:get().r1).toBe(nil)
+	end)
+
+	it('Table touch: with selection = "none" a single tap opens, because there is no selected state to reach', function()
+		local w = primaryWorld({ selection = "none" })
+		w.adapter.touchTap(hit("r3"))
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r3")
+		w.adapter.touchTap(hit("r1"))
+		expect(#w.opened).toBe(2)
+		expect(w.opened[2].key).toBe("r1")
+	end)
+
+	it("Table keyboard: Return on the focused row fires onPrimaryAction for THAT row", function()
+		local w = primaryWorld()
+		w.system.deviceKey("Down", true) -- focus r1 -> r2
+		w.system.deviceKey("Down", false)
+		expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+		expect(#w.opened).toBe(0) -- moving focus selects; it never opens
+		w.system.deviceKey("Return", true)
+		w.system.deviceKey("Return", false)
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r2")
+		expect(w.opened[1].name).toBe("Row 2")
+	end)
+
+	it("Table gamepad: ButtonA on the focused row fires onPrimaryAction for THAT row", function()
+		local w = primaryWorld()
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		expect(w.pres.focus.focused:get()).toBe(hit("r3"))
+		expect(#w.opened).toBe(0)
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r3")
+	end)
+
+	it("a table with NO onPrimaryAction behaves exactly as it does today on all four inputs", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local rows = core:signal(bigRows(3))
+		local tbl = table_control.build(LuauUI, core, {
+			id = "T",
+			rows = rows,
+			key = function(r: any)
+				return r.id
+			end,
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					value = function(r: any)
+						return r.name
+					end,
+				},
+			},
+			selection = "multi",
+			rowHeight = 40,
+		})
+		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		-- touch: tap toggles ON, tap again toggles OFF (the Phase A idiom, intact)
+		adapter.touchTap(hit("r2"))
+		expect(tbl.api.selectedKeys:get().r2).toBe(true)
+		adapter.touchTap(hit("r2"))
+		expect(tbl.api.selectedKeys:get().r2).toBe(nil)
+		-- keyboard/gamepad Activate still just replaces the selection: focus lands
+		-- on r3 and Return re-selects exactly it, leaving r2 behind
+		system.deviceKey("Down", true)
+		system.deviceKey("Down", false)
+		expect(pres.focus.focused:get()).toBe(hit("r3"))
+		system.deviceKey("Return", true)
+		system.deviceKey("Return", false)
+		expect(tbl.api.selectedKeys:get().r3).toBe(true)
+		expect(tbl.api.selectedKeys:get().r2).toBe(nil)
+	end)
+end)

@@ -111,6 +111,24 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "row_actions",
 	},
+	-- the third and fourth fixtures, and they lead the tutorials for the same
+	-- reason the first two do: each is the ONLY hands-on surface for a piece of
+	-- public API that a still screenshot cannot show. A sideways virtualizer has
+	-- to be flung, and a motion policy has to be watched.
+	{
+		id = "card-rail",
+		title = "Card rail",
+		blurb = "400 cards sideways: swipe, or step with Left/Right",
+		kind = "fixture",
+		module = "card_rail",
+	},
+	{
+		id = "with-animation",
+		title = "Animation",
+		blurb = "One spring moves, reveals and re-orders — Full vs Reduced",
+		kind = "fixture",
+		module = "with_animation",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",
@@ -333,6 +351,12 @@ function demo_picker.mount(opts: MountOpts): any
 	-- (844 viewport, less 59+34 safe insets, less the 62px reserved chrome strip)
 	-- and the last demo was simply cut off the bottom of the screen with no way to
 	-- reach it. Landscape is far worse: 700px of list in 235px of room.
+	--
+	-- NINE IS THAT MEASUREMENT'S COUNT, NOT TODAY'S. The catalogue stands at
+	-- ELEVEN since the SwiftUI-parity round-2 fixtures joined it, which moves the
+	-- margin the wrong way — and is exactly why the fix had to be a cap rather
+	-- than a taller literal. Adding a demo does not send anyone back to re-measure
+	-- this number; that is the property the cap bought.
 	--
 	-- The THEME picker met this exact defect in round 10 and its fix is written up
 	-- at length beside its own panel — including the three wrong shapes that came

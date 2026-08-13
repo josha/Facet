@@ -1,17 +1,26 @@
 --!strict
 -- Scroll indicator policy (director ruling 2026-08-09, "auto-showing scroll
--- bars"): pointer sessions keep the desktop convention — a persistent bar
--- whose thickness the solver RESERVES; touch/gamepad sessions get overlay
--- indicators — zero reserve, flash on first overflow, show while scrolling,
--- fade when idle, and reduced motion never fades. The policy is derived in
--- the ENVIRONMENT (from interactionClasses, never a device name), pushed by
--- the PRESENTER through the declared optional target method
--- `setScrollIndicatorPolicy`, and the layout consequence flows through the
--- adapter's published `scrollBarThickness` into the solver's reserve.
+-- bars"; RESERVE HALF REVERSED 2026-08-12): pointer sessions keep the desktop
+-- convention — a persistent bar; touch/gamepad sessions get hidden-at-rest
+-- indicators — flash on first overflow, show while scrolling, fade when idle,
+-- and reduced motion never fades. The policy is derived in the ENVIRONMENT
+-- (from interactionClasses, never a device name) and pushed by the PRESENTER
+-- through the declared optional target method `setScrollIndicatorPolicy`.
+--
+-- THE POLICY DECIDES PAINT, NOT LAYOUT. The 2026-08-09 ruling also published a
+-- ZERO reserve under the overlay policy ("an overlay indicator lays claim to no
+-- layout space"). Roblox has no overlay scrollbar: the engine shrinks a
+-- ScrollingFrame's WINDOW by the instance's thickness whatever the bar paints,
+-- so a zero reserve laid every touch scroller's content out 8px wider than the
+-- box the player could see. Measured live in Studio 2026-08-12 (AbsoluteSize
+-- 703x203 vs AbsoluteWindowSize 695x203, nine nodes clipped — bugs/IMG_3691.jpeg),
+-- and the director REVERSED that half: `scrollBarThickness` is now the same
+-- number under both policies. `tests/scroll_window_clip.spec.luau` measures the
+-- consequence; this file pins the chain. DO NOT restore the zero reserve.
 --
 -- The engine half (the actual fade tweens, the CanvasPosition-driven show) is
 -- engine-only; what this spec pins headlessly is the POLICY CHAIN: derivation,
--- boot application, live flip, reserve consequence, and the reduced-motion and
+-- boot application, live flip, the reserve INVARIANT, and the reduced-motion and
 -- fallback facts — through the fake target's recorded ops.
 
 local t = require("./lib/testkit")
@@ -57,8 +66,9 @@ describe("scroll indicator policy: the presenter drives the adapter seam", funct
 	it("boot applies the session's policy before anything mounts", function()
 		local _, _, adapter = world({ touch = true, mouse = false, keyboard = false, gamepad = false }, "Touch")
 		expect((adapter :: any).scrollIndicatorPolicy).toBe("auto")
-		-- the layout consequence: an overlay indicator lays claim to no space
-		expect((adapter :: any).scrollBarThickness).toBe(0)
+		-- ...and the reserve is UNMOVED by it (2026-08-12 reversal): the engine
+		-- charges the window for the bar instance whatever the policy paints
+		expect((adapter :: any).scrollBarThickness).toBe(8)
 	end)
 
 	it("a pointer session keeps the configured thickness (the reserve survives)", function()
@@ -67,14 +77,16 @@ describe("scroll indicator policy: the presenter drives the adapter seam", funct
 		expect((adapter :: any).scrollBarThickness).toBe(8)
 	end)
 
-	it("an input-class flip mid-session re-applies the policy AND the reserve", function()
+	it("an input-class flip mid-session re-applies the policy and LEAVES the reserve", function()
 		local _, env, adapter = world()
 		expect((adapter :: any).scrollBarThickness).toBe(8)
 		env:set("capabilities", { touch = true, mouse = false, keyboard = false, gamepad = false })
 		env:set("preferredInput", "Touch")
 		expect((adapter :: any).scrollIndicatorPolicy).toBe("auto")
-		expect((adapter :: any).scrollBarThickness).toBe(0)
-		-- and back: the configured thickness is restored, not invented
+		-- the reserve is an ENGINE fact, not a policy choice (2026-08-12): a flip
+		-- must not move it, or the content box changes width under the player
+		expect((adapter :: any).scrollBarThickness).toBe(8)
+		-- and back: still the configured thickness, never invented
 		env:set("capabilities", { touch = false, mouse = true, keyboard = true, gamepad = false })
 		env:set("preferredInput", "KeyboardAndMouse")
 		expect((adapter :: any).scrollIndicatorPolicy).toBe("always")
@@ -109,8 +121,12 @@ describe("scroll indicator policy: the presenter drives the adapter seam", funct
 	end)
 end)
 
-describe("scroll indicator policy: the reserve consequence reaches solved geometry", function()
-	it("a hug shelf regains the 8px the bar reserved when the session flips to touch", function()
+describe("scroll indicator policy: the reserve is stable across a session flip", function()
+	-- BEFORE 2026-08-12 this case was "a hug shelf regains the 8px the bar reserved
+	-- when the session flips to touch" — the zero-reserve ruling's own consequence.
+	-- The reversal makes the opposite the requirement: nothing about the content box
+	-- may move when the input class flips, because the engine's charge did not.
+	it("a hug shelf does NOT change size when the session flips to touch", function()
 		local core, env, adapter, presenter = world()
 		local UI = LuauUI.UI
 		local handle = presenter.present(
@@ -141,10 +157,10 @@ describe("scroll indicator policy: the reserve consequence reaches solved geomet
 		presenter.refresh()
 		local after = (adapter :: any).node("/S/Page").rect.h
 		-- the page is height-hug in a bounded screen: its box is the offer both
-		-- times — what changes is the RESERVE inside it, which this asserts
-		-- through the adapter's published thickness feeding the next solve
-		expect((adapter :: any).scrollBarThickness).toBe(0)
-		expect(after >= before).toBe(true)
+		-- times, and the RESERVE inside it no longer depends on the policy — so
+		-- the solved geometry is IDENTICAL across the flip
+		expect((adapter :: any).scrollBarThickness).toBe(8)
+		expect(after).toBe(before)
 		expect(core:lastError()).toBeNil()
 		if type((handle :: any).dispose) == "function" then
 			(handle :: any).dispose()
@@ -250,6 +266,80 @@ describe('indicators = "none": the carousel opt-out', function()
 		expect(((adapter :: any).node("/S/Page/Carousel") :: any).indicatorsOff).toBe(true)
 		expect(((adapter :: any).node("/S/Page") :: any).indicatorsOff).toBeNil()
 		expect(core:lastError()).toBeNil()
+	end)
+end)
+
+--[[ THE LIVE ADAPTER'S OWN HALF, READ FROM SOURCE — and it is the only thing in
+	this repo that pins it (red-team T1, 2026-08-13).
+
+	EVERY behavioural assertion above reads `tests/lib/fake_target.luau`, and the
+	fixture at the top of this file writes `adapter.scrollBarThickness = 8` ITSELF
+	before the presenter ever runs. So "the reserve survived the policy" is a
+	statement about the FAKE's hand-mirrored `setScrollIndicatorPolicy`, never about
+	`src/client/screen_target.luau` — which cannot even load headlessly (engine
+	globals at load time), which is why the mirror exists at all.
+
+	PROVED VACUOUS: reverting screen_target's write to
+	`if forceScrollFallbackMode then 0 elseif scrollIndicatorPolicy == "auto" then 0
+	else SCROLL_BAR_THICKNESS` — i.e. re-shipping the device bug in
+	bugs/IMG_3691.jpeg verbatim — left this suite AND RascalRally's green. The pins
+	below are what bite on it.
+
+	Same instrument as `tests/reduced_motion_seam.spec.luau`'s live-adapter block
+	and `tests/render_target_contract.spec.luau`: read the file as text, and pin the
+	exact lines that carry the ruling. ]]
+describe("the LIVE ScreenTarget publishes ONE reserve, under every indicator policy", function()
+	local fs = require("@lune/fs")
+	local source = fs.readFile("src/client/screen_target.luau")
+	-- the number the fake mirrors; if these two ever disagree, every headless
+	-- window measurement in this suite is modelling a bar the engine does not draw
+	local RESERVE_WRITE = "adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS"
+
+	it("its one constant is the same 8px the fake mirrors", function()
+		expect(string.find(source, "local SCROLL_BAR_THICKNESS = 8", 1, true) ~= nil).toBe(true)
+		expect(fake_target.SCROLL_BAR_THICKNESS).toBe(8)
+	end)
+
+	it("BOTH writes are the policy-independent one — construction and the policy seam", function()
+		-- two, exactly: the construction-time publish and the restatement inside
+		-- `setScrollIndicatorPolicy`. A third would be a new place to drift; fewer
+		-- means one of them stopped saying it.
+		local escaped = string.gsub(RESERVE_WRITE, "([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")
+		local _, writes = string.gsub(source, escaped, "")
+		expect(writes).toBe(2)
+		-- and the one inside the policy seam specifically, so a refactor that keeps
+		-- two writes but moves them both out of it still fails
+		local i =
+			string.find(source, "function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)", 1, true)
+		expect(i ~= nil).toBe(true)
+		local body = string.sub(source, i :: number, (i :: number) + 900)
+		expect(string.find(body, RESERVE_WRITE, 1, true) ~= nil).toBe(true)
+	end)
+
+	it("NOTHING in the file makes the reserve depend on the indicator policy", function()
+		-- the exact shape of the reverted defect: a policy branch on the reserve's
+		-- own assignment. `scrollIndicatorPolicy` may be read freely for PAINT — the
+		-- flash/show/fade driver below does exactly that — so this looks only at
+		-- lines that assign the reserve.
+		for line in string.gmatch(source, "[^\n]+") do
+			if
+				string.find(line, "adapter.scrollBarThickness", 1, true) ~= nil
+				and string.find(line, "=", 1, true) ~= nil
+			then
+				local trimmed = string.match(line, "^%s*(.-)%s*$") or line
+				if trimmed ~= RESERVE_WRITE then
+					error(
+						`src/client/screen_target.luau assigns the scroll reserve on a line this pin does not `
+							.. `recognise:\n    {trimmed}\nThe ONLY sanctioned write is:\n    {RESERVE_WRITE}\n`
+							.. `If the new line branches on scrollIndicatorPolicy, that is the pre-2026-08-12 `
+							.. `zero-reserve ruling coming back — the defect photographed in bugs/IMG_3691.jpeg, `
+							.. `where every touch scroller laid its content out 8px past the window the engine `
+							.. `let the player see. If it is a legitimate new seam, pin it here deliberately.`,
+						0
+					)
+				end
+			end
+		end
 	end)
 end)
 

@@ -233,6 +233,13 @@ chrome_slots.SLOTS = table.freeze({
 	-- neither carries own-paint rules (see OWN_PAINT_SLOTS).
 	"toggleTrack",
 	"toggleKnob",
+	-- ===== the indeterminate indicator (parity round 2 §3.1) ================
+	-- ONE dot of the spinner's travelling ring. Whole image: a dot is a
+	-- fixed-size token and slicing one would smear its centre pixel, exactly as
+	-- the slider thumb's does. Its native paint is the ACCENT, because an
+	-- unskinned spinner is a row of accent dots and nothing else — so it earns
+	-- own paint for the same reason `barFill` did (see OWN_PAINT_SLOTS).
+	"spinner",
 })
 
 local SLOT_SET: { [string]: boolean } = {}
@@ -257,6 +264,7 @@ local WHOLE_IMAGE_SLOTS: { [string]: boolean } = {
 	barCenter = true,
 	stepperPlate = true,
 	toggleKnob = true,
+	spinner = true,
 }
 
 function chrome_slots.isWholeImageSlot(slot: any): boolean
@@ -461,7 +469,7 @@ end
 -- meant art. `toggleTrack`/`toggleKnob` are absent too — their colours are
 -- VALUE-driven and `togglePalette` owns them (ADR-0020 R3 keeps that contract
 -- untouched), so a solid rule here would fight the adapter's own writes.
-chrome_slots.OWN_PAINT_SLOTS = table.freeze({ "sliderTrack", "sliderThumb", "barTrack", "barFill" })
+chrome_slots.OWN_PAINT_SLOTS = table.freeze({ "sliderTrack", "sliderThumb", "barTrack", "barFill", "spinner" })
 
 local OWN_PAINT: { [string]: boolean } = {}
 for _, name in chrome_slots.OWN_PAINT_SLOTS do

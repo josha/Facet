@@ -72,6 +72,106 @@ export type Bus = {
 	dispose: () -> (),
 }
 
+-- ===== THE AUTHORED DECLARATION: `UI.sensoryFeedback` ======================
+-- (docs/plans/swiftui-parity-round2.md §3.3; SwiftUI's `.sensoryFeedback(_:
+-- trigger:)`.) The modifier's CONTRACT lives here, next to the taxonomy, for the
+-- reason `drag_contract.luau` gives for its own: a declaration validated where
+-- the vocabulary is defined can never drift from it, and the alternative — a
+-- second copy of the twelve names in the authoring layer — is exactly the
+-- sprawl the closed taxonomy exists to refuse. This module requires nothing at
+-- all, so `blueprint.luau`/`mount.luau` reading it is a data dependency on the
+-- vocabulary, not a layer inversion: no presentation code comes with it.
+--
+-- IT STILL PLAYS NOTHING. The declaration produces one event on one bus. What a
+-- game does with `select` is the game's business (a sound, a haptic, nothing) —
+-- see the rule at the top of this file, which this modifier does not relax.
+
+-- the reserved metadata key the declarations ride under `bp.meta`. A LIST:
+-- `UI.sensoryFeedback` composes with itself (two triggers, two verbs, one node),
+-- and a last-writer-wins scalar would drop one of them silently.
+local SENSORY_PROP = "sensoryFeedback"
+feedback.SENSORY_PROP = SENSORY_PROP
+
+export type SensoryFeedbackSpec = {
+	-- a Signal/Memo whose CHANGE is the cause. Read for its transitions only —
+	-- the value itself never reaches the event.
+	trigger: any,
+	-- one of the twelve; anything else is refused at the call site
+	event: string,
+}
+
+local SENSORY_KEYS: { string } = { "trigger", "event" }
+
+-- the same predicate as `blueprint.isReadable`, restated rather than imported
+-- because `blueprint.luau` requires THIS module (importing back would be a
+-- cycle). Deliberately narrow: `mount` observes the trigger through the core, so
+-- a duck-typed object with a `get` is not enough — it must be a core node.
+local function isReadable(v: any): boolean
+	return type(v) == "table" and (v.kind == "signal" or v.kind == "memo")
+end
+
+function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
+	if type(spec) ~= "table" then
+		error(
+			`LuauUI UI.sensoryFeedback: expected a spec table — UI.sensoryFeedback(bp, \{ trigger = …, event = "select" }), got {typeof(
+				spec
+			)}`,
+			0
+		)
+	end
+	for key in spec :: any do
+		if key ~= "trigger" and key ~= "event" then
+			error(
+				`LuauUI UI.sensoryFeedback: unknown spec key '{tostring(key)}'. Valid keys: {table.concat(
+					SENSORY_KEYS,
+					", "
+				)}. `
+					.. "Intensity, duration and choice of effect are the SUBSCRIBER's business — LuauUI says what "
+					.. "happened and plays nothing.",
+				0
+			)
+		end
+	end
+	if not isReadable(spec.trigger) then
+		error(
+			`LuauUI UI.sensoryFeedback: \`trigger\` must be a Signal or Memo (got {typeof(spec.trigger)}). `
+				.. "The modifier fires on a CHANGE, so a plain value could never fire at all — the declaration "
+				.. "would be accepted and inert.",
+			0
+		)
+	end
+	if type(spec.event) ~= "string" then
+		error(
+			`LuauUI UI.sensoryFeedback: \`event\` must be a string (got {typeof(spec.event)}). One of: {feedback.TYPE_LIST}.`,
+			0
+		)
+	end
+	if not TYPE_SET[spec.event] then
+		error(
+			`LuauUI UI.sensoryFeedback: unknown event type '{spec.event}'. The v1 taxonomy is CLOSED: `
+				.. `{feedback.TYPE_LIST}. Growing it is a contract amendment with a gate — pick the verb that `
+				.. "describes what happened.",
+			0
+		)
+	end
+	return table.freeze({ trigger = spec.trigger, event = spec.event }) :: any
+end
+
+-- read the declarations off a MOUNTED node. Type-guarded exactly like
+-- `drag_contract.readSource`: a consumer smuggling a non-table under the
+-- reserved key reads as "no declaration" rather than faulting the mount.
+function feedback.readDeclarations(node: any): { SensoryFeedbackSpec }?
+	local meta = node.meta
+	if type(meta) ~= "table" then
+		return nil
+	end
+	local list = meta[SENSORY_PROP]
+	if type(list) ~= "table" or #list == 0 then
+		return nil
+	end
+	return list
+end
+
 function feedback.new(): Bus
 	-- subscriptions are boxes so unsubscribing DURING a fire is safe: a game that
 	-- one-shots a beat removes itself from inside its own handler

@@ -28,6 +28,11 @@ export type Opts = {
 	alwaysOnTop: boolean?,
 	maxDistance: number?,
 	style: any?,
+	-- DEPRECATED, and forwarded verbatim to `screen_target.new` — see its own `Opts`
+	-- for why it survives at all. Registered in `LuauUI.DEPRECATIONS` as
+	-- `screen_target.new(opts.isReducedMotion)`, which this field retires with:
+	-- reduced motion arrives on its own through `adapter.setReducedMotion`, and a
+	-- closure passed here can only force it ON, never off.
 	isReducedMotion: (() -> boolean)?,
 }
 
@@ -38,6 +43,7 @@ function billboard_target.new(opts: Opts)
 	local adapter = screen_target.new({
 		parent = opts.parent,
 		style = opts.style,
+		-- deprecated on both sides (ADR-0011); forwarded, never interpreted here
 		isReducedMotion = opts.isReducedMotion,
 		-- native ScrollingFrame hosts stay OFF billboards until their canvas
 		-- coordinate mapping and input are proven on a live billboard drive

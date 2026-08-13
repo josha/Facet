@@ -128,6 +128,14 @@ These documents govern the work:
 20. [`studio-device-verification.md`](studio-device-verification.md) — the
     scriptable five-view Studio matrix, VirtualInput rules, multiplayer-test use,
     and evidence that still requires physical hardware.
+21. [`swiftui-parity-round2-brief.md`](swiftui-parity-round2-brief.md) and
+    [`swiftui-parity-round2.md`](swiftui-parity-round2.md) — the Milestone 1 work
+    below: the brief is the binding scope, the design is the per-phase build plan.
+22. [`device-bug-round-2026-08-12.md`](device-bug-round-2026-08-12.md) — Milestone
+    1's device phase, and the ledger of what it left owed.
+23. [`unfulfilled-placement-intents.md`](unfulfilled-placement-intents.md) — the
+    director's decision queue for placement intents an author expressed and never
+    got; a migration there moves pixels and is never taken unilaterally.
 
 When a plan claim disagrees with current official Roblox documentation or a Studio
 experiment, update the plan before implementation and record the evidence. Do not
@@ -185,6 +193,29 @@ Key corrections to the earlier roadmap:
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
 | 13 | Fresh release-candidate and documentation review | Whole-framework findings are resolved; guide/API catalogs match the public surface and are drift-checked |
 | 14 | Source sharing and agent onboarding | A clean source export works outside the monorepo; `AGENTS.md` and the thin skill guide fresh agents; no Roblox Package is required |
+
+### Milestone 1 — SwiftUI parity round 2 (in flight; NOT a numbered step)
+
+The work that followed Step 11 is a mission of its own rather than a new step, and
+it is registered here because this file is the execution entry point and an
+unregistered plan is a plan nobody reads.
+
+| Plan | What it governs | State |
+|---|---|---|
+| [`swiftui-parity-round2-brief.md`](swiftui-parity-round2-brief.md) | The binding scope | — |
+| [`swiftui-parity-round2.md`](swiftui-parity-round2.md) | The design: Phases 0–6, grouped **M1** = 1–2, **M2** = 3–4, **M3** = 5–6 | M1 built |
+| [`device-bug-round-2026-08-12.md`](device-bug-round-2026-08-12.md) | The device phase: nine director findings in three causes | Groups B and C closed; the TD-13/TD-14 re-record **owed** |
+| [`unfulfilled-placement-intents.md`](unfulfilled-placement-intents.md) | The director's queue from the §2.1 placement audit | Awaiting per-row rulings |
+
+Two standing facts from it that outlive the mission, because both reverse an
+earlier decision and a future agent will otherwise "restore" the old one:
+
+- **the 8px scroll-bar reserve is published under the overlay policy too**
+  (director, 2026-08-12), which reverses the 2026-08-09 ruling that an overlay
+  indicator claims no layout space;
+- **`rowHeight` / `viewportHeight` on `newVirtualList` are deprecated aliases** of
+  the axis-neutral `itemExtent` / `viewportExtent`, registered in
+  `LuauUI.DEPRECATIONS`; both still work on a vertical list.
 
 Steps 2 and 3 may overlap after property authority and native state are settled.
 Step 3.5 starts only after Step 3's control vocabulary is stable; it does not reopen

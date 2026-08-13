@@ -868,7 +868,10 @@ describe("theme chrome: metric-derived rule props are mapped for live repaint", 
 		-- The count tracks OWN_PAINT_SLOTS, which ADR-0020 R9 extended from the
 		-- slider's rail and thumb to the bar family: one outline site per
 		-- own-paint slot, plus one corner site for each that is not round.
-		expect(slotSites).toBe(7) -- 4 outlines + 3 corners (sliderThumb is round)
+		-- +1 outline since parity round 2 §3.1 added the `spinner` dot to
+		-- OWN_PAINT_SLOTS; it is ROUND, so it adds no corner site (same shape rule
+		-- the slider thumb follows).
+		expect(slotSites).toBe(8) -- 5 outlines + 3 corners (sliderThumb/spinner are round)
 		-- +1 since director round 11: `Primary button — corner` bakes
 		-- `radii.control` like every other surface corner, so a live metric edit
 		-- repaints the accent surface too instead of leaving it square.

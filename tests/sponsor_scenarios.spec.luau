@@ -576,7 +576,7 @@ end)
 -- ===== 8.3 sponsor_list ====================================================
 
 describe("sponsor_list (SF-L1/L3/P1/P3)", function()
-	local ROW = "/ListLab/Rows/Canvas/W/[row-01]/Row/Card"
+	local ROW = "/ListLab/Body/Rows/Canvas/W/[row-01]/Row/Card"
 
 	it("the row height is DERIVED from the theme snapshot, never typed", function()
 		local w = makeWorld("sponsor_list")
@@ -600,7 +600,7 @@ describe("sponsor_list (SF-L1/L3/P1/P3)", function()
 		w.pres.refresh()
 		local report = w.report()
 		expect(report.viewportHeight).toBe(200)
-		expect(w.adapter.node("/ListLab/Rows").rect.h).toBe(200)
+		expect(w.adapter.node("/ListLab/Body/Rows").rect.h).toBe(200)
 		-- ...and the rows that stayed are the SAME rows: a rotation is not a remount
 		expect(report.remounts["row-01"]).toBe(before)
 		expect(report.selectedKey).toBe("row-03")
@@ -672,7 +672,7 @@ describe("sponsor_list (SF-L1/L3/P1/P3)", function()
 		local w = makeWorld("sponsor_list")
 		w.step("washSweep")
 		w.frames(2)
-		local wash = w.adapter.node("/ListLab/Rows/Canvas/W/[row-01]/Row/Card/Wash")
+		local wash = w.adapter.node("/ListLab/Body/Rows/Canvas/W/[row-01]/Row/Card/Wash")
 		expect(wash ~= nil).toBe(true)
 		local tint = wash.props.tint
 		expect(tint.role).toBe("accent")
@@ -681,24 +681,24 @@ describe("sponsor_list (SF-L1/L3/P1/P3)", function()
 		-- the card itself is untinted: its fill is still the theme's to own
 		expect(w.adapter.node(ROW).props.tint).toBeNil()
 		w.frames(240)
-		expect(w.adapter.node("/ListLab/Rows/Canvas/W/[row-01]/Row/Card/Wash").props.tint.blend < 0.05).toBe(true)
+		expect(w.adapter.node("/ListLab/Body/Rows/Canvas/W/[row-01]/Row/Card/Wash").props.tint.blend < 0.05).toBe(true)
 		w.teardown()
 	end)
 
 	it("the stroke pulse rides ONE bound prop and leaves nothing behind (SF-P3)", function()
 		local w = makeWorld("sponsor_list")
-		local before = w.adapter.node("/ListLab/Rows/Canvas/W/[row-05]/Row/Card").props.stroke
+		local before = w.adapter.node("/ListLab/Body/Rows/Canvas/W/[row-05]/Row/Card").props.stroke
 		expect(before).toBeNil()
 		w.step("strokePulse")
 		w.frames(2)
-		local pulsed = w.adapter.node("/ListLab/Rows/Canvas/W/[row-05]/Row/Card").props.stroke
+		local pulsed = w.adapter.node("/ListLab/Body/Rows/Canvas/W/[row-05]/Row/Card").props.stroke
 		expect(pulsed ~= nil).toBe(true)
 		expect(pulsed.thickness).toBe(2)
 		-- and no sibling row grew one
 		expect(w.adapter.node(ROW).props.stroke).toBeNil()
 		w.step("clearStrokePulse")
 		w.frames(2)
-		expect(w.adapter.node("/ListLab/Rows/Canvas/W/[row-05]/Row/Card").props.stroke).toBeNil()
+		expect(w.adapter.node("/ListLab/Body/Rows/Canvas/W/[row-05]/Row/Card").props.stroke).toBeNil()
 		w.teardown()
 	end)
 

@@ -13,6 +13,11 @@
 -- Update model: refresh() drains the mounted dirty queue; paint-only changes
 -- write props without re-solving; measure/arrange/structure re-solve and
 -- write only rects that actually changed (minimal-write contract).
+-- ARMED COMMITS: `presenter.withAnimation` arms the controller for exactly one
+-- commit, in which the solved rects are diffed against the last ones and the
+-- nodes that STARTED moving get a relative presentation record that flies them
+-- in from where they used to be. The solve stays exact and instant either way —
+-- only the PAINT travels (docs/plans/swiftui-parity-round2.md §Phase 1).
 
 local solver = require("../layout/solver")
 local profile = require("../core/profile")
@@ -183,7 +188,7 @@ local DIRECT_PROPS: { [string]: string } = {
 	clipChildren = "ensureTree's clip-host declaration (layout authority)",
 	textSize = "applyTextScale — the scaled-text paint seam",
 	textFont = "applyTextScale — the typography role's FACE, beside its size (F2)",
-	padding = "applyPadding — the Button text-inset paint seam",
+	padding = "applyPadding — the Button and padded-Text text-inset paint seam",
 	transform = "controller.setPresentationTransform / setPresentationOffset (presentation authority)",
 	transparency = "controller.setPresentationTransparency (presentation authority)",
 }
@@ -414,6 +419,8 @@ local function toLayoutNode(
 		kind = "scroll"
 	elseif class == "Grid" then
 		kind = "grid"
+	elseif class == "GridRow" then
+		kind = "gridrow"
 	elseif class == "Text" then
 		kind = "text"
 	elseif class == "Button" then
@@ -469,11 +476,46 @@ local function toLayoutNode(
 		rowGap = themeSnapshot.resolveNumber(metrics, props.rowGap),
 		margin = themeSnapshot.resolveSides(metrics, props.margin),
 		align = props.align,
+		-- the three round-2 stack-arrange inputs (parity round 2 §2.1/§2.4/§2.6).
+		-- `distribute` is read off the CONTAINER, `lineAlign`/`layoutPriority`/
+		-- `shrinkWeight` off each CHILD — all four are plain carried facts here and
+		-- are spent in the solver's stack arrange branch
+		distribute = props.distribute,
+		lineAlign = props.lineAlign,
+		layoutPriority = props.layoutPriority,
+		shrinkWeight = props.shrinkWeight,
+		-- ...and the row grid's one child-side input (§2.2), read by a `gridrow`
+		-- parent and by nothing else
+		gridSpan = props.gridSpan,
 		alignH = props.alignH,
 		alignV = props.alignV,
 		anchor = props.anchor,
 		offsetX = resolveOffset(metrics, props.offsetX),
 		offsetY = resolveOffset(metrics, props.offsetY),
+		-- "this node carries at least one placement prop", set here because every
+		-- one of the NINE values is already in hand on this line. It is what makes
+		-- the parent-side inert-placement audit (§2.1, below) affordable in the
+		-- arrange path: the overwhelming majority of nodes carry none, and the
+		-- audit's per-child cost for them is this ONE field test rather than nine
+		-- table lookups. Measured: the per-lookup form cost +1.5-2.4% on the
+		-- 100-cell perf aggregate against a 0.31-0.65% same-arm floor.
+		--
+		-- `layoutPriority`/`shrinkWeight` are here because they are placement props
+		-- exactly like the other seven — only a stack's shrink pass reads either one —
+		-- and were missing from this set and from the solver's own table until the
+		-- Milestone-1 review (C2). THIS TEST IS THE AUDIT'S ONLY GATE: a prop absent
+		-- here is unpoliced however complete `PLACEMENT_PROPS` is.
+		placementProps = (
+			props.anchor ~= nil
+			or props.offsetX ~= nil
+			or props.offsetY ~= nil
+			or props.alignH ~= nil
+			or props.alignV ~= nil
+			or props.lineAlign ~= nil
+			or props.gridSpan ~= nil
+			or props.layoutPriority ~= nil
+			or props.shrinkWeight ~= nil
+		) or nil,
 		columns = props.columns,
 		minColumnWidth = props.minColumnWidth,
 		itemSizing = props.itemSizing,
@@ -915,7 +957,60 @@ local function toLayoutNode(
 		for _, child in node.children do
 			appendChild(child)
 		end
+		-- THE PARENT-SIDE PLACEMENT AUDIT (parity round 2 §2.1). `anchor`,
+		-- `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign` and `gridSpan` are
+		-- legal on every node but read only by particular parent arrange branches;
+		-- anywhere else they are accepted and then ignored, which constitution §4
+		-- forbids. A child cannot check this itself — it does not know its parent
+		-- at its own construction — so the parent does, and it happens HERE for
+		-- two reasons no other seam has together:
+		--
+		--   1. this is where `class` has already become the layout `kind`, so the
+		--      audit asks what the SOLVER will read and not what the constructor
+		--      was called;
+		--   2. `appendChild` has already spliced `UI.When`/`UI.ForEach`/
+		--      `UI.ErrorBoundary` children into this node's flow, so a row emitted
+		--      by a ForEach is audited against the real parent it lands in — the
+		--      case a construction-time check structurally cannot see.
+		--
+		-- The findings ride on the layout node and are reported by `arrange`,
+		-- which is what gates them behind `hiddenDepth` and replays them through
+		-- the incremental-layout reuse path.
+		layoutNode.inertPlacement = solver.auditPlacement(kind, layoutNode.id, layoutNode.children)
 	end
+	-- "A `containerRelative` DIMENSION LIVES SOMEWHERE IN HERE" (§2.5 x incremental
+	-- layout — RED-TEAM Milestone 1, HIGH 3). Computed here for the same reason
+	-- `placementProps` and `inertPlacement` are: it is a fact about the built tree,
+	-- the branches above have finished rewriting `width`/`height` by this line, and
+	-- the alternative is asking it per solve in the hot arrange path.
+	--
+	-- WHY THE SOLVER NEEDS IT. `arrange`'s reuse skip replays a subtree when nothing
+	-- inside it is dirty and it lands on the rect it already had. Every dimension
+	-- the solver had before §2.5 is a function of the parent's offer, which that
+	-- rect carries — so the argument held. A `containerRelative` dimension is a
+	-- function of the nearest scroll VIEWPORT, which the ancestor's rect does not
+	-- mention, so the skip could replay a size the container no longer allows. The
+	-- solver refuses the skip for a marked subtree whose container has moved.
+	--
+	-- THE MARK STOPS AT A `scroll` NODE, and that is an argument, not a shortcut: a
+	-- scroller pushes its OWN inner size as the container for everything below it,
+	-- and that inner size is derived from the scroller's own rect — which the
+	-- replay reproduces exactly. A `containerRelative` node under an inner scroller
+	-- is therefore genuinely insulated from the enclosing container. The scroller's
+	-- OWN dimensions are not: they resolve against the container outside it, so
+	-- `selfRelative` is tested for every kind.
+	local selfRelative = (layoutNode.width ~= nil and layoutNode.width.type == "containerRelative")
+		or (layoutNode.height ~= nil and layoutNode.height.type == "containerRelative")
+	local inside = selfRelative
+	if not inside and kind ~= "scroll" and layoutNode.children ~= nil then
+		for _, child in layoutNode.children do
+			if child.containerRelativeInside then
+				inside = true
+				break
+			end
+		end
+	end
+	layoutNode.containerRelativeInside = inside or nil
 	return layoutNode
 end
 
@@ -1081,6 +1176,29 @@ function renderer.attach(
 	-- surface with no motion running pays one integer compare per hit-test.
 	local lastTransform: { [string]: any } = {}
 	local presentationLive = 0
+	-- ===== `withAnimation` RECORDS (docs/plans/swiftui-parity-round2.md §Phase 1,
+	-- "Blocker 3") ===========================================================
+	-- A record is the RELATIVE delta a path is currently flying, installed only at
+	-- an animation ROOT. Both halves of the presentation channel already accumulate
+	-- ancestor offsets (see the accumulation rule below), so a per-node ABSOLUTE
+	-- delta would paint a sliding panel's children at double the distance.
+	--
+	-- The record belongs to the PATH; the spring is merely the driver it is
+	-- attached to right now. That is what keeps two calls off one `lastTransform`
+	-- slot: a later call re-bases the path and re-attaches it, and the older
+	-- spring's settle clears only what it still owns.
+	--
+	-- They live on the CONTROLLER because they are controller-scoped state that
+	-- must be cleared per path at removal, beside every other per-path cache.
+	local animationSession: any = nil -- non-nil only for the duration of an ARMED commit
+	local animationBaseline: { [string]: boolean }? = nil
+	local animationRecords: { [string]: any } = {}
+	local animationSets: { any } = {}
+	local animationRecordN = 0
+	-- assigned once the controller (and its presentation writes) exist; called from
+	-- the commit, which runs earlier in this file than the writes it needs
+	local installAnimationRecords: (rects: any) -> ()
+	local animationClear: (path: string, write: boolean) -> ()
 	-- PLAT-4 (platform verifier, 2026-07-27): the paint half of the presentation
 	-- channel was sound and the geometry half was not — `screenRectOf` composed
 	-- scroll offsets only, so while the keyboard keep-visible shift sat on the root
@@ -2172,15 +2290,45 @@ function renderer.attach(
 	-- engine draws with and the padding the solver reserved can never disagree.
 	-- Minimal-write: the effective four sides are cached per path, so a steady
 	-- theme costs zero writes.
+	--
+	-- ...AND A PADDED `Text` GOES OUT THE SAME SEAM (device report 2026-08-12,
+	-- IMG_3691 — the S1..S12 stat tiles). `UI.padding` is legal on a Text because
+	-- the solver's text measure ADDS it to the reserved box
+	-- (`blueprint_schema` Text.padding: "it lets UI.padding apply without
+	-- wrapping"), and nothing painted it: the plate came out label+12 wide and the
+	-- glyphs were drawn from the box's leading edge, so every tile's label sat
+	-- against — and over — its own rounded corner. Measured at a size nobody
+	-- painted, which is `docs/lessons/measure-the-requirement-not-the-render.md`
+	-- read backwards. A container spends its padding in `arrange` (children are
+	-- placed at rect + padding) and a Button already had this write, so a text LEAF
+	-- was the one shape where the two passes could disagree.
+	--
+	-- Guarded on an AUTHORED value: an unpadded Text — every Text on every shipped
+	-- screen but these — raises no write and materializes no engine modifier.
 	local lastPadding: { [string]: string } = {}
 	local function applyPadding(metrics: any)
 		local function walk(node: any)
-			if node.class == "Button" and handles[node.path] ~= nil then
-				local pad = themeSnapshot.buttonPadding(metrics, node.props)
+			local pad: any = nil
+			if node.class == "Button" then
+				pad = themeSnapshot.buttonPadding(metrics, node.props)
+			elseif node.class == "Text" then
+				if node.props ~= nil and node.props.padding ~= nil then
+					pad = themeSnapshot.resolveSides(metrics, node.props.padding)
+				elseif lastPadding[node.path] ~= nil then
+					-- ...AND AN ADOPTED INSTANCE MUST BE UN-PADDED EXPLICITLY. The
+					-- recycler carries `padding` across an adoption
+					-- (`captureParkedProps`/`restoreParkedProps` below), so a padded
+					-- label recycled into an unpadded one would keep the previous row's
+					-- inset on a modifier this seam had stopped visiting. Zeroing is a
+					-- write; skipping is a stale glyph box.
+					pad = { top = 0, right = 0, bottom = 0, left = 0 }
+				end
+			end
+			if pad ~= nil and handles[node.path] ~= nil then
 				local top, right, bottom, left = solver.sides(pad)
 				local key = `{top},{right},{bottom},{left}`
 				if lastPadding[node.path] ~= key then
-					authority.assertWrite("Button", "padding", "layout")
+					authority.assertWrite(node.class, "padding", "layout")
 					adapter.setProp(handles[node.path], "padding", pad, "layout")
 					lastPadding[node.path] = key
 					stats.propWrites += 1
@@ -2554,6 +2702,13 @@ function renderer.attach(
 				end
 				pushHitRects(root.node, false)
 			end
+			-- `withAnimation`, and ONLY on the armed commit it forces for itself
+			-- (design §"Blocker 1"). It must sit HERE: root classification is
+			-- top-down, so it needs a tree walk rather than the unordered rect hash
+			-- below, and it has to read `lastRects` before that loop overwrites it.
+			if animationSession ~= nil then
+				installAnimationRecords(result.rects)
+			end
 			for path, entry in result.rects do
 				local handle = handles[path]
 				if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
@@ -2924,6 +3079,14 @@ function renderer.attach(
 					lastTransform[path] = nil
 					presentationLive -= 1
 				end
+				-- ...and the `withAnimation` record for this path, HERE rather than by
+				-- blanket-dropping every record in structuralSync: structural syncs are
+				-- frequent (virtual-list windowing, `When` branches) and a blanket drop
+				-- would snap unrelated in-flight animations. The write is skipped — the
+				-- handle is already gone (V10's per-path clear, one line above).
+				if animationRecords[path] ~= nil then
+					animationClear(path, false)
+				end
 				stats.removes += 1
 			end
 		end
@@ -3232,15 +3395,39 @@ function renderer.attach(
 		end
 	end
 
-	-- native-stylesheets NSS-A7: reduced motion is a LIVE fact. When the target
-	-- runs sheet-owned paint, the adapter strips/restores the sheet's declared
-	-- transitions on the fly (SetPropertyTransitions({}) — the proven instant
-	-- path, spike m9). Bespoke targets ignore this (their tweens consult the
-	-- reducedMotion policy per-play already).
-	if adapter.setNativeTransitionsEnabled ~= nil then
-		adapter.setNativeTransitionsEnabled(env:get("reducedMotion"):get() ~= true)
+	--[[ REDUCED MOTION IS A LIVE FACT, AND IT REACHES THE TARGET FROM HERE — both
+		halves of a target's motion, through one observation of one env key.
+
+		`setNativeTransitionsEnabled` is the SHEET half (native-stylesheets NSS-A7):
+		when the target runs sheet-owned paint, the adapter strips/restores the
+		sheet's declared transitions on the fly (SetPropertyTransitions({}) — the
+		proven instant path, spike m9).
+
+		`setReducedMotion` is the BESPOKE half (C1, 2026-08-12), and it exists
+		because the comment that used to stand here was false. It said bespoke
+		targets "consult the reducedMotion policy per-play already" — they consult
+		a `screen_target.new({ isReducedMotion = ... })` CLOSURE, and no production
+		caller anywhere ever passed one (not the showcase, not RascalRally's four
+		GUIs), so every bespoke tween ran at full motion for a player who had asked
+		for less. A construction-time opt four call sites forgot is the defect; the
+		repair is that the framework pushes the fact instead of hoping a consumer
+		wires it. Both calls are feature-detected, so a target with neither degrades
+		by name (target_contract) rather than crashing.
+
+		Pushed once at attach and again on every change, so a mid-session flip of
+		the player's setting lands without a remount. ]]
+	if adapter.setNativeTransitionsEnabled ~= nil or adapter.setReducedMotion ~= nil then
+		local function pushReducedMotion(reduced: boolean)
+			if adapter.setNativeTransitionsEnabled ~= nil then
+				adapter.setNativeTransitionsEnabled(reduced ~= true)
+			end
+			if adapter.setReducedMotion ~= nil then
+				adapter.setReducedMotion(reduced == true)
+			end
+		end
+		pushReducedMotion(env:get("reducedMotion"):get() == true)
 		attachScope:own(core:observe(env:get("reducedMotion"), function(reduced)
-			adapter.setNativeTransitionsEnabled(reduced ~= true)
+			pushReducedMotion(reduced == true)
 		end))
 	end
 
@@ -3694,6 +3881,212 @@ function renderer.attach(
 		adapter.setProp(handle, "transparency", alpha, "presentation")
 	end
 
+	-- ===== `withAnimation`: arming, roots, and the one progress spring ========
+	-- The verb is `presenter.withAnimation` (design §"Where it lives"); this is the
+	-- half that has to be controller-scoped, because a record is per-path state
+	-- that dies with its path.
+
+	function animationClear(path: string, write: boolean)
+		local rec = animationRecords[path]
+		if rec == nil then
+			return
+		end
+		animationRecords[path] = nil
+		animationRecordN -= 1
+		rec.set.paths[path] = nil
+		if write then
+			controller.setPresentationTransform(path, nil)
+		end
+	end
+
+	-- ONE progress spring drives a whole call: 1 = at the old place, 0 = at the
+	-- solved place, so every record's absolute offset is `(its delta) x p` for a
+	-- single `p` — a uniform interpolation that provably cannot TEAR a subtree.
+	-- `transitions.luau`'s ratified shape (its header, "one spring per transition").
+	local function animationWrite(set: any)
+		local p = set.spring:get()
+		for path in set.paths do
+			local rec = animationRecords[path]
+			if rec ~= nil and rec.set == set then
+				controller.setPresentationTransform(path, { x = rec.x * p, y = rec.y * p })
+			end
+		end
+	end
+
+	local function animationSettle(set: any)
+		if set.done then
+			return
+		end
+		set.done = true
+		-- ONLY the paths it STILL owns: a later call may have re-based some of them
+		-- onto its own spring, and clearing those would snap a live animation
+		local owned: { string } = {}
+		for path in set.paths do
+			table.insert(owned, path)
+		end
+		for _, path in owned do
+			animationClear(path, true)
+		end
+		if set.unobserve ~= nil then
+			set.unobserve()
+			set.unobserve = nil
+		end
+		set.spring:dispose()
+		local at = table.find(animationSets, set)
+		if at ~= nil then
+			table.remove(animationSets, at)
+		end
+	end
+
+	function installAnimationRecords(rects: any)
+		local session = animationSession
+		local baseline = animationBaseline
+		if session == nil or baseline == nil then
+			return
+		end
+		local set: any = nil
+		-- the INTERRUPTION carry (design §Interruption). One spring serves the whole
+		-- call, so the velocity that survives is the DOMINANT record's: painted speed
+		-- is `rel * dp/dt`, so holding `relOld_max * vOld == relNew_max * vNew` keeps
+		-- the biggest motion's speed continuous and puts a small kink on the rest.
+		local carryMagOld, carryVelocity, carryMagNew = 0, 0, 0
+		local function claim(path: string, relX: number, relY: number)
+			if set == nil then
+				set = { spring = session.newSpring(), paths = {}, done = false }
+				-- the write rides the VALUE, not the clock step, exactly as a
+				-- transition's does, so an instantly-placed value lands the same way
+				set.unobserve = core:observe(set.spring, function()
+					animationWrite(set)
+				end)
+				set.spring:onSettle(function()
+					animationSettle(set)
+				end)
+				table.insert(animationSets, set)
+			end
+			local prev = animationRecords[path]
+			if prev ~= nil then
+				-- INTERRUPTION (design §Interruption): carry the offset this path is
+				-- painted at right now into the new record, so a path claimed by two
+				-- calls re-targets instead of jumping, and hand it to the new spring
+				local p = prev.set.spring:get()
+				local mag = math.max(math.abs(prev.x), math.abs(prev.y))
+				if mag > carryMagOld then
+					carryMagOld = mag
+					carryVelocity = prev.set.spring:getVelocity()
+				end
+				relX += prev.x * p
+				relY += prev.y * p
+				animationClear(path, false)
+			end
+			carryMagNew = math.max(carryMagNew, math.abs(relX), math.abs(relY))
+			animationRecords[path] = { x = relX, y = relY, set = set }
+			animationRecordN += 1
+			set.paths[path] = true
+			-- SEED SYNCHRONOUSLY, before the first step (transitions.luau's seed at
+			-- `writeEntry(entry)` before `setTarget`): `tick` runs on PreRender and
+			-- `refresh` on Heartbeat, so a record written a frame late paints one frame
+			-- at the destination and then jumps back.
+			controller.setPresentationTransform(path, { x = relX, y = relY })
+		end
+		-- TOP-DOWN, because a node cannot be classified before its ancestors.
+		-- `inh` is the composed ABSOLUTE delta this path inherits from the records
+		-- installed above it — never an ancestor's stored RELATIVE, and never a live
+		-- record from an EARLIER call (which is not this diff's business).
+		local function walk(node: any, inhX: number, inhY: number)
+			local path = node.path
+			-- PRECEDENCE (design §Composition), SCOPED TO THE NODE — RED-TEAM
+			-- Milestone 1, blocker 1 (tests/animation_precedence.spec.luau).
+			--
+			-- There is one `lastTransform` slot per path and no contributor stack,
+			-- so a path another writer already owns — a structural transition,
+			-- keep-visible — must stay out of this diff: two writers alternating on
+			-- one slot is the contention this rule exists to prevent.
+			--
+			-- THAT IS A STATEMENT ABOUT THE SLOT, AND A SLOT BELONGS TO ONE PATH.
+			-- Taking the owned path's whole SUBTREE out of the diff protects
+			-- nothing (a child has its own slot, uncontended) and costs everything
+			-- when the owned path is the ROOT: every `UI.TextInput` declares a
+			-- `keepVisibleOffset`, and `presenter.present` wires it eagerly, so
+			-- `setPresentationOffset(0)` writes a zero transform onto the root at
+			-- boot on any surface holding a text field. `withAnimation` on that
+			-- surface then installed zero records and snapped, with no error and no
+			-- diagnostic.
+			--
+			-- So the owned node is EXCLUDED and the walk CONTINUES with `inh`
+			-- UNCHANGED. `inh` is the composed delta of records installed in THIS
+			-- diff, and a foreign writer's shift is not one of them: both halves of
+			-- the presentation channel accumulate every ancestor's transform
+			-- independently (`presentationShift`, the adapter's compose), so the
+			-- keep-visible shift is already added on top of whatever a descendant's
+			-- own record paints. Passing it through unchanged is what makes the
+			-- painted sum come out right; folding it into `inh` would subtract it
+			-- from the descendant twice.
+			local owned = lastTransform[path] ~= nil and animationRecords[path] == nil
+			if not owned then
+				local dx, dy = 0, 0
+				-- LIVENESS IS NOT `lastRects[path] ~= nil`: `restoreParkedProps` carries
+				-- `lastRects` across paths for a recycled instance, so a brand-new row
+				-- would fly in from the position of whatever dead row it adopted.
+				local live = baseline[path] == true
+				if live then
+					local last = lastRects[path]
+					local entry = rects[path]
+					if last ~= nil and entry ~= nil then
+						dx = last.x - entry.rect.x
+						dy = last.y - entry.rect.y
+					end
+				end
+				local relX, relY = dx - inhX, dy - inhY
+				-- a path already carrying a record must be re-based even when its relative
+				-- delta is zero this time, or it keeps flying to a place it no longer sits
+				local claimed = relX ~= 0 or relY ~= 0 or animationRecords[path] ~= nil
+				if live and claimed and handles[path] ~= nil then
+					claim(path, relX, relY)
+					-- what the children inherit is this path's composed ABSOLUTE delta
+					inhX, inhY = dx, dy
+				end
+			end
+			for _, child in node.children do
+				walk(child, inhX, inhY)
+			end
+		end
+		walk(root.node, 0, 0)
+		if set ~= nil then
+			set.spring:setTarget(0)
+			-- after the aim, so the seed is what integrates from here
+			if carryMagOld > 0 and carryMagNew > 0 then
+				set.spring:setVelocity(carryVelocity * (carryMagOld / carryMagNew))
+			end
+		end
+	end
+
+	-- Armed by `presenter.withAnimation` for exactly one commit, which it forces
+	-- itself after draining the queue UNARMED — so the frame-coalesced refresh,
+	-- virtual-list windowing, replication reverts and async landings never install
+	-- records. `session.newSpring()` is called lazily, so a call that moves nothing
+	-- builds no spring.
+	function controller.armAnimation(session: any)
+		animationSession = session
+		-- the paths alive at the PREVIOUS (unarmed) commit — see `live` above for
+		-- why this cannot be `lastRects`
+		local alive: { [string]: boolean } = {}
+		for path in handles do
+			alive[path] = true
+		end
+		animationBaseline = alive
+	end
+
+	function controller.disarmAnimation()
+		animationSession = nil
+		animationBaseline = nil
+	end
+
+	-- DIAGNOSTIC (design §Proof), not a feature: how many paths currently carry a
+	-- `withAnimation` record. The suite reads it to prove roots-only recording.
+	function controller.animationRecordCount(): number
+		return animationRecordN
+	end
+
 	-- keep-visible, REIMPLEMENTED OVER THE PER-NODE CHANNEL (fixes SF-M9). The
 	-- root node IS the surface, so its transform is the whole-surface shift the
 	-- keyboard case needs; `dy = 0` writes the zero transform rather than clearing,
@@ -3853,6 +4246,11 @@ function renderer.attach(
 		table.clear(clipHostOf)
 		table.clear(pathNodes)
 		pathNodeCount = 0
+		-- a `withAnimation` spring is built on the presenter's clock, which OUTLIVES
+		-- this surface, so the springs die with the surface that started them
+		for i = #animationSets, 1, -1 do
+			animationSettle(animationSets[i])
+		end
 		attachScope:dispose()
 		drainRecyclePool()
 		adapter.destroyRoot(rootHandle)

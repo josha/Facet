@@ -93,7 +93,7 @@ The v1 core vocabulary is a **closed set**, versioned with the schema
 | `TYPE_ROLES` | all eight, in ladder order: the vocabulary a `textSize` refusal names |
 | `REQUIRED_SPACE_STEPS` | `xs`, `s`, `m`, `l`, `xl` |
 | `REQUIRED_CONTROL_SIZES` | `compact`, `regular`, `large` (each `height`, `paddingX`, `iconSize`) |
-| `SLOTS` | `panel`, `control`, `field`, `selection`, `divider`, `scrollbar`, `sliderTrack`, `sliderThumb`, `badge`, `barTrack`, `barFill`, `barCap`, `barCenter`, `stepperPlate`, `toggleTrack`, `toggleKnob` |
+| `SLOTS` | `panel`, `control`, `field`, `selection`, `divider`, `scrollbar`, `sliderTrack`, `sliderThumb`, `badge`, `barTrack`, `barFill`, `barCap`, `barCenter`, `stepperPlate`, `toggleTrack`, `toggleKnob`, `spinner` |
 | `REQUIRED_RADII` / `REQUIRED_STROKES` / `REQUIRED_MOTION` | `control`/`panel`/`pill`, `hairline`, `fast`/`normal` |
 | `CONTROL_FAMILIES` | the per-family metrics with no better home (`slider.thumbSize`, `table.headerHeight`, …) |
 | `MIN_TARGET_SIZE` | `44` — a theme may raise a target size, never lower one |
@@ -205,9 +205,9 @@ than assumed.
 The substrate is deliberately the smallest thing that works. Everything here is
 closed vocabulary:
 
-- **Slots**: the sixteen in `SLOTS` (§2). Adding one is a schema change (§3).
+- **Slots**: the seventeen in `SLOTS` (§2). Adding one is a schema change (§3).
   Every slot past the original six — `sliderTrack`, `sliderThumb`, `badge`, the
-  bar family, `stepperPlate`, `toggleTrack`, `toggleKnob` — reaches its node
+  bar family, `stepperPlate`, `toggleTrack`, `toggleKnob`, `spinner` — reaches its node
   through the internal decoration HINT (`chrome_slots.attachHint`, the same
   `bp.meta` channel input contributions use) rather than through a public prop. A
   hint may also be `chrome_slots.NO_SLOT` — "this node is not a decoration
@@ -222,7 +222,7 @@ closed vocabulary:
   rejected with a "did you mean". `kind` is `native`, `nineSlice` or `layered`.
   `sliced = false` paints the asset whole (the default for the fixed-size-token
   slots: `sliderThumb`, `badge`, `barCap`, `barCenter`, `stepperPlate`,
-  `toggleKnob`) and `sliced = true` forces slicing on one of them — a bordered
+  `toggleKnob`, `spinner`) and `sliced = true` forces slicing on one of them — a bordered
   stepper plate needs it and renders stretched without it. `shadow` is a preset
   name or a parameter table, validated at compile time against
   `styling.normalizeShadow`. `direction` (`ltr` | `rtl` | `ttb` | `btt`) is

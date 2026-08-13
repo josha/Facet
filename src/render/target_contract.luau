@@ -53,14 +53,17 @@ target_contract.OPTIONAL = {
 	-- still works through the presenter, so the full value stays reachable on
 	-- keyboard/gamepad; pointer/touch reachability degrades to focus.
 	"enableDisclosure", -- (handle, { hover?, longPress? })
-	-- scroll indicator policy (director ruling 2026-08-09): the presenter
-	-- pushes the environment's derived policy ("always" on pointer sessions,
-	-- "auto" on touch/gamepad) plus the reduced-motion fact; the adapter keys
-	-- its published scrollBarThickness on it (auto = overlay = zero solver
-	-- reserve) and drives the indicator lifecycle (flash on first overflow,
-	-- show while scrolling, fade when idle; reduced motion never fades).
-	-- WITHOUT IT: the constant persistent bar and its reserve — the pre-policy
-	-- behavior, degraded by name.
+	-- scroll indicator policy (director ruling 2026-08-09; its reserve half
+	-- REVERSED 2026-08-12): the presenter pushes the environment's derived policy
+	-- ("always" on pointer sessions, "auto" on touch/gamepad) plus the
+	-- reduced-motion fact, and the adapter drives the indicator lifecycle from it
+	-- (flash on first overflow, show while scrolling, fade when idle; reduced
+	-- motion never fades). It decides PAINT only: `scrollBarThickness` is the same
+	-- under both policies, because the engine charges a ScrollingFrame's window
+	-- for its bar instance however the bar is painted (see
+	-- src/client/screen_target.luau SCROLL_BAR_THICKNESS for the measured defect).
+	-- WITHOUT IT: the constant persistent bar — the pre-policy behavior, degraded
+	-- by name; the reserve is unaffected either way.
 	"setScrollIndicatorPolicy", -- (policy: "always"|"auto", reduced: boolean?)
 	"setZOrder", -- (handle, z)                      [deterministic paint order]
 	"setPointerHandlers", -- (handle, {down,move,up,cancel})  [ADR-0008 capture]
@@ -133,10 +136,27 @@ target_contract.OPTIONAL = {
 	-- keep-visible and scroll-position diagnostics work from the last value the
 	-- framework itself wrote rather than where the engine actually is.
 	"getScrollPosition", -- (handle) -> { x, y } | nil
-	-- WITHOUT IT: native transitions cannot be turned off, so a reduced-motion
-	-- environment cannot suppress engine-side animation (LuauUI's own motion
-	-- still honours the policy; only the target's native layer is unreachable).
+	-- WITHOUT IT: the target's NATIVE (StyleSheet-owned) transitions cannot be
+	-- turned off, so a reduced-motion environment cannot suppress engine-side
+	-- sheet animation. This is the SHEET half only — a target's own bespoke
+	-- tweens ride `setReducedMotion` below.
 	"setNativeTransitionsEnabled", -- (on: boolean)
+	--[[ THE BESPOKE half of the same fact (C1, 2026-08-12). WITHOUT IT: a
+		target's own tweens — the press dip, the state-paint fades, the fill
+		crossfade — never learn that the player asked for reduced motion, so an
+		accessibility preference silently does nothing.
+
+		It is a PUSH, deliberately, and this is the whole point of the seam. The
+		fact used to reach `screen_target` only through a construction-time
+		`opts.isReducedMotion` closure, which every one of its four production
+		call sites (the showcase and three RascalRally GUIs) forgot to pass — a
+		design that four callers forget is a design that invites forgetting. The
+		renderer already observes the env fact for `setNativeTransitionsEnabled`;
+		this rides the same observation, so an adapter gets the fact with zero
+		consumer wiring and keeps getting it when the player flips the setting
+		mid-session.
+	]]
+	"setReducedMotion", -- (reduced: boolean)
 	-- THE ENGINE-CONTENT SEAM (UI.Stage, ViewportFrame adoption 2026-08-08). Answers
 	-- a per-node handle for a mounted `Stage`: `setCamera{ position, lookAt, fov? }`,
 	-- `setLighting{ ambient?, lightColor?, lightDirection? }` and `contentRoot()`.

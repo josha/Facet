@@ -14,6 +14,10 @@
 local blueprintLib = require("./blueprint")
 local profile = require("./core/profile")
 local specGuard = require("./spec_guard")
+-- the `UI.sensoryFeedback` declaration's reader (round 2 §3.3). Requires
+-- nothing; see the note in that file on why the contract lives with the
+-- vocabulary rather than in the authoring layer.
+local feedbackContract = require("./present/feedback")
 
 type Blueprint = blueprintLib.Blueprint
 
@@ -41,21 +45,35 @@ export type Transitions = {
 	release: ((path: string) -> ())?,
 }
 
+-- THE SEMANTIC FEEDBACK SINK (round 2 §3.3), the second optional collaborator
+-- and exactly the same shape of seam as `transitions`: supplied by the
+-- presentation layer (the presenter passes its own bus), scripted in headless
+-- tests, absent in a bare mount. It exists because `UI.sensoryFeedback` is
+-- declared on a BLUEPRINT and fires on a MOUNTED node's lifetime — the observer
+-- must die exactly when the node unmounts, which is the node scope this module
+-- owns and nothing downstream has.
+--
+-- The mount layer says WHAT HAPPENED and WHERE. It never decides what an event
+-- means, and it plays nothing (`src/present/feedback.luau:4-5`).
+export type FeedbackSink = (event: { type: string, path: string }) -> ()
+
 export type MountOpts = {
 	scope: any?,
 	transitions: Transitions?,
+	feedback: FeedbackSink?,
 }
 
 local mountLib = {}
 
 -- CLOSED OPTS (constitution §4; ARCH-1). `scope` misspelled means the mount owns
 -- its own root scope and the caller's dispose frees nothing.
-local MOUNT_OPTS_KEYS = specGuard.keySet({ "scope", "transitions" })
+local MOUNT_OPTS_KEYS = specGuard.keySet({ "scope", "transitions", "feedback" })
 
 function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	specGuard.assertKnownKeys("mount", opts, MOUNT_OPTS_KEYS, "opts")
 	local rootScope = if opts and opts.scope then opts.scope else core:scope("mount-root")
 	local transitions: Transitions? = if opts then opts.transitions else nil
+	local feedbackSink: FeedbackSink? = if opts then opts.feedback else nil
 
 	-- drop a coordinator's motion for a path whose region is being torn down
 	local function releaseTransition(path: string)
@@ -521,6 +539,25 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				end))
 			else
 				node.props[propName] = value
+			end
+		end
+
+		-- SENSORY FEEDBACK (round 2 §3.3): one observer per declaration, owned by
+		-- this node's scope, so it stops the frame the node unmounts. Built ONLY
+		-- when a sink is wired — a mount with no presentation layer has no bus to
+		-- emit on, and an observer nobody can hear is pure cost.
+		local sink = feedbackSink
+		if sink ~= nil then
+			local declarations = feedbackContract.readDeclarations(node)
+			if declarations ~= nil then
+				for _, decl in declarations do
+					scope:own(core:observe(decl.trigger, function()
+						-- a FRESH table per emission: the presenter stamps `surface`
+						-- onto the event it is handed, and a shared table would carry
+						-- one surface's stamp into the next emission
+						sink({ type = decl.event, path = path })
+					end))
+				end
 			end
 		end
 

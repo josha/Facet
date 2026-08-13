@@ -18,6 +18,11 @@
 --   lifecycle  (surface depth, context enabled/sink, live keyboard bindings)
 --
 -- A screenshot of this fixture is not evidence on its own; the pairing is.
+--
+-- THE SCREEN BODY SCROLLS: the field/actions/slider/stepper/list column lives
+-- inside a `UI.ScrollView` (`Body`) below, one path segment deeper than the
+-- screen itself — every surface this module names (Volume, Count, List, Name,
+-- Actions/Save, Actions/Reset) now resolves under `/KbdNav/Body/...`.
 
 return {
 	title = "Desktop keyboard focus chain",
@@ -64,30 +69,46 @@ return {
 			)
 		end
 
+		-- THE SCREEN BODY SCROLLS (BodyScroll precedent, adaptive_controls.luau).
+		-- The field, the actions row, the slider, the stepper and the 150px row
+		-- list are content-sized in total, and on a short landscape phone their
+		-- sum already exceeds the box the screen offers before `List` even gets
+		-- to scroll ITS OWN twelve rows — found live by the overflow sweep at
+		-- 705x338 and 640x320 (221px/239px over). `List` keeps its own inner
+		-- ScrollView unchanged (it is the DK-17 plan's own scrollable-list
+		-- surface); this only gives the PAGE a second, outer place to go.
 		local screen = UI.Screen({
 			id = "KbdNav",
 			padding = 16,
-			gap = 10,
 			children = {
-				UI.Text({ id = "Title", text = "Desktop keyboard focus chain", textSize = 22 }),
-				field.blueprint,
-				-- an HStack of two focusables is what engages the LAYOUT group
-				-- derivation, so this fixture is a GROUPED screen — the case where
-				-- Left/Right used to belong permanently to NavigateH
-				UI.HStack({
-					id = "Actions",
-					gap = 8,
-					children = {
-						UI.Button({ id = "Save", label = "Save" }),
-						UI.Button({ id = "Reset", label = "Reset" }),
-					},
-				}),
-				slider.blueprint,
-				stepper.blueprint,
 				UI.ScrollView({
-					id = "List",
-					height = { type = "fixed", px = 150 },
-					children = rows,
+					id = "Body",
+					axis = "y",
+					gap = 10,
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.Text({ id = "Title", text = "Desktop keyboard focus chain", textSize = 22 }),
+						field.blueprint,
+						-- an HStack of two focusables is what engages the LAYOUT group
+						-- derivation, so this fixture is a GROUPED screen — the case
+						-- where Left/Right used to belong permanently to NavigateH
+						UI.HStack({
+							id = "Actions",
+							gap = 8,
+							children = {
+								UI.Button({ id = "Save", label = "Save" }),
+								UI.Button({ id = "Reset", label = "Reset" }),
+							},
+						}),
+						slider.blueprint,
+						stepper.blueprint,
+						UI.ScrollView({
+							id = "List",
+							height = { type = "fixed", px = 150 },
+							children = rows,
+						}),
+					},
 				}),
 			},
 		})
@@ -160,7 +181,7 @@ return {
 		end)
 
 		local function scrollState(): any
-			local inst = ctx.instanceAt("/KbdNav/List")
+			local inst = ctx.instanceAt("/KbdNav/Body/List")
 			if inst == nil or not inst:IsA("ScrollingFrame") then
 				return { available = false }
 			end

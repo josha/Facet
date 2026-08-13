@@ -68,10 +68,29 @@
 -- never read back anything this reveal itself painted — there is no
 -- geometry in the loop at all, so re-deriving it on EVERY `syncGeometry`
 -- (no freeze, no staleness) is safe by construction, not by care. The
--- remaining ingredient — `buttonPad`/`buttonMinWidth` in pixels — is a
--- theme fact with no font/size component, resolved the same way
+-- remaining ingredients — `buttonPad`/`buttonMinWidth`/`trayGap`/`rowGutter`
+-- in pixels, and the installed package's own `chromeInsets.control` — are
+-- theme facts with no font/size component, resolved the same way
 -- `table.luau` resolves its own theme metrics (`spec.env`, optional,
 -- degrades to `themeSnapshot.neutral()`).
+--
+-- THE FRAME IS PART OF THE REQUIREMENT (device bug round 2026-08-12, finding
+-- A3). A plate's width is decided here and written as `fixed px`, so nothing
+-- downstream can grow it — which means this sum has to include everything the
+-- box will be asked to hold, the package's carved border included. It shipped
+-- as text + 2 * `buttonPad`, the flat-theme half of the sum, and every package
+-- that paints a frame reserved `chromeInsets.control` out of that same box at
+-- paint time; the label lost exactly the frame ("Mark Read" cut off under
+-- Fantasy Parchment). See docs/lessons/measure-the-requirement-not-the-render.md
+-- and a-fixed-box-cannot-hold-a-themes-frame.md — this is that lesson's width
+-- form.
+--
+-- AND THE BAND HAS TO FIT THE ROW (same round, finding A1b). Nothing used to
+-- constrain the sum at all: four actions on a 160px row put the first plate at
+-- x = -108, outside the row, unreachable, with `controller.diagnostics()`
+-- empty. On a row whose width is decided FOR it the naturals now share out what
+-- there is; on a hug row — whose solved width is itself derived from this band
+-- — they do not, because clamping to it would be clamping the band to itself.
 --
 -- DESTRUCTIVE COLOUR. `UI.Button` already carries a semantic `role` prop
 -- (`enum = { "default", "cancel", "destructive" }`, src/blueprint_schema.luau)
@@ -311,9 +330,50 @@ local BUTTON_PAD = "controls.rowActions.buttonPad"
 -- package's own `space.xs` when the package declares none, so it moves with the
 -- spacing scale the rest of the surface already uses.
 local TRAY_GAP = "controls.rowActions.trayGap"
+-- ...and the gutter between the ROW ITSELF and the tray band beside it (device
+-- bug round 2026-08-12, findings A1a/A2: "the trash tray butts straight against
+-- the row with zero negative space", and the edit minus doing the same on the
+-- leading edge). `trayGap` separates two PLATES from each other; this separates
+-- the whole band — and the edit-mode minus, which lives in the same strip — from
+-- the sliding row. A second theme metric rather than a reuse of `trayGap`
+-- because the two are different decisions at different scales: a hairline
+-- between two members of one group, a clear step between the group and the
+-- surface it sits beside. `snapshot.resolve` fills it from the package's own
+-- `space.s` when the package declares none.
+--
+-- IT IS PART OF THE BAND, NOT A THING BESIDE IT: `buildTray` spends it as the
+-- tray HStack's own row-facing padding, so the band's width (and therefore the
+-- travel distance the row slides, and therefore the reveal fraction each plate
+-- stretches by) all move together by construction — the same "the tray
+-- uncovered has to be the tray drawn" rule the `trayGap` fix already had to
+-- learn.
+local ROW_GUTTER = "controls.rowActions.rowGutter"
 -- Task 9: the edit-mode leading minus' diameter (both axes — `shape = "circle"`
 -- below takes only ONE authored axis and derives the other).
 local EDIT_AFFORDANCE = "controls.rowActions.editAffordance"
+
+--[[ PERCEPTUAL ARRIVAL, not the solver's epsilon (device bug round 2026-08-12,
+	finding C9b: "after the row slides back, you see it stop and then pop position
+	one or two frames later"). The reveal `When`s below used to unmount on `offset
+	== 0` EXACTLY, and a position-domain spring only reaches its target at
+	`spring.luau`'s `DEFAULT_EPS` of 1e-3 — which that module's own header warns is
+	"a few frames after they visually arrive". Measured on the showcase list: the
+	row was within half a pixel of home at frame 23 and the tray unmounted at frame
+	58, so a visible sliver of band (the row gutter the band spends as its own
+	padding) stood on screen for 35 frames after the motion was over and then
+	vanished in one. Half a pixel is the distance below which no engine can paint
+	the row anywhere else, so it is the honest place to call the reveal finished —
+	the same "arrival is a RADIUS, not an epsilon" rule `chase.luau` already
+	states. ]]
+local REVEAL_EPS = 0.5
+-- PUBLISHED, because a HOST has to end its engagement on the same test. The
+-- VirtualList clears the engaged row (and with it the presentation transform and
+-- the shared overlay entry) from its own `onSlide`, and if that used a different
+-- threshold than the reveal above, the tray's focused button would unmount a
+-- frame before the host got the chance to put the ring back on its row — measured
+-- as the R1 focus restore stranding at the top of the list. One number, two
+-- readers (`virtual_list.luau`'s `hostedApplySlide`).
+row_actions.REVEAL_EPS = REVEAL_EPS
 
 -- a node id is interpolated into a Lua PATTERN below (handleActivate's path
 -- match), so its magic characters have to be escaped first — same helper,
@@ -525,6 +585,15 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local scope = core:scope("row-actions-" .. tostring(id))
 	-- read once: `hosted` is a build-time fact, never live
 	local isHosted = hosted ~= nil
+	-- ...and so is "is this row's width decided FOR it" (device bug round
+	-- 2026-08-12, finding A1b — see `deriveNaturals`, the one reader). A hosted
+	-- row's box is the host's own (this file mounts nothing at all, and the tray
+	-- lives in a separate overlay); a `fill`/`fixed` root is sized by its parent.
+	-- Anything else — the default, content-sized root above all — HUGS, and an
+	-- Anchor's hug includes the tray it is being asked to measure against, so
+	-- its width is not an independent fact and must never be used as a cap.
+	local widthKind = if type(spec.width) == "table" then (spec.width :: any).type else nil
+	local clampable = isHosted or widthKind == "fill" or widthKind == "fixed"
 	-- fix round 1, finding 5: every error this shared function (and the
 	-- validation helpers it calls — `actionsFor`/`buildActionSpec`/
 	-- `normalizeFullSwipe`) raises names the CALLING entry point, not always
@@ -726,6 +795,32 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		the same lines: this is shared code, and the shared window is the reason
 		it must be fixed here rather than in the host. ]]
 	local commitLatched = false
+	--[[ THE REACTIVE HALF OF `committed` (device bug round 2026-08-12, finding
+		C8a, first half: "the row goes fully away but the delete/flag buttons show
+		up and then animate away vertically? That's odd — the row should just go
+		away").
+
+		`doCommitAction` sets `openEdge` to the committing edge and leaves it there
+		for the whole slide-off AND the whole height collapse, so the tray's reveal
+		memos below held the band fully painted on a row that had already left.
+		Measured on a 400px row: the band stood at its full 159px from frame 1 to
+		frame 115 of the commit — 95 of those frames (1.58 s) with the row entirely
+		off-screen — and was then squashed vertically as the row's height collapsed
+		to 0. That squash is the "animate away vertically" in the report.
+
+		The director's sentence IS the rule: a destructive commit carries the row
+		off and leaves NOTHING standing where it was. So the reveal memos read this
+		signal and go false for the commit's duration. It is a signal rather than
+		the plain `committed` bool beside it because a memo has to be able to
+		`use()` it; the two are written together, always, in the same call — set on
+		`doCommitAction`'s destructive branch, cleared wherever `committed` is.
+
+		NOTE FOR THE DIRECTOR GATE: `iOS.mov` does something different and richer
+		here — the destructive plate EXPANDS to fill the row and the row leaves over
+		it, so nothing has to vanish. That is a real feature (a per-plate stretch
+		past the band width) rather than a bug fix, it is a feel decision, and it is
+		not taken here. What ships is the sentence that was written down. ]]
+	local committingSig = scope:own(core:signal(false))
 	-- REDTEAM FIX (item 1, BLOCKER): incremented once per commit that
 	-- actually starts (`doCommitAction`'s destructive branch); the two
 	-- `onSettle` chains it launches capture the value at start and refuse to
@@ -763,6 +858,27 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	end))
 	local trayGapPx = scope:own(core:memo(function(use)
 		return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
+	end))
+	local rowGutterPx = scope:own(core:memo(function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), ROW_GUTTER) or 0
+	end))
+	-- A3 (device bug round 2026-08-12): a themed package's control frame is room
+	-- the label cannot use, and a tray button's natural width has to reserve it
+	-- the same way the button's own hug measure does — see `deriveNaturals`.
+	-- Zero under every flat package (`snapshot.resolve` only fills
+	-- `chromeInsets` for a nineSlice/layered slot recipe), so this is inert
+	-- until a package actually paints a frame.
+	local buttonChromePx = scope:own(core:memo(function(use)
+		local metrics = use(metricsSig)
+		local insets = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
+			then (metrics.chromeInsets :: any).control
+			else nil
+		if type(insets) ~= "table" then
+			return 0
+		end
+		local left = if type(insets.left) == "number" then insets.left else 0
+		local right = if type(insets.right) == "number" then insets.right else 0
+		return left + right
 	end))
 
 	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
@@ -807,21 +923,39 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- and `trayGapPx` is a theme metric, so this sum moves live with a label/
 	-- text-size/theme change and can never chase itself.
 	--
-	-- The gutter term is `(n - 1) * gap`, the HStack's own arithmetic — the travel
-	-- distance and the thing it has to uncover must be the same number, or the
-	-- last button parks half off the row (device round 2026-08-12).
-	local function gapTotal(actions: { ActionSpec }?, use: (any) -> any): number
+	-- The inter-plate term is `(n - 1) * gap`, the HStack's own arithmetic — the
+	-- travel distance and the thing it has to uncover must be the same number, or
+	-- the last button parks half off the row (device round 2026-08-12). The
+	-- row-facing `rowGutter` (device BUG round, same date — finding A1a) is the
+	-- band's own padding and belongs to the same sum for the same reason: the
+	-- row has to travel far enough to uncover the plates AND the negative space
+	-- in front of them, or the gutter is simply the first plate's new left
+	-- margin and the row still butts against art.
+	local function bandExtras(actions: { ActionSpec }?, use: (any) -> any): number
 		local n = if actions ~= nil then #actions else 0
-		if n < 2 then
+		if n < 1 then
 			return 0
 		end
-		return (n - 1) * use(trayGapPx)
+		return (n - 1) * use(trayGapPx) + use(rowGutterPx)
+	end
+	--
+	-- ZERO STAYS ZERO. `0` is this pair's own "nothing has been measured yet"
+	-- sentinel (`provisionalWidth` below substitutes its estimate on exactly
+	-- that test, which is what keeps a single-frame flick openable), so the
+	-- band's fixed extras are added only once there is a plate to put them
+	-- beside.
+	local function bandWidth(naturals: { [string]: any }, actions: { ActionSpec }?, use: (any) -> any): number
+		local sum = sumNaturals(naturals, use)
+		if sum <= 0 then
+			return 0
+		end
+		return sum + bandExtras(actions, use)
 	end
 	local leadingWidth = scope:own(core:memo(function(use)
-		return sumNaturals(leadingNaturals, use) + gapTotal(leadingActions, use)
+		return bandWidth(leadingNaturals, leadingActions, use)
 	end))
 	local trailingWidth = scope:own(core:memo(function(use)
-		return sumNaturals(trailingNaturals, use) + gapTotal(trailingActions, use)
+		return bandWidth(trailingNaturals, trailingActions, use)
 	end))
 
 	-- ===== Task 9: the edit-mode gutter (leading minus + content/leading-tray
@@ -830,9 +964,12 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	--
 	-- `editGutterPx` is the ONE live pixel amount both Content's rendered
 	-- offsetX (below) and the leading tray's own offsetX (`buildTray`) read: 0
-	-- when not currently editing, `editAffordancePx` (the resolved
+	-- when not currently editing, `editAffordancePx + rowGutterPx` (the resolved
 	-- `controls.rowActions.editAffordance` metric, live to a theme swap
-	-- exactly like `buttonPadPx`/`buttonMinWidthPx` above) while editing. A
+	-- exactly like `buttonPadPx`/`buttonMinWidthPx` above, PLUS the same
+	-- row-facing negative space the tray band spends — device bug round
+	-- 2026-08-12, finding A2: a strip exactly one diameter wide leaves the disc
+	-- touching the row it is meant to sit outside of) while editing. A
 	-- SEPARATE signal from `offset` (Task 5's gesture/spring seam) by design —
 	-- see the big comment above `local editingReadable` and the one above
 	-- `contentOffsetX` below for why the two must never merge into one write.
@@ -847,7 +984,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		end))
 		editGutterPx = scope:own(core:memo(function(use)
 			if use(editAffordanceShown) then
-				return use(editAffordancePx)
+				return use(editAffordancePx) + use(rowGutterPx)
 			end
 			return 0
 		end))
@@ -934,6 +1071,8 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- naturals stay `nil` and the width props' existing fallback stands.
 	local controller: any = nil
 	local motionClock: any = nil
+	-- the reactive twin of `motionClock ~= nil` — see `bindMotion`'s own comment
+	local motionBound = scope:own(core:signal(false))
 	-- REDTEAM FIX (item 2, BLOCKER): the presenter's own `presentModal`/
 	-- `dismiss`, arriving (if ever) via the new `bindPresent` contribution
 	-- seam (contribution.luau; presenter.luau's `bindContribution`) — what
@@ -1114,9 +1253,64 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		retarget(0)
 		applyCommitHeight(nil)
 		committed = false
+		committingSig:set(false)
 		if coordinator ~= nil then
 			coordinator.release(api)
 		end
+	end
+
+	--[[ THE POST-COMMIT RESTORE, DEFERRED BY ONE SYNC (device bug round
+		2026-08-12, finding C8a, second half: "Then the row reappears quickly before
+		the delete happens").
+
+		The commit chain's last step fired `onAction` and then called
+		`resetToClosed()` — which puts the height override back to `nil` (the row is
+		instantly full height again) and `retarget(0)` (the row springs home from a
+		whole row width away, over ~65 frames). Measured on a 400px row: at the fire
+		frame the row went 0px -> 48px tall and travelled -400 -> -252 in four
+		frames. A whole row, repainted and flying back across the screen, BEFORE the
+		owner's `rows:set(...)` had reached the diff that removes it.
+
+		Splitting the reset in two is what fixes it, and it costs nothing:
+
+		  * `finishCommit()` runs the BOOKKEEPING immediately — `openEdge`,
+		    `committed`/`committingSig`, the coordinator release. All of it is state
+		    nobody paints.
+		  * the PAINT (`applySlide(0)` + `applyCommitHeight(nil)`) is deferred to the
+		    next `syncGeometry`, and it is a SNAP, never a flight: `spring:snap(0)`
+		    is a placement, not an arrival (motion.luau), so it fires no stray
+		    settle.
+
+		A row whose owner really did remove it is disposed before that sync ever
+		runs, so it never repaints at all — which is the whole point. A row whose
+		owner did NOT remove it (the "phantom row" `resetToClosed`'s own comment
+		describes, redteam item 5) is back to a normal, openable, full-height row one
+		sync later instead of never — the same guarantee that fix bought, delivered
+		without the visible return flight. ]]
+	local restorePending = false
+	local function finishCommit()
+		openEdge:set(nil)
+		committed = false
+		committingSig:set(false)
+		if coordinator ~= nil then
+			coordinator.release(api)
+		end
+		restorePending = true
+	end
+
+	-- ...and the deferred half, drained by `syncGeometry` below (the one per-frame
+	-- hook this composite has in BOTH modes: the presenter calls it on the
+	-- contribution, a host calls `engine.syncGeometry()` bare).
+	local function drainPostCommitRestore()
+		if not restorePending then
+			return
+		end
+		restorePending = false
+		if spring ~= nil then
+			spring:snap(0)
+		end
+		applySlide(0)
+		applyCommitHeight(nil)
 	end
 
 	local function close()
@@ -1376,6 +1570,10 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			return true
 		end
 		committed = true
+		-- C8a (device round 2026-08-12): the reactive twin, read by the tray reveal
+		-- memos — the row leaves and nothing stays standing behind it. See
+		-- `committingSig`'s own comment where it is declared.
+		committingSig:set(true)
 		commitLatched = true
 		-- REDTEAM FIX (item 1, BLOCKER): a commit "generation" counter,
 		-- captured by both `onSettle` chains below (belt, on top of the
@@ -1401,7 +1599,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				end
 				-- QUARANTINED (constitution): the ONE user callback this
 				-- composite ever fires on a caller's behalf. A throw must
-				-- not skip `resetToClosed()` below, nor fire a second time —
+				-- not skip `finishCommit()` below, nor fire a second time —
 				-- `committed` already forbids a second commit, and this
 				-- whole chain only ever runs once per row.
 				pcall(action.onAction)
@@ -1409,8 +1607,12 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				-- `resetToClosed`'s own comment above `close()`): this IS the
 				-- commit's own natural completion, not an external cancel —
 				-- `close()` itself would no-op here since `committed` is
-				-- still true.
-				resetToClosed()
+				-- still true. C8a (device round 2026-08-12): `finishCommit`
+				-- rather than `resetToClosed`, so the row's PAINT is not put
+				-- back — full height, flying home from a row width away —
+				-- before the owner's own removal has landed. See its comment
+				-- above `close()`.
+				finishCommit()
 			end)
 		end)
 		return true
@@ -1695,8 +1897,13 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- reads); the menu opens just below the row's own left edge, matching
 	-- `popup_button.luau`'s own "menu" placement (`offsetY = TRIGGER_HEIGHT`,
 	-- just below the trigger) translated into absolute window-space
-	-- coordinates rather than a relative offset (this Anchor's own parent
-	-- is a full-viewport `edgeToEdge` screen root, not the trigger itself).
+	-- coordinates rather than a relative offset (the node these are spent on
+	-- is `MenuRows`, whose `anchor`-kind parent `Menu` fills the surface's own
+	-- edge-to-edge root, so the anchor's inner origin IS the window origin —
+	-- see `buildMenuBlueprint`'s own comment for why the placement props ride
+	-- the CHILD and not the Anchor itself). NOT clamped to the viewport: a row
+	-- near the bottom edge puts its menu partly past it (recorded, not fixed —
+	-- flipping above the trigger is a placement decision of its own).
 	-- Absent `controller`/`rootPath` (no presenter, or the very first frame
 	-- before any solve — `openMenu` never runs at all without `controller`,
 	-- see its own guard below) degrades to `0, 0` rather than erroring.
@@ -1712,6 +1919,32 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		return rect.x, rect.y + rect.h
 	end
 
+	--[[ THE PLACEMENT PROPS BELONG TO THE CHILD, NOT TO THE ANCHOR ITSELF (live
+		defect, found 2026-08-13 by the placement-prop audit; fixed with the Group C
+		flight round because it is the same trap in the same file).
+
+		`anchor`/`offsetX`/`offsetY` are read by a node's PARENT, and only by an
+		`anchor`-kind one — this file's own header says so for the row slide
+		("honoured ONLY by an `anchor`-kind parent... the sibling `zstack` branch
+		does not — a ZStack child's `offsetX` is silently inert"). `MENU_ROOT_ID` IS
+		the `UI.Anchor`, but it declared those three props on ITSELF, where its
+		parent is the `UI.Screen` this surface is presented as — a VSTACK, which
+		reads none of them. Measured before the fix: the row's own screen rect
+		(20, 148, 760x48) put `menuOx/menuOy` at (20, 196), and the menu solved to
+		x = 0, y = 0. Silently, with `controller.diagnostics()` empty.
+
+		So the Anchor now FILLS the edge-to-edge surface (which makes its inner
+		origin the window origin, which is the space `computeMenuAnchor` measures
+		in) and the placement rides `MenuRows`, its child, where an anchor-kind
+		parent actually reads it. Every path is unchanged — `MenuRows` is still
+		`/{MENU_SURFACE_ID}/{MENU_ROOT_ID}/MenuRows` — so the Activate pattern, the
+		focus assertions and the contribution's own subtree all stay put.
+
+		STILL NOT CLAMPED TO THE VIEWPORT: a menu opened on a row near the bottom
+		edge is placed below that row and may extend past it. That was true before
+		too (and invisible under the origin bug), an anchor parent emits no overflow
+		diagnostic for it, and flipping the menu above its trigger is a placement
+		decision rather than this fix — recorded here rather than quietly widened. ]]
 	local function buildMenuBlueprint(): any
 		return UI.Screen({
 			id = MENU_SURFACE_ID,
@@ -1719,12 +1952,14 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				contribution.attach(
 					UI.Anchor({
 						id = MENU_ROOT_ID,
-						anchor = "topLeft",
-						offsetX = menuOx,
-						offsetY = menuOy,
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
 						children = {
 							UI.VStack({
 								id = "MenuRows",
+								anchor = "topLeft",
+								offsetX = menuOx,
+								offsetY = menuOy,
 								surface = "raised",
 								gap = "strokes.hairline",
 								children = buildMenuRows(),
@@ -2457,36 +2692,126 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		inside a `When`'s factory would be a fresh one every remount. ]]
 	local trayViews: { any } = {}
 	if leadingActions ~= nil or trailingActions ~= nil then
-		-- per-action WIDTH prop: one `core:memo` per declared action, built HERE
-		-- (not inside `buildTray`'s lazy factory) for the identical reuse-not-
-		-- leak reason as the naturals above. Unmeasured, or no spring at all
-		-- (the fallback) — keeps Task 3's shape exactly (`minMax`, floored,
-		-- content-sized, static, and it stays live even once measured — the
-		-- fallback and the derived branch both track the SAME live `natural`
-		-- signal, so neither ever goes stale); once its natural width IS known
-		-- it reads its share of the SAME observed `offset` the slide itself
-		-- uses — no second spring, no per-button spring — so a button
-		-- "stretches in" from 0 toward its (live) natural width as `|offset|`
-		-- approaches `trayWidth` (docs/plans/row-actions-implementation.md
-		-- Task 4: "SwiftUI feel").
-		local function buildWidthProps(naturals: { [string]: any }, traySig: any, actions: { ActionSpec })
+		--[[ THE REVEAL FRACTION, ONE MEMO PER EDGE — how much of this edge's band the
+			row has uncovered, 0..1. Every part of the band's drawn geometry reads THIS
+			and nothing else, which is what makes "the tray uncovered is the tray
+			drawn" true by construction rather than by three call sites agreeing.
+
+			IT COVERS THE FIXED EXTRAS TOO (device round 2026-08-12, C9a's residue).
+			`bandWidth` counts the inter-plate gaps and the row-facing gutter into the
+			travel — the row has to move far enough to uncover the negative space as
+			well as the plates — so a band that scaled only its PLATES painted those
+			extras at full size from the first frame and reached past the row's own
+			edge by up to `trayGap + rowGutter` while the reveal was young. Scaling all
+			three by one fraction makes the drawn band exactly `frac x bandWidth`,
+			which is exactly `|offset|`.
+
+			`motionBound` rather than the `motionClock` upvalue: see `bindMotion`. With
+			no motion authority at all (a bare mount, no presenter) there is no travel
+			to be a fraction of, and the tray is static at full size — Task 3's
+			behaviour, unchanged. ]]
+		local revealFracs: { [string]: any } = {}
+		for _, edge in { "leading", "trailing" } do
+			local traySig = if edge == "leading" then leadingWidth else trailingWidth
+			revealFracs[edge] = scope:own(core:memo(function(use)
+				if not use(motionBound) then
+					return 1
+				end
+				local trayW = use(traySig)
+				if trayW <= 0 then
+					return 0
+				end
+				return math.clamp(math.abs(use(offset)) / trayW, 0, 1)
+			end))
+		end
+
+		--[[ per-action WIDTH prop: one `core:memo` per declared action, built HERE
+			(not inside `buildTray`'s lazy factory) for the identical reuse-not-leak
+			reason as the naturals above. A plate reads its share of the SAME observed
+			`offset` the slide itself uses — no second spring, no per-button spring —
+			so it "stretches in" from 0 toward its (live) natural width as `|offset|`
+			approaches `trayWidth` (docs/plans/row-actions-implementation.md Task 4:
+			"SwiftUI feel").
+
+			THE FALLBACK IS "NO MOTION AUTHORITY", NOT "NO SPRING YET" (device bug
+			round 2026-08-12, findings C9a and C8b — the SAME line caused both).
+
+			It read `spring == nil or n == nil`, and both halves were wrong in a way
+			only a per-frame trace could see (tests/row_actions_motion.spec.luau):
+
+			  * `spring` is built LAZILY, by the first `retarget` — and a LIVE DRAG
+			    never retargets. It writes `offset` straight through `applySlide`
+			    (`onPointerMove`), so for the whole of every gesture-driven reveal
+			    `spring` was still nil and every plate painted at the `buttonMinWidth`
+			    FLOOR. Measured: 14 drag frames, `offset` -27 -> -183, the band a
+			    constant 159px on all of them. That is C9a's "the red appears and then
+			    the row animates above it", and it is also C8b's "the row animates too
+			    far": the drag painted the leading plate at the 64px floor while the
+			    release settles to its real 117px natural, so the row flew 53px past
+			    the band the player had been watching.
+			  * `n == nil` is the tray's FIRST MOUNTED FRAME — the naturals are derived
+			    from `controller.textAt` on the mounted button, so they cannot exist
+			    before the mount. Measured on `_open`: frame 1 painted the whole 159px
+			    band at `offset` 0, frame 2 dropped to 26px. One frame of full band,
+			    then a collapse, then the growth.
+
+			"NO MOTION AUTHORITY" (`revealFracs` above, via `motionBound`) is the
+			honest test for the case the fallback exists for: a bare `mountLib.mount`
+			with no presenter, where there is no travel for a plate to grow with and a
+			static tray is the only sensible paint. With a clock — real or
+			reduced-motion — the plate is ALWAYS `natural x frac`, and an unmeasured
+			natural is simply 0 for the one frame before the first `syncGeometry` lands
+			(the measurement itself is geometry-free — it asks
+			`text_metrics.measure(..., math.huge)` — so a 0-wide plate cannot starve
+			it; see `deriveNaturals`). The band a tray paints therefore never exceeds
+			the travel that uncovered it, which is the whole geometric contract of a
+			swipe tray. ]]
+		local function buildWidthProps(naturals: { [string]: any }, fracSig: any, actions: { ActionSpec })
 			local props: { [string]: any } = {}
 			for _, action in actions do
 				local natural = naturals[action.id]
 				props[action.id] = scope:own(core:memo(function(use)
 					local n = use(natural)
-					if spring == nil or n == nil then
+					if not use(motionBound) then
 						return { type = "minMax", min = BUTTON_MIN_WIDTH }
 					end
-					local trayW = use(traySig)
-					local frac = if trayW > 0 then math.clamp(math.abs(use(offset)) / trayW, 0, 1) else 0
-					return { type = "fixed", px = math.floor(n * frac + 0.5) }
+					if n == nil then
+						return { type = "fixed", px = 0 }
+					end
+					return { type = "fixed", px = math.floor(n * use(fracSig) + 0.5) }
 				end))
 			end
 			return props
 		end
-		local leadingWidthProps = buildWidthProps(leadingNaturals, leadingWidth, leadingActions or {})
-		local trailingWidthProps = buildWidthProps(trailingNaturals, trailingWidth, trailingActions or {})
+		local leadingWidthProps = buildWidthProps(leadingNaturals, revealFracs.leading, leadingActions or {})
+		local trailingWidthProps = buildWidthProps(trailingNaturals, revealFracs.trailing, trailingActions or {})
+
+		-- the band's row-facing padding and its inter-plate gap, ONE live memo each
+		-- per edge, built HERE for the identical reuse-not-leak reason as the
+		-- naturals and the width props above: `buildTray` runs inside a lazy `When`
+		-- factory, so a memo created in there would be a fresh reactive node on
+		-- every open/close cycle.
+		--
+		-- BOTH SCALE WITH THE REVEAL (device round 2026-08-12, C9a's residue — see
+		-- `revealFracs` above). They are counted into `bandWidth`, therefore into
+		-- the row's travel, so painting them at full size while the plates were
+		-- still growing put band edge ahead of row edge by up to `trayGap +
+		-- rowGutter`. Now `drawn band == frac x bandWidth == |offset|`, exactly.
+		local trayPaddings: { [string]: any } = {}
+		local trayGaps: { [string]: any } = {}
+		for _, edge in { "leading", "trailing" } do
+			local frac = revealFracs[edge]
+			trayPaddings[edge] = scope:own(core:memo(function(use)
+				local g = math.floor(use(rowGutterPx) * use(frac) + 0.5)
+				return if edge == "leading" then { right = g } else { left = g }
+			end))
+			trayGaps[edge] = scope:own(core:memo(function(use)
+				return math.floor(use(trayGapPx) * use(frac) + 0.5)
+			end))
+		end
+		local function trayPadding(edge: Edge): any
+			return trayPaddings[edge]
+		end
 
 		local function buildTray(edge: Edge, actions: { ActionSpec })
 			local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
@@ -2528,8 +2853,18 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				-- corners drawn flush read as one merged slab, and the sliding row
 				-- content merged with the first plate mid-flight. Theme metric, and
 				-- the SAME number `leadingWidth`/`trailingWidth` add to the travel
-				-- distance above — the tray uncovered has to be the tray drawn.
-				gap = trayGapPx,
+				-- distance above — the tray uncovered has to be the tray drawn, which
+				-- is why it is spent at the REVEAL FRACTION rather than in full (see
+				-- `trayGaps` above).
+				gap = trayGaps[edge],
+				-- ...and the band's own ROW-FACING padding (device bug round
+				-- 2026-08-12, finding A1a). It goes on the side the row slides in
+				-- from — left for a trailing tray, right for a leading one — so the
+				-- negative space always lands BETWEEN the row and the first plate
+				-- and never on the outside edge, where it would only shrink the
+				-- band's reach into the row's corner. Counted in `bandExtras`
+				-- above, so the row travels far enough to uncover it.
+				padding = trayPadding(edge),
 				-- Task 9: the LEADING tray shifts right by the same live gutter
 				-- Content does below, so the two compose instead of colliding —
 				-- "the minus sits outside the leading tray's reveal" (brief). The
@@ -2542,20 +2877,30 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		end
 
 		if leadingActions ~= nil then
-			-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL LIVE
-			-- (Task 4). `openEdge` flips the instant `close()`/a new `open()` on
-			-- the other edge is called, but the spring keeps animating `offset`
+			-- MOUNTED WHILE OPEN, **OR** WHILE THE CLOSE FLIGHT IS STILL VISIBLY
+			-- LIVE (Task 4). `openEdge` flips the instant `close()`/a new `open()`
+			-- on the other edge is called, but the spring keeps animating `offset`
 			-- back toward 0 over several frames — unmounting on `openEdge`
 			-- alone would make the tray vanish INSTANTLY while Content is still
 			-- visibly sliding back over empty space. Reusing `offset` (the same
 			-- signal `Content.offsetX` and the width props above already read)
 			-- keeps the outgoing tray mounted for exactly as long as it is
 			-- still on screen, with no new coupling.
+			--
+			-- "VISIBLY" is `REVEAL_EPS`, not zero (device round 2026-08-12, C9b —
+			-- see the constant's own comment), and a destructive commit takes the
+			-- tray away outright (C8a — see `committingSig`).
 			local revealed = scope:own(core:memo(function(use)
+				-- C8a: a destructive commit leaves nothing standing behind the row
+				-- (see `committingSig`'s own comment above)
+				if use(committingSig) then
+					return false
+				end
 				if use(openEdge) == "leading" then
 					return true
 				end
-				return use(offset) > 0
+				-- C9b: sub-pixel is arrived (see `REVEAL_EPS`)
+				return use(offset) >= REVEAL_EPS
 			end))
 			table.insert(
 				trayViews,
@@ -2570,10 +2915,14 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		end
 		if trailingActions ~= nil then
 			local revealed = scope:own(core:memo(function(use)
+				-- C8a / C9b — the mirror of the leading memo above, same two rules
+				if use(committingSig) then
+					return false
+				end
 				if use(openEdge) == "trailing" then
 					return true
 				end
-				return use(offset) < 0
+				return use(offset) <= -REVEAL_EPS
 			end))
 			table.insert(
 				trayViews,
@@ -2746,6 +3095,43 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- moves. A HUG row that also wires `editing` is the one shape that sees
 			-- it, and it sees a row that grew to fit its own affordance.
 			local contentOffsetX = offset
+			--[[ ...AND THE ANCHOR HAS TO FOLLOW THE SIGN (device bug round
+				2026-08-12, findings C9c and C9d — "the Mark Read button is very tall
+				vertically and causes odd row resizing" / "when the row animates back,
+				it overlaps the mark read button and causes that to collapse into
+				something on a different row").
+
+				NEITHER FINDING IS ABOUT THE BUTTON. `Content` is `width = fill` under
+				an `anchor` parent, and `solver.luau`'s `offsetFill` SHRINKS a fill
+				anchor child by its own offset — giving back exactly the room the
+				offset costs it, so it cannot hang off the far edge. That rule is
+				right, and it has one exemption it states itself: a child anchored to
+				the edge it is being PUSHED PAST keeps its full width, because no width
+				could bring it back anyway.
+
+				A TRAILING swipe is a negative offsetX on a `topLeft` child, which is
+				exactly that exemption — full width, pure translation, correct, and it
+				is why the trailing edge never showed this. A LEADING swipe is a
+				POSITIVE offsetX on the same `topLeft` child, so the row's content box
+				lost the tray's whole width: measured on a showcase list row, `Content`
+				319 -> 194px, the preview line re-wrapped, `Content/Row` grew 88 ->
+				117px, and the solver reported "overflows its zstack by 0x29px" — 29px
+				of row painted over the row below — for the whole time the tray was
+				open. On the way back it re-wrapped in two discrete 14px steps
+				mid-flight, which is the "collapse" and the "pop" in the report.
+
+				A reveal TRANSLATES the row; it never re-lays it out. Flipping the
+				anchor to the edge the offset pushes toward puts both signs inside the
+				exemption, and the placement arithmetic is unchanged in both: at
+				`topRight` with an unshrunk fill child, `(innerW - w) * 1` is zero, so
+				the child still lands at `innerX + offset`. The two branches therefore
+				meet exactly at `offset == 0`, with no step for a live drag to cross —
+				and `anchor` is an arrange-only prop (blueprint_schema BOX.anchor,
+				`dirty = { "arrange" }`), the same class `offsetX` itself is in, so the
+				flip costs one node's re-arrange and no re-measure. ]]
+			local contentAnchor = scope:own(core:memo(function(use)
+				return if use(offset) > 0 then "topRight" else "topLeft"
+			end))
 			local contentPadding: any = nil
 			if hasEditAffordance then
 				contentPadding = scope:own(core:memo(function(use)
@@ -2801,7 +3187,9 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				children,
 				UI.ZStack({
 					id = "Content",
-					anchor = "topLeft",
+					-- SIGN-FOLLOWING (device round 2026-08-12, C9c/C9d): see the big
+					-- comment above `local contentAnchor`. Not a static "topLeft".
+					anchor = contentAnchor,
 					offsetX = contentOffsetX,
 					-- `nil` unless this row can ever show the edit minus, so a row
 					-- that never wires `editing` carries no padding prop at all
@@ -2983,11 +3371,32 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			end
 			local pad = buttonPadPx:get()
 			local minWidth = buttonMinWidthPx:get()
-			for _, action in actions do
-				local sig = naturals[action.id]
-				if sig == nil then
-					continue
-				end
+			-- A3 (device bug round 2026-08-12, "Mark Read" cut off under Fantasy
+			-- Parchment). MEASURE THE REQUIREMENT, NOT THE RENDER
+			-- (docs/lessons/measure-the-requirement-not-the-render.md): the room a
+			-- tray plate needs is the drawn text PLUS the button's own inner
+			-- padding PLUS whatever the installed package's control frame reserves
+			-- out of that box. `buttonPad` alone was the flat-theme half of the
+			-- sum, so under every framed package the band was reserved (and the
+			-- row travelled) exactly one frame too narrow and the label lost the
+			-- difference — `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md`
+			-- in its width form: the plate's `fixed` px is decided HERE, so this
+			-- is the one place that can afford the frame for it. Zero on flat
+			-- packages, so nothing that already fit moves.
+			local chrome = buttonChromePx:get()
+			-- A1b (same round): a band wider than the row it belongs to hangs off
+			-- the row's far edge — measured at 108px outside a 160px row, with no
+			-- diagnostic — and those plates are unreachable. Under a row whose
+			-- width is decided FOR it, the naturals share out what there is
+			-- instead. `clampable` is what keeps that safe: on a HUG row the
+			-- solved width is itself derived from this band (an Anchor hugs its
+			-- anchored children), so clamping to it would ratchet the band down to
+			-- the content's width and never recover — a row with no cage is
+			-- allowed to grow one instead.
+			local desired: { [number]: number } = {}
+			local desiredTotal = 0
+			local measuredCount = 0
+			for index, action in actions do
 				local facts = controller.textAt(`{trayPath}/Action:{action.id}`)
 				if facts == nil or type(facts.font) ~= "string" or type(facts.size) ~= "number" then
 					continue -- not yet measured this pass (e.g. the button just mounted)
@@ -3005,7 +3414,26 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					drawn = themePackage.iconGlyph(action.icon) or action.label
 				end
 				local measured = text_metrics.measure(drawn, facts.font, facts.size, math.huge)
-				sig:set(math.max(minWidth, measured.width + 2 * pad))
+				local want = math.max(minWidth, measured.width + 2 * pad + chrome)
+				desired[index] = want
+				desiredTotal += want
+				measuredCount += 1
+			end
+			-- the band's fixed extras, exactly as `bandExtras` sums them, so the
+			-- share-out below is measured against the same total the row travels
+			local extras = (#actions - 1) * trayGapPx:get() + rowGutterPx:get()
+			local room = if clampable then currentRowWidth() - extras else 0
+			local scale = 1
+			if clampable and room > 0 and desiredTotal > room and measuredCount == #actions then
+				scale = room / desiredTotal
+			end
+			for index, action in actions do
+				local sig = naturals[action.id]
+				local want = desired[index]
+				if sig == nil or want == nil then
+					continue
+				end
+				sig:set(want * scale)
 			end
 		end
 		-- Task 2: both arguments are optional now. The presenter always passes
@@ -3014,6 +3442,11 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		-- node of this control's to hand over, and `rootPath` was seeded from
 		-- `spec.paths.content` at build time rather than learned here.
 		local function syncGeometry(_rectOf: ((string) -> any)?, rootNode: any?)
+			-- C8a (device round 2026-08-12): the completed commit's deferred paint
+			-- restore. FIRST, and ahead of the `rootPath == nil` return below, because
+			-- it is the one piece of work here that does not need a path — see
+			-- `drainPostCommitRestore`'s own comment above `close()`.
+			drainPostCommitRestore()
 			if rootNode ~= nil then
 				local isFirstRootPath = rootPath == nil
 				rootPath = rootNode.path
@@ -3126,6 +3559,16 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			bindMotion = function(clock: any, now: (() -> number)?)
 				motionClock = clock
 				nowFn = now
+				-- ...and its REACTIVE twin. The tray's reveal geometry (`revealFrac`
+				-- below) branches on "is there a motion authority at all", and a memo
+				-- may not read that off a plain upvalue: `bindMotion` lands at present
+				-- time, AFTER the memos are built, and a memo that had already
+				-- computed a "no clock" answer would keep serving it until some other
+				-- dependency happened to change. The signal is what makes the switch
+				-- reach every memo the moment the clock arrives (device round
+				-- 2026-08-12 — the same staleness class as the `spring == nil`
+				-- fallback this replaced).
+				motionBound:set(clock ~= nil)
 			end,
 			-- Task 4 fix: hands over the render controller — an EXISTING
 			-- contribution field, not a new seam — so `deriveNaturals` above can

@@ -685,6 +685,25 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 	if type(rowActionsFamily.trayGap) ~= "number" then
 		rowActionsFamily.trayGap = out.space.xs
 	end
+	-- ...and the gutter between the ROW and the band beside it (device BUG round
+	-- 2026-08-12, findings A1a/A2: "the trash tray butts straight against the row
+	-- with zero negative space", and the edit-mode minus doing the same on the
+	-- leading edge). One step up the same scale from `trayGap`, because it is a
+	-- different decision: `xs` separates two plates INSIDE one group, `s`
+	-- separates the group from the surface it sits against — without that
+	-- difference the band reads as part of the row it is acting on. Filled here
+	-- for the same stamp reason `trayGap` is.
+	if type(rowActionsFamily.rowGutter) ~= "number" then
+		rowActionsFamily.rowGutter = out.space.s
+	end
+	-- ...and the indeterminate spinner's dot (parity round 2 §3.1). Filled here
+	-- for the same stamp reason the two above are. `space.s` rather than a fresh
+	-- literal: a spinner dot is a token on the same scale as every other small
+	-- inter-element measure, and a package that authors its own still wins.
+	local progressFamily = out.controls.progress
+	if type(progressFamily) == "table" and type(progressFamily.spinnerDotSize) ~= "number" then
+		progressFamily.spinnerDotSize = out.space.s
+	end
 
 	-- 4b. PIXEL SNAP (ADR-0020 R5, generation rule 3; probe rs-m5). A pixel
 	-- package declares an integer coordinate system, and every LENGTH the

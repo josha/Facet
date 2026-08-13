@@ -695,7 +695,14 @@ function theme_picker.mount(opts: MountOpts): any
 			offsetX = 0,
 			offsetY = 0,
 			gap = theme_picker.ROW_GAP,
-			alignH = "end",
+			--[[ NO `alignH` HERE. It used to say `"end"`, meaning "right-align the chip
+				and the panel inside this column". It never did: `alignH` is read by a
+				node's PARENT, and this column's parent is `Dock`, a `UI.Anchor`, which
+				places by corner and reads no align at all (§2.1 placement audit,
+				2026-08-13). A stack's own cross-axis word is `align`, and `align =
+				"end"` is the spelling that WOULD right-set the chip against a wider
+				open panel — which moves pixels, so it is queued rather than taken:
+				`docs/plans/unfulfilled-placement-intents.md`. ]]
 			children = {
 				chip,
 				UI.When({

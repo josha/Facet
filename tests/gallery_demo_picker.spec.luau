@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the two fixtures", function()
+	it("lists every tutorial example plus the four fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(9)
+		expect(#demos).toBe(11)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -25,16 +25,51 @@ describe("showcase catalogue", function()
 		expect(demos[2].kind).toBe("fixture")
 		expect(demos[2].module).toBe("row_actions")
 		expect(demos[1].kind).toBe("fixture")
+		-- ...then the two SwiftUI-parity round 2 fixtures, ahead of the tutorials
+		-- for the same reason the first two lead: each is the only hands-on proof
+		-- of an API a still screenshot cannot show (a sideways virtualizer has to
+		-- be flung; a motion policy has to be watched). They are the surfaces the
+		-- Showcase rule exists for — content that is not reachable in-experience
+		-- is not shipped (docs/plans/swiftui-parity-round2-brief.md).
+		expect(demos[3].id).toBe("card-rail")
+		expect(demos[3].kind).toBe("fixture")
+		expect(demos[3].module).toBe("card_rail")
+		expect(demos[4].id).toBe("with-animation")
+		expect(demos[4].kind).toBe("fixture")
+		expect(demos[4].module).toBe("with_animation")
 		local examples = 0
+		local fixtures = 0
 		for _, d in demos do
 			if d.kind == "example" then
 				examples += 1
+			else
+				fixtures += 1
 			end
 			expect(#d.title > 0).toBe(true)
 			expect(#d.blurb > 0).toBe(true)
 			expect(#d.module > 0).toBe(true)
 		end
 		expect(examples).toBe(7)
+		expect(fixtures).toBe(4)
+	end)
+
+	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
+	-- the one surface of this picker a device pass has actually validated. The
+	-- ceiling is therefore the LONGEST BLURB THAT PASS ALREADY COVERED rather
+	-- than a number somebody liked: a new catalogue entry may be as long as the
+	-- longest shipped one and no longer, because past that nothing has ever been
+	-- looked at on a 360px screen.
+	it("no blurb is longer than the longest one a device pass has already read", function()
+		-- CHARACTERS, not bytes: an em dash is three bytes and one glyph, and it is
+		-- glyphs a phone lays out. `#` here would have made the ceiling depend on
+		-- the punctuation an author happened to use.
+		local CEILING = 82 -- "One semantic tree, every control, adapting from space and input — not device names"
+		for _, d in demo_picker.list() do
+			local length = utf8.len(d.blurb) or #d.blurb
+			expect(`{d.id}: {length} chars, over {CEILING}? {length > CEILING}`).toBe(
+				`{d.id}: {length} chars, over {CEILING}? false`
+			)
+		end
 	end)
 
 	it("names modules that actually exist", function()
@@ -45,6 +80,51 @@ describe("showcase catalogue", function()
 				then `examples/gallery/scenarios/{d.module}.luau`
 				else `examples/gallery/examples/{d.module}.luau`
 			expect(fs.isFile(path)).toBe(true)
+		end
+	end)
+
+	-- THE OTHER HALF OF THE SHOWCASE RULE, and until now nothing asked it.
+	--
+	-- A fixture reaches a player through TWO registrations, not one: the picker
+	-- offers it (`demo_picker.DEMOS`), and the scenario registry resolves the
+	-- module (`examples/gallery/scenarios/init.luau`'s explicit ordered `ORDER`,
+	-- which the showcase host replicates as `ReplicatedStorage.LuauUIScenarios`).
+	-- The test above proves the FILE exists; a file that exists and is not in
+	-- `ORDER` is not in that folder, so the picker's own `require` fails on the
+	-- device, in front of whoever is holding it — the one failure mode this
+	-- catalogue is supposed to be immune to.
+	--
+	-- READ FROM THE SOURCE TEXT, because `scenarios/init.luau` cannot be required
+	-- headlessly: it resolves each entry through `script:WaitForChild`, which
+	-- exists only inside the engine. The same reason (and the same technique) as
+	-- the `pres.present` audit of `init.client.luau` at the bottom of this file.
+	it("every fixture the picker offers is registered in the scenario registry's ORDER", function()
+		local source = fs.readFile("examples/gallery/scenarios/init.luau")
+		local block = string.match(source, "local ORDER = (%b{})")
+		expect(block ~= nil).toBe(true)
+		local registered: { [string]: boolean } = {}
+		local count = 0
+		for name in string.gmatch(block :: string, '"([%w_]+)"') do
+			registered[name] = true
+			count += 1
+		end
+		-- the parse itself has to be believable before anything is asserted on it
+		expect(count > 20).toBe(true)
+		expect(registered.probe).toBe(true)
+		for _, d in demo_picker.list() do
+			if d.kind ~= "fixture" then
+				continue
+			end
+			expect(`{d.id} -> scenarios/init.luau ORDER has '{d.module}': {registered[d.module] == true}`).toBe(
+				`{d.id} -> scenarios/init.luau ORDER has '{d.module}': true`
+			)
+		end
+		-- ...and nothing in ORDER names a module that is not there, which is the
+		-- registry's own failure mode (it fails loudly at mount, but only in Studio)
+		for name in registered do
+			expect(`ORDER '{name}' exists: {fs.isFile(`examples/gallery/scenarios/{name}.luau`)}`).toBe(
+				`ORDER '{name}' exists: true`
+			)
 		end
 	end)
 
@@ -288,7 +368,10 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 								width = { type = "fill", weight = 1 },
 								offsetY = CORE_TOP,
 								gap = "xs",
-								alignH = "start",
+								-- (no `alignH`: this mirrors `init.client`'s chrome, whose `Dock` is a
+								-- `UI.Anchor` — it places by corner and reads no align. Deleted there and
+								-- here by the §2.1 placement audit; zero rects move, so every assertion
+								-- below is unchanged)
 								children = {
 									UI.HStack({ id = "Chips", gap = "s", children = { demos.chip, picker.chip } }),
 								},
@@ -339,5 +422,156 @@ describe("the showcase strip reserves what its chips MEASURE, not a literal", fu
 		expect(demo_picker.barReservation(CORE_TOP, nil, SLACK)).toBe(CORE_TOP + demo_picker.BAR_HEIGHT)
 		-- a chip row that fits never SHRINKS the strip below the floor
 		expect(demo_picker.barReservation(CORE_TOP, CORE_TOP + 10, SLACK)).toBe(CORE_TOP + demo_picker.BAR_HEIGHT)
+	end)
+end)
+
+-- ===== THE HOST LOOP: a fixture's declared `present` opts must reach the
+-- presenter (C2, adversarial review 2026-08-12) ==============================
+--
+-- `examples/gallery/client/init.client.luau`'s fixture branch called
+-- `pres.present(built.screen)` with NO second argument, so every `present` table
+-- a fixture declared was discarded — in the SHIPPED host and nowhere else. The
+-- scenario runner passed it, the overflow sweep passed it, and the tutorial
+-- branch eleven lines below passed it: the test rigs were more correct than
+-- production, which is the failure mode docs/lessons/the-solver-already-told-you.md
+-- is named after, and it is why a one-argument omission survived.
+--
+-- Two halves, because either alone is how it survived: the DELIVERY is checked
+-- generically over the whole catalogue (a fixture added tomorrow is covered),
+-- and the CONSEQUENCE is measured on the fixture whose opts are load-bearing
+-- today — `row_actions`, whose hosted VirtualList derives its window from its own
+-- solved pane through `present.onGeometry`.
+
+local LuauUI = require("../src") :: any
+local fake_target = require("./lib/fake_target")
+
+-- the picker's MINIMAL ctx (init.client.luau `mountDemo`, kind == "fixture"):
+-- {LuauUI, core, env, actionSystem, presenter} — no adapter, no record, no flags
+local function pickerWorld(viewport: any): any
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", viewport)
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	return { core = core, env = env, system = system, adapter = adapter, presenter = presenter }
+end
+
+describe("showcase host: the fixture branch delivers `present` opts", function()
+	it("every catalogue fixture's declared opts arrive at the presenter, by identity", function()
+		local fixtures = 0
+		local withOpts = 0
+		for _, demo in demo_picker.list() do
+			if demo.kind ~= "fixture" then
+				continue
+			end
+			fixtures += 1
+			local w = pickerWorld({ x = 0, y = 0, w = 400, h = 700 })
+			local scenario = require(`../examples/gallery/scenarios/{demo.module}`) :: any
+			local built = scenario.build({
+				LuauUI = LuauUI,
+				core = w.core,
+				env = w.env,
+				actionSystem = w.system,
+				presenter = w.presenter,
+			})
+			-- SPY ON THE SEAM, not on a re-implementation of it: whatever the host
+			-- loop below hands `present` is what the presenter receives
+			local seen: { any } = {}
+			local realPresent = w.presenter.present
+			w.presenter.present = function(screen: any, opts: any)
+				table.insert(seen, { screen = screen, opts = opts })
+				return realPresent(screen, opts)
+			end
+
+			-- THE SHIPPED LOOP (init.client.luau `mountDemo`, fixture branch)
+			built.handle = w.presenter.present(built.screen, built.present)
+
+			expect(#seen).toBe(1)
+			-- identity, not shape: a copy would mean the fixture's live closures
+			-- (`onGeometry` binds the fixture's own signals) were rebuilt
+			expect(`{demo.id}:{tostring(seen[1].opts == built.present)}`).toBe(`{demo.id}:true`)
+			if built.present ~= nil then
+				withOpts += 1
+				expect(seen[1].opts).never().toBeNil()
+			end
+			expect(w.core:lastError()).toBeNil()
+		end
+		expect(fixtures).toBe(4)
+		-- and at least one of them actually declares opts, or this proves nothing
+		expect(withOpts >= 1).toBe(true)
+	end)
+
+	-- the source is the contract for the half a headless world cannot mount
+	-- (init.client.luau is a client script: it reaches engine globals at load)
+	it("no `present` call in the shipped host drops its opts", function()
+		local source = fs.readFile("examples/gallery/client/init.client.luau")
+		local calls = 0
+		for args in string.gmatch(source, "pres%.present%(([^\n]*)%)") do
+			calls += 1
+			local hasOpts = string.find(args, ",", 1, true) ~= nil
+			expect(`present({args}) has opts:{hasOpts}`).toBe(`present({args}) has opts:true`)
+		end
+		-- every single-line call site in the file (the two multi-line ones — the
+		-- backdrop and the chrome root — are literal tables written inline)
+		expect(calls).toBe(4)
+		-- and the DEMO branches are the ones this is really about: the picker's
+		-- fixture branch, the picker's tutorial branch, and the single-demo mount
+		-- path must all forward the built table's own opts
+		local _, forwards = string.gsub(source, "pres%.present%(built%.screen, built%.present%)", "")
+		expect(forwards).toBe(3)
+	end)
+end)
+
+describe("showcase host: the delivered opts CHANGE the surface (row_actions)", function()
+	-- the load-bearing consequence. `scenarios/row_actions.luau` replaced a
+	-- `336 -- 4 rows visible` literal with a window fed from its own solved pane
+	-- through `present.onGeometry` (device round 2026-08-12) — a fix the showcase
+	-- host discarded, so in the showcase the window stayed at that literal and the
+	-- hosted list painted past its pane on a landscape phone.
+	local LITERAL = 336
+
+	it("the hosted VirtualList's window tracks its solved pane, not the pre-geometry literal", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 700, h = 360 }) -- a landscape phone
+		local scenario = require("../examples/gallery/scenarios/row_actions") :: any
+		local built = scenario.build({
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			actionSystem = w.system,
+			presenter = w.presenter,
+		})
+		expect(built.present).never().toBeNil()
+		expect(type(built.present.onGeometry)).toBe("function")
+		built.handle = w.presenter.present(built.screen, built.present)
+		w.presenter.refresh()
+		-- the hosted-list surface is the one the window belongs to
+		local ok = built.steps.mode(built, "vlist")
+		expect(ok == nil or ok.ok ~= false).toBe(true)
+		for _ = 1, 4 do
+			w.presenter.refresh()
+		end
+
+		local pane = w.adapter.node("/MailActions/VListWhen/then/VListPane")
+		expect(pane).never().toBeNil()
+		local list = w.adapter.node("/MailActions/VListWhen/then/VListPane/VList")
+			or w.adapter.node("/MailActions/VListWhen/then/VListPane/MailVList")
+		-- whatever the list node is called, it must live INSIDE the pane: that is
+		-- the whole point of feeding the window from the pane
+		local bottom = if list ~= nil then list.rect.y + list.rect.h else nil
+		expect(bottom).never().toBeNil()
+		local paneBottom = pane.rect.y + pane.rect.h
+		if (bottom :: number) > paneBottom + 1 then
+			error(
+				`the hosted list ends at {bottom} but its pane ends at {paneBottom} — `
+					.. `{(bottom :: number) - paneBottom}px outside. The window is stuck at the `
+					.. `pre-geometry literal ({LITERAL}), which is what dropping built.present does `
+					.. "(examples/gallery/client/init.client.luau, fixture branch).",
+				0
+			)
+		end
+		-- and it is not the literal by accident: this pane is far shorter than 336
+		expect(pane.rect.h < LITERAL).toBe(true)
+		expect(w.core:lastError()).toBeNil()
 	end)
 end)

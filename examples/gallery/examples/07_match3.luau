@@ -494,10 +494,26 @@ local function build(LuauUI: any, core: any, deps: any)
 					}),
 					board,
 					UI.Text({ id = "ArtStatus", text = artStatus, textSize = "label", role = "secondary" }),
-					UI.HStack({
+					-- THE ARTWORK CONTROLS WRAP (device report 2026-08-12, IMG_3690:
+					-- "Fail a load" sliced by the right screen edge on a portrait
+					-- phone). Three buttons carrying full sentences need ~580px of
+					-- row; a 359px phone has 327. As an HStack the row simply painted
+					-- past its own box — the solver said so on every phone viewport
+					-- ("content overflows this hstack by 253px on the main axis") and
+					-- nothing read it.
+					--
+					-- A Grid with `minColumnWidth = "intrinsic"` is the declarative
+					-- form: the column count is derived from the widest child's own
+					-- measured width under the ACTIVE theme's font, every solve. One
+					-- column on a phone, one row on a desktop, and no viewport
+					-- arithmetic to keep in sync — the lesson's "state the intent, do
+					-- not compute the answer". The three buttons stay direct children,
+					-- so every path this example publishes is unchanged.
+					UI.Grid({
 						id = "Art",
+						minColumnWidth = "intrinsic",
 						gap = "s",
-						align = "center",
+						width = { type = "fill", weight = 1 },
 						children = {
 							UI.Button({ id = "Reload", label = "Re-request artwork", onActivate = reloadArt }),
 							UI.Button({

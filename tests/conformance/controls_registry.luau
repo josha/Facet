@@ -115,26 +115,41 @@ local registry: { Entry } = {
 		-- keyboard Delete rides row_actions.luau's OWN device-true suite
 		-- (registered separately) once Table wires focus/action-system through
 		-- it, proven end-to-end through a Table mount by the keyboard citation.
+		--
+		-- `onPrimaryAction` (parity round 2 §3.4) is a SECOND interactive verb on
+		-- the same rows — "open this", as distinct from "select this" — so it
+		-- carries its own device-true case in every one of the four classes.
+		-- Touch DIVERGES from the pointer idiom on purpose (tap an
+		-- already-selected row; any tap when `selection = "none"`), because a
+		-- double-TAP is not a touch gesture and a blanket single tap would make
+		-- every selection open a row; the divergence is written down in
+		-- table.luau beside the dispatch and proved by the touch citations below.
 		inputProofs = {
 			pointer = {
 				"header taps cycle the owner-held sortOrder; the table never sorts the data",
 				"dragging a selected row drags the WHOLE selection as a block (director example)",
 				"mouse horizontal drag on the same reorderable + wrapped row reveals actions instead of reordering",
+				"Table pointer: a double-click on a row fires onPrimaryAction once, and a single click never does",
+				"Table pointer: two clicks SLOWER than the window are two single clicks, not an open",
 			},
 			touch = {
 				"a TOUCH drag on the grip previews and commits the new column width",
 				"a TOUCH grip drag clamps to the column minWidth",
+				"Table touch: the first tap selects and the SECOND tap on the same (selected) row opens it",
+				'Table touch: with selection = "none" a single tap opens, because there is no selected state to reach',
 			},
 			keyboard = {
 				"keyboard Down + Return select the focused row",
 				"keyboard Right/Return drive the header sort identically to the gamepad",
 				"keyboard edit-mode grab is input-agnostic: Return grabs, Down steps, Return drops",
 				"Delete key on a focused row deletes via the row's destructive action",
+				"Table keyboard: Return on the focused row fires onPrimaryAction for THAT row",
 			},
 			gamepad = {
 				"gamepad ButtonA selects the focused row (through presenter Activate dispatch)",
 				"gamepad edit-mode: ButtonA grabs, DPadDown steps the row, ButtonA drops",
 				"gamepad ButtonA SELECTS the column; the stick then acts on it (sort on Up/Down)",
+				"Table gamepad: ButtonA on the focused row fires onPrimaryAction for THAT row",
 			},
 		},
 		-- PARADIGM axis (matrix §B-Table). pointer = direct-drag with no grip +
@@ -180,22 +195,38 @@ local registry: { Entry } = {
 		conformance = "tests/virtualization.spec.luau",
 		docsAnchor = "newVirtualList",
 		dumpFunction = "function list.dump",
+		--[[ TWO AXES, BOTH PROVEN ON ALL FOUR CLASSES. `axis = "x"` (parity round 2
+			§2.3) is new interactive behaviour — it changes which engine coordinate
+			every scroll write lands on and which direction the focus group walks —
+			so it carries its own four-input proof rather than inheriting the
+			vertical one. The horizontal cases live in
+			`tests/virtual_list_axis.spec.luau`; the vertical ones stay where they
+			were. A regression that transposed only ONE of the two would redden
+			exactly one column here. ]]
 		inputProofs = {
 			pointer = {
 				"VirtualList pointer: an engine scroll (driveScroll) slides the window",
 				"VirtualList pointer: a row tap activates through auto handleActivate",
+				"VirtualList pointer: a horizontal engine scroll slides the window along x",
+				"VirtualList pointer: a tap on a horizontal item activates through auto handleActivate",
 			},
 			touch = {
 				"VirtualList touch: a native pan scroll slides the window (driveScroll)",
 				"VirtualList touch: a row tap activates",
+				"VirtualList touch: a native sideways pan slides the window and never activates",
+				"VirtualList touch: a tap on a horizontal item activates",
 			},
 			keyboard = {
 				"VirtualList keyboard: Up/Down moves focus row-by-row through the window",
 				"VirtualList keyboard: Return activates the focused row",
+				"VirtualList keyboard: Left/Right steps a horizontal list item-by-item",
+				"VirtualList keyboard: Return activates the focused horizontal item",
 			},
 			gamepad = {
 				"VirtualList gamepad: D-pad moves focus identically to arrows",
 				"VirtualList gamepad: ButtonA activates the focused row",
+				"VirtualList gamepad: DPadLeft/DPadRight move focus identically to arrows",
+				"VirtualList gamepad: ButtonA activates the focused horizontal item",
 			},
 		},
 		-- PARADIGM axis (matrix §B-VirtualList). pointer/touch = the NATIVE
@@ -208,10 +239,18 @@ local registry: { Entry } = {
 		-- hotSwitch = false.
 		affordanceProofs = {
 			pointer = { "VirtualList pointer: an engine scroll (driveScroll) slides the window" },
-			touch = { "VirtualList touch: a native pan scroll slides the window (driveScroll)" },
-			keyboard = { "VirtualList keyboard: Up/Down moves focus row-by-row through the window" },
+			touch = { "VirtualList touch: a native sideways pan slides the window and never activates" },
+			-- the STRUCTURAL idiom for a keyboard list is "the focus ring walks the
+			-- list's own axis and nothing else does": the horizontal case is cited
+			-- here because it is the one that proves the ring reads the axis rather
+			-- than a hard-coded direction
+			keyboard = {
+				"VirtualList keyboard: Up/Down moves focus row-by-row through the window",
+				"VirtualList keyboard: Up/Down do NOT step a horizontal list — ONE map, read one way",
+			},
 			gamepad = {
 				"VirtualList gamepad: D-pad moves focus identically to arrows",
+				"VirtualList gamepad: DPadLeft/DPadRight move focus identically to arrows",
 				"a Thumbstick1 y push moves focus down like DPadDown, with the latch",
 			},
 			hotSwitch = false,
@@ -856,6 +895,11 @@ local registry: { Entry } = {
 	{ name = "Image", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Anchor", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Grid", kind = "leaf", inputProofs = false, affordanceProofs = false },
+	-- the row grid's row (parity round 2 §2.2): pure layout, exactly as `Grid` is.
+	-- It owns no focus surface and no semantic action of its own — its CELLS keep
+	-- theirs, in declaration order, which is what makes a row grid navigable
+	-- without a rule of its own
+	{ name = "GridRow", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	-- adaptive layout (A-AL2) and the axis-aware hairline (A-LV3): both are
 	-- layout/presentation only — no focus surface, no semantic action
 	{ name = "AdaptiveStack", kind = "leaf", inputProofs = false, affordanceProofs = false },

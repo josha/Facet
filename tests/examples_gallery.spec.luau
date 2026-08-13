@@ -10,6 +10,18 @@
 -- way a real client would — mount + render through the presenter and the
 -- headless FakeTarget adapter, then exercise its primary interaction end to
 -- end — and assert the reactive core stayed error-free throughout.
+--
+-- ...AND, SINCE SwiftUI-PARITY ROUND 2, THE GALLERY FIXTURES THAT CARRY A NEW
+-- PUBLIC API (the last two sections of this file). The standing obligation is
+-- that "every new public API appears in at least one gallery scenario that
+-- `examples_gallery.spec` runs headlessly" (docs/plans/swiftui-parity-round2-brief.md,
+-- §"Standing quality bar"), and this is the file that obligation NAMES — so a
+-- fixture whose whole job is to be that proof is executed here, beside the
+-- tutorials, rather than in a spec nobody thought to look in. Those sections
+-- mount through the SHOWCASE's minimal fixture ctx and under the SHOWCASE's own
+-- chrome reservation, because that is the host a player reaches them through;
+-- the scenario contract is `build(ctx) -> { screen, present?, steps?, ... }`,
+-- not the tutorial contract above.
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -1227,5 +1239,652 @@ describe("examples/gallery 05: confirmation dialog", function()
 		expect(presenter.depth()).toBe(2)
 		expect(core:lastError()).toBeNil()
 		presenter.dismiss(handle)
+	end)
+end)
+
+-- ===========================================================================
+-- THE ROUND-2 SHOWCASE FIXTURES (docs/plans/swiftui-parity-round2.md).
+--
+-- Two gallery scenarios, each the ONE hands-on proof of a public API this round
+-- added, and each registered in `demo_picker.DEMOS` so a player reaches it from
+-- the chip rather than by editing a workspace attribute and republishing:
+--
+--   * `card_rail`      — `newVirtualList` with `axis = "x"` (§2.3);
+--   * `with_animation` — `presenter.withAnimation` and the Full|Reduced control
+--                        the motion demo owes (§Phase 4).
+--
+-- MOUNTED THE WAY THE SHOWCASE MOUNTS THEM, not the way a test would find
+-- convenient. Two facts about that host are load-bearing here and neither is
+-- cosmetic:
+--
+--   1. THE MINIMAL CTX. `init.client.luau`'s fixture branch passes
+--      {LuauUI, core, env, actionSystem, presenter} — no adapter, no `record`,
+--      no `flags`, and NO step ever runs. Anything a fixture needs at BUILD has
+--      to be in that set, and anything a player must be able to do has to work
+--      with no scripted help.
+--   2. THE CHROME RESERVATION. Every demo is laid out below the picker's chip
+--      strip, which the host writes into `coreSafeInsets.top`. A world that
+--      omitted it would be measuring a screen 120px taller than the real one —
+--      the margin several shipped overflow defects lived in
+--      (docs/lessons/the-solver-already-told-you.md). The number is READ from
+--      the picker, exactly as tests/overflow_sweep.spec.luau reads it, so the
+--      two cannot drift.
+--
+-- The always-on sweep in tests/overflow_sweep.spec.luau asks BOTH of these
+-- surfaces the overflow question at eight viewports. What is here instead is
+-- what that sweep structurally cannot ask: that the thing the fixture exists to
+-- demonstrate actually happens.
+-- ===========================================================================
+
+local demo_picker = require("../examples/gallery/client/demo_picker") :: any
+local l10n = require("./fixtures/a11y_l10n_fixtures")
+
+local SHOWCASE_CORE_TOP = 58 -- a notched phone's Roblox topbar inset
+local SHOWCASE_TOP = demo_picker.barReservation(SHOWCASE_CORE_TOP, nil, 8)
+
+local NARROW_PORTRAIT = { w = 320, h = 640 }
+local NARROW_LANDSCAPE = { w = 640, h = 320 }
+local DESKTOP = { w = 1232, h = 1067 }
+
+-- a surface that publishes its own measured geometry settles over a couple of
+-- frames; the same bounded settle the sweep uses, and for the same reason
+local function settleFixture(presenter: any)
+	for _ = 1, 3 do
+		presenter.refresh()
+	end
+end
+
+local function fixtureWorld(view: any): any
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+	env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new();
+	-- the live adapter publishes a bar thickness for a pointer session and the
+	-- fake publishes none unless asked — a sweep laid out without it models a
+	-- desktop 8px wider than the real one (tests/scroll_bar_measure.spec.luau)
+	(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	local presenter = LuauUI.newPresenter(core, env, adapter, system)
+	return { core = core, env = env, adapter = adapter, presenter = presenter, system = system }
+end
+
+-- exactly the call `init.client.luau`'s `mountDemo` makes for `kind == "fixture"`
+local function mountFixture(w: any, module: any): any
+	local built = module.build({
+		LuauUI = LuauUI,
+		core = w.core,
+		env = w.env,
+		actionSystem = w.system,
+		presenter = w.presenter,
+	})
+	built.handle = w.presenter.present(built.screen, built.present)
+	settleFixture(w.presenter)
+	return built
+end
+
+-- THE NON-NEGOTIABLE (docs/lessons/the-solver-already-told-you.md §13): a
+-- fixture must FAIL on the solver's own diagnostics, or the list is a log nobody
+-- reads. ALL of them, not only the main-axis ones the sweep filters for — a new
+-- animated surface is the highest-risk addition to a repo whose named recurring
+-- defect is "content overflows and nothing scrolls".
+local function expectNoDiagnostics(label: string, w: any, built: any)
+	local findings = built.handle.controller.diagnostics()
+	if #findings > 0 then
+		local lines = {}
+		for _, finding in findings do
+			local node = w.adapter.node(finding.node)
+			local rect = if node ~= nil and node.rect ~= nil
+				then string.format(" [box %dx%d at %d,%d]", node.rect.w, node.rect.h, node.rect.x, node.rect.y)
+				else ""
+			table.insert(lines, `  {finding.node}{rect}\n      {finding.issue}`)
+		end
+		error(`{label}: the solver reports {#findings} diagnostic(s):\n{table.concat(lines, "\n")}`, 0)
+	end
+	expect(#findings).toBe(0)
+end
+
+-- Put every string in a fixture's exported `copy` table through a ~1.4x
+-- pseudo-localizing expansion, run `body`, and put the originals back on every
+-- path including a throw. The module table is shared, so this is a real
+-- expansion of the real surface rather than a parallel one.
+local function underPseudoLocalization(module: any, body: () -> ())
+	local original: { [string]: string } = {}
+	for key, value in module.copy do
+		original[key] = value
+		module.copy[key] = l10n.pseudoLocalize(value)
+	end
+	local ok, err = pcall(body)
+	for key, value in original do
+		module.copy[key] = value
+	end
+	if not ok then
+		error(err, 0)
+	end
+end
+
+-- A text node that declares no `lineLimit` is `policy = "none"` text (§15.3): it
+-- must FIT, wrapping if it has to, and never clip. `truncated` is the solver's
+-- own answer for that node at its real font and its real box, which is why this
+-- reads it rather than comparing string widths.
+local function expectUnclipped(label: string, built: any, paths: { string })
+	for _, path in paths do
+		local facts = built.handle.controller.textAt(path)
+		if facts == nil then
+			error(`{label}: no measured text at {path} — the assertion below would be vacuous`, 0)
+		end
+		expect(`{path} truncated:{facts.truncated}`).toBe(`{path} truncated:false`)
+		expect(facts.lines >= 1).toBe(true)
+	end
+end
+
+-- ---------------------------------------------------------------------------
+-- card_rail — newVirtualList `axis = "x"`
+-- ---------------------------------------------------------------------------
+describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', function()
+	local module = require("../examples/gallery/scenarios/card_rail") :: any
+	local RAIL = "/CardRail/RailPane/Rail"
+	local CANVAS = RAIL .. "/Canvas"
+	local ITEM_EXTENT, CARD_GAP, CARDS = 132, 8, 400
+
+	local function railWorld(view: any)
+		local w = fixtureWorld(view)
+		local built = mountFixture(w, module)
+		return w, built
+	end
+	-- the item's hit node: `pathOf` answers relative to the LIST, so the surface
+	-- prefix is added here rather than hardcoded twice
+	local function hitPath(built: any, key: string): string
+		return "/CardRail/RailPane" .. (built.rail.pathOf(key) :: string) .. "/Hit"
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = railWorld(view)
+			expectNoDiagnostics(`card_rail at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("windows a full-WIDTH canvas: 400 cards, a handful mounted, the rest not built", function()
+		local w, built = railWorld(DESKTOP)
+		local canvas = w.adapter.node(CANVAS)
+		expect(canvas ~= nil).toBe(true)
+		-- N items span N*extent + (N-1)*gap along the SCROLL axis, and that axis is
+		-- x here: a vertical virtualizer would have put this number on the height
+		expect(canvas.rect.w).toBe(CARDS * ITEM_EXTENT + (CARDS - 1) * CARD_GAP)
+		expect(canvas.rect.h <= w.adapter.node(RAIL).rect.h).toBe(true)
+		-- ...and only a window of it exists
+		local mounted = built.steps.mountedCount()
+		expect(mounted > 0).toBe(true)
+		expect(mounted < 30).toBe(true)
+		expect(built.report().total).toBe(CARDS)
+		built.dispose()
+	end)
+
+	it("the rail's width is re-derived from the viewport, never a constant", function()
+		local narrowW, narrow = railWorld(NARROW_PORTRAIT)
+		local wideW, wide = railWorld(DESKTOP)
+		local narrowExtent = narrow.report().viewportExtent
+		local wideExtent = wide.report().viewportExtent
+		expect(wideExtent > narrowExtent).toBe(true)
+		-- and neither one paints past the screen it was derived from
+		expect(narrowW.adapter.node(RAIL).rect.w <= NARROW_PORTRAIT.w).toBe(true)
+		expect(wideW.adapter.node(RAIL).rect.w <= DESKTOP.w).toBe(true)
+		narrow.dispose()
+		wide.dispose()
+	end)
+
+	it("keyboard: Left/Right step the rail — and Up/Down do nothing at all", function()
+		-- THE DISCRIMINATOR for "the list declares its own axis to the focus
+		-- graph". A group still saying `vertical` would step on Up/Down here and be
+		-- dead on Left/Right, which is a rail no keyboard can reach.
+		local w, built = railWorld(DESKTOP)
+		expect(w.presenter.focus.focused:get()).toBe(hitPath(built, "c1"))
+		w.system.deviceKey("Right", true)
+		w.system.deviceKey("Right", false)
+		expect(built.rail.focusedKey:get()).toBe("c2")
+		w.system.deviceKey("Right", true)
+		w.system.deviceKey("Right", false)
+		expect(built.rail.focusedKey:get()).toBe("c3")
+		w.system.deviceKey("Left", true)
+		w.system.deviceKey("Left", false)
+		expect(built.rail.focusedKey:get()).toBe("c2")
+		for _, key in { "Down", "Up" } do
+			w.system.deviceKey(key, true)
+			w.system.deviceKey(key, false)
+			expect(`{key} moved focus to {tostring(built.rail.focusedKey:get())}`).toBe(`{key} moved focus to c2`)
+		end
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("gamepad: the D-pad steps it sideways and A picks the focused card", function()
+		local w, built = railWorld(DESKTOP)
+		w.system.deviceKey("DPadRight", true)
+		w.system.deviceKey("DPadRight", false)
+		w.system.deviceKey("DPadRight", true)
+		w.system.deviceKey("DPadRight", false)
+		expect(built.rail.focusedKey:get()).toBe("c3")
+		w.system.deviceKey("DPadLeft", true)
+		w.system.deviceKey("DPadLeft", false)
+		w.system.deviceKey("ButtonA", true)
+		w.system.deviceKey("ButtonA", false)
+		expect(built.rail.selectedKey:get()).toBe("c2")
+		built.dispose()
+	end)
+
+	it("keyboard: Return picks the focused card, and the surface SAYS which one", function()
+		local w, built = railWorld(DESKTOP)
+		w.system.deviceKey("Right", true)
+		w.system.deviceKey("Right", false)
+		w.system.deviceKey("Return", true)
+		w.system.deviceKey("Return", false)
+		expect(built.rail.selectedKey:get()).toBe("c2")
+		w.presenter.refresh()
+		-- the player-visible consequence, not just the signal: a pick nobody can
+		-- see on screen is a pick that proves nothing about the fixture
+		local shown = w.adapter.node("/CardRail/Selected").props.text
+		expect(string.find(shown, "Livery 002", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("pointer and touch: a tap picks the card it landed on", function()
+		for _, pointer in { "mouse", "touch" } do
+			local w, built = railWorld(DESKTOP)
+			w.adapter.tap(hitPath(built, "c4"), { pointer = pointer })
+			expect(`{pointer}:{tostring(built.rail.selectedKey:get())}`).toBe(`{pointer}:c4`)
+			built.dispose()
+		end
+	end)
+
+	it("binds its own engine-scroll mirror with no scripted step (the showcase path)", function()
+		-- The showcase's generic auto-bind loop runs only on the tutorial-EXAMPLE
+		-- branch, so a fixture that waited for a `bind` step would never mirror
+		-- CanvasPosition for the one host where a real thumb does the scrolling.
+		local w, built = railWorld(DESKTOP)
+		expect(built.report().bound).toBe(false)
+		w.presenter.tick(1 / 60)
+		expect(built.report().bound).toBe(true)
+		built.dispose()
+	end)
+
+	it("a sideways engine scroll slides the window along X", function()
+		local w, built = railWorld(DESKTOP)
+		w.presenter.tick(1 / 60)
+		expect(built.rail.debugWindow().c1).toBe(true)
+		w.adapter.driveScroll(RAIL, { x = 1400, y = 0 })
+		w.presenter.refresh()
+		-- `scrollTop` mirrors CanvasPosition.X on this axis: the name predates the
+		-- field and is public API
+		expect(built.rail.scrollTop:get()).toBe(1400)
+		expect(built.rail.debugWindow().c1).toBe(nil)
+		local index = math.floor(1400 / (ITEM_EXTENT + CARD_GAP)) + 1
+		expect(built.rail.debugWindow()[`c{index}`]).toBe(true)
+		-- a Y scroll is not this list's axis and must not move its window
+		w.adapter.driveScroll(RAIL, { x = 1400, y = 900 })
+		w.presenter.refresh()
+		expect(built.rail.scrollTop:get()).toBe(1400)
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("keep-visible scrolls a far-off card into the band on the X axis", function()
+		local w, built = railWorld(DESKTOP)
+		w.presenter.tick(1 / 60)
+		built.steps.focusEnd()
+		w.presenter.refresh()
+		local left = built.rail.scrollTop:get()
+		expect(left > 0).toBe(true)
+		local last = (CARDS - 1) * (ITEM_EXTENT + CARD_GAP)
+		expect(last >= left).toBe(true)
+		expect(last + ITEM_EXTENT <= left + built.report().viewportExtent + 1).toBe(true)
+		expect(built.rail.debugWindow()[`c{CARDS}`]).toBe(true)
+		built.dispose()
+	end)
+
+	it("its chrome copy survives a 1.4x pseudo-localization without clipping", function()
+		underPseudoLocalization(module, function()
+			for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE } do
+				local w, built = railWorld(view)
+				expectNoDiagnostics(`card_rail pseudo-localized at {view.w}x{view.h}`, w, built)
+				expectUnclipped(
+					`card_rail at {view.w}x{view.h}`,
+					built,
+					{ "/CardRail/Title", "/CardRail/Hint", "/CardRail/Selected" }
+				)
+				built.dispose()
+			end
+		end)
+		-- the strings really did come back, or every case after this one is a lie
+		expect(string.find(module.copy.title, "Card rail", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+-- ---------------------------------------------------------------------------
+-- with_animation — presenter.withAnimation, and the Full|Reduced control
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: withAnimation + reduced motion", function()
+	local module = require("../examples/gallery/scenarios/with_animation") :: any
+	local PAGE = "/MotionDemo/Page"
+	local RUN = PAGE .. "/Run"
+	local STAGE = PAGE .. "/Stage/Decorative"
+	local PUCK = STAGE .. "/Lane/Puck"
+	local PANEL = STAGE .. "/Detail/then/Panel"
+	local FULL_OPTION = PAGE .. "/MotionMode/Options/Opt1"
+	local REDUCED_OPTION = PAGE .. "/MotionMode/Options/Opt2"
+	local FRAME = 1 / 60
+
+	local function chipPath(name: string): string
+		return `{STAGE}/Chips/Order/[{name}]/Chip`
+	end
+	local function motionWorld(view: any?)
+		local w = fixtureWorld(view or DESKTOP)
+		local built = mountFixture(w, module)
+		return w, built
+	end
+	-- `container` responds in 0.35 s; 200 frames is ~3.3 s of clock, and every
+	-- assertion below is on the terminal state rather than on a frame count
+	local function settleMotion(w: any)
+		for _ = 1, 200 do
+			w.presenter.tick(FRAME)
+		end
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = motionWorld(view)
+			expectNoDiagnostics(`with_animation at {view.w}x{view.h}`, w, built)
+			-- ...and still zero mid-flight, which is the state a fixture that
+			-- animates can reach and a static one cannot
+			w.adapter.tap(RUN)
+			for _ = 1, 5 do
+				w.presenter.tick(FRAME)
+			end
+			settleFixture(w.presenter)
+			expectNoDiagnostics(`with_animation mid-flight at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("one press, three consequences: something moves, something appears, something re-orders", function()
+		local w, built = motionWorld()
+		local puckBefore = w.adapter.node(PUCK).rect.x
+		local alphaBefore = w.adapter.node(chipPath("Alpha")).rect.x
+		local deltaBefore = w.adapter.node(chipPath("Delta")).rect.x
+		expect(w.adapter.node(PANEL)).toBe(nil)
+
+		w.adapter.tap(RUN)
+
+		-- (1) MOVED: the puck's solved rect is at the other end of its lane
+		expect(w.adapter.node(PUCK).rect.x > puckBefore).toBe(true)
+		-- (2) APPEARED: the panel exists now
+		expect(w.adapter.node(PANEL) ~= nil).toBe(true)
+		-- (3) RE-ORDERED: the two end chips have swapped places, and they kept
+		-- their identity while doing it (a rebuild would have changed the paths)
+		expect(w.adapter.node(chipPath("Alpha")).rect.x).toBe(deltaBefore)
+		expect(w.adapter.node(chipPath("Delta")).rect.x).toBe(alphaBefore)
+		expect(built.chipOrder:get()[1]).toBe("Delta")
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("the solver stays exact and instant; only the PAINT travels", function()
+		local w, built = motionWorld()
+		local puckBefore = w.adapter.node(PUCK).rect.x
+		w.adapter.tap(RUN)
+		local puck = w.adapter.node(PUCK)
+		-- geometry: already at its destination on the frame the press returns
+		expect(puck.rect.x > puckBefore).toBe(true)
+		-- paint: still where it was, so it has somewhere to travel FROM
+		expect(puck.presentedPosition.x).toBe(puckBefore)
+		w.presenter.tick(FRAME)
+		local mid = w.adapter.node(PUCK).presentedPosition.x
+		expect(mid > puckBefore).toBe(true)
+		expect(mid < puck.rect.x).toBe(true)
+		built.dispose()
+	end)
+
+	it("ONE shared spring: the flights start together, run together and land together", function()
+		local w, built = motionWorld()
+		local puckFrom = w.adapter.node(PUCK).rect.x
+		local alphaFrom = w.adapter.node(chipPath("Alpha")).rect.x
+		local commitsBefore = w.presenter.commitCount()
+		w.adapter.tap(RUN)
+		-- ONE ARMED COMMIT, and this is the half that can actually fail. Progress
+		-- alone cannot tell "one shared spring" from "three identical springs
+		-- started on the same frame" — they are in lockstep either way, and a
+		-- mutation splitting the body into three `withAnimation` calls was measured
+		-- passing every ratio assertion below. What separates them is that each
+		-- call forces its OWN commit: three calls are three. (The same reasoning
+		-- tests/with_animation.spec.luau records for its own two-call case: assert
+		-- on commits, because an animation-SET count would not have caught it.)
+		expect(w.presenter.commitCount() - commitsBefore).toBe(1)
+		local puckTo = w.adapter.node(PUCK).rect.x
+		local alphaTo = w.adapter.node(chipPath("Alpha")).rect.x
+		expect(puckTo ~= puckFrom).toBe(true)
+		expect(alphaTo ~= alphaFrom).toBe(true)
+		-- SHARED PROGRESS is the claim, so it is measured as a RATIO: at any frame
+		-- mid-flight each node has covered the same fraction of its own distance.
+		-- Two independent springs would agree only by coincidence.
+		for _ = 1, 8 do
+			w.presenter.tick(FRAME)
+		end
+		local puckP = (w.adapter.node(PUCK).presentedPosition.x - puckFrom) / (puckTo - puckFrom)
+		local alphaP = (w.adapter.node(chipPath("Alpha")).presentedPosition.x - alphaFrom) / (alphaTo - alphaFrom)
+		expect(puckP > 0.02 and puckP < 0.98).toBe(true) -- genuinely mid-flight
+		expect(math.abs(puckP - alphaP) < 0.02).toBe(true)
+		-- ...and the channel is clean once they arrive
+		settleMotion(w)
+		expect(w.presenter.animationRecordCount()).toBe(0)
+		for _, path in { PUCK, chipPath("Alpha"), chipPath("Delta") } do
+			local node = w.adapter.node(path)
+			expect(`{path} landed:{node.presentedPosition.x == node.rect.x}`).toBe(`{path} landed:true`)
+		end
+		built.dispose()
+	end)
+
+	it("the appearing panel installs no record of its own — that is the transition system's job", function()
+		local w, built = motionWorld()
+		w.adapter.tap(RUN)
+		local panel = w.adapter.node(PANEL)
+		expect(panel ~= nil).toBe(true)
+		expect(panel.presentedPosition.y).toBe(panel.rect.y)
+		-- ...while the things it displaced DO fly, so the case is not vacuous
+		expect(w.presenter.animationRecordCount() > 0).toBe(true)
+		local chip = w.adapter.node(chipPath("Bravo"))
+		expect(chip.presentedPosition.y ~= chip.rect.y).toBe(true)
+		built.dispose()
+	end)
+
+	it("the control is a SEGMENTED Full | Reduced, and the words 'On'/'Off' appear nowhere", function()
+		local w, built = motionWorld()
+		expect(w.adapter.node(FULL_OPTION).props.label).toBe("Full")
+		expect(w.adapter.node(REDUCED_OPTION).props.label).toBe("Reduced")
+		-- segmented is DECLARED, not inherited from the adaptive rule: the two
+		-- options must read as peers even on a compact phone
+		local narrowWorld, narrowBuilt = motionWorld(NARROW_PORTRAIT)
+		expect(narrowWorld.adapter.node(FULL_OPTION) ~= nil).toBe(true)
+		expect(narrowWorld.adapter.node(REDUCED_OPTION) ~= nil).toBe(true)
+		-- the options sit SIDE BY SIDE (the segmented arrangement), not stacked
+		local a = narrowWorld.adapter.node(FULL_OPTION).rect
+		local b = narrowWorld.adapter.node(REDUCED_OPTION).rect
+		expect(b.x > a.x).toBe(true)
+		expect(a.y).toBe(b.y)
+		-- and the label is never the binary one the effect is not
+		for _, value in module.copy do
+			expect(`copy '{value}' says off:{string.lower(value) == "off" or string.lower(value) == "on"}`).toBe(
+				`copy '{value}' says off:false`
+			)
+		end
+		narrowBuilt.dispose()
+		built.dispose()
+	end)
+
+	it("Reduced removes the DECORATIVE travel entirely — layout exact, no records, nothing in flight", function()
+		local w, built = motionWorld()
+		w.adapter.tap(REDUCED_OPTION) -- the player's own route to it
+		w.presenter.refresh()
+		expect(built.motionMode:get()).toBe("reduced")
+		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		expect(w.env:get("motionPolicy"):get()).toBe("reduced")
+
+		local puckBefore = w.adapter.node(PUCK).rect.x
+		w.adapter.tap(RUN)
+		local puck = w.adapter.node(PUCK)
+		-- the layout still happened, exactly...
+		expect(puck.rect.x ~= puckBefore).toBe(true)
+		expect(w.adapter.node(PANEL) ~= nil).toBe(true)
+		expect(built.chipOrder:get()[1]).toBe("Delta")
+		-- ...and nothing was installed to travel it. "Installed and cleared" is the
+		-- bug: a settle-ordering slip then paints a stale delta forever.
+		expect(w.presenter.animationRecordCount()).toBe(0)
+		expect(puck.presentedPosition.x).toBe(puck.rect.x)
+		built.dispose()
+	end)
+
+	it("...and the INFORMATIONAL half keeps running under Reduced, quantized rather than deleted", function()
+		-- THE WHOLE POINT OF THE FIXTURE, and the reason its control may never say
+		-- "off": decorative motion snaps, informational motion steps
+		-- (src/motion/motion.luau:31-42). Both columns run off the same press.
+		local function samplesUnder(mode: string): (number, number)
+			local w, built = motionWorld()
+			if mode == "reduced" then
+				w.adapter.tap(REDUCED_OPTION)
+				w.presenter.refresh()
+			end
+			w.adapter.tap(RUN)
+			local distinct, last = 0, nil
+			for _ = 1, 150 do
+				w.presenter.tick(FRAME)
+				local value = built.charge:get()
+				if value ~= last then
+					distinct += 1
+					last = value
+				end
+			end
+			local terminal = built.charge:get()
+			built.dispose()
+			return distinct, terminal
+		end
+
+		local fullSteps, fullEnd = samplesUnder("full")
+		local reducedSteps, reducedEnd = samplesUnder("reduced")
+		-- NOTHING IS SKIPPED: both arrive at the same terminus
+		expect(fullEnd).toBe(1)
+		expect(reducedEnd).toBe(1)
+		-- ...but reduced publishes in countable steps rather than every frame. The
+		-- ramp is 1.4 s at a 250 ms quantum, so ~6-8 of them; full is per-frame.
+		expect(reducedSteps > 2).toBe(true)
+		expect(reducedSteps <= 12).toBe(true)
+		expect(fullSteps > 40).toBe(true)
+	end)
+
+	it("four inputs reach the demonstration: pointer, touch, keyboard and gamepad", function()
+		-- pointer and touch on the button
+		for _, pointer in { "mouse", "touch" } do
+			local w, built = motionWorld()
+			w.adapter.tap(RUN, { pointer = pointer })
+			expect(`{pointer}:{built.laneRight:get()}`).toBe(`{pointer}:true`)
+			built.dispose()
+		end
+		-- keyboard: Return on the focused button
+		local kbWorld, kbBuilt = motionWorld()
+		kbWorld.presenter.focus.focusOn(RUN)
+		kbWorld.system.deviceKey("Return", true)
+		kbWorld.system.deviceKey("Return", false)
+		expect(kbBuilt.laneRight:get()).toBe(true)
+		-- ...and the reduced-motion control is reachable the same way
+		kbWorld.presenter.focus.focusOn(REDUCED_OPTION)
+		kbWorld.system.deviceKey("Return", true)
+		kbWorld.system.deviceKey("Return", false)
+		expect(kbBuilt.motionMode:get()).toBe("reduced")
+		kbBuilt.dispose()
+		-- gamepad: A on the focused button
+		local padWorld, padBuilt = motionWorld()
+		padWorld.presenter.focus.focusOn(RUN)
+		padWorld.system.deviceKey("ButtonA", true)
+		padWorld.system.deviceKey("ButtonA", false)
+		expect(padBuilt.laneRight:get()).toBe(true)
+		padBuilt.dispose()
+	end)
+
+	it("carries the INDETERMINATE pair, and reduced motion steps them instead of stopping them", function()
+		-- §3.1's claim, hands-on: the decorative half stops travelling under
+		-- Reduced while these two go on sweeping. A fixture that only carried the
+		-- decorative half would teach that reduced motion means no motion.
+		local BUSY = PAGE .. "/Stage/Informational/Busy"
+		local SPIN = PAGE .. "/Stage/Informational/Working/Spinner"
+		local w, built = motionWorld()
+		expect(w.adapter.node(BUSY .. "/Bar/Sweep/Fill") ~= nil).toBe(true)
+		for index = 1, 5 do
+			expect(w.adapter.node(`{SPIN}/Dot{index}`) ~= nil).toBe(true)
+		end
+		local function reading(): string
+			local blends: { string } = {}
+			for index = 1, 5 do
+				table.insert(blends, string.format("%.3f", w.adapter.node(`{SPIN}/Dot{index}`).props.tint.blend))
+			end
+			return `{w.adapter.node(BUSY .. "/Bar/Sweep/Fill").rect.x}|{table.concat(blends, ",")}`
+		end
+		local function distinctOverASecond(): number
+			local seen: { [string]: boolean } = {}
+			local n = 0
+			for _ = 1, 60 do
+				w.presenter.tick(FRAME)
+				settleFixture(w.presenter)
+				local key = reading()
+				if seen[key] == nil then
+					seen[key] = true
+					n += 1
+				end
+			end
+			return n
+		end
+		local full = distinctOverASecond()
+		w.adapter.tap(REDUCED_OPTION)
+		local reduced = distinctOverASecond()
+		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		-- STILL MOVING under reduced motion — the whole decision — and visibly
+		-- coarser than full motion over the same wall clock
+		expect(reduced > 1).toBe(true)
+		expect(full > reduced).toBe(true)
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("puts the environment back when it is dismissed", function()
+		-- the toggle writes the REAL environment fact, which is what makes the demo
+		-- honest; leaving it written after the player walks away is what would make
+		-- it a trap for every OTHER demo in the same place
+		local w, built = motionWorld()
+		expect(w.env:get("reducedMotion"):get()).toBe(false)
+		w.adapter.tap(REDUCED_OPTION)
+		expect(w.env:get("reducedMotion"):get()).toBe(true)
+		built.dispose()
+		expect(w.env:get("reducedMotion"):get()).toBe(false)
+	end)
+
+	it("its copy survives a 1.4x pseudo-localization without clipping", function()
+		underPseudoLocalization(module, function()
+			for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE } do
+				local w, built = motionWorld(view)
+				w.adapter.tap(RUN) -- with the detail panel open, which is the taller shape
+				settleFixture(w.presenter)
+				expectNoDiagnostics(`with_animation pseudo-localized at {view.w}x{view.h}`, w, built)
+				expectUnclipped(`with_animation at {view.w}x{view.h}`, built, {
+					PAGE .. "/Title",
+					STAGE .. "/Caption",
+					PAGE .. "/Stage/Informational/Caption",
+					PAGE .. "/Stage/Informational/Busy/Label",
+					PAGE .. "/Stage/Informational/Working/Label",
+					PANEL .. "/Body",
+				})
+				built.dispose()
+			end
+		end)
+		expect(string.find(module.copy.title, "withAnimation", 1, true) ~= nil).toBe(true)
 	end)
 end)

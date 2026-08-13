@@ -571,6 +571,38 @@ local MEASURE_SPEC_KEYS: { [string]: boolean } = {
 }
 local MEASURE_SPEC_SHAPE = "a measure spec is { text, font, size, width, lineHeight?, maxLines? }"
 
+-- MIN-CONTENT WIDTH — the narrowest box this string can wrap into (solver shrink
+-- pass, docs/plans/swiftui-parity-round2.md §2.4, the second rung of its floor
+-- stack `minMax.min` -> a text node's minimum wrap width -> `0`).
+--
+-- WHY IT CANNOT BE ASKED WITH `measure`. `wrap` returns `math.min(widest,
+-- maxWidth)`, so measuring at a tiny offer answers with the OFFER, not with what
+-- the string actually needs — the one number the shrink pass has to know before it
+-- decides how far a label may give way. It is the widest single word, because a
+-- word has no legal break (the same rule the compact ladder and the single-line
+-- ruling in the solver both rest on): squeezed below it, the engine breaks the word
+-- instead of clipping a pixel.
+--
+-- It reuses `wordWidth`, so exact engine widths win here exactly as they do inside
+-- `wrap`, and an unmeasured word falls back to the same conservative estimate. It
+-- does NOT reserve the joint grid step: there is no joint on a one-word line.
+function text_metrics.minWidth(text: string, font: string, fontSize: number): number
+	if text == "" then
+		return 0
+	end
+	local canon = canonicalFont(font)
+	local bucket = bucketFor(canon, fontSize, false)
+	local fraction = if KNOWN_FONTS[canon] then (calibration[canon] or AVG_GLYPH_FRACTION) else 1.0
+	local widest = 0
+	for word in string.gmatch(text, "%S+") do
+		local w = wordWidth(word, canon, bucket, fontSize, fraction)
+		if w > widest then
+			widest = w
+		end
+	end
+	return math.ceil(widest)
+end
+
 function text_metrics.measure(
 	text: string | MeasureSpec,
 	font: string?,

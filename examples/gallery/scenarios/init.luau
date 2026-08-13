@@ -65,6 +65,14 @@ local ORDER = {
 	"ref_sipworks",
 	"ref_foyer",
 	"ref_wardrobe",
+	-- SwiftUI-parity round 2 (docs/plans/swiftui-parity-round2.md): the two
+	-- surfaces that carry this round's new public API into a place a player can
+	-- actually reach. `card_rail` is `newVirtualList`'s horizontal axis (§2.3);
+	-- `with_animation` is `presenter.withAnimation` plus the Full/Reduced control
+	-- the motion demo owes (§Phase 4). Both are also in `demo_picker.DEMOS`, so
+	-- they are pickable in-experience and not only by workspace attribute.
+	"card_rail",
+	"with_animation",
 }
 
 local scenarios = {}

@@ -108,6 +108,12 @@ local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
 	theme_controller = true,
 	edit_preview = true,
 	motion_driver = true,
+	-- the opt-in, default-off haptics adapter (round 2 §3.3). Blessed because a
+	-- game switching haptics on requires it directly, exactly as it requires
+	-- `motion_driver` — and because it must never be reachable any other way:
+	-- nothing in `src/` outside `src/client/` requires it, which is what keeps
+	-- "LuauUI plays nothing" true of the shared/server graph.
+	haptics = true,
 }
 
 -- consumer trees, relative to the library root. The game is the production

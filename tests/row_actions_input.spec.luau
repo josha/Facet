@@ -265,13 +265,27 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 	--[[ REVIEW FIX (hosted-mode round 2, D1) — THE STANDALONE MIRROR of the
 		VirtualList case in tests/virtual_list_row_actions.spec.luau. The fix is
 		in SHARED code (`commitLatched`, src/controls/row_actions.luau), so the
-		hole was never hosted-only: after the destructive chain fires and calls
-		`resetToClosed()`, `committed` is already false while the row is still
-		springing home from its parked slide-off position a whole row width away.
-		A press landing in that window seeded `drag.startOffset` from the live
-		`offset`, so a gesture that travelled 40px released with a magnitude past
-		the 60% commit threshold — and deleted the row a second time. ]]
-	it("a re-swipe DURING the commit's return flight cannot fire the action twice", function()
+		hole was never hosted-only: a press landing while the row was parked a
+		whole row width from home seeded `drag.startOffset` from the live `offset`,
+		so a gesture that travelled 40px released with a magnitude past the 60%
+		commit threshold — and deleted the row a second time.
+
+		THE WINDOW MOVED, AND THE GUARANTEE DID NOT (device bug round 2026-08-12,
+		finding C8a — see the header of tests/row_actions_motion.spec.luau). This
+		case used to run to the FIRE and then assert `offset < -rowWidth/2`,
+		"parked, mid-flight": the chain fired and only THEN put the row's paint
+		back, springing it home from -400 over ~65 more frames with `committed`
+		already cleared. That return flight is the second half of C8a — the row
+		visibly reappearing before the owner's removal lands — and it is gone: the
+		paint restore is deferred to the next `syncGeometry` and is a SNAP, so by
+		the fire frame the row is already home.
+
+		So the assertion is now made over the WHOLE trace rather than at one
+		sampled frame — the row really did fly a whole width out and really was
+		parked there while the commit played — and the re-swipe still lands
+		immediately after the fire, which is still the moment `committed` clears.
+		The guarantee this case exists for is untouched: exactly one fire. ]]
+	it("a re-swipe the instant a commit clears cannot fire the action twice", function()
 		local w = trailingWorld(nil, "destructive")
 		local rowWidth = rowWidthOf(w)
 		w.adapter.pointerDown(HIT, 0, 20, "mouse")
@@ -282,19 +296,21 @@ describe("RowActions pointer gesture (Task 5: axis lock, drag, flick, commit)", 
 		w.adapter.pointerMove(releaseX, 20)
 		w.tick(FRAME)
 		w.adapter.pointerUp(releaseX, 20)
-		-- run the chain until the action has fired and the row has begun its
-		-- flight home (the window `committed` no longer covers)
+		-- run the chain until the action has fired, watching how far out the row
+		-- was actually carried on the way
 		local firedAt = nil
+		local deepest = 0
 		for i = 1, 400 do
 			w.tick(FRAME)
+			deepest = math.min(deepest, w.ra.dump().offset)
 			if firedAt == nil and #w.fired == 1 then
 				firedAt = i
 				break
 			end
 		end
 		expect(firedAt).never().toBeNil()
-		expect(w.ra.dump().offset).toBeLessThan(-rowWidth * 0.5) -- parked, mid-flight
-		-- ...and swipe again, right here
+		expect(deepest).toBeLessThan(-rowWidth * 0.5) -- it really was parked off-row
+		-- ...and swipe again, right here — the frame `committed` cleared
 		w.adapter.pointerDown(HIT, 0, 20, "mouse")
 		w.tick(FRAME)
 		w.adapter.pointerMove(-15, 20)
@@ -1664,6 +1680,102 @@ describe("RowActions Task 8: keyboard Delete", function()
 	end)
 end)
 
+describe("RowActions Task 8: the action menu — WHERE it lands", function()
+	--[[ LIVE DEFECT, found 2026-08-13 by a placement-prop audit and fixed with the
+		Group C flight round (same file, same trap one container over).
+
+		`anchor`/`offsetX`/`offsetY` are read by a node's PARENT, and only by an
+		`anchor`-kind one. The menu's `Menu` node IS a `UI.Anchor`, but it declared
+		those three props on ITSELF, where its parent is the `UI.Screen` the menu is
+		presented as — a VSTACK, which reads none of them. So the menu was placed at
+		the ORIGIN of its surface instead of at its trigger. Measured before the fix:
+		trigger row at (20, 148, 760x48), `menuOx/menuOy` correctly computed as
+		(20, 196), menu solved at x = 0, y = 0 — silently, with
+		`controller.diagnostics()` empty.
+
+		WHY NO EXISTING CASE SAW IT: every other menu test uses `keyboardWorld`,
+		whose screen has no padding and whose row sits at the top, so the trigger's
+		own coordinates ARE (0, 0) and the wrong answer and the right one are the
+		same number. This world deliberately pushes the row away from the origin on
+		BOTH axes, which is the whole instrument. ]]
+	local function offsetMenuWorld(): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = focusableBody("Body"),
+			trailing = {
+				{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+			},
+		})
+		-- padding on the screen and a tall spacer above the row: the trigger's own
+		-- screen coordinates are now (20, 148), which no origin can be mistaken for
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			padding = 20,
+			children = {
+				LuauUI.UI.VStack({
+					id = "Cage",
+					gap = 8,
+					width = { type = "fill", weight = 1 },
+					children = {
+						LuauUI.UI.Box({ id = "Spacer", height = { type = "fixed", px = 120 }, surface = "base" }),
+						ra.blueprint,
+					},
+				}),
+			},
+		})
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		return { core = core, adapter = adapter, pres = pres, ra = ra, handle = handle, system = system }
+	end
+
+	it("the menu is placed at its TRIGGER, not at the origin of its own surface", function()
+		local w = offsetMenuWorld()
+		local trigger = w.handle.controller.screenRectOf("/S/Cage/Row")
+		expect(trigger).never().toBeNil()
+		expect(trigger.x > 0).toBe(true) -- the fixture's whole point
+		expect(trigger.y > 0).toBe(true)
+		w.pres.focus.focusOn("/S/Cage/Row/Content/Body")
+		w.system.deviceKey("ButtonX", true)
+		w.system.deviceKey("ButtonX", false)
+		w.pres.refresh()
+		expect(w.ra.dump().menuOpen).toBe(true)
+		-- the menu is its OWN presented surface, so its rects live on the adapter,
+		-- not on the row screen's controller
+		local rows = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")
+		expect(rows).never().toBeNil()
+		expect(rows.rect.x).toBe(trigger.x)
+		expect(rows.rect.y).toBe(trigger.y + trigger.h) -- just below the row, popup_button's rule
+		-- ...and every row of it travels with the menu, rather than one node moving
+		local first = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
+		expect(first).never().toBeNil()
+		expect(first.rect.x).toBe(trigger.x)
+		expect(first.rect.y).toBe(trigger.y + trigger.h)
+		--[[ ...and the ANCHOR'S OWN BOX CONTAINS WHAT IT PLACES. An `anchor` node
+			left content-sized measures the union of its children WITHOUT their
+			offsets, so it would report a 91x73 box at (0, 0) while painting its menu
+			at (20, 556) — a container whose rect does not contain its own child, the
+			"painted at a size nobody measured" family
+			(docs/lessons/measure-the-requirement-not-the-render.md). Filling the
+			edge-to-edge surface makes the box honest AND makes the anchor's inner
+			origin the window origin, which is the space `computeMenuAnchor` measures
+			the trigger in. ]]
+		local anchorBox = w.adapter.node("/RowActionsMenu-Row/Menu")
+		expect(anchorBox).never().toBeNil()
+		expect(anchorBox.rect.x <= rows.rect.x).toBe(true)
+		expect(anchorBox.rect.y <= rows.rect.y).toBe(true)
+		expect(anchorBox.rect.x + anchorBox.rect.w >= rows.rect.x + rows.rect.w).toBe(true)
+		expect(anchorBox.rect.y + anchorBox.rect.h >= rows.rect.y + rows.rect.h).toBe(true)
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+end)
+
 describe("RowActions Task 8: the action menu (ButtonX)", function()
 	it(
 		"ButtonX opens the menu, entering focus on its first row; Activate on a non-destructive item runs it exactly once and closes",
@@ -2159,7 +2271,7 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 		w.pres.refresh()
 		local trayButton = w.adapter.node("/S/Row/TrayTrailingWhen/then/TrayTrailing/Action:delete")
 		expect(trayButton ~= nil).toBe(true)
-		expect((trayButton :: any).props.label).toBe("U") -- the framework glyph for `trash`
+		expect((trayButton :: any).props.label).toBe("\\_/") -- the framework glyph for `trash`
 
 		w.pres.focus.focusOn("/S/Row/Content/Body")
 		w.press("ButtonX")

@@ -302,6 +302,20 @@ barCenter = { kind = "nineSlice", asset = "ornate_bar_center",
   **track**, which is exactly why they are separate slots: a cap baked into the
   fill art would disappear at 10 %.
 
+**The `spinner` slot** is the bar family's indeterminate cousin: one dot of the
+ring an indeterminate `newProgressView` draws when it has no value to report
+(`presentation = "spinner"`). It is whole-image by default and **round** by
+default, exactly like `sliderThumb` — a dot is a fixed-size token, and slicing
+one would smear its centre pixel. Like `barTrack` / `barFill` it carries its own
+solid native paint (the accent) so an unskinned spinner still reads under a flat
+package, and like every other value-control slot it refuses a gradient: a wash's
+alpha over a value control is what made the slider thumb see-through.
+
+```lua
+spinner = { kind = "nineSlice", asset = "ornate_spinner_dot", sliced = false,
+            fallback = "native" },
+```
+
 Measured live across the sweep 0 / 1 / 50 / 99 / 100 %: the fill art keeps the
 same width, the same origin, the same `Image`, the same `ScaleType` and the same
 `SliceCenter` at every stop, while the window reveals 0 / 12 / 598 / 1183 / 1195

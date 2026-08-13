@@ -366,6 +366,16 @@ git commit -m "feat(row-actions): newRowActions composite — spec, trays, stati
 
 Behavior: one spring drives `offset` (`motionClock:spring(0, "object")` — match the class name drag flight uses at `drag_registry.luau:376`). `core:observe(spring, ...)` writes `applyOffset(spring:get())` (dispose pattern: `drag_registry.luau:388-396`). Tray buttons resize proportionally: each button's width = `trayFraction * |offset| / trayWidth`, so buttons "stretch in" with the reveal (SwiftUI feel) — derive per-button width from the same observed value, no second spring. Reduced motion: springs already snap under reduced policy (decorative default) — assert it, don't special-case it.
 
+> **This paragraph was the spec, and the shipped code did not honour it for a
+> DRAG.** The proportional branch was gated on the reveal spring existing, and a
+> live drag never builds one (it writes `offset` straight through `applySlide`),
+> so every plate painted at its `buttonMinWidth` floor for the whole gesture —
+> device round 2026-08-12, findings C9a and C8b. Fixed 2026-08-13; the gate is
+> "is there a motion authority at all", the fixed extras (`trayGap`, `rowGutter`)
+> scale with the same fraction so the band drawn is the band uncovered, and
+> `tests/row_actions_motion.spec.luau` asserts it per frame rather than at
+> settle. See `docs/plans/device-bug-round-2026-08-12.md` §"Group C — outcome".
+
 - [ ] **Step 1: Failing tests** — using the motion-test idiom from `tests/motion_spring.spec.luau:23-30` (`clock:step(FRAME)` loops):
 ```luau
 it("_open animates offset toward tray width over stepped frames", ...) -- after 1 frame: 0 < offset < trayWidth; after 60: toBeCloseTo(trayWidth)

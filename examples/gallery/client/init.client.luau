@@ -344,7 +344,23 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				actionSystem = system,
 				presenter = pres,
 			})
-			built.handle = pres.present(built.screen)
+			--[[ A FIXTURE'S `present` OPTS ARE PART OF THE FIXTURE (C2, 2026-08-12).
+				This dropped the second argument, so every `present` table a fixture
+				declared was silently discarded HERE and nowhere else: the scenario
+				runner passes it (`scenarios/runner.luau`), the overflow sweep passes
+				it (`tests/overflow_sweep.spec.luau`), and the tutorial branch eleven
+				lines below passes it — the test rigs were more correct than the
+				shipped host, which is the failure mode
+				docs/lessons/the-solver-already-told-you.md is named after.
+
+				It was load-bearing the day it was found: `scenarios/row_actions.luau`
+				derives its hosted VirtualList's window from its own solved pane
+				through `present.onGeometry`, so in the showcase that window stayed
+				frozen at the pre-geometry literal and the list painted past its pane
+				on a landscape phone — the very defect that seam was added to fix.
+				`present` is nil for a fixture that declares none, which is exactly
+				what `present(screen)` meant before. ]]
+			built.handle = pres.present(built.screen, built.present)
 		else
 			local mod = require(examplesFolder:FindFirstChild(demo.module)) :: any
 			built = mod.build(LuauUI, demoCore, {
@@ -549,7 +565,10 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 							-- rather than overflowing to the right of a fixed x.
 							width = { type = "fill", weight = 1 },
 							gap = "xs",
-							alignH = "start",
+							-- (no `alignH`: this column's parent `Dock` is a `UI.Anchor`, which places
+							-- by corner and reads no align — and a stack's own cross-axis word is
+							-- `align`, whose default is already `start`. Accepted and ignored both
+							-- ways round; deleted by the §2.1 placement audit)
 							children = barChildren,
 						}),
 					},

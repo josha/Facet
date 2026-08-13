@@ -371,7 +371,7 @@ describe("RowActions control", function()
 		settle(w.pres)
 		w.pres.refresh()
 		local iconNode = w.adapter.node(DELETE_PATH)
-		expect(iconNode.props.label).toBe("U") -- standard_icons trash ASCII floor, at the SETTLED width
+		expect(iconNode.props.label).toBe("\\_/") -- standard_icons trash ASCII floor, at the SETTLED width
 		-- the floor comes from the THEME, not a literal — the same reason the
 		-- label-only legs above measure rather than pin a pixel number.
 		local minWidth = themeSnapshot.resolveNumber(themeSnapshot.neutral(), "controls.rowActions.buttonMinWidth")
@@ -513,7 +513,7 @@ describe("RowActions control", function()
 		settle(settled.pres)
 		settled.pres.refresh()
 		-- standard_icons trash fallback (package.luau ICON_FALLBACK_GLYPHS)
-		expect(settled.adapter.node(DELETE_PATH).props.label).toBe("U")
+		expect(settled.adapter.node(DELETE_PATH).props.label).toBe("\\_/")
 
 		local w = build()
 		w.ra._open("trailing")
@@ -522,7 +522,7 @@ describe("RowActions control", function()
 			w.pres.tick(FRAME)
 		end
 		w.pres.refresh()
-		expect(w.adapter.node(DELETE_PATH).props.label).toBe("U") -- and the same mark mid-flight: no swap to chase
+		expect(w.adapter.node(DELETE_PATH).props.label).toBe("\\_/") -- and the same mark mid-flight: no swap to chase
 
 		-- ...and a label SHORT enough to fit the settled plate with room to spare
 		-- still wears the icon. Without this the case is green by accident: the
@@ -544,7 +544,7 @@ describe("RowActions control", function()
 		-- the plate really does have room for the word it is not drawing
 		local wordWidth = text_metrics.measure("Do", shortFacts.font, shortFacts.size, math.huge).width
 		expect(shortNode.rect.w - 16 > wordWidth).toBe(true) -- 16 = 2 * buttonPad
-		expect(shortNode.props.label).toBe("U")
+		expect(shortNode.props.label).toBe("\\_/")
 	end)
 
 	-- ...and the OTHER half of the ruling: an action with no icon has nothing to
@@ -1184,7 +1184,11 @@ describe("RowActions control", function()
 			expect(edit.rightEdge).toBe(plain.rightEdge)
 			expect(edit.rightEdge).toBe(ROW_W + edit.offset) -- ...and it is the travel, not a coincidence
 			-- ...and the gutter is an INSET, present at this offset like every other
-			expect(edit.bodyX - plain.bodyX).toBe(28) -- controls.rowActions.editAffordance
+			-- controls.rowActions.editAffordance (28) + controls.rowActions.rowGutter
+			-- (8). The gutter joined the strip in the device bug round 2026-08-12
+			-- (finding A2): a strip exactly one diameter wide left the minus
+			-- touching the row it is meant to sit outside of.
+			expect(edit.bodyX - plain.bodyX).toBe(36)
 		end
 	)
 
@@ -1227,7 +1231,9 @@ describe("RowActions control", function()
 		editing:set(true)
 		w.pres.refresh()
 		local editX = w.adapter.node(ROW .. "/Content/Body").rect.x
-		expect(editX - restX).toBe(28) -- controls.rowActions.editAffordance (Task 2 default)
+		-- controls.rowActions.editAffordance (28, Task 2 default) + the row-facing
+		-- controls.rowActions.rowGutter (8, device bug round 2026-08-12 finding A2)
+		expect(editX - restX).toBe(36)
 	end)
 
 	it("leading actions + editing compose: the minus sits outside (before) the leading tray's reveal", function()
@@ -1369,7 +1375,7 @@ describe("RowActions control", function()
 			-- was written with meant ±6px — wide enough for a 5px gutter collapse
 			-- to pass (review round, injected and confirmed green). The identity is
 			-- exact arithmetic on the same double; 1e-6 is float noise only.
-			expect(body.x - w.ra.dump().offset).toBeCloseTo(28, 1e-6)
+			expect(body.x - w.ra.dump().offset).toBeCloseTo(36, 1e-6) -- editAffordance + rowGutter
 		end
 		checkFrame()
 		w.ra._open("trailing")
@@ -1443,11 +1449,18 @@ describe("RowActions control", function()
 		local flag = w.adapter.node(TRAILING_TRAY .. "/Action:flag").rect
 		local gap = flag.x - (del.x + del.w)
 		expect(gap).toBe(4) -- controls.rowActions.trayGap, filled from style.space.xs
+		-- ...and the band's ROW-FACING gutter, a separate metric on the same scale
+		-- (device bug round 2026-08-12, finding A1a): the plate used to butt
+		-- straight against the row. It is the band's own padding, so it is inside
+		-- the tray's rect, in front of the first plate.
+		local gutter = themeSnapshot.resolveNumber(themeSnapshot.neutral(), "controls.rowActions.rowGutter")
+		expect(gutter).toBe(8) -- filled from style.space.s
+		expect(del.x - w.adapter.node(TRAILING_TRAY).rect.x).toBe(gutter)
 		-- the tray really is that much wider than its plates...
-		expect(w.adapter.node(TRAILING_TRAY).rect.w).toBe(del.w + gap + flag.w)
+		expect(w.adapter.node(TRAILING_TRAY).rect.w).toBe(gutter + del.w + gap + flag.w)
 		-- ...and the row slid far enough to uncover the gutter as well as the two
 		-- plates. Fixing only the gap would park the far plate half off the row.
-		expect(-w.ra.dump().offset).toBe(del.w + gap + flag.w)
+		expect(-w.ra.dump().offset).toBe(gutter + del.w + gap + flag.w)
 	end)
 
 	-- FINDING 3b — the machinery, at its own seam. `prefer` is the ONE thing the
@@ -1458,7 +1471,7 @@ describe("RowActions control", function()
 		expect(renderer.compactForm({ compactLabel = { icon = "trash" } }).prefer).toBe(false)
 		expect(renderer.compactForm({ compactLabel = "Ed" }).prefer).toBe(false)
 		-- the drawn mark the tray's natural width is measured against
-		expect(theme_package.iconGlyph("trash")).toBe("U")
+		expect(theme_package.iconGlyph("trash")).toBe("\\_/")
 		-- and the grammar still refuses what it always refused: `prefer` names no
 		-- form, so a table holding only it is still formless.
 		local ok = pcall(function()
@@ -1469,5 +1482,348 @@ describe("RowActions control", function()
 			return LuauUI.UI.Button({ id = "B", label = "x", compactLabel = { icon = "trash", prefer = "yes" } })
 		end)
 		expect(badType).toBe(false)
+	end)
+end)
+
+--[[ ===== DEVICE BUG ROUND 2026-08-12, GROUP A ================================
+	Four findings the director photographed on a real phone
+	(docs/plans/device-bug-round-2026-08-12.md, `UntitledRacingGame/bugs/`), every
+	one of them past a green 4160-case suite. What let all four through is the
+	same omission each check below repairs: the suite asked what the tray was
+	SIZED at and never what it had to be sized FOR — the room a package's frame
+	takes out of a plate, the space between the plate and the row it is acting
+	on, the width of the row the whole band has to fit inside, and the fact that
+	the character in an icon's place is read by a human being.
+
+	A3 and A1b are swept across every shipped package rather than pinned to the
+	one the photograph happened to be taken under: the parchment package is not
+	special, it is simply the one the director opened. ]]
+local PACKAGES = {
+	"classic_desktop",
+	"compact_pointer",
+	"fantasy_ornate",
+	"fantasy_parchment",
+	"glossy_mobile",
+	"glossy_touch",
+	"pixel_quest",
+	"scifi_hud",
+}
+local function packageOf(name: string): any
+	return (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+end
+-- the theme's own numbers, never a literal restated here
+local function metricOf(snap: any, path: string): number
+	return themeSnapshot.resolveNumber(snap, path) or 0
+end
+
+-- presenterWorld's shape with ONE addition: the row is handed the environment,
+-- which is what every real caller does (Table and VirtualList both pass their
+-- own `env` straight through) and what makes the theme's metrics reach the
+-- control at all. Without it the composite degrades to the neutral snapshot and
+-- a themed sweep would measure the wrong package on purpose.
+local function themedWorld(snap: any?, spec: (core: any, env: any) -> any)
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	if snap ~= nil then
+		env:set("themeMetrics", snap)
+	end
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local ra = row_actions.build(LuauUI, core, spec(core, env))
+	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { ra.blueprint } }))
+	pres.refresh()
+	return { core = core, env = env, adapter = adapter, pres = pres, ra = ra, handle = handle }
+end
+
+describe("device bug round 2026-08-12 — the tray's negative space (findings A1a, A2)", function()
+	it("a trailing plate never touches the row: the band carries the theme's rowGutter", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				width = { type = "fill", weight = 1 },
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						icon = "trash",
+						onAction = function() end,
+					},
+					{ id = "flag", label = "Flag", icon = "flag", onAction = function() end },
+				},
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local gutter = metricOf(themeSnapshot.neutral(), "controls.rowActions.rowGutter")
+		expect(gutter > 0).toBe(true) -- a zero here would make every leg below vacuous
+		local contentBox = w.adapter.node(ROW .. "/Content").rect
+		local firstPlate = w.adapter.node(TRAILING_TRAY .. "/Action:delete").rect
+		-- THE PHOTOGRAPH (IMG_3679): the row's sliding edge and the first plate's
+		-- left edge were the same x. The row travels to uncover the band, and the
+		-- band's first thing is its gutter.
+		expect(firstPlate.x - (contentBox.x + contentBox.w)).toBe(gutter)
+		-- ...and the far plate still lands exactly on the row's own right edge:
+		-- the gutter is spent INSIDE the band, never past its outer edge
+		local rowBox = w.adapter.node(ROW).rect
+		local farPlate = w.adapter.node(TRAILING_TRAY .. "/Action:flag").rect
+		expect(farPlate.x + farPlate.w).toBe(rowBox.x + rowBox.w)
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	it("...and neither does a leading one, on the mirrored edge", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				width = { type = "fill", weight = 1 },
+				leading = { { id = "read", label = "Mark Read", onAction = function() end } },
+			})
+		end)
+		w.ra._open("leading")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local gutter = metricOf(themeSnapshot.neutral(), "controls.rowActions.rowGutter")
+		local contentBox = w.adapter.node(ROW .. "/Content").rect
+		local plate = w.adapter.node(LEADING_TRAY .. "/Action:read").rect
+		expect(contentBox.x - (plate.x + plate.w)).toBe(gutter)
+		-- ...and the outer edge is still flush with the row's own left edge: the
+		-- gutter is spent on the ROW-FACING side of the band, never the outside
+		local rowBox = w.adapter.node(ROW).rect
+		expect(plate.x).toBe(rowBox.x)
+	end)
+
+	it("the edit-mode minus sits in the same negative space, not against the row (A2)", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				width = { type = "fill", weight = 1 },
+				editing = core:signal(true),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+			})
+		end)
+		local gutter = metricOf(themeSnapshot.neutral(), "controls.rowActions.rowGutter")
+		local minus = w.adapter.node(EDIT_AFFORDANCE_PATH).rect
+		local body = w.adapter.node(ROW .. "/Content/Body").rect
+		-- IMG_3683: the red disc's right edge and the row's left edge were the
+		-- same x. The strip the disc lives in is a diameter PLUS the same gutter
+		-- the tray band keeps.
+		expect(body.x - (minus.x + minus.w)).toBe(gutter)
+	end)
+end)
+
+describe("device bug round 2026-08-12 — a tray label fits the package's frame (finding A3)", function()
+	it("every shipped package leaves a tray label the room it measured for it", function()
+		--[[ IMG_3685: "Mark Read" cut off under Fantasy Parchment. The plate's
+			width is decided by `deriveNaturals` — `fixed px`, so nothing downstream
+			can grow it — and it was decided as text + 2 * buttonPad, which is the
+			whole sum only on a package with no frame. Every package that paints one
+			reserves `chromeInsets.control` out of that same box at paint time, so
+			the label lost exactly the frame.
+
+			MEASURE THE REQUIREMENT, NOT THE RENDER: the requirement is the label at
+			UNLIMITED width, from the framework's own oracle at the button's own live
+			font/size; the render (`TextBounds`, `TextFits`) already has the
+			truncation baked into it. ]]
+		local LABEL = "Mark Read"
+		for _, name in PACKAGES do
+			local pkg = packageOf(name)
+			local snap = themeSnapshot.resolve(pkg, nil, {})
+			local w = themedWorld(snap, function(_core, env)
+				return {
+					id = "Row",
+					content = content("Body"),
+					width = { type = "fill", weight = 1 },
+					env = env,
+					leading = { { id = "read", label = LABEL, onAction = function() end } },
+				}
+			end)
+			w.ra._open("leading")
+			w.pres.refresh()
+			settle(w.pres)
+			w.pres.refresh()
+			local path = LEADING_TRAY .. "/Action:read"
+			local plate = w.adapter.node(path)
+			local facts = w.handle.controller.textAt(path)
+			expect(`{name}: facts`).toBe(if facts ~= nil then `{name}: facts` else `{name}: NONE`)
+			local required = text_metrics.measure(LABEL, facts.font, facts.size, math.huge).width
+			local insets = (snap.chromeInsets :: any).control or { left = 0, right = 0 }
+			local pad = metricOf(snap, "controls.rowActions.buttonPad")
+			local room = plate.rect.w - 2 * pad - (insets.left or 0) - (insets.right or 0)
+			expect(`{name}: room {room} >= required {required}`).toBe(`{name}: room {room} >= required {required}`)
+			expect(`{name}: fits={room >= required}`).toBe(`{name}: fits=true`)
+		end
+	end)
+
+	it("...and a package with no frame is untouched to the pixel", function()
+		-- the fix must be inert wherever it was already right, or it is a geometry
+		-- change to every flat theme rather than a repair of the framed ones
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				width = { type = "fill", weight = 1 },
+				leading = { { id = "read", label = "Mark Read", onAction = function() end } },
+			})
+		end)
+		w.ra._open("leading")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local neutral = themeSnapshot.neutral()
+		local path = LEADING_TRAY .. "/Action:read"
+		local facts = w.handle.controller.textAt(path)
+		local required = text_metrics.measure("Mark Read", facts.font, facts.size, math.huge).width
+		local pad = metricOf(neutral, "controls.rowActions.buttonPad")
+		-- flat: the plate is exactly the label plus its own padding, no frame term
+		expect(w.adapter.node(path).rect.w).toBe(
+			math.max(metricOf(neutral, "controls.rowActions.buttonMinWidth"), required + 2 * pad)
+		)
+	end)
+end)
+
+describe("device bug round 2026-08-12 — actions that cannot fit the row (finding A1b)", function()
+	it("a band wider than the row shares out the row instead of hanging off its edge", function()
+		--[[ Measured before the fix, on this exact fixture: a 160px row with four
+			actions put the band at 268px, its first plate at x = -108 — 108px
+			outside the row, unreachable, and `controller.diagnostics()` empty. An
+			action a player cannot touch is a silent wrong result. ]]
+		local ROW_PX = 160
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				width = { type = "fixed", px = ROW_PX },
+				trailing = {
+					{ id = "a", label = "Delete", icon = "trash", onAction = function() end },
+					{ id = "b", label = "Flag", icon = "flag", onAction = function() end },
+					{ id = "c", label = "More", icon = "more", onAction = function() end },
+					{ id = "d", label = "Edit", icon = "edit", onAction = function() end },
+				},
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local rowBox = w.adapter.node(ROW).rect
+		local tray = w.adapter.node(TRAILING_TRAY).rect
+		expect(tray.w <= rowBox.w).toBe(true)
+		expect(tray.x >= rowBox.x).toBe(true)
+		for _, id in { "a", "b", "c", "d" } do
+			local plate = w.adapter.node(TRAILING_TRAY .. "/Action:" .. id).rect
+			-- every plate inside the row's own box, on both edges
+			expect(`{id}: x {plate.x} >= {rowBox.x}`).toBe(`{id}: x {plate.x} >= {rowBox.x}`)
+			expect(plate.x >= rowBox.x).toBe(true)
+			expect(plate.x + plate.w <= rowBox.x + rowBox.w).toBe(true)
+			expect(plate.w > 0).toBe(true)
+		end
+		-- and the row travels no further than its own width: a slide past that is
+		-- a row that has left the screen with its actions still coming
+		expect(-w.ra.dump().offset <= ROW_PX).toBe(true)
+	end)
+
+	it("a row with no cage is never clamped to its own stale width (the ratchet)", function()
+		--[[ THE HAZARD THE `clampable` GUARD EXISTS FOR, as a live sequence rather
+			than an argument. A HUG row's solved width is DERIVED from the band an
+			Anchor hugs, so "clamp the band to the row" would be the band clamped to
+			ITSELF — and one frame of staleness makes that a one-way ratchet: the
+			naturals grow (here, a theme swap raising the per-button floor to 200),
+			the row is still the width it had before they did, the clamp writes the
+			smaller number, the row re-solves to THAT, and the band never recovers.
+			Measured with the guard removed: the plate settles at 102px and stays
+			there. With it, the row grows for its band, which is what a row with no
+			cage is allowed to do. ]]
+		local w = themedWorld(nil, function(_core, env)
+			return {
+				id = "Row",
+				content = content("Body"), -- no `width`: this row HUGS
+				env = env,
+				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+			}
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local FLOOR = 200
+		local base = themeSnapshot.neutral()
+		local controls: any = table.clone(base.controls)
+		local family: any = table.clone(controls.rowActions)
+		family.buttonMinWidth = FLOOR
+		controls.rowActions = family
+		local swapped: any = table.clone(base)
+		swapped.controls = controls
+		local before = w.adapter.node(TRAILING_TRAY .. "/Action:delete").rect.w
+		expect(before < FLOOR).toBe(true) -- a real differential, not a no-op swap
+		w.env:set("themeMetrics", swapped)
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		expect(w.adapter.node(TRAILING_TRAY .. "/Action:delete").rect.w).toBe(FLOOR)
+	end)
+end)
+
+describe("device bug round 2026-08-12 — a letter is not an icon (finding A4)", function()
+	it("no framework fallback glyph contains an uppercase letter", function()
+		--[[ IMG_3686: the delete and flag plates drew "U" and "P" under Pixel
+			Quest, which declines the framework art rung and so renders the ASCII
+			floor. They were authored as pictures ("a bin's silhouette", "a pole
+			with a pennant") and read as initials, because that is what a capital
+			letter is. A lowercase mark can be a stroke the eye reads as a shape —
+			`v` is a tick, `x` is a cross — but a capital in an icon's place is a
+			caption, and a caption nobody wrote is a silent wrong result. ]]
+		local offenders: { string } = {}
+		for name, glyph in theme_package.ICON_FALLBACK_GLYPHS :: any do
+			if string.match(glyph, "%u") ~= nil then
+				table.insert(offenders, `{name}={glyph}`)
+			end
+		end
+		table.sort(offenders)
+		expect(`offenders: {table.concat(offenders, ", ")}`).toBe("offenders: ")
+	end)
+
+	it("a tray plate under a package that declines framework art draws the mark, never a letter", function()
+		-- the end-to-end the rule above exists for: Pixel Quest is a SHIPPED
+		-- package with `identity.standardIcons = false`, so this is the path the
+		-- photograph was taken on, not a synthetic one.
+		local pkg = packageOf("pixel_quest")
+		expect((pkg.identity :: any).standardIcons).toBe(false)
+		local w = themedWorld(themeSnapshot.resolve(pkg, nil, {}), function(_core, env)
+			return {
+				id = "Row",
+				content = content("Body"),
+				width = { type = "fill", weight = 1 },
+				env = env,
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						role = "destructive",
+						icon = "trash",
+						onAction = function() end,
+					},
+					{ id = "flag", label = "Flag", icon = "flag", onAction = function() end },
+				},
+			}
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		for _, id in { "delete", "flag" } do
+			local drawn = w.adapter.node(TRAILING_TRAY .. `/Action:{id}`).props.label
+			expect(`{id} drawn={drawn}`).toBe(
+				`{id} drawn={theme_package.resolveIcon(pkg, if id == "delete" then "trash" else "flag").glyph}`
+			)
+			expect(`{id} letters={string.match(tostring(drawn), "%a") ~= nil}`).toBe(`{id} letters=false`)
+		end
 	end)
 end)

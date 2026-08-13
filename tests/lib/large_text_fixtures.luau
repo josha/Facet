@@ -503,6 +503,38 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- THE ROW GRID AT LARGEST TEXT (parity round 2 §2.2). It is swept for a
+		-- reason the flow grid above cannot cover: a row grid's column widths come
+		-- from the WIDEST CELL IN THAT COLUMN ACROSS EVERY ROW, so one label growing
+		-- under a text-size preference re-widths a column under every other row —
+		-- and the columns are then reduced to fit the box. A key/value pair is the
+		-- shape that actually ships.
+		id = "GridRow",
+		class = "GridRow",
+		build = function()
+			return UI.Grid({
+				id = "Ctl",
+				gap = 8,
+				children = {
+					UI.GridRow({
+						id = "R1",
+						children = {
+							UI.Text({ id = "K1", text = lt.PSEUDO_SECONDARY }),
+							UI.Text({ id = "V1", text = lt.PSEUDO_ACTION }),
+						},
+					}),
+					UI.GridRow({
+						id = "R2",
+						children = {
+							UI.Text({ id = "K2", text = lt.PSEUDO_ACTION }),
+							UI.Text({ id = "V2", text = lt.PSEUDO_SECONDARY }),
+						},
+					}),
+				},
+			})
+		end,
+	},
+	{
 		id = "ScrollView",
 		class = "ScrollView",
 		build = function()

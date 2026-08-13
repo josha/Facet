@@ -381,7 +381,8 @@ and it is entirely package data:
   required, unstated states fall back to it, and a per-state inset change is a
   compile error — art may change on hover, geometry may not.
 - **Value displays.** `barTrack` / `barFill` / `barCap` / `barCenter`,
-  `toggleTrack` / `toggleKnob`, `stepperPlate`. The bar's fill is drawn at full
+  `toggleTrack` / `toggleKnob`, `stepperPlate`, `spinner` (one dot of an
+  indeterminate ProgressView's ring). The bar's fill is drawn at full
   size and revealed through a clip window, so its art is byte-stable at every
   percent and a value change costs no adapter write at all.
 - **Semantic icons.** `icons = { [name] = <asset> }` sized from `iconSizes` on the

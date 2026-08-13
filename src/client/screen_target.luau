@@ -11,8 +11,12 @@
 -- or a game-compiled override passed via new({ style = ... }). All visual
 -- writes here are the STYLE authority (design §7.3): surfaces, radii,
 -- hairlines, state colors, focus ring, motion. Data writes (text/value/
--- enabled) remain the binding authority in setProp. Motion honors
--- reducedMotion via opts.isReducedMotion (wired from the environment).
+-- enabled) remain the binding authority in setProp. Motion honors reduced
+-- motion through `adapter.setReducedMotion`, which the RENDERER pushes from the
+-- environment's `reducedMotion` fact at attach and on every change (C1,
+-- 2026-08-12) — no consumer wiring, and live for a mid-session flip. The legacy
+-- `opts.isReducedMotion` closure still forces reduced motion on if a caller
+-- passes one (deprecated, never removed: ADR-0011), but nothing has to.
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -40,17 +44,41 @@ local authority = require("../render/authority")
 -- cannot disagree about what the seam accepts.
 local stage_content = require("../render/stage_content")
 
--- The engine draws a ScrollingFrame's bar INSIDE the region, over whatever the
--- solver placed there. The solver reserves this off the cross axis when a region
--- actually scrolls, so the number has to be one value shared by both seams.
+--[[ THE ENGINE CHARGES FOR THIS BAR, ALWAYS. A `ScrollingFrame`'s VISIBLE window
+	is narrower than its own frame by this thickness on the cross axis whenever the
+	scroll axis overflows — even at `ScrollBarInset.None` — and the indicator POLICY
+	cannot change that: the policy only fades the bar's IMAGE. So the solver reserves
+	it off the cross axis under every policy, and the number is one value shared by
+	both seams (`adapter.scrollBarThickness`, published below and again in
+	`setScrollIndicatorPolicy`, and `tests/lib/fake_target.luau`'s lockstep copy). ]]
 local SCROLL_BAR_THICKNESS = 8
--- scroll indicator policy (director ruling 2026-08-09): "always" = the desktop
--- convention — persistent bar, thickness RESERVED by the solver; "auto" = the
--- touch/gamepad convention — OVERLAY indicators (zero reserve) that appear
--- while scrolling, FLASH once when a scrollable region first mounts (so a page
--- that continues below never reads as cut off), and fade when idle. Reduced
--- motion never fades: "auto" degrades to visible-whenever-scrollable, so the
--- affordance never depends on movement.
+--[[ scroll indicator policy — WHAT IT DECIDES, AND WHAT IT DOES NOT.
+
+	"always" = the desktop convention: a persistent bar. "auto" = the touch/gamepad
+	convention: the bar's image is hidden at rest, FLASHES once when a scrollable
+	region first mounts (so a page that continues below never reads as cut off),
+	shows while scrolling, and fades when idle. Reduced motion never fades: "auto"
+	degrades to visible-whenever-scrollable, so the affordance never depends on
+	movement.
+
+	IT DOES NOT DECIDE THE LAYOUT RESERVE (director ruling 2026-08-12, REVERSING the
+	ruling of 2026-08-09). The original ruling read "an overlay indicator lays claim
+	to no layout space" and published a reserve of ZERO under "auto". Roblox has no
+	overlay scrollbar: the engine shrinks the window by the instance's thickness
+	regardless of how the bar is painted, so a zero reserve laid every touch
+	scroller's content out to a box 8px wider than the box the player could see, and
+	the engine clipped the difference. Measured live in Studio on the running
+	showcase 2026-08-12: `AbsoluteSize` 703x203 against `AbsoluteWindowSize` 695x203,
+	nine nodes painted past the invisible edge — a `…` overflow button sliced, and a
+	value reading "0.35" clipped to "0.3" (bugs/IMG_3691.jpeg,
+	docs/plans/device-bug-round-2026-08-12.md B7(a) option (a)).
+
+	The director's reasoning, kept here so nobody "restores" the old behaviour
+	thinking they found a regression: 8px of real content on every phone beats a
+	cosmetic flash indicator, and Roblox offers no free overlay bar. Note also that a
+	machine which merely CAN accept touch derives "auto" — the Studio session that
+	measured this reported both `TouchEnabled` and `MouseEnabled` — so this was never
+	a phone-only fault. ]]
 local INDICATOR_IDLE_FADE_SECONDS = 1.1
 local INDICATOR_FLASH_HOLD_SECONDS = 1.6
 local INDICATOR_FADE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -183,6 +211,23 @@ end
 
 export type Opts = {
 	style: any?,
+	--[[ DEPRECATED (C1, 2026-08-12) — do not reach for this in new code, and
+		nothing has to pass it any more. Reduced motion arrives on its own through
+		`adapter.setReducedMotion`, which the renderer pushes from the environment
+		at attach and on every change.
+
+		Declared in `LuauUI.DEPRECATIONS` as `screen_target.new(opts.isReducedMotion)`
+		(since 0.9.0, remove no earlier than 0.10.0) — prose in two places and no
+		ledger row was the Milestone-1 review's C3.
+
+		Why it is deprecated rather than removed (ADR-0011): it is public, it is
+		documented, `billboard_target` forwards it, and a harness that wants to
+		FORCE reduced motion regardless of the environment still has a use for it.
+		It is now an OR with the pushed fact — a closure returning true still wins,
+		a closure returning false no longer overrides a player who asked for
+		reduced motion. That last part is the bug it caused: it defaulted to
+		`function() return false end` and every production caller took the default,
+		so the setting reached nothing. ]]
 	isReducedMotion: (() -> boolean)?,
 	parent: Instance?,
 	-- root override (ADR-0009): everything below the root is target-agnostic
@@ -219,8 +264,25 @@ export type Opts = {
 
 function screen_target.new(opts: Opts?)
 	local style: any = (opts and opts.style) or defaultStyle
-	local isReducedMotion = (opts and opts.isReducedMotion) or function()
-		return false
+	--[[ THE LIVE REDUCED-MOTION FACT (C1, 2026-08-12). Every bespoke tween in this
+		file asks `isReducedMotion()`; what changed is where the answer comes from.
+
+		It used to come ONLY from `opts.isReducedMotion`, a construction-time
+		closure defaulting to "no". No production caller anywhere passed one — not
+		the showcase, not RascalRally's four LuauUI GUIs — so the player's setting
+		reached none of these tweens, on any surface, ever.
+
+		Now the RENDERER pushes the environment fact into `adapter.setReducedMotion`
+		at attach and again on every change (renderer.luau, beside
+		`setNativeTransitionsEnabled`), so the fact arrives with no consumer wiring
+		and stays live if the player flips the setting mid-session. The legacy
+		closure is OR'd in rather than dropped (ADR-0011 deprecate-not-break): a
+		caller that passes one can still force reduced motion on, and one that
+		returns false can no longer override the player. ]]
+	local reducedMotionPushed = false
+	local isReducedMotionOpt = opts and opts.isReducedMotion
+	local function isReducedMotion(): boolean
+		return reducedMotionPushed or (isReducedMotionOpt ~= nil and isReducedMotionOpt() == true)
 	end
 	-- parent override (ws2 Edit-mode preview): Studio Edit has no LocalPlayer,
 	-- so the preview harness hands us an explicit host instead of PlayerGui
@@ -274,7 +336,12 @@ function screen_target.new(opts: Opts?)
 				end
 				-- transitions are progressive-enhancement OPT-IN (NSS-P3 rider:
 				-- publish status unconfirmed; default = instant change), and
-				-- reduced motion always wins over the opt
+				-- reduced motion always wins over the opt. This is CONSTRUCTION
+				-- time, before the renderer has pushed anything, so it can only
+				-- see a legacy `opts.isReducedMotion`; the live fact lands a
+				-- moment later through `setNativeTransitionsEnabled`, which the
+				-- renderer calls at attach (C1) — so the seed is never the last
+				-- word, only the value for the frames before a surface attaches.
 				nativeHandle = native_style.ensure(model, {
 					host = if type(nativeOpt) == "table" then nativeOpt.host else nil,
 					theme = if type(nativeOpt) == "table" then nativeOpt.theme else nil,
@@ -2463,6 +2530,21 @@ function screen_target.new(opts: Opts?)
 			nativeHandle.setTransitionsEnabled(on)
 		end
 	end
+	--[[ THE BESPOKE half of the same fact (C1, 2026-08-12). `setNativeTransitions
+		Enabled` above reaches the SHEET's declared transitions; this reaches every
+		tween this file plays itself — the press dip, the state-paint fades, the
+		fill crossfade, the toggle slide — all of which route through the one
+		`isReducedMotion()` resolver at the top of `new`.
+
+		Pushed by the renderer from the environment's `reducedMotion` fact, at
+		attach and on every change. It is a plain flag write on purpose: nothing
+		is re-painted here, because reduced motion changes how the NEXT transition
+		plays, not what is currently on screen. An in-flight tween is allowed to
+		finish; the alternative is snapping a control mid-animation, which is
+		itself a motion event. ]]
+	function adapter.setReducedMotion(reduced: boolean)
+		reducedMotionPushed = reduced == true
+	end
 
 	-- ===== decoration-slot control surface (ADR-0019 §5) ==================
 	-- The theme controller drives these inside its swap transaction; the
@@ -3073,17 +3155,23 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	-- the DECLARED optional policy seam the presenter drives from the
-	-- environment's `scrollIndicatorPolicy` + `motionPolicy` facts. Moving the
-	-- published thickness is what flips the solver's cross-axis reserve: an
-	-- overlay indicator lays claim to no layout space.
+	--[[ the DECLARED optional policy seam the presenter drives from the
+		environment's `scrollIndicatorPolicy` + `motionPolicy` facts. It decides the
+		bar's PAINT — persistent, or hidden-at-rest with a flash and a fade.
+
+		IT NO LONGER MOVES THE RESERVE (director ruling 2026-08-12, reversing
+		2026-08-09; see SCROLL_BAR_THICKNESS at the top of this file for the measured
+		defect and the reasoning). This used to publish 0 under "auto" on the reading
+		that an overlay indicator claims no layout space — but the engine charges the
+		window for the instance whatever the policy paints, which this file's own
+		cross-axis canvas clamp in `setScrollRegion` below has always said. The two
+		statements contradicted each other in one file, and the reserve was the one
+		that was wrong. The write stays here, restating the one true value, so a
+		reader of this function is never left wondering whether the policy changed it. ]]
 	function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)
 		scrollIndicatorPolicy = if policy == "auto" then "auto" else "always"
 		scrollIndicatorReduced = reduced == true
-		adapter.scrollBarThickness = if forceScrollFallbackMode
-			then 0
-			elseif scrollIndicatorPolicy == "auto" then 0
-			else SCROLL_BAR_THICKNESS
+		adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS
 		for _, handle in handlesByPath do
 			if handle.instance ~= nil and handle.instance:IsA("ScrollingFrame") then
 				handle.indicatorFlashed = nil
@@ -3991,6 +4079,45 @@ function screen_target.new(opts: Opts?)
 					end
 					pad.PaddingLeft = UDim.new(0, left)
 					pad.PaddingRight = UDim.new(0, right)
+				end
+			elseif handle.class == "Text" and instance:IsA("TextLabel") then
+				-- A PADDED `Text` LEAF (device report 2026-08-12, IMG_3691). The solver
+				-- adds a Text's authored padding to its reserved box and then returns at
+				-- the leaf without insetting anything — a container spends its padding
+				-- by placing children at rect + padding, and a leaf has none — so the
+				-- glyphs were drawn across the WHOLE padded box, flush against its
+				-- leading edge. The showcase's stat tiles are the shape that shows it:
+				-- a 27px plate holding a 15px label with 6px of padding a side, and the
+				-- label sitting on the plate's own rounded corner.
+				--
+				-- ALL FOUR SIDES, unlike Button's horizontal-only pair: a Button centres
+				-- its single line in the box the solver reserved, so its vertical
+				-- padding is already spent on the node's size, while a Text can wrap,
+				-- can be top/bottom aligned, and is the node whose own box this is. The
+				-- padding written here is exactly the padding `contentSize` measured
+				-- with, so measure and paint agree on every side.
+				local pad = instance:FindFirstChildOfClass("UIPadding")
+				local top, right, bottom, left = 0, 0, 0, 0
+				if type(value) == "number" then
+					top, right, bottom, left = value, value, value, value
+				elseif type(value) == "table" then
+					top = if type(value.top) == "number" then value.top else 0
+					right = if type(value.right) == "number" then value.right else 0
+					bottom = if type(value.bottom) == "number" then value.bottom else 0
+					left = if type(value.left) == "number" then value.left else 0
+				end
+				-- an all-zero inset on a node that never had one materializes nothing:
+				-- the instance budget stays exactly where it was for every unpadded
+				-- label in the tree
+				if pad == nil and (top ~= 0 or right ~= 0 or bottom ~= 0 or left ~= 0) then
+					pad = Instance.new("UIPadding")
+					pad.Parent = instance
+				end
+				if pad ~= nil then
+					pad.PaddingTop = UDim.new(0, top)
+					pad.PaddingRight = UDim.new(0, right)
+					pad.PaddingBottom = UDim.new(0, bottom)
+					pad.PaddingLeft = UDim.new(0, left)
 				end
 			end
 		elseif prop == "shape" then

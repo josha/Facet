@@ -67,6 +67,49 @@ local DECLARED_DEPRECATIONS: { Deprecation } = {
 		replacement = "viewportWidth",
 		note = "alias; the value never subtracted insets",
 	},
+	--[[ THE TWO EXTENT NAMES VirtualList RENAMED WHEN IT GAINED A SECOND AXIS
+		(docs/plans/swiftui-parity-round2.md §2.3). Both still WORK — that is what
+		these rows say — and a caller passing the old spelling on a vertical list
+		needs no edit at all. They are deprecated rather than kept because a
+		`rowHeight` on `axis = "x"` names a height that is really a width, and the
+		alias would have to lie to somebody. Passing the new name and the old one
+		together is refused at construction: it is one field. ]]
+	{
+		surface = "newVirtualList(spec.rowHeight)",
+		since = "0.9.0",
+		removeNoEarlierThan = "0.10.0",
+		replacement = "itemExtent",
+		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
+	},
+	--[[ THE ONLY ROUTE TO REDUCED MOTION, UNTIL IT WAS NOT (device-bug round
+		2026-08-12, C1; registered here by the Milestone-1 review, C3). Reduced
+		motion now arrives on its own — the renderer pushes the environment's
+		`reducedMotion` fact into `adapter.setReducedMotion` at attach and on every
+		change — so nothing has to pass this closure any more, and no production
+		caller ever did, which is why the setting reached nothing at all.
+
+		It KEEPS WORKING and is deprecated rather than removed (ADR-0011): it is
+		public, `billboard_target` forwards it, and a harness that wants to FORCE
+		reduced motion regardless of the environment still has a use for it. Its
+		meaning narrowed in that same change — it is an OR with the pushed fact, so
+		returning `false` no longer overrides a player who asked for less motion —
+		and a narrowing that is documented in prose but absent from the ledger is
+		invisible to every machine-readable upgrade check ADR-0011 exists for. ]]
+	{
+		surface = "screen_target.new(opts.isReducedMotion)",
+		since = "0.9.0",
+		removeNoEarlierThan = "0.10.0",
+		replacement = "adapter.setReducedMotion, pushed by the renderer from the environment",
+		note = "still accepted, and now OR-ed with the pushed fact: it can force reduced motion on, "
+			.. "never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it",
+	},
+	{
+		surface = "newVirtualList(spec.viewportHeight)",
+		since = "0.9.0",
+		removeNoEarlierThan = "0.10.0",
+		replacement = "viewportExtent",
+		note = 'axis-neutral rename; alias still accepted and identical on axis = "y"',
+	},
 }
 
 -- the ledger is the UNION of both halves, in a deterministic order: every

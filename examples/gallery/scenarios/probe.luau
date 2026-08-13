@@ -2,9 +2,10 @@
 -- Scenario 'probe': surface self-test (no ledger adoption row of its own).
 -- Proves the verification surface itself: mount through the real presenter,
 -- deterministic steps, env observation, instance/geometry export, reset.
--- Includes an overflowing ScrollView so the CURRENT (pre-adoption) scroll
--- behavior is captured as the frozen baseline for ledger row NS-A2
--- (contract §6 step 1: freeze a baseline where behavior will be matched).
+-- Includes an overflowing ScrollView (sized `fill` so IT overflows but the
+-- page never does) so the CURRENT (pre-adoption) scroll behavior is captured
+-- as the frozen baseline for ledger row NS-A2 (contract §6 step 1: freeze a
+-- baseline where behavior will be matched).
 
 return {
 	title = "Verification-surface probe",
@@ -38,9 +39,17 @@ return {
 				UI.Text({ id = "Title", text = "Scenario probe", textSize = 22 }),
 				UI.Text({ id = "Counter", text = counterText, textSize = 14 }),
 				UI.Button({ id = "Bump", label = "Bump" }),
+				-- `fill` (not the fixed 200px this used to be) so the ScrollView
+				-- takes whatever's left of the page after Title/Counter/Bump —
+				-- a fixed 200px was taller than a short landscape phone's whole
+				-- safe area with nothing to scroll the PAGE itself
+				-- (overflow_sweep, device bug round 2026-08-12). The 12 rows
+				-- still outgrow any share this gets, so it keeps overflowing
+				-- ITS OWN box — the NS-A2 baseline this scenario exists to
+				-- freeze — at every viewport, just never the page's.
 				UI.ScrollView({
 					id = "ProbeScroll",
-					height = { type = "fixed", px = 200 },
+					height = { type = "fill", weight = 1 },
 					children = rows,
 				}),
 			},

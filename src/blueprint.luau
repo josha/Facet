@@ -22,6 +22,12 @@ local dragContract = require("./input/drag_contract")
 -- composition declaration may say, read here for construction and by the solver
 -- on every solve, so the two can never disagree about what is legal
 local compositionLib = require("./layout/composition")
+-- the semantic feedback vocabulary and the `UI.sensoryFeedback` declaration
+-- contract (round 2 §3.3). Required for the same reason `drag_contract` is: the
+-- ruling on what a declaration may say lives with the vocabulary it cites, so
+-- the twelve verbs exist in exactly one place. The module requires nothing
+-- itself — no presentation code arrives with it.
+local feedbackContract = require("./present/feedback")
 
 local blueprint = {}
 
@@ -65,15 +71,21 @@ export type TypeRole = string
 
 -- a layout dimension: exactly one `type` with its own payload field
 export type Dim = {
-	type: string, -- "fixed" | "content" | "hug" | "fill" | "percent" | "minMax" | "aspect"
+	-- "fixed" | "content" | "hug" | "fill" | "percent" | "minMax" | "aspect" |
+	-- "containerRelative"
+	type: string,
 	px: (number | Metric)?, -- fixed
 	weight: number?, -- fill
-	fraction: number?, -- percent
+	fraction: number?, -- percent | containerRelative
 	offset: number?, -- percent: pixel adjustment applied before clamping
 	min: (number | Metric)?, -- percent clamp / minMax
 	preferred: (number | Metric)?, -- minMax
 	max: (number | Metric)?, -- percent clamp / minMax
 	ratio: number?, -- aspect
+	-- containerRelative's paging form (§2.5); write it with UI.containerRelativeFrame
+	count: number?,
+	span: number?,
+	spacing: number?,
 }
 
 -- padding / margin: one number or metric name, or per-side
@@ -98,6 +110,18 @@ export type BoxProps = {
 	anchor: Bound<string>?,
 	offsetX: Bound<number | Metric>?,
 	offsetY: Bound<number | Metric>?,
+	-- THIS child's own cross-axis alignment inside its stack parent's line
+	-- (Roblox `ItemLineAlignment`). Outranks the container's `align` and a nested
+	-- stack's own `align`, and unlike either it is legal on a LEAF
+	lineAlign: Bound<string>?,
+	-- the shrink pass (§2.4): `layoutPriority` is the tier (lowest gives way
+	-- first, default 0), `shrinkWeight` the proportion inside a tier (default 0 =
+	-- never shrinks, Roblox's `UIFlexMode.None`)
+	layoutPriority: Bound<number>?,
+	shrinkWeight: Bound<number>?,
+	-- how many of its row's columns this cell covers inside a UI.GridRow (§2.2,
+	-- default 1); read by nothing anywhere else
+	gridSpan: Bound<number>?,
 	alignH: Bound<string>?,
 	alignV: Bound<string>?,
 	shadow: Bound<any>?,
@@ -119,7 +143,13 @@ export type ContainerProps = {
 	children: { Blueprint }?,
 }
 
-export type ScreenSpec = BoxProps & ContainerProps & { gap: Bound<number | Metric>?, align: Bound<string>? }
+export type ScreenSpec = BoxProps & ContainerProps & {
+	gap: Bound<number | Metric>?,
+	align: Bound<string>?,
+	-- main-axis distribution of the leftover (§2.6): "start" (default) | "center" |
+	-- "end" | "spaceBetween" | "spaceAround" | "spaceEvenly"
+	distribute: Bound<string>?,
+}
 export type VStackSpec = ScreenSpec
 export type HStackSpec = ScreenSpec
 export type ZStackSpec = BoxProps & ContainerProps & { canvasGroup: boolean? }
@@ -138,10 +168,24 @@ export type GridSpec = BoxProps & ContainerProps & {
 	minColumnWidth: Bound<number | string>?,
 	itemSizing: Bound<string>?,
 }
+-- A ROW OF A ROW GRID (§2.2). Its own box is the grid's business, so it accepts no
+-- box properties at all — only its identity, its cells and the paint a full-width
+-- band wants. (`Region` is the other class shaped this way, for the same reason.)
+export type GridRowSpec = {
+	id: string?,
+	surface: Bound<string>?,
+	shadow: Bound<any>?,
+	gradient: Bound<any>?,
+	corners: Bound<any>?,
+	stroke: Bound<any>?,
+	zIndex: number?,
+	children: { Blueprint }?,
+}
 
 export type AdaptiveStackSpec = BoxProps & ContainerProps & {
 	gap: Bound<number | Metric>?,
 	align: Bound<string>?,
+	distribute: Bound<string>?,
 	axis: Bound<string>?,
 }
 export type ViewThatFitsSpec = BoxProps & { children: { Blueprint } }
@@ -567,6 +611,14 @@ function blueprint.Anchor(spec: AnchorSpec): Blueprint
 end
 function blueprint.Grid(spec: GridSpec): Blueprint
 	return make("Grid", spec)
+end
+-- GridRow (§2.2): one row of a ROW grid. A `UI.Grid` whose children are all
+-- `UI.GridRow` switches to row mode — column n is as wide as the widest natural cell
+-- in column n across every row, rather than the one shared width the flow grid gives
+-- every column. A Grid with NO GridRow child is the flow grid it has always been; a
+-- MIX is an authoring error, reported by the solve.
+function blueprint.GridRow(spec: GridRowSpec?): Blueprint
+	return make("GridRow", (spec :: any) or {})
 end
 -- AdaptiveStack (A-AL2): a stack whose axis is a REACTIVE prop, so a viewport or
 -- orientation change re-solves in place instead of remounting the subtree the way
@@ -1086,6 +1138,54 @@ function blueprint.dropTarget(bp: Blueprint, spec: dragContract.TargetSpec): Blu
 	return dragContract.attach(bp, dragContract.TARGET_PROP, dragContract.target(spec))
 end
 
+-- ===== sensory feedback (round 2 §3.3) ======================================
+-- UI.sensoryFeedback(bp, { trigger, event }) — SwiftUI's `.sensoryFeedback(_:
+-- trigger:)`. When `trigger` changes, `{ type = event, path = <this node> }` is
+-- emitted on the presenter's feedback bus, synchronously, in the write that
+-- moved it.
+--
+-- LuauUI STILL PLAYS NOTHING (`src/present/feedback.luau:4-5`). SwiftUI's
+-- modifier names a HAPTIC (`.impact`, `.selection`); this one names a semantic
+-- verb from the closed twelve, and what — if anything — is played is the
+-- subscriber's ruling. `src/client/haptics.luau` is one opt-in, default-off
+-- subscriber; a game that wants a sound instead subscribes the same bus.
+--
+-- Like the drag declarations it rides `meta` rather than the public prop bag
+-- (see drag_contract's "WHY `meta` AND NOT A PROP"), and for the same reason it
+-- is refused on a structural region: `When`/`ForEach`/`ErrorBoundary` mount no
+-- node of their own, `mount` copies `meta` only onto ordinary nodes, and an
+-- accepted-and-inert declaration is the defect class this boundary removes.
+local SENSORY_STRUCTURAL: { [string]: boolean } = { When = true, ForEach = true, ErrorBoundary = true }
+
+function blueprint.sensoryFeedback(bp: Blueprint, spec: feedbackContract.SensoryFeedbackSpec): Blueprint
+	if type(bp) ~= "table" or type(bp.class) ~= "string" then
+		error("LuauUI UI.sensoryFeedback: the first argument must be a blueprint", 0)
+	end
+	if SENSORY_STRUCTURAL[bp.class] then
+		error(
+			`LuauUI UI.sensoryFeedback cannot be applied to a UI.{bp.class} — a structural region mounts no node `
+				.. "of its own, so the declaration would be accepted and never emit anything. Fix: put it on the "
+				.. `blueprint the region returns, or on a UI.Box/UI.VStack around the UI.{bp.class}.`,
+			0
+		)
+	end
+	local decl = feedbackContract.declaration(spec)
+	local meta = if type(bp.meta) == "table" then table.clone(bp.meta) else {}
+	local declared: { any } = {}
+	for _, existing in (meta[feedbackContract.SENSORY_PROP] or {}) :: { any } do
+		table.insert(declared, existing)
+	end
+	table.insert(declared, decl)
+	meta[feedbackContract.SENSORY_PROP] = table.freeze(declared)
+	return table.freeze({
+		class = bp.class,
+		id = bp.id,
+		props = bp.props,
+		children = bp.children,
+		meta = table.freeze(meta),
+	}) :: any
+end
+
 -- UI.styleGroup({ shadow?, gradient?, corners?, stroke? }, blueprints, style?) —
 -- Group semantics: the modifier set applies to EACH contained element.
 --
@@ -1245,6 +1345,125 @@ function blueprint.offset(bp: Blueprint, x: number?, y: number?): Blueprint
 		extra.offsetY = y
 	end
 	return withProps(bp, extra, "offset")
+end
+
+-- UI.containerRelativeFrame(bp, spec) — size one axis against the nearest
+-- CONTAINER, not against the parent (§2.5).
+--
+-- THE WHOLE DISTINCTION IS THE RULER. `percent` already means "a fraction of what
+-- my parent offered me", and that is the wrong number for the two shapes SwiftUI
+-- introduced this for: a card that should be half the SCROLLER's viewport however
+-- many wrappers sit between it and the scroller, and a carousel whose pages are
+-- exactly a third of the viewport each. The container is the nearest ancestor that
+-- owns a viewport — a `UI.ScrollView`'s content viewport, else the surface root —
+-- so inserting a padded VStack between the page and the scroller does not resize
+-- the page, which with `percent` it would.
+--
+-- Two forms, and exactly one of them per call:
+--   { axis, fraction = 0.5 }                       half the container
+--   { axis, count = 3, span = 1, spacing = 8 }     SwiftUI's paging arithmetic,
+--       size = (viewport - spacing x (count - 1)) / count x span + spacing x (span - 1)
+--
+-- A SPEC TABLE, not positional arguments: three-or-more fields is the constitution's
+-- own rule for the shape a modifier takes (§16 E-18), and the closed key set means a
+-- misspelled `fractoin` is an error at the call site rather than a silent full-width
+-- box. `spacing` is a px number — it is the gutter between PAGES, which is the
+-- author's own paging arithmetic and not a theme-owned space step.
+local CRF_FIELDS: { [string]: boolean } = {
+	axis = true,
+	fraction = true,
+	count = true,
+	span = true,
+	spacing = true,
+}
+local CRF_AXES: { [string]: string } = { horizontal = "width", vertical = "height" }
+export type ContainerRelativeFrameSpec = {
+	axis: string, -- "horizontal" | "vertical"
+	fraction: number?, -- the fractional form
+	count: number?, -- the paging form: how many pages fill the container
+	span: number?, -- ...and how many of them this view covers (default 1)
+	spacing: number?, -- ...and the gutter between them (default 0)
+}
+function blueprint.containerRelativeFrame(bp: Blueprint, spec: ContainerRelativeFrameSpec): Blueprint
+	if type(spec) ~= "table" then
+		error(`LuauUI UI.containerRelativeFrame: expected a spec table, got {typeof(spec)}`, 0)
+	end
+	for k in spec :: any do
+		if not CRF_FIELDS[k] then
+			local names = {}
+			for f in CRF_FIELDS do
+				table.insert(names, f)
+			end
+			table.sort(names)
+			error(
+				`LuauUI UI.containerRelativeFrame: unknown field '{tostring(k)}'. Valid fields: {table.concat(
+					names,
+					", "
+				)}.`,
+				0
+			)
+		end
+	end
+	local prop = CRF_AXES[spec.axis :: any]
+	if prop == nil then
+		error(
+			`LuauUI UI.containerRelativeFrame: axis must be "horizontal" or "vertical" (got {tostring(spec.axis)})`,
+			0
+		)
+	end
+	local function positive(name: string, value: any)
+		if type(value) ~= "number" or value ~= value or value <= 0 then
+			error(`LuauUI UI.containerRelativeFrame: {name} must be a positive number (got {tostring(value)})`, 0)
+		end
+	end
+	-- ONE FORM PER CALL. `fraction` and `count` are two different rulers for the same
+	-- axis, and a call carrying both would have to pick one silently.
+	if spec.fraction ~= nil then
+		if spec.count ~= nil or spec.span ~= nil or spec.spacing ~= nil then
+			error(
+				"LuauUI UI.containerRelativeFrame: `fraction` is the fractional form and `count`/`span`/"
+					.. "`spacing` are the paging form — pass one form or the other, not both.",
+				0
+			)
+		end
+		positive("fraction", spec.fraction)
+	elseif spec.count ~= nil then
+		positive("count", spec.count)
+		if spec.count ~= math.floor(spec.count :: number) then
+			error(`LuauUI UI.containerRelativeFrame: count must be a whole number (got {tostring(spec.count)})`, 0)
+		end
+		if spec.span ~= nil then
+			positive("span", spec.span)
+			if spec.span ~= math.floor(spec.span :: number) then
+				error(`LuauUI UI.containerRelativeFrame: span must be a whole number (got {tostring(spec.span)})`, 0)
+			end
+			if (spec.span :: number) > (spec.count :: number) then
+				error(
+					`LuauUI UI.containerRelativeFrame: span ({spec.span}) cannot exceed count ({spec.count}) — a `
+						.. "view cannot cover more pages than the container holds.",
+					0
+				)
+			end
+		end
+		if spec.spacing ~= nil and (type(spec.spacing) ~= "number" or spec.spacing ~= spec.spacing) then
+			error(`LuauUI UI.containerRelativeFrame: spacing must be a number (got {tostring(spec.spacing)})`, 0)
+		end
+	else
+		error(
+			"LuauUI UI.containerRelativeFrame: pass either `fraction` (a share of the container) or `count` "
+				.. "(the paging form, with optional `span` and `spacing`).",
+			0
+		)
+	end
+	return withProps(bp, {
+		[prop] = {
+			type = "containerRelative",
+			fraction = spec.fraction,
+			count = spec.count,
+			span = spec.span,
+			spacing = spec.spacing,
+		},
+	}, "containerRelativeFrame")
 end
 
 -- UI.aspectRatio(bp, ratio) — derive the unconstrained axis from the other.

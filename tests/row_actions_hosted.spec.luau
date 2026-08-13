@@ -62,6 +62,16 @@ local function expectedTrayWidth(label: string): number
 	return math.max(minWidth, measured.width + 2 * pad)
 end
 
+-- ...and the distance the ROW travels to uncover that one-action band: the plate
+-- plus the theme's own row-facing `rowGutter`, the negative space the band keeps
+-- between itself and the row (device bug round 2026-08-12, finding A1a). Same
+-- rule the `trayGap` fix already established — the tray uncovered has to be the
+-- tray drawn.
+local function expectedTravel(label: string): number
+	local gutter = themeSnapshot.resolveNumber(themeSnapshot.neutral(), "controls.rowActions.rowGutter") or 0
+	return expectedTrayWidth(label) + gutter
+end
+
 -- the `rectOf` the pointer handlers are handed. Every row_actions handler
 -- ignores it past its own signature (it reads live rects through the
 -- controller instead), same as the composeWithReorder tests' own stub.
@@ -267,7 +277,7 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		w.tick(FRAME)
 		w.up(120, 20)
 		w.settle()
-		local tray = expectedTrayWidth("Delete")
+		local tray = expectedTravel("Delete")
 		expect(w.engine._isOpen()).toBe(true)
 		expect(w.engine.dump().openEdge).toBe("trailing")
 		expect(w.engine.dump().offset).toBeCloseTo(-tray, 0.01)
@@ -439,7 +449,7 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		w.settle()
 		expect(w.engine._isOpen()).toBe(true)
 		expect(w.engine.dump().openEdge).toBe("leading")
-		expect(w.engine.dump().offset).toBeCloseTo(expectedTrayWidth("Flag"), 0.01)
+		expect(w.engine.dump().offset).toBeCloseTo(expectedTravel("Flag"), 0.01)
 	end)
 
 	-- ===== fix round 1 (review findings) ====================================

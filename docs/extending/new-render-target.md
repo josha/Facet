@@ -47,7 +47,13 @@ specification:
   `setScrollPosition`, `observeScroll`, `getScrollPosition`, `setScrollHandler`,
   `setEngineSelection`, `setVisible`, `setDragDetector`,
   `setTouchGestureHandlers`, `setHitRect`, `measureTextWidths`,
-  `setRootVisible`, `setNativeTransitionsEnabled`, `setRootDisplayOrder`.
+  `setRootVisible`, `setNativeTransitionsEnabled`, `setReducedMotion`,
+  `setRootDisplayOrder`, `setScrollIndicatorPolicy`.
+  The two motion names are the two halves of one fact the renderer pushes from
+  the environment: `setNativeTransitionsEnabled` reaches a StyleSheet's declared
+  transitions, `setReducedMotion` reaches the target's own bespoke tweens.
+  Implement `setReducedMotion` if your target animates anything itself — without
+  it a player's reduced-motion setting silently does nothing.
   Decide each deliberately — "not implemented yet" is a legal answer, a
   silently missing method is not. (Five of these were CALLED by the renderer
   and undeclared until 0.8.0, so a target could pass the checker with

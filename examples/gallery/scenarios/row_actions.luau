@@ -105,7 +105,12 @@ end
 -- per-id read/flagged signals (fine-grained — an action never rebuilds the
 -- whole row list, mirroring examples/gallery/examples/02_playlist_table's
 -- own `ratingFor` shape).
-local function newMailModel(core: any)
+--
+-- `reflow` is the CALLER'S deletion animation (see `animateReflow` in `build`
+-- below): a deletion is the one mutation on this model that moves every row
+-- after it, and nothing animated that. Optional, and it defaults to running the
+-- mutation bare, so a harness with no presenter builds the same model.
+local function newMailModel(core: any, reflow: ((fn: () -> ()) -> ())?)
 	local rows = core:signal(cloneRows())
 	local readFor: { [string]: any }, flaggedFor: { [string]: any } = {}, {}
 	for _, m in SEED do
@@ -125,6 +130,22 @@ local function newMailModel(core: any)
 			sig:set(not sig:get())
 		end
 	end
+	--[[ THE RE-FLOW IS THE ANIMATION (device bug round 2026-08-12, finding C8a:
+		"...and the next row doesn't animate vertically smoothly").
+
+		The framework had already fixed the row's own departure; what nobody was
+		animating is what happens to every row BELOW it, which simply teleported up
+		by one row height on the commit frame. That is not a row-actions defect —
+		the composite has no idea the owner's data changed — it is the ordinary
+		SwiftUI pattern, and `presenter.withAnimation(class, fn)` is what shipped
+		for it in this same mission (docs/plans/swiftui-parity-round2.md §Phase 1).
+		The deletion is committed HERE, by the screen, which is the object that has
+		the presenter, so there is no new plumbing at all.
+
+		THE SLIDE ITSELF STAYS ON ITS OWN SPRING and must: `withAnimation` diffs
+		committed layout between commits, so it structurally cannot express a
+		continuous per-frame drag. It animates the consequence of a discrete
+		mutation, which is exactly what a deletion is. ]]
 	function model.remove(id: string)
 		local out = {}
 		for _, m in rows:get() do
@@ -132,7 +153,13 @@ local function newMailModel(core: any)
 				table.insert(out, m)
 			end
 		end
-		rows:set(out)
+		if reflow ~= nil then
+			reflow(function()
+				rows:set(out)
+			end)
+		else
+			rows:set(out)
+		end
 	end
 	function model.ids(): { string }
 		local out = {}
@@ -229,11 +256,52 @@ return {
 		local LuauUI = ctx.LuauUI
 		local UI = LuauUI.UI
 		local core = ctx.core
+		local scope = core:scope("row-actions-scenario")
+
+		-- THE CHROME GIVES WAY, NOT THE CONTENT (device report 2026-08-12,
+		-- IMG_3689). In landscape the showcase's picker strip takes 120px off the
+		-- top, and this screen's own chrome — a `title`-sized heading, a mode bar
+		-- and the Table's Edit toolbar — took the rest: the mail table solved to
+		-- 27px and then to ZERO, entirely below the fold, with a `fill` pane
+		-- absorbing the squeeze so quietly that no diagnostic fired until the last
+		-- 3px. A screen whose subject is a list has to spend a short viewport on
+		-- the list.
+		--
+		-- `heightClass` is the framework's own signal for "the vertical room is
+		-- scarce" (`adaptive.HEIGHT_BREAKPOINTS`, ADR-0023) and it is a READABLE, so
+		-- it re-resolves on rotation instead of freezing whichever orientation
+		-- booted first (docs/lessons/the-solver-already-told-you.md §5). The heading
+		-- is what goes: the demo picker's own chip already names this demo on screen,
+		-- so on a short viewport it is the one piece of chrome that says nothing the
+		-- player cannot already see.
+		local conditions = LuauUI.adaptive.conditions(core, ctx.env, { scope = scope })
+		local showHeading = scope:own(core:memo(function(use)
+			return not use(conditions.isShort)
+		end))
 
 		local mode = core:signal("list")
 
+		--[[ THE DELETION'S RE-FLOW, ANIMATED (device bug round 2026-08-12, finding
+			C8a's third part — see `model.remove`'s own comment above for the why).
+			`"container"` is the class for a large surface re-settling; the row's own
+			finger-tracked slide keeps its own `"object"` spring, untouched.
+
+			Guarded, and not for tidiness: a harness that builds this scenario without
+			a presenter (or against an older one) must still be able to delete a row —
+			the animation is the decoration, the mutation is the fact. Reduced motion
+			needs no branch here at all: `withAnimation` installs no records under it
+			(presenter.luau), so `fn` runs and the layout lands exactly, instantly. ]]
+		local function animateReflow(fn: () -> ())
+			local presenter = ctx.presenter
+			if presenter == nil or type(presenter.withAnimation) ~= "function" then
+				fn()
+				return
+			end
+			presenter.withAnimation("container", fn)
+		end
+
 		-- ===== surface 1: plain ScrollView > VStack, hand-wrapped rows =========
-		local listModel = newMailModel(core)
+		local listModel = newMailModel(core, animateReflow)
 		local coordinator = LuauUI.newRowActionsCoordinator(core)
 		local listRows: { [string]: any } = {}
 
@@ -344,7 +412,9 @@ return {
 		})
 
 		-- ===== surface 2: reorderable, editable Table with `rowActions` ========
-		local tableModel = newMailModel(core)
+		local tableModel = newMailModel(core, animateReflow)
+		-- the row `onPrimaryAction` last opened (nil until one is)
+		local openedKey = scope:own(core:signal(nil :: string?))
 		local editingSignal = core:signal(false)
 		local tbl = LuauUI.newTable(LuauUI, core, {
 			id = "MailTable",
@@ -368,6 +438,17 @@ return {
 				tableModel.reorder(keys, toIndex)
 			end,
 			editing = editingSignal,
+			-- THE SECOND VERB (parity round 2 §3.4). Selecting a row and OPENING it
+			-- are different things, and this surface is where you can feel the
+			-- difference: click a row once and it is selected, DOUBLE-click (or
+			-- Return / ButtonA on the focused row, or — on touch — tap the row you
+			-- already selected) and it opens, which here means "read it". The tray
+			-- gestures are untouched: a tap that closes an open tray is consumed
+			-- before this ever runs, so swiping never opens a message by accident.
+			onPrimaryAction = function(item: any, key: string)
+				openedKey:set(key)
+				tableModel.markRead(item.id)
+			end,
 			rowActions = function(item: any): any
 				local actions = actionsFor(tableModel, item.id)
 				return { leading = actions.leading, trailing = actions.trailing, fullSwipe = actions.fullSwipe }
@@ -407,7 +488,7 @@ return {
 		-- list's own `Hit` already supplies the whole-row focus ring and
 		-- tap/Return/ButtonA activate, so unlike "list"'s `rowContent` this one
 		-- is not itself a `UI.Button`.
-		local vlModel = newMailModel(core)
+		local vlModel = newMailModel(core, animateReflow)
 		local function vlRowContent(item: any): any
 			local unreadDot = vlModel.readFor[item.id]
 			local flagged = vlModel.flaggedFor[item.id]
@@ -460,14 +541,45 @@ return {
 			})
 		end
 
+		-- the hosted list's window, published from its own solved pane (see
+		-- `viewportHeight` below). 336 is the boot value only — the first solve
+		-- replaces it with the height this device really has.
+		local ROW_HEIGHT = 84
+		local VLIST_GAP = 8 -- VListPane's own "s" gap, between the hint and the list
+		local VLIST_PANE = "/MailActions/VListWhen/then/VListPane"
+		local vlistWindow = core:signal(336)
+
 		local vlist = LuauUI.newVirtualList(LuauUI, core, {
 			id = "VList",
 			rows = vlModel.rows,
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = 84,
-			viewportHeight = 336, -- 4 rows visible
+			rowHeight = ROW_HEIGHT,
+			-- THE WINDOW IS THE PANE THE SOLVER GAVE IT (device report 2026-08-12,
+			-- IMG_3689's sibling defect). This was a literal `336 -- 4 rows visible`,
+			-- measured once on a desktop: on a landscape phone the list painted
+			-- 227-245px past its own pane and over everything below it, and the solver
+			-- said so at every landscape viewport. A constant that does not adapt is a
+			-- constant that is wrong on some real device
+			-- (docs/lessons/the-solver-already-told-you.md).
+			--
+			-- A Readable is what `newVirtualList` documents for exactly this ("a list
+			-- filling a container... hands in a Readable and BOTH consumers of the
+			-- number track it"). What it must NOT be is arithmetic over the viewport:
+			-- the first attempt at this fix was `viewportHeight - chrome` and it was
+			-- wrong on a portrait phone by 64px, because the mode bar re-columns to
+			-- two rows there and the chrome is the SOLVER's decision, not a number
+			-- this file can hold. Lesson §9: reproduce a framework's inputs, never its
+			-- result — and here the input IS the solved pane, fed back through the
+			-- presenter's `onGeometry` seam below, exactly as the showcase's picker
+			-- strip publishes its own measured height.
+			--
+			-- IT CANNOT CHASE ITS OWN TAIL: `VListPane` takes `fill`, so its height is
+			-- decided by the screen and never by the list inside it. One solve after a
+			-- resize the window is exact; the literal below is only the value for the
+			-- frame before any geometry exists.
+			viewportHeight = vlistWindow,
 			overscan = 2,
 			cell = function(item: any)
 				return vlRowContent(item)
@@ -523,13 +635,37 @@ return {
 		local screen = UI.Screen({
 			id = "MailActions",
 			surface = "base",
-			padding = "m",
-			gap = "s",
+			-- ...and the GUTTERS give way too, for the same reason and off the same
+			-- Readable: on a 320px-tall landscape phone the screen's own frame and
+			-- inter-band gaps were 40px of the 200px it had. Spacing-step NAMES, so a
+			-- theme package still owns what "s" and "m" are worth.
+			padding = scope:own(core:memo(function(use)
+				return if use(conditions.isShort) then "s" else "m"
+			end)),
+			gap = scope:own(core:memo(function(use)
+				return if use(conditions.isShort) then "xs" else "s"
+			end)),
 			children = {
-				UI.Text({ id = "Title", text = "Row actions — Mail", textSize = "title" }),
-				UI.HStack({
+				UI.When({
+					id = "HeadingWhen",
+					condition = showHeading,
+					thenView = function()
+						return UI.Text({ id = "Title", text = "Row actions — Mail", textSize = "title" })
+					end,
+				}),
+				-- A GRID, NOT AN HSTACK (same device round, 320x640: "content
+				-- overflows this hstack by 24px on the main axis" — "VirtualList" is a
+				-- long word and three buttons of it do not fit a 288px content box).
+				-- `minColumnWidth = "intrinsic"` derives the column count from the
+				-- widest button's own measured width under the ACTIVE theme, every
+				-- solve, so the bar re-columns on a narrow phone and on a theme swap
+				-- without a single viewport number in this file. The three buttons stay
+				-- direct children, so `/MailActions/ModeBar/Mode*` is unchanged.
+				UI.Grid({
 					id = "ModeBar",
+					minColumnWidth = "intrinsic",
 					gap = "s",
+					width = { type = "fill", weight = 1 },
 					children = {
 						UI.Button({
 							id = "ModeList",
@@ -592,7 +728,27 @@ return {
 		local result: any
 		result = {
 			screen = screen,
-			present = {},
+			present = {
+				-- THE HOSTED LIST'S WINDOW, FED FROM ITS OWN SOLVED PANE. `onGeometry`
+				-- is a broadcast (presenter.luau: "solved rects are a notification"),
+				-- so composing it here costs the screen's own controls nothing. The
+				-- pane exists only in "vlist" mode; in the other two `rectOf` answers
+				-- nil and the last good window simply stands.
+				onGeometry = function(rectOf: (string) -> any)
+					local pane = rectOf(VLIST_PANE)
+					if pane == nil or type(pane.h) ~= "number" then
+						return
+					end
+					local hint = rectOf(VLIST_PANE .. "/VListHint")
+					local spent = if hint ~= nil and type(hint.h) == "number" then hint.h + VLIST_GAP else 0
+					-- one row is the floor: a one-row list on a 320px-tall landscape
+					-- phone is small, and it is ON SCREEN, which is the whole point
+					local window = math.max(ROW_HEIGHT, math.floor(pane.h - spent))
+					if window ~= vlistWindow:get() then
+						vlistWindow:set(window)
+					end
+				end,
+			},
 
 			steps = {
 				-- state drivers -----------------------------------------------------
@@ -691,6 +847,7 @@ return {
 					tableIds = tableModel.ids(),
 					vlistIds = vlModel.ids(),
 					tableEditing = editingSignal:get(),
+					tableOpenedKey = openedKey:get(),
 					listRowDumps = dumps,
 					vlistHosted = vlist._hostedDebug(),
 				}
@@ -707,6 +864,9 @@ return {
 					tbl.dispose()
 				end
 				vlist.dispose()
+				-- the heightClass memos die with the fixture (RR-8), exactly like
+				-- adaptive_controls' own `adaptive.conditions` scope
+				scope:dispose()
 			end,
 		}
 

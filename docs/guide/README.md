@@ -103,7 +103,8 @@ LuauUI.newActionSystem(.) -- the input pipeline
 LuauUI.newPresenter(...)  -- owns screens and modals on screen
 LuauUI.newFocusGraph(...) -- keyboard/gamepad focus and navigation
 LuauUI.newTable(...)      -- a data-table control
-LuauUI.newVirtualList(..) -- a large scrolling list that only builds visible rows
+LuauUI.newVirtualList(..) -- a large scrolling collection (either axis) that
+                          --   only builds the visible items
 LuauUI.newPopupButton(..) -- a button that opens a popup of selectable options
 LuauUI.newTextInput(...)  -- a single-line text-entry control
 LuauUI.newChip(...)       -- a selectable filter/action pill

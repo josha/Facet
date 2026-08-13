@@ -88,6 +88,19 @@ local function expectedTrayWidth(w: any, path: string, label: string, metrics: a
 	return math.max(minWidth, text_metrics.measure(label, facts.font, facts.size, math.huge).width + 2 * pad)
 end
 
+-- ...and the distance the ROW travels to uncover that plate, which is NOT the
+-- same number (device bug round 2026-08-12, finding A1a): the band carries the
+-- theme's own row-facing gutter — `controls.rowActions.rowGutter`, the negative
+-- space that keeps the plate off the row it is acting on — and the row has to
+-- travel far enough to uncover that too, exactly as it already had to for
+-- `trayGap`. Resolved from the same snapshot the tray was measured against, so a
+-- retuned theme moves both halves together.
+local function expectedTravel(w: any, path: string, label: string, metrics: any?): number
+	local snap = metrics or themeSnapshot.neutral()
+	local gutter = themeSnapshot.resolveNumber(snap, "controls.rowActions.rowGutter") or 0
+	return expectedTrayWidth(w, path, label, metrics) + gutter
+end
+
 -- a metrics snapshot with ONE control family retuned — a theme package's whole
 -- effect on a tray, without authoring a whole compliant package. Cloned down to
 -- the one table that moves; everything else stays the neutral snapshot by
@@ -719,15 +732,24 @@ describe("VirtualList rowActions (Task 3): lazy hosted engines", function()
 		-- its height, and only then fires; the row is still a whole row width from
 		-- home at that moment, and `committed` has just been cleared
 		local firedAt: number? = nil
+		local deepest = 0
 		for i = 1, 400 do
 			w.tick(FRAME)
+			deepest = math.min(deepest, w.list.engagedOffset:get())
 			if #fired == 1 then
 				firedAt = i
 				break
 			end
 		end
 		expect(firedAt).never().toBeNil()
-		expect(w.list.engagedOffset:get()).toBeLessThan(-rect.w * 0.5) -- parked, mid-flight
+		-- THE ROW REALLY WAS CARRIED OFF, asserted over the whole trace rather than
+		-- at the fire frame. It used to still BE there at the fire frame, because the
+		-- chain fired and then sprang the row home over ~65 more frames — the second
+		-- half of device finding C8a ("the row reappears quickly before the delete
+		-- happens"), now deferred to the next sync and snapped rather than flown. See
+		-- the standalone mirror in tests/row_actions_input.spec.luau for the full
+		-- note; the guarantee this case exists for — exactly one fire — is unchanged.
+		expect(deepest).toBeLessThan(-rect.w * 0.5)
 		-- ...and swipe it again, right here — the whole repro
 		w.adapter.pointerDown(hit, originX, y, "mouse")
 		w.tick(FRAME)
@@ -908,13 +930,14 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 			measurement oracle at the theme's own pad/floor, never this control's
 			arithmetic restated. ]]
 		local expected = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-expected)
+		local travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-travel)
 		expect(w.debug().engagedKey).toBe("r2")
 		-- ...and the number is the button's actual painted width, not a
 		-- coincidence: the row is open at exactly the width of what it revealed
 		local button = w.adapter.node(trayAction("r2", "trailing", "delete"))
 		expect(button.rect.w).toBe(expected)
-		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(-expected)
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(-travel)
 	end)
 
 	it("(u) the tray is measured against the LIST'S OWN env, not the neutral theme (Task 3 carried item 1)", function()
@@ -934,7 +957,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.release()
 		w.settle()
 		local neutralWidth = expectedTrayWidth(w, action, "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-neutralWidth)
+		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, action, "Delete"))
 		local retunedWidth = expectedTrayWidth(w, action, "Delete", retuned)
 		expect(retunedWidth ~= neutralWidth).toBe(true) -- a real differential
 		w.close()
@@ -944,7 +967,7 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
-		expect(w.list.engagedOffset:get()).toBe(-retunedWidth)
+		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, action, "Delete", retuned))
 		-- ...and the PAINTED button agrees, which is the whole point: measured
 		-- and painted are the same number under the same theme
 		expect(w.adapter.node(trayAction("r2", "trailing", "delete")).rect.w).toBe(retunedWidth)
@@ -1192,19 +1215,33 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(w.debug().engagedKey).toBeNil()
 	end)
 
-	it("(y) the PHANTOM ROW: a fired commit's return flight keeps its tray and takes no gesture", function()
+	it("(y) the PHANTOM ROW: a fired commit leaves nothing standing, and the row is reusable", function()
 		--[[ The consumer that does NOT remove a destructively-committed row
-			(row_actions' own redteam item 5). Between the fire and the row
-			arriving home, `commitLatched` refuses every new gesture — so the
-			question Task 4 has to answer is what the OVERLAY does in that window.
+			(row_actions' own redteam item 5) — the "phantom row" case. What the
+			OVERLAY does through the commit is the question Task 4 had to answer.
 
-			It paints the tray, and that is deliberate: the overlay parents the
-			ENGINE's own tray views, whose reveal memo is `openEdge`, falling back
-			to the SIGN of `offset` — the same rule a standalone row uses, for the
-			same reason (a row still visibly off its rest position has visibly
-			vacated the strip the tray occupies; blanking it would flash empty
-			space under a sliding row). No extra guard, and none wanted: parity
-			with standalone/Table is the specification here. ]]
+			THE ANSWER CHANGED, and it changed because the game director filmed the
+			old one (device bug round 2026-08-12, finding C8a — "the row goes fully
+			away but the delete/flag buttons show up and then animate away
+			vertically? That's odd — the row should just go away", plus "then the row
+			reappears quickly before the delete happens").
+
+			It USED to paint the tray for the commit's whole duration, on the
+			argument that a row visibly off its rest position has visibly vacated the
+			strip the tray occupies. Measured, that argument does not survive: the
+			band stood fully painted for 95 frames (1.58 s) on a row that was
+			entirely off-screen, and was then squashed vertically as the height
+			collapsed. And when the chain finished it put the row's paint back — full
+			height, springing home from a whole row width out — before the owner had
+			a chance to remove it.
+
+			Both are fixed in the SHARED engine (`committingSig` and the deferred
+			`finishCommit` restore, src/controls/row_actions.luau), so this case now
+			asserts the new contract, which is still parity with standalone/Table:
+			a destructive commit carries the row off, leaves NOTHING standing where
+			it was, and puts a surviving row back with a snap rather than a flight.
+			The guarantees this case was written for are all still here — one fire,
+			the latched row refusing a new gesture, and a clean end state. ]]
 		local fired: { string } = {}
 		local w = world({
 			rowActions = function(item: any): any
@@ -1223,27 +1260,49 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 			end,
 		})
 		local rect = w.adapter.node(rowHit("r2")).rect
+		local rowHeight = w.adapter.node(rowPath("r2")).rect.h
 		w.dragLeft("r2", rect.w * 0.75)
 		w.release()
+		local deepest = 0
+		local carriedClear = false
 		for _ = 1, 400 do
 			w.tick(FRAME)
+			deepest = math.min(deepest, w.list.engagedOffset:get())
+			-- ...once the row itself has been carried clear, NOTHING may still be
+			-- painted in the strip it left (C8a's first half)
+			if w.list.engagedOffset:get() <= -rect.w * 0.95 then
+				carriedClear = true
+				expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).toBeNil()
+			end
+			if carriedClear and #fired == 0 then
+				break -- parked off-row with the collapse still playing: still LATCHED
+			end
 			if #fired == 1 then
 				break
 			end
 		end
-		expect(fired).toEqual({ "r2" })
-		-- parked mid-flight, and the tray is still there with it
-		expect(w.list.engagedOffset:get() < -rect.w * 0.5).toBe(true)
-		expect(w.adapter.node(trayGroup("r2"))).never().toBeNil()
-		expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
-		-- ...and the latched row takes no new gesture (D1's own guard, unchanged)
+		expect(carriedClear).toBe(true)
+		expect(deepest).toBeLessThan(-rect.w * 0.5) -- it really was carried a row width out
+		--[[ THE LATCHED ROW TAKES NO NEW GESTURE (D1's own guard, unchanged, and now
+			exercised where the latch actually lives). The window used to be the
+			RETURN FLIGHT after the fire, and that flight no longer exists — a
+			surviving row is snapped home on the next sync instead (device finding
+			C8a's second half). The latch itself is unchanged and still covers the
+			whole commit, so the press is made HERE, with the row parked off-row and
+			the collapse still playing: exactly the state whose live `offset` used to
+			seed `drag.startOffset` past the commit threshold. ]]
 		w.dragLeft("r2", 40)
-		expect(w.list.engagedOffset:get() < -rect.w * 0.5).toBe(true)
 		w.release()
+		-- refused: the row is still off-row, exactly where the commit put it. (Not an
+		-- equality: the slide-off spring is still finishing, so the number moves —
+		-- what must not happen is the gesture taking the row over.)
+		expect(w.list.engagedOffset:get()).toBeLessThan(-rect.w * 0.9)
 		w.settle(400)
 		expect(fired).toEqual({ "r2" }) -- still exactly one
 		expect(w.debug().engagedKey).toBeNil()
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
+		-- ...and a row the owner kept is a NORMAL row again: full height, at rest
+		expect(w.adapter.node(rowPath("r2")).rect.h).toBe(rowHeight)
 	end)
 
 	it("(z) an open row that unmounts and comes back is still slid", function()
@@ -1377,7 +1436,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(w.list.engagedOffset:get() < 0).toBe(true)
 		expect(w.adapter.node(trayAction("r2", "trailing", "delete"))).never().toBeNil()
 		expect(w.adapter.node(tray("r2", "leading"))).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(-expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete"))
+		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete"))
 		w.close()
 
 		-- LEADING: the same row, the other direction — mirrored sign, and the
@@ -1389,7 +1448,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(w.list.engagedOffset:get() > 0).toBe(true)
 		expect(w.adapter.node(trayAction("r2", "leading", "flag"))).never().toBeNil()
 		expect(w.adapter.node(tray("r2", "trailing"))).toBeNil()
-		expect(w.list.engagedOffset:get()).toBe(expectedTrayWidth(w, trayAction("r2", "leading", "flag"), "Flag"))
+		expect(w.list.engagedOffset:get()).toBe(expectedTravel(w, trayAction("r2", "leading", "flag"), "Flag"))
 		-- the leading tray is anchored at the row's LEFT edge, where it was revealed
 		expect(w.adapter.node(trayAction("r2", "leading", "flag")).rect.x).toBe(0)
 		-- ...and the leading action is the one that fires
@@ -1406,12 +1465,12 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
-		local trayWidth = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+		local travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-travel)
 		w.close()
 
 		-- UNDER half, with no flick in the gesture: back to closed, tray gone
-		local short = trayWidth * 0.4
+		local short = travel * 0.4
 		expect(short > LOCK).toBe(true) -- still a real horizontal gesture
 		w.dragLeftNoFlick("r2", short)
 		expect(w.list.engagedOffset:get()).toBeCloseTo(-short, 0.001) -- it tracked the finger...
@@ -1422,11 +1481,11 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 
 		-- PAST half, same shape of gesture: settles open at the measured width
-		w.dragLeftNoFlick("r2", trayWidth * 0.7)
+		w.dragLeftNoFlick("r2", travel * 0.7)
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r2")
-		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+		expect(w.list.engagedOffset:get()).toBe(-travel)
 	end)
 
 	it("(P2b) REGRESSION: every later short swipe on the SAME row also snaps back (the reused spring)", function()
@@ -1447,7 +1506,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 			green: every existing case swipes a fresh row once. ]]
 		local fired: { string } = {}
 		local w = world({ rowActions = trailingActions(fired) })
-		local trayWidth: number? = nil
+		local travel: number? = nil
 		for _ = 1, 3 do
 			w.dragLeftNoFlick("r2", 30) -- a real gesture, under the open threshold
 			expect(w.list.engagedOffset:get()).toBeCloseTo(-30, 0.001)
@@ -1464,8 +1523,8 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
-		trayWidth = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-(trayWidth :: number))
+		travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-(travel :: number))
 		expect(#fired).toBe(0)
 	end)
 
@@ -1526,7 +1585,7 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.settle(400)
 		expect(fired).toEqual({}) -- NOT committed
 		expect(w.debug().engagedKey).toBe("r2") -- left open instead
-		expect(w.list.engagedOffset:get()).toBe(-expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete"))
+		expect(w.list.engagedOffset:get()).toBe(-expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete"))
 		-- ...and the row never collapsed on the way (a commit's own signature)
 		expect(w.adapter.node(rowPath("r2")).rect.h).toBe(40)
 		-- the action is still reachable the ordinary way (a destructive tap runs
@@ -1614,15 +1673,15 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		w.dragLeft("r2", 80)
 		w.release()
 		w.settle()
-		local trayWidth = expectedTrayWidth(w, trayAction("r2", "trailing", "delete"), "Delete")
-		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+		local travel = expectedTravel(w, trayAction("r2", "trailing", "delete"), "Delete")
+		expect(w.list.engagedOffset:get()).toBe(-travel)
 
 		w.dragLeft("r4", 80)
 		w.release()
 		w.settle()
 		expect(w.debug().engagedKey).toBe("r4")
 		expect(w.debug().engineCount).toBe(2) -- both rows kept their engines...
-		expect(w.list.engagedOffset:get()).toBe(-trayWidth)
+		expect(w.list.engagedOffset:get()).toBe(-travel)
 		-- ...and r2 is closed: no tray, no slide, and its own content is flat
 		expect(w.adapter.node(trayGroup("r2"))).toBeNil()
 		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)

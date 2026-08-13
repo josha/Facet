@@ -549,11 +549,14 @@ local SLOT_FILL_TOKEN: { [string]: string } = {
 	stepperPlate = "$Control",
 	toggleTrack = "$Control",
 	toggleKnob = "$SurfaceStrong",
+	-- the indeterminate spinner's dot (parity round 2 §3.1): an unskinned
+	-- spinner is a ring of accent dots, the same flat truth `barFill` carries
+	spinner = "$Accent",
 }
 -- slots whose fallback shape is a CIRCLE (a thumb, a counter seal, a switch
 -- knob): a square fallback under round art reads as a different control, not as
 -- a degraded one
-local SLOT_ROUND: { [string]: boolean } = { sliderThumb = true, badge = true, toggleKnob = true }
+local SLOT_ROUND: { [string]: boolean } = { sliderThumb = true, badge = true, toggleKnob = true, spinner = true }
 
 local function slotRadius(metrics: any, slot: string): number
 	if slot == "panel" then

@@ -45,6 +45,11 @@ local function minimalInstance(core: any, class: string): any
 		return UI.ScrollView({ id = "L", children = { UI.Box({ id = "c" }) } })
 	elseif class == "Anchor" then
 		return UI.Anchor({ id = "A", children = { UI.Box({ id = "c", anchor = "topLeft" }) } })
+	elseif class == "GridRow" then
+		-- a GridRow is only meaningful inside a Grid (that is the node that derives
+		-- the columns from every row), so the conformance instance is the Grid that
+		-- gives it its columns — the same shape `Region` takes above
+		return UI.Grid({ id = "Gr", children = { UI.GridRow({ id = "R", children = { UI.Box({ id = "c" }) } }) } })
 	elseif class == "AdaptiveStack" then
 		return UI.AdaptiveStack({ id = "As", axis = "y", children = { UI.Box({ id = "c" }) } })
 	elseif class == "ViewThatFits" then

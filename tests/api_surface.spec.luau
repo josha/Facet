@@ -53,7 +53,13 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 		local schema = require("../src/blueprint_schema") :: any
 		local generated = schema.deprecations()
 		local ledger = LuauUI.DEPRECATIONS :: { any }
-		expect(#ledger).toBe(#generated + 2)
+		-- FIVE declared entries: the two 0.8.0 rows, the two 0.9.0 VirtualList extent
+		-- renames that came with `axis` (an alias is only a deprecation if the ledger
+		-- says so — parity round 2 §2.3), and `screen_target.new(opts.isReducedMotion)`,
+		-- which was deprecated in prose in two places and declared in neither until
+		-- the Milestone-1 review (C3) — a deprecation with no `since` and no
+		-- `removeNoEarlierThan` is invisible to every upgrade check ADR-0011 defines
+		expect(#ledger).toBe(#generated + 5)
 		-- schema entries come first, in their own deterministic order
 		for i, entry in generated do
 			expect(ledger[i].surface).toBe(entry.surface)
@@ -68,6 +74,16 @@ describe("semantic versioning and deprecation (ADR-0011)", function()
 		local contentWidth = declared["adaptive.conditions().contentWidth"]
 		expect(contentWidth ~= nil).toBe(true)
 		expect(contentWidth.replacement).toBe("viewportWidth")
+		local rowHeight = declared["newVirtualList(spec.rowHeight)"]
+		expect(rowHeight ~= nil).toBe(true)
+		expect(rowHeight.replacement).toBe("itemExtent")
+		local viewportHeight = declared["newVirtualList(spec.viewportHeight)"]
+		expect(viewportHeight ~= nil).toBe(true)
+		expect(viewportHeight.replacement).toBe("viewportExtent")
+		local reducedMotion = declared["screen_target.new(opts.isReducedMotion)"]
+		expect(reducedMotion ~= nil).toBe(true)
+		expect(reducedMotion.since).toBe("0.9.0")
+		expect(reducedMotion.removeNoEarlierThan).toBe("0.10.0")
 	end)
 
 	it("every entry gives at least one MINOR of notice, and the ledger is frozen", function()

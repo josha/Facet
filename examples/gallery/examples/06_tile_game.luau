@@ -271,13 +271,43 @@ local function build(LuauUI: any, core: any, deps: any)
 				children = {
 					UI.Text({ id = "Title", text = "LuauUI Tiles", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
-					UI.HStack({
+					-- CONTAINER-RELATIVE, not a viewport threshold (`UI.ViewThatFits`):
+					-- the score and the progress readout ride side by side wherever
+					-- they fit, and stack on their own lines where they do not — found
+					-- live by the overflow sweep at 320x640, where the row needed 19px
+					-- more than the page's own padded width.
+					UI.ViewThatFits({
 						id = "Stats",
-						gap = "m",
-						align = "center",
+						width = { type = "fill", weight = 1 },
 						children = {
-							UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
-							UI.Text({ id = "Progress", text = progressText, textSize = "label", role = "secondary" }),
+							UI.HStack({
+								id = "StatsRow",
+								gap = "m",
+								align = "center",
+								children = {
+									UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
+									UI.Text({
+										id = "Progress",
+										text = progressText,
+										textSize = "label",
+										role = "secondary",
+									}),
+								},
+							}),
+							UI.VStack({
+								id = "StatsColumn",
+								gap = "xs",
+								align = "center",
+								children = {
+									UI.Text({ id = "Score", text = scoreText, textSize = "numeral" }),
+									UI.Text({
+										id = "Progress",
+										text = progressText,
+										textSize = "label",
+										role = "secondary",
+									}),
+								},
+							}),
 						},
 					}),
 					board,

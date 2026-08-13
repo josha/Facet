@@ -79,8 +79,9 @@ export type PropSpec = {
 
 -- ===== logical type checks =================================================
 -- "dim"      a layout dimension table: { type = "fixed"|"content"|"fill"|
---            "hug"|"percent"|"minMax"|"aspect", ... }. Rejecting a bare number here is
---            deliberate: `width = 100` used to fall through to content sizing.
+--            "hug"|"percent"|"minMax"|"aspect"|"containerRelative", ... }. Rejecting a
+--            bare number here is deliberate: `width = 100` used to fall through to
+--            content sizing.
 -- "sides"    padding/margin: a number or { top?, right?, bottom?, left? }.
 -- "metric"   a THEME METRIC NAME (ADR-0019 §2): a space step ("xs".."xl") or a
 --            dotted path into the snapshot ("controls.slider.thumbSize",
@@ -109,6 +110,12 @@ local DIM_TYPES: { [string]: boolean } = {
 	percent = true,
 	minMax = true,
 	aspect = true,
+	-- `containerRelative` is `percent` measured against a DIFFERENT ruler (parity
+	-- round 2 §2.5): the nearest ancestor that owns a viewport — a ScrollView's
+	-- content viewport, else the surface root — rather than the immediate parent's
+	-- offer. Written only by `UI.containerRelativeFrame(bp, spec)`; authored by hand
+	-- it is legal but the modifier is what carries the closed-key refusals.
+	containerRelative = true,
 }
 
 local SIDE_KEYS: { [string]: boolean } = { top = true, right = true, bottom = true, left = true }
@@ -238,7 +245,7 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		if not DIM_TYPES[(v :: any).type] then
 			return false,
-				`dimension type must be one of fixed|content|hug|fill|percent|minMax|aspect (got {tostring(
+				`dimension type must be one of fixed|content|hug|fill|percent|minMax|aspect|containerRelative (got {tostring(
 					(v :: any).type
 				)})`
 		end
@@ -519,6 +526,101 @@ local BOX: { [string]: PropSpec } = {
 		doc = "vertical offset from the anchor point (arrange-only update); a number, a theme metric name, "
 			.. "or a fraction of the parent's inner height ({ scale = 0.5, offset? })",
 	}),
+	-- PER-CHILD CROSS-AXIS ALIGNMENT INSIDE A STACK'S LINE (parity round 2 §2.1) —
+	-- Roblox's `ItemLineAlignment`, and the fix for a word that meant two things.
+	--
+	-- The solver read `child.align` for this, but `align` is a CONTAINER-only prop:
+	-- it is refused on `UI.Text`/`Box`/`Spacer`/`Image`, so the only child that
+	-- could align itself in its parent's line was one that was itself a stack — and
+	-- there the one word did two jobs at once (a nested `VStack{ align = "center" }`
+	-- centres its own children AND centres itself in the row). `lineAlign` is the
+	-- second job under its own name, legal on every box, and it OUTRANKS both
+	-- `child.align` and the container's `align`.
+	--
+	-- Same four values as `align`, `stretch` included: a child that wants to fill
+	-- the line's cross extent should not have to reach for a `fill` dim, which would
+	-- also claim the main axis.
+	--
+	-- ONLY A STACK READS IT, and that is CAUGHT rather than left to the reader: a
+	-- `lineAlign` under a ZStack, an Anchor, a Grid, a ScrollView or any of the
+	-- three rank/region containers is inert, so it is one of the nine props in the
+	-- solver's placement read table (`solver.auditPlacement`, §2.1) and is reported
+	-- on `controller.diagnostics()` naming the working spelling for that parent.
+	lineAlign = p({
+		types = { "string" },
+		reactive = true,
+		dirty = { "arrange" },
+		shared = true,
+		enum = { "start", "center", "end", "stretch" },
+		channel = "layout",
+		doc = "this child's own cross-axis alignment inside its stack parent's line "
+			.. "(start|center|end|stretch); outranks the container's `align`",
+	}),
+	-- THE SHRINK PASS'S TWO INPUTS (parity round 2 §2.4). BOX props rather than
+	-- modifiers, and deliberately: they are placement facts a stack parent reads off
+	-- its children, exactly as `anchor`, `alignH`, `alignV`, `offsetX` and `offsetY`
+	-- already are — and the constitution's positional-scalar modifier family
+	-- (`UI.offset`, `UI.aspectRatio`, `UI.alignment`) is declared CLOSED (§16 E-18).
+	--
+	-- Reactive with `dirty = { "measure" }`: either value can change the arrangement,
+	-- and the pass re-measures the children it squeezes.
+	--
+	-- AND ONLY A STACK READS EITHER ONE, which is now CAUGHT and not merely stated
+	-- (Milestone-1 review C2). Both shipped in this same paragraph as the five
+	-- audited props above and neither was added to the solver's placement read
+	-- table, so a `shrinkWeight` under a ZStack, a Grid, an Anchor or a ScrollView
+	-- was accepted and did nothing — the §4 violation the audit exists to remove,
+	-- committed by the change that built the audit. They are both in the table now
+	-- (`solver.auditPlacement`), reported on `controller.diagnostics()` with the
+	-- reason and the way out, exactly like `lineAlign` and `gridSpan`.
+	layoutPriority = p({
+		types = { "number" },
+		reactive = true,
+		dirty = { "measure" },
+		shared = true,
+		channel = "layout",
+		doc = "shrink-order tier when a stack's main axis is short (default 0): the deficit is consumed "
+			.. "tier by tier, LOWEST priority first, so a higher number is protected for longer",
+	}),
+	shrinkWeight = p({
+		types = { "number" },
+		reactive = true,
+		dirty = { "measure" },
+		shared = true,
+		channel = "layout",
+		doc = "how readily this child gives up main-axis pixels within its `layoutPriority` tier "
+			.. "(default 0 = never, matching Roblox's `UIFlexMode.None`). Inside a tier the deficit "
+			.. "is split proportionally to weight x this child's natural size, down to its floor "
+			.. "(`minMax.min`, else a text node's longest word, else 0)",
+	}),
+	-- THE ROW-GRID SPAN (parity round 2 §2.2). A BOX prop for the same reason
+	-- `layoutPriority` is one: it is a placement fact a container parent — here a
+	-- `UI.GridRow` — reads off its children, not a size this node has of its own.
+	--
+	-- A spanning cell contributes to NO single column's maximum (SwiftUI's rule: a
+	-- span cannot widen one column on its own) and is fitted to the sum of the
+	-- columns it covers plus the gaps between them.
+	--
+	-- OUTSIDE A `UI.GridRow` IT IS READ BY NOTHING — and that sentence used to end
+	-- this paragraph as though it were part of the feature. It is not: constitution
+	-- §4 says a property that is *accepted* must *do something*, so "accepted here
+	-- and silently ignored" is a defect written down, not a contract. It is now
+	-- CAUGHT rather than merely documented: `gridSpan` is one of the nine props in
+	-- the solver's placement read table (`solver.auditPlacement`, parity round 2
+	-- §2.1), so a `gridSpan` under any parent but a row is reported on
+	-- `controller.diagnostics()` naming the node, the reason and the way out. The
+	-- schema closes the converse cell outright — a `UI.GridRow`'s own prop set is
+	-- paint-only, so no placement prop can even be authored ON a row.
+	gridSpan = p({
+		types = { "number" },
+		reactive = true,
+		dirty = { "measure" },
+		shared = true,
+		channel = "layout",
+		doc = "how many of its row's columns this cell covers inside a `UI.GridRow` (default 1). A "
+			.. "spanning cell never widens a single column on its own; it is fitted to the columns it "
+			.. "covers plus the gaps between them",
+	}),
 	alignH = p({
 		types = { "string" },
 		reactive = true,
@@ -647,6 +749,11 @@ local GAP: PropSpec = p({
 	doc = 'spacing between children along the stack axis; a number or a spacing-step name ("xs"…"xl")',
 })
 
+-- CROSS-AXIS ALIGNMENT OF THIS CONTAINER'S OWN CHILDREN. That is the whole job:
+-- the second one this word used to do — "align ME inside my parent's line", which
+-- a nested stack's `align` also meant — now belongs to the shared `lineAlign` box
+-- prop above, where a leaf can reach it too. `child.align` is still honoured for
+-- compatibility and still loses to `child.lineAlign` (solver, stack arrange).
 local ALIGN: PropSpec = p({
 	types = { "string" },
 	reactive = true,
@@ -654,7 +761,31 @@ local ALIGN: PropSpec = p({
 	shared = true,
 	enum = { "start", "center", "end", "stretch" },
 	channel = "layout",
-	doc = "cross-axis alignment of children (start|center|end|stretch)",
+	doc = "cross-axis alignment of THIS container's children (start|center|end|stretch); "
+		.. "for one child's own alignment in its parent's line, see `lineAlign`",
+})
+
+-- MAIN-AXIS DISTRIBUTION OF THE LEFTOVER (parity round 2 §2.6) — Roblox's
+-- `UIFlexAlignment` plus whole-group centring, on the CONTAINER.
+--
+-- LuauUI could already reproduce SpaceBetween/Around/Evenly pixel-exactly with
+-- hand-placed `Spacer`s between children, but only for a STATIC child list:
+-- `children` is a static array, a variable-count list goes through `UI.ForEach`,
+-- and `ForEach`'s `row` returns exactly ONE blueprint — so separators cannot be
+-- interleaved on the parent's main axis at all. A tab bar whose tab count varies —
+-- the native documentation's own motivating example — was inexpressible.
+--
+-- `dirty = { "arrange" }` and not `measure`: it moves the cursor and changes no
+-- child's size, which is the same reason `offsetX`/`offsetY` are arrange-only.
+local DISTRIBUTE: PropSpec = p({
+	types = { "string" },
+	reactive = true,
+	dirty = { "arrange" },
+	enum = { "start", "center", "end", "spaceBetween", "spaceAround", "spaceEvenly" },
+	channel = "layout",
+	doc = "how the leftover main-axis space is spread (default `start`): "
+		.. "start | center | end | spaceBetween | spaceAround | spaceEvenly. It acts on what `fill` "
+		.. "children did not take, so a `fill` child leaves it nothing — and says so in the diagnostics",
 })
 
 -- Horizontal alignment of a node's OWN text inside its own box. Until now the
@@ -895,19 +1026,19 @@ end
 class("Screen", {
 	container = true,
 	structural = false,
-	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN }),
+	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE }),
 })
 
 class("VStack", {
 	container = true,
 	structural = false,
-	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN }),
+	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE }),
 })
 
 class("HStack", {
 	container = true,
 	structural = false,
-	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN }),
+	props = merge(BOX, CONTAINER_LAYOUT, { gap = GAP, align = ALIGN, distribute = DISTRIBUTE }),
 })
 
 class("ZStack", {
@@ -1030,12 +1161,39 @@ class("Grid", {
 	}),
 })
 
+-- A ROW OF A ROW GRID (parity round 2 §2.2). A primitive, not a control: the
+-- solver understands `gridrow` natively, exactly as it understands `grid`.
+--
+-- ITS PROP SET IS DELIBERATELY TINY, and the omissions are the design. A `width`
+-- or `height` on a row would be a second authority against the grid that owns the
+-- column widths and the row pitch, and `padding` would inset one row's cells out of
+-- the columns every other row is aligned to — the whole point of a row grid is that
+-- column n is the same column in every row. Rather than accept those and ignore
+-- them (the failure mode this schema exists to remove), they are not accepted: a
+-- `width` on a `UI.GridRow` is a construction error naming the fix.
+--
+-- What IS here is the set that is meaningful on a full-width band: its identity,
+-- its children, and the paint a striped or carded row wants.
+class("GridRow", {
+	container = true,
+	structural = false,
+	props = merge({
+		shadow = BOX.shadow,
+		gradient = BOX.gradient,
+		corners = BOX.corners,
+		stroke = BOX.stroke,
+		zIndex = BOX.zIndex,
+		surface = CONTAINER_LAYOUT.surface,
+	}),
+})
+
 class("AdaptiveStack", {
 	container = true,
 	structural = false,
 	props = merge(BOX, CONTAINER_LAYOUT, {
 		gap = GAP,
 		align = ALIGN,
+		distribute = DISTRIBUTE,
 		-- The whole point of this class: ONE class with a REACTIVE axis. Swapping
 		-- UI.VStack for UI.HStack through a `When` would remount every child and
 		-- lose their state on a viewport flip; a bound axis re-solves in place

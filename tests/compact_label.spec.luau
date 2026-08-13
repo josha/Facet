@@ -484,7 +484,11 @@ describe("compactLabel: the icon form degrades and the image form does not", fun
 		-- since 2026-07-27. The glyph floor staying reachable is itself the
 		-- pinned property; the art path is the package sweep's business.
 		local tight = drawAt({ label = "Delete", compactLabel = { icon = "trash" } }, 30)
-		expect(tight.label).toBe("U")
+		-- the trash MARK, `\_/` -- an open tapered container. It was the letter
+		-- "U" until the device bug round 2026-08-12 (finding A4) photographed it
+		-- reading as exactly that letter on a real phone under Pixel Quest; see
+		-- package.ICON_FALLBACK_GLYPHS for the rule the table now keeps.
+		expect(tight.label).toBe("\\_/")
 	end)
 end)
 

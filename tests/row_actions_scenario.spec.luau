@@ -22,10 +22,13 @@ local scenario = require("../examples/gallery/scenarios/row_actions") :: any
 -- after the row's spring-driven collapse settles, and a real-wall-clock
 -- presenter would seed drag_velocity with near-zero real-time deltas between
 -- two synchronous pushes.
-local function makeWorld()
+local function makeWorld(envSetup: ((any) -> ())?)
 	local core = LuauUI.newCore()
 	local env = LuauUI.newEnvironment(core)
 	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 700 })
+	if envSetup ~= nil then
+		envSetup(env)
+	end
 	local system = LuauUI.newActionSystem(core)
 	local adapter = fake_target.new()
 	local clockTime = 0
@@ -170,6 +173,112 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		teardown(world)
 	end)
 
+	--[[ THE DELETION'S RE-FLOW IS ANIMATED (device bug round 2026-08-12, finding
+		C8a's third part: "...and the next row doesn't animate vertically smoothly").
+
+		Nothing animated the rows BELOW a deleted one — they teleported up by one row
+		height on the commit frame. The fix is the ordinary SwiftUI pattern and it is
+		the SCREEN's, not the composite's: this fixture commits its deletion inside
+		`presenter.withAnimation("container", ...)` (`animateReflow` in
+		examples/gallery/scenarios/row_actions.luau), because the screen is what has
+		the presenter and what knows the data changed.
+
+		`presenter.animationRecordCount()` is the shipped proof seam for exactly this
+		(presenter.luau: "DIAGNOSTICS, not features") — how many paths currently carry
+		a `withAnimation` record. It is nonzero only WHILE the flight is alive, so
+		this drives frame by frame to the removal instead of settling first.
+
+		IT ALSO PROVES THE CALL DID NOT THROW. `withAnimation` has three refusals —
+		nesting, an open core transaction, and a call made during a core commit —
+		and the deletion is fired from inside a spring's settle callback which
+		`row_actions` runs under `pcall`, so any of them would be SILENT here. A
+		record count above zero is only reachable PAST all three, which is what makes
+		it evidence that this path is legal.
+
+		THAT REASONING IS SPECIFIC TO THIS CASE. It does not carry to the
+		reduced-motion twin below, where zero records is the correct answer and
+		therefore says nothing about whether the call raised; that case watches the
+		seam directly instead (red-team T4). ]]
+	it("the deletion's re-flow animates: withAnimation records are live at the removal", function()
+		local world = makeWorld()
+		local before = #step(world, "list").list
+		world.built.steps.commit(world.built, "m2:trailing")
+		local records = 0
+		local removedAt: number? = nil
+		for i = 1, 400 do
+			world.tick(1 / 60)
+			if removedAt == nil and #world.built.steps.list().list < before then
+				removedAt = i
+				records = world.presenter.animationRecordCount()
+				break
+			end
+		end
+		expect(removedAt).never().toBeNil()
+		expect(records).toBeGreaterThan(0)
+		teardown(world)
+	end)
+
+	--[[ ...and the deliberate reduced-motion branch. `withAnimation` installs NO
+		records at all under it (presenter.luau: "One honest line of code beats a
+		clever claim"), so the negative control is not "fewer records" — it is zero,
+		with the deletion itself completely unaffected.
+
+		BUT A COUNT OF ZERO IS TWO DIFFERENT OUTCOMES (red-team T4, 2026-08-13), and
+		it used to be the only thing this case looked at:
+
+		  · "installed nothing" — the intended reduced-motion branch; or
+		  · "silently refused" — `withAnimation` raised (a nesting refusal, a
+		    transaction/commit refusal) and the scenario's `pcall(action.onAction)`
+		    swallowed it. Zero records, deletion still lands, case green.
+
+		The sibling case above CAN lean on the record count for this, because a
+		nonzero count is only reachable past the raise. Here it proves nothing at all
+		— and it does not even prove the call HAPPENED, which is the third way to get
+		a zero. So this case watches the seam directly: a recording wrapper over the
+		presenter method the scenario actually calls (`ctx.presenter` IS this table;
+		`animateReflow` in examples/gallery/scenarios/row_actions.luau re-reads the
+		field at call time). One call, no raise, zero records — three separate facts. ]]
+	it("under reduced motion the same deletion installs no records, is CALLED, and does not refuse", function()
+		local world = makeWorld(function(env)
+			env:set("reducedMotion", true)
+		end)
+		-- the spy, installed before the commit that triggers the deletion
+		local realWithAnimation = world.presenter.withAnimation
+		local calls = 0
+		local raised: string? = nil
+		world.presenter.withAnimation = function(class: any, fn: () -> ())
+			calls += 1
+			local ok, err = pcall(realWithAnimation, class, fn)
+			if not ok then
+				raised = tostring(err)
+			end
+		end
+		local before = #step(world, "list").list
+		world.built.steps.commit(world.built, "m2:trailing")
+		local removedAt: number? = nil
+		local records = -1
+		for i = 1, 400 do
+			world.tick(1 / 60)
+			if removedAt == nil and #world.built.steps.list().list < before then
+				removedAt = i
+				records = world.presenter.animationRecordCount()
+				break
+			end
+		end
+		world.presenter.withAnimation = realWithAnimation
+		expect(removedAt).never().toBeNil()
+		-- (1) the deletion really did route through the animated seam — a zero
+		-- record count is otherwise also what "nobody called it" looks like
+		expect(calls).toBeGreaterThan(0)
+		-- (2) it RETURNED. The message is carried into the failure because a silent
+		-- refusal is exactly the thing this case exists to distinguish, and knowing
+		-- WHICH refusal is most of the diagnosis.
+		expect(`reduced-motion withAnimation raised: {raised or "no"}`).toBe("reduced-motion withAnimation raised: no")
+		-- (3) ...and installed nothing, which is the branch itself
+		expect(records).toBe(0)
+		teardown(world)
+	end)
+
 	it("commit on leading fires Mark Read (the first leading action), row survives", function()
 		local world = makeWorld()
 		local before = step(world, "list")
@@ -242,6 +351,37 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		expect(world.adapter.node("/MailActions/TableWhen/then/TablePane/MailTable") ~= nil).toBe(true)
 		expect(world.adapter.node("/MailActions/ListWhen/then/List")).toBe(nil)
 		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
+	-- THE SECOND VERB, IN THE SURFACE A PLAYER REACHES (parity round 2 §3.4).
+	-- `newTable.onPrimaryAction` is a public API this round added, and the
+	-- standing obligation is that a gallery scenario exercises it headlessly.
+	-- This is the scenario that carries it, and this is that exercise: the same
+	-- device-true tap path the tray tests above use, on the same surface, with
+	-- the tray gestures proved untouched by it.
+	it("the table surface's onPrimaryAction opens a row on a double-click, and one click only selects", function()
+		local world = tableWorld()
+		local rowHit =
+			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+		local rect = world.adapter.node(rowHit).rect
+		local function click()
+			world.adapter.tap(rowHit, {
+				source = "pointer",
+				pointer = "mouse",
+				x = rect.x + 10,
+				y = rect.y + rect.h / 2,
+			})
+			world.presenter.refresh()
+		end
+		expect(world.built.report().tableOpenedKey).toBe(nil)
+		click()
+		expect(world.built.report().tableOpenedKey).toBe(nil) -- selection only
+		world.tick(1 / 60) -- well inside the 500 ms double-click window
+		click()
+		expect(world.built.report().tableOpenedKey).toBe("m1")
+		expect(world.core:lastError()).toBeNil()
+		expect(#world.handle.controller.diagnostics()).toBe(0)
 		teardown(world)
 	end)
 
@@ -418,7 +558,12 @@ describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogu
 			actionSystem = system,
 			presenter = presenter,
 		})
-		built.handle = presenter.present(built.screen)
+		-- ...WITH the fixture's own `present` opts (C2, 2026-08-12). This used to
+		-- read `present(built.screen)`, faithfully mirroring a host that dropped
+		-- the second argument — so the mirror was as wrong as the thing it
+		-- mirrored. The host now forwards it (init.client.luau, fixture branch),
+		-- and the delivery itself is pinned in gallery_demo_picker.spec.
+		built.handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		-- the picker never drives steps: the default surface must stand on its
 		-- own, and a few ticks must not error (the vlist onTick binder retries
@@ -436,4 +581,129 @@ describe("row_actions scenario: the showcase picker's fixture ctx (demo catalogu
 		presenter.dismiss(built.handle)
 		expect(core:lastError()).toBeNil()
 	end)
+end)
+
+-- ===== B5: the chrome gives way, not the list ==============================
+--
+-- Device report 2026-08-12 (`IMG_3689`, docs/plans/device-bug-round-2026-08-12.md
+-- finding B5): on a landscape phone, in the showcase, the mail table was ENTIRELY
+-- BELOW THE FOLD and nothing scrolled — the picker chip strip took 120px off the
+-- top and this screen's own `title`-sized heading, mode bar and Edit toolbar took
+-- the rest, leaving the table 27px and then 0. A `fill` pane absorbs that squeeze
+-- silently, which is why it survived every portrait capture and every count-based
+-- assertion.
+--
+-- The generic instrument for the class is `tests/overflow_sweep.spec.luau`, which
+-- fails on the solver's own main-axis diagnostic for every showcase surface at
+-- seven viewports. It is not enough on its own HERE: a pane squeezed to 20px does
+-- not overflow, it just cannot be used. So this pins the outcome the report was
+-- actually about — on a short landscape the list is on screen with room to read,
+-- and the heading is the thing that went.
+describe("row_actions scenario: a short landscape spends its height on the list (B5)", function()
+	local SHOWCASE_TOP = 120 -- demo_picker.barReservation(58, nil, 8) — the strip the picker reserves
+
+	local function shortLandscape(mode: string): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 640, h = 320 })
+		env:set("coreSafeInsets", { top = SHOWCASE_TOP, bottom = 0, left = 0, right = 0 })
+		env:set("preferredInput", "Touch")
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local built = scenario.build({
+			LuauUI = LuauUI,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			actionSystem = system,
+			record = function() end,
+			flags = {},
+			geometry = function()
+				return {}
+			end,
+		})
+		built.handle = presenter.present(built.screen, built.present)
+		-- the hosted list publishes its window from its own solved pane, so the
+		-- settled frame is the one a player sees (same bounded settle the sweep uses)
+		for _ = 1, 3 do
+			presenter.refresh()
+		end
+		built.steps.mode(built, mode)
+		for _ = 1, 3 do
+			presenter.refresh()
+		end
+		return { core = core, adapter = adapter, presenter = presenter, built = built }
+	end
+
+	it("✓ the heading is dropped on a short viewport and kept on a tall one", function()
+		local short = shortLandscape("list")
+		expect(short.adapter.node("/MailActions/HeadingWhen/then/Title")).toBe(nil)
+		short.presenter.dismiss(short.built.handle)
+
+		local world = makeWorld() -- 400x700: not short
+		expect(world.adapter.node("/MailActions/HeadingWhen/then/Title") ~= nil).toBe(true)
+		teardown(world)
+	end)
+
+	-- the FIRST MAIL ROW on each surface. "Entirely below the fold and completely
+	-- unreachable" is a claim about this node, so this is what the case asserts —
+	-- not a pixel budget, which would only be the same magic constant the fixture
+	-- just stopped carrying.
+	local SURFACES = {
+		{
+			mode = "list",
+			body = "/MailActions/ListWhen/then/List",
+			row = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1",
+		},
+		{
+			mode = "table",
+			body = "/MailActions/TableWhen/then/TablePane/MailTable",
+			row = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row",
+		},
+		{
+			mode = "vlist",
+			body = "/MailActions/VListWhen/then/VListPane/VList",
+			row = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[m1]/Row",
+		},
+	}
+
+	for _, surface in SURFACES do
+		it(`✓ {surface.mode}: the first mail row is on screen, and nothing overflows`, function()
+			local w = shortLandscape(surface.mode)
+			local screen = w.adapter.node("/MailActions")
+			local body = w.adapter.node(surface.body)
+			local row = w.adapter.node(surface.row)
+			expect(body ~= nil).toBe(true)
+			if row == nil then
+				error(`{surface.mode}: no mail row is mounted at all inside a {screen.rect.h}px screen (B5)`, 0)
+			end
+			-- THE ROW IS INSIDE THE SCREEN, top and bottom. IMG_3689 had the table
+			-- header alone at the very bottom edge and every row below it.
+			local screenBottom = screen.rect.y + screen.rect.h
+			if row.rect.y < screen.rect.y or row.rect.y + row.rect.h > screenBottom then
+				error(
+					`{surface.mode}: the first mail row solved to {row.rect.y}..{row.rect.y + row.rect.h} `
+						.. `outside the {screen.rect.y}..{screenBottom} screen — below the fold (B5)`,
+					0
+				)
+			end
+			-- ...and the list body itself is a quarter of the screen or better: a
+			-- screen whose whole subject is a list does not spend three quarters of a
+			-- landscape phone on its own chrome. 27px of 591 was the device report.
+			if body.rect.h * 4 < screen.rect.h then
+				error(
+					`{surface.mode}: the list solved to {body.rect.h}px inside a {screen.rect.h}px screen — `
+						.. `under a quarter of it (B5: the chrome ate the content)`,
+					0
+				)
+			end
+			-- ...and the screen still says nothing overflows, so the height it got
+			-- was given to it rather than painted past its box
+			expect(#w.built.handle.controller.diagnostics()).toBe(0)
+			expect(w.core:lastError()).toBeNil()
+			w.presenter.dismiss(w.built.handle)
+		end)
+	end
 end)

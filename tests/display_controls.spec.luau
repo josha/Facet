@@ -779,3 +779,454 @@ describe("label: the title reads centred in its own box (director review 2026-07
 		root.dispose()
 	end)
 end)
+
+-- =============================================================================
+-- INDETERMINATE PROGRESS AND THE SPINNER (swiftui-parity-round2.md §3.1)
+--
+-- Two things are proved here that nothing else can prove:
+--   1. the DETERMINATE path is untouched — same node tree, same geometry, same
+--      dump values — because one live RascalRally caller depends on it
+--      (LuauUISponsor/ResultsScreen.luau:1471);
+--   2. BOTH reduced-motion policies. A loading indicator is the one piece of
+--      motion in this framework that CARRIES information, so it is
+--      `kind = "informational"`: under reduced motion it must still visibly
+--      PROGRESS (quantized onto the authority's 250 ms tick), never freeze and
+--      never vanish. A test that only proved "it does not animate" would be
+--      asserting the bug.
+-- =============================================================================
+local motionClockLib = require("../src/motion/clock")
+
+describe("ProgressView: indeterminate is selected by value = nil (§3.1)", function()
+	local function clockWorld(policy: string?)
+		local core, _, adapter, _, pres = harness()
+		local t = { now = 0 }
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return t.now
+			end,
+			motionPolicy = core:signal(policy or "full"),
+		})
+		return core, adapter, pres, clock, t
+	end
+
+	it("the DETERMINATE tree and dump are exactly what they were before indeterminate existed", function()
+		local core, _, adapter, _, pres = harness()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", value = 0.25, showValue = true })
+		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		-- the fill is the track's DIRECT child: no sweep wrapper, no lead spacer
+		expect(adapter.node("/S/Load/Bar/Fill") ~= nil).toBe(true)
+		expect(adapter.node("/S/Load/Bar/Sweep")).toBeNil()
+		expect(adapter.node("/S/Load/Bar/Sweep/Lead")).toBeNil()
+		local bar = adapter.node("/S/Load/Bar").rect
+		local fill = adapter.node("/S/Load/Bar/Fill").rect
+		expect(fill.x).toBe(bar.x)
+		expect(fill.w).toBe(math.floor(bar.w * 0.25 + 0.5))
+		local d = p.dump()
+		expect(d.schema).toBe("luauui-progress-dump/1")
+		expect(d.value).toBe(0.25)
+		expect(d.fraction).toBe(0.25)
+		expect(d.formatted).toBe("0.25")
+		expect(d.min).toBe(0)
+		expect(d.max).toBe(1)
+		expect(d.showValue).toBe(true)
+		expect(d.semanticText).toBe("0.25 of 0 to 1")
+		-- ...and the two additive keys that name the mode
+		expect(d.indeterminate).toBe(false)
+		expect(d.presentation).toBe("bar")
+		p.dispose()
+	end)
+
+	it("value = nil builds the sweeping segment instead of a value-tracking fill", function()
+		local core, adapter, pres, clock = clockWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		expect(p.dump().indeterminate).toBe(true)
+		expect(p.dump().animating).toBe(true)
+		expect(p.dump().semanticText).toBe("Loading")
+		local bar = adapter.node("/S/Load/Bar").rect
+		local fill = adapter.node("/S/Load/Bar/Sweep/Fill").rect
+		-- the segment is a FIXED share of the track and starts at its leading edge
+		expect(fill.w).toBe(math.floor(bar.w * 0.3 + 0.5))
+		expect(fill.x).toBe(bar.x)
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("the segment PEAKS AT MID-CYCLE and folds back, and never leaves the track", function()
+		-- THE FOLD IS THE POINT, AND IT HAS TO BE MEASURED AT THE PEAK. An earlier
+		-- version of this case only compared the LAST sample against the largest
+		-- one, which a pure sawtooth also satisfies (its restart drops the segment
+		-- back to the left edge). Mutating `triangle` to the identity left it green
+		-- — so the peak's POSITION in the cycle is asserted instead, plus the
+		-- symmetry of the quarter points, and both bite.
+		local core, adapter, pres, clock, t = clockWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		local bar = adapter.node("/S/Load/Bar").rect
+		local function sweep(): number
+			return adapter.node("/S/Load/Bar/Sweep/Fill").rect.x - bar.x
+		end
+		local seen: { number } = {}
+		for _ = 1, 20 do -- 20 x 50 ms = one full 1 s cycle
+			t.now += 0.05
+			clock:step()
+			pres.refresh()
+			table.insert(seen, sweep())
+			-- the segment is INSIDE the track on every single frame
+			local fill = adapter.node("/S/Load/Bar/Sweep/Fill").rect
+			expect(fill.x >= bar.x).toBe(true)
+			expect(fill.x + fill.w <= bar.x + bar.w + 1).toBe(true)
+		end
+		local widest, peakAt = -1, 0
+		for index, x in seen do
+			if x > widest then
+				widest, peakAt = x, index
+			end
+		end
+		-- it travelled most of the free space...
+		expect(widest > math.floor(bar.w * 0.6)).toBe(true)
+		-- ...at the MIDDLE of the cycle, not at its end
+		expect(peakAt >= 8).toBe(true)
+		expect(peakAt <= 13).toBe(true)
+		-- ...and the outbound and return legs mirror each other
+		expect(math.abs(seen[5] - seen[15]) <= 2).toBe(true)
+		expect(seen[20] < widest).toBe(true)
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("the cycle REPEATS: the indicator is still travelling in its third second", function()
+		-- A LOADER THAT RUNS ONCE IS A LOADER THAT LIES. Deleting the restart from
+		-- the settle handler left every other case green, because none of them ran
+		-- past the first cycle's terminus — so this one does, deliberately.
+		local core, adapter, pres, clock, t = clockWorld()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		local function sweep(): number
+			return adapter.node("/S/Load/Bar/Sweep/Fill").rect.x
+		end
+		for _ = 1, 40 do -- two full cycles, terminus crossed twice
+			t.now += 0.05
+			clock:step()
+		end
+		pres.refresh()
+		local resting = sweep()
+		local seen: { [number]: boolean } = {}
+		local distinct = 0
+		for _ = 1, 10 do
+			t.now += 0.05
+			clock:step()
+			pres.refresh()
+			local x = sweep()
+			if seen[x] == nil then
+				seen[x] = true
+				distinct += 1
+			end
+		end
+		expect(distinct > 1).toBe(true) -- it MOVED in the third second
+		expect(seen[resting] == nil or distinct > 2).toBe(true)
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("REDUCED MOTION keeps the indicator advancing — quantized, never frozen (§3.1)", function()
+		local core, adapter, pres, clock, t = clockWorld("reduced")
+		expect(clock:isReduced()).toBe(true)
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		-- the motion is INFORMATIONAL, which is the whole decision: a decorative
+		-- value would have been placed at its terminus and stopped
+		expect(p.phase:motionKind()).toBe("informational")
+		local start = p.dump().phase
+		-- a sub-quantum step writes NOTHING: that is the stepped policy, not a stall
+		t.now += 0.05
+		clock:step()
+		expect(p.dump().phase).toBe(start)
+		-- ...and the very next tick past 250 ms DOES advance it. This is the
+		-- assertion the whole decision rests on: reduced motion must not delete the
+		-- only thing on screen saying "work is still happening".
+		t.now += 0.25
+		clock:step()
+		expect(p.dump().phase > start).toBe(true)
+		-- over a full cycle it still traverses the track, in visible steps
+		local positions: { [number]: boolean } = {}
+		local count = 0
+		for _ = 1, 20 do
+			t.now += 0.05
+			clock:step()
+			pres.refresh()
+			local x = adapter.node("/S/Load/Bar/Sweep/Fill").rect.x
+			if positions[x] == nil then
+				positions[x] = true
+				count += 1
+			end
+		end
+		-- roughly one distinct position per 250 ms tick over a 1 s cycle — several,
+		-- and nothing like the sixty a full-motion second would produce
+		expect(count >= 3).toBe(true)
+		expect(count <= 8).toBe(true)
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("FULL motion writes far more often than reduced motion over the same wall clock", function()
+		-- the differential the two policies are ABOUT, measured rather than asserted
+		local function distinctPositions(policy: string): number
+			local core, adapter, pres, clock, t = clockWorld(policy)
+			local p = LuauUI.newProgressView(LuauUI, core, { id = "Load", motionClock = clock })
+			pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+			pres.refresh()
+			local seen: { [number]: boolean } = {}
+			local n = 0
+			for _ = 1, 20 do
+				t.now += 0.02
+				clock:step()
+				pres.refresh()
+				local x = adapter.node("/S/Load/Bar/Sweep/Fill").rect.x
+				if seen[x] == nil then
+					seen[x] = true
+					n += 1
+				end
+			end
+			p.dispose()
+			clock:dispose()
+			return n
+		end
+		local full = distinctPositions("full")
+		local reduced = distinctPositions("reduced")
+		expect(full > reduced).toBe(true)
+		expect(reduced >= 2).toBe(true) -- still moving: not a freeze
+	end)
+
+	it("with NO clock the indeterminate view holds its rest pose and says so", function()
+		local core, _, adapter, _, pres = harness()
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "Load" })
+		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		expect(p.dump().animating).toBe(false)
+		expect(p.dump().phase).toBe(0)
+		expect(adapter.node("/S/Load/Bar/Sweep/Fill") ~= nil).toBe(true)
+		p.dispose()
+	end)
+
+	it("is registry-neutral after dispose, clock and all", function()
+		local core, _, _, _, _ = harness()
+		local baseline = core:counters()
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return 0
+			end,
+		})
+		local p = LuauUI.newProgressView(LuauUI, core, { id = "L", motionClock = clock })
+		p.dispose()
+		clock:dispose()
+		expect(core:counters().scopes).toBe(baseline.scopes)
+		expect(core:counters().observers).toBe(baseline.observers)
+		expect(core:counters().signals).toBe(baseline.signals)
+	end)
+end)
+
+describe("ProgressView: the spinner presentation (§3.1)", function()
+	local function spinnerWorld(policy: string?)
+		local core, _, adapter, _, pres = harness()
+		local t = { now = 0 }
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return t.now
+			end,
+			motionPolicy = core:signal(policy or "full"),
+		})
+		local p = LuauUI.newProgressView(LuauUI, core, {
+			id = "Load",
+			presentation = "spinner",
+			motionClock = clock,
+		})
+		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		return core, adapter, pres, clock, t, p
+	end
+
+	it("is five dots on the one new theme slot, and no bar at all", function()
+		local _, adapter, _, clock, _, p = spinnerWorld()
+		expect(adapter.node("/S/Load/Bar")).toBeNil()
+		for index = 1, 5 do
+			local node = adapter.node(`/S/Load/Spinner/Dot{index}`)
+			expect(node ~= nil).toBe(true)
+			-- the paint identity is the slot, never a borrowed public surface
+			expect(node.props.surface).toBeNil()
+			expect(node.decorationHint.slot).toBe("spinner")
+		end
+		expect(adapter.node("/S/Load/Spinner/Dot6")).toBeNil()
+		expect(p.dump().presentation).toBe("spinner")
+		expect(p.dump().indeterminate).toBe(true)
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("THE PULSE IS PAINT, NOT GEOMETRY: every dot keeps a fixed square box", function()
+		-- The first shape here sized each dot as a PERCENT of the row, and the
+		-- solver's own diagnostic killed it: a loading indicator lives inside a
+		-- vertical ScrollView, and a fraction of an unbounded axis is not a size.
+		-- This case pins the replacement — geometry is constant, the tint moves —
+		-- INSIDE a scroller, which is the container the defect needed.
+		local core, _, _, _ = harness()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 320, h = 200 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return 0
+			end,
+		})
+		local p = LuauUI.newProgressView(LuauUI, core, {
+			id = "Load",
+			presentation = "spinner",
+			motionClock = clock,
+		})
+		local handle = pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ScrollView({
+					id = "SV",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.VStack({
+							id = "Col",
+							gap = 8,
+							width = { type = "fill", weight = 1 },
+							children = {
+								-- taller than the viewport: the scroll axis is live
+								UI.Box({
+									id = "Tall",
+									width = { type = "fill", weight = 1 },
+									height = { type = "fixed", px = 400 },
+								}),
+								p.blueprint,
+							},
+						}),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		expect(#handle.controller.diagnostics()).toBe(0)
+		for index = 1, 5 do
+			local rect = adapter.node(`/S/SV/Col/Load/Spinner/Dot{index}`).rect
+			expect(rect.w).toBe(rect.h)
+			expect(rect.w > 0).toBe(true)
+		end
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("the pulse TRAVELS: the brightest dot moves along the ring as the phase sweeps", function()
+		local _, adapter, pres, clock, t, p = spinnerWorld()
+		local function brightest(): number
+			local best, bestIndex = -1, 0
+			for index = 1, 5 do
+				local blend = adapter.node(`/S/Load/Spinner/Dot{index}`).props.tint.blend
+				if blend > best then
+					best, bestIndex = blend, index
+				end
+			end
+			return bestIndex
+		end
+		local first = brightest()
+		local moved = false
+		for _ = 1, 10 do
+			t.now += 0.05
+			clock:step()
+			pres.refresh()
+			if brightest() ~= first then
+				moved = true
+			end
+		end
+		expect(moved).toBe(true)
+		-- and every dot is still a DOT: the resting blend is visible, never zero,
+		-- so the ring never looks like it lost a member
+		for index = 1, 5 do
+			local node = adapter.node(`/S/Load/Spinner/Dot{index}`)
+			expect(node.props.tint.blend > 0).toBe(true)
+			-- ...and the blend really reached the paint, not just the prop bag
+			expect(node.tintColor ~= nil).toBe(true)
+		end
+		p.dispose()
+		clock:dispose()
+	end)
+
+	it("under REDUCED motion the pulse still travels, on the quantized tick", function()
+		local _, adapter, pres, clock, t, p = spinnerWorld("reduced")
+		local function blends(): string
+			local parts: { string } = {}
+			for index = 1, 5 do
+				table.insert(parts, string.format("%.4f", adapter.node(`/S/Load/Spinner/Dot{index}`).props.tint.blend))
+			end
+			return table.concat(parts, ",")
+		end
+		local start = blends()
+		t.now += 0.05
+		clock:step()
+		pres.refresh()
+		expect(blends()).toBe(start) -- quantized: no write inside the tick
+		t.now += 0.3
+		clock:step()
+		pres.refresh()
+		expect(blends() ~= start).toBe(true) -- ...and it MOVED, rather than froze
+		p.dispose()
+		clock:dispose()
+	end)
+end)
+
+describe("ProgressView: the refusals that keep the two modes from contradicting", function()
+	it("refuses a spinner with a value — a determinate spinner is an arc nothing can draw", function()
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "spinner" })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "indeterminate only", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("refuses an unknown presentation, listing the two that exist", function()
+		local core = customFactory.new()
+		local ok, err = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, { id = "L", value = 0.5, presentation = "circular" })
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "spinner", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("refuses min/max/format/showValue on a view with no value, rather than dropping them", function()
+		local core = customFactory.new()
+		for _, key in { "min", "max", "showValue" } do
+			local spec: any = { id = "L" }
+			spec[key] = if key == "showValue" then true else 3
+			local ok, err = pcall(function()
+				LuauUI.newProgressView(LuauUI, core, spec)
+			end)
+			expect(ok).toBe(false)
+			expect(string.find(tostring(err), key, 1, true) ~= nil).toBe(true)
+		end
+		local ok = pcall(function()
+			LuauUI.newProgressView(LuauUI, core, {
+				id = "L",
+				format = function()
+					return ""
+				end,
+			})
+		end)
+		expect(ok).toBe(false)
+	end)
+end)

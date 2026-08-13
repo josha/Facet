@@ -7,23 +7,40 @@
 -- margins, cross-axis alignment, overflow annotations, and diagnostics for
 -- undefined combinations (percent on an unbounded axis; aspect on both axes).
 --
+-- A stack's MAIN axis negotiates in three steps, in this order (round-2 parity,
+-- docs/plans/swiftui-parity-round2.md §2.4/§2.6): children are measured, then a
+-- DEFICIT is absorbed by the shrink pass (`layoutPriority` tiers x `shrinkWeight`
+-- proportions, both inert by default), then a SURPLUS goes to `fill` children,
+-- and only what fill did not take is spread by `distribute`. The first two steps
+-- run in BOTH passes — measure against the offer (PASS 1.5 / PASS 2), arrange
+-- against the real rect — because a child that ends up smaller than its natural
+-- size has to be MEASURED at the size it will get or its box under-covers its own
+-- wrapped content. `distribute` is arrange-only: it moves boxes, it never resizes
+-- one, so it cannot change what anything measures.
+--
 -- Snapshot node shape (plain immutable tables):
--- { kind = "vstack"|"hstack"|"zstack"|"grid"|"scroll"|"anchor"|"text"|"box"|"spacer",
+-- { kind = "vstack"|"hstack"|"zstack"|"grid"|"gridrow"|"scroll"|"anchor"|"text"|"box"|"spacer",
 --   id = string, width/height = Dim?, gap = number?,
 --   padding = number | {top,right,bottom,left}?,
 --   margin = number | {top,right,bottom,left}?,
 --   align = "start"|"center"|"end"|"stretch"?          -- cross-axis (stacks)
+--   lineAlign = "start"|"center"|"end"|"stretch"?      -- ONE child, in its line
+--   distribute = "start".."spaceEvenly"?               -- main-axis leftover (stacks)
+--   layoutPriority = number?, shrinkWeight = number?   -- the shrink pass (children)
 --   alignH/alignV = "start"|"center"|"end"?            -- zstack children
 --   anchor = "topLeft".."bottomRight"?, offsetX/Y?     -- anchor children
---   columns = number?, minColumnWidth = number?,       -- grid
+--   columns = number?, minColumnWidth = number?,       -- grid (FLOW mode)
 --   rowGap = number?,                                  -- grid (defaults to gap)
+--   gridSpan = number?,                                -- gridrow cells (ROW mode)
 --   overflow = "clip"|"scroll"|"visible"|"intentionalOverlap"?,
 --   text/font?, textSize = number | <typography role name>?, lineHeight?,
 --   singleLine = boolean? (measure one line, clamp to the offer),
 --   axis = "y"|"x"? (scroll), children = { Node }? }
 -- Dim = { type = "fixed", px } | { type = "content" } | { type = "hug", min?, max? } |
 --       { type = "fill", weight } | { type = "percent", fraction } |
---       { type = "minMax", min, preferred?, max } | { type = "aspect", ratio }
+--       { type = "minMax", min, preferred?, max } | { type = "aspect", ratio } |
+--       { type = "containerRelative", fraction } |
+--       { type = "containerRelative", count, span?, spacing? }
 -- solve(root, viewport, opts) -> { rects, diagnostics, contentRect }
 -- opts.metrics is the active ThemeSnapshot (ADR-0019 §2); omitted, the solve
 -- runs on Studio Neutral, whose values are the framework's historic literals.
@@ -56,16 +73,72 @@ export type Node = {
 	padding: any?, -- number | {top,right,bottom,left} (same shape as margin)
 	gap: number?,
 	margin: any?,
+	-- CROSS-AXIS ALIGNMENT, AND THE TWO JOBS THE ONE WORD USED TO DO (§2.1).
+	-- `align` on a stack aligns THIS stack's own children. It is read off a CHILD
+	-- too, and that second reading is the ambiguity `lineAlign` exists to end: a
+	-- nested `vstack{ align = "center" }` used to centre its own children AND
+	-- centre itself in its parent's line, one word meaning two things at once.
+	-- `child.align` is still honoured (nothing shipped moves), but `lineAlign` is
+	-- the word for the second job and it WINS where both are present.
 	align: string?,
+	-- PER-CHILD cross-axis alignment inside the parent stack's line — Roblox's
+	-- `ItemLineAlignment`, and the only spelling of it that works on a LEAF
+	-- (`align` is a container-only prop, so `UI.Text`/`Box`/`Spacer`/`Image`
+	-- refuse it). Same four values as `align`; `stretch` fills the line.
+	lineAlign: string?,
 	alignH: string?,
 	alignV: string?,
 	anchor: string?,
+	-- SILENTLY-INERT PLACEMENT PROPS FOUND ON THIS NODE'S CHILDREN (§2.1),
+	-- computed once per tree build by `renderer.toLayoutNode` (which knows the
+	-- class->kind mapping and sees `UI.When`/`UI.ForEach` children after they
+	-- splice into this node's flow) and reported by `arrange`, so it is gated by
+	-- `hiddenDepth` and replayed by the reuse path exactly like the overflow
+	-- diagnostic it sits beside. Absent on the overwhelming majority of nodes.
+	-- `filedBy` is THIS node's id, stamped at build time. It is the one diagnostic
+	-- in the file whose `node` is not the node that files it (the parent files;
+	-- the child is named), and the incremental replay gate needs the filer — see
+	-- `solve`'s replay loop, and RED-TEAM Milestone 1 HIGH 2.
+	inertPlacement: { { node: string, issue: string, filedBy: string } }?,
+	-- set by `renderer.toLayoutNode` when this node carries ANY of the nine
+	-- placement props; the audit's fast reject (see `auditPlacement`)
+	placementProps: boolean?,
+	-- set by `renderer.toLayoutNode` when this node's own width/height is
+	-- `containerRelative`, or any descendant's is with no intervening `scroll` node
+	-- (a scroller re-establishes the container out of its own rect, so it insulates
+	-- what is below it). Read ONLY by `arrange`'s reuse skip, which is unsound for
+	-- exactly these subtrees — see the skip. Absent on the overwhelming majority of
+	-- nodes.
+	containerRelativeInside: boolean?,
 	-- px, or a FRACTION of the parent's inner extent plus a px adjustment
 	-- ({ scale, offset } — ADR-0022 Decision 6, the marker-overlay shape). The
 	-- renderer resolves metric names before this; the fraction can only be spent
 	-- here, where the extent is known.
 	offsetX: (number | { scale: number?, offset: number? })?,
 	offsetY: (number | { scale: number?, offset: number? })?,
+	-- MAIN-AXIS DISTRIBUTION OF THE LEFTOVER, on a vstack/hstack (§2.6). "start"
+	-- (the default, and byte-identical to the hard-anchored cursor this branch
+	-- always had) | "center" | "end" | "spaceBetween" | "spaceAround" |
+	-- "spaceEvenly" — Roblox's `UIFlexAlignment`, plus whole-group centring.
+	--
+	-- It acts on what `fill` children did NOT take. When a fill child is present
+	-- there is no leftover at all, and a non-"start" `distribute` there is an
+	-- authoring conflict that gets a diagnostic rather than a silent no-op.
+	distribute: string?,
+	-- THE SHRINK PASS'S TWO INPUTS, read off a stack's CHILDREN (§2.4). They are
+	-- two levels of one algorithm: `layoutPriority` is the OUTER sort (tiers,
+	-- consumed lowest-first, SwiftUI's model) and `shrinkWeight` is the INNER
+	-- distribution (proportional to weight x basis inside a tier, CSS's rule).
+	--
+	-- `shrinkWeight` defaults to 0 — "neither shrinks nor grows", the same default
+	-- and the same meaning as Roblox's `Enum.UIFlexMode.None` — so a stack whose
+	-- children declare neither is arranged exactly as it always was, deficit and
+	-- overflow diagnostic included.
+	layoutPriority: number?,
+	shrinkWeight: number?,
+	-- THE ROW GRID'S ONE CHILD-SIDE INPUT (§2.2): how many of its row's columns
+	-- this cell covers. Read by a `gridrow` parent and by nothing else.
+	gridSpan: number?,
 	columns: number?,
 	-- vertical pitch between grid ROWS; absent = `gap` (director finding 14)
 	rowGap: number?,
@@ -276,6 +349,30 @@ type Ctx = {
 	-- ...and the form index each region resolved to, read by the `region` arrange
 	-- branch. 0 means "nothing shows" (dropped, or below its floor).
 	regionForm: { [string]: number },
+	-- THE NEAREST CONTAINER'S INNER SIZE (§2.5) — the ruler a `containerRelative`
+	-- dimension measures against, which is NOT the parent's offer. It is the
+	-- surface root's content rect until a `scroll` node pushes its own viewport,
+	-- and it is popped on the way out, exactly the shape `hiddenDepth` has.
+	--
+	containerW: number,
+	containerH: number,
+	-- `scopeKey` is the memo's third key field: `"{hiddenDepth}"`, or
+	-- `"{hiddenDepth}|{containerW}|{containerH}"` once `hasContainerRelative` is
+	-- armed. See the three writers above `contentSize` for why it is one field and
+	-- why the container is conditional — both answers were measured.
+	scopeKey: string,
+	-- armed the first time a `containerRelative` dimension is measured; a tree with
+	-- none keeps the exact cache key this memo carried before §2.5
+	hasContainerRelative: boolean,
+	-- ROW-GRID COLUMN WIDTHS (§2.2), computed once per grid per box and read by
+	-- both passes — the same discipline `compositions` carries, and for the same
+	-- reason: a grid that measured one set of columns and arranged another is this
+	-- file's documented recurring defect class.
+	gridColumns: { [string]: { key: string, value: any } },
+	-- ...and the resolved columns handed DOWN from a grid to the row it is about to
+	-- arrange, so the `gridrow` branch places its cells in the columns the grid
+	-- derived from every row rather than re-deriving a private answer from its own.
+	gridRowPlan: { [string]: any },
 	-- PER-SOLVE MEASURE MEMO (roadmap Step 9). node -> "<maxW>|<maxH>|<hidden>" ->
 	-- { w, h, textState, compact, textFacts, composition }. The verdicts ride along
 	-- because they are REPLAYED on a hit; see `measure` for why that is load-bearing.
@@ -301,6 +398,29 @@ type Ctx = {
 	-- tree with no scroll region pays nothing for it
 	hasScroll: boolean,
 }
+
+-- THE ONE RESOLUTION OF A TEXT NODE'S TYPOGRAPHY, so the two seams that need it
+-- cannot drift. `measureUncached`'s text branch reads it to measure the string;
+-- the shrink pass's floor (`textMinMain`) reads it to ask the SAME face and size
+-- for the string's min-content width. A second copy of the role ladder here is
+-- exactly how a floor ends up computed at `body` for a label drawn at `caption`.
+--
+-- Module-level, not a closure: this is on the per-text-node measure path, where a
+-- per-call allocation is a bench regression this file has already paid for once.
+local function textTypography(ctx: Ctx, node: Node): (string, number, number)
+	-- typography comes from the active snapshot: `body` is the default role, and a
+	-- string textSize NAMES a role (the renderer normally resolves it, but a direct
+	-- solver caller may hand one straight in). The measured font is the role's
+	-- canonical DESCRIPTOR ("family#weight#style", ADR-0019 §6), never a bare
+	-- family: two weights of one family measure differently.
+	local roles = ctx.metrics.type
+	local role = if type(node.textSize) == "string" then roles[node.textSize] else nil
+	local base = role or roles.body
+	local size = if type(node.textSize) == "number"
+		then node.textSize
+		else (themeSnapshot.resolveSize(ctx.metrics, node.textSize) or base.size)
+	return node.font or base.fontKey, size, node.lineHeight or base.lineHeight
+end
 
 --[[ THE TRUNCATION FACTS ARE PUBLISHED WHERE THE MEASURE HAPPENS (LTN-4).
 
@@ -363,6 +483,18 @@ end
 
 local measure -- forward
 local measureUncached -- forward (the real body; `measure` is the per-solve memo in front of it)
+-- forward: the shrink pass (§2.4) is defined with the rest of the arrange helpers,
+-- but BOTH passes run it — the measure branch's PASS 1.5 and arrange's own — so its
+-- name has to exist before either. One algorithm, two callers; see the block comment
+-- at its definition for which caller does what with the answer.
+local shrinkStack: (
+	ctx: Ctx,
+	children: { Node },
+	isH: boolean,
+	basisMain: { [number]: number },
+	deficit: number,
+	shrunk: { [number]: number }
+) -> (number, string?)
 
 -- INTRINSIC COLUMNS (director round 9, 2026-07-26). `minColumnWidth` used to be
 -- a literal, which is a guess about a FONT: the gallery's theme picker asked for
@@ -463,6 +595,153 @@ local function gridUniformCell(ctx: Ctx, node: Node, colW: number, innerH: numbe
 	return uw, uh
 end
 
+--[[ ===== THE ROW GRID (docs/plans/swiftui-parity-round2.md §2.2) =============
+
+	`UI.Grid` is, and stays, a uniform FLOW grid: children wrap row-major into a
+	column count and every column is the same width. Everything above this block
+	is that grid, and every existing caller keeps it to the pixel.
+
+	A Grid whose children are all `gridrow` nodes is a different layout with the
+	same name — SwiftUI's `Grid`/`GridRow` pair. Each row declares its cells in
+	order, and COLUMN n IS AS WIDE AS THE WIDEST NATURAL CELL IN COLUMN n ACROSS
+	EVERY ROW. That is the whole difference and it is why row mode needs a second
+	pass: the flow grid can size a column from the offer alone, this one cannot
+	know column 1's width until it has measured column 1 in every row.
+
+	WHICH MODE IS DECIDED BY THE CHILDREN, NEVER BY A PROP. A grid with no
+	`gridrow` child is the flow grid; a grid whose children are all `gridrow` is a
+	row grid; a MIX is an authoring error, because there is no reading of "three
+	rows and a loose cell" that is not a guess, and a screen laid out by a guess is
+	the defect this file exists to prevent. The mix keeps the FLOW reading — the
+	one the tree had before `GridRow` existed, so nothing silently reflows — and
+	says so in the diagnostics.
+
+	A SPAN CANNOT WIDEN A COLUMN ON ITS OWN (SwiftUI's rule). A cell declaring
+	`gridSpan = n` is left out of every column maximum and is then fitted to the
+	columns it covers plus the gaps between them, so a wide title across three
+	columns does not stretch column 1 under every row beneath it.
+]]
+
+local function isRowNode(child: Node): boolean
+	return child.kind == "gridrow"
+end
+
+-- "flow" | "row" | "mixed" — read off the children, once per call site.
+local function gridMode(node: Node): string
+	local rows, others = 0, 0
+	for _, child in node.children or {} do
+		if isRowNode(child) then
+			rows += 1
+		else
+			others += 1
+		end
+	end
+	if rows == 0 then
+		return "flow"
+	end
+	return if others == 0 then "row" else "mixed"
+end
+
+local function spanOf(cell: Node): number
+	local declared = cell.gridSpan
+	if type(declared) ~= "number" or declared ~= declared then
+		return 1
+	end
+	return math.max(1, math.floor(declared))
+end
+
+-- the width a cell covering `span` columns from column `first` (1-based) gets:
+-- the columns themselves PLUS the gaps between them, which is what makes a spanned
+-- cell line up with the right edge of its last column instead of falling a gap short
+local function spannedWidth(widths: { number }, first: number, span: number, gap: number): number
+	local total = 0
+	for i = first, math.min(first + span - 1, #widths) do
+		total += widths[i]
+	end
+	return total + gap * (math.min(span, #widths - first + 1) - 1)
+end
+
+-- COLUMN WIDTHS, DECIDED ONCE PER GRID PER BOX. Cached on the context and keyed by
+-- the box, exactly as the composition resolution is and for the same reason: measure
+-- and arrange must not derive different columns for the same grid.
+local function gridColumnPlan(ctx: Ctx, node: Node, innerW: number, innerH: number, gap: number): any
+	local key = `{innerW}|{innerH}|{gap}`
+	local cached = ctx.gridColumns[node.id]
+	if cached ~= nil and cached.key == key then
+		return cached.value
+	end
+	local widths: { number } = {}
+	local cols = 0
+	for _, row in node.children or {} do
+		local column = 1
+		for _, cell in row.children or {} do
+			local span = spanOf(cell)
+			if span == 1 then
+				-- horizontal margins only: this is a COLUMN width
+				local _, mr, _, ml = sides(cell.margin)
+				local w = measure(ctx, cell, innerW, innerH)
+				widths[column] = math.max(widths[column] or 0, w + ml + mr)
+			end
+			column += span
+		end
+		cols = math.max(cols, column - 1)
+	end
+	-- a column every row spanned over has no natural width of its own; it is a real
+	-- column (the cells after it are still in the columns they declared) and it is
+	-- zero wide
+	for i = 1, cols do
+		widths[i] = widths[i] or 0
+	end
+	-- NATURAL COLUMNS NEVER PAINT OUTSIDE THE BOX THEY WERE GIVEN. The flow grid
+	-- cannot overflow — its column width is derived from the offer — and a row grid
+	-- whose naturals do not fit would, so the columns are reduced proportionally to
+	-- the width actually available. It is the same clamp the flow grid's own
+	-- `math.max(0, ...)` makes, one level up: the grid reports and paints a box it
+	-- fits inside, and the cells keep their relative widths.
+	local avail = innerW - gap * math.max(0, cols - 1)
+	if innerW ~= math.huge and cols > 0 then
+		local total = 0
+		for i = 1, cols do
+			total += widths[i]
+		end
+		if total > avail and total > 0 then
+			local scale = math.max(0, avail) / total
+			for i = 1, cols do
+				widths[i] = math.floor(widths[i] * scale)
+			end
+		end
+	end
+	local value = { widths = widths, cols = cols, gap = gap }
+	ctx.gridColumns[node.id] = { key = key, value = value }
+	return value
+end
+
+-- one row's height: its tallest cell measured at the width its columns give it.
+-- `fill`-height cells contribute nothing (they take whatever the row turns out to
+-- be), exactly as a `fill` cell does in the flow grid.
+local function gridRowHeight(ctx: Ctx, row: Node, plan: any, limitH: number): number
+	local widths, gap = plan.widths, plan.gap
+	local rowH = 0
+	local column = 1
+	for _, cell in row.children or {} do
+		local span = spanOf(cell)
+		local cellW = spannedWidth(widths, column, span, gap)
+		local mt, _, mb, _ = sides(cell.margin)
+		local hDim = dim(cell, "h")
+		if hDim.type == "fill" then
+			column += span
+			continue
+		end
+		local _, h = measure(ctx, cell, cellW, limitH)
+		if hDim.type == "aspect" and cellW > 0 then
+			h = math.floor(cellW / (hDim.ratio :: number) + 0.5)
+		end
+		rowH = math.max(rowH, h + mt + mb)
+		column += span
+	end
+	return rowH
+end
+
 -- resolve one axis of `node` given the limit and a content thunk
 -- ---- RELAYOUT BOUNDARIES (incremental-layout Stage 1: DETECTION ONLY) -------
 --
@@ -478,6 +757,7 @@ end
 --   fixed    a literal                                    -> absorbs
 --   percent  reads the LIMIT, not the content...          -> absorbs IF bounded
 --   fill     ...same                                      -> absorbs IF bounded
+--   containerRelative  reads the CONTAINER, not either    -> absorbs
 --   minMax   `preferred or contentFn()`                   -> absorbs IFF preferred
 --   hug      content, capped at the offer                 -> does NOT absorb
 --   content  the content                                  -> does NOT absorb
@@ -492,6 +772,10 @@ end
 local function axisAbsorbs(d: Dim, limit: number, other: Dim, otherLimit: number): boolean
 	local t = d.type
 	if t == "fixed" then
+		return true
+	elseif t == "containerRelative" then
+		-- reads the CONTAINER, never the content: nothing inside it can change its
+		-- size, which is exactly what "absorbs" means here (§2.5)
 		return true
 	elseif t == "percent" or t == "fill" then
 		return limit ~= math.huge
@@ -512,9 +796,51 @@ local function axisAbsorbs(d: Dim, limit: number, other: Dim, otherLimit: number
 	return false
 end
 
-local function resolveAxis(ctx: Ctx, node: Node, d: Dim, limit: number, contentFn: () -> number): number
+-- CONTAINER-RELATIVE SIZING (§2.5). `container` is the nearest ancestor viewport's
+-- inner extent on THIS axis — `ctx.containerW`/`ctx.containerH`, pushed at each
+-- scroll node — and the caller passes it rather than the resolver reading a global,
+-- because `resolveAxis` is called once per axis and only the caller knows which.
+--
+-- The paging arithmetic is SwiftUI's, verbatim:
+--   size = (viewport - spacing x (count - 1)) / count x span + spacing x (span - 1)
+-- i.e. carve the viewport into `count` pages with `spacing` between them, then take
+-- `span` of them AND the gutters those pages had between themselves.
+local function containerRelativeSize(d: Dim, container: number): number
+	local count = (d :: any).count
+	if count ~= nil then
+		local n = math.max(1, math.floor(count))
+		local span = math.clamp(math.floor((d :: any).span or 1), 1, n)
+		local spacing = (d :: any).spacing or 0
+		local page = (container - spacing * (n - 1)) / n
+		return math.max(0, math.floor(page * span + spacing * (span - 1) + 0.5))
+	end
+	return math.max(0, math.floor(container * ((d :: any).fraction or 1) + 0.5))
+end
+
+local function resolveAxis(
+	ctx: Ctx,
+	node: Node,
+	d: Dim,
+	limit: number,
+	contentFn: () -> number,
+	container: number?
+): number
 	if d.type == "fixed" then
 		return d.px :: number
+	elseif d.type == "containerRelative" then
+		-- AN UNBOUNDED CONTAINER IS THE SAME REFUSAL `percent` MAKES, and for the
+		-- same reason: a fraction of infinity is not a size. It happens when a
+		-- scroller is nested inside another scroller's own axis, so the inner one's
+		-- viewport on that axis is the offer it never received.
+		if container == nil or container == math.huge then
+			table.insert(ctx.diagnostics, {
+				node = node.id,
+				issue = "containerRelativeFrame on an axis whose nearest container is unbounded (a scroller "
+					.. "inside another scroller's own axis?); falling back to content",
+			})
+			return contentFn()
+		end
+		return containerRelativeSize(d, container)
 	elseif d.type == "percent" then
 		if limit == math.huge then
 			table.insert(ctx.diagnostics, {
@@ -690,6 +1016,93 @@ local function compositionResolution(ctx: Ctx, node: Node, innerW: number, inner
 	return resolution
 end
 
+--[[ THE FOUR WRITERS OF `ctx.scopeKey`.
+
+	A measure has two inputs that are NOT in its argument list — `hiddenDepth` (it
+	gates diagnostics) and the nearest container (§2.5, it sizes a
+	`containerRelative` dimension) — and both must be in the memo's cache key. They
+	live here as ONE pre-formatted string, built on the handful of pushes a solve
+	makes rather than on the thousands of measures that read it. Going through a
+	helper is what keeps the string from drifting from the fields it names, and a
+	scopeKey that disagrees with them is a cache that returns a size measured against
+	a ruler that is no longer there.
+
+	AND THE CONTAINER ONLY JOINS IT ONCE SOMETHING ACTUALLY READS ONE. `armContainer`
+	sets `hasContainerRelative` the first time a `containerRelative` dimension is
+	measured; until then the scope is `hiddenDepth` alone, which is byte-identical to
+	the key this memo carried before §2.5.
+
+	THAT CONDITION IS NOT A MICRO-OPTIMISATION, IT IS THE DIFFERENCE BETWEEN A LIVE
+	CACHE AND A DEAD ONE, and it was measured rather than reasoned. A scroller's
+	container is its OFFER's inner size during measure and its RECT's during arrange,
+	and those differ whenever the scroller hugs or reserves a scrollbar — which is
+	most of them. Unconditionally, every child of every scroller therefore got a
+	DIFFERENT key in the arrange pass and the memo missed on all of them, which is
+	precisely the second measure it exists to remove: p95 +14.3% on `lab-dense-scroll`,
+	+18.9% on `virtual-list-scroll` and +22.8% on `lab-collection-churn`, against a
+	same-arm noise floor of 2.9/8.1/11.2%. Conditioned, the same three scenes come
+	back to +0.8% / +1.5% / +2.4% against 5.2/5.4/6.0% — inside the noise, and the
+	whole-suite median delta is -0.7%. (4 ABBA blocks per arm, 2026-08-13.)
+
+	WHY THE LATE ARM IS SAFE, and it is a real argument rather than a hope. A stale
+	hit needs a container-dependent node to be READ under a container-free key. For
+	a node's size to depend on the container, its subtree must hold a
+	`containerRelative` dimension — and measuring the node measures that dimension,
+	which arms the flag. The flag never clears, and an armed scope key carries two
+	extra segments, so no key written before the arm can ever be produced again. The
+	pre-arm entries are unreachable, not stale: the cost of a late arm is a miss.
+
+	THREE OF THE FOUR REBUILD; THE FOURTH RESTORES. `pushContainer`, `setHidden` and
+	`armContainer` each change a field the key is DERIVED from and then re-derive it.
+	`restoreScope` puts back a triple that was captured together, so it writes the
+	key verbatim rather than rebuilding one — which is correct, and is also why it
+	cannot go through the helper the other three share. It is named here because the
+	header used to say THREE while two lines wrote the triple directly (the
+	Milestone-1 review, C4): the two scroll branches' unwind. They were safe, and a
+	header that calls a desync structurally impossible is exactly what would let the
+	next edit there make one (docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md).
+]]
+local function rebuildScopeKey(ctx: Ctx)
+	if ctx.hasContainerRelative then
+		ctx.scopeKey = `{ctx.hiddenDepth}|{ctx.containerW}|{ctx.containerH}`
+	else
+		ctx.scopeKey = tostring(ctx.hiddenDepth)
+	end
+end
+
+-- PUSH THE CONTAINER (§2.5). The caller saves and restores the previous triple;
+-- there is no stack, because the only pusher is the scroll branch and it pushes
+-- around a bounded recursion.
+local function pushContainer(ctx: Ctx, w: number, h: number)
+	ctx.containerW = w
+	ctx.containerH = h
+	if ctx.hasContainerRelative then
+		rebuildScopeKey(ctx)
+	end
+end
+
+-- ...and ENTER/LEAVE A HIDDEN SUBTREE. Same field, same reason.
+local function setHidden(ctx: Ctx, depth: number)
+	ctx.hiddenDepth = depth
+	rebuildScopeKey(ctx)
+end
+
+-- ...and the arm itself, called from `measureUncached` the first time a
+-- `containerRelative` dimension is seen.
+local function armContainer(ctx: Ctx)
+	ctx.hasContainerRelative = true
+	rebuildScopeKey(ctx)
+end
+
+-- ...and the fourth writer: UNWIND to a triple captured together. The caller saved
+-- `containerW`/`containerH`/`scopeKey` in one statement before pushing, so putting
+-- all three back in one statement cannot desync them — the key is restored, never
+-- rebuilt. Its only callers are the two scroll branches (measure's child loop and
+-- arrange's), which push a container around a bounded recursion.
+local function restoreScope(ctx: Ctx, w: number, h: number, key: string)
+	ctx.containerW, ctx.containerH, ctx.scopeKey = w, h, key
+end
+
 -- content sizes per kind (pre-dim resolution), used by measure
 local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
 	-- padding accepts a number or per-side table, exactly like margins
@@ -719,10 +1132,12 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- answer without the content this call is measuring.
 	if maxW ~= math.huge and node.kind ~= "text" and node.kind ~= "fits" then
 		local selfW = dim(node, "w")
-		if selfW.type == "fixed" or selfW.type == "percent" then
+		-- `containerRelative` joins the two that could already answer without the
+		-- content (§2.5): it reads the container, so asking for it here cannot recurse
+		if selfW.type == "fixed" or selfW.type == "percent" or selfW.type == "containerRelative" then
 			local resolved = resolveAxis(ctx, node, selfW, maxW, function()
 				return innerMaxW
-			end)
+			end, ctx.containerW)
 			innerMaxW = math.max(0, math.min(innerMaxW, resolved - pl - pr))
 		end
 	end
@@ -749,21 +1164,11 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		if node.singleLine == true then
 			wrapWidth = math.huge
 		end
-		-- typography comes from the active snapshot: `body` is the default role,
-		-- and a string textSize NAMES a role (the renderer normally resolves it,
-		-- but a direct solver caller may hand one straight in).
-		-- the measured font is the role's canonical DESCRIPTOR ("family#weight#
-		-- style", ADR-0019 §6), never a bare family: two weights of one family
-		-- measure differently, and the client premeasure adapter resolves the
-		-- descriptor to the engine face it names (src/client/text_premeasure).
-		local roles = ctx.metrics.type
-		local role = if type(node.textSize) == "string" then roles[node.textSize] else nil
-		local base = role or roles.body
-		local size = if type(node.textSize) == "number"
-			then node.textSize
-			else (themeSnapshot.resolveSize(ctx.metrics, node.textSize) or base.size)
-		local font = node.font or base.fontKey
-		local lineHeight = node.lineHeight or base.lineHeight
+		-- typography comes from the active snapshot (see `textTypography` above for
+		-- the role ladder and why the descriptor rather than a bare family); the
+		-- client premeasure adapter resolves that descriptor to the engine face it
+		-- names (src/client/text_premeasure).
+		local font, size, lineHeight = textTypography(ctx, node)
 		-- THE COMPACT LADDER (director, 2026-07-27). A node that declared a shorter
 		-- representation swaps to it exactly when the full one does not fit the
 		-- width this node will OCCUPY — `innerMaxW`, already clamped above to the
@@ -844,6 +1249,18 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		local axis = node.axis or "y"
 		local childW = if axis == "x" then math.huge else innerMaxW
 		local childH = if axis == "y" then math.huge else innerMaxH
+		-- THIS SCROLLER IS THE CONTAINER ITS SUBTREE MEASURES AGAINST (§2.5). The
+		-- viewport is its INNER box on both axes — including the axis the children
+		-- are offered `math.huge` on, which is the whole point: a carousel page asks
+		-- for a third of the window it scrolls through, not a third of the canvas.
+		--
+		-- Measure-time it is the OFFER's inner size; arrange-time it is the rect's.
+		-- Those differ for a `hug` scroller, deliberately and visibly: once anything in
+		-- the tree asks for a container-relative size the memo's key carries the
+		-- container, so the arrange pass re-measures rather than replaying the
+		-- offer-time answer, and what the player sees is the arrange one.
+		local restoreW, restoreH, restoreKey = ctx.containerW, ctx.containerH, ctx.scopeKey
+		pushContainer(ctx, innerMaxW, innerMaxH)
 		local mainSum, crossMax, n = 0, 0, 0
 		for _, child in node.children or {} do
 			local w, h = measure(ctx, child, childW, childH)
@@ -851,6 +1268,7 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			crossMax = math.max(crossMax, if axis == "x" then h else w)
 			n += 1
 		end
+		restoreScope(ctx, restoreW, restoreH, restoreKey)
 		local gaps = if n > 1 then gap * (n - 1) else 0
 		-- THE BAR IS PART OF THE MEASURE (2026-08-08, ref_wardrobe matrix row).
 		-- Arrange reserves `scrollBarReserve` off the CROSS axis whenever the
@@ -891,10 +1309,14 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- them here cannot recurse.
 		local selfW = dim(node, "w")
 		local limitW = innerMaxW
-		if selfW.type == "fixed" or (selfW.type == "percent" and maxW ~= math.huge) then
+		if
+			selfW.type == "fixed"
+			or selfW.type == "containerRelative"
+			or (selfW.type == "percent" and maxW ~= math.huge)
+		then
 			local resolved = resolveAxis(ctx, node, selfW, maxW, function()
 				return innerMaxW
-			end)
+			end, ctx.containerW)
 			limitW = math.max(0, resolved - pl - pr)
 		end
 		local children = node.children or {}
@@ -924,6 +1346,40 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			ch = math.max(ch, h + mt + mb)
 		end
 		return cw + pl + pr, ch + pt + pb
+	end
+
+	-- ONE ROW OF A ROW GRID, measured on its own (§2.2). The grid never asks — it
+	-- measures the CELLS, because the columns are a fact about every row at once —
+	-- so this is the answer for a `UI.GridRow` that is not inside a `UI.Grid` at
+	-- all, which the arrange branch diagnoses. Natural row: cells side by side.
+	if node.kind == "gridrow" then
+		local w, h = 0, 0
+		for _, cell in node.children or {} do
+			local mt, mr, mb, ml = sides(cell.margin)
+			local cw, ch = measure(ctx, cell, innerMaxW, innerMaxH)
+			w += cw + ml + mr
+			h = math.max(h, ch + mt + mb)
+		end
+		return w + pl + pr, h + pt + pb
+	end
+
+	if node.kind == "grid" and gridMode(node) == "row" then
+		local rows = node.children or {}
+		local rowGap = gridRowGap(node)
+		local plan = gridColumnPlan(ctx, node, innerMaxW, innerMaxH, gap)
+		local totalW = 0
+		for i = 1, plan.cols do
+			totalW += plan.widths[i]
+		end
+		totalW += gap * math.max(0, plan.cols - 1)
+		local totalH = 0
+		for i, row in rows do
+			totalH += gridRowHeight(ctx, row, plan, innerMaxH)
+			if i < #rows then
+				totalH += rowGap
+			end
+		end
+		return totalW + pl + pr, totalH + pt + pb
 	end
 
 	if node.kind == "grid" then
@@ -1016,6 +1472,17 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	local mainSum, fillWeightSum = 0, 0
 	local crossOf: { [number]: number } = {}
 	local marginMain: { [number]: number } = {}
+	-- lazily created, and only ever by a child that declared a shrinkWeight ABOVE
+	-- ZERO: a stack that opted into nothing allocates nothing here and PASS 1.5
+	-- below never runs. The one cost on the inert path is the field read in PASS 1.
+	--
+	-- `> 0`, NOT `~= nil` (Milestone-1 review, C6). `shrinkWeight = 0` is the
+	-- documented default AND a legal authored value — "never shrinks", Roblox's
+	-- `UIFlexMode.None` — so a caller who writes it explicitly means the inert
+	-- behaviour. The `~= nil` form allocated `shrinkBasis`, ran PASS 1.5 and called
+	-- `shrinkStack` for it, which then filtered it out one level down on exactly
+	-- this test. Same filter, one level earlier.
+	local shrinkBasis: { [number]: number }? = nil
 	-- PASS 1: children with a definite main extent measure against the whole
 	-- inner box, and consume it.
 	for idx, child in children do
@@ -1028,10 +1495,78 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			local cw, ch = measure(ctx, child, innerMaxW, innerMaxH)
 			mainSum += (if isH then cw + ml + mr else ch + mt + mb)
 			crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
+			if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then
+				local basis = shrinkBasis or {}
+				basis[idx] = if isH then cw else ch
+				shrinkBasis = basis
+			end
+		end
+	end
+	-- PASS 1.5: THE MEASURE-SIDE SHRINK (§2.4, added 2026-08-12 — the mirror that
+	-- closes the seam this branch used to merely name).
+	--
+	-- The claim this replaces was that shrinking is an arrange-time negotiation and
+	-- measure only reports what a stack would LIKE, so a deficit cannot exist here.
+	-- That is true of a `hug`/`content` parent, which offers back exactly what it
+	-- measured. It is false the moment the offer is DEFINITE and smaller than the
+	-- content — a `fill`-width toolbar in a fixed screen — which is the canonical
+	-- use of the feature. There the squeeze is knowable at measure time, and not
+	-- doing it reserved the CROSS extent of a wrap that will not happen: a label
+	-- squeezed to its floor wrapped to eight lines inside a row that had reserved
+	-- one, and painted the other seven outside. That is the "painted at a size
+	-- nobody measured" family (docs/lessons/measure-the-requirement-not-the-render.md),
+	-- and shipping a new layout feature with a known instance of it inside is
+	-- shipping the next one.
+	--
+	-- It mirrors PASS 2 below, which exists for the identical reason on the `fill`
+	-- child: measure at the extent the child will ACTUALLY get, or under-report its
+	-- cross size. Order matches arrange's (shrink, then fill): the freed pixels are
+	-- part of what fill children share.
+	--
+	-- ZERO ADDED WORK WHEN NOTHING OPTED IN, deliberately — this is the hot measure
+	-- path and it has a live perf budget. `shrinkBasis` is nil unless a child
+	-- declared a weight, so the whole block is skipped by one nil test; the two
+	-- tables it needs are allocated on the deficit path only, exactly the discipline
+	-- arrange's `EMPTY_SHRINK` was written for.
+	if shrinkBasis ~= nil and mainLimit ~= math.huge then
+		local deficit = mainSum + gaps - mainLimit
+		if deficit > 0 then
+			local shrunk: { [number]: number } = {}
+			local absorbed = shrinkStack(ctx, children, isH, shrinkBasis :: { [number]: number }, deficit, shrunk)
+			if absorbed > 0 then
+				-- the report shrinks with the children: a stack that can absorb its own
+				-- deficit needs the room it is left with, not the room it started from,
+				-- and reporting the larger number would make measure a fixed point of
+				-- nothing (the parent hands the report back and the same squeeze happens
+				-- again at arrange).
+				mainSum -= absorbed
+				-- RE-MEASURE AT THE REDUCED OFFER, in document order — the same loop, the
+				-- same reason and the same ordering rule as arrange's: last-write-wins
+				-- verdict channels (`compact`, `textFacts`) must publish deterministically.
+				for idx = 1, n do
+					local size = shrunk[idx]
+					if size ~= nil then
+						local child = children[idx]
+						local mt, mr, mb, ml = sides(child.margin)
+						local cw, ch =
+							measure(ctx, child, if isH then size else innerMaxW, if isH then innerMaxH else size)
+						crossOf[idx] = if isH then ch + mt + mb else cw + ml + mr
+					end
+				end
+			end
 		end
 	end
 	-- PASS 2: a FILL child never receives the whole main extent — it receives its
-	-- weighted share of what is left, exactly as arrange distributes it. Measuring
+	-- weighted share of what is left, exactly as arrange distributes it.
+	--
+	-- THIS PASS MIRRORS ARRANGE'S `fill` BLOCK. Arrange's SHRINK pass has its own
+	-- mirror at PASS 1.5 above (it used to have none, and the gap between them was
+	-- the seam recorded there). Both passes are the same rule applied to the two
+	-- ways a child ends up smaller than its natural size — a fill share, or a
+	-- squeeze — and both run because the CROSS extent has to be measured at the main
+	-- extent the child will actually get.
+	--
+	-- Measuring
 	-- it against the FULL extent under-reports its cross size, because less width
 	-- means more wrapped lines and more height. That under-report is what a
 	-- ScrollView turns into a canvas that cannot reach its own content: found live
@@ -1085,9 +1620,10 @@ end
 --
 -- SAFETY. `ctx` is created fresh per `solver.solve`, nothing mutates node content
 -- mid-solve, and every side effect `measure` has is an idempotent write into a
--- ctx table keyed by `node.id`. The one contextual input that is NOT in the
--- argument list is `ctx.hiddenDepth` (it gates diagnostics), so it is part of the
--- key. A miss recomputes exactly as before.
+-- ctx table keyed by `node.id`. TWO contextual inputs are NOT in the argument
+-- list — `ctx.hiddenDepth` (it gates diagnostics) and the nearest container
+-- (§2.5, it sizes a `containerRelative` dimension) — so both are part of the key,
+-- carried together as `ctx.scopeKey`. A miss recomputes exactly as before.
 measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
 	-- SCOPED TO THE SHAPES THAT PAY FOR IT (architecture review MINOR-8, confirmed as a
 	-- real gate failure). The memo exists for ONE redundancy: `arrange`'s scroll branch
@@ -1128,6 +1664,22 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	-- Verified by differential fuzz against a build with the drop disabled, not by
 	-- reading the code twice: this is the second cache in this function, and the FIRST
 	-- one was wrong in a way only a differential oracle could see.
+	-- ...AND THE SHRINK PASS NEEDS NOTHING ADDED TO IT — FROM EITHER OF ITS TWO
+	-- CALLERS (§2.4, checked rather than assumed, and re-checked when the measure-
+	-- side caller was added rather than inherited from the arrange-side check). That
+	-- pass re-measures a squeezed child at a REDUCED OFFER and reads no other input
+	-- through `measure`, so it is already a distinct `maxW`/`maxH` and already a
+	-- distinct key — including when the caller is PASS 1.5, i.e. `measure` itself,
+	-- one frame up its own stack.
+	--
+	-- Both callers are mutation-proved in tests/stack_distribution.spec.luau, and
+	-- both proofs sit UNDER A SCROLLVIEW on purpose: this memo is gated on
+	-- `ctx.hasScroll` two lines above, so a fixture without one runs uncached and
+	-- can say nothing about the key. Dropping `maxW` here reddens "the measure MEMO
+	-- tells the two offers apart" (arrange-side) and "...the MEASURE-side pass is
+	-- keyed by the memo too" — and reusing the natural measurement instead of the
+	-- reduced one reddens "...RE-MEASURED at the reduced offer" and "THE CLOSED
+	-- SEAM".
 	local dropH = ctx.heightFree[node]
 	if dropH == nil then
 		dropH = false
@@ -1138,7 +1690,31 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 		end
 		ctx.heightFree[node] = dropH
 	end
-	local cacheKey = if dropH then `{maxW}|*|{ctx.hiddenDepth}` else `{maxW}|{maxH}|{ctx.hiddenDepth}`
+	-- ...AND THE CONTAINER JOINS THE KEY (§2.5, and the concrete case §Phase 0
+	-- warned about). Every other term here is an input the CALLER handed down. A
+	-- `containerRelative` dimension is the first one that is not: it resolves against
+	-- the nearest ancestor viewport, which is not the parent's offer — so the SAME
+	-- node, at the SAME `maxW`/`maxH`, legitimately wants a different answer once the
+	-- container underneath it changes.
+	--
+	-- It changes within one solve, not only between solves: a `hug` ScrollView is
+	-- MEASURED against the height it was offered and ARRANGED at the height it turned
+	-- out to need, and its children are offered `math.huge` on the scroll axis in both
+	-- passes. Identical key, different ruler — a silent stale hit, and the box the
+	-- player sees is the arrange one. Mutation-proved in
+	-- tests/container_relative_frame.spec.luau ("the measure MEMO tells two
+	-- containers apart"), and that proof sits UNDER A SCROLLVIEW on purpose: this memo
+	-- is gated on `ctx.hasScroll` above, so a fixture without one runs uncached and
+	-- can say nothing about the key.
+	--
+	-- IT RIDES `ctx.scopeKey`, AND ONLY ONCE A `containerRelative` DIMENSION HAS
+	-- ACTUALLY BEEN MEASURED. That condition is load-bearing rather than tidy: a
+	-- scroller's container is its OFFER's inner size at measure and its RECT's at
+	-- arrange, so putting it in the key unconditionally made the arrange pass miss on
+	-- every child of every scroller — the exact redundancy this memo was built to
+	-- remove. See `rebuildScopeKey` for the numbers and for why arming on first sight
+	-- cannot produce a stale hit.
+	local cacheKey = if dropH then `{maxW}|*|{ctx.scopeKey}` else `{maxW}|{maxH}|{ctx.scopeKey}`
 	local perNode = ctx.measureCache[node]
 	if perNode ~= nil then
 		local hit = perNode[cacheKey]
@@ -1203,6 +1779,13 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		ctx.hasScroll = true
 	end
 	local wDim, hDim = dim(node, "w"), dim(node, "h")
+	-- ARM THE CONTAINER TERM OF THE CACHE KEY (§2.5), the same shape `hasScroll`
+	-- has one branch up: a tree that never asks for a container-relative size keeps
+	-- the exact key the memo carried before this stage. See `armContainer` for why
+	-- arming on first sight — rather than up front — cannot produce a stale hit.
+	if not ctx.hasContainerRelative and (wDim.type == "containerRelative" or hDim.type == "containerRelative") then
+		armContainer(ctx)
+	end
 	if ctx.analyze then
 		-- recorded where the OFFER is in hand, because that is what decides it for a
 		-- percent or fill dimension. Last write wins, exactly like the other
@@ -1261,27 +1844,290 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		h = resolveAxis(ctx, node, hDim, maxH, function()
 			local _, c = content()
 			return c
-		end)
+		end, ctx.containerH)
 		h = pairedExtent(hDim, maxH, h)
 		w = math.floor(h * (wDim.ratio :: number) + 0.5)
 	elseif hDim.type == "aspect" then
 		w = resolveAxis(ctx, node, wDim, maxW, function()
 			local c, _ = content()
 			return c
-		end)
+		end, ctx.containerW)
 		w = pairedExtent(wDim, maxW, w)
 		h = math.floor(w / (hDim.ratio :: number) + 0.5)
 	else
 		w = resolveAxis(ctx, node, wDim, maxW, function()
 			local c, _ = content()
 			return c
-		end)
+		end, ctx.containerW)
 		h = resolveAxis(ctx, node, hDim, maxH, function()
 			local _, c = content()
 			return c
-		end)
+		end, ctx.containerH)
 	end
 	return w, h
+end
+
+-- ===== THE PLACEMENT-PROP READ TABLE (parity round 2 §2.1) ==================
+--
+-- `anchor`, `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign`, `gridSpan`,
+-- `layoutPriority` and `shrinkWeight` are shared BOX props — legal on EVERY node
+-- — but not one of them is a fact the node has of its own. Each is a placement
+-- instruction addressed to a particular kind of PARENT, and every arrange branch
+-- below reads only the ones it knows: an `anchor` branch reads
+-- `anchor`/`offsetX`/`offsetY`, a `zstack` reads `alignH`/`alignV`, a stack reads
+-- `lineAlign` and the shrink pair, a `gridrow` reads `gridSpan`.
+--
+-- THE SHRINK PAIR JOINED LATE, and that is a finding rather than a design (the
+-- Milestone-1 architecture review, C2). `layoutPriority`/`shrinkWeight` shipped in
+-- the same parity round as this table, declared in the schema paragraph that names
+-- the five audited props beside them — and were left out of it. Only a
+-- `vstack`/`hstack` shrink pass reads either one, so `UI.Text{ shrinkWeight = 2 }`
+-- under a ZStack, a Grid, an Anchor or a ScrollView was accepted and did nothing,
+-- with no diagnostic: the exact §4 violation this table was built to eliminate,
+-- re-committed by the mission that built it.
+--
+-- Anywhere else the prop is ACCEPTED AND THEN IGNORED, which is exactly what
+-- constitution §4 forbids ("a property that is accepted must do something"). The
+-- child cannot catch it — a child does not know its parent at its own
+-- construction — so the parent catches it, and this table is what it checks
+-- against.
+--
+-- IT LIVES HERE, next to the branches, and not next to the reader: it is a
+-- statement about what THIS file's arrange does, and a copy kept anywhere else
+-- goes stale the first time a branch learns a new prop. `renderer.toLayoutNode`
+-- consults it; the audit's findings ride back in on `Node.inertPlacement`.
+--
+-- TWO SUBTLETIES, both of which a naive table gets wrong:
+--
+-- 1. `alignH`/`alignV` are ALSO container props. A zstack reads its own
+--    (`child.alignH or node.alignH`, below) as the default for its children, so
+--    a `UI.ZStack{ alignH = "end" }` under an hstack is doing real work and must
+--    never be flagged. That is the `SELF_READ` set.
+-- 2. TWO CELLS ARE CLOSED BY THE SCHEMA and therefore have no case here, because
+--    a branch that cannot be reached cannot be tested and cannot be trusted:
+--      * a ROW-MODE grid's children are `UI.GridRow`s, whose prop set
+--        (`blueprint_schema.luau` class "GridRow") admits paint and nothing else;
+--      * a `UI.Composition`'s children are `UI.Region`s — it refuses any child
+--        that is not one — and a Region's prop set is just as closed
+--        (`floor`/`group`/`mayDrop`/`mayScroll`/`rank`/`reserved`/`sizing`/
+--        `weight`).
+--    In both, every placement prop is already a CONSTRUCTION error, which is the
+--    louder answer anyway. `tests/placement_audit.spec.luau` pins both schemas so
+--    that loosening either one goes red here rather than silently unpolicing a
+--    parent kind. A `region`'s own chosen FORM is an ordinary box, so `region`
+--    below is reachable and does have a case.
+local PLACEMENT_PROPS =
+	{ "anchor", "offsetX", "offsetY", "alignH", "alignV", "lineAlign", "gridSpan", "layoutPriority", "shrinkWeight" }
+local PLACEMENT_READS: { [string]: { [string]: boolean } } = {
+	anchor = { anchor = true, offsetX = true, offsetY = true },
+	zstack = { alignH = true, alignV = true },
+	grid = { alignH = true, alignV = true },
+	gridrow = { alignH = true, alignV = true, gridSpan = true },
+	-- STACKS ONLY, for the shrink pair: the deficit is discovered by a stack's own
+	-- main axis (measure PASS 1.5 and arrange's shrink block), and no other branch
+	-- calls `shrinkStack` at all.
+	vstack = { lineAlign = true, layoutPriority = true, shrinkWeight = true },
+	hstack = { lineAlign = true, layoutPriority = true, shrinkWeight = true },
+	-- A SCROLLER READS BOTH OFFSETS, not just its axis's. The off-axis nudge is a
+	-- no-op today, but the scroll machinery itself writes the pair (scroll
+	-- offsetting and the row-culling park, `arrange`'s scroll branch), so pinning
+	-- the audit to the authored axis would have it police the framework's own
+	-- writes. Narrowing it is a separate question from this defect class.
+	scroll = { offsetX = true, offsetY = true },
+	-- ...and the two that place a child by RANK or by REGION, never by a placement
+	-- prop: a ViewThatFits candidate and a Region's chosen form each get their
+	-- container's whole box, or their own measure clamped to it. (`composition` is
+	-- absent on purpose — see subtlety 2 above.)
+	fits = {},
+	region = {},
+}
+-- kinds whose OWN arrange reads the prop off itself, so it is never inert on
+-- them whatever their parent is (subtlety 1 above)
+local PLACEMENT_SELF_READ: { [string]: { [string]: boolean } } = {
+	zstack = { alignH = true, alignV = true },
+}
+-- How each kind DOES place a child — the "reason" half of every message. A
+-- message that states only the prohibition gets deleted by the next agent who
+-- cannot see why it is there; this repo has the scar.
+local PLACEMENT_BY: { [string]: string } = {
+	vstack = "stacking them down a line",
+	hstack = "stacking them across a line",
+	zstack = "layering them over its whole box",
+	anchor = "pinning them to a corner",
+	grid = "flowing them into equal columns",
+	gridrow = "seating each one in its row's column",
+	scroll = "flowing them along its scroll axis",
+	fits = "giving the chosen candidate the whole offer",
+	region = "giving the chosen form the region's whole box",
+}
+-- The shrink pair's advice, one sentence per parent kind: the pair is only ever
+-- read by a stack's own shrink pass, so every other kind's message is the same
+-- rule plus what that kind DOES do with its children instead.
+local function SHRINK_PAIR_INSTEAD(prop: string, insteadDoes: string): string
+	return string.format(
+		"`%s` is one of the SHRINK pass's two inputs — read only by a `UI.VStack`/`UI.HStack` "
+			.. "parent whose main axis came out short; %s",
+		prop,
+		insteadDoes
+	)
+end
+-- Per (parent kind, prop): the spelling that DOES work there. A refusal that
+-- states only the prohibition gets "fixed" by the next agent deleting the check,
+-- so every message carries the reason and the way out.
+local PLACEMENT_INSTEAD: { [string]: { [string]: string } } = {
+	vstack = {
+		alignH = "use `lineAlign` (start|center|end|stretch), which a stack does read off each child",
+		alignV = "a vstack's cross axis is X — use `lineAlign` (start|center|end|stretch) for it, and "
+			.. "`distribute` on the stack for the main axis",
+		anchor = "wrap this child in a `UI.Anchor`, which does place by corner",
+		offsetX = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		offsetY = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+	},
+	hstack = {
+		alignH = "an hstack's cross axis is Y — use `lineAlign` (start|center|end|stretch) for it, and "
+			.. "`distribute` on the stack for the main axis",
+		alignV = "use `lineAlign` (start|center|end|stretch), which a stack does read off each child",
+		anchor = "wrap this child in a `UI.Anchor`, which does place by corner",
+		offsetX = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		offsetY = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or shift it inside the line with `margin`",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+	},
+	zstack = {
+		anchor = "use `alignH`/`alignV` (start|center|end), which a zstack does read off each child",
+		offsetX = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or use `margin` to inset it",
+		offsetY = "wrap this child in a `UI.Anchor` (it reads offsetX/offsetY), or use `margin` to inset it",
+		lineAlign = "`lineAlign` is a STACK's word — under a zstack use `alignH`/`alignV`",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+		layoutPriority = SHRINK_PAIR_INSTEAD(
+			"layoutPriority",
+			"a zstack layers its children over its whole box and never negotiates a deficit"
+		),
+		shrinkWeight = SHRINK_PAIR_INSTEAD(
+			"shrinkWeight",
+			"a zstack layers its children over its whole box and never negotiates a deficit"
+		),
+	},
+	anchor = {
+		alignH = "an Anchor places by corner — use `anchor` (topLeft…bottomRight) with `offsetX`/`offsetY`",
+		alignV = "an Anchor places by corner — use `anchor` (topLeft…bottomRight) with `offsetX`/`offsetY`",
+		lineAlign = "`lineAlign` is a STACK's word — under an Anchor use `anchor` (topLeft…bottomRight)",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+		layoutPriority = SHRINK_PAIR_INSTEAD(
+			"layoutPriority",
+			"an Anchor pins by corner and never negotiates a deficit"
+		),
+		shrinkWeight = SHRINK_PAIR_INSTEAD("shrinkWeight", "an Anchor pins by corner and never negotiates a deficit"),
+	},
+	grid = {
+		anchor = "a grid places each cell in its column — wrap this cell's content in a `UI.Anchor` inside the cell",
+		offsetX = "a grid places each cell in its column — wrap this cell's content in a `UI.Anchor` inside the cell",
+		offsetY = "a grid places each cell in its column — wrap this cell's content in a `UI.Anchor` inside the cell",
+		lineAlign = "`lineAlign` is a STACK's word — inside a grid cell use `alignH`/`alignV`",
+		gridSpan = "`gridSpan` is a ROW grid's word — it is read off a `UI.GridRow`'s cells, not off a flow grid's",
+		layoutPriority = SHRINK_PAIR_INSTEAD("layoutPriority", "a grid gives every cell its column"),
+		shrinkWeight = SHRINK_PAIR_INSTEAD("shrinkWeight", "a grid gives every cell its column"),
+	},
+	gridrow = {
+		anchor = "a row places each cell in its column — wrap this cell's content in a `UI.Anchor` inside the cell",
+		offsetX = "a row places each cell in its column — wrap this cell's content in a `UI.Anchor` inside the cell",
+		offsetY = "a row places each cell in its column — wrap this cell's content in a `UI.Anchor` inside the cell",
+		lineAlign = "`lineAlign` is a STACK's word — inside a grid cell use `alignH`/`alignV`",
+		layoutPriority = SHRINK_PAIR_INSTEAD(
+			"layoutPriority",
+			"a row seats each cell in its column (use `gridSpan` to cover more of them)"
+		),
+		shrinkWeight = SHRINK_PAIR_INSTEAD(
+			"shrinkWeight",
+			"a row seats each cell in its column (use `gridSpan` to cover more of them)"
+		),
+	},
+	scroll = {
+		alignH = "a scroller stretches its children across the cross axis — wrap this child in a "
+			.. "`UI.ZStack` (which reads alignH/alignV) or give it a `width` and a `lineAlign`",
+		alignV = "a scroller stretches its children across the cross axis — wrap this child in a "
+			.. "`UI.ZStack` (which reads alignH/alignV) or give it a `height`",
+		anchor = "wrap this child in a `UI.Anchor`, which does place by corner",
+		lineAlign = "a scroller's flow is not a stack line — wrap this child in a `UI.VStack`/`UI.HStack`",
+		gridSpan = "`gridSpan` is read only by a `UI.GridRow` cell",
+		layoutPriority = SHRINK_PAIR_INSTEAD(
+			"layoutPriority",
+			"a scroller has no deficit to share out, which is what scrolling means (wrap these children in a stack if you want them squeezed instead)"
+		),
+		shrinkWeight = SHRINK_PAIR_INSTEAD(
+			"shrinkWeight",
+			"a scroller has no deficit to share out, which is what scrolling means (wrap these children in a stack if you want them squeezed instead)"
+		),
+	},
+	fits = {
+		DEFAULT = "a ViewThatFits candidate is given the whole offer or its own measure clamped to it — "
+			.. "put the placement prop on a container INSIDE the candidate",
+	},
+	region = {
+		DEFAULT = "a UI.Region hands its chosen form the region's whole box — put the placement prop on a "
+			.. "container INSIDE the form",
+	},
+}
+
+-- The parent-side audit, run once per node per tree build by
+-- `renderer.toLayoutNode` and reported by `arrange` (so it is gated by
+-- `hiddenDepth` and replayed by the incremental-layout reuse path exactly like
+-- the overflow diagnostic beside it). Returns nil — the overwhelmingly common
+-- answer — rather than an empty table, so a clean tree allocates nothing.
+--
+-- `childKinds` is parallel to `children`; the caller has them already.
+function solver.auditPlacement(
+	parentKind: string,
+	parentId: string,
+	children: { Node }
+): { { node: string, issue: string, filedBy: string } }?
+	local reads = PLACEMENT_READS[parentKind]
+	if reads == nil then
+		return nil -- a kind that places no children, or one this table does not police
+	end
+	local found: { { node: string, issue: string, filedBy: string } }? = nil
+	for _, child in children do
+		-- ONE field test for the overwhelmingly common case. `placementProps` is
+		-- set by `renderer.toLayoutNode` on the same line that already reads all
+		-- seven values, so a node carrying none costs this comparison and nothing
+		-- else — the difference between a measurable arrange regression and none.
+		if (child :: any).placementProps == nil then
+			continue
+		end
+		local selfRead = PLACEMENT_SELF_READ[child.kind]
+		for _, prop in PLACEMENT_PROPS do
+			if (child :: any)[prop] == nil or reads[prop] then
+				continue
+			end
+			if selfRead ~= nil and selfRead[prop] then
+				continue -- the child's OWN arrange reads it (a zstack's alignH/alignV)
+			end
+			local advice = PLACEMENT_INSTEAD[parentKind]
+			local instead = if advice ~= nil then (advice[prop] or advice.DEFAULT) else nil
+			found = found or {}
+			table.insert(found :: any, {
+				node = child.id,
+				-- THE FILER, not the named node (RED-TEAM Milestone 1, HIGH 2). Every
+				-- other diagnostic in this file is filed under the node that files it,
+				-- so the incremental replay gate could read `d.node` and be right. This
+				-- one cannot: `arrange` files it while walking the PARENT, and names the
+				-- offending CHILD. Without this stamp the gate replayed a finding the
+				-- walked parent had already filed fresh, once more every layout-dirty
+				-- frame, forever.
+				filedBy = parentId,
+				issue = string.format(
+					"`%s` is a placement prop this parent never reads: a %s's arrange places its "
+						.. "children by %s, so `%s` here is accepted and then ignored — nothing moves. %s",
+					prop,
+					parentKind,
+					PLACEMENT_BY[parentKind] or "its own rule",
+					prop,
+					instead or "put it on a parent that reads it"
+				),
+			})
+		end
+	end
+	return found
 end
 
 local ANCHOR_FACTORS: { [string]: { number } } = {
@@ -1337,6 +2183,292 @@ local function alignOffset(align: string?, avail: number, size: number): number
 	return 0
 end
 
+--[[ ===== THE SHRINK PASS (docs/plans/swiftui-parity-round2.md §2.4) ==========
+
+	UNTIL THIS, THE SOLVER HAD NO SHRINK PASS AT ALL. `remaining = math.max(0,
+	availMain)` clamped the deficit away: `hug`/`content`/`fixed` children kept
+	their full desired extent, the cursor kept advancing, and the row painted past
+	its own box with only the overflow diagnostic to say so.
+
+	TWO INPUTS, TWO LEVELS OF ONE ALGORITHM. `layoutPriority` (default 0) is the
+	OUTER sort — tiers, consumed lowest-first, which is SwiftUI's model.
+	`shrinkWeight` (default 0) is the INNER distribution — inside a tier the deficit
+	is split proportionally to `shrinkWeight x basis`, which is CSS's. Ordering
+	alone was not enough and the hole was on the DEFAULT path: with every child at
+	priority 0 they all sit in one tier, and "ascending priority order" says nothing
+	about what happens inside one — left to document order the first of three equal
+	overflowing chips would collapse to its floor while its two siblings stayed full
+	size.
+
+	`shrinkWeight = 0` MEANS NEVER, and it is the default, so today's geometry is
+	preserved exactly and no shipped screen moves. That is also the native-parity
+	choice: Roblox's `Enum.UIFlexMode.None` is likewise the default and likewise
+	documented "neither shrinks nor grows". `shrinkWeight = 1` is `UIFlexMode.Shrink`
+	/ CSS `flex-shrink: 1`.
+
+	TWO DETAILS ROBLOX'S DOCS LEAVE UNDEFINED, decided here and owned as LuauUI's
+	own rulings rather than claimed as parity:
+
+	  * the weight is MULTIPLIED BY THE BASIS, as CSS does. Without it a 400px child
+	    and a 40px child give up the same pixels, which collapses the small one
+	    first;
+	  * the FLOOR STACK is `minMax.min` -> a text node's min-content width (its
+	    longest word — squeezed under that the engine breaks the word rather than
+	    clipping a pixel) -> `0`, in that order.
+
+	WHERE IT RUNS, AND WHERE IT CANNOT. A deficit exists wherever the space a stack
+	has is smaller than the space its children want, and a stack learns that twice:
+	from the OFFER the measure pass hands it, and from the RECT arrange hands it. So
+	the pass runs in both — the measure branch's PASS 1.5 and arrange's own block —
+	and in both the shrunk children are re-measured at their reduced offer, because
+	a squeezed label would otherwise keep the box of a wrap it is not going to get.
+
+	It cannot fire under a `hug`/`content` parent, which offers its children exactly
+	what it measured: there is no deficit to absorb, and nothing shrinks. That is not
+	a limitation, it is the definition of hugging.
+
+	Shipping the arrange half alone (2026-08-12, for one day) left the two passes
+	disagreeing: measure reserved the CROSS extent of an unsqueezed label and arrange
+	then squeezed it onto eight lines, which painted seven of them outside the row.
+	The measure-side mirror is what closed that, and it is the same repair the `fill`
+	child's second measure pass already was. Both re-measures also keep the measure
+	memo honest: the pass only ever varies the OFFER, which `maxW`/`maxH` already key
+	— verified for each caller separately under a `ScrollView`, where the memo is
+	live (tests/stack_distribution.spec.luau).
+]]
+
+-- The narrowest main extent this child may be squeezed to. Never above `basis`:
+-- a floor larger than the natural size would mean "shrinking" a child upwards.
+local function shrinkFloorOf(ctx: Ctx, child: Node, isH: boolean, basis: number): number
+	local d = mainDimOf(child, isH)
+	if d.type == "minMax" and type(d.min) == "number" then
+		return math.min(d.min :: number, basis)
+	end
+	-- min-content applies to a text node's WIDTH; a vertical stack squeezing a
+	-- label's HEIGHT has no equivalent (there is no "minimum wrap height"), so the
+	-- floor there is whatever `minMax.min` declared, else 0.
+	if isH and child.kind == "text" then
+		-- the string this node will actually DRAW — the compact ladder's verdict is
+		-- published on `ctx.compact` by the measure that reserved the box, and the
+		-- floor has to belong to the same string
+		local drawn = if child.compactText ~= nil and ctx.compact[child.id] == true
+			then child.compactText :: string
+			else (child.text or "")
+		local font, size = textTypography(ctx, child)
+		local _, pr, _, pl = sides(child.padding)
+		return math.min(text_metrics.minWidth(drawn, font, size) + pl + pr, basis)
+	end
+	return 0
+end
+
+type ShrinkMember = { idx: number, basis: number, floor: number, scaled: number, priority: number }
+
+-- the "nothing shrank" reading of the per-child result table, shared and frozen so
+-- the overwhelmingly common arrange (no deficit, or no child that opted in) costs
+-- one assignment rather than one table
+local EMPTY_SHRINK: { [number]: number } = table.freeze({}) :: any
+
+-- Absorb what one PRIORITY TIER (members[lo..hi]) can of `deficit`, writing each
+-- member's new main extent into `shrunk`. Returns the pixels actually absorbed.
+local function absorbTier(
+	members: { ShrinkMember },
+	lo: number,
+	hi: number,
+	deficit: number,
+	shrunk: { [number]: number }
+): number
+	local cap = 0
+	for k = lo, hi do
+		cap += members[k].basis - members[k].floor
+	end
+	if cap <= 0 then
+		return 0
+	end
+	-- integer pixels, and CEIL rather than floor: under-absorbing by a fraction
+	-- would leave `availMain` at -0.4 and re-fire the overflow diagnostic on a row
+	-- that visibly fits
+	local want = math.min(math.ceil(deficit), cap)
+	if want <= 0 then
+		return 0
+	end
+	if want >= cap then
+		for k = lo, hi do
+			shrunk[members[k].idx] = members[k].floor
+		end
+		return cap
+	end
+	-- Proportional-with-freezing, CSS's resolution loop: a member whose share would
+	-- take it under its floor is frozen AT the floor and the rest is redistributed
+	-- over the others, because handing it out in one pass is how a floored child
+	-- silently keeps a share nobody else could use.
+	local frozen: { [number]: boolean } = {}
+	local take: { [number]: number } = {}
+	local left = want
+	while true do
+		local total = 0
+		for k = lo, hi do
+			if not frozen[k] then
+				total += members[k].scaled
+			end
+		end
+		if total <= 0 then
+			break
+		end
+		local froze = false
+		for k = lo, hi do
+			if not frozen[k] then
+				local room = members[k].basis - members[k].floor
+				if left * members[k].scaled / total >= room then
+					frozen[k] = true
+					take[k] = room
+					left -= room
+					froze = true
+				end
+			end
+		end
+		if not froze then
+			for k = lo, hi do
+				if not frozen[k] then
+					take[k] = left * members[k].scaled / total
+				end
+			end
+			break
+		end
+	end
+	-- largest-remainder rounding, the same rule (and the same tie-break) the `fill`
+	-- distribution below uses, so the tier absorbs exactly `want` whole pixels
+	local acc = 0
+	local order: { { k: number, rem: number } } = {}
+	for k = lo, hi do
+		local exact = take[k] or 0
+		local floored = math.floor(exact)
+		take[k] = floored
+		acc += floored
+		table.insert(order, { k = k, rem = exact - floored })
+	end
+	table.sort(order, function(a, b)
+		return if a.rem ~= b.rem then a.rem > b.rem else a.k < b.k
+	end)
+	local spare = want - acc
+	for _, entry in order do
+		if spare <= 0 then
+			break
+		end
+		local m = members[entry.k]
+		if (take[entry.k] or 0) + 1 <= m.basis - m.floor then
+			take[entry.k] = (take[entry.k] or 0) + 1
+			spare -= 1
+		end
+	end
+	local absorbed = 0
+	for k = lo, hi do
+		local amount = take[k] or 0
+		if amount > 0 then
+			shrunk[members[k].idx] = members[k].basis - amount
+			absorbed += amount
+		end
+	end
+	return absorbed
+end
+
+-- Run the whole pass over one stack's children. Returns (absorbed, priorityOrder)
+-- where `priorityOrder` is nil when NOTHING opted in — which is what keeps the
+-- overflow diagnostic's historic wording byte-identical on the default path.
+--
+-- TWO CALLERS, ONE ALGORITHM (say which path a comment describes —
+-- docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md):
+--
+--   * MEASURE, at PASS 1.5 of the stack branch, when the offer this stack was
+--     handed is already too small for its children. It uses the answer to re-
+--     measure the squeezed children and report the CROSS extent they will really
+--     need, and it throws the priority order away — nothing diagnoses at measure
+--     time.
+--   * ARRANGE, against the real box, which is where the rects are decided and
+--     where the overflow diagnostic's priority suffix comes from.
+--
+-- `basisMain` is the natural MAIN extent per child index, margins excluded — the
+-- number each caller already has (measure keeps it as a bare number, arrange has
+-- it inside its `desired` sizes). An index missing from it is a child this pass
+-- must not touch: at measure that is a `fill` child (no basis of its own) or one
+-- that never opted in; at arrange it is a `fill` child, which the clamp that
+-- produced this deficit already handed zero.
+shrinkStack = function(
+	ctx: Ctx,
+	children: { Node },
+	isH: boolean,
+	basisMain: { [number]: number },
+	deficit: number,
+	shrunk: { [number]: number }
+): (number, string?)
+	local members: { ShrinkMember } = {}
+	for idx, child in children do
+		local weight = child.shrinkWeight
+		if
+			type(weight) == "number"
+			and weight > 0
+			and basisMain[idx] ~= nil
+			and mainDimOf(child, isH).type ~= "fill"
+		then
+			local basis = basisMain[idx]
+			if basis > 0 then
+				table.insert(members, {
+					idx = idx,
+					basis = basis,
+					floor = shrinkFloorOf(ctx, child, isH, basis),
+					scaled = weight * basis,
+					priority = child.layoutPriority or 0,
+				})
+			end
+		end
+	end
+	if #members == 0 then
+		return 0, nil
+	end
+	table.sort(members, function(a, b)
+		return if a.priority ~= b.priority then a.priority < b.priority else a.idx < b.idx
+	end)
+	local absorbed = 0
+	local tiers: { string } = {}
+	local i = 1
+	while i <= #members do
+		local j = i
+		while j < #members and members[j + 1].priority == members[i].priority do
+			j += 1
+		end
+		table.insert(tiers, tostring(members[i].priority))
+		if deficit - absorbed > 0 then
+			absorbed += absorbTier(members, i, j, deficit - absorbed, shrunk)
+		end
+		i = j + 1
+	end
+	return absorbed, table.concat(tiers, ", ")
+end
+
+-- MAIN-AXIS DISTRIBUTION (§2.6). Returns (lead, step): the pixels before the
+-- first child, and the pixels added to every gap between children. Both 0 for
+-- `"start"`, which is why the default is byte-identical to the hard-anchored
+-- cursor this branch always had.
+--
+-- One child is not a special case in the arithmetic, and the answers it falls out
+-- with are CSS's: `spaceBetween` pins it at the start (there is no gap to fill),
+-- `spaceAround` and `spaceEvenly` centre it.
+local function distributionOf(mode: string, slack: number, count: number): (number, number)
+	if slack <= 0 or count <= 0 then
+		return 0, 0
+	elseif mode == "center" then
+		return slack / 2, 0
+	elseif mode == "end" then
+		return slack, 0
+	elseif mode == "spaceBetween" then
+		return 0, if count > 1 then slack / (count - 1) else 0
+	elseif mode == "spaceAround" then
+		return slack / count / 2, slack / count
+	elseif mode == "spaceEvenly" then
+		return slack / (count + 1), slack / (count + 1)
+	end
+	return 0, 0
+end
+
 -- arrange pass: assign rects into out[id]
 -- Copy a whole subtree's previous entries forward, unchanged. Used only when the
 -- subtree is provably unaffected: nothing inside it is dirty and it is being placed at
@@ -1372,8 +2504,30 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	if reuse ~= nil and reuse.dirtyContains[node.id] ~= true then
 		local prev = reuse.previous.rects[node.id]
 		local pr = if prev ~= nil then prev.rect else nil
+		-- ...AND THE CONTAINER IS THE ONE IT ANSWERED AGAINST (§2.5 x incremental
+		-- layout — RED-TEAM Milestone 1, HIGH 3, tests/container_relative_incremental).
+		--
+		-- The rect above is the whole argument for every dimension the solver had
+		-- before §2.5: each resolves against the parent's OFFER, and a subtree landing
+		-- on the rect it already had was offered what it was already offered. A
+		-- `containerRelative` dimension is the first one that is not a function of its
+		-- ancestor's rect at all — it reads the nearest scroll VIEWPORT — so a wrapper
+		-- whose own rect never moves could replay a descendant sized against a
+		-- container that has since narrowed (a scrollbar reserve arming is enough).
+		-- The measure memo's key was widened for this; the skip was not, and the skip
+		-- is the shipped default.
+		--
+		-- ONE CHECK AT THE SUBTREE ROOT COVERS THE WHOLE SUBTREE: below this node the
+		-- container changes only at a `scroll` node, whose pushed inner size derives
+		-- from its own replayed rect, so if the container matches here it matches
+		-- everywhere the replay reaches. `containerRelativeInside` is stamped at tree
+		-- build time and is absent on the overwhelming majority of nodes, so the
+		-- ordinary path pays one field test.
+		local containerOk = node.containerRelativeInside ~= true
+			or (prev ~= nil and prev.containerW == ctx.containerW and prev.containerH == ctx.containerH)
 		if
 			pr ~= nil
+			and containerOk
 			and pr.x == rect.x
 			and pr.y == rect.y
 			and pr.w == rect.w
@@ -1387,6 +2541,12 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	local gap = node.gap or 0
 	out[node.id] = {
 		rect = rect,
+		-- THE CONTAINER THIS SUBTREE RESOLVED AGAINST (§2.5), recorded only for the
+		-- subtrees whose answer depends on it, so a later solve's reuse skip can ask
+		-- "is this still the ruler I measured with?" — the question the rect cannot
+		-- answer. Both nil everywhere else, which is nearly everywhere.
+		containerW = if node.containerRelativeInside then ctx.containerW else nil,
+		containerH = if node.containerRelativeInside then ctx.containerH else nil,
 		-- the OFFER this node was measured against, so a later solve can ask "is this
 		-- the same question I already answered?" — a rect alone cannot say that
 		offerW = ctx.offers[node.id .. "|w"],
@@ -1509,6 +2669,17 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		end
 	end
 
+	-- ...and the OTHER thing this node's own box cannot show you: a child holding
+	-- a placement prop this node's arrange will never read (§2.1). The finding is
+	-- computed at tree-build time; reporting it HERE is what buys it the
+	-- `hiddenDepth` gate (a losing ViewThatFits candidate does not shout) and the
+	-- reuse replay, the same two properties the overflow diagnostic above has.
+	if node.inertPlacement ~= nil and ctx.hiddenDepth == 0 then
+		for _, finding in node.inertPlacement do
+			table.insert(ctx.diagnostics, finding)
+		end
+	end
+
 	-- a leaf has no children to place, and everything below this line places
 	-- children. It reports first (above) and returns here.
 	if node.kind == "text" or node.kind == "box" or node.kind == "spacer" then
@@ -1557,7 +2728,14 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			end
 			return sizes, cw, ch
 		end
+		-- THE CONTAINER THIS SUBTREE SIZES AGAINST (§2.5), pushed around EVERY
+		-- measure and every arrange below — and re-pushed after the scrollbar
+		-- reservation, because reserving the bar makes the viewport genuinely
+		-- narrower and a page sized against the pre-reserve number would sit under
+		-- the bar. Same fact the reservation already re-measures for.
+		local restoreW, restoreH, restoreKey = ctx.containerW, ctx.containerH, ctx.scopeKey
 		local reserve = ctx.scrollBarReserve
+		pushContainer(ctx, innerW, innerH)
 		childSizes, contentW, contentH = measureAll(innerW, innerH)
 		if reserve > 0 then
 			local overflows = if isX then contentW > innerW else contentH > innerH
@@ -1567,6 +2745,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				else
 					innerW = math.max(0, innerW - reserve)
 				end
+				pushContainer(ctx, innerW, innerH)
 				childSizes, contentW, contentH = measureAll(innerW, innerH)
 			end
 		end
@@ -1619,6 +2798,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			arrange(ctx, child, childRect, out)
 			cursor += (if isX then size.w else size.h) + gap
 		end
+		restoreScope(ctx, restoreW, restoreH, restoreKey)
 		return
 	end
 
@@ -1639,9 +2819,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				-- an unchosen candidate keeps its MOUNT (a resize must not rebuild
 				-- it) but gets a zero rect and is marked hidden, which is what
 				-- removes its focusables from focus order.
-				ctx.hiddenDepth += 1
+				setHidden(ctx, ctx.hiddenDepth + 1)
 				arrange(ctx, child, { x = innerX, y = innerY, w = 0, h = 0 }, out)
-				ctx.hiddenDepth -= 1
+				setHidden(ctx, ctx.hiddenDepth - 1)
 				out[child.id].hidden = true
 			end
 		end
@@ -1690,9 +2870,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				-- hidden mark, which is what takes its focusables out of the ring —
 				-- the same bargain a losing ViewThatFits candidate makes.
 				ctx.regionForm[child.id] = 0
-				ctx.hiddenDepth += 1
+				setHidden(ctx, ctx.hiddenDepth + 1)
 				arrange(ctx, child, { x = originX, y = originY, w = 0, h = 0 }, out)
-				ctx.hiddenDepth -= 1
+				setHidden(ctx, ctx.hiddenDepth - 1)
 				out[child.id].hidden = true
 			end
 		end
@@ -1726,9 +2906,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					h = if hDim.type == "fill" then innerH else math.min(h, innerH),
 				}, out)
 			else
-				ctx.hiddenDepth += 1
+				setHidden(ctx, ctx.hiddenDepth + 1)
 				arrange(ctx, child, { x = innerX, y = innerY, w = 0, h = 0 }, out)
-				ctx.hiddenDepth -= 1
+				setHidden(ctx, ctx.hiddenDepth - 1)
 				out[child.id].hidden = true
 			end
 		end
@@ -1869,7 +3049,97 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		return
 	end
 
+	-- ---- THE ROW GRID'S TWO ARRANGE BRANCHES (§2.2) ------------------------
+	if node.kind == "gridrow" then
+		-- the plan its grid handed down, one line before it arranged this row
+		local plan = ctx.gridRowPlan[node.id]
+		if plan == nil then
+			-- A `UI.GridRow` OUTSIDE A `UI.Grid` HAS NO COLUMNS TO SIT IN, and there
+			-- is no honest default: the columns are a fact about the grid's OTHER
+			-- rows, which do not exist here. It lays its cells out side by side —
+			-- what the measure branch above reported, so the box is the box — and
+			-- says what to do about it.
+			if ctx.hiddenDepth == 0 then
+				table.insert(ctx.diagnostics, {
+					node = node.id,
+					issue = "UI.GridRow outside a UI.Grid — its cells have no columns to line up in, so they "
+						.. "are laid side by side. Put the row inside a UI.Grid (that is the node that "
+						.. "derives the columns from every row), or use a UI.HStack if a plain row is what "
+						.. "you meant",
+				})
+			end
+			local x = innerX
+			for _, cell in node.children or {} do
+				local mt, mr, mb, ml = sides(cell.margin)
+				local w, h = measure(ctx, cell, innerW, innerH)
+				arrange(ctx, cell, { x = x + ml, y = innerY + mt, w = w, h = h }, out)
+				x += w + ml + mr
+				local _ = mb
+			end
+			return
+		end
+		local widths, colGap = plan.widths, plan.gap
+		local x = innerX
+		local column = 1
+		for _, cell in node.children or {} do
+			local span = spanOf(cell)
+			local slotW = spannedWidth(widths, column, span, colGap)
+			local mt, mr, mb, ml = sides(cell.margin)
+			local availW = math.max(0, slotW - ml - mr)
+			local availH = math.max(0, innerH - mt - mb)
+			local w, h = measure(ctx, cell, availW, availH)
+			-- the same cell rules the flow grid uses: a `fill` axis takes its slot,
+			-- anything else keeps its content size and ALIGNS inside it
+			local cellW = if dim(cell, "w").type == "fill" then availW else math.min(w, availW)
+			local cellH = if dim(cell, "h").type == "fill" then availH else math.min(h, availH)
+			local hDimCell = dim(cell, "h")
+			if hDimCell.type == "aspect" and cellW > 0 then
+				cellH = math.min(availH, math.floor(cellW / (hDimCell.ratio :: number) + 0.5))
+			end
+			arrange(ctx, cell, {
+				x = x + ml + alignOffset(cell.alignH, availW, cellW),
+				y = innerY + mt + alignOffset(cell.alignV, availH, cellH),
+				w = cellW,
+				h = cellH,
+			}, out)
+			x += slotW + colGap
+			column += span
+		end
+		return
+	end
+
 	if node.kind == "grid" then
+		local mode = gridMode(node)
+		if mode == "mixed" and ctx.hiddenDepth == 0 then
+			-- A MIX IS AN AUTHORING ERROR, NOT A LAYOUT (§2.2). Reported once per
+			-- solve — arrange visits this node exactly once — and the grid keeps the
+			-- FLOW reading it had before `GridRow` existed, so a tree that acquires a
+			-- stray row does not silently reflow while the author reads the message.
+			table.insert(ctx.diagnostics, {
+				node = node.id,
+				issue = "a UI.Grid's children are a MIX of UI.GridRow rows and loose cells — there is no "
+					.. "reading of that which is not a guess, so this grid stays the row-major flow grid "
+					.. "it was. Make every child a UI.GridRow (row mode: column n is the widest cell in "
+					.. "column n across all rows), or none of them (flow mode: one shared column width)",
+			})
+		end
+		if mode == "row" then
+			local rows = node.children or {}
+			local rowGap = gridRowGap(node)
+			local plan = gridColumnPlan(ctx, node, innerW, innerH, gap)
+			local y = innerY
+			for _, row in rows do
+				local rowH = gridRowHeight(ctx, row, plan, innerH)
+				-- THE ROW IS HANDED THE COLUMNS, it does not re-derive them. Its own
+				-- cells cannot see the other rows, and a row that guessed its columns
+				-- from its own cells is precisely the measure-versus-arrange
+				-- disagreement this file keeps fixing.
+				ctx.gridRowPlan[row.id] = plan
+				arrange(ctx, row, { x = innerX, y = y, w = innerW, h = rowH }, out)
+				y += rowH + rowGap
+			end
+			return
+		end
 		local children = node.children or {}
 		local rowGap = gridRowGap(node)
 		local cols = gridColumnCount(node, innerW, gap, gridColumnMin(ctx, node))
@@ -1927,9 +3197,12 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		return
 	end
 
-	-- vstack / hstack: fixed/content children keep desired size; fill children
-	-- share remaining main-axis space by weight (largest-remainder rounding);
-	-- cross axis honors child.align (stretch fills)
+	-- vstack / hstack. Main axis, in order: fixed/content children keep their
+	-- desired size unless they declared a `shrinkWeight` and the axis is SHORT (the
+	-- shrink pass, §2.4); `fill` children then share any surplus by weight
+	-- (largest-remainder rounding); and `distribute` spreads what fill did not take
+	-- (§2.6). Cross axis honours `child.lineAlign`, else `child.align`, else this
+	-- container's `align` (`stretch` fills the line).
 	local isH = node.kind == "hstack"
 	local children = node.children or {}
 	local desired = {}
@@ -1951,8 +3224,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- So `hug` children are measured in a SECOND pass, in document order, each
 	-- against the room actually left. `fill` is deliberately not part of that sum
 	-- yet: `hug` means "what I need", `fill` means "whatever is over", so hug
-	-- resolves first and fill shares the remainder — which is the order the
-	-- distribution below already assumes.
+	-- resolves first and fill shares the remainder — which is the order the rest of
+	-- this branch assumes. The full order is hug -> SHRINK (only if the axis came out
+	-- short) -> fill -> distribute.
 	local hugLater: { number } = {}
 	for idx, child in children do
 		local mt, mr, mb, ml = sides(child.margin)
@@ -1980,6 +3254,71 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		fixedMain += (if isH then w + m.l + m.r else h + m.t + m.b)
 	end
 	local availMain = (if isH then innerW else innerH) - fixedMain - gaps
+	-- THE SHRINK PASS (§2.4; the algorithm and its two rulings are documented at
+	-- `shrinkStack` above). It runs ONLY on the overflow path and only over
+	-- children that declared a `shrinkWeight`, so a stack that opted into nothing
+	-- reaches the diagnostic below with `availMain` untouched — which is what makes
+	-- "additive and inert" a fact rather than an intention.
+	--
+	-- IT ALLOCATES NOTHING UNTIL IT HAS SOMETHING TO SAY. `shrunk` starts as the
+	-- shared frozen empty table and is only replaced by a real one on the deficit
+	-- path: a per-stack table here would be an allocation on the arrange hot loop,
+	-- which is a bench regression this branch has already paid for once.
+	--
+	-- ...AND OVERFLOW IS NOT RARE, which is why the membership test is hoisted in
+	-- front of both tables (Milestone-1 review, C5). The comment above was true of
+	-- the pass and false of its setup: on ANY `availMain < 0` this block used to
+	-- allocate `shrunk` AND `basisMain` and walk every child, only for `shrinkStack`
+	-- to find zero members and return. The overflow diagnostic below exists because
+	-- shipped screens reach this branch at rest, and before §2.4 that path allocated
+	-- nothing at all. The scan itself is on the overflow path only — a fitting stack
+	-- pays nothing for it — and it stops at the first member.
+	local shrunk: { [number]: number } = EMPTY_SHRINK
+	local shrinkOrder: string? = nil
+	local hasShrink = false
+	if availMain < 0 then
+		for _, child in children do
+			-- the same `> 0` filter `shrinkStack` applies: `shrinkWeight = 0` is the
+			-- default AND a legal authored value meaning "never"
+			if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then
+				hasShrink = true
+				break
+			end
+		end
+	end
+	if hasShrink then
+		local absorbed
+		shrunk = {}
+		-- the basis map the pass takes is the MAIN extent of what was measured above,
+		-- built here rather than carried through the loops: a per-child main-extent
+		-- table maintained unconditionally would be an allocation on the arrange hot
+		-- path, and this one only exists once a deficit does
+		local basisMain: { [number]: number } = {}
+		for idx = 1, #children do
+			local d = desired[idx]
+			if d ~= nil then
+				basisMain[idx] = if isH then d.w else d.h
+			end
+		end
+		absorbed, shrinkOrder = shrinkStack(ctx, children, isH, basisMain, -availMain, shrunk)
+		if absorbed > 0 then
+			fixedMain -= absorbed
+			availMain += absorbed
+			-- RE-MEASURE AT THE REDUCED OFFER, in document order. Same reason the
+			-- `fill` block below re-measures: the cross extent was measured against a
+			-- width this child no longer has, so a squeezed label would keep the box
+			-- of the wrap it is not going to get. Document order, never `pairs`, so
+			-- the last-write-wins verdict channels (`compact`, `textFacts`) publish
+			-- deterministically.
+			for idx = 1, #children do
+				local size = shrunk[idx]
+				if size ~= nil then
+					local w, h = measure(ctx, children[idx], if isH then size else innerW, if isH then innerH else size)
+					desired[idx] = { w = w, h = h }
+				end
+			end
+		end
+	end
 	-- OVERFLOW DIAGNOSTIC (preferred-text sweep, 2026-07-24). Content-sized
 	-- children always keep their full desired extent and the flow cursor keeps
 	-- advancing, so a stack whose content exceeds its own box silently paints
@@ -1987,19 +3326,29 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- Found live: on compact-phone-portrait the adaptive_controls Hud column ran
 	-- 185px past its own box, drawing the action row INSIDE the media box and
 	-- pushing the stat grid and tile row off an 800px screen — at rest, with the
-	-- default text size. This does not change layout (that would be a silent
-	-- re-flow of shipped screens); it makes the condition detectable, which is
-	-- the whole difference between a bug you can catch and one you cannot.
+	-- default text size. This does not change layout for a stack that declared no
+	-- `shrinkWeight` (that would be a silent re-flow of shipped screens); it makes
+	-- the condition detectable, which is the whole difference between a bug you can
+	-- catch and one you cannot.
+	--
+	-- It fires on what is left AFTER the shrink pass, and when that pass tried and
+	-- still could not fit the row it appends the priority order it worked through —
+	-- because "everything is already at its floor" is a different repair from
+	-- "nothing was allowed to shrink".
 	if availMain < 0 and ctx.hiddenDepth == 0 then
-		table.insert(ctx.diagnostics, {
-			node = node.id,
-			issue = string.format(
-				"content overflows this %s by %dpx on the main axis; it will paint outside its box "
-					.. "(wrap it in a ScrollView, or give it room)",
-				node.kind,
-				-availMain
-			),
-		})
+		local issue = string.format(
+			"content overflows this %s by %dpx on the main axis; it will paint outside its box "
+				.. "(wrap it in a ScrollView, or give it room)",
+			node.kind,
+			-availMain
+		)
+		if shrinkOrder ~= nil then
+			issue ..= string.format(
+				" — every shrinkable child is already at its floor (layoutPriority order tried: %s)",
+				shrinkOrder
+			)
+		end
+		table.insert(ctx.diagnostics, { node = node.id, issue = issue })
 	end
 	local remaining = math.max(0, availMain)
 	local fillPx: { [number]: number } = {}
@@ -2041,7 +3390,40 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			desired[idx] = { w = w, h = h }
 		end
 	end
-	local cursor = if isH then innerX else innerY
+	-- MAIN-AXIS DISTRIBUTION (§2.6). The cursor used to be hard-anchored here —
+	-- `local cursor = if isH then innerX else innerY` — so SpaceBetween/Around/
+	-- Evenly could only be faked with hand-placed `Spacer`s between children, which
+	-- a `UI.ForEach` list cannot do at all (its `row` returns exactly ONE
+	-- blueprint). A tab bar whose tab count varies was inexpressible.
+	--
+	-- IT ACTS ON WHAT `fill` DID NOT TAKE. `remaining` is the leftover after the
+	-- fill block above, so when `fillWeightSum > 0` there is nothing left and a
+	-- non-"start" `distribute` is an authoring conflict — named, not ignored.
+	local childCount = #children
+	local lead, step = 0, 0
+	local mode = node.distribute
+	if mode ~= nil and mode ~= "start" then
+		if fillWeightSum > 0 then
+			if ctx.hiddenDepth == 0 then
+				table.insert(ctx.diagnostics, {
+					node = node.id,
+					issue = string.format(
+						'distribute = "%s" has nothing to distribute on this %s: a `fill` child already takes '
+							.. 'the whole leftover (drop the fill dimension, or leave distribute at "start")',
+						mode,
+						node.kind
+					),
+				})
+			end
+		else
+			lead, step = distributionOf(mode, remaining, childCount)
+		end
+	end
+	-- the fractional part of `lead`/`step` is carried, never dropped per gap: the
+	-- k-th gap's extra is `floor(k x step)`, so the whole leftover lands as whole
+	-- pixels and the arrangement stays symmetric instead of drifting left
+	local cursor = (if isH then innerX else innerY) + math.floor(lead)
+	local gapsPlaced, gapExtraApplied = 0, 0
 	for idx, child in children do
 		local m = margins[idx]
 		local mainDim = mainDimOf(child, isH)
@@ -2049,20 +3431,35 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		local mainMargin = if isH then m.l + m.r else m.t + m.b
 		local mainSize = if mainDim.type == "fill"
 			then math.max(0, (fillPx[idx] or 0) - mainMargin)
+			elseif shrunk[idx] ~= nil then shrunk[idx]
 			else (if isH then desired[idx].w else desired[idx].h)
 		-- clamp: margins taller/wider than the stack must not produce negative
 		-- cross space (phase-4 layout fuzz, seed 2532671254)
 		local crossAvail = math.max(0, (if isH then innerH else innerW) - (if isH then m.t + m.b else m.l + m.r))
-		-- CONTAINER-LEVEL align (director review 2026-07-24). HStack/VStack have
-		-- always accepted an `align` prop, but the solver only ever read
-		-- `child.align` — so `UI.HStack({ align = "center" })` was
-		-- ACCEPTED AND IGNORED, exactly what Milestone 0's strict authoring exists
-		-- to prevent. There was no way to centre a row's children at all: every
-		-- control row pinned its short children (a label, a value readout) to the
-		-- TOP against its tall ones, which is why the Volume label and its "6" sat
-		-- 13px above the midline of the -/+ buttons, and why the Brightness label
-		-- and value sat above the slider track. A child's own align still wins.
-		local childAlign = child.align or node.align
+		-- THE CROSS-AXIS ALIGNMENT LADDER, AND WHICH WORD DOES WHICH JOB.
+		--
+		-- `node.align` is CONTAINER-LEVEL (director review 2026-07-24). HStack/VStack
+		-- have always accepted an `align` prop, but the solver only ever read
+		-- `child.align` — so `UI.HStack({ align = "center" })` was ACCEPTED AND
+		-- IGNORED, exactly what Milestone 0's strict authoring exists to prevent.
+		-- There was no way to centre a row's children at all: every control row
+		-- pinned its short children (a label, a value readout) to the TOP against its
+		-- tall ones, which is why the Volume label and its "6" sat 13px above the
+		-- midline of the -/+ buttons, and why the Brightness label and value sat
+		-- above the slider track.
+		--
+		-- `child.align` — a stack child that is ITSELF a stack — is the historic
+		-- per-child override, and it is where one word came to mean two things at
+		-- once (§2.1): a nested `VStack{ align = "center" }` both centres its own
+		-- children AND centres itself in this line. It still wins over the
+		-- container's word, so nothing shipped moves.
+		--
+		-- `child.lineAlign` is the word for the SECOND job alone, and it outranks
+		-- both. It is a shared BOX prop, so it is the only spelling that works on a
+		-- LEAF — `align` is container-only and is refused on `UI.Text`/`Box`/
+		-- `Spacer`/`Image`, which is why LuauUI had no leaf-level route to Roblox's
+		-- `ItemLineAlignment` at all until this.
+		local childAlign = child.lineAlign or child.align or node.align
 		local crossSize = if crossDim.type == "fill" or childAlign == "stretch"
 			then crossAvail
 			else math.min(if isH then desired[idx].h else desired[idx].w, crossAvail)
@@ -2096,6 +3493,12 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			local x = innerX + m.l + alignOffset(childAlign, crossAvail, crossSize)
 			childRect = { x = x, y = cursor + m.t, w = crossSize, h = mainSize }
 			cursor += m.t + mainSize + m.b + gap
+		end
+		if step > 0 and idx < childCount then
+			gapsPlaced += 1
+			local extra = math.floor(gapsPlaced * step)
+			cursor += extra - gapExtraApplied
+			gapExtraApplied = extra
 		end
 		arrange(ctx, child, childRect, out)
 	end
@@ -2135,6 +3538,16 @@ function solver.solve(
 		compositions = {},
 		regionForm = {},
 		hiddenDepth = 0,
+		-- THE OUTERMOST CONTAINER IS THE SURFACE ROOT (§2.5): the content rect, i.e.
+		-- the viewport minus whatever safe insets this root policy honours. A tree
+		-- with no ScrollView in it therefore still has a container, and it is the one
+		-- an author means by "the screen".
+		containerW = contentRect.w,
+		containerH = contentRect.h,
+		scopeKey = "0",
+		hasContainerRelative = false,
+		gridColumns = {},
+		gridRowPlan = {},
 		-- per-solve measure memo (see `measure`). Weak keys are unnecessary: the
 		-- whole ctx dies with the solve.
 		measureCache = {},
@@ -2181,7 +3594,15 @@ function solver.solve(
 	-- defect in this repo was caught by.
 	if ctx.reuse ~= nil and ctx.skipped > 0 then
 		for _, d in ctx.reuse.previous.diagnostics or {} do
-			if ctx.skippedIds[d.node] == true then
+			-- THE FILER DECIDES, NOT THE NAMED NODE (RED-TEAM Milestone 1, HIGH 2).
+			-- "Was this finding filed this solve?" is a question about the node whose
+			-- `arrange` files it, and for every diagnostic here but one that is the
+			-- node it names. The exception is `inertPlacement`: the parent files, the
+			-- child is named, so a walked parent beside a skipped child filed the
+			-- finding fresh AND had it replayed — one extra copy per layout-dirty
+			-- frame, unbounded, with the whole list copied forward each solve.
+			-- `filedBy` is stamped at build time by `solver.auditPlacement`.
+			if ctx.skippedIds[(d :: any).filedBy or d.node] == true then
 				table.insert(ctx.diagnostics, d)
 			end
 		end

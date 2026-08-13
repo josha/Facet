@@ -1618,7 +1618,7 @@ end)
 
 local LuauUI = require("../src") :: any
 local SCENARIO = require("../examples/gallery/scenarios/composition") :: any
-local COMP_PATH = "/CompositionScreen/OfferFrame/Summary"
+local COMP_PATH = "/CompositionScreen/Body/OfferFrame/Summary"
 
 local function world(viewport: { x: number, y: number, w: number, h: number }?)
 	local core = LuauUI.newCore()
@@ -1768,30 +1768,30 @@ describe("scenario 'composition': the fixture the device matrix drives", functio
 	it("a rested transient does not move the region under it (reserved holds its box)", function()
 		local w = world()
 		w.step("compactPortrait")
-		local before = w.adapter.node("/CompositionScreen/OfferFrame/Summary/Callout").rect
+		local before = w.adapter.node("/CompositionScreen/Body/OfferFrame/Summary/Callout").rect
 		w.step("restCelebration")
-		local after = w.adapter.node("/CompositionScreen/OfferFrame/Summary/Callout").rect
+		local after = w.adapter.node("/CompositionScreen/Body/OfferFrame/Summary/Callout").rect
 		expect(after.y).toBe(before.y)
 		w.step("wakeCelebration")
-		expect(w.adapter.node("/CompositionScreen/OfferFrame/Summary/Callout").rect.y).toBe(before.y)
+		expect(w.adapter.node("/CompositionScreen/Body/OfferFrame/Summary/Callout").rect.y).toBe(before.y)
 	end)
 
 	it("an emptied region is ABSENT and its space goes to the field", function()
 		local w = world()
 		w.step("compactPortrait")
-		local fieldBefore = w.adapter.node("/CompositionScreen/OfferFrame/Summary/Field").rect
+		local fieldBefore = w.adapter.node("/CompositionScreen/Body/OfferFrame/Summary/Field").rect
 		w.step("emptyCallout")
 		expect(w.mountedRegion("Callout")).toBe(false)
-		local fieldAfter = w.adapter.node("/CompositionScreen/OfferFrame/Summary/Field").rect
+		local fieldAfter = w.adapter.node("/CompositionScreen/Body/OfferFrame/Summary/Field").rect
 		expect(fieldAfter.h > fieldBefore.h).toBe(true)
 	end)
 
 	it("the SPANNING caption is a full-width band in every offer, and free when empty", function()
 		local w = world()
-		local root = "/CompositionScreen/OfferFrame/Summary"
+		local root = "/CompositionScreen/Body/OfferFrame/Summary"
 		for _, offer in { "compactPortrait", "phoneLandscape", "tablet", "desktop", "tenFoot" } do
 			w.step(offer)
-			local frame = w.adapter.node("/CompositionScreen/OfferFrame").rect
+			local frame = w.adapter.node("/CompositionScreen/Body/OfferFrame").rect
 			local band = w.adapter.node(`{root}/Recap`).rect
 			local field = w.adapter.node(`{root}/Field`).rect
 			expect(`{offer}:width={band.w == frame.w}`).toBe(`{offer}:width=true`)

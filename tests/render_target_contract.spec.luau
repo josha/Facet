@@ -36,7 +36,9 @@ describe("RenderTargetAdapter contract", function()
 	-- The tenth is `setThemeStyle` (ARCH-5): F-35's repair stopped at nine, and the
 	-- one the controller still called through a bare `type(...) == "function"` was
 	-- the one the file that states the rule did not declare.
-	it("the contract DECLARES all ten methods the framework feature-detects", function()
+	-- ELEVEN since C1 (2026-08-12): `setReducedMotion` is the bespoke half of the
+	-- reduced-motion fact, feature-detected by the renderer beside the sheet half.
+	it("the contract DECLARES all eleven methods the framework feature-detects", function()
 		local declared: { [string]: string } = {}
 		for _, name in target_contract.OPTIONAL do
 			declared[name] = "OPTIONAL"
@@ -50,6 +52,7 @@ describe("RenderTargetAdapter contract", function()
 			setHitRect = "OPTIONAL",
 			setScrollHandler = "OPTIONAL",
 			setNativeTransitionsEnabled = "OPTIONAL",
+			setReducedMotion = "OPTIONAL",
 			setRootDisplayOrder = "OPTIONAL",
 			-- theme-controller-called
 			themeRootGui = "THEME",

@@ -311,7 +311,11 @@ local function suggestions(ctx: any): any
 											UI.VStack({
 												id = "TwoLines",
 												gap = 0,
-												alignH = "start",
+												-- (no `alignH`: a ViewThatFits gives its chosen candidate the
+												-- whole offer and reads no placement prop; and a stack's own
+												-- cross-axis word is `align`, whose default is already
+												-- `start`. Accepted and ignored both ways round — deleted by
+												-- the §2.1 placement audit)
 												children = {
 													UI.HStack({
 														id = "Lead",

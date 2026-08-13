@@ -871,7 +871,18 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 						thenView = function()
 							return UI.VStack({
 								id = "BuyBar",
-								alignV = "end",
+								--[[ NO `alignV` HERE. It used to say `"end"` — "sit at the bottom" —
+									but this bar splices into `PreviewCol`, a VSTACK, whose MAIN axis is Y.
+									A stack reads no `alignV` off a child at all, and even the cross-axis
+									spelling (`lineAlign`) is the wrong axis for this request, so it was
+									accepted and then ignored (§2.1 placement audit, 2026-08-13).
+
+									MEASURED BEFORE DELETING: `PreviewCol` solves to y 54..900 and this bar to
+									y 854..900, so the bar is ALREADY flush with the column's bottom edge (the
+									preview above it fills, leaving no main-axis slack). The prop was redundant
+									rather than a latent bug, and deleting it moves nothing — recorded under
+									"no queue entry needed" in
+									`docs/plans/unfulfilled-placement-intents.md`. ]]
 								children = {
 									UI.Button({
 										id = "Buy",

@@ -73,8 +73,17 @@ return {
 			children = {
 				UI.Text({ id = "Title", text = "Strict public authoring", textSize = 22 }),
 				UI.Text({ id = "Summary", text = summary, textSize = 14 }),
-				UI.HStack({
+				-- A horizontal ScrollView rather than the original HStack (overflow
+				-- sweep, 2026-08-12): the button's and toggle's own hug-sized labels
+				-- ran 43-82px past a narrow phone's width with nothing to move them.
+				-- Neither control has a natural width safe to guess (localization can
+				-- widen either label ~1.4x), so a ScrollView — which never clamps its
+				-- scroll-axis content — keeps both exactly the size authoring produced
+				-- rather than risking a Grid squeezing one control's label to fit a
+				-- derived column.
+				UI.ScrollView({
 					id = "Row",
+					axis = "x",
 					gap = 8,
 					children = {
 						UI.Button({ id = "Valid", label = "Valid button" }),

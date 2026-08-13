@@ -174,6 +174,33 @@ Each constructor also has an exported spec type (`UI.ButtonSpec`,
 `UI.ScrollViewSpec`, …) built from the same schema, so an editor completes the
 same field set the runtime accepts.
 
+#### Shared box properties a CONTAINER PARENT reads
+
+These four are declared once and carried by every rendered class, because each is
+a placement fact a parent reads off its child rather than a size the child has of
+its own — the same shape `anchor`, `alignH`, `alignV`, `offsetX` and `offsetY`
+already have.
+
+| Property | Type | Meaning |
+|---|---|---|
+| `lineAlign` | `start \| center \| end \| stretch` | this child's own cross-axis alignment inside its **stack** parent's line; it outranks both the child's own `align` and the container's `align` |
+| `layoutPriority` | number (default 0) | shrink-order **tier** when a stack's main axis is short: the deficit is consumed tier by tier, LOWEST priority first, so a higher number is protected for longer |
+| `shrinkWeight` | number (default 0 = never) | how readily this child gives up main-axis pixels **within** its tier. Inside a tier the deficit is split proportionally to weight × the child's natural size, down to its floor (`minMax.min`, else a text node's longest word, else 0). The default matches Roblox's `UIFlexMode.None` |
+| `gridSpan` | number (default 1) | how many of its row's columns this cell covers inside a `UI.GridRow`. A spanning cell never widens a single column on its own; it is fitted to the columns it covers plus the gaps between them |
+
+`lineAlign` exists because `align` is a CONTAINER-only prop, so before it the only
+child that could align itself in its parent's line was one that was itself a
+stack — and there the one word did two jobs at once. `stretch` is included so a
+child that wants to fill the line's cross extent does not have to reach for a
+`fill` dim, which would also claim the main axis.
+
+**Each of the four is read by exactly one kind of parent, and using one under the
+wrong parent is CAUGHT rather than ignored.** A `lineAlign`, `shrinkWeight` or
+`layoutPriority` under a `ZStack`, `Anchor`, `Grid` or `ScrollView`, or a
+`gridSpan` under anything but a `UI.GridRow`, is reported on
+`controller.diagnostics()` naming the node, the reason and the working spelling
+for that parent — a property that is accepted must do something.
+
 #### Tooling surface: `UI.schema`, `UI.isReadable`, `UI.PROP_DIRTY`
 
 Three exports exist for tooling, tests and extension authors rather than for
@@ -334,15 +361,37 @@ hairline and its hover/press rules keep working.
 
 ### `Screen`
 
-`UI.Screen{ id?, padding?, gap?, surface?, children? }` — root container of a
+`UI.Screen{ id?, padding?, gap?, distribute?, surface?, children? }` — root container of a
 presented screen; fills the presenter-resolved content rect (safe-area aware).
+`distribute` is the shared main-axis distribution documented under `VStack` /
+`HStack` below.
 
 ### `VStack` / `HStack`
 
-`UI.VStack{ id?, gap?, padding?, align?, width?, height?, offsetX?, offsetY?, surface?, children? }`
+`UI.VStack{ id?, gap?, padding?, align?, distribute?, width?, height?, offsetX?, offsetY?, surface?, children? }`
 — vertical / horizontal stacks. Children with `fill` dims share leftover
 main-axis space by weight; `align` = `start | center | end | stretch` on the
 cross axis. Stack children never overlap along the stack axis.
+
+**`distribute` spreads the LEFTOVER main-axis space**: `start` (the default, and
+byte-identical to the packing every stack did before it existed) | `center` |
+`end` | `spaceBetween` | `spaceAround` | `spaceEvenly`. It is Roblox's
+`UIFlexAlignment` plus whole-group centring, and it lives on the CONTAINER. It is
+arrange-only — it moves the cursor and never resizes a child — and the same prop
+is on `Screen` and `AdaptiveStack`.
+
+Hand-placed `Spacer`s could already reproduce SpaceBetween/Around/Evenly
+pixel-exactly, but only for a STATIC child list: a variable-count list goes
+through `UI.ForEach`, whose `row` returns exactly one blueprint, so separators
+cannot be interleaved on the parent's main axis at all. A tab bar whose tab count
+varies was inexpressible; that is why this is a prop.
+
+**It acts on what `fill` children did not take**, so a `fill` child leaves it
+nothing — and a non-`start` `distribute` on a stack that has one is reported on
+`controller.diagnostics()` naming the conflict rather than silently doing nothing.
+The fractional part of the lead and the per-gap step is carried rather than
+dropped per gap, so the whole leftover lands as whole pixels and the arrangement
+stays symmetric instead of drifting left.
 
 ### `ZStack`
 
@@ -476,7 +525,7 @@ its own floored control.
 
 ### `AdaptiveStack`
 
-`UI.AdaptiveStack{ id?, axis?, gap?, align?, padding?, surface?, children? }` — a
+`UI.AdaptiveStack{ id?, axis?, gap?, align?, distribute?, padding?, surface?, children? }` — a
 stack whose **`axis` is a reactive prop**. Bind it and a viewport, orientation, or
 display-class change re-solves the stack in place:
 
@@ -495,6 +544,9 @@ reruns, zero creates, and zero removes across an axis change. `gap` is reactive 
 the same reason, so spacing can adapt without a rebuild.
 
 `axis` is `"y"` (default) or `"x"`; anything else fails at construction.
+`distribute` is the same main-axis distribution `VStack` / `HStack` carry, and it
+follows the axis: the leftover it spreads is always the leftover on whichever
+axis is live.
 
 ### `ViewThatFits`
 
@@ -741,6 +793,40 @@ variable-width plates becomes a clean grid, and a wider theme font grows all of
 them together on the next solve. It is opt-in: nothing changes for a grid that
 does not ask, and `natural` is what every existing layout was authored against.
 Pair it with `minColumnWidth = "intrinsic"` when the cells are labels.
+
+### `GridRow`
+
+`UI.GridRow{ id?, surface?, shadow?, gradient?, corners?, stroke?, zIndex?, children? }`
+— one row of a **row grid**. A `UI.Grid` whose children are all `UI.GridRow`
+switches to row mode: column *n* is as wide as the widest natural cell in column
+*n* across every row, rather than the one shared width the flow grid gives every
+column. A `Grid` with no `GridRow` child is the flow grid it has always been, so
+nothing an existing caller wrote changes.
+
+**The mode is decided by the children, never by a prop.** A grid whose children
+are a MIX of rows and loose cells has no reading that is not a guess, so it stays
+the flow grid it was and files a diagnostic on `controller.diagnostics()` naming
+both ways out.
+
+**Its prop set is deliberately tiny, and the omissions are the design.** A
+`width` or `height` on a row would be a second authority against the grid that
+owns the column widths and the row pitch, and `padding` would inset one row's
+cells out of the columns every other row is aligned to — which is the whole point
+of a row grid. So they are not accepted and quietly ignored; they are
+construction errors naming the fix. What is here is the set that is meaningful on
+a full-width band: its identity, its children, and the paint a striped or carded
+row wants.
+
+**`gridSpan` on a cell**: how many of its row's columns that cell covers (default
+1). A spanning cell contributes to **no** single column's maximum — SwiftUI's own
+rule, so a span cannot widen one column on its own — and is then fitted to the
+sum of the columns it covers plus the gaps between them. Naturals that do not fit
+are reduced **proportionally** rather than overflowing, because the flow grid
+cannot overflow (its column width is derived from the offer) and a row grid under
+the same name must not either.
+
+A row grid also feeds the focus map: the D-pad walks the rows you declared. (A
+grid without `GridRow` children keeps inferring its rows from `columns`.)
 
 ### `Text`
 
@@ -1491,6 +1577,44 @@ promotion tokens below); keyboard and gamepad drive the identical session throug
 the promotion gate stays a **tap** — Activate fires normally, taps are never
 eaten.
 
+### `sensoryFeedback`
+
+`UI.sensoryFeedback(blueprint, { trigger, event }) -> Blueprint` — SwiftUI's
+`.sensoryFeedback(_:trigger:)`. When the `trigger` Readable **changes**, the
+framework emits `{ type = event, path = <this node's mounted path>, surface =
+<the surface> }` on the presenter's feedback bus, synchronously, inside the write
+that moved it.
+
+**LuauUI plays nothing.** SwiftUI's modifier names a haptic; this one names a
+**semantic verb**, and whether that becomes a rumble, a sound, a particle or
+nothing at all is the subscriber's ruling (`presenter.onFeedback` /
+`handle.onFeedback`). `src/client/haptics.luau` is one opt-in, default-off
+subscriber — see [Client entry points](#client-entry-points).
+
+| Field | Meaning |
+|---|---|
+| `trigger` | required. A `Signal`/`Memo`. Its **transitions** are the cause; the value itself never reaches the event. A plain value is refused — it can never change, so the declaration would be accepted and inert. |
+| `event` | required. One of the closed twelve: `activate`, `select`, `adjust`, `pickup`, `commit`, `reject`, `cancel`, `arrive`, `land`, `dismiss`, `supersede`, `celebrate`. Anything else is an authoring error at the call site that lists the vocabulary. |
+
+```lua
+local hearts = core:signal(3)
+
+local heart = UI.sensoryFeedback(
+    UI.Text({ id = "Hearts", text = core:memo(function(use) return `{use(hearts)} ♥` end) }),
+    { trigger = hearts, event = "adjust" }
+)
+```
+
+Like the drag declarations it rides the metadata channel rather than the prop
+bag, it returns a **new frozen blueprint**, and it **refuses a structural region**
+(`When`, `ForEach`, `ErrorBoundary`) — those mount no node of their own, so the
+declaration would have been accepted and never emitted. It **composes**: applying
+it twice to one node declares two triggers, and both fire.
+
+The observer is owned by the mounted node's scope, so it stops the frame the node
+unmounts, and it is built **only** when a presentation layer is wired — a bare
+`mount()` with no feedback sink buys no observer at all.
+
 ### Layout modifiers: `frame`, `padding`, `offset`, `aspectRatio`, `alignment`, `overlay`, `background`
 
 Composable modifiers (A-LV2). Each returns a **new** blueprint — blueprints are
@@ -1517,6 +1641,48 @@ is 90 px wide.
 pair is a `ZStack` — so they need the base to carry an explicit `id`. The wrapper
 takes a derived id and the base keeps its own, so the base stays addressable by
 focus, tests and dumps at `<parent>/<id>+overlay/<id>`.
+
+### `containerRelativeFrame`
+
+`UI.containerRelativeFrame(bp, spec) -> Blueprint` — size one axis against the
+nearest **container**, not against the parent.
+
+```lua
+UI.containerRelativeFrame(card, { axis = "horizontal", fraction = 0.5 })
+UI.containerRelativeFrame(page, { axis = "horizontal", count = 3, span = 1, spacing = 8 })
+```
+
+**The whole distinction is the ruler.** `percent` already means "a fraction of
+what my parent offered me", and that is the wrong number for the two shapes this
+exists for: a card that should be half the SCROLLER's viewport however many
+wrappers sit between it and the scroller, and a carousel whose pages are exactly a
+third of the viewport each. The container is the nearest ancestor that owns a
+viewport — a `UI.ScrollView`'s content viewport, else the surface root — so
+inserting a padded `VStack` between the page and the scroller does not resize the
+page, which with `percent` it would.
+
+Two forms, and exactly one of them per call:
+
+| Form | Fields | Size |
+|---|---|---|
+| fractional | `{ axis, fraction }` | `fraction × container` |
+| paging | `{ axis, count, span? = 1, spacing? = 0 }` | `(viewport − spacing × (count − 1)) / count × span + spacing × (span − 1)` |
+
+`axis` is `"horizontal"` or `"vertical"`. `count` and `span` must be whole
+positive numbers and `span` may not exceed `count`; `spacing` is a px number (it
+is the gutter between PAGES — the author's own paging arithmetic, not a
+theme-owned space step) and may be zero or negative. Declaring both forms, or
+neither, is an error at the call site, and the key set is closed, so a misspelled
+`fractoin` is an error rather than a silent full-width box.
+
+It writes the `containerRelative` **dimension type** onto the mapped axis prop, so
+it inherits dim validation and every layout rule a dimension already has. Authored
+by hand the dim is legal; the modifier is what carries the closed-key refusals.
+
+**An unbounded container** — a scroller nested inside another scroller's own axis,
+where the inner one never received a viewport offer — files a diagnostic on
+`controller.diagnostics()` and falls back to content, which is exactly what
+`percent` does on an unbounded axis.
 
 ### `styleGroup`
 
@@ -1727,6 +1893,64 @@ scrubs against layout space (ESC-2 residual, tracked in
 owns screen/modal lifetimes, focus scopes, and input contexts. `opts` is
 `{ clock?, now?, keyboardNavigation? }`: pass `clock` to share one motion clock
 with the rest of the application, `now` to inject time.
+
+#### `presenter.withAnimation(class, fn)`
+
+```lua
+presenter.withAnimation("container", function()
+	open:set(true)
+end)
+```
+
+Runs `fn` in its own transaction, forces its own commit, and paints every node
+whose box **moved** travelling from where it used to be to where it now is, over
+ONE spring named by a motion **class**. The layout itself lands exactly and
+instantly, as it always did: only the paint travels, so hit-testing and focus
+never chase a moving pixel.
+
+It is a presenter method rather than a `UI.` modifier because it needs all three
+of the things only the presenter has — the motion clock it builds, the controller
+scopes that own the records, and `refresh` itself.
+
+**What it animates, and what it deliberately does not.**
+
+- **Position only.** Size changes land instantly and exactly; a row that grows
+  still reads correctly, because the rows below it slide.
+- **Surviving paths only.** Structural insert and remove stay the transition
+  system's job (`transition` on a region). A path another writer already owns — a
+  structural transition, keep-visible — is excluded.
+- **Only `fn`'s consequences.** The presenter drains pending work *before* arming,
+  so the armed commit carries what `fn` changed and nothing else. Env-driven
+  relayouts (a theme swap, a viewport resize, a preferred-text change) are never
+  armed.
+
+**Reduced motion is an explicit branch that installs no records at all.** `fn`
+still runs, the transaction still commits, the layout is still exact; there is
+simply no flight. That is legal here precisely because this motion is
+DECORATIVE — the instant layout already carries every fact and the travel was
+pure continuity. (Contrast `newProgressView`'s indeterminate indicator, which is
+INFORMATIONAL and therefore keeps running.)
+
+**Interruption re-targets; it never restarts.** A second call while records are
+live re-bases each record from its current painted offset, re-aims the spring and
+carries velocity over. One spring per call means a subtree provably cannot tear.
+
+**Three refusals, and one of them is late.** Calling it from inside another
+`withAnimation` is an error (arming is presenter-wide and the inner call would
+disarm the outer one). An unknown motion-class name, or inline spring params, is
+an error — a motion class is a NAME here as it is everywhere else. And if nothing
+flushed — an outer `core:transaction` is still open, or this ran during a core
+commit — it raises **after `fn` has already been applied**: the change landed
+instantly with no flight, so a caller catching it must **not** retry the mutation
+or it lands twice.
+
+**Beyond a per-frame cap the commit lands instantly and emits a diagnostic**
+naming the count. The cap is per frame rather than per call because each call
+costs two full presenter passes, and it is measured against real work (subtree
+rect writes, elision materializations) rather than spring count.
+
+`presenter.animationRecordCount()` and `presenter.commitCount()` are diagnostics
+for tests, not features.
 
 **`keyboardNavigation`** (default **`false`**) opts this presenter's surfaces into
 the desktop keyboard conventions: **Tab / Shift+Tab** traverse the focus chain and
@@ -2892,6 +3116,33 @@ grabbedKey, editing, scrollTop, dragging, reorderable, rootPath }`.
 A column's `alignment` applies to its **header title** as well as its cells, so a
 numeric column's heading sits over its numbers rather than left of them.
 
+**`onPrimaryAction(item, key)` — "open this row", the verb that is not
+selection.** Optional; absent, every gesture below behaves exactly as it does
+without it. Reachable on all four inputs with no invented gesture:
+
+| Input | Gesture |
+|---|---|
+| Pointer | double-click (500 ms window, the shared Windows/macOS default) |
+| Keyboard | `Return` on the focused row |
+| Gamepad | **A** / Cross on the focused row |
+| Touch | tap an **already-selected** row; with `selection = "none"`, any tap |
+
+**The touch rule is a deliberate divergence from the pointer idiom.** A blanket
+"single tap opens" would make every selection open a row, and a double-*tap* is
+not a touch idiom — it is a zoom gesture everywhere else on a phone, and it has no
+hover to telegraph itself with. Tap-to-select-then-tap-again-to-open is a real,
+common mobile pattern, it needs no new gesture, and it keeps touch fully reachable
+rather than telling a phone player to find some other affordance. With
+`selection = "none"` there is no "already selected" state to reach, so any tap
+opens.
+
+Two consequences worth stating. A **modified** click (Shift / Cmd / Ctrl) is a
+selection gesture and never opens, on any input. And a touch tap that opens does
+**not** re-toggle the selection — which means that on a `selection = "multi"`
+table, declaring `onPrimaryAction` spends the tap-to-deselect gesture on opening;
+`api.clearSelection()` and selecting elsewhere remain exact, and a table whose
+rows open is a table whose author said so.
+
 **Input is auto-composed** by the presenter
 with no `present()` opts (ui_todo §0; ADR-0013): row select, sort, focus-nav
 and grab-mode reorder wire themselves from the mounted control. Every
@@ -3000,13 +3251,25 @@ finding (the row activated AND stayed open); `tests/table.spec.luau`'s
 keyed-row virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
-string, rowHeight (px), rowGap? (px), viewportHeight (px or Readable<number>), overscan?, cell (item, ctx {
+string, itemExtent (px), rowGap? (px), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
 onActivate? ((item, meta) -> ()) }`. Returns `{
 blueprint, scrollTop (Signal), focusedKey (Signal), pathOf(key) -> path?,
 focusKey(key) -> path? (scrolls into view and materializes), debugWindow(),
 dump(), dispose() }`. Item state lives in the item scope and dies when a row
-leaves the window — durable state belongs in your data model. Cells own async
+leaves the window — durable state belongs in your data model.
+
+**`rowHeight` and `viewportHeight` are DEPRECATED aliases** of `itemExtent` and
+`viewportExtent` (since 0.9.0, removed no earlier than 0.10.0 — see
+`LuauUI.DEPRECATIONS`). Both still work and are identical on `axis = "y"`, so a
+vertical list needs no edit at all; they were renamed because a `rowHeight` on
+`axis = "x"` names a height that is really a width, and the alias would have to
+lie to somebody. Passing the new name and the old one together is refused at
+construction: it is one field. (This is `newVirtualList`'s `rowHeight` only —
+`newTable.rowHeight` is a different control's current API and is **not**
+deprecated.)
+
+Cells own async
 resources through `ctx.scope`, so window exit cancels them. **Input is
 auto-composed** by the presenter with no `present()` opts (ui_todo §0;
 ADR-0013): mouse wheel and one-finger touch pan scroll the window; each row is
@@ -3373,6 +3636,7 @@ of them are package data:
 | a per-state `asset` map | any asset reference, at BOTH customization rungs | `{ default, hover, pressed, selected, disabled, error }` through one normalizer. `default` required; unstated states fall back to it with tint rules still applying; a per-state `contentInsets` difference on any axis is a compile error. |
 | `barTrack` / `barFill` / `barCap` / `barCenter` | slots | image value displays. `barFill` takes `direction` (`ltr` default, `rtl`, `ttb`, `btt`); its art is drawn at full track size and revealed through an adapter-owned clip window, so a value change costs no adapter write. `barCap` takes `startAsset` / `endAsset` / `size`. |
 | `toggleTrack` / `toggleKnob` / `stepperPlate` | slots | the sliding switch and the stepper's glyph plate. Knob travel stays solver-owned. `stepperPlate` is whole-image by default and falls back to the `control` recipe when a package does not declare it. |
+| `spinner` | slots | one dot of an indeterminate `newProgressView`'s ring. Whole-image and round by default (a dot, like the slider thumb); carries its own solid native paint so an unskinned spinner still reads, and refuses a gradient for the same reason every other value-control slot does. The travelling pulse is the control's `tint`, which claims the colour and leaves the slot's shape rules alone. |
 | `icons` | package | semantic name → asset reference (per-state maps legal). Sized from `metrics.iconSizes` through the snapshot, tinted by the asset's `tintRole`. An unknown non-namespaced name is a compile error; a theme with no icon draws the framework's ASCII-safe fallback glyph. |
 | `identity.rendering = "pixel"` + `identity.pixelUnit` | package | `ResampleMode = Pixelated` on every image rule (censused), integer `SliceScale` enforced at compile, and snapshot lengths snapped UP to multiples of the unit. |
 
@@ -3604,9 +3868,47 @@ class, including Adjust.
 
 ### `newProgressView`
 
-`LuauUI.newProgressView(LuauUI, core, spec) -> { blueprint, model, semanticText, dump, dispose }`
-— determinate linear progress. `spec = { id?, label?, value (number | Readable),
-min? = 0, max? = 1, format?, showValue?, height? }`.
+`LuauUI.newProgressView(LuauUI, core, spec) -> { blueprint, model, semanticText, phase, dump, dispose }`
+— linear progress, determinate or indeterminate. `spec = { id?, label?, value?
+(number | Readable), min? = 0, max? = 1, format?, showValue?, height?,
+presentation? ("bar" | "spinner"), motionClock? }`.
+
+**Indeterminate is selected by `value = nil`** — SwiftUI's own rule
+(`ProgressView()` with no value is indeterminate). There is deliberately no
+second flag: an `indeterminate = true` sitting beside a `value = 0.4` is a
+contradiction the framework would have to arbitrate, and the value already
+carries the answer. Because `min`, `max`, `format` and `showValue` all describe a
+value, declaring one *without* a value is an authoring error rather than a silent
+no-op. The mode is construction-fixed, exactly as SwiftUI's two initializers are
+two different views.
+
+`presentation` picks the shape. `"bar"` (the default) is the track; indeterminate
+it grows a segment that sweeps to the far end and folds back. `"spinner"` is a
+ring of five pulsing dots and is **indeterminate only** — a determinate spinner is
+an arc, and the blueprint has no rotation or trim channel to draw one with, so the
+combination is refused with that reason instead of silently degrading. The dots
+are fixed squares whose PULSE rides the `tint` channel rather than their size: a
+loading indicator lives inside a vertical `ScrollView`, and a fraction of an
+unbounded axis is not a size — so the ring animates for zero re-solves and can be
+dropped into any container. They paint through one new decoration slot, `spinner`;
+the bar paints through `barTrack` / `barFill` exactly as it always has.
+
+`motionClock` is the surface's motion clock (`presenter.motionClock`), and only
+the indeterminate cycle reads it — a determinate bar never touches it. With no
+clock the indeterminate view holds its rest pose and reports
+`dump().animating = false`: honest, rather than a spinner that silently is not
+spinning.
+
+**Reduced motion, and it is the opposite of the usual decision.** Everything else
+this framework animates is decoration, and under reduced motion it snaps (see
+`presenter.withAnimation`). A loading indicator is not that — it is the one piece
+of motion on the screen that *carries* the information, because a frozen spinner
+and a hung process look identical. So the indeterminate cycle registers
+`kind = "informational"`: under reduced motion it **keeps running** to the same
+wall-clock terminus and merely quantizes its writes onto the motion authority's
+250 ms tick. Decorative motion snaps, informational motion steps, and nothing is
+ever deleted — the indicator still visibly progresses for a player who asked for
+less motion. Both policies are covered in `tests/display_controls.spec.luau`.
 
 The fill is a **percent** dimension, so the bar reflows with its container without
 recomputing pixels, and paint is style-owned through the **bar family**: the
@@ -3618,8 +3920,17 @@ package stretched a button plate across the track and a panel gradient's alpha
 made the fill see-through (ADR-0020 R3). A theme customizes a bar through
 `chrome.barTrack` / `chrome.barFill`, never through the button rules.
 Out-of-range values clamp through the shared value model rather than overflowing, and
-`semanticText` states the value in its range. **Non-interactive** by declaration — it
-reports, it does not accept input.
+`semanticText` states the value in its range; an indeterminate view's `semanticText`
+is the static string `"Loading"`, because the only true sentence about it is that the
+work is running and re-announcing it sixty times a second is exactly what a live
+region must not do. **Non-interactive** by declaration — it reports, it does not
+accept input, and it deliberately attaches no input contribution.
+
+`dump()` carries `{ schema, id, indeterminate, presentation, … }`; a determinate
+view keeps every key it published before indeterminate existed, with the same
+values (`value`, `fraction`, `formatted`, `semanticText`, `min`, `max`,
+`showValue`), and an indeterminate one adds `phase` (the live 0..1 cycle position)
+and `animating`.
 
 ### `newLabel`
 
@@ -4530,7 +4841,7 @@ for the physical gate a support claim would have to pass first.
 
 ## Client entry points
 
-Everything above hangs off the `LuauUI` table. These eight modules do not: they
+Everything above hangs off the `LuauUI` table. These nine modules do not: they
 are the code that touches Roblox `Instance`s, real input and real device facts,
 so exporting them would put engine requires in the shared/server graph. A client
 script requires each **directly**:
@@ -4539,7 +4850,7 @@ script requires each **directly**:
 local screen_target = require(ReplicatedStorage.LuauUI.client.screen_target)
 ```
 
-**This list is the contract** (ADR-0011, constitution §12). These eight are
+**This list is the contract** (ADR-0011, constitution §12). These nine are
 public surface with the same compatibility promise as anything above; everything
 else under `src/` is library-internal, and a consumer requiring one of those is
 outside the boundary rule.
@@ -4554,7 +4865,7 @@ releases the tree.
 | Opt | Meaning |
 |---|---|
 | `style` | the compiled token style to paint from; default is Studio Neutral |
-| `isReducedMotion` | `() -> boolean`, consulted for engine-side motion |
+| `isReducedMotion` | **deprecated** (0.9.0, removed no earlier than 0.10.0): `() -> boolean`, consulted for engine-side motion. Still accepted, and now OR-ed with the fact the renderer pushes from the environment through `adapter.setReducedMotion` — so it can force reduced motion ON, never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it. |
 | `parent` | host the root under this Instance instead of `PlayerGui` (the Edit-mode preview and any harness without a LocalPlayer) |
 | `rootFactory` | `(screenId) -> { gui }` — swap only the ROOT container; everything below is target-agnostic flat rendering (this is how `billboard_target` is built) |
 | `forceScrollFallback` | render `ScrollView` nodes as plain clip hosts with no engine scrolling — the A/B switch that exercises the fallback path deliberately |
@@ -4665,6 +4976,78 @@ Two things stay the caller's:
   returns, so everything inside one tick — the clock's transaction, every motion
   write, transitions, the toast schedule — spends the frame's *render-thread*
   budget.
+
+#### `client.haptics`
+
+`haptics.new(opts?) -> adapter` — **opt-in, default off.** The one adapter that
+turns semantic feedback events into Roblox haptics. It is a *subscriber* to the
+bus, never part of it: LuauUI still plays nothing, and nothing under `src/`
+outside `src/client/` names a haptic symbol or requires this module (pinned by
+`tests/haptics.spec.luau`). Every engine fact it rests on is recorded, with
+sources, in `docs/research/2026-08-12-haptics-engine-facts.md`.
+
+```lua
+local haptics = require(ReplicatedStorage.LuauUI.client.haptics)
+local hap = haptics.new({ enabled = playerSettings.haptics })
+hap.bind(presenter)            -- the verbs with no engine hook
+hap.attachButtons(screenGui)   -- the property route, for `activate`
+```
+
+`bind(presenter) -> unbind`, `attachButtons(root) -> detach`,
+`setEnabled(on)`, `isEnabled()`, `support()`, `reprobe()`, `diagnostics()`,
+`dispose()`. `opts` is `{ enabled?, now?, adjustIntervalSeconds?, parent? }` plus
+four injection seams (`instanceNew`, `inputService`, `hapticService`, `enums`)
+that exist so the whole adapter is provable headless.
+
+**`HapticEffect`, never `HapticService:SetMotor`.** Roblox's own class reference
+says the service "has been superseded by `HapticEffect` … For new work, use
+`HapticEffect` instead", and `SetMotor`'s value range, persistence and zeroing
+requirement are undocumented — a motor you cannot prove stops is a stuck-rumble
+bug with no test.
+
+**`activate` takes the property route.** `GuiButton.PressHapticEffect` is an
+assignable reference the *engine* fires, so `attachButtons` hands one over to
+every `GuiButton` under the root (now and later, via `DescendantAdded`) and this
+module never calls `Play()` on it. `HoverHapticEffect` is deliberately left
+unassigned. The bus subscription covers only the verbs with no engine hook.
+
+**The map is total over the closed twelve**, and five map to nothing —
+`activate` (the engine plays it), `arrive` (every chase settle; per-frame noise),
+`cancel` (the absence of feedback *is* the signal), `dismiss` and `supersede`
+(not player-caused). The silences are written out explicitly, so a thirteenth
+verb would surface as a visible gap rather than a silent drop.
+
+| Verb | Route | `HapticEffectType` |
+|---|---|---|
+| `activate` | property (`PressHapticEffect`) | `UIClick` |
+| `select` · `pickup` · `commit` · `land` | bus | `UIClick` |
+| `adjust` | bus, **rate-limited** (default 60 ms; coalescing *drops*) | `UIHover` |
+| `reject` · `celebrate` | bus | `UINotification` |
+| `arrive` · `cancel` · `dismiss` · `supersede` | — | *deliberately none* |
+
+Effects are **pooled**, one per mapped verb plus one for the press property, and
+never constructed per fire (Roblox documents a "fewer than 100 simultaneous
+effects" budget). The enum is resolved defensively **by name** before anything is
+constructed and **never falls back to `Custom`** — a `Custom` effect with no
+waveform is a guaranteed silent no-op.
+
+**`support()` is a lattice, not a boolean**: `supported | unsupported | unknown |
+blocked | absent`. There is no capability API for `HapticEffect` at all, and the
+only probe on the platform belongs to the superseded service and answers `false`
+both for "this device has no motor" and for "no gamepad connected *yet*" — so
+touch and the pre-first-gamepad state are **`unknown`** ("attempt it, expect
+nothing, publish no platform claim"), never `unsupported`. It re-probes on
+`GamepadConnected` / `GamepadDisconnected` / `LastInputTypeChanged` rather than
+caching at boot. Pooled effects are parented to `Workspace` by default, *matching
+the official sample* — the docs state no parenting requirement and this module
+claims none; pass `parent` to override or `parent = false` to parent nothing.
+
+**What is device-owed.** Roblox documents controllers on macOS 15+ as
+unsupported, so this repository's dev machine can only prove "never throws".
+Whether anything is *felt* on a gamepad, whether it is felt on a phone, and
+whether the player's own haptics setting silences it (`UserGameSettings.Haptic-
+Strength` is `RobloxScriptSecurity` on read — game code cannot see it) are three
+open `PENDING_PHYSICAL` rows.
 
 ## Motion
 

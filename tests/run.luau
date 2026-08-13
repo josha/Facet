@@ -34,6 +34,8 @@ require("./instance_recycling.spec")
 require("./instance_recycling_themed.spec")
 require("./instance_park_corpse.spec")
 require("./incremental_layout.spec")
+require("./diagnostic_replay.spec")
+require("./container_relative_incremental.spec")
 require("./perf_principles.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
@@ -103,6 +105,7 @@ require("./fuzz_replication.spec")
 require("./faults.spec")
 require("./virtualization.spec")
 require("./virtual_list_row_gap.spec")
+require("./virtual_list_axis.spec")
 require("./virtual_list_focus_policy.spec")
 require("./navigation_groups.spec")
 require("./perf_runner.spec")
@@ -157,6 +160,31 @@ require("./paradigm_carry.spec")
 require("./chip.spec")
 require("./authoring.spec")
 require("./layout_vocabulary.spec")
+-- the stack branch's three round-2 parity additions, in one file because they are
+-- one change to one branch: `distribute` (§2.6, main-axis distribution), the
+-- shrink pass (§2.4, `layoutPriority` tiers x `shrinkWeight` proportions — which
+-- runs in the MEASURE branch as well as arrange, so a squeezed label's wraps are
+-- reserved) and `lineAlign` (§2.1, per-child cross-axis alignment — the
+-- `ItemLineAlignment` gap)
+require("./stack_distribution.spec")
+-- §2.2 the ROW grid: `UI.GridRow` turns `UI.Grid` into SwiftUI's Grid/GridRow pair
+-- (column n is the widest natural cell in column n across every row, `gridSpan`
+-- covers several columns and widens none of them), selected by the children — and
+-- the flow grid every existing caller has stays byte-identical, pinned first
+require("./grid_row.spec")
+-- §2.1 SILENTLY-INERT PLACEMENT PROPS. `anchor`, `offsetX`, `offsetY`, `alignH`,
+-- `alignV`, `lineAlign` and `gridSpan` are shared BOX props — legal on every node
+-- — but each is an instruction addressed to a particular kind of PARENT, and
+-- every arrange branch reads only the ones it knows. Everywhere else the prop was
+-- ACCEPTED AND THEN IGNORED, which constitution §4 forbids. The child cannot
+-- catch it (it does not know its parent at its own construction), so the parent
+-- does: `solver.auditPlacement`, called from `renderer.toLayoutNode` and reported
+-- through `controller.diagnostics()`
+require("./placement_audit.spec")
+-- §2.5 `containerRelativeFrame`: a fraction of the nearest ancestor VIEWPORT
+-- rather than of the parent's offer — including the measure memo's cache key,
+-- which this is the first input to genuinely widen
+require("./container_relative_frame.spec")
 -- a Grid must MEASURE the layout it ARRANGES: the reported width has to re-derive
 -- its own column count, or a hug parent hands back a width that adds a row
 -- (2026-08-08 report, "content overflows this vstack by 200px")
@@ -165,6 +193,27 @@ require("./grid_measure_arrange.spec")
 require("./scroll_bar_measure.spec")
 require("./scroll_indicators.spec")
 require("./zstack_fill_diagnostic.spec")
+-- THE ALWAYS-ON OVERFLOW SWEEP (device bug round 2026-08-12, Group B). Every
+-- showcase surface — 25 gallery scenarios, 7 tutorial examples, 5 reference
+-- proofs — mounted at the five recorded device-matrix viewports plus the
+-- narrowest supported one in BOTH orientations, under the showcase's own picker
+-- reservation, failing on `controller.diagnostics()`' main-axis overflow. The
+-- lesson this closes (docs/lessons/the-solver-already-told-you.md) is not "read
+-- the diagnostics" — §13 already said that — it is that nothing in the suite
+-- FAILED on them, so the answer sat unread through a green suite, a green gate,
+-- a five-view matrix and four reviews, twice
+require("./overflow_sweep.spec")
+-- ...and the paint half of the same round: a padded `UI.Text` is drawn INSIDE its
+-- padding. The solver's text measure had always added it to the box; the renderer
+-- and both adapters only ever painted a Button's, so a padded label sat flush
+-- against its own plate's leading edge (device report IMG_3691, the S1..S12 tiles)
+require("./text_padding_paint.spec")
+-- ...and the INSTRUMENT the same round found missing: a scroll host's engine
+-- WINDOW is narrower than its own frame by the bar thickness even where the
+-- layout reserve is zero, so content can be laid out correctly and still be
+-- clipped. The fake target models the window now, and the disagreement between
+-- the published reserve and the instance thickness is measured and pinned
+require("./scroll_window_clip.spec")
 -- the namespaced-icon ASCII floor the api contract promised
 require("./icon_ns_glyph.spec")
 require("./adaptive.spec")
@@ -217,6 +266,9 @@ require("./motion_spring.spec")
 require("./motion_clock.spec")
 require("./motion_chase.spec")
 require("./motion_timeline.spec")
+-- ...and the ACCESSIBILITY half of motion: the player's reduced-motion setting
+-- reaching the render target with no consumer wiring (C1, 2026-08-12)
+require("./reduced_motion_seam.spec")
 -- sponsor-framework-gaps P3: structural transitions (the mount-layer retire
 -- model, the coordinator over the presentation channel, and the presenter's own
 -- surface enter/exit — ADR-0022 Decision 3, row SF-M6)
@@ -228,6 +280,12 @@ require("./toast_presentation.spec")
 -- the one semantic feedback seam: closed taxonomy, causal frames, exactness
 -- (ADR-0022 Decision 7, row SF-F1)
 require("./feedback.spec")
+-- the AUTHORED half of that seam: UI.sensoryFeedback(bp, { trigger, event })
+-- (docs/plans/swiftui-parity-round2.md §3.3), and the opt-in, default-off client
+-- haptics adapter that is one possible SUBSCRIBER to it — LuauUI still plays
+-- nothing
+require("./sensory_feedback.spec")
+require("./haptics.spec")
 -- bounded retry with a session give-up, the preload seam, and the AsyncImage dim
 -- treatment (ADR-0022 Decision 8, rows SF-A1..A3)
 require("./async_completeness.spec")
@@ -252,6 +310,10 @@ require("./row_actions_hosted.spec")
 -- row actions: the mail-style gallery scenario (Task 11) — builds/mounts clean,
 -- every scripted step drivable, both surfaces' actions proven end to end
 require("./row_actions_scenario.spec")
+-- row actions: THE FLIGHT (device bug round 2026-08-12, Group C). Six
+-- motion-quality findings from a phone that a settled-state assertion structurally
+-- cannot see; every check here is a statement about a recorded per-frame trace
+require("./row_actions_motion.spec")
 -- focus-skip by live predicate + the active-interaction exemption (SF-L3)
 require("./focus_skip.spec")
 -- the unified collection: one VirtualList that windows, selects, reorders,
@@ -274,6 +336,10 @@ require("./spec_guard_sweep.spec")
 -- descriptor the solver MEASURES with is the descriptor the adapter PAINTS
 require("./typography_weight_roles.spec")
 -- swiftui-reference-app-validation: the five clean-room reference proofs
+-- swiftui-parity round 2 Phase 1: presenter.withAnimation — the paint layer
+-- travels while the solver stays exact and instant
+require("./with_animation.spec")
+require("./animation_precedence.spec")
 require("./reference/glade_spec")
 require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")

@@ -462,16 +462,51 @@ end
 
 -- per-row horizontal groups for a Grid's focusables, linked by up/down exits
 -- (grid 2D nav, column-preserving); shared by both group derivations
+-- A ROW GRID DECLARES ITS ROWS, so they are read rather than inferred (parity
+-- round 2 §2.2). Structural regions are transparent here for the same reason they
+-- are in the layout tree: a `UI.ForEach` of `UI.GridRow`s is still a row grid, and
+-- inferring "one row of everything" from an absent `columns` would make a 2D board
+-- navigate as a single very wide row.
+local STRUCTURAL: { [string]: boolean } = { When = true, ForEach = true, ErrorBoundary = true }
+local function collectGridRows(node: any, out: { any }): boolean
+	local sawOther = false
+	for _, child in node.children or {} do
+		if isRetiring(child) then
+			continue
+		elseif child.class == "GridRow" then
+			table.insert(out, child)
+		elseif STRUCTURAL[child.class] then
+			sawOther = collectGridRows(child, out) or sawOther
+		else
+			sawOther = true
+		end
+	end
+	return sawOther
+end
+
 local function emitGridGroups(node: any, groups: { any })
-	local cells: { string } = {}
-	collectFocusables(node, cells)
-	local colsProp = node.props and node.props.columns
-	local cols = if type(colsProp) == "number" and colsProp >= 1 then colsProp else #cells
 	local rows: { { string } } = {}
-	for i, path in cells do
-		local r = math.floor((i - 1) / cols) + 1
-		rows[r] = rows[r] or {}
-		table.insert(rows[r], path)
+	local declaredRows: { any } = {}
+	local mixed = collectGridRows(node, declaredRows)
+	if #declaredRows > 0 and not mixed then
+		for _, rowNode in declaredRows do
+			local rowCells: { string } = {}
+			collectFocusables(rowNode, rowCells)
+			if #rowCells > 0 then
+				table.insert(rows, rowCells)
+			end
+		end
+	end
+	if #rows == 0 then
+		local cells: { string } = {}
+		collectFocusables(node, cells)
+		local colsProp = node.props and node.props.columns
+		local cols = if type(colsProp) == "number" and colsProp >= 1 then colsProp else #cells
+		for i, path in cells do
+			local r = math.floor((i - 1) / cols) + 1
+			rows[r] = rows[r] or {}
+			table.insert(rows[r], path)
+		end
 	end
 	local base = `auto-grid-{node.path}`
 	for r = 1, #rows do

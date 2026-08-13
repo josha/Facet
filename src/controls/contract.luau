@@ -39,6 +39,13 @@ local CONTROLS: { [string]: ControlContract } = {
 	-- no four-input rule could see.
 	Anchor = { focusRole = "none", actions = {}, accessibility = "free-position overlay container" },
 	Grid = { focusRole = "none", actions = {}, accessibility = "row-major uniform grid container" },
+	GridRow = {
+		focusRole = "none",
+		actions = {},
+		accessibility = "one row of a ROW grid (§2.2): its cells take the columns the parent Grid "
+			.. "derived from every row, so column n is the same column in every row. Carries no focus "
+			.. "semantics of its own — the cells keep theirs, in declaration order",
+	},
 	AdaptiveStack = {
 		focusRole = "none",
 		actions = {},

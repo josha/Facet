@@ -7,6 +7,11 @@
 --
 -- Native-input rows are driven by the MCP's real wheel injection OVER the
 -- list, not by steps; the steps here are labeled programmatic drivers.
+--
+-- The three demo regions (List/Strip/FocusList) size by a `fill` weight
+-- share of the page, not a fixed px, so the page itself never overflows the
+-- viewport (overflow_sweep, device bug round 2026-08-12) — see the comment
+-- at their declaration below.
 
 return {
 	title = "Native scroll host (NS-A2)",
@@ -60,9 +65,21 @@ return {
 			gap = 8,
 			children = {
 				UI.Text({ id = "Title", text = "Native scroll host", textSize = 22 }),
+				-- The three demo regions below used to be FIXED px (260/56/140) —
+				-- taller together than a short landscape phone's whole safe area,
+				-- with nothing to scroll the PAGE (overflow_sweep, device bug round
+				-- 2026-08-12). Wrapping the page in a second y-ScrollView would nest
+				-- a y-scroller inside the y-scrollers this fixture exists to prove
+				-- (NS-A2/NS-I2/A-SV1), so instead each region states its SHARE of
+				-- whatever height the viewport actually has (`fill`, weighted
+				-- roughly by its original px so List stays the tallest demo and
+				-- Strip the shortest) rather than a constant that stops fitting
+				-- below ~640px. Every region's own content (20/12/15 items) still
+				-- outgrows its box at any weight share, so the scroll/keep-visible
+				-- behavior under test is unchanged — only the box gets smaller.
 				UI.ScrollView({
 					id = "List",
-					height = { type = "fixed", px = 260 },
+					height = { type = "fill", weight = 3 },
 					width = { type = "fixed", px = 280 },
 					padding = 8,
 					gap = 0,
@@ -74,13 +91,13 @@ return {
 					axis = "x",
 					gap = 8,
 					width = { type = "fixed", px = 280 },
-					height = { type = "fixed", px = 56 },
+					height = { type = "fill", weight = 1 },
 					children = strip,
 				}),
 				UI.Text({ id = "KeepLabel", text = "keep-visible (focusable rows)", textSize = 14, role = "secondary" }),
 				UI.ScrollView({
 					id = "FocusList",
-					height = { type = "fixed", px = 140 },
+					height = { type = "fill", weight = 2 },
 					width = { type = "fixed", px = 280 },
 					gap = 2,
 					children = focusRows,

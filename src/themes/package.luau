@@ -208,6 +208,12 @@ package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	-- package's authored metrics — and therefore no package's content stamp —
 	-- moves for a value nobody wrote.
 	rowActions = table.freeze({ "trayGap" }),
+	-- the indeterminate spinner's dot (parity round 2 §3.1). Optional for the
+	-- same reason `trayGap` is: `snapshot.resolve` fills it from the theme's own
+	-- `space` scale, so every package answers `controls.progress.spinnerDotSize`
+	-- while no package's authored metrics — and therefore no package's content
+	-- stamp — move for a value nobody wrote.
+	progress = table.freeze({ "spinnerDotSize" }),
 })
 
 -- VALUE-DISPLAY HOSTS whose extent is a METRIC the package resolves (RS-A16-D3).
@@ -906,13 +912,26 @@ package.ICON_FALLBACK_GLYPHS = table.freeze({
 	-- that had to be invented rather than inherited. It collides with nothing
 	-- already in this table.
 	["edit"] = "/",
-	-- row-actions stage, 2026-08-11. `U` is a waste bin's own silhouette (an
-	-- open, tapered container) rather than a letter standing in for the word,
-	-- the same move `edit` made with the pencil's `/`; `P` is a pole with a
-	-- pennant riding its top-right, the flag's own silhouette the same way.
+	-- row-actions stage, 2026-08-11; CORRECTED after the device bug round
+	-- 2026-08-12 (finding A4). These shipped as `U` and `P` — argued at the time
+	-- as "a waste bin's own silhouette" and "a pole with a pennant". On a real
+	-- phone, under Pixel Quest (a package that declines the framework art rung,
+	-- so the character is what renders), they read as exactly what they are:
+	-- the letters U and P sitting where an icon belongs. A letter in an icon's
+	-- place is a SILENT wrong result — nothing errors, nothing is missing, the
+	-- control simply says something else — which is the class this library ranks
+	-- above every missing convenience.
+	--
+	-- THE RULE THIS TABLE NOW KEEPS (pinned by tests/compact_label.spec.luau):
+	-- no entry may contain an UPPERCASE ASCII letter. A lowercase mark can be a
+	-- stroke shape the eye reads as a picture — `v` is a tick, `x` is a cross,
+	-- both centuries older than this table — but a capital reads as an INITIAL
+	-- standing in for a word, which is a caption, not an icon. `\_/` is an open,
+	-- tapered container (the bin), `|>` is a pole flying a pennant (the flag);
+	-- multi-character marks are already precedented here by `more`'s `...`.
 	-- Neither collides with anything already in this table.
-	["trash"] = "U",
-	["flag"] = "P",
+	["trash"] = "\\_/",
+	["flag"] = "|>",
 })
 
 -- isSafeGlyph(s): plain ASCII and nothing else. Falsifiable — a private-use
