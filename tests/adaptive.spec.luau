@@ -883,6 +883,56 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		expect(string.find(hitBody, "handle.instance.Visible", 1, true) ~= nil).toBe(true)
 	end)
 
+	--[[ BOTH ACTIVATE PRODUCERS BUILD THEIR META THROUGH THE ONE SHARED BUILDER
+		(redteam item 2, HIGH; 2026-08-13) ────────────────────────────────────────
+		The hit expander is a second real `GuiButton` that activates the host
+		control, and it used to send `{ source = "hitExpander" }` — a meta that
+		EXISTS but names no pointer kind, which satisfies neither half of a
+		control's `meta == nil or meta.pointer == "touch"` test and therefore
+		answered every finger in a short row's 44px overhang as a mouse click.
+		Measured on an edit-mode multi-select Table: three taps built r1,r2,r3 and
+		one tap in the overhang replace-selected r4, discarding the lot; two
+		overhang taps inside the double-click window opened the row, i.e. a
+		double-tap-to-open on a phone.
+
+		`screen_target.luau` is engine-only, so this is asserted at the source
+		anchors — and it asserts the SHAPE OF THE FIX (one builder, two callers)
+		rather than a string in each producer, because a second copy of the meta
+		is exactly how this defect comes back. ]]
+	it("both activate producers build their meta through the one shared builder", function()
+		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- the builder exists, exactly once, and it classifies the pointer kind
+		local atBuilder = string.find(source, "local function pointerActivateMeta", 1, true)
+		expect(atBuilder ~= nil).toBe(true)
+		expect(string.find(source, "local function pointerActivateMeta", (atBuilder :: number) + 1, true)).toBe(nil)
+		local builder = string.sub(source, atBuilder :: number, (atBuilder :: number) + 1400)
+		expect(string.find(builder, "Enum.UserInputType.Touch", 1, true) ~= nil).toBe(true)
+		expect(string.find(builder, 'pointer = "touch"', 1, true) ~= nil).toBe(true)
+		expect(string.find(builder, "pointer = pointer", 1, true) ~= nil).toBe(true)
+		expect(string.find(builder, 'source = "pointer"', 1, true) ~= nil).toBe(true)
+
+		-- producer 1: the control's own GuiButton
+		local atHandler = string.find(source, "function adapter.setActivateHandler", 1, true)
+		expect(atHandler ~= nil).toBe(true)
+		local handlerBody = string.sub(source, atHandler :: number, (atHandler :: number) + 600)
+		expect(string.find(handlerBody, "fn(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(true)
+
+		-- producer 2: the minimum-target hit expander, from ITS OWN InputObject
+		local atExpander = string.find(source, "expander.Activated:Connect", 1, true)
+		expect(atExpander ~= nil).toBe(true)
+		local expanderBody = string.sub(source, atExpander :: number, (atExpander :: number) + 500)
+		expect(string.find(expanderBody, "function(inputObject: InputObject)", 1, true) ~= nil).toBe(true)
+		expect(string.find(expanderBody, "handle.activate(pointerActivateMeta(inputObject))", 1, true) ~= nil).toBe(
+			true
+		)
+
+		-- and the partial meta is GONE, not merely unused. The CALL is what is
+		-- asserted absent, not the words: the builder's own comment above names
+		-- the retired shape on purpose, and a test that forbade naming it would
+		-- forbid explaining it.
+		expect(string.find(source, 'handle.activate({ source = "hitExpander" })', 1, true)).toBe(nil)
+	end)
+
 	it("RS-A16-D1b: the expander is placed by the SAME path that places its control", function()
 		-- FOUND LIVE while proving the fix above (2026-07-26, stamp 1dc16785-1707271).
 		-- `pushHitRects` runs BEFORE the commit that writes rects, so on a FRESH build

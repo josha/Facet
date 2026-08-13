@@ -2731,7 +2731,15 @@ describe("Table: row actions (Task 10)", function()
 			w.tick(1.0)
 			w.adapter.pointerMove(-200, 20)
 			w.tick(1 / 60)
-			w.adapter.pointerUp(-200, 20)
+			-- THE SWIPE'S OWN RELEASE ACTIVATE IS PART OF THE SWIPE (redteam
+			-- BLOCKER, 2026-08-13). The engine fires the row `Hit`'s `Activated`
+			-- at the end of this gesture whether it was a tap or a swipe, and the
+			-- control swallows exactly that one — so a case that omits it is not
+			-- only missing a signal, it leaves the suppression armed and makes the
+			-- NEXT tap look swallowed too. Delivered here, this case now proves
+			-- both halves at once: the swipe's own artifact does NOT close the
+			-- tray it just opened, and a genuine tap afterwards does.
+			w.adapter.pointerUpActivating(-200, 20, "after")
 			w.settle()
 			expect(w.adapter.node(razzHit).rect.x < closedX).toBe(true) -- confirmed open
 

@@ -2385,6 +2385,16 @@ function screen_target.new(opts: Opts?)
 
 		Returns false when the path has no activate handler, so a caller can tell
 		"nothing there" from "did nothing".
+
+		A META-LESS DRIVE IS THE TOUCH VERB (decided 2026-08-13, redteam item 10;
+		the reasoning is the codicil in `docs/lessons/a-synthesized-activate-must-
+		carry-the-pointer-kind.md`). Controls read `meta == nil` as "no input facts
+		at all", which is the touch branch — and since parity round 2 that branch
+		OPENS a Table row that declares `onPrimaryAction` rather than selecting it.
+		A real press always carries a full meta now (`pointerActivateMeta` above,
+		for both producers), so passing none here is a deliberately underspecified
+		call and gets the bare-mount answer. Drive the mouse semantics explicitly
+		with `{ source = "pointer", pointer = "mouse" }`.
 	]]
 	function adapter.driveActivate(path: string, meta: any?): boolean
 		local handle = handlesByPath[path]
@@ -2767,6 +2777,69 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	--[[ THE ONE ACTIVATE META, built in ONE place ─────────────────────────────
+		activate meta: pointer kind + held modifiers, so list semantics
+		(replace/toggle/range vs touch additive) resolve per device (ADR-0008).
+
+		SHARED, since 2026-08-13, with the minimum-target hit expander below, and
+		sharing it IS the fix for a HIGH defect (redteam item 2; the lesson
+		`docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md`, which
+		this closes). The expander is a second real `GuiButton` whose `Activated`
+		carries its own `InputObject` — it always knew the pointer kind — but it
+		sent `{ source = "hitExpander" }` and nothing else. A meta that EXISTS but
+		is silent satisfies neither half of a control's `meta == nil or
+		meta.pointer == "touch"` test, so every finger landing in a short row's
+		44px overhang was answered as a MOUSE CLICK: measured on an edit-mode
+		multi-select Table, three taps built a three-row selection and one tap in
+		the overhang REPLACE-selected and discarded it, and two overhang taps
+		inside the double-click window opened the row — handing a phone a
+		double-tap-to-open for a verb the gesture HIG reserves for zoom. The
+		expander is not a different KIND of activation, it is the same control
+		being pressed, so it now owes and sends the identical meta ("an adapter
+		that synthesizes an activate owes the same meta a real one carries").
+		`source = "hitExpander"` is retired rather than kept alongside: `source`
+		is the field controls read to tell a POINTER press from a DEVICE Activate
+		(`meta.source == "action"`), a third value means neither to every one of
+		them, and nothing in the framework or the games ever read it. ]]
+	local function pointerActivateMeta(inputObject: InputObject?): any
+		local userInputType = inputObject and inputObject.UserInputType
+		local pointer = "mouse"
+		if userInputType == Enum.UserInputType.Touch then
+			pointer = "touch"
+		elseif userInputType ~= nil and string.find(tostring(userInputType), "Gamepad") ~= nil then
+			pointer = "gamepad"
+		elseif userInputType == Enum.UserInputType.Keyboard then
+			-- NOT A POINTER AT ALL (roadmap Step 8). The engine fires the
+			-- SELECTED GuiButton's Activated for a keyboard press too, and
+			-- that arrived here classified as a mouse click — so the one
+			-- signal that identifies an engine-selection echo of an IAS
+			-- Activate was indistinguishable from a real click. Naming it
+			-- is what lets the presenter collapse the pair and nothing else
+			-- (see dispatchActivate).
+			pointer = "keyboard"
+		end
+		local function down(keyCode: Enum.KeyCode): boolean
+			return UserInputService:IsKeyDown(keyCode)
+		end
+		-- window-space tap position rides the meta so the presenter can run
+		-- the modal Zone-A geometry (a scrim/catcher tap; modal-dismissal
+		-- spec §3.2). InputObject.Position is inset-subtracted gui space
+		-- (this ScreenGui renders IgnoreGuiInset), so add the inset.
+		local tapPos = inputObject and inputObject.Position
+		local guiInset = GuiService:GetGuiInset()
+		return {
+			source = "pointer",
+			pointer = pointer,
+			x = if tapPos ~= nil then tapPos.X + guiInset.X else nil,
+			y = if tapPos ~= nil then tapPos.Y + guiInset.Y else nil,
+			shift = down(Enum.KeyCode.LeftShift) or down(Enum.KeyCode.RightShift),
+			toggle = down(Enum.KeyCode.LeftControl)
+				or down(Enum.KeyCode.RightControl)
+				or down(Enum.KeyCode.LeftMeta)
+				or down(Enum.KeyCode.RightMeta),
+		}
+	end
+
 	function adapter.setActivateHandler(handle: any, fn: (meta: any?) -> ())
 		local instance = handle.instance
 		-- kept on the handle so the effective-target hit expander (B-BTN3) can
@@ -2774,44 +2847,7 @@ function screen_target.new(opts: Opts?)
 		handle.activate = fn
 		if instance:IsA("GuiButton") then
 			handle.activatedConn = instance.Activated:Connect(function(inputObject: InputObject)
-				-- activate meta: pointer kind + held modifiers, so list
-				-- semantics (replace/toggle/range vs touch additive) resolve
-				-- per device (ADR-0008)
-				local userInputType = inputObject and inputObject.UserInputType
-				local pointer = "mouse"
-				if userInputType == Enum.UserInputType.Touch then
-					pointer = "touch"
-				elseif userInputType ~= nil and string.find(tostring(userInputType), "Gamepad") ~= nil then
-					pointer = "gamepad"
-				elseif userInputType == Enum.UserInputType.Keyboard then
-					-- NOT A POINTER AT ALL (roadmap Step 8). The engine fires the
-					-- SELECTED GuiButton's Activated for a keyboard press too, and
-					-- that arrived here classified as a mouse click — so the one
-					-- signal that identifies an engine-selection echo of an IAS
-					-- Activate was indistinguishable from a real click. Naming it
-					-- is what lets the presenter collapse the pair and nothing else
-					-- (see dispatchActivate).
-					pointer = "keyboard"
-				end
-				local function down(keyCode: Enum.KeyCode): boolean
-					return UserInputService:IsKeyDown(keyCode)
-				end
-				-- window-space tap position rides the meta so the presenter can run
-				-- the modal Zone-A geometry (a scrim/catcher tap; modal-dismissal
-				-- spec §3.2). InputObject.Position is inset-subtracted gui space
-				-- (this ScreenGui renders IgnoreGuiInset), so add the inset.
-				local tapPos = inputObject and inputObject.Position
-				local guiInset = GuiService:GetGuiInset()
-				fn({
-					source = "pointer",
-					pointer = pointer,
-					x = if tapPos ~= nil then tapPos.X + guiInset.X else nil,
-					y = if tapPos ~= nil then tapPos.Y + guiInset.Y else nil,
-					shift = down(Enum.KeyCode.LeftShift) or down(Enum.KeyCode.RightShift),
-					toggle = down(Enum.KeyCode.LeftControl) or down(Enum.KeyCode.RightControl) or down(
-						Enum.KeyCode.LeftMeta
-					) or down(Enum.KeyCode.RightMeta),
-				})
+				fn(pointerActivateMeta(inputObject))
 			end)
 		end
 	end
@@ -3302,14 +3338,16 @@ function screen_target.new(opts: Opts?)
 			-- control that is already hidden (RS-A16-D1)
 			expander.Visible = instance.Visible
 			expander.Parent = instance.Parent
-			expander.Activated:Connect(function()
+			-- the SAME meta a press on the control itself carries, from its own
+			-- InputObject (redteam item 2, HIGH — writeup at `pointerActivateMeta`)
+			expander.Activated:Connect(function(inputObject: InputObject)
 				if
 					handle.activate ~= nil
 					and handle.instance.Interactable ~= false
 					-- ...and never activate a control the player cannot see
 					and handle.instance.Visible
 				then
-					handle.activate({ source = "hitExpander" })
+					handle.activate(pointerActivateMeta(inputObject))
 				end
 			end)
 			handle.hitExpander = expander

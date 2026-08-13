@@ -991,6 +991,13 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		if o.input == "touch" then
 			env:set("preferredInput", "Touch")
 			env:set("capabilities", { keyboard = false, mouse = false, touch = true, gamepad = false })
+		elseif o.input == "gamepad" then
+			-- A PAD PLUS A KEYBOARD, the console/handheld session: `gamepad` is the
+			-- other class the auto Edit/Done toggle answers to (`showAutoToggle`), so
+			-- it is the one input set that can reach edit mode AND drive Return and
+			-- ButtonA at the rows once it is there.
+			env:set("preferredInput", "Gamepad")
+			env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
 		else
 			env:set("preferredInput", "KeyboardAndMouse")
 			env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = false })
@@ -1402,6 +1409,122 @@ describe("table_input: onPrimaryAction across pointer, touch, keyboard and gamep
 		w.system.deviceKey("ButtonA", false)
 		expect(#w.opened).toBe(1)
 		expect(w.opened[1].key).toBe("r3")
+	end)
+
+	--[[ EDIT MODE MUST NOT EAT THE DEVICE ACTIVATE ON A TABLE THAT CANNOT REORDER
+		(redteam item 3, HIGH; 2026-08-13) ────────────────────────────────────────
+		`api.handleActivate`'s grab branch asked only "editing, and a device
+		Activate" — true of exactly one kind of table when it was written, because
+		only a `reorderable` one could reach edit mode at all. Widening the auto
+		toggle to selectable + `onPrimaryAction` put a NON-reorderable table into
+		edit mode for the first time, and every Return and every ButtonA on its
+		rows then dead-ended into a grab it can never perform: nothing opened, the
+		row was left phantom-grabbed, and the Activate was swallowed whole. The
+		four-input bar the widening exists to satisfy was broken by the widening.
+
+		Green until now because every shipped edit-mode case drives TOUCH. These
+		drive the two device classes, through the control's own toggle, on the
+		exact shape the widening created. The reorderable half — where the grab is
+		real and must survive — is proven by "gamepad edit-mode: ButtonA grabs,
+		DPadDown steps the row, ButtonA drops" and its keyboard twin above. ]]
+	it(
+		"Table gamepad: in edit mode a NON-reorderable table still opens rows — ButtonA is not swallowed by a grab it cannot do",
+		function()
+			local w = primaryWorld({ selection = "multi", input = "gamepad" })
+			-- into edit mode through the affordance a pad actually has
+			expect(w.pres.focus.focused:get()).toBe(TOGGLE)
+			w.system.deviceKey("ButtonA", true)
+			w.system.deviceKey("ButtonA", false)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(true)
+
+			w.system.deviceKey("DPadDown", true)
+			w.system.deviceKey("DPadDown", false)
+			expect(w.pres.focus.focused:get()).toBe(hit("r1"))
+			w.system.deviceKey("ButtonA", true)
+			w.system.deviceKey("ButtonA", false)
+			w.pres.refresh()
+			expect(#w.opened).toBe(1)
+			expect(w.opened[1].key).toBe("r1")
+			-- and no phantom grab was left behind on a table with nothing to move
+			expect(w.tbl.api.grabbedKey:get()).toBe(nil)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	it(
+		"Table keyboard: in edit mode a NON-reorderable table still opens rows — Return is not swallowed by a grab it cannot do",
+		function()
+			local w = primaryWorld({ selection = "multi", input = "gamepad" })
+			w.system.deviceKey("Return", true)
+			w.system.deviceKey("Return", false)
+			w.pres.refresh()
+			expect(w.tbl.api.editing:get()).toBe(true)
+
+			w.system.deviceKey("Down", true)
+			w.system.deviceKey("Down", false)
+			w.system.deviceKey("Down", true)
+			w.system.deviceKey("Down", false)
+			expect(w.pres.focus.focused:get()).toBe(hit("r2"))
+			w.system.deviceKey("Return", true)
+			w.system.deviceKey("Return", false)
+			w.pres.refresh()
+			expect(#w.opened).toBe(1)
+			expect(w.opened[1].key).toBe("r2")
+			expect(w.tbl.api.grabbedKey:get()).toBe(nil)
+			expect(#w.handle.controller.diagnostics()).toBe(0)
+		end
+	)
+
+	--[[ A DEAD TAP IS NOT A SELECTION (redteam item 6, MEDIUM; 2026-08-13).
+		The touch branch handed the tap to selection whenever the table was
+		editing, without asking whether there IS a selection to make. On a
+		`selection = "none"` reorderable table — a legal, shipped shape, where edit
+		mode exists only to raise the ≡ handles — `api.select` returns on its first
+		line, so the tap did nothing at all: a row that opened one Edit press
+		earlier became inert for as long as edit mode lasted. ]]
+	it('Table touch: a selection = "none" reorderable table still OPENS a row while editing', function()
+		local w = primaryWorld({ selection = "none", reorderable = true, input = "touch" })
+		w.adapter.touchTap(hit("r2"))
+		expect(#w.opened).toBe(1) -- normal mode, as before
+		w.adapter.touchTap(TOGGLE)
+		w.pres.refresh()
+		expect(w.tbl.api.editing:get()).toBe(true)
+		-- the ≡ handle is up (edit mode is doing its one job here)...
+		expect(w.adapter.node(`/S/T/Main/Body/Rows/[r2@0]/Row/EditWhen/then/HandleZone/Handle`) ~= nil).toBe(true)
+		-- ...and the tap still opens, because there is no selection for it to
+		-- become instead
+		w.adapter.touchTap(hit("r2"))
+		w.pres.refresh()
+		expect(#w.opened).toBe(2)
+		expect(w.opened[2].key).toBe("r2")
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	--[[ THE META-LESS ACTIVATE, DECIDED RATHER THAN INHERITED (redteam item 10,
+		2026-08-13). `meta == nil` means "no input facts at all" and has always
+		routed to the touch branch — but since parity round 2 that branch OPENS a
+		primary-action table instead of selecting it, so the default now carries a
+		much larger verb, and it is reachable from `ScreenTarget.driveActivate(path)`
+		on any session. The decision is to KEEP it (the full argument is the codicil
+		in docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md);
+		this case is what makes it a decision rather than an accident — a change of
+		mind has to come here and say so. `adapter.driveActivate` is the headless
+		mirror of the same seam, so this drives the verb through the seam that
+		reaches it in production, not through `api.handleActivate` directly. ]]
+	it("a meta-less Activate is the TOUCH verb: it opens a primary-action table", function()
+		local w = primaryWorld({ selection = "multi" })
+		expect(w.adapter.driveActivate(hit("r2"))).toBe(true)
+		w.pres.refresh()
+		expect(#w.opened).toBe(1)
+		expect(w.opened[1].key).toBe("r2")
+		expect(w.tbl.api.selectedKeys:get().r2).toBe(nil) -- opened, not selected
+		-- ...and the mouse semantics are one explicit field away, for a caller who
+		-- wants them: a single click on this same table selects and never opens
+		expect(w.adapter.driveActivate(hit("r3"), { source = "pointer", pointer = "mouse" })).toBe(true)
+		w.pres.refresh()
+		expect(#w.opened).toBe(1)
+		expect(w.tbl.api.selectedKeys:get().r3).toBe(true)
 	end)
 
 	it("a table with NO onPrimaryAction behaves exactly as it does today on all four inputs", function()

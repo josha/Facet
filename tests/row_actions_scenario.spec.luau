@@ -459,43 +459,82 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		both edges, and asserts the three things that have to be simultaneously
 		true: the tray reveals, edit mode is NOT a prerequisite and does not turn
 		itself on, and the primary action does NOT fire on a swipe.
+
+		AND IT DRIVES THE RELEASE ACTIVATE (redteam BLOCKER, 2026-08-13). As first
+		shipped, every swipe here ended at `pointerUp` — and the engine does not.
+		A row `Hit` is a real `GuiButton`, so the same gesture that swipes it ends
+		with that button's `Activated`, on either side of `InputEnded`. Without it
+		"the primary action did NOT fire" was satisfied by its own starting value:
+		the check could not fail, and the defect it was written to close was live
+		underneath it (an "after" Activated CLOSED the tray in the frame it
+		appeared; a "before" one opened the row the swipe was meant to offer
+		actions for). Both orders are driven below, on both edges and both pointer
+		kinds — sixteen releases, none of them silent.
 	]]
-	it(
-		"RowActions touch: a swipe reveals the tray on a table NOT in edit mode that declares a primary action",
-		function()
+	local RA_ROW_HIT =
+		"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
+	local function raTrayPath(edge: string, action: string): string
+		local band = if edge == "leading" then "TrayLeading" else "TrayTrailing"
+		return `/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/{band}When/then/{band}/Action:{action}`
+	end
+	--[[ ONE swipe helper for this surface, and the ONLY way this file swipes a
+		Table row. `activate` is the order the engine's own `Activated` lands in
+		relative to `InputEnded` — never omitted, because a release that delivers
+		nothing is not a release any engine performs. ]]
+	local function swipeRow(world: any, dxFraction: number, pointerType: string, activate: "before" | "after")
+		local rect = world.adapter.node(RA_ROW_HIT).rect
+		local startX = if dxFraction < 0 then rect.x + rect.w - 8 else rect.x + 8
+		local y = rect.y + rect.h / 2
+		local dx = rect.w * dxFraction
+		world.adapter.pointerDown(RA_ROW_HIT, startX, y, pointerType)
+		for i = 1, 8 do
+			world.adapter.pointerMove(startX + dx * (i / 8), y, pointerType)
+		end
+		world.presenter.refresh()
+		world.adapter.pointerUpActivating(startX + dx, y, activate)
+		world.settle(120)
+	end
+	--[[ The four instances of the ONE case, with their titles written out in
+		full rather than interpolated: the conformance registry's input-proof rule
+		(b) looks for a declared proof case VERBATIM in a registered spec, and a
+		title assembled at runtime is not in the file for it to find. ]]
+	local RELEASE_ACTIVATE_CASES = {
+		{
+			pointerType = "touch",
+			activate = "after" :: "after" | "before",
+			title = "RowActions touch: a swipe reveals the tray on a table NOT in edit mode and survives its release Activate (after)",
+		},
+		{
+			pointerType = "touch",
+			activate = "before" :: "after" | "before",
+			title = "RowActions touch: a swipe reveals the tray on a table NOT in edit mode and survives its release Activate (before)",
+		},
+		{
+			pointerType = "mouse",
+			activate = "after" :: "after" | "before",
+			title = "RowActions mouse: a swipe reveals the tray on a table NOT in edit mode and survives its release Activate (after)",
+		},
+		{
+			pointerType = "mouse",
+			activate = "before" :: "after" | "before",
+			title = "RowActions mouse: a swipe reveals the tray on a table NOT in edit mode and survives its release Activate (before)",
+		},
+	}
+	for _, case in RELEASE_ACTIVATE_CASES do
+		local pointerType, activate = case.pointerType, case.activate
+		it(case.title, function()
+			-- TRAILING (Apple's default edge)
 			local world = tableWorld()
-			local rowHit =
-				"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/Content/Row/Hit"
-			local function trayPath(edge: string, action: string): string
-				local band = if edge == "leading" then "TrayLeading" else "TrayTrailing"
-				return `/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m1@0]/RowActions-m1/{band}When/then/{band}/Action:{action}`
-			end
 			-- the preconditions this case is ABOUT, asserted rather than assumed
 			expect(world.built.report().tableEditing).toBe(false)
 			expect(world.built.report().tableOpenedKey).toBe(nil)
-			expect(world.adapter.node(trayPath("trailing", "delete"))).toBe(nil)
+			expect(world.adapter.node(raTrayPath("trailing", "delete"))).toBe(nil)
 
-			local rect = world.adapter.node(rowHit).rect
-			local function swipe(dxFraction: number)
-				local startX = if dxFraction < 0 then rect.x + rect.w - 8 else rect.x + 8
-				local y = rect.y + rect.h / 2
-				local dx = rect.w * dxFraction
-				world.adapter.pointerDown(rowHit, startX, y, "touch")
-				for i = 1, 8 do
-					world.adapter.pointerMove(startX + dx * (i / 8), y, "touch")
-				end
-				world.presenter.refresh()
-				world.adapter.pointerUp(startX + dx, y, "touch")
-				world.settle(120)
-			end
-
-			-- TRAILING (Apple's default edge)
-			swipe(-0.3)
-			expect(world.adapter.node(trayPath("trailing", "delete")) ~= nil).toBe(true)
+			swipeRow(world, -0.3, pointerType, activate)
+			expect(world.adapter.node(raTrayPath("trailing", "delete")) ~= nil).toBe(true)
 			expect(world.built.report().tableEditing).toBe(false) -- never a prerequisite, never turned on
 			expect(world.built.report().tableOpenedKey).toBe(nil) -- a swipe is not a tap
 			expect(world.built.report().tableIds[1]).toBe("m1") -- and not a reorder either
-
 			expect(world.core:lastError()).toBeNil()
 			expect(#world.handle.controller.diagnostics()).toBe(0)
 			teardown(world)
@@ -505,26 +544,63 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 			-- an already-open tray is the CLOSE gesture, which would have passed
 			-- this case for entirely the wrong reason.
 			local lead = tableWorld()
-			local leadRect = lead.adapter.node(rowHit).rect
-			local startX = leadRect.x + 8
-			local y = leadRect.y + leadRect.h / 2
-			local dx = leadRect.w * 0.3
-			expect(lead.adapter.node(trayPath("leading", "read"))).toBe(nil)
-			lead.adapter.pointerDown(rowHit, startX, y, "touch")
-			for i = 1, 8 do
-				lead.adapter.pointerMove(startX + dx * (i / 8), y, "touch")
-			end
-			lead.presenter.refresh()
-			lead.adapter.pointerUp(startX + dx, y, "touch")
-			lead.settle(120)
-			expect(lead.adapter.node(trayPath("leading", "read")) ~= nil).toBe(true)
+			expect(lead.adapter.node(raTrayPath("leading", "read"))).toBe(nil)
+			swipeRow(lead, 0.3, pointerType, activate)
+			expect(lead.adapter.node(raTrayPath("leading", "read")) ~= nil).toBe(true)
 			expect(lead.built.report().tableEditing).toBe(false)
 			expect(lead.built.report().tableOpenedKey).toBe(nil)
+			expect(lead.built.report().tableIds[1]).toBe("m1")
 			expect(lead.core:lastError()).toBeNil()
 			expect(#lead.handle.controller.diagnostics()).toBe(0)
 			teardown(lead)
+		end)
+	end
+
+	--[[ THE OTHER HALF OF THE SAME RULE: the suppression is ONE activate wide.
+		A swipe swallows its own release artifact and nothing else — the tap that
+		follows it is a genuine tap and must reach the control (iOS: it closes the
+		open tray). A suppression that outlived its gesture would look exactly like
+		the fix from every angle this file otherwise checks. ]]
+	--[[ ...AND A GESTURE THAT PRODUCES NO ACTIVATE AT ALL LEAVES NOTHING ARMED.
+		A release landing off the button is a real engine outcome and it is the one
+		case the "swallow exactly one Activate" arm cannot clear itself — the next
+		press is what clears it (`hitOnPointerDown`, mirroring `virtual_list.luau`'s
+		own hosted dispatcher). Without that clear the swipe would eat the NEXT
+		tap instead of its own artifact, and every other case in this file would
+		still pass. `pointerUp` with no order is exactly that silent release. ]]
+	it("RowActions: a swipe whose release produces no Activate does not swallow the NEXT tap", function()
+		local world = tableWorld()
+		local rect = world.adapter.node(RA_ROW_HIT).rect
+		local startX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		local dx = rect.w * -0.3
+		world.adapter.pointerDown(RA_ROW_HIT, startX, y, "touch")
+		for i = 1, 8 do
+			world.adapter.pointerMove(startX + dx * (i / 8), y, "touch")
 		end
-	)
+		world.presenter.refresh()
+		world.adapter.pointerUp(startX + dx, y) -- released OFF the button: no Activated
+		world.settle(120)
+		expect(world.adapter.node(raTrayPath("trailing", "delete")) ~= nil).toBe(true)
+
+		world.adapter.touchTap(RA_ROW_HIT)
+		world.settle(120)
+		expect(world.adapter.node(raTrayPath("trailing", "delete"))).toBe(nil) -- the tap was heard
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
+	it("RowActions: the swallowed activate is the swipe's OWN — the next tap still closes the tray", function()
+		local world = tableWorld()
+		swipeRow(world, -0.3, "touch", "after")
+		expect(world.adapter.node(raTrayPath("trailing", "delete")) ~= nil).toBe(true)
+
+		world.adapter.touchTap(RA_ROW_HIT)
+		world.settle(120)
+		expect(world.adapter.node(raTrayPath("trailing", "delete"))).toBe(nil) -- closed by the tap
+		expect(world.built.report().tableOpenedKey).toBe(nil) -- and the close consumed it
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
 end)
 
 describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowActions)", function()

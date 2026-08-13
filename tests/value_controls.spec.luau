@@ -719,7 +719,11 @@ describe("verifier V11: the hit expander is re-based by its clip host", function
 		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
 		local at = string.find(source, "function adapter.setHitRect", 1, true)
 		expect(at ~= nil).toBe(true)
-		local body = string.sub(source, at :: number, (at :: number) + 1800)
+		-- (window widened 1800→2400 when the expander's Activated started building
+		-- the SAME activate meta a press on the control itself carries — redteam
+		-- item 2, 2026-08-13. The invariant asserted below is unchanged; the text
+		-- it lives in grew by three comment lines and a typed parameter.)
+		local body = string.sub(source, at :: number, (at :: number) + 2400)
 		-- the seam still re-bases — through the shared placement helper the control's
 		-- own re-base uses (RS-A16-D1b), which is what also fixes the origin arriving
 		-- LATE. The property is unchanged; only its single home moved.

@@ -1236,6 +1236,66 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
+	--[[ THE RELEASE THAT ACTIVATES (redteam BLOCKER, 2026-08-13) ───────────────
+		A pointer gesture on a real `GuiButton` — every Table row `Hit`, every
+		VirtualList row — does not end at `InputEnded`. The engine ALSO fires that
+		button's `Activated`, and both this repo's own gesture engines record the
+		same hard-won fact about it: it lands "whichever side of `InputEnded`" the
+		engine feels like. A drag, a swipe and a tap are indistinguishable to that
+		signal; only the control's own suppression tells them apart.
+
+		This driver never delivered it. `pointerUp` was the end of the story, so
+		EVERY swipe case in this suite proved its control against a sequence the
+		engine does not produce — and two cases written specifically to assert "a
+		swipe is not a tap" passed by asserting their own starting value, unable to
+		fail. The defect they were guarding survived them (a swipe's own Activated
+		closed the tray it had just opened, or fired the row's primary action).
+
+		`activate` is therefore an ORDER, not a boolean: "after" is the common
+		engine order (InputEnded, then Activated), "before" the one that exposed
+		the second half of the same defect, `nil` the legacy silent release a
+		gesture that ends OFF the button genuinely produces. The meta matches
+		`setActivateHandler`'s exactly (`source = "pointer"`, the capture's own
+		pointer kind, the release point) — a partial meta would be a different lie
+		(docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md). No
+		press dip: the dip belongs to the PRESS, which this release is the end of,
+		not to the activate.
+
+		A SEPARATE FUNCTION, not a third argument to `pointerUp`. Two dozen shipped
+		call sites already pass a redundant pointer-type string there (`pointerUp(x,
+		y, "touch")` — the type comes from the capture and always has), so an
+		`activate` parameter in that slot would read as satisfied by a string that
+		means nothing of the kind, and every one of those releases would silently
+		stay silent. It also RAISES on a release with no live capture: a case that
+		believes it delivered an Activated and delivered nothing is the exact
+		failure mode this exists to end. ]]
+	function adapter.pointerUpActivating(x: number, y: number, order: "before" | "after")
+		if order ~= "before" and order ~= "after" then
+			error(`fake_target.pointerUpActivating: order must be "before" or "after", got {tostring(order)}`, 2)
+		end
+		local captured = pointerCapture
+		if captured == nil then
+			error("fake_target.pointerUpActivating: no live pointer capture — nothing could activate", 2)
+		end
+		local function fireActivated()
+			if captured.onActivate ~= nil then
+				captured.onActivate({
+					source = "pointer",
+					pointer = captured.pointerType or "mouse",
+					x = x,
+					y = y,
+				})
+			end
+		end
+		if order == "before" then
+			fireActivated()
+		end
+		adapter.pointerUp(x, y)
+		if order == "after" then
+			fireActivated()
+		end
+	end
+
 	function adapter.pointerUp(x: number, y: number)
 		if pointerCapture then
 			if pointerCapture.pointer.up then

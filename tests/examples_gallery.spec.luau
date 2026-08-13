@@ -908,11 +908,28 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 	local function rowRoot(key: string): string
 		return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
 	end
-	-- swipe the row's own Hit surface sideways. `frac` is signed: negative is a
-	-- trailing (leftward) swipe, positive a leading one, as a fraction of the
-	-- row's own width — never a pixel count, so a row-height/width change
-	-- cannot silently make this test stop crossing the reveal threshold.
-	local function swipeRow(world: any, key: string, frac: number, pointerType: string?)
+	--[[ swipe the row's own Hit surface sideways. `frac` is signed: negative is a
+		trailing (leftward) swipe, positive a leading one, as a fraction of the
+		row's own width — never a pixel count, so a row-height/width change
+		cannot silently make this test stop crossing the reveal threshold.
+
+		THE RELEASE ACTIVATES (redteam BLOCKER, 2026-08-13). This helper used to
+		end at `pointerUp`, and a real gesture on a row `Hit` — a real engine
+		`GuiButton` — does not: it ends with that button's `Activated`, on either
+		side of `InputEnded`. Every swipe case below therefore drove a sequence no
+		engine produces, and the "a swipe is not a tap" assertion beneath them
+		(`nowPlaying` still nil) was satisfied by its own starting value: it could
+		not fail, and the defect it was written to close was live under it. The
+		order defaults to "after", the common engine order and the one that used
+		to destroy the tray in the frame it appeared; the case below drives
+		"before" too, which used to play the track the swipe was reaching for. ]]
+	local function swipeRow(
+		world: any,
+		key: string,
+		frac: number,
+		pointerType: string?,
+		activate: ("before" | "after")?
+	)
 		local hit = `{rowRoot(key)}/Content/Row/Hit`
 		local rect = world.adapter.node(hit).rect
 		local startX = if frac < 0 then rect.x + rect.w - 8 else rect.x + 8
@@ -923,7 +940,7 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			world.adapter.pointerMove(startX + dx * (i / 8), y, pointerType or "touch")
 		end
 		world.presenter.refresh()
-		world.adapter.pointerUp(startX + dx, y, pointerType or "touch")
+		world.adapter.pointerUpActivating(startX + dx, y, activate or "after")
 		world.settle(120)
 	end
 
@@ -1033,6 +1050,35 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(world.core:lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
 	end)
+
+	--[[ THE SWIPE SURVIVES ITS OWN RELEASE ACTIVATE — the OTHER order, and the
+		other pointer kind (redteam BLOCKER, 2026-08-13). The two cases above drive
+		the common "after InputEnded" order through `swipeRow`'s default. This one
+		drives "before", which fails differently and worse: with no tray open yet,
+		the swipe's own artifact reached the primary-action branch and PLAYED THE
+		TRACK the player was reaching past to reveal a Remove for. Mouse is here
+		because the playlist table is `reorderable`, so a mouse gesture resolves
+		through a different dispatcher (`composeWithReorder`'s axis lock) than a
+		finger does, and only one of the two would have been proven otherwise. ]]
+	for _, pointerType in { "touch", "mouse" } do
+		it(`a swipe never plays the track, whichever side of InputEnded its Activate lands ({pointerType})`, function()
+			for _, activate in { "after", "before" } do
+				local world = phoneWorld()
+				local key = world.built.rows:get()[1].id
+				local trayAction = `{rowRoot(key)}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+				expect(world.built.nowPlaying:get()).toBeNil()
+
+				swipeRow(world, key, -0.3, pointerType, activate :: any)
+
+				expect(world.adapter.node(trayAction) ~= nil).toBeTruthy() -- the tray survived
+				expect(world.built.nowPlaying:get()).toBeNil() -- and nothing played
+				expect(world.built.table_.api.editing:get()).toBe(false)
+				expect(#world.built.baseRows:get()).toBe(6) -- no commit either
+				expect(world.core:lastError()).toBeNil()
+				expect(#world.handle.controller.diagnostics()).toBe(0)
+			end
+		end)
+	end
 
 	it("a plain TAP still plays the track and opens no tray — the two gestures do not fight", function()
 		local world = phoneWorld()

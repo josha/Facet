@@ -148,6 +148,9 @@ local registry: { Entry } = {
 				"Table touch: EDIT MODE is the selection mode — tap toggles selection (multi's DESELECT is back) and never opens",
 				'Table touch: with selection = "none" a single tap opens, exactly as it does in every other mode',
 				"Table touch: a selectable NON-reorderable table with a primary action can still be put into edit mode, so touch can select at all",
+				-- ...and the OTHER edit-mode shape the same widening created: no
+				-- selection to make, so the tap must still open (redteam item 6).
+				'Table touch: a selection = "none" reorderable table still OPENS a row while editing',
 			},
 			keyboard = {
 				"keyboard Down + Return select the focused row",
@@ -155,12 +158,20 @@ local registry: { Entry } = {
 				"keyboard edit-mode grab is input-agnostic: Return grabs, Down steps, Return drops",
 				"Delete key on a focused row deletes via the row's destructive action",
 				"Table keyboard: Return on the focused row fires onPrimaryAction for THAT row",
+				-- ...INCLUDING while edit mode is on, on the shape that cannot
+				-- reorder. Widening the toggle put those tables into edit mode for
+				-- the first time and the grab branch then swallowed every device
+				-- Activate they had (redteam item 3): the four-input bar broken by
+				-- the very change made to satisfy it, so both device classes carry
+				-- their own citation for it rather than sharing one.
+				"Table keyboard: in edit mode a NON-reorderable table still opens rows — Return is not swallowed by a grab it cannot do",
 			},
 			gamepad = {
 				"gamepad ButtonA selects the focused row (through presenter Activate dispatch)",
 				"gamepad edit-mode: ButtonA grabs, DPadDown steps the row, ButtonA drops",
 				"gamepad ButtonA SELECTS the column; the stick then acts on it (sort on Up/Down)",
 				"Table gamepad: ButtonA on the focused row fires onPrimaryAction for THAT row",
+				"Table gamepad: in edit mode a NON-reorderable table still opens rows — ButtonA is not swallowed by a grab it cannot do",
 			},
 		},
 		-- PARADIGM axis (matrix §B-Table). pointer = direct-drag with no grip +
@@ -725,7 +736,14 @@ local registry: { Entry } = {
 				-- control exists for had no touch proof on the shape the report
 				-- named: touch + a declared primary action + NOT in edit mode.
 				-- Both edges, on the hosted Table surface.
-				"RowActions touch: a swipe reveals the tray on a table NOT in edit mode that declares a primary action",
+				-- ...and it survives the engine's own release `Activated` — the
+				-- signal the driver never sent, which is why the "a swipe is not
+				-- a tap" half of that case could not fail (redteam BLOCKER,
+				-- 2026-08-13). Named at the "after InputEnded" order, the one
+				-- that used to close the tray in the frame it appeared; the
+				-- "before" order and the mouse pointer kind are the same case's
+				-- other three generated instances.
+				"RowActions touch: a swipe reveals the tray on a table NOT in edit mode and survives its release Activate (after)",
 			},
 			keyboard = {
 				"RowActions keyboard: focus + Return activates a revealed tray action",

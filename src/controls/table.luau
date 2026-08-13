@@ -41,6 +41,11 @@ local solverLib = require("../layout/solver")
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
 local row_actions = require("./row_actions")
+-- the axis-lock constant only (never a decision instance): the row Hit's own
+-- dispatch has to know whether a gesture it forwarded became a SWIPE, and the
+-- lock radius is the one authored fact that answers it. Same require, for the
+-- same reason, as `virtual_list.luau`'s host dispatcher.
+local row_actions_state = require("../input/row_actions_state")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -1023,22 +1028,6 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				-- branch in `api.handleActivate` below, which never went
 				-- through either copy at all — closed there directly instead,
 				-- at its own entry point, for the identical reason.
-				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md).
-				-- Hoisted here from `handleDragHandlers` below (deleted there
-				-- as a redundant duplicate) — THIS function is the one funnel
-				-- both a plain reorderable row's own Hit press AND the
-				-- edit-mode ≡ handle's press (`handleDragHandlers`'s own
-				-- `base = rowPointerHandlers()`) share, but it is ALSO what
-				-- `row_actions.composeWithReorder` replays into once a
-				-- composed BODY-drag gesture resolves "reorder" (this
-				-- function is the `reorderHandlers` it is handed — see
-				-- `rowBlueprint` below) — a path the tray-close guard used to
-				-- never reach, so dragging a wrapped+reorderable row's own
-				-- BODY (not the ≡ handle) out from under an open tray left it
-				-- visually stranded. Same for the gamepad/keyboard grab
-				-- branch in `api.handleActivate` below, which never went
-				-- through either copy at all — closed there directly instead,
-				-- at its own entry point, for the identical reason.
 				local rowActionsInstance = rowActionsByKey[rowKey]
 				if rowActionsInstance ~= nil and rowActionsInstance._isOpen() then
 					rowActionsInstance._close()
@@ -1302,6 +1291,34 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			hitOnPointerUp = dragHandlers and dragHandlers.onPointerUp
 			hitOnPointerCancel = dragHandlers and dragHandlers.onPointerCancel
 		else
+			--[[ A SWIPE IS UNDONE BY ITS OWN RELEASE, unless this remembers it
+				(redteam BLOCKER, 2026-08-13). A row's `Hit` is a real engine
+				`GuiButton`, so the SAME pointer sequence that swipes it also ends
+				in a native `Activated` on it — "whichever side of `InputEnded` it
+				lands" (the identical fact `onPointerMove`'s reorder arm and
+				`virtual_list.luau`'s `suppressActivatePath` both already record).
+				Table armed the suppression only for a MOUSE REORDER drag, which a
+				horizontal swipe never becomes: the axis lock hands the gesture to
+				`row_actions` instead. So the swipe's own Activated arrived
+				unsuppressed and `api.handleActivate` answered it as a tap —
+				landing AFTER `InputEnded` it found the tray open and CLOSED it (the
+				tray vanished the instant it appeared), landing BEFORE it found no
+				tray yet and fired the row's primary action (the swipe played the
+				track it was meant to offer a Remove for). Measured on both edges
+				and both pointer kinds before the fix.
+
+				`horizontal` is the whole state: did this gesture cross the axis
+				lock sideways, i.e. did `row_actions` take it. The rule is the two
+				lines below — a pure function of dx/dy against the ONE authored
+				constant, ties going vertical — applied here rather than asked of
+				`row_actions`, exactly as `virtual_list.luau`'s `hostedResolveAxis`
+				applies it in its own host dispatcher. It is deliberately not a
+				second copy of the DECISION (`row_actions_state.new(...)` instances
+				stay inside the composite): both engines that resolve this gesture
+				— `composeWithReorder`'s `resolveAxis` for mouse, the composite's
+				own `onPointerMove` for touch — measure from the SAME origin (this
+				down) with the SAME constant, so this verdict is theirs. ]]
+			local swipeGesture: { originX: number, originY: number, horizontal: boolean }? = nil
 			hitOnPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
 				-- the handle-zone decline runs FIRST, exactly as it does for
 				-- an unwrapped reorderable row — a press in the ≡ gutter must
@@ -1309,15 +1326,47 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				if dragHandlers ~= nil and isHandleZonePress(path, pos, rectOf) then
 					return false
 				end
-				return composedRef.onPointerDown(path, pos, rectOf)
+				-- A NEW GESTURE MAKES ANY PENDING SUPPRESSION STALE (the reason
+				-- `virtual_list.luau`'s own hosted dispatcher clears it here too):
+				-- a release that produces no Activated at all — the up landing off
+				-- the button — leaves the arm below with nothing left to clear it,
+				-- and it would then swallow the NEXT genuine Activate on this row.
+				-- A real Activated always fires between a pointer-up and the next
+				-- pointer-down, so a still-live suppression can never legitimately
+				-- survive to see another down.
+				suppressActivatePath = nil
+				local accepted = composedRef.onPointerDown(path, pos, rectOf)
+				swipeGesture = if accepted == false
+					then nil
+					else { originX = pos.x, originY = pos.y, horizontal = false }
+				return accepted
 			end
 			hitOnPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
+				local gesture = swipeGesture
+				if gesture ~= nil and not gesture.horizontal then
+					local dx, dy = pos.x - gesture.originX, pos.y - gesture.originY
+					if dx * dx + dy * dy >= row_actions_state.AXIS_LOCK_PX ^ 2 and math.abs(dx) > math.abs(dy) then
+						gesture.horizontal = true
+						-- ARMED AT THE LOCK, NOT AT THE RELEASE, and that is the
+						-- difference between fixing one of the two orders and
+						-- fixing both: an Activated that lands BEFORE
+						-- `InputEnded` has already been dispatched by the time
+						-- any `onPointerUp` could arm anything. The reorder half
+						-- arms at ITS threshold for the identical reason
+						-- (`rowPointerHandlers.onPointerMove` above). Armed once
+						-- and left armed through the release: it is cleared by
+						-- the one Activate it swallows, or by the next down.
+						suppressActivatePath = path
+					end
+				end
 				composedRef.onPointerMove(path, pos, rectOf)
 			end
 			hitOnPointerUp = function(path: string, pos: any, rectOf: (string) -> any)
+				swipeGesture = nil
 				composedRef.onPointerUp(path, pos, rectOf)
 			end
 			hitOnPointerCancel = function(path: string, reason: string?)
+				swipeGesture = nil
 				return composedRef.onPointerCancel(path, reason)
 			end
 		end
@@ -2155,19 +2204,31 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			editingSignal:set(not editingSignal:get())
 			return true
 		end
-		-- gamepad/keyboard A on a focused row while editing = grab/drop
-		if editingSignal:get() and meta ~= nil and meta.source == "action" then
+		--[[ gamepad/keyboard A on a focused row while editing = grab/drop —
+			ON A TABLE THAT CAN ACTUALLY REORDER, and nothing else (redteam item 3,
+			HIGH; 2026-08-13). This branch used to ask only "editing, and a device
+			Activate", which was true of exactly one kind of table when it was
+			written. Widening the auto Edit/Done toggle put a NON-reorderable
+			selectable table with an `onPrimaryAction` into edit mode for the first
+			time — and every keyboard Return and every gamepad A on one of its rows
+			then dead-ended here, into a grab it can never perform: `grabbedKey`
+			set on a table with no `onReorder` to move anything, the row left
+			phantom-grabbed, `return true` swallowing the Activate, and the primary
+			action unreachable on both devices for as long as edit mode lasted.
+			The two `spec` reads below are the SAME pair the one function that
+			actually moves a row already demands (`moveRow`: "reorderable ~= true
+			or onReorder == nil" declines), so a table that fails them falls
+			through to the ordinary device path here exactly as it does outside
+			edit mode. ]]
+		if
+			editingSignal:get()
+			and meta ~= nil
+			and meta.source == "action"
+			and spec.reorderable == true
+			and spec.onReorder ~= nil
+		then
 			local rowKey = api.rowKeyForPath(path)
 			if rowKey ~= nil then
-				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md). The
-				-- pointer paths (`rowPointerHandlers`'s own funnel) close an
-				-- open tray before a reorder can engage; this device-input
-				-- grab branch is a THIRD, wholly separate way to start the
-				-- identical reorder and never went through either copy —
-				-- grabbing a row via gamepad/keyboard left its tray visually
-				-- stranded exactly like the pointer half of this same finding.
-				-- Closed the same way, at this branch's own entry point,
-				-- BEFORE the grab itself engages.
 				-- REDTEAM FIX (item 2, MAJOR; final-review-findings.md). The
 				-- pointer paths (`rowPointerHandlers`'s own funnel) close an
 				-- open tray before a reorder can engage; this device-input
@@ -2241,6 +2302,23 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			end
 			return false
 		end
+		--[[ THE DRAG-ARTIFACT TEST RUNS FIRST, ahead of the tap-to-close below,
+			and the order is load-bearing (redteam BLOCKER, 2026-08-13). A gesture
+			that swiped this row arms the suppression on its own path; the
+			Activated the engine then delivers for that same gesture is NOT a tap
+			and must not be read as one by ANY branch. Below the close block it
+			was never reached in the case that matters — the swipe had just left
+			the tray open, so "an open tray means the tap means close" fired on the
+			swipe's own artifact and shut the tray in the frame it appeared. ]]
+		if suppressActivatePath ~= nil then
+			local suppressed = path == suppressActivatePath
+			-- one decision either way: the origin row's drag-artifact activate
+			-- is swallowed; an activate on any OTHER row is genuine and clears
+			suppressActivatePath = nil
+			if suppressed then
+				return true
+			end
+		end
 		-- Task 10 (iOS tap-to-close, director round). A tap landing on a
 		-- wrapped row's own content while THAT row's own tray is open closes
 		-- it and consumes the tap — no select, no activate. row_actions' own
@@ -2255,22 +2333,26 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			rowActionsInstance._close()
 			return true
 		end
-		if suppressActivatePath ~= nil then
-			local suppressed = path == suppressActivatePath
-			-- one decision either way: the origin row's drag-artifact activate
-			-- is swallowed; an activate on any OTHER row is genuine and clears
-			suppressActivatePath = nil
-			if suppressed then
-				return true
-			end
-		end
 		if meta == nil or meta.pointer == "touch" then
-			-- TOUCH, APPLE'S RULE (see the primary-action block above): a plain tap
-			-- ACTIVATES whenever a primary action is declared, and EDIT MODE is the
-			-- selection mode. The tap never falls through to `api.select` on the way
-			-- — including when the row left the data between gesture and dispatch,
-			-- where selecting a row nobody can see would be worse than nothing.
-			if spec.onPrimaryAction ~= nil and not editingSignal:get() then
+			--[[ TOUCH, APPLE'S RULE (see the primary-action block above): a plain
+				tap ACTIVATES whenever a primary action is declared, and EDIT MODE
+				is the selection mode. The tap never falls through to `api.select`
+				on the way — including when the row left the data between gesture
+				and dispatch, where selecting a row nobody can see would be worse
+				than nothing.
+
+				"EDIT MODE IS THE SELECTION MODE" NEEDS A SELECTION TO BE ABOUT
+				(redteam item 6, MEDIUM; 2026-08-13). `selection = "none"` +
+				`reorderable` is a legal, shipped shape — edit mode there exists to
+				put the ≡ handles up, and there is nothing to select. Yielding the
+				tap to selection anyway handed it to `api.select`, whose FIRST line
+				returns for `"none"`: the tap did nothing whatsoever, on a row whose
+				primary action worked perfectly one Edit press earlier. A pure
+				regression — the predicate this replaced (before edit mode reached
+				these tables) opened the row in both modes. So: edit mode may take
+				the tap away from the primary action only when it has a selection
+				to give it to. ]]
+			if spec.onPrimaryAction ~= nil and (selectionMode == "none" or not editingSignal:get()) then
 				firePrimaryAction(rowKey)
 				return true
 			end
