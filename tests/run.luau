@@ -345,6 +345,10 @@ require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")
 require("./reference/foyer_spec")
 require("./reference/wardrobe_spec")
+-- swiftui-parity round 2 Phase 6: the fast tier's guards — the tier is derived
+-- from THIS file's require list, every exclusion must name a spec this file
+-- really runs, and the inner-loop runner has to keep announcing itself
+require("./tier.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

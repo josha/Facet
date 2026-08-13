@@ -18,7 +18,19 @@ failed="$(printf '%s' "$plain" | grep -Eo '^[0-9]+ failed' | grep -Eo '^[0-9]+' 
 
 status=FAIL
 reason=""
-if [ $code -ne 0 ]; then
+if [[ "$plain" == *LUAUUI-FAST-TIER* ]]; then
+  # The inner-loop tier (./run-tests.sh --fast) prints that marker. It runs a
+  # SUBSET of the specs, so its "N passed" is not a suite result and must never
+  # be written into artifacts/test.json as one.
+  #
+  # A BASH MATCH, NOT A PIPELINE. `printf ... | grep -q X` under `set -o pipefail`
+  # returns 141, not 0, when it matches: grep -q exits at the first hit, printf
+  # takes SIGPIPE, and pipefail reports the pipeline as FAILED. Written that way
+  # this guard passed a fast-tier transcript straight through (mutation M9,
+  # 2026-08-13) — the shape the gate-integrity sweep calls a check that cannot
+  # fail.
+  reason="fast tier transcript - tools/test.sh gates on the FULL suite only (run ./run-tests.sh with no arguments)"
+elif [ $code -ne 0 ]; then
   reason="suite exited $code"
 elif [ -z "$passed" ]; then
   reason="no 'N passed' summary line - suite truncated (see lessons)"

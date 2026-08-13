@@ -147,7 +147,8 @@ function screen_chrome.new(ctx: Context)
 		spinner = toColor3(style.colors.accent),
 	}
 	-- slots whose flat shape is a CIRCLE (mirrors sheet_model's SLOT_ROUND)
-	local SLOT_ROUND_FALLBACK: { [string]: boolean } = { sliderThumb = true, badge = true, toggleKnob = true, spinner = true }
+	local SLOT_ROUND_FALLBACK: { [string]: boolean } =
+		{ sliderThumb = true, badge = true, toggleKnob = true, spinner = true }
 
 	-- A VALUE CONTROL'S OWN NATIVE PAINT, explicit-write half (fallback mode
 	-- only). Native mode does exactly this through the package's `Slot — <slot>`

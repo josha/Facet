@@ -1,0 +1,215 @@
+rank	spec	total_ms	load_ms	cases_ms	cases
+1	perf_lab.spec	16494.5	23.7	16470.8	56
+2	example_drift.spec	4258.5	2.2	4256.2	15
+3	reference/sipworks_spec	3326.6	8.9	3317.7	70
+4	extension_checker.spec	2682.0	5.4	2676.6	29
+5	reference/glade_spec	2057.3	10.9	2046.4	82
+6	reference/cartwheel_spec	1924.2	10.9	1913.3	62
+7	theme_drift.spec	1321.5	1.6	1319.9	8
+8	overflow_sweep.spec	1153.8	286.2	867.5	39
+9	virtual_list_row_actions.spec	1023.6	13.1	1010.5	57
+10	reference/foyer_spec	1004.4	5.1	999.4	24
+11	row_actions_scenario.spec	722.0	4.3	717.7	29
+12	sponsor_scenarios.spec	718.9	9.8	709.1	83
+13	instance_recycling.spec	638.5	1.9	636.6	8
+14	theme_matrix_audit.spec	484.6	481.4	3.2	14
+15	table.spec	453.2	19.6	433.6	111
+16	gallery_theme_picker.spec	412.1	11.6	400.5	41
+17	theme_docs.spec	405.8	54.2	351.6	33
+18	reference/wardrobe_spec	348.9	2.6	346.3	13
+19	examples_gallery.spec	331.9	24.3	307.6	91
+20	row_actions_input.spec	308.4	19.1	289.4	79
+21	fine_grained_reactivity.spec	219.5	2.2	217.4	8
+22	authoring.spec	204.2	8.6	195.6	62
+23	theme_authoring_scenario.spec	200.8	5.9	194.9	22
+24	smoke.spec	186.0	185.6	0.4	2
+25	composition.spec	157.3	16.2	141.1	100
+26	examples_games.spec	152.9	15.6	137.4	44
+27	incremental_layout.spec	132.2	2.0	130.2	6
+28	row_actions_motion.spec	122.1	3.4	118.7	10
+29	table_input.spec	119.3	10.9	108.5	42
+30	theme_asset_judgement.spec	116.3	109.8	6.5	15
+31	virtual_list_row_actions_identity.spec	110.5	2.3	108.2	4
+32	theme_chrome.spec	109.3	15.6	93.7	111
+33	large_text_layout.spec	108.3	4.2	104.2	14
+34	toast_presentation.spec	108.1	4.3	103.9	17
+35	example_word_game.spec	108.0	4.4	103.6	41
+36	theme_controller.spec	100.7	19.7	81.0	60
+37	paradigm_hover.spec	97.0	96.6	0.4	5
+38	theme_reference_packages.spec	96.2	10.6	85.5	83
+39	large_text_matrix.spec	90.1	8.8	81.3	52
+40	row_actions.spec	81.5	13.5	68.1	59
+41	instance_recycling_themed.spec	76.9	2.2	74.7	12
+42	rating.spec	75.2	4.5	70.7	26
+43	text_reveal.spec	63.1	2.7	60.5	14
+44	perf_principles.spec	58.8	2.1	56.7	8
+45	paradigm_table.spec	55.8	8.0	47.8	28
+46	collection_list.spec	52.1	7.4	44.7	40
+47	gallery_demo_picker.spec	51.8	3.7	48.1	24
+48	faults.spec	42.2	4.3	37.8	9
+49	theme_layers.spec	40.1	7.7	32.4	44
+50	sheet_model.spec	38.7	6.9	31.9	43
+51	renderer.spec	35.3	17.6	17.7	43
+52	haptics.spec	34.4	7.4	27.0	45
+53	theme_value_displays.spec	31.5	9.1	22.4	62
+54	virtual_list_input.spec	30.4	4.4	26.0	23
+55	display_controls.spec	28.9	9.1	19.7	58
+56	virtual_list_axis.spec	27.1	7.5	19.5	35
+57	theme_layer_application.spec	27.0	7.8	19.2	58
+58	value_controls.spec	25.8	7.4	18.3	58
+59	text_input.spec	24.7	6.9	17.8	56
+60	motion_clock.spec	24.6	19.3	5.3	36
+61	profile_scopes.spec	22.6	20.8	1.8	15
+62	icon_box.spec	22.2	1.8	20.4	10
+63	compact_label.spec	21.3	3.9	17.4	33
+64	adaptive.spec	20.4	11.1	9.3	66
+65	virtual_list_focus_policy.spec	19.8	3.7	16.1	18
+66	keyboard_navigation.spec	19.6	9.2	10.4	71
+67	large_text_hot_swap.spec	18.9	2.3	16.6	9
+68	drag_public.spec	18.2	9.3	8.9	54
+69	chrome_inset_yield.spec	16.9	1.5	15.4	12
+70	button_shape.spec	16.5	5.4	11.1	53
+71	paradigm_tenfoot.spec	15.5	14.7	0.8	13
+72	fusion_vendor.spec	15.4	15.3	0.1	2
+73	theme_selectby.spec	13.9	5.1	8.8	23
+74	native_style_scenario.spec	13.7	9.2	4.5	30
+75	spatial.spec	13.4	2.2	11.2	15
+76	presenter_drag_integration.spec	12.7	5.0	7.8	14
+77	theme_roles.spec	11.8	6.4	5.4	32
+78	theme_pixel_content.spec	11.7	2.6	9.2	14
+79	layout_vocabulary.spec	11.7	9.2	2.5	60
+80	transitions.spec	11.5	6.0	5.6	26
+81	text_disclosure.spec	11.5	3.9	7.6	30
+82	theme_icons_applied.spec	11.2	4.8	6.4	28
+83	paint_extensions.spec	11.0	6.4	4.6	48
+84	traversal_order.spec	10.8	3.1	7.8	34
+85	virtualization.spec	10.8	1.9	8.9	8
+86	conformance/conformance.spec	10.8	8.4	2.4	42
+87	responder.spec	10.8	2.7	8.1	12
+88	theme_variants.spec	10.7	3.2	7.5	22
+89	theme_package.spec	10.5	4.6	5.9	43
+90	auto_input.spec	10.3	3.3	7.0	18
+91	layout.spec	9.7	8.2	1.5	54
+92	stack_distribution.spec	9.4	7.8	1.6	55
+93	presentation_channel.spec	9.4	3.7	5.6	27
+94	placement_audit.spec	9.3	5.7	3.6	28
+95	scroll_indicators.spec	9.3	2.8	6.5	12
+96	auto_input_screens.spec	9.2	4.0	5.2	20
+97	theme_pixel.spec	9.2	1.9	7.3	16
+98	popup_button.spec	9.1	2.7	6.4	17
+99	native_scroll.spec	8.4	3.5	4.8	26
+100	fuzz_layout.spec	8.4	2.1	6.2	3
+101	presenter.spec	8.4	2.2	6.2	12
+102	row_actions_hosted.spec	8.3	4.8	3.5	18
+103	modal_dismissal.spec	8.2	3.0	5.2	19
+104	text_padding_paint.spec	8.1	2.0	6.1	7
+105	text_premeasure.spec	8.1	3.7	4.4	25
+106	button_complete.spec	8.1	5.3	2.8	32
+107	styling.spec	8.1	5.2	2.9	27
+108	text_audit.spec	7.8	5.9	1.9	35
+109	fuzz_scheduler.spec	7.6	2.9	4.7	3
+110	stage.spec	7.3	4.7	2.6	22
+111	with_animation.spec	6.9	3.1	3.8	21
+112	paradigm_popup.spec	6.8	2.3	4.5	13
+113	typography_weight_roles.spec	6.4	3.7	2.7	21
+114	render_target_contract.spec	6.3	2.0	4.3	12
+115	theme_icons.spec	6.3	2.7	3.6	16
+116	grid_measure_arrange.spec	6.3	2.2	4.1	7
+117	motion_chase.spec	6.1	5.4	0.6	10
+118	spec_guard_sweep.spec	5.7	3.0	2.8	70
+119	api_surface.spec	5.7	1.2	4.5	8
+120	perf_runner.spec	5.6	4.8	0.8	5
+121	container_relative_frame.spec	5.4	3.6	1.8	15
+122	theme_snapshot.spec	5.3	3.1	2.2	21
+123	async_completeness.spec	5.2	3.7	1.5	23
+124	virtual_list_row_gap.spec	5.1	2.3	2.9	9
+125	reduced_motion_seam.spec	5.1	2.7	2.4	9
+126	paradigm_textinput.spec	5.1	4.1	1.0	5
+127	chip.spec	5.0	3.7	1.3	14
+128	motion_spring.spec	5.0	4.6	0.4	16
+129	tier.spec	4.9	1.2	3.7	7
+130	animation_precedence.spec	4.8	1.9	2.9	5
+131	scroll_window_clip.spec	4.8	1.2	3.5	6
+132	theme_assets.spec	4.7	1.7	3.0	14
+133	pointer.spec	4.7	3.6	1.1	11
+134	feedback.spec	4.6	2.6	1.9	12
+135	scroll_bar_measure.spec	4.5	1.2	3.3	5
+136	container_relative_incremental.spec	4.4	2.3	2.1	5
+137	grid_row.spec	4.4	3.6	0.8	17
+138	perf_evidence.spec	4.3	3.9	0.4	29
+139	fractional_offsets.spec	4.1	2.8	1.4	12
+140	late_contributions.spec	4.0	1.9	2.1	9
+141	matrix_rows.spec	4.0	3.7	0.3	16
+142	sensory_feedback.spec	4.0	2.9	1.1	14
+143	toast_schedule.spec	4.0	3.4	0.6	17
+144	motion_timeline.spec	3.9	3.6	0.2	14
+145	replication.spec	3.6	3.2	0.3	16
+146	touch_gestures.spec	3.5	2.2	1.3	21
+147	paradigm_input_axis.spec	3.5	2.4	1.1	15
+148	autoscroll.spec	3.5	3.0	0.5	25
+149	fuzz_replication.spec	3.4	1.8	1.6	2
+150	path.spec	3.3	2.1	1.2	11
+151	navigation_groups.spec	3.1	2.3	0.8	13
+152	input.spec	3.1	2.9	0.2	18
+153	controls_conformance.spec	3.1	2.0	1.1	27
+154	diagnostic_replay.spec	3.0	1.5	1.5	3
+155	preferred_text_seam.spec	3.0	2.3	0.7	12
+156	mount.spec	2.9	1.8	1.1	8
+157	layout_v1.spec	2.8	2.3	0.5	9
+158	focus_skip.spec	2.8	2.6	0.2	20
+159	preview.spec	2.7	2.3	0.4	5
+160	text_fit.spec	2.5	2.0	0.5	16
+161	runtime_quarantine.spec	2.3	1.8	0.5	10
+162	measure_memo.spec	2.2	2.0	0.2	5
+163	error_boundary.spec	2.1	1.6	0.6	6
+164	interaction_tokens.spec	2.0	1.7	0.4	15
+165	paradigm_carry.spec	2.0	1.5	0.4	2
+166	drag_session.spec	1.9	1.8	0.1	11
+167	zstack_fill_diagnostic.spec	1.9	1.1	0.7	3
+168	focus.spec	1.8	1.6	0.2	9
+169	async_image.spec	1.8	1.1	0.6	4
+170	slice_mutation.spec	1.8	1.3	0.5	3
+171	selection_bridge.spec	1.7	0.7	1.0	4
+172	hint_no_remount.spec	1.6	1.2	0.4	5
+173	gamepad_contention.spec	1.4	0.5	0.9	5
+174	value_reveal.spec	1.2	1.2	0.1	10
+175	focus_structural.spec	1.2	0.9	0.3	2
+176	row_actions_state.spec	1.1	1.0	0.0	13
+177	instance_park_corpse.spec	1.0	0.5	0.4	3
+178	text_calibration.spec	0.9	0.8	0.1	9
+179	icon_ns_glyph.spec	0.5	0.4	0.0	5
+--	TOTAL attributed	44396.4	2111.4	42285.0	4569
+--	unattributed (print/GC/startup)	27.9			
+--	harness wall	44424.3			
+
+rank	case_ms	spec	case
+1	7392.9	perf_lab.spec	the identity workload walks its whole collection cleanly at every phone width
+2	3352.7	perf_lab.spec	Run all ends by saying how to take the dump
+3	3336.2	perf_lab.spec	Run all sweeps every workload and ONE failure does not end the sweep
+4	984.9	example_drift.spec	R2 does NOT fire on the legal vocabularies
+5	825.3	example_drift.spec	R4: an engine or adapter reach-around
+6	497.3	example_drift.spec	R3: a raw colour, in each of its three spellings
+7	477.7	theme_drift.spec	catches a hardcoded text size, gap, padding and named metric constant
+8	436.1	perf_lab.spec	running a scenario executes its declared sequence and records each pass separately
+9	387.1	perf_lab.spec	scrolling a virtualized list does NOT grow the reactive core (the row must own its controls)
+10	324.0	example_drift.spec	R1: a numeric padding and a numeric gap
+11	318.3	reference/cartwheel_spec	reports NO layout diagnostics on any real viewport, in any section
+12	260.6	instance_recycling.spec	the pool is BOUNDED — a long scroll cannot grow it without limit
+13	242.6	theme_drift.spec	catches drift in the renderer and the presenter too, not only in controls
+14	225.8	reference/cartwheel_spec	visits all nine and leaves the core error-free, in both locales
+15	206.3	reference/sipworks_spec	reset returns a world to its seeded start, and replaying the loop reproduces the dump
+16	205.3	extension_checker.spec	an allowlist entry needs a REASON — an empty one is itself a problem
+17	202.7	extension_checker.spec	reports an export missing from the API reference AND a documented ghost
+18	201.5	extension_checker.spec	reports dump = false with no reason, and accepts one with a reason
+19	200.8	reference/sipworks_spec	same seed + same steps => identical dump, in two independent worlds
+20	194.5	perf_lab.spec	the bound is not a bigger row count away from firing: 20 000 rows window the same
+21	192.6	reference/glade_spec	no VISIBLE bottom tab is cut off in the normal text range
+22	171.9	example_drift.spec	R4: a platform branch is refused by name
+23	170.9	perf_lab.spec	survives ROTATION after mounting — the case a real device found
+24	169.9	reference/foyer_spec	no bottom wing carries a title at all: the bands are the ICON-ONLY presentation
+25	167.0	example_drift.spec	the allowlist suppresses ONLY its own line, in its own file
+26	163.8	example_drift.spec	R2: a tint naming a palette role the framework does not resolve
+27	162.6	example_drift.spec	R2: a typography role that does not exist
+28	161.4	example_drift.spec	R1: a px text size
+29	160.9	example_drift.spec	the seven examples are clean
+30	160.7	example_drift.spec	R2: an INVENTED surface token — the defect that made the word-game board invisible

@@ -180,5 +180,23 @@ claims require headless, live Studio, physical-device, or human evidence and pre
 The full test suite is pure Luau and runs headless:
 
 ```sh
-./run-tests.sh      # runs `lune run tests/run`
+./run-tests.sh          # THE SUITE — every spec file (~42 s). The gate default.
+./run-tests.sh --fast   # inner loop only: the same list minus the eleven
+                        # measured-slowest files (~8 s, 19 % of the suite).
 ```
+
+**Only the argument-free run counts as green.** The fast tier
+(`tests/run_fast.luau`, exclusions in `tests/lib/tiers.luau`) prints a
+`LUAUUI-FAST-TIER` banner at both ends, and `tools/test.sh` FAILs on that
+transcript rather than recording it as a suite result. Nothing is skipped or
+deleted — every excluded file runs in full on `./run-tests.sh`.
+
+To re-measure which files are the expensive ones:
+
+```sh
+lune run tools/lune/time_specs artifacts/spec-timings.json > /dev/null
+```
+
+It times every spec file (load + cases) and the thirty slowest individual cases.
+The method, its blind spots and the current numbers are in
+[`swiftui-parity-round2.md`](../plans/swiftui-parity-round2.md) §Phase 6.

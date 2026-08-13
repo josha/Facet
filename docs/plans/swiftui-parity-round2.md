@@ -1756,6 +1756,282 @@ In order, and the order matters:
    path: which scenarios, how many captures, gates-only cadence. **Proposal
    only — nothing built without approval.**
 
+Delivered below. Step 4 is
+[`rendered-canary-set-proposal.md`](rendered-canary-set-proposal.md) —
+six canaries, eight captures, gates-only, **unbuilt and awaiting a decision**.
+
+### 6.0 The noise floor, before any number below it
+
+Every "improvement" this mission measured without one turned out to be noise, so
+the floor comes first. Six **unchanged** `./run-tests.sh` runs at `f476b63`, one
+after another, nothing else running:
+
+| run | 1 | 2 | 3 | 4 | 5 | 6 |
+|---|---|---|---|---|---|---|
+| wall (s) | 42.38 | 42.65 | 42.66 | 42.87 | 42.64 | 43.35 |
+
+**min 42.38 s, max 43.35 s, mean 42.76 s — spread 2.29 %.** Nothing below ~2.5 %
+is a signal at whole-suite scale. All six transcripts are **byte-identical**
+(`cmp` against run 1, 5/5) — not merely equal counts, equal bytes. That
+independently confirms the determinism claim rather than trusting it, and it
+rules the suite out as the source of the drifting counts seen earlier in the
+mission (the diagnosis at the time, concurrent agents editing underneath, is
+consistent with a frozen tree producing identical output).
+
+Per-spec, from three harness runs and over the 44 specs above 50 ms: median
+spread **2.3 %**, worst **8.5 %** (`large_text_matrix`, 83 ms; then
+`toast_presentation` 8.4 %, `smoke` 6.9 %). Every spec in the slowest-20 table
+below spreads under 3.5 %. Sub-50 ms specs are noise-dominated and no decision
+here rests on one.
+
+### 6.1 Measure — the harness, and what it cannot see
+
+`tests/run.luau` is an explicit require list with no per-file structure, so
+attribution needs an instrument: **`tools/lune/time_specs.luau`**, run as
+`lune run tools/lune/time_specs [out.json] > /dev/null`. It writes `out.json`
+and `out.json.tsv`.
+
+It **parses the require list out of `tests/run.luau`** (so it cannot time a
+different set than the suite runs), then:
+
+- **`load`** — `os.clock()` around each `require`, in the suite's own order.
+  That is the module body plus every fixture built at `describe()` scope, since
+  a describe body runs at require time.
+- **`cases`** — `os.clock()` around each case function, attributed to whichever
+  file was being required when `it()` registered it. Collected by wrapping
+  `testkit.it` **before the first spec is required**, so the `local it =
+  testkit.it` capture every spec does picks up the wrapper.
+- **`total` = load + cases.**
+
+Same specs, same order, one process, same `testkit.run()`; measured overhead is
+inside the noise floor (harness wall 42.58 / 42.72 / 42.62 s against the
+unchanged suite's 42.38–43.35 s), and **99.95 % of wall clock is attributed**
+(42.56 s of 42.58 s).
+
+**What it cannot see.** (a) *First-toucher bias* — a `src/` module loads once and
+whoever requires it first pays all of it; `smoke.spec`'s 169 ms load is the
+library's own load, and deleting `smoke.spec` would not return it. (b) *GC skew*
+— an allocating spec can be charged inside a later spec's case. (c) testkit's
+printing, process start and teardown, which appear only in the `unattributed`
+remainder (~20 ms). (d) Anything below case granularity — although the harness
+does also print the **30 slowest individual cases**, which is how the perf-lab
+finding below was found.
+
+### 6.2 The slowest 20 (median of three runs, at `f476b63`, 4562 cases)
+
+| # | spec | median ms | spread | load ms | cases | % of suite | cumulative |
+|---:|---|---:|---:|---:|---:|---:|---:|
+| 1 | `tests/perf_lab.spec.luau` | **16,024** | 0.7 % | 23 | 56 | 37.6 % | 37.6 % |
+| 2 | `tests/example_drift.spec.luau` | **4,182** | 0.9 % | 2 | 15 | 9.8 % | 47.4 % |
+| 3 | `tests/reference/sipworks_spec.luau` | **3,222** | 2.1 % | 8 | 70 | 7.6 % | 54.9 % |
+| 4 | `tests/extension_checker.spec.luau` | **2,701** | 1.7 % | 5 | 29 | 6.3 % | 61.3 % |
+| 5 | `tests/reference/glade_spec.luau` | **1,979** | 2.3 % | 11 | 82 | 4.6 % | 65.9 % |
+| 6 | `tests/reference/cartwheel_spec.luau` | **1,874** | 2.0 % | 11 | 62 | 4.4 % | 70.3 % |
+| 7 | `tests/theme_drift.spec.luau` | **1,356** | 1.1 % | 1 | 8 | 3.2 % | 73.5 % |
+| 8 | `tests/overflow_sweep.spec.luau` | **1,036** | 0.4 % | 181 | 39 | 2.4 % | 75.9 % |
+| 9 | `tests/virtual_list_row_actions.spec.luau` | **999** | 0.3 % | 13 | 57 | 2.3 % | 78.2 % |
+| 10 | `tests/reference/foyer_spec.luau` | **978** | 2.0 % | 5 | 24 | 2.3 % | 80.5 % |
+| 11 | `tests/row_actions_scenario.spec.luau` | **695** | 2.3 % | 4 | 29 | 1.6 % | 82.2 % |
+| 12 | `tests/sponsor_scenarios.spec.luau` | **667** | 1.6 % | 9 | 83 | 1.6 % | 83.7 % |
+| 13 | `tests/instance_recycling.spec.luau` | **602** | 2.2 % | 2 | 8 | 1.4 % | 85.1 % |
+| 14 | `tests/table.spec.luau` | **432** | 0.5 % | 19 | 111 | 1.0 % | 86.2 % |
+| 15 | `tests/gallery_theme_picker.spec.luau` | **414** | 3.0 % | 10 | 41 | 1.0 % | 87.1 % |
+| 16 | `tests/theme_matrix_audit.spec.luau` | **363** | 2.2 % | 358 | 14 | 0.9 % | 88.0 % |
+| 17 | `tests/theme_docs.spec.luau` | **343** | 2.5 % | 4 | 33 | 0.8 % | 88.8 % |
+| 18 | `tests/reference/wardrobe_spec.luau` | **326** | 3.1 % | 2 | 13 | 0.8 % | 89.5 % |
+| 19 | `tests/examples_gallery.spec.luau` | **313** | 1.6 % | 22 | 91 | 0.7 % | 90.3 % |
+| 20 | `tests/row_actions_input.spec.luau` | **282** | 3.5 % | 17 | 79 | 0.7 % | 90.9 % |
+
+**The remaining 158 files are 3.87 s together — 9.1 %.** The suite is not slow
+in general; it is slow in twenty places, and mostly in four.
+
+The published run of the harness is **`artifacts/spec-timings.json.tsv`** (the
+`.json` beside it is regenerable and falls under the `artifacts/**/*.json`
+ignore), re-measured after the tier landed: 179 specs, 4569 cases,
+`green: true`. Its wall
+(44.4 s) sits in session B's slower band; the *ranking* is unchanged from the
+table above, `tier.spec` itself costs **4.9 ms**, and the only movement inside the
+top 20 is `theme_matrix_audit` and `theme_docs` swapping places.
+
+Three facts from the same run decide everything after this:
+
+1. **Three cases are 13.7 s — 32 % of the whole suite.** All in `perf_lab.spec`:
+   *"the identity workload walks its whole collection cleanly at every phone
+   width"* (7.14 s), *"Run all sweeps every workload and ONE failure does not end
+   the sweep"* (3.34 s), *"Run all ends by saying how to take the dump"* (3.23 s).
+2. **`example_drift`'s 15 cases re-lint the whole tutorial tree each** —
+   ~160 ms per scan, and the negative controls scan once per injection, so one
+   case costs 951 ms. `extension_checker` (2.70 s) and `theme_drift` (1.36 s) are
+   the same shape over `src/` and `docs/`.
+3. **Total file-load across all 178 files is 1.49 s — 3.5 %**, and 707 ms of
+   that is three files (`theme_matrix_audit` 358 ms and `overflow_sweep` 181 ms
+   of *fixture*, `smoke` 169 ms of *library load*). Every other spec file costs
+   1–22 ms to load. **File count is not the cost.** That number is the whole
+   consolidation argument, and it is measured, not assumed.
+
+### 6.3 Tier — `./run-tests.sh --fast`, measured at 19 %
+
+**The gate default is unchanged**: `./run-tests.sh` with no arguments runs
+`tests/run.luau`, every file, and that is the only thing that may be called
+green. `tools/test.sh` still calls exactly that.
+
+The fast tier is **not a second list**. `tests/lib/tiers.luau` parses the require
+list out of `tests/run.luau` and subtracts eleven named exclusions;
+`tests/run_fast.luau` requires what is left, in the same order. A spec added to
+`run.luau` joins the fast tier by existing.
+
+| | full suite | fast tier |
+|---|---|---|
+| command | `./run-tests.sh` | `./run-tests.sh --fast` |
+| spec files | 179 | **168** |
+| cases | 4569 | **4163** |
+| wall, session A (6 / 3 runs) | 42.38–43.35 s | **8.12 / 8.18 / 8.19 s** → **19.1 %** |
+| wall, session B (3 / 3 runs) | 43.71 / 44.31 / 45.98 s | **8.62 / 8.65 / 8.84 s** → **19.5 %** |
+
+Two sessions, because the second one drifted ~4 % slower *in both arms* — which
+is the reason a share must be computed against a **contemporaneous** full run and
+not against a remembered constant. The ratio held at 19–20 % across that drift.
+(The closing banner does compare against the recorded 42.7 s, deliberately: when
+the machine is slow it over-states the share and warns early, which is the safe
+direction for a budget.)
+
+The eleven exclusions are the measured-costliest files and nothing else —
+34.3 s of the 42.7 s — and each is either a **workload** (`perf_lab`,
+`overflow_sweep`, `instance_recycling`, the five reference proofs) or a **source
+scanner** (`example_drift`, `extension_checker`, `theme_drift`). Each carries its
+measured cost and a written reason in `tiers.SLOW`. Nothing is deleted, skipped
+or weakened: all eleven run in full on `./run-tests.sh`.
+
+**A fast tier mistaken for the suite is worse than no fast tier**, so it is loud
+and it is refused where it matters:
+
+- the runner prints a `LUAUUI-FAST-TIER` banner **before and after** the run,
+  naming the file count and repeating that the gate runs `./run-tests.sh`;
+- the closing banner prints its own share of the recorded 42.7 s baseline and
+  **reddens over 25 %**, so the tier's own budget is self-policing;
+- **`tools/test.sh` FAILs outright** on a transcript containing that marker
+  ("fast tier transcript — tools/test.sh gates on the FULL suite only"), so the
+  fast tier cannot become `artifacts/test.json`;
+- `./run-tests.sh <anything else>` exits 2 rather than guessing.
+
+Seven guards in `tests/tier.spec.luau` (in the gate suite) hold that structure,
+and every one was proved to bite — see 6.5.
+
+### 6.4 Consolidate — audited, and DECLINED, with the numbers
+
+**No spec was merged, parameterised or deleted.** The audit says the prize does
+not exist:
+
+- **Merging files can only recover file-load time, and that is 1.49 s total
+  (3.5 %)** — of which 707 ms belongs to three fixtures that a merge would still
+  have to build. Merging *every* spec file in the suite into one would save
+  under 0.8 s (1.8 %), because the case bodies still run either way.
+- **The named candidates are small or not duplicates.** The
+  matrix-expansion class (`overflow_sweep`, `theme_matrix_audit`, `matrix_rows`,
+  `large_text_matrix`, `large_text_layout`, `large_text_hot_swap`, `adaptive`) is
+  1.63 s / 3.8 % *in total*, and 1.04 s of it is `overflow_sweep` — the
+  always-on device-bug guard added on 2026-08-12, which nothing else duplicates
+  (`overflow_sweep` asks *does anything overflow its box*, `theme_matrix_audit`
+  asks *does any chrome paint on a neighbour, any value display solve to zero
+  area, any text go unfit*; the first cites the second as the source of its
+  viewport list). The near-duplicate layout family (`layout`, `layout_v1`,
+  `layout_vocabulary`, `incremental_layout`, `grid_measure_arrange`,
+  `container_relative_frame`, `container_relative_incremental`,
+  `placement_audit`, `stack_distribution`, `grid_row`) is **189 ms — 0.44 % —
+  with 42 ms of load between them**. They are three historical layers
+  (UI-LAYOUT-001 spike, UI-LAYOUT-002 v1 completion, A-LV1..A-LV4 vocabulary)
+  over one solver: merging them is a rename that saves nothing.
+- **No duplicated coverage was found to remove.** Two searches: (i) exact
+  case-name collisions across files — 19 names, every one a per-fixture
+  lifecycle proof over a *different* subject (five reference apps each prove
+  "mounts and renders headlessly with no runtime error"; dropping four would
+  drop four apps' proofs); (ii) clustering every spec file by its `src/`
+  dependency set. The broad clusters are an artifact of the method (16 specs
+  "require the library root" and share nothing else); the tight ones are pairs —
+  `paradigm_popup`/`popup_button`, `paradigm_textinput`/`text_input`,
+  `navigation_groups`/`traversal_order`, `theme_assets`/`theme_variants` — and
+  every pair is an input-paradigm spec beside a control spec, or two halves of a
+  theme model, asserting different things. Each is single-digit milliseconds.
+
+So consolidation's ceiling is ~2 % of runtime, paid for with the one risk the
+brief names — deleting redundancy that is not redundant. **Declined.** The tier
+delivered 81 % off the inner loop without touching a single assertion.
+
+**Where the real time is, for whoever takes it next** (a follow-up, deliberately
+not taken here because it is optimisation of guarded code, not tiering):
+
+1. `perf_lab.spec`, three cases, **13.7 s / 32 %**. The 7.14 s case walks a whole
+   collection at *every* phone width; the two `Run all` cases each sweep all nine
+   workloads. A shared mounted fixture, or narrowing the width set to the ones
+   that discriminate, is worth ~10 s — but each change needs its own mutation
+   proof that the workload still fails when the layout breaks.
+2. The three source scanners, **8.2 s / 19 %**. Each case re-reads and re-lints
+   the same tree; only the injection cases need a fresh scan. A memoised
+   baseline scan (pure function of file contents) is worth ~5 s.
+
+### 6.5 The tier guards, and every mutation that proved them
+
+Nine mutations, each applied to the *guarded* code, run, and reverted; the
+control (restored tree) is green. Every one reddened the named case:
+
+| # | mutation | what reddened |
+|---|---|---|
+| M1 | the require-list parser drops the `.spec` suffix | *the full order is parsed from tests/run.luau and every entry is a real file* (+3 more) |
+| M2 | the parser stops descending into `reference/` | *EVERY exclusion names a spec the suite actually runs* (+2 more) |
+| M3 | an exclusion renamed to `theme_driftXX.spec` | *EVERY exclusion names a spec the suite actually runs*, *…strict subset…* |
+| M4 | `with_animation.spec` added to `tiers.SLOW` | *smoke, the core spine and every parity-round-2 area are IN the fast tier* |
+| M5 | an exclusion's `ms` set to 0 | *every exclusion carries a measured cost and a reason* |
+| M5b | (found, not injected) two exclusions written with a 26-character reason | the same case — it reddened on first run and the reasons were written properly |
+| M6 | `tools/test.sh` greps for a marker the runner never prints | *the fast runner announces itself with the marker tools/test.sh refuses* |
+| M7 | `tests/run_fast.luau` grows a literal `require("./smoke.spec")` | *the fast runner does not hand-list specs* |
+| M8 | `tiers.fastOrder()` returns the list reversed | *the fast tier is a strict subset of the suite, in the same relative order* |
+| M9 | `./run-tests.sh` with no arguments quietly execs the fast tier | `tools/test.sh` → `FAIL … fast tier transcript` |
+
+**M9 caught a real defect in this phase's own work, of exactly the class the
+gate-integrity sweep exists for.** The guard was first written as
+`printf '%s' "$plain" | grep -q 'LUAUUI-FAST-TIER'` — and `tools/test.sh` runs
+under `set -o pipefail`. `grep -q` exits at the first match, `printf` takes
+SIGPIPE, and the pipeline reports **141**, so the `if` fell through and
+`tools/test.sh` **PASSED a fast-tier transcript as a suite result** (4163 cases,
+`status: PASS`). It is now a bash `[[ == * ]]` match with no pipeline, and M9
+FAILs as it must. Had this guard not been mutation-tested it would have shipped
+as a check that could never fire.
+
+### 6.6 Also found — one fixed, one reported
+
+**Fixed.** `stylua --check src tests tools bench examples` — a check inside five
+gate stages — was **already red at `f476b63`**, on two files from earlier phases
+of this mission (`src/controls/progress_view.luau`,
+`src/client/screen_chrome.luau`; stylua 2.5.2, no `.stylua.toml`).
+Formatting-only, fixed here, both suites re-run after, and proved inert:
+`check_flat_baseline` reports the **same 382 deltas** with the two edits present
+and with them stashed.
+
+**Reported, NOT fixed — `lune run tools/lune/check_flat_baseline` is red at
+`f476b63`**, 382 uncharacterized deltas, none of them caused by anything in this
+phase (identical count with this phase's only `src/` edits stashed). It compares
+the stored `artifacts/rich-skinning-v2/rows/neutral-render-dump.json` against the
+0.6.0 baseline, and the deltas are all example-fixture geometry:
+`02_playlist_table` rows shifted ~25–42 px, and `06_tile_game`'s `Stats/Score`
+and `Stats/Progress` nodes absent from the flat render at all three viewports.
+That checker is named in the `swiftui-reference-app-validation` and
+`example-quality-pass` prior-gates checks, so it blocks those gates as it stands.
+Resolving it — regenerate the current dump and re-characterize, or find the
+regression the disappeared Tile-game nodes may be — belongs to whoever owns this
+mission's example changes, and it wants a look before anyone stamps a fresh
+baseline over it. Named here rather than papered over.
+
+### 6.7 Counts, floors and cadence
+
+Suite **4562 → 4569** (`tests/tier.spec.luau`, +7). Nothing was removed, so **no
+gate floor moves**: `tools/lune/gate_manifest.luau` compares with
+`passed >= min_expected` and its highest floor is 4136 (`row-actions`). The fast
+tier's 4163 can never be written into `artifacts/test.json` (M9).
+
+**Cadence.** `./run-tests.sh --fast` between edits; `./run-tests.sh` before any
+green claim, every commit, and every gate. Re-run `lune run tools/lune/time_specs`
+when the closing banner says the tier is over budget.
+
 ---
 
 ## Rascal Rally exposure, measured up front

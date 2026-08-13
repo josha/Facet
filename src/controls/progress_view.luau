@@ -156,7 +156,7 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	local indeterminate = spec.value == nil
 	if not indeterminate and presentation == "spinner" then
 		error(
-			"LuauUI newProgressView: presentation = \"spinner\" is indeterminate only — drop `value` for a "
+			'LuauUI newProgressView: presentation = "spinner" is indeterminate only — drop `value` for a '
 				.. "spinner, or keep the value and use the default bar. A determinate spinner is an arc, and the "
 				.. "blueprint has no rotation or trim channel to draw one with.",
 			0
