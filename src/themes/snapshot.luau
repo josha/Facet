@@ -665,6 +665,27 @@ function snapshot.resolve(package: any, themeName: string?, facts: Facts?, overr
 		buttonFamily.height = out.targetSizes.minimum
 	end
 
+	-- 4a-bis. THE ROW-ACTION TRAY'S OWN GUTTER (director device round 2026-08-12).
+	-- Two rounded tray plates drawn flush read as one merged slab, and mid-flight
+	-- the sliding row content merged with the first of them. The separation is a
+	-- SPACING decision, so it comes from the theme's own space scale rather than a
+	-- literal in the control — `space.xs`, the smallest step the scale names, which
+	-- is the hairline-to-4px gutter iOS/SwiftUI put between swipe actions.
+	--
+	-- Filled in HERE, exactly as `controls.button.height` above and for the same
+	-- recorded reason: declaring it in the neutral DEFINITION would move the
+	-- authored metrics (and the content stamp) of every package derived from
+	-- Studio Neutral. A package that authors its own wins; the pixel snap below
+	-- rounds it onto the grid.
+	local rowActionsFamily = out.controls.rowActions
+	if type(rowActionsFamily) ~= "table" then
+		rowActionsFamily = {}
+		out.controls.rowActions = rowActionsFamily
+	end
+	if type(rowActionsFamily.trayGap) ~= "number" then
+		rowActionsFamily.trayGap = out.space.xs
+	end
+
 	-- 4b. PIXEL SNAP (ADR-0020 R5, generation rule 3; probe rs-m5). A pixel
 	-- package declares an integer coordinate system, and every LENGTH the
 	-- snapshot publishes snaps UP to the next multiple of it. Up, never down, for

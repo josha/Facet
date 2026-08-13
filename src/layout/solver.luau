@@ -100,6 +100,11 @@ export type Node = {
 	-- Set, it makes the fit a solver decision reported back through `out[id]
 	-- .compact`, which is how measure and paint end up reading ONE verdict.
 	compactText: string?,
+	-- ...and whether that shorter thing is a DEGRADE or this node's DEFAULT
+	-- (`compactLabel = { icon = …, prefer = true }`, director 2026-08-12). Set, the
+	-- fit test is skipped: the compact form is measured and painted always, so the
+	-- box is reserved for exactly what lands in it.
+	compactPrefer: boolean?,
 	-- FULL-VALUE DISCLOSURE (blueprint `Text.disclose`, LTN-4). Carried, never
 	-- spent: it changes no geometry. It rides the layout node so the solve result
 	-- — the one place that knows this text TRUNCATED — can say in the same breath
@@ -796,9 +801,17 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			naturalW = text_metrics.measure(node.text or "", font, size, math.huge, lineHeight).width
 		end
 		local compact = node.compactText
-		if compact ~= nil and availW ~= math.huge then
-			local natural = text_metrics.measure(node.text or "", font, size, math.huge, lineHeight)
-			if natural.width > availW then
+		-- `compactPrefer` inverts the ladder: the compact form is this node's
+		-- DEFAULT representation, not its degrade, so it is chosen without the fit
+		-- test AND on the unbounded (natural-sizing) measure too — which is the
+		-- whole point, since the box a preferred form gets must be sized for the
+		-- form itself rather than for a label that will never be drawn.
+		local prefer = node.compactPrefer == true
+		if compact ~= nil and (prefer or availW ~= math.huge) then
+			local natural = if prefer
+				then nil
+				else text_metrics.measure(node.text or "", font, size, math.huge, lineHeight)
+			if natural == nil or natural.width > availW then
 				-- a compact form is ONE word by construction (`assertCompactLabel`
 				-- rejects whitespace), so it measures on one line whatever the full
 				-- label's wrap state was — which is what makes `singleLine` agree

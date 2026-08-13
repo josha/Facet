@@ -200,6 +200,14 @@ package.CONTROL_FAMILIES = table.freeze({
 -- package written before it existed.
 package.CONTROL_FAMILY_OPTIONAL = table.freeze({
 	button = table.freeze({ "height" }),
+	-- the gutter BETWEEN two adjacent tray buttons (director device round
+	-- 2026-08-12: "Delete 645-777, Flag 780-905, corners touching" — two rounded
+	-- plates rendered flush read as one merged slab). Optional for the reason
+	-- `button.height` is: `snapshot.resolve` fills it from the theme's own `space`
+	-- scale, so every package answers `controls.rowActions.trayGap` while no
+	-- package's authored metrics — and therefore no package's content stamp —
+	-- moves for a value nobody wrote.
+	rowActions = table.freeze({ "trayGap" }),
 })
 
 -- VALUE-DISPLAY HOSTS whose extent is a METRIC the package resolves (RS-A16-D3).

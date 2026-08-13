@@ -2132,6 +2132,42 @@ describe("RowActions Task 8: the action menu (ButtonX)", function()
 			expect((node :: any).rect.w >= natural.width).toBe(true)
 		end
 	)
+
+	-- ICON-FIRST IS THE TRAY'S INVERSION ONLY (director ruling, device round
+	-- 2026-08-12). One action, two surfaces, opposite representations — asserted
+	-- side by side in ONE world so a future edit that folds the two call sites
+	-- into a shared helper cannot pass. The menu is the reading of the tray a
+	-- player reaches for when a glyph is not enough, so it is where the words
+	-- have to live.
+	it("the same action wears its ICON in the tray and its WORD in the menu row", function()
+		local w = keyboardWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = focusableBody("Body"),
+				trailing = {
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						icon = "trash",
+						onAction = function() end,
+					},
+				},
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		local trayButton = w.adapter.node("/S/Row/TrayTrailingWhen/then/TrayTrailing/Action:delete")
+		expect(trayButton ~= nil).toBe(true)
+		expect((trayButton :: any).props.label).toBe("U") -- the framework glyph for `trash`
+
+		w.pres.focus.focusOn("/S/Row/Content/Body")
+		w.press("ButtonX")
+		w.pres.refresh()
+		local menuRow = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
+		expect(menuRow ~= nil).toBe(true)
+		expect((menuRow :: any).props.label).toBe("Delete")
+	end)
 end)
 
 -- Task 8b: the keyboard half of the action menu, now expressible via

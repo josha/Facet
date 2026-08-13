@@ -125,6 +125,15 @@ local SIDE_KEYS: { [string]: boolean } = { top = true, right = true, bottom = tr
 -- `blueprint.luau` beside `assertShape`, the same split `icon` already uses.
 local COMPACT_FORMS: { [string]: boolean } = { text = true, icon = true, image = true }
 local COMPACT_FORM_LIST = "text | icon | image"
+-- ...plus ONE modifier, which is not a form (it names no content) and so does not
+-- collide with the exactly-one-form rule below. `prefer = true` means "wear this
+-- representation whenever there IS one", inverting the ladder from a DEGRADE into
+-- a DEFAULT. It exists because the row-action tray needs it (director ruling,
+-- 2026-08-12: a tray button leads with its icon and keeps `label` as the semantic
+-- name): the ladder's own "does the full label fit" test cannot express it — a
+-- narrow enough box makes "Delete" compact while "Flag" still fits, so half a tray
+-- would wear icons and half would wear words.
+local COMPACT_MODIFIERS: { [string]: string } = { prefer = "boolean" }
 
 -- THE STRUCTURAL-TRANSITION VOCABULARY (ADR-0022 Decision 3; ui-designer spec
 -- §2.1). Closed, like every other authored vocabulary here, and for the same
@@ -323,6 +332,13 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 		end
 		local found: string? = nil
 		for k, raw in v :: any do
+			local modifier = if type(k) == "string" then COMPACT_MODIFIERS[k] else nil
+			if modifier ~= nil then
+				if typeof(raw) ~= modifier then
+					return false, `{k} must be a {modifier} (got {typeof(raw)})`
+				end
+				continue
+			end
 			if type(k) ~= "string" or not COMPACT_FORMS[k] then
 				return false, `unknown compact form '{tostring(k)}' (one of {COMPACT_FORM_LIST})`
 			end
@@ -1446,7 +1462,9 @@ class("Button", {
 			doc = 'the shorter thing to draw when the full label does not fit — "Ed", '
 				.. '{ text = "Ed" }, { icon = "edit" } (semantic, themable, degrades to the '
 				.. 'framework glyph) or { image = "rbxassetid://…" } (raw, does not degrade). '
-				.. "With one declared, the framework never ellipsizes",
+				.. "With one declared, the framework never ellipsizes. Add prefer = true to wear "
+				.. "the compact form ALWAYS (a default, not a degrade) — `label` stays the "
+				.. "semantic name",
 		}),
 		enabled = p({
 			types = { "boolean" },

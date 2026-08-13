@@ -217,6 +217,10 @@ describe("metric-name resolution", function()
 		expect(snapshot.resolveNumber(snap, "controls.slider.thumbSize")).toBe(20)
 		expect(snapshot.resolveNumber(snap, "controls.rowActions.buttonMinWidth")).toBe(64)
 		expect(snapshot.resolveNumber(snap, "controls.rowActions.editAffordance")).toBe(28)
+		-- OPTIONAL, filled by `resolve` from the theme's own space scale (the
+		-- `controls.button.height` precedent): every package answers it, nobody's
+		-- authored metrics moved for it.
+		expect(snapshot.resolveNumber(snap, "controls.rowActions.trayGap")).toBe(defaultStyle.space.xs)
 		expect(snapshot.resolveNumber(snap, "-s")).toBe(-defaultStyle.space.s)
 		expect(snapshot.resolveNumber(snap, 17)).toBe(17)
 		expect(snapshot.resolveNumber(snap, "nope.nope")).toBeNil()

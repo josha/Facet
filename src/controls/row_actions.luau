@@ -86,6 +86,10 @@ local contribution = require("../input/contribution")
 local row_actions_state = require("../input/row_actions_state")
 local drag_velocity = require("../input/drag_velocity")
 local themeSnapshot = require("../themes/snapshot")
+-- for `iconGlyph` alone: an icon-first tray button DRAWS the framework glyph, so
+-- the natural width below has to measure the glyph rather than the label the
+-- button no longer paints (director device round 2026-08-12).
+local themePackage = require("../themes/package")
 local text_metrics = require("../layout/text_metrics")
 local specGuard = require("../spec_guard")
 
@@ -300,6 +304,13 @@ local FULL_SWIPE_KEYS = specGuard.keySet({ "leading", "trailing" })
 -- `slider.luau`'s `THUMB_SIZE`/`RAIL_HEIGHT`.
 local BUTTON_MIN_WIDTH = "controls.rowActions.buttonMinWidth"
 local BUTTON_PAD = "controls.rowActions.buttonPad"
+-- ...and the gutter BETWEEN two adjacent tray buttons (director device round
+-- 2026-08-12: "Delete 645-777, Flag 780-905, corners touching"). Zero read as one
+-- merged slab, and mid-flight the sliding row content merged with the first plate
+-- too. A THEME metric, not a literal: `snapshot.resolve` fills it from the
+-- package's own `space.xs` when the package declares none, so it moves with the
+-- spacing scale the rest of the surface already uses.
+local TRAY_GAP = "controls.rowActions.trayGap"
 -- Task 9: the edit-mode leading minus' diameter (both axes — `shape = "circle"`
 -- below takes only ONE authored axis and derives the other).
 local EDIT_AFFORDANCE = "controls.rowActions.editAffordance"
@@ -722,6 +733,38 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- comment for why this exists on top of `committed`/`disposed` alone.
 	local commitEpoch = 0
 
+	-- ===== theme-resolved chrome (Task 4 fix) ================================
+	-- `buttonPad`/`buttonMinWidth`/`trayGap` are theme facts with no font/size
+	-- component (unlike the label's own font/size, which arrive already
+	-- resolved through `controller.textAt` — see `deriveNaturals` below), so
+	-- they need the environment's theme snapshot directly. `spec.env` is
+	-- optional, exactly `table.luau`'s own `metricsOr`/`rowGapPx` pattern:
+	-- absent degrades to `themeSnapshot.neutral()`, present and live re-solves
+	-- on a runtime theme swap (`env:get("themeMetrics")` is itself reactive).
+	--
+	-- HOISTED above the naturals (director device round 2026-08-12): the tray's
+	-- own travel distance now includes its inter-button gutters, so `trayGap` has
+	-- to exist before `leadingWidth`/`trailingWidth` read it.
+	local function metricsOr(raw: any): any
+		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
+	end
+	local metricsSig = scope:own(core:memo(function(use)
+		local env = spec.env
+		if env == nil then
+			return themeSnapshot.neutral()
+		end
+		return metricsOr(use(env:get("themeMetrics")))
+	end))
+	local buttonPadPx = scope:own(core:memo(function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
+	end))
+	local buttonMinWidthPx = scope:own(core:memo(function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
+	end))
+	local trayGapPx = scope:own(core:memo(function(use)
+		return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
+	end))
+
 	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
 	-- declared action, created eagerly at BUILD time rather than inside the
 	-- tray's lazy `UI.When` factory. A reactive value created INSIDE that
@@ -757,41 +800,28 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		end
 		return total
 	end
-	-- the tray's total width IS the sum of its buttons' naturals — never the
-	-- tray CONTAINER's own solved rect (that WAS the feedback-loop bug: a
-	-- number this same reveal can shrink, chasing a collapsing target). The
-	-- naturals themselves are geometry-free (see above), so this sum moves
-	-- live with a label/text-size/theme change and can never chase itself.
+	-- the tray's total width IS the sum of its buttons' naturals PLUS the gutters
+	-- between them — never the tray CONTAINER's own solved rect (that WAS the
+	-- feedback-loop bug: a number this same reveal can shrink, chasing a
+	-- collapsing target). The naturals themselves are geometry-free (see above)
+	-- and `trayGapPx` is a theme metric, so this sum moves live with a label/
+	-- text-size/theme change and can never chase itself.
+	--
+	-- The gutter term is `(n - 1) * gap`, the HStack's own arithmetic — the travel
+	-- distance and the thing it has to uncover must be the same number, or the
+	-- last button parks half off the row (device round 2026-08-12).
+	local function gapTotal(actions: { ActionSpec }?, use: (any) -> any): number
+		local n = if actions ~= nil then #actions else 0
+		if n < 2 then
+			return 0
+		end
+		return (n - 1) * use(trayGapPx)
+	end
 	local leadingWidth = scope:own(core:memo(function(use)
-		return sumNaturals(leadingNaturals, use)
+		return sumNaturals(leadingNaturals, use) + gapTotal(leadingActions, use)
 	end))
 	local trailingWidth = scope:own(core:memo(function(use)
-		return sumNaturals(trailingNaturals, use)
-	end))
-
-	-- ===== theme-resolved chrome (Task 4 fix) ================================
-	-- `buttonPad`/`buttonMinWidth` are theme facts with no font/size
-	-- component (unlike the label's own font/size, which arrive already
-	-- resolved through `controller.textAt` — see `deriveNaturals` below), so
-	-- they need the environment's theme snapshot directly. `spec.env` is
-	-- optional, exactly `table.luau`'s own `metricsOr`/`rowGapPx` pattern:
-	-- absent degrades to `themeSnapshot.neutral()`, present and live re-solves
-	-- on a runtime theme swap (`env:get("themeMetrics")` is itself reactive).
-	local function metricsOr(raw: any): any
-		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
-	end
-	local metricsSig = scope:own(core:memo(function(use)
-		local env = spec.env
-		if env == nil then
-			return themeSnapshot.neutral()
-		end
-		return metricsOr(use(env:get("themeMetrics")))
-	end))
-	local buttonPadPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
-	end))
-	local buttonMinWidthPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
+		return sumNaturals(trailingNaturals, use) + gapTotal(trailingActions, use)
 	end))
 
 	-- ===== Task 9: the edit-mode gutter (leading minus + content/leading-tray
@@ -1585,6 +1615,12 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					-- fill-width menu row rarely runs out of room, so this
 					-- mostly keeps the label — that is the correct default
 					-- for a menu, not a defect.
+					--
+					-- DELIBERATELY NO `prefer` (director ruling, device round
+					-- 2026-08-12): icon-first is the TRAY's inversion. A menu row
+					-- is a list of names — it is where the words live, and it is
+					-- the reading of the tray a player reaches for when a glyph
+					-- is not enough.
 					compactLabel = if entry.action.icon ~= nil then { icon = entry.action.icon } else nil,
 					role = if entry.action.role == "destructive" then "destructive" else "default",
 					width = { type = "fill", weight = 1 },
@@ -2461,16 +2497,23 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					UI.Button({
 						id = "Action:" .. action.id,
 						label = action.label,
-						-- `Button.icon` (the top-level prop) is circle-only —
-						-- a tray button is rectangular and keeps its label, so
-						-- an action icon rides `compactLabel` instead: full
-						-- label when the button has room (the common case, at
-						-- its natural/settled width), the framework icon when
-						-- it does not (mid-swipe, `widthProps` shrinks this
-						-- toward BUTTON_MIN_WIDTH as the tray reveals) — the
-						-- same "says less when there is less room" ladder
-						-- every other compactLabel caller gets, not a new one.
-						compactLabel = if action.icon ~= nil then { icon = action.icon } else nil,
+						-- ICON-FIRST (director ruling, device round 2026-08-12).
+						-- `Button.icon` (the top-level prop) is circle-only and a
+						-- tray button is rectangular, so the action icon still
+						-- rides `compactLabel` — the same semantic name, the same
+						-- framework-glyph floor, the same theme-art overlay, no new
+						-- art paradigm. What INVERTED is which representation is the
+						-- default: `prefer = true` makes the icon what this button
+						-- wears at every width, and `label` stays the semantic name
+						-- (announced, and still the drawn text of the presentModal
+						-- menu row that names the same action). An action with NO
+						-- icon has nothing to prefer and keeps its word.
+						--
+						-- Why the fit ladder could not express it: the verdict is
+						-- per-button "does MY label fit MY box", so at any tray
+						-- width wide enough for "Flag" and too narrow for "Delete"
+						-- one plate wears a glyph and its neighbour wears a word.
+						compactLabel = if action.icon ~= nil then { icon = action.icon, prefer = true } else nil,
 						role = if action.role == "destructive" then "destructive" else "default",
 						width = widthProps[action.id],
 						height = { type = "fill" },
@@ -2481,6 +2524,12 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			return UI.HStack({
 				id = trayId(edge),
 				anchor = if edge == "leading" then "left" else "right",
+				-- the gutter between two plates (device round 2026-08-12): rounded
+				-- corners drawn flush read as one merged slab, and the sliding row
+				-- content merged with the first plate mid-flight. Theme metric, and
+				-- the SAME number `leadingWidth`/`trailingWidth` add to the travel
+				-- distance above — the tray uncovered has to be the tray drawn.
+				gap = trayGapPx,
 				-- Task 9: the LEADING tray shifts right by the same live gutter
 				-- Content does below, so the two compose instead of colliding —
 				-- "the minus sits outside the leading tray's reveal" (brief). The
@@ -2578,13 +2627,12 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- node on the row at all; see the big comment above `local function
 			-- openMenu`.)
 			--
-			-- PAINT ORDER: inserted BEFORE `Content` (array order = paint order,
-			-- later wins — the same relationship the leading/trailing trays already
-			-- have with `Content` below), so `Content` sitting on top during a live
-			-- trailing drag (see `contentOffsetX`'s own comment for why a trailing
-			-- reveal is deliberately NOT gutter-shifted) covers the minus exactly
-			-- when a trailing swipe is genuinely in progress — acceptable, since a
-			-- mid-swipe row is not a moment the minus needs to keep receiving taps.
+			-- PAINT ORDER: built here, INSERTED AFTER `Content` (array order = paint
+			-- order, later wins) — see the insertion site below. It used to go in
+			-- ahead of Content, which let a trailing drag cover it; the director's
+			-- device round reversed that call ("the minus STAYS PINNED at the left
+			-- during a swipe"), and Content's gutter is a padding now, so at rest
+			-- and on a leading swipe the two never overlap either way.
 			--
 			-- DIAMETER: `shape = "circle"` + ONE authored axis (`width` only —
 			-- `blueprint.luau`'s own `assertShape` rejects both) makes a true 1:1
@@ -2620,69 +2668,75 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- mapping instead: a solid danger-filled disc with an onDanger minus,
 			-- visually consistent with the trailing tray's own destructive button
 			-- one tap away — the closer real-iOS match besides.
+			local editAffordanceView: any = nil
 			if hasEditAffordance then
 				local destructiveEntry = firstDestructiveEntry()
-				table.insert(
-					children,
-					UI.When({
-						id = "EditAffordanceWhen",
-						condition = editAffordanceShown,
-						thenView = function()
-							return UI.Button({
-								id = "EditAffordance",
-								anchor = "left",
-								shape = "circle",
-								role = "destructive",
-								icon = "decrement", -- the framework's own minus glyph (standard_icons)
-								-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
-								-- unfocusable, non-activating; this IS a Button, so it
-								-- needs one). `Button.label` is the framework's own
-								-- "required even when the button renders custom content...
-								-- stays the semantic name and is not drawn" seam
-								-- (blueprint_schema.luau) — the SAME icon-only-control
-								-- precedent `shape = "circle"` exists for. Reuses the
-								-- destructive action's own label (typically "Delete") so
-								-- the announced name matches exactly what a second tap
-								-- reaches.
-								label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
-								width = { type = "fixed", px = EDIT_AFFORDANCE },
-							})
-						end,
-					})
-				)
+				editAffordanceView = UI.When({
+					id = "EditAffordanceWhen",
+					condition = editAffordanceShown,
+					thenView = function()
+						return UI.Button({
+							id = "EditAffordance",
+							anchor = "left",
+							shape = "circle",
+							role = "destructive",
+							icon = "decrement", -- the framework's own minus glyph (standard_icons)
+							-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
+							-- unfocusable, non-activating; this IS a Button, so it
+							-- needs one). `Button.label` is the framework's own
+							-- "required even when the button renders custom content...
+							-- stays the semantic name and is not drawn" seam
+							-- (blueprint_schema.luau) — the SAME icon-only-control
+							-- precedent `shape = "circle"` exists for. Reuses the
+							-- destructive action's own label (typically "Delete") so
+							-- the announced name matches exactly what a second tap
+							-- reaches.
+							label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
+							width = { type = "fixed", px = EDIT_AFFORDANCE },
+						})
+					end,
+				})
 			end
 
-			-- Content's rendered offsetX. Deliberately NOT the same signal `offset`
-			-- itself while `hasEditAffordance` — the header comment's own THE SLIDE
-			-- MECHANISM section is explicit that every seam (spring, drag, the
-			-- instant fallback) writes `offset` as the ONE bare reveal amount, and
-			-- every piece of gesture/decision math (`targetFor`, `currentDecision`,
-			-- `retarget`'s spring target, `settleTo`'s verdict) reads it back
-			-- expecting exactly that — folding a constant gutter bias straight into
-			-- `offset` would corrupt all of it. `contentOffsetX` is instead a
-			-- SEPARATE, paint-only derived value: `offset` for the gesture, plus
-			-- the live gutter, ADDED ONLY ON THE NON-NEGATIVE (resting/leading)
-			-- side. The trailing side is deliberately left untouched: `offset`'s
-			-- own topLeft-anchor shrink math (`solver.luau`'s `offsetFill`, "pushing
-			-- a child out past the very edge it is anchored to... is deliberate")
-			-- never gives back room for a NEGATIVE offset, so adding a positive
-			-- gutter bias there would permanently under-expose the trailing tray by
-			-- the gutter width for as long as it stayed open — a real geometry bug,
-			-- not a cosmetic one. Leaving the trailing side alone means a trailing
-			-- swipe/commit behaves BYTE IDENTICAL whether or not `editing` is true;
-			-- the one accepted cost is a single-frame `editGutterPx` pop exactly at
-			-- the instant a live drag crosses `offset == 0` from the leading side
-			-- into the trailing side while editing — a genuinely rare simultaneous
-			-- gesture (real iOS does not offer swipe-to-reveal and edit-mode at
-			-- once either), documented rather than engineered around.
+			-- THE EDIT GUTTER IS A PADDING, NOT AN OFFSET (director device round
+			-- 2026-08-12, finding 2 — this replaces the branch that shipped).
+			--
+			-- Content's rendered `offsetX` is the bare `offset` in BOTH modes now.
+			-- The gutter the minus lives in is the Content node's own left PADDING,
+			-- which is a very different thing geometrically and is what fixes the
+			-- pop the director filmed.
+			--
+			-- What shipped: `contentOffsetX = offset` when `offset < 0`, else
+			-- `offset + gutter`. `offsetFill` (solver.luau) shrinks a topLeft-
+			-- anchored `fill` child by a POSITIVE offset and leaves a NEGATIVE one
+			-- at full width ("pushing a child out past the very edge it is anchored
+			-- to... is deliberate"), so the two branches are not two views of one
+			-- line — they are a STEP of exactly `editGutterPx` at `offset == 0`.
+			-- The old comment priced that as "a single-frame pop... at the instant a
+			-- live drag crosses zero". It is not: EVERY trailing swipe lives in the
+			-- negative branch, so the whole gesture and the whole close flight ran a
+			-- full gutter to the left (the row band eating the minus slot, frames
+			-- f022-f031) and the gutter reappeared in one frame at the terminal
+			-- write (f034). The minus never unmounted — `EditAffordanceWhen` is
+			-- keyed on `editing` alone — it was COVERED by a row that had slid into
+			-- its gutter.
+			--
+			-- Padding has neither problem. It is spent before `offsetFill` ever
+			-- runs, so it applies identically at every offset and on both signs:
+			--   offset  0  -> content box [g, W]      (identical to the old rest)
+			--   offset +k  -> [g+k, W]                (identical to the old leading)
+			--   offset -k  -> [g-k, W-k]              (continuous, and the trailing
+			--                                          tray is exposed by the FULL k
+			--                                          — the under-exposure the old
+			--                                          comment feared is what the
+			--                                          padding form avoids)
+			-- With no edit affordance the padding is absent and every number above
+			-- is byte-identical to what shipped.
 			local contentOffsetX = offset
+			local contentPadding: any = nil
 			if hasEditAffordance then
-				contentOffsetX = scope:own(core:memo(function(use)
-					local raw = use(offset)
-					if raw < 0 then
-						return raw
-					end
-					return raw + use(editGutterPx)
+				contentPadding = scope:own(core:memo(function(use)
+					return { left = use(editGutterPx) }
 				end))
 			end
 			-- REDTEAM FIX (item 15, LOW). This block used to ALWAYS mount the
@@ -2736,11 +2790,27 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					id = "Content",
 					anchor = "topLeft",
 					offsetX = contentOffsetX,
+					-- `nil` unless this row can ever show the edit minus, so a row
+					-- that never wires `editing` carries no padding prop at all
+					padding = contentPadding,
 					width = { type = "fill" },
 					height = { type = "fill" },
 					children = contentChildren,
 				})
 			)
+
+			-- ...AND THE MINUS PAINTS OVER IT (director device round 2026-08-12,
+			-- finding 2: "the minus STAYS PINNED at the left during a swipe").
+			-- Inserted AFTER Content — array order is paint order, later wins — so
+			-- a row sliding left on a trailing swipe passes UNDER the affordance
+			-- instead of covering it. At rest and through a LEADING swipe the two
+			-- do not overlap at all (Content's own left padding is exactly this
+			-- gutter), so this changes nothing except the one case it exists for.
+			-- The old ordering deliberately let a trailing drag cover the minus;
+			-- the director's ruling reverses that call.
+			if editAffordanceView ~= nil then
+				table.insert(children, editAffordanceView)
+			end
 
 			-- REDTEAM FIX (item 2, BLOCKER): the action menu no longer builds a
 			-- node here at all — it moved to its own `presentModal` surface (see
@@ -2909,7 +2979,19 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				if facts == nil or type(facts.font) ~= "string" or type(facts.size) ~= "number" then
 					continue -- not yet measured this pass (e.g. the button just mounted)
 				end
-				local measured = text_metrics.measure(action.label, facts.font, facts.size, math.huge)
+				-- MEASURE WHAT THE BUTTON DRAWS, not what it is NAMED (director
+				-- device round 2026-08-12). An icon-first tray button paints the
+				-- framework's glyph for its semantic icon and keeps `label` as the
+				-- announced name only, so measuring the label reserved a box for a
+				-- word that never lands in it — the "painted at a size nobody
+				-- measured for it" family, one step ahead of it this time. Mirrors
+				-- `renderer.drawnButtonText`'s own icon branch exactly, including
+				-- its fallback: a name with no glyph still draws the label.
+				local drawn = action.label
+				if action.icon ~= nil then
+					drawn = themePackage.iconGlyph(action.icon) or action.label
+				end
+				local measured = text_metrics.measure(drawn, facts.font, facts.size, math.huge)
 				sig:set(math.max(minWidth, measured.width + 2 * pad))
 			end
 		end

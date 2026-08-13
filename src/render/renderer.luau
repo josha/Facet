@@ -229,23 +229,30 @@ end
 function renderer.compactForm(props: any): any
 	local raw = if type(props) == "table" then props.compactLabel else nil
 	if type(raw) == "string" then
-		return { kind = "text", text = raw }
+		-- the bare-string sugar has nowhere to put a modifier, so it is always a
+		-- degrade. Stated rather than left `nil` so every form this function
+		-- returns has the same shape.
+		return { kind = "text", text = raw, prefer = false }
 	end
 	if type(raw) ~= "table" then
 		return nil
 	end
+	-- the ONE modifier the grammar carries (blueprint_schema COMPACT_MODIFIERS):
+	-- it names no content, so it rides ALONGSIDE whichever form was declared
+	-- rather than being one of them.
+	local prefer = raw.prefer == true
 	if type(raw.text) == "string" then
-		return { kind = "text", text = raw.text }
+		return { kind = "text", text = raw.text, prefer = prefer }
 	end
 	if type(raw.icon) == "string" then
 		-- the glyph is the FLOOR, chosen the same way an `icon` button's is: a
 		-- legible ASCII character is in the tree from the first frame and no
 		-- resolution has to succeed for it to render. Theme art (a package's, or
 		-- now the framework's own) paints OVER it.
-		return { kind = "icon", icon = raw.icon, glyph = themePackage.iconGlyph(raw.icon) }
+		return { kind = "icon", icon = raw.icon, glyph = themePackage.iconGlyph(raw.icon), prefer = prefer }
 	end
 	if type(raw.image) == "string" then
-		return { kind = "image", image = raw.image }
+		return { kind = "image", image = raw.image, prefer = prefer }
 	end
 	return nil
 end
@@ -570,6 +577,15 @@ local function toLayoutNode(
 			local compact = renderer.drawnButtonText(props, true)
 			if compact ~= layoutNode.text then
 				layoutNode.compactText = compact
+				-- ...and WHETHER IT IS A DEGRADE OR A DEFAULT (director device round
+				-- 2026-08-12). `prefer = true` skips the fit test entirely, so the
+				-- compact form is what this button measures AND paints — which is why
+				-- the flag has to reach the solver rather than being resolved here: the
+				-- box must be reserved for the string that will be drawn in it.
+				local form = renderer.compactForm(props)
+				if form ~= nil and form.prefer == true then
+					layoutNode.compactPrefer = true
+				end
 			end
 		end
 		-- THE CIRCLE IS A SOLVER FACT (feature round 2026-07-26). `shape =

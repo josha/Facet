@@ -308,13 +308,13 @@ describe("RowActions control", function()
 	-- (the solver's own `text_metrics.measure`, at the button's REAL font/
 	-- size) proving the box is wide enough for the natural one-line width.
 	it("labels survive 1.4x pseudo-loc without clipping (button never narrower than buttonMinWidth)", function()
-		-- Task 15 review: an action's `icon` rides `compactLabel` (row_actions.luau
-		-- buildTray), which only ever DEGRADES the drawn form when the label
-		-- does not fit — at rest, with room to spare, it must be a pure no-op
-		-- on the solved width. Proved directly, not by a pinned pixel number
-		-- (which would be fragile to any future theme-metric change): an
-		-- identical action WITHOUT `icon` is the control, and the two worlds
-		-- must land on the exact same width.
+		-- ICON-FIRST (director device round 2026-08-12) changed what this test can
+		-- ask of the ICON row. An action that declares an icon no longer draws
+		-- its label at any width — the icon IS its representation — so the
+		-- localization-safety subject is the LABEL-ONLY action, which is exactly
+		-- where the risk lives: a German-class expansion can only clip a word
+		-- that is drawn. The icon row is still built alongside it, and asserted
+		-- against the NEW contract below (glyph drawn, floor honoured, one line).
 		local function build(icon: string?)
 			return presenterWorld(function(core)
 				return row_actions.build(LuauUI, core, {
@@ -329,24 +329,12 @@ describe("RowActions control", function()
 		ref.pres.refresh()
 		settle(ref.pres)
 		ref.pres.refresh()
-		local refRect = ref.adapter.node(DELETE_PATH).rect
-
-		local w = build("trash")
-		w.ra._open("trailing")
-		w.pres.refresh()
-		-- Task 4: the reveal (and each button's proportional width) now
-		-- animates — settle the spring before reading the FULLY OPEN width
-		-- this test is actually about (localization safety at rest, not the
-		-- in-flight shape — that is covered separately below).
-		settle(w.pres)
-		w.pres.refresh()
-		local node = w.adapter.node(DELETE_PATH)
+		local node = ref.adapter.node(DELETE_PATH)
 		expect(node ~= nil).toBe(true)
-		expect(node.props.label).toBe(lt.PSEUDO) -- full label draws: it fits, so compactLabel never degrades
+		expect(node.props.label).toBe(lt.PSEUDO) -- a label-only action draws its word
 		expect(node.rect.w >= 64).toBe(true) -- the theme's buttonMinWidth floor (Task 2)
-		expect(node.rect.w).toBe(refRect.w) -- icon must not shrink label space at rest
 
-		local facts = w.handle.controller.textAt(DELETE_PATH)
+		local facts = ref.handle.controller.textAt(DELETE_PATH)
 		expect(facts ~= nil).toBe(true)
 		expect(facts.truncated).toBe(false)
 		expect(facts.lines).toBe(1) -- never wraps: the button widens instead of reflowing
@@ -357,6 +345,22 @@ describe("RowActions control", function()
 		local natural = text_metrics.measure(lt.PSEUDO, facts.font, facts.size, math.huge)
 		local buttonPad = 8 -- controls.rowActions.buttonPad (Task 2 default = style.space.s)
 		expect(node.rect.w >= natural.width + 2 * buttonPad).toBe(true)
+
+		-- THE ICON ROW, against the icon-first contract: the same pseudo-localized
+		-- label, now never drawn — so the expansion cannot clip anything, and the
+		-- plate is the theme's floor rather than a word's width. This is the
+		-- l10n-safety ARGUMENT for icon-first, asserted rather than assumed.
+		local w = build("trash")
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local iconNode = w.adapter.node(DELETE_PATH)
+		expect(iconNode.props.label).toBe("U") -- standard_icons trash ASCII floor, at the SETTLED width
+		expect(iconNode.rect.w).toBe(64) -- buttonMinWidth: a glyph never needs more
+		local iconFacts = w.handle.controller.textAt(DELETE_PATH)
+		expect(iconFacts.truncated).toBe(false)
+		expect(iconFacts.lines).toBe(1)
 	end)
 
 	-- 5. THE REVEAL SEAM (Task 4 builds spring motion on this) -----------------
@@ -461,16 +465,18 @@ describe("RowActions control", function()
 		expect(midWidth).toBeCloseTo(fullWidth * frac, 1) -- SAME observed value, no second spring
 	end)
 
-	-- Task 15 review: same mid-flight shape as the case directly above, now
-	-- with an action that carries `icon = "trash"` — the ladder `compactLabel`
-	-- exists for (docs/reference/api.md ActionSpec.icon): the settled, fully
-	-- open button has room, so the full label draws; the same button mid-swipe
-	-- is narrower than its own natural width, so it degrades to the framework
-	-- icon instead of clipping or wrapping. `trash` has no uploaded content id
-	-- yet (assets/icons/provenance.md "Pending upload"), so the icon form is
-	-- today's ASCII floor, `U` — proving the fallback renders through a real
-	-- caller, live, not just in standard_icons' own unit tests.
-	it("an icon action shows the full label settled, and the framework icon mid-swipe", function()
+	-- ICON-FIRST (director device round 2026-08-12; api.md ActionSpec.icon). An
+	-- action that declares an icon wears it at EVERY width — settled and
+	-- mid-swipe alike — and `label` stays the semantic name (announced, and the
+	-- drawn text of the presentModal menu row for the same action). This used to
+	-- assert the opposite (full label settled, glyph mid-swipe): the compact
+	-- ladder's own per-button fit test, which cannot make a tray agree with
+	-- itself — at a width that fits "Flag" and not "Delete", one plate wore a
+	-- glyph and its neighbour a word. `trash` has no uploaded content id yet
+	-- (assets/icons/provenance.md "Pending upload"), so the icon form is today's
+	-- ASCII floor, `U` — proving the fallback renders through a real caller,
+	-- live, not just in standard_icons' own unit tests.
+	it("an icon action wears its icon at EVERY width — settled and mid-swipe (icon-first)", function()
 		local function build()
 			return presenterWorld(function(core)
 				return row_actions.build(LuauUI, core, {
@@ -486,7 +492,8 @@ describe("RowActions control", function()
 		settled.pres.refresh()
 		settle(settled.pres)
 		settled.pres.refresh()
-		expect(settled.adapter.node(DELETE_PATH).props.label).toBe("Delete")
+		-- standard_icons trash fallback (package.luau ICON_FALLBACK_GLYPHS)
+		expect(settled.adapter.node(DELETE_PATH).props.label).toBe("U")
 
 		local w = build()
 		w.ra._open("trailing")
@@ -495,7 +502,48 @@ describe("RowActions control", function()
 			w.pres.tick(FRAME)
 		end
 		w.pres.refresh()
-		expect(w.adapter.node(DELETE_PATH).props.label).toBe("U") -- standard_icons trash fallback (package.luau ICON_FALLBACK_GLYPHS)
+		expect(w.adapter.node(DELETE_PATH).props.label).toBe("U") -- and the same mark mid-flight: no swap to chase
+
+		-- ...and a label SHORT enough to fit the settled plate with room to spare
+		-- still wears the icon. Without this the case is green by accident: the
+		-- old ladder degrades a long word at this width too, so only a label that
+		-- FITS can tell "preferred" apart from "did not fit".
+		local short = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Do", icon = "trash", onAction = function() end } },
+			})
+		end)
+		short.ra._open("trailing")
+		short.pres.refresh()
+		settle(short.pres)
+		short.pres.refresh()
+		local shortNode = short.adapter.node(DELETE_PATH)
+		local shortFacts = short.handle.controller.textAt(DELETE_PATH)
+		-- the plate really does have room for the word it is not drawing
+		local wordWidth = text_metrics.measure("Do", shortFacts.font, shortFacts.size, math.huge).width
+		expect(shortNode.rect.w - 16 > wordWidth).toBe(true) -- 16 = 2 * buttonPad
+		expect(shortNode.props.label).toBe("U")
+	end)
+
+	-- ...and the OTHER half of the ruling: an action with no icon has nothing to
+	-- prefer, so it keeps its word at every width. Without this, "icon-first"
+	-- could be implemented as "never draw a label" and the suite would not notice
+	-- (the scenario's own "Mark Read" is exactly this case).
+	it("a label-only action keeps its word — icon-first is a default, not a ban on text", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		expect(w.adapter.node(DELETE_PATH).props.label).toBe("Delete")
 	end)
 
 	it("reduced motion snaps the reveal in one frame", function()
@@ -1044,18 +1092,26 @@ describe("RowActions control", function()
 	)
 
 	it(
-		"a full trailing reveal is byte-identical whether or not editing is true (regression: no gutter on the negative branch)",
+		"a full trailing reveal EXPOSES the same tray with or without editing (the gutter is an inset, never a lost reveal)",
 		function()
-			-- `contentOffsetX`'s own comment promises the gutter is added ONLY on
-			-- the non-negative side of `offset` — a trailing reveal (`offset < 0`)
-			-- must read EXACTLY the raw `offset`, or the trailing tray is
-			-- permanently under-exposed by the gutter width for as long as it
-			-- stays open (see the comment above `contentOffsetX` in
-			-- row_actions.luau for the full reasoning). Proven directly: two
-			-- otherwise-identical rows, one wired with `editing = true`, one with
-			-- no `editing` at all, both settle to the SAME `Content` x once fully
-			-- open — not merely "some x", the identical pixel.
-			local function openTrailingContentX(withEditing: boolean): number
+			-- WHAT THIS TEST IS FOR, restated for the padding form (director
+			-- device round 2026-08-12, finding 2). The danger the old
+			-- `contentOffsetX` branch was defending against is real and still
+			-- guarded here: a gutter folded into a NEGATIVE offset would
+			-- permanently under-expose the trailing tray by the gutter width for
+			-- as long as it stayed open. The invariant that says so is the
+			-- CONTENT'S RIGHT EDGE — how much of the tray behind it is uncovered —
+			-- which must be the identical pixel with and without `editing`.
+			--
+			-- Its LEFT edge is deliberately NOT that invariant any more: the
+			-- gutter is Content's own left padding now, so an editing row's
+			-- content is inset by exactly `editAffordance` at every offset,
+			-- including this one. The old assertion pinned the left edge and
+			-- therefore pinned the defect — the row slid a full gutter left over
+			-- its own minus for the whole gesture and snapped back in one frame
+			-- at `offset == 0` (frames f022-f034). Both halves are asserted below,
+			-- so neither can regress into the other.
+			local function openTrailing(withEditing: boolean): any
 				local w = presenterWorld(function(core)
 					local spec: any = {
 						id = "Row",
@@ -1082,9 +1138,18 @@ describe("RowActions control", function()
 				w.pres.refresh()
 				settle(w.pres)
 				w.pres.refresh()
-				return w.adapter.node(ROW .. "/Content/Body").rect.x
+				return {
+					offset = w.ra.dump().offset,
+					bodyX = w.adapter.node(ROW .. "/Content/Body").rect.x,
+				}
 			end
-			expect(openTrailingContentX(true)).toBe(openTrailingContentX(false))
+			local edit, plain = openTrailing(true), openTrailing(false)
+			-- the reveal itself: the row travelled the same distance, so the same
+			-- amount of tray is uncovered — the guarantee the old branch existed for
+			expect(edit.offset).toBe(plain.offset)
+			expect(edit.offset < 0).toBe(true) -- and it really opened (no vacuous pass)
+			-- ...and the gutter is an INSET, present at this offset like every other
+			expect(edit.bodyX - plain.bodyX).toBe(28) -- controls.rowActions.editAffordance
 		end
 	)
 
@@ -1169,5 +1234,195 @@ describe("RowActions control", function()
 		expect(node.hitRect ~= nil).toBe(true)
 		expect(node.hitRect.w >= 44).toBe(true) -- ...while the ENGINE HIT RECT floors at targetSizes.minimum
 		expect(node.hitRect.h >= 44).toBe(true)
+	end)
+
+	-- ===== DIRECTOR DEVICE ROUND 2026-08-12 =================================
+	-- Three findings filmed on the row_actions scenario's TABLE surface. Each
+	-- gets a pin here, in the shared blueprint path both standalone and Table
+	-- run through, because that is where all three actually live.
+
+	-- FINDING 1 — "text pop at close settle". Measured off the filmed frames the
+	-- close flight is already a RIGID TRANSLATION that decelerates onto rest
+	-- (row right edge 810 -> 872 -> 895 -> 903 -> 907 across tp04..tp08, the row
+	-- box never changing width), so what the director read as a jump is two
+	-- sampled frames with a third between them. That makes this a PIN, not a
+	-- fix: the two properties that would turn it into a real pop — a box that
+	-- re-solves mid-flight, or a terminal step larger than the one before it —
+	-- are asserted frame by frame so neither can appear later.
+	it(
+		"the close flight is a rigid translation that decelerates onto the settled geometry (no terminal step)",
+		function()
+			local w = presenterWorld(function(core)
+				return row_actions.build(LuauUI, core, {
+					id = "Row",
+					content = content("Body"),
+					trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+				})
+			end)
+			local restX = w.adapter.node(ROW .. "/Content/Body").rect.x
+			local restW = w.adapter.node(ROW .. "/Content/Body").rect.w
+			w.ra._open("trailing")
+			w.pres.refresh()
+			settle(w.pres)
+			w.pres.refresh()
+			expect(w.adapter.node(ROW .. "/Content/Body").rect.x < restX).toBe(true) -- genuinely open
+
+			w.ra._close()
+			local xs: { number } = {}
+			for _ = 1, SETTLE_FRAMES do
+				w.pres.tick(FRAME)
+				w.pres.refresh()
+				local rect = w.adapter.node(ROW .. "/Content/Body").rect
+				-- RIGID: the row's own box never re-solves while it slides. A width
+				-- that moved mid-flight would be a re-layout — the shape the director
+				-- suspected, and the one that WOULD pop.
+				expect(rect.w).toBe(restW)
+				table.insert(xs, rect.x)
+			end
+			-- lands exactly on the rest geometry, not near it
+			expect(xs[#xs]).toBe(restX)
+			local biggest, last = 0, 0
+			for i = 2, #xs do
+				local step = xs[i] - xs[i - 1]
+				expect(step >= 0).toBe(true) -- monotone: never overshoots past rest and back
+				biggest = math.max(biggest, step)
+				if step > 0 then
+					last = step
+				end
+			end
+			expect(biggest > 0).toBe(true) -- the flight really flew (guards a vacuous pass)
+			-- THE ANTI-POP: the final movement into rest is the SMALLEST of the
+			-- flight, not a step the settle frame invents.
+			expect(last <= biggest).toBe(true)
+			expect(last < biggest).toBe(true)
+		end
+	)
+
+	-- FINDING 2 — "the edit minus collapses during a swipe and pops in after".
+	-- Root cause was the old `contentOffsetX` branch: a step of exactly
+	-- `editAffordance` at `offset == 0`. The gutter is Content's own left
+	-- PADDING now, so it is present at every offset of every sign. Asserted as
+	-- an invariant over a whole trailing gesture rather than at two sampled
+	-- points, because a two-point test is what let the step ship.
+	it("the edit gutter never collapses: the minus stays mounted and the inset holds at EVERY offset", function()
+		local editing
+		local w = presenterWorld(function(core)
+			editing = core:signal(true)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = editing,
+			})
+		end)
+		local function checkFrame()
+			-- the affordance is still a live node...
+			expect(w.adapter.node(EDIT_AFFORDANCE_PATH) ~= nil).toBe(true)
+			-- ...and the row content is still inset past it by the full gutter,
+			-- whatever the offset's sign. A padding is spent before `offsetFill`
+			-- ever runs, so this identity holds at EVERY sample — which is exactly
+			-- what the branch it replaced could not say (it held only for offset
+			-- >= 0 and stepped by the whole gutter at the crossing).
+			local body = w.adapter.node(ROW .. "/Content/Body").rect
+			expect(body.x - w.ra.dump().offset).toBeCloseTo(28, 6)
+		end
+		checkFrame()
+		w.ra._open("trailing")
+		w.pres.refresh()
+		local sawNegative = false
+		for _ = 1, SETTLE_FRAMES do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+			sawNegative = sawNegative or w.ra.dump().offset < 0
+			checkFrame()
+		end
+		expect(sawNegative).toBe(true) -- the gesture really went negative
+		w.ra._close()
+		for _ = 1, SETTLE_FRAMES do
+			w.pres.tick(FRAME)
+			w.pres.refresh()
+			checkFrame()
+		end
+		expect(w.ra.dump().offset).toBe(0) -- home, with the gutter still there
+	end)
+
+	-- ...and the half of finding 2 geometry cannot express: the minus is only
+	-- VISIBLE under a row that has slid into its gutter if it paints ON TOP.
+	-- Array order is paint order, so this is a structural fact of the blueprint.
+	it("the minus paints OVER Content — the director's 'stays pinned during a swipe'", function()
+		local built
+		local w = presenterWorld(function(core)
+			built = row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = core:signal(true),
+			})
+			return built
+		end)
+		expect(w.adapter.node(EDIT_AFFORDANCE_PATH) ~= nil).toBe(true)
+		local contentAt, minusAt = nil, nil
+		for i, child in built.blueprint.children do
+			if child.id == "Content" then
+				contentAt = i
+			elseif child.id == "EditAffordanceWhen" then
+				minusAt = i
+			end
+		end
+		expect(contentAt ~= nil).toBe(true)
+		expect(minusAt ~= nil).toBe(true)
+		expect(minusAt > contentAt).toBe(true)
+	end)
+
+	-- FINDING 3a — the tray gutter. Two rounded plates drawn flush read as one
+	-- merged slab (hi05: Delete 645-777, Flag 780-905). The gap is a THEME
+	-- metric, and the travel distance has to include it or the last button parks
+	-- half off the row — both asserted, because fixing only the first is the
+	-- easy half.
+	it("adjacent tray buttons carry the theme's trayGap, and the travel distance includes it", function()
+		local w = presenterWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				content = content("Body"),
+				trailing = {
+					{ id = "delete", label = "Delete", role = "destructive", onAction = function() end },
+					{ id = "flag", label = "Flag", onAction = function() end },
+				},
+			})
+		end)
+		w.ra._open("trailing")
+		w.pres.refresh()
+		settle(w.pres)
+		w.pres.refresh()
+		local del = w.adapter.node(TRAILING_TRAY .. "/Action:delete").rect
+		local flag = w.adapter.node(TRAILING_TRAY .. "/Action:flag").rect
+		local gap = flag.x - (del.x + del.w)
+		expect(gap).toBe(4) -- controls.rowActions.trayGap, filled from style.space.xs
+		-- the tray really is that much wider than its plates...
+		expect(w.adapter.node(TRAILING_TRAY).rect.w).toBe(del.w + gap + flag.w)
+		-- ...and the row slid far enough to uncover the gutter as well as the two
+		-- plates. Fixing only the gap would park the far plate half off the row.
+		expect(-w.ra.dump().offset).toBe(del.w + gap + flag.w)
+	end)
+
+	-- FINDING 3b — the machinery, at its own seam. `prefer` is the ONE thing the
+	-- compact grammar gained; if it stopped reaching the solver the tray would
+	-- quietly fall back to labels and only a pixel test would notice.
+	it("the compact grammar carries `prefer`, and its absence still means degrade-only", function()
+		expect(renderer.compactForm({ compactLabel = { icon = "trash", prefer = true } }).prefer).toBe(true)
+		expect(renderer.compactForm({ compactLabel = { icon = "trash" } }).prefer).toBe(false)
+		expect(renderer.compactForm({ compactLabel = "Ed" }).prefer).toBe(false)
+		-- the drawn mark the tray's natural width is measured against
+		expect(theme_package.iconGlyph("trash")).toBe("U")
+		-- and the grammar still refuses what it always refused: `prefer` names no
+		-- form, so a table holding only it is still formless.
+		local ok = pcall(function()
+			return LuauUI.UI.Button({ id = "B", label = "x", compactLabel = { prefer = true } })
+		end)
+		expect(ok).toBe(false)
+		local badType = pcall(function()
+			return LuauUI.UI.Button({ id = "B", label = "x", compactLabel = { icon = "trash", prefer = "yes" } })
+		end)
+		expect(badType).toBe(false)
 	end)
 end)

@@ -190,12 +190,15 @@ local function actionsFor(model: any, itemId: string): any
 				id = "delete",
 				role = "destructive",
 				label = "Delete",
-				-- Task 15: the framework's own trash glyph, carried on the
-				-- tray button as `compactLabel = { icon = … }` (row_actions.luau's
-				-- `buildTray`/`buildMenuRows` — `Button.icon` itself is
-				-- circle-only). "Delete" draws in full at rest; this row's
-				-- own icon shows only once its button narrows below that,
-				-- mid-swipe. `trash`/`flag` are LIVE content ids now
+				-- The framework's own trash glyph, carried on the tray button
+				-- as `compactLabel = { icon = …, prefer = true }` (row_actions
+				-- `buildTray` — `Button.icon` itself is circle-only). ICON-FIRST
+				-- since the director's device round 2026-08-12: the tray plate
+				-- wears the mark at every width and "Delete" stays the semantic
+				-- name — still the drawn text of this action's MENU row, which is
+				-- the reading of the tray one activation away. `Mark Read` above
+				-- declares no icon and so keeps its word in the tray too.
+				-- `trash`/`flag` are LIVE content ids now
 				-- (assets/icons/provenance.md "Upload closed" —
 				-- rbxassetid://84398508341623 / rbxassetid://109067109704366,
 				-- both verified Approved/Image), so this row draws the real

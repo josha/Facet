@@ -882,7 +882,7 @@ full label does not fit    -> the compact form
 no compact form declared   -> a word ellipsizes, a phrase wraps
 ```
 
-Four spellings, one closed grammar — a table carries **exactly one** key, and
+Four spellings, one closed grammar — a table carries **exactly one** FORM key, and
 anything else is refused at construction naming the set:
 
 ```lua
@@ -891,6 +891,23 @@ UI.Button({ id = "E", label = "Edit item", compactLabel = { text = "Ed" } })
 UI.Button({ id = "E", label = "Edit item", compactLabel = { icon = "edit" } })
 UI.Button({ id = "E", label = "Edit item", compactLabel = { image = "rbxassetid://…" } })
 ```
+
+Plus one **modifier**, which names no content and so does not collide with the
+exactly-one-form rule:
+
+```lua
+UI.Button({ id = "D", label = "Delete", compactLabel = { icon = "trash", prefer = true } })
+```
+
+- **`prefer = true` inverts the ladder from a degrade into a default.** The button
+  wears its compact form at *every* width — measured for it as well as painted with
+  it, so the box is reserved for exactly what lands in it — and `label` stays the
+  semantic name (announced, never drawn). Reach for it when the icon *is* the
+  control's content and the word is its name: `newRowActions`' tray buttons are the
+  framework's own caller. It is not expressible through the fit test, because that
+  test is per button — at a width that fits `Flag` and not `Delete`, one plate in a
+  tray would wear a glyph and its neighbour a word.
+- `prefer` alone is still an empty form: a table must name `text`/`icon`/`image`.
 
 - **The framework never ellipsizes when a compact form exists.** The `…` is what a
   button falls back to when it has nothing better to say; one that *does* has to
@@ -4057,8 +4074,8 @@ Spec fields:
 |---|---|---|---|
 | `id` | `string?` | no (default: `label`) | must be path-safe (no `/`); becomes the tray button's id, `Action:<id>`. |
 | `role` | `"normal" \| "destructive"` | no (default `"normal"`) | `"destructive"` paints the Button's own `role = "destructive"` (the shipped danger/onDanger style rule — no bespoke color). |
-| `label` | `string` | **yes** | the tray button's label. Never truncated by this control; the button widens past the theme's `controls.rowActions.buttonMinWidth` floor rather than clip a long (e.g. pseudo-localized) label. |
-| `icon` | `string?` | no | a `standard_icons` name, carried on the action's tray/menu button as `compactLabel = { icon = … }` — `label` draws in full whenever the button has room (the common case; a menu row's fill width almost always does), and degrades to the framework icon only when it does not (e.g. mid-swipe, as a tray button's width shrinks toward `buttonMinWidth`). `Button.icon` itself is circle-only, so this never reaches that prop directly. Omitted is text-only, unconditionally. |
+| `label` | `string` | **yes** | the action's semantic name. Always announced; **drawn** in the tray only when the action declares no `icon` (see below), and always drawn in the action menu's own row. Never truncated by this control; a label-drawing button widens past the theme's `controls.rowActions.buttonMinWidth` floor rather than clip a long (e.g. pseudo-localized) label. |
+| `icon` | `string?` | no | a `standard_icons` name. **The tray is icon-first**: an action that declares one wears its icon on the tray button at every width — settled and mid-swipe alike — and `label` becomes the semantic name only. The **menu row keeps the word**, so the reading of the tray is always one activation away. Carried as `compactLabel = { icon = …, prefer = true }` on the tray button and as `compactLabel = { icon = … }` (degrade-only) on the menu row; `Button.icon` itself is circle-only, so this never reaches that prop directly. Omitted is text-only everywhere, unconditionally. |
 | `onAction` | `() -> ()` | **yes** | called when the action activates: a tap/click/Return/ButtonA on the revealed tray button, an activation of the action's own row in the Task 8 menu, or — for a `role = "destructive"` action — keyboard Delete/Backspace. |
 
 Return surface:
@@ -4130,9 +4147,12 @@ that reads `true`, AND a `role = "destructive"` action exists on either
 edge, a small circular button (diameter `controls.rowActions.editAffordance`,
 28px; a `danger`-role disc, the same `role = "destructive"` mapping a tray's
 own destructive button already carries) appears in a LEADING gutter — the
-row's own `content` (and, if declared, the leading tray) shift right by the
-gutter width to make room, exactly like the reorder handle table.luau
-already grows in its own edit mode. It is a normal, focusable `UI.Button`
+row's own `content` is INSET by the gutter width to make room (it is the
+content node's left padding, so it holds at every swipe offset of either
+sign; the minus never collapses mid-swipe and never pops back at settle), and
+the leading tray, if declared, shifts right by the same amount. The minus
+paints OVER the sliding content, so a trailing swipe passes under it and it
+stays pinned at the left for the whole gesture. It is a normal, focusable `UI.Button`
 (activates via the standard tap/Return/ButtonA path already proven for
 every other tray button above — no separate registry citation, since the
 reachability MECHANISM does not change) and does **not** delete directly:
@@ -4171,7 +4191,14 @@ Invariants:
   button past `buttonMinWidth`, or a live preferred-text-size change, still
   reveals correctly and never freezes stale.
 - **Labels are never truncated by this control.** The theme's
-  `controls.rowActions.buttonMinWidth` (64px) is a floor, not a cap.
+  `controls.rowActions.buttonMinWidth` (64px) is a floor, not a cap. An
+  icon-first tray button measures the GLYPH it draws rather than the label it
+  does not, so it settles at that floor.
+- **Adjacent tray buttons are separated by `controls.rowActions.trayGap`** (an
+  optional theme metric, filled from the package's own `space.xs` when it
+  declares none) — two rounded plates drawn flush read as one merged slab. The
+  gutters are part of the tray's travel distance too, so the far plate is fully
+  uncovered at a full reveal.
 
 ```lua
 local row = LuauUI.newRowActions(LuauUI, core, {
