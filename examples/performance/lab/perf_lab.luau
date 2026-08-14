@@ -2578,6 +2578,39 @@ return {
 			-- workload label, so both previous captures had to be identified by
 			-- reverse-engineering their Text-write signature. This line is what a
 			-- capture session pastes back with the dump.
+			--[[ STAMP THE IDENTITY WHERE A LATER READER CAN FIND IT.
+
+				A MicroProfiler dump carries no workload label, and `warn` does not
+				survive into the blob. Consequence, measured across five device
+				captures: EVERY ONE had to be identified by forensic signature — the
+				presence of solver scopes, per-mount child counts, whether
+				`LuauUI/reset` ever fires. Three had sampled a session with nothing
+				mounted, one pair turned out to be byte-identical duplicates of each
+				other, and a capture filed as `mount-ramp` contained no ramp data at
+				all.
+
+				Workspace attributes are the cheapest thing a later reader can check:
+				`execute_luau` reads them in the same session, and it is one write per
+				profiling run rather than per frame. It does not put the label INSIDE
+				the dump — nothing script-side can — but it makes the SESSION
+				self-describing, which is the half that was missing.
+
+				Deliberately NOT a new profile scope: `profile.MAX_SCOPES = 12` is
+				asserted by `tests/profile_scopes.spec.luau`, and a per-workload scope
+				name is exactly the per-call-site label the cardinality rule exists to
+				forbid. ]]
+			-- pcall'd because `workspace` does not exist under Lune, where this same
+			-- step runs in the suite. The lab is engine-free by construction
+			-- everywhere else; this is the one write that is not, so it degrades
+			-- rather than refusing.
+			pcall(function()
+				local ws = workspace :: any
+				ws:SetAttribute("LuauUI_ProfilingWorkload", id)
+				ws:SetAttribute("LuauUI_ProfilingPass", passName)
+				ws:SetAttribute("LuauUI_ProfilingImplementation", tostring(w.implementation or "luauui"))
+				ws:SetAttribute("LuauUI_ProfilingRows", settings.rows)
+				ws:SetAttribute("LuauUI_ProfilingTheme", tostring(settings.theme))
+			end)
 			warn(
 				`[perf lab] PROFILING workload='{id}' pass='{passName}' implementation='{tostring(
 					w.implementation or "luauui"
