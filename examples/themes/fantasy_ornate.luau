@@ -426,7 +426,22 @@ function fantasy_ornate.definition(themes: any): any
 			-- carving into a smear. A rail that is art rather than a coloured line
 			-- has a minimum height, and it is a metric.
 			controls = {
-				progress = { trackHeight = 28, rowMinHeight = 36 },
+				-- ...and the two theme-sized indicators, at the SAME weight as the
+				-- carved rail above (director round 2026-08-14). Everything this
+				-- package draws is heavy — a 28px trough, a 28px jewelled thumb — and
+				-- an indicator inherited off the space scale came out 26px with a 4px
+				-- stroke, which reads as a different package's ring dropped into this
+				-- one. 44 is the largest ring in the corpus and 8 is the thickest
+				-- stroke the geometry allows (the arc sits at 0.8 of the half-extent,
+				-- so 0.2 x 44 is the stroke's whole budget); the 12px dot is the
+				-- gilded stud that budget implies.
+				progress = {
+					trackHeight = 28,
+					rowMinHeight = 36,
+					circularSize = 44,
+					circularThickness = 8,
+					spinnerDotSize = 12,
+				},
 				slider = { railHeight = 24, thumbSize = 28, readoutMinWidth = 44 },
 			},
 			insets = {

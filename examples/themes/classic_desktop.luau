@@ -127,6 +127,16 @@ function classic_desktop.definition(themes: any): any
 			targetSizes = { minimum = 44 },
 			-- snappier than neutral: a desktop control should feel instant
 			motion = { fast = 0.06, normal = 0.1 },
+			-- THE TWO THEME-SIZED INDICATORS (director round 2026-08-14). Left
+			-- unauthored they came off this package's own space scale, and a dense
+			-- desktop scale is the wrong ruler for them: `space.l` is 12 here, so the
+			-- "ring" resolved to a 12px circle — smaller than the 12px caption beside
+			-- it. A pointer sits ~60cm from the screen and this skin's whole voice is
+			-- thin crisp lines, so the ring is small but READABLE and its stroke is
+			-- the hairline weight every other edge in this package uses.
+			controls = {
+				progress = { circularSize = 20, circularThickness = 2, spinnerDotSize = 6 },
+			},
 			-- the slot insets a flat theme reserves (no asset geometry to clear)
 			insets = {
 				panel = { top = 8, right = 8, bottom = 8, left = 8 },

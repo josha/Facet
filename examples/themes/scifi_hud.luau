@@ -140,6 +140,16 @@ function scifi_hud.definition(themes: any): any
 			strokes = { hairline = 2 },
 			targetSizes = { minimum = 44 },
 			motion = { fast = 0.09, normal = 0.18 },
+			-- THE TWO THEME-SIZED INDICATORS (director round 2026-08-14). A HUD ring
+			-- is WIDE AND THIN — a targeting reticle, not a gauge — so this package
+			-- takes the second-largest diameter in the corpus and the thinnest stroke
+			-- allowed beside it, which is also exactly this skin's own `strokes.hairline`
+			-- of 2. Left unauthored it would have been a 22px ring with a 4px stroke:
+			-- a chunky little donut, in the one package whose whole voice is thin
+			-- angular light.
+			controls = {
+				progress = { circularSize = 36, circularThickness = 2, spinnerDotSize = 6 },
+			},
 			insets = {
 				panel = { top = 14, right = 14, bottom = 14, left = 14 },
 				control = { top = 8, right = 16, bottom = 8, left = 16 },

@@ -420,7 +420,14 @@ describe("fantasy_parchment carries its metrics in the theme_sync region", funct
 		-- every package deriving from it) grew `controls.rowActions.*`
 		-- (buttonMinWidth/buttonPad/editAffordance), so the stored captures are
 		-- re-taken against THIS stamp.
-		expect(built("fantasy_parchment").stamp).toBe("1604e440")
+		--
+		-- Re-pinned again 2026-08-14 (director round: the circular indicator and the
+		-- dot spinner are theme-sized shapes and every shipped package now AUTHORS
+		-- them). This package's own `controls.progress` grew `circularSize` 30,
+		-- `circularThickness` 3 and `spinnerDotSize` 9 — three numbers it used to
+		-- inherit from its space scale, which is exactly the change a stamp is
+		-- supposed to notice.
+		expect(built("fantasy_parchment").stamp).toBe("538b2cb8")
 	end)
 
 	it("a hand edit inside the region is detectable as drift, naming the token", function()

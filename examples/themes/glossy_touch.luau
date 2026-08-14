@@ -239,7 +239,18 @@ function glossy_touch.definition(themes: any): any
 				-- the trough is authored 24px tall; rendering it at the library's
 				-- default 6 would squeeze a 10px slice border into a 6px box and
 				-- leave the gel's gloss step nowhere to land
-				progress = { trackHeight = 24, rowMinHeight = 32 },
+				-- ...and the two theme-sized indicators, sized off the SAME gel weight
+				-- (director round 2026-08-14). This is the touch half of the platform
+				-- pair, so its ring is the second-largest in the corpus and its 6px
+				-- stroke matches the gloss step on the trough beside it; a 12px bead
+				-- is the smallest dot that still carries this skin's rim highlight.
+				progress = {
+					trackHeight = 24,
+					rowMinHeight = 32,
+					circularSize = 40,
+					circularThickness = 6,
+					spinnerDotSize = 12,
+				},
 			},
 			insets = {
 				panel = { top = 16, right = 16, bottom = 16, left = 16 },

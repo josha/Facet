@@ -265,7 +265,21 @@ function pixel_quest.definition(themes: any): any
 			-- as a value rather than as a hairline. The 40px heart caps then overhang
 			-- (40-28)/2 = 6px per edge, which `chromeOutsets` already reserves.
 			controls = {
-				progress = { trackHeight = 28, rowMinHeight = 40 },
+				-- ...and the two theme-sized indicators, ON THE DESIGN GRID (director
+				-- round 2026-08-14). Every length this package publishes snaps UP to
+				-- its 4px pixel unit, so an indicator inherited off the space scale
+				-- was a 24px ring with a 4px stroke that happened to land on the grid
+				-- by luck rather than by decision. These three are grid multiples by
+				-- construction: 32 = 8 design pixels across, 4 = ONE design pixel of
+				-- stroke, and the 8px dot is a 2x2 block — which is what makes the
+				-- travelling pulse read as a marching sprite rather than a soft glow.
+				progress = {
+					trackHeight = 28,
+					rowMinHeight = 40,
+					circularSize = 32,
+					circularThickness = 4,
+					spinnerDotSize = 8,
+				},
 				--[[ ...AND THE FIELD IS THE SAME DEFECT AS THE TROUGH, found the same
 					way and fixed the same way (theme sweep, 2026-08-14). `chrome.field`
 					carves 16px of border a side and `controls.textInput.padding` spends

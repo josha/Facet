@@ -207,7 +207,18 @@ function compact_pointer.definition(themes: any): any
 			controls = {
 				-- `barTrack` ≥ 10 and `barFill` ≥ 8: 10 is the art's authored height,
 				-- so the trough draws 1:1 with its 4px borders intact
-				progress = { trackHeight = 10, rowMinHeight = 16 },
+				-- ...and the two theme-sized indicators, the SMALLEST in the corpus,
+				-- which is this package's whole job (it is the dense pointer half of
+				-- the `selectBy` pair — see the header). 18/2 keeps the ring one step
+				-- under the 22px compact control it sits beside, and a 5px dot is the
+				-- smallest square this skin's 1px hairline can still outline.
+				progress = {
+					trackHeight = 10,
+					rowMinHeight = 16,
+					circularSize = 18,
+					circularThickness = 2,
+					spinnerDotSize = 5,
+				},
 				-- a desktop slider is a thin rail; no slider ART ships here (see the
 				-- chrome section), so this is only the native rail's geometry
 				slider = { railHeight = 4, thumbSize = 14, readoutMinWidth = 32 },

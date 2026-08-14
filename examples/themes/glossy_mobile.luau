@@ -133,6 +133,15 @@ function glossy_mobile.definition(themes: any): any
 			strokes = { hairline = 1 },
 			targetSizes = { minimum = 48 },
 			motion = { fast = 0.16, normal = 0.28 },
+			-- THE TWO THEME-SIZED INDICATORS (director round 2026-08-14). Thumb-first
+			-- everywhere else, and now here too: a phone is held at ~30cm and a
+			-- loading indicator on it is a glanceable object, not a detail. The 5px
+			-- stroke is the same weight this skin's gel rim draws at, and the 10px
+			-- bead is the largest dot that keeps the five-dot row under half the
+			-- width of a 320px phone.
+			controls = {
+				progress = { circularSize = 32, circularThickness = 5, spinnerDotSize = 10 },
+			},
 			insets = {
 				panel = { top = 18, right = 18, bottom = 18, left = 18 },
 				control = { top = 10, right = 18, bottom = 10, left = 18 },

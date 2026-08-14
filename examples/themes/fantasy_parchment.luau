@@ -172,6 +172,15 @@ local ASSETS = {
 -- Studio Neutral's; taller controls (38/46/58) because the carved border needs
 -- shoulder room; and per-slot insets that each nine-slice recipe's own
 -- contentInsets are ADDED to, so content always clears the painted border.
+--
+-- ...and `controls.progress.circularSize` / `circularThickness` / `spinnerDotSize`
+-- (director round 2026-08-14), which are the two theme-sized indicators: a 30px
+-- ring drawn with a 3px stroke and a 9px dot. This skin is a QUILL — the thinnest
+-- ink in the corpus over the largest paper — so it takes a mid-sized ring and the
+-- second-thinnest stroke, where its ornate sibling takes 44/8 on the same shapes.
+-- Left unauthored both packages resolved to the identical 26/4, because they
+-- share a space scale and the fill-in reads the space scale: two packages that
+-- look nothing alike were drawing the same ring.
 local GENERATED: any = {
 	-- theme_sync:begin metrics
 	metrics = {
@@ -206,7 +215,10 @@ local GENERATED: any = {
 				triggerHeight = 40,
 			},
 			progress = {
+				circularSize = 30,
+				circularThickness = 3,
 				rowMinHeight = 20,
+				spinnerDotSize = 9,
 				trackHeight = 6,
 			},
 			rowActions = {

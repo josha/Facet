@@ -295,6 +295,136 @@ describe("ProgressView circular: the OFF-PATH cost is exactly zero", function()
 	end)
 end)
 
+--[[ ===== THE TWO SHAPES ARE THEME-SIZED, AND A THEME HAS TO SAY SO ===========
+	(director round 2026-08-14: *"we need to make sure the circular progress bars
+	and dots spinner are themeable"*.)
+
+	THE MECHANISM WAS THERE AND NOBODY WAS USING IT. Measured before any of it was
+	written, over the eight packages the theme picker offers a player:
+
+	    controls.progress.spinnerDotSize     authored by 0 of 8
+	    controls.progress.circularSize       authored by 0 of 8
+	    controls.progress.circularThickness  authored by 0 of 8
+	    the `spinner` decoration slot         declared by 0 of 8
+
+	while `barTrack` / `barFill` — the bar's two slots — are declared by four of
+	them and its `trackHeight` by four. So the bar was genuinely themed and the two
+	shapes round 3 added were uniformly falling through `snapshot.resolve`'s
+	fill-in, which derives them from the theme's own SPACE scale (`space.s` for the
+	dot, `space.l` for the ring). A spacing step is a gap between elements, and it
+	is a poor proxy for the diameter of an indicator: Classic Desktop's `space.l`
+	is 12, so its "ring" resolved to a 12px circle with a 2px stroke — smaller than
+	the label beside it, and nothing in the repository could see that, because
+	every check asked whether the number was CONSISTENT and none asked whether a
+	package had ever CHOSEN it.
+
+	These are therefore two different propositions and both are checks:
+	  1. every shipped package AUTHORS all three, in its own definition — the
+	     fallback stays for a third-party package that declares nothing, and stops
+	     being what the reference corpus ships;
+	  2. what it authored is its OWN, not a copy of Studio Neutral's — the
+	     "themeable" claim is only worth making if the themes visibly differ.
+]]
+describe("the two theme-sized shapes are AUTHORED by every shipped package", function()
+	-- the eight packages the showcase's theme picker offers a player: the same
+	-- list, in the same order, that the always-on overflow sweep's theme axis
+	-- runs (tests/overflow_sweep.spec.luau PACKAGE_MODULES)
+	local SHIPPED = {
+		"classic_desktop",
+		"compact_pointer",
+		"fantasy_ornate",
+		"fantasy_parchment",
+		"glossy_mobile",
+		"glossy_touch",
+		"pixel_quest",
+		"scifi_hud",
+	}
+	-- the three the fill-in covers, i.e. exactly `package.CONTROL_FAMILY_OPTIONAL.progress`
+	local SHAPE_METRICS = { "spinnerDotSize", "circularSize", "circularThickness" }
+
+	-- the package's OWN definition table, before `define` merges the neutral base
+	-- into it. Read here rather than off the built package because the base IS
+	-- Studio Neutral: `pkg.metrics.controls.progress.trackHeight` answers 6 for a
+	-- package that never mentioned a progress bar, so the built package cannot
+	-- tell "authored" from "inherited" and this is the only surface that can.
+	local function ownProgress(name: string): any
+		local definition = (require)(`../examples/themes/{name}`).definition(themes)
+		return ((definition.metrics or {}).controls or {}).progress
+	end
+
+	for _, name in SHIPPED do
+		it(`{name} authors all three, rather than inheriting the space scale`, function()
+			local own = ownProgress(name)
+			for _, field in SHAPE_METRICS do
+				local value = if type(own) == "table" then (own :: any)[field] else nil
+				expect(`{name}.{field} = {tostring(value)}`).toBe(`{name}.{field} = {tostring(tonumber(value))}`)
+				expect(`{name}.{field} > 0 is {tostring((tonumber(value) or 0) > 0)}`).toBe(
+					`{name}.{field} > 0 is true`
+				)
+			end
+		end)
+	end
+
+	it("every package's shapes are its OWN, not Studio Neutral's numbers", function()
+		local neutral = themes.resolve(themes.neutralPackage(), nil, {}).controls.progress
+		local same: { string } = {}
+		for _, name in SHIPPED do
+			local own = ownProgress(name)
+			local identical = true
+			for _, field in SHAPE_METRICS do
+				if (own :: any)[field] ~= (neutral :: any)[field] then
+					identical = false
+				end
+			end
+			if identical then
+				table.insert(same, name)
+			end
+		end
+		-- a package free to author anything and choosing the default in all three
+		-- is a package that has not made a decision — which is the state this whole
+		-- block exists to end
+		expect(`packages identical to Studio Neutral: {table.concat(same, ", ")}`).toBe(
+			"packages identical to Studio Neutral: "
+		)
+	end)
+
+	it("the corpus SPANS the two shapes: the largest ring is at least twice the smallest", function()
+		-- ONE NUMBER FOR "unmistakably different". Eight packages that all landed
+		-- within a few pixels of each other would satisfy every check above and
+		-- still look like one theme, so the spread itself is the proposition. 2x is
+		-- the ratio between the smallest ring a pointer package wants and the
+		-- carved one an ornate package wants; it is a FLOOR on the corpus, not a
+		-- rule any single package has to obey.
+		local rings: { number } = {}
+		local dots: { number } = {}
+		for _, name in SHIPPED do
+			local own = ownProgress(name)
+			table.insert(rings, (own :: any).circularSize)
+			table.insert(dots, (own :: any).spinnerDotSize)
+		end
+		table.sort(rings)
+		table.sort(dots)
+		expect(`rings {rings[1]}..{rings[#rings]} span {rings[#rings] / rings[1] >= 2}`).toBe(
+			`rings {rings[1]}..{rings[#rings]} span true`
+		)
+		expect(`dots {dots[1]}..{dots[#dots]} span {dots[#dots] / dots[1] >= 2}`).toBe(
+			`dots {dots[1]}..{dots[#dots]} span true`
+		)
+	end)
+
+	it("a package that authors NOTHING still answers all three (the fill-in stays)", function()
+		-- the other half of the same contract, and the reason the three fields are
+		-- in `CONTROL_FAMILY_OPTIONAL` rather than in the required list: a
+		-- third-party package written before these shapes existed must still
+		-- resolve, and it does — from the theme's own space scale.
+		local stub = (require)("../examples/themes/fantasy_parchment_stub").build(themes)
+		local family = themes.resolve(stub, nil, {}).controls.progress
+		for _, field in SHAPE_METRICS do
+			expect(`stub.{field} = {type((family :: any)[field])}`).toBe(`stub.{field} = number`)
+		end
+	end)
+end)
+
 describe("ProgressView circular: the stroke fits inside its own box, in every shipped theme", function()
 	-- THE PAINT FACT NO HEADLESS SOLVE CAN SEE. A Path2D stroke is centred on the
 	-- curve, so a ring drawn at radius r inside a box of size d paints out to
