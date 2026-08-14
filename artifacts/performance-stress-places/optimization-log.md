@@ -2007,3 +2007,28 @@ open deliberately — the honest fix is for a measure→publish cycle to settle 
 one flush, which is a design question, not a patch. `tests/perf_lab.spec.luau`
 excludes `coreSafeInsets` from its batching oracle for exactly this reason and
 says so, so the next reader does not mistake the dance for a batching regression.
+
+### L-29 residual 2 — a presented MODAL still costs two solves per geometry change
+
+Found by the Rascal Rally consumer rider (`games/RascalRally/code/tests/luauui_resize_solve_contract.spec.luau`,
+game commit `1fb175a`) while proving the coalescing on a production surface.
+
+A plain surface costs **1** solve for one batched six-fact rotation, as L-29
+above. The shipped **role-pick modal**, built and presented exactly as the game
+builds it, costs **2** — and it is 2 *whether or not the rotation crosses a size
+class* (probed both ways: 1920x1080 → 691x360 crossing, and 1920x1080 →
+1900x1000 not crossing; both 2). So the second solve is **not** the adaptive
+size-class rebuild, and it is not per-key fan-out either — the fan-out is gone.
+It is a second solve site on the **modal presentation path**.
+
+Not chased here, and deliberately not guessed at: `src/present/presenter.luau`
+was being edited concurrently by another task, and a mechanism claimed without
+measurement is exactly what this log exists to prevent. The rider asserts a
+CEILING of 2 rather than an equality of 1, so the modal's own second solve can be
+removed later without the check needing to move, while a return to per-key
+fan-out (~5) still reddens immediately.
+
+Next step when picked up: instrument the four `solveAndApply()` call sites in
+`src/render/renderer.luau` with a call-site tag and drive one rotation against a
+presented modal — the same probe technique that found L-29, which took about ten
+minutes and replaced a plausible story with a number.
