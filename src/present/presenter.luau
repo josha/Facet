@@ -2844,7 +2844,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				adjust.bind({ keyCode = "Comma", direction = -1 }),
 				adjust.bind({ keyCode = "Period", direction = 1 }),
 				adjust.bind({ keyCode = "ButtonL1", direction = -1 }),
-				adjustAxis.bind({ keyCode = "ButtonR1", direction = 1 }),
+				adjust.bind({ keyCode = "ButtonR1", direction = 1 }),
 			}
 			local axis = state
 			local action = adjustAxis
