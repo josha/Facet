@@ -328,7 +328,11 @@ local function sides(margin: any): (number, number, number, number) -- t, r, b, 
 end
 
 type Ctx = {
-	diagnostics: { { node: string, issue: string } },
+	-- A FINDING'S `designed` FLAG (ruling 8) marks the ones that report the system
+	-- working as declared rather than a defect. Absent on every other finding, so
+	-- `d.designed == true` is the whole test; see the composition arrange branch
+	-- for the one place that sets it and why the two kinds had to be separable.
+	diagnostics: { { node: string, issue: string, designed: boolean? } },
 	textStates: { [string]: string },
 	-- nodes whose `compactText` won this solve. Recorded during measure and read
 	-- out during arrange, so the verdict the box was reserved for is exactly the
@@ -931,7 +935,8 @@ end
 
 	WHAT IT REPLACES: PASS 1.5 made a candidate REPORT its squeezed extent, so a
 	candidate that could not fit "fit" and won. Swept 150-420px that flipped the
-	winner at 10 of 28 widths (docs/decisions/DECISIONS.md VTF-1).
+	winner at 10 of 28 widths (docs/lessons/a-candidate-is-judged-at-its-ideal-size.md,
+	which carries the SwiftUI citations this was decided on).
 
 	THE WINNER IS STILL SHRUNK — the flag is off again by the time the chosen
 	candidate is measured and arranged, which is SwiftUI's other half: the winner
@@ -3283,6 +3288,27 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- evidence is a screenshot, and a screenshot cannot tell you that the
 		-- three-lane candidate lost on the field lane's minimum width by 6 px.
 		out[node.id].composition = compositionLib.dump(resolution)
+		--[[ THE ONE FINDING THAT REPORTS THE SYSTEM WORKING (ruling 8, 2026-08-14).
+
+			Every other sentence this solver files describes something the author did
+			not intend and would fix: content painting outside its box, a child over
+			its neighbour, a row taller than the slot it was windowed into. This one
+			describes the author's own instruction being followed — arrangements are
+			declared richest-first, the last is the fallback, and when nothing else
+			is legal the fallback is what shows. Nothing is clipped and nothing is
+			lost; the composition is saying out loud which rung it landed on.
+
+			`designed = true` is how a reader tells the two apart WITHOUT recognising
+			this sentence. Both sides of the consumer lockstep used to do exactly
+			that and disagreed about the answer: LuauUI's sweep carried it as a
+			waiver with a px ceiling ("a defect we tolerate"), Rascal Rally excluded
+			it by substring ("not a defect"). One field, set in one place, ends that
+			— and a new designed-by-contract report is covered the day it is written
+			rather than the day somebody remembers to add its wording to two lists.
+
+			IT IS STILL REPORTED. A surface that reaches its fallback at a size its
+			author expected to be legal is worth knowing about; it is simply not a
+			bug. `docs/reference/api.md` § "Findings that are not defects". ]]
 		if resolution.fallback and ctx.hiddenDepth == 0 then
 			local why = resolution.rejected[#resolution.rejected]
 			table.insert(ctx.diagnostics, {
@@ -4247,7 +4273,11 @@ function solver.solve(
 	root: Node,
 	viewport: { w: number, h: number },
 	opts: { safeInsets: SafeInsets?, rootPolicy: string?, scrollBarReserve: number?, metrics: any? }?
-): { rects: { [string]: any }, diagnostics: { { node: string, issue: string } }, contentRect: Rect }
+): {
+	rects: { [string]: any },
+	diagnostics: { { node: string, issue: string, designed: boolean? } },
+	contentRect: Rect,
+}
 	local insets = (opts and opts.safeInsets) or { top = 0, bottom = 0, left = 0, right = 0 }
 	local policy = (opts and opts.rootPolicy) or "coreSafeContent"
 	local contentRect: Rect

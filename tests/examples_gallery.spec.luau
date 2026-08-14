@@ -859,14 +859,15 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			children — so it comes before the row it belongs to. The navigation groups
 			read the same set in painting order.)
 
-			WHY TAB AND NOT THE D-PAD HERE: this row's rating strip is a value control
-			that OWNS Left/Right (measured: DPadRight on it moves the rating 4 -> 5 and
-			never the ring, even at the maximum), so directional navigation cannot pass
-			it to anything later in the row. That is the rating control's arrow
-			ownership, not this fix — the pad walk into a tray is proved on a row
-			without one (tests/table_input.spec.luau R8-1) and the pad's route to the
-			edit-minus is proved on the row_actions showcase surface
-			(tests/row_actions_scenario.spec.luau). ]]
+			WHY TAB HERE, AND WHAT CHANGED (ruling 9, 2026-08-14). This case used to
+			carry the note "the d-pad cannot get past this row's rating strip": the
+			strip is a value control that owns Left/Right, and at 5 of 5 a DPadRight
+			moved neither the rating nor the ring, so nothing later in the row was
+			pad-reachable at all. That is now fixed — a value control yields the arrow
+			at its limit — and the d-pad walk is asserted in the case immediately
+			below, on this same surface. Tab stays proved here because Tab is a
+			DIFFERENT order (document-order rank, above) and losing it would be a
+			separate regression. ]]
 			local ex = require("../examples/gallery/examples/02_playlist_table")
 			local core = LuauUI.newCore()
 			local env = LuauUI.newEnvironment(core)
@@ -932,6 +933,87 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			expect(core:lastError()).toBeNil()
 		end
 	)
+
+	it("GAMEPAD: the d-pad walks PAST the rating and into the swiped-open tray (ruling 9)", function()
+		--[[ THE SHOWCASE DEMO for ruling 9, on the surface it was measured on.
+
+			Before: `DPadRight` on this row's rating strip moved the rating 4 -> 5 and
+			then, at the maximum, moved nothing at all — the strip had taken Right
+			away from navigation and would not give it back, so the tray that the row
+			had just been taught to expose was unreachable on a gamepad. A gamepad has
+			no Tab, so the case above was the only route in.
+
+			After: the strip yields the arrow at its limit, and the walk continues.
+			The row is swiped open with the mouse first (a Table tray opens only by
+			swipe), and then the pointer is left alone — everything after the swipe is
+			the pad. ]]
+		local ex = require("../examples/gallery/examples/02_playlist_table")
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set("preferredInput", "Gamepad")
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 0 }
+		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local built =
+			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		presenter.present(built.screen, built.present)
+		presenter.refresh()
+		local function settle(frames: number?)
+			for _ = 1, frames or 120 do
+				clock.t += 1 / 60
+				presenter.tick(1 / 60)
+				presenter.refresh()
+			end
+		end
+		local function press(key: string)
+			system.deviceKey(key, true)
+			system.deviceKey(key, false)
+			settle(2)
+		end
+		local key = built.rows:get()[1].id
+		local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		local hit = `{root}/Content/Row/Hit`
+		local remove = `{root}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+
+		local rect = adapter.node(hit).rect
+		local startX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		adapter.pointerDown(hit, startX, y, "mouse")
+		for i = 1, 8 do
+			adapter.pointerMove(startX - rect.w * 0.3 * (i / 8), y, "mouse")
+			settle(1)
+		end
+		adapter.pointerUp(startX - rect.w * 0.3, y)
+		settle(120)
+		expect(adapter.node(remove) ~= nil).toBeTruthy()
+
+		-- ...and from here it is the PAD only. Park the ring on the row, walk right
+		-- onto the rating, push it to its maximum, and keep pushing.
+		presenter.focus.focusOn(hit)
+		presenter.refresh()
+		press("DPadRight")
+		expect(presenter.focus.focused:get()).toBe(ratingStrip(key))
+		local ratingBefore = built.ratingFor(key):get()
+		for _ = 1, 8 do
+			press("DPadRight")
+			if presenter.focus.focused:get() ~= ratingStrip(key) then
+				break
+			end
+		end
+		-- the rating went to its maximum and STAYED there; the ring moved on
+		-- the rating went to its maximum and STAYED there, and the ring moved on to
+		-- the tray button — the exact thing that was unreachable on a pad
+		expect(`rating={built.ratingFor(key):get()} landed={presenter.focus.focused:get()}`).toBe(
+			`rating=5 landed={remove}`
+		)
+		expect(ratingBefore < 5).toBe(true) -- the walk really did have to climb
+		expect(core:lastError()).toBeNil()
+	end)
 
 	it("drag & drop rearranges the playlist rows (post-removal reorder contract)", function()
 		local core, adapter, presenter, built = playlistWorld()

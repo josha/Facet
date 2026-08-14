@@ -74,6 +74,28 @@ files and leaves a half-old, half-patched place — one had to be thrown away on
 operational one.** Three files over the cap cost live sync, and live sync is how
 every device-class defect in this project has been caught.
 
+### FOUR files, later the same day (2026-08-14)
+
+`src/present/presenter.luau` crossed the line while ruling 9 was being built:
+**207,333 on disk against 198,387 in the running showcase session** — probed
+directly rather than inferred, exactly as the paragraph above says to. The fix
+was in the tree, the suite was green on it, and the live session could not be
+made to carry it at all: the sanctioned route is `tools/build_places.sh` plus
+reopening the place, which throws away whatever session is open, and a
+concurrent agent was using that one.
+
+So the practical bite is now on the framework's THIRD most-edited file, and it
+lands as a straight loss: a change to the presenter can no longer be watched
+happen. The number to watch is the file, not the feature — `presenter.luau` sat
+at 205,909 before this round and no single change put it over; it crossed on
+ordinary growth. The list is `renderer.luau`, `screen_target.luau`,
+`row_actions.luau`, `presenter.luau`.
+
+**A cheap operational half-measure worth having:** a check that fails when a
+module crosses 200,000 characters, naming the live-sync consequence, so the
+crossing is a decision somebody makes rather than something a session discovers
+three files later.
+
 ## Why this is worth a file
 
 A cap observed on one path was generalised to every path, and that generalisation

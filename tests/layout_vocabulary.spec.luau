@@ -1081,12 +1081,18 @@ end)
 	a red test rather than a silent drift. Where a ruling is owed, it says so.
 ]]
 describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually behave", function()
-	it("(a) IS BEST-EFFORT: a shrinkable label can still land outside its box, and the solver SAYS SO", function()
-		-- three shrinkable texts in a box far too small for them. The pass absorbs
-		-- what it can and then stops: `absorbTier` can only take back the sum of
-		-- (basis - floor), and a text node's floor is relative to its CONTENT (its
-		-- minimum wrap width), never to the space available. Residual deficit is
-		-- simply not absorbed, and arrange places the children anyway.
+	it("(a) THE CASCADE: three shrinkable labels in a 120px box all land INSIDE it", function()
+		-- THE RULING'S OWN CASE, INVERTED (director ruling 1, 2026-08-13;
+		-- docs/handoff/2026-08-13-rulings-needed.md §1). This used to pin the defect:
+		-- `absorbTier` could only take back the sum of (basis - floor), a text's
+		-- floor was its minimum WRAP width, and the residual deficit was simply not
+		-- absorbed — so the same three labels solved to `x0 w120 / x120 w120 /
+		-- x240 w100` and two of them landed WHOLLY OUTSIDE the box.
+		--
+		-- The director's answer was a cascade: compact, then truncate, then clip.
+		-- With no compact form declared these three take the truncate rung, so each
+		-- is measured on ONE line at its share of the box and the engine's
+		-- TextTruncate.AtEnd cuts it with an ellipsis.
 		local r = solve({
 			kind = "hstack",
 			id = "R",
@@ -1097,20 +1103,32 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 				{ kind = "text", id = "t3", text = "Relevance", shrinkWeight = 1 },
 			},
 		}, 120, 60)
-		-- MEASURED: t1 fills the box, t2 and t3 land wholly outside it.
-		expect(r.rects.t2.rect.x >= 120).toBe(true)
-		expect(r.rects.t3.rect.x >= 120).toBe(true)
-
-		-- ...and this is why it is not a silent wrong result: the solver files the
-		-- overflow AND names the pass that could not close it. A shrink pass that
-		-- absorbed nothing and said nothing would be the defect; this one reports.
-		local said = false
-		for _, d in r.diagnostics or {} do
-			if d.node == "R" and string.find(tostring(d.issue), "already at its floor", 1, true) ~= nil then
-				said = true
-			end
+		-- MEASURED after the ruling: x0 w43 / x43 w44 / x87 w33 — nothing outside.
+		local ends = {}
+		for _, id in { "t1", "t2", "t3" } do
+			local rect = r.rects[id].rect
+			table.insert(ends, `{id}@{rect.x}+{rect.w}`)
+			expect(`{id} ends at {rect.x + rect.w} within 120: {rect.x + rect.w <= 120}`).toBe(
+				`{id} ends at {rect.x + rect.w} within 120: true`
+			)
 		end
-		expect(said).toBe(true)
+		expect(table.concat(ends, " ")).toBe("t1@0+43 t2@43+44 t3@87+33")
+
+		-- ...and each says it was cut, on one line, rather than wrapping into a
+		-- column narrower than its own longest word (ruling 5)
+		for _, id in { "t1", "t2", "t3" } do
+			local facts = r.rects[id].textFacts
+			expect(`{id} lines={facts.lines} truncated={facts.truncated} wraps={facts.wraps}`).toBe(
+				`{id} lines=1 truncated=true wraps=false`
+			)
+		end
+
+		-- ...and the row now FITS, so there is no overflow left to report. The
+		-- diagnostic is not gone, it is unfired: the clip rung below it is what
+		-- answers when a cascade genuinely cannot close the gap
+		-- (tests/stack_distribution.spec, "the overflow diagnostic names the
+		-- priority order the pass tried").
+		expect(#(r.diagnostics or {})).toBe(0)
 	end)
 
 	it("(b) shrinkWeight DOES NOT change which ViewThatFits candidate wins, at ANY width", function()

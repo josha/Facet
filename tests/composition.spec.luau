@@ -1990,3 +1990,98 @@ describe("composition — hug-lane overflow is reported, not silent", function()
 		expect(`fieldQuiet={table.concat(r.hugOverflow, ",")}`).toBe("fieldQuiet=")
 	end)
 end)
+
+--[[ ===== RULING 8: A DECLARED FALLBACK IS NOT A DEFECT =======================
+
+	`UI.Composition` files a finding when none of the arrangements an author
+	declared is legal at the current size and it is showing the LAST one — the
+	fallback the author declared for exactly that case.
+
+	IN PLAIN LANGUAGE: an author lists layouts richest-first and the composition
+	picks the first that fits. When nothing fits, the last one is what the author
+	said to use anyway, and the finding is the composition SAYING SO. Nothing is
+	broken, nothing is clipped, nothing paints outside anything. It is the system
+	doing what it was told, out loud.
+
+	Every OTHER finding this solver produces reports something the author did not
+	intend and would fix. Those two kinds of message were indistinguishable, so
+	each consumer had to recognise this one by its wording: LuauUI's own sweep
+	carried it as a waiver with a px ceiling (i.e. "a defect we tolerate"), while
+	Rascal Rally excluded it by substring with the reason in a comment (i.e. "not
+	a defect"). The two sides of the lockstep rule disagreed about the same
+	sentence.
+
+	THE DECISION (director, 2026-08-14): it is correct behaviour. So the FINDING
+	itself now says which kind it is — `designed = true` — and both sides read that
+	one field instead of recognising a sentence. A future designed-by-contract
+	report gets the same treatment for free, and a defect can never acquire the
+	mark by accident, because there is exactly one place that sets it. ]]
+describe("ruling 8: the declared-fallback finding is marked as designed behaviour", function()
+	it("the fallback finding carries designed = true, and names the fallback it is showing", function()
+		local _, _, _, _, controller = mounted(200, 120)
+		local marked, text = 0, ""
+		for _, d in controller.diagnostics() do
+			if string.find(tostring(d.issue), "no declared arrangement is legal", 1, true) ~= nil then
+				marked += if d.designed == true then 1 else 0
+				text = tostring(d.issue)
+			end
+		end
+		expect(`marked={marked}`).toBe("marked=1")
+		expect(string.find(text, "as the declared fallback", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("NEGATIVE CONTROL: an ordinary defect in the SAME solve is NOT marked", function()
+		--[[ The mark has to SEPARATE two findings, so a fixture that produces only
+			the designed one cannot prove anything: a build that marked every finding
+			would pass the case above. This screen carries the composition at a size
+			where nothing it declared is legal, next to a row of fixed boxes far wider
+			than the viewport — one designed report and one plain overflow, in one
+			solve, read off the same list. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 200, h = 120 })
+		local screen = UI.Screen({
+			id = "S",
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			children = {
+				(screenWith(core) :: any).children[1],
+				UI.HStack({
+					id = "TooWide",
+					gap = 0,
+					children = {
+						UI.Box({
+							id = "w1",
+							width = { type = "fixed", px = 400 },
+							height = { type = "fixed", px = 10 },
+						}),
+						UI.Box({
+							id = "w2",
+							width = { type = "fixed", px = 400 },
+							height = { type = "fixed", px = 10 },
+						}),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local designed, plain = 0, 0
+		for _, d in controller.diagnostics() do
+			if d.designed == true then
+				designed += 1
+			else
+				plain += 1
+			end
+		end
+		expect(`designed={designed} plain>0={plain > 0}`).toBe("designed=1 plain>0=true")
+	end)
+
+	it("a composition whose declared arrangement FITS reports nothing at all", function()
+		-- the mark is not a licence to chatter: a legal arrangement is silent
+		local _, _, _, _, controller = mounted(900, 320)
+		expect(`findings={#controller.diagnostics()}`).toBe("findings=0")
+	end)
+end)

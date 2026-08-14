@@ -1032,14 +1032,28 @@ that is not the offer, that input goes in the key in the same commit.
 >
 > Measured 2026-08-13: swept 150–420px in 10px steps, adding `shrinkWeight = 1`
 > to a wide candidate's children flips the winner at **10 of 28 widths (290–380)**.
-> Pinned by `tests/layout_vocabulary.spec.luau`, "shrinkWeight CHANGES WHICH
-> ViewThatFits CANDIDATE WINS".
 >
-> **A ruling is still owed** and the test deliberately does not pre-empt it. The
-> behaviour is arguably correct — a candidate that can shrink to fit does fit —
-> but it is undefined, it contradicted this document, and the winner now depends
-> on a prop declared on the candidate's *children*, which the `ViewThatFits`
-> author may not own.
+> **RULED 2026-08-14 (ruling 2, director: "follow swiftui's behavior") — the
+> section's original CONCLUSION is now true again, for a reason it did not know.**
+> SwiftUI selects "the first child whose *ideal size* on the constrained axes fits
+> within the proposed size", and an ideal size is what a view reports when nothing
+> is proposed to it; truncation, `lineLimit` and `minimumScaleFactor` are all
+> invisible to that choice. `shrinkWeight` belongs to that family, so
+> `chosenCandidate` now measures candidates with the shrink pass suppressed
+> (`ctx.fitProbe`) and `ViewThatFits` is once again unaffected by it. The winner
+> is still shrunk after it wins, which is SwiftUI's other half.
+>
+> So the sentence "`ViewThatFits` picks its candidate before any of this and is
+> therefore unaffected" is once more accurate — but it was FALSE ON DISK for two
+> days, and the reason it was false is the reason this correction stays here: a
+> design document that asserts a consequence of another section is only true until
+> that section is amended, and nothing links the two.
+>
+> Pinned by `tests/layout_vocabulary.spec.luau`, "(b) shrinkWeight DOES NOT change
+> which ViewThatFits candidate wins, at ANY width" (the whole 28-width sweep, not
+> a sample), "(c) ...and the candidate that WINS is still shrunk", and "(d) the
+> fit probe is part of the MEASURE MEMO's key". Evidence and citations:
+> `docs/lessons/a-candidate-is-judged-at-its-ideal-size.md`.
 
 **Amended 2026-08-12 (second time) — the pass runs in the MEASURE pass too, and
 that is a different cache-key claim.** The spec above was arrange-only, on the
