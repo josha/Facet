@@ -21,13 +21,26 @@
 -- between two states of one screen, and a still screenshot flattens a comparison
 -- into one picture (`flow_wrap`'s wrapping switch is here for the same reason).
 --
--- SAFE AREAS ARE THE ROOT POLICY'S JOB, not this fixture's: `deviceSafeContent`
--- clears the CoreGui topbar AND the device notch/home insets from one authority,
--- which is what keeps the top-left cluster off Roblox's own chrome in the
--- screenshot. This surface therefore declares the policy and no insets of its own.
+-- AND THE PLATFORM'S OWN ROW (ADR-0027, director 2026-08-14: *"we should be able
+-- to have things at top that are aligned with the controls but don't overlap"*).
+-- Roblox's chrome does NOT own the whole top band — measured live at 735x413 it
+-- occupies x 0..164 of a 58px band and the rest of that band is the developer's
+-- (`GuiService.TopbarInset`). `deviceSafeContent` spends the whole band because a
+-- rect inset is a bounding box, so nothing could ever sit level with the platform's
+-- buttons. This surface therefore presents `edgeToEdge` and insets itself from the
+-- ONE fact that knows the difference — `platformChrome` — which is still a single
+-- authority, just one that can state an L:
+--
+--   riding the band   margin.top = platformChrome.bandInsets.top (0 here), and the
+--                     `topbar` zone is the row LEVEL WITH the platform's controls
+--   not riding        margin.top = platformChrome.insets.top — byte-identical to
+--                     what `deviceSafeContent` applied, which is what a platform
+--                     reporting NO strip (desktop, or an engine without
+--                     `GetInsetArea`) gets automatically
 --
 -- THE ZONES, and the director's own list of where things live:
---   topLeft     the round-button strip (the chrome sits above it)
+--   topbar      the objective chip, in the free strip beside Roblox's own buttons
+--   topLeft     the round-button strip (the platform's chrome sits above it)
 --   left        the "Beginner Tasks" panel — three forms: full / one task / chip
 --   top         the round timer and the score pill
 --   topRight    the weapon rail (two forms) and the fps/ping readout (droppable)
@@ -53,6 +66,9 @@ local COPY = {
 	action3 = "Menu",
 	feed = "Ravi eliminated Mo",
 	urlBarOn = "URL bar",
+	rideOn = "Topbar strip",
+	objective = "Round 3 · Capture",
+	objectiveShort = "R3",
 	round1 = "A",
 	round2 = "B",
 	round3 = "C",
@@ -62,6 +78,15 @@ local COPY = {
 -- phone losing this much height is the exact case; it is a constant here because
 -- it is a fact about the SCREENSHOT, not a layout number the theme owns.
 local URL_BAR_PX = 200
+
+-- ...and the same kind of constant for the OTHER commissioning fact: the width of
+-- Roblox's own control cluster, measured live at 735x413 on 2026-08-14. It is used
+-- for ONE thing — modelling a platform in the headless suite and the always-on
+-- sweep, which have no engine to ask — and never by the layout, which reads
+-- `platformChrome`. A fixture that could not model the platform would leave the
+-- mechanism unexercised by every sweep, which is how a feature becomes decoration.
+local MODELLED_CLUSTER_PX = 164
+local MODELLED_STRIP_PX = 58
 
 return {
 	title = "Screen-anchored HUD (ADR-0025)",
@@ -74,9 +99,96 @@ return {
 		local scope = core:scope("hud")
 
 		local urlBar = scope:own(core:signal(false))
-		local margin = scope:own(core:memo(function(use)
-			return { top = 0, right = 0, bottom = if use(urlBar) then URL_BAR_PX else 0, left = 0 }
+		-- the author's own decision, and the demo's second comparison: a HUD that
+		-- RIDES the platform's free strip against the same HUD that does not
+		local ride = scope:own(core:signal(true))
+
+		local env = ctx.env
+		local chromeFact = env:get("platformChrome")
+		local viewportFact = env:get("viewportRect")
+
+		--[[ MODELLING A PLATFORM THAT IS NOT THERE (headless only). The engine
+			publishes `topbarInset` through `roblox_env`; a Lune suite and the
+			always-on overflow sweep have no engine, so `platformChrome.band` is nil
+			and every rung below would be the no-strip one — the mechanism would ship
+			unexercised by the sweep that is supposed to be watching it. So when, and
+			only when, the platform reports NO strip, this fixture states one the way
+			the live engine states it. On any real client the fact is already there
+			and this branch never runs.
+
+			`flags.noTopbarStrip` opts out, which is how a test drives the OTHER
+			platform — the one with no strip at all — through this same fixture. ]]
+		local modelStrip = (ctx.flags == nil or ctx.flags.noTopbarStrip ~= true)
+			and (chromeFact:get() :: any).band == nil
+		if modelStrip then
+			local vp = viewportFact:get()
+			local coreTop = (env:get("coreSafeInsets"):get() or {}).top or 0
+			if coreTop > 0 and vp.w > MODELLED_CLUSTER_PX * 2 then
+				env:set("topbarInset", {
+					x = MODELLED_CLUSTER_PX,
+					y = 0,
+					w = vp.w - MODELLED_CLUSTER_PX,
+					h = math.min(MODELLED_STRIP_PX, coreTop),
+				})
+			end
+		end
+
+		-- ONE fact, read four ways. Nothing below knows 164, or 58, or a device.
+		local riding = scope:own(core:memo(function(use)
+			return use(ride) == true and (use(chromeFact) :: any).band ~= nil
 		end))
+		-- the surface is edgeToEdge, so the HUD spends the insets itself — from the
+		-- fact, and the fact alone. Riding the band spends the top down to where the
+		-- band starts; not riding spends the whole band, which is exactly what
+		-- `deviceSafeContent` used to apply here.
+		local margin = scope:own(core:memo(function(use)
+			local chrome = use(chromeFact) :: any
+			local insets = if use(riding) then chrome.bandInsets else chrome.insets
+			return {
+				top = insets.top,
+				right = 0,
+				bottom = if use(urlBar) then URL_BAR_PX else 0,
+				left = 0,
+			}
+		end))
+		-- everything the HUD is NOT allowed to reach, on the other three edges. The
+		-- top is the HUD's own margin above, because the top is the edge with a hole
+		-- in it.
+		local screenPadding = scope:own(core:memo(function(use)
+			local insets = (use(chromeFact) :: any).insets
+			return { top = 0, right = insets.right, bottom = insets.bottom, left = insets.left }
+		end))
+		-- the topbar row: as tall as the band the platform left free, and inset to
+		-- START where that band starts — so the chip is level with Roblox's own
+		-- buttons and cannot be over them.
+		local stripHeight = scope:own(core:memo(function(use)
+			local chrome = use(chromeFact) :: any
+			if not use(riding) then
+				return { type = "fixed", px = 0 }
+			end
+			return { type = "fixed", px = math.max(0, chrome.insets.top - chrome.bandInsets.top) }
+		end))
+		-- ...and the platform's own cluster is held open as SPACE inside that row —
+		-- a leading spacer as wide as the distance from the HUD's own left edge to
+		-- where the free band begins, and a trailing one for the platforms that put
+		-- something on the right too. Space, not an offset, so the row's content is
+		-- laid out INSIDE what is left rather than positioned over what is not.
+		local function edgeSpacer(pick: (any, any) -> number): any
+			return scope:own(core:memo(function(use)
+				local chrome = use(chromeFact) :: any
+				local band = chrome.band
+				if not use(riding) or band == nil then
+					return { type = "fixed", px = 0 }
+				end
+				return { type = "fixed", px = math.max(0, pick(chrome, use(viewportFact))) }
+			end))
+		end
+		local stripLead = edgeSpacer(function(chrome, _vp)
+			return chrome.band.x - chrome.insets.left
+		end)
+		local stripTrail = edgeSpacer(function(chrome, vp)
+			return (vp.w - chrome.insets.right) - (chrome.band.x + chrome.band.w)
+		end)
 
 		-- ---- the pieces --------------------------------------------------
 		local function roundButton(id: string, label: string): any
@@ -114,6 +226,68 @@ return {
 			groups = LuauUI.composition.HUD_GROUPS,
 			arrangements = { LuauUI.composition.HUD },
 			children = {
+				-- THE PLATFORM'S OWN ROW (ADR-0027). A `span = "above"` group, so it
+				-- is one full-width row above every lane in every arrangement — which
+				-- is what makes the nine anchored zones start BELOW the platform's
+				-- band instead of being told to avoid it. Its content is inset to the
+				-- free band's own left edge, so it sits level with Roblox's buttons
+				-- and cannot be on them; when nothing is riding, `UI.When` closes the
+				-- row entirely and the composition is byte-identical to the HUD that
+				-- never had the zone.
+				UI.Region({
+					id = "Strip",
+					group = "topbar",
+					rank = 6,
+					--[[ RESERVED, AND THIS IS THE ONE THAT WAS FOUND BY THE CHECK.
+						With `mayDrop` the row was droppable, so on a 213px-tall window
+						the ladder dropped it (rank 6, 58px bought) — and every lane then
+						climbed into the space it left, which is THE PLATFORM'S BAND. The
+						band is not the HUD's to reclaim: it belongs to Roblox whether or
+						not this HUD has anything to put in it. `reserved` is rule 7's own
+						word for exactly that, and it is live, so the row reserves nothing
+						at all on the rung that is not riding. ]]
+					reserved = riding,
+					-- the floor a reserved region owes: content-expressed, like every
+					-- floor. The row's real height is the band's (a platform fact the
+					-- form carries); this is only what it may never fall below.
+					floor = { targets = 1 },
+					children = {
+						UI.HStack({
+							id = "StripRow",
+							width = { type = "fill", weight = 1 },
+							height = stripHeight,
+							align = "center",
+							children = {
+								UI.Spacer({ id = "StripLead", width = stripLead }),
+								UI.HStack({
+									id = "StripFree",
+									width = { type = "fill", weight = 1 },
+									align = "center",
+									distribute = "center",
+									children = {
+										UI.When({
+											id = "StripChip",
+											condition = riding,
+											thenView = function()
+												-- the band can be narrow (a 320px phone has ~156px
+												-- of it), so the fit is the framework's decision
+												-- and not an authored width guess
+												return UI.ViewThatFits({
+													id = "StripFit",
+													children = {
+														pill("Objective", COPY.objective, "caption"),
+														pill("ObjectiveShort", COPY.objectiveShort, "caption"),
+													},
+												})
+											end,
+										}),
+									},
+								}),
+								UI.Spacer({ id = "StripTrail", width = stripTrail }),
+							},
+						}),
+					},
+				}),
 				-- UPPER LEFT — the round-button strip. One form: this is the thing
 				-- the player reaches for, and a HUD that hides its own buttons on a
 				-- short screen has solved the wrong problem.
@@ -265,17 +439,32 @@ return {
 			},
 		})
 
-		-- The switch is the FIXTURE'S DRIVER, not HUD content, so it sits under the
-		-- HUD rather than in a zone: a Toggle does not fit a third of a 320px phone,
-		-- and putting the instrument inside the thing it measures would have made
-		-- the narrowest swept viewport a test of the instrument.
+		-- The switches are the FIXTURE'S DRIVERS, not HUD content, so they sit under
+		-- the HUD rather than in a zone: a Toggle does not fit a third of a 320px
+		-- phone, and putting the instrument inside the thing it measures would have
+		-- made the narrowest swept viewport a test of the instrument.
+		--
+		-- The screen is `edgeToEdge` (the HUD needs the top band), so the three edges
+		-- with no hole in them are spent HERE, once, from the same fact — which is
+		-- also what keeps these two drivers off a home indicator.
 		local screen = UI.Screen({
 			id = "HudScreen",
-			padding = 0,
+			padding = screenPadding,
 			gap = 4,
 			children = {
 				hud,
-				UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
+				-- two switches WRAP rather than run off a 320px phone at the largest
+				-- text preference — found by the always-on sweep the moment the second
+				-- one was added, which is the sweep doing its job on the instrument
+				UI.HStack({
+					id = "Drivers",
+					gap = 12,
+					wrap = true,
+					children = {
+						UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
+						UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
+					},
+				}),
 			},
 		})
 
@@ -287,9 +476,12 @@ return {
 
 		return {
 			screen = screen,
-			-- the topbar and the notch come from ONE authority; a HUD that inset
-			-- itself would be the second source of truth this policy exists to remove
-			present = { rootPolicy = "deviceSafeContent" },
+			-- EDGE TO EDGE, and the insets come from `platformChrome` above — still
+			-- ONE authority, and the only one that can say "the top band is an L".
+			-- `deviceSafeContent` would spend the whole band and put the topbar row
+			-- out of reach; every other edge is spent identically (pinned in
+			-- tests/adaptive.spec.luau).
+			present = { rootPolicy = "edgeToEdge" },
 			steps = {
 				openUrlBar = function()
 					urlBar:set(true)
@@ -298,6 +490,14 @@ return {
 				closeUrlBar = function()
 					urlBar:set(false)
 					return { urlBar = false, lostPx = 0 }
+				end,
+				rideStrip = function()
+					ride:set(true)
+					return { riding = riding:get(), band = (chromeFact:get() :: any).band }
+				end,
+				leaveStrip = function()
+					ride:set(false)
+					return { riding = false }
 				end,
 			},
 			report = function()
@@ -312,6 +512,7 @@ return {
 						end
 					end
 				end
+				local chrome = chromeFact:get() :: any
 				return {
 					urlBar = urlBar:get(),
 					arrangement = if dump ~= nil then dump.arrangement else nil,
@@ -321,6 +522,13 @@ return {
 					collisions = if dump ~= nil then #dump.collisions else nil,
 					forms = forms,
 					dropped = dropped,
+					-- ...and the OTHER whole point, in three: what the platform kept,
+					-- what it left free, and whether this HUD is using it. The rects
+					-- nothing may touch are `chromeRects`; the regression check that
+					-- nothing does is tests/hud_composition.spec.luau.
+					riding = riding:get(),
+					band = chrome.band,
+					chromeRects = chrome.rects,
 				}
 			end,
 			dispose = function()

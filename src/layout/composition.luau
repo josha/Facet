@@ -263,7 +263,22 @@ composition.ARRANGEMENTS = table.freeze({
 -- An author who wants a different split copies this table and edits it; the
 -- lane's share is the sum of its `fill` groups' weights.
 
+-- ...and a TENTH zone that is not one of the nine anchors, because it is not in
+-- the box the anchors partition: `topbar` is the row LEVEL WITH THE PLATFORM'S
+-- OWN CONTROLS (ADR-0027, director 2026-08-14 — "things at top that are aligned
+-- with the controls but don't overlap"). It is a `span = "above"` group, which is
+-- the vocabulary the composition already has for "its own full-width row above
+-- the band of lanes, in every arrangement", so the lanes start BELOW it and the
+-- top-left cluster is clear of the platform's cluster by construction rather than
+-- by an authored offset.
+--
+-- It costs nothing to a HUD that does not use it: a span group with no regions is
+-- inactive, takes no height and appears in no output (pinned as an additivity
+-- test in tests/hud_composition.spec.luau). The band's GEOMETRY — where the row
+-- sits and how wide the free part of it is — is the `platformChrome` env fact,
+-- never a number in here.
 composition.ZONES = table.freeze({
+	"topbar",
 	"topLeft",
 	"left",
 	"bottomLeft",
@@ -297,7 +312,10 @@ local function hudColumn(lane: string, align: string, zones: { string }): { Grou
 end
 
 do
-	local groups: { GroupDecl } = {}
+	local groups: { GroupDecl } = {
+		-- the platform's own row, above every lane and in every arrangement
+		table.freeze({ id = "topbar", span = "above" }) :: any,
+	}
 	for _, g in hudColumn("left", "start", { "topLeft", "left", "bottomLeft" }) do
 		table.insert(groups, g)
 	end

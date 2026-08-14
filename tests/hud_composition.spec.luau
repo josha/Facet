@@ -218,6 +218,74 @@ describe("ADR-0025 Decision 2: holdsLane pins a column that has nothing in it", 
 	end)
 end)
 
+-- ===== 2b. the topbar zone: the row level with the platform's controls =======
+
+describe("ADR-0027: the `topbar` zone is a span row, and it is free when unused", function()
+	local function serialize(v: any): string
+		if type(v) ~= "table" then
+			return tostring(v)
+		end
+		local keys: { any } = {}
+		for k in v do
+			table.insert(keys, k)
+		end
+		table.sort(keys, function(a, b)
+			return tostring(a) < tostring(b)
+		end)
+		local parts = {}
+		for _, k in keys do
+			table.insert(parts, `{tostring(k)}={serialize((v :: any)[k])}`)
+		end
+		return `\{{table.concat(parts, ",")}\}`
+	end
+
+	it("a HUD that declares nothing in it resolves BYTE-IDENTICALLY to one without the group", function()
+		local before: { any } = {}
+		for _, g in composition.HUD_GROUPS do
+			if g.id ~= "topbar" then
+				table.insert(before, g)
+			end
+		end
+		expect(#before).toBe(#composition.HUD_GROUPS - 1)
+		for _, size in { { w = 900, h = 500 }, { w = 900, h = 300 }, { w = 320, h = 640 } } do
+			local withZone = composition.resolve(hud(FULL), size, CTX)
+			local without =
+				composition.resolve({ groups = before, arrangements = { composition.HUD }, regions = FULL }, size, CTX)
+			expect(serialize(composition.dump(withZone))).toBe(serialize(composition.dump(without)))
+		end
+	end)
+
+	it("a region declared in it rides ABOVE every lane and spends the height from the lane budget", function()
+		local regions = table.clone(FULL)
+		table.insert(regions, { id = "Strip", group = "topbar", rank = 2, forms = 1 })
+		local sizes = table.clone(SIZES)
+		sizes.Strip = { { w = 900, h = 58 } }
+		local ctx = {
+			measure = function(id: string, form: number, _w: number, _h: number): (number, number)
+				local list = sizes[id]
+				local s = list[math.min(form, #list)]
+				return s.w, s.h
+			end,
+		}
+		local r = composition.resolve({
+			groups = composition.HUD_GROUPS,
+			arrangements = { composition.HUD },
+			regions = regions,
+		}, { w = 900, h = 500 }, ctx)
+		local strip = r.regionById.Strip
+		expect(strip.span).toBe("above")
+		expect(strip.rect.y).toBe(0)
+		expect(strip.rect.h).toBe(58)
+		-- every lane — and therefore every one of the nine anchored zones — starts
+		-- BELOW it, which is what keeps the top-left cluster off the platform's own
+		for _, lane in r.lanes do
+			expect(lane.rect.y >= 58).toBe(true)
+		end
+		expect(r.regionById.Chrome.rect.y >= 58).toBe(true)
+		assertNoOverlap(r, "900x500 with a topbar row")
+	end)
+end)
+
 -- ===== 3. the height shrink degrades by rank ================================
 
 describe("ADR-0025: a height shrink DEGRADES, in rank order", function()
@@ -499,5 +567,227 @@ describe("ADR-0025: a mounted HUD loses 200px of height", function()
 		expect(string.find((found :: any).issue, "region '/S/H/Wide' paints over", 1, true) ~= nil).toBe(true)
 		expect((found :: any).node).toBe("/S/H/Wide")
 		expect((found :: any).designed).toBe(nil)
+	end)
+end)
+
+-- ===== 6. the platform's own controls are NEVER painted on (ADR-0027) =======
+--
+-- THE COMMISSIONING CASE, again from the director (2026-08-14): a shipped Roblox
+-- FPS whose HUD collapses into Roblox's own chrome when a browser URL bar shrinks
+-- the viewport. The framework's answer was already safe — `deviceSafeContent`
+-- insets by the per-edge MAX of the core and device insets, so the whole 58px top
+-- band was spent — but NOTHING ASSERTED IT, and an unasserted guarantee is a
+-- guarantee until someone looks.
+--
+-- It is asserted here, and asserted against the fact rather than a number: the
+-- rects the platform's own controls occupy are `platformChrome.rects`, and the
+-- oracle is EVERY PAINTED NODE of the SHIPPED showcase fixture — not a lookalike
+-- built in this file, and not the composition's own idea of where it put things.
+-- A pure layout container is skipped (the target reports the live adapter's own
+-- elision verdict: it paints nothing), which is what lets the topbar ROW span the
+-- full width while its content starts at the free band's edge.
+--
+-- The profiles are driven facts, never this machine's: `deviceSafeInsets` reads 0
+-- in Studio and non-zero on a notched phone, so a check that trusted the local
+-- environment would pass everywhere and prove nothing.
+
+describe("ADR-0027: nothing the HUD paints lands on the platform's own controls", function()
+	local LuauUI = require("../src") :: any
+	local hudScenario = require("../examples/gallery/scenarios/hud")
+
+	-- verbatim from the live engine where marked; the rest are the device classes
+	-- the matrix already models. `bar` is `GuiService.TopbarInset` in window space.
+	local PROFILES = {
+		{
+			id = "studio live 735x413 (measured 2026-08-14)",
+			vp = { w = 735, h = 413 },
+			core = { top = 58, bottom = 0, left = 0, right = 0 },
+			device = { top = 0, bottom = 0, left = 0, right = 0 },
+			topbarSafe = { top = 0, bottom = 355, left = 164, right = 0 },
+			bar = { x = 164, y = 0, w = 571, h = 58 },
+		},
+		{
+			-- THE DIRECTOR'S SCREENSHOT: the browser URL bar takes 200px of height
+			-- and the same facts describe a 213px-tall window
+			id = "the same window with a URL bar open (735x213)",
+			vp = { w = 735, h = 213 },
+			core = { top = 58, bottom = 0, left = 0, right = 0 },
+			device = { top = 0, bottom = 0, left = 0, right = 0 },
+			topbarSafe = { top = 0, bottom = 155, left = 164, right = 0 },
+			bar = { x = 164, y = 0, w = 571, h = 58 },
+		},
+		{
+			id = "notched landscape phone (812x375, notch 47 + home 21)",
+			vp = { w = 812, h = 375 },
+			core = { top = 58, bottom = 0, left = 59, right = 59 },
+			device = { top = 0, bottom = 21, left = 47, right = 47 },
+			topbarSafe = { top = 0, bottom = 317, left = 273, right = 59 },
+			bar = { x = 273, y = 0, w = 480, h = 58 },
+		},
+		{
+			id = "narrow portrait phone (320x640) — the cluster is HALF the width",
+			vp = { w = 320, h = 640 },
+			core = { top = 58, bottom = 0, left = 0, right = 0 },
+			device = { top = 0, bottom = 0, left = 0, right = 0 },
+			topbarSafe = { top = 0, bottom = 582, left = 164, right = 0 },
+			bar = { x = 164, y = 0, w = 156, h = 58 },
+		},
+		{
+			-- an engine without `GetInsetArea`: no topbar facts at all, so the whole
+			-- band is the platform's and there is nothing to ride
+			id = "an engine that reports NO strip",
+			vp = { w = 1280, h = 720 },
+			core = { top = 58, bottom = 0, left = 0, right = 0 },
+			device = { top = 0, bottom = 0, left = 0, right = 0 },
+			topbarSafe = { top = 0, bottom = 0, left = 0, right = 0 },
+			bar = { x = 0, y = 0, w = 0, h = 0 },
+			-- ...and the fixture must not MODEL one either: it states a platform
+			-- strip when the platform reports none, so the headless sweep exercises
+			-- the mechanism. This flag is how the other platform is driven.
+			noStrip = true,
+		},
+	}
+
+	local function drive(profile: any): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = profile.vp.w, h = profile.vp.h })
+		env:set("coreSafeInsets", profile.core)
+		env:set("deviceSafeInsets", profile.device)
+		env:set("topbarSafeInsets", profile.topbarSafe)
+		env:set("topbarInset", profile.bar)
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local built = hudScenario.build({
+			LuauUI = LuauUI,
+			core = core,
+			env = env,
+			adapter = adapter,
+			presenter = presenter,
+			actionSystem = system,
+			record = function() end,
+			flags = { noTopbarStrip = profile.noStrip == true },
+		})
+		presenter.present(built.screen, built.present)
+		presenter.refresh()
+		return {
+			env = env,
+			adapter = adapter,
+			built = built,
+			refresh = function()
+				presenter.refresh()
+			end,
+			dispose = function()
+				built.dispose()
+			end,
+		}
+	end
+
+	--[[ WHAT COUNTS AS "PAINTS". A container may legitimately SPAN the platform's
+		band — the topbar row is full-width by definition, and so is the surface it
+		is in; what must never happen is something DRAWN there. So a node is checked
+		unless it is a pure structural box: one the target elides outright (the live
+		adapter's own verdict — it gives a layout container a handle and no engine
+		object), or one of the classes that only ever carries children. Those are
+		skipped ONLY while they carry no decoration, so a Screen with a backdrop or a
+		Region with a plate is still checked and the exemption cannot become a hole. ]]
+	local STRUCTURAL: { [string]: boolean } =
+		{ Screen = true, Composition = true, Region = true, When = true, ForEach = true, ViewThatFits = true }
+
+	-- every node the adapter would actually PAINT, against every rect the platform
+	-- keeps for itself. The failure names both boxes, because "which node" and
+	-- "which rect" are two different bugs.
+	local function assertClearsChrome(w: any, where: string, minPainted: number)
+		local chrome = w.env:get("platformChrome"):get()
+		expect(#chrome.rects > 0).toBe(true) -- a check with nothing to check is decoration
+		local checked = 0
+		for _, path in w.adapter.paths() do
+			local node = w.adapter.node(path)
+			local rect = if node ~= nil then node.rect else nil
+			if rect == nil or node.elided == true or rect.w <= 0 or rect.h <= 0 then
+				continue
+			end
+			if STRUCTURAL[node.class] and node.decorationHint == nil then
+				continue
+			end
+			checked += 1
+			for _, r in chrome.rects do
+				local dx, dy = intersects(rect, r)
+				if dx > 0 then
+					error(
+						`{where}: '{path}' [box {rect.w}x{rect.h} at {rect.x},{rect.y}] paints {dx}x{dy}px into `
+							.. `the platform's own controls [rect {r.w}x{r.h} at {r.x},{r.y}]`,
+						0
+					)
+				end
+			end
+		end
+		-- ...and the check saw a HUD, not an empty adapter: the whole failure class
+		-- this file exists for is a check that proves nothing
+		if checked < minPainted then
+			error(`{where}: only {checked} painted node(s) were checked — this HUD did not render`, 0)
+		end
+	end
+
+	for _, profile in PROFILES do
+		it(`clears the chrome on {profile.id}, riding the strip and not`, function()
+			local w = drive(profile)
+			assertClearsChrome(w, `{profile.id} (riding)`, 10)
+			-- ...and with the URL bar open, which is the state the screenshot caught
+			w.built.steps.openUrlBar()
+			w.refresh()
+			-- a window with 13px of HUD left still paints its reserved row and its
+			-- top-ranked buttons; the floor is here so a surface that VANISHED could
+			-- never be mistaken for one that cleared the chrome
+			assertClearsChrome(w, `{profile.id} (riding, URL bar open)`, 5)
+			-- ...and on the rung that does NOT ride the band, which is what every
+			-- platform reporting no strip gets
+			w.built.steps.leaveStrip()
+			w.refresh()
+			assertClearsChrome(w, `{profile.id} (not riding, URL bar open)`, 5)
+			w.built.steps.closeUrlBar()
+			w.refresh()
+			assertClearsChrome(w, `{profile.id} (not riding)`, 10)
+			w.dispose()
+		end)
+	end
+
+	it("...and it is USING the strip: the objective chip is level with Roblox's own buttons", function()
+		local w = drive(PROFILES[1])
+		local chrome = w.env:get("platformChrome"):get()
+		local band = chrome.band
+		expect(band ~= nil).toBe(true)
+		local chip = w.adapter.node("/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective")
+		expect(chip ~= nil).toBe(true)
+		local rect = (chip :: any).rect
+		-- INSIDE the platform's own band, vertically — this is the "aligned with the
+		-- controls" half, and it is what a full-width top inset made impossible
+		expect(rect.y >= band.y).toBe(true)
+		expect(rect.y + rect.h <= band.y + band.h).toBe(true)
+		-- ...and to the RIGHT of the cluster, which is the "never overlapping" half
+		expect(rect.x >= band.x).toBe(true)
+		expect(rect.x + rect.w <= band.x + band.w).toBe(true)
+		-- ...centred in the FREE BAND, not in the window. On a wide screen those two
+		-- are far enough apart to tell apart and close enough that only this
+		-- assertion does: a row that ignored the cluster entirely would still clear
+		-- it here, and would be over it on a phone.
+		local centre = rect.x + rect.w / 2
+		expect(math.abs(centre - (band.x + band.w / 2)) <= 1).toBe(true)
+		expect(math.abs(centre - 735 / 2) > 1).toBe(true)
+		-- the nine anchored zones are all below the band, by construction: the row
+		-- is a span, so the lanes start under it
+		local rounds = w.adapter.node("/HudScreen/Hud/Rounds")
+		expect((rounds :: any).rect.y >= band.y + band.h).toBe(true)
+		w.dispose()
+	end)
+
+	it("the rung with no strip is EXACTLY what deviceSafeContent applied: the top band is spent whole", function()
+		local w = drive(PROFILES[5])
+		local chrome = w.env:get("platformChrome"):get()
+		expect(chrome.band).toBe(nil)
+		local rounds = w.adapter.node("/HudScreen/Hud/Rounds")
+		expect((rounds :: any).rect.y).toBe(chrome.insets.top)
+		w.dispose()
 	end)
 end)

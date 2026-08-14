@@ -22,24 +22,28 @@ local FACT_DEFAULTS: { [string]: any } = {
 	deviceSafeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 	coreSafeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 	topbarInset = { x = 0, y = 0, w = 0, h = 0 }, -- dynamic geometry, NOT a symmetric margin (§8.1)
-	--[[ …and WHERE that geometry lives, in window space. `topbarInset` is the
-		platform's FREE topbar rect — the strip left over beside the engine's own
-		control cluster — but its coordinates are stated relative to the
-		TOPBAR-SAFE area, not the window, so on a notched device it cannot be
-		placed without knowing where that area starts. That is this fact: the same
-		four-edge shape as `coreSafeInsets`/`deviceSafeInsets`, measured from
-		`GuiService:GetInsetArea(Enum.ScreenInsets.TopbarSafeInsets)`.
+	--[[ …and the SAME band stated as four edges: the topbar-safe area, measured
+		from `GuiService:GetInsetArea(Enum.ScreenInsets.TopbarSafeInsets)` through
+		the same conversion `coreSafeInsets`/`deviceSafeInsets` use, so it is in
+		window space like them.
 
-		A game that docks its own control into the platform's topbar row — beside
-		the engine cluster, where a player already looks for chrome — needs both,
-		and until this fact existed the second one could only be re-measured by
-		hand through the engine, which is exactly the platform branch §6 forbids.
-		Window-space free band = `{ x = topbarSafeInsets.left + topbarInset.x,
-		y = topbarSafeInsets.top + topbarInset.y, w = topbarInset.w,
-		h = topbarInset.h }`; present into it with `rootPolicy = "edgeToEdge"`,
-		whose content rect IS window space. Zeroes on a platform that reports no
-		topbar-safe area, which reads as "the strip starts at the window origin" —
-		the desktop/no-notch answer, and the pre-adoption behaviour. ]]
+		THESE TWO FACTS ARE TWO ENCODINGS OF ONE RECT, AND MUST NOT BE ADDED.
+		This comment used to say `topbarInset` was stated relative to the
+		topbar-safe area, so the window-space band was `topbarSafeInsets.left +
+		topbarInset.x`. Measured live on 2026-08-14 (Studio, Play, showcase place,
+		735x413) that is wrong: the engine reports `TopbarInset` = (164,0)+571x58
+		and the topbar-safe area as x 164..735 / y 0..58 — the same band — and a
+		probe Frame under a `ScreenInsets = None` ScreenGui placed at
+		`TopbarInset.Min` lands exactly on the strip. Adding them double-counts the
+		engine's control cluster. The evidence is in tests/adaptive.spec.luau's
+		DV3-1 header; the derived `platformChrome` below INTERSECTS them, which is
+		an identity on a healthy platform and a belt when one is missing.
+
+		Consumers should read `platformChrome` (band / rects / insets /
+		bandInsets) rather than either raw fact: it is the one place that knows
+		what a zero means. Zeroes here are "the platform reported no topbar-safe
+		area", which is the desktop/no-notch answer and the pre-adoption
+		behaviour — never "a strip at the window origin". ]]
 	topbarSafeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
 	keyboardOcclusionRect = nil,
 	preferredInput = "KeyboardAndMouse", -- Touch | Gamepad | KeyboardAndMouse
@@ -215,6 +219,141 @@ function environment.new(core: any): Env
 			return { top = 60, bottom = 60, left = 90, right = 90 }
 		end
 		return { top = 0, bottom = 0, left = 0, right = 0 }
+	end)
+	--[[ THE PLATFORM'S OWN CHROME, AS RECTS RATHER THAN AS A BOUNDING BOX
+		(ADR-0027; director 2026-08-14, "things at top that are aligned with the
+		controls but don't overlap").
+
+		`coreSafeInsets` says "the top 58px of this window belongs to the engine".
+		That is true as a BOUNDING BOX and blunt as a fact: measured live on
+		2026-08-14 (Studio, Play, showcase place, 735x413) the engine's own controls
+		occupy x 0..164 of that band, and the rest of it — the strip
+		`GuiService.TopbarInset` names — is explicitly the developer's. A surface
+		that insets by the bounding box cannot put anything level with the
+		platform's buttons, which is the top-centre row every shipped Roblox HUD
+		has.
+
+		So the same geometry is published a second way, in window space:
+
+		  band        the FREE strip, or NIL. Never a zero rect at the origin: "no
+		              strip" and "a strip at (0,0)" are the same table and opposite
+		              instructions, and an engine without `GetInsetArea` publishes
+		              zeroes (roblox_env's pcall belt), so the absence has to be
+		              expressible.
+		  rects       what the platform's OWN controls occupy — the top band MINUS
+		              the free strip. A LIST, because the remainder of a band with a
+		              strip in it is an L (or, on a notched landscape phone, two
+		              rects), and that is exactly what an inset cannot say.
+		  insets      clear EVERYTHING. Byte-identical to what `rootPolicy =
+		              "deviceSafeContent"` applies (per-edge max of core and device,
+		              plus the ten-foot overscan) — pinned against the live policy in
+		              tests/adaptive.spec.luau, because a HUD riding the band is
+		              inset by THIS number and a drift would be silent.
+		  bandInsets  clear everything EXCEPT the free band, for a surface that
+		              means to ride it: the same four edges with the top brought up
+		              to where the band starts. Equal to `insets` when there is no
+		              band, so a platform with no strip degrades to today's answer
+		              and a consumer needs no branch.
+
+		WHERE THE BAND COMES FROM, and why it intersects rather than adds.
+		`topbarInset` and `topbarSafeInsets` are two encodings of ONE rect —
+		measured live, `TopbarInset` = (164,0)+571x58 and the topbar-safe area = x
+		164..735, y 0..58, the same band. (The earlier recorded belief that
+		`TopbarInset` is stated relative to the topbar-safe area, so the two should
+		be ADDED, was wrong: a probe Frame under a `ScreenInsets = None` ScreenGui
+		placed at `TopbarInset.Min` lands exactly on the strip. The correction and
+		its evidence are in tests/adaptive.spec.luau's DV3-1 header.) Intersecting
+		them is therefore an identity on a healthy platform and a belt when one of
+		them is missing or lying; adding them would double-count the cluster. The
+		result is then clipped to the platform's own top band, so a strip reported
+		outside it is no strip at all. ]]
+	local function finite(v: any): number?
+		return if type(v) == "number" and v == v and v > -math.huge and v < math.huge then v else nil
+	end
+	local function edgesOf(t: any): { top: number, bottom: number, left: number, right: number }
+		local out = { top = 0, bottom = 0, left = 0, right = 0 }
+		if type(t) == "table" then
+			for _, edge in { "top", "bottom", "left", "right" } do
+				out[edge] = math.max(0, finite((t :: any)[edge]) or 0)
+			end
+		end
+		return out
+	end
+	derived.platformChrome = core:memo(function(use)
+		local vp = use(signals.viewportRect)
+		local W = math.max(0, finite(if type(vp) == "table" then vp.w else nil) or 0)
+		local H = math.max(0, finite(if type(vp) == "table" then vp.h else nil) or 0)
+		local coreI = edgesOf(use(signals.coreSafeInsets))
+		local deviceI = edgesOf(use(signals.deviceSafeInsets))
+		local safeI = edgesOf(use(signals.topbarSafeInsets))
+		local bar = use(signals.topbarInset)
+		local overscan = edgesOf(use(derived.effectiveOverscanInsets))
+		local tenFoot = use(signals.displaySize) == "Large"
+
+		local insets = {
+			top = math.max(coreI.top, deviceI.top),
+			bottom = math.max(coreI.bottom, deviceI.bottom),
+			left = math.max(coreI.left, deviceI.left),
+			right = math.max(coreI.right, deviceI.right),
+		}
+		if tenFoot then
+			for _, edge in { "top", "bottom", "left", "right" } do
+				insets[edge] += overscan[edge]
+			end
+		end
+
+		-- the platform's own top band: full width, as tall as the CoreUI inset
+		local bandH = math.min(coreI.top, H)
+		local band: { x: number, y: number, w: number, h: number }? = nil
+		if bandH > 0 and type(bar) == "table" then
+			local bx, by = finite((bar :: any).x), finite((bar :: any).y)
+			local bw, bh = finite((bar :: any).w), finite((bar :: any).h)
+			if bx ~= nil and by ~= nil and bw ~= nil and bh ~= nil and bw > 0 and bh > 0 then
+				local x0 = math.max(bx, safeI.left, 0)
+				local y0 = math.max(by, safeI.top, 0)
+				local x1 = math.min(bx + bw, W - safeI.right, W)
+				local y1 = math.min(by + bh, H - safeI.bottom, bandH)
+				if x1 - x0 > 0 and y1 - y0 > 0 then
+					band = { x = x0, y = y0, w = x1 - x0, h = y1 - y0 }
+				end
+			end
+		end
+
+		-- ...and the chrome is what is LEFT of that band, in reading order
+		local rects: { { x: number, y: number, w: number, h: number } } = {}
+		if bandH > 0 then
+			if band == nil then
+				table.insert(rects, { x = 0, y = 0, w = W, h = bandH })
+			else
+				local b = band :: any
+				if b.y > 0 then
+					table.insert(rects, { x = 0, y = 0, w = W, h = b.y })
+				end
+				if b.x > 0 then
+					table.insert(rects, { x = 0, y = b.y, w = b.x, h = b.h })
+				end
+				if b.x + b.w < W then
+					table.insert(rects, { x = b.x + b.w, y = b.y, w = W - (b.x + b.w), h = b.h })
+				end
+				if b.y + b.h < bandH then
+					table.insert(rects, { x = 0, y = b.y + b.h, w = W, h = bandH - (b.y + b.h) })
+				end
+			end
+		end
+
+		local bandInsets = table.clone(insets)
+		if band ~= nil then
+			-- down to where the band starts, and never above the device-safe edge:
+			-- a notch is not negotiable, and a platform that reported the band
+			-- inside one must not be taken at its word about the pixels above it
+			bandInsets.top = math.clamp(math.max(deviceI.top, (band :: any).y), 0, insets.top)
+		end
+		return table.freeze({
+			band = if band ~= nil then table.freeze(band) else nil,
+			rects = table.freeze(rects),
+			insets = table.freeze(insets),
+			bandInsets = table.freeze(bandInsets),
+		})
 	end)
 	-- presentationProfile (ADR-0021): the derived half of presentationSpace.
 	-- `flat` is what almost everything wants to know — a billboard is still a

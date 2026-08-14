@@ -1206,24 +1206,42 @@ describe("interactionClasses: the primary class before any input has happened", 
 	end)
 end)
 
---[[ THE PLATFORM TOPBAR BAND (director visual round 3, DV3-1).
+--[[ THE PLATFORM TOPBAR BAND (director visual round 3, DV3-1) — WITH ITS
+	SEMANTICS CORRECTED AGAINST THE LIVE ENGINE, 2026-08-14 (ADR-0027).
 
 	A game that docks its own control into the platform's topbar row — beside the
 	engine's control cluster, where a player already looks for chrome — has to be
-	able to say WHERE that row is. `topbarInset` alone cannot: the engine states
-	that rect relative to the TOPBAR-SAFE area, so on a notched device placing it
-	raw puts the content under the platform's own cluster (and on desktop it
-	coincides, which is how that class of bug survives a desktop review).
+	able to say WHERE that row is.
 
-	`topbarSafeInsets` is the missing half — the same four-edge, window-space
-	shape as `coreSafeInsets`/`deviceSafeInsets` — and the pair is placeable with
-	no engine call and no platform branch.
+	WHAT THIS FILE USED TO SAY, AND WHY IT WAS WRONG. The recorded belief was that
+	`GuiService.TopbarInset` states its rect RELATIVE to the topbar-safe area, so a
+	window-space band was `topbarSafeInsets.left + topbarInset.x`. Measured on the
+	live engine (Studio, Play, showcase place, viewport 735x413) it is not — the
+	engine reports
+
+	    GetGuiInset            top = (0, 58)
+	    CoreUISafeInsets  raw  min = (0, 0)     max = (735, 355)
+	    TopbarSafeInsets  raw  min = (164, -58) max = (735, 0)
+	    TopbarInset            min = (164, 0)   size = 571 x 58
+
+	— and a probe Frame parented to a `ScreenInsets = None` ScreenGui at
+	`TopbarInset.Min` lands exactly on the free strip (AbsolutePosition (164,-58),
+	which is physical (164, 0)). So `TopbarInset` is ALREADY IN PHYSICAL WINDOW
+	SPACE, and `topbarSafeInsets` — the same band through the four-edge conversion
+	— states the SAME rect: x 164..735, y 0..58. Adding them double-counts the
+	cluster and pushes a docked control a cluster-width too far right, which is
+	precisely the "TopbarInset is not physical space" burn this repo already
+	recorded once, with the sign flipped.
+
+	Both facts are kept, because they are two encodings of one rect and either can
+	be missing (an engine without `GetInsetArea` publishes no `topbarSafeInsets`;
+	a headless environment publishes no `topbarInset`), and `platformChrome`
+	INTERSECTS them rather than adding them.
 ]]
 describe("DV3-1: the topbar band is addressable from facts alone", function()
 	local function bandOf(env: any): { x: number, y: number, w: number, h: number }
-		local safe = env:get("topbarSafeInsets"):get()
-		local free = env:get("topbarInset"):get()
-		return { x = safe.left + free.x, y = safe.top + free.y, w = free.w, h = free.h }
+		local band = env:get("platformChrome"):get().band
+		return band or { x = 0, y = 0, w = 0, h = 0 }
 	end
 
 	it("defaults to the desktop/no-notch answer rather than to a guess", function()
@@ -1231,8 +1249,9 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 		local env = environment.new(core)
 		local safe = env:get("topbarSafeInsets"):get()
 		expect(`{safe.top}|{safe.bottom}|{safe.left}|{safe.right}`).toBe("0|0|0|0")
-		-- with no topbar reported at all the band is empty, so a surface placed in
-		-- it measures nothing — never a box at a wrong origin
+		-- with no topbar reported at all there is NO BAND — not a band at the
+		-- window origin, which is the reading that puts content under CoreGui
+		expect(env:get("platformChrome"):get().band).toBe(nil)
 		local band = bandOf(env)
 		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("0|0|0|0")
 	end)
@@ -1240,15 +1259,16 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 	it("a NOTCHED phone puts the band right of the cluster, not at the window origin", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
-		-- a landscape notch: the topbar-safe area starts 59px in, and the engine's
-		-- own cluster takes the first 214px of THAT
-		env:set("topbarSafeInsets", { top = 0, bottom = 0, left = 59, right = 59 })
-		env:set("topbarInset", { x = 214, y = 0, w = 480, h = 58 })
+		env:set("viewportRect", { x = 0, y = 0, w = 812, h = 375 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 59, right = 59 })
+		-- a landscape notch: the engine's own cluster ends 273px in (59px of notch
+		-- plus a 214px cluster), and BOTH facts say so in window space
+		env:set("topbarSafeInsets", { top = 0, bottom = 317, left = 273, right = 59 })
+		env:set("topbarInset", { x = 273, y = 0, w = 480, h = 58 })
 		local band = bandOf(env)
 		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("273|0|480|58")
-		-- the fact everyone had before this one would have placed it at 214 —
-		-- 59px INSIDE the cluster, which is under CoreGui and invisible
-		expect(band.x - env:get("topbarInset"):get().x).toBe(59)
+		-- the band is where the PLATFORM says, never at the window origin
+		expect(band.x).toBe(env:get("topbarInset"):get().x)
 	end)
 
 	it("the band is reachable from an edgeToEdge surface and NOT from a safe one", function()
@@ -1256,8 +1276,8 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 812, h = 375 })
 		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 59, right = 59 })
-		env:set("topbarSafeInsets", { top = 0, bottom = 0, left = 59, right = 59 })
-		env:set("topbarInset", { x = 214, y = 0, w = 480, h = 58 })
+		env:set("topbarSafeInsets", { top = 0, bottom = 317, left = 273, right = 59 })
+		env:set("topbarInset", { x = 273, y = 0, w = 480, h = 58 })
 		local band = bandOf(env)
 		local root = UI.Screen({
 			id = "S",
@@ -1297,6 +1317,168 @@ describe("DV3-1: the topbar band is addressable from facts alone", function()
 		-- surface of its own rather than an offset inside a content-safe one
 		local safe = chipRect("coreSafeContent")
 		expect(`{safe.x}|{safe.y}`).toBe(`{273 + 59}|{58}`)
+	end)
+end)
+
+--[[ ADR-0027: `platformChrome` — WHERE THE PLATFORM'S OWN CONTROLS ARE.
+
+	`coreSafeInsets` says "the top 58px of this window belongs to the engine". That
+	is TRUE AS A BOUNDING BOX and blunt as a fact: the engine's own controls occupy
+	x 0..164 of that band and the rest of it — the strip `TopbarInset` names — is
+	explicitly the developer's. A surface insetting by the bounding box cannot put
+	anything level with the platform's buttons, which is the top-centre HUD row
+	every shipped Roblox game has (director, 2026-08-14).
+
+	So the same geometry is published as RECTS as well as insets:
+
+	  band       the FREE strip, window space, or nil — never a zero rect at the
+	             origin, because "no strip" and "a strip at (0,0)" are the same
+	             table and opposite instructions
+	  rects      what the platform's OWN controls occupy — the top band MINUS the
+	             free strip, so the L a bounding box cannot express
+	  insets     clear everything (byte-identical to what `deviceSafeContent`
+	             applies — pinned against the live policy below)
+	  bandInsets clear everything EXCEPT the free band, for a surface that means
+	             to ride it
+
+	Every number is derived from facts the adapter already published. Nothing here
+	knows 164, or 58, or a device name.
+]]
+describe("ADR-0027: platformChrome states the L, not its bounding box", function()
+	local function chromeOf(env: any): any
+		return env:get("platformChrome"):get()
+	end
+	local function rectStr(r: any): string
+		return if r == nil then "nil" else `{r.x},{r.y} {r.w}x{r.h}`
+	end
+	local function rectsStr(list: { any }): string
+		local out = {}
+		for _, r in list do
+			table.insert(out, rectStr(r))
+		end
+		return table.concat(out, " + ")
+	end
+
+	it("with NO platform facts there is no band and no chrome — zeroes read as absence", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		local chrome = chromeOf(env)
+		expect(chrome.band).toBe(nil)
+		expect(#chrome.rects).toBe(0)
+		expect(`{chrome.insets.top}|{chrome.bandInsets.top}`).toBe("0|0")
+	end)
+
+	it("the LIVE DESKTOP measurement: chrome is x 0..164 of a 58px band, and the rest is free", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		-- verbatim from the live engine (Studio, Play, showcase place, 2026-08-14),
+		-- through the same `insetsFromArea` conversion `roblox_env` applies
+		env:set("viewportRect", { x = 0, y = 0, w = 735, h = 413 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
+		env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		env:set("topbarSafeInsets", { top = 0, bottom = 355, left = 164, right = 0 })
+		env:set("topbarInset", { x = 164, y = 0, w = 571, h = 58 })
+		local chrome = chromeOf(env)
+		expect(rectStr(chrome.band)).toBe("164,0 571x58")
+		expect(rectsStr(chrome.rects)).toBe("0,0 164x58")
+		-- the whole point: clearing EVERYTHING spends the band; clearing everything
+		-- but the free strip spends nothing, so a surface can reach y=0
+		expect(chrome.insets.top).toBe(58)
+		expect(chrome.bandInsets.top).toBe(0)
+	end)
+
+	it("a platform that reports NO strip keeps the blunt full-width band", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		-- an engine without `GetInsetArea`: `roblox_env` falls back to GetGuiInset
+		-- for coreSafeInsets and publishes NEITHER topbar fact
+		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
+		local chrome = chromeOf(env)
+		expect(chrome.band).toBe(nil)
+		-- the whole top band is the platform's, which is today's answer and the
+		-- conservative one — a HUD riding this loses nothing and gains nothing
+		expect(rectsStr(chrome.rects)).toBe("0,0 1280x58")
+		expect(chrome.bandInsets.top).toBe(chrome.insets.top)
+	end)
+
+	it("a strip reported with NO topbar-safe area still rides: the rect fact is enough", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
+		env:set("topbarInset", { x = 164, y = 0, w = 1116, h = 58 })
+		local chrome = chromeOf(env)
+		expect(rectStr(chrome.band)).toBe("164,0 1116x58")
+		expect(rectsStr(chrome.rects)).toBe("0,0 164x58")
+	end)
+
+	it("a NOTCHED landscape phone: chrome on BOTH sides of the band, and the notch is still spent", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 812, h = 375 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 59, right = 59 })
+		env:set("deviceSafeInsets", { top = 0, bottom = 21, left = 47, right = 47 })
+		env:set("topbarSafeInsets", { top = 0, bottom = 317, left = 273, right = 59 })
+		env:set("topbarInset", { x = 273, y = 0, w = 480, h = 58 })
+		local chrome = chromeOf(env)
+		expect(rectStr(chrome.band)).toBe("273,0 480x58")
+		-- the cluster on the left AND the notch strip on the right are both the
+		-- platform's: an L is not always one rect, so this fact is a LIST
+		expect(rectsStr(chrome.rects)).toBe("0,0 273x58 + 753,0 59x58")
+		-- the per-edge max of core and device, exactly like `deviceSafeContent`
+		expect(`{chrome.insets.top}|{chrome.insets.bottom}|{chrome.insets.left}|{chrome.insets.right}`).toBe(
+			"58|21|59|59"
+		)
+		-- riding the band spends the top only down to where the band starts; every
+		-- other edge is unchanged, because a notch is not negotiable
+		expect(`{chrome.bandInsets.top}|{chrome.bandInsets.bottom}|{chrome.bandInsets.left}`).toBe("0|21|59")
+	end)
+
+	it("garbage platform facts clamp to 'no band' rather than to a band at a wrong origin", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 735, h = 413 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 0, right = 0 })
+		env:set("topbarInset", { x = 0 / 0, y = 0, w = 571, h = 58 })
+		expect(chromeOf(env).band).toBe(nil)
+		env:set("topbarInset", { x = 164, y = 0, w = -20, h = 58 })
+		expect(chromeOf(env).band).toBe(nil)
+		-- ...and a strip the platform places entirely outside its own top band is
+		-- not a strip this framework will hand anyone
+		env:set("topbarInset", { x = 164, y = 300, w = 571, h = 58 })
+		expect(chromeOf(env).band).toBe(nil)
+	end)
+
+	it("`insets` IS what deviceSafeContent applies — one authority, pinned to the live policy", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		local function rootRect(): any
+			local adapter = fake_target.new()
+			local c2 = customFactory.new()
+			local mounted = mountLib.mount(c2, UI.Screen({ id = "S", width = fill(), height = fill(), children = {} }))
+			local controller = renderer.attach(c2, mounted, env, adapter, { rootPolicy = "deviceSafeContent" })
+			controller.initialRender()
+			local rect = adapter.node("/S").rect
+			controller.dispose()
+			return rect
+		end
+		local function agrees(w: number, h: number)
+			local rect, insets = rootRect(), chromeOf(env).insets
+			-- the fact and the policy are two readings of one thing; if they ever
+			-- disagree a HUD riding the band is inset by a number nothing applies
+			expect(`{rect.x}|{rect.y}`).toBe(`{insets.left}|{insets.top}`)
+			expect(`{rect.w}|{rect.h}`).toBe(`{w - insets.left - insets.right}|{h - insets.top - insets.bottom}`)
+		end
+		env:set("viewportRect", { x = 0, y = 0, w = 812, h = 375 })
+		env:set("coreSafeInsets", { top = 58, bottom = 0, left = 59, right = 59 })
+		env:set("deviceSafeInsets", { top = 0, bottom = 21, left = 47, right = 47 })
+		agrees(812, 375)
+		-- ...including the ten-foot overscan the same policy composes on top, which
+		-- a fact that stopped at the safe area would have under-inset on a TV
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		env:set("displaySize", "Large")
+		agrees(1920, 1080)
 	end)
 end)
 

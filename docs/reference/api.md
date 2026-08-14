@@ -2448,13 +2448,36 @@ safe insets: `coreSafeContent` (the default — inset by the CoreGui reservation
 `edgeToEdge` (the whole window — a scrim, a backdrop, or a surface that
 deliberately places itself in a platform band the insets exclude).
 
-**Placing a surface in the platform's TOPBAR band.** Present it `edgeToEdge` —
-whose content rect *is* window space — and place its content at the rect the two
-topbar facts describe: `x = topbarSafeInsets.left + topbarInset.x`,
-`y = topbarSafeInsets.top + topbarInset.y`, `w = topbarInset.w`,
-`h = topbarInset.h`. `topbarInset` alone is not enough: the engine states that
-rect relative to the **topbar-safe area**, not the window, so on a notched device
-it lands under the platform's own control cluster without the second fact.
+**Placing a surface in the platform's TOPBAR band.** Read the derived fact
+**`platformChrome`** and present the surface `edgeToEdge`, whose content rect *is*
+window space:
+
+```lua
+local chrome = env:get("platformChrome"):get()
+if chrome.band ~= nil then
+	-- chrome.band is { x, y, w, h } in WINDOW space: the strip the platform
+	-- leaves free beside its own control cluster
+end
+```
+
+`band` is **`nil`** when the platform reports no strip (a desktop engine without
+`GetInsetArea`, or any headless environment) — never a zero rect at the origin,
+because "no strip" and "a strip at (0,0)" are the same table and opposite
+instructions. `chrome.rects` is what the platform's own controls occupy, as a
+**list** of window-space rects, because the top band minus a free strip is an L
+rather than a rectangle. `chrome.insets` is what a surface must inset to clear
+everything — byte-identical to what `rootPolicy = "deviceSafeContent"` applies —
+and `chrome.bandInsets` is the same four edges with the top brought up to where
+the band starts, which is what a surface that means to ride the band applies
+instead. When there is no band the two are equal, so a consumer needs no branch.
+
+Do not add `topbarSafeInsets.left` to `topbarInset.x`. They are two encodings of
+one rect — measured on the live engine 2026-08-14 at 735x413, `TopbarInset` reads
+`(164,0)+571x58` and the topbar-safe area reads x 164..735 / y 0..58 — and
+`platformChrome` intersects them. (An earlier version of this page said to add
+them; that was wrong, and adding them pushes content a cluster-width too far
+right. See ADR-0027.)
+
 Anything a player can *act* on still belongs in the content rect — the band is
 narrow, the platform owns most of it, and a control there competes with the
 engine's own.
@@ -2897,8 +2920,8 @@ as the core does.
 | `viewportRect` | `{ x, y, w, h }` of the window |
 | `deviceSafeInsets` | per-edge `{ top, bottom, left, right }` device (notch) insets |
 | `coreSafeInsets` | per-edge CoreGui reservation |
-| `topbarInset` | the platform's FREE topbar rect `{ x, y, w, h }` — stated relative to the topbar-safe area, not the window |
-| `topbarSafeInsets` | per-edge topbar-safe area; the second half of placing anything in the topbar band |
+| `topbarInset` | the platform's FREE topbar rect `{ x, y, w, h }`, in WINDOW space (`GuiService.TopbarInset`) |
+| `topbarSafeInsets` | per-edge topbar-safe area — the SAME band as `topbarInset`, stated as edges. Read `platformChrome` rather than either of these; it is the one place that knows what a zero means |
 | `keyboardOcclusionRect` | `{ x, y, w, h }` the soft keyboard covers, or `nil` |
 | `preferredInput` | `"Touch" \| "Gamepad" \| "KeyboardAndMouse"` — what was used LAST (see below) |
 | `capabilities` | `{ keyboard, mouse, touch, gamepad }` booleans |
@@ -2923,6 +2946,7 @@ Derived policy (memoized, read-only):
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
 | `distanceProfile` | `"ten-foot"` on a `Large` display, else `"near"` |
 | `effectiveOverscanInsets` | authored `overscanInsets` when any edge is non-zero; `"none"` means all zero; otherwise the console defaults (60 top/bottom, 90 left/right) on a `Large` display and zeros elsewhere |
+| `platformChrome` | WHERE THE PLATFORM'S OWN CONTROLS ARE (ADR-0027): `{ band, rects, insets, bandInsets }`. `band` is the free topbar strip in window space or `nil`; `rects` is what the engine's own controls occupy (a list — the top band minus a free strip is an L); `insets` clears everything (what `deviceSafeContent` applies); `bandInsets` clears everything except the free band |
 | `presentationProfile` | `{ space, flat, world }`; an unrecognised `presentationSpace` resolves to `"screen"` |
 | `interactionClasses` | the LIVE set of input idioms plus `primary` (ADR-0015): capabilities and preference together, never the preference alone |
 | `effectiveInput` | `interactionClasses.primary` in the platform fact's own vocabulary |
@@ -3155,8 +3179,8 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 | `composition.arrangementOf(value)` | a preset name or a custom table, validated to `{ name, lanes }` |
 | `composition.ARRANGEMENTS` | the three presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `threeLane` = `{ lead } { main } { trail }` |
 | `composition.HUD` | the **screen-anchored HUD** arrangement as data (ADR-0025): three lanes, `{ left } { center } { right }` — the three screen columns |
-| `composition.HUD_GROUPS` | the twelve groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty) plus the nine **zone** groups, `topLeft … bottomRight` |
-| `composition.ZONES` | the nine zone ids in that table, in order — the same nine words the `anchor` box prop uses |
+| `composition.HUD_GROUPS` | the thirteen groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty), the nine **zone** groups `topLeft … bottomRight`, and the `topbar` **span** row (ADR-0027) |
+| `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact — see **Placing a surface in the platform's TOPBAR band** |
 
 A declaration is `{ id?, groups, regions, arrangements, laneGap?, groupGap?, maxMeasure? }`,
 where each region carries `{ id, group, rank, forms = <count>, sizing?, weight?, floor?, mayScroll?, mayDrop?, reserved? }`.
