@@ -80,8 +80,26 @@ step-down-before-drop machinery**. It is reused *literally*, not shared by extra
   is a broad refactor — flagged, not smuggled, per ENGINEERING.md — for a mechanism that turns out
   not to need it.
 
-**What the framework was genuinely missing was two bits, not a vocabulary**, and Decisions 2 and 3
-are those two bits.
+**What the framework was genuinely missing was three small, additive bits, not a vocabulary** —
+Decisions 2 and 3, plus a group `align`.
+
+**`align`: across the lane, where `place` is down it.** A region's rect is its whole lane (regions
+are allotments), so a right-hand cluster had no way to sit on the right of its column without
+declaring `width = fill` and aligning inside itself — and a form that fills its box also *hides* its
+intrinsic width from the composition, which is precisely what Decision 3 needs to see. `align =
+"start" | "center" | "end"` on a group gives its regions their own measured width inside the lane and
+places them at that end. Absent, the region takes the whole lane, unchanged. Stating the alignment is
+what asks for the content width, because aligning a box that already fills its lane would mean
+nothing.
+
+**The width half of the ladder, found by the showcase rather than by design.** Rule 2 asks whether
+the *hug* lanes fit the offer, which is the only width question a lane whose width IS its content can
+fail. A HUD's lanes are `fill` — a share of the box — so a cluster wider than its share could fail
+nothing: it painted over the column next door and the rank ladder never ran. On a 320px phone each
+column is 106px, which is where every horizontal cluster in the showcase met it at once. A lane's
+width overflow is now an overflow like any other and goes to the same rule-3 ladder, with the same
+"must buy a pixel" filter (here: be the region that is actually over) and the same scroll-region
+exclusion.
 
 **What we gave up, said plainly.**
 
@@ -174,12 +192,40 @@ showcase HUD and the sweep reddened.
   and `composition.HUD` (frozen presets); `collisions` on the resolution and on
   `luauui-composition-dump/1`. MINOR bump; additive in both directions — a declaration with no
   `holdsLane` and no colliding region resolves and dumps byte-identically, pinned by a test.
-- **Cost:** the collision scan is O(mounted²) per *resolution*, and a resolution is computed once per
-  node per box and cached on the solve context. Twelve regions is 66 rect intersections of pure
-  arithmetic. Measured: see the perf section of `docs/plans/swiftui-parity-round3.md`.
-- **Stage 2, named and not shipped:** the Studio/device canary on the HUD showcase; a `dense-hud`
-  perf-lab scene row; and the RascalRally consumer pass (nothing in the game declares a
-  `UI.Composition` HUD today, so the lockstep obligation is a compatibility proof, not a port).
+- **Cost, measured — tier: HEADLESS LUNE, which is a regression signal and never a device claim.**
+  The instrument is `composition.resolve` driven directly against the pre-change module read out of
+  git, strictly alternating arms, 15 pairs, min per arm (`tests/_hudbench`, scratch):
+
+  | | per resolve | note |
+  |---|---|---|
+  | the commissioning 8-region / 3-arrangement declaration, **before** | 129.6–132.5 µs | the off-path case: no HUD, no `align`, no `holdsLane` |
+  | ...the same declaration, **after** | 131.7–134.2 µs | **+1.3% / +1.6%**, against a same-arm spread of **3.2–6.4%** — the delta is inside the harness's own noise and this instrument cannot resolve it |
+  | the HUD declaration (7 regions, 12 groups, 3 lanes) | 49–51 µs | a HUD re-solve is ~⅓ of what a shipped results screen already pays, because it declares ONE arrangement instead of three |
+
+  Two things were done to get there rather than asserted. The collision scan is behind a cheap
+  precondition — a `#regions` loop asking whether *anything* paints outside its own box, since with
+  every region inside its allotment there is nothing to intersect — so its two tables and its pair
+  loop are never built on a clean solve; unconditional, it cost +3.5%. And `holdsLane` normalizes to
+  `nil` rather than `false` when it was not declared, so an existing group table does not gain a
+  ninth key.
+
+  The scan itself is O(mounted²) per *resolution*, and a resolution is computed once per node per box
+  and cached on the solve context. Twelve regions is 66 rect intersections of pure arithmetic.
+- **Stage 2, named and not shipped:**
+  1. **Whole-pixel fill shares.** Three lanes of a 359px box are 119.666px each, and a row shrunk to
+     fill one lands ~0.0004px past its own edge — which the solver honestly reports as "overflows by
+     0px". Rounding the shares to whole pixels (remainder to the last fill lane) removes it, and,
+     measured on 2026-08-14, also removes **six waived findings** across `composition` and
+     `p2_cartwheel`: a fractional lane box is what several of them are made of. That is a corpus-wide
+     geometry change carrying its own waiver-list deletions, so it is flagged as its own scoped
+     change rather than smuggled into a HUD mission (ENGINEERING.md, *"Flag refactors; don't smuggle
+     them"*).
+  2. The **Studio/device canary** on the HUD showcase — the headless sweep is the floor under the
+     device matrix, never a replacement for it.
+  3. A `dense-hud` **perf-lab scene** row, if the measured cost below ever stops being noise.
+  4. The **RascalRally consumer pass**. Nothing in the game declares a `UI.Composition` HUD today, so
+     the lockstep obligation here is a compatibility proof (the game's compositions resolve and dump
+     byte-identically), not a port.
 
 ## Alternatives considered
 

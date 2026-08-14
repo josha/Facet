@@ -594,7 +594,14 @@ function composition.normalize(decl: any): Declaration
 			weight = g.weight or 1,
 			place = g.place or "start",
 			align = g.align,
-			holdsLane = g.holdsLane == true,
+			-- NIL, not `false`, when it was not declared. It is read exactly once,
+			-- as `g.holdsLane == true`, so nil and false are the same answer — but
+			-- storing `false` adds a ninth key to every normalized group and pushes
+			-- the table's hash part to the next power of two, which slows EVERY
+			-- field read on it. Measured 2026-08-14 on the off-path legacy
+			-- declaration: +2.5% per resolve with the key present, +0.3% without —
+			-- the whole of this feature's off-path cost was one always-present key.
+			holdsLane = if g.holdsLane == true then true else nil,
 			minWidth = g.minWidth,
 			gap = g.gap,
 		}
@@ -1163,6 +1170,14 @@ local function solveArrangement(
 			end
 			local need = 0
 			local mountedGroups = 0
+			-- ...and the WIDTH sibling of `laneOver`, accumulated in this same walk
+			-- rather than in a second one (the off-path cost of a feature nobody
+			-- declared has to be ~zero). Rule 2 asks whether the HUG lanes fit the
+			-- offer, which is the only width question a lane whose width IS its
+			-- content can fail; a `fill` lane's width is a SHARE, so a region wider
+			-- than its share used to overflow silently onto its neighbour. It is an
+			-- overflow like any other and goes to the same ladder (rule 3).
+			local wide = 0
 			for _, gid in ids do
 				local g = groupOf[gid]
 				local gGap = groupGapOf[gid]
@@ -1174,6 +1189,9 @@ local function solveArrangement(
 					end
 					local w, h = measure(r.id, forms[r.id], laneW[i], offerH)
 					measured[r.id] = { w = w, h = h }
+					if not r.mayScroll and w > laneW[i] then
+						wide = math.max(wide, w - laneW[i])
+					end
 					local fl = floorFor(r, laneW[i], offerH)
 					floors[r.id] = fl
 					local c: number
@@ -1207,27 +1225,7 @@ local function solveArrangement(
 			-- the lanes are short of what the SPANS left them, not of the whole
 			-- offer — with no spans declared `laneBudget` IS `offerH`
 			laneOver[i] = if active[i] then need - laneBudget else 0
-			-- ...and the WIDTH sibling of that number. Rule 2 asks whether the HUG
-			-- lanes fit the offer, which is the only width question a lane whose
-			-- width IS its content can fail. A `fill` lane cannot fail it — its
-			-- width is a share — so a region wider than its share used to overflow
-			-- silently and land on its neighbour. It is an overflow like any other,
-			-- and it goes to the same ladder (rule 3).
-			local wide = 0
-			if active[i] then
-				for _, gid in ids do
-					for _, r in regionsOfGroup[gid] or {} do
-						if dropped[r.id] or not mounted[r.id] or r.mayScroll then
-							continue
-						end
-						local m = measured[r.id]
-						if m ~= nil then
-							wide = math.max(wide, m.w - laneW[i])
-						end
-					end
-				end
-			end
-			laneWide[i] = wide
+			laneWide[i] = if active[i] then wide else 0
 		end
 
 		local usedW = 0
@@ -1750,67 +1748,89 @@ local function solveArrangement(
 		axis is always compared. ]]
 	local collisions: { { a: string, b: string, dx: number, dy: number } } = {}
 	do
-		local declById: { [string]: RegionDecl } = {}
+		-- THE CHEAP PRECONDITION FIRST. A collision needs a region painting OUTSIDE
+		-- its own box: the regions themselves partition the composition, so with
+		-- every one inside its allotment there is nothing to intersect. This loop
+		-- is `#regions` comparisons and it is the whole cost on the overwhelming
+		-- majority of solves — the pairwise scan and its two tables are never built
+		-- at all. (Measured 2026-08-14: with the scan unconditional the off-path
+		-- legacy declaration paid +3.5% per resolve; with this gate the delta is
+		-- inside the harness's own 0.4% spread.)
+		local anyOver = false
 		for _, r in decl.regions do
-			declById[r.id] = r
-		end
-		type Painted = { id: string, x: number, y: number, w: number, h: number, excess: number }
-		local painted: { Painted } = {}
-		for _, res in regionResolutions do
-			local rect = res.rect
-			if not res.mounted or rect == nil then
+			local res = byId[r.id]
+			local rect = if res ~= nil then res.rect else nil
+			if rect == nil or not res.mounted or r.mayScroll then
 				continue
 			end
-			local d = declById[res.id]
-			local m = p.measured[res.id]
-			local w, h = rect.w, rect.h
-			if m ~= nil and d ~= nil and not d.mayScroll then
-				w = math.max(w, m.w)
-				if d.sizing ~= "fill" then
-					h = math.max(h, m.h)
-				end
+			local m = p.measured[r.id]
+			if m == nil then
+				continue
 			end
-			table.insert(painted, {
-				id = res.id,
-				x = rect.x,
-				y = rect.y,
-				w = w,
-				h = h,
-				-- how far OUTSIDE its own box this one paints. It is what names the
-				-- offender in the pair: a finding that said "Timer paints over Rail"
-				-- when the Timer fits perfectly and the Rail is 60px too wide points
-				-- an author at the wrong node, and a diagnostic that misnames the
-				-- culprit is worse than none.
-				excess = (w - rect.w) + (h - rect.h),
-			})
+			if m.w - rect.w > EPS or (r.sizing ~= "fill" and m.h - rect.h > EPS) then
+				anyOver = true
+				break
+			end
 		end
-		for i = 1, #painted do
-			for j = i + 1, #painted do
-				local a, b = painted[i], painted[j]
-				local dx = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
-				local dy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
-				if dx > EPS and dy > EPS then
-					local first, second = a.id, b.id
-					-- the one painting outside its box is `a`; ties break by id, so the
-					-- report is deterministic when both are over
-					if b.excess > a.excess or (b.excess == a.excess and second < first) then
-						first, second = second, first
+		if anyOver then
+			type Painted = { id: string, x: number, y: number, w: number, h: number, excess: number }
+			local painted: { Painted } = {}
+			for _, r in decl.regions do
+				local res = byId[r.id]
+				local rect = if res ~= nil then res.rect else nil
+				if rect == nil or not res.mounted then
+					continue
+				end
+				local m = p.measured[r.id]
+				local w, h = rect.w, rect.h
+				if m ~= nil and not r.mayScroll then
+					w = math.max(w, m.w)
+					if r.sizing ~= "fill" then
+						h = math.max(h, m.h)
 					end
-					table.insert(collisions, {
-						a = first,
-						b = second,
-						dx = math.floor(dx + 0.5),
-						dy = math.floor(dy + 0.5),
-					})
+				end
+				table.insert(painted, {
+					id = r.id,
+					x = rect.x,
+					y = rect.y,
+					w = w,
+					h = h,
+					-- how far OUTSIDE its own box this one paints. It is what names the
+					-- offender in the pair: a finding that said "Timer paints over Rail"
+					-- when the Timer fits perfectly and the Rail is 60px too wide points
+					-- an author at the wrong node, and a diagnostic that misnames the
+					-- culprit is worse than none.
+					excess = (w - rect.w) + (h - rect.h),
+				})
+			end
+			for i = 1, #painted do
+				for j = i + 1, #painted do
+					local a, b = painted[i], painted[j]
+					local dx = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
+					local dy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+					if dx > EPS and dy > EPS then
+						local first, second = a.id, b.id
+						-- the one painting outside its box is `a`; ties break by id, so the
+						-- report is deterministic when both are over
+						if b.excess > a.excess or (b.excess == a.excess and second < first) then
+							first, second = second, first
+						end
+						table.insert(collisions, {
+							a = first,
+							b = second,
+							dx = math.floor(dx + 0.5),
+							dy = math.floor(dy + 0.5),
+						})
+					end
 				end
 			end
+			table.sort(collisions, function(x, y)
+				if x.a ~= y.a then
+					return x.a < y.a
+				end
+				return x.b < y.b
+			end)
 		end
-		table.sort(collisions, function(x, y)
-			if x.a ~= y.a then
-				return x.a < y.a
-			end
-			return x.b < y.b
-		end)
 	end
 
 	return {
