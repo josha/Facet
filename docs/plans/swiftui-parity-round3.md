@@ -1775,3 +1775,198 @@ out (#3, #7, #18, #19, #23, #39) stay ruled out.
 - **The place is not rebuilt.** `tools/build_places.sh` was not run for the
   showcase after `lifecycle_hidden` landed, because the registration above is
   outstanding and a place built without it would have to be rebuilt again.
+
+---
+
+## The accessibility-text-size axis on the always-on sweeps (2026-08-13)
+
+Game-director approved the same day. The always-on overflow sweep varied display
+SIZE and never varied TEXT SIZE, and that blind spot bit twice in one sitting,
+found independently by two agents: the perf lab's virtualized rows overflowed
+their fixed slot by 11/39/59px at `preferredTextOffset` 4/10/14 (clean at 0, so a
+headless run and a default Studio session both saw nothing), and
+`examples/reference/p4_foyer`'s `TopBar` was found overflowing its hstack —
+**pre-existing**, verified byte-identical with every edit stashed, invisible for
+exactly the same reason. This section records what was built, what it costs, what
+it found, and what it still does not ask.
+
+### What landed
+
+- **`tests/overflow_sweep.spec.luau`** now sweeps 42 surfaces × 8 viewports ×
+  **4 accessibility preferences** — the whole cross product, nothing dropped.
+- **`tests/example_readouts.spec.luau`** gained the same axis. Its blind spot was
+  sharper: the defect it exists for is a readout that lost a `ViewThatFits`
+  candidate ladder, and which candidate wins is a function of the text preference.
+- The offsets are **read from `tests/lib/large_text.PREFERENCES`**, not written in
+  either spec, so `{ Medium 0, Large 4, Larger 10, Largest 14 }` (decision LTN-1,
+  measured live 2026-08-03) has exactly one home and a fifth preference would
+  arrive in both sweeps without an edit.
+
+### The cost, and why the full cross product is affordable
+
+A 4× multiplier on an always-on instrument had to be measured before it was
+chosen. Both shapes were built and timed on the same tree, back to back:
+
+| shape | overflow-sweep case time | delta |
+|---|---|---|
+| pre-axis (offset 0 only) | 845 / 849 ms | — |
+| **re-mount** each surface once per preference | 3339 ms | +2.5 s |
+| **mount once, swing the preference live** | 2177 / 2113 ms | **+1.30 s (~+2.7 % of a ~48 s suite)** |
+
+The swing is what shipped. It is the seam a player actually uses —
+`PreferredTextSize` changes while the experience is running — and the suite
+already pins it as equivalent to a fresh mount (`tests/large_text_hot_swap.spec`,
+LTSWAP-BORN: "a screen BORN at Largest matches one swung there live"). It was also
+verified directly for this corpus rather than assumed: **both modes produced the
+same 304 findings, byte for byte**, across all 42 × 8 × 4 cells. The readout sweep
+paid +152 ms (98 ms → 250 ms) for the same axis.
+
+### Why nothing was narrowed
+
+Two narrowings looked defensible; the measurement says both are wrong, which is
+why the sweep runs the full product instead:
+
+- **"Just the extremes, 0 and 14"** misses `03_settings_sync` `/Settings/Page/State`,
+  which overflows by **24px at +4 and is clean at +10 and +14**. The preference
+  axis is **not monotone** — a larger preference reflows the page and can hand a
+  box more room than a smaller one did. `p5_wardrobe`'s item card is the same
+  story at 640×320: it fires at +4 and +14 and *not* at +10.
+- **"The full set only at the narrowest viewport"** misses **5 of the 35**
+  findings, four of them `p2_cartwheel`'s, which appear **only** at
+  tablet-landscape 1079×809 — and it would drop **61 of 304** findings at
+  console-ten-foot 1920×1078, where the `Large` display class multiplies the type
+  scale by 1.5 **on top of** the preference. Narrow is where large-text risk is
+  easiest to imagine, not where it lives.
+
+### The mutation, and its negative control
+
+Both anchors were asserted to match **exactly once** before the run (this session
+had a sibling mutation silently match nothing and report a false "0 reddened").
+
+1. **A real swept surface, mutated to overflow only at a large preference.**
+   `examples/gallery/scenarios/probe.luau`'s twelve rows were changed from a
+   `UI.Text` of fixed height 30 to a fixed-height-34 `UI.VStack` wrapping the same
+   text — a body line is 20px at +0, 24px at +4, 32px at +10 and 36px at +14, so
+   the slot fits at every preference but the largest.
+   - **With the axis:** RED, `scenario 'probe'`, **108 findings = 12 rows × 8
+     viewports × the +14 pass only**.
+   - **Without it (the pre-axis sweep, `OFFSETS = { 0 }`):** `scenario 'probe'`
+     **GREEN**. That is the negative control the axis is worth its 1.3 s for.
+   - The file was restored byte-identically (md5 verified, `git status` clean) and
+     was never staged.
+2. **A permanent control case in the spec.** `AXIS CONTROL: a slot sized for
+   Larger is SILENT at +0/+4/+10 and REPORTED at +14` mounts a 102px slot holding
+   three body lines (60/72/96/108px at the four preferences) through the same
+   world, settle and collector the surfaces use, and asserts the silence as
+   strictly as the finding — including the exact 6px overflow. If the axis is ever
+   disabled, this case says so on that run.
+3. **The waiver machinery, three mutations, each red exactly where it should be:**
+   lowering one ceiling (`p4_foyer` `/Foyer/Root/TopBar` 10 → 9) reported
+   *"WORSE than the recorded waiver: 10px against a 9px ceiling"*; raising one
+   `since` (`composition` `/CompositionScreen/Body/OfferBar` 4 → 10) reported
+   *"EARLIER than the recorded waiver: reported at +4, recorded from +10"*;
+   renaming one node (`progress_ring` `Dots` → `DotsX`) reddened both the surface
+   (a new unwaived finding) and the stale-waiver case.
+
+### What it found: 35 defects, and why the sweep still ships green
+
+Turning the axis on produced **304 findings, collapsing to 35 distinct
+(surface, node) defects** — keyed siblings (sixteen wardrobe cards, seven rail
+cards, six list rows) are one template and are recorded once. **Zero of them are
+at offset 0**: every one was invisible to the pre-axis sweep, which is the whole
+argument for the axis.
+
+None of the 35 is in a file this mission owned, and **a permanently-red always-on
+check is worse than none** — it teaches people to skim the suite, which is exactly
+how the nine device bugs shipped. So the axis lands green over an **enumerated
+waiver list in the spec**, under three rules that keep it a to-do list rather than
+a shrug:
+
+1. **Nothing is waived at offset 0.** The pre-axis contract is untouched.
+2. **A waiver is a ceiling, not a pardon.** `px` is the largest overflow measured
+   and `since` the smallest preference that reports it; a finding that exceeds the
+   ceiling, or that appears at a *smaller* preference, fails.
+3. **A waiver that fires nowhere fails too.** Fix a surface and the suite tells you
+   to delete the line, so the list can only shrink.
+
+**Triage classes.** `fixed-px-vs-text` = a px extent fixed against content that is
+not (`docs/lessons/luauui-fixed-px-heights.md`); `row-cannot-shrink` = a row of
+labels or controls wider than the screen with nothing allowed to shrink;
+`page-not-scrollable` = a whole surface taller than a short canvas (usually
+640×320) with no page scroller; `wrap-clamp` = a `hwrap` line clamping a child it
+could not fit. **Not one of the 35 carries the solver's *"every shrinkable child is
+already at its floor"* suffix**, so every one of them is still repairable by
+authoring — a `shrinkWeight`, a `ViewThatFits` rung, a wrap — rather than blocked
+on the framework.
+
+| px | surface | node | from | class | where |
+|---:|---|---|---:|---|---|
+| 198 | composition | `/CompositionScreen/Body/OfferBar` | +4 | row-cannot-shrink | 320×640, compact-portrait |
+| 113 | virtual_list_native | `/VLNative` | +4 | page-not-scrollable | both narrow + both compact |
+| 109 | row_actions `[vlist]` | `/MailActions/VListWhen/then/VListPane` | +4 | fixed-px-vs-text | 320×640, 640×320, compact-landscape |
+| 95 | sponsor_list | `/ListLab/Body/Controls` | +10 | row-cannot-shrink | 320×640, compact-portrait |
+| 92 | adaptive_controls | `…/Hud/Legend` | +10 | row-cannot-shrink | four phone views |
+| 92 | theme_authoring | `…/Hud/Legend` | +10 | row-cannot-shrink | the same fixture under the theme package |
+| 82 | 07_match3 | `/Match3/Page/Stats` | +10 | row-cannot-shrink | the device-bug round's own ladder runs out of rungs at +10 |
+| 68 | card_rail | `…/W/[*]/Row/Card` | +10 | fixed-px-vs-text | 640×320, compact-landscape (7 cards, one template) |
+| 64 | sponsor_billboard | `/BillboardLab` | +4 | page-not-scrollable | 640×320, compact-landscape |
+| 59 | composition | `…/Summary/Actions/ActionsRow` | +10 | row-cannot-shrink | 320×640, compact-portrait |
+| 52 | p4_foyer | `…/FeedPage/Sections/[*]/Body/Header` | +10 | row-cannot-shrink | 320×640, compact-portrait (4 sections, one template) |
+| 46 | drag_session | `/DragLab` | +4 | page-not-scrollable | 640×320, compact-landscape |
+| 43 | p4_foyer | `…/HomeBody/TabRow` | +10 | row-cannot-shrink | 320×640, compact-portrait |
+| 43 | authoring | `/AuthoringScreen` | +4 | page-not-scrollable | 640×320, compact-landscape |
+| 36 | row_actions `[table]` | `…/TablePane/MailTable/Main` | +10 | fixed-px-vs-text | 640×320, compact-landscape |
+| 35 | sponsor_list | `…/W/[*]/Row/Card/Labels` | +10 | fixed-px-vs-text | the row-height memo caps the detail at **two** caption lines; at +10 it needs three |
+| 30 | p2_cartwheel | `…/Sky/Skyglow/Axis` | +14 | row-cannot-shrink | tablet-landscape **only** |
+| 26 | p2_cartwheel | `…/ChatterCard/OpenChatter` | +14 | row-cannot-shrink | tablet-landscape **only** |
+| 26 | scroll_host | `/ScrollHost` | +10 | page-not-scrollable | 640×320, compact-landscape |
+| 25 | async_images | `/AsyncImages` | +10 | page-not-scrollable | 640×320, compact-landscape |
+| 25 | row_actions `[table]` | `/MailActions/TableWhen/then/TablePane` | +10 | page-not-scrollable | 640×320, compact-landscape |
+| 24 | 03_settings_sync | `/Settings/Page/State` | +4 | fixed-px-vs-text | compact-portrait **at +4 only** — the non-monotone cell |
+| 24 | p5_wardrobe | `…/PickedGrid/Items/[*]/*` | +4 | fixed-px-vs-text | six of eight views |
+| 24 | p5_wardrobe | `…/PickedGrid/Items/[*]/*/Col/Meta` | +10 | row-cannot-shrink | 320×640, ten-foot |
+| 24 | p5_wardrobe | `…/RestGrid/Items/[*]/*` | +4 | fixed-px-vs-text | six of eight views (12 cards, one template) |
+| 24 | p5_wardrobe | `…/RestGrid/Items/[*]/*/Col/Meta` | +10 | row-cannot-shrink | 320×640, ten-foot |
+| 23 | perf_capture | `/PerfCapture` | +10 | page-not-scrollable | 640×320, compact-landscape |
+| 20 | progress_ring | `/ProgressRing/Page/Dots` | +14 | row-cannot-shrink | 320×640 only |
+| 16 | p4_foyer | `…/ContentHost/HomeWhen/then/HomeBody` | +4 | page-not-scrollable | 640×320 only |
+| 16 | sponsor_toast | `/ToastLab` | +10 | page-not-scrollable | 640×320 only |
+| 12 | sponsor_avatars | `/AvatarLab` | +10 | page-not-scrollable | 640×320 only |
+| **10** | **p4_foyer** | **`/Foyer/Root/TopBar`** | **+14** | **row-cannot-shrink** | **320×640 only — the reported defect, reproduced** |
+| 8 | sponsor_drop | `/DropLab/Main` | +14 | page-not-scrollable | 320×640 only |
+| 5 | p2_cartwheel | `…/RackSlot/Rack/OpenPotions` | +14 | row-cannot-shrink | tablet-landscape only |
+| 0 | p2_cartwheel | `…/ChatterCard/Cloud` | +14 | wrap-clamp | `Tag3` clamped by 0px, the degenerate end of the class |
+
+The two heaviest are worth naming as design defects rather than constants:
+`composition`'s `OfferBar` runs **198px** past a 320px phone, and
+`virtual_list_native` is **113px** taller than a 640×320 landscape with nothing to
+scroll it. The most instructive is `sponsor_list`'s row — its height is *already*
+derived from live theme facts and the preference offset (the fixed-px lesson
+applied), and it still overflows, because the derivation caps the detail line at
+two caption lines and large text needs three. Deriving the height was necessary
+and not sufficient.
+
+### What is still NOT covered — logged, not silent
+
+- **The locale axis.** Both sweeps run one locale (each surface's default copy).
+  It is an independent expansion axis and it is *stronger* than this one on at
+  least one surface: `p4_foyer`'s `TopBar` is clean at 390×844 in English at every
+  preference and overflows by **33px at +10 and 58px at +14** under the shipping
+  1.4× `xa` pseudo-locale — and at 359×718 it overflows by 2px there **at +0**.
+  Measured 2026-08-13; not swept.
+- **390×844 is not a swept viewport.** The reference agent measured the `TopBar`
+  finding there; the sweep reaches the same node at 320×640 and 359×718. Adding
+  the plan's canonical phone would cost ~1/8 of both sweeps and was not taken.
+- **The perf lab** (`examples/performance/**`) is not a swept surface, so the
+  first of the two reported defects cannot be reproduced by this instrument. It
+  was fixed at `8b11393` before this work began.
+- **`tests/lib/tiers.luau` still records `overflow_sweep.spec` at 1036 ms** with
+  the reason "37 showcase surfaces x six viewports x both orientations". Both
+  numbers are now stale (≈2.5 s, 42 surfaces, eight viewports, four preferences).
+  The file belonged to another agent this round; the tier spec only asserts
+  `ms > 250`, so nothing is red — it is a one-line correction owed.
+- **The readout axis found nothing, and that was verified rather than assumed.**
+  An independent probe checked every node of all seven tutorial examples at all
+  eight viewports: **no node that has area at +0 loses it at +4, +10 or +14**. The
+  axis there is insurance against the candidate-ladder class returning, at +152 ms;
+  it has no real mutation to bite on today.

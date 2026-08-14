@@ -47,6 +47,17 @@
 -- the Studio device matrix). Being BELOW THE FOLD is explicitly fine: every one of
 -- these screens is a page ScrollView, so the question is "does it exist with a
 -- size", not "is it on screen right now".
+--
+-- IT ASKS AT EVERY TEXT SIZE (accessibility round, 2026-08-13). The sibling
+-- overflow sweep gained the same axis in the same commit, and the reason is
+-- sharper here than there: the defect this file was written for is a readout that
+-- lost a ViewThatFits candidate ladder, and WHICH CANDIDATE WINS IS A FUNCTION OF
+-- THE TEXT PREFERENCE. A ladder that keeps every readout at Medium can drop to a
+-- rung that does not carry one at Largest, and the losing candidate keeps its
+-- node, its props and its text — exactly the shape that stayed green here for a
+-- whole mission. Same swing the overflow sweep uses (one mount per view, then the
+-- live preference seam `tests/large_text_hot_swap.spec` pins as equivalent to a
+-- fresh mount), measured at +0.4s on a 0.1s check.
 
 local t = require("./lib/testkit")
 local describe, it = t.describe, t.it
@@ -55,10 +66,19 @@ local LuauUI = require("../src") :: any
 local fake_target = require("./lib/fake_target")
 local device_views = require("./lib/device_views")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
+local large_text = require("./lib/large_text")
 
 local VIEWS = device_views.VIEWS
 local CAPABILITIES = device_views.CAPABILITIES
 local SHOWCASE_TOP = demo_picker.barReservation(device_views.CORE_TOP, nil, 8)
+
+-- the four measured accessibility preferences, from the file that records what the
+-- engine does with them (see tests/lib/large_text.luau's header, decision LTN-1)
+local OFFSETS: { number } = {}
+for _, preference in large_text.PREFERENCES do
+	table.insert(OFFSETS, preference.offset)
+end
+table.sort(OFFSETS)
 
 -- THE DECLARED READOUTS. One entry per tutorial example: the text the tutorial
 -- tells the reader to watch, and the control it tells them to press. Adding a
@@ -178,65 +198,75 @@ end
 describe("readout sweep: every tutorial example renders the content it declares", function()
 	for _, entry in READOUTS do
 		local module = require(`../examples/gallery/examples/{entry.example}`) :: any
-		it(`example '{entry.example}': every declared readout has a real rect at every swept viewport`, function()
-			local problems: { string } = {}
-			for _, view in VIEWS do
-				local w = world(view)
-				local built = module.build(
-					LuauUI,
-					w.core,
-					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
-				)
-				if built.handle == nil and built.screen ~= nil then
-					built.handle = w.presenter.present(built.screen, built.present)
-				end
-				assert(built.handle ~= nil, `{entry.example} presented no screen`)
-				for _ = 1, SETTLE_FRAMES do
-					w.presenter.refresh()
-				end
-				for _, path in entry.paths do
-					local node = w.adapter.node(path)
-					if node == nil then
-						table.insert(
-							problems,
-							`  {view.id} ({view.w}x{view.h}): {path} is NOT IN THE RENDER — `
-								.. "declared content that reaches no node is invisible at this viewport"
-						)
-						continue
+		it(
+			`example '{entry.example}': every declared readout has a real rect at every swept viewport, at every text size`,
+			function()
+				local problems: { string } = {}
+				for _, view in VIEWS do
+					local w = world(view)
+					local built = module.build(
+						LuauUI,
+						w.core,
+						{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
+					)
+					if built.handle == nil and built.screen ~= nil then
+						built.handle = w.presenter.present(built.screen, built.present)
 					end
-					local rect = node.rect
-					if rect == nil then
-						table.insert(problems, `  {view.id} ({view.w}x{view.h}): {path} was never arranged (no rect)`)
-						continue
+					assert(built.handle ~= nil, `{entry.example} presented no screen`)
+					for _, offset in OFFSETS do
+						w.env:set("preferredTextOffset", offset)
+						for _ = 1, SETTLE_FRAMES do
+							w.presenter.refresh()
+						end
+						for _, path in entry.paths do
+							local node = w.adapter.node(path)
+							if node == nil then
+								table.insert(
+									problems,
+									`  {view.id} ({view.w}x{view.h}) @ +{offset}: {path} is NOT IN THE RENDER — `
+										.. "declared content that reaches no node is invisible at this viewport"
+								)
+								continue
+							end
+							local rect = node.rect
+							if rect == nil then
+								table.insert(
+									problems,
+									`  {view.id} ({view.w}x{view.h}) @ +{offset}: {path} was never arranged (no rect)`
+								)
+								continue
+							end
+							if rect.w <= 0 or rect.h <= 0 then
+								table.insert(
+									problems,
+									string.format(
+										"  %s (%dx%d) @ +%d: %s is arranged to nothing — rect %dx%d at %d,%d",
+										view.id,
+										view.w,
+										view.h,
+										offset,
+										path,
+										rect.w,
+										rect.h,
+										rect.x,
+										rect.y
+									)
+								)
+							end
+						end
 					end
-					if rect.w <= 0 or rect.h <= 0 then
-						table.insert(
-							problems,
-							string.format(
-								"  %s (%dx%d): %s is arranged to nothing — rect %dx%d at %d,%d",
-								view.id,
-								view.w,
-								view.h,
-								path,
-								rect.w,
-								rect.h,
-								rect.x,
-								rect.y
-							)
-						)
+					if built.dispose ~= nil then
+						built.dispose()
 					end
 				end
-				if built.dispose ~= nil then
-					built.dispose()
+				if #problems > 0 then
+					error(
+						`{entry.example}: {#problems} declared readout(s) are not rendered:\n`
+							.. table.concat(problems, "\n"),
+						0
+					)
 				end
 			end
-			if #problems > 0 then
-				error(
-					`{entry.example}: {#problems} declared readout(s) are not rendered:\n`
-						.. table.concat(problems, "\n"),
-					0
-				)
-			end
-		end)
+		)
 	end
 end)
