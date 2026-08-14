@@ -429,12 +429,76 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		end
 		expect(bound >= 1).toBe(true)
 
-		-- and the mirror is LIVE: an engine canvas move lands in the control
-		local bodyPath = built.table_.api.scrollPath()
-		expect(bodyPath).toBe("/Playlist/Page/Tracks/Main/Body")
-		adapter.driveScroll(bodyPath :: string, { x = 0, y = 120 })
+		--[[ ...AND THIS TABLE HAS NO MIRROR TO BIND, WHICH IS THE POINT (ruling 3,
+			2026-08-13). This test used to end by driving `driveScroll` on
+			`api.scrollPath()` and asserting `dump().scrollTop == 120` — an assertion
+			only the FAKE could satisfy. The shipped playlist is a BLOCK table
+			(`scrolls = false`, "the page owns the scrolling"), so that path is a
+			plain VStack: on the real client the renderer elides it and nothing can
+			ever move it, while `fake_target.driveScroll` writes `scrollPosition` onto
+			any node it is handed and fires its observers regardless. The suite was
+			pinning a number the engine could not produce.
+
+			What the auto-bind actually buys a block table is the TRAY-CLOSE, bound to
+			the page — proved by the live-shaped case below, not by a mirror. ]]
+		expect(built.table_.api.scrollPath()).toBe(nil)
+		expect(built.table_.dump().scrollTop).toBe(0)
+		expect(core:lastError()).toBeNil()
+	end)
+
+	--[[ RULING 3, THE REPORTED SYMPTOM, ON THE SHIPPED SURFACE (director
+		2026-08-13). Open a swipe tray in the playlist, scroll the PAGE, and the tray
+		used to ride along still open: "any scroll closes the tray" was bound to
+		`<root>/Main/Body`, which in a block table is a node that never scrolls.
+		Now `api.scrollPath()` publishes nothing and the coordinator binds to the
+		real scrolling ancestor, so the page scroll closes it. ]]
+	it("RULING 3: scrolling the PAGE closes a swiped-open tray on the shipped playlist", function()
+		local ex = require("../examples/gallery/examples/02_playlist_table")
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
+		local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local built =
+			ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
-		expect(built.table_.dump().scrollTop).toBe(120)
+		-- THE SHIPPED BOOTSTRAP's auto-bind, the same loop as the case above
+		built.table_.api.bindNativeScroll(handle.controller)
+		local function settle(frames: number?)
+			for _ = 1, frames or 120 do
+				clock.t += 1 / 60
+				presenter.tick(1 / 60)
+				presenter.refresh()
+			end
+		end
+		local key = built.rows:get()[1].id
+		local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+		local hit = `{root}/Content/Row/Hit`
+		local remove = `{root}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+		local rect = adapter.node(hit).rect
+		local startX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		adapter.pointerDown(hit, startX, y, "mouse")
+		for i = 1, 8 do
+			adapter.pointerMove(startX - rect.w * 0.3 * (i / 8), y, "mouse")
+			settle(1)
+		end
+		adapter.pointerUp(startX - rect.w * 0.3, y)
+		settle(120)
+		expect(`tray open: {adapter.node(remove) ~= nil}`).toBe("tray open: true")
+
+		-- the PAGE moves — the only thing that CAN move on this screen
+		adapter.driveScroll("/Playlist/Page", { x = 0, y = 40 })
+		settle(120)
+		expect(`tray open after a page scroll: {adapter.node(remove) ~= nil}`).toBe(
+			"tray open after a page scroll: false"
+		)
 		expect(core:lastError()).toBeNil()
 	end)
 

@@ -2912,3 +2912,169 @@ describe("Table: row actions (Task 10)", function()
 		end
 	)
 end)
+
+--[[ ═══ RULING 3 (director, 2026-08-13): A BLOCK TABLE PUBLISHES NOTHING ══════
+	`api.scrollPath()` used to return `<root>/Main/Body` unconditionally, with no
+	`spec.scrolls` check — but a BLOCK table's Body is a plain `UI.VStack`, not a
+	`UI.ScrollView`, so that path names a node that never scrolls (and which the
+	renderer ELIDES entirely, which is how the crash half of this was found).
+
+	The crash half is fixed in `screen_target.observeScroll`. THIS is the design
+	half, and it is the reported symptom: open a swipe tray in the shipped
+	playlist, scroll the PAGE, and the tray rides along still open — because
+	"any scroll closes the tray" (`row_actions.newCoordinator`'s `bindScroll`)
+	was bound to that never-scrolling node.
+
+	Ruled fix A: publish nothing when the table does not scroll, so the
+	tray-closing rule binds to the REAL scrolling ancestor
+	(`controller.scrollHostFor`, which already exists for Table's own reorder
+	autoscroll and whose own comment names "a block Table inside a scrolling
+	page" as the shipped shape). ]]
+describe("Table: a BLOCK table publishes no scroll path of its own (ruling 3)", function()
+	local function pageWorld(spec: any)
+		local core = spec.core or LuauUI.newCore()
+		local clockTime = 0
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clockTime
+			end,
+		})
+		local rows = core:signal(RACERS)
+		local tbl = table_control.build(LuauUI, core, {
+			id = "Racers",
+			env = env,
+			scrolls = spec.scrolls,
+			header = false,
+			rowHeight = 40,
+			columns = { { id = "name", title = "Racer", width = { type = "fill", weight = 1 } } },
+			rows = rows,
+			key = function(item)
+				return item.id
+			end,
+			cellFor = function(_columnId, item)
+				return LuauUI.UI.Text({ id = "Value", text = item.name, textSize = 16 })
+			end,
+			rowActions = function(_item)
+				return {
+					trailing = { { id = "delete", role = "destructive", label = "Delete", onAction = function() end } },
+					fullSwipe = false,
+				}
+			end,
+		})
+		-- THE HOST OWNS THE SCROLLING (the shipped playlist's own shape,
+		-- examples/gallery/examples/02_playlist_table.luau): a page ScrollView
+		-- wrapping a table that is a block inside it.
+		local handle = pres.present(LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = { tbl.blueprint },
+				}),
+			},
+		}))
+		pres.refresh()
+		local function tick(dt: number)
+			clockTime += dt
+			pres.tick(dt)
+			pres.refresh()
+		end
+		local function settle(frames: number?)
+			for _ = 1, frames or 90 do
+				tick(1 / 60)
+			end
+		end
+		return { core = core, adapter = adapter, pres = pres, tbl = tbl, handle = handle, tick = tick, settle = settle }
+	end
+
+	local function rowHit(key: string): string
+		return `/S/Page/Racers/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
+	end
+
+	-- open razz's trailing tray with a real horizontal drag on its own Hit
+	local function openTray(w: any): number
+		local hit = rowHit("razz")
+		local closedX = (w.adapter.node(hit) :: any).rect.x
+		w.adapter.pointerDown(hit, 100, 20, "mouse")
+		w.tick(0.01)
+		w.adapter.pointerMove(60, 20)
+		w.tick(1.0)
+		w.adapter.pointerMove(-200, 20)
+		w.tick(1 / 60)
+		w.adapter.pointerUp(-200, 20)
+		w.settle()
+		expect(`opened: {(w.adapter.node(hit) :: any).rect.x < closedX}`).toBe("opened: true")
+		return closedX
+	end
+
+	it("a VIEWPORT table publishes its own Body; a BLOCK table publishes nothing", function()
+		local viewport = pageWorld({ scrolls = true })
+		expect(viewport.tbl.api.scrollPath()).toBe("/S/Page/Racers/Main/Body")
+		local block = pageWorld({ scrolls = false })
+		expect(block.tbl.api.scrollPath()).toBe(nil)
+	end)
+
+	it("the BLOCK table's published Body is not a scroller at all — which is why publishing it lied", function()
+		local block = pageWorld({ scrolls = false })
+		local body = block.adapter.node("/S/Page/Racers/Main/Body")
+		-- present, but with no scroll region: driving a scroll on it is a no-op
+		expect(`body mounted: {body ~= nil}`).toBe("body mounted: true")
+		expect(`body scrolls: {(body :: any).scrollRegion ~= nil}`).toBe("body scrolls: false")
+	end)
+
+	it("THE SYMPTOM: a PAGE scroll closes an open tray in a BLOCK table", function()
+		local w = pageWorld({ scrolls = false })
+		local closedX = openTray(w)
+		w.tbl.api.bindNativeScroll(w.handle.controller)
+		w.adapter.driveScroll("/S/Page", { x = 0, y = 30 })
+		w.settle()
+		expect((w.adapter.node(rowHit("razz")) :: any).rect.x).toBe(closedX)
+		--[[ ...AND THE PAGE'S OFFSET STAYS OUT OF THE TABLE'S OWN MIRROR. It is
+			tempting to point the CanvasPosition mirror at the ancestor too, since
+			that is where the movement is — and it is wrong: `scrollTop` is spent by
+			the reorder drop-slot arithmetic as `pos.y - bodyRect.y + scrollTop`, and
+			`bodyRect` is WINDOW space (renderer.luau ESC-2), so a block table's rect
+			ALREADY moves with the page. Mirroring the page there counts its offset
+			twice and puts every drop slot wrong by exactly the page scroll. A block
+			table has no canvas of its own; its mirror stays at zero. ]]
+		expect(w.tbl.dump().scrollTop).toBe(0)
+	end)
+
+	it("...and a VIEWPORT table still closes its tray on its OWN body scroll (unchanged)", function()
+		local w = pageWorld({ scrolls = true })
+		local closedX = openTray(w)
+		w.tbl.api.bindNativeScroll(w.handle.controller)
+		w.adapter.driveScroll("/S/Page/Racers/Main/Body", { x = 0, y = 30 })
+		w.settle()
+		expect((w.adapter.node(rowHit("razz")) :: any).rect.x).toBe(closedX)
+	end)
+
+	it("binding a BLOCK table still reports the mount error when it was never presented", function()
+		local core = LuauUI.newCore()
+		local tbl = table_control.build(LuauUI, core, {
+			id = "Loose",
+			scrolls = false,
+			columns = { { id = "name", title = "N", width = { type = "fill", weight = 1 } } },
+			rows = core:signal(RACERS),
+			key = function(item)
+				return item.id
+			end,
+			cellFor = function()
+				return LuauUI.UI.Text({ id = "V", text = "x", textSize = 16 })
+			end,
+		})
+		local ok, err = pcall(function()
+			tbl.api.bindNativeScroll({})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "scroll path unknown", 1, true) ~= nil).toBe(true)
+	end)
+end)

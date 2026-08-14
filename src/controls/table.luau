@@ -430,6 +430,23 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- While editing, rows grow a trailing ≡ handle; on touch, ONLY the handle
 	-- starts a reorder — the row body always pans the scroll.
 	local editingSignal = spec.editing or scope:own(core:signal(false))
+	--[[ HOISTED TWICE (parity round 3, then again 2026-08-14 for `rowDeletable`):
+		this used to sit ~170 lines below the capability gates in `api.select` and
+		`api.moveRow`, and it now sits above `rowBlueprint` too — the `deletable`
+		thunk handed to `row_actions.build` closes over it. A local declared LATER
+		in the file is NOT an upvalue: it binds a nil GLOBAL and calls it
+		(`docs/lessons/later-locals-are-not-upvalues.md` — and the delete gate walked
+		straight into that lesson before this move). It depends only on `spec`,
+		already in scope, so it can sit as high as its first reader needs. ]]
+	local function itemForKey(rowKey: string): any?
+		for _, item in spec.rows:get() :: { any } do
+			if spec.key(item) == rowKey then
+				return item
+			end
+		end
+		return nil
+	end
+
 	-- Task 10: ONE row-actions coordinator per table (`row_actions.
 	-- newCoordinator`, Task 7), shared by every wrapped row so at most one
 	-- tray is open across the whole list — built only when `spec.rowActions`
@@ -1553,6 +1570,17 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- (Table's own, in EditWhen above) at once while editing.
 			editing = editingSignal,
 			env = spec.env,
+			-- `rowDeletable`, threaded across `spec.rowActions`' own callback
+			-- boundary (director ruling, parity round 3): row_actions has no notion
+			-- of an item, so THIS side — which owns both the item and the predicate
+			-- — resolves the verdict and the composite evaluates it at commit time
+			-- inside its one destructive funnel. `rowCapability.allows` is the same
+			-- fail-closed reading `rowSelectable`/`rowMovable` use.
+			deletable = if spec.rowDeletable ~= nil
+				then function()
+					return rowCapability.allows(spec.rowDeletable, itemForKey(rowKey))
+				end
+				else nil,
 			externalGesture = dragHandlers ~= nil,
 		})
 		composedRef = if dragHandlers ~= nil
@@ -2018,21 +2046,6 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			table.insert(keys, spec.key(item))
 		end
 		return keys
-	end
-
-	--[[ HOISTED (parity round 3): this used to sit ~170 lines below, and the
-		per-row capability gates in `api.select` and `api.moveRow` need it. A
-		local declared LATER in the file is NOT an upvalue — it binds a nil
-		global and calls it
-		(`docs/lessons/later-locals-are-not-upvalues.md`). It depends only on
-		`spec`, already in scope. ]]
-	local function itemForKey(rowKey: string): any?
-		for _, item in spec.rows:get() :: { any } do
-			if spec.key(item) == rowKey then
-				return item
-			end
-		end
-		return nil
 	end
 
 	local function rangeKeys(fromKey: string, toKey: string): { [string]: boolean }
@@ -2965,22 +2978,52 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		return widthOverrides:get()
 	end
 
+	-- the unbind a skipped subscription still owes its caller
+	local function NOOP() end
+	-- the path of the nearest ScrollView ANCESTOR of this table's mounted root —
+	-- the thing that actually moves a block table's rows. `controller.
+	-- scrollHostFor` is the renderer's one answer to that question (it reads the
+	-- host map `structuralSync` already threads down the live-path walk); a
+	-- controller stub without it, or a table mounted under nothing that scrolls,
+	-- answers nil and the caller simply binds nothing.
+	local function hostScrollPathOf(controller: any): string?
+		if mountedRoot == nil or type(controller.scrollHostFor) ~= "function" then
+			return nil
+		end
+		local host = controller.scrollHostFor(mountedRoot)
+		return if type(host) == "table" then host.path else nil
+	end
+
 	-- native scroll mirror wiring (native-substrate NS-A2). Controls cannot reach
 	-- the renderer controller at build time, so the consumer/presenter calls this
 	-- after present(): it feeds controller.observeScroll(bodyPath) -> scrollTop
 	-- (the engine CanvasPosition mirror) and hands the same controller to
 	-- keep-visible for its programmatic scrollTo writes. `scrollPath` defaults to
-	-- <mountedRoot>/Main/Body (captured in buildFocusGroups); pass it explicitly
-	-- for a standalone mount. Returns an unbind that stops the mirror.
+	-- `api.scrollPath()`; pass it explicitly for a standalone mount. Returns an
+	-- unbind that stops the mirror.
+	--
+	-- A BLOCK TABLE HAS NO MIRROR AND STILL HAS A TRAY TO CLOSE (ruling 3,
+	-- director 2026-08-13). Under `scrolls = false` there is no ScrollingFrame of
+	-- this table's own to observe, so `api.scrollPath()` is nil and the mirror is
+	-- skipped — but the rows still MOVE, carried by whatever scrolls above them,
+	-- and "any scroll closes the open tray" has to follow the movement rather
+	-- than the ownership. `controller.scrollHostFor` answers exactly that (its own
+	-- comment already names "a block Table inside a scrolling page" as the shipped
+	-- shape), so the tray-close binds to the real scrolling ancestor. Before this,
+	-- both were bound to `<root>/Main/Body` — a plain VStack the renderer elides —
+	-- and a page scroll left the tray open, which is the reported symptom.
 	function api.bindNativeScroll(controller: any, scrollPath: string?): () -> ()
-		local path = scrollPath or (if mountedRoot ~= nil then mountedRoot .. "/Main/Body" else nil)
 		assert(
-			path ~= nil,
+			scrollPath ~= nil or mountedRoot ~= nil,
 			"Table.bindNativeScroll: scroll path unknown — present the table (so its mounted path is captured) or pass it explicitly"
 		)
-		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
-			scrollTop:set(pos.y)
-		end)
+		-- THIS table's own canvas: nil for a block table, which has none.
+		local path = scrollPath or api.scrollPath()
+		local unsub = if path ~= nil
+			then controller.observeScroll(path, function(pos: { x: number, y: number })
+				scrollTop:set(pos.y)
+			end)
+			else NOOP
 		boundController = controller
 		boundScrollPath = path
 		-- Task 10: any scroll closes the currently-open row-actions tray
@@ -2988,8 +3031,9 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- wired through the identical seam, the same `controller.
 		-- observeScroll` call, one line below the mirror it shares a
 		-- controller/path with. `nil` for a table with no `spec.rowActions`.
-		local unsubCoordinatorScroll = if rowActionsCoordinator ~= nil
-			then rowActionsCoordinator.bindScroll(controller, path)
+		local trayPath = path or hostScrollPathOf(controller)
+		local unsubCoordinatorScroll = if rowActionsCoordinator ~= nil and trayPath ~= nil
+			then rowActionsCoordinator.bindScroll(controller, trayPath)
 			else nil
 		return function()
 			unsub()
@@ -3002,8 +3046,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			end
 		end
 	end
-	-- the mounted native-scroll host path (nil until first presented/refreshed)
+	-- the mounted native-scroll host path (nil until first presented/refreshed,
+	-- and nil FOREVER for a block table — see `bindNativeScroll` above: under
+	-- `scrolls = false` the Body is a plain VStack, so publishing it named a node
+	-- that never scrolls and that the renderer elides outright)
 	function api.scrollPath(): string?
+		if spec.scrolls == false then
+			return nil
+		end
 		return if mountedRoot ~= nil then mountedRoot .. "/Main/Body" else nil
 	end
 
