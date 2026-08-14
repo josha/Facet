@@ -105,12 +105,17 @@ describe("the per-control declaration is ruled on at the call site", function()
 		expect(string.find(text, "none", 1, true) ~= nil).toBeTruthy()
 	end)
 
-	it("refuses a non-string activation rather than accepting an inert declaration", function()
+	it("refuses a non-string activation, NAMING the type rather than the value", function()
 		local ok, err = pcall(function()
 			UI.sensoryFeedback(UI.Button({ id = "B", label = "b" }), { activation = true } :: any)
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "activation", 1, true) ~= nil).toBeTruthy()
+		-- the unknown-VERB refusal would also fire here and would also contain the
+		-- word "activation", so asserting that proves nothing about the type check.
+		-- The message an author can act on names what they passed.
+		local text = tostring(err)
+		expect(string.find(text, "must be a string", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "boolean", 1, true) ~= nil).toBeTruthy()
 	end)
 
 	it("refuses MIXING the two forms in one spec — they have different causes", function()
@@ -490,36 +495,35 @@ describe("the render seam publishes the resolved verb", function()
 	end)
 
 	it("a recycled instance never inherits the PREVIOUS control's verb", function()
-		-- instance recycling is ON by default: the Button freed by the first
-		-- region is the same engine object the second region adopts, so a verb
-		-- written once and never cleared is a control that feels like the control
-		-- that used to live there
+		-- MEASURED, NOT ASSUMED: the pool only has something to hand out on the
+		-- SECOND structural change (the renderer creates before it parks), and
+		-- `stats().recycled` is asserted below so this cannot quietly become a test
+		-- of two fresh instances — which is exactly what its first version was.
 		local core, _, adapter, _, pres = world()
-		local declared = core:signal(true)
-		local plain = core:signal(false)
-		pres.present(UI.Screen({
+		local items = core:signal({ { key = "a", declared = true } })
+		local handle = pres.present(UI.Screen({
 			id = "S",
 			children = {
-				UI.When({
-					id = "W1",
-					condition = declared,
-					thenView = function(): any
-						return UI.sensoryFeedback(UI.Button({ id = "B", label = "b" }), { activation = "commit" })
+				UI.ForEach({
+					id = "F",
+					items = items,
+					key = function(item: any): string
+						return item.key
 					end,
-				}),
-				UI.When({
-					id = "W2",
-					condition = plain,
-					thenView = function(): any
-						return UI.Button({ id = "B", label = "b" })
+					row = function(item: any): any
+						local button = UI.Button({ id = "B", label = "b" })
+						return if item.declared then UI.sensoryFeedback(button, { activation = "commit" }) else button
 					end,
 				}),
 			},
 		}))
-		expect(adapter.activationFeedbackOf("/S/W1/then/B")).toBe("commit")
-		declared:set(false)
-		plain:set(true)
-		expect(adapter.activationFeedbackOf("/S/W2/then/B")).toBe(nil)
+		expect(adapter.activationFeedbackOf("/S/F/[a]/B")).toBe("commit")
+		items:set({ { key = "b", declared = true } })
+		handle.controller.refresh()
+		items:set({ { key = "c", declared = false } })
+		handle.controller.refresh()
+		expect(handle.controller.stats().recycled > 0).toBe(true)
+		expect(adapter.activationFeedbackOf("/S/F/[c]/B")).toBe(nil)
 	end)
 end)
 
@@ -616,6 +620,11 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 
 	it("`none` leaves the button with NO effect reference at all", function()
 		local quiet = fakeButton("none")
+		-- START DECORATED. A `decorate` that merely SKIPS a silent control passes a
+		-- from-nil assertion while leaving a button somebody else already decorated
+		-- buzzing forever, so the pin has to be that the reference is actively
+		-- CLEARED — "none unless somebody already said otherwise" is not none.
+		quiet.PressHapticEffect = { stale = true }
 		local hap = adapterWith({ quiet })
 		expect(quiet.PressHapticEffect).toBe(nil)
 		expect(hap.diagnostics().decorated).toBe(0)
