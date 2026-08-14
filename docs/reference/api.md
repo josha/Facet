@@ -3425,13 +3425,27 @@ by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
 keyed-row virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
-string, itemExtent (px), rowGap? (px), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
+string, axis? ("y" default | "x"), itemExtent (px or Readable<number>), rowGap? (px or
+Readable<number>), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
-onActivate? ((item, meta) -> ()) }`. Returns `{
+onActivate? ((item, meta) -> ()) }` — plus the collection fields tabled below.
+Returns `{
 blueprint, scrollTop (Signal), focusedKey (Signal), pathOf(key) -> path?,
 focusKey(key) -> path? (scrolls into view and materializes), debugWindow(),
 dump(), dispose() }`. Item state lives in the item scope and dies when a row
 leaves the window — durable state belongs in your data model.
+
+**`axis` is the direction the list runs**, `"y"` (a vertical list of rows, the
+default) or `"x"` (a sideways strip of items), and it is **construction-only** for
+the reason `ScrollView.axis` is (constitution §16, E-6): a reactive scroll axis
+would rebuild the engine's native scroll state mid-gesture. Every other field is
+written in the vertical vocabulary and reads on both axes — `itemExtent` is one
+item's size *along the list's own axis*, `viewportExtent` is the host's size along
+it, and the list's one navigation group takes that axis too. Two fields are
+axis-restricted, and each says so at construction: **`width` is an `axis = "y"`
+field** (there it is the CROSS axis; on `axis = "x"` the width *is*
+`viewportExtent`), and **`rowActions` is vertical-only**, because a tray's reveal
+and a horizontal list's own scroll would be the same sideways swipe.
 
 **`rowHeight` and `viewportHeight` are DEPRECATED aliases** of `itemExtent` and
 `viewportExtent` (since 0.9.0, removed no earlier than 0.10.0 — see
@@ -3507,10 +3521,11 @@ and the same terminals.
 
 | Spec field | Meaning |
 |---|---|
-| `rowHeight` | a number **or a `Readable<number>`**. Derive it from the theme-metrics snapshot and the list re-derives on a swap; it stays **uniform per list** either way — the windowing arithmetic is index×pitch, so a per-row height is refused (finding F13). |
-| `rowGap` | the vertical gutter **between row slots**, a non-negative number **or a `Readable<number>`**, default `0`. The **pitch** is `rowHeight + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The row's own node stays **`rowHeight`** tall, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*rowHeight + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list, for the same reason `rowHeight` is. Do **not** reach for the old workaround (hand in the pitch as `rowHeight` and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
-| `viewportHeight` | a number **or a `Readable<number>`** — a list that fills a container, or one derived from the viewport rect, hands in a memo and BOTH consumers track it: the painted host box and the windowing arithmetic. A build-time pixel goes stale the moment the device rotates. |
+| `itemExtent` | a number **or a `Readable<number>`**: one item's size along the list's own axis. Derive it from the theme-metrics snapshot and the list re-derives on a swap; it stays **uniform per list** either way — the windowing arithmetic is index×pitch, so a per-row extent is refused (finding F13). (`rowHeight` is its deprecated alias, above.) |
+| `rowGap` | the gutter **between item slots**, a non-negative number **or a `Readable<number>`**, default `0` (the name is not axis-specific on purpose: a gap is a gap on either axis). The **pitch** is `itemExtent + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The item's own node stays **`itemExtent`** along the axis, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*itemExtent + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list, for the same reason `itemExtent` is. Do **not** reach for the old workaround (hand in the pitch as the extent and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
+| `viewportExtent` | a number **or a `Readable<number>`** — a list that fills a container, or one derived from the viewport rect, hands in a memo and BOTH consumers track it: the painted host box and the windowing arithmetic. A build-time pixel goes stale the moment the device rotates. (`viewportHeight` is its deprecated alias, above.) |
 | `selection` | `"none"` (default) or `"single"`. Activate selects the row from **every** paradigm (tap / Return / ButtonA). `selectedKey` is a Signal; `list.select(key)` / `list.clearSelection()` drive it; `onSelect(item, key)` reports it. Selection **prunes with the data** and survives a re-sort that keeps the row. The selected row also carries the **native `selected` state** on its own hit node (Table parity), so the theme paints it (`controlSelected`) and a cell never has to spend an elevation role saying "chosen". |
+| `selectionPaint` | `"native"` (default) or `"none"`. `"none"` keeps the selection — `selectedKey`, `onSelect` and the ring all stay — and drops only the row's native `selected` state, for a list whose "chosen" is carried somewhere that is not the row (the standings list whose selected racer is the one the camera is watching). `selection = "none"` cannot express that: it deletes the selection itself. |
 | `reorderable` + `onReorder(key, toIndex)` | rows become draggable. `toIndex` is the **1-based index the row will occupy in the resulting order**; a drop that reproduces the current order emits nothing. Order is owner state: the list renders what it is handed. |
 | `reorderMotion` | motion class for the slide to a new slot (default `"object"`, `"instant"` to opt out — finding F6). Needs `motionClock`; the slide rides the presentation channel, so it never re-solves. |
 | `dropSurface` / `rowDropTarget(item)` | each row becomes a drop target. `rowDropTarget` returns `{ accepts, onDrop }` for that row; `onDrop(payload, info)` gets `info.key`, `info.item`, `info.index`. |
