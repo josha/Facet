@@ -222,6 +222,18 @@ describe("VirtualList variable extents: the geometry is the running offset", fun
 		list.dispose()
 	end)
 
+	it("the PAINTED canvas spans the running total, not count x one extent", function()
+		--[[ THE CANVAS IS THE HALF THE ENGINE READS. The framework's scroll CLAMP and
+			the ScrollingFrame's `CanvasSize` are two different consumers of the same
+			number, and only this one is visible to the player's finger: a canvas that
+			spans `count × oneExtent` lets the engine scroll somewhere the framework
+			refuses to window. Asserted on the SOLVED box, not on the memo. ]]
+		local w = world({ rows = makeRows(4), itemExtent = raggedExtent, rowGap = 6, viewportExtent = 200 })
+		local canvas = w.handle.controller.rectOf("/S/VL/Canvas")
+		expect(canvas ~= nil).toBe(true)
+		expect(canvas.h).toBe(84 + 249 + 84 + 120 + 3 * 6)
+	end)
+
 	it("keep-visible measures the row's OWN extent, not an average", function()
 		local core = LuauUI.newCore()
 		local rows = core:signal(makeRows(8))
