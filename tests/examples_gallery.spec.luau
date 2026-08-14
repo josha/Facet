@@ -2236,6 +2236,8 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 	local STAGE = PAGE .. "/Stage/Decorative"
 	local PUCK = STAGE .. "/Lane/Puck"
 	local PANEL = STAGE .. "/Detail/then/Panel"
+	local CARD = STAGE .. "/Card"
+	local CARD_PIP = CARD .. "/Pip"
 	local FULL_OPTION = PAGE .. "/MotionMode/Options/Opt1"
 	local REDUCED_OPTION = PAGE .. "/MotionMode/Options/Opt2"
 	local FRAME = 1 / 60
@@ -2273,25 +2275,89 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		end
 	end)
 
-	it("one press, three consequences: something moves, something appears, something re-orders", function()
+	it(
+		"one press, four consequences: something moves, something GROWS, something appears, something re-orders",
+		function()
+			local w, built = motionWorld()
+			local puckBefore = w.adapter.node(PUCK).rect.x
+			local alphaBefore = w.adapter.node(chipPath("Alpha")).rect.x
+			local deltaBefore = w.adapter.node(chipPath("Delta")).rect.x
+			local cardBefore = w.adapter.node(CARD).rect.h
+			expect(w.adapter.node(PANEL)).toBe(nil)
+
+			w.adapter.tap(RUN)
+
+			-- (1) MOVED: the puck's solved rect is at the other end of its lane
+			expect(w.adapter.node(PUCK).rect.x > puckBefore).toBe(true)
+			-- (2) GREW: the card's solved height is the new one, exactly and instantly
+			expect(w.adapter.node(CARD).rect.h > cardBefore).toBe(true)
+			-- (3) APPEARED: the panel exists now
+			expect(w.adapter.node(PANEL) ~= nil).toBe(true)
+			-- (4) RE-ORDERED: the two end chips have swapped places, and they kept
+			-- their identity while doing it (a rebuild would have changed the paths)
+			expect(w.adapter.node(chipPath("Alpha")).rect.x).toBe(deltaBefore)
+			expect(w.adapter.node(chipPath("Delta")).rect.x).toBe(alphaBefore)
+			expect(built.chipOrder:get()[1]).toBe("Delta")
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	)
+
+	--[[ THE CARD, AND THE LESSON IT IS SHAPED TO TEACH (withAnimation size,
+		2026-08-14). Before round 3 this fixture had nothing that changed size, so
+		the one thing `withAnimation` could not do was also the one thing nobody
+		could see it failing to do. The card is that hole closed, and it is built
+		around the asymmetry an author has to know: a POSITION delta accumulates
+		down a subtree and a SIZE delta does not, so the label pinned to the card's
+		top stays exactly where it is while the box opens underneath it.
+
+		Both halves are asserted, because either alone passes against a defect:
+		"the card's paint travels" is satisfied by a design that also stretched its
+		children, and "the label did not move" is satisfied by a card that snapped. ]]
+	it("the CARD's painted height travels — and the pip inside it does not move or stretch", function()
 		local w, built = motionWorld()
-		local puckBefore = w.adapter.node(PUCK).rect.x
-		local alphaBefore = w.adapter.node(chipPath("Alpha")).rect.x
-		local deltaBefore = w.adapter.node(chipPath("Delta")).rect.x
-		expect(w.adapter.node(PANEL)).toBe(nil)
-
+		local cardBefore = w.adapter.node(CARD).rect.h
+		local pipBefore = w.adapter.node(CARD_PIP).rect.y
 		w.adapter.tap(RUN)
-
-		-- (1) MOVED: the puck's solved rect is at the other end of its lane
-		expect(w.adapter.node(PUCK).rect.x > puckBefore).toBe(true)
-		-- (2) APPEARED: the panel exists now
-		expect(w.adapter.node(PANEL) ~= nil).toBe(true)
-		-- (3) RE-ORDERED: the two end chips have swapped places, and they kept
-		-- their identity while doing it (a rebuild would have changed the paths)
-		expect(w.adapter.node(chipPath("Alpha")).rect.x).toBe(deltaBefore)
-		expect(w.adapter.node(chipPath("Delta")).rect.x).toBe(alphaBefore)
-		expect(built.chipOrder:get()[1]).toBe("Delta")
+		local card = w.adapter.node(CARD)
+		-- solved: at its destination on the frame the press returns
+		expect(card.rect.h > cardBefore).toBe(true)
+		-- painted: still at the old height, so it has somewhere to travel FROM
+		expect(card.presentedSize.h).toBe(cardBefore)
+		w.presenter.tick(FRAME)
+		local mid = w.adapter.node(CARD).presentedSize.h
+		expect(mid > cardBefore).toBe(true)
+		expect(mid < card.rect.h).toBe(true)
+		-- ...and THE PIP DID NOT MOVE OR STRETCH, at the seed or mid-flight: it is
+		-- pinned to the top of a box that is growing downward, and a size delta
+		-- that leaked into the subtree would show up here first
+		local pip = w.adapter.node(CARD_PIP)
+		expect(pip.rect.y).toBe(pipBefore)
+		expect(pip.presentedPosition.y).toBe(pipBefore)
+		expect(pip.presentedSize.h).toBe(pip.rect.h)
+		settleMotion(w)
+		local landed = w.adapter.node(CARD)
+		expect(landed.presentedSize.h).toBe(landed.rect.h)
 		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("the card rides the SAME spring as the puck — one call, one curve", function()
+		local w, built = motionWorld()
+		local puckFrom = w.adapter.node(PUCK).rect.x
+		local cardFrom = w.adapter.node(CARD).rect.h
+		w.adapter.tap(RUN)
+		local puckTo = w.adapter.node(PUCK).rect.x
+		local cardTo = w.adapter.node(CARD).rect.h
+		for _ = 1, 8 do
+			w.presenter.tick(FRAME)
+		end
+		-- the same ratio discipline the puck-vs-chips case uses, across the two
+		-- DIFFERENT property kinds: a size half driven by its own spring would
+		-- agree with the position half only by coincidence
+		local puckP = (w.adapter.node(PUCK).presentedPosition.x - puckFrom) / (puckTo - puckFrom)
+		local cardP = (w.adapter.node(CARD).presentedSize.h - cardFrom) / (cardTo - cardFrom)
+		expect(math.abs(puckP - cardP) < 0.02).toBe(true)
 		built.dispose()
 	end)
 
@@ -2854,6 +2920,118 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 			built.dispose()
 		end
 	)
+end)
+
+-- ---------------------------------------------------------------------------
+-- variable_extents — `newVirtualList.itemExtent` as a per-item function
+-- (game-director ruling 7, 2026-08-13)
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: variable item extents", function()
+	local module = require("../examples/gallery/scenarios/variable_extents") :: any
+	local FEED = "/VariableExtents/Feed"
+
+	local function feedWorld(view: any)
+		local w = fixtureWorld(view)
+		return w, mountFixture(w, module)
+	end
+
+	local function postRect(w: any, key: string): any
+		local node = w.adapter.node(`{FEED}/Canvas/W/[{key}]/Row/Hit`)
+		return if node ~= nil then node.rect else nil
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = feedWorld(view)
+			expectNoDiagnostics(`variable_extents at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("the posts really are DIFFERENT heights, and none overlaps its neighbour", function()
+		for _, view in { NARROW_PORTRAIT, DESKTOP } do
+			local w, built = feedWorld(view)
+			local heights: { [number]: boolean } = {}
+			local distinct = 0
+			local previous: any = nil
+			for i = 1, 8 do
+				local r = postRect(w, `p{i}`)
+				expect(`{view.w}: p{i} mounted: {r ~= nil}`).toBe(`{view.w}: p{i} mounted: true`)
+				if heights[r.h] == nil then
+					heights[r.h] = true
+					distinct += 1
+				end
+				if previous ~= nil then
+					-- the next post starts at or after the previous one ends: a
+					-- running-offset list that got its prefix sum wrong shows up here
+					-- as a negative gap, on the real solved boxes
+					expect(`{view.w}: p{i} at {r.y} follows {previous.y + previous.h}`).toBe(
+						`{view.w}: p{i} at {math.max(r.y, previous.y + previous.h)} follows {previous.y + previous.h}`
+					)
+				end
+				previous = r
+			end
+			-- four line counts, so four distinct heights
+			expect(`{view.w} distinct heights: {distinct}`).toBe(`{view.w} distinct heights: 4`)
+			built.dispose()
+		end
+	end)
+
+	it("THE TOGGLE IS THE ARGUMENT: one declared height for all of them is a LIE, and the solver says so", function()
+		local w, built = feedWorld(NARROW_PORTRAIT)
+		expectNoDiagnostics("variable_extents honest", w, built)
+
+		built.steps.setMode(built, "uniform")
+		settleFixture(w.presenter)
+		local named = 0
+		for _, finding in built.handle.controller.diagnostics() do
+			if string.find(finding.issue, "itemExtent", 1, true) ~= nil then
+				named += 1
+			end
+		end
+		-- the taller posts now declare 84 and measure more; the guard names each
+		expect(`lying rows named: {named > 0}`).toBe("lying rows named: true")
+
+		-- ...and turning it back off silences every one of them, on the same nodes
+		built.steps.setMode(built, "variable")
+		settleFixture(w.presenter)
+		expectNoDiagnostics("variable_extents back to honest", w, built)
+		built.dispose()
+	end)
+
+	it("the four measured text offsets grow every row, and the list stays virtualized", function()
+		local w, built = feedWorld(NARROW_PORTRAIT)
+		local previousCanvas = 0
+		for _, offset in { 0, 4, 10, 14 } do
+			built.steps.setTextSize(built, tostring(offset))
+			settleFixture(w.presenter)
+			local r = built.report()
+			expect(`+{offset} mode: {r.itemExtentMode}`).toBe(`+{offset} mode: variable`)
+			-- every step is strictly taller than the last: the extents re-derived
+			expect(`+{offset} grew: {r.contentExtent > previousCanvas}`).toBe(`+{offset} grew: true`)
+			previousCanvas = r.contentExtent
+			-- ...and the window did not grow with the canvas
+			expect(`+{offset} mounted: {r.mounted < 20}`).toBe(`+{offset} mounted: true`)
+			expectNoDiagnostics(`variable_extents at +{offset}`, w, built)
+		end
+		built.dispose()
+	end)
+
+	it("growing the text while scrolled keeps the SAME post under the top edge", function()
+		local w, built = feedWorld(NARROW_PORTRAIT)
+		built.steps.bind(built)
+		settleFixture(w.presenter)
+		built.steps.focusPost200(built)
+		settleFixture(w.presenter)
+		local moved = built.steps.growWhileScrolled(built, "14")
+		settleFixture(w.presenter)
+		-- the canvas is far longer at +14, so a fixed pixel offset would have
+		-- landed on a different post entirely
+		expect(`scroll moved: {moved.scrollAfter ~= moved.scrollBefore}`).toBe("scroll moved: true")
+		expect(`first post held: {moved.firstAfter}`).toBe(`first post held: {moved.firstBefore}`)
+		built.dispose()
+	end)
 end)
 
 -- ---------------------------------------------------------------------------

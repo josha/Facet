@@ -7,13 +7,24 @@
 	At least one showcase surface has to demonstrate animation, and has to let a
 	player SEE what reduced motion does to it. This is that surface.
 
-	ONE BUTTON, ONE SPRING, THREE CONSEQUENCES. "Animate" makes exactly one
-	`presenter.withAnimation("container", …)` call, and inside it three unrelated
+	ONE BUTTON, ONE SPRING, FOUR CONSEQUENCES. "Animate" makes exactly one
+	`presenter.withAnimation("container", …)` call, and inside it four unrelated
 	state changes land together:
 
 	  1. a puck MOVES — its `anchor` flips end to end across its lane;
-	  2. a detail panel APPEARS beside it — a `UI.When` branch turning on;
-	  3. four chips RE-ORDER — one keyed `ForEach`, its array reversed.
+	  2. a card GROWS — its height doubles, and the box travels to the new size
+	     instead of jumping to it;
+	  3. a detail panel APPEARS beside it — a `UI.When` branch turning on;
+	  4. four chips RE-ORDER — one keyed `ForEach`, its array reversed.
+
+	THE CARD IS THE NEWEST ONE AND IT TEACHES THE ODD HALF (2026-08-14). Until
+	round 3 `withAnimation` moved things and SNAPPED their size, so a card like
+	this one appeared at its final height while everything under it slid — the
+	one thing on screen that did not travel. It now travels, and the card is
+	built to show the rule that makes it safe: its label is pinned to the TOP,
+	and it does not move while the box grows underneath it. A position delta
+	accumulates down a subtree, a size delta does not, and that is why the words
+	inside a growing box do not stretch with it.
 
 	They share ONE progress spring, which is the behaviour worth showing rather
 	than describing: the puck, the displaced chips and everything the panel
@@ -131,6 +142,10 @@ local COPY = {
 	detailHead = "Detail panel",
 	detailBody = "Appearing is the transition system's job; its neighbours fly.",
 	chargeLabel = "Charge",
+	-- (2) THE GROW. Player-facing, so both survive ~1.4x pseudo-localization by
+	-- wrapping inside the card rather than truncating — the card is deliberately
+	-- the narrow column's full width so there is room for the expansion.
+	cardLabel = "The card below grows — the pip inside it does not",
 }
 
 return {
@@ -148,8 +163,9 @@ return {
 
 		-- ===== state ========================================================
 		local laneRight = scope:own(core:signal(false)) -- (1) the thing that MOVES
-		local detailOpen = scope:own(core:signal(false)) -- (2) the thing that APPEARS
-		local chipOrder = scope:own(core:signal(CHIPS)) -- (3) the thing that RE-ORDERS
+		local cardTall = scope:own(core:signal(false)) -- (2) the thing that GROWS
+		local detailOpen = scope:own(core:signal(false)) -- (3) the thing that APPEARS
+		local chipOrder = scope:own(core:signal(CHIPS)) -- (4) the thing that RE-ORDERS
 		local runs = scope:own(core:signal(0))
 
 		-- THE INFORMATIONAL HALF. A glide rather than a spring, because what it
@@ -223,6 +239,7 @@ return {
 			-- around one.
 			pres.withAnimation("container", function()
 				laneRight:set(not laneRight:get())
+				cardTall:set(not cardTall:get())
 				detailOpen:set(not detailOpen:get())
 				local order = chipOrder:get() :: { string }
 				local reversed = {}
@@ -272,7 +289,55 @@ return {
 						}),
 					},
 				}),
-				-- (2) THE APPEARANCE. The panel itself belongs to the transition
+				--[[ (2) THE GROW — the consequence round 3 added, and the one this
+					fixture exists to make legible.
+
+					`height` is bound to a memo, so flipping `cardTall` changes this
+					node's SOLVED rect. The solver lands it exactly and instantly, as
+					it always did; what is new is that the painted box now travels
+					from the old height to the new one on the same spring the puck
+					and the chips are riding — so the card finishes growing on the
+					very frame the chips finish sliding.
+
+					THE PIP IS PINNED TO THE TOP ON PURPOSE, AND IT IS NOT TEXT.
+					A size delta belongs to ONE node and does not accumulate into its
+					children, so the pip sits still at its own 24x20 while the box
+					opens underneath it. If it crept downward, or stretched, that rule
+					would have broken — and you can see that here without a debugger.
+
+					IT HOLDS NO STRING, AND THAT IS THE POINT OF THE SHAPE. A fixed px
+					height around text is this repo's named device-only defect class:
+					the box is pinned and the content is not, so the Largest text
+					preference or a 1.4x localized string overflows a box that looked
+					fine on the author's desktop. The first draft of this card put two
+					labels inside it and the sweep caught exactly that (9px past its
+					own box at 320x640, +0 offset, before any text growth at all). The
+					caption above carries the words; the box carries the motion. ]]
+				UI.Text({
+					id = "CardCaption",
+					text = COPY.cardLabel,
+					textSize = 12,
+					role = "secondary",
+				}),
+				UI.VStack({
+					id = "Card",
+					surface = "raised",
+					padding = 8,
+					gap = 2,
+					width = { type = "fill", weight = 1 },
+					height = scope:own(core:memo(function(use)
+						return { type = "fixed", px = if use(cardTall) then 76 else 40 }
+					end)),
+					children = {
+						UI.Box({
+							id = "Pip",
+							surface = "accent",
+							width = { type = "fixed", px = 24 },
+							height = { type = "fixed", px = 20 },
+						}),
+					},
+				}),
+				-- (3) THE APPEARANCE. The panel itself belongs to the transition
 				-- system and installs no record; what flies is the chips below it,
 				-- which it pushes down.
 				UI.When({
@@ -297,7 +362,7 @@ return {
 						})
 					end,
 				}),
-				-- (3) THE RE-ORDER. One keyed ForEach: the chips keep their identity
+				-- (4) THE RE-ORDER. One keyed ForEach: the chips keep their identity
 				-- (and their paths) while their slots swap, so each one travels to
 				-- its new place instead of being destroyed and rebuilt there.
 				UI.HStack({
@@ -462,6 +527,7 @@ return {
 			-- one it reads back, rather than a re-implementation of them
 			motionMode = motionMode,
 			laneRight = laneRight,
+			cardTall = cardTall,
 			detailOpen = detailOpen,
 			chipOrder = chipOrder,
 			charge = charge,
@@ -501,6 +567,7 @@ return {
 					runs = runs:get(),
 					records = pres.animationRecordCount(),
 					laneRight = laneRight:get(),
+					cardTall = cardTall:get(),
 					detailOpen = detailOpen:get(),
 					chipOrder = table.clone(chipOrder:get() :: { string }),
 					charge = charge:get(),
