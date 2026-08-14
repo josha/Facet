@@ -605,6 +605,69 @@ describe("hidden — the space-reserving hide", function()
 		expect(taps).toBe(2)
 	end)
 
+	it("...and so does a losing ViewThatFits candidate, which is the SAME verdict", function()
+		--[[ FOUND BY A LIVE GAME SUITE, 2026-08-13, and it is the wider half of the
+			finding. The tap gate above reads `solverHidden` — the MERGED verdict —
+			so it covers the solver's own hidden nodes as well as authored ones. That
+			turned out to be a behaviour change: Rascal Rally's sponsor results spec
+			was driving `adapter.tap` into a CTA inside a LOSING `ViewThatFits`
+			candidate (measured: rect 170x0, its candidate root in `hiddenRoots`,
+			while the sibling column candidate was the one on screen), and the
+			framework was dispatching it.
+
+			No player could ever produce that tap — the node is `Visible = false`
+			with zero painted height — so this is a synthetic drive reaching content
+			nobody can see, the class the round-2 orchestration notes name ("a test
+			can be satisfied by a hidden copy"). The framework's own recorded intent
+			was already this rule: RS-A16-D1 retracts the hit expander from hidden
+			nodes precisely so there is no "live activation surface for a control the
+			player cannot see". It was a consequence of geometry there, and it is a
+			rule here. ]]
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 200, h = 400 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local taps: { string } = {}
+		local screen = UI.Screen({
+			id = "S",
+			children = {
+				UI.ViewThatFits({
+					id = "Fit",
+					children = {
+						-- 400px of buttons cannot fit a 200px screen: this candidate loses
+						UI.HStack({
+							id = "Wide",
+							gap = 0,
+							children = {
+								UI.Button({ id = "a", label = "A", width = fixed(200) :: any }),
+								UI.Button({ id = "b", label = "B", width = fixed(200) :: any }),
+							},
+						}),
+						UI.Button({ id = "narrow", label = "A", width = fixed(120) :: any }),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, screen)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, {
+			rootPolicy = "edgeToEdge",
+			onNodeTap = function(path: string)
+				table.insert(taps, path)
+			end,
+		})
+		controller.initialRender()
+		-- the loser is still MOUNTED, with its props intact — that is what makes a
+		-- re-choose free, and what makes a path assertion against it pass
+		expect(controller.hiddenRoots()["/S/Fit/Wide"]).toBe(true)
+		expect(adapter.node("/S/Fit/Wide/a") ~= nil).toBe(true)
+		adapter.tap("/S/Fit/Wide/a")
+		expect(table.concat(taps, ",")).toBe("")
+		-- ...while the candidate that WON takes its tap exactly as before
+		adapter.tap("/S/Fit/narrow")
+		expect(table.concat(taps, ",")).toBe("/S/Fit/narrow")
+	end)
+
 	it("retracts the sub-floor hit expander it would otherwise leave live", function()
 		-- RS-A16-D1's class: a control under the theme's minimum target size
 		-- gets an EXPANDED hit rect. Inside a hidden subtree that is an
