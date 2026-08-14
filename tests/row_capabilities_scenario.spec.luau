@@ -17,17 +17,25 @@
 	A fixture that narrated from its handler would name the wrong row and every
 	other case here would still pass.
 
-	AND ONE FRAMEWORK DEFECT THIS FILE RECORDS RATHER THAN HIDES. Under Pixel Quest
-	a Table's derived row box is ~16px shorter than the cell Text the table itself
-	authors inside it, at every viewport and already at the default text
-	preference. It is NOT this fixture's: the shipped `02_playlist_table` files the
-	same class under the same package, and the `PRE-EXISTING` case below asserts
-	exactly that, so the exception cannot quietly become a pardon for something
-	this surface breaks later. It is invisible to `tests/overflow_sweep.spec.luau`
-	because that sweep installs no theme package at all — it runs the flat
-	(Studio Neutral) resolution only, which is the gap standing rule 4 names when
-	it says "Pixel Quest and Parchment have both broken layouts that Studio
-	Neutral survived".
+	AND ONE FRAMEWORK DEFECT THIS FILE RECORDED RATHER THAN HID — now FIXED (O-25,
+	2026-08-14). Under Pixel Quest a Table's derived row box was ~16px shorter than
+	the cell Text the table itself authored inside it, at every viewport and already
+	at the default text preference. It was not this fixture's: the shipped
+	`02_playlist_table` filed the same class under the same package, which is what
+	the waiver here and its `PRE-EXISTING` control asserted.
+
+	The cause was one term. A row's painted card and its cells are different nodes,
+	so `newTable` makes the cells spend `chromeInsets.selection` as their own
+	padding — while the height it derived the row at counted only its text and its
+	`rowPadding`. Under a package that carves a 16px border a 48px row handed its
+	cells 16px for a 20px line. `src/controls/table.luau` now adds that art to the
+	height and subtracts it from the line cap, so the waiver fired nowhere, the
+	control case failed, and both are gone — which is what a waiver is FOR.
+
+	It was invisible to `tests/overflow_sweep.spec.luau` because that sweep
+	installed no theme package at all, the exact gap standing rule 4 names when it
+	says "Pixel Quest and Parchment have both broken layouts that Studio Neutral
+	survived". That sweep now has a theme axis (O-24) and finds this class itself.
 ]]
 
 local t = require("./lib/testkit")
@@ -40,7 +48,6 @@ local l10n = require("./fixtures/a11y_l10n_fixtures")
 local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker") :: any
 local module = require("../examples/gallery/scenarios/row_capabilities") :: any
-local playlist = require("../examples/gallery/examples/02_playlist_table") :: any
 
 local ROOT = "/RowCapabilities/Page/RunSheet/Main/Body/Rows"
 
@@ -275,10 +282,18 @@ end)
 
 --[[ ── THE SHIPPED PACKAGES ───────────────────────────────────────────────────
 
-	STUDIO NEUTRAL IS NOT EVIDENCE ON ITS OWN, and `tests/overflow_sweep.spec.luau`
-	only has Studio Neutral: it installs no `themeMetrics` at all, so the always-on
-	sweep's eight viewports and four text preferences all run the flat resolution.
-	Every geometry claim about this surface under a real package is made here.
+	STUDIO NEUTRAL IS NOT EVIDENCE ON ITS OWN. That used to be the whole reason this
+	block existed — `tests/overflow_sweep.spec.luau` installed no `themeMetrics` at
+	all, so its eight viewports and four text preferences all ran the flat
+	resolution and every themed geometry claim about this surface was made here.
+
+	Since 2026-08-14 the always-on sweep HAS a theme axis (O-24): all eight packages
+	at every viewport at the default preference, plus the largest preference at the
+	two narrowest. This block stays because it asks a different question at a
+	different grain — three viewports x eight packages with THIS fixture's own
+	findings separated from the framework's — but it is no longer the only place a
+	package is installed, and a claim made here about a shipped control belongs in
+	the sweep's ledger too.
 ]]
 local PACKAGES = {
 	"glossy_mobile",
@@ -295,38 +310,6 @@ local PACKAGES = {
 -- capture set
 local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
 
--- THE ONE EXCEPTION, DERIVED RATHER THAN LISTED: a Table cell Text the TABLE
--- itself authored, overflowing the row box the TABLE itself derived. Nothing this
--- fixture declares participates in either number — no `rowHeight`, no custom
--- `cell` — which is what makes it recognisable as somebody else's.
-local function isTableRowBoxClass(finding: any): boolean
-	return string.find(finding.issue, "overflows its zstack", 1, true) ~= nil
-		and string.find(finding.node, "/Cells/", 1, true) ~= nil
-end
-
--- ...AND IT IS A CEILING, NOT A PARDON (`overflow_sweep.spec.luau`'s waiver rule
--- 2). Measured 2026-08-14: Pixel Quest, 16px, every row and both columns, at all
--- three viewports. Without the bound the class name alone would excuse anything
--- that ever lands in a table cell — mutation M8 put a custom `cell` blueprint
--- back in the name column, produced 27-74px overflows of exactly this shape, and
--- the unbounded version stayed green.
-local ROW_BOX_CEILING = 16
-
-local function largestPx(issue: string): number
-	local best = 0
-	for a, b in string.gmatch(issue, "(%d+)x(%d+)px") do
-		best = math.max(best, tonumber(a) or 0, tonumber(b) or 0)
-	end
-	for n in string.gmatch(issue, "(%d+)px") do
-		best = math.max(best, tonumber(n) or 0)
-	end
-	return best
-end
-
-local function isWaived(finding: any): boolean
-	return isTableRowBoxClass(finding) and largestPx(finding.issue) <= ROW_BOX_CEILING
-end
-
 describe("row_capabilities showcase: it holds under every shipped package", function()
 	it("no finding of its OWN in any package at any of the three viewports", function()
 		local problems: { string } = {}
@@ -334,10 +317,16 @@ describe("row_capabilities showcase: it holds under every shipped package", func
 			local name = if package == false then "flat" else tostring(package)
 			for _, view in VIEWS do
 				local w, built = world(view, if package == false then nil else tostring(package))
+				-- NO EXCEPTION ANY MORE. This loop used to excuse one derived class —
+				-- a Table cell Text overflowing the row box the Table itself derived,
+				-- 16px under Pixel Quest, with a second case below proving the class
+				-- belonged to `newTable` rather than to this fixture. O-25 fixed it at
+				-- the source on 2026-08-14 (`src/controls/table.luau`: the row height
+				-- now includes the `chromeInsets.selection` the cells are made to
+				-- spend), so the waiver fired nowhere and the control case failed —
+				-- which is exactly what it was built to do. Both are deleted; a
+				-- surface under a package now files nothing at all.
 				for _, finding in built.handle.controller.diagnostics() do
-					if isWaived(finding) then
-						continue
-					end
 					table.insert(problems, `  {name} at {view.w}x{view.h}: {finding.node} — {finding.issue}`)
 				end
 				expect(w.core:lastError()).toBeNil()
@@ -346,65 +335,8 @@ describe("row_capabilities showcase: it holds under every shipped package", func
 		end
 		if #problems > 0 then
 			error(
-				`row_capabilities files {#problems} finding(s) of its own under a shipped package:\n`
+				`row_capabilities files {#problems} finding(s) under a shipped package:\n`
 					.. table.concat(problems, "\n"),
-				0
-			)
-		end
-	end)
-
-	it("PRE-EXISTING: the one waived class fires on the shipped playlist too, under the same package", function()
-		--[[ A WAIVER IS A CEILING AND A CONTROL, NEVER A PARDON. The case above
-			excuses a class; this one proves the class belongs to `newTable` and not
-			to this fixture, by finding it on a surface this mission did not write —
-			and it fails if somebody ever FIXES the framework defect, which is the
-			point (a waiver that fires nowhere is fiction, `overflow_sweep`'s own
-			rule 4). Measured 2026-08-14: Pixel Quest, 30 findings across the three
-			viewports, none larger than 16px. ]]
-		local worst, mine = 0, 0
-		for _, view in VIEWS do
-			local _, built = world(view, "pixel_quest")
-			for _, finding in built.handle.controller.diagnostics() do
-				if isTableRowBoxClass(finding) then
-					mine += 1
-					worst = math.max(worst, largestPx(finding.issue))
-				end
-			end
-			built.dispose()
-		end
-		expect(mine > 0).toBe(true)
-		expect(`worst waived overflow: {worst}px (ceiling {ROW_BOX_CEILING}px)`).toBe(
-			`worst waived overflow: {ROW_BOX_CEILING}px (ceiling {ROW_BOX_CEILING}px)`
-		)
-
-		-- ...and the control: the shipped playlist example, same package, same class
-		local core = LuauUI.newCore()
-		local env = LuauUI.newEnvironment(core)
-		env:set("viewportRect", { x = 0, y = 0, w = PHONE.w, h = PHONE.h })
-		local system = LuauUI.newActionSystem(core)
-		local adapter = fake_target.new()
-		local pres = LuauUI.newPresenter(core, env, adapter, system)
-		env:set(
-			"themeMetrics",
-			snapshot.resolve((require)("../examples/themes/pixel_quest").build(LuauUI.themes), nil, {})
-		)
-		local built =
-			playlist.build(LuauUI, core, { env = env, actionSystem = system, presenter = pres, adapter = adapter })
-		built.handle = built.handle or pres.present(built.screen, built.present)
-		for _ = 1, 3 do
-			pres.refresh()
-		end
-		local theirs = 0
-		for _, finding in built.handle.controller.diagnostics() do
-			if isTableRowBoxClass(finding) then
-				theirs += 1
-			end
-		end
-		if theirs == 0 then
-			error(
-				"the Table row-box class no longer fires on 02_playlist_table under pixel_quest — "
-					.. "if the framework was fixed, delete the waiver in the case above (that is the point "
-					.. "of it); if it moved, re-record it. It must never be excused for this fixture alone.",
 				0
 			)
 		end
