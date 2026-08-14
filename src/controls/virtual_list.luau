@@ -839,11 +839,56 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 		return out
 	end
-	local layoutIndex = listScope:own(core:memo(function(use)
-		if itemExtentIsPerItem then
-			return virtual_extents.variable(extentsFor(use), rowGapIn(use))
+	--[[ THE INDEX IS CACHED ON ITS INPUTS, and the reason is worth writing down
+		because the obvious spelling does not work.
+
+		An index is six closures and a table. Building one is cheap; building one on
+		every DATA EDIT is a tax every shipped list pays, and a list is edited far
+		more often than its geometry moves (a rename, a live value ticking, a re-sort
+		of equal-height rows). The obvious fix — hand `core:memo` an equality — does
+		NOT do this: a memo's `eq` is OBSERVER-facing only (`src/core/custom.luau`,
+		`notify`); `markMemosStale` invalidates the whole downstream subtree
+		unconditionally and `pull` overwrites `node.value` without comparing. So the
+		cache is inside the body, keyed on the numbers that actually decide the
+		geometry, and it returns the SAME index object when none of them moved.
+
+		THE JUSTIFICATION IS THE MECHANISM, NOT A NUMBER. The headless perf runner
+		cannot resolve one allocation per edit: an A/A control on the list scenes
+		measured a ±5%..±28% noise band, so no honest before/after exists at tier 1
+		(device is authoritative — §14.3). What IS observable is the construction
+		count, and `virtual_list_variable_extents.spec` counts it directly. ]]
+	local function sameLayoutInputs(a: any, b: any): boolean
+		if a == nil or b == nil or a.gap ~= b.gap then
+			return false
 		end
-		return virtual_extents.uniform(#(use(spec.rows) :: { any }), itemExtentIn(use), rowGapIn(use))
+		if not itemExtentIsPerItem then
+			return a.count == b.count and a.extent == b.extent
+		end
+		local x, y = a.extents, b.extents
+		if #x ~= #y then
+			return false
+		end
+		for i = 1, #x do
+			if x[i] ~= y[i] then
+				return false
+			end
+		end
+		return true
+	end
+	local cachedInputs: any = nil
+	local cachedIndex: any = nil
+	local layoutIndex = listScope:own(core:memo(function(use)
+		local inputs: any = if itemExtentIsPerItem
+			then { extents = extentsFor(use), gap = rowGapIn(use) }
+			else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
+		if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
+			return cachedIndex
+		end
+		cachedInputs = inputs
+		cachedIndex = if itemExtentIsPerItem
+			then virtual_extents.variable(inputs.extents, inputs.gap)
+			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
+		return cachedIndex
 	end))
 	local function layoutNow(): any
 		return layoutIndex:get() :: any

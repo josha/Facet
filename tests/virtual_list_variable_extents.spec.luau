@@ -41,6 +41,7 @@ local LuauUI = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local mountLib = require("../src/mount")
 local fake_target = require("../tests/lib/fake_target")
+local virtual_extents = require("../src/virtual_extents") :: any
 
 local function makeRows(n: number): { { id: string, label: string } }
 	local rows = {}
@@ -393,6 +394,92 @@ describe("VirtualList variable extents: the rest of the control agrees with the 
 		-- 20 declared, 60 measured — the row's OWN number, not the list's first
 		expect(string.find(tostring((found :: any).issue), "itemExtent = 20", 1, true) ~= nil).toBe(true)
 		expect(string.find(tostring((found :: any).node), "r2", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("VirtualList variable extents: an edit that moves no geometry rebuilds nothing", function()
+	--[[ THE INDEX IS SIX CLOSURES AND A TABLE, and everything downstream of it —
+		the canvas, the clamp, the window, every mounted row's offset — dirties when
+		it changes identity. A list is EDITED far more often than its geometry moves
+		(a rename, a live value ticking, a re-sort of equal-height rows), so an index
+		rebuilt on every edit would be a tax every shipped list pays for a feature
+		most of them do not use.
+
+		COUNTED, NOT TIMED, for the reason the boundedness case is: the headless perf
+		runner's own A/A control on these scenes measures a ±5%..±28% noise band,
+		which is wider than one allocation per edit could ever move. The constructor
+		is wrapped here rather than inferred from a clock. ]]
+	local function countingExtents<T>(body: (counts: { uniform: number, variable: number }) -> T): T
+		local counts = { uniform = 0, variable = 0 }
+		local realUniform, realVariable = virtual_extents.uniform, virtual_extents.variable
+		local ok, result = pcall(function()
+			virtual_extents.uniform = function(...)
+				counts.uniform += 1
+				return realUniform(...)
+			end
+			virtual_extents.variable = function(...)
+				counts.variable += 1
+				return realVariable(...)
+			end
+			return body(counts)
+		end)
+		virtual_extents.uniform, virtual_extents.variable = realUniform, realVariable
+		if not ok then
+			error(result, 0)
+		end
+		return result :: any
+	end
+
+	it("a uniform list rebuilds its index only when the geometry moves", function()
+		countingExtents(function(counts)
+			local core = LuauUI.newCore()
+			local rows = core:signal(makeRows(20))
+			local extent = core:signal(56)
+			local list = newList(core, { rows = rows, itemExtent = extent, viewportExtent = 300 })
+			list.dump() -- force the first build
+			local built = counts.uniform
+			expect(built > 0).toBe(true)
+			-- a RENAME: same count, same extent, same gap — nothing about the
+			-- geometry moved, so the index must not be rebuilt
+			local renamed = makeRows(20)
+			renamed[3].label = "renamed"
+			rows:set(renamed)
+			list.dump()
+			expect(counts.uniform).toBe(built)
+			-- ...and the things that DO move it, do
+			rows:set(makeRows(21))
+			list.dump()
+			expect(counts.uniform).toBe(built + 1)
+			extent:set(84)
+			list.dump()
+			expect(counts.uniform).toBe(built + 2)
+			list.dispose()
+			return true
+		end)
+	end)
+
+	it("a variable list rebuilds only when an EXTENT moves, not when an item does", function()
+		countingExtents(function(counts)
+			local core = LuauUI.newCore()
+			local rows = core:signal(makeRows(20))
+			local list = newList(core, { rows = rows, itemExtent = raggedExtent, viewportExtent = 300 })
+			list.dump()
+			local built = counts.variable
+			expect(built > 0).toBe(true)
+			-- the extents are a function of the INDEX here, so a rename leaves every
+			-- one of them where it was
+			local renamed = makeRows(20)
+			renamed[7].label = "renamed"
+			rows:set(renamed)
+			list.dump()
+			expect(counts.variable).toBe(built)
+			-- ...and one more row is one more extent
+			rows:set(makeRows(21))
+			list.dump()
+			expect(counts.variable).toBe(built + 1)
+			list.dispose()
+			return true
+		end)
 	end)
 end)
 
