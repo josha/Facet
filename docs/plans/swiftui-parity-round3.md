@@ -1574,3 +1574,204 @@ through a `copy` override the surface itself accepts.
   that the strip's chips name. It reads as *which section* against the chips'
   *open this*, and it is what makes one toggle key serve two targets, but it is a
   judgement call a director may want to revisit on a device.
+
+---
+
+# Item D — the completeness audit's ranked gaps
+
+`parity-completeness-audit-2026-08-13.md` ranked 39 unexamined SwiftUI
+capabilities by "how likely a real Roblox game screen is to want it", and named
+four more that already ship and had never been rowed. This section says what was
+taken, what was deliberately left, and why — the audit is the record for
+everything below the line, and the parity document's §13 now points at it.
+
+## 1. The free parity, first — five rows, no library code
+
+The audit's §4 was a **document defect, not a roadmap gap**, and it turned out to
+be more interesting than "four missing rows". Verified in source, then rowed with
+citations:
+
+| Capability | Verdict it actually earned |
+|---|---|
+| `AsyncImage` → `LuauUI.newAsyncImage` | **Covered.** Its silent-failure rule is Apple's own, arrived at independently ([SW-132]) |
+| `compositingGroup()`/`drawingGroup()` → `canvasGroup` | **Partial.** A `CanvasGroup` is grouped alpha and re-renders its children every frame; it is never `drawingGroup`'s cached bitmap |
+| `.keyboardType` → `TextField.keyboardType` | **Partial.** Declared, validated, enum-closed, adapter-mapped — and **inert**, because `TextBox.TextInputType` is not writable from a LocalScript today. Capability-detected, so the day the engine opens it every declaration already in the tree starts working |
+| `accessibilityReduceTransparency` → `effectiveTransparency` | **Partial.** The signal is first-class and fault-tested; **no shipped paint path reads it**. The one accessibility preference LuauUI reads and does not honour |
+| `.onSubmit` → `onFocusLost(reason == "enter")` | **Composable**, scored so it stops looking like a gap. What is genuinely absent is the hierarchy-level submit channel |
+
+**Two of the four were Partial, not Covered**, which is the useful half. The
+audit's own column said "already ships"; reading the source said "ships and does
+nothing yet" for two of them. A row that had said Covered would have been a new
+false claim in a document whose whole rewrite was about removing those.
+
+## 2. What was built — #12 and #16, and the judgement behind that pair
+
+The brief said take the top of the ranked list and prefer finishing three
+completely over starting six. **Two capabilities shipped complete; a third was
+examined and refused.** The pair was chosen for one reason: both are cheap
+*because a mechanism already existed and nobody had exposed it*, which is the
+`the-solver-already-told-you` shape, and it is the only shape where a "prop"
+cost estimate is trustworthy.
+
+- **#12 `onAppear`/`onDisappear`** — mount scopes have owned this lifetime since
+  phase one. Only the hook was missing.
+- **#16's hide** — the renderer already had a per-node paint hold, a solver-side
+  hidden set, a `hiddenRoots` the focus map filters on, and a hit-rect
+  retraction. `hidden` is **one merge line into that set**.
+
+### The two ordering decisions, made explicitly
+
+Apple declines to specify these: *"The exact moment that SwiftUI calls this
+method depends on the specific view type that you apply it to"* ([SW-138],
+[SW-139]). So they are LuauUI's to define, and they are defined:
+
+- **`onAppear` drains after that frame's layout solve.** The callback can read
+  its own rect. It is still before anything reaches the screen, because a refresh
+  is one synchronous call — so Apple's weaker guarantee ("completes before the
+  first rendered frame appears") is met either way, and the earlier placement
+  would have handed every hook a `nil` rect, which is the useless half of the
+  capability.
+- **`onDisappear` drains after the removal sweep.** Handle released, caches
+  cleared, so `rectOf(path)` is `nil` *inside* the callback — asserted from in
+  there, because that is the only place the ordering is observable.
+- **Teardown fires every still-mounted hook.** A panel usually goes away by being
+  dismissed, so a cleanup that only ran on re-keying would be a leak with a
+  green suite. A pending appear is dropped there and the disappear still runs:
+  a missed cleanup is the dangerous direction, an extra one is not.
+
+### Why `hidden` dirties `arrange` and not `paint`
+
+`paint` was the obvious answer and it was wrong. A paint-only channel would have
+repainted the node and reached **none** of: the focus-order filter, the hit-rect
+retraction, or the structure epoch the focus map is cached on. The result would
+have been an invisible control that still takes Tab and still activates — which
+is precisely half of what Apple's `hidden()` promises, shipped as if it were all
+of it. Merging into the solver's own hidden set instead makes the prop inherit
+every one of those for one line, and it means there is one hidden verdict in the
+renderer rather than two that could disagree.
+
+### The finding that came out of it, and cost a game-suite bisect
+
+Apple's second clause — *"can't receive or respond to interactions"* ([SW-140]) —
+needed a gate the framework did not have, because an authored `hidden` keeps a
+**full-size box** on purpose, so no geometry stops an `Activated` reaching it.
+The gate reads `solverHidden`, the merged verdict, so it also covers a losing
+`ViewThatFits` candidate.
+
+That turned out to be a live behaviour change, and the Rascal Rally suite caught
+it within the hour. **Root-caused by instrumenting the gate**, not by reading the
+diff: the sponsor results spec was driving `adapter.tap` into a CTA at
+`.../CtaFit/CtaRow/CauseChaosRow` — rect **170×0**, its candidate root in
+`hiddenRoots`, while the sibling `CtaColumn` was the pair actually on screen. The
+same spec file already asserts three hundred lines later that `/CtaFit/` is
+unreachable to a gamepad walk. The screen knew which form had lost; only the tap
+did not.
+
+No player could produce that tap — `Visible = false`, zero painted height — so
+**no game behaviour changed**. What changed is that a synthetic drive can no
+longer reach content nobody can see. It is the round-2 orchestration note ("a
+test can be satisfied by a hidden copy") one step worse: this one *drove* the
+hidden copy. Pinned framework-side with a clean-room `ViewThatFits`, and
+game-side as `A37b`, which is the contract test for LuauUI's largest
+`ViewThatFits` consumer.
+
+## 3. What was deliberately left, and why each
+
+### `opacity` — refused, and the refusal is the finding
+
+The brief anticipated this: *"if that decision is bigger than a prop, say so and
+stop rather than forcing it."* It is bigger than a prop, for a structural reason
+rather than an effort one:
+
+- `transparency` is owned by the **presentation** channel
+  (`render/authority.luau:59`);
+- the manifest's entire job is one authority per engine property per class, and
+  it is asserted at the single write site;
+- the schema has **no presentation channel** for an authored prop to declare —
+  the five are layout / style / binding / handler / structural / semantic, and
+  none of them fits.
+
+So an authored `opacity` is either a second writer for the property the manifest
+exists to keep single, or a **composition rule** — effective transparency as a
+function of the authored value and the live presentation alpha — resolved at that
+one site. Apple states the rule such a composition would have to honour: applying
+`opacity` to an already-transformed view *"multiplies the effect of the underlying
+opacity transformation"* ([SW-141]). And it would then need reconciling with
+`withAnimation`'s fade records and with the native sheet's ownership of
+`BackgroundTransparency`/`TextTransparency`. That is an ADR with a design round,
+and forcing it into a prop round is exactly how a second silent authority ships.
+
+**What already works and is easy to miss:** a whole subtree *can* be faded today,
+through `controller.setPresentationTransparency` on a declared `canvasGroup` node.
+The gap is authoring, not capability.
+
+### `.disabled()` subtree cascade — examined, not taken
+
+Taken only "if the first two land cleanly", per the brief. They did; this one
+still should not have been, and the reason is worth recording because it is the
+opposite of `hidden`'s:
+
+**There is no existing set to merge into.** `props.enabled` has three independent
+readers (`focus_map.luau:30`, the renderer's drag-source gate, the renderer's tap
+gate) and no inherited channel. Worse, it needs a *paint* answer for the classes
+that have no disabled look at all — a `Box`, a `Text`, an `Image` inside a locked
+panel — which is a theme vocabulary, not a prop. Shipping the channel without the
+paint would hand consumers a subtree that is **inert and looks live**, which is a
+worse screen than no cascade.
+
+### The other 36
+
+Untouched and now enumerated rather than silent. §13 of the parity document
+carries one row pointing at the audit's §5, so a reader who looks up rich text,
+scroll snapping, `Section` headers, `Form`, pull-to-refresh or scroll observation
+finds a ranked entry with a cost estimate instead of a silence they would
+reasonably read as "considered and rejected". The six subsystems the brief ruled
+out (#3, #7, #18, #19, #23, #39) stay ruled out.
+
+## 4. Evidence
+
+- **Suites.** LuauUI **4725 → 4803**. Rascal Rally **3149 → 3150** (A37b added;
+  A37 fixed). Both green.
+- **Mutations, 18 in total**, every anchor asserted to match exactly once before
+  the run because a mutation that silently matches nothing reports "0 reddened"
+  and is indistinguishable from an uncovered check. Eleven on the framework
+  (drain removed; drain moved before the solve; departure never queued; the
+  departing path keeps its rect; the authored hides never joining the solver's
+  verdict; the hide not registered at mount; the tap gate removed; teardown not
+  fanning out; `paint` instead of `arrange`; the live value never re-read; the
+  hide surviving its own node's removal), six on the showcase, one on the game.
+  Two of them **found real gaps on the first pass** — the remount case and the
+  panel-order case exist because the mutation did not bite.
+- **Performance, tier 1 (headless Lune, regression signal only).** Two ABBA
+  rounds, `A B B A` then `B A A B`, arm B being the three touched `src/` files
+  at `fba3158`. Same-arm spread measured in-session: **0.43 %–3.52 % Σp50** and
+  **0.57 %–5.86 % Σp95**. Pooled delta **+1.08 % Σp50, +1.75 % Σp95** — inside
+  the harness's own noise both by the declared whole-suite figures (2.69 % /
+  4.99 %) and by the spreads measured beside it, **and the sign flipped between
+  rounds** (+2.66 %/+4.90 % then −0.43 %/−1.23 %), which is the strongest
+  available evidence that there is no effect to measure. `tools/perf.sh` PASS,
+  20 scenes × 5 profiles, no budget moved.
+- **Showcase.** `lifecycle_hidden` in `scenarios/init.luau` ORDER, swept by
+  `overflow_sweep` on **both** axes at every viewport and every shipped theme,
+  six headless cases in `examples_gallery.spec.luau` including the ~1.4×
+  pseudo-localized run.
+
+## 5. Owed
+
+- **`demo_picker.DEMOS` registration for `lifecycle_hidden`.**
+  `examples/gallery/client/**` belongs to a concurrently running agent this
+  round and had uncommitted work in it; round 2 lost ~114 lines to exactly this
+  situation. The entry to add:
+  `{ id = "lifecycle-hidden", title = "Lifecycle & hidden", blurb = "One switch, two badges: the slot that stays and the events you cannot see", kind = "fixture", module = "lifecycle_hidden" }`.
+- **No Studio canary and no device run** for either capability. Both are
+  headless-provable in full — `hidden` is a `setVisible` write plus set
+  membership, the hooks are queue drains — but "headless green is necessary,
+  never sufficient" stands, and the one thing a device would answer that nothing
+  here does is whether Roblox itself already refuses input to an invisible
+  `GuiButton`. Roblox documents no behaviour there (checked 2026-08-13:
+  `GuiObject.Visible` describes rendering and `UIListLayout` participation and
+  says nothing about input), which is why the framework holds the rule itself
+  rather than relying on the engine.
+- **The place is not rebuilt.** `tools/build_places.sh` was not run for the
+  showcase after `lifecycle_hidden` landed, because the registration above is
+  outstanding and a place built without it would have to be rebuilt again.
