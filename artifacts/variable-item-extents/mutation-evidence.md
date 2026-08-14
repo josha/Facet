@@ -56,3 +56,37 @@ C7 is the channel check: with the construction-time validation removed the
 mistake still fails, but as "attempt to iterate over a nil value" three frames
 away — the core quarantines a throwing memo body. The case asserts the row's
 KEY is in the message, so only the construction channel satisfies it.
+
+## Round 3 — the Rascal Rally consumer (`games/RascalRally/code/tests/luauui_closed_key_contract.spec.luau`)
+
+The rider: LuauUI and Rascal Rally move together, so "the uniform path is
+unchanged" is a claim that is worth exactly one test on an existing consumer.
+The game's racer list is a `newVirtualList` on the deprecated spelling with a
+LIVE extent (theme metrics × orientation).
+
+| mutation | cases that reddened |
+|---|---|
+| R1 the dump always claims the VARIABLE arithmetic | newVirtualList: this game's racer list is still on the UNIFORM arithmetic |
+| R2 the UNIFORM content extent regains its trailing gutter | newVirtualList accepts `rowGap`, and the gutter stays OUT of the row · no declared axis is still VERTICAL · this game's racer list is still on the UNIFORM arithmetic |
+| R3 a live uniform extent stops tracking its Readable in the INDEX | newVirtualList: this game's racer list is still on the UNIFORM arithmetic |
+
+**The first attempt at this round reddened NOTHING, and the test was wrong, not
+the mutations.** R3 freezes `itemExtentIn` on its first read — the list would
+stop re-windowing after a rotation, which is precisely what this consumer would
+feel — and the case stayed green because it asserted only `dump().rowHeight`,
+which reads the spec's Readable DIRECTLY and never goes through the offset
+index. The case now asserts the CONTENT EXTENT at the portrait metric too, and
+R3 reddens it.
+
+(R1/R2's first spellings were bad mutations rather than a bad test: R1 forced
+"uniform", which is what this consumer already is, and R2 mutated the VARIABLE
+content formula on a list that uses the uniform one. Recorded because "the
+mutation did not bite" has two causes and only one of them is the test's
+fault.)
+
+Standing pre-existing reds in both suites during this work, identified by name
+and belonging to the concurrent solver/shrink change, not to this one:
+`...and the shrink pass reaches the MEASURE pass` and `a ticker entry's target
+NAME may truncate` (Rascal Rally); the `stack_distribution` / `layout_vocabulary`
+shrink cases plus `haptics` / `control_feedback` / `render_target_contract`
+(LuauUI).
