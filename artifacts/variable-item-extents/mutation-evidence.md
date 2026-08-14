@@ -90,3 +90,40 @@ and belonging to the concurrent solver/shrink change, not to this one:
 NAME may truncate` (Rascal Rally); the `stack_distribution` / `layout_vocabulary`
 shrink cases plus `haptics` / `control_feedback` / `render_target_contract`
 (LuauUI).
+
+## Final verification (2026-08-14)
+
+Every spec this work touched or could plausibly have broken, run individually:
+
+| spec | result |
+|---|---|
+| `virtual_extents` | 17 passed |
+| `virtual_list_variable_extents` | 17 passed |
+| `virtualization` | 8 passed |
+| `virtual_list_row_gap` | 9 passed |
+| `virtual_list_axis` | 35 passed |
+| `virtual_list_slot_guard` | 12 passed |
+| `virtual_list_focus_policy` | 18 passed |
+| `virtual_list_input` | 23 passed |
+| `virtual_list_row_actions` | 73 passed |
+| `collection_list` | 40 passed |
+| `examples_gallery` | 133 passed |
+
+Whole suites, with FIVE other agents committing into the same tree during the
+work — the reds are identified by NAME and every one of them lives in a file
+another agent has open (`row_actions.luau`, `solver.luau`, `renderer.luau`,
+`mount.luau`, `src/core/*`, the perf lab, `composition`):
+
+* **LuauUI:** 5046 passed / 7 failed — `a viewport change DROPS the overlay's
+  stale reservation`, `the full resize pass leaves the workload MOUNTED`, `the
+  round trip costs NO extra solve` (the concurrent measure/publish work), `the
+  live repository passes every registration rule` + its two `extension_checker`
+  siblings (`composition.ZONES` undocumented), `the forwarded tap is scoped to
+  THIS row` (ruling 6), `an unknown group field`.
+* **Rascal Rally:** 3165 passed / 3 failed — `...and the shrink pass reaches the
+  MEASURE pass`, `the surface still RESPONDS to each geometry fact`, `a ticker
+  entry's target NAME may truncate` (all the concurrent solver/shrink change).
+
+Baselines at the start of this work were 4856 (LuauUI) and 3160 (Rascal Rally),
+both green; the tree gained ~190 and ~5 cases from concurrent agents while this
+ran, which is why neither total is comparable to its baseline by subtraction.
