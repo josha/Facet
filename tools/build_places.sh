@@ -39,6 +39,7 @@ for entry in "${EXAMPLES[@]}"; do
     "\$className": "DataModel",
     "Lighting": {
       "\$properties": {
+        "Technology": "Unified",
         "LightingStyle": "Soft",
         "PrioritizeLightingQuality": false
       }
@@ -106,6 +107,7 @@ cat >"$project" <<'JSON'
     "$className": "DataModel",
     "Lighting": {
       "$properties": {
+        "Technology": "Unified",
         "LightingStyle": "Soft",
         "PrioritizeLightingQuality": false
       }

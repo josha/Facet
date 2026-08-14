@@ -30,6 +30,7 @@ for entry in "${PROOFS[@]}"; do
     "\$className": "DataModel",
     "Lighting": {
       "\$properties": {
+        "Technology": "Unified",
         "LightingStyle": "Soft",
         "PrioritizeLightingQuality": false
       }
