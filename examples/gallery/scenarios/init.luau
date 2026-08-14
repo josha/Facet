@@ -78,6 +78,11 @@ local ORDER = {
 	-- steps and an indeterminate one rotating on the surface's own clock — beside
 	-- the five-dot spinner it does not replace. Also in `demo_picker.DEMOS`.
 	"progress_ring",
+	-- ...and item A: FLOW-WRAP. `UI.HStack{ wrap = true }` — the one surface where
+	-- turning a single prop off makes fourteen tags walk off the right edge of
+	-- their own box, which is the only way to show what wrapping is FOR. Also in
+	-- `demo_picker.DEMOS`.
+	"flow_wrap",
 }
 
 local scenarios = {}

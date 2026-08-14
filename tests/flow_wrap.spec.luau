@@ -352,6 +352,43 @@ describe("flow-wrap: measure and arrange cannot disagree about the lines", funct
 		expect(box(r, "e")).toBe("e: 86,50 80x20")
 		expect(issues(r)).toBe("")
 	end)
+
+	-- THE CASE THAT MAKES THE CACHE KEY LOAD-BEARING, and it took a mutation to
+	-- find. Every other fixture in this file measures a wrapping stack at the box it
+	-- is then arranged in, so dropping the box from `flowPlan`'s key changed nothing
+	-- and "the plan is keyed by the box" was an assertion nothing tested.
+	--
+	-- A stack's SHRINK pass is the cheapest place the two genuinely differ: a
+	-- wrapping stack that opts into `shrinkWeight` under a short parent is measured
+	-- once at the full offer, squeezed, re-measured at the reduced one, and then
+	-- arranged at the reduced one. Three questions, two different boxes, one node —
+	-- so a plan cached without the box in its key answers the first question three
+	-- times, reports one line, and paints four items side by side out of a box a
+	-- quarter as wide.
+	it("the plan is keyed by the BOX: a SHRUNK wrapping stack re-breaks its lines", function()
+		local r = solve({
+			kind = "hstack",
+			id = "Root",
+			width = fill(),
+			height = fill(),
+			children = {
+				cell("rigid", 300, 20),
+				{
+					kind = "hwrap",
+					id = "W",
+					gap = 0,
+					shrinkWeight = 1,
+					children = { cell("a", 100, 40), cell("b", 100, 40), cell("c", 100, 40), cell("d", 100, 40) },
+				},
+			},
+		}, 400, 400)
+		-- 700 of content in 400: `W` gives up 300 and is left with 100, which is one
+		-- tag per line, four lines
+		expect(box(r, "W")).toBe("W: 300,0 100x160")
+		expect(box(r, "a")).toBe("a: 300,0 100x40")
+		expect(box(r, "d")).toBe("d: 300,120 100x40")
+		expect(issues(r)).toBe("")
+	end)
 end)
 
 -- ===========================================================================
@@ -685,5 +722,156 @@ describe("flow-wrap: it does NOT compose with newVirtualList, and that is refuse
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "wrap", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+-- ===========================================================================
+-- 9. THE SHOWCASE SURFACE, UNDER EVERY SHIPPED THEME
+-- ===========================================================================
+--
+-- STUDIO NEUTRAL IS NOT EVIDENCE ON ITS OWN. It reserves no chrome, so a control
+-- measured only there has slack no shipped package gives it — and Pixel Quest and
+-- Parchment have each broken a layout Neutral survived. A wrapping row is exactly
+-- the shape that class of defect lands on: a package with a wider control face
+-- puts fewer tags on a line, more lines in the block, and a taller block in the
+-- same box.
+describe("flow-wrap: the gallery surface holds under every shipped package", function()
+	-- the packages are BUILT through the PUBLIC facade (`LuauUI.themes`), which is
+	-- what a reference package's `build` expects, and RESOLVED through the snapshot
+	-- compiler — the same pair `tests/compact_label.spec.luau` uses
+	local snapshot = require("../src/themes/snapshot") :: any
+	local scenario = require("../examples/gallery/scenarios/flow_wrap") :: any
+
+	-- the eight shipped reference packages plus the flat theme = the nine
+	-- configurations every geometry claim in this repo is measured against
+	local PACKAGES = {
+		"glossy_mobile",
+		"glossy_touch",
+		"pixel_quest",
+		"fantasy_ornate",
+		"scifi_hud",
+		"compact_pointer",
+		"classic_desktop",
+		"fantasy_parchment",
+	}
+	-- the narrowest supported viewport in both orientations plus a desktop: a
+	-- wrapping row's failure mode is width, and landscape-only defects are how the
+	-- 2026-08-12 round's B5 survived a portrait capture set
+	local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
+
+	local function mountUnder(pkgName: string?, view: any): (any, any)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		if pkgName ~= nil then
+			env:set(
+				"themeMetrics",
+				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(LuauUI.themes), nil, {})
+			)
+		end
+		local built = scenario.build({
+			LuauUI = LuauUI,
+			core = core,
+			env = env,
+			actionSystem = system,
+			presenter = pres,
+		})
+		built.handle = pres.present(built.screen, built.present)
+		for _ = 1, 3 do
+			pres.refresh()
+		end
+		return { adapter = adapter, core = core }, built
+	end
+
+	local function report(built: any): string
+		local parts = {}
+		for _, f in built.handle.controller.diagnostics() do
+			table.insert(parts, `{f.node}: {f.issue}`)
+		end
+		return table.concat(parts, " | ")
+	end
+
+	it("no diagnostic, in any package, at any of the three viewports", function()
+		local problems: { string } = {}
+		for _, pkgName in { false, table.unpack(PACKAGES) } do
+			for _, view in VIEWS do
+				local name = if pkgName == false then "flat" else tostring(pkgName)
+				local w, built = mountUnder(if pkgName == false then nil else tostring(pkgName), view)
+				local text = report(built)
+				if text ~= "" then
+					table.insert(problems, `  {name} at {view.w}x{view.h}: {text}`)
+				end
+				expect(w.core:lastError()).toBeNil()
+				built.dispose()
+			end
+		end
+		if #problems > 0 then
+			error(
+				`flow_wrap reports diagnostics under {#problems} package/viewport pair(s):\n`
+					.. table.concat(problems, "\n"),
+				0
+			)
+		end
+	end)
+
+	it("...and no two tags ever overlap, in any package, at any viewport", function()
+		for _, pkgName in { false, table.unpack(PACKAGES) } do
+			for _, view in VIEWS do
+				local name = if pkgName == false then "flat" else tostring(pkgName)
+				local w, built = mountUnder(if pkgName == false then nil else tostring(pkgName), view)
+				local placed: { any } = {}
+				for i = 1, scenario.tagCount do
+					local node = w.adapter.node(`/FlowWrap/Page/Cloud/T{i}`)
+					if node == nil or node.rect == nil then
+						error(`{name} at {view.w}x{view.h}: tag {i} was never placed`, 0)
+					end
+					local r = node.rect
+					for _, other in placed do
+						if
+							r.x < other.r.x + other.r.w
+							and other.r.x < r.x + r.w
+							and r.y < other.r.y + other.r.h
+							and other.r.y < r.y + r.h
+						then
+							error(
+								`{name} at {view.w}x{view.h}: tag {i} [{r.x},{r.y} {r.w}x{r.h}] overlaps `
+									.. `tag {other.i} [{other.r.x},{other.r.y} {other.r.w}x{other.r.h}]`,
+								0
+							)
+						end
+					end
+					table.insert(placed, { i = i, r = r })
+				end
+				built.dispose()
+			end
+		end
+	end)
+
+	it("a WIDER package really does re-break the lines — the sweep is not vacuous", function()
+		-- the discriminator for the sweep above: if every package produced the same
+		-- line count, the eight extra mounts would be proving nothing. Pixel Quest's
+		-- control face is wider than the flat theme's, so at 320px it fits fewer
+		-- tags per line.
+		local function lineCount(pkgName: string?): number
+			local w, built = mountUnder(pkgName, { w = 320, h = 640 })
+			local seen: { [number]: boolean } = {}
+			local n = 0
+			for i = 1, scenario.tagCount do
+				local y = w.adapter.node(`/FlowWrap/Page/Cloud/T{i}`).rect.y
+				if seen[y] == nil then
+					seen[y] = true
+					n += 1
+				end
+			end
+			built.dispose()
+			return n
+		end
+		local flat = lineCount(nil)
+		local pixel = lineCount("pixel_quest")
+		expect(`flat {flat} < pixel_quest {pixel}: {flat < pixel}`).toBe(`flat {flat} < pixel_quest {pixel}: true`)
 	end)
 end)

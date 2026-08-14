@@ -2703,3 +2703,139 @@ describe("examples/gallery fixture: all controls — the round-2 layout vocabula
 		end
 	)
 end)
+
+-- ---------------------------------------------------------------------------
+-- flow_wrap — `UI.HStack{ wrap = true }` (parity round 3 item A)
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: flow wrap (UI.HStack wrap = true)", function()
+	local module = require("../examples/gallery/scenarios/flow_wrap") :: any
+	local CLOUD = "/FlowWrap/Page/Cloud"
+	local ALIGN_BOX = "/FlowWrap/Page/AlignBox"
+
+	local function wrapWorld(view: any)
+		local w = fixtureWorld(view)
+		return w, mountFixture(w, module)
+	end
+
+	-- the tag ids the fixture builds, in declaration order
+	local function tagPath(n: number): string
+		return `{CLOUD}/T{n}`
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = wrapWorld(view)
+			expectNoDiagnostics(`flow_wrap at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("the tags really WRAP: more than one distinct row of y at every viewport", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = wrapWorld(view)
+			local rows: { [number]: boolean } = {}
+			local count = 0
+			for i = 1, module.tagCount do
+				local node = w.adapter.node(tagPath(i))
+				expect(`{view.w}: tag {i} exists: {node ~= nil}`).toBe(`{view.w}: tag {i} exists: true`)
+				if rows[node.rect.y] == nil then
+					rows[node.rect.y] = true
+					count += 1
+				end
+			end
+			-- fourteen tags cannot fit one line at 1232 either — that is why the
+			-- fixture ships fourteen and not four
+			expect(`{view.w}x{view.h} lines: {count > 1}`).toBe(`{view.w}x{view.h} lines: true`)
+			built.dispose()
+		end
+	end)
+
+	it("...and NOTHING in a line overlaps its neighbour, at every viewport", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = wrapWorld(view)
+			local placed: { any } = {}
+			for i = 1, module.tagCount do
+				local r = w.adapter.node(tagPath(i)).rect
+				for _, other in placed do
+					local overlaps = r.x < other.r.x + other.r.w
+						and other.r.x < r.x + r.w
+						and r.y < other.r.y + other.r.h
+						and other.r.y < r.y + r.h
+					if overlaps then
+						error(
+							`flow_wrap at {view.w}x{view.h}: tag {i} [{r.x},{r.y} {r.w}x{r.h}] overlaps `
+								.. `tag {other.i} [{other.r.x},{other.r.y} {other.r.w}x{other.r.h}]`,
+							0
+						)
+					end
+				end
+				table.insert(placed, { i = i, r = r })
+			end
+			built.dispose()
+		end
+	end)
+
+	it("THE TOGGLE IS THE ARGUMENT: wrap off overflows, wrap on does not — same nodes", function()
+		local w, built = wrapWorld(NARROW_PORTRAIT)
+		local identity = tostring(w.adapter.node(tagPath(14)))
+		expectNoDiagnostics("flow_wrap wrapping", w, built)
+
+		built.steps.setWrap(built, "off")
+		settleFixture(w.presenter)
+		local overflowed = false
+		for _, finding in built.handle.controller.diagnostics() do
+			if string.find(finding.issue, "on the main axis", 1, true) ~= nil then
+				overflowed = true
+			end
+		end
+		expect(`wrap off overflows: {overflowed}`).toBe("wrap off overflows: true")
+
+		built.steps.setWrap(built, "on")
+		settleFixture(w.presenter)
+		expectNoDiagnostics("flow_wrap wrapping again", w, built)
+		-- ...and the flip was a RE-SOLVE, never a remount: the fourteenth tag is
+		-- the same node it was before the round trip. A `UI.FlowStack` class behind
+		-- a `UI.When` could not make this claim, which is why `wrap` is a prop.
+		expect(tostring(w.adapter.node(tagPath(14)))).toBe(identity)
+		built.dispose()
+	end)
+
+	it("`align` moves the BLOCK of lines, and only the block", function()
+		local w, built = wrapWorld(DESKTOP)
+		local boxRect = w.adapter.node(ALIGN_BOX).rect
+		local function firstTagY(): number
+			return w.adapter.node(`{ALIGN_BOX}/S1`).rect.y
+		end
+		local atStart = firstTagY()
+		built.steps.setAlign(built, "center")
+		settleFixture(w.presenter)
+		local atCenter = firstTagY()
+		built.steps.setAlign(built, "end")
+		settleFixture(w.presenter)
+		local atEnd = firstTagY()
+		expect(`start<center<end: {atStart < atCenter and atCenter < atEnd}`).toBe("start<center<end: true")
+		-- ...and the block never leaves the box it is aligned inside
+		expect(`inside: {atEnd + w.adapter.node(`{ALIGN_BOX}/S1`).rect.h <= boxRect.y + boxRect.h}`).toBe(
+			"inside: true"
+		)
+		expectNoDiagnostics("flow_wrap aligned end", w, built)
+		built.dispose()
+	end)
+
+	it("pseudo-localized (~1.4x), it still wraps, still fits, and still clips nothing", function()
+		underPseudoLocalization(module, function()
+			for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+				local w, built = wrapWorld(view)
+				expectNoDiagnostics(`flow_wrap pseudo-localized at {view.w}x{view.h}`, w, built)
+				expectUnclipped(`flow_wrap at {view.w}x{view.h}`, built, {
+					"/FlowWrap/Page/Title",
+					"/FlowWrap/Page/CloudCaption",
+					"/FlowWrap/Page/AlignCaption",
+					"/FlowWrap/Page/Status",
+				})
+				built.dispose()
+			end
+		end)
+	end)
+end)

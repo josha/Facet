@@ -139,6 +139,16 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "progress_ring",
 	},
+	-- the sixth fixture, for the same reason as the four above it: what `wrap`
+	-- does is only legible NEXT TO what happens without it, and that comparison is
+	-- a toggle, not a screenshot
+	{
+		id = "flow-wrap",
+		title = "Flow wrap",
+		blurb = "Fourteen tags in one row: turn wrapping off and watch them leave the box",
+		kind = "fixture",
+		module = "flow_wrap",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

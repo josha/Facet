@@ -117,6 +117,10 @@ local SCENARIOS = {
 	-- shrink with its container — so a swept viewport is exactly where a page that
 	-- no longer fits shows up
 	"progress_ring",
+	-- ...and item A: the flow-wrap showcase. Its tag cloud is the one surface here
+	-- whose whole job is to NOT overflow at any width, which makes a swept viewport
+	-- the direct test of the feature rather than a check on its packaging
+	"flow_wrap",
 }
 
 local EXAMPLES = {
@@ -131,7 +135,28 @@ local EXAMPLES = {
 
 local PROOFS = { "p1_glade", "p2_cartwheel", "p3_sipworks", "p4_foyer", "p5_wardrobe" }
 
-local MAIN_AXIS = "on the main axis"
+-- THE AXES A CONTAINER CAN RUN OUT OF ROOM ON — plural since parity round 3 item
+-- A. For every container this file swept before, "too much content" is a MAIN-axis
+-- fact: the cursor keeps advancing past the box. A WRAPPING stack inverts that. Its
+-- main axis cannot overflow at all, by construction — that is what wrapping means —
+-- and the direction it runs out of room is the CROSS one, as the lines pile up. A
+-- sweep that only greps the main axis is structurally blind to every wrapping stack
+-- on every screen, which is the "instrument that cannot bite" class this file was
+-- written to end.
+--
+-- Both phrases are exact and unique: no other diagnostic in `solver.luau` contains
+-- either, and the placement-audit advice that talks about "the cross axis" never
+-- says "ON the cross axis".
+local OVERFLOW_AXES = { "on the main axis", "on the cross axis" }
+
+local function isOverflow(issue: string): boolean
+	for _, phrase in OVERFLOW_AXES do
+		if string.find(issue, phrase, 1, true) ~= nil then
+			return true
+		end
+	end
+	return false
+end
 
 -- A SURFACE MAY PUBLISH ITS OWN MEASURED GEOMETRY BACK INTO ITS TREE, and the
 -- frame that does it is not the frame that shows it. The showcase's picker strip
@@ -198,7 +223,7 @@ local VARIANTS: { [string]: { step: string, values: { string } } } = {
 -- stopping at the first, because the set of views a screen fails at is what tells
 -- an author whether it is a width problem or a height problem
 local function sweep(label: string, variantKey: string?, mount: (any) -> any)
-	it(`{label}: no main-axis overflow at any swept viewport`, function()
+	it(`{label}: no overflow on EITHER axis at any swept viewport`, function()
 		local variant = if variantKey ~= nil then VARIANTS[variantKey] else nil
 		local problems: { string } = {}
 		for _, view in VIEWS do
@@ -207,7 +232,7 @@ local function sweep(label: string, variantKey: string?, mount: (any) -> any)
 			settle(w.presenter)
 			local function collect(suffix: string)
 				for _, finding in built.handle.controller.diagnostics() do
-					if string.find(finding.issue, MAIN_AXIS, 1, true) ~= nil then
+					if isOverflow(finding.issue) then
 						table.insert(problems, describeFinding(w, view, finding) .. suffix)
 					end
 				end
@@ -224,7 +249,7 @@ local function sweep(label: string, variantKey: string?, mount: (any) -> any)
 		end
 		if #problems > 0 then
 			error(
-				`{label}: the solver reports {#problems} main-axis overflow(s) — content wider or taller `
+				`{label}: the solver reports {#problems} overflow(s) — content wider or taller `
 					.. `than its own box with nothing to scroll it:\n{table.concat(problems, "\n")}`,
 				0
 			)
