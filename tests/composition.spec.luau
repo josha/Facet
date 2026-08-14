@@ -948,10 +948,14 @@ describe("ADR-0023: a bad declaration is refused where it is written", function(
 		end, "does not accept 'mayShrink'")
 	end)
 
+	-- `align` used to be the field this case reached for; ADR-0025 made it legal
+	-- (it places a group's regions ACROSS the lane), so the case now names a field
+	-- that is still nobody's — the assertion is about the closed key set, not about
+	-- any one word
 	it("an unknown group field", function()
 		refuses(function(d)
-			d.groups[1].align = "center"
-		end, "does not accept 'align'")
+			d.groups[1].stretch = "center"
+		end, "does not accept 'stretch'")
 	end)
 
 	it("an unknown floor key", function()

@@ -117,6 +117,18 @@ export type GroupDecl = {
 	sizing: string?, -- "hug" (default) | "fill"
 	weight: number?, -- fill weight (default 1)
 	place: (string | number)?, -- "start" (default) | "center" | "end" | 0..1
+	-- ACROSS the lane, where `place` is DOWN it (ADR-0025 Decision 1). Absent, a
+	-- region takes the whole lane width, which is what it has always done and what
+	-- "a region is an allotment" means. Declared, the region takes its own measured
+	-- width and sits at that end of the lane — alignment of a full-width box would
+	-- mean nothing, so stating it is what asks for the content width.
+	align: string?, -- "start" | "center" | "end"
+	-- RULE 9'S DECLARED COUNTERPART (ADR-0025 Decision 2). Rule 9 releases a lane
+	-- whose every region resolves to nothing paintable and gives its width away.
+	-- That is right for a content flow and exactly wrong for a layout whose lane
+	-- POSITIONS are the coordinate system — a HUD's right-hand column must stay on
+	-- the right edge on the round where the middle column has nothing to say.
+	holdsLane: boolean?,
 	minWidth: number?, -- resolved px; a fill lane under this is illegal
 	gap: number?, -- between this group's regions
 }
@@ -202,6 +214,12 @@ export type Resolution = {
 	-- until now absent from this type (F-29). Sorted region ids whose chosen form
 	-- measured the WHOLE offer inside a HUG lane; see the note at its assignment.
 	hugOverflow: { string },
+	-- WHO IS ON TOP OF WHOM (ADR-0025 Decision 3). Regions cannot overlap as
+	-- BOXES — lanes sit side by side and a lane stacks its groups down — but a
+	-- region whose chosen form measures bigger than the box it was allotted paints
+	-- outside it, and if a neighbour is there it is painting on that neighbour.
+	-- Every unordered pair, sorted by id, with the overlap extent in px.
+	collisions: { { a: string, b: string, dx: number, dy: number } },
 }
 
 -- ===== the built-in arrangement presets ====================================
@@ -227,6 +245,75 @@ composition.ARRANGEMENTS = table.freeze({
 		}),
 	}),
 }) :: { [string]: Arrangement }
+
+-- ===== the screen-anchored HUD preset (ADR-0025) ===========================
+-- DATA, exactly like `ARRANGEMENTS` above. A HUD is not a new vocabulary and not
+-- a sibling module: the three screen COLUMNS are three lanes (lanes sit side by
+-- side and never overlap — that IS the partition), the three vertical BANDS are
+-- the `place` a lane already distributes its groups by, and the nine zone names
+-- are the same nine words `anchor` uses. So the whole mechanism is the rank /
+-- step-down-before-drop ladder above, reused literally.
+--
+-- Per column there are FOUR groups and the first one holds no regions: it is the
+-- COLUMN, `fill` so the lane takes its third of the band and `holdsLane` so the
+-- third survives a round with nothing in it. The three zone groups stay `hug` so
+-- that `place` still runs the top/middle/bottom spacer — `sizing` would otherwise
+-- have to do both jobs at once and the vertical one would win.
+--
+-- An author who wants a different split copies this table and edits it; the
+-- lane's share is the sum of its `fill` groups' weights.
+
+composition.ZONES = table.freeze({
+	"topLeft",
+	"left",
+	"bottomLeft",
+	"top",
+	"center",
+	"bottom",
+	"topRight",
+	"right",
+	"bottomRight",
+}) :: { string }
+
+local function hudColumn(lane: string, align: string, zones: { string }): { GroupDecl }
+	local out: { GroupDecl } = { table.freeze({
+		id = lane .. "Column",
+		lane = lane,
+		sizing = "fill",
+		holdsLane = true,
+	}) :: any }
+	for i, id in zones do
+		table.insert(
+			out,
+			table.freeze({
+				id = id,
+				lane = lane,
+				place = (if i == 1 then "start" elseif i == 2 then "center" else "end"),
+				align = align,
+			}) :: any
+		)
+	end
+	return out
+end
+
+do
+	local groups: { GroupDecl } = {}
+	for _, g in hudColumn("left", "start", { "topLeft", "left", "bottomLeft" }) do
+		table.insert(groups, g)
+	end
+	for _, g in hudColumn("center", "center", { "top", "center", "bottom" }) do
+		table.insert(groups, g)
+	end
+	for _, g in hudColumn("right", "end", { "topRight", "right", "bottomRight" }) do
+		table.insert(groups, g)
+	end
+	composition.HUD_GROUPS = table.freeze(groups) :: { GroupDecl }
+end
+
+composition.HUD = table.freeze({
+	name = "hud",
+	lanes = table.freeze({ table.freeze({ "left" }), table.freeze({ "center" }), table.freeze({ "right" }) }),
+}) :: Arrangement
 
 -- ===== floors ==============================================================
 
@@ -263,8 +350,18 @@ end
 -- on the device you did not test.
 
 local FLOOR_KEYS: { [string]: boolean } = { lines = true, role = true, targets = true }
-local GROUP_KEYS: { [string]: boolean } =
-	{ id = true, lane = true, span = true, sizing = true, weight = true, place = true, minWidth = true, gap = true }
+local GROUP_KEYS: { [string]: boolean } = {
+	id = true,
+	lane = true,
+	span = true,
+	sizing = true,
+	weight = true,
+	place = true,
+	align = true,
+	holdsLane = true,
+	minWidth = true,
+	gap = true,
+}
 local REGION_KEYS: { [string]: boolean } = {
 	id = true,
 	group = true,
@@ -279,6 +376,7 @@ local REGION_KEYS: { [string]: boolean } = {
 }
 local SIZINGS: { [string]: boolean } = { hug = true, fill = true }
 local PLACES: { [string]: boolean } = { start = true, center = true, ["end"] = true }
+local ALIGNS: { [string]: boolean } = { start = true, center = true, ["end"] = true }
 local SPANS: { [string]: boolean } = { above = true, below = true }
 
 local function fail(msg: string): never
@@ -420,11 +518,22 @@ function composition.normalize(decl: any): Declaration
 						.. "affinity to absorb"
 				)
 			end
+			-- A SPAN ROW HAS NO LANE TO HOLD (ADR-0025 Decision 2). `holdsLane` is
+			-- rule 9's counterpart and rule 9 is a rule about LANES; a spanning row
+			-- is outside the lane vocabulary by construction, and its own
+			-- "empty ⇒ absent" is what it guarantees instead.
+			if g.holdsLane ~= nil then
+				fail(
+					`group '{g.id}' spans, so 'holdsLane' means nothing to it — holdsLane keeps a LANE in `
+						.. "the band when nothing in it is paintable, and a spanning row has no lane (an "
+						.. "empty span row is simply absent)"
+				)
+			end
 			-- Everything below would be accepted and ignored: a span row is as wide
 			-- as the composition (no `minWidth` to fail, no fill share to weigh) and
 			-- as tall as its content (no slack to place in). Slack belongs to the
 			-- lane band, which is rule 6.
-			for _, field in { "sizing", "minWidth", "place", "weight" } do
+			for _, field in { "sizing", "minWidth", "place", "weight", "align" } do
 				if (g :: any)[field] ~= nil and not (field == "sizing" and g.sizing == "hug") then
 					fail(
 						`group '{g.id}' spans, so '{field}' means nothing to it — a spanning row is the `
@@ -452,6 +561,19 @@ function composition.normalize(decl: any): Declaration
 				fail(`group '{g.id}' place must be "start" | "center" | "end" or a fraction 0..1`)
 			end
 		end
+		if g.align ~= nil and not (type(g.align) == "string" and ALIGNS[g.align]) then
+			fail(
+				`group '{g.id}' align must be "start" | "center" | "end" — it places this group's regions `
+					.. "ACROSS the lane (`place` is DOWN it), and stating it is what asks for the content "
+					.. "width instead of the whole lane"
+			)
+		end
+		if g.holdsLane ~= nil and type(g.holdsLane) ~= "boolean" then
+			fail(
+				`group '{g.id}' holdsLane must be a boolean — it is rule 9's counterpart ("keep this lane `
+					.. `in the band even when nothing in it is paintable"), got {typeof(g.holdsLane)}`
+			)
+		end
 		if g.weight ~= nil and (type(g.weight) ~= "number" or g.weight <= 0) then
 			fail(`group '{g.id}' weight must be a positive number`)
 		end
@@ -471,6 +593,8 @@ function composition.normalize(decl: any): Declaration
 			sizing = sizing,
 			weight = g.weight or 1,
 			place = g.place or "start",
+			align = g.align,
+			holdsLane = g.holdsLane == true,
 			minWidth = g.minWidth,
 			gap = g.gap,
 		}
@@ -646,6 +770,7 @@ type Attempt = {
 	legal: boolean,
 	rule: string?,
 	detail: string?,
+	collisions: { { a: string, b: string, dx: number, dy: number } }?,
 	used: { w: number, h: number },
 	lanes: { any },
 	spans: { any },
@@ -704,18 +829,23 @@ local function solveArrangement(
 	local laneGroups: { { string } } = {}
 	local laneAffinities: { { string } } = {}
 	local laneOfGroup: { [string]: number } = {}
+	-- ADR-0025 Decision 2: does any group in this lane pin it against rule 9?
+	local laneHolds: { boolean } = {}
 	for i, lane in arr.lanes do
 		local ids: { string } = {}
+		local holds = false
 		for _, affinity in lane do
 			for _, g in decl.groups do
 				if g.lane == affinity then
 					table.insert(ids, g.id)
 					laneOfGroup[g.id] = i
+					holds = holds or g.holdsLane == true
 				end
 			end
 		end
 		laneGroups[i] = ids
 		laneAffinities[i] = lane
+		laneHolds[i] = holds
 	end
 
 	-- THE SPANNING ROWS, in flow order: the `above` rows (declaration order),
@@ -854,7 +984,12 @@ local function solveArrangement(
 					fillWeight += g.weight or 1
 				end
 			end
-			active[i] = laneActive
+			-- RULE 9'S OPT-OUT (ADR-0025 Decision 2): a lane one of whose groups
+			-- declares `holdsLane` is ACTIVE whether or not anything in it paints, so
+			-- it keeps its width, its gap and its x — and every lane after it keeps
+			-- the x it had. `anyActive` is deliberately NOT raised by a held lane: a
+			-- composition holding three empty columns still has nothing to say.
+			active[i] = laneActive or laneHolds[i]
 			anyActive = anyActive or laneActive
 			laneIntrinsic[i] = math.max(intrinsic, if fillWeight > 0 then 0 else minW)
 			laneMinWidth[i] = minW
@@ -1332,6 +1467,7 @@ local function solveArrangement(
 				legal = false,
 				rule = rule,
 				hugOverflow = hugOverflow,
+				collisions = {},
 				detail = detail or "the offer cannot hold this arrangement",
 				used = { w = 0, h = 0 },
 				lanes = {},
@@ -1489,7 +1625,19 @@ local function solveArrangement(
 				local res = byId[r.id]
 				res.mounted = true
 				res.lane = i
-				res.rect = { x = laneRect.x, y = ry, w = laneRect.w, h = h }
+				-- ACROSS the lane (ADR-0025 Decision 1). Absent `align`, a region takes
+				-- the whole lane width — the allotment contract, unchanged. Declared, it
+				-- takes the width it MEASURED in this lane and sits at that end:
+				-- aligning a box that already fills its lane would mean nothing, so
+				-- asking for the alignment is what asks for the content width.
+				local rx, rw = laneRect.x, laneRect.w
+				if g.align ~= nil then
+					local m = p.measured[r.id]
+					rw = math.min(if m ~= nil then m.w else rw, laneRect.w)
+					local f = if g.align == "center" then 0.5 elseif g.align == "end" then 1 else 0
+					rx = laneRect.x + math.floor((laneRect.w - rw) * f + 0.5)
+				end
+				res.rect = { x = rx, y = ry, w = rw, h = h }
 				ry += h + gGap
 			end
 
@@ -1500,11 +1648,97 @@ local function solveArrangement(
 		end
 	end
 
+	--[[ ── WHO IS ON TOP OF WHOM (ADR-0025 Decision 3) ─────────────────────────
+		Regions cannot overlap as BOXES: lanes sit side by side and a lane stacks
+		its groups down, which is the whole reason a HUD built on this mechanism
+		cannot produce the commissioning screenshot. What a partition cannot stop is
+		a region whose chosen form MEASURES bigger than the box it was allotted — a
+		row of five controls that cannot shrink is still 60px wider than the column
+		it was given, and nothing in Roblox clips it. Then it is not merely
+		overflowing; it is drawing on top of the region next door, and the
+		composition is perfectly LEGAL while it happens, so no fallback finding
+		fires and the inner stack's own overflow sentence never says whose screen
+		it landed on.
+
+		TWO EXCLUSIONS, both because the extent is granted rather than claimed:
+		  * the SCROLL region — its content is meant to be bigger than its box and
+		    a ScrollView clips it (rule 5's "exactly one scroll region");
+		  * a `fill` region on the HEIGHT axis — the framework chose that extent
+		    from the slack (rule 6), so its content running past it is the inner
+		    stack's finding, not a claim this region ever made.
+		Width is never author-chosen (a region's width IS its lane's), so the width
+		axis is always compared. ]]
+	local collisions: { { a: string, b: string, dx: number, dy: number } } = {}
+	do
+		local declById: { [string]: RegionDecl } = {}
+		for _, r in decl.regions do
+			declById[r.id] = r
+		end
+		type Painted = { id: string, x: number, y: number, w: number, h: number, excess: number }
+		local painted: { Painted } = {}
+		for _, res in regionResolutions do
+			local rect = res.rect
+			if not res.mounted or rect == nil then
+				continue
+			end
+			local d = declById[res.id]
+			local m = p.measured[res.id]
+			local w, h = rect.w, rect.h
+			if m ~= nil and d ~= nil and not d.mayScroll then
+				w = math.max(w, m.w)
+				if d.sizing ~= "fill" then
+					h = math.max(h, m.h)
+				end
+			end
+			table.insert(painted, {
+				id = res.id,
+				x = rect.x,
+				y = rect.y,
+				w = w,
+				h = h,
+				-- how far OUTSIDE its own box this one paints. It is what names the
+				-- offender in the pair: a finding that said "Timer paints over Rail"
+				-- when the Timer fits perfectly and the Rail is 60px too wide points
+				-- an author at the wrong node, and a diagnostic that misnames the
+				-- culprit is worse than none.
+				excess = (w - rect.w) + (h - rect.h),
+			})
+		end
+		for i = 1, #painted do
+			for j = i + 1, #painted do
+				local a, b = painted[i], painted[j]
+				local dx = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
+				local dy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+				if dx > EPS and dy > EPS then
+					local first, second = a.id, b.id
+					-- the one painting outside its box is `a`; ties break by id, so the
+					-- report is deterministic when both are over
+					if b.excess > a.excess or (b.excess == a.excess and second < first) then
+						first, second = second, first
+					end
+					table.insert(collisions, {
+						a = first,
+						b = second,
+						dx = math.floor(dx + 0.5),
+						dy = math.floor(dy + 0.5),
+					})
+				end
+			end
+		end
+		table.sort(collisions, function(x, y)
+			if x.a ~= y.a then
+				return x.a < y.a
+			end
+			return x.b < y.b
+		end)
+	end
+
 	return {
 		legal = true,
 		rule = nil,
 		detail = nil,
 		hugOverflow = hugOverflow,
+		collisions = collisions,
 		-- the flow's own extent: every spanning band plus the tallest lane
 		used = { w = p.usedW, h = p.spanTotal + laneUsedH },
 		lanes = lanes,
@@ -1607,6 +1841,10 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		regionById = byId,
 		scroller = scroller,
 		rejected = rejected,
+		--[[ ADDITIVE (ADR-0025 Decision 3): every unordered pair of regions whose
+			PAINTED boxes intersect. Empty on every declaration that resolved cleanly
+			before this shipped, which is what makes it additive. ]]
+		collisions = attempt.collisions or {},
 		--[[ AUTHORING DIAGNOSTICS. Sorted region ids whose chosen form measured the
 			WHOLE offer inside a HUG lane — the signature of a form authored
 			`width = FILL` where the lane's whole contract is "as wide as my
@@ -1679,6 +1917,10 @@ function composition.dump(resolution: Resolution): any
 	for _, entry in resolution.rejected do
 		table.insert(rejected, { arrangement = entry.arrangement, rule = entry.rule, detail = entry.detail })
 	end
+	local collisions = {}
+	for _, c in resolution.collisions or {} do
+		table.insert(collisions, { a = c.a, b = c.b, dx = c.dx, dy = c.dy })
+	end
 	return {
 		schema = "luauui-composition-dump/1",
 		arrangement = resolution.arrangement,
@@ -1697,6 +1939,9 @@ function composition.dump(resolution: Resolution): any
 		-- ADDITIVE (2026-08-02): the authoring diagnostic. Empty on a well-formed
 		-- declaration, so a reader that never heard of it reads what it always did.
 		hugOverflow = resolution.hugOverflow or {},
+		-- ADDITIVE (ADR-0025, 2026-08-14): who is painting on top of whom. Already
+		-- sorted by (a, b) on the resolution, so two calls are equal.
+		collisions = collisions,
 	}
 end
 

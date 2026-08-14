@@ -3294,7 +3294,41 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					resolution.arrangement,
 					if why ~= nil then ` (last rejection: {why.rule} — {why.detail})` else ""
 				),
+				designed = true,
 			})
+		end
+		--[[ ...AND THE ONE BESIDE IT THAT IS NOT DESIGNED AT ALL (ADR-0025 Decision 3).
+
+			A composition's regions PARTITION its box — lanes sit side by side, a lane
+			stacks its groups down — so two of them cannot overlap as boxes. What the
+			partition cannot stop is a region whose chosen form measures bigger than
+			the box it was allotted: nothing clips it, so it paints over whatever is
+			next to it, and the composition stays perfectly LEGAL while it happens.
+			The fallback finding above never fires and the inner stack's own overflow
+			sentence says the content is too big for its box without ever saying whose
+			screen it landed on.
+
+			This is the commissioning screenshot's second failure ("the weapon rail
+			runs into the fps/ping readout"), and it is filed on the region that is
+			doing the painting, so the sweep's per-node waivers can tell two colliding
+			pairs apart. The pure module decides it — `resolve` returns the pairs —
+			for the same reason it decides everything else: a device matrix is then a
+			headless sweep rather than a screenshot review. ]]
+		if ctx.hiddenDepth == 0 then
+			for _, c in resolution.collisions or {} do
+				table.insert(ctx.diagnostics, {
+					node = c.a,
+					issue = string.format(
+						"region '%s' paints over region '%s' by %dx%dpx — a composition's regions partition "
+							.. "its box, so a region drawing outside its own is drawing on top of its "
+							.. "neighbour (give it a form that fits, let it shrink, or let it drop)",
+						c.a,
+						c.b,
+						c.dx,
+						c.dy
+					),
+				})
+			end
 		end
 		local originX = innerX + resolution.origin.x
 		local originY = innerY + resolution.origin.y

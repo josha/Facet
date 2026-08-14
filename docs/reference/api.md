@@ -3146,11 +3146,52 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 | `composition.floorPx(floor, metrics)` | a CONTENT floor (`{ lines = n, role? }`, `{ targets = n }`) resolved to pixels against a theme snapshot; `nil` when nothing was declared |
 | `composition.arrangementOf(value)` | a preset name or a custom table, validated to `{ name, lanes }` |
 | `composition.ARRANGEMENTS` | the three presets as data: `column` = one lane holding every affinity, `twoLane` = `{ main } { lead, trail }`, `threeLane` = `{ lead } { main } { trail }` |
+| `composition.HUD` | the **screen-anchored HUD** arrangement as data (ADR-0025): three lanes, `{ left } { center } { right }` — the three screen columns |
+| `composition.HUD_GROUPS` | the twelve groups that go with it: one `fill` **column** group per lane (it holds the lane's third of the band, and `holdsLane` keeps that third on a round where the column is empty) plus the nine **zone** groups, `topLeft … bottomRight` |
+| `composition.ZONES` | the nine zone ids in that table, in order — the same nine words the `anchor` box prop uses |
 
 A declaration is `{ id?, groups, regions, arrangements, laneGap?, groupGap?, maxMeasure? }`,
 where each region carries `{ id, group, rank, forms = <count>, sizing?, weight?, floor?, mayScroll?, mayDrop?, reserved? }`.
 Note `forms` here is a **count** — the pure decision never sees a view, only how
 many representations a region has and what each one measures.
+
+A group carries `{ id, lane | span, sizing?, weight?, place?, align?, holdsLane?, minWidth?, gap? }`.
+`place` puts the group **down** its lane (`start` / `center` / `end`, or a
+fraction); `align` puts its regions **across** the lane, and stating it is what
+asks for the content width instead of the whole lane (aligning a box that already
+fills its lane would mean nothing). `holdsLane` is rule 9's counterpart: rule 9
+releases a lane whose every region resolves to nothing paintable and gives its
+width away, which is right for a page and wrong for a layout whose lane
+**positions** are the coordinate system — a HUD's right-hand column has to stay on
+the right edge on the round when the middle column has nothing to say.
+
+**A HUD is a composition, not a second mechanism.** The three screen columns are
+three lanes (lanes sit side by side and never overlap — that is the partition),
+the three vertical bands are the `place` a lane already distributes its groups by,
+and the nine zone names are the nine anchors. So the rank / step-down-before-drop
+ladder is reused literally: when a phone loses 200px of height to a browser URL
+bar, the HUD **degrades by rank** instead of collapsing into itself.
+
+```lua
+UI.Composition{
+  id = "Hud",
+  width = fill, height = fill,
+  groups = LuauUI.composition.HUD_GROUPS,
+  arrangements = { LuauUI.composition.HUD },
+  children = {
+    UI.Region{ id = "Rail", group = "topRight", rank = 3, children = { rich, compact } },
+    UI.Region{ id = "Tasks", group = "left", rank = 8, mayDrop = true, children = { panel, chip } },
+  },
+}
+```
+
+`resolution.collisions` is the alarm for the one failure a partition cannot
+remove: a region whose chosen form **measures** bigger than the box it was
+allotted paints outside it, and if a neighbour is there it is painting on that
+neighbour. Every unordered pair, offender first, with the overlap in px — and the
+solver files one finding per pair, so the always-on overflow sweep sees it at
+every viewport. The scroll region and a `fill` region's height are excluded: those
+extents are granted by the mechanism rather than claimed by the author.
 
 ### `contribution`
 
