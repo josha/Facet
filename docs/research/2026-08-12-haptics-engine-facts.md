@@ -180,3 +180,76 @@ never falls back to `Custom`.
 - Full release, 2025-09-16: <https://devforum.roblox.com/t/full-release-you-can-now-publish-haptic-effects-in-your-experience/3660577>
 - Studio beta, 2025-04-15: <https://devforum.roblox.com/t/studio-beta-introducing-new-haptics-effects-and-apis/3606858>
 - `HapticEffect.Ended` update: <https://devforum.roblox.com/t/introducing-new-updates-to-the-haptics-system/4067702>
+
+---
+
+## Re-confirmation, live in Studio, 2026-08-14
+
+Standing rule 1 (`docs/plans/swiftui-parity-round3-brief.md`) requires checking
+the *current* platform rather than trusting a two-day-old note, so every fact
+above was re-asked of a running client — `0.734.0.7340915`, `LuauUI-Showcase`,
+Play mode, macOS. **Nothing had moved.** The creator docs for `HapticEffect`,
+`GuiButton` and the two announcement threads are byte-identical in substance; the
+newest platform change anywhere in this area is still the November 2025 `Ended`
+update.
+
+Everything below was measured by executing Luau in the live client. **None of it
+required a LuauUI module from the place**, so the stale-Rojo-sync issue recorded
+the same day (additions land, modifications do not) cannot have contaminated it:
+these are questions about the ENGINE.
+
+| Question | Live answer |
+|---|---|
+| `Instance.new("HapticEffect")` from a LocalScript | succeeds |
+| `Enum.HapticEffectType` members | exactly six: `Custom`, `UIHover`, `UIClick`, `UINotification`, `GameplayExplosion`, `GameplayCollision` |
+| `Enum.HapticEffectType["UISelection"]` | **throws** — `UISelection is not a valid member of "Enum.HapticEffectType"`. Confirms fact 4: the lookup must sit inside a `pcall` or a typo is a crash |
+| `GuiButton.PressHapticEffect` / `HoverHapticEffect` write | both succeed from a LocalScript, and read back the assigned instance |
+| `HapticEffect:Play()` / `:Stop()` | neither throws (they run locally in Studio; you cannot feel them) |
+| `HapticEffect.IsSupported` / `.IsPlaying` | **absent** — no capability API on the class |
+| `UserInputService` haptic members | **zero**. `PreferredInput`, `TouchEnabled`, `GamepadEnabled` etc. exist; nothing haptic |
+| `HapticService:IsVibrationSupported` on all 8 gamepad slots | `false` on every slot, with **zero pads attached** — the boolean lying exactly as fact 5 predicts |
+| `HapticService:IsMotorSupported(Gamepad1, …)` all 6 motors | `false` on every one, same caveat |
+| `UserGameSettings.HapticStrength` read | **refused**: *"The current thread cannot read 'HapticStrength' (lacking capability RobloxScript)"* — fact 8, quoted from the engine rather than from the dump |
+| Session input class | `TouchEnabled = true`, `GamepadEnabled = false`, `PreferredInput = Touch` (Studio device emulator) |
+
+One fact the class reference has that this document did not record: **every
+`HapticEffect` member requires the `Input` capability**, which matters for code
+running inside a sandboxed container.
+
+### The attribute channel, measured
+
+The per-control sensory hook (2026-08-14) publishes a control's declared verb as
+an attribute the haptics adapter reads. That channel was exercised live:
+
+- `SetAttribute("LuauUI_ActivationFeedback", "commit")` then `GetAttribute` round
+  trips on a `TextButton`;
+- `SetAttribute(name, nil)` **clears** it (`GetAttribute` answers `nil`) — which
+  is what makes the renderer's unconditional push safe against instance
+  recycling.
+
+### The resolution rules, end to end on the real engine
+
+The shipped `pressEffectFor` + `decorate` rules were replayed inline (as a pasted
+script, **not** by requiring the stale module in the place) against six real
+`TextButton`s, each pre-decorated with a stale `GameplayExplosion` reference so a
+"skip" could not pass as a "clear":
+
+| attribute | resulting `PressHapticEffect` |
+|---|---|
+| *(absent)* | `UIClick` |
+| `commit` | `UIClick` |
+| `reject` | `UINotification` |
+| `adjust` | `UIHover` |
+| `none` | **none — the stale reference was cleared** |
+| `cancel` | **none** (a verb the map deliberately silences) |
+
+Four effects constructed for six buttons: effects pool by *sensation*, so the
+three `UIClick` buttons share one Instance. Two buttons with different verbs hold
+two different instances, which is the whole point of the per-control declaration.
+Wiring `Activated` on a decorated button raised no error.
+
+**What is still unprovable here.** Nothing was *felt*. The full-release
+announcement lists "all game controllers connected to MacOS 15+" as unsupported
+and this machine is macOS with no pad attached, so a silent run is expected and
+must never be recorded as "haptics do not work". The three `PENDING_PHYSICAL`
+rows stand.

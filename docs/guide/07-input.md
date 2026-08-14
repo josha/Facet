@@ -366,25 +366,49 @@ server code — [chapter 2](02-architecture.md)).
 
 ### Saying "that mattered": `UI.sensoryFeedback`
 
-Some state changes deserve a physical acknowledgement — a purchase landing, a
-selection snapping into place, an error. Attach the declaration to any node and
-name what happened:
+Some moments deserve a physical acknowledgement — a purchase landing, a selection
+snapping into place, an error. There are two of them, and they are different
+kinds of moment, so the modifier has two forms.
+
+**A value changed.** Give it the Readable whose change is the cause:
 
 ```lua
 UI.sensoryFeedback(button, { trigger = purchaseState, event = "commit" })
 ```
 
-**In plain terms:** when the `trigger` Readable changes, the framework emits
-`{ type = event, path }` on the presenter's feedback bus. The event names are a
-**closed** taxonomy of twelve — `activate`, `select`, `adjust`, `pickup`,
-`commit`, `reject`, `cancel`, `arrive`, `land`, `dismiss`, `supersede`,
-`celebrate` — so a typo is an authoring error that lists the vocabulary rather
-than a silent no-op.
+**A control was pressed.** Give it the verb that press means:
+
+```lua
+UI.sensoryFeedback(UI.Button({ id = "Buy", label = "Buy" }), { activation = "commit" })
+```
+
+**In plain terms:** the framework emits `{ type, path }` on the presenter's
+feedback bus. The names are a **closed** taxonomy of twelve — `activate`,
+`select`, `adjust`, `pickup`, `commit`, `reject`, `cancel`, `arrive`, `land`,
+`dismiss`, `supersede`, `celebrate` — so a typo is an authoring error that lists
+the vocabulary rather than a silent no-op. The press form takes one extra word,
+`"none"`, for a control you want felt as nothing.
+
+**You almost never need to write it per button.** The press form cascades: put it
+on a container and every control inside inherits it — including the ones a Chip,
+a Stepper or a Table row build for themselves.
+
+```lua
+-- every chip in this row is a `select`, and none of them mention it
+UI.sensoryFeedback(UI.HStack({ id = "Filters", children = chips }), { activation = "select" })
+```
+
+A control that declares nothing keeps the default it always had: pressing it
+emits `activate`.
 
 One thing to be clear about: **LuauUI plays nothing.** It publishes the verb; a
 game decides whether that becomes a haptic pulse, a sound, or nothing at all —
-`src/client/haptics.luau` is an opt-in adapter you can bind to the bus. That split
-is deliberate: what "success" feels like is a game's identity, not a framework's.
+`src/client/haptics.luau` is an opt-in, **default-off** adapter you bind to the
+bus. Switch it on and it hands each button the Roblox haptic effect its declared
+verb maps to, and the *engine* plays it on the press. What "success" feels like
+is a game's identity, not a framework's — and whether a player wants to feel it
+at all is a setting your game owns, because Roblox does not let game code read
+the player's own haptics preference.
 
 ## 7.4 Troubleshooting and hard limits
 

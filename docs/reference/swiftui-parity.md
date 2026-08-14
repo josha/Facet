@@ -547,7 +547,7 @@ recipes are real exported composites: `newSlider`, `newStepper`, `newPicker`,
 | `ButtonStyle` / `ToggleStyle` / `PickerStyle` / `LabelStyle` / `ProgressViewStyle` / `ListStyle` / `GaugeStyle` protocols — each documented as the way to give a control family a custom appearance ([SW-51], [SW-52], [SW-41], [SW-45], [SW-53], [SW-54], [SW-55]) | **Missing, by decision** | Not an omission: native StyleSheets and theme packages own paint. §6 carries the mapping table a SwiftUI author needs | — |
 | Palette `Picker` ([SW-42]) | **Missing** | `presentation` is closed to `automatic`/`segmented`/`inline`. Apple's `.palette` is itself narrow — iOS 17 and macOS 14 up, and absent from tvOS and watchOS ([SW-42]) | `src/controls/picker.luau:79-81` |
 | `DatePicker` ([SW-62]), `ColorPicker` ([SW-63]), `SecureField` ([SW-64]), multi-line `TextEditor` ([SW-65]), `Gauge` ([SW-66]), `Link` ([SW-67]), `ShareLink` ([SW-68]), `NavigationSplitView` ([SW-69]) | **Missing** | Each reconfirmed absent by direct search of current source, 2026-08-13. Worth knowing before treating this row as eight uniform holes: SwiftUI itself does not ship five of them on tvOS (`DatePicker`, `ColorPicker`, `TextEditor`, `Gauge`, `ShareLink`) or two of them on watchOS (`ColorPicker`, `TextEditor`) — the availability is on each citation | — |
-| `.sensoryFeedback` at the control level ([SW-70]) | **Covered** as a blueprint modifier, **Missing** as a per-control hook | `UI.sensoryFeedback(bp, { trigger, event })` ships and any node can carry it (§7). There is still no per-control "this control's activation feeds haptics" declaration — the author attaches the modifier | `src/blueprint.luau:1160` |
+| `.sensoryFeedback` at the control level ([SW-70]) | **Covered**, and wider than SwiftUI's — closed 2026-08-14 | Two forms of one modifier. The change form `UI.sensoryFeedback(bp, { trigger, event })` is Apple's; the control form `UI.sensoryFeedback(bp, { activation = "commit" })` has no SwiftUI equivalent — it names what a control's own press means, replacing the generic `activate`, and it **cascades** down the mounted tree so one declaration reaches a composite's inner Button or every control in a panel. Detail in §7.1 | `src/blueprint.luau`; `src/present/feedback.luau`; `src/mount.luau`; `tests/control_feedback.spec.luau` |
 
 ### 5.1 Row swipe actions, in detail
 
@@ -758,8 +758,8 @@ The other structural issue here is architectural: gesture machinery exists in
 | Assistive-technology bridge (VoiceOver / TalkBack) | **Missing** | Nothing. Confirmed by whole-repository search, 2026-08-13. The bar this is measured against is SwiftUI's accessibility surface, whose own framing is to try the app "with accessibility features like VoiceOver, Voice Control, and Switch Control" ([SW-81]) | — |
 | Focus system (`@FocusState` ([SW-85]), `.focusSection` ([SW-86]), Tab order) | **Covered** — and wider than the model it copies: Apple ships `focusSection()` on **macOS and tvOS only** ([SW-86]), while LuauUI's grouped scopes are the same everywhere | `LuauUI.newFocusGraph`: flat and grouped scopes, per-group axis/wrap/entry/exit, directional navigation, and Tab/Shift+Tab traversal in true document order | `src/focus/focus_graph.luau:41-51,99,657-675`; `src/init.luau:294` |
 | Four-input + device-idiom conformance proof | **Covered** | **15 of 15** interactive controls prove reachability on mouse, touch, keyboard, and gamepad *and* prove the device-idiom axis, across 42 registered rows | `tests/conformance/controls_registry.luau`; `tools/lune/check_registration_cli` |
-| `.sensoryFeedback` — feedback tied to state changes ([SW-70]) | **Covered** (new, 2026-08-13) | `UI.sensoryFeedback(bp, { trigger, event })`: when the `trigger` Readable changes, `{ type = event, path }` is emitted on the presenter's feedback bus. The taxonomy is **closed**, so an unregistered `event` name is an authoring error listing the twelve valid ones. **LuauUI still plays nothing.** SwiftUI's modifier does play, but not everywhere: its feedback cases are documented as playing "on iOS and watchOS" only ([SW-71]), so "the verbs are published, the playback is someone else's problem" is a narrower divergence than it sounds. Detail in §7.1 | `src/blueprint.luau:1160`; `src/present/feedback.luau:32-45,95-101,149-156`; `src/mount.luau:554-559`; `tests/sensory_feedback.spec.luau` |
-| Haptics playback | **Partial** — opt-in, default off, three device rows unprovable here | `src/client/haptics.luau`, an opt-in client adapter over `HapticEffect`. §7.1 | `src/client/haptics.luau`; `tests/haptics.spec.luau` |
+| `.sensoryFeedback` — feedback tied to state changes ([SW-70]) | **Covered** (2026-08-13), plus a per-control form Apple has no equivalent of (2026-08-14) | The change form: when the `trigger` Readable changes, `{ type = event, path }` is emitted on the presenter's feedback bus. The control form: `{ activation = verb }` names what THIS control's press means and replaces the `activate` the presenter would otherwise emit — cascading down the mounted tree, nearest declaration winning, so it reaches the ten composite controls with no per-control plumbing. The taxonomy is **closed** for both, so an unregistered name is an authoring error listing the twelve valid ones plus `none`. **LuauUI itself still plays nothing** — but the declaration now reaches the engine, and the engine does. Detail in §7.1 | `src/blueprint.luau`; `src/present/feedback.luau`; `src/mount.luau`; `src/present/presenter.luau` (`dispatchActivate`); `tests/sensory_feedback.spec.luau`; `tests/control_feedback.spec.luau` |
+| Haptics playback | **Partial** — opt-in, **default off**, three device rows unprovable here | `src/client/haptics.luau`, an opt-in client adapter over `HapticEffect`. Since 2026-08-14 it plays a control's DECLARED verb through that button's own press-effect property, so a Buy button and a Cancel button feel different — and LuauUI still never calls `Play()` for a press. §7.1 | `src/client/haptics.luau`; `tests/haptics.spec.luau`; `tests/control_feedback.spec.luau` |
 | Gesture value type (normalized `Gesture`) | **Partial** — real primitive, zero consumers | Kind, state, positions, translation, velocity, scale, rotation; all six gesture kinds connected; publicly exported. No control calls it | `src/input/touch_gestures.luau:20,32-43,139-172`; `src/init.luau:220` |
 | Gesture composition (`.simultaneously` ([SW-92]), `.sequenced` ([SW-93]), `.exclusively` ([SW-94])) | **Partial** | A ranked single-owner arbiter (pinch/rotate > pan > long-press > tap/swipe) with a begin/change/end ownership lifecycle. No simultaneous delivery and no chaining. Same "no consumers" caveat as above | `touch_gestures.newArbiter()` |
 | `DragGesture` → general drag & drop ([SW-95], [SW-96]) | **Partial**, materially deeper than SwiftUI's | Public `UI.draggable`/`UI.dropTarget` with a typed payload, tap-to-arm, per-input-class promotion thresholds. Three acquisition paths — Roblox's native `UIDragDetector`, a pointer-capture fallback, and a non-pointer arm→navigate→commit flow for keyboard and gamepad — funnel into **one** shared session lifecycle. Two facts about the other side: `draggable(_:)` is not offered on tvOS or watchOS at all, and the `dropDestination(for:action:isTargeted:)` overload was deprecated in the 27.0 releases in favour of a session-based one ([SW-95], [SW-96]) | `src/input/drag_contract.luau:34-37,60-66,101-105`; `src/input/drag_registry.luau:10-15`; [`ADR-0022`](../adr/ADR-0022-sponsor-framework-gaps.md) Decision 5 |
@@ -780,74 +780,221 @@ The other structural issue here is architectural: gesture machinery exists in
 | `.pointerStyle` — cursor shape ([SW-89]) | **Partial** — seam live, no art. The comparison is narrower than the row name suggests: Apple's `pointerStyle(_:)` is **macOS 15 and visionOS 2 only**, with no iOS or iPadOS availability at all ([SW-89]) | A `cursorHint` prop exists on `UI.Grip` only (the property-authority table restricts it to that class), and the cursor-art table is empty, so every hint falls back to the default arrow | `src/render/authority.luau:146`; `src/client/screen_target.luau:689` |
 | Right-to-left / bidirectional layout and text ([SW-90], [SW-91]) | **Missing** | Nothing mirrors layout or reorders text runs. The presenter says so in its own source. The only `rtl` token in the codebase is an unrelated **progress-bar fill direction** for chrome recipes — do not mistake it for RTL support. The bar: Apple's frameworks "support right-to-left (RTL) by default, allowing system-provided UI components to flip automatically" ([SW-91]), with `layoutDirection` as the environment switch ([SW-90]) | `src/present/presenter.luau:1494`; `src/tokens/chrome_slots.luau:1638` |
 
-### 7.1 `sensoryFeedback` and the haptics adapter
+### 7.1 `sensoryFeedback`, the per-control hook, and the haptics adapter
 
-**`sensoryFeedback` is a semantic bus event, and LuauUI plays nothing.** That is
-the whole design and it did not change this round; what changed is that the
-emission is now a first-class blueprint modifier instead of something the
-consumer wired by hand.
+**The question this section answers, in plain language: when a player presses a
+button, what happens?**
 
-The taxonomy is **closed and versioned** — twelve verbs, frozen at
-`src/present/feedback.luau:32-45`:
+Three things are involved, and keeping them apart is the whole design.
+
+1. **A control says what its press MEANT.** Not "buzz", not "play a click" — a
+   verb from a closed list, like `commit` or `reject`. LuauUI publishes that verb
+   and stops.
+2. **A game decides what a verb is worth.** It subscribes to one bus and may play
+   a sound, a haptic, a particle, or nothing at all.
+3. **An optional adapter turns verbs into Roblox haptics**, off unless a game
+   switches it on.
+
+**The taxonomy is closed and versioned** — twelve verbs, frozen at
+`src/present/feedback.luau`:
 
 `activate`, `select`, `adjust`, `pickup`, `commit`, `reject`, `cancel`,
 `arrive`, `land`, `dismiss`, `supersede`, `celebrate`.
 
-Events fire synchronously on the frame that caused them, with subscriber errors
-quarantined. The bus is live-consumed in production
+Growing it is a contract amendment with a gate, never an ad-hoc string at a call
+site — taxonomy sprawl, every control inventing its own verb, is the named risk.
+An unknown verb is an authoring error that lists the vocabulary. Events fire
+synchronously on the frame that caused them, with subscriber errors quarantined,
+and the bus is live-consumed in production
 (`games/RascalRally/code/src/client/LuauUISponsor/PlayFlow.luau`).
 
-**One opt-in client adapter maps verbs to Roblox haptics, default off**
-(`src/client/haptics.luau:196`). Its design is worth reading before assuming
-anything about it:
+#### The two forms of the modifier
 
-- It uses **`HapticEffect`**, not `HapticService:SetMotor`. Roblox's own class
-  reference says `SetMotor` is superseded, and its value range, persistence and
-  zeroing requirement are undocumented — a motor you cannot prove stops is a
-  stuck-rumble bug you cannot write a test for.
-- The `activate` verb takes a **property route**: `GuiButton.PressHapticEffect`
-  is assigned a reference and the **engine** fires it. The adapter never calls
-  `Play()` for it, which keeps "LuauUI plays nothing" literally rather than
-  nearly true. A test pins that exactly one `:Play()` call site exists in the
-  whole module.
-- **Five of the twelve verbs map to nothing from the bus, deliberately**:
-  `activate` (the engine fires it through the property above), `arrive` (fires on
-  every chase settle — a haptic there is per-frame noise), `cancel` (the
-  *absence* of feedback is the signal for "nothing happened"), and `dismiss` and
-  `supersede` (not player-caused; buzzing at a self-retiring toast is a phantom).
-  The map is asserted **total** over the taxonomy, explicit "no" included, so a
-  future taxonomy addition shows up as a visible gap instead of a silent drop.
-- `adjust` is **rate-limited** (sliders and steppers fire per tick; unthrottled
-  that is a buzzsaw that also blows the documented simultaneous-effect budget),
-  and effects are **pooled**, one per mapped verb, never constructed per fire.
-- The capability probe is a **lattice**, not a boolean:
-  `supported | unsupported | unknown | blocked | absent`, with **`unknown` the
-  default for touch and for the pre-first-gamepad state**, re-probed on
-  `GamepadConnected` / `GamepadDisconnected` / `LastInputTypeChanged` rather than
-  cached at boot. The only probe the platform offers belongs to the superseded
-  service and is boolean, which is exactly the shape that lies: `false` means
-  both "no motor" and "no gamepad connected *yet*".
-- A grep test asserts no haptics symbol is reachable from `src/present/`,
-  `src/layout/`, or the shared entry point — the adapter cannot leak into the
-  solver or a server path.
+`UI.sensoryFeedback` takes either of two spec shapes, discriminated by key set
+and never mixed — a spec carrying both would have two causes and one verb, and
+there would be no honest answer for which cause the verb described.
 
-**Evidence, split honestly.** Headless proves default-off costs zero
-constructions and zero plays, mapping totality, `adjust` coalescing under a fake
-clock, the probe returning `unknown` rather than `false` for touch, re-probe on
-device change, and pool bounds (`tests/haptics.spec.luau`). **This machine cannot
-produce positive evidence** — Roblox documents controllers on macOS 15+ as
-unsupported — so three rows are `PENDING_PHYSICAL` and only a device closes them
-(§14).
+```lua
+-- THE CHANGE FORM (Apple's). A Readable moved; say so.
+UI.sensoryFeedback(bp, { trigger = score, event = "celebrate" })
+
+-- THE CONTROL FORM (no SwiftUI equivalent). This control's own press is a
+-- commit, not a generic activation.
+UI.sensoryFeedback(UI.Button({ id = "Buy", label = "Buy" }), { activation = "commit" })
+```
+
+`activation` accepts the twelve verbs plus one extra word, `"none"`, for a
+control that must be felt as nothing. `"none"` is not a thirteenth verb —
+nothing is emitted at all — and it has to be spellable, or the only way to
+silence one control is to silence the whole adapter.
+
+**The control form is a CASCADE, and that is what makes it a general mechanism
+rather than a Button special case.** Every activatable thing in this framework
+except three leaves (`Button`, `Toggle`, `TextField`) is a *composite*: a Chip, a
+Stepper, a Table row and a PopupButton each build their own inner Button. A
+`sensoryFeedback` *prop* would therefore have to be threaded through ten control
+specs and remembered by the eleventh. Resolved down the mounted tree instead —
+nearest declaration wins — one declaration reaches a composite's inner button,
+every control in a panel, and every row a `ForEach` mounts later, with no
+per-control plumbing anywhere:
+
+```lua
+-- every button inside this panel, however deeply nested, is a `select`
+UI.sensoryFeedback(UI.VStack({ id = "Filters", children = { … } }), { activation = "select" })
+```
+
+Resolution lives in `mount.luau`, the only layer that walks blueprint-to-node
+top-down; the presenter reads the resolved value off the node it already looked
+up, so a press costs one extra field read. A tree that declares nothing stores
+the field nowhere and buys no observer, and the read of the metadata channel is
+gated on `bp.meta` existing at all.
+
+**What a press emits.** The presenter emits the resolved verb in place of
+`activate`, on the same causal frame, from every input class, and stamps
+`reason = "activation"` on it. That stamp is load-bearing: without it a
+subscriber cannot tell "a player pressed a control" from "the game emitted
+`commit` for its own reason", and the haptics adapter has to, for the reason
+below. A control declaring `"none"` emits nothing at all rather than a verb every
+subscriber would have to know to ignore.
+
+#### What Roblox actually offers, measured
+
+The engine facts are recorded with sources in
+[`../research/2026-08-12-haptics-engine-facts.md`](../research/2026-08-12-haptics-engine-facts.md)
+and re-confirmed live in Studio on 2026-08-14 against client `0.734.0.7340915`.
+Nothing in the platform had moved.
+
+- **`HapticEffect`, never `HapticService:SetMotor`.** Roblox's own class
+  reference says the service is superseded; `SetMotor`'s value range,
+  persistence and zeroing requirement are all undocumented, and a motor you
+  cannot prove stops is a stuck-rumble bug with no test.
+- **`Enum.HapticEffectType` has exactly six members** — `Custom`, `UIHover`,
+  `UIClick`, `UINotification`, `GameplayExplosion`, `GameplayCollision` — and
+  indexing a name that is not one of them **throws** rather than answering `nil`,
+  so the lookup has to sit inside a `pcall` or a typo is a crash.
+- **`GuiButton.PressHapticEffect` and `HoverHapticEffect` are assignable
+  references the ENGINE fires**, writable from a LocalScript with no security
+  tag.
+- **There is no capability API.** `UserInputService` has zero haptic members;
+  `HapticEffect` has no `IsSupported` and no `IsPlaying`. The only probe on the
+  platform belongs to the superseded service, is boolean, and answers `false`
+  both for "this device has no motor" and for "no gamepad connected *yet*" —
+  measured again on 2026-08-14 with zero pads attached, `false` on all eight
+  slots and all six motors.
+- **The player's own haptics preference is unreadable from game code.**
+  `UserGameSettings.HapticStrength` refuses the read with *"The current thread
+  cannot read 'HapticStrength' (lacking capability RobloxScript)"*.
+
+**Per input class, honestly.** Gamepad is documented and physically verifiable.
+Phone is documented ("most iPhone, Pixel and Samsung Galaxy devices") and
+unverified here. Desktop with no controller has nothing to play on and is a
+silent no-op by construction. And this repository's dev machine is macOS, which
+the full-release announcement lists as unsupported for *all* attached game
+controllers — so **no Studio session on this machine can ever be positive
+evidence**, and a silent run must never be recorded as "haptics do not work".
+
+#### How playback works, and what it cannot do
+
+**Note how narrow SwiftUI's own playback is before treating this as a gap.**
+Apple's `SensoryFeedback` cases are documented as playing **"on iOS and
+watchOS"** only ([SW-71]) — so on macOS, tvOS and visionOS `.sensoryFeedback`
+publishes an intent that nothing plays either. "The verbs are published; the
+playback is a platform question" is the same answer both frameworks give, and
+LuauUI's version now covers Roblox's two haptic-capable classes of device.
+
+**One opt-in client adapter, DEFAULT OFF** (`src/client/haptics.luau`). Off means
+no construction, no play, and no device listener. It is a *subscriber*: nothing
+in `src/` outside `src/client/` names a haptic symbol or requires it, pinned by a
+grep test over every file in the tree.
+
+```lua
+local hap = haptics.new({ enabled = settings.haptics })  -- default false
+hap.bind(presenter)          -- the verbs with no engine hook
+hap.attachButtons(screenGui) -- the press route
+```
+
+The `activate` verb takes a **property route**: the adapter assigns a
+`HapticEffect` reference to a button and the **engine** fires it, so "LuauUI
+plays nothing" stays literally rather than nearly true — a test pins that exactly
+one `:Play()` call site exists in the whole module, and it is the bus path.
+
+**The per-control declaration reaches that route through an attribute.** The
+renderer publishes each activatable control's resolved verb to the adapter
+(`setActivationFeedback`, an optional seam), and the Roblox adapter realizes it
+as `LuauUI_ActivationFeedback` on the materialized button. The haptics adapter
+reads that attribute and hands the button the pooled effect for its verb: a
+`commit` button gets `UIClick`, a `reject` button gets `UINotification`, a
+`"none"` button has its reference actively **cleared** rather than skipped, and a
+verb the map deliberately silences is unfelt too. Effects are pooled by
+*sensation*, so forty buttons wanting a click share one Instance. The seam is
+pushed for every activatable node including the `nil`, because instance recycling
+would otherwise let a commit button hand its sensation to whatever control adopts
+its object next.
+
+**Why that route, and not simply playing the bus event: a press would be felt
+twice.** The engine is already firing the button's own press effect, so the
+adapter drops every event stamped `reason = "activation"`, whatever verb it
+names. That generalizes what used to be a `MAP.activate = false` hole — the hole
+only covered the default verb, and stopped covering the case it was cut for the
+moment a control could rename its activation.
+
+**What this cannot do, plainly.** Four things:
+
+- **A `TextField` is a `TextBox`, not a `GuiButton`**, so it has no press-effect
+  property and its declared verb is published but not felt on the engine route.
+  The bus still carries it; a game that wants that press felt plays it itself.
+- **`attachButtons` must actually be called.** A game that binds the presenter
+  and never attaches a surface gets no press haptics at all — which is exactly
+  today's behaviour and not a regression, but it is a wiring step nothing warns
+  about.
+- **The adapter cannot honour the player's own haptics preference**, because the
+  platform will not let it read it. It owns its own switch and makes no claim
+  about the player's; a game with a haptics setting is the answer, and that is
+  the accessibility position rather than an omission.
+- **Nothing here is felt on this machine.** Effects construct and `Play()`
+  without throwing in Studio; they cannot be felt without hardware Roblox
+  supports.
+
+**Reduced motion is deliberately NOT a gate on haptics.** `ReducedMotion` is a
+statement about animation — a preference against vestibular triggers — and a
+haptic tick is not motion on screen. Apple keeps the two settings separate for
+the same reason. The player-facing control for haptics is the adapter's own
+switch, which is why it is opt-in and default off.
+
+**Five of the twelve verbs map to nothing from the bus, deliberately**:
+`activate` (the engine fires it through the property route), `arrive` (fires on
+every chase settle — a haptic there is per-frame noise), `cancel` (the *absence*
+of feedback is the signal for "nothing happened"), and `dismiss` and `supersede`
+(not player-caused; buzzing at a self-retiring toast is a phantom). The map is
+asserted **total** over the taxonomy, explicit "no" included, so a future
+taxonomy addition shows up as a visible gap instead of a silent drop. `adjust` is
+**rate-limited** — sliders and steppers fire per tick, and unthrottled that is a
+buzzsaw that also blows the documented simultaneous-effect budget.
+
+The capability probe is a **lattice**, not a boolean:
+`supported | unsupported | unknown | blocked | absent`, with **`unknown` the
+default for touch and for the pre-first-gamepad state**, re-probed on
+`GamepadConnected` / `GamepadDisconnected` / `LastInputTypeChanged` rather than
+cached at boot — because the only probe the platform offers is exactly the shape
+that lies.
+
+**Evidence, split honestly.** Headless proves the cascade, the closed vocabulary,
+what each press emits from every input class, the engine-route resolution, pool
+bounds, default-off costing zero constructions and zero plays, mapping totality,
+`adjust` coalescing under a fake clock, and the probe returning `unknown` rather
+than `false` for touch. Live Studio proves the engine facts above and that the
+adapter's resolution rules produce the right reference on a real `TextButton`.
+**No machine here can produce positive playback evidence**, so three rows stay
+`PENDING_PHYSICAL` and only a device closes them (§14).
 
 **Caveats.**
 
 - **Gesture machinery is fragmented four ways**: the touch-gesture arbiter (which
   nothing consumes), the general drag contract, row actions' own pointer-capture
-  and axis-lock, and `Table`'s hand-rolled vertical reorder drag. The count is
-  still four; what has changed is that a thin arbitration layer
-  (`row_actions.composeWithReorder`) now sits between two of them and they share
-  the axis-lock constant. The underlying gesture state and math are still
-  duplicated.
+  and axis-lock, and `Table`'s hand-rolled vertical reorder drag. A thin
+  arbitration layer (`row_actions.composeWithReorder`) now sits between two of
+  them and they share the axis-lock constant; the underlying gesture state and
+  math are still duplicated.
 - Six physical-device checks are owed by row swipe actions and three more by
   haptics (§14).
 

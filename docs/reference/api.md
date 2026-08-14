@@ -1662,22 +1662,53 @@ eaten.
 
 ### `sensoryFeedback`
 
-`UI.sensoryFeedback(blueprint, { trigger, event }) -> Blueprint` — SwiftUI's
+`UI.sensoryFeedback(blueprint, spec) -> Blueprint` — one modifier, **two spec
+forms**, discriminated by key set and never mixed. Both name a **semantic verb**
+from one closed vocabulary, and neither plays anything.
+
+**Form 1 — the change form**, `{ trigger, event }`. SwiftUI's
 `.sensoryFeedback(_:trigger:)`. When the `trigger` Readable **changes**, the
 framework emits `{ type = event, path = <this node's mounted path>, surface =
 <the surface> }` on the presenter's feedback bus, synchronously, inside the write
 that moved it.
 
-**LuauUI plays nothing.** SwiftUI's modifier names a haptic; this one names a
-**semantic verb**, and whether that becomes a rumble, a sound, a particle or
-nothing at all is the subscriber's ruling (`presenter.onFeedback` /
-`handle.onFeedback`). `src/client/haptics.luau` is one opt-in, default-off
-subscriber — see [Client entry points](#client-entry-points).
+**Form 2 — the control form**, `{ activation }`. No SwiftUI equivalent. It names
+what **this control's own press** means, and the presenter emits that verb in
+place of the `activate` it would otherwise emit, stamped `reason = "activation"`.
 
 | Field | Meaning |
 |---|---|
-| `trigger` | required. A `Signal`/`Memo`. Its **transitions** are the cause; the value itself never reaches the event. A plain value is refused — it can never change, so the declaration would be accepted and inert. |
-| `event` | required. One of the closed twelve: `activate`, `select`, `adjust`, `pickup`, `commit`, `reject`, `cancel`, `arrive`, `land`, `dismiss`, `supersede`, `celebrate`. Anything else is an authoring error at the call site that lists the vocabulary. |
+| `trigger` | change form, required. A `Signal`/`Memo`. Its **transitions** are the cause; the value itself never reaches the event. A plain value is refused — it can never change, so the declaration would be accepted and inert. |
+| `event` | change form, required. One of the closed twelve: `activate`, `select`, `adjust`, `pickup`, `commit`, `reject`, `cancel`, `arrive`, `land`, `dismiss`, `supersede`, `celebrate`. Anything else is an authoring error at the call site that lists the vocabulary. |
+| `activation` | control form, required. One of the same twelve, **plus `"none"`** for a control that is deliberately unfelt (it emits nothing at all rather than a verb every subscriber must know to ignore). |
+
+Passing keys from both forms in one spec is refused: two causes and one verb has
+no honest reading. Declaring `activation` twice on one node is refused too — a
+control has one activation sensation, and a silent last-writer-wins would make
+the two orderings of the same two modifiers produce different results.
+
+**LuauUI plays nothing.** SwiftUI's modifier names a haptic; this one names a
+verb, and whether that becomes a rumble, a sound, a particle or nothing at all is
+the subscriber's ruling (`presenter.onFeedback` / `handle.onFeedback`).
+`src/client/haptics.luau` is one opt-in, default-off subscriber — see
+[Client entry points](#client-entry-points).
+
+**The control form CASCADES.** It is resolved down the mounted tree, nearest
+declaration winning, which is what lets it reach the composite controls
+(`newChip`, `newStepper`, `Table` rows, `newPopupButton` …) that build their own
+inner `Button`. Declare it on a container and every control inside inherits it,
+however deeply nested and however late the row was mounted:
+
+```lua
+-- one button
+UI.sensoryFeedback(UI.Button({ id = "Buy", label = "Buy" }), { activation = "commit" })
+
+-- ...or a whole panel, including every composite inside it
+UI.sensoryFeedback(UI.VStack({ id = "Filters", children = chips }), { activation = "select" })
+
+-- ...and a control that must be felt as nothing
+UI.sensoryFeedback(UI.Button({ id = "Info", label = "?" }), { activation = "none" })
+```
 
 ```lua
 local hearts = core:signal(3)
@@ -1694,9 +1725,17 @@ bag, it returns a **new frozen blueprint**, and it **refuses a structural region
 declaration would have been accepted and never emitted. It **composes**: applying
 it twice to one node declares two triggers, and both fire.
 
-The observer is owned by the mounted node's scope, so it stops the frame the node
-unmounts, and it is built **only** when a presentation layer is wired — a bare
-`mount()` with no feedback sink buys no observer at all.
+The change form's observer is owned by the mounted node's scope, so it stops the
+frame the node unmounts, and it is built **only** when a presentation layer is
+wired — a bare `mount()` with no feedback sink buys no observer at all. The
+control form buys **no observer**: its cause is a press, which the presenter
+already owns, and a tree that declares nothing carries no extra field on any node.
+
+The control form also reaches the **engine**: the renderer publishes each
+activatable control's resolved verb to the adapter, which the Roblox target
+realizes as a `LuauUI_ActivationFeedback` attribute, and the opt-in haptics
+adapter hands that button the effect its verb maps to. So a Buy button and a
+Cancel button feel different — and LuauUI still never calls `Play()` for a press.
 
 ### Layout modifiers: `frame`, `padding`, `offset`, `aspectRatio`, `alignment`, `overlay`, `background`
 
