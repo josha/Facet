@@ -734,6 +734,8 @@ local UNSWEEPABLE: { [string]: string } = {
 		.. "measure. The rows it arbitrates for are swept through the RowActions and Table fixtures",
 	RowActionsMetrics = "theme-metric resolution and band arithmetic — no blueprint, nothing to mount or measure. "
 		.. "The plates whose widths it decides are swept through the RowActions fixture, at every preference",
+	RowActionsTrays = "the VIEW half of RowActions: it returns the tray blueprints the RowActions fixture itself "
+		.. "mounts, so it is swept there — at every preference, in both reference themes — rather than twice",
 	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
 		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
 		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "

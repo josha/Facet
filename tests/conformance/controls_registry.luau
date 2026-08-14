@@ -906,6 +906,37 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- the tray blueprints both modes share (2026-08-14): the plate buttons, the
+		-- per-action reveal-scaled width and padding props, the band's own gutter
+		-- and inter-plate gap, and the two `UI.When`s that mount a tray while its
+		-- edge is open OR its close flight is still visibly running. NOT a control
+		-- in its own right — it is the VIEW half of RowActions, called once per
+		-- engine and handed either to the composite's own row root (standalone,
+		-- Table) or to the host's one shared overlay (VirtualList). Lifted out of
+		-- src/controls/row_actions.luau because every input is a build-time
+		-- constant, which is what took that file back under the 200,000-char
+		-- `Script.Source` WRITE cap (docs/lessons/
+		-- the-200k-source-cap-is-on-writing-not-loading.md) and restored its live
+		-- sync into an open Studio session.
+		--
+		-- Its four-input story IS the RowActions row's above: these are the very
+		-- nodes every one of those cited cases taps, focuses and activates.
+		name = "RowActionsTrays",
+		kind = "composite",
+		module = "src/controls/row_actions_trays.luau",
+		export = "newRowActions",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions.spec.luau",
+		docsAnchor = "newRowActions",
+		-- NO INSTANCE: `build()` returns blueprints. What a report needs about a
+		-- revealed tray — which edge is open, how far, how wide the band is — is
+		-- already in the row engine's own dump(), which owns the state these read.
+		dump = false,
+		reason = "returns blueprints, holds no instance: the row engine's dump() already reports the edge/offset/trayWidth these views are derived from",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

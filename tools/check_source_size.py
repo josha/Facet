@@ -14,12 +14,13 @@ one live verification had to be re-run as a clean-room experiment, and one agent
 could not verify its fix at all (O-29). Full write-up:
 `docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`.
 
-WHAT THIS CHECKS, and what it deliberately does not. FIVE modules are already
-over — the fifth, `solver.luau`, was found by this check on the day it was
-written and nobody knew. Failing on them would make the gate un-passable and
-force either a rushed refactor of the most defect-dense files in the framework or a blanket
-waiver — both worse than the problem. So each carries its CURRENT size as a
-ceiling:
+WHAT THIS CHECKS, and what it deliberately does not. FIVE modules were over when
+this was written — the fifth, `solver.luau`, was found by this check on the day
+it was written and nobody knew; `KNOWN_OVER` below is the live list, and a row
+LEAVES it by landing under the cap. Failing on them would make the gate
+un-passable and force either a rushed refactor of the most defect-dense files in
+the framework or a blanket waiver — both worse than the problem. So each carries
+its CURRENT size as a ceiling:
 
   * a file over the cap and NOT listed  -> FAIL (another file just crossed)
   * a listed file that GREW             -> FAIL (the problem is getting worse)
@@ -30,6 +31,16 @@ ceiling:
 The ceilings are the split work's scoreboard. `docs/handoff/` carries the seam
 the architecture gate proposed; when a module lands under 200,000, delete its
 row and it is guarded normally from then on.
+
+FIRST ROW CLEARED: `src/controls/row_actions.luau`, 2026-08-14, 234,757 ->
+198,960, in five commits and without touching `buildEngine` — the ONE ENGINE
+whose ~3,230 lines share ~60 mutable upvalues on purpose. What came out was the
+periphery that shares NOTHING with it: the ActionSpec contract, the coordinator
+(already a public export), the reorder arbiter, the band metrics, and the tray
+views. The test each extraction had to pass was the same one: does it read or
+write a mutable upvalue of that closure? If not, it can leave; if so, it stays.
+That test, not a line count, is what makes this kind of split safe — and it is
+the recipe for the four rows still listed below.
 
 THE CEILINGS WERE SNAPSHOT 2026-08-14 during a ten-agent session with features
 still landing, so they are a high-water mark rather than a considered budget.
@@ -44,15 +55,6 @@ CAP = 200_000
 
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER = {
-    "src/controls/row_actions.luau": (
-        214_680,
-        "the ONE ENGINE: ~3,230 lines are a single closure sharing ~60 mutable "
-        "upvalues, deliberately never forked. The architecture gate recommends "
-        "extracting ~375 lines of periphery (spec helpers, the coordinator which "
-        "is ALREADY a public export, the Table reorder composition) and leaving "
-        "buildEngine whole — splitting it means threading a state record through "
-        "every function across code four device rounds hardened.",
-    ),
     "src/client/screen_target.luau": (
         226_687,
         "many-purposed: a factory returning ~45 adapter methods, already "
