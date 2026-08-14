@@ -2381,3 +2381,37 @@ in the pass's own report.
    making it cheap. Named, not built.
 3. **A device capture is owed** before the −11 % projection above is quoted as a
    measurement, and to confirm the `mount` halving on the real engine.
+
+
+## L-32 — the AFTER number, on the same engine that gave the BEFORE
+
+**Date:** 2026-08-14 · **Evidence tier:** 2 (real Roblox engine, live `screen_target`
+adapter painting real Instances)
+
+L-29 measured the defect on this machine at tier 2 and the fix only headlessly.
+The place has since been rebuilt and reopened with current source, so the same
+probe was re-run against the shipped code — same engine, same 40-row tree, same
+six-fact adapter group, same session-day.
+
+| | pre-fix (this morning) | post-fix |
+|---|---|---|
+| batched six-fact resize, 360x691 | 4 | **1** |
+| batched six-fact resize, 1200x800 | 5 | **1** |
+| batched six-fact resize, 390x844 | 5 | **1** |
+| 3x republish of IDENTICAL numbers | 3 | **0** |
+
+The republish row is the one that only exists because of the value-comparison
+correction the RED-TEAM forced (`897c9df`): the adapter rebuilds those tables on
+every push, so before that change a `TopbarInset` change alone re-solved the whole
+surface for a viewport that had not moved.
+
+**Method note, because it is the reusable part.** The Play bridge was wedged, so
+this ran in the **Edit** datamodel with the surface parented to an explicit
+`CoreGui` folder and destroyed on the way out (verified absent in the same call).
+Edit lacks a PlayerGui, not an engine — the adapter paints real Instances either
+way, and the counts are the adapter's own. Before running it, the Edit datamodel
+was checked for a marker committed minutes earlier (`core:settle` present,
+`custom.luau` 21,032 chars matching disk) so the numbers are a claim about
+today's code rather than about the built place. `renderer.luau` read 238,180
+against 242,954 on disk — stale, exactly as the >=200,000 write cap predicts, and
+a reminder that the three remaining over-cap modules cannot be measured this way.
