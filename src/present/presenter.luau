@@ -801,39 +801,60 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		applyOutsideOutcome(owner, resigning)
 	end
 
-	-- mount the catcher beneath `owner`. mode "scrim" = dim at scrimOpacity
-	-- (modals); "none" = transparent but still catching (engaged HUDs, §3.6).
-	local function mountScrim(owner: any, mode: string): any
+	--[[ ONE DEFINITION OF "AN INVISIBLE FULL-VIEWPORT TAP SWALLOWER", shared by
+		BOTH catchers this presenter synthesizes — the modal/engaged scrim below
+		and the transient popup catcher further down.
+
+		IT IS ONE FUNCTION BECAUSE IT SHIPPED AS TWO AND THE SECOND ONE PAINTED
+		(director device report 2026-08-13: "when i swipe from left to right in
+		swipe row actions/table, some random thing appears over the top of the
+		screen blocking the demo picker and settings button"). `mountScrim`
+		learned both halves of "invisible" live, under the P5 packages;
+		`mountPopupCatcher` — written later, for the identical job — inherited
+		NEITHER, so an open row-actions tray (row_actions.luau publishes
+		`outsideDismiss.active` for exactly as long as a tray is open) synthesized
+		a catcher that wore the installed package's button plate. A second `if`
+		for a sibling case means the first one was the bug; a second COPY of a
+		declaration means the same thing.
+
+		SURFACE — the caller's one axis of freedom, and the only one. "scrim" DIMS
+		at scrimOpacity; "plain" is the suppressed surface — no fill, no
+		interactive tag, no corner, no stroke. NO surface at all is the defect:
+		a Button with none still classifies as `control` (chrome_slots.classify
+		falls every `Button` through to the control slot), so the invisible
+		catcher wears the installed package's SOLID control colour across the
+		whole viewport and hides what it is guarding. Both suppressed values are
+		what `sheet_model.classifyTags` already treats as paint-free.
+
+		NOT A DECORATION SURFACE either (ADR-0020 R9 / chrome_slots.NO_SLOT).
+		Nothing generic can tell a catcher apart from a real button, so every
+		image-driven package materialized its button plate over the whole screen —
+		the same defect class the Slider's accent fill needed the hint for. This
+		is load-bearing in the DIMMING case specifically, where `surface` is
+		"scrim" rather than "plain" and so does not itself suppress the slot.
+
+		FOCUSABLE = false: never in the focus walk, never in navigation, in either
+		mode.
+
+		Full write-up, with the live same-adapter A/B that measured it:
+		docs/lessons/an-invisible-surface-declares-its-invisibility.md ]]
+	local function catcherScreen(rootId: string, surface: string): any
 		local catcher: { [string]: any } = {
 			id = "catcher",
 			label = "",
 			width = { type = "fill", weight = 1 },
 			height = { type = "fill", weight = 1 },
-			focusable = false, -- never in the focus walk / navigation
+			focusable = false,
+			surface = surface,
 		}
-		-- "scrim" DIMS at scrimOpacity; "plain" is the suppressed surface — no
-		-- fill, no interactive tag, no corner, no stroke. Before this the "none"
-		-- mode declared NO surface at all, and a Button with no surface still
-		-- classifies as `control`, so the invisible catcher wore the installed
-		-- package's SOLID control colour across the whole viewport and hid the
-		-- screen it was guarding. Both suppressed values are already what
-		-- `sheet_model.classifyTags` treats as paint-free (`suppressed`).
-		catcher.surface = if mode ~= "none" then "scrim" else "plain"
-		-- NOT A DECORATION SURFACE (ADR-0020 R9 / chrome_slots.NO_SLOT).
-		--
-		-- The catcher is a full-viewport Button whose entire job is to be
-		-- INVISIBLE and swallow a tap. Nothing generic can tell it apart from a
-		-- real button: `CONTROL_CLASSES` sees a Button and classifies it as the
-		-- `control` slot, so every image-driven package painted its button plate
-		-- over the whole screen and the surface beneath vanished. Live-found under
-		-- the P5 reference packages (rich-skinning-v2), and it is the same defect
-		-- class the Slider's accent fill needed the hint for.
-		--
-		-- The dimming case is unaffected either way: `surface = "scrim"` is
-		-- suppressed native paint, and this hint says the node is not a skin
-		-- target in EITHER mode.
 		local catcherBlueprint = chrome_slots.attachHint(blueprintLib.Button(catcher), { slot = chrome_slots.NO_SLOT })
-		local bp = blueprintLib.Screen({ id = "__scrim__", children = { catcherBlueprint } })
+		return blueprintLib.Screen({ id = rootId, children = { catcherBlueprint } })
+	end
+
+	-- mount the catcher beneath `owner`. mode "scrim" = dim at scrimOpacity
+	-- (modals); "none" = transparent but still catching (engaged HUDs, §3.6).
+	local function mountScrim(owner: any, mode: string): any
+		local bp = catcherScreen("__scrim__", if mode ~= "none" then "scrim" else "plain")
 		local sc = core:scope("present-scrim")
 		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
 		local controller = renderer.attach(core, root, env, adapter, {
@@ -978,14 +999,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	end
 
 	local function mountPopupCatcher(owner: any, contribPath: string, dismiss: () -> (), consume: boolean?): any
-		local catcher: { [string]: any } = {
-			id = "catcher",
-			label = "",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
-			focusable = false, -- transparent, never focusable / in navigation
-		}
-		local bp = blueprintLib.Screen({ id = "__popupcatcher__", children = { blueprintLib.Button(catcher) } })
+		--[[ ALWAYS "plain" — this catcher never dims; it exists only to swallow one
+			outside tap. Until 2026-08-13 it declared no surface at all and built its
+			own Button inline rather than going through `catcherScreen`, and both
+			halves of "invisible" were therefore missing: an open row-actions tray
+			painted the installed package's button plate over the viewport. It read
+			as "over the top of the screen" rather than "over everything" because the
+			catcher mounts at `owner.displayOrder - 50` — the base screen covers it
+			wherever the base screen paints, and the showcase's inset chrome band
+			(the demo picker and Settings) is exactly where it does not.
+			tests/popup_catcher_paint.spec.luau pins it from both live
+			`outsideDismiss` owners. ]]
+		local bp = catcherScreen("__popupcatcher__", "plain")
 		local sc = core:scope("present-popup-catcher")
 		local root = mountLib.mount(core, bp, { scope = sc:child("mount") })
 		local controller = renderer.attach(core, root, env, adapter, {
