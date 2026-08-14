@@ -113,7 +113,7 @@ local WORKLOADS = {
 		-- `passes.motionFlight` for the four-arm design and the tier rules.
 		id = "motion-flight",
 		implementation = "none",
-		question = "What does an interpolating property cost per frame, and what does the SIZE half cost on top of the position half?",
+		question = "What does an interpolating property cost per frame — position, size, and the AUTHORED paint triple — and what does a surface that authors none of them pay?",
 		passes = { "motionFlight" },
 	},
 	{
@@ -1155,6 +1155,18 @@ return {
 				end
 				local order = core:signal(initial)
 				local tall = core:signal(false)
+				-- the AUTHORED PAINT triple (ADR-0026), one signal so arm D moves all
+				-- three on every row at once and its record count matches B's and C's
+				local lit = core:signal(false)
+				local rowOpacity = core:memo(function(use: any)
+					return if use(lit) then 0.4 else 1
+				end)
+				local rowScale = core:memo(function(use: any)
+					return if use(lit) then 0.9 else 1
+				end)
+				local rowRotation = core:memo(function(use: any)
+					return if use(lit) then 6 else 0
+				end)
 				-- ONE height memo shared by every row, so arm C resizes all N at once
 				-- and its record count matches arm B's rather than being a smaller
 				-- experiment wearing the same axis
@@ -1174,11 +1186,22 @@ return {
 								return `r{item}`
 							end,
 							row = function(item: any)
-								return U.VStack({
+								-- A ZStack RATHER THAN A VStack, and the change is the
+								-- measurement: an authored `opacity` is a fade-group
+								-- declaration, so every row here is a real `CanvasGroup`
+								-- with its own render buffer. That is the cost the paint
+								-- arm exists to price, and hiding it behind a wrapper
+								-- would have measured a cheaper thing than the one an
+								-- author gets. Arms B and C were re-baselined by it on
+								-- 2026-08-14; a one-child ZStack arranges like a one-child
+								-- VStack, and A/A' brackets the whole run either way.
+								return U.ZStack({
 									id = "Row",
 									padding = 0,
-									gap = 0,
 									height = rowDim,
+									opacity = rowOpacity,
+									scale = rowScale,
+									rotation = rowRotation,
 									children = { U.Text({ id = "L", text = `row {item}`, textSize = 12 }) },
 								})
 							end,
@@ -1223,6 +1246,54 @@ return {
 					return out, seeded
 				end
 
+				--[[ THE OFF-PATH CONTROL (ADR-0026 Decision 9). "A surface that authors
+					none of these must not pay" is a claim, and a claim measured against
+					nothing is a comment. This is the same tree with the three props
+					simply absent — plain VStack rows, no fade group, no composition —
+					sampled idle exactly as arm A is.
+
+					Read `offPathDeltaMs` ONLY against `harnessSpreadMs`. It is the price
+					of DECLARING the triple and sitting still, and it is not zero by
+					construction: an authored opacity buys a CanvasGroup per row. What
+					must be ~zero is the other direction — the plain surface paying for a
+					feature it never used — and that is what a delta at or below the
+					spread says. ]]
+				local function samplePlainIdle(n: number): { number }
+					local plainOrder = core:signal(initial)
+					local plain = ctx.presenter.present(U.Screen({
+						id = "MotionFlightPlain",
+						padding = 8,
+						gap = 4,
+						children = {
+							U.ForEach({
+								id = "Flight",
+								items = plainOrder,
+								key = function(item: any): string
+									return `r{item}`
+								end,
+								row = function(item: any)
+									return U.VStack({
+										id = "Row",
+										padding = 0,
+										gap = 0,
+										height = { type = "fixed", px = 28 },
+										children = { U.Text({ id = "L", text = `row {item}`, textSize = 12 }) },
+									})
+								end,
+							}),
+						},
+					}))
+					local out = table.create(n)
+					for i = 1, n do
+						local t0 = clock()
+						ctx.presenter.tick(MOTION_FLIGHT_FRAME)
+						ctx.presenter.refresh()
+						out[i] = (clock() - t0) * 1000
+					end
+					ctx.presenter.dismiss(plain)
+					return out
+				end
+
 				local ok, result = pcall(function()
 					local idleA = sampleIdle(cap)
 					local reversed = table.create(MOTION_FLIGHT_ROWS)
@@ -1235,7 +1306,14 @@ return {
 					local bothSamples, bothRecords = sampleFlight(function()
 						tall:set(true)
 					end)
+					-- ARM D: the AUTHORED PAINT triple only. No rect changes at all, so
+					-- whatever this costs is the composition and the engine writes it
+					-- produces, with the solver's four numbers held still.
+					local paintSamples, paintRecords = sampleFlight(function()
+						lit:set(true)
+					end)
 					local idleB = sampleIdle(cap)
+					local plain = summarize(samplePlainIdle(cap))
 					local a1, a2 = summarize(idleA), summarize(idleB)
 					local spread = if a1.measured and a2.measured then math.abs(a1.p50_ms - a2.p50_ms) else 0
 					return {
@@ -1250,11 +1328,20 @@ return {
 						positionAndSizeRecords = bothRecords,
 						positionFlightFrames = #posSamples,
 						positionAndSizeFlightFrames = #bothSamples,
+						paintMs = summarize(paintSamples),
+						paintRecords = paintRecords,
+						paintFlightFrames = #paintSamples,
+						plainIdleMs = plain,
+						offPathDeltaMs = if a1.measured and plain.measured then a1.p50_ms - plain.p50_ms else 0,
 						note = "arm B re-orders (position delta only); arm C resizes every row "
 							.. "(both halves on the same records). The C-minus-B difference is the "
-							.. "marginal cost of the size half; compare it against harnessSpreadMs "
-							.. "before calling it a cost. Lune = regression signal, Studio = real "
-							.. "engine, device = the only device claim.",
+							.. "marginal cost of the size half; arm D moves the AUTHORED paint "
+							.. "triple (opacity/scale/rotation, ADR-0026) with every rect held "
+							.. "still. plainIdleMs is the same tree DECLARING none of the three, "
+							.. "so offPathDeltaMs is what a declaration costs at rest. Compare "
+							.. "every one of these against harnessSpreadMs before calling it a "
+							.. "cost. Lune = regression signal, Studio = real engine, device = "
+							.. "the only device claim.",
 					}
 				end)
 				ctx.presenter.dismiss(handle)

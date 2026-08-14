@@ -1514,6 +1514,41 @@ describe("perf lab: the motion-flight pass profiles a withAnimation flight", fun
 		built.dispose()
 	end)
 
+	--[[ THE PAINT ARM AND THE OFF-PATH CONTROL (ADR-0026, 2026-08-14).
+
+		Arm D moves the AUTHORED presentation triple — opacity, scale, rotation —
+		with every rect held still, so whatever it costs is the composition and its
+		engine writes rather than a re-solve wearing their name. Same headless rule
+		as the arms above: the `*Ms` fields are a stub clock and mean nothing here,
+		the COUNTS are real.
+
+		The load-bearing count is that arm D seeds the SAME number of records as B
+		and C. Without it, "the paint half is cheap" could be true only because it
+		was a smaller experiment — which is the exact shape of the three round-2
+		improvements that evaporated when measured properly.
+
+		The off-path control is a SECOND mount whose rows declare none of the three,
+		and the assertion that matters is that it was actually taken and actually
+		torn down: a claim that an unused feature costs nothing, measured against
+		nothing, is a comment. ]]
+	it("takes a PAINT arm on the same record count, plus an off-path control it cleans up", function()
+		local built, ctx = newHarness()
+		built.steps.select(nil, "scenario=motion-flight")
+		local d = built.steps.pass(nil, "motionFlight=120").detail
+		-- the paint flight happened at all, and it is the same experiment as B and C
+		expect(d.paintRecords > 0).toBe(true)
+		expect(d.paintRecords).toBe(d.positionRecords)
+		-- sampled while records were live, and it stopped on its own
+		expect(d.paintFlightFrames > 0).toBe(true)
+		expect(d.paintFlightFrames < 120).toBe(true)
+		expect(d.paintMs.measured).toBe(true)
+		-- the off-path control was taken, reported apart, and its surface is gone
+		expect(d.plainIdleMs.measured).toBe(true)
+		expect(type(d.offPathDeltaMs)).toBe("number")
+		expect(ctx.adapter.node("/MotionFlightPlain")).toBe(nil)
+		built.dispose()
+	end)
+
 	it("takes its own surface away again, and leaves no record behind", function()
 		local built, ctx = newHarness()
 		built.steps.select(nil, "scenario=motion-flight")
