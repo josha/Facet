@@ -19,6 +19,10 @@
 -- EVERY swept viewport, on every `./run-tests.sh`, with nobody deciding to run
 -- it.
 --
+-- ...and since 2026-08-13 it asks about EVERY FINDING, not the two sentences
+-- somebody remembered to grep for. See "WHAT COUNTS AS A FINDING" below: the
+-- filter is gone, because a filter is the same defect one level up.
+--
 -- WHAT IT COVERS
 --   * every engine-free gallery scenario (the demo picker's four fixtures, the
 --     eight Sponsor labs, the verification fixtures and the composition/keyboard
@@ -206,36 +210,69 @@ local EXAMPLES = {
 
 local PROOFS = { "p1_glade", "p2_cartwheel", "p3_sipworks", "p4_foyer", "p5_wardrobe" }
 
--- THE AXES A CONTAINER CAN RUN OUT OF ROOM ON — plural since parity round 3 item
--- A. For every container this file swept before, "too much content" is a MAIN-axis
--- fact: the cursor keeps advancing past the box. A WRAPPING stack inverts that. Its
--- main axis cannot overflow at all, by construction — that is what wrapping means —
--- and the direction it runs out of room is the CROSS one, as the lines pile up. A
--- sweep that only greps the main axis is structurally blind to every wrapping stack
--- on every screen, which is the "instrument that cannot bite" class this file was
--- written to end.
---
--- Both phrases are exact and unique: no other diagnostic in `solver.luau` contains
--- either, and the placement-audit advice that talks about "the cross axis" never
--- says "ON the cross axis".
-local OVERFLOW_AXES = { "on the main axis", "on the cross axis" }
+--[[ ── WHAT COUNTS AS A FINDING: EVERYTHING THE SOLVER SAYS ───────────────────
 
-local function isOverflow(issue: string): boolean
-	for _, phrase in OVERFLOW_AXES do
-		if string.find(issue, phrase, 1, true) ~= nil then
-			return true
-		end
+	There is no filter here any more, and its absence is the point.
+
+	This sweep used to grep the findings for the literal `"on the main axis"`, and
+	later for `"on the cross axis"` beside it. That is the "check that proves
+	nothing" class the gate-integrity sweep exists to catch, one level up: the
+	instrument could only ever bite on the defect shapes somebody had remembered to
+	spell out in this file, so every diagnostic the solver learned afterwards was
+	structurally invisible here on the day it shipped. Two whole classes were, when
+	this was measured on 2026-08-13:
+
+	  * the ZSTACK OVERLAP finding ("this child overflows its zstack by NxNpx") —
+	    191 findings across eight surfaces, invisible since 2026-08-02;
+	  * the LYING `itemExtent` finding ("...than the slot it is windowed into") —
+	    184 findings across three surfaces, invisible from the hour it was written,
+	    and its own design note says so.
+
+	...plus the collapsed-content-box and composition-fallback lines. 393 of the
+	697 findings this corpus produces could not fail this file.
+
+	So the rule is now the one the rest of the repo already holds a surface to —
+	RascalRally's fixtures assert an EMPTY `diagnostics()`, and the perf lab refuses
+	to mount with one: **a swept surface produces no solver findings at all**,
+	except the enumerated waivers below. Nothing has to be added here when the
+	solver learns a new sentence, which is the only version of this check that
+	cannot rot back into the defect it was built to fix.
+]]
+
+-- A finding's CLASS, derived from the message rather than declared beside it: the
+-- numbers and quoted names blanked out, cut at a word boundary. It exists so that
+-- two DIFFERENT defects at one node cannot share one waiver — `perf_capture`'s
+-- Roster row is both too tall for its declared slot and too wide for its zstack,
+-- and a single waiver pardoning both would be a ceiling nobody measured. Deriving
+-- it (rather than listing classes) is what keeps a new diagnostic covered for free.
+local SIG_MAX = 44
+
+local function signature(issue: string): string
+	local s = string.gsub(issue, "%d+", "N")
+	s = string.gsub(s, "'[^']*'", "'X'")
+	if #s <= SIG_MAX then
+		return s
 	end
-	return false
+	-- cut at a SPACE, never mid-byte: these messages carry em dashes, and slicing a
+	-- UTF-8 sequence in half would make the key depend on where the number landed
+	return string.match(string.sub(s, 1, SIG_MAX + 1), "^(.*)%s") or string.sub(s, 1, SIG_MAX)
 end
 
--- the MEASUREMENT out of the diagnostic. Both shapes carry one: the stack
--- diagnostic says "by 46px", the wrap-clamp one says "is 8px wider than". A
--- finding whose px cannot be read is treated as 0 rather than skipped — it is
--- still a finding, it just cannot be compared against a ceiling.
-local function overflowPx(issue: string): number
-	local n = string.match(issue, "by (%d+)px") or string.match(issue, "is (%d+)px wider")
-	return tonumber(n) or 0
+-- the MEASUREMENT out of the diagnostic: the largest px figure the message
+-- carries. Every shape has one and they mean the same kind of thing — the stack
+-- says "by 46px", the wrap-clamp "is 8px wider", the overlap "by 0x29px" (two
+-- numbers, one per axis), the slot guard "measures 74px". A finding whose px
+-- cannot be read is treated as 0 rather than skipped: it is still a finding, it
+-- just cannot be compared against a ceiling.
+local function findingPx(issue: string): number
+	local best = 0
+	for a, b in string.gmatch(issue, "(%d+)x(%d+)px") do
+		best = math.max(best, tonumber(a) or 0, tonumber(b) or 0)
+	end
+	for n in string.gmatch(issue, "(%d+)px") do
+		best = math.max(best, tonumber(n) or 0)
+	end
+	return best
 end
 
 -- KEYED SIBLINGS ARE ONE DEFECT, NOT SIXTEEN. p5_wardrobe's catalog renders the
@@ -243,17 +280,30 @@ end
 -- renders seven `W/[c3]/Row/Card`. Waiving each generated path separately would
 -- turn one wrong constant into sixteen lines of to-do list and would go stale the
 -- moment a fixture's data changed, so a path is normalised: a `[key]` segment
--- becomes `[*]`, and a segment that merely REPEATS the key it sits under becomes
+-- becomes `[*]`, and a segment that merely RESTATES the key it sits under becomes
 -- `*`. Nothing else is collapsed — the shape of the tree above the item is exact.
+--
+-- "RESTATES" IS CONTAINMENT, NOT EQUALITY (2026-08-13, when the zstack-overlap
+-- class became visible here): a Table row composes its actions wrapper as
+-- `[m1@0]/RowActions-m1` and p2_cartwheel names its tiles `[120]/Tile120`, so the
+-- equality test collapsed neither and one wrong constant would have arrived as six
+-- and four identical waiver lines. The test is the key's leading word, which is
+-- the part a composed name borrows; a segment that merely sits under a key it does
+-- not mention (`[c1]/Row`) is still exact.
 local function normalizePath(path: string): string
 	local out: { string } = {}
 	local prevKey: string? = nil
 	for segment in string.gmatch(path, "[^/]+") do
 		local key = string.match(segment, "^%[(.*)%]$")
+		local restates = prevKey ~= nil
+			and (
+				segment == prevKey
+				or string.find(segment, string.match(prevKey :: string, "^%w+") or "\0", 1, true) ~= nil
+			)
 		if key ~= nil then
 			table.insert(out, "[*]")
 			prevKey = key
-		elseif prevKey ~= nil and segment == prevKey then
+		elseif restates then
 			table.insert(out, "*")
 			prevKey = nil
 		else
@@ -273,27 +323,39 @@ end
 	ENUMERATED list of what it found, and every entry is a to-do with a
 	measurement on it rather than a shrug.
 
-	The rules this list is under, all three of which are the reason it cannot rot:
+	The rules this list is under, all four of which are the reason it cannot rot:
 
-	  1. AT THE DEFAULT PREFERENCE (offset 0) NOTHING IS WAIVED. The sweep was
-	     green there before the axis existed and stays green there; a finding at
-	     offset 0 fails no matter what this table says.
-	  2. A WAIVER IS A CEILING, NOT A PARDON. `px` is the largest overflow measured
-	     anywhere in the cross product on 2026-08-13 and `since` is the smallest
-	     preference that reports it. A finding that exceeds the ceiling, or that
-	     appears at a SMALLER preference than recorded, fails: the defect got
-	     worse, which is a regression even inside a known defect.
+	  1. A WAIVER NAMES THE SMALLEST PREFERENCE THE DEFECT WAS MEASURED AT, and a
+	     waiver recorded from +4 or later DOES NOT APPLY AT +0. The pre-axis
+	     contract — "this surface is clean at the default preference" — is exactly
+	     as strong as it was: a finding at +0 fails unless its own waiver says the
+	     defect is there at +0.
+	     `since = 0` is that admission, and it is a record, never a pardon. Every
+	     one of them belongs to a class this sweep was structurally BLIND to before
+	     2026-08-13 (below), so none of them is a contract that was ever green.
+	     `DEFAULT_WAIVERS` counts them and the case at the bottom pins the count:
+	     a new +0 waiver cannot be slipped in without changing that number on
+	     purpose.
+	  2. A WAIVER IS A CEILING, NOT A PARDON. `px` is the largest px figure the
+	     finding carried anywhere in the cross product on 2026-08-13 and `since` is
+	     the smallest preference that reports it. A finding that exceeds the
+	     ceiling, or that appears at a SMALLER preference than recorded, fails: the
+	     defect got worse, which is a regression even inside a known defect.
 	  3. A WAIVER THAT NEVER FIRES FAILS TOO (the case at the bottom of this file).
 	     When somebody fixes one of these, the suite tells them to delete the line
-	     — so the list can only ever shrink, and "35" is a number that means
+	     — so the list can only ever shrink, and "51" is a number that means
 	     something rather than a decoration.
+	  4. A WAIVER IS KEYED BY THE FINDING'S CLASS AS WELL AS ITS NODE (`sig`, the
+	     derived signature above). `perf_capture`'s Roster row and `card_rail`'s
+	     card each carry TWO different defects at one path; one line covering both
+	     would have been a ceiling measured on the wrong one.
 
 	`kind` is the triage class (docs/plans/swiftui-parity-round3.md carries the
 	full list with the per-view/per-preference detail):
 	  * fixed-px-vs-text  — a px extent fixed against content that is not fixed
 	                        (`docs/lessons/luauui-fixed-px-heights.md`)
 	  * row-cannot-shrink — a row of labels/controls wider than the screen with
-	                        nothing allowed to shrink. NOTE: not ONE of these 35
+	                        nothing allowed to shrink. NOTE: not ONE of these
 	                        carries the solver's "every shrinkable child is already
 	                        at its floor" suffix, so every one of them is still
 	                        repairable by authoring (a shrinkWeight, a ViewThatFits
@@ -301,11 +363,27 @@ end
 	  * page-not-scrollable — a whole surface taller than a short canvas, usually
 	                        640x320, with no page scroller
 	  * wrap-clamp        — a hwrap line clamping a child it could not fit
+	  ...and the four the 2026-08-13 widening added, none of which this file could
+	  see before it:
+	  * layer-overlap     — a ZStack child measured bigger than the stack. Nothing
+	                        clips a ZStack, so it paints over its neighbour
+	  * lying-itemExtent  — a `newVirtualList` row whose content is taller than the
+	                        `itemExtent` the consumer declared. NOTE: the overlap
+	                        finding's advice (a `minMax` FLOOR rather than a fixed
+	                        CAP) is exactly the WRONG repair here — a windowed row's
+	                        extent has to stay ONE number, so the repair is to
+	                        recompute that number from the facts the cell reads, or
+	                        to cap the cell's content (`lineLimit`)
+	  * collapsed-box     — padding won: the content box is 0px on an axis and
+	                        nothing inside the node can draw at all
+	  * declared-fallback — a `UI.Composition` whose declared arrangements are all
+	                        illegal at this size, showing the fallback it declared
 ]]
 type Waiver = {
 	surface: string,
 	variant: string,
 	node: string,
+	sig: string,
 	px: number,
 	since: number,
 	kind: string,
@@ -316,7 +394,28 @@ local WAIVERS: { Waiver } = {
 	{
 		surface = "composition",
 		variant = "-",
+		node = "/CompositionScreen/Body/OfferFrame/Summary",
+		sig = "no declared arrangement is legal in NxN —",
+		px = 322,
+		since = 10,
+		kind = "declared-fallback",
+		where = "compact-portrait/640x320/320x640 @ +10/+14 — every declared arrangement is illegal (lane 1 needs 322px in 313px) and the DECLARED fallback is shown. The one entry here that may not be a defect at all — see the report",
+	},
+	{
+		surface = "row_actions",
+		variant = "vlist",
+		node = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[*]/Row/RowBody",
+		sig = "newVirtualList 'X' declares itemExtent = N,",
+		px = 249,
+		since = 0,
+		kind = "lying-itemExtent",
+		where = "every view @ +0/+4/+10/+14 (six rows, one template) — `ROW_HEIGHT = 84` is a constant against a three-line cell that wraps: 88px already at +0 on both portrait phones, 99px at ten-foot, 249px at +14 on 320x640",
+	},
+	{
+		surface = "composition",
+		variant = "-",
 		node = "/CompositionScreen/Body/OfferBar",
+		sig = "content overflows this hstack by Npx on the",
 		px = 198,
 		since = 4,
 		kind = "row-cannot-shrink",
@@ -326,6 +425,7 @@ local WAIVERS: { Waiver } = {
 		surface = "virtual_list_native",
 		variant = "-",
 		node = "/VLNative",
+		sig = "content overflows this vstack by Npx on the",
 		px = 113,
 		since = 4,
 		kind = "page-not-scrollable",
@@ -335,6 +435,7 @@ local WAIVERS: { Waiver } = {
 		surface = "row_actions",
 		variant = "vlist",
 		node = "/MailActions/VListWhen/then/VListPane",
+		sig = "content overflows this vstack by Npx on the",
 		px = 109,
 		since = 4,
 		kind = "fixed-px-vs-text",
@@ -344,6 +445,7 @@ local WAIVERS: { Waiver } = {
 		surface = "sponsor_list",
 		variant = "-",
 		node = "/ListLab/Body/Controls",
+		sig = "content overflows this hstack by Npx on the",
 		px = 95,
 		since = 10,
 		kind = "row-cannot-shrink",
@@ -353,6 +455,7 @@ local WAIVERS: { Waiver } = {
 		surface = "adaptive_controls",
 		variant = "-",
 		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Legend",
+		sig = "content overflows this hstack by Npx on the",
 		px = 92,
 		since = 10,
 		kind = "row-cannot-shrink",
@@ -362,6 +465,7 @@ local WAIVERS: { Waiver } = {
 		surface = "theme_authoring",
 		variant = "-",
 		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Legend",
+		sig = "content overflows this hstack by Npx on the",
 		px = 92,
 		since = 10,
 		kind = "row-cannot-shrink",
@@ -371,15 +475,27 @@ local WAIVERS: { Waiver } = {
 		surface = "07_match3",
 		variant = "-",
 		node = "/Match3/Page/Stats",
+		sig = "content overflows this hstack by Npx on the",
 		px = 82,
 		since = 10,
 		kind = "row-cannot-shrink",
 		where = "320x640/compact-portrait @ +10/+14 — the device-bug round's own ViewThatFits ladder runs out of rungs at +10",
 	},
 	{
+		surface = "sponsor_drop",
+		variant = "-",
+		node = "/DropLab/Main/ListZone/Rows",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 81,
+		since = 0,
+		kind = "layer-overlap",
+		where = "640x320/compact-landscape @ +0/+4/+10/+14 — the list is taller than the zone it is layered into",
+	},
+	{
 		surface = "card_rail",
 		variant = "-",
 		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
+		sig = "content overflows this vstack by Npx on the",
 		px = 68,
 		since = 10,
 		kind = "fixed-px-vs-text",
@@ -389,15 +505,27 @@ local WAIVERS: { Waiver } = {
 		surface = "sponsor_billboard",
 		variant = "-",
 		node = "/BillboardLab",
+		sig = "content overflows this vstack by Npx on the",
 		px = 64,
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +4/+10/+14",
 	},
 	{
+		surface = "sponsor_toast",
+		variant = "-",
+		node = "/ToastLab/Stage/Beneath",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 63,
+		since = 0,
+		kind = "layer-overlap",
+		where = "640x320/compact-landscape @ +0/+4/+10/+14 — the stage's beneath layer outgrows the stage",
+	},
+	{
 		surface = "composition",
 		variant = "-",
 		node = "/CompositionScreen/Body/OfferFrame/Summary/Actions/ActionsRow",
+		sig = "content overflows this hstack by Npx on the",
 		px = 59,
 		since = 10,
 		kind = "row-cannot-shrink",
@@ -407,16 +535,48 @@ local WAIVERS: { Waiver } = {
 		surface = "p4_foyer",
 		variant = "-",
 		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage/Sections/[*]/Body/Header",
+		sig = "content overflows this hstack by Npx on the",
 		px = 52,
 		since = 10,
 		kind = "row-cannot-shrink",
 		where = "320x640/compact-portrait @ +10/+14 (four sections, one template)",
 	},
 	{
+		surface = "perf_capture",
+		variant = "-",
+		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
+		sig = "newVirtualList 'X' declares itemExtent = N,",
+		px = 50,
+		since = 10,
+		kind = "lying-itemExtent",
+		where = "console-ten-foot @ +10/+14 — declares itemExtent = 44, the row measures 50. Pre-existing and already named in docs/plans/swiftui-parity-round3.md",
+	},
+	{
 		surface = "drag_session",
 		variant = "-",
 		node = "/DragLab",
+		sig = "content overflows this vstack by Npx on the",
 		px = 46,
+		since = 4,
+		kind = "page-not-scrollable",
+		where = "640x320/compact-landscape @ +4/+10/+14",
+	},
+	{
+		surface = "virtual_list_native",
+		variant = "-",
+		node = "/VLNative/VL/Canvas/W/[*]/Row/Label",
+		sig = "newVirtualList 'X' declares itemExtent = N,",
+		px = 46,
+		since = 10,
+		kind = "lying-itemExtent",
+		where = "console-ten-foot @ +10/+14 — declares itemExtent = 36, the row measures 46: the ten-foot type scale is part of the geometry",
+	},
+	{
+		surface = "authoring",
+		variant = "-",
+		node = "/AuthoringScreen",
+		sig = "content overflows this vstack by Npx on the",
+		px = 43,
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +4/+10/+14",
@@ -425,24 +585,17 @@ local WAIVERS: { Waiver } = {
 		surface = "p4_foyer",
 		variant = "-",
 		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/TabRow",
+		sig = "content overflows this hstack by Npx on the",
 		px = 43,
 		since = 10,
 		kind = "row-cannot-shrink",
 		where = "320x640/compact-portrait @ +10/+14",
 	},
 	{
-		surface = "authoring",
-		variant = "-",
-		node = "/AuthoringScreen",
-		px = 43,
-		since = 4,
-		kind = "page-not-scrollable",
-		where = "640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
 		surface = "row_actions",
 		variant = "table",
 		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main",
+		sig = "content overflows this vstack by Npx on the",
 		px = 36,
 		since = 10,
 		kind = "fixed-px-vs-text",
@@ -452,24 +605,47 @@ local WAIVERS: { Waiver } = {
 		surface = "sponsor_list",
 		variant = "-",
 		node = "/ListLab/Body/Rows/Canvas/W/[*]/Row/Card/Labels",
+		sig = "content overflows this vstack by Npx on the",
 		px = 35,
 		since = 10,
 		kind = "fixed-px-vs-text",
 		where = "320x640/compact-portrait @ +10/+14 — the row-height memo caps the detail at TWO caption lines; at +10 the detail needs three",
 	},
 	{
+		surface = "row_actions",
+		variant = "table",
+		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-from/Value",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 32,
+		since = 0,
+		kind = "layer-overlap",
+		where = "every view @ +0/+4/+10/+14 (six rows, one template) — the from-cell's own text is taller than the cell it is layered in",
+	},
+	{
 		surface = "p2_cartwheel",
 		variant = "-",
 		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/Sky/Skyglow/Axis",
+		sig = "content overflows this hstack by Npx on the",
 		px = 30,
 		since = 14,
 		kind = "row-cannot-shrink",
 		where = "tablet-landscape 1079x809 ONLY @ +14",
 	},
 	{
+		surface = "sponsor_motion",
+		variant = "-",
+		node = "/MotionLab/Main/StageColumn/WashRow/WashLabel",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 28,
+		since = 10,
+		kind = "layer-overlap",
+		where = "four phone views @ +10/+14",
+	},
+	{
 		surface = "p2_cartwheel",
 		variant = "-",
 		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/ChatterSlot/ChatterCard/OpenChatter",
+		sig = "content overflows this hstack by Npx on the",
 		px = 26,
 		since = 14,
 		kind = "row-cannot-shrink",
@@ -479,6 +655,7 @@ local WAIVERS: { Waiver } = {
 		surface = "scroll_host",
 		variant = "-",
 		node = "/ScrollHost",
+		sig = "content overflows this vstack by Npx on the",
 		px = 26,
 		since = 10,
 		kind = "page-not-scrollable",
@@ -488,6 +665,7 @@ local WAIVERS: { Waiver } = {
 		surface = "async_images",
 		variant = "-",
 		node = "/AsyncImages",
+		sig = "content overflows this vstack by Npx on the",
 		px = 25,
 		since = 10,
 		kind = "page-not-scrollable",
@@ -497,6 +675,7 @@ local WAIVERS: { Waiver } = {
 		surface = "row_actions",
 		variant = "table",
 		node = "/MailActions/TableWhen/then/TablePane",
+		sig = "content overflows this vstack by Npx on the",
 		px = 25,
 		since = 10,
 		kind = "page-not-scrollable",
@@ -506,6 +685,7 @@ local WAIVERS: { Waiver } = {
 		surface = "03_settings_sync",
 		variant = "-",
 		node = "/Settings/Page/State",
+		sig = "content overflows this vstack by Npx on the",
 		px = 24,
 		since = 4,
 		kind = "fixed-px-vs-text",
@@ -515,6 +695,7 @@ local WAIVERS: { Waiver } = {
 		surface = "p5_wardrobe",
 		variant = "-",
 		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*",
+		sig = "content overflows this hstack by Npx on the",
 		px = 24,
 		since = 4,
 		kind = "fixed-px-vs-text",
@@ -524,6 +705,7 @@ local WAIVERS: { Waiver } = {
 		surface = "p5_wardrobe",
 		variant = "-",
 		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta",
+		sig = "content overflows this hstack by Npx on the",
 		px = 24,
 		since = 10,
 		kind = "row-cannot-shrink",
@@ -533,6 +715,7 @@ local WAIVERS: { Waiver } = {
 		surface = "p5_wardrobe",
 		variant = "-",
 		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*",
+		sig = "content overflows this hstack by Npx on the",
 		px = 24,
 		since = 4,
 		kind = "fixed-px-vs-text",
@@ -542,24 +725,67 @@ local WAIVERS: { Waiver } = {
 		surface = "p5_wardrobe",
 		variant = "-",
 		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta",
+		sig = "content overflows this hstack by Npx on the",
 		px = 24,
 		since = 10,
 		kind = "row-cannot-shrink",
 		where = "320x640/console-ten-foot @ +10/+14",
 	},
 	{
+		surface = "row_actions",
+		variant = "table",
+		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 24,
+		since = 10,
+		kind = "layer-overlap",
+		where = "compact-portrait/320x640 @ +10/+14 (six rows, one template) — the same cause as the from-cell above, one preference later",
+	},
+	{
 		surface = "perf_capture",
 		variant = "-",
 		node = "/PerfCapture",
+		sig = "content overflows this vstack by Npx on the",
 		px = 23,
 		since = 10,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +10/+14",
 	},
 	{
+		surface = "sponsor_drop",
+		variant = "-",
+		node = "/DropLab/Main/ListZone/Chevrons/ChevBottom/Glyph",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 23,
+		since = 0,
+		kind = "layer-overlap",
+		where = "every view @ +0/+4/+10/+14 — a fixed chevron plate holding a glyph whose box is not fixed",
+	},
+	{
+		surface = "sponsor_drop",
+		variant = "-",
+		node = "/DropLab/Main/ListZone/Chevrons/ChevTop/Glyph",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 23,
+		since = 0,
+		kind = "layer-overlap",
+		where = "every view @ +0/+4/+10/+14 — the twin of ChevBottom, same plate",
+	},
+	{
+		surface = "perf_capture",
+		variant = "-",
+		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 20,
+		since = 14,
+		kind = "layer-overlap",
+		where = "320x640 @ +14 — 20px on the CROSS axis, which is the axis the slot guard deliberately leaves to this finding",
+	},
+	{
 		surface = "progress_ring",
 		variant = "-",
 		node = "/ProgressRing/Page/Dots",
+		sig = "content overflows this hstack by Npx on the",
 		px = 20,
 		since = 14,
 		kind = "row-cannot-shrink",
@@ -569,28 +795,61 @@ local WAIVERS: { Waiver } = {
 		surface = "p4_foyer",
 		variant = "-",
 		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody",
+		sig = "content overflows this vstack by Npx on the",
 		px = 16,
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320 ONLY @ +4/+10/+14",
 	},
 	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage",
+		sig = "content box collapses to Npx on y: padding N",
+		px = 16,
+		since = 0,
+		kind = "collapsed-box",
+		where = '640x320/compact-landscape @ +0/+4/+10/+14 — 8+8 of padding on a 16px height, so nothing inside the feed page can draw. Recorded as owed on 2026-08-12 (device-bug round, "found and NOT fixed") and never re-verified until now',
+	},
+	{
 		surface = "sponsor_toast",
 		variant = "-",
 		node = "/ToastLab",
+		sig = "content overflows this vstack by Npx on the",
 		px = 16,
 		since = 10,
 		kind = "page-not-scrollable",
 		where = "640x320 ONLY @ +10/+14",
 	},
 	{
+		surface = "card_rail",
+		variant = "-",
+		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
+		sig = "content box collapses to Npx on y: padding N",
+		px = 15,
+		since = 14,
+		kind = "collapsed-box",
+		where = "640x320 @ +14 (seven cards, one template) — the same fixed card plate as the row above, now with no room left for its own padding",
+	},
+	{
 		surface = "sponsor_avatars",
 		variant = "-",
 		node = "/AvatarLab",
+		sig = "content overflows this vstack by Npx on the",
 		px = 12,
 		since = 10,
 		kind = "page-not-scrollable",
 		where = "640x320 ONLY @ +10/+14",
+	},
+	{
+		surface = "scroll_host",
+		variant = "-",
+		node = "/ScrollHost/List",
+		sig = "content box collapses to Npx on y: padding N",
+		px = 11,
+		since = 4,
+		kind = "collapsed-box",
+		where = "640x320/compact-landscape @ +4/+10 and NOT +14 — another non-monotone cell: the page reflows at +14 and hands the list its padding back",
 	},
 	{
 		-- THE NEGATIVE CONTROL THIS AXIS WAS BUILT AROUND. Reported independently
@@ -602,15 +861,27 @@ local WAIVERS: { Waiver } = {
 		surface = "p4_foyer",
 		variant = "-",
 		node = "/Foyer/Root/TopBar",
+		sig = "content overflows this hstack by Npx on the",
 		px = 10,
 		since = 14,
 		kind = "row-cannot-shrink",
 		where = "320x640 ONLY @ +14",
 	},
 	{
+		surface = "p2_cartwheel",
+		variant = "-",
+		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/Recent/RecentBrews/HeroTiles/Tiles/TileGrid/TileRows/[*]/*/Body",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 8,
+		since = 14,
+		kind = "layer-overlap",
+		where = "tablet-landscape ONLY @ +14 (four tiles, one template) — 8px wide, the cross axis",
+	},
+	{
 		surface = "sponsor_drop",
 		variant = "-",
 		node = "/DropLab/Main",
+		sig = "content overflows this vstack by Npx on the",
 		px = 8,
 		since = 14,
 		kind = "page-not-scrollable",
@@ -620,6 +891,7 @@ local WAIVERS: { Waiver } = {
 		surface = "p2_cartwheel",
 		variant = "-",
 		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/RackSlot/Rack/OpenPotions",
+		sig = "content overflows this hstack by Npx on the",
 		px = 5,
 		since = 14,
 		kind = "row-cannot-shrink",
@@ -629,6 +901,7 @@ local WAIVERS: { Waiver } = {
 		surface = "p2_cartwheel",
 		variant = "-",
 		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/ChatterSlot/ChatterCard/Cloud",
+		sig = "'X' is Npx wider than this hwrap's line on",
 		px = 0,
 		since = 14,
 		kind = "wrap-clamp",
@@ -639,14 +912,23 @@ local WAIVERS: { Waiver } = {
 local WAIVER_BY_KEY: { [string]: Waiver } = {}
 local WAIVER_MATCHED: { [string]: boolean } = {}
 
-local function waiverKey(surface: string, variant: string, node: string): string
-	return `{surface}|{variant}|{node}`
+local function waiverKey(surface: string, variant: string, node: string, sig: string): string
+	return `{surface}|{variant}|{node}|{sig}`
 end
 
+-- ...and the count of waivers that admit a defect at the DEFAULT preference (rule
+-- 1). Every one is a finding class this sweep was blind to until 2026-08-13, so
+-- none of them is a green contract being surrendered; the number is pinned at the
+-- bottom of the file so a new one is a decision rather than a slipped line.
+local DEFAULT_WAIVERS = 0
+
 for _, waiver in WAIVERS do
-	local key = waiverKey(waiver.surface, waiver.variant, waiver.node)
+	local key = waiverKey(waiver.surface, waiver.variant, waiver.node, waiver.sig)
 	assert(WAIVER_BY_KEY[key] == nil, `duplicate waiver for {key}`)
 	WAIVER_BY_KEY[key] = waiver
+	if waiver.since == 0 then
+		DEFAULT_WAIVERS += 1
+	end
 end
 
 -- A SURFACE MAY PUBLISH ITS OWN MEASURED GEOMETRY BACK INTO ITS TREE, and the
@@ -717,7 +999,7 @@ local VARIANTS: { [string]: { step: string, values: { string } } } = {
 -- set of PREFERENCES tells them whether it is a text problem at all.
 local function sweep(kind: string, name: string, mount: (any) -> any)
 	local label = `{kind} '{name}'`
-	it(`{label}: no overflow on EITHER axis at any swept viewport, at any text size`, function()
+	it(`{label}: the solver reports NOTHING at any swept viewport, at any text size`, function()
 		local variant = VARIANTS[name]
 		local problems: { string } = {}
 		for _, view in VIEWS do
@@ -726,16 +1008,19 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			settle(w.presenter)
 			local function collect(offset: number, variantValue: string, suffix: string)
 				for _, finding in built.handle.controller.diagnostics() do
-					if not isOverflow(finding.issue) then
-						continue
+					local key = waiverKey(name, variantValue, normalizePath(finding.node), signature(finding.issue))
+					local waiver = WAIVER_BY_KEY[key]
+					-- RULE 1: a waiver recorded from +4 or later does not apply at the
+					-- default preference. Only a waiver that ADMITS the defect is there at
+					-- +0 (`since = 0`) covers a +0 finding.
+					if waiver ~= nil and offset == 0 and waiver.since > 0 then
+						waiver = nil
 					end
-					local key = waiverKey(name, variantValue, normalizePath(finding.node))
-					local waiver = if offset > 0 then WAIVER_BY_KEY[key] else nil
 					if waiver == nil then
 						table.insert(problems, describeFinding(w, view, offset, finding) .. suffix)
 						continue
 					end
-					local px = overflowPx(finding.issue)
+					local px = findingPx(finding.issue)
 					if px > waiver.px then
 						table.insert(
 							problems,
@@ -776,13 +1061,12 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 		end
 		if #problems > 0 then
 			error(
-				`{label}: the solver reports {#problems} unwaived overflow(s) — content wider or taller `
-					.. `than its own box with nothing to scroll it. A finding at +0 is a plain regression; `
-					.. `a finding above +0 is either new, worse than its waiver, or now fires at a smaller `
-					.. `text preference than the waiver records (tests/overflow_sweep.spec.luau, WAIVERS):\n{table.concat(
-						problems,
-						"\n"
-					)}`,
+				`{label}: the solver files {#problems} unwaived finding(s) on this surface — content painting `
+					.. `outside its own box, layered over its neighbour, taller than the slot it is windowed `
+					.. `into, or unable to draw at all. A finding at +0 is a plain regression unless its own `
+					.. `waiver records the defect from +0; a finding above +0 is either new, worse than its `
+					.. `waiver, or now fires at a smaller text preference than the waiver records `
+					.. `(tests/overflow_sweep.spec.luau, WAIVERS):\n{table.concat(problems, "\n")}`,
 				0
 			)
 		end
@@ -873,8 +1157,8 @@ end)
 	indistinguishable from "it asked nothing". This case is the axis's permanent
 	mutation proof: a slot whose px height was chosen to hold its content at
 	Medium, Large and Larger and NOT at Largest — the fixed-px-vs-text class in
-	three lines — mounted through the same world, settled the same way and read
-	through the same `isOverflow` collector the surfaces above use.
+	three lines — mounted through the same world and settled the same way as the
+	surfaces above.
 
 	THE ARITHMETIC IS THE POINT. Studio Neutral's `body` role is 16px at a 1.2
 	line-height, and the preference is ADDITIVE, so one line box is 20px at +0,
@@ -908,9 +1192,7 @@ describe("overflow sweep: the text-size axis bites", function()
 		local function findings(): { any }
 			local out: { any } = {}
 			for _, finding in handle.controller.diagnostics() do
-				if isOverflow(finding.issue) then
-					table.insert(out, finding)
-				end
+				table.insert(out, finding)
 			end
 			return out
 		end
@@ -938,7 +1220,99 @@ describe("overflow sweep: the text-size axis bites", function()
 		local largest = reported[OFFSETS[#OFFSETS]]
 		expect(#largest).toBe(1)
 		expect(largest[1].node).toBe("/AxisControl/Slot")
-		expect(overflowPx(largest[1].issue)).toBe(6)
+		expect(findingPx(largest[1].issue)).toBe(6)
+	end)
+end)
+
+--[[ ── THE BREADTH'S OWN CONTROL ──────────────────────────────────────────────
+
+	The axis control above proves this file can see a MAIN-AXIS overflow at a large
+	text size. It could see nothing else until 2026-08-13, and "it went green" is
+	indistinguishable from "it asked nothing" — so the two classes the widening let
+	in get a permanent control of their own, mounted through the same world and read
+	the same way the surfaces are.
+
+	THE THIRD ASSERTION IS THE NEGATIVE CONTROL, and it is the whole point: neither
+	message contains "on the main axis" or "on the cross axis", so the filter this
+	file used to carry would have passed BOTH of these screens green. If somebody
+	ever puts a phrase list back, this case says so on that run.
+]]
+describe("overflow sweep: the widened breadth bites", function()
+	it("BREADTH CONTROL: a layered overlap and a lying itemExtent both reach the collector", function()
+		local view = { id = "control", w = 400, h = 800, displaySize = "Medium", input = "KeyboardAndMouse" }
+		local w = world(view)
+		-- a fixed 40px slot holding a 60px child: nothing clips a ZStack, so the
+		-- child paints 20px over whatever sits beside it
+		local overlap = UI.ZStack({
+			id = "Overlap",
+			width = { type = "fixed", px = 40 },
+			height = { type = "fixed", px = 40 },
+			children = {
+				UI.Box({
+					id = "Big",
+					width = { type = "fixed", px = 60 },
+					height = { type = "fixed", px = 60 },
+					surface = "accent",
+				}),
+			},
+		})
+		-- ...and a windowed list whose consumer declared an extent its own row does
+		-- not honour: the row content is two 20px body lines in a 24px slot
+		local rows = {}
+		for i = 1, 4 do
+			table.insert(rows, { id = `r{i}` })
+		end
+		local list = LuauUI.newVirtualList(LuauUI, w.core, {
+			id = "Lying",
+			rows = w.core:signal(rows),
+			key = function(item: any)
+				return item.id
+			end,
+			itemExtent = 24,
+			viewportExtent = 200,
+			cell = function(item: any)
+				return UI.VStack({
+					id = "Cell",
+					gap = 0,
+					children = {
+						UI.Text({ id = "A", text = `row {item.id}`, textSize = "body" }),
+						UI.Text({ id = "B", text = "and its second line", textSize = "body" }),
+					},
+				})
+			end,
+			env = w.env,
+		})
+		local handle = w.presenter.present(UI.Screen({
+			id = "BreadthControl",
+			children = { overlap, list.blueprint },
+		}))
+		settle(w.presenter)
+
+		local byNode: { [string]: string } = {}
+		for _, finding in handle.controller.diagnostics() do
+			byNode[finding.node] = finding.issue
+		end
+
+		local layered = byNode["/BreadthControl/Overlap/Big"]
+		assert(layered ~= nil, "the layered overlap filed no finding at all — the control is not exercising it")
+		expect(string.find(layered, "overflows its zstack", 1, true) ~= nil).toBe(true)
+		expect(findingPx(layered)).toBe(20)
+
+		local lying: string? = nil
+		for node, issue in byNode do
+			if string.find(issue, "than the slot it is windowed into", 1, true) ~= nil then
+				lying = issue
+				expect(string.find(node, "/Lying/", 1, true) ~= nil).toBe(true)
+			end
+		end
+		assert(lying ~= nil, "the lying itemExtent filed no finding at all — the control is not exercising it")
+
+		-- THE NEGATIVE CONTROL: the phrase list this file used to grep for appears in
+		-- NEITHER message, so the old filter passed both of these green
+		for _, issue in { layered, lying :: string } do
+			expect(string.find(issue, "on the main axis", 1, true) == nil).toBe(true)
+			expect(string.find(issue, "on the cross axis", 1, true) == nil).toBe(true)
+		end
 	end)
 end)
 
@@ -951,14 +1325,15 @@ end)
 	longer read". The suite says so on the same run that fixes it.
 ]]
 describe("overflow sweep: the accessibility waiver list", function()
-	it("every waived large-text overflow still fires — a stale waiver is a fixed defect, delete the line", function()
+	it("every waived finding still fires — a stale waiver is a fixed defect, delete the line", function()
 		local stale: { string } = {}
 		for _, waiver in WAIVERS do
-			local key = waiverKey(waiver.surface, waiver.variant, waiver.node)
+			local key = waiverKey(waiver.surface, waiver.variant, waiver.node, waiver.sig)
 			if WAIVER_MATCHED[key] ~= true then
 				table.insert(
 					stale,
 					`  {waiver.surface} [{waiver.variant}] {waiver.node}\n`
+						.. `      "{waiver.sig}"\n`
 						.. `      recorded {waiver.px}px from +{waiver.since} ({waiver.kind}; {waiver.where})`
 				)
 			end
@@ -966,16 +1341,20 @@ describe("overflow sweep: the accessibility waiver list", function()
 		if #stale > 0 then
 			error(
 				`{#stale} waiver(s) no longer fire anywhere in the sweep. If the surface was fixed, `
-					.. `delete the entry (that is the point of the list); if the node moved, re-record it:\n{table.concat(
-						stale,
-						"\n"
-					)}`,
+					.. `delete the entry (that is the point of the list); if the node moved or the solver `
+					.. `reworded the finding, re-record it:\n{table.concat(stale, "\n")}`,
 				0
 			)
 		end
 		-- ...and the list is not allowed to quietly grow without anybody noticing
-		-- either: 35 is what turning the axis on found on 2026-08-13, and every
-		-- addition to it is a decision somebody has to make on purpose.
-		expect(#WAIVERS <= 35).toBe(true)
+		-- either: 35 is what turning the TEXT-SIZE axis on found on 2026-08-13, and
+		-- 51 is what removing the message filter found the same day (the four classes
+		-- this file could never see). Every addition is a decision somebody has to
+		-- make on purpose.
+		expect(#WAIVERS <= 51).toBe(true)
+		-- ...and rule 1's own guard: seven of the 51 admit a defect at the DEFAULT
+		-- preference, every one of them in a class this file was blind to. A new one
+		-- means a +0 contract was surrendered, which is never a number to nudge.
+		expect(DEFAULT_WAIVERS).toBe(7)
 	end)
 end)
