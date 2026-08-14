@@ -324,6 +324,12 @@ local SCENARIOS = {
 	-- surface, so a swept viewport is the direct test of whether the wrap earns
 	-- its keep rather than a check on the packaging around it
 	"sensory_feedback",
+	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
+	-- partition the box at every size", so a swept viewport IS the feature's test
+	-- rather than a check on its packaging — and the surface carries a switch that
+	-- takes 200px of HEIGHT off the box, which is the case a viewport sweep would
+	-- otherwise never reach
+	"hud",
 }
 
 local EXAMPLES = {

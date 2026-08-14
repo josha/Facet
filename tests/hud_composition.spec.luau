@@ -250,6 +250,44 @@ describe("ADR-0025: a height shrink DEGRADES, in rank order", function()
 		expect(r.regionById.Tasks.dropped).toBe(false)
 	end)
 
+	--[[ THE WIDTH HALF, found by the sweep rather than by this file (2026-08-14).
+
+		Rule 2 asks whether the HUG lanes fit the offer, which is the only width
+		question a lane whose width IS its content can fail. A HUD's lanes are
+		`fill` — a share of the box — so a cluster wider than its share could not
+		fail anything: it painted over the column next door and the ladder never
+		ran. On a 320px phone each column is 106px, which is where every horizontal
+		cluster in the showcase met it at once.
+
+		So a lane's width overflow is an overflow like any other and goes to the
+		same rule-3 ladder. The scroll region is excluded for the same reason it is
+		excluded from the collision scan. ]]
+	it("a cluster WIDER than its column steps down too — width is space", function()
+		local ctx = {
+			measure = function(id: string, form: number, _availW: number, _availH: number): (number, number)
+				if id == "Rail" then
+					-- a 3-pill row, then a single pill: the width ladder
+					return (if form == 1 then 240 else 90), 40
+				end
+				return 80, 40 -- the Timer, narrow enough for any column here
+			end,
+		}
+		local ZONES = {
+			{ id = "Rail", group = "topRight", rank = 3, forms = 2 },
+			{ id = "Timer", group = "top", rank = 2, forms = 1 },
+		}
+		local roomy = composition.resolve(hud(ZONES), { w = 900, h = 500 }, ctx)
+		expect(roomy.regionById.Rail.form).toBe(1)
+		expect(#roomy.collisions).toBe(0)
+
+		-- 320px wide: each column is 106px and the 240px rail does not fit one
+		local narrow = composition.resolve(hud(ZONES), { w = 320, h = 500 }, ctx)
+		expect(narrow.regionById.Rail.form).toBe(2)
+		expect(narrow.fallback).toBe(false)
+		expect(#narrow.collisions).toBe(0)
+		assertNoOverlap(narrow, "320x500")
+	end)
+
 	it("a zone that was never in the failing column keeps its richest form", function()
 		local r = composition.resolve(hud(FULL), { w = 900, h = 320 }, CTX)
 		expect(r.regionById.Timer.form).toBe(1)

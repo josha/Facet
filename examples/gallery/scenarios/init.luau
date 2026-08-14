@@ -118,6 +118,12 @@ local ORDER = {
 	-- which a still screenshot flattens to five chips. Also in
 	-- `demo_picker.DEMOS`.
 	"sensory_feedback",
+	-- ...and ADR-0025: the SCREEN-ANCHORED HUD. Corner clusters, a task panel and
+	-- a weapon rail on `composition.HUD`, plus the one switch that takes 200px of
+	-- HEIGHT off the box the way a browser URL bar does — so the commissioning
+	-- screenshot's exact event can be watched degrading instead of colliding. Also
+	-- in `demo_picker.DEMOS`.
+	"hud",
 }
 
 local scenarios = {}

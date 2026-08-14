@@ -1113,28 +1113,33 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 		expect(said).toBe(true)
 	end)
 
-	it("(b) shrinkWeight CHANGES WHICH ViewThatFits CANDIDATE WINS — and round 2's design doc denied it", function()
-		--[[ `swiftui-parity-round2.md` §2.4 states that `ViewThatFits` "picks its
-			candidate BEFORE any of this and is therefore unaffected". That was true
-			of the arrange-only shrink it was written for, and PASS 1.5 — the
-			measure-side shrink that landed a day later — invalidated it.
+	it("(b) shrinkWeight DOES NOT change which ViewThatFits candidate wins, at ANY width", function()
+		--[[ THE RULING (2026-08-14, director: "follow swiftui's behavior"), and the
+			evidence it was decided on — `docs/lessons/a-candidate-is-judged-at-its-ideal-size.md`,
+			which carries the citations.
 
-			The mechanism: `chosenCandidate` picks the first candidate whose
-			`measure` fits the offer. If that candidate is a stack whose children
-			declare `shrinkWeight`, its measure reaches PASS 1.5, absorbs the
-			deficit, and reports the SHRUNK extent — so it fits where it otherwise
-			would not, and wins.
+			Apple's own reference sentence for `ViewThatFits` is:
 
-			MEASURED: swept 150-420px in 10px steps, adding `shrinkWeight = 1` to the
-			wide candidate's children flips the winner at 10 of 28 widths.
+			    "It selects the first child whose IDEAL SIZE on the constrained axes
+			     fits within the proposed size."
 
-			A RULING IS OWED, and this case does not pre-empt it. The behaviour is
-			arguably CORRECT — a candidate that can shrink to fit does fit — but it
-			is undefined, it contradicts the shipped design doc, and the winner now
-			depends on a prop declared on the candidate's CHILDREN, which the
-			`ViewThatFits` author may not own. Until the director rules, the
-			behaviour is pinned here so it cannot drift unnoticed in either
-			direction. ]]
+			An ideal size is what a view reports when its parent proposes NOTHING, so
+			every mechanism that makes a view smaller than its ideal size — text
+			truncation, `lineLimit`, `minimumScaleFactor` — is invisible to the
+			choice. `shrinkWeight` is this framework's member of exactly that family,
+			so it is invisible here too.
+
+			WHAT THIS REPLACES. PASS 1.5 (the measure-side shrink, 2026-08-12) made a
+			candidate REPORT its squeezed extent, so `fitsW` went true and the
+			candidate won. Swept 150-420px in 10px steps, that flipped the winner at
+			10 of 28 widths (290-380). The sweep is the assertion below, at every one
+			of the 28 widths rather than at three of them: a spot check on one width
+			could not have told a fixed band from a moved one.
+
+			THE OTHER HALF OF THE CONTRACT IS THE CASE BELOW: the candidate that WINS
+			is then laid out against the real offer and shrinks normally, which is
+			SwiftUI's second sentence — the winner receives its parent's proposal, not
+			an unspecified one. Picking is unshrunk; showing is not. ]]
 		local function winnerAt(width: number, withShrink: boolean): string
 			local sw = if withShrink then 1 else nil
 			local res = solve({

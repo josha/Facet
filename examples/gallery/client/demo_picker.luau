@@ -208,6 +208,18 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "sensory_feedback",
 	},
+	-- ...and the eleventh, for the reason every fixture above it is here: what it
+	-- shows is a COMPARISON between two states of one screen. The commissioning
+	-- screenshots are a HUD before and after a browser URL bar opens; the switch
+	-- in this fixture is that URL bar, and the HUD degrades by rank instead of
+	-- landing on itself.
+	{
+		id = "hud",
+		title = "Screen-anchored HUD",
+		blurb = "Nine pinned zones: open the URL bar and watch it give way instead of overlap",
+		kind = "fixture",
+		module = "hud",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

@@ -902,6 +902,12 @@ local function solveArrangement(
 		laneIntrinsic: { number },
 		laneNeed: { number },
 		laneOver: { number },
+		-- HOW FAR THE WIDEST REGION IN THIS LANE PAINTS PAST IT (ADR-0025). A HUG
+		-- lane is as wide as its content by construction, so this is only ever
+		-- non-zero in a FILL lane, where the lane's width is a share of the box
+		-- rather than a measure — and where, before this, a region too wide for its
+		-- share simply painted over the lane next door with nothing to say so.
+		laneWide: { number },
 		active: { boolean },
 		-- the spanning band: per-row need + y, the height the lanes are left with,
 		-- and where that band starts. With no spanning group declared these are
@@ -1018,6 +1024,19 @@ local function solveArrangement(
 		local laneW: { number } = {}
 		local widthFail: string? = nil
 		local slack = offerW - hugTotal - gapsW
+		--[[ FRACTIONAL FILL SHARES ARE A KNOWN, SCOPED DEFECT — not fixed here.
+
+			Three lanes of a 359px box are 119.666px each, and a row shrunk to fill
+			one of them lands ~0.0004px past its own edge, which the solver reports
+			as "overflows by 0px". Rounding the shares to whole pixels (remainder to
+			the last fill lane) removes it — and, measured on 2026-08-14, also
+			removes SIX waived findings across `composition` and `p2_cartwheel`,
+			because a fractional lane box is what several of them are made of.
+
+			That is a corpus-wide geometry change with its own waiver-list edits, so
+			it is FLAGGED rather than smuggled into a HUD mission (ENGINEERING.md,
+			"Flag refactors; don't smuggle them"). Recorded in ADR-0025's
+			Consequences as stage-2 work. ]]
 		if slack < 0 then
 			widthFail = string.format(
 				"the hug lanes need %dpx plus %dpx of gaps but the composition was offered %dpx",
@@ -1134,6 +1153,7 @@ local function solveArrangement(
 		-- A fill region takes slack above its floor; it never sinks below it.
 		local laneNeed: { number } = {}
 		local laneOver: { number } = {}
+		local laneWide: { number } = {}
 		local laneX: { number } = {}
 		local cursor = 0
 		for i, ids in laneGroups do
@@ -1187,6 +1207,27 @@ local function solveArrangement(
 			-- the lanes are short of what the SPANS left them, not of the whole
 			-- offer — with no spans declared `laneBudget` IS `offerH`
 			laneOver[i] = if active[i] then need - laneBudget else 0
+			-- ...and the WIDTH sibling of that number. Rule 2 asks whether the HUG
+			-- lanes fit the offer, which is the only width question a lane whose
+			-- width IS its content can fail. A `fill` lane cannot fail it — its
+			-- width is a share — so a region wider than its share used to overflow
+			-- silently and land on its neighbour. It is an overflow like any other,
+			-- and it goes to the same ladder (rule 3).
+			local wide = 0
+			if active[i] then
+				for _, gid in ids do
+					for _, r in regionsOfGroup[gid] or {} do
+						if dropped[r.id] or not mounted[r.id] or r.mayScroll then
+							continue
+						end
+						local m = measured[r.id]
+						if m ~= nil then
+							wide = math.max(wide, m.w - laneW[i])
+						end
+					end
+				end
+			end
+			laneWide[i] = wide
 		end
 
 		local usedW = 0
@@ -1208,6 +1249,7 @@ local function solveArrangement(
 			laneIntrinsic = laneIntrinsic,
 			laneNeed = laneNeed,
 			laneOver = laneOver,
+			laneWide = laneWide,
 			active = active,
 			contribution = contribution,
 			measured = measured,
@@ -1252,7 +1294,7 @@ local function solveArrangement(
 			end
 		else
 			for i in laneGroups do
-				if p.active[i] and p.laneOver[i] > 0 then
+				if p.active[i] and (p.laneOver[i] > 0 or p.laneWide[i] > 0) then
 					wanted[i] = true
 					wantSpans = true
 				end
@@ -1336,6 +1378,21 @@ local function solveArrangement(
 		end
 		return lanePinned(lane, p) < intrinsic - EPS
 	end
+	-- how far past its own lane this region paints. It is what makes a width
+	-- candidate "buy a pixel" in a FILL lane: the region that is over is the only
+	-- one narrowing anything, exactly as the region that SETS a hug lane's
+	-- intrinsic is the only one narrowing that.
+	local function overWidth(r: RegionDecl, p: Pass): number
+		local lane = laneOfGroup[r.group]
+		if lane == nil or r.mayScroll then
+			return 0
+		end
+		local m = p.measured[r.id]
+		if m == nil then
+			return 0
+		end
+		return m.w - (p.laneW[lane] or 0)
+	end
 	local function stepHelps(r: RegionDecl, p: Pass): boolean
 		if forms[r.id] >= r.forms then
 			return false
@@ -1350,9 +1407,17 @@ local function solveArrangement(
 			return nw < (p.natural[r.id] :: any).w - EPS
 		end
 		-- a spanning region's box IS the offer's width
-		local _, nh = measure(r.id, forms[r.id] + 1, if lane == nil then offerW else p.laneW[lane], offerH)
+		local nw, nh = measure(r.id, forms[r.id] + 1, if lane == nil then offerW else p.laneW[lane], offerH)
 		if r.reserved then
 			nh = math.max(nh, p.floor[r.id] or 0)
+		end
+		-- ...and the WIDTH half: when this region is the one painting past its
+		-- lane, a next form that is narrower buys exactly those pixels back
+		if lane ~= nil and p.laneWide[lane] > EPS and overWidth(r, p) > EPS then
+			local m = p.measured[r.id]
+			if m ~= nil and nw < m.w - EPS then
+				return true
+			end
 		end
 		return nh < (p.contribution[r.id] or 0) - EPS
 	end
@@ -1362,6 +1427,10 @@ local function solveArrangement(
 		end
 		if p.widthFail ~= nil then
 			return laneOfGroup[r.group] ~= nil and narrows(r, p)
+		end
+		local lane = laneOfGroup[r.group]
+		if lane ~= nil and p.laneWide[lane] > EPS and overWidth(r, p) > EPS then
+			return true
 		end
 		return (p.contribution[r.id] or 0) > EPS
 	end
@@ -1399,7 +1468,7 @@ local function solveArrangement(
 	while true do
 		local overflowing = false
 		for i in laneGroups do
-			if p.active[i] and p.laneOver[i] > 0.5 then
+			if p.active[i] and (p.laneOver[i] > 0.5 or p.laneWide[i] > 0.5) then
 				overflowing = true
 			end
 		end
@@ -1439,6 +1508,17 @@ local function solveArrangement(
 			local detail = p.widthFail
 			if detail == nil then
 				for i in laneGroups do
+					if p.active[i] and p.laneWide[i] > 0.5 then
+						detail = string.format(
+							"lane %d (%s) is %dpx wide but its widest region measures %dpx, and no region in "
+								.. "it can step down or drop",
+							i,
+							table.concat(laneAffinities[i], "+"),
+							math.floor(p.laneW[i] + 0.5),
+							math.floor(p.laneW[i] + p.laneWide[i] + 0.5)
+						)
+						break
+					end
 					if p.active[i] and p.laneOver[i] > 0.5 then
 						detail = string.format(
 							"lane %d (%s) needs %dpx but the composition was offered %dpx%s, and no region in "
