@@ -531,25 +531,33 @@ describe("ADR-0025: a mounted HUD loses 200px of height", function()
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 500 })
-		local root = mountLib.mount(core, UI.Screen({
-			id = "S",
-			width = { type = "fill", weight = 1 },
-			height = { type = "fill", weight = 1 },
-			children = {
-				UI.Composition({
-					id = "H",
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
-					groups = composition.HUD_GROUPS,
-					arrangements = { composition.HUD },
-					children = {
-						-- 300px of content in a 200px column
-						UI.Region({ id = "Wide", group = "topLeft", rank = 1, children = { box("WideA", 300, 40) } }),
-						UI.Region({ id = "Timer", group = "top", rank = 2, children = { box("TimerA", 120, 48) } }),
-					},
-				}),
-			},
-		}))
+				children = {
+					UI.Composition({
+						id = "H",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						groups = composition.HUD_GROUPS,
+						arrangements = { composition.HUD },
+						children = {
+							-- 300px of content in a 200px column
+							UI.Region({
+								id = "Wide",
+								group = "topLeft",
+								rank = 1,
+								children = { box("WideA", 300, 40) },
+							}),
+							UI.Region({ id = "Timer", group = "top", rank = 2, children = { box("TimerA", 120, 48) } }),
+						},
+					}),
+				},
+			})
+		)
 		local adapter = fake_target.new()
 		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
 		controller.initialRender()

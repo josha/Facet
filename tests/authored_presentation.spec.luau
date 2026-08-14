@@ -163,8 +163,10 @@ describe("authored presentation A — the props, and the refusals", function()
 	it("`scale` and `rotation` ARE offered on a leaf — neither touches a sheet-owned property", function()
 		local UI = LuauUI.UI
 		expect(function()
-			return UI.Text({ text = "hi", scale = 1.2, rotation = 8 })
-		end).never().toThrow()
+				return UI.Text({ text = "hi", scale = 1.2, rotation = 8 })
+			end)
+			.never()
+			.toThrow()
 	end)
 
 	it("the authored domain is refused rather than clamped: opacity outside 0..1, scale <= 0", function()

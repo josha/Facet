@@ -291,12 +291,14 @@ composition.ZONES = table.freeze({
 }) :: { string }
 
 local function hudColumn(lane: string, align: string, zones: { string }): { GroupDecl }
-	local out: { GroupDecl } = { table.freeze({
-		id = lane .. "Column",
-		lane = lane,
-		sizing = "fill",
-		holdsLane = true,
-	}) :: any }
+	local out: { GroupDecl } = {
+		table.freeze({
+			id = lane .. "Column",
+			lane = lane,
+			sizing = "fill",
+			holdsLane = true,
+		}) :: any,
+	}
 	for i, id in zones do
 		table.insert(
 			out,

@@ -3592,10 +3592,7 @@ function renderer.attach(
 				hiddenTouched = hiddenTouched or {}
 				table.insert(hiddenTouched :: { string }, entry.path)
 			end
-			if
-				entry.path ~= nil
-				and (entry.prop == "opacity" or entry.prop == "scale" or entry.prop == "rotation")
-			then
+			if entry.path ~= nil and (entry.prop == "opacity" or entry.prop == "scale" or entry.prop == "rotation") then
 				presentationTouched = presentationTouched or {}
 				table.insert(presentationTouched :: { string }, entry.path)
 			end

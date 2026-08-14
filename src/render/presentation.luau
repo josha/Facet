@@ -203,12 +203,7 @@ function presentation.transformsEqual(a: any, b: any): boolean
 	if a == nil or b == nil then
 		return a == nil and b == nil
 	end
-	return a.x == b.x
-		and a.y == b.y
-		and a.w == b.w
-		and a.h == b.h
-		and a.scale == b.scale
-		and a.rotation == b.rotation
+	return a.x == b.x and a.y == b.y and a.w == b.w and a.h == b.h and a.scale == b.scale and a.rotation == b.rotation
 end
 
 return presentation
