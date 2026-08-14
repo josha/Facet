@@ -32,9 +32,21 @@ this check with an explicit "re-record" instruction on the day it lands, and no
 later edit to the ORDER assertions can make the gate look passable while the
 evidence predates the scenario.
 
-Re-recording needs Studio and a human. It is booked as owed work in
-`docs/plans/device-bug-round-2026-08-12.md` ("Owed: the TD-13/TD-14 re-record"),
-with the drive procedure and everything that must be captured.
+RE-RECORDED 2026-08-14, AND THIS CHECK HAS BEEN GREEN SINCE. It did not need a
+human after all: the whole drive ran through the Studio MCP against a freshly
+restarted Studio holding `LuauUI-Showcase.rbxl` — real `Tab`/`Shift+Tab`/arrow
+events into a live Play session, the grip still reached THIRD, the artifact
+rebuilt from what came back rather than edited. The 2026-08-13 conclusion that
+"the Play bridge does not work in this environment" turned out to be a property
+of a wedged Studio INSTANCE, not of the environment; restart before believing it.
+The section it is booked in — `docs/plans/device-bug-round-2026-08-12.md`, "Owed:
+the TD-13/TD-14 re-record" — now carries the procedure as it was actually run,
+including four corrections to the version that was written before anyone had run
+it. That heading keeps its "Owed:" prefix on purpose: two other gates grep for it.
+
+None of that softens this file. The guard is structural and stays armed: the next
+restructure of the fixture reddens it on the day it lands, and the answer then is
+the same one it was this time — a re-record, not an edit.
 
 Exit 0 = the evidence is current AND says what the stage claims. Any other exit
 prints why, on stderr.

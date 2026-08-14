@@ -341,7 +341,13 @@ separate defect from Group B's overflow class.
 
 ---
 
-## Owed: the TD-13/TD-14 re-record (opened 2026-08-13, BLOCKING that stage's gate)
+## Owed: the TD-13/TD-14 re-record — ✅ CLOSED 2026-08-14 (opened 2026-08-13)
+
+> **The words "Owed: the TD-13/TD-14 re-record" are load-bearing in this heading.**
+> Two gates (`swiftui-parity-round2` and `swiftui-parity-round3`, row
+> `traversal-evidence-red-carried`) grep this file for that exact phrase to prove the
+> booking was never quietly deleted. Renaming the section reddens both. The status is
+> appended rather than substituted for that reason.
 
 **Group B's `keyboard_navigation` fix invalidated a prior stage's Studio evidence,
 and the invalidation was not noticed at the time.** Wrapping the fixture's body in
@@ -375,84 +381,91 @@ same check on the day it lands rather than a mission later. It is also not a
 permanent red: proved 2026-08-13 that the same script exits 0 against a
 `Body`-shaped artifact, so the re-record below is the whole of what is owed.
 
-### The re-record, exactly
+### The re-record, as it was actually run (2026-08-14)
 
-Needs a human at Studio; no agent can close it headlessly.
+**Done, by an agent, through the Studio MCP — `python3 tools/check_traversal_evidence.py`
+exits 0 and the gate's `studio-evidence` check reads `PASS`.** The artifact is
+`artifacts/traversal-document-order/studio/traversal.json`, dated `2026-08-14`,
+carrying a `priorRecording` block that names what invalidated the 2026-08-03 one.
+Nothing was hand-edited: the five rows were re-driven and the paths in them came
+back from the running session.
 
-> **ATTEMPTED 2026-08-14, AND THE BLOCKER IS NOW MEASURED RATHER THAN ASSUMED.**
-> "Needs a human" was written before the MCP path had been tried. It has now been
-> tried, and the reason is sharper than "no agent can": **the Studio MCP's Play
-> bridge does not work in this environment at all.**
-> `mcp__Roblox_Studio__start_stop_play` times out on every call and then answers
-> `Start play hasn't finished yet` for the rest of that Studio instance's life,
-> and while a session *is* in Play (it does start — `get_studio_state` reports
-> `Play` with `Client, Server`), `execute_luau` answers
-> `Target is not reachable (createExecuteLuauBridge_loadCodeAsync, …)` for **both**
-> datamodels, so `user_keyboard_input` (which is Client-only) can never be
-> reached. Reproduced on **two** Studio instances, the second one fresh, so it is
-> not one wedged session. Synthetic input is not a way around it either: `CGEvent`
-> mouse clicks and `System Events` keystrokes and menu selections were all posted
-> at Studio and **none** of them reached it (proved by clicking an Explorer row
-> and a ribbon tab and observing no change).
->
-> **Steps 1–2 and the source half are already done and can be skipped.** The
-> showcase place was injected from `tools/lune/studio_sync` this session and is
-> current at stamp `20950a06-5154740` with `LuauUI_SourceStale = 2` (only
-> `renderer`/`presenter`, both over the 200,000-char Source cap, both at
-> `965b8ed`); the device emulator was stopped; `LuauUI_Showcase` /
-> `LuauUI_Scenario` were restored afterwards, so set
-> `LuauUI_Showcase = false` and `LuauUI_Scenario = "keyboard_navigation"` again
-> before pressing Play. What is owed is a session in which **raw Tab actually
-> reaches the client** — a human pressing Play with a working input path, or the
-> MCP Play bridge repaired.
->
-> Step 3's `tools/studio/install_matrix_driver` **does not exist as a file**; the
-> driver is installed by fetching `http://127.0.0.1:8642/driver` from
-> `tools/lune/studio_sync` into a `workspace.LuauUIMatrixDriver` ModuleScript
-> (`tools/studio/device_matrix.luau`'s own header). Note also that the artifact's
-> own `TD13-forward-traversal.driver` field records the 2026-08-03 session as
-> having used **`mcp user_keyboard_input keyPress Tab x5`**, not VirtualInput —
-> so that, not `run({ mode = "keyboard" })`, is the path known to have worked.
+The session, exactly: place `LuauUI-Showcase.rbxl`, Play (Client datamodel),
+library `0.9.0`, Studio `0.734.0.7340915`, viewport `907x1067`, source stamp
+`bc33c64b-5189706` with `LuauUI_SourceStale = 2`. Forward Tab x5 from
+`/KbdNav/Body/Name/Field` → `Actions/Save`, `Actions/Reset`,
+`Volume/TrackHost/Track`, `Count/Dec`, `Count/Inc` — **the grip third**, ten raw
+key events, `gameProcessed = false` on every one. Shift+Tab x7 from
+`List/Row4` mirrors it. Down x4 from `Count/Inc` walks `Row1..Row4` and never
+touches the track. `handle.focusOrder()` agrees, and still ends in `auto-grips`.
+`td13-fixture.png` re-taken in the same session, Row 4 wearing the ring.
 
-1. Publish/sync the current source into the gallery place and open
-   **`examples/places/LuauUI-Showcase.rbxl`** (or the stage's own Place1), then
-   **Play (Client datamodel)** — the Edit datamodel caches `require()` results and
-   will run stale modules. Confirm the staleness markers exactly as the existing
-   `preflight.stalenessMarkerNote` in the artifact describes (`traversalPriority`
-   accepted, `traversalPriorty` still refused).
+**The blocker recorded on 2026-08-13 was real but not permanent.** It read, at the
+time: *"the Studio MCP's Play bridge does not work in this environment at all"* —
+`start_stop_play` timing out and then answering `Start play hasn't finished yet`
+for the rest of that instance's life, and `execute_luau` answering
+`Target is not reachable (createExecuteLuauBridge_loadCodeAsync, …)` on both
+datamodels, reproduced on two instances. On 2026-08-14, against a **freshly
+restarted** Studio holding this place, the same three calls all worked first try.
+So: **the bridge is per-instance and perishable, not per-environment.** Restart
+Studio and re-test before concluding it is unavailable, do the input-dependent
+work first, and spend `start_stop_play` deliberately — one stop, one start was the
+whole budget here.
+
+Four corrections to the procedure as it was written, each of which cost time:
+
+- **`tools/studio/install_matrix_driver` does not exist as a file.** The driver is
+  installed by fetching `http://127.0.0.1:8642/driver` from `tools/lune/studio_sync`
+  into a `workspace.LuauUIMatrixDriver` ModuleScript.
+- **`HttpService:GetAsync` is server-only.** Fetching the driver from the Client
+  datamodel answers `Http requests can only be executed by game server`. Fetch it in
+  the **Server** datamodel, parent it to `workspace`, and let it replicate — then
+  `require(workspace.LuauUIMatrixDriver)` from the Client.
+- **The fixture is `responder = "passive"` (TD18), so it binds nothing until a real
+  tap engages it.** At rest `handle.actions.traverse.bindings` is EMPTY and Tab
+  belongs to the game — driving keys at that point measures nothing and looks like a
+  traversal failure. Engage with one real `user_mouse_input` left click on the Save
+  button first, and read `traverse: ["Tab"]` back before sending a key. This is not
+  a workaround; it is the shape the director asked for in round 3.
+- **`user_mouse_input`'s `instance_path` cannot address these nodes.** The renderer
+  names each instance with its full LuauUI path (`/KbdNav/Body/Actions/Save`), and
+  the tool's dotted resolver does not find them. Use `x`/`y` — the button's live
+  `AbsolutePosition` + half its `AbsoluteSize` lands correctly, which is the same
+  coordinate space TD24's clicks used.
+
+The steps themselves stood, and are kept here because the next restructure of this
+fixture will need them again:
+
+1. Sync the current source into the open place (`lune run tools/lune/studio_sync`,
+   then `tools/studio/inject.luau` in the **Edit** datamodel — Play copies re-require,
+   Edit caches), set `LuauUI_Showcase = false` and
+   `LuauUI_Scenario = "keyboard_navigation"` in Edit, then Play. Confirm the
+   staleness markers (`traversalPriority` accepted, `traversalPriorty` still refused,
+   `UI.Grip` accepts it too) **in the Play session**.
 2. `game:GetService("StarterGui"):SetCoreGuiEnabled(Enum.CoreGuiType.PlayerList, false)`
    — **DKN-1: Tab is not deliverable at all with the players list on**, and
    `preflight.playerListEnabled` must record `false`.
-3. Install the driver (`tools/studio/install_matrix_driver`) and drive the
-   `keyboard_navigation` scenario:
-   `local run = require(workspace.LuauUIMatrixDriver)` then
-   `run({ mode = "keyboard", keys = { … } })` for the forward Tab sequence, the
-   reverse Shift+Tab sequence and the arrow sequence, plus
-   `run({ mode = "step", step = "focusOrder" })` for the live dump. Each call
-   returns a JSON **string**.
-4. Rebuild `artifacts/traversal-document-order/studio/traversal.json` from those
-   returns, keeping the existing schema. It must carry:
-   - `preflight`: `scenarioState = "ready"`, `stalenessMarkerChecked = true`,
-     `playerListEnabled = false`, plus the session's own
-     `studioVersion`/`sourceStamp`/`libraryVersion`/`viewportSize`;
-   - rows `TD13-forward-traversal`, `TD13-reverse-traversal`,
-     `TD2-arrows-unregressed`, `TD14-dump-matches-behavior`, `TD13-capture` at
-     `PASS_AUTOMATED`, and `TD15-consumer-canary` still `PENDING` (the game-place
-     canary is a separate row and is not closed by this);
-   - the forward row's `focusLog` with the **grip third** and its `rawInput` with
-     `gameProcessed = false` on every entry;
-   - the arrows row's `focusLog` visiting no `Track`;
-   - the dump row's `traversal` agreeing with the observed order and its
-     `navigation` still ending in the `auto-grips` group.
-5. Re-take `artifacts/traversal-document-order/studio/td13-fixture.png` in the same
-   session (the check requires the file, and a capture from the old screen is the
-   same lie in picture form).
+3. Install the driver (above) and drive the scenario. `mcp user_keyboard_input` is
+   the path known to work, not `run({ mode = "keyboard" })`; the driver's `step` mode
+   supplies `focusOn` (a labelled STATE driver, for the starting position only),
+   `armKeys`, `readKeys` and `focusOrder`. Each call returns a JSON **string**.
+4. Rebuild the artifact from those returns, keeping the existing schema — `preflight`
+   with `scenarioState = "ready"`, `stalenessMarkerChecked = true`,
+   `playerListEnabled = false` and the session's own
+   `studioVersion`/`sourceStamp`/`libraryVersion`/`viewportSize`; the five rows at
+   `PASS_AUTOMATED` and `TD15-consumer-canary` still `PENDING`. Rows the session did
+   not re-drive (TD17–TD24) are carried forward stamped
+   `recordedIn: "2026-08-03 session"` with their provenance, because their paths are
+   pre-`Body` and a reader must not mistake them for today's.
+5. Re-take `td13-fixture.png` in the same session with
+   `tools/studio/capture_viewport.sh` (single-window backing store; pass the live
+   viewport rect — the default `VIEWPORT_RECT` assumes a Studio layout that has since
+   changed).
 6. `python3 tools/check_traversal_evidence.py` must exit 0, then
    `tools/gate.sh traversal-document-order`.
 
-**Until then the `traversal-document-order` gate is legitimately RED**, and any
-prior-gates sweep will report it. That is the honest state: the stage's Studio
-claim is currently unevidenced at the live source.
+**`TD15-consumer-canary` stays `PENDING`** — the game-place canary is a separate row
+and is not closed by a library-place session.
 
 ---
 
