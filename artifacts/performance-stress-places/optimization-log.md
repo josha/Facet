@@ -1932,3 +1932,78 @@ as a regression; (2) the pool can hold up to 64 chromed instance trees off-scree
 (3) a RascalRally Studio canary is owed — the game place was not open this session;
 the framework suite, the game suite and the engine visual diff all pass, and no
 public contract moved (adopt's 4th argument is adapter-internal, feature-detected).
+
+## L-29 — one viewport change is one solve (L-27's lever, paid)
+
+**Date:** 2026-08-13 · **Commits:** `8560f2b` (framework), `0c3f507` (lab)
+**Evidence tier:** 1 (headless count) + the tier-3 device capture that priced it
+(`rr.html`: arrange 8.270 ms/occurrence, measure 3.057 ms/occurrence, 9.67
+arranges/step, arrange+measure = 58.5% of wall).
+
+L-27 recorded *"one viewport change costs 5 solves and 2 structural syncs,
+reproducibly"* and concluded **"the lever for a resize is the solve COUNT, not the
+solve."** This entry pays it.
+
+### The five were TWO multipliers, compounding
+
+1. `src/client/roblox_env.luau` `pushViewport()` writes **six** facts on one real
+   resize — `viewportRect`, `coreSafeInsets`, `deviceSafeInsets`,
+   `topbarSafeInsets`, `topbarInset`, `displaySize`. Written loose, each is its
+   own flush.
+2. `src/render/renderer.luau` observed **eight** geometry keys *independently*,
+   each callback running a full `solveAndApply()`. And `typographyScale` is a
+   *memo over* `displaySize` + `preferredTextOffset` — so even a single loose
+   write fired twice.
+
+### The fix, and why both halves were required
+
+`env:batch(fn)` (delegating to the core's existing `core:transaction`) on the
+adapter's three fact-groups, plus **one scope-owned memo** over all eight keys in
+the renderer. The core is glitch-free, so that memo recomputes at most once per
+flush however many dependencies moved.
+
+Measured on a 40-row tree, one width-and-class-changing resize:
+
+| configuration | solves |
+|---|---|
+| six loose writes + eight observers (as shipped) | **5** — L-27's number exactly |
+| batching alone | 5 |
+| one coalescing memo alone | 4 |
+| **both** | **1** |
+
+Neither half works alone: batching does nothing while N observers each solve, and
+coalescing does nothing while the writes are N separate flushes.
+
+### Traps worth keeping
+
+- **Headless did not reproduce it.** A bare `env:set("viewportRect", …)` costs
+  exactly 1 solve, at every size and across every size-class boundary. The 5 only
+  appear once you mimic what the **real adapter** writes. When a device number
+  will not reproduce headless, suspect the adapter before the framework.
+- **`core:memo` must be `scope:own(...)`-ed.** An unowned memo is a live registry
+  node after dispose; it turned **24** registry-neutrality specs red at once.
+  That suite is the tripwire for this class.
+- **A compressed `.rbxl` is not a greppable oracle.** Probing the built binary for
+  `geometryFacts` returned 0 occurrences while the fix was demonstrably in it;
+  building the same project to `.rbxlx` showed 2. Any past claim of the form "the
+  built bytes contain/lack X" taken from a binary place file is unsound.
+
+### Residual, quantified — the overlay's reservation dance
+
+Instrumenting the lab's resize pass surfaced a second, independent cost. Over 4
+resize steps the watched facts fired: `viewportRect` 5,
+`deviceSafeInsets`/`topbarSafeInsets`/`topbarInset` 4 each, `displaySize` 1 — and
+**`coreSafeInsets` eleven**.
+
+The lab's overlay owns that edge: `forgetReservation` zeroes it whenever
+`viewportRect` or `typographyScale` moves, then `onGeometry` republishes the
+measured dock height. That is **two extra unbatched writes per resize**, each its
+own flush and so its own solve — roughly **3 solves per resize step** in the lab
+rather than the 1 the framework now costs.
+
+This is a *measure-then-publish feedback loop*, not a framework defect: any app
+that reserves space from measured geometry will have the same shape. It is left
+open deliberately — the honest fix is for a measure→publish cycle to settle inside
+one flush, which is a design question, not a patch. `tests/perf_lab.spec.luau`
+excludes `coreSafeInsets` from its batching oracle for exactly this reason and
+says so, so the next reader does not mistake the dance for a batching regression.
