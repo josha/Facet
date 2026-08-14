@@ -4108,7 +4108,7 @@ of them are package data:
 | a per-state `asset` map | any asset reference, at BOTH customization rungs | `{ default, hover, pressed, selected, disabled, error }` through one normalizer. `default` required; unstated states fall back to it with tint rules still applying; a per-state `contentInsets` difference on any axis is a compile error. |
 | `barTrack` / `barFill` / `barCap` / `barCenter` | slots | image value displays. `barFill` takes `direction` (`ltr` default, `rtl`, `ttb`, `btt`); its art is drawn at full track size and revealed through an adapter-owned clip window, so a value change costs no adapter write. `barCap` takes `startAsset` / `endAsset` / `size`. |
 | `toggleTrack` / `toggleKnob` / `stepperPlate` | slots | the sliding switch and the stepper's glyph plate. Knob travel stays solver-owned. `stepperPlate` is whole-image by default and falls back to the `control` recipe when a package does not declare it. |
-| `spinner` | slots | one dot of an indeterminate `newProgressView`'s ring. Whole-image and round by default (a dot, like the slider thumb); carries its own solid native paint so an unskinned spinner still reads, and refuses a gradient for the same reason every other value-control slot does. The travelling pulse is the control's `tint`, which claims the colour and leaves the slot's shape rules alone. |
+| `spinner` | slots | one dot of an indeterminate `newProgressView`'s ring. Round by default (a dot, like the slider thumb); carries its own solid native paint so an unskinned spinner still reads, and refuses a gradient for the same reason every other value-control slot does. **It is the one slot that refuses ART**: the travelling pulse is the control's `tint`, which paints the node's own plate — and art suppresses that plate (`.luau-skinned-spinner { BackgroundTransparency = 1 }`, the image-is-the-element rule), so a skinned spinner would be five identical pictures that never move. A `kind = "nineSlice"` / `"layered"` recipe on it is a compile error naming the size metric, the radius and the accent colour that *do* retune it; `kind = "native"` stays legal. |
 | `icons` | package | semantic name → asset reference (per-state maps legal). Sized from `metrics.iconSizes` through the snapshot, tinted by the asset's `tintRole`. An unknown non-namespaced name is a compile error; a theme with no icon draws the framework's ASCII-safe fallback glyph. |
 | `identity.rendering = "pixel"` + `identity.pixelUnit` | package | `ResampleMode = Pixelated` on every image rule (censused), integer `SliceScale` enforced at compile, and snapshot lengths snapped UP to multiples of the unit. |
 
@@ -4410,6 +4410,43 @@ loading indicator lives inside a vertical `ScrollView`, and a fraction of an
 unbounded axis is not a size — so the ring animates for zero re-solves and can be
 dropped into any container. They paint through one new decoration slot, `spinner`;
 the bar paints through `barTrack` / `barFill` exactly as it always has.
+
+### What a theme can change about these two shapes
+
+Both shapes are **theme-sized**, and since 2026-08-14 every shipped package
+authors all three numbers rather than inheriting them from its spacing scale
+(which is a gap between elements and a poor ruler for the diameter of one —
+Classic Desktop's inherited "ring" was a 12px circle):
+
+| | classic-desktop | compact-pointer | fantasy-ornate | fantasy-parchment | glossy-mobile | glossy-touch | pixel-quest | scifi-hud |
+|---|---|---|---|---|---|---|---|---|
+| `circularSize` | 20 | 18 | 44 | 30 | 32 | 40 | 32 | 36 |
+| `circularThickness` | 2 | 2 | 8 | 3 | 5 | 6 | 4 | 2 |
+| `spinnerDotSize` | 6 | 5 | 12 | 9 | 10 | 12 | 8 | 6 |
+
+A package that authors none of them still resolves — `snapshot.resolve` fills all
+three from the theme's own `space` scale, and `circularThickness` is filled
+*against* the resolved size, because a stroke wider than the box's inset paints
+outside the rect the solver measured.
+
+**The ring** is a stroked `Path2D`, and that fixes exactly what a package can and
+cannot reach. Measured live on 2026-08-14 (Edit datamodel, showcase place), a
+`Path2D`'s entire property surface is `Color3`, `Thickness`, `Closed`, `Visible`,
+`ZIndex` — and `IsA("GuiObject")` is **false**:
+
+| what a package might want | can it? | through what |
+|---|---|---|
+| the arc's colour | ✅ | `colors.accent` — the arc declares `role = "accent"` |
+| the track's colour | ✅ | `contentSecondary` — the backing ring declares `role = "secondary"` |
+| the diameter | ✅ | `controls.progress.circularSize` |
+| the stroke weight | ✅ | `controls.progress.circularThickness` |
+| the cap shape (round / butt / square ends) | ❌ | the engine has no cap or join property on `Path2D` at all — probed by name, not assumed |
+| art along the arc | ❌ | a `Path2D` is not a `GuiObject`, so no stylesheet rule can select one, and the decoration materializer builds `ImageLabel`s, which cannot follow a partial arc. The nearest legal thing is a plate *behind* the ring, which is the caller's own `UI.Box`, not a theme slot |
+
+**The dots** are ordinary `Box` leaves, so they take the whole `luau-slot-spinner`
+own-paint ladder — the accent fill, the round corner and the theme's own hairline
+— plus `spinnerDotSize`. What they refuse is art; see the `spinner` row in the
+recipe table above for why.
 
 **`height` is the bar's track thickness, and only the bar's.** No other shape has
 a track, so `presentation = "spinner"` or `"circular"` with a `height` is

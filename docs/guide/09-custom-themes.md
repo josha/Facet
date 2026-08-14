@@ -275,6 +275,17 @@ Eight more ship for image value displays and are documented in
 indeterminate ProgressView's ring). A package that declares none of them costs
 exactly what it costs today.
 
+`spinner` is the one slot that takes **no art**, and it is worth knowing why: the
+dot's colour is not decoration, it is the loading animation. The control rewrites
+each dot's tint every frame, that tint paints the dot's own plate, and any skin
+hides that plate — so a dot image would be a spinner that never moves, which is
+indistinguishable from a hung game. The compiler refuses it and names what does
+retune a dot instead: `controls.progress.spinnerDotSize` for its size,
+`radii.control` and `strokes.hairline` for its shape and edge, and `colors.accent`
+for what the pulse travels through. The circular ring beside it is retuned the
+same way, with `controls.progress.circularSize` and `circularThickness` — see the
+API reference for the full table of what a stroked arc can and cannot be given.
+
 Three of the nine above were added in the Step 3.5 director round. Two things
 about them are worth knowing:
 

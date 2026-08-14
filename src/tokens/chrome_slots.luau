@@ -501,6 +501,64 @@ function chrome_slots.isGradientable(slot: string): boolean
 	return chrome_slots.isSlot(slot) and not NO_GRADIENT[slot]
 end
 
+--[[ ===== SLOTS WHOSE PAINT IS THE INFORMATION: ART IS REFUSED ===============
+	(director round 2026-08-14, asking whether the two round-3 shapes are
+	themeable. The metrics were the answer for the ring; this is the answer for
+	the dot.)
+
+	THE CRITERION, so a second member can join this table without a second
+	argument: a slot is here when the control writes its colour CONTINUOUSLY
+	through the node's own `tint` channel, and that colour is the only thing
+	carrying a live fact. `spinner` is the one such slot today — a dot's
+	brightness is the travelling pulse, and the pulse is the only thing on the
+	screen saying "work is still happening" (progress_view.luau's reduced-motion
+	note: *a frozen spinner and a hung process look identical*).
+
+	WHY ART BREAKS IT, which is a chain of three facts this repository already
+	owns rather than a prediction:
+	  1. the pulse rides `tint`, and a `tint` on a Box claims BackgroundColor3
+	     (sheet_model.TINT_IDENTITY.Box = "surface"; screen_paint.applyTint);
+	  2. once art covers a node, `emitSlotSuppression` writes
+	     `.luau-skinned-spinner { BackgroundTransparency = 1 }` — the image IS the
+	     element (ADR-0020 R9), so the plate the tint paints is invisible;
+	  3. the decoration's own ImageColor3 comes from the CHROME TINT LADDER
+	     (rest/hover/pressed), which is per-state and identical across the five
+	     dots.
+	So a skinned spinner is five identical images that never change: the animation
+	is deleted and nothing reports it. That is the exact lie the control's header
+	forbids, and it would be invisible in review and in every headless diagnostic.
+
+	WHY A REFUSAL AND NOT A FIX, stated so a later round can lift it rather than
+	rediscover it. The fix is real and is the same idiom `setFill` already uses in
+	screen_paint ("a skinned node's plate is suppressed, so the interaction
+	feedback is the decoration's TINT instead"): compose the node's own tint into
+	the decoration's ImageColor3 so a value-driven colour survives art. It is
+	engine-side, unprovable headlessly, and would have to be driven live on every
+	own-paint slot — a mission, not a rider on a theming round. Until then the
+	honest state is that this slot is an OWN-PAINT IDENTITY (its fill, its round
+	corner and its hairline all come from the theme) and not an art slot, and
+	`themes.define` says so at compile time instead of leaving a trap.
+
+	The slot itself stays in `SLOTS` and in `OWN_PAINT_SLOTS`: that is what gives
+	every package's dot its accent fill, its shape and its own hairline. Only a
+	RECIPE is refused. ]]
+local NO_ART: { [string]: boolean } = { spinner = true }
+
+-- what a package CAN retune about one of these, named in the refusal so the
+-- message ends at a working knob rather than at a closed door
+local NO_ART_ALTERNATIVE: { [string]: string } = {
+	spinner = "`controls.progress.spinnerDotSize` for the dot's size, `radii.control` and `strokes.hairline` for its "
+		.. "shape and its edge, and `colors.accent` for what the pulse travels through",
+}
+
+function chrome_slots.acceptsArt(slot: any): boolean
+	return not (type(slot) == "string" and NO_ART[slot] == true)
+end
+
+function chrome_slots.artRefusalAlternative(slot: any): string?
+	return if type(slot) == "string" then NO_ART_ALTERNATIVE[slot] else nil
+end
+
 function chrome_slots.hasOwnPaint(slot: any): boolean
 	return type(slot) == "string" and OWN_PAINT[slot] == true
 end

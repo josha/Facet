@@ -2629,6 +2629,32 @@ function package.define(def: any): (any, any)
 		end
 	end
 
+	-- (6a-pre) A SLOT WHOSE PAINT IS THE INFORMATION TAKES NO ART (director round
+	-- 2026-08-14; the criterion and the whole chain of facts live on
+	-- `chrome_slots.acceptsArt`). The dot spinner's five plates differ ONLY in the
+	-- tint the control writes each frame, and art suppresses the plate that tint
+	-- paints — so a skinned spinner is five identical images that never move, with
+	-- no diagnostic anywhere. Refused at compile time, with the working knobs
+	-- named, rather than accepted into a rule that silently freezes the animation.
+	for slot, recipe in (if type(merged.chrome) == "table" then merged.chrome else {}) :: any do
+		if
+			chrome_slots.isSlot(slot)
+			and not chrome_slots.acceptsArt(slot)
+			and type(recipe) == "table"
+			and recipe.kind ~= nil
+			and recipe.kind ~= "native"
+		then
+			reject(
+				"unknownField",
+				`chrome.{tostring(slot)}`,
+				`'{tostring(slot)}' carries a LIVE value in its own colour — the control rewrites its tint every `
+					.. "frame — and art suppresses the plate that tint paints, so a skinned one would be a frozen "
+					.. "picture with nothing to report that it had stopped",
+				`retune it instead: {tostring(chrome_slots.artRefusalAlternative(slot))}`
+			)
+		end
+	end
+
 	-- (6a) INSETS THAT LEAVE NO CONTENT BOX (RS-A16-D3, found live under
 	-- pixel-quest). A value display's host extent is a METRIC the package itself
 	-- resolves, so "these insets leave nothing inside" is knowable at COMPILE

@@ -37,6 +37,7 @@ local UI = require("../src/blueprint")
 local environment = require("../src/env/environment")
 local presenterLib = require("../src/present/presenter")
 local actionsLib = require("../src/input/actions")
+local motionClockLib = require("../src/motion/clock")
 local fake_target = require("./lib/fake_target")
 
 local themes = require("../src/themes/package")
@@ -763,6 +764,167 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		expect(names.capEnd).toBe(true) -- only reachable through `endAsset`
 		expect(names.crown).toBe(true)
 		expect(names.trackOn).toBe(true) -- only reachable through a variant map
+	end)
+
+	--[[ THE ONE SLOT WHOSE PAINT IS THE INFORMATION (director round 2026-08-14).
+		Asked whether the dot spinner is themeable, the honest answer had to
+		separate two things the `spinner` slot was carrying at once:
+
+		  * its OWN PAINT — an accent fill, a round corner and the theme's own
+		    hairline, which is what makes an unskinned dot look like this package's
+		    dot. That works, ships, and is asserted by the OWN_PAINT_SLOTS cases
+		    above, which include `spinner`.
+		  * its ART. That does not work, and was a trap: the five dots differ ONLY
+		    in the tint the control rewrites each frame, and `luau-skinned-spinner`
+		    suppresses the very plate that tint paints. A package that declared a
+		    dot image would have shipped a frozen spinner — the exact lie the
+		    control's reduced-motion note forbids — with no diagnostic anywhere.
+
+		Three cases, because it is three separate facts and any one of them
+		changing should redden something: the pulse is on one channel, that channel
+		is the plate a skin suppresses, and therefore the compiler refuses. ]]
+	it("the dot spinner's five plates differ in `tint` and in NOTHING else", function()
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = presenterLib.new(core, env, adapter, actionsLib.newSystem(core))
+		-- a DRIVEN clock (the same idiom tests/progress_circular.spec uses): the
+		-- presenter's own reads wall time, and a headless suite must never assert
+		-- on that
+		local now = { t = 0 }
+		local clock = motionClockLib.new(core, {
+			now = function()
+				return now.t
+			end,
+			motionPolicy = core:signal("full"),
+		})
+		local scope = core:scope("spinner-paint")
+		local view = LuauUI.newProgressView(LuauUI, core, {
+			id = "Load",
+			presentation = "spinner",
+			motionClock = clock,
+			scope = scope,
+		})
+		pres.present(UI.Screen({ id = "S", children = { view.blueprint } }))
+		pres.refresh()
+		local shapes: { string } = {}
+		local function blendsNow(): { string }
+			local out: { string } = {}
+			for index = 1, 5 do
+				out[index] = string.format("%.4f", (adapter.node(`/S/Load/Spinner/Dot{index}`) :: any).props.tint.blend)
+			end
+			return out
+		end
+		local blends = blendsNow()
+		for index = 1, 5 do
+			local node = adapter.node(`/S/Load/Spinner/Dot{index}`)
+			expect(`dot {index} mounted: {node ~= nil}`).toBe(`dot {index} mounted: true`)
+			local props = (node :: any).props
+			-- THE WHOLE POINT, AS A CENSUS: `tint` is the ONLY painted prop these
+			-- nodes carry. Their box is solver-owned (it lands in the rect) and
+			-- their slot identity rides the meta channel, so there is no second
+			-- channel a package could reach them through and no second channel the
+			-- pulse could hide in.
+			local keys: { string } = {}
+			for key in props do
+				table.insert(keys, key)
+			end
+			table.sort(keys)
+			expect(`dot {index} painted props: {table.concat(keys, ",")}`).toBe(`dot {index} painted props: tint`)
+			local value = props.tint
+			-- everything that is NOT the blend, so "differ in nothing else" is a
+			-- comparison rather than a claim: same box, same role, same base
+			table.insert(
+				shapes,
+				`{(node :: any).rect.w}x{(node :: any).rect.h} role={(value :: any).role} from={(value :: any).from}`
+			)
+		end
+		-- THE PULSE IS A SHAPE, NOT FIVE VALUES: `dotFraction` measures distance on
+		-- the WRAPPED ring, so at any instant the dot before the head and the dot
+		-- after it are lit identically (that symmetry is what makes the travel
+		-- seamless). Three distinct levels across five dots is therefore the
+		-- correct census at rest, and a flat ring would report one.
+		local function distinctCount(values: { string }): number
+			local seen: { [string]: boolean } = {}
+			local count = 0
+			for _, v in values do
+				if not seen[v] then
+					seen[v] = true
+					count += 1
+				end
+			end
+			return count
+		end
+		expect(`distinct blend levels at rest: {distinctCount(blends)}`).toBe("distinct blend levels at rest: 3")
+		-- ...and it MOVES: the same five plates carry different colours a moment
+		-- later, which is the whole fact art would replace with a constant
+		for _ = 1, 12 do
+			now.t += 1 / 60
+			clock:step()
+			pres.refresh()
+		end
+		local later = blendsNow()
+		expect(`the ring travelled: {table.concat(blends, ",") ~= table.concat(later, ",")}`).toBe(
+			"the ring travelled: true"
+		)
+		-- ...and nothing else about them differs, so the plate's colour is the
+		-- ONLY channel carrying it
+		for index = 2, 5 do
+			expect(`dot {index}: {shapes[index]}`).toBe(`dot {index}: {shapes[1]}`)
+		end
+		view.dispose()
+		clock:dispose()
+		scope:dispose()
+	end)
+
+	it("that plate is exactly the one a skin suppresses — the trap, in two rules", function()
+		local model = sheet_model.buildPackage(snapshot.neutralPackage())
+		local paints = ruleNamed(model, "Slot — spinner")
+		local suppresses = ruleNamed(model, "Skinned — spinner")
+		expect(`the own-paint rule exists: {paints ~= nil}`).toBe("the own-paint rule exists: true")
+		expect(`the suppression rule exists: {suppresses ~= nil}`).toBe("the suppression rule exists: true")
+		-- the plate the control's tint writes IS the accent fill this rule paints
+		-- (sheet_model.TINT_IDENTITY.Box -> BackgroundColor3)
+		expect(`own paint: {tostring((paints :: any).props.BackgroundColor3)}`).toBe("own paint: $Accent")
+		-- ...and the skin makes that exact plate invisible
+		expect(`skinned transparency: {tostring((suppresses :: any).props.BackgroundTransparency.value)}`).toBe(
+			"skinned transparency: 1"
+		)
+		-- so the two together are why art is refused rather than skinned
+		expect(`acceptsArt(spinner) = {chrome_slots.acceptsArt("spinner")}`).toBe("acceptsArt(spinner) = false")
+		-- every OTHER value slot still takes art, so this is one named exception
+		for _, slot in chrome_slots.OWN_PAINT_SLOTS do
+			if slot ~= "spinner" then
+				expect(`acceptsArt({slot}) = {chrome_slots.acceptsArt(slot)}`).toBe(`acceptsArt({slot}) = true`)
+			end
+		end
+	end)
+
+	it("themes.define REFUSES a spinner recipe, and names the knobs that do work", function()
+		local d = def()
+		d.assets.dot = { content = "rbxassetid://99", preload = "install", fallback = "native" }
+		d.chrome.spinner = { kind = "nineSlice", asset = "dot", sliced = false, fallback = "native" }
+		local pkg, report = themes.define(d)
+		expect(`compiled: {pkg ~= nil}`).toBe("compiled: false")
+		local message, fix = "", ""
+		for _, err in report.errors do
+			if err.field == "chrome.spinner" then
+				message, fix = err.message, err.fix or ""
+			end
+		end
+		expect(`names the field: {message ~= ""}`).toBe("names the field: true")
+		expect(`says the colour is live: {string.find(message, "frame", 1, true) ~= nil}`).toBe(
+			"says the colour is live: true"
+		)
+		-- a refusal that ends at a closed door is half a refusal
+		expect(`points at the dot's size metric: {string.find(fix, "spinnerDotSize", 1, true) ~= nil}`).toBe(
+			"points at the dot's size metric: true"
+		)
+		-- ...and `kind = "native"` is still legal: refusing ART is not refusing the slot
+		d.chrome.spinner = { kind = "native" }
+		expect(`native spinner still compiles: {themes.define(d) ~= nil}`).toBe("native spinner still compiles: true")
 	end)
 
 	it("no wash may reach a value display, and the compiler says so", function()

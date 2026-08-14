@@ -217,12 +217,21 @@ closed vocabulary:
   against the earlier six-slot vocabulary still compiles. A new slot must never
   make an old theme WORSE: `stepperPlate` therefore falls back to the `control`
   recipe, so a package that predates it keeps painting steppers exactly as before.
+- **One slot takes no art at all**: `spinner`. Its colour is not decoration, it is
+  the information — the control rewrites each dot's tint every frame, and that
+  tint paints the node's own plate, which any skin suppresses. A `nineSlice` or
+  `layered` recipe on it is therefore a compile error rather than a silently
+  frozen spinner; `kind = "native"` is legal, and what a package retunes instead
+  is `controls.progress.spinnerDotSize`, `radii.control`, `strokes.hairline` and
+  `colors.accent`. The general criterion, so a second slot can join it: the
+  control writes that slot's colour continuously, and the colour is the only
+  thing carrying a live fact.
 - **Recipe fields**: exactly `{ kind, asset, contentInsets, fallback, sliced,
   shadow, layers, direction, size, startAsset, endAsset }`. Unknown fields are
   rejected with a "did you mean". `kind` is `native`, `nineSlice` or `layered`.
   `sliced = false` paints the asset whole (the default for the fixed-size-token
   slots: `sliderThumb`, `badge`, `barCap`, `barCenter`, `stepperPlate`,
-  `toggleKnob`, `spinner`) and `sliced = true` forces slicing on one of them — a bordered
+  `toggleKnob`) and `sliced = true` forces slicing on one of them — a bordered
   stepper plate needs it and renders stretched without it. `shadow` is a preset
   name or a parameter table, validated at compile time against
   `styling.normalizeShadow`. `direction` (`ltr` | `rtl` | `ttb` | `btt`) is

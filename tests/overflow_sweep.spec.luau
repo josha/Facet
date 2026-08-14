@@ -116,7 +116,7 @@
 --         makes its cells SPEND.
 --
 -- Both are fixed; both are pinned by tests/table_theme_row_box.spec.luau and
--- tests/progress_view.spec.luau. Neither could be seen from a consumer.
+-- tests/progress_circular.spec.luau. Neither could be seen from a consumer.
 --
 -- WHAT A THEME COSTS, AND WHAT THE TIER IS. Naively this is a 9x multiplier on an
 -- always-on check (33.5s, +30s on a 62s suite), so the shape was measured over the
