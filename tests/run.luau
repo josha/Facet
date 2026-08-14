@@ -190,6 +190,7 @@ require("./grid_row.spec")
 -- for an item inside its line. The line partition is a PURE function, cached on
 -- the ctx exactly as `gridColumnPlan` is, so the two passes cannot disagree
 require("./flow_wrap.spec")
+require("./geometry_solve_coalescing.spec")
 -- view lifecycle hooks + the space-reserving hide (round 3, item D): the two
 -- capabilities the completeness audit ranked highest per line of work —
 -- `onAppear`/`onDisappear` (zero hits in `src/` before this) and `hidden`,

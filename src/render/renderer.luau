@@ -3219,31 +3219,61 @@ function renderer.attach(
 		stats.ssTotal += (_t5 - _t0) * 1000
 	end
 
-	-- environment geometry drives re-arrangement (per-key subscription).
-	-- typographyScale is geometry-affecting (matrix D.1): a preferredTextSize or
-	-- displaySize change re-scales text at both the measure and paint seams.
-	for _, key in
-		{
-			"viewportRect",
-			"coreSafeInsets",
-			"deviceSafeInsets",
-			"overscanInsets",
-			"displaySize",
-			"typographyScale",
-			"preferredTextOffset",
-			-- a theme commit is geometry (ADR-0019 §2): new type sizes, spacing,
-			-- control metrics and content insets all reach the solver, so the
-			-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,
-			-- selection, scroll and text entry survive a swap untouched
-			"themeMetrics",
-		}
-	do
-		attachScope:own(core:observe(env:get(key), function()
-			if initialized then
-				solveAndApply()
-			end
-		end))
-	end
+	--[[ ENVIRONMENT GEOMETRY DRIVES RE-ARRANGEMENT — AS ONE FACT, NOT EIGHT.
+		These eight keys all mean the same thing to this surface: "the space you
+		were solved for is no longer the space you are in." They were once
+		observed INDEPENDENTLY, each callback running a full `solveAndApply()`,
+		and the multiplication was real work on a real device: L-27 recorded "one
+		viewport change costs 5 solves and 2 structural syncs, reproducibly" and
+		the 2026-08-13 device capture priced a solve at 8.270 ms of arrange +
+		3.057 ms of measure, 58.5% of wall.
+
+		Two facts compound to make five. An adapter learns SEVERAL of these at
+		once (`roblox_env.pushViewport()` writes six on one resize), and some are
+		DERIVED from others — `typographyScale` is a memo over `displaySize` and
+		`preferredTextOffset`, so even a single loose write fires twice.
+
+		One memo over all eight fixes both. The core is glitch-free, so it
+		recomputes at most ONCE per flush no matter how many of its dependencies
+		moved, and the fresh table is deliberate: identity-inequality means "some
+		geometry fact changed", which is exactly the question this observer asks.
+		Paired with the adapter batching a platform event into one transaction
+		(`env:batch`), five solves become one — measured, not assumed, in
+		tests/geometry_solve_coalescing.spec.
+
+		ADDING A KEY: put it in the list and nowhere else. REMOVING one silently
+		makes the surface deaf to it, which is why that spec drives every key
+		individually and asserts each still costs exactly one solve. ]]
+	-- scope-owned like every other memo: an unowned one is a live registry node
+	-- after dispose, which the registry-neutrality suites catch as a leak
+	local geometryFacts = attachScope:own(core:memo(function(use)
+		for _, key in
+			{
+				"viewportRect",
+				"coreSafeInsets",
+				"deviceSafeInsets",
+				"overscanInsets",
+				"displaySize",
+				-- geometry-affecting (matrix D.1): a preferredTextSize or
+				-- displaySize change re-scales text at measure AND paint
+				"typographyScale",
+				"preferredTextOffset",
+				-- a theme commit is geometry (ADR-0019 §2): new type sizes, spacing,
+				-- control metrics and content insets all reach the solver, so the
+				-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,
+				-- selection, scroll and text entry survive a swap untouched
+				"themeMetrics",
+			}
+		do
+			use(env:get(key))
+		end
+		return {}
+	end))
+	attachScope:own(core:observe(geometryFacts, function()
+		if initialized then
+			solveAndApply()
+		end
+	end))
 
 	local controller = {}
 

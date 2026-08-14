@@ -16,7 +16,7 @@ function roblox_env.bind(env: any): () -> ()
 	local connections: { RBXScriptConnection } = {}
 	local camera = workspace.CurrentCamera
 
-	local function pushViewport()
+	local function pushViewportFacts()
 		local size = camera.ViewportSize
 		env:set("viewportRect", { x = 0, y = 0, w = size.X, h = size.Y })
 		local topInset, bottomInset = GuiService:GetGuiInset()
@@ -80,21 +80,36 @@ function roblox_env.bind(env: any): () -> ()
 		end
 	end
 
+	--[[ ONE RESIZE IS ONE FACT-GROUP, NOT SIX. Everything above is learned from
+		a SINGLE platform event, and the renderer re-solves for most of it. Written
+		loose, one resize cost 5 solves — L-27's reproducible number, priced by the
+		2026-08-13 device capture at 8.270 ms of arrange + 3.057 ms of measure
+		each. Inside one transaction it costs 1 (tests/geometry_solve_coalescing).
+		The pcall-guarded reads stay INSIDE: an engine that lacks `GetInsetArea`
+		must still publish the facts it does have, atomically with the rest. ]]
+	local function pushViewport()
+		env:batch(pushViewportFacts)
+	end
+
 	-- sticky within the session: actual gamepad input is proof the class is
 	-- live even when detection lags or fails (GamepadEnabled=false with a
 	-- working pad is a documented engine failure class — Studio/macOS HID
 	-- forwarding, controller-emulator slot shift; ADR-0015)
 	local sawGamepadInput = false
 
+	-- same fact-group rule as pushViewport: the class and the capability set are
+	-- one truth about the device, and the interactionClasses memo reads BOTH.
 	local function pushInput()
-		local preferred = UserInputService.PreferredInput
-		env:set("preferredInput", preferred.Name)
-		env:set("capabilities", {
-			keyboard = UserInputService.KeyboardEnabled,
-			mouse = UserInputService.MouseEnabled,
-			touch = UserInputService.TouchEnabled,
-			gamepad = UserInputService.GamepadEnabled or sawGamepadInput,
-		})
+		env:batch(function()
+			local preferred = UserInputService.PreferredInput
+			env:set("preferredInput", preferred.Name)
+			env:set("capabilities", {
+				keyboard = UserInputService.KeyboardEnabled,
+				mouse = UserInputService.MouseEnabled,
+				touch = UserInputService.TouchEnabled,
+				gamepad = UserInputService.GamepadEnabled or sawGamepadInput,
+			})
+		end)
 	end
 
 	-- PREFERRED TEXT SIZE (Step 8.5, decision LTN-1; probe artifact
@@ -143,15 +158,19 @@ function roblox_env.bind(env: any): () -> ()
 		end,
 	})
 
+	-- and again for the accessibility group: the text-size preference reaches the
+	-- solver through preferredTextOffset, so it must land with its siblings.
 	local function pushAccessibility()
-		env:set("reducedMotion", GuiService.ReducedMotionEnabled)
-		env:set("preferredTransparency", GuiService.PreferredTransparency)
-		local okText, textSize = pcall(function()
-			return (GuiService :: any).PreferredTextSize
+		env:batch(function()
+			env:set("reducedMotion", GuiService.ReducedMotionEnabled)
+			env:set("preferredTransparency", GuiService.PreferredTransparency)
+			local okText, textSize = pcall(function()
+				return (GuiService :: any).PreferredTextSize
+			end)
+			if okText and typeof(textSize) == "EnumItem" then
+				offsetController:setPreference(textSize.Name)
+			end
 		end)
-		if okText and typeof(textSize) == "EnumItem" then
-			offsetController:setPreference(textSize.Name)
-		end
 	end
 
 	pushViewport()

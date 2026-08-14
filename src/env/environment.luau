@@ -343,6 +343,24 @@ function environment.new(core: any): Env
 		signal:set(value)
 	end
 
+	--[[ ONE REAL CHANGE IS ONE FACT-GROUP. An adapter almost never learns one
+		environment fact at a time: `roblox_env.pushViewport()` learns SIX on a
+		single resize (the viewport, three inset shapes, the topbar rect and the
+		size class). Written one at a time each is its own flush, and every
+		observer downstream — the renderer's re-solve above all — pays once per
+		write for a change the player made once. Measured 2026-08-13 on a 40-row
+		tree: six loose writes cost 5 solves, the same six inside one batch cost
+		1 (tests/geometry_solve_coalescing.spec, L-27's "the lever for a resize
+		is the solve COUNT, not the solve").
+
+		This is the core's own transaction, not a second mechanism: writes inside
+		are invisible to observers until the OUTERMOST batch closes, nested
+		batches collapse into it, and memos stay glitch-free throughout. Group
+		whatever one platform event taught you; do not group across events. ]]
+	function env.batch(_self, body: () -> ())
+		core:transaction(body)
+	end
+
 	function env.keys(_self): { string }
 		local out = {}
 		for k in signals do
