@@ -857,6 +857,31 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- `row_actions.composeWithReorder`, whole (2026-08-14). NOT a control: it
+		-- mounts nothing and owns no node — it is the deferred-down ARBITER that
+		-- lets one raw pointer capture (ADR-0008) be claimed by either the row's
+		-- horizontal swipe or Table's vertical drag-to-reorder, replaying the
+		-- original down into exactly one of them at the axis lock. Its own
+		-- four-input story is Table's and RowActions': the same handler tables it
+		-- composes, proven by their rows above (and by table.spec.luau's
+		-- "mouse horizontal drag on the same reorderable + wrapped row reveals
+		-- actions instead of reordering", cited there).
+		name = "RowActionsReorder",
+		kind = "composite",
+		module = "src/controls/row_actions_reorder.luau",
+		export = "newRowActions",
+		spec = "tests/table.spec.luau",
+		conformance = "tests/table.spec.luau",
+		docsAnchor = "newRowActions",
+		-- STATELESS-BY-SHAPE: one `pending` record per LIVE gesture, local to the
+		-- returned closure and gone at pointer up. The state a report needs is the
+		-- row engine's own dump() and Table's.
+		dump = false,
+		reason = "per-gesture arbiter: its only state is one pending record that dies at pointer up; the row engine's and Table's dumps are what a report needs",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

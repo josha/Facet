@@ -730,6 +730,8 @@ local UNSWEEPABLE: { [string]: string } = {
 		.. "measure. The tray buttons its output describes are swept through the RowActions fixture",
 	RowActionsCoordinator = "three closures over one plain local (which row is open) — no blueprint, nothing to "
 		.. "mount or measure. The rows it coordinates are swept through the RowActions fixture",
+	RowActionsReorder = "a pointer-gesture arbiter over two handler tables — no blueprint, nothing to mount or "
+		.. "measure. The rows it arbitrates for are swept through the RowActions and Table fixtures",
 	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
 		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
 		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "
