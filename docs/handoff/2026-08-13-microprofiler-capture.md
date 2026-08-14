@@ -1,5 +1,22 @@
 # MicroProfiler capture — what to do when you're back (2026-08-13)
 
+## FIRST: close BOTH open Studio places WITHOUT saving
+
+Both places you had open are running **old source**, verified by reading the
+loaded module text rather than assuming. Worse, the showcase session was
+**hand-patched live** during a probe (one module's `Source` was overwritten in
+the Edit datamodel to A/B a fix), so saving it would write a half-old,
+half-patched place over a good one.
+
+All fifteen places have been rebuilt from the current source
+(`tools/build_places.sh`), and the four fixes are verified present in the built
+XML: `refitFullBleed` 8, `catcherScreen` 4, `geometryFacts` 2, `env:batch` 5,
+plus `Technology=Unified` / `LightingStyle=Soft`.
+
+So: **close without saving, then open the rebuilt files** from
+`GameStudio/ui/LuauUI/examples/places/`.
+
+
 The perf lab place has been rebuilt with the solve-count fix in it
 (`examples/places/LuauUI-PerformanceLab.rbxl`). **Reopen it** — the copy you had
 open in Studio is running the old source, which was confirmed by reading the
