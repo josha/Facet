@@ -529,6 +529,11 @@ local function toLayoutNode(
 		itemSizing = props.itemSizing,
 		overflow = props.overflow,
 		axis = props.axis,
+		-- "this container is ONE SLOT of a fixed-pitch windowing list", carried
+		-- straight through to the solver's declared-slot guard (solver `Node.
+		-- virtualSlot`). A plain carried fact like `distribute`: nothing here
+		-- resolves it, because every field is already a px number or a name.
+		virtualSlot = props.virtualSlot,
 		-- THE EFFECTIVE TARGET FLOOR, CARRIED INTO THE SOLVE (LTN-4 diagnostics).
 		-- Declared by the control contract, clamped UP by the theme — the identical
 		-- pair `pushHitRects` spends below, read here so the SOLVE RESULT can say

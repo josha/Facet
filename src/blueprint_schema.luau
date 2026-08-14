@@ -227,6 +227,29 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 	table = function(v)
 		return type(v) == "table"
 	end,
+	-- ONE SLOT OF A FIXED-PITCH WINDOWING LIST (`virtualSlot`). Validated
+	-- field-by-field rather than accepted as any table, because the whole point of
+	-- the guard it feeds is to be trusted: a garbled `extent` here would either
+	-- shout at every honest row or silence a real one.
+	virtualSlot = function(v)
+		if type(v) ~= "table" then
+			return false, 'a slot table such as { list = "Racers", extent = 56 }'
+		end
+		local s = v :: any
+		if type(s.list) ~= "string" or s.list == "" then
+			return false, "`list` must be the naming the finding will quote (a non-empty string)"
+		end
+		if type(s.extent) ~= "number" or s.extent ~= s.extent or s.extent <= 0 then
+			return false, "`extent` must be the DECLARED item extent in px (a positive number)"
+		end
+		if s.axis ~= nil and s.axis ~= "y" and s.axis ~= "x" then
+			return false, '`axis` must be "y" (default) or "x"'
+		end
+		if s.contentFrom ~= nil and (type(s.contentFrom) ~= "number" or s.contentFrom < 1) then
+			return false, "`contentFrom` must be the 1-based index of the first content child"
+		end
+		return true
+	end,
 	array = function(v)
 		return type(v) == "table"
 	end,
@@ -1133,7 +1156,29 @@ class("HStack", {
 class("ZStack", {
 	container = true,
 	structural = false,
-	props = merge(BOX, CONTAINER_LAYOUT, { canvasGroup = CANVAS_GROUP }),
+	props = merge(BOX, CONTAINER_LAYOUT, {
+		canvasGroup = CANVAS_GROUP,
+		--[[ "THIS CONTAINER IS ONE SLOT OF A FIXED-PITCH WINDOWED LIST" (2026-08-13).
+			Declared by `newVirtualList` on every row it builds, and available to any
+			hand-rolled surface that windows by `index x extent` — which is the only
+			shape the promise holds for. It changes NO geometry: the solver reads it to
+			check the slot's content against the extent that was declared for it, and
+			says so naming both numbers when the content is taller (the defect class in
+			`docs/lessons/luauui-fixed-px-heights.md`). Content SHORTER than its slot is
+			legitimate over-reservation and stays silent, and a cell that scrolls or
+			clips its own overflow is skipped. ]]
+		virtualSlot = p({
+			types = { "virtualSlot" },
+			reactive = true,
+			dirty = { "measure" },
+			-- ZStack's alone (like `canvasGroup`), so it is documented in the class's
+			-- own api.md entry rather than the shared box/container table
+			channel = "layout",
+			doc = "declare this container one slot of a fixed-pitch windowed list: "
+				.. "{ list, extent, axis?, contentFrom? }. The solver checks the slot's content "
+				.. "against `extent` and names both numbers when the content is taller",
+		}),
+	}),
 })
 
 class("ScrollView", {

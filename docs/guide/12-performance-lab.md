@@ -422,6 +422,14 @@ first. The short version, because it cost this stage a shipped defect:
 - **In a fixed-height windowed list, arrangement and row height are one decision.**
 - **Measure a breakpoint inside the real fixed slot** — a free-height measurement only
   shows horizontal overflow.
+- **You no longer have to notice this one yourself.** Since 2026-08-13 the framework
+  checks the promise for you: a `newVirtualList` row whose content measures taller than
+  the declared `itemExtent` files a finding on `controller.diagnostics()` naming both
+  numbers and the row (`docs/reference/api.md` → [a lying `itemExtent`](../reference/api.md#a-lying-itemextent)).
+  This lab's own `rows.heightFor` is what it was built from — it had to learn the
+  viewport width, the type scale and the theme insets one device pass at a time, and
+  still did not know about the accessibility text preference until rows overflowed
+  their 56px slot by 11/39/59px on a real phone.
 
 ## 12.8 Return to idle and verify nothing is retained
 

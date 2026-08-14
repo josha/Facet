@@ -779,6 +779,44 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	local listScope = core:scope(`virtual-list-{id}`)
+	--[[ ── THE DECLARED SLOT, HANDED TO THE SOLVER (2026-08-13) ────────────────────
+		This control makes the CONSUMER responsible for predicting its own row's
+		extent — `index × itemExtent` is O(1) and exact only because that extent is
+		one declared number — and for the whole life of the control nothing checked
+		the prediction. The perf lab's own `rows.heightFor` is the case study: it
+		learned the viewport width, then the type scale, then the theme insets, each
+		one AFTER a device pass caught rows painting over each other, and never
+		learned the accessibility text preference at all (at `preferredTextOffset`
+		4/10/14 every row overflowed its 56px slot by 11/39/59px).
+
+		SO THE ROW CARRIES ITS OWN DECLARATION DOWN TO THE ONE PLACE THAT KNOWS THE
+		TRUTH. The extent is not knowable here — it is a function of the viewport,
+		the typography scale, the theme metrics and the text preference, and the
+		first two are not decided until a solve — so this is not a construction
+		refusal but a fact the solver checks per solve and reports through
+		`controller.diagnostics()` (the channel `tests/overflow_sweep.spec.luau`
+		already fails the suite on).
+
+		ONE TABLE FOR THE WHOLE LIST, not one per row: every field is a property of
+		the LIST, and the row's own identity is already its node path (`…/W/[key]/
+		Row/…`), which is what the finding is filed under. A row's marginal cost is
+		one prop assignment. It is a memo only because `itemExtent` may be a
+		Readable; a plain number resolves it once and never again.
+
+		IT PUBLISHES THE DECLARED EXTENT, NEVER THE ROW'S CURRENT BOX — a hosted
+		row-actions commit collapse drives one row's box down its own height ladder
+		on purpose, and comparing against the box would make that animation shout. ]]
+	local slotDeclaration = listScope:own(core:memo(function(use)
+		return {
+			list = id,
+			axis = axis,
+			extent = itemExtentIn(use),
+			-- child 1 is the control's own full-row hit Button; the consumer's cell
+			-- is everything from 2 on (a cell that is a `UI.When`/`UI.ForEach`
+			-- splices several children in, and they all sit after the hit)
+			contentFrom = 2,
+		}
+	end))
 	--[[ scrollTop: the engine CanvasPosition MIRROR (native-substrate NS-A2). Fed
 		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
 
@@ -2997,6 +3035,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				return UI.ZStack({
 					id = "Row",
 					anchor = "topLeft",
+					-- what this row was PROMISED to be (see `slotDeclaration`): the
+					-- solver compares the cell's own measure against it and names both
+					-- numbers when the promise is not kept
+					virtualSlot = slotDeclaration,
 					offsetY = if isX then nil else slotOffset,
 					offsetX = if isX then slotOffset else nil,
 					width = widthOf(rowExtentDim, rowCross),

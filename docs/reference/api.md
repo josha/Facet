@@ -442,9 +442,24 @@ stays symmetric instead of drifting left.
 
 ### `ZStack`
 
-`UI.ZStack{ id?, alignH?, alignV?, width?, height?, surface?, canvasGroup?, children? }` —
+`UI.ZStack{ id?, alignH?, alignV?, width?, height?, surface?, canvasGroup?, virtualSlot?, children? }` —
 layered container; children align independently (`alignH`/`alignV`), `fill`
 children stretch to the stack (scrims, backdrops).
+
+`virtualSlot = { list, extent, axis?, contentFrom? }` declares that this stack is
+**one slot of a fixed-pitch windowed list** — a list that places item *i* at
+`i × extent` and therefore depends on `extent` being the item's TRUE size.
+`newVirtualList` declares it on every row it builds, so ordinary callers never
+write it; declare it yourself only on a hand-rolled surface that windows the same
+way. It changes no geometry. Per solve, the solver measures the slot's content
+(children from `contentFrom`, default 1) along `axis` (`"y"` default) and, when
+that measure is **taller than `extent`**, files a finding through
+`controller.diagnostics()` naming *both* numbers and the row — see
+[a lying `itemExtent`](#a-lying-itemextent). Content SHORTER than its slot is
+legitimate over-reservation and says nothing, and a cell that scrolls or clips its
+own overflow is skipped. The finding is worded in `newVirtualList`'s vocabulary
+(it quotes `list` and calls `extent` "itemExtent"), which is what a hand-rolled
+declarer will read back.
 
 `canvasGroup = true` makes this stack a **fade group**: the adapter materializes
 it as a `CanvasGroup`, it becomes its subtree's real instance parent, and
@@ -3395,6 +3410,32 @@ lie to somebody. Passing the new name and the old one together is refused at
 construction: it is one field. (This is `newVirtualList`'s `rowHeight` only —
 `newTable.rowHeight` is a different control's current API and is **not**
 deprecated.)
+
+<a id="a-lying-itemextent"></a>
+**A lying `itemExtent` is caught and named.** The window is `index × itemExtent`,
+which is O(1) and exact *only* while that one number is the row's true size — and
+you, not the list, are the one who has to predict it, for every live fact your
+cell reads: the viewport width, `typographyScale`, the theme's `chromeInsets`, and
+the player's accessibility text preference. Predict it low and every row paints
+over the one below it, on somebody's device and not on yours.
+
+So the list hands its declaration to the solver (each row carries
+[`virtualSlot`](#zstack)), and every solve compares your cell's own measure
+against it. When the cell is **taller than the slot**, `controller.diagnostics()`
+carries a finding under that row's path naming *both* numbers:
+
+> `/Screen/Racers/Canvas/W/[r7]/Row/Cell` :: newVirtualList 'Racers' declares
+> itemExtent = 56, but this row's content measures 74px on the list's y axis —
+> 18px taller than the slot it is windowed into…
+
+It is a diagnostic, not a refusal, because the true extent is not knowable at
+construction — the viewport and the type scale are not decided until a solve.
+It is not thereby optional: the device sweep and the performance lab both fail on
+a solver finding. A row **shorter** than its slot is fine (over-reserving is the
+safe direction), a cell that scrolls or clips its own overflow is skipped, and a
+cross-axis overflow is still reported by the ordinary layered-overflow finding.
+The repair is to recompute `itemExtent` from the same facts the cell reads — never
+to widen the slot into a `minMax`, which a fixed-pitch window cannot use.
 
 Cells own async
 resources through `ctx.scope`, so window exit cancels them. **Input is

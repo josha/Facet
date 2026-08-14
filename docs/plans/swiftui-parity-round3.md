@@ -1970,3 +1970,133 @@ and not sufficient.
   eight viewports: **no node that has area at +0 loses it at +4, +10 or +14**. The
   axis there is insurance against the candidate-ladder class returning, at +152 ms;
   it has no real mutation to bite on today.
+
+# The lying `itemExtent` guard (2026-08-13, game-director approved)
+
+`newVirtualList` windows by `index × itemExtent`. That arithmetic is O(1) and
+exact **only because the extent is one declared number** — and the control makes
+the CONSUMER predict its own row's height, for every live fact the cell reads.
+Nothing checked the prediction.
+
+The case study is the perf lab's `rows.heightFor`, whose own comments record it
+learning each input *after* that input broke something: viewport width, then the
+type scale (the ten-foot row overflowed its 56px slot by **3px**), then the theme
+insets (**19px** under fantasy-ornate), and — found on a real device on
+2026-08-13 — never the accessibility text preference (**11/39/59px** at
+`preferredTextOffset` 4/10/14, and the lab refused to mount). Four inputs, three
+of them added post-mortem. The class is `docs/lessons/luauui-fixed-px-heights.md`.
+
+The director's ruling was to build the CHECK, not variable extents.
+
+## The mechanism, and why this channel
+
+A **runtime solver diagnostic**, not a construction refusal.
+
+`virtual_list.luau` stamps every row's ZStack with a new public `ZStack` prop —
+`virtualSlot = { list, extent, axis?, contentFrom? }` — and `solver.luau`'s zstack
+arrange compares the slot's content measure against `extent` on the list's axis.
+
+- **Construction cannot know the answer.** A row's true extent is a function of
+  the viewport, `typographyScale`, `themeMetrics` and `preferredTextOffset`; the
+  first two are not decided until a solve. A spec guard could only re-check the
+  arithmetic the consumer already got wrong.
+- **The diagnostic channel is enforced.** `tests/overflow_sweep.spec.luau` fails
+  the suite on solver findings, the perf lab refuses to mount with one, and
+  RascalRally's own fixtures assert an empty `diagnostics()` at four preferences.
+  This is the channel `docs/lessons/the-solver-already-told-you.md` exists to make
+  people read.
+- **It compares against the DECLARED extent, never the row's current box.** A
+  hosted row-actions commit collapse drives one row's box down its own height
+  ladder on purpose; reading the box would make that animation shout.
+- **It does not excuse a `fill` axis** — the one place in `solver.luau` that
+  doesn't. A slot is a declared px cap, never a grant, so `height = fill` on a
+  cell is a statement about paint and not about fit. The exception that survives
+  is the one `zstack_fill_diagnostic.spec` was written for: a child that scrolls
+  or clips absorbs its own overflow (`absorbsOverflow`).
+- **`contentFrom = 2`** keeps the control's own full-row hit Button out of the
+  comparison. Measured: an empty-label hit is 24px whatever the slot is, so
+  without it every list denser than 24px would be accused of a lie the framework
+  itself wrote.
+- **One shared table per list**, not one per row: every field is a property of the
+  LIST, and the row's identity is already its node path (`…/W/[key]/Row/…`), which
+  is what the finding is filed under. A row's marginal cost is one prop
+  assignment.
+- The finding **names both numbers**: *"newVirtualList 'VL' declares itemExtent =
+  56, but this row's content measures 74px on the list's y axis — 18px taller than
+  the slot it is windowed into"*. The sibling overlap finding's advice (a `minMax`
+  FLOOR rather than a fixed CAP) is exactly the wrong repair for a windowed row,
+  so on the axis this names, that finding is suppressed — the cross axis still
+  reports through it, so a row that is also too wide still says so exactly once.
+
+`newTable` is deliberately NOT marked: it caps each cell's line count against
+that row's own height (`table.luau`'s `capFor` — "physically unable to paint
+outside the row it belongs to"), so it does not hand the consumer an uncapped
+slot the way this control does.
+
+## The tolerance, measured rather than picked
+
+The comparison is `math.floor(measured - extent + 0.5) > 0` — round-to-nearest,
+the same rounding the sibling overlap finding uses, i.e. **0.5px and no more**.
+
+That was measured, not assumed. A probe printed `measured - extent` for **every**
+marked-row comparison in both suites:
+
+| suite | comparisons | distinct lists | deltas in (0,1)px | tightest fitting row |
+|---|---|---|---|---|
+| LuauUI (4819 cases) | 56 298 | 7 | **0** | exactly 0.0 |
+| RascalRally (3150 cases) | 5 143 | 1 | **0** | −17.0 |
+
+The distribution is quantized: an honest row lands on **0 or below**, and the
+smallest defect anywhere in either suite is **+2px**. There is no band a slack
+tolerance could sit in, and any tolerance ≥ 3px would have silenced the ten-foot
+row's original 3px overflow — the very defect that taught `heightFor` about the
+type scale. Direction is asymmetric on purpose: content SHORTER than its slot is
+legitimate over-reservation (the lab's own `ROW_HEIGHT` comment calls a slot a few
+px too tall the correct direction) and says nothing.
+
+## Off-path cost — `tier 1 (headless Lune, regression signal only)`
+
+Off the path it is **one `nil` field read per ZStack** (`local slot =
+node.virtualSlot`, hoisted out of the child loop) plus one `slot ~= nil` test per
+child inside a block that was already gated on `hiddenDepth`. On the path it adds
+**no measure**: it reuses the `measure(ctx, child, innerW, innerH)` the overlap
+diagnostic already takes, which is memoized per solve.
+
+`tools/perf.sh`, ABBA (A B B A A B B A, 8 runs × 20 scenes × 5 profiles, quiet
+machine). Same-arm spread first, then the delta:
+
+| aggregate | arm A spread (no guard) | B vs A |
+|---|---|---|
+| whole-suite Σp50 | 2.72 % | **−1.42 %** |
+| whole-suite Σp95 | 4.72 % | **−1.94 %** |
+| the 5 VirtualList-bearing scenes, Σp50 | 3.48 % | −1.58 % |
+| the 5 VirtualList-bearing scenes, Σp95 | 4.17 % | −1.75 % |
+
+Both deltas are negative and both are inside the same-arm spread, which itself
+matches the session floor (2.69 % Σp50 / 4.99 % Σp95). No cost is measurable. Per
+scene the noise is ~27 %, so no single-scene number is quoted.
+
+## What the guard found, and what it cannot yet enforce
+
+- **The fill-axis lift is not theoretical.** Of 791 positive deltas across the
+  LuauUI suite, **254 sit on a `fill` main axis** — shapes the previous ZStack
+  overlap finding was structurally blind to. The paths are the gallery sponsor
+  labs' row cards: `/ListLab/…/Row/Card` (+5px) and `/DropLab/…/Row/Card` (+4px).
+  (`/ListLab/…/Row/Card/Labels` is already on the overflow sweep's waiver list for
+  the same underlying cause — the guard names the slot, one level up.) Neither
+  reproduces at the swept viewport × preference cross product with every scenario
+  step driven, so they are state-specific and belong to whoever owns those
+  scenarios.
+- **`perf_capture`'s `Roster` row overflows its declared slot by 2px at +10 and
+  6px at +14 at console-ten-foot 1920×1078** — reproducible, and pre-existing (it
+  is not on a fill axis, so the old finding reported it too).
+- **The always-on sweep cannot see the new class.** `overflow_sweep.spec.luau`'s
+  `isOverflow` greps `"on the main axis"` / `"on the cross axis"`; this finding
+  says "…than the slot it is windowed into". The same has always been true of the
+  ZStack overlap finding, so nothing regressed — but the sweep is where this class
+  is supposed to bite, and the phrase should be added by that file's owner,
+  together with the two waivers (or fixes) the paragraph above would then require.
+  Until then the class is enforced by the perf lab's mount check, by RascalRally's
+  large-text fixtures, and by `tests/virtual_list_slot_guard.spec.luau`.
+- RascalRally's two consumers fire **nothing**: every one of its 5 143 marked-row
+  comparisons has ≥17px of headroom, at all four text preferences.

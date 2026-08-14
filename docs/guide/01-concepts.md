@@ -492,6 +492,37 @@ clamped to the line — and the solver says so on `controller.diagnostics()`, al
 with the case where you have more lines than the box is tall. Wrapping removes
 the main-axis overflow; it does not remove the need to have room.
 
+### Promising a row's height: `newVirtualList` and `itemExtent`
+
+A long list only builds the rows you can see. To do that it has to know, without
+building anything, where row 700 will be — so it multiplies: row *i* sits at
+`i × itemExtent`. That one number is what makes scrolling ten thousand rows cost
+the same as scrolling ten, and it means **you** are promising how tall your row
+is, for every player, on every screen.
+
+The promise is easy to get wrong, because a row's real height moves with things
+you did not type: how wide the window is, the player's text-size setting, the
+theme's borders and padding, a display scale on a TV. Get it wrong by 8px and
+nothing looks wrong on your machine — every row on somebody else's paints 8px
+over the row beneath it, further down the list every time.
+
+So the framework checks the promise. Every solve, it measures what you actually
+put in the row and compares it with the extent you declared. If your content is
+**taller** than its slot, `controller.diagnostics()` says so, in those words:
+
+> newVirtualList 'Racers' declares itemExtent = 56, but this row's content
+> measures 74px on the list's y axis — 18px taller than the slot it is windowed
+> into…
+
+Both numbers, and the row it happened on. Nothing is said when your row is
+*shorter* than its slot: reserving a few px too many is the safe direction, and
+plenty of lists do it on purpose. Nothing is said either for a cell that scrolls
+or clips its own content, because that content is not going anywhere.
+
+The fix is always to recompute `itemExtent` from the same facts your cell reads —
+not to give the row a flexible height. A windowed list cannot use one; the whole
+speed of it is that the extent is a single number it can multiply.
+
 ### Hiding something without moving everything else: `hidden`
 
 There are two different meanings of "make this go away", and mixing them up is

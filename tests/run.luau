@@ -107,6 +107,10 @@ require("./virtualization.spec")
 require("./virtual_list_row_gap.spec")
 require("./virtual_list_axis.spec")
 require("./virtual_list_focus_policy.spec")
+-- the LYING `itemExtent` guard (2026-08-13): a fixed-pitch window is only exact
+-- while the declared extent is the true one, and until this nothing checked the
+-- consumer's prediction against what its own row actually measures
+require("./virtual_list_slot_guard.spec")
 require("./navigation_groups.spec")
 require("./perf_runner.spec")
 -- evidence-class discipline: the rules that stop a headless number becoming a

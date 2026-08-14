@@ -165,7 +165,22 @@ export type ScreenSpec = BoxProps & ContainerProps & {
 -- so "wrap this row on a phone" is a re-solve and never a remount.
 export type VStackSpec = ScreenSpec & { wrap: Bound<boolean>? }
 export type HStackSpec = ScreenSpec & { wrap: Bound<boolean>? }
-export type ZStackSpec = BoxProps & ContainerProps & { canvasGroup: boolean? }
+--[[ ONE SLOT OF A FIXED-PITCH WINDOWED LIST (`ZStack.virtualSlot`, 2026-08-13).
+	`list` is the naming the finding quotes, `extent` the DECLARED px extent each
+	slot was windowed at, `axis` the list's scroll axis ("y" default), and
+	`contentFrom` the first child index that is CONTENT rather than the control's
+	own furniture (1 by default). `newVirtualList` declares this for every row it
+	builds; anything else that windows by `index x extent` may declare it too. ]]
+export type VirtualSlot = {
+	list: string,
+	extent: number,
+	axis: string?,
+	contentFrom: number?,
+}
+export type ZStackSpec = BoxProps & ContainerProps & {
+	canvasGroup: boolean?,
+	virtualSlot: Bound<VirtualSlot>?,
+}
 export type AnchorSpec = BoxProps & ContainerProps
 export type ScrollViewSpec = BoxProps & ContainerProps & {
 	gap: Bound<number | Metric>?,

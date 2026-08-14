@@ -104,6 +104,16 @@ export type Node = {
 	-- set by `renderer.toLayoutNode` when this node carries ANY of the nine
 	-- placement props; the audit's fast reject (see `auditPlacement`)
 	placementProps: boolean?,
+	--[[ ONE SLOT OF A FIXED-PITCH WINDOWING LIST (`virtualSlot`, 2026-08-13).
+		Stamped by `virtual_list.luau` on each row's ZStack — one shared table for
+		the whole list, since every field is a property of the LIST and the row's
+		own identity is already its node path. `extent` is the DECLARED
+		`itemExtent` (never this row's current box: a row-actions commit collapse
+		drives the box down a height ladder on purpose), `axis` is the list's
+		scroll axis, and `contentFrom` is the first child index that belongs to the
+		consumer's cell rather than the control's own furniture. Read by exactly
+		one thing: the declared-slot guard in `arrange`'s zstack branch. ]]
+	virtualSlot: { list: string, axis: string?, extent: number, contentFrom: number? }?,
 	-- set by `renderer.toLayoutNode` when this node's own width/height is
 	-- `containerRelative`, or any descendant's is with no intervening `scroll` node
 	-- (a scroller re-establishes the container out of its own rect, so it insulates
@@ -2393,6 +2403,37 @@ local function alignOffset(align: string?, avail: number, size: number): number
 	return 0
 end
 
+-- a px number as an author would read it back: whole when it is whole (an
+-- authored `itemExtent = 56` must not be quoted back as "56.00"), two places
+-- when a live extent computed from theme metrics is not
+local function formatPx(v: number): string
+	if v == math.floor(v) then
+		return string.format("%d", v)
+	end
+	return string.format("%.2f", v)
+end
+
+--[[ ── DOES THIS CHILD ABSORB ITS OWN OVERFLOW ON THIS AXIS? ────────────────────
+	Read only by the declared-slot guard below (`Node.virtualSlot`), which is the
+	one comparison in this file that does NOT excuse a `fill` axis — a virtual
+	list row is a declared px CAP, and declaring `height = fill` inside one buys
+	the content nothing but a box it will paint straight out of.
+
+	The exception that survives is the one `zstack_fill_diagnostic.spec` was
+	written for: a child that SCROLLS or CLIPS its own content honestly measures
+	taller than any box and honestly never paints outside it. That is not a lying
+	extent, and reporting it would recreate the false positive three reference
+	proofs once carried `overflow = "clip"` to silence. ]]
+local function absorbsOverflow(child: Node, axisIsX: boolean): boolean
+	local declared = child.overflow
+	if declared == "clip" or declared == "scroll" then
+		return true
+	end
+	-- a scroller absorbs only along the axis it scrolls: a horizontal shelf in a
+	-- vertical row is still as tall as it says it is
+	return child.kind == "scroll" and ((child.axis or "y") == "x") == axisIsX
+end
+
 --[[ ===== THE SHRINK PASS (docs/plans/swiftui-parity-round2.md §2.4) ==========
 
 	UNTIL THIS, THE SOLVER HAD NO SHRINK PASS AT ALL. `remaining = math.max(0,
@@ -3126,7 +3167,11 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	end
 
 	if node.kind == "zstack" then
-		for _, child in node.children or {} do
+		-- THE DECLARED SLOT, hoisted: one field read per ZStack, and `nil` on every
+		-- ZStack in the framework except the rows of a fixed-pitch windowing list.
+		-- Everything it costs is inside the `slot ~= nil` branch below.
+		local slot = node.virtualSlot
+		for childIndex, child in node.children or {} do
 			-- hoisted above the diagnostic: a FILL axis is granted exactly the
 			-- stack's box at arrange (below), so its measure is not its size
 			local childFillW = dim(child, "w").type == "fill"
@@ -3158,6 +3203,76 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				local cw, ch = measure(ctx, child, innerW, innerH)
 				local overW = if childFillW then 0 else math.floor(cw - innerW + 0.5)
 				local overH = if childFillH then 0 else math.floor(ch - innerH + 0.5)
+				--[[ ── THE LYING `itemExtent` (2026-08-13, game-director approved) ───────
+					A fixed-pitch list windows by `index × itemExtent`. That arithmetic is
+					O(1) and exact ONLY because the extent is one declared number — and the
+					consumer, not the control, is the one who has to predict it, for every
+					live fact its own row reads. Nothing checked the prediction.
+
+					THE CASE STUDY is the perf lab's `rows.heightFor`, whose comments record
+					it learning each input only after that input broke something: the viewport
+					width, then the type scale (+3px on the ten-foot row), then the theme
+					insets (+19px under fantasy-ornate), and never the accessibility text
+					preference — at `preferredTextOffset` 4/10/14 every row overflowed its
+					56px slot by 11/39/59px on a real device. `docs/lessons/luauui-fixed-px-
+					heights.md` names the class: a px height fixed against unfixed content.
+
+					IT IS NOT KNOWABLE AT CONSTRUCTION, which is why it is filed here and not
+					refused by `virtual_list.luau`'s spec guard: the row's true extent is a
+					function of the viewport, the typography scale, the theme metrics and the
+					text preference, and the first two of those are not decided until a solve.
+					The channel is enforced — `tests/overflow_sweep.spec.luau` fails the suite
+					on solver findings and the perf lab refuses to mount with one.
+
+					THREE THINGS MAKE IT DIFFERENT FROM THE OVERLAP FINDING ABOVE:
+					  · it compares against the DECLARED extent (`slot.extent`), not this
+					    row's box, so a row-actions commit collapse — which drives the box
+					    down its own height ladder on purpose — cannot make it shout;
+					  · it does NOT excuse a `fill` axis. A slot is a declared px cap, never
+					    a grant, so `height = fill` on a cell is a statement about paint and
+					    not about fit; only a child that scrolls or clips absorbs its own
+					    overflow (`absorbsOverflow`);
+					  · it names BOTH NUMBERS. "You declared 56, this row measures 74" is the
+					    whole value; the overlap finding's advice ("a `minMax` FLOOR rather
+					    than a fixed CAP") is exactly the wrong repair for a windowed row,
+					    whose extent has to stay one number.
+					Only content TALLER than its slot is the defect — over-reserving is the
+					correct direction and stays silent. Cost off this path is one `nil` field
+					test per ZStack; on it, no measure this block was not already taking. ]]
+				if slot ~= nil and childIndex >= (slot.contentFrom or 1) then
+					local axisIsX = slot.axis == "x"
+					local measured = if axisIsX then cw else ch
+					-- the same round-to-nearest the overlap finding uses: a slot is
+					-- authored in whole px and sub-pixel measure noise is not a defect
+					local over = math.floor(measured - slot.extent + 0.5)
+					if over > 0 and not absorbsOverflow(child, axisIsX) then
+						table.insert(ctx.diagnostics, {
+							node = child.id,
+							issue = string.format(
+								"newVirtualList '%s' declares itemExtent = %s, but this row's content measures "
+									.. "%spx on the list's %s axis — %dpx %s than the slot it is windowed into, so it "
+									.. "paints over the next row (`index x itemExtent` is exact only while the declared "
+									.. "extent is the TRUE one). Recompute itemExtent from the facts this cell really "
+									.. "reads — viewport, typographyScale, themeMetrics, preferredTextOffset — or "
+									.. "shorten the cell; a slot a few px too TALL is the safe direction",
+								slot.list,
+								formatPx(slot.extent),
+								formatPx(measured),
+								if axisIsX then "x" else "y",
+								over,
+								if axisIsX then "wider" else "taller"
+							),
+						})
+						-- the main axis has now been reported by name and by number; leave
+						-- the overlap finding below the CROSS axis only, so a row that is
+						-- ALSO too wide for its list still says so exactly once
+						if axisIsX then
+							overW = 0
+						else
+							overH = 0
+						end
+					end
+				end
 				if overW > 0 or overH > 0 then
 					table.insert(ctx.diagnostics, {
 						node = child.id,
