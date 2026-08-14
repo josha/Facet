@@ -34,6 +34,11 @@
 	    surface simply stops responding to (say) preferredTextOffset. Each key
 	    is driven individually and must still cost exactly one solve, so a
 	    dropped dependency reddens as 0.
+	  · "an edgeToEdge surface does not re-solve for a safe-area inset" -> the
+	    ONE narrowing of that rule (L-31), and the differential that keeps it
+	    honest: an edgeToEdge surface is defined not to consume a safe-area
+	    inset, so watching one is pure waste — but a narrowing is exactly how a
+	    memo goes silently deaf, so the identical-rects proof is the licence.
 	  · "a non-geometry write does not solve" -> the opposite failure: a memo
 	    that returns a fresh identity on every flush would re-solve the whole
 	    surface on any unrelated environment write.
@@ -182,6 +187,104 @@ describe("one geometry change is one solve", function()
 		-- outer rebuilt, inner REUSED by reference: identity comparison would call
 		-- this unchanged and never re-solve
 		env:set("themeMetrics", { nested = shared, density = 1 })
+		pres.refresh()
+		expect(solves() - before).toBe(1)
+	end)
+
+	it("an edgeToEdge surface does not re-solve for a safe-area inset — proved by a differential", function()
+		--[[ L-31, 2026-08-14. `solveAndApply` opens with
+
+		      if rootPolicy == "edgeToEdge" then insets = { 0, 0, 0, 0 }
+
+		    — it READS `coreSafeInsets` and throws the value away, and never reads
+		    `deviceSafeInsets` at all. Both were nonetheless in the coalescing
+		    memo, so every scrim, backdrop and dock re-solved for an inset it is
+		    defined to ignore. The shipped case that hurts: a dock which PUBLISHES
+		    its measured height into `coreSafeInsets` re-solved for its own
+		    publication, every time.
+
+		    "IT DOES NOT MATTER" IS A CLAIM, SO IT IS MEASURED. The case above
+		    ("every geometry key still re-solves") exists because a memo that reads
+		    fewer keys than it replaced goes SILENTLY deaf, and this is exactly that
+		    shape — so asserting 0 solves alone would be asserting the hazard. The
+		    differential is the proof: two identical surfaces in two cores, one laid
+		    out under a fat inset and one under none, must produce IDENTICAL rects.
+		    If they ever differ, the narrowing is wrong and this reddens rather than
+		    the surface going quietly wrong on a device with a notch.
+
+		    MUTATION NOTE, because it cost a round to find: `edgeToEdge` has TWO
+		    independent authorities — the renderer zeroes `insets` before the solve
+		    (renderer.luau, `if rootPolicy == "edgeToEdge"`) AND the solver takes the
+		    whole viewport as the content rect (solver.luau, `if policy ==
+		    "edgeToEdge"`). Breaking either one alone leaves this case GREEN, because
+		    the other still holds. Both have to go to see the differential redden.
+
+		    (Rascal Rally's role-pick modal is `rootPolicy = "edgeToEdge"`, so its
+		    consumer rider — games/RascalRally/code/tests/luauui_resize_solve_contract
+		    — carries the same pair of assertions against the shipped surface.) ]]
+		local PATHS = { "/S", "/S/List", "/S/List/R1", "/S/List/R1/A", "/S/List/R4/B", "/S/List/R8" }
+		local function edgeToEdgeRects(inset: number): { [string]: string }
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
+			env:set("coreSafeInsets", { top = inset, bottom = inset, left = inset, right = inset })
+			env:set("deviceSafeInsets", { top = inset, bottom = inset, left = inset, right = inset })
+			local pres = LuauUI.newPresenter(core, env, fake_target.new(), LuauUI.newActionSystem(core))
+			local rows = {}
+			for i = 1, 8 do
+				table.insert(
+					rows,
+					LuauUI.UI.HStack({
+						id = "R" .. i,
+						width = { type = "fill", weight = 1 },
+						children = {
+							LuauUI.UI.Text({ id = "A", text = "Row " .. i }),
+							LuauUI.UI.Spacer({ id = "S" }),
+							LuauUI.UI.Text({ id = "B", text = "value " .. i }),
+						},
+					})
+				)
+			end
+			local handle = pres.present(
+				LuauUI.UI.Screen({ id = "S", children = { LuauUI.UI.VStack({ id = "List", children = rows }) } }),
+				{ rootPolicy = "edgeToEdge" }
+			)
+			pres.refresh()
+			local out: { [string]: string } = {}
+			for _, path in PATHS do
+				local r = handle.controller.rectOf(path) :: any
+				out[path] = if r == nil then "nil" else `{r.x},{r.y},{r.w},{r.h}`
+			end
+			return out
+		end
+
+		local none, fat = edgeToEdgeRects(0), edgeToEdgeRects(60)
+		for _, path in PATHS do
+			-- "nil" everywhere would make this vacuous
+			expect(none[path]).never().toBe("nil")
+			expect(fat[path]).toBe(none[path])
+		end
+
+		-- ...and therefore the re-solve is waste, and is gone
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
+		local pres = LuauUI.newPresenter(core, env, fake_target.new(), LuauUI.newActionSystem(core))
+		local handle = pres.present(
+			LuauUI.UI.Screen({ id = "S", children = { LuauUI.UI.Text({ id = "T", text = "edge" }) } }),
+			{ rootPolicy = "edgeToEdge" }
+		)
+		pres.refresh()
+		local function solves(): number
+			return ((handle.controller.stats() :: any).solves :: number) or 0
+		end
+		local before = solves()
+		env:set("coreSafeInsets", { top = 36, bottom = 0, left = 0, right = 0 })
+		env:set("deviceSafeInsets", { top = 44, bottom = 34, left = 0, right = 0 })
+		pres.refresh()
+		expect(solves() - before).toBe(0)
+		-- the surface is NOT deaf in general: a fact it does consume still solves
+		env:set("viewportRect", { x = 0, y = 0, w = 600, h = 700 })
 		pres.refresh()
 		expect(solves() - before).toBe(1)
 	end)

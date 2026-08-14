@@ -2186,3 +2186,198 @@ workload where every invalidation is legitimate.
 * **`Relayouts` equals `Updates` exactly in `mount.html`** (92 = 92 on the rows,
   39 = 39 on the overlay panel): the engine batched nothing during the ramp. Open,
   unrelated to L-29.
+
+---
+
+## L-31 — a measure→publish cycle settles inside ONE flush (L-29 residual 1, paid — and re-priced)
+
+**Date:** 2026-08-14 · **Commits:** `d7d0e42` (core), `404da2a` (renderer/presenter/spec),
+`2c42cae` (lab + oracles), game `14327f3`
+**Evidence tier: 1 — headless (Lune), a regression signal only.** No Studio and no
+device number is claimed here. The instrument is an event COUNTER, not a clock
+(see "the noise floor" below), so the counts are exact; the ms projection at the
+end is labelled as a projection and is not a measurement.
+
+L-30 named this the top lever at **−25 to −28 % of wall**. That estimate is
+**too high, and this entry says so with the decomposition that replaces it.**
+What was really available, and has been taken, is one of the two flushes and one
+of the four solves — plus a correctness win that was not in the estimate at all.
+
+### The noise floor, stated first
+
+The whole-suite wall-clock floor is 2.69 % Σp50 / 4.99 % Σp95 and a single
+scene's median spread is 27.4 %, so **no number below is a wall-clock number.**
+Every figure is a count of `LuauUI/react`, `LuauUI/arrange` and `LuauUI/mount`
+spans taken through `profile.setHooks`. **Same-arm spread over three consecutive
+reps of both probes: ZERO — byte-identical output.** That is the property that
+makes a 7 → 6 difference quotable at all; it would be meaningless as a timing.
+
+### The shape, reproduced headless in the general form
+
+`tools/lune/_probe_settle` builds the general case out of nothing but the public
+API: a CONTENT surface laid out inside the safe area, and a DOCK surface whose
+panel height is a `percent` of the viewport and which publishes its measured
+height into `coreSafeInsets.bottom`. Three arms, same process:
+
+| arm | react/step | arrange/step | content root rect on return → next frame |
+|---|---:|---:|---|
+| no round trip (control) | 1 | 2 | 655 → 655 |
+| measure→publish | **2** | **4** | **655 → 551** |
+
+**The round trip doubled both, and painted one frame carrying a number nothing
+had settled** — the 104 px reservation arrived a frame late. That last column is
+the finding L-30 did not have, and it is why the lab's overlay carries
+`forgetReservation` at all.
+
+`tools/lune/_probe_lab_settle` drives the REAL lab and reproduces the device
+capture to three significant figures. Steady-state per `resizeStorm` step,
+before: **3 react, 7 arrange, 2 mount** against the device's **3.03 / 7.12 /
+2.00**. So the headless reproduction is faithful, and the device's 7.12 arranges
+decompose by name:
+
+```
+flush A (env:batch)     content + overlay            2   the resize itself
+refresh #1              content + overlay            2   structural dirt (lever 3)
+flush B (onGeometry)    content + overlay            2   THE ROUND TRIP
+refresh #2              content                      1   the data change
+                                                     -
+                                                     7
+```
+
+**Only 2 of the 7 are the round trip.** L-30 attributed ~4 by counting
+"3 flushes × 2 surfaces", which double-counts the refresh-time solves — those
+are the windowed list's legitimate structural re-solve, and they are lever 3's
+territory, not this one's.
+
+### The cause, in two facts
+
+1. **The solve ran in the MIDDLE of propagation.** `geometryFacts`'s observer
+   called `solveAndApply()` inline, so a surface committed to a layout before
+   the flush had finished deciding what the environment was.
+2. **The measurement was delivered a frame late.** `feedGeometry` ran from
+   `presenter.refresh()` on the host's frame connection, so a consumer's derived
+   write could never join the flush that caused it. It always opened a new one.
+
+### The fix: a settle phase (`core:settle`)
+
+Stated in `src/core/contract.luau`, which is the file the conformance suite
+enforces:
+
+> Settle callbacks run after propagation quiesces, in REGISTRATION order; a
+> callback that writes ends the pass, propagation drains, and the pass RESTARTS
+> from the first callback, so every settle callback observes every other one's
+> publication. Passes repeat until one writes nothing.
+
+**Convergence, not an open loop.** A settle pass counts against the existing
+`FEEDBACK_ROUND_CAP`, so a cycle that will not settle is the same loud
+quarantined error an effect feedback loop already was — never a hang, never a
+silent frame. Glitch-freedom is untouched (settle is not an observer and
+receives no value), observer creation order is untouched, and it runs INSIDE the
+flush, so a top-level write still returns with all of its consequences applied.
+`Counters` gains `settles` so an un-disposed registration is a leak the 24
+registry-neutrality specs can see.
+
+The renderer's geometry re-solve and the presenter's geometry feed both became
+settle work (`controller.onSolved` is the new seam). Plus one narrowing that
+falls out of it: **an `edgeToEdge` surface no longer depends on
+`coreSafeInsets`/`deviceSafeInsets`** — it reads one and throws it away and
+never reads the other — so every scrim, backdrop and dock stopped re-solving for
+an inset it is defined to ignore, including for a reservation it published
+itself.
+
+### Measured, tier 1, exact counts
+
+| | before | after |
+|---|---:|---:|
+| general shape — react/step | 2 | **1** |
+| general shape — arrange/step | 4 | **3** |
+| general shape — rect on return → next frame | 655 → 551 | **551 → 551** |
+| real lab — react/step | 3 | **2** |
+| real lab — arrange/step | 7 | **6** |
+| real lab — mount/step | 2 | **1** |
+
+The `mount` halving is a side effect worth recording: with the geometry settled
+before the frame's `refresh()`, one of the two structural syncs L-27 recorded and
+L-29 left untouched has nothing to do. **Lever 3 is half paid by accident.**
+
+**Projected on the device, and labelled as a projection**: −1 arrange at
+9.136 ms and −1 measure at 3.236 ms is 12.4 ms of a 173.2 ms step, and −1 mount
+at 6.387 ms is another 6.4 ms — about **−11 % of wall**, not −25 to −28 %. A
+device capture is owed before that number is quoted as measured.
+
+### The honest result: settling in one flush does NOT halve the solves, and why
+
+The round trip's two solve generations are set by the DATA DEPENDENCY, not by
+the framework. The dock's height is only known after the dock solves; the
+content surface must therefore solve once against the pre-publication
+environment and once against the settled one. The only thing that would remove
+the first is settling the PRODUCER before the CONSUMER — and settle callbacks run
+in registration order, while z-order is present order, so a dock presented ON TOP
+settles LAST, after the surface it publishes to.
+
+**A "producers first" or "topmost first" settle order was considered and
+refused.** The framework has no principled way to know that one surface produces
+what another consumes, and an order learned from history would break the
+contract's own reproducibility promise. What is left is the honest floor: one
+solve per surface per generation of settled values, inside one flush, before
+anything is committed.
+
+`forgetReservation` in the lab's overlay therefore **stays**, and deleting it is
+the mutation proof: two NAMED cases redden immediately (`a viewport change DROPS
+the overlay's stale reservation before the workload re-solves` and `the full
+resize pass leaves the workload MOUNTED`) with the 122 px content box and 17 px
+overflow its own comment describes. What changed is its price: both writes now
+land inside the flush that caused them.
+
+### The lab's own bug, found by writing the general shape as a test
+
+`reserveBottom` compared against a REMEMBERED reservation, and the memory was
+wrong every time the adapter republished the fact — `roblox_env.pushViewport()`
+is the author of `coreSafeInsets` and rewrites all four edges on every resize,
+zeroing the reservation without the overlay hearing about it. The cache then said
+"already reserved" and the republication never happened. It compares the LIVE
+fact now.
+
+### The instrument (director's standing instruction)
+
+`resizeStorm` reports **`reactPerStep`** and **`arrangePerStep`**, off
+`profile.counters()`, nil-safe under `cleanCapture`. `reactPerStep` is the
+feedback-loop detector: a resize step drives exactly two writes, so anything
+above two is a write made in RESPONSE to the resize. Both numbers had to be read
+out of a binary MicroProfiler dump by hand to diagnose this; they are now a field
+in the pass's own report.
+
+### Traps worth keeping
+
+* **A check on the lab's profiler readout, driven headlessly, reads ZEROS.**
+  `host.profile` defaults to a no-op stub whose `byScope` is always empty, so a
+  spec must hand in the REAL module (as the Studio lab client does) or it proves
+  nothing. Caught by asserting the instrument is non-zero before asserting its
+  value.
+* **`edgeToEdge` has TWO independent authorities** — the renderer zeroes `insets`
+  before the solve AND the solver takes the whole viewport as the content rect.
+  Breaking either alone leaves the differential test GREEN. A mutation proof over
+  a belt-and-braces invariant has to break every belt.
+* **A memo cannot witness "did propagation run".** The first version of
+  `settle-callbacks-never-see-a-half-propagated-graph` used a memo and passed
+  with the drain removed, because a stale memo recomputes on `get`. Only an
+  observer notification count can see it.
+* **The lab's `coreSafeInsets` batching-oracle exclusion was NOT deleted**, which
+  is what L-29 predicted would happen. The fact still legitimately moves twice
+  per resize — that is what a measure→publish cycle IS — so the exclusion stands
+  and the new `reactPerStep` ceiling is the check that pins what was fixed.
+
+### Residuals
+
+1. **The remaining generation.** One of the round trip's two solve generations is
+   removable only by ordering producers before consumers. Worth ~1 arrange per
+   geometry change per consuming surface; needs a principled rule, and there is
+   not one yet. The elegant version is a separate publish/apply split (SwiftUI's
+   PreferenceKey shape), which is a feature, not a patch.
+2. **Two authors for one fact.** The whole intermediate generation exists because
+   the platform adapter and the app both write `coreSafeInsets`. An additive
+   reservation channel — the app declares a reservation, the framework composes it
+   with the platform's insets — would remove the round trip entirely rather than
+   making it cheap. Named, not built.
+3. **A device capture is owed** before the −11 % projection above is quoted as a
+   measurement, and to confirm the `mount` halving on the real engine.
