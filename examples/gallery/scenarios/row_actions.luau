@@ -835,6 +835,52 @@ return {
 				vlistDebug = function()
 					return vlist._hostedDebug()
 				end,
+				--[[ THE TWO NON-POINTER ROUTES INTO A ROW'S ACTIONS (parity round 3,
+					owed rows 8 and 9). Both were pointer-only until 2026-08-13, and
+					both are driven here the way every other input step in this file is
+					— real focus, real keys through the real action system, never a
+					shortcut into the model.
+
+					keyDeleteVList / menuVList: the hosted surface's answer to the
+					"list" surface's own `keyDeleteList`/`menuList`. A hosted row's
+					engine is built by a swipe, so a row the player has only FOCUSED
+					used to have no binding at all; the list now holds the row's key
+					surface and materialises that one engine on the press. ]]
+				keyDeleteVList = function(_built: any, payload: string?)
+					local id = tostring(payload)
+					ctx.presenter.focus.focusOn(`{VLIST_PANE}/VList/Canvas/W/[{id}]/Row/Hit`)
+					ctx.presenter.refresh()
+					pressKey("Delete")
+					return { ok = true, remainingIds = vlModel.ids(), hosted = vlist._hostedDebug() }
+				end,
+				menuVList = function(_built: any, payload: string?)
+					local id = tostring(payload)
+					ctx.presenter.focus.focusOn(`{VLIST_PANE}/VList/Canvas/W/[{id}]/Row/Hit`)
+					ctx.presenter.refresh()
+					pressKey("ButtonX")
+					return { ok = true, hosted = vlist._hostedDebug() }
+				end,
+				--[[ padMinusTable: the TABLE surface's edit-mode minus, reached the
+					way a pad reaches it — one step off the row's own content, then
+					Activate. The minus lives in the row-actions WRAPPER, a sibling of
+					the row's own node, so until the focus contribution learned to walk
+					the wrapper it was in no focus group and no direction reached it. ]]
+				padMinusTable = function(_built: any, payload: string?)
+					local id = tostring(payload)
+					editingSignal:set(true)
+					ctx.presenter.refresh()
+					local root =
+						`/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[{id}@0]/RowActions-{id}`
+					ctx.presenter.focus.focusOn(`{root}/Content/Row/Hit`)
+					ctx.presenter.refresh()
+					pressKey("DPadRight")
+					local landed = ctx.presenter.focus.focused:get()
+					if landed ~= `{root}/EditAffordanceWhen/then/EditAffordance` then
+						return { ok = false, reason = `the pad landed on '{tostring(landed)}', not the minus` }
+					end
+					pressKey("ButtonA")
+					return { ok = true, focused = landed, remainingIds = tableModel.ids() }
+				end,
 			},
 
 			report = function()

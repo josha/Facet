@@ -781,6 +781,94 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(core:lastError()).toBeNil()
 	end)
 
+	it(
+		"KEYBOARD: a swiped-open tray is REACHABLE on the shipped playlist — Tab lands on Remove and fires it",
+		function()
+			--[[ THE SHOWCASE HALF of parity round 3's owed row 8, on the example a
+			player actually sees. A Table tray opens only by swipe, so this swipes it
+			open with the mouse and then leaves the pointer alone.
+
+			MEASURED BEFORE AND AFTER, on this surface: pre-fix the walk from the Edit
+			toggle ran Hit -> Rating -> next row's Hit, straight past a mounted, lit
+			tray button; after it, Remove is a stop. (Tab is document-order RANK, and
+			the tray mounts AHEAD of the row's content — trays are the wrapper's first
+			children — so it comes before the row it belongs to. The navigation groups
+			read the same set in painting order.)
+
+			WHY TAB AND NOT THE D-PAD HERE: this row's rating strip is a value control
+			that OWNS Left/Right (measured: DPadRight on it moves the rating 4 -> 5 and
+			never the ring, even at the maximum), so directional navigation cannot pass
+			it to anything later in the row. That is the rating control's arrow
+			ownership, not this fix — the pad walk into a tray is proved on a row
+			without one (tests/table_input.spec.luau R8-1) and the pad's route to the
+			edit-minus is proved on the row_actions showcase surface
+			(tests/row_actions_scenario.spec.luau). ]]
+			local ex = require("../examples/gallery/examples/02_playlist_table")
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+			env:set("preferredInput", "KeyboardAndMouse")
+			local system = LuauUI.newActionSystem(core)
+			local adapter = fake_target.new()
+			local clock = { t = 0 } -- a swipe needs a scripted clock (drag velocity)
+			local presenter = LuauUI.newPresenter(core, env, adapter, system, {
+				now = function()
+					return clock.t
+				end,
+				keyboardNavigation = true, -- Tab is opt-in at the presenter
+			})
+			local built =
+				ex.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+			presenter.present(built.screen, built.present)
+			presenter.refresh()
+			local function settle(frames: number?)
+				for _ = 1, frames or 120 do
+					clock.t += 1 / 60
+					presenter.tick(1 / 60)
+					presenter.refresh()
+				end
+			end
+			local function press(key: string)
+				system.deviceKey(key, true)
+				system.deviceKey(key, false)
+				settle(2)
+			end
+			local key = built.rows:get()[1].id
+			local root = `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+			local hit = `{root}/Content/Row/Hit`
+			local remove = `{root}/TrayTrailingWhen/then/TrayTrailing/Action:remove`
+			expect(adapter.node(remove)).toBe(nil)
+
+			local rect = adapter.node(hit).rect
+			local startX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+			adapter.pointerDown(hit, startX, y, "mouse")
+			for i = 1, 8 do
+				adapter.pointerMove(startX - rect.w * 0.3 * (i / 8), y, "mouse")
+				settle(1)
+			end
+			adapter.pointerUp(startX - rect.w * 0.3, y)
+			settle(120)
+			expect(adapter.node(remove) ~= nil).toBeTruthy() -- open, by finger
+
+			-- ...and now the KEYBOARD, with no pointer anywhere near it
+			presenter.focus.focusOn("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
+			presenter.refresh()
+			press("Tab")
+			expect(presenter.focus.focused:get()).toBe(remove)
+			expect(adapter.node(remove).focused).toBe(true)
+			expect(#built.baseRows:get()).toBe(6)
+			press("Return")
+			settle(400)
+			local ids = {}
+			for _, track in built.baseRows:get() do
+				table.insert(ids, track.id)
+			end
+			expect(#ids).toBe(5)
+			expect(table.find(ids, key)).toBeNil()
+			expect(core:lastError()).toBeNil()
+		end
+	)
+
 	it("drag & drop rearranges the playlist rows (post-removal reorder contract)", function()
 		local core, adapter, presenter, built = playlistWorld()
 		local order = {}

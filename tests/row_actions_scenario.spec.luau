@@ -127,7 +127,21 @@ describe("row_actions scenario: it builds and mounts clean", function()
 			names[name] = true
 		end
 		for _, name in
-			{ "mode", "open", "close", "commit", "editing", "keyDeleteList", "menuList", "bindScroll", "list" }
+			{
+				"mode",
+				"open",
+				"close",
+				"commit",
+				"editing",
+				"keyDeleteList",
+				"menuList",
+				"bindScroll",
+				"list",
+				-- the two non-pointer routes (parity round 3, owed rows 8 and 9)
+				"keyDeleteVList",
+				"menuVList",
+				"padMinusTable",
+			}
 		do
 			expect(names[name] == true).toBe(true)
 		end
@@ -401,6 +415,30 @@ describe("row_actions scenario: table surface (reorderable, editable, rowActions
 		teardown(world)
 	end)
 
+	it("THE PAD REACHES THE EDIT-MODE MINUS on the showcase surface, and it deletes the row", function()
+		--[[ The showcase half of parity round 3's owed row 8. The minus lives in
+			the row-actions WRAPPER — a sibling of the row's own node, not a
+			descendant — so until the focus contribution learned to walk the
+			wrapper it was in no focus group at all: on this very surface, a
+			keyboard or a pad had NO route to the only delete affordance edit mode
+			offers. The step refuses (`ok = false`, naming where the ring landed)
+			if the pad does not reach it, so this cannot pass vacuously. ]]
+		local world = tableWorld()
+		local before = world.built.report().tableIds
+		local result = step(world, "padMinusTable", "m2")
+		expect(result.ok).toBe(true)
+		expect(result.focused).toBe(
+			"/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m2@0]/RowActions-m2/EditAffordanceWhen/then/EditAffordance"
+		)
+		local after = world.built.report().tableIds
+		expect(#after).toBe(#before - 1)
+		for _, id in after do
+			expect(id).never().toBe("m2")
+		end
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
 	it("rows still reorder via mouse drag: a vertical drag on the row moves it, not the tray", function()
 		local world = tableWorld()
 		local rowHit =
@@ -665,6 +703,48 @@ describe("row_actions scenario: virtual list surface (hosted newVirtualList.rowA
 		end
 		expect(found).toBe(false)
 		expect(#after).toBe(#before - 1)
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
+	it("KEYBOARD DELETE on a row nobody has swiped removes it, building exactly one engine", function()
+		--[[ The showcase half of parity round 3's owed row 9. On this surface a
+			hosted row's engine — and with it the whole Delete/menu key surface —
+			used to exist only after a pointer swipe, so a keyboard-only or
+			pad-only player could not act on a row at all. The list now stands in
+			for the engine and materialises it on the press: `engineCount` goes
+			0 -> 1 for the row the ring was on, and no other. (The step reads that
+			count at the press; by the time the commit's collapse has settled the
+			row is out of the data and the list has dropped its engine with it —
+			which is the retention policy working, not the count being wrong.) ]]
+		local world = vlistWorld()
+		expect(world.built.steps.vlistDebug(world.built).engineCount).toBe(0)
+		local before = world.built.report().vlistIds
+		local result = step(world, "keyDeleteVList", "m3")
+		expect(result.ok).toBe(true)
+		expect(result.hosted.engineCount).toBe(1) -- built BY the press
+		local after = world.built.report().vlistIds
+		expect(#after).toBe(#before - 1)
+		for _, id in after do
+			expect(id).never().toBe("m3")
+		end
+		expect(world.built.steps.vlistDebug(world.built).engineCount).toBe(0) -- and dropped with the row
+		expect(world.core:lastError()).toBeNil()
+		teardown(world)
+	end)
+
+	it("GAMEPAD ButtonX on an unswiped row opens its action menu (the pad's route to Flag/Mark Read)", function()
+		local world = vlistWorld()
+		local result = step(world, "menuVList", "m2")
+		expect(result.ok).toBe(true)
+		local menuNodes = 0
+		for _, path in world.adapter.paths() do
+			if string.find(path, "RowActionsMenu", 1, true) ~= nil then
+				menuNodes += 1
+			end
+		end
+		expect(menuNodes > 0).toBe(true)
+		expect(result.hosted.engineCount).toBe(1)
 		expect(world.core:lastError()).toBeNil()
 		teardown(world)
 	end)
