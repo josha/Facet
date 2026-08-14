@@ -1855,7 +1855,9 @@ lifetime is the mount's, not the module's).
 | `renderer.drawnButtonText(props, compact?) -> string` | pure: what a `Button`'s own engine text node actually shows (empty for a content button; the framework's ASCII-safe glyph for an icon button) |
 
 **`attach` options** — `{ rootPolicy?, onNodeTap?, engineSelectionBridge?,
-onDiscloseHover?, onDiscloseLongPress? }`.
+onDiscloseHover?, onDiscloseLongPress?, recycleInstances?, incrementalLayout? }`
+(the last two are the two performance opts described under `present()`, both on
+by default; a presented surface forwards its own).
 `rootPolicy` is the surface's content-rect policy (`"coreSafeContent"` default,
 `"deviceSafeContent"`, `"edgeToEdge"`; an unknown value errors and lists the
 set). **`onNodeTap(path, meta)` takes two arguments** — `meta` carries the tap
@@ -2173,11 +2175,28 @@ Methods:
   `.responder` (a `Readable<"passive" | "engaged">`), `.engage()`, `.resign()`,
   `.focusOrder()` (the focus-map inspection dump, below).
 
-Options: `onActivate(path, meta)`, `onAdjust`, `onFocusNav`, `onReorderNav`,
+Options — the key set is closed, and an unknown one is refused at present time:
+`onActivate(path, meta)`, `onAdjust`, `onFocusNav`, `onReorderNav`,
 `onNavigateIntercept`, `navigationGroups`, `onGeometry`, `keepVisibleOffset`,
 `sinkNavigation`, `responder`, `gameplayGuard`, `rootPolicy`, `outsideTapCancel`,
 `cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`,
-`traversalWrap`, `keyboardNavigation`, `initialFocus`.
+`traversalWrap`, `keyboardNavigation`, `initialFocus`,
+`engineSelectionBridge` (the `presentModal` mirror described above),
+`fallbackScreen` (read by `presentCritical`), and the two performance opts the
+surface hands straight to `renderer.attach`:
+
+- **`recycleInstances`** (default **on**) — park a retiring node and reuse it for
+  the next create of the same kind instead of destroying and re-creating it. It
+  is feature-detected on the adapter (`park`/`adopt`/`discardParked`) and `park`
+  refuses any node it cannot take intact, and a refusal falls straight through to
+  the ordinary remove — so it can only ever avoid work, never change what is on
+  screen. Pass `false` to opt out.
+- **`incrementalLayout`** (default **on**) — let one solve from the root SKIP a
+  subtree it can prove cannot have changed (no dirty node inside it, same offer
+  and same rect as last time), replaying that subtree's published verdicts and
+  diagnostics. Same traversal, same context, same policies as a full solve. Pass
+  `false` to opt out.
+
 The four string-enum opts — `rootPolicy`, `responder`, `cancelPolicy`, `scrim` —
 are validated at present time and an unknown value errors naming the legal set.
 
@@ -5440,6 +5459,9 @@ toggling reduced motion changes the next re-target without a remount.
   precisely the scenario worth asserting on.
 - `clock:lastError() -> string?` — the last error a step quarantined, nil when
   none. The instrument for a wedged clock, mirroring `core:lastError`.
+- `clock:isReduced() -> boolean` — the live reading of `opts.motionPolicy`, so a
+  caller that has to branch (a control choosing an instant snap for a collaborator
+  it does not own) asks the clock rather than re-reading the environment.
 - `clock:dispose()` / `clock:isDisposed()` — scope-owned (`scope:own(clock)`).
   Disposal releases every value the clock built, so core counters return to
   baseline across mount/reset churn.
@@ -5527,6 +5549,33 @@ terminus, so it advances by raw `dt` (springs clamp `dt` because they are
 target-seeking; a countdown must not stretch across a frame spike). `kind`
 defaults to `"informational"` — a timer's content *is* elapsed time. A timer has
 no target and no velocity: `setTarget` / `setVelocity` raise an authoring error.
+
+#### `clock:glide(initial, spec) -> MotionValue`
+
+`{ duration, kind?, quantum?, reducedMotion?, eps? }` — the **re-aimable** linear
+ramp: the value a fixed cadence resamples, which has to cross each gap at
+constant speed. Set `duration` to the cadence the value arrives at, so one
+sample's travel exactly fills the wait for the next. The key set is closed and
+a non-finite `initial` or a negative `duration` errors at the call.
+
+- **`setTarget(v)` restarts a full-duration ramp from wherever the value
+  currently is.** It never moves the value, so a sample arriving mid-flight
+  redirects without a visible jump — that is the interruptibility invariant a
+  spring owes too.
+- **It is not a spring**, because a spring re-aimed every sample is an ease-out
+  per sample: it surges to ~2.2× average speed and then decays to ~0.14× before
+  the next sample re-launches it, and at a 4 Hz cadence the eye reads that
+  surge/stall cycle as stepping (director report, 2026-08-04 — the Sponsor map's
+  dots wore exactly that). The velocity PROFILE is the thing to match, not the
+  duration.
+- **It is not a timer**, because a timer refuses `setTarget` — being re-aimed
+  forever is a glide's whole job. It has no velocity to seed either (its speed is
+  `(target − from) / duration` by definition), so `setVelocity` raises.
+- `kind` defaults to **`"informational"`**: snapping a resampled stream under
+  reduced motion would restore the very stepping this primitive removes.
+- A fresh glide **starts settled** and costs the clock nothing until something
+  aims it. `newProgressView`'s indeterminate shapes are the framework's own
+  caller, at `kind = "informational"`.
 
 #### `clock:chase(opts) -> handle`
 
