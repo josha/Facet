@@ -321,3 +321,40 @@ describe("row capability opt-outs — Table", function()
 		expect(w.tbl.api.moveRow("a", 1)).toBe(true)
 	end)
 end)
+
+--[[ THE REFUSAL THAT HAD NO REASON (owed by the flow-wrap build, closed after).
+
+	`wrap` is not in `newVirtualList`'s closed key set, so it was already refused —
+	but by the generic unknown-field guard, which leaves an author guessing whether
+	it is a typo, an unbuilt feature, or a deliberate decision. It is the third, and
+	a refusal that does not say why gets re-filed as a feature request. ]]
+describe("flow-wrap x virtualization: refused, and the refusal names the conflict", function()
+	it("newVirtualList refuses `wrap` and explains the index x itemExtent arithmetic", function()
+		local core = LuauUI.newCore()
+		local rows = core:signal({ { id = "a" } })
+		local ok, err = pcall(function()
+			virtual_list.build(LuauUI, core, {
+				id = "VL",
+				rows = rows,
+				key = function(item: any)
+					return item.id
+				end,
+				itemExtent = 40,
+				viewportExtent = 400,
+				wrap = true,
+				cell = function()
+					return LuauUI.UI.Text({ id = "Cell", text = "x" })
+				end,
+			})
+		end)
+		expect(ok).toBe(false)
+		local message = tostring(err)
+		-- the DECISION, not just the rejection
+		expect(string.find(message, "do not compose", 1, true) ~= nil).toBe(true)
+		-- the REASON, in the arithmetic's own terms
+		expect(string.find(message, "itemExtent", 1, true) ~= nil).toBe(true)
+		expect(string.find(message, "ragged", 1, true) ~= nil).toBe(true)
+		-- and the WORKING ALTERNATIVE, which is what stops it being re-filed
+		expect(string.find(message, "ScrollView", 1, true) ~= nil).toBe(true)
+	end)
+end)

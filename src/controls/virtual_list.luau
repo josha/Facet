@@ -386,6 +386,35 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 })
 
 function virtual_list.build(LuauUI: any, core: any, spec: any)
+	--[[ FLOW-WRAP DOES NOT COMPOSE WITH VIRTUALIZATION, and it says why.
+
+		`wrap` is not in this control's closed key set, so the guard above already
+		refuses it — but with a generic "unknown field" that leaves the author to
+		guess whether it is a typo, an unbuilt feature, or a deliberate refusal.
+		It is the third, and the reason is structural rather than a scheduling
+		accident:
+
+		this list windows by `index x itemExtent`, which is O(1) and exact
+		PRECISELY because the extent is one number (see the `itemExtent` refusal
+		below). A wrapped line has ragged main extents and a variable number of
+		items per line, so `index x pitch` cannot say which items are on screen at
+		a given scroll offset — it would need a running-offset index, which is the
+		same problem `swiftui-parity.md` §4.2 records as unbuilt for variable item
+		extents, with two candidate designs that each give something up and no
+		screen asking for either.
+
+		Named here rather than left generic, because a refusal that does not say
+		why reads as an oversight and gets re-filed as a feature request. ]]
+	if spec.wrap ~= nil then
+		error(
+			"LuauUI newVirtualList: spec.wrap is refused — flow-wrap and virtualization do not compose. "
+				.. "This list windows by index x itemExtent, which is exact only because the extent is ONE number; "
+				.. "a wrapped line has ragged extents and a variable count per line, so that arithmetic cannot say "
+				.. "which items are on screen. Use UI.HStack/UI.VStack with wrap = true inside a UI.ScrollView for a "
+				.. "wrapping collection that does not need windowing, or keep the list unwrapped.",
+			2
+		)
+	end
 	specGuard.assertKnownKeys("newVirtualList", spec, VIRTUAL_LIST_KEYS, "spec")
 	--[[ PER-ROW OPT-OUTS MAY ONLY SUBTRACT (parity round 3, item C).
 		A predicate that narrows a capability this list does not have is an
