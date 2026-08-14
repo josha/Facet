@@ -225,6 +225,13 @@ function overlay.build(LuauUI: any, core: any, model: Model): any
 		UI.HStack({
 			id = "Status",
 			gap = 8,
+			-- FILL, or the `fill` child below collapses. A `fill` child asks its
+			-- parent for the leftover main-axis space, and a HUGGING parent has
+			-- none to give — it sizes itself to its content, so the child resolves
+			-- to ~zero and the status renders as a single character. Measured, not
+			-- reasoned: the first attempt set the child to fill and left this row
+			-- hugging, and the device showed "F".
+			width = { type = "fill", weight = 1 },
 			children = {
 				--[[ FILL, SO IT WRAPS INSTEAD OF RUNNING OFF THE EDGE.
 
