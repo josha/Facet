@@ -54,12 +54,14 @@ KNOWN_OVER = {
         "every function across code four device rounds hardened.",
     ),
     "src/client/screen_target.luau": (
-        234_055,
+        226_687,
         "many-purposed: a factory returning ~45 adapter methods, already "
         "banner-sectioned. The architecture gate proposes four extractions in "
         "order (scroll indicators ~215 lines as the cheap proof, then paint ~930, "
         "presentation ~575, pointer ~310), each following the screen_chrome "
-        "precedent already inside this file so no call site changes.",
+        "precedent already inside this file so no call site changes. "
+        "SPLIT IN PROGRESS: extraction 1 of 4 landed (screen_scroll_indicators), "
+        "234,055 -> 226,687. Paint is next and is the one that clears the cap.",
     ),
     "src/render/renderer.luau": (
         227_880,

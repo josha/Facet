@@ -37,6 +37,9 @@ local native_style = require("./native_style")
 -- the chrome/decoration materializer, extracted from this file (Studio's
 -- 200_000-byte `Source` ceiling). Strictly one-way: it never requires back.
 local screen_chrome = require("./screen_chrome")
+-- the scroll host's region/position writes and the indicator driver, extracted
+-- for the same ceiling. Also strictly one-way.
+local screen_scroll_indicators = require("./screen_scroll_indicators")
 local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
 -- the PURE rulings the UI.Stage content seam is made of (camera/lighting shapes,
@@ -50,38 +53,12 @@ local stage_content = require("../render/stage_content")
 	cannot change that: the policy only fades the bar's IMAGE. So the solver reserves
 	it off the cross axis under every policy, and the number is one value shared by
 	both seams (`adapter.scrollBarThickness`, published below and again in
-	`setScrollIndicatorPolicy`, and `tests/lib/fake_target.luau`'s lockstep copy). ]]
+	`setScrollIndicatorPolicy` — now in src/client/screen_scroll_indicators, which
+	is handed this constant — and `tests/lib/fake_target.luau`'s lockstep copy). ]]
 local SCROLL_BAR_THICKNESS = 8
---[[ scroll indicator policy — WHAT IT DECIDES, AND WHAT IT DOES NOT.
-
-	"always" = the desktop convention: a persistent bar. "auto" = the touch/gamepad
-	convention: the bar's image is hidden at rest, FLASHES once when a scrollable
-	region first mounts (so a page that continues below never reads as cut off),
-	shows while scrolling, and fades when idle. Reduced motion never fades: "auto"
-	degrades to visible-whenever-scrollable, so the affordance never depends on
-	movement.
-
-	IT DOES NOT DECIDE THE LAYOUT RESERVE (director ruling 2026-08-12, REVERSING the
-	ruling of 2026-08-09). The original ruling read "an overlay indicator lays claim
-	to no layout space" and published a reserve of ZERO under "auto". Roblox has no
-	overlay scrollbar: the engine shrinks the window by the instance's thickness
-	regardless of how the bar is painted, so a zero reserve laid every touch
-	scroller's content out to a box 8px wider than the box the player could see, and
-	the engine clipped the difference. Measured live in Studio on the running
-	showcase 2026-08-12: `AbsoluteSize` 703x203 against `AbsoluteWindowSize` 695x203,
-	nine nodes painted past the invisible edge — a `…` overflow button sliced, and a
-	value reading "0.35" clipped to "0.3" (bugs/IMG_3691.jpeg,
-	docs/plans/device-bug-round-2026-08-12.md B7(a) option (a)).
-
-	The director's reasoning, kept here so nobody "restores" the old behaviour
-	thinking they found a regression: 8px of real content on every phone beats a
-	cosmetic flash indicator, and Roblox offers no free overlay bar. Note also that a
-	machine which merely CAN accept touch derives "auto" — the Studio session that
-	measured this reported both `TouchEnabled` and `MouseEnabled` — so this was never
-	a phone-only fault. ]]
-local INDICATOR_IDLE_FADE_SECONDS = 1.1
-local INDICATOR_FLASH_HOLD_SECONDS = 1.6
-local INDICATOR_FADE_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+-- The scroll indicator POLICY (and its "auto" flash/fade driver) now lives in
+-- src/client/screen_scroll_indicators, together with the ruling that explains
+-- why the policy paints the bar but never moves the reserve above.
 
 -- `textAlign` (director review 2026-07-24). Absent means Left, which is what the
 -- adapter hard-coded before the prop existed, so every existing screen is
@@ -332,11 +309,11 @@ function screen_target.new(opts: Opts?)
 	-- path, where a plain Frame host draws no bar at all.
 	local forceScrollFallbackMode = opts ~= nil and (opts :: any).forceScrollFallback == true
 	adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS
-	-- scroll indicator state (the driver itself lives beside setScrollRegion);
-	-- declared HERE because the create path reads the policy at instance birth
-	local scrollIndicatorPolicy = "always"
-	local scrollIndicatorReduced = false
-	local indicatorFadeToken = {} :: { [any]: number }
+	-- scroll indicator state. SHARED BY REFERENCE with the driver in
+	-- src/client/screen_scroll_indicators (which owns the policy from here on);
+	-- it lives HERE because the create path below reads `.policy` at instance
+	-- birth, to decide whether a new ScrollingFrame is born with its bar hidden.
+	local scrollIndicatorState = { policy = "always", reduced = false }
 
 	-- native-paint mode resolution (NSS-A2): capability-probed and opt-in.
 	local nativeHandle: any = nil
@@ -2162,7 +2139,7 @@ function screen_target.new(opts: Opts?)
 			-- indicator policy: an auto-policy host is born HIDDEN and shows on
 			-- the flash/scroll driver below; NOT a styled property (the sheet's
 			-- Scroll bar rule owns the COLOR; visibility is behavior)
-			if scrollIndicatorPolicy == "auto" then
+			if scrollIndicatorState.policy == "auto" then
 				instance.ScrollBarImageTransparency = 1
 			end
 			instance.ElasticBehavior = Enum.ElasticBehavior.WhenScrollable
@@ -3201,6 +3178,8 @@ function screen_target.new(opts: Opts?)
 		end)
 	end
 
+	-- ===== THE SCROLL SUBSYSTEM (src/client/screen_scroll_indicators) =====
+	--
 	-- native scroll host seam (native-substrate NS-A2; spikes m1/m2): the
 	-- solver's content extent becomes the engine canvas; the ENGINE owns the
 	-- live offset (wheel, touch momentum, elastic, bars); observeScroll reports
@@ -3208,169 +3187,21 @@ function screen_target.new(opts: Opts?)
 	-- setScrollPosition is the framework's programmatic keep-visible write.
 	-- On the fallback path (forceScrollFallback / non-ScrollingFrame instance)
 	-- these degrade to no-ops and the node stays a proven clip-only host.
-	-- ===== scroll indicators (director ruling 2026-08-09) ====================
-	-- Policy state lives module-wide; per-host state lives ON THE HANDLE (the
-	-- connection dies with the instance's Destroy, and `adopt` resets the
-	-- flash so a recycled instance's NEW identity announces itself again).
-	local function indicatorShow(handle: any)
-		local instance = handle.instance
-		if instance == nil or not instance:IsA("ScrollingFrame") then
-			return
-		end
-		indicatorFadeToken[handle] = (indicatorFadeToken[handle] or 0) + 1
-		instance.ScrollBarImageTransparency = 0
-	end
-
-	local function indicatorFadeLater(handle: any, delaySeconds: number)
-		if scrollIndicatorReduced then
-			return -- reduced motion: never fade — the affordance stays put
-		end
-		local token = (indicatorFadeToken[handle] or 0) + 1
-		indicatorFadeToken[handle] = token
-		task.delay(delaySeconds, function()
-			if indicatorFadeToken[handle] ~= token then
-				return -- a newer show/fade superseded this one
-			end
-			local instance = handle.instance
-			if instance ~= nil and instance:IsA("ScrollingFrame") and instance.Parent ~= nil then
-				TweenService:Create(instance, INDICATOR_FADE_TWEEN, { ScrollBarImageTransparency = 1 }):Play()
-			end
-		end)
-	end
-
-	local function indicatorOverflowing(handle: any): boolean
-		local instance = handle.instance
-		if instance == nil or not instance:IsA("ScrollingFrame") then
-			return false
-		end
-		local canvas = instance.AbsoluteCanvasSize
-		local window = instance.AbsoluteWindowSize
-		return canvas.Y > window.Y + 1 or canvas.X > window.X + 1
-	end
-
-	local function indicatorSync(handle: any)
-		local instance = handle.instance
-		if instance == nil or not instance:IsA("ScrollingFrame") then
-			return
-		end
-		if scrollIndicatorPolicy == "always" then
-			indicatorShow(handle)
-			return
-		end
-		-- auto: reduced motion pins the indicator whenever there is anything to
-		-- indicate; full motion flashes a NEWLY scrollable host once and then
-		-- lets the scroll driver own it
-		if not indicatorOverflowing(handle) then
-			indicatorFadeToken[handle] = (indicatorFadeToken[handle] or 0) + 1
-			instance.ScrollBarImageTransparency = 1
-			handle.indicatorFlashed = nil
-			return
-		end
-		if scrollIndicatorReduced then
-			indicatorShow(handle)
-			return
-		end
-		if handle.indicatorFlashed ~= true then
-			handle.indicatorFlashed = true
-			indicatorShow(handle)
-			indicatorFadeLater(handle, INDICATOR_FLASH_HOLD_SECONDS)
-		end
-		if handle.indicatorConn == nil then
-			handle.indicatorConn = instance:GetPropertyChangedSignal("CanvasPosition"):Connect(function()
-				if scrollIndicatorPolicy ~= "auto" or scrollIndicatorReduced then
-					return
-				end
-				indicatorShow(handle)
-				indicatorFadeLater(handle, INDICATOR_IDLE_FADE_SECONDS)
-			end)
-		end
-	end
-
-	--[[ the DECLARED optional policy seam the presenter drives from the
-		environment's `scrollIndicatorPolicy` + `motionPolicy` facts. It decides the
-		bar's PAINT — persistent, or hidden-at-rest with a flash and a fade.
-
-		IT NO LONGER MOVES THE RESERVE (director ruling 2026-08-12, reversing
-		2026-08-09; see SCROLL_BAR_THICKNESS at the top of this file for the measured
-		defect and the reasoning). This used to publish 0 under "auto" on the reading
-		that an overlay indicator claims no layout space — but the engine charges the
-		window for the instance whatever the policy paints, which this file's own
-		cross-axis canvas clamp in `setScrollRegion` below has always said. The two
-		statements contradicted each other in one file, and the reserve was the one
-		that was wrong. The write stays here, restating the one true value, so a
-		reader of this function is never left wondering whether the policy changed it. ]]
-	function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)
-		scrollIndicatorPolicy = if policy == "auto" then "auto" else "always"
-		scrollIndicatorReduced = reduced == true
-		adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS
-		for _, handle in handlesByPath do
-			if handle.instance ~= nil and handle.instance:IsA("ScrollingFrame") then
-				handle.indicatorFlashed = nil
-				indicatorSync(handle)
-			end
-		end
-	end
-
-	function adapter.setScrollRegion(handle: any, region: any)
-		local instance = handle.instance
-		if instance == nil or not instance:IsA("ScrollingFrame") then
-			return
-		end
-		if region == nil then
-			instance.CanvasSize = UDim2.new()
-			return
-		end
-		instance.ScrollingDirection = if region.axis == "x"
-			then Enum.ScrollingDirection.X
-			else Enum.ScrollingDirection.Y
-		-- THE CROSS AXIS IS CLAMPED TO THE ENGINE'S OWN WINDOW (director live
-		-- report 2026-08-09): the solver already clamps its measure, but the
-		-- engine's window is thinner than the frame by the BAR THICKNESS even
-		-- with ScrollBarInset.None — a fact only the engine can answer — and a
-		-- canvas one bar wider than the window makes it draw a cross-axis bar
-		-- nobody can scroll. Ask the instance, not arithmetic.
-		local window = instance.AbsoluteWindowSize
-		local contentW = region.contentW
-		local contentH = region.contentH
-		-- DETERMINISTIC, from the region's own published host box (the live
-		-- window geometry races the layout mid-churn): when the main axis will
-		-- overflow, the engine shrinks its window by the BAR THICKNESS even at
-		-- ScrollBarInset.None, so the cross clamp subtracts it up front.
-		local thickness = instance.ScrollBarThickness
-		local hostW = if type(region.hostW) == "number" then region.hostW else window.X
-		local hostH = if type(region.hostH) == "number" then region.hostH else window.Y
-		if region.axis == "x" then
-			local willOverflow = contentW > hostW
-			contentH = math.min(contentH, math.max(0, hostH - (if willOverflow then thickness else 0)))
-		else
-			local willOverflow = contentH > hostH
-			contentW = math.min(contentW, math.max(0, hostW - (if willOverflow then thickness else 0)))
-		end
-		instance.CanvasSize = UDim2.fromOffset(contentW, contentH)
-		-- per-host opt-out first (a carousel whose affordance is the peeking
-		-- tile declares indicators = "none"): zero thickness IS the engine's
-		-- own way to draw no bar, and the driver below never arms
-		if region.indicators == "none" then
-			handle.indicatorsOff = true
-			instance.ScrollBarThickness = 0
-			return
-		end
-		if handle.indicatorsOff == true then
-			handle.indicatorsOff = nil
-			instance.ScrollBarThickness = SCROLL_BAR_THICKNESS
-		end
-		-- the region write is where a host LEARNS it overflows — the auto
-		-- policy's mount flash rides it (and a region that stops overflowing
-		-- hides its indicator and re-arms the flash)
-		indicatorSync(handle)
-	end
-
-	function adapter.setScrollPosition(handle: any, pos: { x: number, y: number })
-		local instance = handle.instance
-		if instance ~= nil and instance:IsA("ScrollingFrame") then
-			instance.CanvasPosition = Vector2.new(pos.x, pos.y)
-		end
-	end
+	--
+	-- Constructed HERE, where the code it replaced stood, and the three methods are
+	-- bound onto `adapter` under their original names — the contract
+	-- (src/render/target_contract) is unmoved. `scrollIndicatorState` is passed BY
+	-- REFERENCE because the create path above reads `.policy` at instance birth.
+	local scrollIndicators = screen_scroll_indicators.new({
+		adapter = adapter,
+		handlesByPath = handlesByPath,
+		indicatorState = scrollIndicatorState,
+		scrollBarThickness = SCROLL_BAR_THICKNESS,
+		forceScrollFallback = forceScrollFallbackMode,
+	})
+	adapter.setScrollIndicatorPolicy = scrollIndicators.setScrollIndicatorPolicy
+	adapter.setScrollRegion = scrollIndicators.setScrollRegion
+	adapter.setScrollPosition = scrollIndicators.setScrollPosition
 
 	-- readable offset (A-SV1): the ENGINE co-authors CanvasPosition, so the
 	-- framework reads the live value rather than caching one of its own. This

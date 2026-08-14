@@ -581,16 +581,46 @@ end)
 describe("screen_target: the scroll seam tolerates an elided (instance-less) handle", function()
 	local SEAM = { "setScrollRegion", "setScrollPosition", "getScrollPosition", "observeScroll" }
 
+	-- THE SEAM SPANS TWO FILES since the scroll extraction: `setScrollRegion` and
+	-- `setScrollPosition` moved to src/client/screen_scroll_indicators (Studio's
+	-- 200_000-char `Source` write cap) where they are plain locals rebound onto the
+	-- adapter, while `getScrollPosition` / `observeScroll` are still declared on the
+	-- adapter in screen_target. Both declaration shapes are searched, in both files,
+	-- so the guard stays pinned wherever the function lives.
+	local SEAM_SOURCES = {
+		"src/client/screen_target.luau",
+		"src/client/screen_scroll_indicators.luau",
+	}
+	local function declShapes(name: string): { string }
+		return { `\n\tfunction adapter.{name}(`, `\n\tlocal function {name}(` }
+	end
+
 	it("every scroll-seam adapter function guards a nil instance before indexing it", function()
-		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		local fs = require("@lune/fs")
 		local missing = {}
 		for _, name in SEAM do
 			-- the function body from its declaration to the next top-level
-			-- `\n\tfunction ` (or end of file)
-			local from = string.find(source, `\n\tfunction adapter.{name}(`, 1, true)
+			-- function (or end of file)
+			local source: string? = nil
+			local from: number? = nil
+			for _, path in SEAM_SOURCES do
+				local candidate = fs.readFile(path)
+				for _, decl in declShapes(name) do
+					local at = string.find(candidate, decl, 1, true)
+					if at ~= nil then
+						source, from = candidate, at
+					end
+				end
+			end
 			expect(`{name} declared: {from ~= nil}`).toBe(`{name} declared: true`)
-			local rest = string.sub(source, (from :: number) + 1)
-			local nextFn = string.find(rest, "\n\tfunction adapter.", 1, true)
+			local rest = string.sub(source :: string, (from :: number) + 1)
+			local nextFn: number? = nil
+			for _, marker in { "\n\tfunction adapter.", "\n\tlocal function " } do
+				local at = string.find(rest, marker, 1, true)
+				if at ~= nil and (nextFn == nil or at < nextFn) then
+					nextFn = at
+				end
+			end
 			local body = if nextFn ~= nil then string.sub(rest, 1, nextFn) else rest
 			-- it must READ handle.instance (otherwise the guard question is moot
 			-- and this case would pass on a function that no longer does the job)
@@ -607,12 +637,16 @@ describe("screen_target: the scroll seam tolerates an elided (instance-less) han
 	end)
 
 	it("...and so do the indicator helpers that share the same handle", function()
-		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		local fs = require("@lune/fs")
 		-- the sibling precedent the guard above is modelled on — if these ever
-		-- lose it, the "every neighbour already does this" argument is stale
+		-- lose it, the "every neighbour already does this" argument is stale.
+		-- Counted across BOTH seam files: the helpers moved to
+		-- screen_scroll_indicators, the count did not change.
 		local count = 0
-		for _ in string.gmatch(source, 'if instance == nil or not instance:IsA%("ScrollingFrame"%) then') do
-			count += 1
+		for _, path in SEAM_SOURCES do
+			for _ in string.gmatch(fs.readFile(path), 'if instance == nil or not instance:IsA%("ScrollingFrame"%) then') do
+				count += 1
+			end
 		end
 		expect(count >= 6).toBe(true)
 	end)

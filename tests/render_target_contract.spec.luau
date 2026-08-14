@@ -122,13 +122,22 @@ describe("RenderTargetAdapter contract", function()
 
 	it("the LIVE ScreenTarget implements every declared name (its source is the contract)", function()
 		-- screen_target.luau cannot load headless (engine globals at load), so it
-		-- is read exactly as check_prop_parity reads it
+		-- is read exactly as check_prop_parity reads it.
+		--
+		-- TWO SHAPES COUNT AS IMPLEMENTED, because the adapter is no longer one
+		-- file: a seam extracted to a sibling (src/client/screen_scroll_indicators,
+		-- for Studio's 200_000-char `Source` write cap) declares its function there
+		-- and screen_target BINDS it onto `adapter` under the same name. Either the
+		-- definition or the binding proves the name is on the shipped adapter; a
+		-- name with neither is genuinely absent.
 		local liveSource = fs.readFile("src/client/screen_target.luau")
 		local absent: { string } = {}
 		local growthAbsent: { string } = {}
 		for _, list in { target_contract.REQUIRED, target_contract.OPTIONAL, target_contract.THEME } do
 			for _, name in list do
-				if string.find(liveSource, `function adapter.{name}(`, 1, true) == nil then
+				local declared = string.find(liveSource, `function adapter.{name}(`, 1, true) ~= nil
+				local bound = string.find(liveSource, `adapter.{name} = `, 1, true) ~= nil
+				if not declared and not bound then
 					if target_contract.THEME_GROWTH[name] then
 						table.insert(growthAbsent, name)
 					else

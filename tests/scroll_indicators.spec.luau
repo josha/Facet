@@ -290,7 +290,18 @@ end)
 	exact lines that carry the ruling. ]]
 describe("the LIVE ScreenTarget publishes ONE reserve, under every indicator policy", function()
 	local fs = require("@lune/fs")
-	local source = fs.readFile("src/client/screen_target.luau")
+	-- THE LIVE ADAPTER IS TWO FILES. `setScrollIndicatorPolicy` and the flash/fade
+	-- driver were extracted to src/client/screen_scroll_indicators for Studio's
+	-- 200_000-char `Source` write cap; the constant and the construction-time
+	-- publish stayed in screen_target, which hands the number down. Read them as
+	-- one text so every pin below keeps the same bite it had while this was one
+	-- file — the reserve is a statement about the ADAPTER, not about a filename.
+	local SOURCES = { "src/client/screen_target.luau", "src/client/screen_scroll_indicators.luau" }
+	local parts = {}
+	for _, path in SOURCES do
+		table.insert(parts, fs.readFile(path))
+	end
+	local source = table.concat(parts, "\n")
 	-- the number the fake mirrors; if these two ever disagree, every headless
 	-- window measurement in this suite is modelling a bar the engine does not draw
 	local RESERVE_WRITE = "adapter.scrollBarThickness = if forceScrollFallbackMode then 0 else SCROLL_BAR_THICKNESS"
@@ -309,14 +320,13 @@ describe("the LIVE ScreenTarget publishes ONE reserve, under every indicator pol
 		expect(writes).toBe(2)
 		-- and the one inside the policy seam specifically, so a refactor that keeps
 		-- two writes but moves them both out of it still fails
-		local i =
-			string.find(source, "function adapter.setScrollIndicatorPolicy(policy: string, reduced: boolean?)", 1, true)
+		local i = string.find(source, "function setScrollIndicatorPolicy(policy: string, reduced: boolean?)", 1, true)
 		expect(i ~= nil).toBe(true)
 		local body = string.sub(source, i :: number, (i :: number) + 900)
 		expect(string.find(body, RESERVE_WRITE, 1, true) ~= nil).toBe(true)
 	end)
 
-	it("NOTHING in the file makes the reserve depend on the indicator policy", function()
+	it("NOTHING in either seam file makes the reserve depend on the indicator policy", function()
 		-- the exact shape of the reverted defect: a policy branch on the reserve's
 		-- own assignment. `scrollIndicatorPolicy` may be read freely for PAINT — the
 		-- flash/show/fade driver below does exactly that — so this looks only at
@@ -329,7 +339,8 @@ describe("the LIVE ScreenTarget publishes ONE reserve, under every indicator pol
 				local trimmed = string.match(line, "^%s*(.-)%s*$") or line
 				if trimmed ~= RESERVE_WRITE then
 					error(
-						`src/client/screen_target.luau assigns the scroll reserve on a line this pin does not `
+						`the live ScreenTarget (screen_target.luau / screen_scroll_indicators.luau) assigns `
+							.. `the scroll reserve on a line this pin does not `
 							.. `recognise:\n    {trimmed}\nThe ONLY sanctioned write is:\n    {RESERVE_WRITE}\n`
 							.. `If the new line branches on scrollIndicatorPolicy, that is the pre-2026-08-12 `
 							.. `zero-reserve ruling coming back — the defect photographed in bugs/IMG_3691.jpeg, `
