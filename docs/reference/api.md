@@ -2750,9 +2750,16 @@ and memos stay glitch-free throughout.
 env:batch(function()
     env:set("viewportRect", rect)
     env:set("coreSafeInsets", insets)
-    env:set("displaySize", "Compact")
+    env:set("displaySize", "Medium")
 end)
 ```
+
+Two things `env:batch` is NOT. It is a **grouping, not a rollback**: if `body`
+throws, the writes made before the throw have landed and observers fire once for
+them — the error is re-raised, but the group is partial. And **`body` must not
+yield**: the transaction stays open across the yield, so every observer in the
+session — not only this environment's — waits, and any unrelated `env:set` made
+meanwhile is held with it.
 
 Measured on a 40-row tree (`tests/geometry_solve_coalescing.spec.luau`,
 optimization-log L-29): those six writes loose cost **5 solves**; batched, **1**.

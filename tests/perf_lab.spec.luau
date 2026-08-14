@@ -167,8 +167,15 @@ describe("perf lab: a resize step is the resize a device performs", function()
 		built.steps.mount()
 
 		local env = ctx.env
-		local WATCHED =
-			{ "viewportRect", "coreSafeInsets", "deviceSafeInsets", "topbarSafeInsets", "topbarInset", "displaySize" }
+		--[[ `displaySize` is deliberately NOT here. The adapter publishes it on
+			every pushViewport, so this pass writes it — but its domain is
+			`Small | Medium | Large` (the physical display class) and a ROTATION
+			DOES NOT CHANGE IT. An earlier cut drove it off the width as
+			`"Compact"`/`"Large"`, which is not its domain at all and silently
+			flipped every wide step into a 1.5x-scaled ten-foot TV layout with 90px
+			overscan (RED-TEAM 2026-08-13). It is held constant now, so asserting it
+			MOVED would be asserting the bug back. ]]
+		local WATCHED = { "viewportRect", "coreSafeInsets", "deviceSafeInsets", "topbarSafeInsets", "topbarInset" }
 		local moved: { [string]: boolean } = {}
 		local counts: { [string]: number } = {}
 		for _, key in WATCHED do
@@ -193,7 +200,7 @@ describe("perf lab: a resize step is the resize a device performs", function()
 			5, deviceSafeInsets/topbarSafeInsets/topbarInset 4 each, displaySize 1,
 			and coreSafeInsets ELEVEN. Those extra writes are a real cost, recorded in
 			the optimization log; they are simply not what this check is about. ]]
-		local BATCH_ORACLE = { "viewportRect", "deviceSafeInsets", "topbarSafeInsets", "topbarInset", "displaySize" }
+		local BATCH_ORACLE = { "viewportRect", "deviceSafeInsets", "topbarSafeInsets", "topbarInset" }
 		local flushes = 0
 		local group = core:memo(function(use)
 			for _, key in BATCH_ORACLE do

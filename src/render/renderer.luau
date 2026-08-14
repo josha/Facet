@@ -3241,33 +3241,87 @@ function renderer.attach(
 		(`env:batch`), five solves become one — measured, not assumed, in
 		tests/geometry_solve_coalescing.spec.
 
+		THE MEMO CARRIES VALUES, NOT A FRESH TABLE (RED-TEAM 2026-08-13). The first
+		cut returned `{}` and relied on identity-inequality, which made "recomputed"
+		mean "changed" and discarded both guarantees the core states in its own
+		header — set-and-revert transactions and unchanged recomputes are fire-free.
+		Measured then: a viewport set-and-reverted inside one batch cost 1 solve
+		instead of 0, and a `preferredTextSize` change that left `typographyScale`
+		on the same clamped value cost 1 instead of 0. Wasted solves in exactly the
+		dimension this entry exists to remove. So it returns the pulled values and
+		compares them element-wise; eight comparisons per flush buys both properties
+		back, and it stays honest if a DERIVED key is ever added to the list.
+
 		ADDING A KEY: put it in the list and nowhere else. REMOVING one silently
 		makes the surface deaf to it, which is why that spec drives every key
 		individually and asserts each still costs exactly one solve. ]]
+	--[[ BY CONTENT, NOT BY TABLE IDENTITY. Every one of these facts that is not a
+		scalar is a FLAT RECORD — a rect (`x,y,w,h`) or a four-edge inset — and the
+		adapter builds a BRAND NEW one on every `pushViewport()`. A `TopbarInset`
+		change alone re-publishes a viewportRect whose numbers are identical, and
+		under identity comparison that is a full re-solve of the surface for a
+		viewport that did not move. Comparing the numbers costs at most eight field
+		reads and removes a whole class of solve nobody asked for.
+
+		One level deep is deliberate and sufficient: no environment geometry fact
+		nests, and a deep walk would be a general-purpose comparison bolted to a
+		specific eight. If a nested geometry fact is ever added, this returns false
+		for it — conservative, i.e. it re-solves — rather than silently missing a
+		change. ]]
+	local function sameGeometryValue(a: any, b: any): boolean
+		if a == b then
+			return true
+		end
+		if type(a) ~= "table" or type(b) ~= "table" then
+			return false
+		end
+		for k, v in a do
+			if b[k] ~= v then
+				return false
+			end
+		end
+		for k, v in b do
+			if a[k] ~= v then
+				return false
+			end
+		end
+		return true
+	end
+
+	local GEOMETRY_KEYS = {
+		"viewportRect",
+		"coreSafeInsets",
+		"deviceSafeInsets",
+		"overscanInsets",
+		"displaySize",
+		-- geometry-affecting (matrix D.1): a preferredTextSize or displaySize
+		-- change re-scales text at measure AND paint
+		"typographyScale",
+		"preferredTextOffset",
+		-- a theme commit is geometry (ADR-0019 §2): new type sizes, spacing,
+		-- control metrics and content insets all reach the solver, so the
+		-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,
+		-- selection, scroll and text entry survive a swap untouched
+		"themeMetrics",
+	}
 	-- scope-owned like every other memo: an unowned one is a live registry node
 	-- after dispose, which the registry-neutrality suites catch as a leak
 	local geometryFacts = attachScope:own(core:memo(function(use)
-		for _, key in
-			{
-				"viewportRect",
-				"coreSafeInsets",
-				"deviceSafeInsets",
-				"overscanInsets",
-				"displaySize",
-				-- geometry-affecting (matrix D.1): a preferredTextSize or
-				-- displaySize change re-scales text at measure AND paint
-				"typographyScale",
-				"preferredTextOffset",
-				-- a theme commit is geometry (ADR-0019 §2): new type sizes, spacing,
-				-- control metrics and content insets all reach the solver, so the
-				-- surface RE-SOLVES — it is never rebuilt, so mount identity, focus,
-				-- selection, scroll and text entry survive a swap untouched
-				"themeMetrics",
-			}
-		do
-			use(env:get(key))
+		local values = table.create(#GEOMETRY_KEYS)
+		for i, key in GEOMETRY_KEYS do
+			values[i] = use(env:get(key))
 		end
-		return {}
+		return values
+	end, function(a: any, b: any): boolean
+		if a == nil or b == nil then
+			return a == b
+		end
+		for i = 1, #GEOMETRY_KEYS do
+			if not sameGeometryValue(a[i], b[i]) then
+				return false
+			end
+		end
+		return true
 	end))
 	attachScope:own(core:observe(geometryFacts, function()
 		if initialized then

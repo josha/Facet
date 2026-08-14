@@ -1292,7 +1292,21 @@ return {
 						})
 						env:set("topbarSafeInsets", { top = top, bottom = 0, left = 0, right = 0 })
 						env:set("topbarInset", { x = 0, y = 0, w = rw, h = top })
-						env:set("displaySize", if compact then "Compact" else "Large")
+						--[[ displaySize IS NOT THE SIZE CLASS, and a rotation does not
+							change it. Its domain is `Small | Medium | Large`
+							(`GuiService.ViewportDisplaySize`, environment.luau:86) and
+							**`Large` means TELEVISION**: it alone drives
+							typographyScale 1.5, distanceProfile "ten-foot" and 60/90px
+							overscan insets. Writing `"Compact"`/`"Large"` off the width
+							— this pass's first cut, caught by RED-TEAM 2026-08-13 —
+							made every wide step measure a 1.5x-scaled ten-foot layout
+							and made "Compact" a silent no-op, since anything that is not
+							`Large` reads as `near`.
+
+							The adapter DOES publish this fact on every pushViewport, so
+							it belongs in the group; what it does not do is change it when
+							the device rotates. Held constant, faithfully. ]]
+						env:set("displaySize", "Medium")
 					end)
 					ctx.presenter.refresh()
 					table.insert(resizeMs, (clock() - t0) * 1000)

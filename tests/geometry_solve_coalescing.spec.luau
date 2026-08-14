@@ -50,10 +50,24 @@ local fake_target = require("./lib/fake_target")
 -- the eight facts the renderer re-solves for, and a distinct value for each
 local GEOMETRY: { { key: string, a: any, b: any } } = {
 	{ key = "viewportRect", a = { x = 0, y = 0, w = 900, h = 700 }, b = { x = 0, y = 0, w = 600, h = 700 } },
-	{ key = "coreSafeInsets", a = { top = 0, bottom = 0, left = 0, right = 0 }, b = { top = 36, bottom = 0, left = 0, right = 0 } },
-	{ key = "deviceSafeInsets", a = { top = 0, bottom = 0, left = 0, right = 0 }, b = { top = 44, bottom = 34, left = 0, right = 0 } },
-	{ key = "overscanInsets", a = { top = 0, bottom = 0, left = 0, right = 0 }, b = { top = 8, bottom = 8, left = 8, right = 8 } },
-	{ key = "displaySize", a = "Large", b = "Compact" },
+	{
+		key = "coreSafeInsets",
+		a = { top = 0, bottom = 0, left = 0, right = 0 },
+		b = { top = 36, bottom = 0, left = 0, right = 0 },
+	},
+	{
+		key = "deviceSafeInsets",
+		a = { top = 0, bottom = 0, left = 0, right = 0 },
+		b = { top = 44, bottom = 34, left = 0, right = 0 },
+	},
+	{
+		key = "overscanInsets",
+		a = { top = 0, bottom = 0, left = 0, right = 0 },
+		b = { top = 8, bottom = 8, left = 8, right = 8 },
+	},
+	-- Small|Medium|Large; `Large` is the TV class, so drive Medium->Small to
+	-- exercise the key without flipping the surface into a ten-foot layout
+	{ key = "displaySize", a = "Medium", b = "Small" },
 	{ key = "preferredTextOffset", a = 0, b = 10 },
 	{ key = "themeMetrics", a = nil, b = { density = 2 } },
 }
@@ -80,9 +94,8 @@ local function harness(rowCount: number?)
 			})
 		)
 	end
-	local handle = pres.present(
-		LuauUI.UI.Screen({ id = "S", children = { LuauUI.UI.VStack({ id = "List", children = rows }) } })
-	)
+	local handle =
+		pres.present(LuauUI.UI.Screen({ id = "S", children = { LuauUI.UI.VStack({ id = "List", children = rows }) } }))
 	pres.refresh()
 
 	local function solves(): number
@@ -105,7 +118,11 @@ describe("one geometry change is one solve", function()
 			env:set("deviceSafeInsets", { top = 44, bottom = 34, left = 0, right = 0 })
 			env:set("topbarSafeInsets", { top = 36, bottom = 0, left = 0, right = 0 })
 			env:set("topbarInset", { x = 0, y = 0, w = 360, h = 36 })
-			env:set("displaySize", "Compact")
+			-- displaySize is Small|Medium|Large, NOT the size class, and `Large`
+			-- alone means TELEVISION (typographyScale 1.5, ten-foot, overscan).
+			-- The adapter publishes it on every pushViewport; a rotation does not
+			-- change it. Held constant so this measures batching, not a TV swap.
+			env:set("displaySize", "Medium")
 		end)
 		pres.refresh()
 
@@ -137,6 +154,56 @@ describe("one geometry change is one solve", function()
 		expect(solves() - before).toBe(0)
 	end)
 
+	it("a set-and-revert inside one batch costs NOTHING", function()
+		--[[ RED-TEAM 2026-08-13. The first cut of the coalescing memo returned a
+			fresh `{}` per recompute, so identity-inequality meant "recomputed",
+			not "changed". That discarded both guarantees `src/core/custom.luau`
+			states in its own header — "set-and-revert transactions and unchanged
+			recomputes [are] fire-free" — and it discarded them in the exact
+			dimension this whole entry exists to reduce. Measured then: 1 solve
+			where there had been 0. ]]
+		local _core, env, pres, solves = harness(8)
+		local before = solves()
+		env:batch(function()
+			env:set("viewportRect", { x = 0, y = 0, w = 500, h = 700 })
+			env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 }) -- back where it started
+		end)
+		pres.refresh()
+		expect(solves() - before).toBe(0)
+	end)
+
+	it("a write that moves NO geometry value costs nothing", function()
+		-- `typographyScale` is a memo over displaySize + preferredTextOffset and
+		-- clamps: two different preferredTextSize values can produce the SAME
+		-- scale. Recomputed-but-unchanged must not re-solve the surface.
+		local _core, env, pres, solves = harness(8)
+		env:set("preferredTextSize", 4)
+		pres.refresh()
+		local before = solves()
+		env:set("preferredTextSize", 9)
+		pres.refresh()
+		expect(solves() - before).toBe(0)
+	end)
+
+	it("re-publishing the SAME numbers in a fresh table costs nothing", function()
+		--[[ THE REAL-WORLD CASE, and the reason the memo compares by content.
+			`roblox_env.pushViewport()` builds a BRAND NEW rect and inset tables
+			every time it runs, and it runs on `TopbarInset` changes as well as on
+			resizes. Under table-identity comparison, a topbar change alone
+			re-solved the whole surface for a viewport that had not moved. ]]
+		local _core, env, pres, solves = harness(8)
+		local before = solves()
+		for _ = 1, 3 do
+			env:batch(function()
+				env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 }) -- identical numbers
+				env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+				env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			end)
+			pres.refresh()
+		end
+		expect(solves() - before).toBe(0)
+	end)
+
 	it("env:batch is the general mechanism", function()
 		local _core, env, pres, solves = harness(8)
 
@@ -147,7 +214,7 @@ describe("one geometry change is one solve", function()
 		env:batch(function()
 			env:set("viewportRect", { x = 0, y = 0, w = 500, h = 700 })
 			env:batch(function()
-				env:set("displaySize", "Compact")
+				env:set("displaySize", "Small")
 			end)
 			env:set("preferredTextOffset", 4)
 		end)

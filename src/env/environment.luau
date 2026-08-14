@@ -356,7 +356,17 @@ function environment.new(core: any): Env
 		This is the core's own transaction, not a second mechanism: writes inside
 		are invisible to observers until the OUTERMOST batch closes, nested
 		batches collapse into it, and memos stay glitch-free throughout. Group
-		whatever one platform event taught you; do not group across events. ]]
+		whatever one platform event taught you; do not group across events.
+
+		TWO THINGS THIS IS NOT (RED-TEAM 2026-08-13, both probed). It is a
+		GROUPING, NOT A ROLLBACK: a `body` that throws leaves the writes made
+		before the throw published, and observers fire once for that partial
+		group before the error is re-raised. And `body` MUST NOT YIELD — the
+		transaction stays open across the yield, so every observer in the session
+		waits, and an unrelated `env:set` made meanwhile is held with it. Neither
+		is guarded here, because both guards would cost more than they buy on a
+		path the adapter drives synchronously; they are stated so a caller can
+		choose correctly. ]]
 	function env.batch(_self, body: () -> ())
 		core:transaction(body)
 	end
