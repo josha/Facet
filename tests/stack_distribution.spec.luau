@@ -406,7 +406,13 @@ describe("§2.4 shrink — the outer sort (`layoutPriority`)", function()
 	end)
 end)
 
-describe("§2.4 shrink — the floor stack: minMax.min, then a text's min-content, then 0", function()
+-- THE FLOOR IS A CASCADE, NOT A SINGLE NUMBER (director ruling 1, 2026-08-13;
+-- docs/handoff/2026-08-13-rulings-needed.md §1). An authored `minMax.min` is a
+-- contract and binds at every rung; the floor the framework DERIVES from a text
+-- descends when the rung above it cannot absorb the deficit: the longest word,
+-- then the compact form's longest word, then one ellipsis — and whatever is left
+-- after that is CLIPPED at the box rather than painted outside it.
+describe("§2.4 shrink — the floor cascade: minMax.min, longest word, compact form, ellipsis, clip", function()
 	it("`minMax.min` is a hard floor inside its own tier", function()
 		local r = solve({
 			kind = "hstack",
@@ -426,7 +432,7 @@ describe("§2.4 shrink — the floor stack: minMax.min, then a text's min-conten
 		expect(table.concat(ws(r, { "clamped", "free" }), ",")).toBe("120,80")
 	end)
 
-	it("a text node never shrinks below the width of its longest word", function()
+	it("a text node stops at the width of its longest word while that is enough", function()
 		-- The deficit has to come from a SIBLING: a lone text child is measured
 		-- against the row's own inner width and clamps itself to it, so it can never
 		-- overflow on its own.
@@ -454,12 +460,87 @@ describe("§2.4 shrink — the floor stack: minMax.min, then a text's min-conten
 		expect(partial.rects.label.rect.w).toBe(200)
 		expect(overflowIssue(partial)).toBeNil()
 
-		-- ...and a deficit it cannot: it stops at the longest word and no further
-		local natural = row(390, nil).rects.label.rect.w
-		local squeezed = row(390, 1)
+		-- ...and a deficit that lands EXACTLY on that floor: the rung holds, and the
+		-- cascade below never has to open, so the label keeps its whole string
+		local natural = row(380, nil).rects.label.rect.w
+		local atFloor = row(380, 1)
 		expect(natural > wordOnly).toBe(true)
-		expect(squeezed.rects.label.rect.w).toBe(wordOnly)
-		expect(overflowIssue(squeezed) ~= nil).toBe(true)
+		expect(atFloor.rects.label.rect.w).toBe(wordOnly)
+		expect(overflowIssue(atFloor)).toBeNil()
+	end)
+
+	it("...and DESCENDS past it, to an ellipsis, when the longest word is not enough", function()
+		-- RULING 1, the measured case. Before it, the pass absorbed at most
+		-- `Sum(basis - floor)` and simply left the rest: the label froze at its
+		-- longest word (20px), the row still overflowed, and — because a text
+		-- squeezed under its min-content cannot wrap — it EXPLODED to eight lines
+		-- and painted seven of them outside the row.
+		--
+		-- The cascade's second and third rungs close that. There is no compact form
+		-- here, so the pass drops to the ellipsis floor, and the wrap rule (ruling 5)
+		-- measures the label on ONE line at that width: the engine's
+		-- TextTruncate.AtEnd draws `…` and the row fits.
+		local TEXT = "aa bb cc dd ee ff gg hh"
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			width = fill(),
+			children = {
+				{ kind = "box", id = "rigid", width = fixed(390), height = fixed(20) },
+				{ kind = "text", id = "label", text = TEXT, shrinkWeight = 1 },
+			},
+		}, 400, 400)
+		-- it went BELOW the longest word (20px), which is the whole ruling
+		expect(r.rects.label.rect.w < 20).toBe(true)
+		-- ...the row fits, so nothing is left to paint outside and nothing is clipped
+		expect(overflowIssue(r)).toBeNil()
+		expect(r.rects.rigid.rect.w + r.rects.label.rect.w).toBe(400)
+		-- ...and it is ONE line, not eight: the label tells the truth with an
+		-- ellipsis instead of wrapping into a column no word of it fits
+		local facts = r.rects.label.textFacts
+		expect(`lines={facts.lines} truncated={facts.truncated} wraps={facts.wraps}`).toBe(
+			"lines=1 truncated=true wraps=false"
+		)
+		expect(r.rects.R.rect.h).toBe(20)
+	end)
+
+	it("...and a declared COMPACT form is spent BEFORE any of the string is", function()
+		-- rung 1 of the cascade, and the order the director asked for in as many
+		-- words: "switch to compact and then truncate the text before clipping".
+		-- The compact form's own longest word is the floor the pass may descend to
+		-- once the full label's is not enough, and the re-measure at that reduced
+		-- offer is what makes the compact ladder actually choose it — one mechanism,
+		-- not two.
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			width = fill(),
+			children = {
+				{ kind = "box", id = "rigid", width = fixed(340), height = fixed(20) },
+				{
+					kind = "text",
+					id = "label",
+					text = "Configuration",
+					compactText = "Cfg",
+					shrinkWeight = 1,
+				},
+			},
+		}, 400, 400)
+		expect(overflowIssue(r)).toBeNil()
+		-- the compact form won, and the label was NOT cut to get there
+		expect(r.rects.label.compact).toBe(true)
+		expect(r.rects.label.textFacts.truncated).toBe(false)
+		-- ...and without the compact form the same row has to truncate instead
+		local bare = solve({
+			kind = "hstack",
+			id = "R",
+			width = fill(),
+			children = {
+				{ kind = "box", id = "rigid", width = fixed(340), height = fixed(20) },
+				{ kind = "text", id = "label", text = "Configuration", shrinkWeight = 1 },
+			},
+		}, 400, 400)
+		expect(bare.rects.label.textFacts.truncated).toBe(true)
 	end)
 
 	it("THE CLOSED SEAM: the row RESERVES the cross extent a squeezed text will need", function()
@@ -481,29 +562,37 @@ describe("§2.4 shrink — the floor stack: minMax.min, then a text's min-conten
 		-- handed, with the shrunk children re-measured at their reduced offer so the
 		-- reported cross extent is the wrapped one. So a `fill`-width row that will
 		-- squeeze a label now RESERVES the wrap it is about to cause.
+		--
+		-- THE RIGID SIBLING SHRANK FROM 390 TO 300 (director ruling 1, 2026-08-13).
+		-- At 390 the deficit is more than the longest-word floor can absorb, so the
+		-- cascade now descends to the ellipsis rung and the label comes out ONE line
+		-- — which is the ruling working, and which would leave this seam untested.
+		-- At 300 the deficit stops inside the first rung, the label is squeezed to a
+		-- width it CAN still wrap into, and the seam is exercised exactly as before.
 		local r = solve({
 			kind = "hstack",
 			id = "R",
 			width = fill(),
 			children = {
-				{ kind = "box", id = "rigid", width = fixed(390), height = fixed(20) },
+				{ kind = "box", id = "rigid", width = fixed(300), height = fixed(20) },
 				{ kind = "text", id = "label", text = "aa bb cc dd ee ff gg hh", shrinkWeight = 1 },
 			},
 		}, 400, 400)
-		-- the label is still squeezed to its floor, the width of its longest word…
-		expect(r.rects.label.rect.w).toBe(20)
-		-- …and now it is EIGHT LINES TALL, and the row is as tall as it is
-		expect(r.rects.label.rect.h).toBe(154)
-		expect(r.rects.R.rect.h).toBe(154)
-		-- the oracle, so this is not eight lines by assertion: the same string
+		-- the label is squeezed to what the row had left…
+		expect(r.rects.label.rect.w).toBe(100)
+		-- …and it WRAPPED into that, and the row is as tall as the wrap it caused
+		expect(r.rects.label.rect.h).toBe(58)
+		expect(r.rects.R.rect.h).toBe(58)
+		-- the oracle, so the wrap is not asserted into existence: the same string
 		-- measured on its own at the width the label is actually painted at
 		local oracle = solve({
 			kind = "hstack",
 			id = "O",
 			width = fill(),
-			children = { { kind = "text", id = "t", text = "aa bb cc dd ee ff gg hh", width = fixed(20) } },
+			children = { { kind = "text", id = "t", text = "aa bb cc dd ee ff gg hh", width = fixed(100) } },
 		}, 400, 400)
 		expect(r.rects.label.rect.h).toBe(oracle.rects.t.rect.h)
+		expect(oracle.rects.t.rect.h > 20).toBe(true)
 	end)
 
 	it("...and the measure-side pass is INERT: the same row without a weight is unmoved", function()
@@ -657,7 +746,10 @@ describe("§2.4 shrink — the floor stack: minMax.min, then a text's min-conten
 					id = "R",
 					width = fill(),
 					children = {
-						{ kind = "box", id = "rigid", width = fixed(390), height = fixed(20) },
+						-- 300, not 390, for the reason the closed-seam case above states:
+						-- past the first rung the cascade reaches the ellipsis floor and
+						-- the label stops wrapping, which is what this case must observe
+						{ kind = "box", id = "rigid", width = fixed(300), height = fixed(20) },
 						{
 							kind = "text",
 							id = "label",
@@ -668,9 +760,9 @@ describe("§2.4 shrink — the floor stack: minMax.min, then a text's min-conten
 				},
 			},
 		}, 400, 400)
-		expect(r.rects.label.rect.w).toBe(20)
-		expect(r.rects.label.rect.h).toBe(154)
-		expect(r.rects.R.rect.h).toBe(154)
+		expect(r.rects.label.rect.w).toBe(100)
+		expect(r.rects.label.rect.h).toBe(58)
+		expect(r.rects.R.rect.h).toBe(58)
 	end)
 
 	it("with no floor left the row fits exactly and nothing overflows", function()
@@ -716,7 +808,17 @@ describe("§2.4 shrink — when everything is at its floor the diagnostic still 
 		expect(string.find(issue :: string, "by 60px", 1, true) ~= nil).toBe(true)
 		expect(string.find(issue :: string, "layoutPriority", 1, true) ~= nil).toBe(true)
 		expect(string.find(issue :: string, "0, 2", 1, true) ~= nil).toBe(true)
-		expect(table.concat(ws(r, { "a", "b" }), ",")).toBe("180,180")
+		-- ...AND THE BOX CLIPPED THE REST (director ruling 1, 2026-08-13). An
+		-- authored `minMax.min` is a contract, so the cascade may not descend below
+		-- it and the 60px is genuinely unabsorbable — which is precisely where clip
+		-- is the floor: `b` is placed where the flow put it (x = 180) and CROPPED at
+		-- the box edge instead of painting 60px past it.
+		expect(string.find(issue :: string, "CLIPPED the remaining 60px", 1, true) ~= nil).toBe(true)
+		expect(table.concat(ws(r, { "a", "b" }), ",")).toBe("180,120")
+		for _, id in { "a", "b" } do
+			local rect = r.rects[id].rect
+			expect(`{id} ends at {rect.x + rect.w}`).toBe(`{id} ends at {math.min(rect.x + rect.w, 300)}`)
+		end
 	end)
 
 	it("a row that never opted in gets NO priority suffix (today's message, unchanged)", function()

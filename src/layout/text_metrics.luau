@@ -586,6 +586,48 @@ local MEASURE_SPEC_SHAPE = "a measure spec is { text, font, size, width, lineHei
 -- It reuses `wordWidth`, so exact engine widths win here exactly as they do inside
 -- `wrap`, and an unmeasured word falls back to the same conservative estimate. It
 -- does NOT reserve the joint grid step: there is no joint on a one-word line.
+-- WHITESPACE IS NOT THE ONLY BREAK OPPORTUNITY (2026-08-13). An ideographic
+-- script has no spaces and breaks between CHARACTERS, so a ten-character CJK run
+-- read as one "word" claims a min-content width ten times its true one. That was
+-- harmless while `minWidth` only fed the shrink floor (a too-high floor merely
+-- refuses to squeeze); it is not harmless now that the wrap rule (solver, director
+-- ruling 5) decides from it — an overstated minimum makes a CJK line report that
+-- it cannot wrap AT ALL, and it would be measured on one line and ellipsized.
+--
+-- `wrap` below still breaks only at whitespace. That asymmetry is deliberate and
+-- it errs SAFE in the one direction that matters: `wrap` over-reserves height for
+-- an ideographic run it cannot model (the adapter's TextYAlignment.Center comment
+-- names that over-reservation), while `minWidth` must never over-state, because
+-- what it gates now is whether wrapping is attempted at all. Modelling CJK breaks
+-- inside `wrap` is a separate, larger change with its own device evidence.
+local IDEOGRAPHIC_RANGES: { { number } } = {
+	{ 0x1100, 0x115F }, -- Hangul Jamo
+	{ 0x2E80, 0x303E }, -- CJK radicals, Kangxi, CJK symbols and punctuation
+	{ 0x3041, 0x33FF }, -- kana, bopomofo, Hangul compatibility jamo, CJK compatibility
+	{ 0x3400, 0x4DBF }, -- CJK Unified Ideographs Extension A
+	{ 0x4E00, 0x9FFF }, -- CJK Unified Ideographs
+	{ 0xA000, 0xA4CF }, -- Yi
+	{ 0xAC00, 0xD7A3 }, -- Hangul syllables
+	{ 0xF900, 0xFAFF }, -- CJK compatibility ideographs
+	{ 0xFE30, 0xFE4F }, -- CJK compatibility forms
+	{ 0xFF00, 0xFF60 }, -- fullwidth forms
+	{ 0xFFE0, 0xFFE6 },
+}
+-- Everything at U+10000 and above is excluded by construction, which is what keeps
+-- EMOJI (U+1F300+) and their ZWJ sequences whole: an emoji cluster has no legal
+-- break, and splitting one would UNDER-state the minimum instead.
+local function isIdeographic(cp: number): boolean
+	if cp < 0x1100 or cp > 0xFFE6 then
+		return false
+	end
+	for _, range in IDEOGRAPHIC_RANGES do
+		if cp >= range[1] and cp <= range[2] then
+			return true
+		end
+	end
+	return false
+end
+
 function text_metrics.minWidth(text: string, font: string, fontSize: number): number
 	if text == "" then
 		return 0
@@ -594,10 +636,41 @@ function text_metrics.minWidth(text: string, font: string, fontSize: number): nu
 	local bucket = bucketFor(canon, fontSize, false)
 	local fraction = if KNOWN_FONTS[canon] then (calibration[canon] or AVG_GLYPH_FRACTION) else 1.0
 	local widest = 0
-	for word in string.gmatch(text, "%S+") do
-		local w = wordWidth(word, canon, bucket, fontSize, fraction)
+	local function consider(run: string)
+		local w = wordWidth(run, canon, bucket, fontSize, fraction)
 		if w > widest then
 			widest = w
+		end
+	end
+	for word in string.gmatch(text, "%S+") do
+		-- THE COMMON PATH IS BYTE-IDENTICAL: a word with no ideographic codepoint is
+		-- measured whole, so it still hits the engine-measured word bucket and every
+		-- latin number in this repo is unchanged.
+		local hasIdeograph = false
+		for _, cp in utf8.codes(word) do
+			if isIdeographic(cp) then
+				hasIdeograph = true
+				break
+			end
+		end
+		if not hasIdeograph then
+			consider(word)
+			continue
+		end
+		local runStart: number? = nil
+		for pos, cp in utf8.codes(word) do
+			if isIdeographic(cp) then
+				if runStart ~= nil then
+					consider(string.sub(word, runStart, pos - 1))
+					runStart = nil
+				end
+				consider(string.sub(word, pos, utf8.offset(word, 2, pos) :: number - 1))
+			elseif runStart == nil then
+				runStart = pos
+			end
+		end
+		if runStart ~= nil then
+			consider(string.sub(word, runStart))
 		end
 	end
 	return math.ceil(widest)

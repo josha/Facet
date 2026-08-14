@@ -711,7 +711,10 @@ end)
 -- framework does, because only one of them has a legal break point.
 -- ===========================================================================
 describe("a Button's label wraps only where a break is legal", function()
-	local function heightOf(label: string, px: number): number
+	-- what the adapter was told about ONE button at a fixed width: its box, and the
+	-- wrap verdict the renderer carried to it (nil = never written = the adapter's
+	-- own default, which is "wrap on whitespace")
+	local function drawAt(label: string, px: number): { h: number, textWrapped: any }
 		local core = customFactory.new()
 		local env = environment.new(core)
 		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 400 })
@@ -727,9 +730,13 @@ describe("a Button's label wraps only where a break is legal", function()
 		)
 		local controller = rendererLib.attach(core, root, env, adapter, {})
 		controller.initialRender()
-		local h = adapter.node("/S/B").rect.h
+		local node = adapter.node("/S/B")
+		local out = { h = node.rect.h, textWrapped = node.props.textWrapped }
 		root.dispose()
-		return h
+		return out
+	end
+	local function heightOf(label: string, px: number): number
+		return drawAt(label, px).h
 	end
 
 	it("one word in a box too small for it stays ONE line — it ellipsizes, never breaks", function()
@@ -752,12 +759,41 @@ describe("a Button's label wraps only where a break is legal", function()
 		expect(heightOf("Save changes", 130) > heightOf("Save changes", 400)).toBe(true)
 	end)
 
-	it("the ADAPTER makes the same call, from the same string, on every label write", function()
+	it("the ADAPTER makes the same call, from the same string AND the solver's width verdict", function()
 		-- it rides the label WRITE and not creation because the label is a
-		-- reactive binding: the table's own toggle flips Edit <-> Done
-		expect(string.find(adapterSource, "instance.TextWrapped = string.find(tostring(value)", 1, true) ~= nil).toBe(
+		-- reactive binding: the table's own toggle flips Edit <-> Done.
+		--
+		-- ...AND IT IS NOW AN `and` (director ruling 5, 2026-08-13). The string half
+		-- is unchanged; `handle.wraps` is the SOLVER's half, because whether a
+		-- phrase's longest word fits needs the drawable width and this seam cannot
+		-- see it. Both are ANDed at both write sites, so whichever lands last the
+		-- answer is the same one.
+		expect(
+			string.find(
+				adapterSource,
+				'instance.TextWrapped = handle.wraps ~= false and string.find(tostring(value), "%s") ~= nil',
+				1,
+				true
+			) ~= nil
+		).toBe(true)
+		-- the verdict has a WRITE SITE of its own, or the `and` above is gated on a
+		-- field nothing ever sets — the shape of a check that cannot fail
+		expect(string.find(adapterSource, 'elseif prop == "textWrapped" then', 1, true) ~= nil).toBe(true)
+		expect(string.find(rendererSource, "isSingleWord(props.label)", 1, true) ~= nil).toBe(true)
+		-- ...and the renderer really carries it across (the seam, by name)
+		expect(string.find(rendererSource, 'adapter.setProp(handle, "textWrapped", wraps, "layout")', 1, true) ~= nil).toBe(
 			true
 		)
-		expect(string.find(rendererSource, "isSingleWord(props.label)", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("BEHAVIOURAL: the two seams agree on a phrase whose longest word does not fit", function()
+		-- the source pin above proves the CALL exists; this proves it lands. A
+		-- phrase in a box narrower than its own longest word must arrive at the
+		-- adapter with wrapping OFF, or the engine breaks the word inside a box the
+		-- solver measured for one line (docs/lessons/one-word-two-subsystems.md).
+		local roomy = drawAt("Save changes", 400)
+		local tight = drawAt("Save changes", 40)
+		expect(`roomy wrapped:{roomy.textWrapped}`).toBe("roomy wrapped:nil")
+		expect(`tight wrapped:{tight.textWrapped}`).toBe("tight wrapped:false")
 	end)
 end)

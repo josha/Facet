@@ -349,6 +349,11 @@ type Ctx = {
 	-- emits a permanent false positive and the diagnostic becomes noise
 	-- people learn to ignore.
 	hiddenDepth: number,
+	-- TRUE while `chosenCandidate` is asking "does this candidate fit?" (ruling 2).
+	-- It suppresses the measure-side shrink so a candidate is judged at the size it
+	-- would like — SwiftUI's ideal size — and it is part of `scopeKey`, because the
+	-- same node at the same offer answers differently under it.
+	fitProbe: boolean,
 	-- the active ThemeSnapshot (ADR-0019 §2). The ONE place the measure path
 	-- learns a typography role's size, font and line height, so a theme swap is
 	-- a re-solve with new numbers rather than a rebuild.
@@ -462,7 +467,8 @@ local function recordTextFacts(
 	clampedWidth: boolean,
 	font: string,
 	size: number,
-	naturalWidth: number?
+	naturalWidth: number?,
+	wraps: boolean?
 )
 	ctx.textStates[node.id] = m.state
 	local truncated = m.truncated or clampedWidth
@@ -492,6 +498,14 @@ local function recordTextFacts(
 		-- from THIS measure pass — the travel distance's other half
 		naturalWidth = naturalWidth,
 		policy = policy,
+		-- THE WRAP VERDICT (director ruling 5, 2026-08-13) — "was this box measured
+		-- with wrapping ON". False for a single word (no legal break), for a
+		-- compact form (one word by construction), and for a PHRASE whose longest
+		-- word does not fit the drawable width, which is the ruling: wrapping into
+		-- a column narrower than one of the phrase's own words does not wrap, it
+		-- breaks the word. The paint seam writes `TextWrapped` from exactly this,
+		-- because it sees the string but not the box (renderer `applyTextVerdicts`).
+		wraps = wraps == true,
 		-- the string this verdict is about: with a compact form in play it is NOT
 		-- the string the node draws, and disclosure hands back the full value
 		text = node.text,
@@ -500,6 +514,9 @@ end
 
 local measure -- forward
 local measureUncached -- forward (the real body; `measure` is the per-solve memo in front of it)
+-- forward: `ViewThatFits`'s fit probe (ruling 2) is read by the shrink pass and set
+-- by `chosenCandidate`, which is defined before the scope-key writers it belongs with
+local setFitProbe: (ctx: Ctx, on: boolean) -> ()
 -- forward: the shrink pass (§2.4) is defined with the rest of the arrange helpers,
 -- but BOTH passes run it — the measure branch's PASS 1.5 and arrange's own — so its
 -- name has to exist before either. One algorithm, two callers; see the block comment
@@ -898,22 +915,46 @@ local function resolveAxis(
 	return contentFn()
 end
 
--- ViewThatFits candidate choice (A-AL1). Pure and side-effect free apart from the
--- measure cache, so measure and arrange always agree on the winner.
+--[[ ViewThatFits candidate choice (A-AL1). Pure and side-effect free apart from
+	the measure cache, so measure and arrange always agree on the winner.
+
+	A CANDIDATE IS JUDGED AT THE SIZE IT WOULD LIKE, NOT AT THE SIZE IT COULD BE
+	SQUEEZED INTO (ruling 2, 2026-08-14, director: "follow swiftui's behavior").
+	Apple's reference sentence for `ViewThatFits` is "it selects the first child
+	whose IDEAL SIZE on the constrained axes fits within the proposed size", and an
+	ideal size is what a view reports when nothing is proposed to it — so every
+	mechanism that makes a view smaller than that ideal (truncation, `lineLimit`,
+	`minimumScaleFactor`) is invisible to the choice. `shrinkWeight` is this
+	framework's member of that family, and `ctx.fitProbe` is how it is made
+	invisible: the flag suppresses the measure-side shrink for the duration of the
+	probe, and nothing else.
+
+	WHAT IT REPLACES: PASS 1.5 made a candidate REPORT its squeezed extent, so a
+	candidate that could not fit "fit" and won. Swept 150-420px that flipped the
+	winner at 10 of 28 widths (docs/decisions/DECISIONS.md VTF-1).
+
+	THE WINNER IS STILL SHRUNK — the flag is off again by the time the chosen
+	candidate is measured and arranged, which is SwiftUI's other half: the winner
+	receives its parent's real proposal. Picking is unshrunk; showing is not. ]]
 local function chosenCandidate(ctx: Ctx, node: Node, availW: number, availH: number): number
 	local children = node.children or {}
 	if #children == 0 then
 		return 0
 	end
+	local wasProbing = ctx.fitProbe
+	setFitProbe(ctx, true)
+	local chosen = #children -- the last candidate is the declared fallback
 	for i = 1, #children - 1 do
 		local w, h = measure(ctx, children[i], availW, availH)
 		local fitsW = availW == math.huge or w <= availW
 		local fitsH = availH == math.huge or h <= availH
 		if fitsW and fitsH then
-			return i
+			chosen = i
+			break
 		end
 	end
-	return #children -- the last candidate is the declared fallback
+	setFitProbe(ctx, wasProbing)
+	return chosen
 end
 
 -- THE COMPOSITION RESOLUTION, COMPUTED ONCE PER BOX (ADR-0023).
@@ -1033,11 +1074,12 @@ local function compositionResolution(ctx: Ctx, node: Node, innerW: number, inner
 	return resolution
 end
 
---[[ THE FOUR WRITERS OF `ctx.scopeKey`.
+--[[ THE FIVE WRITERS OF `ctx.scopeKey`.
 
-	A measure has two inputs that are NOT in its argument list — `hiddenDepth` (it
-	gates diagnostics) and the nearest container (§2.5, it sizes a
-	`containerRelative` dimension) — and both must be in the memo's cache key. They
+	A measure has three inputs that are NOT in its argument list — `hiddenDepth` (it
+	gates diagnostics), the nearest container (§2.5, it sizes a `containerRelative`
+	dimension) and `fitProbe` (ruling 2, it suppresses the measure-side shrink while
+	`ViewThatFits` judges a candidate) — and all three must be in the memo's cache key. They
 	live here as ONE pre-formatted string, built on the handful of pushes a solve
 	makes rather than on the thousands of measures that read it. Going through a
 	helper is what keeps the string from drifting from the fields it names, and a
@@ -1069,8 +1111,9 @@ end
 	extra segments, so no key written before the arm can ever be produced again. The
 	pre-arm entries are unreachable, not stale: the cost of a late arm is a miss.
 
-	THREE OF THE FOUR REBUILD; THE FOURTH RESTORES. `pushContainer`, `setHidden` and
-	`armContainer` each change a field the key is DERIVED from and then re-derive it.
+	FOUR OF THE FIVE REBUILD; THE FIFTH RESTORES. `pushContainer`, `setHidden`,
+	`armContainer` and `setFitProbe` each change a field the key is DERIVED from and
+	then re-derive it.
 	`restoreScope` puts back a triple that was captured together, so it writes the
 	key verbatim rather than rebuilding one — which is correct, and is also why it
 	cannot go through the helper the other three share. It is named here because the
@@ -1080,10 +1123,16 @@ end
 	next edit there make one (docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md).
 ]]
 local function rebuildScopeKey(ctx: Ctx)
+	-- ...and the FIFTH writer's segment (ruling 2), appended only while a
+	-- `ViewThatFits` fit probe is running. A probe measures a candidate with the
+	-- shrink pass suppressed, which is a DIFFERENT answer for the same node at the
+	-- same offer, so it must be a different cache key — and appending nothing when
+	-- the flag is off keeps every key this memo wrote before ruling 2 byte-identical.
+	local probe = if ctx.fitProbe then "|fit" else ""
 	if ctx.hasContainerRelative then
-		ctx.scopeKey = `{ctx.hiddenDepth}|{ctx.containerW}|{ctx.containerH}`
+		ctx.scopeKey = `{ctx.hiddenDepth}|{ctx.containerW}|{ctx.containerH}{probe}`
 	else
-		ctx.scopeKey = tostring(ctx.hiddenDepth)
+		ctx.scopeKey = `{ctx.hiddenDepth}{probe}`
 	end
 end
 
@@ -1096,6 +1145,18 @@ local function pushContainer(ctx: Ctx, w: number, h: number)
 	if ctx.hasContainerRelative then
 		rebuildScopeKey(ctx)
 	end
+end
+
+-- ...and ENTER/LEAVE A `ViewThatFits` FIT PROBE (ruling 2). Same field, same
+-- reason: the probe changes what a measure ANSWERS, so it changes the key that
+-- answer is filed under. Saved and restored by the caller (`chosenCandidate`)
+-- rather than counted, because a nested composition can start a probe inside one.
+setFitProbe = function(ctx: Ctx, on: boolean)
+	if ctx.fitProbe == on then
+		return
+	end
+	ctx.fitProbe = on
+	rebuildScopeKey(ctx)
 end
 
 -- ...and ENTER/LEAVE A HIDDEN SUBTREE. Same field, same reason.
@@ -1294,7 +1355,11 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- it is the same offer-versus-occupied trap `contentSize` and `fits` above
 		-- each had to be fixed for).
 		local availW = if widthDim.type == "fixed" then (widthDim.px :: number) - pl - pr else innerMaxW
-		local wrapWidth = availW
+		-- typography comes from the active snapshot (see `textTypography` above for
+		-- the role ladder and why the descriptor rather than a bare family); the
+		-- client premeasure adapter resolves that descriptor to the engine face it
+		-- names (src/client/text_premeasure).
+		local font, size, lineHeight = textTypography(ctx, node)
 		-- SINGLE-LINE TEXT (director finding 13, 2026-07-26). A control whose
 		-- adapter draws its label on one line has to be MEASURED on one line, or
 		-- the row reserves height for a second line nobody draws — the same
@@ -1302,14 +1367,39 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 		-- text is measured UNBOUNDED and the result is clamped to the offer, so a
 		-- row that is free to grow takes the width its one line needs and a row
 		-- that is not ellipsizes inside the box it was given.
-		if node.singleLine == true then
-			wrapWidth = math.huge
+		--
+		-- THE WRAP RULE — WRAPPING IS RIGHT ONLY WHEN THE LONGEST WORD FITS
+		-- (director ruling 5, 2026-08-13; docs/handoff/2026-08-13-rulings-needed.md
+		-- §5). `node.singleLine` is derived from the STRING alone (the renderer's
+		-- `isSingleWord`) and answers "has this string a legal break at all". It
+		-- cannot answer "can that break SUCCEED", because that needs the width, and
+		-- the width is only known here. A phrase allowed to wrap into a column
+		-- narrower than one of its own words does not wrap — the engine BREAKS the
+		-- word, and the broken half paints outside the column that was measured for
+		-- it (`text_metrics.minWidth`'s own header says so, and until this ruling
+		-- only the shrink pass read it).
+		--
+		-- So the two shapes collapse into ONE rule: a string that cannot legally
+		-- break in the room it has is measured on one line and clamped to the offer,
+		-- and the engine's TextTruncate.AtEnd (on for every text node) ellipsizes
+		-- the rest. An unbounded offer never triggers it — a label free to grow has
+		-- no drawable width to fail against.
+		--
+		-- The verdict is PUBLISHED (`textFacts.wraps`) because the paint seam has to
+		-- make the same call and cannot derive it: `screen_target`'s TextWrapped rule
+		-- sees the string but not the box. One decision, two seams — the same
+		-- discipline `compact` already carries.
+		--
+		-- A ZERO (or negative) WIDTH IS NOT A WIDTH, and the rule declines to answer
+		-- there. A collapsed box — a closed swipe tray, a control mid-yield — is not
+		-- a label being cut, and claiming "this truncated" for one would file a
+		-- finding about text nobody is being shown (measured 2026-08-13: the
+		-- row-actions tray's own action labels, at w=0, in the LT-8 sweep).
+		local singleLine = node.singleLine == true
+		if not singleLine and availW ~= math.huge and availW > 0 then
+			singleLine = text_metrics.minWidth(node.text or "", font, size) > availW
 		end
-		-- typography comes from the active snapshot (see `textTypography` above for
-		-- the role ladder and why the descriptor rather than a bare family); the
-		-- client premeasure adapter resolves that descriptor to the engine face it
-		-- names (src/client/text_premeasure).
-		local font, size, lineHeight = textTypography(ctx, node)
+		local wrapWidth = if singleLine then math.huge else availW
 		-- THE COMPACT LADDER (director, 2026-07-27). A node that declared a shorter
 		-- representation swaps to it exactly when the full one does not fit the
 		-- width this node will OCCUPY — `innerMaxW`, already clamped above to the
@@ -1364,17 +1454,25 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 				-- across both seams without a second rule.
 				local cm = text_metrics.measure(compact, font, size, math.huge, lineHeight)
 				ctx.compact[node.id] = true
-				recordTextFacts(ctx, node, cm, cm.width > availW, font, size, naturalW)
+				recordTextFacts(ctx, node, cm, cm.width > availW, font, size, naturalW, false)
 				return math.min(cm.width, availW) + pl + pr, cm.height + pt + pb
 			end
 			ctx.compact[node.id] = false
 		end
 		local m = text_metrics.measure(node.text or "", font, size, wrapWidth, lineHeight, node.lineLimit)
-		if node.singleLine == true and innerMaxW ~= math.huge then
-			recordTextFacts(ctx, node, m, m.width > innerMaxW, font, size, naturalW)
-			return math.min(m.width, innerMaxW) + pl + pr, m.height + pt + pb
+		-- CLAMPED TO THE WIDTH THIS NODE WILL OCCUPY, not to its parent's offer. This
+		-- read `innerMaxW`, which for a `fixed`-width text node is the OFFER (line
+		-- 1283 excludes `text` from the self-clamp on purpose) — the exact trap
+		-- `availW` was introduced above to close for the compact ladder on
+		-- 2026-07-27, one line lower and still open. Measured 2026-08-13: a
+		-- `fixed(150)` Button at the largest preference reported `truncated = false`
+		-- while its one line wanted 340px in a 150px box, so `clippedEssential` — the
+		-- check whose whole job is "this label was cut" — could not see it.
+		if singleLine and availW ~= math.huge then
+			recordTextFacts(ctx, node, m, m.width > availW, font, size, naturalW, false)
+			return math.min(m.width, availW) + pl + pr, m.height + pt + pb
 		end
-		recordTextFacts(ctx, node, m, false, font, size, naturalW)
+		recordTextFacts(ctx, node, m, false, font, size, naturalW, not singleLine)
 		return m.width + pl + pr, m.height + pt + pb
 	end
 
@@ -1693,7 +1791,15 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	-- declared a weight, so the whole block is skipped by one nil test; the two
 	-- tables it needs are allocated on the deficit path only, exactly the discipline
 	-- arrange's `EMPTY_SHRINK` was written for.
-	if shrinkBasis ~= nil and mainLimit ~= math.huge then
+	--
+	-- ...AND IT DOES NOT RUN INSIDE A `ViewThatFits` FIT PROBE (ruling 2). "Does
+	-- this candidate fit?" is asked of the size the candidate would LIKE, which is
+	-- SwiftUI's ideal size — a candidate that only fits after being squeezed does
+	-- not fit, exactly as a Text that only fits after truncating does not fit there.
+	-- See `chosenCandidate` for the ruling and the measurement; the probe is off
+	-- again before the chosen candidate is measured for real, so the winner still
+	-- shrinks.
+	if shrinkBasis ~= nil and mainLimit ~= math.huge and not ctx.fitProbe then
 		local deficit = mainSum + gaps - mainLimit
 		if deficit > 0 then
 			local shrunk: { [number]: number } = {}
@@ -2488,25 +2594,71 @@ end
 	live (tests/stack_distribution.spec.luau).
 ]]
 
--- The narrowest main extent this child may be squeezed to. Never above `basis`:
--- a floor larger than the natural size would mean "shrinking" a child upwards.
-local function shrinkFloorOf(ctx: Ctx, child: Node, isH: boolean, basis: number): number
+--[[ ===== THE DEGRADE CASCADE (director ruling 1, 2026-08-13) ==================
+
+	MEASURED DEFECT: three `shrinkWeight = 1` texts in a 120px box solved to
+	`x0 w120 / x120 w120 / x240 w100` — two landed WHOLLY OUTSIDE the box, because
+	`absorbTier` can absorb at most `Sum(basis - floor)` and the residual deficit
+	was simply not absorbed. Director's ruling, verbatim: *"clip is ok; should we
+	switch to compact and then truncate the text before clipping (with '...')?"*
+
+	So the answer is a CASCADE, and each rung only happens when the one above it
+	still does not fit:
+
+	  1. COMPACT — a node that declared a compact representation gives that up
+	     before it gives up any of its string. (The floor drops to the compact
+	     form's own min-content; the re-measure at the reduced offer is what makes
+	     the compact ladder actually choose it, so there is no second mechanism.)
+	  2. TRUNCATE — the text is allowed below its longest word, down to the width
+	     of an ellipsis. Below min-content the string cannot wrap, so the wrap rule
+	     above measures it on ONE line and the engine's TextTruncate.AtEnd cuts it
+	     with a `…`: the text tells the truth about being cut.
+	  3. CLIP — the floor guarantee, applied in the arrange loop below: whatever
+	     the cascade could not absorb is cropped at the box edge, so nothing EVER
+	     paints outside its parent. Last resort, never the first move.
+
+	AN AUTHORED `minMax.min` IS NOT A RUNG. It is a contract ("never below this"),
+	so it wins at every rung; only the floor the framework DERIVED from the text
+	gives way. That is also what keeps the cascade from silently undoing a
+	deliberate minimum.
+
+	The rungs are re-run from the ORIGINAL basis rather than stacked, so `absorbed`
+	is always the whole answer for the rung that produced it and a lower floor can
+	only ever absorb more (floors are monotonically non-increasing down the ladder).
+]]
+local FLOOR_NATURAL = 1 -- today's: an authored min, else the longest word
+local FLOOR_COMPACT = 2 -- ...else the compact form's longest word
+local FLOOR_TRUNCATE = 3 -- ...else one ellipsis
+-- U+2026. The narrowest honest thing a cut label can still say; the engine draws
+-- exactly this character when TextTruncate.AtEnd engages.
+local ELLIPSIS = "\u{2026}"
+
+-- The narrowest main extent this child may be squeezed to AT `rung`. Never above
+-- `basis`: a floor larger than the natural size would mean "shrinking" a child
+-- upwards.
+local function shrinkFloorOf(ctx: Ctx, child: Node, isH: boolean, basis: number, rung: number): number
 	local d = mainDimOf(child, isH)
 	if d.type == "minMax" and type(d.min) == "number" then
+		-- an AUTHORED minimum is a contract, not a rung (see the block above)
 		return math.min(d.min :: number, basis)
 	end
 	-- min-content applies to a text node's WIDTH; a vertical stack squeezing a
 	-- label's HEIGHT has no equivalent (there is no "minimum wrap height"), so the
 	-- floor there is whatever `minMax.min` declared, else 0.
 	if isH and child.kind == "text" then
-		-- the string this node will actually DRAW — the compact ladder's verdict is
-		-- published on `ctx.compact` by the measure that reserved the box, and the
-		-- floor has to belong to the same string
-		local drawn = if child.compactText ~= nil and ctx.compact[child.id] == true
-			then child.compactText :: string
-			else (child.text or "")
 		local font, size = textTypography(ctx, child)
 		local _, pr, _, pl = sides(child.padding)
+		if rung >= FLOOR_TRUNCATE then
+			return math.min(text_metrics.minWidth(ELLIPSIS, font, size) + pl + pr, basis)
+		end
+		-- the string this node will actually DRAW — the compact ladder's verdict is
+		-- published on `ctx.compact` by the measure that reserved the box, and the
+		-- floor has to belong to the same string. At `FLOOR_COMPACT` the ladder has
+		-- not chosen the compact form yet (this offer is still the unsqueezed one),
+		-- so the floor is the one the re-measure at the reduced offer WILL produce.
+		local drawn = if child.compactText ~= nil and (rung >= FLOOR_COMPACT or ctx.compact[child.id] == true)
+			then child.compactText :: string
+			else (child.text or "")
 		return math.min(text_metrics.minWidth(drawn, font, size) + pl + pr, basis)
 	end
 	return 0
@@ -2665,7 +2817,7 @@ shrinkStack = function(
 				table.insert(members, {
 					idx = idx,
 					basis = basis,
-					floor = shrinkFloorOf(ctx, child, isH, basis),
+					floor = shrinkFloorOf(ctx, child, isH, basis, FLOOR_NATURAL),
 					scaled = weight * basis,
 					priority = child.layoutPriority or 0,
 				})
@@ -2678,19 +2830,60 @@ shrinkStack = function(
 	table.sort(members, function(a, b)
 		return if a.priority ~= b.priority then a.priority < b.priority else a.idx < b.idx
 	end)
-	local absorbed = 0
+	-- ONE PASS OVER THE PRIORITY TIERS, at whatever floors `members` currently
+	-- carries. The cascade below re-runs it with lower floors; each run starts from
+	-- the ORIGINAL basis, so its answer is the whole answer for that rung.
 	local tiers: { string } = {}
-	local i = 1
-	while i <= #members do
-		local j = i
-		while j < #members and members[j + 1].priority == members[i].priority do
-			j += 1
+	local function runTiers(): number
+		local absorbed = 0
+		local i = 1
+		local tier = 0
+		while i <= #members do
+			local j = i
+			while j < #members and members[j + 1].priority == members[i].priority do
+				j += 1
+			end
+			tier += 1
+			if #tiers < tier then
+				table.insert(tiers, tostring(members[i].priority))
+			end
+			if deficit - absorbed > 0 then
+				absorbed += absorbTier(members, i, j, deficit - absorbed, shrunk)
+			end
+			i = j + 1
 		end
-		table.insert(tiers, tostring(members[i].priority))
-		if deficit - absorbed > 0 then
-			absorbed += absorbTier(members, i, j, deficit - absorbed, shrunk)
+		return absorbed
+	end
+	local function capOf(): number
+		local cap = 0
+		for _, m in members do
+			cap += m.basis - m.floor
 		end
-		i = j + 1
+		return cap
+	end
+	local cap = capOf()
+	local absorbed = runTiers()
+	-- THE DEGRADE CASCADE (director ruling 1 — the block comment above
+	-- `shrinkFloorOf` states it). Only while a deficit is left, and only when the
+	-- next rung actually buys room: a row of boxes has the same floor at every
+	-- rung, so it pays one arithmetic sweep and never a second tier walk.
+	local rung = FLOOR_NATURAL
+	while absorbed < deficit and rung < FLOOR_TRUNCATE do
+		rung += 1
+		for _, m in members do
+			local floor = shrinkFloorOf(ctx, children[m.idx], isH, m.basis, rung)
+			if floor < m.floor then
+				m.floor = floor
+			end
+		end
+		local nextCap = capOf()
+		if nextCap > cap then
+			cap = nextCap
+			-- the previous rung's answer is SUPERSEDED, never added to: every rung
+			-- shrinks from the original basis
+			table.clear(shrunk)
+			absorbed = runTiers()
+		end
 	end
 	return absorbed, table.concat(tiers, ", ")
 end
@@ -3816,6 +4009,21 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 	-- still could not fit the row it appends the priority order it worked through —
 	-- because "everything is already at its floor" is a different repair from
 	-- "nothing was allowed to shrink".
+	--
+	-- CLIP IS THE CASCADE'S FLOOR (director ruling 1, 2026-08-13). A stack that ran
+	-- the degrade cascade (compact -> truncate, `shrinkFloorOf` above) and STILL
+	-- cannot fit crops what is left at its own edge, so nothing ever paints outside
+	-- its parent — the failure class this framework has now fixed five times. The
+	-- crop is on the RECT, not on an engine `ClipsDescendants`: a cropped rect is
+	-- what every headless sweep, dump and audit in this repo actually reads, and a
+	-- clip host would have left them all reporting the same out-of-bounds geometry
+	-- while hiding it from the only eyes that can see a device.
+	--
+	-- SCOPED TO THE CASCADE, deliberately. A stack that declared no `shrinkWeight`
+	-- opted into nothing and is untouched — cropping every overflowing stack in the
+	-- library would be the silent re-flow of shipped screens the diagnostic below
+	-- has always refused to be.
+	local clipMain = shrinkOrder ~= nil and availMain < 0
 	if availMain < 0 and ctx.hiddenDepth == 0 then
 		local issue = string.format(
 			"content overflows this %s by %dpx on the main axis; it will paint outside its box "
@@ -3825,8 +4033,10 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		)
 		if shrinkOrder ~= nil then
 			issue ..= string.format(
-				" — every shrinkable child is already at its floor (layoutPriority order tried: %s)",
-				shrinkOrder
+				" — every shrinkable child is already at its floor (layoutPriority order tried: %s), "
+					.. "so the box CLIPPED the remaining %dpx",
+				shrinkOrder,
+				-availMain
 			)
 		end
 		table.insert(ctx.diagnostics, { node = node.id, issue = issue })
@@ -3965,14 +4175,24 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				crossSize = math.floor(mainSize * ratio + 0.5)
 			end
 		end
+		-- THE CROP (see `clipMain` above). The PAINTED extent stops at the box edge;
+		-- the CURSOR still advances by the full one, because cropping is not
+		-- re-flowing — pulling the later children back inside would move content the
+		-- author placed, which is a different (and silent) change.
+		local paintedMain = mainSize
+		if clipMain then
+			local start = cursor + (if isH then m.l else m.t)
+			local edge = if isH then innerX + innerW else innerY + innerH
+			paintedMain = math.clamp(edge - start, 0, mainSize)
+		end
 		local childRect: Rect
 		if isH then
 			local y = innerY + m.t + alignOffset(childAlign, crossAvail, crossSize)
-			childRect = { x = cursor + m.l, y = y, w = mainSize, h = crossSize }
+			childRect = { x = cursor + m.l, y = y, w = paintedMain, h = crossSize }
 			cursor += m.l + mainSize + m.r + gap
 		else
 			local x = innerX + m.l + alignOffset(childAlign, crossAvail, crossSize)
-			childRect = { x = x, y = cursor + m.t, w = crossSize, h = mainSize }
+			childRect = { x = x, y = cursor + m.t, w = crossSize, h = paintedMain }
 			cursor += m.t + mainSize + m.b + gap
 		end
 		if step > 0 and idx < childCount then
@@ -4019,6 +4239,7 @@ function solver.solve(
 		compositions = {},
 		regionForm = {},
 		hiddenDepth = 0,
+		fitProbe = false,
 		-- THE OUTERMOST CONTAINER IS THE SURFACE ROOT (§2.5): the content rect, i.e.
 		-- the viewport minus whatever safe insets this root policy honours. A tree
 		-- with no ScrollView in it therefore still has a container, and it is the one

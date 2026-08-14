@@ -86,6 +86,11 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- deprecated for. (`font` above is that deprecated authored prop; it is
 		-- STYLE authority and diagnosed-not-preserved.)
 		textFont = "layout",
+		-- THE WRAP RULE'S VERDICT (director ruling 5, 2026-08-13). LAYOUT authority,
+		-- beside `textSize`/`textFont`, because it is the same kind of fact: the
+		-- solver decided it while reserving the box, and a second writer for it
+		-- would be the measure/paint split the rule exists to close.
+		textWrapped = "layout",
 	},
 	Button = {
 		text = "binding",
@@ -110,6 +115,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		-- BINDING authority above, on the one label seam, so there is no second
 		-- writer for the drawn string.
 		compactLabel = "style",
+		textWrapped = "layout", -- the wrap verdict; see the Text entry above
 	},
 	-- textSize joined for the ten-foot/measure-paint agreement (verifier F1):
 	-- an explicit Toggle textSize scales at both seams like every text node
