@@ -224,6 +224,14 @@
    "specSection": "docs/plans/declarative-3d-architecture.md",
    "artifactDir": "artifacts/declarative-3d-architecture",
    "gateArtifact": "artifacts/declarative-3d-architecture/gate.json",
+   "next": "swiftui-parity-round3"
+  },
+  {
+   "gate": "swiftui-parity-round3",
+   "title": "SwiftUI parity round 3: flow-wrap as a native arrange branch (`wrap` on HStack/VStack, the hwrap/vwrap solver kinds, the first cross-axis overflow diagnostic in the repo); the custom `Layout` protocol evaluated and recorded as a conditional refusal with a named trigger; per-row capability opt-outs (rowSelectable/rowMovable/rowDeletable) gated at the funnel across Table and newVirtualList; circular progress in BOTH forms on Path2D; the five clean-room reference apps re-proved against the new vocabulary; the completeness audit's ranked gaps (onAppear/onDisappear/hidden) plus the four capabilities that already shipped and were never rowed; the showcase chrome restructured so keyboard and gamepad reach it AND the demo, with the reduced-motion settings surface it unblocked; an accessibility-text-size axis on the always-on sweeps; the lying-itemExtent guard; and one viewport change coalesced from five solves to one - registered after the fact, as round 2 was, and with every device claim carried as an explicit PENDING row rather than asserted",
+   "specSection": "docs/plans/swiftui-parity-round3-brief.md (binding scope) + docs/plans/swiftui-parity-round3.md (the per-phase record of what shipped)",
+   "artifactDir": "artifacts/swiftui-parity-round3",
+   "gateArtifact": "artifacts/swiftui-parity-round3/gate.json",
    "next": null
   }
  ]
