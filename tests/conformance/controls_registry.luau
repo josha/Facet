@@ -882,6 +882,30 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- every live pixel amount a row-actions band is made of (2026-08-14). NOT a
+		-- control: it mounts nothing — it resolves the four `controls.rowActions.*`
+		-- theme metrics, owns the per-action NATURAL width signals, and does the
+		-- band arithmetic (`bandWidth` = the number the row TRAVELS) plus the
+		-- edit-mode gutter. Lifted out of src/controls/row_actions.luau because
+		-- every value it returns is a pure function of build-time facts, which let
+		-- that file get back under the 200,000-char `Script.Source` WRITE cap
+		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		name = "RowActionsMetrics",
+		kind = "composite",
+		module = "src/controls/row_actions_metrics.luau",
+		export = "newRowActions",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions.spec.luau",
+		docsAnchor = "newRowActions",
+		-- NO INSTANCE: `build()` returns a bag of already-owned reactive nodes that
+		-- the row engine closes over. Their live values are already in the row's
+		-- own dump() (trayWidth/offset/phase), which is where a report reads them.
+		dump = false,
+		reason = "returns reactive nodes the row engine owns and already reports through its own dump(); a second copy here would be the same numbers twice",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

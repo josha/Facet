@@ -122,6 +122,10 @@ local rowActionsCoordinator = require("./row_actions_coordinator")
 -- ...and the reorder-vs-swipe arbiter Table composes over one row Hit surface.
 -- Re-exported below as `row_actions.composeWithReorder`, unchanged.
 local rowActionsReorder = require("./row_actions_reorder")
+-- ...and every live pixel amount the band is made of: the four
+-- `controls.rowActions.*` theme metrics, the per-action naturals, the band
+-- arithmetic and the edit-mode gutter. Built once per engine, below.
+local rowActionsMetrics = require("./row_actions_metrics")
 
 -- ALIASED AT MODULE SCOPE, above every caller, deliberately — a local declared
 -- LATER is not an upvalue, it silently captures a nil global
@@ -132,6 +136,10 @@ local isPathPrefix = rowActionsSpec.isPathPrefix
 local trayId = rowActionsSpec.trayId
 local actionsFor = rowActionsSpec.actionsFor
 local normalizeFullSwipe = rowActionsSpec.normalizeFullSwipe
+-- the theme KEY, not the resolved number: a tray plate with no motion authority
+-- declares it raw as a `minMax` floor (`buildWidthProps`).
+local BUTTON_MIN_WIDTH = rowActionsMetrics.BUTTON_MIN_WIDTH
+local EDIT_AFFORDANCE = rowActionsMetrics.EDIT_AFFORDANCE
 
 local row_actions = {}
 
@@ -377,11 +385,9 @@ local HOSTED_PATH_KEYS = specGuard.keySet({ "content", "trayLeading", "trayTrail
 -- ACTION_KEYS / FULL_SWIPE_KEYS live in `row_actions_spec.luau` beside the only
 -- two functions that read them (`buildActionSpec`, `normalizeFullSwipe`).
 
--- THEME METRICS (Task 2; ADR-0019 §2). A tray button never sits narrower than
--- `buttonMinWidth` — the localization floor — and `buttonPad` is its inner
--- horizontal padding. Theme strings only; resolved by the solver exactly like
--- `slider.luau`'s `THUMB_SIZE`/`RAIL_HEIGHT`.
-local BUTTON_MIN_WIDTH = "controls.rowActions.buttonMinWidth"
+-- THE TRAY BUTTON'S OWN THEME METRICS (Task 2; ADR-0019 §2) live in
+-- `row_actions_metrics.luau`. `BUTTON_MIN_WIDTH` is aliased at the top of
+-- this file because a plate declares the KEY raw as a `minMax` floor.
 --[[ THE LEGIBILITY FLOOR — below this a revealing plate stops being drawable.
 
 	DEVICE REPORT, game director, 2026-08-13 (`pop.mov`, Glossy Touch): on close
@@ -431,35 +437,9 @@ local BUTTON_MIN_WIDTH = "controls.rowActions.buttonMinWidth"
 	tune. A package that wants a wider plate raises `buttonMinWidth`, which is a
 	different question with its own metric. ]]
 local PLATE_LEGIBLE_MIN_PX = 8
-local BUTTON_PAD = "controls.rowActions.buttonPad"
--- ...and the gutter BETWEEN two adjacent tray buttons (director device round
--- 2026-08-12: "Delete 645-777, Flag 780-905, corners touching"). Zero read as one
--- merged slab, and mid-flight the sliding row content merged with the first plate
--- too. A THEME metric, not a literal: `snapshot.resolve` fills it from the
--- package's own `space.xs` when the package declares none, so it moves with the
--- spacing scale the rest of the surface already uses.
-local TRAY_GAP = "controls.rowActions.trayGap"
--- ...and the gutter between the ROW ITSELF and the tray band beside it (device
--- bug round 2026-08-12, findings A1a/A2: "the trash tray butts straight against
--- the row with zero negative space", and the edit minus doing the same on the
--- leading edge). `trayGap` separates two PLATES from each other; this separates
--- the whole band — and the edit-mode minus, which lives in the same strip — from
--- the sliding row. A second theme metric rather than a reuse of `trayGap`
--- because the two are different decisions at different scales: a hairline
--- between two members of one group, a clear step between the group and the
--- surface it sits beside. `snapshot.resolve` fills it from the package's own
--- `space.s` when the package declares none.
---
--- IT IS PART OF THE BAND, NOT A THING BESIDE IT: `buildTray` spends it as the
--- tray HStack's own row-facing padding, so the band's width (and therefore the
--- travel distance the row slides, and therefore the reveal fraction each plate
--- stretches by) all move together by construction — the same "the tray
--- uncovered has to be the tray drawn" rule the `trayGap` fix already had to
--- learn.
-local ROW_GUTTER = "controls.rowActions.rowGutter"
--- Task 9: the edit-mode leading minus' diameter (both axes — `shape = "circle"`
--- below takes only ONE authored axis and derives the other).
-local EDIT_AFFORDANCE = "controls.rowActions.editAffordance"
+-- BUTTON_PAD / TRAY_GAP / ROW_GUTTER / EDIT_AFFORDANCE live in
+-- `row_actions_metrics.luau` with the memos that resolve them; each keeps its
+-- own device-round history there.
 
 --[[ PERCEPTUAL ARRIVAL, not the solver's epsilon (device bug round 2026-08-12,
 	finding C9b: "after the row slides back, you see it stop and then pop position
@@ -754,167 +734,45 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- comment for why this exists on top of `committed`/`disposed` alone.
 	local commitEpoch = 0
 
-	-- ===== theme-resolved chrome (Task 4 fix) ================================
-	-- `buttonPad`/`buttonMinWidth`/`trayGap` are theme facts with no font/size
-	-- component (unlike the label's own font/size, which arrive already
-	-- resolved through `controller.textAt` — see `deriveNaturals` below), so
-	-- they need the environment's theme snapshot directly. `spec.env` is
-	-- optional, exactly `table.luau`'s own `metricsOr`/`rowGapPx` pattern:
-	-- absent degrades to `themeSnapshot.neutral()`, present and live re-solves
-	-- on a runtime theme swap (`env:get("themeMetrics")` is itself reactive).
-	--
-	-- HOISTED above the naturals (director device round 2026-08-12): the tray's
-	-- own travel distance now includes its inter-button gutters, so `trayGap` has
-	-- to exist before `leadingWidth`/`trailingWidth` read it.
-	local function metricsOr(raw: any): any
-		return if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
-	end
-	local metricsSig = scope:own(core:memo(function(use)
-		local env = spec.env
-		if env == nil then
-			return themeSnapshot.neutral()
-		end
-		return metricsOr(use(env:get("themeMetrics")))
-	end))
-	local buttonPadPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_PAD) or 0
-	end))
-	local buttonMinWidthPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), BUTTON_MIN_WIDTH) or 0
-	end))
-	local trayGapPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), TRAY_GAP) or 0
-	end))
-	local rowGutterPx = scope:own(core:memo(function(use)
-		return themeSnapshot.resolveNumber(use(metricsSig), ROW_GUTTER) or 0
-	end))
-	-- A3 (device bug round 2026-08-12): a themed package's control frame is room
-	-- the label cannot use, and a tray button's natural width has to reserve it
-	-- the same way the button's own hug measure does — see `deriveNaturals`.
-	-- Zero under every flat package (`snapshot.resolve` only fills
-	-- `chromeInsets` for a nineSlice/layered slot recipe), so this is inert
-	-- until a package actually paints a frame.
-	local buttonChromePx = scope:own(core:memo(function(use)
-		local metrics = use(metricsSig)
-		local insets = if type(metrics) == "table" and type(metrics.chromeInsets) == "table"
-			then (metrics.chromeInsets :: any).control
-			else nil
-		if type(insets) ~= "table" then
-			return 0
-		end
-		local left = if type(insets.left) == "number" then insets.left else 0
-		local right = if type(insets.right) == "number" then insets.right else 0
-		return left + right
-	end))
+	--[[ EVERY LIVE PIXEL AMOUNT THIS BAND IS MADE OF, built in one call
+		(`row_actions_metrics.luau`, 2026-08-14). The four `controls.rowActions.*`
+		theme metrics, the per-action NATURAL width signals, the band arithmetic
+		those sum into, and the edit-mode gutter — all pure functions of `core`,
+		`scope`, `spec.env` and the two validated ActionSpec lists, none of them
+		reading a single upvalue of this closure, which is why they could leave
+		when this file had to get back under the 200,000-char `Script.Source`
+		WRITE cap (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
 
-	-- per-action NATURAL (unconstrained) width — a live-derived signal, one per
-	-- declared action, created eagerly at BUILD time rather than inside the
-	-- tray's lazy `UI.When` factory. A reactive value created INSIDE that
-	-- factory would be a FRESH `core:memo` every remount (Trays mount lazily;
-	-- a row can open and close many times), which `scope:own` would dutifully
-	-- own and never release until this whole composite disposes — a slow leak
-	-- shaped exactly like the "table with no dispose()" mistake
-	-- scope_impl.luau's own `own()` guards against, just one level up (a table
-	-- WITH a dispose(), that nothing ever calls). Building it once, here, and
-	-- having the tray factory below only ever LOOK UP an existing entry, means
-	-- every open/close cycle reuses the same handful of reactive nodes.
-	--
-	-- The signal itself is written by `syncGeometry`/`deriveNaturals` below,
-	-- on EVERY sync (not frozen — see the TRAY WIDTH header comment): a plain
-	-- `core:signal`, not a memo, because the write happens from an external
-	-- hook (the presenter's geometry broadcast), not from a `use()`-tracked
-	-- computation.
-	local leadingNaturals: { [string]: any } = {}
-	for _, action in leadingActions or {} do
-		leadingNaturals[action.id] = scope:own(core:signal(nil :: number?))
-	end
-	local trailingNaturals: { [string]: any } = {}
-	for _, action in trailingActions or {} do
-		trailingNaturals[action.id] = scope:own(core:signal(nil :: number?))
-	end
-	local function sumNaturals(naturals: { [string]: any }, use: (any) -> any): number
-		local total = 0
-		for _, sig in naturals do
-			local v = use(sig)
-			if v ~= nil then
-				total += v
-			end
-		end
-		return total
-	end
-	-- the tray's total width IS the sum of its buttons' naturals PLUS the gutters
-	-- between them — never the tray CONTAINER's own solved rect (that WAS the
-	-- feedback-loop bug: a number this same reveal can shrink, chasing a
-	-- collapsing target). The naturals themselves are geometry-free (see above)
-	-- and `trayGapPx` is a theme metric, so this sum moves live with a label/
-	-- text-size/theme change and can never chase itself.
-	--
-	-- The inter-plate term is `(n - 1) * gap`, the HStack's own arithmetic — the
-	-- travel distance and the thing it has to uncover must be the same number, or
-	-- the last button parks half off the row (device round 2026-08-12). The
-	-- row-facing `rowGutter` (device BUG round, same date — finding A1a) is the
-	-- band's own padding and belongs to the same sum for the same reason: the
-	-- row has to travel far enough to uncover the plates AND the negative space
-	-- in front of them, or the gutter is simply the first plate's new left
-	-- margin and the row still butts against art.
-	local function bandExtras(actions: { ActionSpec }?, use: (any) -> any): number
-		local n = if actions ~= nil then #actions else 0
-		if n < 1 then
-			return 0
-		end
-		return (n - 1) * use(trayGapPx) + use(rowGutterPx)
-	end
-	--
-	-- ZERO STAYS ZERO. `0` is this pair's own "nothing has been measured yet"
-	-- sentinel (`provisionalWidth` below substitutes its estimate on exactly
-	-- that test, which is what keeps a single-frame flick openable), so the
-	-- band's fixed extras are added only once there is a plate to put them
-	-- beside.
-	local function bandWidth(naturals: { [string]: any }, actions: { ActionSpec }?, use: (any) -> any): number
-		local sum = sumNaturals(naturals, use)
-		if sum <= 0 then
-			return 0
-		end
-		return sum + bandExtras(actions, use)
-	end
-	local leadingWidth = scope:own(core:memo(function(use)
-		return bandWidth(leadingNaturals, leadingActions, use)
-	end))
-	local trailingWidth = scope:own(core:memo(function(use)
-		return bandWidth(trailingNaturals, trailingActions, use)
-	end))
+		DESTRUCTURED INTO THE SAME LOCAL NAMES the ~20 readers below already use,
+		at the same point in the file they were declared, so every call site is
+		unchanged and nothing moved above or below anything it depends on
+		(docs/lessons/later-locals-are-not-upvalues.md).
 
-	-- ===== Task 9: the edit-mode gutter (leading minus + content/leading-tray
-	-- shift) — built ONLY when it can ever matter (`hasEditAffordance`), so a
-	-- caller who never wires `editing` adds none of these reactive nodes.
-	--
-	-- `editGutterPx` is the ONE live pixel amount both Content's rendered
-	-- offsetX (below) and the leading tray's own offsetX (`buildTray`) read: 0
-	-- when not currently editing, `editAffordancePx + rowGutterPx` (the resolved
-	-- `controls.rowActions.editAffordance` metric, live to a theme swap
-	-- exactly like `buttonPadPx`/`buttonMinWidthPx` above, PLUS the same
-	-- row-facing negative space the tray band spends — device bug round
-	-- 2026-08-12, finding A2: a strip exactly one diameter wide leaves the disc
-	-- touching the row it is meant to sit outside of) while editing. A
-	-- SEPARATE signal from `offset` (Task 5's gesture/spring seam) by design —
-	-- see the big comment above `local editingReadable` and the one above
-	-- `contentOffsetX` below for why the two must never merge into one write.
-	local editAffordanceShown: any = nil
-	local editGutterPx: any = nil
-	if hasEditAffordance then
-		editAffordanceShown = scope:own(core:memo(function(use)
-			return use(editingReadable) == true
-		end))
-		local editAffordancePx = scope:own(core:memo(function(use)
-			return themeSnapshot.resolveNumber(use(metricsSig), EDIT_AFFORDANCE) or 0
-		end))
-		editGutterPx = scope:own(core:memo(function(use)
-			if use(editAffordanceShown) then
-				return use(editAffordancePx) + use(rowGutterPx)
-			end
-			return 0
-		end))
-	end
+		The naturals are OWNED here and WRITTEN by `deriveNaturals` below, which
+		stays: the measurement needs `controller.textAt`'s live font/size facts and
+		the icon glyph, and those arrive through a presenter handoff this control
+		receives, not through a theme snapshot. ]]
+	local bandMetrics = rowActionsMetrics.build(
+		core,
+		scope,
+		spec.env,
+		leadingActions,
+		trailingActions,
+		hasEditAffordance,
+		editingReadable
+	)
+	local metricsSig = bandMetrics.metricsSig
+	local buttonPadPx = bandMetrics.buttonPadPx
+	local buttonMinWidthPx = bandMetrics.buttonMinWidthPx
+	local trayGapPx = bandMetrics.trayGapPx
+	local rowGutterPx = bandMetrics.rowGutterPx
+	local buttonChromePx = bandMetrics.buttonChromePx
+	local leadingNaturals = bandMetrics.leadingNaturals
+	local trailingNaturals = bandMetrics.trailingNaturals
+	local leadingWidth = bandMetrics.leadingWidth
+	local trailingWidth = bandMetrics.trailingWidth
+	local editAffordanceShown = bandMetrics.editAffordanceShown
+	local editGutterPx = bandMetrics.editGutterPx
 
 	-- THE ONE SEAM (Tasks 4-6 write through this exclusively): however the
 	-- pixel number is produced — the fallback instant snap, a spring chase, a
