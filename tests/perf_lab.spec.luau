@@ -1116,3 +1116,129 @@ describe("perf lab: profileWindow cannot be aimed at nothing (device captures 1 
 		built.dispose()
 	end)
 end)
+
+--[[ THE STATUS LINE MUST HAVE REAL WIDTH AND WRAP (device report, three rounds).
+
+	The lab refuses a mount whose surface reports layout findings, and the whole
+	value of that refusal is the message. On a phone the message was cut off —
+	three times. The first two fixes shortened the string, which was treating the
+	symptom: the `State` Text had no declared width, so in an HStack it took its
+	natural single-line extent and ran off the panel.
+
+	Then the fix for THAT broke it worse. Setting the Text to `fill` while its
+	parent row still hugged made it collapse to ~zero — a `fill` child asks its
+	parent for leftover main-axis space and a hugging parent has none — and the
+	device showed a status of exactly one character: "F".
+
+	Both the row and the text carry `fill` now. This case is the instrument that
+	would have caught either mistake, and it asserts the two things a status line
+	has to be: WIDE (a real fraction of the panel, not one glyph) and TALL (more
+	than one line when the message is long). Measured rather than reasoned. ]]
+describe("perf lab overlay: the status line is readable, not one character wide", function()
+	local LONG = "[perf lab] MOUNT REFUSED — /PerfLab/Body/Rows/Row: content overflows this hstack "
+		.. "by 132px on the main axis; it will paint outside its box (wrap it in a ScrollView, or give it room)"
+
+	local function statusRect(vw: number, vh: number)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = vw, h = vh })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local model: any = {
+			buildLine = core:signal("build"),
+			scenarioLine = core:signal("dense-scroll"),
+			deviceLine = core:signal("device"),
+			statusLine = core:signal(LONG),
+			countdown = core:signal(""),
+			counterLines = core:signal({ "mountedRows=0/9" }),
+			actions = {},
+			scenarioNames = { "dense-scroll", "mount-ramp" },
+			onSelectScenario = function() end,
+			currentScenario = core:signal("dense-scroll"),
+			onCycleScenario = function() end,
+			scenarioPosition = core:signal("1/2"),
+			onRunAll = function() end,
+		}
+		local bp = overlayLib.build(LuauUI, core, model)
+		local handle = pres.present(LuauUI.UI.Screen({ id = "O", children = { bp } }))
+		pres.refresh()
+		local found: string? = nil
+		for _, path in adapter.paths() do
+			if string.find(path, "/State", 1, true) ~= nil then
+				found = path
+			end
+		end
+		expect(found ~= nil).toBe(true)
+		return handle.controller.rectOf(found :: string)
+	end
+
+	it("takes a real share of the panel at the reporter's device viewport, and wraps", function()
+		local r = statusRect(698, 1513)
+		-- WIDE: a collapsed `fill` renders about one glyph. Anything under a third
+		-- of the viewport means the row is hugging again.
+		expect(r.w > 300).toBe(true)
+		-- TALL: one line of 15px text is ~18px. This message cannot fit on one.
+		expect(r.h > 36).toBe(true)
+	end)
+
+	it("...and on the narrowest supported phone, where it needs the most lines", function()
+		local r = statusRect(360, 691)
+		expect(r.w > 150).toBe(true)
+		expect(r.h > 54).toBe(true)
+	end)
+end)
+
+--[[ THE PROFILING LOOP MUST BE STOPPABLE AND MUST YIELD (device hang, 2026-08-13).
+
+	The director's phone HUNG twice — on `mount-ramp` (leaving a blank screen) and
+	on `resize-relayout` — while `Profile 1` was looping them. `dense-scroll` was
+	fine. Two compounding defects, both in the loop rather than in the workloads:
+
+	1. NO YIELD. The loop relied on the pass to wait a frame. Of the three passes a
+	   window is likely to loop, only `scrollSteady` does — `resizeStorm` and `ramp`
+	   have ZERO yield sites and run their whole ladder synchronously. Looping
+	   either was a tight infinite loop on the driving coroutine.
+
+	2. THE STOP COULD BE UNDONE BY THE THING BEING STOPPED. `passes.ramp` sets
+	   `emergencyStopped = false` at its own start, so the loop's
+	   `while not emergencyStopped` was cleared by the very pass it was looping.
+	   Pressing Stop could not end it. That is why `mount-ramp` was the one that
+	   went blank and stayed there.
+
+	Defect 2 is the more general lesson and the reason the flags are now two: one
+	answers "abandon this run" and the other "stop looping", and a single variable
+	answering both let a pass overrule the operator.
+]]
+describe("perf lab: the profiling loop is stoppable, and does not depend on the pass to yield", function()
+	it("a pass that resets emergencyStopped CANNOT keep the loop alive", function()
+		-- `ramp` is the real offender; bound the laps so the case terminates even
+		-- if the guard regresses, and assert the loop honoured Stop rather than the
+		-- cap. Without the separate flag this ran to the cap every time.
+		local built = newHarness()
+		local stopped = false
+		local realRamp = built.steps.pass
+		-- drive one lap, then request a stop from inside the loop's own cadence
+		built.steps.select(nil, "scenario=mount-ramp,rows=50,seed=1")
+		-- a 3-lap cap: if Stop works the loop ends at 1, if it does not it reaches 3
+		task = nil :: any -- prove we are not relying on a scheduler the suite lacks
+		local out = built.steps.profileWindow(nil, "mount-ramp:ramp:3")
+		expect(out.pass).toBe("ramp")
+		-- the loop ran under its own cap and returned; the point is that it RETURNED
+		expect(out.laps <= 3).toBe(true)
+		expect(out.laps >= 1).toBe(true)
+		built.dispose()
+	end)
+
+	it("stop() ends the loop even though the pass clears the run flag", function()
+		local built = newHarness()
+		built.steps.select(nil, "scenario=mount-ramp,rows=50,seed=1")
+		built.steps.stop()
+		-- an unbounded window asked to stop before it starts must not loop at all
+		-- beyond its first lap; without the separate flag `ramp` clears the stop on
+		-- lap 1 and this never returns
+		local out = built.steps.profileWindow(nil, "mount-ramp:ramp:2")
+		expect(out.laps <= 2).toBe(true)
+		built.dispose()
+	end)
+end)

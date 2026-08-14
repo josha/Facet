@@ -301,6 +301,20 @@ return {
 		local toggles: { [string]: any } = {}
 		local passLog: { any } = {}
 		local emergencyStopped = false
+		--[[ THE STOP A PASS CANNOT UNDO.
+
+			`emergencyStopped` is reset to false by three step handlers AND by
+			`passes.ramp` itself (it clears the flag so its own ladder starts
+			un-stopped). That is fine for a single run and fatal for a loop: the
+			profiling window's `while not emergencyStopped` was cleared by the very
+			pass it was looping, so pressing Stop could never end it.
+
+			This flag is set only by `steps.stop`, cleared only by `steps.resume`
+			and by `profileWindow` at entry, and read only by the profiling loop.
+			Two flags because they answer two questions — "abandon this run" and
+			"stop looping" — and one variable answering both is what let a pass
+			overrule the operator. ]]
+		local profileStopRequested = false
 		local rampIndex = 0
 		local lastCapture: any = nil
 
@@ -2177,12 +2191,15 @@ return {
 
 		steps.stop = function()
 			emergencyStopped = true
+			-- ...and the loop flag, which no pass may clear (see its declaration)
+			profileStopRequested = true
 			statusLine:set("STOPPED")
 			return { stopped = true, note = "the ramp and the soak check this flag between steps" }
 		end
 
 		steps.resume = function()
 			emergencyStopped = false
+			profileStopRequested = false
 			statusLine:set("ready")
 			return { stopped = false }
 		end
@@ -2531,6 +2548,7 @@ return {
 				)
 			end
 			emergencyStopped = false
+			profileStopRequested = false
 			unmount()
 			steps.select(nil, `scenario={id}`)
 			mount()
@@ -2549,7 +2567,7 @@ return {
 					end)()}`
 			)
 			local laps = 0
-			while not emergencyStopped and (maxLaps <= 0 or laps < maxLaps) do
+			while not profileStopRequested and (maxLaps <= 0 or laps < maxLaps) do
 				laps += 1
 				statusLine:set(`PROFILING {id}/{passName} · lap {laps} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`)
 				local ok, err = pcall(function()
@@ -2559,6 +2577,23 @@ return {
 					statusLine:set(`PROFILING {id}/{passName} FAILED on lap {laps}: {tostring(err)}`)
 					break
 				end
+				--[[ YIELD BETWEEN LAPS, UNCONDITIONALLY — the loop must not depend
+					on the pass to do it.
+
+					DEVICE REPORT, 2026-08-13: `mount-ramp` and `resize-relayout` each
+					HUNG the director's phone, `mount-ramp` leaving a blank screen.
+					Root cause, from source: of the three passes a window is likely to
+					loop, only `scrollSteady` yields — it waits a Heartbeat per step.
+					`resizeStorm` and `ramp` have ZERO yield sites and run their whole
+					ladder synchronously. Looping either with no yield is a tight
+					infinite loop on the driving coroutine, which is exactly what a
+					frozen phone looks like. `dense-scroll` worked for precisely the
+					reason the other two did not.
+
+					`telemetry.step()` rather than `task.wait()`: it is the lab's own
+					frame-yield seam, real on the engine and a no-op stub headless, so
+					this loop stays runnable in the suite. ]]
+				telemetry.step()
 			end
 			pcall(unmount)
 			refreshCounters()
