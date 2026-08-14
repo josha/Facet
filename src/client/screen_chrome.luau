@@ -266,6 +266,51 @@ function screen_chrome.new(ctx: Context)
 		end
 	end
 
+	--[[ refitFullBleed(handle): recompute every full-bleed compensation this node
+		owns, because the number they all cancel just CHANGED.
+
+		`applyFullBleed` above cancels the host's `UIPadding` — it reads that padding
+		once, at the moment it runs. `screen_target`'s `create` gives a Button (and a
+		TextBox) a default `UIPadding` of `style.space.s + 4` and then calls
+		`syncChrome`, so a decoration is born compensated for the CLASS DEFAULT; the
+		authored `padding` prop arrives afterwards, through `applyProp`, rewrites that
+		`UIPadding`, and used to re-run nothing. The compensation was then stale by the
+		difference — and a stale full-bleed does not shrink the decoration, it MOVES
+		and GROWS it, because the decoration is laid out inside the host's padded
+		content box and pushed back out by the older, larger number.
+
+		MEASURED LIVE (Studio, Compact Pointer, `row-actions` Table surface, viewport
+		413x735): every Button on that screen keeps the default padding 12 and has
+		`Position.X = -12` and ZERO overhang; the swipe tray's `Mark Read` plate — the
+		one button carrying an authored `padding` of 8 — kept `-12` and painted
+		[6.0 .. 97.0] for a plate at [10.0 .. 93.0]: 4px outside its own box on every
+		side. Its left edge sits exactly on the Table body's clip edge (10.0), so the
+		left 4px (border and both corners) was cut away and the right 4px landed in the
+		6px `rowGutter` and survived — the director's `cutoff.png`, exactly.
+
+		SO THE PADDING WRITE OWNS THE REFIT. It is the one authority for a host's
+		`UIPadding`, which makes it the one place that can know a compensation derived
+		from that padding has gone stale — the same shape as `refitIconArt`, which
+		exists because a rect can arrive after the icon it sizes. Idempotent (both
+		writes are guarded by an inequality), and a no-op on a node with no chrome. ]]
+	local function refitFullBleed(handle: any)
+		local instance = handle.instance
+		if instance == nil then
+			return
+		end
+		if handle.chrome ~= nil then
+			applyFullBleed(instance, handle.chrome)
+		end
+		-- ...and the LAYER ladder, which is full-bled once at build and never by
+		-- the per-sync path the single decoration takes, so a layered package was
+		-- the same defect with no second chance at all
+		for _, entry in handle.chromeStack or {} do
+			if entry.fullBleed == true and entry.instance ~= nil then
+				applyFullBleed(instance, entry.instance)
+			end
+		end
+	end
+
 	-- THE IMAGE IS THE BUTTON, explicit-write half (fallback mode only). Native
 	-- mode does exactly this through the package's `Skinned — <slot>` rules; on a
 	-- target with no StyleSheets the adapter writes the same three suppressions
@@ -1433,7 +1478,8 @@ function screen_chrome.new(ctx: Context)
 				--
 				-- Skipped when the layer sits inside a MASK: the mask is the full-bleed
 				-- surface then, and the layer is deliberately positioned within it.
-				if mask == nil and spec.size.xScale == 1 and spec.size.yScale == 1 then
+				local fullBleed = mask == nil and spec.size.xScale == 1 and spec.size.yScale == 1
+				if fullBleed then
 					applyFullBleed(instance, child)
 				end
 				instancesByPath[handle.path .. "/" .. spec.name] = child
@@ -1441,7 +1487,17 @@ function screen_chrome.new(ctx: Context)
 					instancesByPath[handle.path .. "/" .. mask.Name] = mask
 					chromeState.noteCanvasMask(true)
 				end
-				table.insert(built, { instance = child, mask = mask, layer = layer, cornerContentId = cornerContentId })
+				table.insert(built, {
+					instance = child,
+					mask = mask,
+					layer = layer,
+					cornerContentId = cornerContentId,
+					-- WHICH layers `refitFullBleed` owns, recorded where the decision is
+					-- made rather than re-derived from `spec` it would have to keep: a
+					-- masked or partial layer is positioned deliberately and must never
+					-- be pushed back out by the host's padding
+					fullBleed = fullBleed,
+				})
 				if first then
 					-- ONE grace timer per LAYER, not per ornament: four corners of
 					-- one asset would otherwise report the same failure four times
@@ -2415,6 +2471,11 @@ function screen_chrome.new(ctx: Context)
 		-- carry against the installed package (called on create, on rect change,
 		-- on state change and for every handle on a package swap)
 		syncChrome = syncChrome,
+		-- RE-FIT EVERY FULL-BLEED COMPENSATION TO THE HOST'S CURRENT `UIPadding`
+		-- (director device round 2026-08-13, `cutoff.png`). Called by the ONE
+		-- authority that writes that padding — see the function's own comment for
+		-- the live measurement and why the padding write has to own this.
+		refitFullBleed = refitFullBleed,
 		-- every chrome child registered under `path .. "/" .. name`, for the
 		-- park/adopt re-key (L-28); park releases this set, adopt re-keys it
 		chromePathChildEntries = chromePathChildEntries,

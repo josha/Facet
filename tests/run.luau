@@ -271,6 +271,11 @@ require("./example_drift.spec")
 require("./theme_controller.spec")
 -- theme chrome/reference specs (package 3)
 require("./theme_chrome.spec")
+-- a decoration is compensated for the padding its host ACTUALLY has (director
+-- device round 2026-08-13, `cutoff.png`: the Compact Pointer tray plate's left
+-- border clipped away by the Table body, because its full-bleed was computed
+-- from the Button's CREATE-time padding and the authored one arrived after)
+require("./chrome_padding_refit.spec")
 -- rich-skinning-v2 schema + model specs (P1)
 require("./theme_layers.spec")
 require("./theme_variants.spec")

@@ -775,6 +775,7 @@ function screen_target.new(opts: Opts?)
 	local destroyChromeText = chrome.destroyChromeText
 	local destroyIconArt = chrome.destroyIconArt
 	local refitIconArt = chrome.refitIconArt
+	local refitFullBleed = chrome.refitFullBleed
 	local destroyChromeStack = chrome.destroyChromeStack
 	local destroyBarFill = chrome.destroyBarFill
 	local destroyBarOrnaments = chrome.destroyBarOrnaments
@@ -4209,6 +4210,19 @@ function screen_target.new(opts: Opts?)
 					end
 					pad.PaddingLeft = UDim.new(0, left)
 					pad.PaddingRight = UDim.new(0, right)
+					--[[ ...AND EVERY DECORATION THAT CANCELS THAT PADDING IS NOW STALE.
+						A Button is CREATED with `style.space.s + 4` a side (below) and
+						skinned at the end of `create`, so its decoration is full-bled for
+						the class default; this write is where the authored number lands,
+						and it used to leave the compensation pointing at the old one.
+
+						MEASURED LIVE (Compact Pointer, the swipe tray's `Mark Read` plate,
+						2026-08-13): default 12 vs authored 8 painted the decoration at
+						[6.0 .. 97.0] for a plate at [10.0 .. 93.0] — 4px outside its own
+						box a side — and the plate's left edge sits exactly on the Table
+						body's clip edge, so the left border and both left corners were cut
+						away. `refitFullBleed`'s own comment carries the full measurement. ]]
+					refitFullBleed(handle)
 				end
 			elseif handle.class == "Text" and instance:IsA("TextLabel") then
 				-- A PADDED `Text` LEAF (device report 2026-08-12, IMG_3691). The solver
@@ -4248,6 +4262,11 @@ function screen_target.new(opts: Opts?)
 					pad.PaddingRight = UDim.new(0, right)
 					pad.PaddingBottom = UDim.new(0, bottom)
 					pad.PaddingLeft = UDim.new(0, left)
+					-- the same refit as the Button branch above, for the same reason: a
+					-- `Text` can carry a surface and therefore a decoration, and this
+					-- write can MATERIALISE a `UIPadding` where there was none, which
+					-- turns a correct identity compensation into a stale zero
+					refitFullBleed(handle)
 				end
 			end
 		elseif prop == "shape" then
