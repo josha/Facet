@@ -267,6 +267,26 @@ local ALLOWED_CLASS_DRIFT: { { fixture: string, path: string, from: string, to: 
 
 local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
 	{
+		path = "/__popupcatcher__/catcher",
+		why = 'surface="" -> "plain", plus the resolved control textFont/textSize that any SURFACED Button '
+			.. "records in this dump. From the 2026-08-13 popup-catcher fix (`7fb325f`): this node is the "
+			.. "presenter's own full-viewport tap catcher, mounted whenever a contribution publishes "
+			.. "`outsideDismiss.active` -- which a swipe tray does for as long as it is open. It declared NO "
+			.. "surface, and absent is not invisible: `chrome_slots.classify` falls every Button through to "
+			.. "the `control` slot, so every installed theme painted its solid control plate across the whole "
+			.. "screen. The director photographed it as a band over the demo picker (topscreen.mov). "
+			.. '`surface="plain"` is the declaration that it is invisible, the same one `mountScrim` already '
+			.. "carried and which its later-written sibling never inherited. "
+			.. "WHAT ROUND 3 ACTUALLY CHANGED IS `surface` ALONE. This entry is checked against the 0.6.0 "
+			.. "baseline, where the node read `label=;padding=12`, so the diff shown here also carries "
+			.. "`textFont`/`textSize` -- but those were ALREADY on the node in the immediately-prior neutral "
+			.. "dump, with NO surface declared, so they are older drift and not caused by this fix. Verified "
+			.. "by diffing the regenerated dump against its predecessor: exactly 3 nodes changed, at the three "
+			.. "viewports, and the only added token is `surface=plain`. "
+			.. "They are inert either way -- this node's `label` is empty in the same dump row, so nothing "
+			.. "draws them. Class, rect and hit are byte-identical at all three viewports.",
+	},
+	{
 		path = "/Playlist/Page/Hint",
 		why = 'the same 2026-08-13 swipe-actions change as the rect entry above: `text` only. "Type to filter '
 			.. '\u{b7} tap stars to rate \u{b7} drag rows to reorder" -> "Type to filter \u{b7} tap stars to '
