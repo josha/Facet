@@ -31,7 +31,10 @@
 --               (paint/style authority), "binding" (adapter data prop),
 --               "handler" (a function the renderer wires to an adapter seam),
 --               "structural" (mount-layer region control), "semantic"
---               (presenter focus/contract input).
+--               (presenter focus/contract input), "presentation" (ADR-0026: the
+--               renderer folds it into the PRESENTATION authority's own write —
+--               it never reaches an `adapter.setProp` of its own, which is what
+--               makes it a second TERM rather than a second WRITER).
 --   deprecated  ADR-0011 ledger entry. A deprecated prop still CONSTRUCTS for
 --               its compatibility window but raises a diagnostic instead of
 --               silently doing nothing (see `blueprint.make`).
@@ -210,6 +213,46 @@ end
 
 -- numeric dimension fields that may carry a metric name instead of a number
 local DIM_METRIC_FIELDS = { "px", "min", "max", "preferred" }
+
+-- ===== the authored presentation domain (ADR-0026) =========================
+-- ONE ruling per property, read HERE for a static value and by the RENDERER for
+-- a reactive one at the moment it reads it — the same split `styling.checkTint`
+-- already uses, and for the same reason: a reactive value that skipped the check
+-- would paint garbage the constructor would have refused.
+--
+-- NaN is refused explicitly on all three. It compares false against every bound,
+-- so a range test alone lets it through, and an NaN reaching `GroupTransparency`
+-- or `UIScale.Scale` is an invisible or absent node with no error anywhere.
+
+function schema.checkOpacity(v: any): (boolean, string?)
+	if type(v) ~= "number" or v ~= v then
+		return false, "a number from 0 (invisible) to 1 (opaque)"
+	end
+	if v < 0 or v > 1 then
+		return false, `a number from 0 (invisible) to 1 (opaque), got {v}`
+	end
+	return true
+end
+
+function schema.checkScaleFactor(v: any): (boolean, string?)
+	if type(v) ~= "number" or v ~= v then
+		return false, "a POSITIVE number (1 = unscaled)"
+	end
+	if v <= 0 then
+		return false,
+			`a POSITIVE number (1 = unscaled), got {v}. A zero or negative scale is not a smaller view — `
+				.. "it is an absent or mirrored one, and the engine draws neither. Use `hidden = true` to "
+				.. "remove a view while keeping its box"
+	end
+	return true
+end
+
+function schema.checkDegrees(v: any): (boolean, string?)
+	if type(v) ~= "number" or v ~= v then
+		return false, "a number of DEGREES (0 = upright, positive = clockwise)"
+	end
+	return true
+end
 
 local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 	string = function(v)
@@ -454,6 +497,9 @@ local TYPE_CHECKS: { [string]: (any) -> (boolean, string?) } = {
 	-- THE CONTINUOUS-COLOUR CHANNEL. One ruling, in tokens/styling, so the schema,
 	-- the adapter's write site and the reference all quote the same vocabulary.
 	tint = styling.checkTint,
+	opacity = schema.checkOpacity,
+	scaleFactor = schema.checkScaleFactor,
+	degrees = schema.checkDegrees,
 	metric = metricName,
 	typeRole = function(v)
 		if themeSnapshot.isTypeRole(v) then
@@ -743,6 +789,47 @@ local BOX: { [string]: PropSpec } = {
 		channel = "layout",
 		doc = "true keeps this node's layout box and stops painting it — and it leaves focus order and stops "
 			.. "taking taps, with its whole subtree. Use UI.When instead when the space should close up",
+	}),
+	--[[ THE AUTHORED PRESENTATION PAIR (ADR-0026; SwiftUI `scaleEffect` /
+		`rotationEffect`). These are the FIRST authored props in the presentation
+		channel, and the channel name is the whole design: the renderer folds the
+		value into the presentation authority's own write. There is no
+		`adapter.setProp(handle, "scale", …)` and there never will be — a second
+		writer for `UIScale.Scale` or `GuiObject.Rotation` is exactly what the
+		authority manifest exists to prevent.
+
+		COMPOSITION (ADR-0026 Decision 2): a scale MULTIPLIES with whatever the
+		framework is scaling this node by (a press dip, a motion pop), a rotation
+		ADDS to whatever it is rotating it by. Each composes in its own group, which
+		is what makes nesting mean what it says.
+
+		NEITHER MOVES LAYOUT, hit geometry or focus — the solver never sees them and
+		LuauUI hit-tests solved rects. That is Apple's rule too, stated for both:
+		`rotationEffect` "has no effect on the view's frame", and `scaleEffect`'s
+		dimensions "are considered to be unchanged by scaling the contents". To
+		change a box, change its `width`/`height`.
+
+		Reactive, and animatable through `presenter.withAnimation` — which is the
+		point (director ruling, 2026-08-14). `paint` dirty: no measure, no arrange. ]]
+	scale = p({
+		types = { "scaleFactor" },
+		reactive = true,
+		dirty = { "paint" },
+		shared = true,
+		channel = "presentation",
+		doc = "paint-only uniform scale about the node's centre (1 = unscaled). It changes nothing the "
+			.. "solver sees — the box, the hit target and the focus order are all the unscaled ones — and "
+			.. "it MULTIPLIES with any scale the framework is applying (a press dip, a motion pop)",
+	}),
+	rotation = p({
+		types = { "degrees" },
+		reactive = true,
+		dirty = { "paint" },
+		shared = true,
+		channel = "presentation",
+		doc = "paint-only rotation in DEGREES about the node's centre (0 = upright, positive = clockwise). "
+			.. "It changes nothing the solver sees — the hit target stays the unrotated box — and it ADDS "
+			.. "to any rotation the framework is applying",
 	}),
 	-- VIEW LIFETIME (parity round 3, item D; SwiftUI `onAppear`/`onDisappear`).
 	-- Mount scopes have owned this lifetime since the framework's first phase; what
@@ -1037,6 +1124,40 @@ local CANVAS_GROUP: PropSpec = p({
 		.. "subtree's real parent — declare it only where a group fade is wanted",
 })
 
+--[[ AUTHORED OPACITY (ADR-0026; SwiftUI `opacity(_:)`), and it lives on exactly
+	the two classes `canvasGroup` does — because DECLARING IT IS DECLARING ONE.
+
+	A fade in this framework is a `CanvasGroup.GroupTransparency` fact and always
+	was (ADR-0022 Decision 2): it is the one alpha property no style rule owns.
+	The alternative — writing `BackgroundTransparency` / `TextTransparency` on a
+	leaf — is in `NATIVE_SHEET_OWNED`, and an explicit write there does not win a
+	frame, it PERMANENTLY defeats the rule with no signal (spike 2026-07-19). The
+	concrete price is not hypothetical: `TextTransparency`'s rule is the disabled
+	state's, so a `UI.Text` that took an opacity would stop dimming when disabled,
+	forever. So a leaf is refused and the spelling is one wrap:
+	`UI.ZStack { opacity = 0.4, children = { … } }` — which is also SwiftUI's own
+	answer, and the reason `compositingGroup()` exists there.
+
+	It IMPLIES the group, so an author never writes `canvasGroup = true` beside
+	it; the renderer passes the implied flag at creation exactly as the explicit
+	prop does. Unlike `canvasGroup` it IS reactive — a constant fade would be a
+	theme decision, and the whole point is that it moves and animates.
+
+	COMPOSITION (ADR-0026 Decision 2, and Apple states this one): applying opacity
+	to something already faded "multiplies the effect of the underlying opacity
+	transformation". So an authored 0.5 under a framework fade at 0.5 paints 0.25,
+	and a framework fade to nothing still reaches nothing. ]]
+local OPACITY: PropSpec = p({
+	types = { "opacity" },
+	reactive = true,
+	dirty = { "paint" },
+	channel = "presentation",
+	doc = "fade this node and its whole subtree: 1 = opaque (the default), 0 = invisible but still "
+		.. "laid out, focusable and tappable (use `hidden` to take it out of all three). Declaring it "
+		.. "makes the node a fade group, so it costs a render buffer; it MULTIPLIES with any fade the "
+		.. "framework is running on the same node, and animates through presenter.withAnimation",
+})
+
 -- THE STRUCTURAL-TRANSITION DECLARATION (ADR-0022 Decision 3, row SF-M6). A
 -- structural region declares how its branch/rows come and go; the mount layer
 -- RETIRES a departing subtree (it stays mounted, turns non-interactive, and
@@ -1158,6 +1279,7 @@ class("ZStack", {
 	structural = false,
 	props = merge(BOX, CONTAINER_LAYOUT, {
 		canvasGroup = CANVAS_GROUP,
+		opacity = OPACITY,
 		--[[ "THIS CONTAINER IS ONE SLOT OF A FIXED-PITCH WINDOWED LIST" (2026-08-13).
 			Declared by `newVirtualList` on every row it builds, and available to any
 			hand-rolled surface that windows by `index x extent` — which is the only
@@ -1532,6 +1654,7 @@ class("Box", {
 		--
 		-- NOT reactive: it decides which engine class the node IS, at creation.
 		canvasGroup = CANVAS_GROUP,
+		opacity = OPACITY,
 	}),
 })
 

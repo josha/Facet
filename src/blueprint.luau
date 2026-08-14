@@ -135,6 +135,13 @@ export type BoxProps = {
 	-- and stop taking taps — with the whole subtree. `UI.When` is the other answer
 	-- (it removes the node and the space closes up)
 	hidden: Bound<boolean>?,
+	-- AUTHORED PRESENTATION (ADR-0026), paint-only and animatable. Neither moves
+	-- layout, hit geometry or focus — the solver never sees them. A `scale`
+	-- MULTIPLIES with any scale the framework is applying and a `rotation` (degrees,
+	-- positive = clockwise) ADDS to any rotation it is applying; the composition
+	-- happens at the one presentation write site, so neither is a second writer.
+	scale: Bound<number>?,
+	rotation: Bound<number>?,
 	-- view lifetime, measured on the RENDER instance rather than the mounted node.
 	-- `onAppear` fires once after the first solve that includes this node;
 	-- `onDisappear` fires once after its render instance has been released
@@ -179,6 +186,9 @@ export type VirtualSlot = {
 }
 export type ZStackSpec = BoxProps & ContainerProps & {
 	canvasGroup: boolean?,
+	-- authored subtree fade (ADR-0026): 1 = opaque, 0 = invisible-but-still-there.
+	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
+	opacity: Bound<number>?,
 	virtualSlot: Bound<VirtualSlot>?,
 }
 export type AnchorSpec = BoxProps & ContainerProps
@@ -267,6 +277,9 @@ export type BoxSpec = BoxProps & {
 	active: Bound<boolean>?,
 	tint: Bound<any>?,
 	canvasGroup: boolean?,
+	-- authored fade (ADR-0026): 1 = opaque, 0 = invisible-but-still-there.
+	-- Declaring it IS declaring a fade group, so `canvasGroup` is implied
+	opacity: Bound<number>?,
 }
 export type SpacerSpec = BoxProps
 

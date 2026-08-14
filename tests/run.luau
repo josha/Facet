@@ -409,6 +409,10 @@ require("./typography_weight_roles.spec")
 -- travels while the solver stays exact and instant
 require("./with_animation.spec")
 require("./animation_precedence.spec")
+-- swiftui-parity round 3, ADR-0026: AUTHORED presentation — opacity/scale/
+-- rotation as a second TERM in the presentation channel rather than a second
+-- writer, and withAnimation reaching all three
+require("./authored_presentation.spec")
 require("./reference/glade_spec")
 require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")

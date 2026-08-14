@@ -82,8 +82,25 @@ KNOWN_OVER = {
         "234,055 -> 226,687. Paint is next and is the one that clears the cap.",
     ),
     "src/render/renderer.luau": (
-        227_880,
-        "no seam proposed yet. Crossed during round 3.",
+        238_180,
+        "RAISED 2026-08-14 by ADR-0026 (authored opacity/scale/rotation), and the "
+        "raise is on the record rather than silent. What was NOT allowed to land "
+        "here: the whole composition seam — the three composition rules, the "
+        "authored triple's domain checks and their reasoning, and the write memo's "
+        "comparison — went into a NEW pure module, `src/render/presentation.luau`, "
+        "which is where the seam belongs anyway. What did land is state and call "
+        "sites that close over `handles`/`adapter`/`nodeAt`/the animation records. "
+        "THE SEAM IS NOW PROPOSED, which is the change from the old entry's 'no "
+        "seam proposed yet': lift the PRESENTATION CHANNEL out as a factory — "
+        "`pushPresentationPaint`, `setPresentationTransform`, "
+        "`setPresentationTransparency`, `readAuthoredPresentation`, "
+        "`presentationShift`, and the six per-path maps (`lastTransform`, "
+        "`lastTransparency`, `authored`, the two composed memos, `presentationLive`) "
+        "— against ~8 call sites. Every upvalue it needs is shareable BY REFERENCE "
+        "(the handle table, the adapter, `nodeAt`, `animationRecords`), which is "
+        "what makes this seam cheap where `row_actions`'s and `presenter`'s are "
+        "not. It is a scoped refactor mission (STUDIO.md: flag refactors, do not "
+        "smuggle them into feature work) and is worth ~200 lines.",
     ),
     "src/layout/solver.luau": (
         213_731,
