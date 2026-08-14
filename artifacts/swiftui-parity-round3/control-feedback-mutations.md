@@ -58,3 +58,51 @@ control ends up with no reference") with two independent ways to break it — th
 resolver saying the wrong thing, and the decorator failing to act on the right
 thing. The assertion starts the button **already decorated** so that the second
 mutation cannot pass by doing nothing.
+
+## The showcase fixture
+
+Eight mutations against `examples/gallery/scenarios/sensory_feedback.luau`, run
+over `control_feedback` + `gallery_demo_picker` + `examples_gallery` +
+`overflow_sweep`. Six bit immediately; two did not, and both are covered now.
+
+| # | Mutation | Case that reddened |
+|---|---|---|
+| F1 | the sensation column claims the wrong effect | the sensation column is the SHIPPED map, not a story about it |
+| F2 | Mute stops declaring `none` | pressing the five leaves writes four lines and Mute writes none |
+| F3 | the cascade panel declares a different verb | the CASCADE panel: three controls, one declaration, one verb |
+| F4 | the leaf chip row stops wrapping | no diagnostic, in any package…; scenario 'sensory_feedback': the solver reports NOTHING… |
+| F5 | the cascade row stops wrapping | (both of the above) |
+| F6 | the page stops scrolling (a VStack instead) | (both of the above) |
+| F7 | the subscriber's `reason` filter deleted | *(nothing, at first)* → **a NON-activation event on the same surface writes no line** |
+| F8 | the subscriber's path filter deleted | *(nothing, at first)* → **a press on ANOTHER surface of the same presenter writes no line** |
+
+**F7 and F8 are the same lesson twice.** Both filters are defensive against the
+rest of the showcase — a toast retiring elsewhere, the demo picker's own chip
+strip — and the headless drive presented exactly one surface and emitted only
+activations, so neither filter was ever exercised. The fix in both cases was to
+build the world the filter exists for: emit a non-activation event through the
+presenter's own registration point, and present a second surface on the same
+presenter and press it.
+
+## The Rascal Rally contract rows
+
+Six mutations, each applied to the LuauUI source the game requires directly, the
+game suite run, and the source restored. Baseline: **3170 passed**, 3 failed
+(all in a concurrent agent's live solver/text work, identical names before and
+after every mutation).
+
+| # | Mutation | Case that reddened |
+|---|---|---|
+| R1 | the adapter defaults to ENABLED | carries the haptics adapter, and it is DEFAULT OFF; a default-off adapter ignores the new attribute entirely |
+| R2 | the presenter stops stamping `reason = "activation"` | this game's activate now says WHY it fired, and the live bus consumer does not care |
+| R3 | the renderer pushes the verb only when non-nil | this game's own buttons carry no verb, and the seam is still exercised |
+| R4 | the mixed-form refusal deleted | ...and refuses the two shapes that would be ambiguous |
+| R5 | the duplicate-`activation` refusal deleted | ...and refuses the two shapes that would be ambiguous |
+| R6 | the closed-taxonomy refusal deleted | the framework carries the control form, with the same closed vocabulary plus `none` |
+
+**R1 found a seventh check that proved nothing** on its first pass. "A default-off
+adapter ignores the new attribute entirely" did NOT redden when the default was
+flipped to enabled, because Lune has no `Enum`: the adapter failed to resolve an
+effect type and built nothing *even while enabled*, so the assertion held for the
+wrong reason. The row now injects the `enums` seam, and R1 reddens both
+default-off rows.
