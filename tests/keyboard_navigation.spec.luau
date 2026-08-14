@@ -1312,11 +1312,18 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 			{ responder = "passive" }
 		)
 		pres.refresh()
+		-- BOTH ADJUST ACTIONS, because a control with a declared axis puts its
+		-- directional keys on `adjustAxis` and its Comma/Period/bumpers on `adjust`
+		-- (ruling 9, so one of the two can be yielded back to navigation at the
+		-- control's limit). Counting only one of them would let a leak on the other
+		-- pass as "given back" — the exact shape this case exists to catch.
 		local function adjustKeys(): number
 			local n = 0
-			for _, binding in h.actions.adjust.bindings do
-				if binding.keyCode == "Left" or binding.keyCode == "Right" then
-					n += 1
+			for _, action in { h.actions.adjust, h.actions.adjustAxis } do
+				for _, binding in action.bindings do
+					if binding.keyCode == "Left" or binding.keyCode == "Right" then
+						n += 1
+					end
 				end
 			end
 			return n
