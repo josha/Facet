@@ -60,11 +60,10 @@ composition cases; both were run and restored.
 
 | | before | after |
 |---|---|---|
-| Rascal Rally (`code/run-tests.sh`) | 3160 passed (session baseline) | **3170 passed, 4 failed** |
+| Rascal Rally (`code/run-tests.sh`) | 3160 passed (session baseline) | **3176 passed, 3 failed** |
 
-The four failures are **not** from this work and are named here so nobody has to
+The three failures are **not** from this work and are named here so nobody has to
 re-derive that: `...and the shrink pass reaches the MEASURE pass`,
 `a ticker entry's target NAME may truncate`, and `the surface still RESPONDS to
-each geometry fact` (plus its sibling) belong to two other agents' in-flight
-rounds — the degrade-cascade/wrap-rule change (rulings 1 and 5) and the L-31
+each geometry fact` belong to two other agents' in-flight rounds — the degrade-cascade/wrap-rule change (rulings 1 and 5) and the L-31
 geometry-feed change, both live in the shared tree while this was written.
