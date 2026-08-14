@@ -809,6 +809,30 @@ local registry: { Entry } = {
 			},
 		},
 	},
+	{
+		-- the ActionSpec authoring contract behind `newRowActions` (2026-08-14).
+		-- NOT a control: it renders nothing, holds no state and has no input
+		-- surface — it is the pure validation/leaf-helper half of
+		-- src/controls/row_actions.luau, lifted out so that file could get back
+		-- under the 200,000-char `Script.Source` WRITE cap and live-sync into an
+		-- open Studio session again (docs/lessons/
+		-- the-200k-source-cap-is-on-writing-not-loading.md, tools/check_source_size.py).
+		-- Same explicit-row-rather-than-silent-exemption treatment as ValueModel
+		-- and PathShapes above; `export`/`docsAnchor` name the PUBLIC export this
+		-- module is part of the implementation of, since it has none of its own.
+		name = "RowActionsSpec",
+		kind = "composite",
+		module = "src/controls/row_actions_spec.luau",
+		export = "newRowActions",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions.spec.luau",
+		docsAnchor = "newRowActions",
+		-- STATELESS MODULE: six pure functions of their arguments, no instance.
+		dump = false,
+		reason = "stateless module: pure ActionSpec validation and leaf string/id helpers, no instance state to summarize",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

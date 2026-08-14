@@ -45,7 +45,7 @@ CAP = 200_000
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER = {
     "src/controls/row_actions.luau": (
-        234_757,
+        231_048,
         "the ONE ENGINE: ~3,230 lines are a single closure sharing ~60 mutable "
         "upvalues, deliberately never forked. The architecture gate recommends "
         "extracting ~375 lines of periphery (spec helpers, the coordinator which "
