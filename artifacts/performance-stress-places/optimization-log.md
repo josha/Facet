@@ -1936,7 +1936,8 @@ public contract moved (adopt's 4th argument is adapter-internal, feature-detecte
 ## L-29 — one viewport change is one solve (L-27's lever, paid)
 
 **Date:** 2026-08-13 · **Commits:** `8560f2b` (framework), `0c3f507` (lab)
-**Evidence tier:** 1 (headless count) + the tier-3 device capture that priced it
+**Evidence tier:** **2 — confirmed on the real Roblox engine**, not only headless
+(see "Tier 2 confirmation" below) + the tier-3 device capture that priced it
 (`rr.html`: arrange 8.270 ms/occurrence, measure 3.057 ms/occurrence, 9.67
 arranges/step, arrange+measure = 58.5% of wall).
 
@@ -1973,6 +1974,25 @@ Measured on a 40-row tree, one width-and-class-changing resize:
 
 Neither half works alone: batching does nothing while N observers each solve, and
 coalescing does nothing while the writes are N separate flushes.
+
+### Tier 2 confirmation — the real engine, the real adapter
+
+Measured 2026-08-13 in Studio (`LuauUI-PerformanceLab.rbxl`, Client datamodel),
+against a live `screen_target` adapter painting real Instances, on the *pre-fix*
+source that place still holds — the only place that could still measure the
+defect rather than its absence. Same 40-row tree, same six writes:
+
+```
+viewportRect ALONE:       1 solve(s)
+the adapter's SIX writes: 4 solve(s)  (360x691)
+the adapter's SIX writes: 5 solve(s)  (1200x800)
+the adapter's SIX writes: 5 solve(s)  (390x844)
+```
+
+Identical to the headless numbers and to L-27's record. So the count was never a
+Lune artefact, and `viewportRect` alone really does cost 1 on the real engine
+too — the multiplier was always the other five facts meeting eight independent
+observers.
 
 ### Traps worth keeping
 
