@@ -2742,6 +2742,51 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		tracker:push(pos.x, pos.y, currentNow())
 	end
 
+	--[[ A PRESS THE ROW DID NOT CLAIM GOES TO WHATEVER IS UNDERNEATH (ruling 6,
+		director 2026-08-13 — option A, "the Grip goes ON TOP and forwards presses it
+		does not claim").
+
+		THE ENGINE FACT (measured live, `docs/lessons/a-button-eats-the-swipe-
+		underneath-it.md`): Roblox delivers `InputBegan` to the TOPMOST interactive
+		object only. This file used to paint its hit Grip BEHIND `content` on a
+		comment claiming the engine delivered to every Active object under the point
+		"independently of paint order". It does not — a `GuiButton` in the content
+		sinks the press and the Grip receives nothing, so a row whose content holds a
+		button could not be swiped where that button covered it. Every swipe demo
+		built to date used inert content, which is why nothing caught it.
+
+		So the Grip is on top now (see the `Content` children below), and the cost of
+		that is exactly this function: the gesture always reaches the row, and a press
+		the row decides is NOT a swipe has to be handed on. The decision is already
+		made — `row_actions_state.axisVerdict`, whose "ties go vertical" rule is what
+		makes it safe — and this is only the handing on.
+
+		ONLY A TAP IS FORWARDED. `axis == "pending"` means the gesture never left the
+		lock radius, which is what a tap is. A `"vertical"` verdict is a scroll the
+		row declined, and a scroll is not an activation of anything. A `"horizontal"`
+		one never reaches here at all.
+
+		ponytail: the forwarded press has no PRESSED VISUAL — the button under the
+		finger does not light up while held, because the engine never told it it was
+		pressed. Upgrade path: forward the down/up pair, not just the resolved tap.
+		The activation itself is exact (`controller.tapAt` runs the same dispatch the
+		engine's own `Activated` would have reached). ]]
+	local function forwardUnclaimedTap(pos: any)
+		if externalGesture then
+			return -- no Grip of ours is mounted; the host owns the press outright
+		end
+		local ctrl = controller
+		local root = pathsOf()
+		if ctrl == nil or root == nil or type(ctrl.tapAt) ~= "function" then
+			return
+		end
+		-- scoped to THIS row's own content: a forwarded tap must never reach a
+		-- sibling row, and `Content` is the subtree the Grip is painted over.
+		-- `skip` is this Grip itself — it is a pointer zone inside `within`, so
+		-- without it the forward would land straight back here.
+		ctrl.tapAt(pos.x, pos.y, { within = `{root}/Content`, skip = `{root}/Content/Hit` })
+	end
+
 	local function onPointerUp(_path: string, pos: any, _rectOf: (string) -> any)
 		if drag == nil then
 			return
@@ -2801,7 +2846,11 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		else
 			-- "pending" (a tap, never past the lock radius) or "vertical"
 			-- (declined): nothing this gesture touched needs undoing
+			local wasTap = drag.axis == "pending"
 			drag = nil
+			if wasTap then
+				forwardUnclaimedTap(pos)
+			end
 		end
 	end
 
@@ -3500,42 +3549,45 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- merely left unwired: one real Instance saved per wrapped,
 			-- reorderable Table row (proven by table.spec.luau's own "mounts NO
 			-- internal Content/Hit Grip" case).
-			local contentChildren: { any } = {}
+			local contentChildren: { any } = { content }
 			if not externalGesture then
 				table.insert(
 					contentChildren,
-					-- Task 5: the drag hit surface. A `UI.Grip` — unfocusable by
-					-- default (never steals a Tab stop from whatever focusable
-					-- controls live inside `content`), exactly the "non-button
-					-- Active node" pointer.spec.luau exercises — sized to fill,
-					-- painted BEHIND `content` in the same array-order-is-
-					-- paint-order relationship table.luau's own row "Hit"
-					-- Button uses ahead of its "Cells" (table.luau
-					-- `rowBlueprint`).
-					--
-					-- THIS COMMENT USED TO CLAIM Roblox delivers InputBegan to
-					-- "every Active GuiObject under the point independently of
-					-- paint order", so a button inside `content` and this Grip
-					-- would BOTH see the press. Measured on the real engine
-					-- 2026-08-13 and it is FALSE: the engine delivers to the
-					-- TOPMOST interactive object only, a GuiButton sinks it, and
-					-- this Grip receives nothing under one. Control click on the
-					-- bare Grip fired InputBegan; the same click over a button
-					-- fired the button's InputBegan/Activated and NOTHING here.
-					--
-					-- So a row whose `content` contains a Button is UN-SWIPEABLE
-					-- where that button covers it. Every swipe demo built so far
-					-- uses inert content (text, images), which is why no test and
-					-- no device pass has caught it. The repair is a design call
-					-- (Grip on top forwarding unclaimed presses vs. per-caller
-					-- opt-in) and is ruling #6 in
-					-- docs/handoff/2026-08-13-rulings-needed.md; the evidence and
-					-- the two traps the experiment nearly fell into are in
-					-- docs/lessons/a-button-eats-the-swipe-underneath-it.md.
-					--
-					-- DO NOT "cover" this with a headless test: the fake target
-					-- models handler wiring, not the engine's input sinking, so
-					-- such a test passes while a real device stays dead.
+					--[[ THE DRAG HIT SURFACE, AND IT IS ON TOP (ruling 6, director
+						2026-08-13). A `UI.Grip` — unfocusable by default, so it never
+						steals a Tab stop from the focusable controls inside `content`
+						— sized to fill, and inserted AFTER `content` in this
+						array-order-is-paint-order list, which paints it OVER the row.
+
+						IT USED TO BE FIRST, i.e. behind, justified by a comment
+						claiming Roblox delivers InputBegan "to every Active GuiObject
+						under the point independently of paint order". Measured on the
+						real engine 2026-08-13: FALSE. The engine delivers to the
+						TOPMOST interactive object only; a `GuiButton` inside `content`
+						sinks the press and a Grip behind it receives nothing. A
+						control click on the bare Grip fired `GRIP InputBegan`; the
+						same click over a button fired the button's
+						`InputBegan`/`Activated` and nothing on the Grip. Full evidence
+						and the two traps that experiment nearly fell into:
+						`docs/lessons/a-button-eats-the-swipe-underneath-it.md`.
+
+						So a row whose `content` held a Button could not be swiped
+						where that button covered it. On top, the gesture always
+						reaches the row — and the press the row decides is not a swipe
+						is handed back down by `forwardUnclaimedTap` above.
+
+						THE OPTION NOT TAKEN was per-caller opt-in ("each button
+						declares: offer my presses to the row first"). Rejected by the
+						director because it fails in the direction this framework keeps
+						getting burned by: silently, per caller, invisible until a
+						device.
+
+						AND DO NOT TRUST A HEADLESS TEST HERE ALONE. `fake_target`
+						models handler WIRING, not the engine's input sinking, so a
+						headless "the grip receives the gesture" case passed on the day
+						the real device was dead. The order below is pinned headlessly;
+						that the order is the one the ENGINE needs is a live-engine
+						claim, verified in Studio. ]]
 					UI.Grip({
 						id = "Hit",
 						width = { type = "fill" },
@@ -3547,7 +3599,6 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					})
 				)
 			end
-			table.insert(contentChildren, content)
 			table.insert(
 				children,
 				UI.ZStack({

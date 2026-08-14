@@ -3303,3 +3303,251 @@ describe("RowActions final fix wave (redteam item 7, MINOR): passive-surface cat
 		end
 	)
 end)
+
+--[[ ═══ RULING 6: A BUTTON IN THE CONTENT ATE THE SWIPE UNDERNEATH IT ═════════
+	Measured live in Studio 2026-08-13 (`docs/lessons/a-button-eats-the-swipe-
+	underneath-it.md`): Roblox delivers `InputBegan` to the TOPMOST interactive
+	object only. A `GuiButton` sinks it and an Active Frame behind it gets nothing.
+	`row_actions` painted its hit Grip BEHIND `content`, justified by a comment
+	claiming the opposite — so a row whose content held a Button could not be
+	swiped where that button covered it. Every swipe demo built to date used inert
+	content, which is why nothing caught it.
+
+	Ruled fix A: the Grip goes ON TOP and forwards presses it does not claim.
+
+	WHAT A HEADLESS TEST CAN AND CANNOT PROVE HERE, stated so the next agent does
+	not mistake one for the other. `fake_target` delivers a pointer event to the
+	path the test names — it models handler WIRING, not the engine's input sinking
+	— so it CANNOT prove "the engine now hands the press to the Grip". That is a
+	live-engine claim and was verified in Studio. What these cases DO prove, and
+	what the live check cannot, is the two halves the repair actually consists of:
+	the paint ORDER the engine needs, and that a press arriving at the Grip and
+	resolving as a tap still reaches the button beneath it. ]]
+describe("RowActions ruling 6: the Grip is on top, and forwards what it does not claim", function()
+	local function buttonRowWorld()
+		local taps: { string } = {}
+		local fired: { string } = {}
+		local w = pointerWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				-- `width` AS TABLE PASSES IT. Without it the composite root is
+				-- content-sized, and a `fill` content inside a content-sized root
+				-- finds only more `fill` all the way down and solves to ZERO width
+				-- (row_actions' own `Spec.width` comment says exactly this). The
+				-- first version of this fixture omitted it and the button measured
+				-- 0x48 — a hit test that can never hit anything.
+				width = { type = "fill", weight = 1 },
+				--[[ INTERACTIVE content: the shape every swipe demo before this
+					avoided, and the only shape that can see this defect.
+
+					TWO OVERLAPPING BUTTONS, not one. "Forward the press to what is
+					underneath" is a claim about picking the TOPMOST of them, and a
+					fixture with a single button cannot tell a topmost-wins hit test
+					from a first-one-found (measured: a first-match mutation passed
+					the single-button version). `Under` and `MarkRead` fill the same
+					rect; `MarkRead` is declared last, so it is the one painted on top
+					and the only one a press may ever reach. ]]
+				content = LuauUI.UI.ZStack({
+					id = "Body",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 48 },
+					children = {
+						LuauUI.UI.Button({
+							id = "Under",
+							label = "Under",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							onActivate = function()
+								table.insert(taps, "Under")
+							end,
+						}),
+						LuauUI.UI.Button({
+							id = "MarkRead",
+							label = "Mark read",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							onActivate = function()
+								table.insert(taps, "MarkRead")
+							end,
+						}),
+					},
+				}),
+				trailing = {
+					{
+						id = "delete",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, "delete")
+						end,
+					},
+				},
+			})
+		end)
+		w.taps = taps
+		w.fired = fired
+		return w
+	end
+
+	local GRIP = "/S/Row/Content/Hit"
+	local BUTTON = "/S/Row/Content/Body/MarkRead"
+
+	it("the Grip is painted ABOVE the button in the content — the half the engine reads", function()
+		--[[ THE HALF A LIVE CLICK CANNOT SHOW YOU, and the half that was wrong. The
+			engine's rule is "topmost interactive object wins"; this pins which node
+			IS topmost, in the renderer's own terms. `z` is assigned explicitly from
+			the tree walk rather than left to creation order (table.spec.luau's own
+			"deterministic z-order" case is the shipped precedent for reading it this
+			way). Before the ruling the Grip was inserted FIRST — underneath. ]]
+		local w = buttonRowWorld()
+		local grip = w.adapter.node(GRIP)
+		local button = w.adapter.node(BUTTON)
+		expect(grip).never().toBeNil()
+		expect(button).never().toBeNil()
+		expect(`grip z set: {grip.z ~= nil}`).toBe("grip z set: true")
+		expect(`grip above button: {grip.z > button.z}`).toBe("grip above button: true")
+	end)
+
+	it("a SWIPE that lands on the Grip over a button opens the tray — the reported defect", function()
+		local w = buttonRowWorld()
+		local rect = w.adapter.node(GRIP).rect
+		local originX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		w.adapter.pointerDown(GRIP, originX, y, "touch")
+		w.tick(0.01)
+		for i = 1, 8 do
+			w.adapter.pointerMove(originX - rect.w * 0.3 * (i / 8), y, "touch")
+			w.tick(FRAME)
+		end
+		w.adapter.pointerUp(originX - rect.w * 0.3, y)
+		w.settle(150)
+		expect(w.adapter.node("/S/Row/TrayTrailingWhen/then/TrayTrailing/Action:delete")).never().toBeNil()
+		-- ...and a swipe is NOT an activation of the button it passed over
+		expect(w.taps).toEqual({})
+	end)
+
+	it("...and a TAP on the same spot still activates the button underneath", function()
+		--[[ The cost of putting the Grip on top: the press no longer reaches the
+			button by itself, so the row has to hand it on. A tap is `axisVerdict ==
+			"pending"` — the gesture never left the lock radius — and that is the only
+			verdict forwarded. ]]
+		local w = buttonRowWorld()
+		local rect = w.adapter.node(GRIP).rect
+		local x, y = rect.x + rect.w / 2, rect.y + rect.h / 2
+		w.adapter.pointerDown(GRIP, x, y, "touch")
+		w.tick(FRAME)
+		w.adapter.pointerUp(x, y)
+		w.settle(30)
+		expect(w.taps).toEqual({ "MarkRead" })
+		expect(w.fired).toEqual({}) -- and it did not commit anything
+	end)
+
+	it("a tap that misses every button forwards to nothing, silently", function()
+		local w = buttonRowWorld()
+		local rect = w.adapter.node(GRIP).rect
+		-- above the row entirely: inside the Grip's own capture, outside any button
+		w.adapter.pointerDown(GRIP, rect.x + 4, rect.y - 500, "touch")
+		w.tick(FRAME)
+		w.adapter.pointerUp(rect.x + 4, rect.y - 500)
+		w.settle(30)
+		expect(w.taps).toEqual({})
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	it("a VERTICAL drag is declined, and a declined scroll activates nothing", function()
+		--[[ "Ties go vertical" (`row_actions_state.axisVerdict`). A vertical gesture
+			is a scroll the row refused, not a press on anything — forwarding it would
+			make every scroll that starts on a row fire that row's button. ]]
+		local w = buttonRowWorld()
+		local rect = w.adapter.node(GRIP).rect
+		local x, y = rect.x + rect.w / 2, rect.y + 6
+		-- RELEASED STILL INSIDE THE BUTTON, deliberately: the first version of this
+		-- case dragged 60px down off a 48px row, so the release point was outside
+		-- every button and "nothing fired" was equally explained by "there was
+		-- nothing under the finger". It passed a mutation that forwarded vertical
+		-- declines too. 20px clears AXIS_LOCK_PX (8) and stays on the row.
+		w.adapter.pointerDown(GRIP, x, y, "touch")
+		w.tick(FRAME)
+		for i = 1, 4 do
+			w.adapter.pointerMove(x, y + 5 * i, "touch")
+			w.tick(FRAME)
+		end
+		w.adapter.pointerUp(x, y + 20)
+		w.settle(30)
+		local button = w.adapter.node(BUTTON).rect
+		expect(`released inside the button: {y + 20 <= button.y + button.h}`).toBe("released inside the button: true")
+		expect(w.taps).toEqual({})
+	end)
+
+	it("the forwarded tap is scoped to THIS row: it can never reach a sibling", function()
+		--[[ `tapAt` is given `within = <this row>/Content`. Without that scope a
+			forwarded press would hit-test the whole screen and could activate a
+			button in a different row that happens to share the point after a slide. ]]
+		local w = buttonRowWorld()
+		local button = w.adapter.node(BUTTON)
+		expect(button).never().toBeNil()
+		-- a point inside the button, asked for from OUTSIDE this row's subtree
+		local x, y = button.rect.x + 4, button.rect.y + 4
+		local ctrl = w.handle.controller
+		local sel = { within = "/S/Row/Content", skip = GRIP }
+		expect(ctrl.tapAt(x, y, sel)).toBe(BUTTON)
+		expect(ctrl.tapAt(x, y, { within = "/S/Row/TrayTrailingWhen", skip = GRIP })).toBeNil()
+		-- ...and a point nowhere near it resolves to nothing
+		expect(ctrl.tapAt(x, y - 500, sel)).toBeNil()
+	end)
+
+	it("...and `skip` is what stops the Grip forwarding the press back to ITSELF", function()
+		--[[ The Grip is a POINTER ZONE, and pointer zones are targets too (see the
+			pointer-zone case below) — so it is both the topmost thing under the point
+			AND inside the `within` subtree. Without `skip` the forward resolves to
+			the Grip, which is an infinite shrug: the row hands the press to the thing
+			that just decided not to want it. ]]
+		local w = buttonRowWorld()
+		local button = w.adapter.node(BUTTON)
+		local x, y = button.rect.x + 4, button.rect.y + 4
+		expect(w.handle.controller.tapAt(x, y, { within = "/S/Row/Content" })).toBe(GRIP)
+	end)
+
+	it("a POINTER-ZONE control under the Grip gets its press too, not just Buttons", function()
+		--[[ `Rating`, `Slider` and friends are not `TAPPABLE` at all — they are built
+			on `onPointerDown`/`onPointerUp` props (ADR-0008 pointer zones) and hear
+			the raw press. Before this ruling they worked (painted on top) and the
+			swipe did not; forwarding only the tappable family would have inverted
+			exactly that, on the same surfaces. So the forward replays the down/up
+			pair for them. ]]
+		local presses: { string } = {}
+		local w = pointerWorld(function(core)
+			return row_actions.build(LuauUI, core, {
+				id = "Row",
+				width = { type = "fill", weight = 1 },
+				content = LuauUI.UI.HStack({
+					id = "Body",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 48 },
+					children = {
+						LuauUI.UI.Grip({
+							id = "Stars",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							onPointerDown = function()
+								table.insert(presses, "down")
+								return true
+							end,
+							onPointerUp = function()
+								table.insert(presses, "up")
+							end,
+						}),
+					},
+				}),
+				trailing = { { id = "delete", label = "Delete", onAction = function() end } },
+			})
+		end)
+		local rect = w.adapter.node(GRIP).rect
+		local x, y = rect.x + rect.w / 2, rect.y + rect.h / 2
+		w.adapter.pointerDown(GRIP, x, y, "touch")
+		w.tick(FRAME)
+		w.adapter.pointerUp(x, y)
+		w.settle(30)
+		-- the pair, in order — a bare `up` would leave a control that latches on
+		-- down in a state it never entered
+		expect(presses).toEqual({ "down", "up" })
+	end)
+end)

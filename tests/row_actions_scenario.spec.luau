@@ -341,6 +341,58 @@ describe("row_actions scenario: list surface (hand-wrapped ScrollView>VStack)", 
 		teardown(world)
 	end)
 
+	--[[ RULING 6, ON THE SHIPPED SHOWCASE. This scenario's row content IS a
+		full-width `UI.Button` ("mark read"), which is exactly the shape the live
+		Studio measurement of 2026-08-13 found un-swipeable: the engine delivers
+		`InputBegan` to the topmost interactive object only, so the button sank every
+		press and the hit Grip painted behind it received nothing. The showcase's own
+		mail list could not be swiped AT ALL on a device — nothing here could see it,
+		because `fake_target` delivers to the path a test names.
+
+		With the Grip on top, both verbs work from the same surface: a drag swipes,
+		and a tap still marks read. This is the gap's showcase demo, and it did not
+		need building — it was already shipping, broken. ]]
+	it("RULING 6: the mail row's content is a Button, and the row still swipes AND still taps", function()
+		local world = makeWorld()
+		local row = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[m1]/m1"
+		local grip = `{row}/Content/Hit`
+		local content = `{row}/Content/Row`
+		expect(`content is a Button: {world.adapter.node(content) ~= nil}`).toBe("content is a Button: true")
+		-- the Grip is painted ABOVE that button — the half the engine reads
+		expect(`grip on top: {world.adapter.node(grip).z > world.adapter.node(content).z}`).toBe("grip on top: true")
+
+		-- SWIPE: a drag landing on the Grip over the button opens the tray
+		local rect = world.adapter.node(grip).rect
+		local originX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		world.adapter.pointerDown(grip, originX, y, "touch")
+		world.tick(0.01)
+		for i = 1, 8 do
+			world.adapter.pointerMove(originX - rect.w * 0.3 * (i / 8), y, "touch")
+			world.tick(1 / 60)
+		end
+		world.adapter.pointerUp(originX - rect.w * 0.3, y)
+		world.settle(150)
+		expect(world.built.report().listRowDumps.m1.phase).never().toBe("closed")
+
+		-- TAP: and the button underneath is still reachable through the same Grip.
+		-- `markRead` retires the unread dot, which is the row's own visible proof.
+		local fresh = makeWorld()
+		local dot = `{row}/Content/Row/DotWhen/then/Dot`
+		expect(`unread before: {fresh.adapter.node(dot) ~= nil}`).toBe("unread before: true")
+		local r2 = fresh.adapter.node(`{row}/Content/Hit`).rect
+		local tx, ty = r2.x + r2.w / 2, r2.y + r2.h / 2
+		fresh.adapter.pointerDown(`{row}/Content/Hit`, tx, ty, "touch")
+		fresh.tick(1 / 60)
+		fresh.adapter.pointerUp(tx, ty)
+		fresh.settle(30)
+		expect(`unread after the forwarded tap: {fresh.adapter.node(dot) ~= nil}`).toBe(
+			"unread after the forwarded tap: false"
+		)
+		expect(fresh.core:lastError()).toBeNil()
+		teardown(fresh)
+		teardown(world)
+	end)
+
 	it("bindScroll wires the coordinator's scroll-close after present", function()
 		local world = makeWorld()
 		local result = step(world, "bindScroll")
