@@ -1072,3 +1072,97 @@ describe("F-3: a structural modifier carries the content's meta channel", functi
 		expect((dragContract.readSource((wrapper.children :: any)[2]) :: any).payload).toBe(3)
 	end)
 end)
+
+--[[ THE SHRINK PASS'S TWO UNDECIDED EDGES (round-2 RED-TEAM, carried into round 3).
+
+	Both were named in round 3's brief as "shrink-pass design gaps", both were
+	measured on 2026-08-13, and both are TRUE. Neither is changed here: these cases
+	PIN the behaviour that ships, so that changing it later is a deliberate act with
+	a red test rather than a silent drift. Where a ruling is owed, it says so.
+]]
+describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually behave", function()
+	it("(a) IS BEST-EFFORT: a shrinkable label can still land outside its box, and the solver SAYS SO", function()
+		-- three shrinkable texts in a box far too small for them. The pass absorbs
+		-- what it can and then stops: `absorbTier` can only take back the sum of
+		-- (basis - floor), and a text node's floor is relative to its CONTENT (its
+		-- minimum wrap width), never to the space available. Residual deficit is
+		-- simply not absorbed, and arrange places the children anyway.
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			gap = 0,
+			children = {
+				{ kind = "text", id = "t1", text = "Alphabetical", shrinkWeight = 1 },
+				{ kind = "text", id = "t2", text = "Chronological", shrinkWeight = 1 },
+				{ kind = "text", id = "t3", text = "Relevance", shrinkWeight = 1 },
+			},
+		}, 120, 60)
+		-- MEASURED: t1 fills the box, t2 and t3 land wholly outside it.
+		expect(r.rects.t2.rect.x >= 120).toBe(true)
+		expect(r.rects.t3.rect.x >= 120).toBe(true)
+
+		-- ...and this is why it is not a silent wrong result: the solver files the
+		-- overflow AND names the pass that could not close it. A shrink pass that
+		-- absorbed nothing and said nothing would be the defect; this one reports.
+		local said = false
+		for _, d in r.diagnostics or {} do
+			if d.node == "R" and string.find(tostring(d.issue), "already at its floor", 1, true) ~= nil then
+				said = true
+			end
+		end
+		expect(said).toBe(true)
+	end)
+
+	it("(b) shrinkWeight CHANGES WHICH ViewThatFits CANDIDATE WINS — and round 2's design doc denied it", function()
+		--[[ `swiftui-parity-round2.md` §2.4 states that `ViewThatFits` "picks its
+			candidate BEFORE any of this and is therefore unaffected". That was true
+			of the arrange-only shrink it was written for, and PASS 1.5 — the
+			measure-side shrink that landed a day later — invalidated it.
+
+			The mechanism: `chosenCandidate` picks the first candidate whose
+			`measure` fits the offer. If that candidate is a stack whose children
+			declare `shrinkWeight`, its measure reaches PASS 1.5, absorbs the
+			deficit, and reports the SHRUNK extent — so it fits where it otherwise
+			would not, and wins.
+
+			MEASURED: swept 150-420px in 10px steps, adding `shrinkWeight = 1` to the
+			wide candidate's children flips the winner at 10 of 28 widths.
+
+			A RULING IS OWED, and this case does not pre-empt it. The behaviour is
+			arguably CORRECT — a candidate that can shrink to fit does fit — but it
+			is undefined, it contradicts the shipped design doc, and the winner now
+			depends on a prop declared on the candidate's CHILDREN, which the
+			`ViewThatFits` author may not own. Until the director rules, the
+			behaviour is pinned here so it cannot drift unnoticed in either
+			direction. ]]
+		local function winnerAt(width: number, withShrink: boolean): string
+			local sw = if withShrink then 1 else nil
+			local res = solve({
+				kind = "fits",
+				id = "F",
+				children = {
+					{
+						kind = "hstack",
+						id = "Wide",
+						gap = 0,
+						children = {
+							{ kind = "text", id = "w1", text = "Sort alphabetically", shrinkWeight = sw },
+							{ kind = "text", id = "w2", text = "Sort chronologically", shrinkWeight = sw },
+						},
+					},
+					{ kind = "text", id = "Fallback", text = "Sort" },
+				},
+			}, width, 60)
+			local wide = res.rects.Wide
+			return if wide ~= nil and wide.rect.w > 0 then "Wide" else "Fallback"
+		end
+
+		-- 290px is inside the measured divergence band (290-380)
+		expect(winnerAt(290, false)).toBe("Fallback")
+		expect(winnerAt(290, true)).toBe("Wide")
+		-- ...and outside the band the two agree, which is what makes the case above
+		-- a statement about the shrink pass rather than about this fixture
+		expect(winnerAt(200, false)).toBe(winnerAt(200, true))
+		expect(winnerAt(420, false)).toBe(winnerAt(420, true))
+	end)
+end)

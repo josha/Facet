@@ -1007,8 +1007,7 @@ explicitly and records the decision as its own (not as parity):
 - **The floor stack** is `minMax.min` → a text node's minimum wrap width → `0`,
   in that order.
 
-Interplay to define and test: `hug`/`fill`/`minMax` dims, `ViewThatFits` (which
-picks its candidate *before* any of this and is therefore unaffected), and
+Interplay to define and test: `hug`/`fill`/`minMax` dims, `ViewThatFits`, and
 `Composition.rank` (a different mechanism at a different altitude — it degrades
 or drops whole screen regions; this negotiates sizes inside one stack, and the
 parity doc says so rather than letting the next agent conflate them).
@@ -1019,6 +1018,28 @@ distinct cache key. That is the claim, and a claim is not a check: the phase
 ships a mutation test that deliberately makes the shrink pass reuse the natural
 measurement, proves a test fails, and restores. If the pass ever needs an input
 that is not the offer, that input goes in the key in the same commit.
+
+> **CORRECTED 2026-08-13 (round 3) — this section used to say `ViewThatFits`
+> "picks its candidate *before* any of this and is therefore unaffected". That is
+> FALSE, and it was falsified by the very amendment printed immediately below.**
+>
+> The claim was true of the arrange-only shrink it was written for. PASS 1.5 —
+> the measure-side shrink amended in one day later — invalidated it, and nobody
+> went back to the sentence. `chosenCandidate` picks the first candidate whose
+> **measure** fits the offer; if that candidate is a stack whose children declare
+> `shrinkWeight`, its measure reaches PASS 1.5, absorbs the deficit and reports
+> the **shrunk** extent — so it fits where it otherwise would not, and wins.
+>
+> Measured 2026-08-13: swept 150–420px in 10px steps, adding `shrinkWeight = 1`
+> to a wide candidate's children flips the winner at **10 of 28 widths (290–380)**.
+> Pinned by `tests/layout_vocabulary.spec.luau`, "shrinkWeight CHANGES WHICH
+> ViewThatFits CANDIDATE WINS".
+>
+> **A ruling is still owed** and the test deliberately does not pre-empt it. The
+> behaviour is arguably correct — a candidate that can shrink to fit does fit —
+> but it is undefined, it contradicted this document, and the winner now depends
+> on a prop declared on the candidate's *children*, which the `ViewThatFits`
+> author may not own.
 
 **Amended 2026-08-12 (second time) — the pass runs in the MEASURE pass too, and
 that is a different cache-key claim.** The spec above was arrange-only, on the
