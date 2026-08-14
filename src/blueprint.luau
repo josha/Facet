@@ -131,6 +131,15 @@ export type BoxProps = {
 	stroke: Bound<any>?,
 	-- paint-order override inside the parent's stacking scope; read once at mount
 	zIndex: number?,
+	-- SwiftUI's `hidden()`: keep the layout box, stop painting, leave focus order
+	-- and stop taking taps — with the whole subtree. `UI.When` is the other answer
+	-- (it removes the node and the space closes up)
+	hidden: Bound<boolean>?,
+	-- view lifetime, measured on the RENDER instance rather than the mounted node.
+	-- `onAppear` fires once after the first solve that includes this node;
+	-- `onDisappear` fires once after its render instance has been released
+	onAppear: ((path: string) -> ())?,
+	onDisappear: ((path: string) -> ())?,
 }
 
 -- props every container accepts on top of BoxProps

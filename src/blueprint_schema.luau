@@ -692,6 +692,64 @@ local BOX: { [string]: PropSpec } = {
 		doc = "paint-order override within the parent's stacking scope: siblings sort by (zIndex or 0, tree order), "
 			.. "and a node's whole subtree travels with it. Cross-surface lifting stays structural (overlay layers)",
 	}),
+	-- THE SPACE-RESERVING HIDE (parity round 3, item D; SwiftUI `hidden()`). The
+	-- node keeps its solved box and stops being painted, focusable and tappable.
+	-- Neither of the two things LuauUI already had is this: `UI.When` REMOVES the
+	-- node so its siblings close up, and the engine's own `Visible = false` is
+	-- documented to free the layout slot — but only inside a `UIListLayout` /
+	-- `UIGridLayout` / `UITableLayout`, and this framework arranges absolutely and
+	-- materializes none of those, which is exactly why one prop is enough here.
+	--
+	-- `arrange`, not `paint`: the solver already publishes a per-rect `hidden`
+	-- verdict for a losing `ViewThatFits` candidate, and the renderer merges this
+	-- prop into that SAME set. One hidden verdict, one visibility walk, one hit-rect
+	-- walk, one `hiddenRoots` the focus map already filters on — a second, paint-only
+	-- channel would have been a parallel mechanism that focus and hit geometry did
+	-- not follow, which is precisely the defect RS-A16-D1 records.
+	--
+	-- Reactive, where Apple's modifier is unconditional ("Hides this view
+	-- unconditionally"; its answer for the conditional case is an `if`, which
+	-- removes the node from layout). LuauUI's `if` is `UI.When` and it removes the
+	-- node too — so without a bindable form the space-reserving case would have no
+	-- spelling at all.
+	hidden = p({
+		types = { "boolean" },
+		reactive = true,
+		dirty = { "arrange" },
+		shared = true,
+		channel = "layout",
+		doc = "true keeps this node's layout box and stops painting it — and it leaves focus order and stops "
+			.. "taking taps, with its whole subtree. Use UI.When instead when the space should close up",
+	}),
+	-- VIEW LIFETIME (parity round 3, item D; SwiftUI `onAppear`/`onDisappear`).
+	-- Mount scopes have owned this lifetime since the framework's first phase; what
+	-- was missing was the author-facing hook, so "fire analytics when the screen
+	-- opens" and "stop the engine sound when the panel closes" had no spelling.
+	--
+	-- The lifetime measured is the RENDER handle's, not the mounted node's, because
+	-- that is the one a player can see: a virtualized row that scrolls out of the
+	-- window disappears, and a retiring subtree playing its exit transition has not
+	-- disappeared yet.
+	--
+	-- Not reactive, and there is nothing to make reactive: a lifetime is not a value
+	-- that changes. A reactive hook would also be unrunnable — the OLD closure is the
+	-- one that has to fire when the node leaves.
+	onAppear = p({
+		types = { "function" },
+		reactive = false,
+		shared = true,
+		channel = "handler",
+		doc = "onAppear(path) — once, the first time this node is rendered, AFTER that frame's layout solve "
+			.. "(so the callback can read its own rect) and before anything reaches the screen",
+	}),
+	onDisappear = p({
+		types = { "function" },
+		reactive = false,
+		shared = true,
+		channel = "handler",
+		doc = "onDisappear(path) — once, AFTER this node's render handle is released, so the path is already "
+			.. "unmounted. Also fires for everything still mounted when the surface is torn down",
+	}),
 }
 
 -- container-only layout inputs

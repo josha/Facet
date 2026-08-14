@@ -1542,6 +1542,28 @@ function renderer.attach(
 	-- already installed.
 	local structureEpoch = 0
 	local hiddenRoots: { [string]: boolean } = {}
+	-- AUTHORED `hidden` (round 3, item D; SwiftUI `hidden()`), kept as its own tiny
+	-- set and MERGED into the solver's hidden verdict on every solve. One set means
+	-- the prop inherits, with no second implementation: the paint walk, the hit-rect
+	-- retraction, the `hiddenRoots` the focus map filters on, and the structure-epoch
+	-- bump that makes the focus map notice. Maintained at mount, at removal, and on
+	-- the prop's own dirty — never by a whole-tree scan per solve.
+	local authoredHidden: { [string]: boolean } = {}
+	-- VIEW LIFETIME HOOKS (round 3, item D; SwiftUI `onAppear`/`onDisappear`).
+	--
+	-- Both are queued rather than called where they are discovered, and the ordering
+	-- is the capability rather than an implementation detail:
+	--   * appear drains AFTER the frame's solve, so the callback can read its own
+	--     rect. Apple's contract is that the closure "completes before the first
+	--     rendered frame appears" — nothing here has reached a screen when it runs,
+	--     because the whole refresh is one synchronous call.
+	--   * disappear drains AFTER the removal sweep, so the handle is already gone and
+	--     "the path is not mounted" is a fact rather than a comment. It is drained
+	--     OUTSIDE the `mount` profiler span too — a consumer's analytics call is not
+	--     Instance churn and must not be billed as it.
+	local appearQueue: { { path: string, fn: (string) -> () } } = {}
+	local disappearHooks: { [string]: (string) -> () } = {}
+	local departedQueue: { { path: string, fn: (string) -> () } } = {}
 	-- the expanded hit rect currently pushed per path (nil = none needed)
 	local lastHitRects: { [string]: any } = {}
 	-- path -> mounted node, memoized for the presentation channel's write sites (see
@@ -1792,6 +1814,22 @@ function renderer.attach(
 
 	local function ensureTree(node: any)
 		if handles[node.path] == nil then
+			-- THE LIFETIME BOOKKEEPING, first, so it is impossible to reach a `return`
+			-- or an adapter refusal below without it. `props.onDisappear` is captured
+			-- BY VALUE here rather than read off the tree at removal time, because at
+			-- removal the node is no longer in the tree — that is the whole point of
+			-- the hook. `props.hidden` is registered the same way the sweep clears it.
+			if node.props ~= nil then
+				if node.props.onAppear ~= nil then
+					table.insert(appearQueue, { path = node.path, fn = node.props.onAppear })
+				end
+				if node.props.onDisappear ~= nil then
+					disappearHooks[node.path] = node.props.onDisappear
+				end
+				if node.props.hidden == true then
+					authoredHidden[node.path] = true
+				end
+			end
 			-- The DECORATION HINT rides the blueprint's internal `meta` channel
 			-- (chrome_slots.readHint) — the same channel the input contribution
 			-- uses, never the public prop bag. It is handed to `create` because
@@ -1888,6 +1926,18 @@ function renderer.attach(
 			if onNodeTap ~= nil and TAPPABLE[node.class] and adapter.setActivateHandler ~= nil then
 				local path = node.path
 				adapter.setActivateHandler(handles[path], function(meta: any?)
+					-- A HIDDEN NODE RESPONDS TO NOTHING (round 3, item D). Apple's
+					-- `hidden()` is explicit that a hidden view "can't receive or
+					-- respond to interactions", and this is the one gate that has to
+					-- hold it: `solverHidden` is the MERGED verdict the visibility walk
+					-- writes for every node, so the same line covers an authored
+					-- `hidden` and a losing `ViewThatFits` candidate. The candidate case
+					-- was previously carried only by its zero rect and the retracted hit
+					-- expander — true, but a consequence rather than a rule, and an
+					-- authored hide keeps its full-size box on purpose.
+					if solverHidden[path] == true then
+						return
+					end
 					if dispatchNodeTapOnce(path) then
 						if tapArmsInstead(path, meta) then
 							return
@@ -2595,6 +2645,14 @@ function renderer.attach(
 			local nextHidden: { [string]: boolean } = {}
 			local nextCompositions: { [string]: any } = {}
 			local nextTextFacts: { [string]: any } = {}
+			-- THE AUTHORED HIDES JOIN THE SOLVER'S OWN VERDICT (round 3, item D). One
+			-- set from here down, so `hidden = true` inherits the paint walk, the
+			-- hit-rect retraction, the `hiddenRoots` the focus map filters on, and the
+			-- structure-epoch bump below — none of which a parallel paint-only channel
+			-- would have reached.
+			for path in authoredHidden do
+				nextHidden[path] = true
+			end
 			for path, entry in result.rects do
 				if entry.hidden == true then
 					nextHidden[path] = true
@@ -2983,6 +3041,34 @@ function renderer.attach(
 		walkZ(root.node)
 	end
 
+	-- THE TWO DRAINS. Both take the queue by value and clear it BEFORE calling
+	-- anything, so a hook that mounts or dismisses something (which is the normal
+	-- reason to have one) cannot make its own entry run twice or make the drain
+	-- re-enter itself. The callbacks are deliberately unprotected — that is the house
+	-- rule every other handler prop follows (`onPointerDown`, `onScrollWheel`), and a
+	-- swallowed error in a lifetime hook is a leak nobody ever sees.
+	local function drainDeparted()
+		if #departedQueue == 0 then
+			return
+		end
+		local batch = departedQueue
+		departedQueue = {}
+		for _, entry in batch do
+			entry.fn(entry.path)
+		end
+	end
+
+	local function drainAppeared()
+		if #appearQueue == 0 then
+			return
+		end
+		local batch = appearQueue
+		appearQueue = {}
+		for _, entry in batch do
+			entry.fn(entry.path)
+		end
+	end
+
 	local function structuralSync()
 		structureEpoch += 1
 		local _t0 = os.clock()
@@ -3074,6 +3160,19 @@ function renderer.attach(
 				lastVisible[path] = nil
 				lastHitRects[path] = nil
 				solverHidden[path] = nil
+				-- ...and the authored hide, for the same reason: a path re-created with
+				-- no `hidden` prop would otherwise inherit the old node's verdict and
+				-- never paint
+				authoredHidden[path] = nil
+				-- THE LIFETIME HOOK, queued rather than called. Called here it would run
+				-- inside the sweep's own iteration over `handles` and inside the `mount`
+				-- profiler span; both are wrong, and the first is a live-mutation hazard
+				-- while the walk is still running.
+				local departed = disappearHooks[path]
+				if departed ~= nil then
+					disappearHooks[path] = nil
+					table.insert(departedQueue, { path = path, fn = departed })
+				end
 				-- ...and the compact-label verdict cache (found LIVE 2026-08-04:
 				-- RascalRally's watch-cycle buttons painted "Previous racer" ellipsized
 				-- after a pose toggle at EVERY preference). A re-created button is
@@ -3169,7 +3268,15 @@ function renderer.attach(
 		local dirty = root.takeDirty()
 		local needsSolve = false
 		local needsStructure = false
+		-- paths whose authored `hidden` moved this frame. Collected rather than
+		-- resolved inline because the LIVE value has to be read off the tree, and the
+		-- tree read is worth doing once per path even when a signal fired twice.
+		local hiddenTouched: { string }? = nil
 		for _, entry in dirty do
+			if entry.prop == "hidden" and entry.path ~= nil then
+				hiddenTouched = hiddenTouched or {}
+				table.insert(hiddenTouched :: { string }, entry.path)
+			end
 			if entry.class == "structure" then
 				needsStructure = true
 				needsSolve = true
@@ -3198,6 +3305,21 @@ function renderer.attach(
 			-- Instance churn and property writes have completely different fixes —
 			-- one is a keying/virtualization problem, the other is a diff problem.
 			profile.span("mount", structuralSync)
+		end
+		-- OUTSIDE the mount span, and before the solve: by here the departed nodes'
+		-- handles are gone, which is the guarantee `onDisappear` publishes.
+		drainDeparted()
+		-- ...and the authored hides, re-read from the live tree, so the merge inside
+		-- the solve below sees this frame's value
+		if hiddenTouched ~= nil then
+			for _, path in hiddenTouched :: { string } do
+				local node = findNode(path)
+				authoredHidden[path] = if node ~= nil
+						and node.props ~= nil
+						and node.props.hidden == true
+					then true
+					else nil
+			end
 		end
 		-- prop writes for changed nodes (paint/semantics): write ONLY the
 		-- changed prop, once, even when it dirtied several classes
@@ -3263,6 +3385,10 @@ function renderer.attach(
 			-- env observer) must not reuse it, and gets a full solve instead
 			dirtyContains = nil
 		end
+		-- LAST, after the solve, so a hook can read its own rect (see the queue's
+		-- declaration). Nothing has reached the screen yet: this whole call is
+		-- synchronous, and the engine renders after it returns.
+		drainAppeared()
 		return stats
 	end
 
@@ -3449,6 +3575,10 @@ function renderer.attach(
 		solveAndApply()
 		root.takeDirty() -- initial mount noise is not an update
 		initialized = true
+		-- the same order `refresh` uses, for the same reason: after the solve, so an
+		-- `onAppear` on a first-frame node can read the rect it was just given
+		drainDeparted()
+		drainAppeared()
 		return stats
 	end
 
@@ -4269,6 +4399,20 @@ function renderer.attach(
 		adapter.destroyRoot(rootHandle)
 		handles = {}
 		lastRects = {}
+		-- TEARDOWN IS A DISAPPEARANCE, and it is the most common one: a panel closes
+		-- by being dismissed, not by having its rows re-keyed. Queued here, after the
+		-- root is destroyed, so the hooks run with nothing left to reach and an error
+		-- in one cannot strand the teardown above it. A pending APPEAR is dropped
+		-- rather than fired — a node that never had a frame did not appear — while
+		-- every declared cleanup still runs, because a missed cleanup is the dangerous
+		-- direction and an extra one is not.
+		table.clear(appearQueue)
+		for path, fn in disappearHooks do
+			table.insert(departedQueue, { path = path, fn = fn })
+		end
+		table.clear(disappearHooks)
+		table.clear(authoredHidden)
+		drainDeparted()
 	end
 
 	return controller

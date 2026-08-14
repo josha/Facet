@@ -127,6 +127,11 @@ require("./examples_gallery.spec")
 require("./gallery_theme_picker.spec")
 -- the showcase demo picker: one published place, switchable in-game
 require("./gallery_demo_picker.spec")
+-- ...and the CHROME around it (parity round 3, item E rows 4 and 11): four-input
+-- reachability driven through the real key/pad path rather than asserted from
+-- source text, the two-chip ViewThatFits ladder, and the persistent
+-- Full | Reduced motion setting the reduced-motion axis of a device canary needs
+require("./gallery_chrome.spec")
 require("./examples_games.spec")
 -- the word game's PURE rules and state machine (roadmap Step 10, EQ-9): the
 -- two-pass letter budget across every duplicate shape, refusals that do not
@@ -180,6 +185,11 @@ require("./grid_row.spec")
 -- for an item inside its line. The line partition is a PURE function, cached on
 -- the ctx exactly as `gridColumnPlan` is, so the two passes cannot disagree
 require("./flow_wrap.spec")
+-- view lifecycle hooks + the space-reserving hide (round 3, item D): the two
+-- capabilities the completeness audit ranked highest per line of work —
+-- `onAppear`/`onDisappear` (zero hits in `src/` before this) and `hidden`,
+-- which is the one thing neither `UI.When` nor the engine's `Visible` gives
+require("./lifecycle_hooks.spec")
 -- §2.1 SILENTLY-INERT PLACEMENT PROPS. `anchor`, `offsetX`, `offsetY`, `alignH`,
 -- `alignV`, `lineAlign` and `gridSpan` are shared BOX props — legal on every node
 -- — but each is an instruction addressed to a particular kind of PARENT, and
