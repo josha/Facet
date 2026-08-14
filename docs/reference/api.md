@@ -2703,12 +2703,36 @@ trap-and-restore) without engaging the modal machinery.
 ### `newEnvironment`
 
 `LuauUI.newEnvironment(core) -> Env` — per-client observable platform facts plus
-derived policy. Three methods: `env:get(key) -> Readable` (any key, fact or
+derived policy. Four methods: `env:get(key) -> Readable` (any key, fact or
 derived; an unknown key errors), `env:set(key, value)` (**facts only** — setting
-a derived key errors), and `env:keys() -> { string }` (every key, sorted, facts
-and derived merged with no marker distinguishing them — the split is the table
-below). The client adapter (`src/client/roblox_env.luau`) pushes the real engine
-facts; tests set fakes.
+a derived key errors), `env:batch(body)` (below), and `env:keys() -> { string }`
+(every key, sorted, facts and derived merged with no marker distinguishing them —
+the split is the table below). The client adapter
+(`src/client/roblox_env.luau`) pushes the real engine facts; tests set fakes.
+
+**`env:batch(body)` — one real change is one fact-group.** An adapter almost
+never learns a single fact at a time: one device rotation teaches SIX at once
+(the viewport, three inset shapes, the topbar rect and the size class). Written
+loose, each is its own flush, and everything downstream — the renderer's
+re-solve above all — pays once per *write* for a change the player made once.
+`env:batch` runs `body` inside the core's own transaction: writes are invisible
+to observers until the outermost batch closes, nested batches collapse into it,
+and memos stay glitch-free throughout.
+
+```lua
+env:batch(function()
+    env:set("viewportRect", rect)
+    env:set("coreSafeInsets", insets)
+    env:set("displaySize", "Compact")
+end)
+```
+
+Measured on a 40-row tree (`tests/geometry_solve_coalescing.spec.luau`,
+optimization-log L-29): those six writes loose cost **5 solves**; batched, **1**.
+On the 2026-08-13 device capture a solve was 8.270 ms of arrange + 3.057 ms of
+measure, so the difference is ~45 ms of a ~200 ms frame. Group whatever ONE
+platform event taught you; do not group across events, or a surface will paint a
+mixture of two moments.
 
 Like the presenter, an environment is a **session-lifetime service**: it is built
 once per client, has no `dispose()`, and its ~27 core registrations live as long
