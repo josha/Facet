@@ -3319,11 +3319,31 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 					-- painted BEHIND `content` in the same array-order-is-
 					-- paint-order relationship table.luau's own row "Hit"
 					-- Button uses ahead of its "Cells" (table.luau
-					-- `rowBlueprint`): Roblox delivers InputBegan/Changed/Ended
-					-- to every Active GuiObject under the point independently
-					-- of paint order, so this background Grip still captures a
-					-- drag while a button INSIDE `content` still receives its
-					-- own tap, unaffected, when the row is not being dragged.
+					-- `rowBlueprint`).
+					--
+					-- THIS COMMENT USED TO CLAIM Roblox delivers InputBegan to
+					-- "every Active GuiObject under the point independently of
+					-- paint order", so a button inside `content` and this Grip
+					-- would BOTH see the press. Measured on the real engine
+					-- 2026-08-13 and it is FALSE: the engine delivers to the
+					-- TOPMOST interactive object only, a GuiButton sinks it, and
+					-- this Grip receives nothing under one. Control click on the
+					-- bare Grip fired InputBegan; the same click over a button
+					-- fired the button's InputBegan/Activated and NOTHING here.
+					--
+					-- So a row whose `content` contains a Button is UN-SWIPEABLE
+					-- where that button covers it. Every swipe demo built so far
+					-- uses inert content (text, images), which is why no test and
+					-- no device pass has caught it. The repair is a design call
+					-- (Grip on top forwarding unclaimed presses vs. per-caller
+					-- opt-in) and is ruling #6 in
+					-- docs/handoff/2026-08-13-rulings-needed.md; the evidence and
+					-- the two traps the experiment nearly fell into are in
+					-- docs/lessons/a-button-eats-the-swipe-underneath-it.md.
+					--
+					-- DO NOT "cover" this with a headless test: the fake target
+					-- models handler wiring, not the engine's input sinking, so
+					-- such a test passes while a real device stays dead.
 					UI.Grip({
 						id = "Hit",
 						width = { type = "fill" },

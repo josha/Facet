@@ -1,7 +1,7 @@
-# Five rulings needed to finish round 3 (2026-08-13)
+# Six rulings needed to finish round 3 (2026-08-13)
 
 Everything in the round-3 ledger that could be closed from a desk is closed or in
-flight. These five cannot be: each is a **product decision**, not a repair, and
+flight. These six cannot be: each is a **product decision**, not a repair, and
 guessing one would be inventing policy. Each is stated with the measurement, the
 options, and a recommendation.
 
