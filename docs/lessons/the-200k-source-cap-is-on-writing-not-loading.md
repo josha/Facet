@@ -35,6 +35,45 @@ So:
   write, or edit on disk and rebuild the place.
 - **Loading** a >200k module from a `.rbxl`: fine, verified above.
 
+## And Rojo live-sync is a WRITING path (2026-08-14)
+
+This is the operational bite, found by measuring a live session rather than
+assuming the connection worked.
+
+The showcase Studio was connected to `rojo serve` and looked healthy. Probing the
+Edit datamodel directly:
+
+| module | on disk | in Studio | current? |
+|---|---|---|---|
+| `LuauUI.row_capability` (**added** this round) | 5,735 | 5,735 | **yes** |
+| `LuauUI.core.contract` (modified, small) | 3.4k | 3,420 | **no** |
+| `LuauUI.core.custom` (modified, small) | 15,267 | 13,748 | **no** |
+| `LuauUI.render.renderer` (modified, **220,891**) | 220,891 | 207,117 | **no** |
+| `LuauUIScenarios/*` (separately mapped path) | — | — | **yes** |
+
+**Additions land; modifications do not.** A live-sync patch has to assign
+`Script.Source`, and three files now exceed the cap on disk — `renderer.luau`
+220,891, `screen_target.luau` 234,055, `row_actions.luau` 234,591. Studio was
+holding a 207,117-char `renderer`, i.e. the source baked into the place at build
+time, because `rojo build` writes the file directly and is NOT capped.
+
+So the same cap that is harmless for loading silently breaks the whole Studio
+verification workflow: an agent runs a live check, sees a result, and reports it
+as evidence about code the session has never seen.
+
+**How to tell, in one probe:** ask the Edit datamodel for a string you committed
+minutes ago. Do not infer sync from a connected-looking plugin.
+
+**The workaround is a rebuild, not a hand-patch.** `tools/build_places.sh`
+regenerates the place uncapped; the session has to be reopened for it to take.
+Hand-writing `Source` into a running datamodel fails outright on the oversized
+files and leaves a half-old, half-patched place — one had to be thrown away on
+2026-08-13 for exactly that.
+
+**This turns "should we split the big files?" from a taste question into an
+operational one.** Three files over the cap cost live sync, and live sync is how
+every device-class defect in this project has been caught.
+
 ## Why this is worth a file
 
 A cap observed on one path was generalised to every path, and that generalisation
