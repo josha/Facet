@@ -520,8 +520,30 @@ plenty of lists do it on purpose. Nothing is said either for a cell that scrolls
 or clips its own content, because that content is not going anywhere.
 
 The fix is always to recompute `itemExtent` from the same facts your cell reads —
-not to give the row a flexible height. A windowed list cannot use one; the whole
-speed of it is that the extent is a single number it can multiply.
+not to give the row a flexible height. A windowed list cannot use one: it has to
+know where row 700 is without building it.
+
+**When your rows genuinely are not all the same height** — a feed of posts with
+different body lengths, a settings list with wrapped explanations — `itemExtent`
+also takes a function:
+
+```luau
+itemExtent = function(item, index, use)
+    return HEADER + item.lines * lineHeight(use(preferredTextOffset))
+end,
+```
+
+Each item declares its own size, and the list adds them up once instead of
+multiplying. It is still lazy in the way that matters: adding up numbers builds
+nothing and measures nothing, so only the rows you can see are ever created.
+
+The one thing to get right is `use`. It is the third argument, and it is how the
+list learns that your extents depend on the player's text size: read the setting
+through it and every row re-derives when the setting moves. Read it with `:get()`
+instead and you get the right answer once and never again — and the list will
+quietly window against heights that are no longer true. When the extents do move,
+the list keeps the post that was under the top edge under the top edge, so
+changing text size does not lose the player's place.
 
 ### Hiding something without moving everything else: `hidden`
 

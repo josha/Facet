@@ -635,6 +635,18 @@ There is deliberately **no** prop to configure the choice: a declared minimum wi
 is a second source of truth the author has to keep in sync with the content, and the
 solver already knows what each candidate measures.
 
+**A candidate is judged at the size it would like, not at the size it could be
+squeezed into.** SwiftUI selects "the first child whose *ideal size* on the
+constrained axes fits within the proposed size", and an ideal size is what a view
+reports when nothing is proposed to it — so truncation, `lineLimit` and
+`minimumScaleFactor` are all invisible to the choice there. LuauUI's member of
+that family is `shrinkWeight`, and it is invisible here for the same reason: a
+candidate that only fits *after* being squeezed does not fit. Once a candidate has
+won it is laid out against the real offer and shrinks normally, exactly as
+SwiftUI hands its winner the parent's proposal. Picking is unshrunk; showing is
+not. (`docs/lessons/a-candidate-is-judged-at-its-ideal-size.md` carries the
+measurement, the citations, and the one place LuauUI still differs on purpose.)
+
 Two properties make it safe:
 
 - **Every candidate stays mounted.** A resize re-chooses without rebuilding, so a
@@ -696,7 +708,9 @@ UI.Composition{
   affinities it absorbs, sits beside its neighbours, and stacks its groups down.
   The **last** candidate is the declared fallback when none is legal (the same
   contract `ViewThatFits` makes about its last candidate) and the resolution
-  reports `fallback = true` plus a solver diagnostic.
+  reports `fallback = true` plus a solver finding marked `designed = true` —
+  the composition saying which rung it landed on, not a defect
+  (see [Findings that are not defects](#findings-that-are-not-defects)).
 - **`groups`** — `{ id, lane | span, sizing = "hug"|"fill", weight?, place, minWidth?, gap? }`.
   `lane` is the affinity an arrangement's lanes absorb; `place` is `"start"` ·
   `"center"` · `"end"` or a fraction (the thumb-arc idiom is `0.66`); `minWidth`
@@ -1884,6 +1898,39 @@ surface and no zones are wired (focus-driven disclosure still works).
 | `withAnimation` seams | `armAnimation(session)`, `disarmAnimation()` — armed by `presenter.withAnimation` for exactly one commit, which is why an ordinary refresh installs no records — and `animationRecordCount()`, the diagnostic behind `presenter.animationRecordCount()` |
 | Surface | `setDisplayOrder(n)`, `setRootVisible(visible) -> boolean` |
 | Diagnostics | `stats()`, `diagnostics()`, `textPending()`, `analyzeBoundaries()` (re-solves the last tree with boundary detection on and reports how much a boundary-aware layout would have had to redo; it changes nothing and runs only when called) |
+
+#### Findings that are not defects
+
+`controller.diagnostics()` returns a list of `{ node, issue }`. Almost every
+entry describes something nobody asked for — content painting outside its box, a
+child covering its neighbour, a row taller than the slot it was windowed into —
+and the right response is to go and fix it.
+
+A few entries are the opposite: they describe the framework doing exactly what
+the author told it to, and saying so. Those carry **`designed = true`**. Today
+there is exactly one: a `UI.Composition` reports when none of the arrangements
+you declared is legal at the current size and it is therefore showing the last
+one — which is the fallback you declared *for that case*. Nothing is clipped,
+nothing is lost, nothing is wrong. The composition is telling you which rung it
+landed on, because on a small phone at the largest text size that is worth
+knowing even though it is not a bug.
+
+So the rule for anything that checks a screen is clean:
+
+```lua
+for _, finding in controller.diagnostics() do
+    if finding.designed ~= true then
+        -- a real defect: fail, log, or fix
+    end
+end
+```
+
+Read the field, never the wording. This is one decision, made in one place
+(`src/layout/solver.luau`, the composition arrange branch), and both LuauUI's
+always-on overflow sweep and Rascal Rally's own screen checks read it — they used
+to recognise the sentence separately and had reached opposite conclusions about
+whether it counted as a defect. A designed report added later is handled
+correctly by every consumer on the day it is written.
 
 Two conventions worth knowing. **The read methods hand back copies** —
 `stats()`, `diagnostics()`, `hiddenRoots()` and `compositionAt(nil)` all return
@@ -3471,11 +3518,11 @@ by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
 
 ### `newVirtualList`
 
-`LuauUI.newVirtualList(LuauUI, core, spec) -> VirtualList` — fixed-height
-keyed-row virtualization: only visible rows plus a bounded overscan mount;
+`LuauUI.newVirtualList(LuauUI, core, spec) -> VirtualList` — keyed-row
+virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
-string, axis? ("y" default | "x"), itemExtent (px or Readable<number>), rowGap? (px or
+string, axis? ("y" default | "x"), itemExtent (px, Readable<number>, or (item, index, use) -> px), rowGap? (px or
 Readable<number>), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
 onActivate? ((item, meta) -> ()) }` — plus the collection fields tabled below.
@@ -3507,13 +3554,48 @@ construction: it is one field. (This is `newVirtualList`'s `rowHeight` only —
 `newTable.rowHeight` is a different control's current API and is **not**
 deprecated.)
 
+<a id="variable-item-extents"></a>
+**`itemExtent` may be ONE number or a PER-ITEM function**, and which one you pass
+decides the arithmetic.
+
+* A **number** or a **`Readable<number>`** is *uniform*: every row is that tall
+  and the window is `index × pitch`, O(1) and exact. Derive it from the
+  theme-metrics snapshot and the list re-derives on a swap.
+* A **function `(item, index, use) -> px`** is a *variable* extent: each item
+  declares its own size and the list windows by a **running-offset index** — a
+  prefix sum, searched rather than divided (`src/virtual_extents.luau`). Building
+  it is O(N) *arithmetic* once per data change; **no item is built and nothing is
+  measured**, so the list is exactly as lazy as it was. Every query after it is
+  O(log N).
+
+**Read every live fact through the third argument, `use`.** It is the extents
+memo's own `use`, so `use(preferredTextOffset)` inside the function re-derives
+the whole table when the player changes their text size. Calling `:get()` on a
+Readable instead gives the right number *once* and registers no dependency — the
+extents then go stale silently, which is the failure mode this form exists to
+end. An extent that is not a positive number is refused at construction, naming
+the row's key.
+
+**A variable list anchors its scroll.** `scrollTop` is a pixel offset, so when
+every row grows at once — a text preference, a ~1.4× localization, a theme swap —
+that pixel would land on a different item. The list holds the item under the
+viewport's leading edge, and the offset into it, and re-applies it through the
+bound controller whenever the extents change. (Uniform lists keep today's
+behaviour; see `docs/plans/variable-item-extents.md`.)
+
+Why this exists, which candidate design was refused and what remains:
+[`docs/plans/variable-item-extents.md`](../plans/variable-item-extents.md).
+
 <a id="a-lying-itemextent"></a>
-**A lying `itemExtent` is caught and named.** The window is `index × itemExtent`,
-which is O(1) and exact *only* while that one number is the row's true size — and
+**A lying `itemExtent` is caught and named — on either form.** The window is
+exact *only* while the declared extent is the row's true size — and
 you, not the list, are the one who has to predict it, for every live fact your
 cell reads: the viewport width, `typographyScale`, the theme's `chromeInsets`, and
 the player's accessibility text preference. Predict it low and every row paints
-over the one below it, on somebody's device and not on yours.
+over the one below it, on somebody's device and not on yours. **The per-item
+form does not retire this guard**: a declared per-item extent is still a
+prediction, and the finding simply names *that row's own* declaration instead of
+one list-wide number.
 
 So the list hands its declaration to the solver (each row carries
 [`virtualSlot`](#zstack)), and every solve compares your cell's own measure
@@ -3571,8 +3653,8 @@ and the same terminals.
 
 | Spec field | Meaning |
 |---|---|
-| `itemExtent` | a number **or a `Readable<number>`**: one item's size along the list's own axis. Derive it from the theme-metrics snapshot and the list re-derives on a swap; it stays **uniform per list** either way — the windowing arithmetic is index×pitch, so a per-row extent is refused (finding F13). (`rowHeight` is its deprecated alias, above.) |
-| `rowGap` | the gutter **between item slots**, a non-negative number **or a `Readable<number>`**, default `0` (the name is not axis-specific on purpose: a gap is a gap on either axis). The **pitch** is `itemExtent + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The item's own node stays **`itemExtent`** along the axis, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*itemExtent + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list, for the same reason `itemExtent` is. Do **not** reach for the old workaround (hand in the pitch as the extent and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
+| `itemExtent` | a number, a **`Readable<number>`**, or a **function `(item, index, use) -> px`**: one item's size along the list's own axis. The first two are UNIFORM (windowed by index×pitch); the function is a PER-ITEM extent (windowed by a running-offset prefix sum) and must read live facts through its `use` argument. See [variable item extents](#variable-item-extents) above. (`rowHeight` is its deprecated alias, above — and it reaches the same three forms.) |
+| `rowGap` | the gutter **between item slots**, a non-negative number **or a `Readable<number>`**, default `0` (the name is not axis-specific on purpose: a gap is a gap on either axis). The **pitch** is `itemExtent + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The item's own node stays **`itemExtent`** along the axis, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*itemExtent + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list — unlike `itemExtent`, the gutter has no per-item form, because a gap that differs per row is a property of the ROWS and belongs in their extents. Do **not** reach for the old workaround (hand in the pitch as the extent and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
 | `viewportExtent` | a number **or a `Readable<number>`** — a list that fills a container, or one derived from the viewport rect, hands in a memo and BOTH consumers track it: the painted host box and the windowing arithmetic. A build-time pixel goes stale the moment the device rotates. (`viewportHeight` is its deprecated alias, above.) |
 | `selection` | `"none"` (default) or `"single"`. Activate selects the row from **every** paradigm (tap / Return / ButtonA). `selectedKey` is a Signal; `list.select(key)` / `list.clearSelection()` drive it; `onSelect(item, key)` reports it. Selection **prunes with the data** and survives a re-sort that keeps the row. The selected row also carries the **native `selected` state** on its own hit node (Table parity), so the theme paints it (`controlSelected`) and a cell never has to spend an elevation role saying "chosen". |
 | `selectionPaint` | `"native"` (default) or `"none"`. `"none"` keeps the selection — `selectedKey`, `onSelect` and the ring all stay — and drops only the row's native `selected` state, for a list whose "chosen" is carried somewhere that is not the row (the standings list whose selected racer is the one the camera is watching). `selection = "none"` cannot express that: it deletes the selection itself. |

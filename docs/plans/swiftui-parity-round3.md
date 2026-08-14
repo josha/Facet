@@ -400,7 +400,7 @@ direction.
 |---|---|---|
 | `newVirtualList` refuses `rowActions` + `reorderable` on one list | **Missing**, v1 refusal, scoped | `virtual_list.luau:240-244` |
 | `newVirtualList` selection is single-only; no multi-select, no modifier keys | **Partial** | `:490-493` vs `table.luau:2049-2074`, `:2397-2402` |
-| `newTable` does not virtualize | **Missing**, blocked behind variable item extents (§4.2) *because* `Table` ships `rowHeight(item)` | `table.luau:1796-1798`, `:371-391` |
+| `newTable` does not virtualize | **Missing** — was blocked behind variable item extents (§4.2) *because* `Table` ships `rowHeight(item)`; that substrate shipped 2026-08-14 (`src/virtual_extents.luau`), so this is now UNBLOCKED and is its own mission | `table.luau:1796-1798`, `:371-391` |
 | The two `onReorder` contracts disagree in shape | **Confirmed defect**, booked | `table.luau:174-179`; `virtual_list.luau:1090-1106` |
 
 ### The edit-mode ⊖ — not a defect, a product decision, and the director took it
@@ -736,7 +736,7 @@ The most valuable half of the audit, each with its evidence:
 
 ### Deferred, with the reason
 
-`presenter.animator()` (build it when a composite asks, not before) · size animation in `withAnimation` (its own mission; the five blocking mechanisms stand) · variable item extents (needs a consumer; both candidate designs are recorded) · §6.4's perf follow-ups (**worse than reported** — `perf_lab.spec` is now 16,494 ms, **37 %** of the suite, against round 2's 13.7 s/32 % — but it is runtime, not correctness) · the five unfulfilled placement intents and the rendered-canary-set proposal (**both are director decisions, surfaced not built**) · every `PENDING_PHYSICAL` row, including brief item **E2**, which the brief itself says not to block on and is right: its fix rests on an unverified engine premise that only a device can settle.
+`presenter.animator()` (build it when a composite asks, not before) · size animation in `withAnimation` (its own mission; the five blocking mechanisms stand) · variable item extents — **NO LONGER DEFERRED**: the consumer arrived (the widened sweep's 249px-in-an-84px-slot at `preferredTextOffset = 14`), the director ruled option A on 2026-08-13, and Stage 1 shipped 2026-08-14 (`docs/plans/variable-item-extents.md`); measured extents are Stage 2 · §6.4's perf follow-ups (**worse than reported** — `perf_lab.spec` is now 16,494 ms, **37 %** of the suite, against round 2's 13.7 s/32 % — but it is runtime, not correctness) · the five unfulfilled placement intents and the rendered-canary-set proposal (**both are director decisions, surfaced not built**) · every `PENDING_PHYSICAL` row, including brief item **E2**, which the brief itself says not to block on and is right: its fix rests on an unverified engine premise that only a device can settle.
 
 ### Two process findings worth more than any single item
 

@@ -399,10 +399,15 @@ registered in `LuauUI.DEPRECATIONS` for at least one MINOR per
 [`ADR-0011`](../adr/ADR-0011-semver-and-deprecation.md). A `rowHeight` on a
 sideways list is a lying name, and this codebase punishes those.
 
-#### The requirement that is not built: variable item extents
+#### The requirement that WAS not built: variable item extents — Stage 1 shipped 2026-08-14
 
-This is the expensive half, and it gets a section rather than a table row because
-a future mission should start from the problem rather than from the symptom.
+This section recorded a requirement and two candidate designs, and said the
+choice needed "a screen that actually wants it". The consumer arrived: the
+widened overflow sweep measured a `row_actions` row declaring `itemExtent = 84`
+and measuring 88 at the DEFAULT text preference and **249 in that same 84px slot**
+at `preferredTextOffset = 14` on a 320×640 phone. The game director ruled on
+2026-08-13 to build it (`docs/handoff/2026-08-13-rulings-needed.md` ruling 7,
+option A).
 
 **The requirement.** A collection where each item's extent along the scroll axis
 differs — a feed of posts with different body lengths, a chat log, a settings
@@ -412,27 +417,22 @@ near the viewport built, measured and mounted.
 **Why `index × pitch` cannot express it.** Today's windowing arithmetic is
 `index × pitch`, which is O(1) and exact: to know which items are in view, the
 list multiplies. Variable extents need a **running-offset index** instead — a
-prefix sum of every preceding item's extent. And the honest problem underneath is
-that *an item's extent is only known by building it*, which is precisely the work
-virtualization exists to avoid. The refusal in the source says the operational
-half of this out loud: a per-row wrap difference would silently mis-window, and
-it would do so worst at the largest preferred-text offset, where the wrap
-differences are biggest and the player is least able to tolerate a list that
-jumps (`src/controls/virtual_list.luau:449`).
+prefix sum of every preceding item's extent.
 
-**The two candidate designs, and what each costs.**
+**What was decided, and what it cost:** the full argument, including why
+"measure up front" is refused on a standing constraint rather than merely
+expensive, is in [`docs/plans/variable-item-extents.md`](../plans/variable-item-extents.md).
+In short:
 
-| Design | How it works | What it costs |
-|---|---|---|
-| **Estimate and correct** | Assume an estimated extent for unmeasured items; replace each estimate with the real measurement as the item enters the window; re-derive the running offsets | The scroll thumb **jumps**. Total content extent is a moving estimate, so the scrollbar's proportions change under the player's finger as they scroll, and a long scroll back to a place they have been changes where that place is. Mitigations (freeze the estimate once seen, anchor corrections above the viewport) are all partial |
-| **Measure up front** | Measure every item's extent at mount, then window exactly | Laziness survives for *instance creation* but not for *measurement*. A 10 000-item list pays a full measure pass at mount — text measurement is the expensive part and it is exactly what would run. The list is no longer lazy in the sense that matters for a first frame |
+| | |
+|---|---|
+| **Built (Stage 1)** | `itemExtent` also accepts `(item, index, use) -> px`. Every windowing number moved onto a running-offset index (`src/virtual_extents.luau`); the uniform path is the pre-feature formulas verbatim and is proved identical by a differential case. The scroll ANCHORS on the item under the viewport's leading edge when the extents re-derive, so a text-preference change does not move the player. The slot guard stays and files per row. |
+| **Refused** | "Measure every item at mount". Its stated cost is that the list stops being lazy in the sense that matters for a first frame — and the perf lab already breaks a window on purpose and requires the scenario to REFUSE. A build counter on a 10 000-item ragged list is the check that keeps it refused. |
+| **Traded** | Stage 1 does not remove the PREDICTION — a declared per-item extent is still a guess, which is why the lying-`itemExtent` guard is sharpened rather than retired. `window()` diverges by one row mid-slot (the variable rule is a strict superset; the uniform rule is left exactly as it was, deliberately). Anchoring is variable-extents-only. |
+| **Left (Stage 2)** | `itemExtent = "measured"` — rows hug, `syncGeometry` learns each row's real extent, the same prefix sum consumes it, and the anchoring already built is what stops it jumping. Not started; nothing is staged for it, and nothing needs to be — the index takes an array of numbers and does not care where they came from. |
 
-**Why it is not built.** Choosing between two designs that each give something up
-needs a screen that actually wants it, and there is none: every Rascal Rally list
-and every gallery collection is uniform. Building the wrong one now would be
-worse than building neither, because the windowing arithmetic is load-bearing for
-`Table`'s culling as well. The requirement and both designs are recorded here so
-the next mission starts from the problem statement.
+`newTable` virtualization was blocked behind this *because* `Table` ships
+`rowHeight(item)`. The substrate it was waiting for now exists.
 
 ### 4.3 Flow-wrap — closed 2026-08-13, and the "undefined rule" was defined
 
@@ -1270,7 +1270,7 @@ section that owns it.
 | `matchedGeometryEffect`, `phaseAnimator`, `.scrollTransition` | **Missing** | §8 |
 | Alignment guides (`.alignmentGuide` / custom `AlignmentID`) and baseline alignment | **Missing** | §4.4 |
 | Flow-wrap (`UIListLayout.Wraps`) — the one place LuauUI is behind Roblox's own controls | **Missing** — its own mission, scoped | §4.1, §4.3 |
-| Variable item extents in the virtualized collection | **Missing** — requirement and two candidate designs recorded, no implementation | §4.2 |
+| Variable item extents in the virtualized collection | **Stage 1 shipped 2026-08-14** — `itemExtent` takes a per-item function over a running-offset index; measured (self-sizing) extents are Stage 2 and not started | §4.2 |
 | `Toggle` cannot compose a `Label` (it is a leaf, not a container) | **Missing** — named non-delivery | §5.3 |
 | No container unifying virtualization + reorder + selection | **Missing** | §4 |
 | Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` / `deleteDisabled(_:)` / `moveDisabled(_:)` family. Blocked behind the container split above: the family would otherwise be built twice | **Missing** — deferred by decision 2026-08-13, evidence in §5 | §5, §4 |

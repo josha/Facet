@@ -128,6 +128,14 @@ Full evidence and the two traps the experiment nearly fell into:
 
 ## 7. Large text overflows a fixed `itemExtent` — the deferred feature now has its consumer
 
+> **RULED 2026-08-13: option A — build variable item extents.**
+> **Stage 1 shipped 2026-08-14.** `itemExtent` also accepts a per-item function
+> over a running-offset index; the uniform path is unchanged and proved so by a
+> differential case; the scroll anchors when extents re-derive; the lying-extent
+> guard stays and files per row. Measured (self-sizing) extents are Stage 2 and
+> are not started. The decision, what it traded, and what Stage 2 needs:
+> [`docs/plans/variable-item-extents.md`](../plans/variable-item-extents.md).
+
 **Measured 2026-08-13** by the widened overflow sweep (42 surfaces × 8 viewports ×
 4 text preferences). `VirtualList` windows each row into a declared `itemExtent`.
 At the default text preference a `row_actions` row already measures **88 against
