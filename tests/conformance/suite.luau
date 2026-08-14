@@ -307,6 +307,49 @@ local checks: { Check } = {
 		end,
 	},
 	{
+		--[[ A SETTLE CALLBACK NEVER OBSERVES A HALF-PROPAGATED GRAPH. The contract
+			says a callback that writes ENDS the pass — propagation drains and the
+			pass restarts — and that clause is the difference between "every settle
+			callback sees every publication" and "whichever callbacks happen to be
+			registered after the writer see it".
+
+			A memo read cannot tell the two apart (a stale memo recomputes on
+			`get`), so the discriminator has to be something only propagation
+			produces: an OBSERVER firing. Without the drain the consumer runs in the
+			same pass as the write and reads 0 notifications; with it, the pass
+			restarts and the consumer reads 1. Written this way because the first
+			version of this case used a memo and passed with the drain removed. ]]
+		name = "settle-callbacks-never-see-a-half-propagated-graph",
+		requirement = "UI-RUNTIME-003",
+		run = function(core)
+			local base = core:signal(0)
+			local notified = 0
+			core:observe(base, function()
+				notified += 1
+			end)
+			local sawNotified = -1
+			core:settle(function()
+				if base:get() < 5 then
+					base:set(5)
+				end
+			end)
+			core:settle(function()
+				if sawNotified < 0 then
+					sawNotified = notified
+				end
+			end)
+			core:flush()
+			if base:get() ~= 5 then
+				return false, `producer never ran (base={base:get()})`
+			end
+			if sawNotified ~= 1 then
+				return false,
+					`consumer ran against a half-propagated graph: saw {sawNotified} observer notifications, expected 1`
+			end
+			return true, nil
+		end,
+	},
+	{
 		--[[ The negative control for the case above. Convergence is only a
 			guarantee if non-convergence is an ERROR: an unbounded settle loop
 			would hang the frame, and silently dropping the last publication would

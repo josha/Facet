@@ -25,6 +25,10 @@ local rowsLib = require("../examples/performance/lab/rows")
 local captureLib = require("../examples/performance/lab/capture")
 local overlayLib = require("../examples/performance/lab/overlay")
 local perf_lab = require("../examples/performance/lab/perf_lab")
+-- the pass-level round-trip readout is only populated while phase scopes are
+-- recording, and scopes ship OFF (src/core/profile.luau) — so one case here
+-- installs a hook pair and puts it back
+local profile = require("../src/core/profile")
 
 -- A minimal stand-in for the runner ctx. It carries exactly the seams perf_lab
 -- reads, so a seam the scenario starts depending on shows up here as a nil-index
@@ -192,14 +196,26 @@ describe("perf lab: a resize step is the resize a device performs", function()
 			the group is one flush per resize; loose, it is up to six.
 
 			`coreSafeInsets` is deliberately EXCLUDED from the oracle (it stays in
-			`moved` above). The lab's own overlay writes that one edge twice more per
-			resize on its own schedule — `forgetReservation` zeroes it when the
-			viewport moves, then `onGeometry` republishes the measured dock height —
-			so counting it here would measure the overlay's reservation dance rather
-			than this pass's batching. Measured 2026-08-13 over 4 steps: viewportRect
-			5, deviceSafeInsets/topbarSafeInsets/topbarInset 4 each, displaySize 1,
-			and coreSafeInsets ELEVEN. Those extra writes are a real cost, recorded in
-			the optimization log; they are simply not what this check is about. ]]
+			`moved` above), and the reason CHANGED with L-31 (2026-08-14) — read this
+			rather than the optimization-log entry that predicted the exclusion would
+			be deleted.
+
+			The lab's overlay still writes that one edge twice per resize:
+			`forgetReservation` zeroes it when the viewport moves, then the measured
+			dock height is republished. What L-31 removed is not the writes — they
+			are what a measure→publish cycle IS — but their price: both now land
+			inside the flush that caused them instead of the republication arriving a
+			frame later in a flush of its own. So `coreSafeInsets` still moves twice
+			per resize while every other fact in the group moves once, and counting
+			it here would still measure the overlay's cycle rather than this pass's
+			batching. Measured 2026-08-13 over 4 steps, before: viewportRect 5,
+			deviceSafeInsets/topbarSafeInsets/topbarInset 4 each, displaySize 1, and
+			coreSafeInsets ELEVEN.
+
+			The thing that DID get fixed has its own check below, on the pass's own
+			`reactPerStep` readout, which is the number that names a feedback loop
+			directly instead of inferring one from a fact that legitimately moves
+			twice. ]]
 		local BATCH_ORACLE = { "viewportRect", "deviceSafeInsets", "topbarSafeInsets", "topbarInset" }
 		local flushes = 0
 		local group = core:memo(function(use)
@@ -227,6 +243,71 @@ describe("perf lab: a resize step is the resize a device performs", function()
 		-- proves the group is driven at all.
 		expect(flushes <= STEPS + 1).toBe(true)
 		expect(flushes >= 1).toBe(true)
+	end)
+
+	it("a resize step is TWO reactive flushes — the round trip no longer buys a third", function()
+		--[[ THE FEEDBACK-LOOP DETECTOR, on the pass's own readout (L-31,
+			2026-08-14; director's standing instruction to give the lab whatever it
+			needs to profile this cost).
+
+			A `resizeStorm` step drives exactly two things: the adapter's six-fact
+			resize, batched, and then ONE bound value with the viewport held still.
+			Two writes, so two reactive flushes — and anything above that is a write
+			made in RESPONSE to the resize rather than as part of it, which is what a
+			measure→publish feedback loop is. It read THREE until L-31: the overlay's
+			republication of its measured dock height arrived a frame late, in a
+			flush of its own, and every geometry flush re-solves every mounted
+			surface.
+
+			This is the number the 2026-08-14 device capture diagnosed the loop from
+			(`react` = 3.03 per step on an SM-A102U1, where the framework's own
+			contribution is 1) and it had to be read out of a binary MicroProfiler
+			dump by hand. Now the pass reports it.
+
+			SCOPES SHIP OFF, so the counters only accumulate with a hook pair
+			installed — hence the recorder, and hence the assertion that the reading
+			is non-zero before the assertion about its value. Restored afterwards, or
+			this leaks instrumentation into every spec that runs later. ]]
+		-- the REAL profile module, exactly as the Studio lab client hands it in:
+		-- headlessly `host.profile` defaults to a no-op stub whose byScope is
+		-- always empty, and a check reading zeros from a stub proves nothing
+		local built, _ctx, core = newHarness({ profile = profile }, { w = 900, h = 700 })
+		built.steps.select(nil, "scenario=resize-relayout,rows=120,seed=1")
+		built.steps.mount()
+
+		profile.resetCounters()
+		profile.setEnabled(true)
+		profile.setHooks(function() end, function() end)
+		local ok, result = pcall(function()
+			built.steps.pass(nil, "resizeStorm=6")
+			return built.report()
+		end)
+		profile.setHooks(nil, nil)
+		profile.setEnabled(false)
+		profile.resetCounters()
+		if not ok then
+			error(result, 0)
+		end
+
+		local row = nil
+		for _, entry in (result :: any).passes do
+			if entry.pass == "resizeStorm" then
+				row = entry.detail
+			end
+		end
+		expect(row ~= nil).toBe(true)
+		-- the instrument is live at all: 0 would make the assertions below vacuous
+		expect((row :: any).arrangePerStep > 0).toBe(true)
+		--[[ THE CEILING IS THE CHECK, in the same shape as the batching oracle
+			above: two flushes per step, plus ONE for the whole pass — `resizeStorm`
+			ends by restoring the original viewport, which is a seventh geometry
+			change over six steps and reads as 13/6 = 2.17 rather than 2.00. A third
+			flush per step is 19, so the two are not close. ]]
+		local STEPS = 6
+		expect((row :: any).reactPerStep * STEPS <= 2 * STEPS + 1).toBe(true)
+		expect((row :: any).reactPerStep >= 2).toBe(true)
+		built.dispose()
+		expect(core:lastError()).toBeNil()
 	end)
 end)
 

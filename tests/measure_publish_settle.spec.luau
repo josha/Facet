@@ -19,23 +19,24 @@
 	    `solveAndApply()` inline — and was then invalidated by a write made later
 	    in the same frame;
 	  * and one PAINTED FRAME carrying the wrong number. Measured here before the
-	    fix, on the 500x800 step: the content surface's root rect read 764 when
-	    `env:batch` returned and 716 after the next refresh — a 48px correction a
-	    frame late. That is the defect the lab's overlay wrote `forgetReservation`
-	    to work around.
+	    fix, on the 500x800 step: the content surface's root rect read 655 when
+	    `env:batch` returned and 551 after the next refresh — the dock's whole
+	    reservation, a frame late. That is the frame the performance lab's overlay
+	    wrote `forgetReservation` to survive.
 
 	MEASURED, headless (tools/lune/_probe_settle, 2026-08-14), two arms of the
 	same scene — identical surfaces, the only difference being whether the dock
 	publishes its measured height:
 
-	  | arm                | react/step | arrange/step |
-	  |--------------------|-----------:|-------------:|
-	  | no round trip      |          1 |            2 |
-	  | measure→publish    |          2 |            4 |
+	  | arm             | react/step before | after | arrange/step before | after |
+	  |-----------------|------------------:|------:|--------------------:|------:|
+	  | no round trip   |                 1 |     1 |                   2 |     2 |
+	  | measure→publish |                 2 |     1 |                   4 |     3 |
 
-	The round trip DOUBLED both. On the real lab the same shape reproduces the
-	device capture to three significant figures: 3 react, 7 arrange, 2 mount per
-	`resizeStorm` step against the device's 3.03 / 7.12 / 2.00.
+	The round trip DOUBLED both. On the real lab the same shape reproduced the
+	device capture to three significant figures — 3 react, 7 arrange, 2 mount per
+	`resizeStorm` step against the device's 3.03 / 7.12 / 2.00 — and now runs
+	2 react, 6 arrange, 1 mount.
 
 	WHAT THE FIX IS. `core:settle` (src/core/contract.luau) — terminal work runs
 	after propagation quiesces, and a settle callback's writes re-enter the SAME
@@ -125,8 +126,8 @@ local function scene(roundTrip: boolean): Scene
 		platform adapter is the author of `coreSafeInsets` and rewrites all four
 		edges on every resize, so a local cache says "already reserved" about a
 		number nothing published any more. (The performance lab's overlay carried
-		exactly that cache and a `forgetReservation` observer to punch holes in
-		it; both are gone.) ]]
+		exactly that cache; it is gone, and its `forgetReservation` observer no
+		longer has to punch a hole in one.) ]]
 	local reservedBottom = 0
 	local function reserveBottom(px: number)
 		local want = math.max(0, math.floor(px))
@@ -327,6 +328,51 @@ describe("a measure→publish cycle settles inside one flush", function()
 		-- the dock is edgeToEdge (full viewport); the content is inset by the
 		-- topbar above and the published reservation below
 		expect(dockRect.h - content.h).toBe(36 + loop.reserved())
+	end)
+
+	it("a geometry fact written by a LATE observer costs ONE solve, not two", function()
+		--[[ THE RENDERER'S HALF OF L-31, and the case that discriminates it.
+
+			Moving the re-solve out of the geometry OBSERVER and into the settle
+			phase says one thing: every observer in the flush is heard before any
+			surface commits to a layout. Nothing above could see that, because the
+			shipped consumers all happen to sit on nodes created EARLY — `viewportRect`
+			is one of the first signals an environment makes, so an observer on it
+			is notified before any surface's geometry memo and its write is absorbed
+			for free. Restoring the inline solve passed every other case here.
+
+			An observer registered LATER is the unlucky half of the same coin, and
+			it is not exotic: it is any app that reacts to an environment change by
+			publishing a derived environment fact from a signal it created after its
+			screens were presented — a theme tick, a layout mode, an accessibility
+			preference fanning out to a safe-area inset. Notified AFTER the geometry
+			memos, its write used to arrive one round too late and cost the consuming
+			surface a second full solve.
+
+			Measured on this scene: 3 solves inline (content twice, dock once), 2
+			with the settle phase. ]]
+		local s = scene(false)
+		-- created after both surfaces are presented, so its observer is notified
+		-- after their geometry memos (observers fire in node CREATION order)
+		local late = s.core:signal(0)
+		s.core:observe(late, function(v: number)
+			s.env:set("coreSafeInsets", { top = 0, bottom = v, left = 0, right = 0 })
+		end)
+
+		local before = s.solves()
+		s.env:batch(function()
+			s.env:set("viewportRect", { x = 0, y = 0, w = 500, h = 800 })
+			late:set(24)
+		end)
+		s.pres.refresh()
+
+		-- content solves once (against the settled inset), dock once. Inline this
+		-- was 3: the content surface solved before the late observer was heard and
+		-- again afterwards.
+		expect(s.solves() - before).toBe(2)
+		-- ...and the inset really landed, so "never write" cannot pass this either
+		expect((s.env:get("coreSafeInsets"):get() :: any).bottom).toBe(24)
+		expect(s.core:lastError()).toBeNil()
 	end)
 
 	it("a round trip that will not converge is a LOUD error, not a hang or a silent frame", function()

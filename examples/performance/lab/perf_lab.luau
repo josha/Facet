@@ -1552,6 +1552,40 @@ return {
 				local resizeMs, dataMs = {}, {}
 				local arrangedResize, arrangedData = 0, 0
 
+				--[[ THE ROUND-TRIP INSTRUMENT (L-31, director's standing instruction:
+					"add whatever the performance lab needs to profile this specific
+					cost"). The measure→publish feedback loop was diagnosed on the
+					device from exactly two numbers, and neither was available from
+					this pass's own report — they had to be read out of a binary
+					MicroProfiler dump by hand: reactive FLUSHES per step, and SOLVES
+					(arranges) per step. Both are already counted by
+					`src/core/profile.luau` whenever scopes are on, which is what the
+					lab boots with, so the pass can report them directly.
+
+					WHAT EACH ONE ANSWERS. `reactPerResize` is the count that names a
+					feedback loop by itself: the framework's own contribution to a
+					batched adapter resize is exactly ONE flush, so anything above 1
+					is a write made in response to the resize rather than as part of
+					it. `arrangePerResize` is what that costs — every geometry flush
+					re-solves every mounted surface, so the two numbers multiply.
+					Measured here 2026-08-14: 3 flushes and 7 arranges per step
+					before, 2 and 6 after (the residual flush is the data change this
+					pass drives on purpose, and the residual arranges are the
+					structural re-solve the windowed list legitimately owes).
+
+					`scopes.byScope` is nil-safe rather than asserted: a capture taken
+					with `cleanCapture` deliberately turns scopes OFF, and a pass that
+					threw in that configuration would break the one measurement the
+					clean capture exists to take. ]]
+				local function scopeCount(key: string): number
+					local ok, counters = pcall(profile.counters)
+					if not ok or counters == nil or counters.byScope == nil then
+						return 0
+					end
+					return (counters.byScope :: any)[key] or 0
+				end
+				local reactAtStart, arrangeAtStart = scopeCount("react"), scopeCount("arrange")
+
 				for i = 1, steps do
 					-- ODD, NON-REPEATING WIDTHS. A resize that lands back on a size the
 					-- solver has already seen measures a warm cache, not a resize; the
@@ -1679,9 +1713,16 @@ return {
 					arrangedPerDataChange = perData,
 					-- 1.0 means a single bound value costs a whole re-layout
 					dataChangeShareOfFullRelayout = if perResize > 0 then perData / perResize else nil,
+					-- the measure→publish instrument (L-31); 0 when scopes are off
+					reactPerStep = (scopeCount("react") - reactAtStart) / steps,
+					arrangePerStep = (scopeCount("arrange") - arrangeAtStart) / steps,
 					note = "a resize legitimately re-arranges the whole tree; a single bound value should not. "
 						.. "`dataChangeShareOfFullRelayout` at 1.0 is the incremental-layout gap (L-11), and is "
-						.. "the number this pass exists to keep visible.",
+						.. "the number this pass exists to keep visible. `reactPerStep` is the feedback-loop "
+						.. "detector (L-31): a batched adapter resize is ONE framework flush, so anything above "
+						.. "that plus this pass's own data change is a write made in RESPONSE to the resize, and "
+						.. "it multiplies by every mounted surface into `arrangePerStep`. Both read 0 under "
+						.. "cleanCapture, where scopes are deliberately off.",
 				}
 			end)
 		end
@@ -2151,15 +2192,28 @@ return {
 		-- the platform adapter is its author; writing a whole table with three zeroes
 		-- in it reads as "reserve the bottom" and actually means "delete the notch and
 		-- the home indicator".
+		--[[ COMPARE AGAINST THE LIVE FACT, NEVER A REMEMBERED ONE (L-31,
+			2026-08-14). This guard used to be `if want == reservedBottom then
+			return end` against a local cache, and the cache was wrong every time
+			the ADAPTER republished the fact: `roblox_env.pushViewport()` is the
+			author of `coreSafeInsets` and rewrites all four edges on every resize,
+			zeroing the reservation without this module ever hearing about it. The
+			cache then said "already reserved" and the republication never
+			happened, so the workload laid out under a dock that was drawing over
+			it. `forgetReservation` below existed to punch a hole in that cache.
+
+			Reading the live fact is both correct and shorter: the equality guard
+			now compares what is actually published, so a republication happens
+			exactly when the published number is wrong and never otherwise. ]]
 		local reservedBottom = 0
 		local function reserveBottom(px: number)
 			local want = math.max(0, math.floor(px))
-			if want == reservedBottom then
-				return
-			end
 			reservedBottom = want
 			local live = env:get("coreSafeInsets"):get()
 			local other = if type(live) == "table" then live else {}
+			if (other.bottom or 0) == want then
+				return
+			end
 			env:set("coreSafeInsets", {
 				top = other.top or 0,
 				bottom = want,
@@ -2168,24 +2222,46 @@ return {
 			})
 		end
 
-		-- A RESERVATION DOES NOT SURVIVE THE SCREEN IT WAS MEASURED ON. The overlay
-		-- publishes its measured height into `coreSafeInsets.bottom`, and the workload
-		-- re-solves against that fact the instant the viewport changes — BEFORE the
-		-- overlay has re-solved and republished. So a rotation from a tall screen to a
-		-- short one handed the workload the tall screen's 268px reservation against a
-		-- 390px viewport: a 64px content box, overflowing by 75px, and the remount that
-		-- the arrangement observer had just started failed inside a reactive flush.
-		--
-		-- Dropping the reservation to zero is the right direction to be wrong in: for
-		-- the one solve before the overlay republishes, the workload believes it has
-		-- MORE room than it does, which cannot overflow. Holding a stale reservation
-		-- makes it believe it has less, which is exactly the failure above.
-		--
-		-- This is the same rule as `rowHeight` and the list height: a number derived
-		-- from the viewport is invalid the moment the viewport changes, whether it was
-		-- computed or measured.
+		--[[ A RESERVATION DOES NOT SURVIVE THE SCREEN IT WAS MEASURED ON — and this
+			stayed, deliberately, when L-31 made it free (2026-08-14).
+
+			THE HAZARD, unchanged. The overlay publishes its measured height into
+			`coreSafeInsets.bottom`, and the workload re-solves against that fact the
+			instant the viewport changes — BEFORE the overlay has re-solved and
+			republished. A rotation from a tall screen to a short one handed the
+			workload the tall screen's 268px reservation against a 390px viewport: a
+			122px content box, overflowing by 17px, which
+			`tests/perf_lab.spec.luau`'s "the full resize pass leaves the workload
+			MOUNTED" reproduces the moment these two lines are deleted (verified
+			2026-08-14 — it is the mutation proof that they are load-bearing).
+			Dropping to zero is the right direction to be wrong in: for the one solve
+			before the overlay republishes, the workload believes it has MORE room
+			than it does, which cannot overflow.
+
+			WHY THE SETTLE PHASE DOES NOT REMOVE IT. Settle callbacks run in
+			REGISTRATION order (src/core/contract.luau), and z-order is present
+			order — so the overlay, which is presented ON TOP, settles LAST, after
+			the workload it publishes to. The framework has no principled way to know
+			that one surface produces what another consumes, and inventing one
+			("topmost first", "producers first") would be a rationalisation, not a
+			rule. So the CONSUMER still has to say "the number I was given is stale
+			now", and this is that statement.
+
+			WHAT CHANGED IS THE PRICE. Both writes now land inside the flush that
+			caused them: the zero is absorbed into the propagation of the viewport
+			change itself (it happens before any surface solves), and the
+			republication settles in the same flush rather than opening a second one
+			on the next frame. Measured on this shape, per resize step: 3 reactive
+			flushes and 7 arranges before, 2 and 6 after — with the removed flush
+			being exactly this dance. The 2026-08-14 device capture had priced it at
+			`react` = 3.03 flushes per step where the framework's own contribution is
+			1, and `Root=LuauUI_PerfLabOverlay Relayouts=8` against
+			`Root=LuauUI_PerfWorkload Relayouts=8` — one dock panel provoking as many
+			engine relayouts as the entire 2 000-row workload.
+
+			`reserveBottom` above no longer keeps a private cache, so this no longer
+			has to punch a hole in one; it just publishes the zero. ]]
 		local function forgetReservation()
-			reservedBottom = -1 -- force the next publish through the equality guard
 			reserveBottom(0)
 		end
 		labScope:own(core:observe(env:get("viewportRect"), forgetReservation))
