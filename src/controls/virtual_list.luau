@@ -1876,6 +1876,11 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		cuts every strictly-lower context once a sink consumes
 		(`src/input/actions.luau`). So the moment a row HAS an engine with focus
 		inside it, the engine answers and this context never sees the key.
+		MEASURED ON THE ENGINE, not only on the model: two sinking `InputContext`s
+		on one key deliver to the higher priority alone, and the lower one receives
+		it as soon as the higher is disabled
+		(`docs/lessons/input-context-arbitration-measured.md`, Play mode
+		2026-08-13). The only prior citation was a headless spike.
 
 		ENABLED BY FOCUS, BUILT BY THE PRESS: the context is enabled only while the
 		ring sits on a row hit whose row declares actions, so a TextField elsewhere
