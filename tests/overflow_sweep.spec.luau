@@ -121,6 +121,11 @@ local SCENARIOS = {
 	-- whose whole job is to NOT overflow at any width, which makes a swept viewport
 	-- the direct test of the feature rather than a check on its packaging
 	"flow_wrap",
+	-- ...and item D: the lifecycle/`hidden` showcase. Its two panels are the same
+	-- content in two states, and the `hidden` one is deliberately the TALLER of
+	-- the two in both states — so a package whose chip face outgrows the page is
+	-- caught here rather than on somebody's phone
+	"lifecycle_hidden",
 }
 
 local EXAMPLES = {

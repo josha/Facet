@@ -83,6 +83,12 @@ local ORDER = {
 	-- their own box, which is the only way to show what wrapping is FOR. Also in
 	-- `demo_picker.DEMOS`.
 	"flow_wrap",
+	-- ...and item D: the two capabilities the completeness audit ranked highest
+	-- per line of work. `hidden` is only legible NEXT TO `UI.When` — one switch
+	-- drives both panels and only one caption moves — and `onAppear`/
+	-- `onDisappear` produce no pixels at all, so the fixture gives them a live
+	-- event log and two counters that never reset.
+	"lifecycle_hidden",
 }
 
 local scenarios = {}

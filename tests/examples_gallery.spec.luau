@@ -2839,3 +2839,120 @@ describe("examples/gallery fixture: flow wrap (UI.HStack wrap = true)", function
 		end)
 	end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- lifecycle_hidden — `hidden`, `onAppear`, `onDisappear` (parity round 3 item D)
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: lifecycle hooks and hidden", function()
+	local module = require("../examples/gallery/scenarios/lifecycle_hidden") :: any
+	local PAGE = "/LifecycleHidden/Page"
+	local REMOVED_NOTE = `{PAGE}/Removed/RemovedNote`
+	local RESERVED_NOTE = `{PAGE}/Reserved/ReservedNote`
+	local GHOST = `{PAGE}/Reserved/Ghost`
+
+	local function lifeWorld(view: any)
+		local w = fixtureWorld(view)
+		return w, mountFixture(w, module)
+	end
+
+	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = lifeWorld(view)
+			expectNoDiagnostics(`lifecycle_hidden at {view.w}x{view.h}`, w, built)
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("THE TWO PANELS ARE THE ARGUMENT: one caption moves, the other does not", function()
+		-- the whole fixture in one assertion. `UI.When` removes its badge and the
+		-- caption under it climbs; `hidden` keeps the slot and the caption under
+		-- THAT one is byte-identical in both states.
+		for _, view in { NARROW_PORTRAIT, DESKTOP } do
+			local w, built = lifeWorld(view)
+			local removedBefore = w.adapter.node(REMOVED_NOTE).rect.y
+			local reservedBefore = w.adapter.node(RESERVED_NOTE).rect.y
+			built.steps.setShowing(built, "off")
+			settleFixture(w.presenter)
+			local removedAfter = w.adapter.node(REMOVED_NOTE).rect.y
+			local reservedAfter = w.adapter.node(RESERVED_NOTE).rect.y
+			expect(`{view.w} removed moved: {removedAfter < removedBefore}`).toBe(`{view.w} removed moved: true`)
+			expect(`{view.w} reserved: {reservedAfter - reservedBefore}`).toBe(`{view.w} reserved: 0`)
+			built.dispose()
+		end
+	end)
+
+	it("the kept slot stops painting and stops taking taps, and comes back", function()
+		local w, built = lifeWorld(NARROW_PORTRAIT)
+		expect(w.adapter.visibleOf(GHOST)).toBe(true)
+		local box = w.adapter.node(GHOST).rect
+		built.steps.setShowing(built, "off")
+		settleFixture(w.presenter)
+		expect(w.adapter.visibleOf(GHOST)).toBe(false)
+		-- ...and it still has the SAME box, which is the whole capability
+		local hiddenBox = w.adapter.node(GHOST).rect
+		expect(`{hiddenBox.w}x{hiddenBox.h}`).toBe(`{box.w}x{box.h}`)
+		-- a hidden badge fires no lifetime event of its own: hiding is a paint and
+		-- interaction state, never a mount
+		local beforeCounts = `{built.appearCount:get()}/{built.disappearCount:get()}`
+		w.adapter.tap(GHOST, {})
+		settleFixture(w.presenter)
+		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe(beforeCounts)
+		built.steps.setShowing(built, "on")
+		settleFixture(w.presenter)
+		expect(w.adapter.visibleOf(GHOST)).toBe(true)
+		built.dispose()
+	end)
+
+	it("the log and the counters are the only evidence a lifetime hook ran", function()
+		local w, built = lifeWorld(NARROW_PORTRAIT)
+		-- the badge is present at mount, so exactly one appearance has happened
+		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/0")
+		built.steps.setShowing(built, "off")
+		settleFixture(w.presenter)
+		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/1")
+		built.steps.setShowing(built, "on")
+		settleFixture(w.presenter)
+		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("2/1")
+		-- ...and the log is BOUNDED, so a player who flips the switch all afternoon
+		-- cannot grow a Text past its page
+		for _ = 1, module.logLines * 2 do
+			built.steps.setShowing(built, "off")
+			settleFixture(w.presenter)
+			built.steps.setShowing(built, "on")
+			settleFixture(w.presenter)
+		end
+		local lines = 1
+		for _ in string.gmatch(built.logText:get(), "\n") do
+			lines += 1
+		end
+		expect(`log lines: {lines}`).toBe(`log lines: {module.logLines}`)
+		expectNoDiagnostics("lifecycle_hidden after many flips", w, built)
+		built.dispose()
+	end)
+
+	it("teardown fires the badge's own disappear, so the count is never left short", function()
+		local w, built = lifeWorld(NARROW_PORTRAIT)
+		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/0")
+		built.handle.controller.dispose()
+		expect(`{built.appearCount:get()}/{built.disappearCount:get()}`).toBe("1/1")
+		built.dispose()
+	end)
+
+	it("pseudo-localized (~1.4x), every line still reads whole and clips nothing", function()
+		underPseudoLocalization(module, function()
+			for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+				local w, built = lifeWorld(view)
+				expectNoDiagnostics(`lifecycle_hidden pseudo-localized at {view.w}x{view.h}`, w, built)
+				expectUnclipped(`lifecycle_hidden at {view.w}x{view.h}`, built, {
+					`{PAGE}/Title`,
+					`{PAGE}/Intro`,
+					REMOVED_NOTE,
+					RESERVED_NOTE,
+					`{PAGE}/NoFire`,
+				})
+				built.dispose()
+			end
+		end)
+	end)
+end)
