@@ -324,6 +324,8 @@ local SCENARIOS = {
 	-- surface, so a swept viewport is the direct test of whether the wrap earns
 	-- its keep rather than a check on the packaging around it
 	"sensory_feedback",
+	"text_degrade",
+	"variable_extents",
 	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
 	-- partition the box at every size", so a swept viewport IS the feature's test
 	-- rather than a check on its packaging — and the surface carries a switch that
@@ -510,6 +512,15 @@ end
 	                        to cap the cell's content (`lineLimit`)
 	  * collapsed-box     — padding won: the content box is 0px on an axis and
 	                        nothing inside the node can draw at all
+	  ...and the one the degrade cascade adds (ruling 1, recorded 2026-08-14):
+	  * cascade-floor     — the OPPOSITE of `row-cannot-shrink`, and the reason the
+	                        two are not one class. The row DID run the cascade —
+	                        compact form, truncation, ellipsis — every shrinkable
+	                        child is at its floor, and the box cropped the residual
+	                        at its own edge. The solver says so in the finding's own
+	                        suffix. There is no authoring repair left inside the
+	                        row: the fix is a wider box, a smaller authored floor,
+	                        or content the row does not carry
 	...and NOT `declared-fallback` any more (ruling 8, 2026-08-14): a
 	`UI.Composition` showing the fallback it declared is the framework doing what
 	the author told it to, so the solver marks that finding `designed = true` and
@@ -617,6 +628,16 @@ local WAIVERS: { Waiver } = {
 		since = 0,
 		kind = "layer-overlap",
 		where = "640x320/compact-landscape @ +0/+4/+10/+14 — the list is taller than the zone it is layered into",
+	},
+	{
+		surface = "variable_extents",
+		variant = "-",
+		node = "/VariableExtents",
+		sig = "content overflows this vstack by Npx on the",
+		px = 68,
+		since = 10,
+		kind = "page-not-scrollable",
+		where = "640x320 @ +10/+14 and compact-phone-landscape @ +14 — the title, the WRAPPING control row (`UI.Toggle` is a full-width row control, so it takes a wrap line to itself and the four size chips take one or two more) and the two-line status measure 268px of a 200px box at +14, with the list already at ZERO. This surface's two real defects are FIXED rather than waived: the row extents now derive from the live text facts (372 findings) and the window is the solved pane rather than a 210px reserve",
 	},
 	{
 		surface = "card_rail",
@@ -1820,7 +1841,15 @@ describe("overflow sweep: the theme ledger", function()
 		-- turning the theme axis on found on 2026-08-14, over eight packages and
 		-- 44 surfaces, none of it in files that mission could touch. Every addition
 		-- is a decision somebody makes on purpose.
-		expect(#theme_ledger.ROWS <= 146).toBe(true)
+		--
+		-- RAISED 146 -> 148 ON 2026-08-14, and the reason is the only one that can
+		-- justify raising it: the CORPUS grew. `text_degrade` and `variable_extents`
+		-- were registered by two in-flight missions and swept by neither, which is
+		-- what the registry case below now makes impossible; adopting them added two
+		-- surfaces' themed findings to a ledger sized for 44. Both surfaces' real
+		-- defects were fixed rather than rowed (418 findings closed to 16), so these
+		-- two rows are what is genuinely left, not what was not looked at.
+		expect(#theme_ledger.ROWS <= 148).toBe(true)
 	end)
 
 	it("COVERAGE: the themed tier is what the header says it is, and says what it skips", function()

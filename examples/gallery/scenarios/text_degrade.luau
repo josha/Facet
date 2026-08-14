@@ -25,19 +25,31 @@
 	    of its own words does not add lines of that word — the engine BREAKS the
 	    word, and the solver's own wrap model (whitespace only) would have reserved
 	    a box for a shape the engine will not draw.
-	  · CLIP IS VISIBLE ONLY AT THE LAST STOP, and only because the row is built to
-	    reach it: "Newest" declares an authored `minMax` minimum of exactly the 60px
-	    it needs, which is a CONTRACT the cascade may not descend below. So at
-	    Impossible there is a genuine residual deficit no rung can absorb — the two
-	    other labels are already at an ellipsis — and the crop is the floor
-	    guarantee doing its job rather than a nicety. That stop is the ONE state
-	    here that files a solver finding, deliberately, exactly as `flow_wrap`'s
-	    "wrapping off" state does: the diagnostic is part of the demonstration.
+	  · CLIP IS THE LAST RUNG, and the row is built to reach it: "Newest" declares
+	    an authored `minMax` minimum of exactly the 60px it needs, which is a
+	    CONTRACT the cascade may not descend below. So at Impossible there is a
+	    genuine residual deficit no rung can absorb — the two other labels are
+	    already at an ellipsis — and the crop is the floor guarantee doing its job
+	    rather than a nicety. That is a state that files a solver finding,
+	    deliberately, exactly as `flow_wrap`'s "wrapping off" state does: the
+	    diagnostic is part of the demonstration.
 
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. The four width stops are
-	fixed against the PLATE, not against a screen: the widest is 320, which is the
-	narrowest supported viewport, so every stop fits every device and the panel is
-	as tall as its own content at each one.
+	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT: the four width stops are
+	fixed against the PLATE, not against a screen, and the widest is `fill`.
+
+	BUT THE PLATE IS NOT THE SCREEN, and the 2026-08-14 theme sweep is what made
+	that concrete — an earlier version of this comment claimed "every stop fits
+	every device", which was reasoned from the stop widths alone and is false. On a
+	320px phone at the largest text preference under Fantasy Ornate, two nested
+	padded panels and the scroll reserve take 166px and the plate is 154px wide,
+	while the row's own floor is 181px: the Button is at its COMPACT form and still
+	83px of themed chrome, "Best fit" is at its 30px floor, "Newest" holds its
+	authored 60px minimum. So the last rung fires at the FIRST stop there, and the
+	surface reaches its own punchline before the player touches the picker. It is
+	recorded with that measurement in `tests/lib/theme_sweep_ledger.luau` (kind
+	`cascade-floor`) rather than tuned away, because every repair available — a
+	wrap on the row, a smaller authored floor, thinner panel padding chosen against
+	that one cell — deletes the thing this fixture exists to show.
 
 	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS (the pair
 	`flow_wrap.luau` and `card_rail.luau` document): the scenario runner drives

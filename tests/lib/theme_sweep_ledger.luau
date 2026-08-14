@@ -24,6 +24,11 @@
 --             here fails.
 --   kind      the triage class, the same vocabulary the spec's WAIVERS use, plus
 --             the one the theme axis adds:
+--               cascade-floor — the degrade cascade ran to its floor and the box
+--                 CROPPED the residual (ruling 1). Distinct from `row-cannot-shrink`
+--                 precisely because that class is repairable by authoring and this
+--                 one is not: the finding carries the solver's own "every shrinkable
+--                 child is already at its floor" suffix.
 --               theme-inset-yield — a control smaller than the theme it wears.
 --                 The renderer already gave the inset back and the content still
 --                 draws, so it is the mildest row here — but it is the direct
@@ -211,6 +216,32 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "lying-itemExtent",
+	},
+	{
+		--[[ THE PAGE'S OWN CHROME IS TALLER THAN A 200px BOX, which is what is left
+			of a 640x320 landscape phone under the showcase's 120px picker strip.
+			Measured 2026-08-14 with both of this fixture's real defects fixed (the
+			extents now derive from the live text facts and the window is the solved
+			pane, so neither the rows nor the list contribute a single finding): the
+			title, the WRAPPING control row and the two-line status alone measure 268px
+			there at +14 and 216px under Pixel Quest at the DEFAULT preference. The
+			control row is the bulk of it — `UI.Toggle` is a full-width ROW control, so
+			it takes a wrap line to itself and the four size chips take one or two more.
+
+			IT IS NOT REPAIRABLE BY GIVING THE LIST LESS ROOM, which is what the first
+			version did (`viewportHeight - 210`): the list is already at zero on every
+			cell this row covers. Repairing it means the fixture carrying less chrome on
+			a short screen — a compact control row, or the title dropping — which is a
+			design change to a demo whose chrome IS its subject, so it is recorded with
+			the measurement rather than tuned away. ]]
+		surface = "variable_extents",
+		variant = "-",
+		node = "/VariableExtents",
+		sig = "content overflows this vstack by Npx on the",
+		px = 157,
+		since = 0,
+		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
+		kind = "page-not-scrollable",
 	},
 	{
 		surface = "keyboard_navigation",
@@ -1321,6 +1352,34 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,glossy-mobile,glossy-touch,pixel-quest",
 		kind = "row-cannot-shrink",
+	},
+	{
+		--[[ THE CASCADE REACHED ITS FLOOR AND THE BOX CROPPED THE REST — which is
+			ruling 1's designed last rung, filed by the one surface built to demonstrate
+			it, at the widest of its four width stops.
+
+			MEASURED, NOT ASSUMED (2026-08-14). At 320x640 at +14 under Fantasy Ornate
+			the row's plate is 154px: two nested padded panels and a scroll reserve take
+			166px of a 320px phone under that package's insets. Inside it the Button has
+			already taken its COMPACT form (`label = "Srt"`, read off the node) and is
+			still 83px of button chrome, "Best fit" is at its 30px floor, and "Newest"
+			holds the authored 60px `minMax` minimum — 181px of floor in a 154px box. So
+			the solver crops the trailing 27px at the box edge and says so, which is the
+			difference between this and the `row-cannot-shrink` rows above: those carry
+			no "already at its floor" suffix and are all still repairable by authoring.
+
+			WHAT WOULD MAKE IT GO AWAY IS THE DEMO GIVING UP ITS SUBJECT: a wrap on the
+			row, a smaller authored floor, or thinner panel padding tuned against this
+			one cell. The fixture's own header refuses the last of those in as many
+			words. Recorded with its measurement instead. ]]
+		surface = "text_degrade",
+		variant = "-",
+		node = "/TextDegrade/Page/RowPanel/Row",
+		sig = "content overflows this hstack by Npx on the",
+		px = 27,
+		since = 14,
+		packages = "fantasy-ornate,glossy-touch",
+		kind = "cascade-floor",
 	},
 	{
 		surface = "p2_cartwheel",
