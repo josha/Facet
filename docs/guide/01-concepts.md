@@ -369,6 +369,84 @@ and therefore coarse: when the answer must depend on the space a particular
 container really got, measure it — that is what `UI.Composition` and
 `UI.ViewThatFits` are for.
 
+### Deciding who gives way when a row is too tight: `layoutPriority`, `shrinkWeight`
+
+Before a row is *too long* it is merely *tight*, and something has to give. By
+default LuauUI shrinks nothing — a child keeps its natural size — so a row that
+does not fit simply overflows and the solver complains. Two props say what should
+happen instead:
+
+- **`layoutPriority`** is a **tier**: the lowest tier gives way first, the highest
+  gives way last. Default `0`. Put the value on the thing that must survive
+  ("keep the score, drop the subtitle").
+- **`shrinkWeight`** is the **share within a tier**: `0` (the default) means "never
+  shrinks", and a bigger number means "takes more of the squeeze than its
+  neighbours". Two children at weight 1 and 3 give up a quarter and three quarters
+  of the shortfall.
+
+They compose: the tiers are consulted first, then the weights inside the tier that
+is currently giving way.
+
+```lua
+UI.HStack{ id = "Row", children = {
+    UI.Text{ id = "Name",  text = playerName, shrinkWeight = 3 },  -- squeezes most
+    UI.Text{ id = "Note",  text = subtitle,   shrinkWeight = 1 },
+    UI.Text{ id = "Score", text = score,      layoutPriority = 1 }, -- survives longest
+} }
+```
+
+### Sizing against the container, not the parent: `containerRelativeFrame`
+
+`width = { type = "percent", fraction = 0.5 }` is half of *the immediate parent's
+offer*, which is rarely what a carousel wants. `UI.containerRelativeFrame(bp, …)`
+measures against the nearest ancestor that owns a **viewport** — a `ScrollView`'s
+content window, or the surface root — so a card can be "half the visible width"
+however deeply it is nested:
+
+```lua
+UI.containerRelativeFrame(card, { axis = "horizontal", count = 2, span = 1, spacing = 8 })
+```
+
+That is the **paging** form: divide the container into `count` slots, take `span`
+of them, and leave `spacing` px between. Two-up cards on a phone, four-up on a
+desktop, from one declaration. The other form is **fractional** —
+`{ axis, fraction }` — and you use exactly one of the two per call; declaring both,
+or neither, is an error at the call site. (What it does *not* do is make the
+scroller **land** on those slots — snapping is not shipped.)
+
+### Lining columns up across rows: `UI.GridRow` and `gridSpan`
+
+`UI.Grid` sizes each column to its widest cell across the whole grid, which is what
+makes a table of stats line up without hand-picked widths. `UI.GridRow` is one row
+of it, and `gridSpan` on a cell lets it cover more than one column — a title band
+above a three-column stat block, say:
+
+```lua
+UI.Grid{ id = "Stats", children = {
+    UI.GridRow{ id = "Head", children = { UI.Text{ id = "T", text = "Lap times", gridSpan = 3 } } },
+    UI.GridRow{ id = "R1",   children = { lapCell, timeCell, deltaCell } },
+} }
+```
+
+### Animating a state change: `presenter.withAnimation`
+
+Normally a signal write repaints immediately. Wrap the write and the *movement it
+causes* is interpolated instead:
+
+```lua
+presenter.withAnimation("container", function()
+    expanded:set(true)
+end)
+```
+
+**In plain terms:** you do not animate a property, you animate a *write*.
+Everything whose **position** changes because of that write slides to its new
+place under the named motion class instead of jumping. The class comes from the
+registered set (`"container"`, `"object"`, `"decay"`, `"reward"`) — inline spring
+numbers are deliberately a hard error, so motion stays a vocabulary rather than a
+pile of magic constants. It animates *position*; a number that must count up
+rather than jump is still a `MotionValue`.
+
 ### When a row is simply too long: `wrap`
 
 The three primitives above all *choose*: a different axis, a different candidate,
@@ -413,6 +491,67 @@ If a single child is wider than the whole line it gets a line to itself and is
 clamped to the line — and the solver says so on `controller.diagnostics()`, along
 with the case where you have more lines than the box is tall. Wrapping removes
 the main-axis overflow; it does not remove the need to have room.
+
+### Hiding something without moving everything else: `hidden`
+
+There are two different meanings of "make this go away", and mixing them up is
+the cause of a whole family of jumpy screens.
+
+`UI.When` **removes** the node. It stops existing, so everything below it slides
+up to fill the space — which is what you want for a panel that appears, a row
+that is added, a warning that only shows sometimes.
+
+`hidden = true` **keeps the node's box and stops drawing it**. The space is still
+reserved; nothing else moves. That is what you want for a value that has not
+arrived yet, a locked item you still want to leave a gap for, or a badge that
+comes and goes on a row whose height must never change.
+
+```lua
+UI.Button{ id = "Badge", label = "New", hidden = notEarnedYet }
+```
+
+It is a normal prop, so you can bind it to a signal and flip it live. When it
+flips, nothing is destroyed and nothing is rebuilt — the same button is there the
+whole time, keeping its focus, its animation and its place.
+
+A hidden node is genuinely inert, not just invisible: it is skipped by Tab and
+gamepad navigation, and it does not respond to taps. That is deliberate — an
+invisible thing you can still accidentally click is worse than either state on
+its own.
+
+### Knowing when something arrives and leaves: `onAppear` / `onDisappear`
+
+Sometimes you need to *do* something the moment a piece of UI shows up or goes
+away: start a countdown, log that a screen was opened, play a sound, stop a
+sound. Every rendered node takes two optional callbacks for exactly that:
+
+```lua
+UI.Box{
+    id = "Card",
+    onAppear = function(path) startPreviewAnimation() end,
+    onDisappear = function(path) stopPreviewAnimation() end,
+}
+```
+
+**In plain terms:** `onAppear` runs once, the first time this node is actually
+drawn. `onDisappear` runs once, right after it stops being drawn. Both are handed
+the node's path, so one shared function can serve many nodes.
+
+Three details worth knowing, because they are what make the pair safe to rely on:
+
+- **`onAppear` runs after the layout is worked out**, so by the time your code
+  runs the node already has its real size and position — you can ask
+  `controller.rectOf(path)` and get an answer. Nothing has reached the player's
+  screen yet either way;
+- **`onDisappear` runs after the node is gone.** The path is no longer mounted, so
+  do not try to read or write it; this hook is for *your* cleanup, not for a last
+  look at the node;
+- **closing the screen still fires `onDisappear`** for everything on it. That is
+  the usual way a panel goes away, and a cleanup that only ran when a row scrolled
+  out of view would be a leak waiting to happen.
+
+`hidden` and these two are unrelated on purpose. Hiding a node fires nothing —
+it never left. If you want an event, use `UI.When`, which really does remove it.
 
 With these concepts in hand, [chapter 2](02-architecture.md) shows how the
 modules fit together, or [chapter 3](03-getting-started.md) jumps straight to a

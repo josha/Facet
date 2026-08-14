@@ -3171,6 +3171,20 @@ grabbedKey, editing, scrollTop, dragging, reorderable, rootPath }`.
 A column's `alignment` applies to its **header title** as well as its cells, so a
 numeric column's heading sits over its numbers rather than left of them.
 
+**`rowSelectable(item)` / `rowMovable(item)` / `rowDeletable(item)` — per-row
+capability opt-outs.** The same three predicates `newVirtualList` takes, from the
+same module (`src/row_capability.luau`), with the same rules: positive polarity
+(true = this row may take part), a construction error if you declare one without
+the container capability it narrows (`rowSelectable` needs `selection`,
+`rowMovable` needs `reorderable` **and** `onReorder`, `rowDeletable` needs a
+destructive row action), absent means every row participates, and a predicate
+that throws **fails closed** — the row refuses, and the refusal is visible rather
+than a silently deleted row. Use them for "this list reorders, but the pinned row
+at the top stays put" and "these rows can be deleted, that one cannot". SwiftUI
+spells the family negatively (`selectionDisabled` / `moveDisabled` /
+`deleteDisabled`); the inverse mapping is in
+[`swiftui-parity.md`](swiftui-parity.md) §5.
+
 **`onPrimaryAction(item, key)` — "open this row", the verb that is not
 selection.** Optional; absent, every gesture below behaves exactly as it does
 without it. Reachable on all four inputs with no invented gesture:
@@ -3429,6 +3443,7 @@ and the same terminals.
 | `dropSurface` / `rowDropTarget(item)` | each row becomes a drop target. `rowDropTarget` returns `{ accepts, onDrop }` for that row; `onDrop(payload, info)` gets `info.key`, `info.item`, `info.index`. |
 | `rowActions(item)` | `(item) -> { leading?, trailing?, fullSwipe? }?` — **hosted row actions** (see below). Returning `nil` for an item leaves that row completely unwrapped. Refused together with `reorderable` (v1). |
 | `rowFocusable(item)` | the SF-L3 focus-skip predicate, evaluated at navigation time. |
+| `rowSelectable(item)` / `rowMovable(item)` / `rowDeletable(item)` | **per-row capability opt-outs** — SwiftUI's `selectionDisabled(_:)` / `moveDisabled(_:)` / `deleteDisabled(_:)` family, spelled **positively** (true = the row may take part) so they read the same way as `rowFocusable` beside them. Each answers "may THIS row do it?", never "can this container do it at all?" — so declaring one without the capability it narrows is a **construction error**: `rowSelectable` needs `selection`, `rowMovable` needs `reorderable` **and** `onReorder`, `rowDeletable` needs a destructive row action. Absent = every row participates, and the check is one `~= nil`, so adopting the family costs nothing. They **fail closed**: a predicate that throws refuses the capability, because a consumer bug that stubbornly refuses to move a row is visible and harmless while one that silently deletes a protected row is not. Only an explicit `false` refuses — returning `nil` from a forgotten branch keeps the permissive default, matching `rowFocusable`'s shipped reading. One implementation (`src/row_capability.luau`), two callers. |
 | `focusPolicy` | `"key"` (default) or `"index"` — **when the ORDER changes under the player, does the cursor follow the ITEM or stay on the SLOT?** `"key"` is the pre-field control byte for byte: focus follows the item, so a list re-sorting every 250 ms walks the pad cursor up and down the rows on its own. `"index"` pins the slot: when a data update moves the focused item off the slot it was focused at, focus **retargets to whoever occupies that slot now**, clamped to the last slot if the list shrank. This is the answer a live standings list needs ("selection riding a racer's button visibly JUMPS slots on every overtake"). The retarget drives BOTH halves of focus — the logical `focusedKey` *and* the screen's focus graph, which the presenter hands the control through the contribution's `bindFocusGraph` — so there is one focus authority and no consumer-side re-pin loop. It is an **ordinary focus move**: keep-visible applies, and it never summons a focus ring the player put away (the ring-visibility origin is left alone). It **declines** in exactly two situations: while a drag session is live (a policy that re-aimed a gesture mid-flight would fight the player's hand), and when the slot's new occupant fails `rowFocusable` — parking the ring where Activate can do nothing is worse than the jump the policy prevents, so focus falls through to the item. Construction-only, and an illegal value is refused naming both. `dump()` reports `focusPolicy` and the live `pinnedSlot`. |
 | `navigation` | `{ name?, wrap?, containment?, entry?, exit? }` — overrides for the ONE navigation group this list contributes. Absent, the group is `vl:<id>`, vertical, `entry = "nearest"`, unwrapped and with no declared exits (unchanged). An unknown field is refused at construction. `list.focusGroupName` reports the resolved name so a **sibling** group can declare `exit = { down = list.focusGroupName }` without hardcoding the `vl:` convention. |
 | `autoscroll` | `false` to disable, or an options table. Defaults on whenever the list is reorderable or a drop surface. |

@@ -364,6 +364,28 @@ Like `roblox_env`/`roblox_input`, this module is client-only and deliberately
 not on the `LuauUI.*` table (that keeps the main library safe to require from
 server code — [chapter 2](02-architecture.md)).
 
+### Saying "that mattered": `UI.sensoryFeedback`
+
+Some state changes deserve a physical acknowledgement — a purchase landing, a
+selection snapping into place, an error. Attach the declaration to any node and
+name what happened:
+
+```lua
+UI.sensoryFeedback(button, { trigger = purchaseState, event = "commit" })
+```
+
+**In plain terms:** when the `trigger` Readable changes, the framework emits
+`{ type = event, path }` on the presenter's feedback bus. The event names are a
+**closed** taxonomy of twelve — `activate`, `select`, `adjust`, `pickup`,
+`commit`, `reject`, `cancel`, `arrive`, `land`, `dismiss`, `supersede`,
+`celebrate` — so a typo is an authoring error that lists the vocabulary rather
+than a silent no-op.
+
+One thing to be clear about: **LuauUI plays nothing.** It publishes the verb; a
+game decides whether that becomes a haptic pulse, a sound, or nothing at all —
+`src/client/haptics.luau` is an opt-in adapter you can bind to the bus. That split
+is deliberate: what "success" feels like is a game's identity, not a framework's.
+
 ## 7.4 Troubleshooting and hard limits
 
 **Gamepad A does nothing on my buttons.** The place is almost certainly running
