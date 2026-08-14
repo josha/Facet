@@ -97,6 +97,20 @@ local ORDER = {
 	-- inside the three predicates, at the instant each is asked. Also in
 	-- `demo_picker.DEMOS`.
 	"row_capabilities",
+	-- ...and ruling 7 (2026-08-13): VARIABLE ITEM EXTENTS. A feed of 400 posts of
+	-- four different heights, with one toggle that makes the list declare a single
+	-- number for all of them — the pre-feature contract — so the defect the sweep
+	-- measured is visible beside the fix, and the four measured text offsets walk
+	-- the whole list without moving the post under the top edge. Also in
+	-- `demo_picker.DEMOS`.
+	"variable_extents",
+	-- ...and the director's per-control sensory request (2026-08-13): five
+	-- identical-looking buttons that report four different verbs and one nothing
+	-- at all, plus one declaration on a panel that all three controls inside it
+	-- inherit. The whole capability is a DIFFERENCE in what a press says happened,
+	-- which a still screenshot flattens to five chips. Also in
+	-- `demo_picker.DEMOS`.
+	"sensory_feedback",
 }
 
 local scenarios = {}

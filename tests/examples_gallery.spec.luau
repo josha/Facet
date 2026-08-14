@@ -2950,30 +2950,41 @@ describe("examples/gallery fixture: variable item extents", function()
 	end)
 
 	it("the posts really are DIFFERENT heights, and none overlaps its neighbour", function()
+		--[[ WALK THE MOUNTED WINDOW, not a fixed row count: the whole point of the
+			fixture is that the rows are different heights, so how many of them fit a
+			320px phone is not a number this test may assume. Four distinct heights are
+			asserted where the window is big enough to hold four (the desktop view);
+			the NO-OVERLAP invariant is asserted on every mounted row at both. ]]
 		for _, view in { NARROW_PORTRAIT, DESKTOP } do
 			local w, built = feedWorld(view)
 			local heights: { [number]: boolean } = {}
-			local distinct = 0
+			local distinct, checked = 0, 0
 			local previous: any = nil
-			for i = 1, 8 do
+			for i = 1, 40 do
 				local r = postRect(w, `p{i}`)
-				expect(`{view.w}: p{i} mounted: {r ~= nil}`).toBe(`{view.w}: p{i} mounted: true`)
+				if r == nil then
+					break
+				end
+				checked += 1
 				if heights[r.h] == nil then
 					heights[r.h] = true
 					distinct += 1
 				end
 				if previous ~= nil then
 					-- the next post starts at or after the previous one ends: a
-					-- running-offset list that got its prefix sum wrong shows up here
-					-- as a negative gap, on the real solved boxes
+					-- running-offset list that got its prefix sum wrong shows up here as
+					-- a NEGATIVE gap, on the real solved boxes
 					expect(`{view.w}: p{i} at {r.y} follows {previous.y + previous.h}`).toBe(
 						`{view.w}: p{i} at {math.max(r.y, previous.y + previous.h)} follows {previous.y + previous.h}`
 					)
 				end
 				previous = r
 			end
-			-- four line counts, so four distinct heights
-			expect(`{view.w} distinct heights: {distinct}`).toBe(`{view.w} distinct heights: 4`)
+			expect(`{view.w} mounted rows: {checked >= 4}`).toBe(`{view.w} mounted rows: true`)
+			-- at least three of the four line counts are on screen even on the phone;
+			-- the desktop window holds all four
+			local want = if view.h > 700 then 4 else 3
+			expect(`{view.w} distinct heights: {distinct >= want}`).toBe(`{view.w} distinct heights: true`)
 			built.dispose()
 		end
 	end)

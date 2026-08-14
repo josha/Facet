@@ -174,6 +174,30 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "row_capabilities",
 	},
+	-- the ninth fixture, and it is here for the reason the others are: what it
+	-- demonstrates is a DIFFERENCE between two states of the same list. One toggle
+	-- makes every row declare the same height, and the taller posts immediately
+	-- paint over their neighbours — the defect the overflow sweep measured, beside
+	-- the feature that ends it, in one surface.
+	{
+		id = "variable-extents",
+		title = "Rows of different heights",
+		blurb = "400 posts, none the same height: declare one number for all of them and watch",
+		kind = "fixture",
+		module = "variable_extents",
+	},
+	-- the tenth fixture, and the reason is the one every fixture above it gives:
+	-- what it demonstrates is INVISIBLE in a picture. Five buttons painted
+	-- identically report four different verbs and one nothing at all, and one
+	-- declaration on a panel reaches three controls inside it — so the capability
+	-- only exists in the log beside them.
+	{
+		id = "sensory-feedback",
+		title = "Sensory feedback",
+		blurb = "Five identical buttons that mean different things — and one panel that speaks for three",
+		kind = "fixture",
+		module = "sensory_feedback",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",
