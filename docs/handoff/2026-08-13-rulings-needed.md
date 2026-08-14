@@ -1,7 +1,7 @@
-# Eight rulings needed to finish round 3 (2026-08-13)
+# Nine rulings needed to finish round 3 (2026-08-13)
 
 Everything in the round-3 ledger that could be closed from a desk is closed or in
-flight. These eight cannot be: each is a **product decision**, not a repair, and
+flight. These nine cannot be: each is a **product decision**, not a repair, and
 guessing one would be inventing policy. Each is stated with the measurement, the
 options, and a recommendation.
 
@@ -173,6 +173,27 @@ about whether it is a defect.
 
 **Recommendation: A**, matching what the consumer already decided — but it needs
 to be decided once, in one place, rather than differently on each side.
+
+---
+
+## 9. A value control inside a row traps directional navigation
+
+**Measured live on the shipped playlist.** The rating strip owns Left/Right. A
+`DPadRight` on it moves the rating 4 → 5 and never moves the focus ring — **even
+at the maximum**. So nothing later in that row is reachable by d-pad, including
+the swipe tray that was just made reachable.
+
+This is the rating control's arrow ownership, not the tray work — which is why
+the playlist showcase case is driven by Tab and the pad walk is proved on a row
+with no value control. It is a real cross-platform gap on a shipped surface.
+
+| option | consequence |
+|---|---|
+| **A. A value control yields the arrow at its limit** (recommended) | At 5 of 5, another Right moves the ring instead. Matches how platform steppers behave and costs one condition. A player who wants to keep pressing Right past the max has no other intent. |
+| B. The control always owns its axis; use Tab | Consistent and simple, but a gamepad has no Tab. It means "reachable on every input device" is false for anything after a value control in a row. |
+
+**Recommendation: A.** B contradicts the standing cross-platform rule on a
+surface that ships.
 
 ---
 
