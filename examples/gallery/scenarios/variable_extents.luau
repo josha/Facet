@@ -28,12 +28,17 @@
 	    does not move when you fling. A feature that made the list measure every
 	    row to lay itself out would look identical in a screenshot and be worthless.
 
-	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT. The list's viewport extent
-	is a live memo over the real screen (the same shape `virtual_list_native`
-	documents), and every row extent is DERIVED from the same constants the cell
-	paints with — `rowExtent` and `cell` read one table, so the declaration and the
-	paint cannot drift. That discipline is what the feature buys; the toggle shows
-	what its absence costs.
+	NOTHING HERE IS FIXED AGAINST AN UNFIXED VIEWPORT, and the 2026-08-14 overflow
+	sweep is why that sentence can now be believed — it was here before, and both
+	halves of it were false. The list's window came from `viewportHeight - 210`, a
+	reserve for chrome the SOLVER sizes; every row extent came from the fixture's own
+	size chips times a literal line ratio, so it ignored the player's real text
+	preference, the theme's line height and the ten-foot type scale. 418 findings on
+	one surface, 372 of them rows painting over their neighbours. Both are now read
+	from the live facts through `use`: the window is the solved pane fed back through
+	`present.onGeometry`, and `rowExtent` derives from the same four facts the solver
+	measures with. That discipline is what the feature buys; the toggle shows what
+	its absence costs, and this fixture's own history shows how easily it is lost.
 
 	TWO HOSTS MOUNT THIS FILE, AND ONLY ONE OF THEM RUNS STEPS (the pair
 	`card_rail.luau` documents): the scenario runner drives `steps` by name, and
@@ -55,10 +60,6 @@ local METRICS = {
 	gap = 4,
 	titleSize = 15,
 	bodySize = 13,
-	-- Roblox lays a text line out at its font size plus leading; 1.25 is the
-	-- ratio this framework's own text calibration uses for a single line, and it
-	-- is applied to the OFFSET size, not the base one
-	lineRatio = 1.25,
 }
 
 -- the four measured accessibility offsets — the same set
@@ -71,8 +72,44 @@ local TEXT_OFFSETS = { 0, 4, 10, 14 }
 -- sweep found on `row_actions`.
 local UNIFORM_EXTENT = 84
 
-local function lineHeight(offset: number, size: number): number
-	return math.ceil((size + offset) * METRICS.lineRatio)
+-- the path `onGeometry` reads the list's window off (below). One spelling, so the
+-- blueprint id and the lookup cannot drift.
+local LIST_PANE = "/VariableExtents/ListPane"
+
+--[[ THE HEIGHT OF `lines` LINES, DERIVED FROM THE FACTS THE CELL REALLY PAINTS
+	WITH rather than from a ratio written here.
+
+	THIS IS THE DEFECT THE OVERFLOW SWEEP FOUND ON THIS FIXTURE (2026-08-14, 372
+	findings on one node), and it is the same one the feature exists to end. The
+	first cut multiplied `(size + <the fixture's own chip offset>)` by a literal
+	1.25 and stopped — so the extents were right on Studio Neutral at the default
+	preference and wrong everywhere else, by 8px at `preferredTextOffset` 4 and 54px
+	at 14, and by 15px at the DEFAULT preference on a ten-foot display, whose Large
+	class multiplies the whole type ladder by 1.5. Every one of those rows painted
+	over its neighbour. The fixture was preaching a discipline it did not practise.
+
+	The solver's own arithmetic for an AUTHORED numeric text size is three facts
+	and one theme number, and this reproduces it exactly (`renderer.toLayoutNode`
+	`textOf`, `text_metrics.measure`):
+
+	    px = ceil(lines * (authoredSize * measureScale + preferredTextOffset) * lineFactor)
+
+	  · `measureScale` is `max(typographyScale, typographyPaintScale)` — the same
+	    max the measure seam takes, because a sub-1 accessibility preference makes
+	    the paint seam the larger of the two and under-reserving is never safe;
+	  · `preferredTextOffset` is ADDITIVE and applied by the engine at draw time
+	    (LTN-1), so it is added after the scale, never through it;
+	  · `lineFactor` is the typography role's own line height from the live theme
+	    snapshot. Both texts in the cell declare a numeric size, so both resolve to
+	    the class's intrinsic role — `body` for `UI.Text`.
+
+	EVERY ONE OF THOSE IS READ THROUGH `use`, which is the whole contract of the
+	per-item form: an extent that reads a live fact with `:get()` is right once and
+	then goes silently stale. ]]
+local NEUTRAL_LINE_FACTOR = 1.2
+
+local function lineBox(facts: any, size: number, lines: number): number
+	return math.ceil(lines * (size * facts.scale + facts.offset) * facts.lineFactor)
 end
 
 -- how many body lines post `i` has: deterministic, 1..4, so the fixture is the
@@ -83,22 +120,27 @@ end
 
 --[[ ONE POST'S EXTENT — the function handed to `itemExtent`.
 
-	IT READS EVERY LIVE FACT THROUGH `use`, which is the contract: reading the
-	offset signal with `:get()` would produce the right number once and register no
-	dependency, and the extents would then go stale the moment the player changed
-	the text size. That silent-staleness is the failure mode the whole feature
-	exists to end, so the fixture models the correct spelling. ]]
-local function rowExtent(item: any, index: number, use: any, offsetSignal: any, modeSignal: any): number
+	IT READS EVERY LIVE FACT THROUGH `use`, which is the contract: reading a fact
+	with `:get()` would produce the right number once and register no dependency,
+	and the extents would then go stale the moment the player changed the text size,
+	the theme or the display class. That silent-staleness is the failure mode the
+	whole feature exists to end, so the fixture models the correct spelling —
+	`textFacts` below is where the four live facts are read, once per re-derive
+	rather than once per row. ]]
+local function rowExtent(item: any, index: number, use: any, textFacts: any, chipSignal: any, modeSignal: any): number
 	if use(modeSignal) == "uniform" then
 		return UNIFORM_EXTENT
 	end
-	local offset = use(offsetSignal)
+	local facts = use(textFacts)
+	-- the fixture's OWN size picker, on top of the authored sizes: it is an
+	-- authored size like any other, so it is scaled by `measureScale` with them
+	local chip = use(chipSignal)
 	local lines = linesFor(index)
 	local _ = item
 	return METRICS.padding * 2
-		+ lineHeight(offset, METRICS.titleSize)
+		+ lineBox(facts, METRICS.titleSize + chip, 1)
 		+ METRICS.gap
-		+ lines * lineHeight(offset, METRICS.bodySize)
+		+ lineBox(facts, METRICS.bodySize + chip, lines)
 end
 
 return {
@@ -131,28 +173,68 @@ return {
 		end))
 		local textOffset = scope:own(core:signal(0))
 
-		-- the same live-viewport memo `virtual_list_native` documents: a fixed
-		-- number here would paint past a 320px landscape phone with nothing to
-		-- scroll it
-		local viewportExtent = scope:own(core:memo(function(use)
-			local vp: any = use(ctx.env:get("viewportRect"))
-			local insets: any = use(ctx.env:get("coreSafeInsets"))
-			local h = if type(vp) == "table" and type(vp.h) == "number" then vp.h else 640
-			local top = if type(insets) == "table" and type(insets.top) == "number" then insets.top else 0
-			local bottom = if type(insets) == "table" and type(insets.bottom) == "number" then insets.bottom else 0
-			--[[ THE RESERVE IS MEASURED, NOT GUESSED, and the first guess was wrong in
-				exactly the documented way (`docs/lessons/luauui-fixed-px-heights.md`):
-				150 was reasoned from the title alone and the fixture then overflowed its
-				own page by 80px at 320x640, because the toggle, the size chips and a
-				two-line status sit above the list too.
-
-				210 clears the worst measured case — 320 wide, where the control row
-				WRAPS to two lines and the status takes two — and the gallery spec's
-				zero-diagnostic case at three viewports is what keeps it honest.
-				Over-reserving only shortens the list, which can never overflow;
-				under-reserving squeezes the chrome, which is the defect above. ]]
-			return math.clamp(math.floor(h - top - bottom - 210), 72, 600)
+		--[[ THE FOUR LIVE TEXT FACTS, IN ONE MEMO. Read here rather than inside
+			`itemExtent` so 400 extents cost four `use` calls and not sixteen hundred —
+			the per-item function is evaluated O(N) per data change and is meant to stay
+			arithmetic (docs/plans/variable-item-extents.md, "what was traded"). The memo
+			is also what makes the dependency edges exist at all: the whole offset index
+			re-derives when the player raises their text size, swaps the theme, or the
+			screen lands on a ten-foot display. ]]
+		local textFacts = scope:own(core:memo(function(use)
+			local scale: any = use(ctx.env:get("typographyScale"))
+			local paint: any = use(ctx.env:get("typographyPaintScale"))
+			local offset: any = use(ctx.env:get("preferredTextOffset"))
+			local metrics: any = use(ctx.env:get("themeMetrics"))
+			local body: any = if type(metrics) == "table" and type(metrics.type) == "table"
+				then (metrics.type :: any).body
+				else nil
+			return {
+				scale = math.max(
+					if type(scale) == "number" then scale else 1,
+					if type(paint) == "number" then paint else 1
+				),
+				offset = if type(offset) == "number" then offset else 0,
+				lineFactor = if type(body) == "table" and type(body.lineHeight) == "number"
+					then body.lineHeight
+					else NEUTRAL_LINE_FACTOR,
+			}
 		end))
+
+		--[[ THE LIST'S WINDOW IS THE PANE THE SOLVER GAVE IT, fed back through
+			`present.onGeometry` — the same shape `row_actions.luau`'s hosted list uses,
+			and for the same reason its comment records: *reproduce a framework's
+			inputs, never its result*.
+
+			WHAT WAS HERE BEFORE, AND WHY IT WAS THE SAME DEFECT TWICE. This was
+			`viewportHeight - 210`, a literal reserve for the title, the wrapping control
+			row and the two-line status. The number was measured (150 was the first guess
+			and overflowed by 80px), and it was still wrong, because the chrome above the
+			list is not a constant — it is the SOLVER's decision. At the largest text
+			preference the control row and the status both grow, and the sweep measured
+			this page painting 77px past its own box at `preferredTextOffset` 14 and 49px
+			at 10, plus a further 19 findings under packages whose own metrics widen the
+			same chrome at the DEFAULT preference. `docs/lessons/luauui-fixed-px-heights.md`
+			is the class, in its height spelling; a fixed reserve against unfixed chrome
+			is the same bug as a fixed row height against unfixed text.
+
+			IT CANNOT CHASE ITS OWN TAIL: `ListPane` takes `fill`, so its height is
+			decided by the screen above it and never by the list inside it. One solve
+			after any change the window is exact; the seed below is only the value for
+			the frame before any geometry exists, and it is deliberately SMALL — a list
+			that starts too short can only grow, and a list that starts too tall paints
+			over the frame a player sees first.
+
+			AND THE WINDOW HAS NO FLOOR OF ITS OWN, which is the second half of the same
+			rule. A `math.max(oneRow, pane.h)` here reads like kindness and is the
+			original defect back again: on a 640x320 landscape phone at the largest text
+			preference this page's own chrome needs 268px of a 200px box, so the pane is
+			genuinely 0 — and a list that insists on 72px there paints those 72px over
+			whatever is beside it. The page not fitting is a real finding about the page
+			(recorded against `/VariableExtents` in the overflow sweep's lists, with the
+			measurement); a list that overflows its pane to hide it is a second defect
+			laid on top. ]]
+		local SEED_WINDOW = 72
+		local viewportExtent = scope:own(core:signal(SEED_WINDOW))
 
 		local list = ctx.LuauUI.newVirtualList(ctx.LuauUI, core, {
 			id = "Feed",
@@ -161,7 +243,7 @@ return {
 				return item.id
 			end,
 			itemExtent = function(item: any, index: number, use: any): number
-				return rowExtent(item, index, use, textOffset, mode)
+				return rowExtent(item, index, use, textFacts, textOffset, mode)
 			end,
 			viewportExtent = viewportExtent,
 			overscan = 2,
@@ -260,14 +342,36 @@ return {
 				-- capped at two lines so a longer status string can never be the thing
 				-- that pushes the list out of its own page
 				UI.Text({ id = "Status", text = status, textSize = 12, role = "secondary", lineLimit = 2 }),
-				list.blueprint,
+				-- the pane whose solved height IS the list's window (see the
+				-- `viewportExtent` block above). `fill` is what makes it the screen's
+				-- decision rather than the list's
+				UI.VStack({
+					id = "ListPane",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = { list.blueprint },
+				}),
 			},
 		})
 
 		local unbind: any = nil
 		return {
 			screen = screen,
-			present = {},
+			present = {
+				-- `onGeometry` is a broadcast the presenter makes after every solve
+				-- (presenter.luau: "solved rects are a notification"), so reading one
+				-- rect here costs the rest of the screen nothing
+				onGeometry = function(rectOf: (string) -> any)
+					local pane = rectOf(LIST_PANE)
+					if pane == nil or type(pane.h) ~= "number" then
+						return
+					end
+					local window = math.max(0, math.floor(pane.h))
+					if window ~= viewportExtent:get() then
+						viewportExtent:set(window)
+					end
+				end,
+			},
 			-- published for the headless suite: the signals a test drives, rather
 			-- than a re-implementation of them
 			mode = mode,

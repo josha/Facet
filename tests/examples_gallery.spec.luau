@@ -3010,7 +3010,13 @@ end)
 -- ---------------------------------------------------------------------------
 describe("examples/gallery fixture: variable item extents", function()
 	local module = require("../examples/gallery/scenarios/variable_extents") :: any
-	local FEED = "/VariableExtents/Feed"
+	--[[ THE LIST LIVES INSIDE THE PANE WHOSE SOLVED HEIGHT IS ITS WINDOW
+		(2026-08-14), so this path gained a segment. It is asserted rather than
+		written, because a stale path here is a test that silently stops looking:
+		`postRect` below answers nil for every row and the walk simply finds no rows
+		— which is the failure this one produced when the pane landed, and the same
+		class as `06_tile_game`'s readouts moving off their published paths. ]]
+	local FEED = "/VariableExtents/ListPane/Feed"
 
 	local function feedWorld(view: any)
 		local w = fixtureWorld(view)
@@ -3027,6 +3033,10 @@ describe("examples/gallery fixture: variable item extents", function()
 			local w, built = feedWorld(view)
 			expectNoDiagnostics(`variable_extents at {view.w}x{view.h}`, w, built)
 			expect(w.core:lastError()).toBeNil()
+			-- THE PATH IS A CLAIM, so it is asserted once rather than assumed forty
+			-- times: every row lookup in this describe hangs off `FEED`, and a path
+			-- that no longer resolves turns each of them into a silent nil
+			expect(`{view.w} feed at {FEED}: {w.adapter.node(FEED) ~= nil}`).toBe(`{view.w} feed at {FEED}: true`)
 			built.dispose()
 		end
 	end)
