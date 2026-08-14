@@ -162,6 +162,52 @@ keys (`id = ...` inside a `UI.Button{}`) and same-named locals in inner scopes.
   Stop at a real margin, not at 199,9xx: a ceiling reached by a hair is a file
   that crosses again on its next honest comment.
 
+## The cap is NECESSARY, not sufficient: a stale `rojo serve` is the other half
+
+**Measured 2026-08-14, at the end of the `screen_target` split.** Getting the file
+under the cap was verified two ways and both passed:
+
+* **The cap, bracketed on the live engine.** Assigning the split file's 189,670
+  characters onto a running `ModuleScript.Source` SUCCEEDS; the same file padded
+  back to 217,670 is REFUSED. So the file is once again writable through every
+  live path.
+* **The sender carries it.** A freshly started `rojo serve` on the showcase
+  project serves `screen_target` at 189,163 chars (the disk file less its line
+  endings) plus both new siblings.
+
+**And live sync was still dead — for a completely different reason.** The
+`rojo serve` the showcase Studio has been connected to (`--port 34873`) was
+started **2026-07-26**, nineteen days earlier, and its file watcher had stopped
+seeing the tree. Asked for its own tree it reported:
+
+| | shared serve (19 days old) | disk / fresh serve |
+|---|---|---|
+| `screen_target` | 228,076 | 189,163 |
+| `screen_chrome` | 111,737 | 114,846 |
+| `screen_paint`, `screen_scroll_indicators`, `presentation`, the six `row_actions_*` | **absent** | present |
+
+Eleven files it had never seen and twenty-six more stale. `touch`ing two of them
+and re-reading changed nothing, so this is not a debounce.
+
+**Two independent processes, the same failure.** The performance-lab serve
+(`--port 34874`) was started the same morning and is stale from *its own* start
+time — current on `screen_chrome`, five hours behind on `screen_target`. The
+repo lives on a Dropbox CloudStorage path, where fsevents are not dependable.
+
+So the diagnosis "the file is over the cap, that is why it does not sync" was
+right about the file and incomplete about the pipeline. **Check the SENDER too,
+and check it the same way you check the receiver — by asking it what it holds:**
+
+```
+ROOT=$(curl -s http://127.0.0.1:34873/api/rojo | python3 -c "import sys,json;print(json.load(sys.stdin)['rootInstanceId'])")
+curl -s "http://127.0.0.1:34873/api/read/$ROOT" | python3 -c "…len of Properties.Source.String…"
+```
+
+A serve older than the change you are looking for cannot be the reason your edit
+arrived, and it is a silent one: the plugin shows connected, the port answers,
+and the tree is a fortnight old. **Restart `rojo serve` before trusting any live
+check**, and prefer a serve whose start time is younger than your edit.
+
 ## Why this is worth a file
 
 A cap observed on one path was generalised to every path, and that generalisation
