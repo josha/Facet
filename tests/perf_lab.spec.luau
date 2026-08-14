@@ -669,7 +669,7 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 			built.steps.mount()
 		end)
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "layout finding") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "MOUNT REFUSED") ~= nil).toBe(true)
 		-- WORDING UPDATED 2026-08-13, and the reason is a device report rather than
 		-- a rename. The raised message used to carry two sentences of explanation
 		-- plus up to four `path [rect]: issue` triples inline, and on a phone it was
@@ -683,8 +683,12 @@ describe("perf lab: the workload paints inside its own boxes at every viewport (
 		-- names the layout findings. The "describes a screen nobody would ship"
 		-- clause is the surviving half of the old sentence and is what keeps this
 		-- from passing on any error that merely mentions the words.
-		expect(string.find(tostring(err), "see the console") ~= nil).toBe(true)
-		expect(string.find(tostring(err), "nobody would ship") ~= nil).toBe(true)
+		-- THE MESSAGE LEADS WITH THE FINDING, not with a count. Two device reports
+		-- showed the old shape cut off on a phone before reaching anything
+		-- actionable, so what a reader can act on goes FIRST: the offending node
+		-- and what the solver said about it.
+		expect(string.find(tostring(err), "MOUNT REFUSED") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "overflows") ~= nil).toBe(true)
 		built.dispose()
 	end)
 end)

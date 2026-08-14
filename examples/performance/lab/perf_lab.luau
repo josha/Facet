@@ -478,8 +478,13 @@ return {
 						.. `{tostring(findings[i].node)}{rectStr(findings[i].node)} — {tostring(findings[i].issue)}`
 				)
 			end
-			return `[perf lab] {#findings} layout finding(s) on the {label} surface at {where} — see the console, `
-				.. `one line each. Any number taken from this surface describes a screen nobody would ship.`
+			-- LEAD WITH THE FIRST FINDING, not with a count and a pointer. A count
+			-- tells the reader nothing they can act on, and a device report proved
+			-- twice that whatever comes last gets cut off — so the useful part goes
+			-- FIRST and the bookkeeping goes last.
+			local first = `{tostring(findings[1].node)}: {tostring(findings[1].issue)}`
+			return `[perf lab] MOUNT REFUSED — {first}`
+				.. (if #findings > 1 then ` (+{#findings - 1} more, one per line in the console)` else "")
 		end
 
 		-- BOTH SURFACES, not just the workload. The overlay is its own ScreenGui with

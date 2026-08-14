@@ -226,7 +226,25 @@ function overlay.build(LuauUI: any, core: any, model: Model): any
 			id = "Status",
 			gap = 8,
 			children = {
-				UI.Text({ id = "State", text = model.statusLine, textSize = 15 }),
+				--[[ FILL, SO IT WRAPS INSTEAD OF RUNNING OFF THE EDGE.
+
+					Device report, 2026-08-13: the mount-refusal message was cut off
+					on a phone — twice, once before it was shortened and again after.
+					The message was not the whole problem. This Text had no width, so
+					in an HStack it takes its natural single-line extent and simply
+					overflows the overlay; anything past the panel edge is unreadable
+					no matter how short the string gets.
+
+					A `fill` width makes it wrap to as many lines as it needs, which
+					is what a diagnostic has to do — a status line that can only ever
+					show its first sixty characters cannot carry a node path AND what
+					went wrong. ]]
+				UI.Text({
+					id = "State",
+					text = model.statusLine,
+					textSize = 15,
+					width = { type = "fill", weight = 1 },
+				}),
 				UI.Text({ id = "Countdown", text = model.countdown, textSize = 15 }),
 			},
 		})
