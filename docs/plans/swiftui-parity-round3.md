@@ -732,7 +732,7 @@ The most valuable half of the audit, each with its evidence:
 | 11 | **Reduced-motion settings surface** | **NOT BUILT.** `with_animation` writes the real env fact but restores it on dispose (`:159`, `:486`), so the reduced-motion axis is reachable only while that one demo is on screen. **Hard-blocked behind #4** — a settings surface only a finger can open cannot run the keyboard or gamepad axis of a canary | headless |
 | 12 | **Row-actions menu not clamped to the viewport** | **OPEN**, comment unchanged. Trigger at y=508 on a 600px viewport → menu at y=556..629 | a ruling |
 | 13 | **The "Edit item" wrap rule** | **OPEN.** `renderer.luau:452` unchanged. The honest rule, per the doc's own root-cause: wrapping is right only when the phrase's **longest word** fits the drawable width | a ruling |
-| 14 | **The overflow sweep cannot see cross-axis findings** | `overflow_sweep.spec.luau:129` filters on `"on the main axis"`, so the five recorded non-main-axis findings structurally cannot fail it. **The five themselves are not re-verified** — documented only | headless |
+| 14 | **The overflow sweep cannot see cross-axis findings** | **DONE 2026-08-13** — the message filter is deleted, not widened, and all five recorded findings are re-verified. See "The overflow sweep asks about every finding" below | headless |
 
 ### Deferred, with the reason
 
@@ -2090,14 +2090,12 @@ scene the noise is ~27 %, so no single-scene number is quoted.
 - **`perf_capture`'s `Roster` row overflows its declared slot by 2px at +10 and
   6px at +14 at console-ten-foot 1920×1078** — reproducible, and pre-existing (it
   is not on a fill axis, so the old finding reported it too).
-- **The always-on sweep cannot see the new class.** `overflow_sweep.spec.luau`'s
-  `isOverflow` greps `"on the main axis"` / `"on the cross axis"`; this finding
-  says "…than the slot it is windowed into". The same has always been true of the
-  ZStack overlap finding, so nothing regressed — but the sweep is where this class
-  is supposed to bite, and the phrase should be added by that file's owner,
-  together with the two waivers (or fixes) the paragraph above would then require.
-  Until then the class is enforced by the perf lab's mount check, by RascalRally's
-  large-text fixtures, and by `tests/virtual_list_slot_guard.spec.luau`.
+- ~~**The always-on sweep cannot see the new class.**~~ **CLOSED the same day** —
+  and not by adding the phrase. `overflow_sweep.spec.luau` no longer greps
+  anything: a swept surface must produce **no finding of any class**. The sweep
+  found this class on three surfaces immediately (`row_actions [vlist]`,
+  `virtual_list_native`, `perf_capture`), all now recorded as waivers with their
+  measurements. See "The overflow sweep asks about every finding" below.
 - RascalRally's two consumers fire **nothing**: every one of its 5 143 marked-row
   comparisons has ≥17px of headroom, at all four text preferences.
 
@@ -2190,3 +2188,165 @@ extra unbatched writes per resize, measured at **11** `coreSafeInsets` fires ove
 feedback loop*, the shape any app reserving space from measured geometry will
 have, and the honest fix (a measure→publish cycle settling inside one flush) is a
 design question rather than a patch.
+
+---
+
+# The overflow sweep asks about every finding (2026-08-13) — ledger row 14
+
+Row 14 said the always-on sweep filtered its findings on the literal
+`"on the main axis"`, so the **five recorded non-main-axis findings structurally
+could not fail it**, and that the five had never been re-verified. Both halves
+were true, and the measurement turned out to be twice as bad as the row claimed.
+
+## What the instrument could actually see, measured before anything was changed
+
+A probe mounted the sweep's own corpus — 42 surfaces × 8 viewports × 4
+preferences, the same worlds, the same settle — and collected **every**
+`controller.diagnostics()` entry rather than the ones the file greps for:
+
+| finding class | findings | distinct (surface, node) | visible to the sweep before today |
+|---|---:|---:|---|
+| `content overflows this <stack> by Npx on the main axis` | 303 | 33 | **yes** |
+| `'X' is Npx wider than this hwrap's line on the main axis` (wrap clamp) | 1 | 1 | yes (by accident — it says "main axis") |
+| `the wrapped lines overflow this <kind> … on the cross axis` | 0 | 0 | yes (added with flow-wrap) |
+| **`this child overflows its zstack by NxNpx`** | **191** | **9** | **no** — invisible since 2026-08-02 |
+| **`newVirtualList … than the slot it is windowed into`** | **184** | **3** | **no** — invisible from the hour it shipped |
+| **`content box collapses to Npx on <axis>`** | **13** | **3** | **no** |
+| **`no declared arrangement is legal … showing the declared fallback`** | **5** | **1** | **no** |
+| **total** | **697** | **51** | **393 findings / 16 defects could not fail it** |
+
+## The fix is a deletion, because a second phrase would be the same defect
+
+The standing rule was "the general mechanism, never a special case", and a list
+of remembered sentences is a special case that has to be edited every time the
+solver learns to speak. So the filter is **gone**: a swept surface must now
+produce **no solver finding at all**, which is the contract RascalRally's
+fixtures (`diagnostics()` empty at four preferences) and the perf lab (refuses to
+mount with one) already hold their surfaces to. Nothing has to be added here when
+a new diagnostic ships.
+
+Three mechanisms make that affordable, and each is derived rather than listed:
+
+- **A finding's class is `signature(issue)`** — numbers and quoted names blanked,
+  cut at a word boundary. It exists because two *different* defects can share one
+  node: `perf_capture`'s Roster row is both too tall for its declared slot and
+  too wide for its zstack, and `card_rail`'s card both overflows its vstack and
+  collapses its own content box. One waiver covering both would have been a
+  ceiling measured on the wrong defect.
+- **`findingPx` reads the largest px figure any message carries**, so a ceiling
+  works on `by 0x29px` (two numbers, one per axis) and `measures 74px` as well as
+  on `by 46px`. The old reader returned **0** for every overlap finding.
+- **`normalizePath` collapses a segment that RESTATES its key by containment,
+  not equality.** A Table row composes `[m1@0]/RowActions-m1` and p2_cartwheel
+  names tiles `[120]/Tile120`; under equality those are six and four identical
+  waiver lines for one template each.
+
+Waiver rule 1 is **restated, not broken**: a waiver recorded from +4 or later
+still does not apply at +0, so the pre-axis contract is exactly as strong as it
+was. Seven of the 51 entries admit a defect at the default preference; every one
+belongs to a class this file was blind to, so none of them surrenders a contract
+that was ever green, and `DEFAULT_WAIVERS` is pinned at 7 so an eighth is a
+decision rather than a slipped line.
+
+## The five recorded findings, re-verified — all five are REAL and reproduce
+
+Re-measured at `preferredTextOffset` **+0**, against the numbers
+`device-bug-round-2026-08-12.md` recorded on 2026-08-12:
+
+| # | recorded 2026-08-12 | measured 2026-08-13 | verdict |
+|---|---|---|---|
+| 1 | `row_actions [vlist]` `…/Row/RowBody` overflows its zstack by **0x4px** on both portrait phones, **0x15px** at ten-foot | **4px / 4px / 15px**, byte-identical — but now reported by the **lying-`itemExtent`** guard, which took the y axis from the overlap finding on 2026-08-13. `ROW_HEIGHT = 84`, the row measures 88 | **REAL, unchanged at +0, and far worse under large text: 249px of content in the 84px slot at 320×640 @ +14** |
+| 2 | `row_actions [table]` `…/Cell-from/Value` by **0x7px** at ten-foot | **0x7px** at ten-foot @ +0, exact | **REAL, unchanged** — and it now fires on all eight views and all six rows once text grows (max 32px) |
+| 3a | `sponsor_drop` `…/ListZone/Rows` by **0x38px** (705×338) and **0x47px** (640×320) | **38px** and **47px**, exact | **REAL, unchanged** |
+| 3b | `sponsor_drop` `…/Chev{Top,Bottom}/Glyph` by **0x6px** at ten-foot | **0x6px** at ten-foot, exact — and at every other viewport too | **REAL, and the 2026-08-12 enumeration was narrower than the defect**: both glyphs fire on all eight views at +0, up to 23px |
+| 4 | `sponsor_toast` `/ToastLab/Stage/Beneath` by **0x11px** at 640×320 | **0x11px** at 640×320, exact | **REAL, unchanged** (63px at +14) |
+| 5 | `p4_foyer` `…/HomeBody/FeedPage` "content box collapses to 0px on y: **padding 16 + 16**" at 705×338 (**21px** of height) and 640×320 (**3px**) | 640×320 @ +0: collapses on a **3px** height — but the padding is now **8 + 8**. 705×338 is **clean at +0** and collapses from +4 (16px height) | **REAL, and the numbers moved**: the padding halved since it was recorded, which bought back the 705×338 default-preference cell and nothing else |
+
+**Nothing in the five is stale.** Five of five reproduce; two are worse than the
+line recorded (3b at every viewport rather than one; 1 catastrophic at large
+text); one has drifted in its inputs (5).
+
+## The eleven the widening found that nobody had recorded
+
+Everything above the line is one of the five. Below it is what the same run found:
+
+| px | surface | node | from | class |
+|---:|---|---|---:|---|
+| 322 | composition | `…/OfferFrame/Summary` | +10 | declared-fallback |
+| 50 | perf_capture | `…/Roster/…/[*]/Row/Row` | +10 | lying-itemExtent |
+| 46 | virtual_list_native | `…/VL/…/[*]/Row/Label` | +10 | lying-itemExtent |
+| 28 | sponsor_motion | `…/WashRow/WashLabel` | +10 | layer-overlap |
+| 24 | row_actions `[table]` | `…/Cell-subject/Value` | +10 | layer-overlap |
+| 20 | perf_capture | `…/Roster/…/[*]/Row/Row` | +14 | layer-overlap (the cross axis the slot guard leaves alone) |
+| 16 | p4_foyer | `…/HomeBody/FeedPage` | +0 | collapsed-box (= five, above) |
+| 15 | card_rail | `…/[*]/Row/Card` | +14 | collapsed-box |
+| 11 | scroll_host | `/ScrollHost/List` | +4 | collapsed-box (non-monotone: clean at +14) |
+| 8 | p2_cartwheel | `…/TileRows/[*]/*/Body` | +14 | layer-overlap |
+
+The two `lying-itemExtent` rows on `perf_capture` and `virtual_list_native` are
+the class the guard's own author expected the sweep to catch and could not; both
+are the ten-foot type scale against a declared px pitch, which is
+`docs/lessons/luauui-fixed-px-heights.md` for the fourth time.
+
+## Mutation-proved, eight ways, each naming the case it reddened
+
+Every anchor was asserted to match **exactly one** site before the run.
+
+| # | mutation | reddened |
+|---|---|---|
+| M1 | the OLD main/cross-axis phrase filter, restored | **the waiver list — 16 stale**, i.e. exactly the 16 defects the filter is blind to. *The negative control for the whole change* |
+| M2 | the `virtualSlot` class alone filtered out | the waiver list — 3 stale |
+| M3 | the zstack-overlap class alone filtered out | the waiver list — 9 stale |
+| M4 | rule 1: `sponsor_toast`'s `since = 0` demoted to `since = 4` | `scenario 'sponsor_toast'` (1 unwaived at +0) **and** the waiver list (`DEFAULT_WAIVERS` 6 ≠ 7) |
+| M5 | the ceiling on an `NxNpx` finding, 20 → 19 | `scenario 'perf_capture'`, *"WORSE than the recorded waiver: 20px against a 19px ceiling"* ×7 |
+| M6 | `normalizePath`'s restates-by-containment reverted to equality | `scenario 'row_actions'` (107 unwaived), `proof 'p2_cartwheel'` (4), waiver list (3 stale) |
+| M7 | `findingPx` reverted to the old `by (%d+)px` reader | `BREADTH CONTROL` — *expected 0 to be 20*, i.e. the old reader scored every overlap finding at zero |
+| M8 | an eighth `since = 0` waiver slipped in | the waiver list — *expected 8 to be 7* |
+
+`BREADTH CONTROL` is the permanent version of M1: it mounts a layered overlap and
+a lying `itemExtent` through the same world, asserts both reach the collector, and
+asserts that **neither message contains either phrase the old filter grepped for**.
+
+## The Rascal Rally rider — the same blindness, on the live consumer
+
+The game holds two of its own always-on diagnostic checks, and both had the same
+defect in a narrower form. Measured first, then widened:
+
+- `code/tests/luauui_large_text_sweep.spec.luau` greped `"overflow"`. **The
+  surface it sweeps is built on `newVirtualList`**, whose slot guard never uses
+  that word — a lying `itemExtent` on the production racer list, every row
+  painting over the next, would have left it green. It now collects **every**
+  finding; measured before the change, that world produces **zero** findings of
+  any class at 3 views × 4 preferences, so the wider check needed no waiver.
+- `code/tests/luauui_large_text_results.spec.luau` greped `"overflows its"`, and
+  therefore could not see either the slot class or `"content box collapses to
+  0px"`. It now collects everything **except** the declared-fallback note, which
+  the case below it already pins with a director-level reason.
+
+Both mutation-proved: with the racer row's padding forced to 400 (a real lying
+`itemExtent`, 766px of content in a 56px slot), the widened sweep case is **RED**
+and the same defect under the old `"overflow"` grep is **GREEN**; removing the
+results spec's fallback exclusion reddens its case on the six cells that carry
+one. RascalRally suite: **3153 passed**, green, before and after.
+
+One measurement worth keeping: the slot guard is **structurally quiet on the
+production racer list**. Shrinking its declared `itemExtent` by 40px produces no
+finding at all, because the row's cell takes `fill` and measures far under its
+slot — so on that surface the guard is not the protection; the geometry pins are.
+
+## What is NOT closed
+
+- **Sixteen defects are recorded, none is fixed.** Every one is in a fixture or
+  proof this work does not own, and the file's own precedent (35 waivers, "none
+  of them in a file this mission could touch") is to record with a measurement
+  rather than to guess at somebody else's design. Seven of them are live at the
+  **default** preference.
+- **`composition`'s declared fallback may not be a defect at all** and is the one
+  entry here that wants a ruling: RascalRally already excludes the identical note
+  from its own check, with the reason on the record (*"the surface still paints
+  its declared last resort"*). If the director agrees, it stops being a waiver
+  and becomes a permanent exclusion with that sentence attached; nobody guessed
+  it either way here.
+- **`tests/lib/tiers.luau` still records this spec at 1036 ms** with a stale
+  reason. The widening adds no measurable cost (the loop is unchanged; only the
+  `continue` was removed), and the file belongs to another agent this round.
