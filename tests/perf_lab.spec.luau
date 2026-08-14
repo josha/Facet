@@ -297,8 +297,10 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		local declared = built.steps.workloads()
 		-- TEN since resize-relayout joined them (director ask 2026-08-05): a continuous
 		-- resize interleaved with single-value changes, which is the workload that
-		-- makes the incremental-layout gap measurable instead of argued
-		expect(#declared.order).toBe(10)
+		-- makes the incremental-layout gap measurable instead of argued. ELEVEN since
+		-- motion-flight joined (director ask 2026-08-14): the per-frame cost of an
+		-- interpolating property, and what the size half adds to the position half.
+		expect(#declared.order).toBe(11)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
 				-- `pass` refuses an unknown name, so an unimplemented pass in a
@@ -1319,6 +1321,71 @@ describe("perf lab: the profiling loop is stoppable, and does not depend on the 
 		-- lap 1 and this never returns
 		local out = built.steps.profileWindow(nil, "mount-ramp:ramp:2")
 		expect(out.laps <= 2).toBe(true)
+		built.dispose()
+	end)
+end)
+
+--[[ THE MOTION-FLIGHT PASS (withAnimation size, 2026-08-14).
+
+	The director asked for something in the lab that can profile an interpolating
+	property, and "an instrument nobody runs is a comment" — so the pass runs
+	here, every suite, on the real scenario module.
+
+	WHAT THIS CAN AND CANNOT SEE. The harness's `telemetry.clock` is a monotonic
+	stub advancing a fixed 1 ms per call, so every `*Ms` field the pass reports is
+	synthetic under Lune and identical across arms by construction. Asserting on
+	them here would be a check that proves nothing. What IS real headless is the
+	STRUCTURE: that four arms were taken, that both flights actually seeded
+	records, and — the load-bearing one — that the two flight arms seed the SAME
+	number of records, because that is what makes the C-minus-B difference the
+	marginal cost of the size half rather than the cost of a bigger experiment.
+	The timings are a Studio quantity and the doc says so. ]]
+describe("perf lab: the motion-flight pass profiles a withAnimation flight", function()
+	it("takes four arms, and both flights seed the SAME record count", function()
+		local built = newHarness()
+		built.steps.select(nil, "scenario=motion-flight")
+		-- the cap is deliberately ABOVE the flight's real length (measured: 47
+		-- frames for `container` at 60 Hz), so the boundedness assertion below can
+		-- see the sampler stop on its own rather than run into the cap
+		local d = built.steps.pass(nil, "motionFlight=120").detail
+		expect(d.rows).toBe(24)
+		-- both flights happened at all: a pass that silently animated nothing would
+		-- report a beautiful zero and mean nothing
+		expect(d.positionRecords > 0).toBe(true)
+		expect(d.positionAndSizeRecords > 0).toBe(true)
+		-- ...and they are the SAME experiment at two settings, which is the whole
+		-- basis for reading C-minus-B as the size half's marginal cost
+		expect(d.positionAndSizeRecords).toBe(d.positionRecords)
+		-- every row claimed: 24 rows re-ordered, 24 rows resized
+		expect(d.positionRecords).toBe(24)
+		-- BOTH FLIGHTS WERE SAMPLED WHILE RECORDS WERE LIVE, and stopped when they
+		-- were not. `> 0` alone cannot see the difference — a sampler that ignored
+		-- the records and ran to the cap would satisfy it while diluting the p50
+		-- with 73 idle frames. So the assertion is on the CAP: the loop ended early
+		-- because the spring settled.
+		expect(d.positionFlightFrames > 0).toBe(true)
+		expect(d.positionFlightFrames < 120).toBe(true)
+		expect(d.positionAndSizeFlightFrames > 0).toBe(true)
+		expect(d.positionAndSizeFlightFrames < 120).toBe(true)
+		-- the four arms are all present and reported apart
+		expect(d.idleMs.measured).toBe(true)
+		expect(d.idleRepeatMs.measured).toBe(true)
+		expect(d.positionMs.measured).toBe(true)
+		expect(d.positionAndSizeMs.measured).toBe(true)
+		expect(type(d.harnessSpreadMs)).toBe("number")
+		built.dispose()
+	end)
+
+	it("takes its own surface away again, and leaves no record behind", function()
+		local built, ctx = newHarness()
+		built.steps.select(nil, "scenario=motion-flight")
+		-- the surface is the pass's own, and it must not outlive the pass: a lab
+		-- whose motion workload left a live screen mounted would silently tax every
+		-- capture taken after it in the same session
+		built.steps.pass(nil, "motionFlight=120")
+		expect(ctx.adapter.node("/MotionFlight")).toBe(nil)
+		-- ...and no spring still owns a path on a torn-down tree
+		expect(ctx.presenter.animationRecordCount()).toBe(0)
 		built.dispose()
 	end)
 end)

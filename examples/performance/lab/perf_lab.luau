@@ -108,6 +108,15 @@ local WORKLOADS = {
 		passes = { "imagesCold", "imagesWarm", "imagesFail", "imagesReuse" },
 	},
 	{
+		-- `implementation = "none"` on purpose: the pass mounts its own surface, so
+		-- a flight's cost is not blended with virtual-list windowing. See
+		-- `passes.motionFlight` for the four-arm design and the tier rules.
+		id = "motion-flight",
+		implementation = "none",
+		question = "What does an interpolating property cost per frame, and what does the SIZE half cost on top of the position half?",
+		passes = { "motionFlight" },
+	},
+	{
 		id = "lifecycle-soak",
 		implementation = "luauui",
 		question = "Do Instances, connections, memory or stale work trend upward?",
@@ -1072,6 +1081,180 @@ return {
 					-- it (`scopes:idle`), which is where the LuauUI share is legible.
 					intervalMs = summarize(samples),
 				}
+			end)
+		end
+
+		--[[ MOTION FLIGHT — what an interpolating property costs per frame, and what
+			the SIZE half costs on top of the position half (game-director question,
+			2026-08-14; docs/plans/with-animation-size.md).
+
+			`presenter.withAnimation` paints a change over a spring instead of
+			landing it instantly, so for the length of a flight the framework does
+			per-frame work it does not otherwise do. Round 3 taught it to animate
+			SIZE as well as position, and the reasonable worry is that a second
+			interpolated number per node is a second per-frame cost. This pass is how
+			that stops being a worry and becomes a number.
+
+			IT MOUNTS ITS OWN SURFACE, and its workload declares `implementation =
+			"none"` so nothing else is mounted. A flight's cost is
+			`records x subtree size`; measuring it through the virtual list would
+			blend it with windowing — which is what made the first MicroProfiler
+			capture read as `mount` when the question was about scrolling.
+
+			FOUR ARMS, A/B/C/A', and the last one is not a formality. Three round-2
+			"improvements" evaporated when measured properly, so the harness's own
+			same-arm spread is on the page BEFORE any delta is claimed: A and A' are
+			the same measurement taken twice, and a B-vs-C difference smaller than
+			|A - A'| is noise wearing a result's clothes.
+
+			  A   idle       nothing flying; the floor
+			  B   position   the rows RE-ORDER — N records, position delta only
+			  C   both       the rows RESIZE together — N records carrying BOTH
+			  A'  idle       A again
+
+			Both flight arms are sampled only while records are actually live, so a
+			settled spring cannot dilute the number with idle frames.
+
+			TIERS (standing rule 3), AND THE HEADLESS ONE IS WEAKER THAN IT LOOKS.
+			The lab harness supplies `telemetry.clock` as a MONOTONIC STUB that
+			advances a fixed 1 ms per call (tests/perf_lab.spec's `newHarness`), so
+			under Lune every `*Ms` field here is synthetic and identical across arms
+			by construction. Headless, only the COUNTS mean anything — records,
+			flight frames, arms present — and that is what the spec asserts. The
+			timings are real only in Studio, inside the lab bootstrap's per-frame
+			`LuauUI/scenario` scope, where they are real engine work with real
+			instance counts. Neither tier is a device claim; that needs a physical
+			run. Reading a headless `p50_ms` off this pass as a performance result
+			would be the `the-solver-already-told-you` mistake in reverse.
+
+			NO YIELD INSIDE A SAMPLE. `telemetry.step()` waits a Heartbeat and the lab
+			client binds `motion_driver`, so a sample loop that waited would time the
+			engine's frame rather than the framework's work — and would leave a
+			profiler scope open across frames (MAJOR-1, above). Each sample times this
+			module's own non-yielding `tick` + `refresh`, which is the quantity the
+			question is about and the one quantity that means the same thing in both
+			tiers. ]]
+		local MOTION_FLIGHT_ROWS = 24
+		local MOTION_FLIGHT_FRAME = 1 / 60
+
+		passes.motionFlight = function(payload: string?)
+			return timed("motionFlight", function()
+				local cap = math.clamp(math.floor(tonumber(payload or "") or 90), 20, 300)
+				local initial = table.create(MOTION_FLIGHT_ROWS)
+				for i = 1, MOTION_FLIGHT_ROWS do
+					initial[i] = i
+				end
+				local order = core:signal(initial)
+				local tall = core:signal(false)
+				-- ONE height memo shared by every row, so arm C resizes all N at once
+				-- and its record count matches arm B's rather than being a smaller
+				-- experiment wearing the same axis
+				local rowDim = core:memo(function(use: any)
+					return { type = "fixed", px = if use(tall) then 44 else 28 }
+				end)
+				local U = LuauUI.UI
+				local handle = ctx.presenter.present(U.Screen({
+					id = "MotionFlight",
+					padding = 8,
+					gap = 4,
+					children = {
+						U.ForEach({
+							id = "Flight",
+							items = order,
+							key = function(item: any): string
+								return `r{item}`
+							end,
+							row = function(item: any)
+								return U.VStack({
+									id = "Row",
+									padding = 0,
+									gap = 0,
+									height = rowDim,
+									children = { U.Text({ id = "L", text = `row {item}`, textSize = 12 }) },
+								})
+							end,
+						}),
+					},
+				}))
+
+				local function sampleIdle(n: number): { number }
+					local out = table.create(n)
+					for i = 1, n do
+						local t0 = clock()
+						ctx.presenter.tick(MOTION_FLIGHT_FRAME)
+						ctx.presenter.refresh()
+						out[i] = (clock() - t0) * 1000
+					end
+					return out
+				end
+
+				-- sample ONLY while records are live: a spring that settled at frame 30
+				-- would otherwise contribute 60 idle frames to a "flight" p50
+				local function sampleFlight(mutate: () -> ()): ({ number }, number)
+					ctx.presenter.withAnimation("container", mutate)
+					local seeded = ctx.presenter.animationRecordCount()
+					local out = {}
+					for _ = 1, cap do
+						if ctx.presenter.animationRecordCount() == 0 then
+							break
+						end
+						local t0 = clock()
+						ctx.presenter.tick(MOTION_FLIGHT_FRAME)
+						ctx.presenter.refresh()
+						table.insert(out, (clock() - t0) * 1000)
+					end
+					-- leave the channel clean for the next arm
+					for _ = 1, 240 do
+						if ctx.presenter.animationRecordCount() == 0 then
+							break
+						end
+						ctx.presenter.tick(MOTION_FLIGHT_FRAME)
+						ctx.presenter.refresh()
+					end
+					return out, seeded
+				end
+
+				local ok, result = pcall(function()
+					local idleA = sampleIdle(cap)
+					local reversed = table.create(MOTION_FLIGHT_ROWS)
+					for i = 1, MOTION_FLIGHT_ROWS do
+						reversed[i] = initial[MOTION_FLIGHT_ROWS + 1 - i]
+					end
+					local posSamples, posRecords = sampleFlight(function()
+						order:set(reversed)
+					end)
+					local bothSamples, bothRecords = sampleFlight(function()
+						tall:set(true)
+					end)
+					local idleB = sampleIdle(cap)
+					local a1, a2 = summarize(idleA), summarize(idleB)
+					local spread = if a1.measured and a2.measured
+						then math.abs(a1.p50_ms - a2.p50_ms)
+						else 0
+					return {
+						rows = MOTION_FLIGHT_ROWS,
+						-- READ THIS FIRST: any B-vs-C delta smaller than this is noise
+						harnessSpreadMs = spread,
+						idleMs = a1,
+						idleRepeatMs = a2,
+						positionMs = summarize(posSamples),
+						positionAndSizeMs = summarize(bothSamples),
+						positionRecords = posRecords,
+						positionAndSizeRecords = bothRecords,
+						positionFlightFrames = #posSamples,
+						positionAndSizeFlightFrames = #bothSamples,
+						note = "arm B re-orders (position delta only); arm C resizes every row "
+							.. "(both halves on the same records). The C-minus-B difference is the "
+							.. "marginal cost of the size half; compare it against harnessSpreadMs "
+							.. "before calling it a cost. Lune = regression signal, Studio = real "
+							.. "engine, device = the only device claim.",
+					}
+				end)
+				ctx.presenter.dismiss(handle)
+				if not ok then
+					error(result, 0)
+				end
+				return result
 			end)
 		end
 
