@@ -129,6 +129,26 @@ target_contract.OPTIONAL = {
 	-- a small control stays exactly as big as it paints, so touch accuracy is
 	-- whatever the visual happens to be. Layout is unaffected; only the hit area.
 	"setHitRect", -- (handle, rect | nil)
+	--[[ THE PER-CONTROL SENSORY DECLARATION (director request 2026-08-13). The
+		verb `UI.sensoryFeedback(bp, { activation = … })` resolved onto this node,
+		or nil for "nothing was declared anywhere above me". Pushed only for the
+		classes that can actually be ACTIVATED, and pushed on every create/adopt —
+		including the nil — because instance recycling would otherwise let a
+		commit button hand its sensation to whatever control adopts its object next.
+
+		IT IS A FACT, NOT A COMMAND. The renderer never asks the adapter to play
+		anything; it publishes what the author declared so an engine-side consumer
+		(the opt-in client haptics adapter, which turns it into the button's own
+		press-effect property) can. `src/present/feedback.luau:4-5` — LuauUI plays
+		nothing — is why this is a property write and not a `play` seam. The engine
+		symbols are named only in `src/client/`, a boundary tests/haptics.spec.luau
+		enforces by scanning every file outside it.
+
+		WITHOUT IT: the bus still carries the declared verb, so a game's own
+		subscriber is unaffected; what is lost is the ENGINE press route being able
+		to distinguish one control's sensation from another's, and every button
+		falls back to the one generic press effect. ]]
+	"setActivationFeedback", -- (handle, verb: string | nil)
 	-- WITHOUT IT: no wheel channel — `onScrollWheel` never fires, so a pointer
 	-- user cannot scroll a ScrollView with the wheel (drag/keyboard still work).
 	"setScrollHandler", -- (handle, fn(delta: number))

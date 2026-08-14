@@ -1924,6 +1924,19 @@ function renderer.attach(
 			if recycleEnabled then
 				recycleKeyOf[node.path] = recycleKey(node.class, hint, createOpts ~= nil, propSignature(node))
 			end
+			-- THE PER-CONTROL SENSORY VERB, published once per handle (see
+			-- target_contract's `setActivationFeedback`). Bounded to the classes
+			-- that can be activated, because a verb on a Box describes an event
+			-- that cannot happen there; written UNCONDITIONALLY for those classes —
+			-- the nil included — because a recycled instance carries the previous
+			-- control's property, and "only write when there is something to say"
+			-- is exactly how a commit button's sensation leaks onto its successor.
+			-- Mount-static by construction (a blueprint is frozen), so there is no
+			-- update path: a changed declaration is a changed blueprint, which is a
+			-- remount.
+			if TAPPABLE[node.class] and adapter.setActivationFeedback ~= nil then
+				adapter.setActivationFeedback(handles[node.path], node.activationFeedback)
+			end
 			applyProps(handles[node.path], node)
 			-- the engine text inset must MATCH the solver's padding (the adapter
 			-- used to hardcode 12px, which rendered a 22px star button's glyph
@@ -4137,7 +4150,14 @@ function renderer.attach(
 	-- container's painted growth carries nothing inside it and must not.
 	function controller.setPresentationTransform(
 		path: string,
-		t: { x: number, y: number, w: number?, h: number?, scale: number?, rotation: number? }?
+		t: {
+			x: number,
+			y: number,
+			w: number?,
+			h: number?,
+			scale: number?,
+			rotation: number?,
+		}?
 	)
 		local handle = handles[path]
 		if handle == nil then
@@ -4215,7 +4235,10 @@ function renderer.attach(
 			if rec ~= nil and rec.set == set then
 				-- one `p` for position AND size, which is what makes a panel's growth
 				-- and the displacement of everything below it arrive on the same frame
-				controller.setPresentationTransform(path, { x = rec.x * p, y = rec.y * p, w = rec.w * p, h = rec.h * p })
+				controller.setPresentationTransform(
+					path,
+					{ x = rec.x * p, y = rec.y * p, w = rec.w * p, h = rec.h * p }
+				)
 			end
 		end
 	end

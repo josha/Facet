@@ -1187,11 +1187,20 @@ function blueprint.dropTarget(bp: Blueprint, spec: dragContract.TargetSpec): Blu
 	return dragContract.attach(bp, dragContract.TARGET_PROP, dragContract.target(spec))
 end
 
--- ===== sensory feedback (round 2 §3.3) ======================================
+-- ===== sensory feedback (round 2 §3.3; the control form, round 3) ===========
 -- UI.sensoryFeedback(bp, { trigger, event }) — SwiftUI's `.sensoryFeedback(_:
 -- trigger:)`. When `trigger` changes, `{ type = event, path = <this node> }` is
 -- emitted on the presenter's feedback bus, synchronously, in the write that
 -- moved it.
+--
+-- UI.sensoryFeedback(bp, { activation = "commit" }) — the PER-CONTROL form,
+-- which SwiftUI has no equivalent of. It names what THIS control's own press
+-- feels like, replacing the generic `activate` the presenter would otherwise
+-- emit, and it CASCADES: declared on a container it reaches every control
+-- inside, which is what lets it serve the ten composite controls without one
+-- line of per-control plumbing. `activation = "none"` is a control that is
+-- deliberately unfelt. Resolution lives in `mount.luau`; the vocabulary and the
+-- reasoning live in `src/present/feedback.luau`.
 --
 -- LuauUI STILL PLAYS NOTHING (`src/present/feedback.luau:4-5`). SwiftUI's
 -- modifier names a HAPTIC (`.impact`, `.selection`); this one names a semantic
@@ -1223,6 +1232,21 @@ function blueprint.sensoryFeedback(bp: Blueprint, spec: feedbackContract.Sensory
 	local declared: { any } = {}
 	for _, existing in (meta[feedbackContract.SENSORY_PROP] or {}) :: { any } do
 		table.insert(declared, existing)
+	end
+	-- ONE CONTROL, ONE SENSATION. Change-form declarations compose (two triggers
+	-- are two independent causes), but a node cannot have two answers to "what
+	-- does pressing this feel like" — a silent last-writer-wins here would make
+	-- the two orderings of the same two modifiers produce different sensations.
+	if decl.activation ~= nil then
+		local existing = feedbackContract.activationIn(declared)
+		if existing ~= nil then
+			error(
+				`LuauUI UI.sensoryFeedback: this blueprint already declares activation = '{existing}', so `
+					.. `'{decl.activation}' would silently replace it. A control has ONE activation sensation — `
+					.. "declare it once, or put the second one on a different node.",
+				0
+			)
+		end
 	end
 	table.insert(declared, decl)
 	meta[feedbackContract.SENSORY_PROP] = table.freeze(declared)

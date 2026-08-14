@@ -369,7 +369,32 @@ local function dispatchActivate(handle: any, path: string?, meta: any?, source: 
 	end
 	activateEffect(handle, node, path, meta)
 	if path ~= nil and handle.emitFeedback ~= nil then
-		handle.emitFeedback({ type = "activate", path = path, surface = handle, context = meta })
+		-- THE PER-CONTROL VERB (director request 2026-08-13). `activate` is the
+		-- default, not the only answer: a control (or any ancestor of it) may have
+		-- declared what its own press means through
+		-- `UI.sensoryFeedback(bp, { activation = … })`, which `mount.luau` already
+		-- resolved down the tree onto this node. `"none"` is a control the author
+		-- deliberately silenced, and it emits nothing at all rather than a verb a
+		-- subscriber then has to know to ignore.
+		--
+		-- `reason` is stamped on EVERY control activation, including the default
+		-- one, because a subscriber otherwise cannot tell "a player pressed a
+		-- control" from "the game emitted `commit` for its own reason" — and the
+		-- client haptics adapter has to: on a platform where the engine itself
+		-- plays a button's press through the button's own press-effect property,
+		-- a second play from the bus would be two pulses for one press. (The
+		-- engine symbol is deliberately not named here — the boundary rule in
+		-- tests/haptics.spec.luau keeps every haptics name out of src/present.)
+		local verb = if node ~= nil then node.activationFeedback else nil
+		if verb ~= feedbackLib.ACTIVATION_SILENT then
+			handle.emitFeedback({
+				type = verb or "activate",
+				path = path,
+				surface = handle,
+				reason = "activation",
+				context = meta,
+			})
+		end
 	end
 	return nil
 end
@@ -2633,6 +2658,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- Adjust: the horizontal "change the focused thing" semantic (grip
 		-- resize now; sliders later) — keyboard arrows, dpad, and bumpers
 		local adjust = context.createAction("Adjust", "Direction1D")
+		-- ...and the SAME semantic reached through a DIRECTIONAL key that navigation
+		-- would otherwise own (ruling 9, 2026-08-14). Two actions rather than one
+		-- because only these bindings can be YIELDED: a control that took Right away
+		-- from the ring gives it back when it cannot use it, and Comma/Period/L1/R1
+		-- took nothing away and therefore give nothing back. The observer cannot ask
+		-- which key produced a Direction1D, so the two answers have to arrive on two
+		-- actions — see `AdjustAxis` in bindAdjustKeys and its observer below.
+		local adjustAxis = context.createAction("AdjustAxis", "Direction1D")
 		-- TRAVERSE: the desktop focus-chain verb (roadmap Step 8). A Bool action,
 		-- not a Direction1D, because both directions arrive on the SAME KeyCode —
 		-- Shift+Tab is Tab with a modifier, and IAS bindings carry no modifier
@@ -2771,6 +2804,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		-- `state` is "horizontal" | "vertical" (a declared axis) or "legacy" (a
 		-- target that declared none)
+		--
+		-- WHICH ACTION EACH KEY LANDS ON (ruling 9). The dedicated adjust keys are
+		-- always `Adjust`. The DIRECTIONAL keys of a DECLARED axis go to
+		-- `AdjustAxis`, because those are the ones that were taken from navigation
+		-- and are therefore the ones that can be given back at the control's limit.
+		-- The `legacy` flat-screen case keeps them on `Adjust`: nothing was
+		-- suspended there (a flat screen has no horizontal navigation at all), so
+		-- there is nothing to yield to and its behaviour is byte-identical to before.
 		local function bindAdjustKeys(state: string): { any }
 			local bound: { any } = {
 				adjust.bind({ keyCode = "Comma", direction = -1 }),
@@ -2779,16 +2820,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				adjust.bind({ keyCode = "ButtonR1", direction = 1 }),
 			}
 			local axis = state
+			local action = adjustAxis
 			if state == "legacy" then
 				if navigateH ~= nil then
 					return bound -- grouped screen: the arrows stay with Navigate
 				end
 				axis = "horizontal" -- flat screen: nothing else wants them
+				action = adjust
 			else
 				suspendAxisKeys(axis)
 			end
 			for _, pair in ADJUST_AXIS_KEYS[axis] do
-				table.insert(bound, adjust.bind({ keyCode = pair[1] :: string, direction = pair[2] :: number }))
+				table.insert(bound, action.bind({ keyCode = pair[1] :: string, direction = pair[2] :: number }))
 			end
 			return bound
 		end
@@ -2957,6 +3000,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				activate = activate,
 				cancel = cancel,
 				adjust = adjust,
+				-- the YIELDABLE half of Adjust (ruling 9): the directional keys a
+				-- declared axis takes away from navigation land on this action and
+				-- never on `adjust`, which is what lets one of them be given back
+				adjustAxis = adjustAxis,
 				traverse = traverse,
 			},
 			-- ONE ACTIVATE PER PRESS, ACROSS THE TWO PATHS (DK-9). The shared echo
@@ -3382,86 +3429,150 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			end
 		end
 
+		-- ONE IMPLEMENTATION OF "AN ARROW MOVED THE RING", per axis (ruling 9). It is
+		-- a named function rather than an observer body because there are now TWO
+		-- ways to reach it: the arrow key itself, and a value control YIELDING that
+		-- arrow at its limit. A yield that reimplemented any part of this — the
+		-- focus-origin reset, the screen's intercept, the armed-aim sync, the
+		-- focus-moved report — would be a second, quietly different kind of arrow
+		-- press, which is exactly the drift this framework keeps paying for.
+		local function navigateHorizontal(dir: number)
+			-- a NAVIGATION verb asks "where does the ring go next", so the ring
+			-- comes back even if a tap had put it away (DB-3(b))
+			graph.setFocusOrigin("navigation")
+			local direction = if dir == 1 then "right" else "left"
+			if handle.navigateIntercept(direction) then
+				syncFocusToAim()
+				return
+			end
+			graph.navigateDirection(direction)
+			local focused = graph.focused:get()
+			if focused ~= nil then
+				handle.focusMoved(focused)
+			end
+		end
 		if navigateH ~= nil then
 			scope:own(core:observe(navigateH.state, function(dir)
 				if dir == 1 or dir == -1 then
-					-- a NAVIGATION verb asks "where does the ring go next", so the ring
-					-- comes back even if a tap had put it away (DB-3(b))
-					graph.setFocusOrigin("navigation")
-					local direction = if dir == 1 then "right" else "left"
-					if handle.navigateIntercept(direction) then
-						syncFocusToAim()
-						return
-					end
-					graph.navigateDirection(direction)
-					local focused = graph.focused:get()
-					if focused ~= nil then
-						handle.focusMoved(focused)
-					end
+					navigateHorizontal(dir)
 				end
 			end))
 		end
-		scope:own(core:observe(navigate.state, function(dir)
-			if dir == 1 or dir == -1 then
-				graph.setFocusOrigin("navigation") -- see the horizontal case above
-				local vertical = if dir == 1 then "down" else "up"
-				-- gamepad grab mode etc.: the screen may CONSUME the move
-				if handle.navigateIntercept(vertical) then
-					syncFocusToAim()
-					return
-				end
-				if navigationGroups ~= nil then
-					-- direction-aware vertical movement for grouped scopes
-					graph.navigateDirection(vertical)
-					local focused = graph.focused:get()
-					if focused ~= nil then
-						handle.focusMoved(focused)
-					end
-					return
-				end
-				-- shift+Navigate: move the focused thing instead of focus
-				-- (list reorder — the keyboard-reachable drag equivalent).
-				-- Shift held CONSUMES the key even when the reorder is
-				-- impossible (top row + up): falling through would wrap focus
-				-- to the far end (verifier 2026-07-20 F1)
-				if handle.onReorderNav ~= nil and actionSystem.modifiers ~= nil and actionSystem.modifiers().shift then
-					local focused = graph.focused:get()
-					if focused ~= nil then
-						handle.onReorderNav(focused, dir)
-					end
-					return
-				end
-				graph.navigate(dir)
-				-- Apple model: navigation-driven focus moves report to the
-				-- screen (selection follows focus in lists); pointer focusOn
-				-- does NOT route here — tap selection rides the activate meta
+		local function navigateVertical(dir: number)
+			graph.setFocusOrigin("navigation") -- see the horizontal case above
+			local vertical = if dir == 1 then "down" else "up"
+			-- gamepad grab mode etc.: the screen may CONSUME the move
+			if handle.navigateIntercept(vertical) then
+				syncFocusToAim()
+				return
+			end
+			if navigationGroups ~= nil then
+				-- direction-aware vertical movement for grouped scopes
+				graph.navigateDirection(vertical)
 				local focused = graph.focused:get()
 				if focused ~= nil then
 					handle.focusMoved(focused)
 				end
+				return
+			end
+			-- shift+Navigate: move the focused thing instead of focus
+			-- (list reorder — the keyboard-reachable drag equivalent).
+			-- Shift held CONSUMES the key even when the reorder is
+			-- impossible (top row + up): falling through would wrap focus
+			-- to the far end (verifier 2026-07-20 F1)
+			if handle.onReorderNav ~= nil and actionSystem.modifiers ~= nil and actionSystem.modifiers().shift then
+				local focused = graph.focused:get()
+				if focused ~= nil then
+					handle.onReorderNav(focused, dir)
+				end
+				return
+			end
+			graph.navigate(dir)
+			-- Apple model: navigation-driven focus moves report to the
+			-- screen (selection follows focus in lists); pointer focusOn
+			-- does NOT route here — tap selection rides the activate meta
+			local focused = graph.focused:get()
+			if focused ~= nil then
+				handle.focusMoved(focused)
+			end
+		end
+		scope:own(core:observe(navigate.state, function(dir)
+			if dir == 1 or dir == -1 then
+				navigateVertical(dir)
 			end
 		end))
-		scope:own(core:observe(adjust.state, function(dir)
-			if not (dir == 1 or dir == -1) then
-				return
-			end
+		-- ADJUST DISPATCH, shared by both adjust actions. Returns whether anything
+		-- claimed the press — which is what the axis action turns into a yield.
+		local function dispatchAdjust(dir: number): boolean
 			local focused = graph.focused:get()
 			if focused == nil then
-				return
+				return false
 			end
 			if handle.onAdjust then
 				-- rectOf rides along so consumers can seed a first adjust
 				-- from the actually-rendered size (fill columns)
 				handle.onAdjust(focused, dir, controller.rectOf)
-			else
-				-- contribution dynamic path (matrix §B-Table): route to the
-				-- longest-prefix contribution's handleAdjust
-				for _, c in contributionsForPath(contributions, focused) do
-					if c.bundle.handleAdjust ~= nil and c.bundle.handleAdjust(focused, dir) then
-						return
-					end
+				-- the legacy opt-in returns nothing and its keys are bound
+				-- unconditionally, so it is treated as always claiming the press
+				return true
+			end
+			-- contribution dynamic path (matrix §B-Table): route to the
+			-- longest-prefix contribution's handleAdjust
+			for _, c in contributionsForPath(contributions, focused) do
+				if c.bundle.handleAdjust ~= nil and c.bundle.handleAdjust(focused, dir) then
+					return true
 				end
 			end
+			return false
+		end
+		scope:own(core:observe(adjust.state, function(dir)
+			if dir == 1 or dir == -1 then
+				dispatchAdjust(dir)
+			end
+		end))
+		--[[ THE ARROW GOES BACK TO NAVIGATION AT THE CONTROL'S LIMIT (ruling 9,
+			2026-08-14, director: "do a").
+
+			MEASURED LIVE on the shipped playlist before this existed: `DPadRight` on
+			a rating strip at 5 of 5 moved neither the value nor the ring, so nothing
+			after the rating in that row could be reached with a gamepad at all — and
+			a gamepad has no Tab. The control had SUSPENDED Right from `NavigateH`
+			(see `suspendAxisKeys`) and then declined to use it.
+
+			The rule is the narrow one: a control gives back exactly the key it took.
+			`handleAdjust` already returns false when the value did not move — every
+			value control's `apply` reports that — so this is one condition on an
+			answer the contract was already giving. Comma/Period/L1/R1 arrive on the
+			OTHER action and are unaffected: they suspended nothing, so a bumper at
+			the limit still does nothing, which is how a platform stepper behaves.
+
+			`adjustStateBound` is the axis the keys were bound FOR, so the yield goes
+			to that axis's navigation and cannot map a vertical control's press onto
+			a horizontal move. On a flat screen `bindAdjustKeys` never puts the
+			arrows on this action, so there is no case where the ring is asked to
+			move along an axis that has no navigation. ]]
+		scope:own(core:observe(adjustAxis.state, function(dir)
+			if not (dir == 1 or dir == -1) then
+				return
+			end
+			if dispatchAdjust(dir) then
+				return -- the control used it
+			end
+			if adjustStateBound == "vertical" then
+				navigateVertical(dir)
+			elseif navigateH ~= nil then
+				navigateHorizontal(dir)
+			end
+			-- A YIELD ENDS THIS PRESS, AND HAS TO SAY SO. The key-up that would put
+			-- this Direction1D back to neutral is no longer reliably ours: the ring
+			-- has moved, and either the bindings were torn down (they cannot deliver
+			-- a release) or the ring landed on ANOTHER adjust target, where
+			-- `setAdjustBound` sees no state change and rebinds nothing. `_deliver`
+			-- deduplicates, so a value left latched at 1 SWALLOWS the next press of
+			-- the same arrow outright — the second rating in a row would be dead on
+			-- arrival. Neutralising here covers both exits with one line (pinned:
+			-- "the yield RE-ARMS ... the NEXT value control in the row").
+			adjustAxis.state:set(0)
 		end))
 		-- TRAVERSE (Tab / Shift+Tab, roadmap Step 8). Shift chooses the direction
 		-- from the same live modifier state Activate reads.

@@ -9,7 +9,7 @@
 --   local haptics = require(ReplicatedStorage.LuauUI.client.haptics)
 --   local hap = haptics.new({ enabled = settings.haptics })
 --   hap.bind(presenter)             -- the verbs with no engine hook
---   hap.attachButtons(screenGui)    -- the property route, for `activate`
+--   hap.attachButtons(screenGui)    -- the property route: every button's press
 --
 -- EVERY ENGINE FACT BELOW IS MEASURED AND RECORDED, with sources, in
 -- docs/research/2026-08-12-haptics-engine-facts.md (live creator docs + the API
@@ -26,7 +26,12 @@
 --      `activate` takes that property route: this module hands over a reference
 --      and never calls Play on it, which keeps "LuauUI plays nothing" literally
 --      true rather than nearly true. The bus subscription covers only the verbs
---      with no engine hook.
+--      with no engine hook. Since 2026-08-13 the reference is chosen PER BUTTON
+--      from the verb the author declared with
+--      `UI.sensoryFeedback(bp, { activation = … })`, which the renderer publishes
+--      as the `LuauUI_ActivationFeedback` attribute — so a Buy button and a
+--      Cancel button can feel different without this module learning anything
+--      about LuauUI's node graph, and without either of them being played twice.
 --   3. There is NO capability API — no IsSupported, nothing on
 --      UserInputService. The only probe on the platform belongs to the
 --      superseded service, is boolean, and returns false both for "this device
@@ -64,11 +69,12 @@
 -- to show. The rule that follows: this module's own counters are never the
 -- evidence for its own lifetime; the spec counts Instances.
 --
--- DECORATION IS PER-ROOT. The press effect is shared adapter-wide (that is the
--- point — one Instance, every button), but the RECORD of which instances carry it
--- is kept per attached root, so detaching one surface touches only that surface's
--- buttons: no global strip, no re-sweep of every survivor, and the shared effect
--- outlives every detach. It dies at `setEnabled(false)` and at `dispose`, which
+-- DECORATION IS PER-ROOT. Press effects are shared adapter-wide and pooled by
+-- EFFECT TYPE (that is the point — one Instance per sensation, however many
+-- buttons want it), but the RECORD of which instances carry one is kept per
+-- attached root, so detaching one surface touches only that surface's buttons: no
+-- global strip, no re-sweep of every survivor, and the shared effects outlive
+-- every detach. It dies at `setEnabled(false)` and at `dispose`, which
 -- are the two moments the adapter genuinely stops. `decorate` also RE-READS the
 -- property instead of trusting the record, so a second adapter (or anything else)
 -- clearing the reference cannot leave a button permanently unfelt.
@@ -93,7 +99,12 @@ local haptics = {}
 -- (`unmappedVerbs()`, asserted empty by the spec) instead of being dropped.
 --
 --   activate    the ENGINE plays it, through PressHapticEffect (see 2 above) —
---               so it is silent HERE, on the bus, and felt anyway
+--               so it is silent HERE, on the bus, and felt anyway. NOTE that the
+--               general rule is now wider than this one row: `onEvent` drops any
+--               event carrying `reason = "activation"`, whatever verb it names,
+--               because a control that renamed its activation is still played by
+--               the engine through its own property. This row remains for a
+--               `type = "activate"` a GAME emits for its own reasons.
 --   arrive      fires on every chase settle; a haptic there is per-frame noise
 --   cancel      the ABSENCE of feedback is the signal for "nothing happened"
 --   dismiss     not player-caused — a self-retiring toast buzzing is a phantom
@@ -125,9 +136,39 @@ haptics.EFFECT_TYPES = table.freeze({
 	"GameplayCollision",
 })
 
--- what `GuiButton.PressHapticEffect` is set to: the preset Roblox describes as
--- "crisp … immediate feedback", which is what a button press is
+-- what `GuiButton.PressHapticEffect` is set to for an UNDECLARED control: the
+-- preset Roblox describes as "crisp … immediate feedback", which is what a plain
+-- button press is. A control that declared its own verb gets that verb's effect
+-- instead (see `pressEffectFor`).
 haptics.PRESS_EFFECT_TYPE = "UIClick"
+
+-- THE PER-CONTROL DECLARATION'S ARRIVAL POINT (director request 2026-08-13). The
+-- renderer publishes `UI.sensoryFeedback(bp, { activation = … })`'s resolved verb
+-- as this attribute on the materialized GuiButton
+-- (`src/render/target_contract.luau`'s `setActivationFeedback`), so this adapter
+-- can hand the ENGINE a different effect per control without knowing anything
+-- about LuauUI's node graph. An attribute is data: reading one keeps this module
+-- a subscriber rather than a second consumer of framework internals.
+haptics.ACTIVATION_ATTRIBUTE = "LuauUI_ActivationFeedback"
+
+-- the effect a button's press should play, given the verb the author declared on
+-- it (nil = undeclared). Returns nil for a control that must be felt as nothing:
+-- either the author said `none`, or the verb is one of the four the MAP silences
+-- on purpose — a `cancel` that buzzes would contradict the reason `cancel` is
+-- silent everywhere else.
+function haptics.pressEffectFor(verb: string?): string?
+	if verb == nil or verb == "activate" then
+		return haptics.PRESS_EFFECT_TYPE
+	end
+	if verb == feedbackLib.ACTIVATION_SILENT then
+		return nil
+	end
+	local mapped = MAP[verb]
+	if type(mapped) == "string" then
+		return mapped
+	end
+	return nil
+end
 
 -- verbs the taxonomy has and this map does not (must be empty)
 function haptics.unmappedVerbs(): { string }
@@ -223,10 +264,17 @@ function haptics.new(opts: Options?): any
 	local enabled = options.enabled == true
 	local disposed = false
 
-	-- ONE effect per mapped verb, plus one for the button property route. Never
-	-- constructed per fire (the "fewer than 100 simultaneous effects" budget).
+	-- ONE effect per mapped verb, plus the button property route's own effects.
+	-- Never constructed per fire (the "fewer than 100 simultaneous effects"
+	-- budget).
 	local pool: { [string]: any } = {}
-	local pressEffect: any = nil
+	-- THE PRESS ROUTE'S POOL, keyed by EFFECT TYPE rather than by verb — the
+	-- opposite of `pool` above, deliberately. A page of forty buttons declaring
+	-- `commit`, `select` and `land` wants ONE UIClick instance shared by all
+	-- forty, because what a button hands the engine is a sensation, not a verb.
+	-- (`pool` stays verb-keyed: its entries are played by name from the bus, and
+	-- re-keying it would merge two effects an existing test counts separately.)
+	local pressEffects: { [string]: any } = {}
 
 	local deviceVerdict: Support = "unknown"
 	local constructionVerdict: Support? = nil
@@ -376,7 +424,10 @@ function haptics.new(opts: Options?): any
 	-- effects sat in Workspace, because it was maintained beside the pool instead
 	-- of from it and never knew the press effect existed at all.
 	local function pooledCount(): number
-		local n = if pressEffect ~= nil then 1 else 0
+		local n = 0
+		for _ in pressEffects do
+			n += 1
+		end
 		for _ in pool do
 			n += 1
 		end
@@ -470,15 +521,21 @@ function haptics.new(opts: Options?): any
 		end
 	end
 
-	-- ===== the property route (`activate`) ==================================
-	local function pressEffectHandle(): any?
+	-- ===== the property route (`activate`, and every declared verb) =========
+	local function pressEffectHandle(effectTypeName: string): any?
 		if not enabled then
 			return nil
 		end
-		if pressEffect == nil then
-			pressEffect = construct(haptics.PRESS_EFFECT_TYPE)
+		local existing = pressEffects[effectTypeName]
+		if existing ~= nil then
+			return existing
 		end
-		return pressEffect
+		local built = construct(effectTypeName)
+		if built == nil then
+			return nil
+		end
+		pressEffects[effectTypeName] = built
+		return built
 	end
 
 	local function isGuiButton(instance: any): boolean
@@ -503,7 +560,28 @@ function haptics.new(opts: Options?): any
 		if not enabled or disposed or not isGuiButton(instance) then
 			return
 		end
-		local effect = pressEffectHandle()
+		-- WHAT THIS PARTICULAR CONTROL FEELS LIKE. The renderer published the
+		-- author's `UI.sensoryFeedback(bp, { activation = … })` verb here as an
+		-- attribute; absent means undeclared, which is the generic press preset and
+		-- is exactly what every button got before this existed.
+		local declaredVerb = guard(function(): any
+			return instance:GetAttribute(haptics.ACTIVATION_ATTRIBUTE)
+		end)
+		local effectTypeName = haptics.pressEffectFor(if type(declaredVerb) == "string" then declaredVerb else nil)
+		if effectTypeName == nil then
+			-- DELIBERATELY UNFELT (`none`, or a verb the MAP silences). Clearing
+			-- rather than skipping: a button that was decorated and is now silent —
+			-- because the adapter re-swept, or because another writer set the
+			-- property — must actually lose its reference, or "none" would mean
+			-- "none unless somebody already said otherwise".
+			guard(function()
+				instance.PressHapticEffect = nil
+				return nil
+			end)
+			entry.decorated[instance] = nil
+			return
+		end
+		local effect = pressEffectHandle(effectTypeName)
 		if effect == nil then
 			return
 		end
@@ -555,8 +633,10 @@ function haptics.new(opts: Options?): any
 		for _, entry in roots do
 			undecorateEntry(entry)
 		end
-		retire(pressEffect)
-		pressEffect = nil
+		for name, effect in pressEffects do
+			retire(effect)
+			pressEffects[name] = nil
+		end
 	end
 
 	local function decoratedCount(): number
@@ -592,6 +672,18 @@ function haptics.new(opts: Options?): any
 		end
 		local verb = if type(event) == "table" then event.type else nil
 		if type(verb) ~= "string" then
+			return
+		end
+		-- A CONTROL ACTIVATION IS THE ENGINE'S TO PLAY, whatever verb the author
+		-- gave it. The presenter stamps `reason = "activation"` on every event a
+		-- press causes, and the press route has already handed that button its
+		-- effect through `GuiButton.PressHapticEffect` — so playing it here too
+		-- would be two pulses for one press. This replaces what used to be a
+		-- `MAP.activate = false` hole, which said the same thing but only for the
+		-- default verb: the moment a control could rename its activation, the hole
+		-- stopped covering the case it was cut for.
+		if event.reason == "activation" then
+			diag.ignored += 1
 			return
 		end
 		local effectTypeName = MAP[verb]

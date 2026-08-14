@@ -14,9 +14,9 @@
 local blueprintLib = require("./blueprint")
 local profile = require("./core/profile")
 local specGuard = require("./spec_guard")
--- the `UI.sensoryFeedback` declaration's reader (round 2 §3.3). Requires
--- nothing; see the note in that file on why the contract lives with the
--- vocabulary rather than in the authoring layer.
+-- the `UI.sensoryFeedback` declaration's reader (round 2 §3.3, and the control
+-- form's cascade in round 3). Requires nothing; see the note in that file on why
+-- the contract lives with the vocabulary rather than in the authoring layer.
 local feedbackContract = require("./present/feedback")
 
 type Blueprint = blueprintLib.Blueprint
@@ -113,7 +113,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	end
 
 	-- structural region: When
-	local function mountWhen(bp: Blueprint, path: string, scope: any, boundary: any): any
+	local function mountWhen(bp: Blueprint, path: string, scope: any, boundary: any, activation: string?): any
 		local node: any = {
 			class = "When",
 			path = path,
@@ -207,7 +207,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				local branchScope = scope:child(branchPath)
 				node.branchScope = branchScope
 				local ok, mounted = guarded(boundary, function()
-					return mountNode(bp.props.thenView(), branchPath, branchScope, 1, boundary)
+					return mountNode(bp.props.thenView(), branchPath, branchScope, 1, boundary, activation)
 				end)
 				if not ok then
 					return -- the boundary swapped to its fallback
@@ -228,7 +228,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		if initial then
 			local branchScope = scope:child(branchPath)
 			node.branchScope = branchScope
-			local mounted = mountNode(bp.props.thenView(), branchPath, branchScope, 1, boundary)
+			local mounted = mountNode(bp.props.thenView(), branchPath, branchScope, 1, boundary, activation)
 			node.children = { mounted }
 			if declared ~= nil then
 				mounted.transition = declared
@@ -239,7 +239,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	end
 
 	-- structural region: ForEach (add/remove/move only, §5.4)
-	local function mountForEach(bp: Blueprint, path: string, scope: any, boundary: any): any
+	local function mountForEach(bp: Blueprint, path: string, scope: any, boundary: any, activation: string?): any
 		local node: any = {
 			class = "ForEach",
 			path = path,
@@ -321,7 +321,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					-- item-scoped resources (async handles, per-row memos —
 					-- §10.3/§10.5); ignoring the second argument stays valid
 					local ok, mounted = guarded(boundary, function()
-						return mountNode(bp.props.row(wanted[key], itemScope), rowPath, itemScope, 1, boundary)
+						return mountNode(
+							bp.props.row(wanted[key], itemScope),
+							rowPath,
+							itemScope,
+							1,
+							boundary,
+							activation
+						)
 					end)
 					if not ok then
 						return -- the boundary swapped to its fallback
@@ -407,7 +414,14 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			local itemScope = scope:child(`{path}/[{key}]`)
 			node.itemsByKey[key] = {
 				scope = itemScope,
-				mounted = mountNode(bp.props.row(item, itemScope), `{path}/[{key}]`, itemScope, 1, boundary),
+				mounted = mountNode(
+					bp.props.row(item, itemScope),
+					`{path}/[{key}]`,
+					itemScope,
+					1,
+					boundary,
+					activation
+				),
 			}
 			table.insert(order, key)
 		end
@@ -432,7 +446,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	-- dispose it early without a double-dispose at teardown; the boundary's
 	-- scope owns a guard closure that disposes whichever content scope is
 	-- current.
-	local function mountErrorBoundary(bp: Blueprint, path: string, scope: any): any
+	local function mountErrorBoundary(bp: Blueprint, path: string, scope: any, _boundary: any, activation: string?): any
 		local node: any = {
 			class = "ErrorBoundary",
 			path = path,
@@ -453,7 +467,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 			node.children = {}
 			contentScope = core:scope(path .. "/fallback")
-			node.children = { mountNode(bp.props.fallback(err), path .. "/fallback", contentScope, 1, nil) }
+			node.children = { mountNode(bp.props.fallback(err), path .. "/fallback", contentScope, 1, nil, activation) }
 			pushDirty(path, "structure")
 		end
 		local boundary = {
@@ -465,7 +479,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		}
 		contentScope = core:scope(path .. "/view")
 		local ok, result = pcall(function()
-			return mountNode(bp.props.view(), path .. "/view", contentScope, 1, boundary)
+			return mountNode(bp.props.view(), path .. "/view", contentScope, 1, boundary, activation)
 		end)
 		if ok and not tripped then
 			node.children = { result }
@@ -482,18 +496,25 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	-- correctly a fourth time; now it is one table entry.
 	-- `mountErrorBoundary` takes no boundary of its own — it CREATES one — so the
 	-- extra argument is deliberately ignored there.
-	local STRUCTURAL: { [string]: (Blueprint, string, any, any) -> any } = {
+	local STRUCTURAL: { [string]: (Blueprint, string, any, any, string?) -> any } = {
 		ErrorBoundary = mountErrorBoundary,
 		When = mountWhen,
 		ForEach = mountForEach,
 	}
 
-	mountNode = function(bp: Blueprint, parentPath: string, scope: any, index: number, boundary: any): any
+	mountNode = function(
+		bp: Blueprint,
+		parentPath: string,
+		scope: any,
+		index: number,
+		boundary: any,
+		inheritedActivation: string?
+	): any
 		local id = bp.id or `{bp.class}#{index}`
 		local path = parentPath .. "/" .. id
 		local mountStructural = STRUCTURAL[bp.class]
 		if mountStructural ~= nil then
-			local node = mountStructural(bp, path, scope, boundary)
+			local node = mountStructural(bp, path, scope, boundary, inheritedActivation)
 			node.id = id
 			counters.mounted += 1
 			counters.factoryRuns += 1
@@ -542,15 +563,36 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 		end
 
-		-- SENSORY FEEDBACK (round 2 §3.3): one observer per declaration, owned by
-		-- this node's scope, so it stops the frame the node unmounts. Built ONLY
-		-- when a sink is wired — a mount with no presentation layer has no bus to
-		-- emit on, and an observer nobody can hear is pure cost.
+		local declarations = feedbackContract.readDeclarations(node)
+
+		-- SENSORY FEEDBACK, THE CONTROL FORM (round 3): the cascade. Resolved
+		-- HERE because this is the only walk that sees a blueprint's ancestors and
+		-- its mounted node at the same moment, and it is resolved for EVERY node
+		-- rather than only the activatable ones, because "activatable" is a render
+		-- fact this layer must not learn. `nil` when nothing above declared, so an
+		-- undeclared tree stores no field at all and the off path costs one table
+		-- read per node.
+		--
+		-- It is read (not observed): a blueprint is frozen, so a declaration cannot
+		-- change without a remount, and the remount re-inherits from this same
+		-- parameter — which is why a `When` branch re-entered later still feels
+		-- like the panel it is inside.
+		local activationFeedback = feedbackContract.activationIn(declarations) or inheritedActivation
+		if activationFeedback ~= nil then
+			node.activationFeedback = activationFeedback
+		end
+
+		-- ...and the CHANGE form (round 2 §3.3): one observer per declaration,
+		-- owned by this node's scope, so it stops the frame the node unmounts.
+		-- Built ONLY when a sink is wired — a mount with no presentation layer has
+		-- no bus to emit on, and an observer nobody can hear is pure cost.
 		local sink = feedbackSink
-		if sink ~= nil then
-			local declarations = feedbackContract.readDeclarations(node)
-			if declarations ~= nil then
-				for _, decl in declarations do
+		if sink ~= nil and declarations ~= nil then
+			for _, decl in declarations do
+				-- the control form has no Readable to watch: its cause is a press,
+				-- which the presenter owns. Skipping it here is what keeps
+				-- `core:observe` from being handed a nil trigger.
+				if decl.trigger ~= nil then
 					scope:own(core:observe(decl.trigger, function()
 						-- a FRESH table per emission: the presenter stamps `surface`
 						-- onto the event it is handed, and a shared table would carry
@@ -571,7 +613,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 					error(`LuauUI mount {path}: duplicate child id '{childId}'`, 0)
 				end
 				seen[childId] = true
-				table.insert(node.children, mountNode(childBp, path, scope, i, boundary))
+				table.insert(node.children, mountNode(childBp, path, scope, i, boundary, activationFeedback))
 			end
 		end
 		return node

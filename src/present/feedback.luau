@@ -85,6 +85,30 @@ export type Bus = {
 -- IT STILL PLAYS NOTHING. The declaration produces one event on one bus. What a
 -- game does with `select` is the game's business (a sound, a haptic, nothing) —
 -- see the rule at the top of this file, which this modifier does not relax.
+--
+-- TWO FORMS, ONE MODIFIER (director request 2026-08-13, "sensory feedback per
+-- control so that when you press a button you get haptic feedback"):
+--
+--   { trigger, event }    THE CHANGE FORM. A Readable moved; say so.
+--   { activation }        THE CONTROL FORM. This control's own activation is a
+--                         `commit` / a `reject` / nothing — say THAT instead of
+--                         the generic `activate`.
+--
+-- They are separate forms rather than separate modifiers because they share the
+-- one thing that matters — the closed vocabulary — and because a control that
+-- wants both (a press AND a value change) then reads as two lines of the same
+-- declaration. They are never MIXED in one spec: a spec carrying both would have
+-- two causes and one verb, and there would be no honest answer for which cause
+-- the verb described.
+--
+-- WHY THE CONTROL FORM IS A CASCADE AND NOT A PROP. Every activatable thing in
+-- this framework except three leaves is a COMPOSITE — a Chip, a Stepper, a Table
+-- row, a PopupButton each build their own inner Button — so a `sensoryFeedback`
+-- prop would have to be threaded through ten control specs and remembered by the
+-- eleventh. Resolved down the mounted tree instead, the declaration reaches the
+-- inner Button of any composite, and every control in a panel, with no
+-- per-control plumbing at all. Nearest declaration wins. `mount.luau` owns the
+-- resolution (it is the only layer that walks blueprint-to-node top-down).
 
 -- the reserved metadata key the declarations ride under `bp.meta`. A LIST:
 -- `UI.sensoryFeedback` composes with itself (two triggers, two verbs, one node),
@@ -92,15 +116,25 @@ export type Bus = {
 local SENSORY_PROP = "sensoryFeedback"
 feedback.SENSORY_PROP = SENSORY_PROP
 
+-- the one word the control form accepts that the taxonomy does not: a control
+-- that must feel like NOTHING. It is not a thirteenth verb — nothing is emitted
+-- at all — so it does not belong in TYPES, and it has to be spellable or the
+-- only way to silence one control is to silence the whole adapter.
+local SILENT = "none"
+feedback.ACTIVATION_SILENT = SILENT
+
 export type SensoryFeedbackSpec = {
-	-- a Signal/Memo whose CHANGE is the cause. Read for its transitions only —
-	-- the value itself never reaches the event.
-	trigger: any,
+	-- CHANGE FORM: a Signal/Memo whose CHANGE is the cause. Read for its
+	-- transitions only — the value itself never reaches the event.
+	trigger: any?,
 	-- one of the twelve; anything else is refused at the call site
-	event: string,
+	event: string?,
+	-- CONTROL FORM: the verb THIS control's activation emits in place of
+	-- `activate`, or "none" for a control that is deliberately unfelt
+	activation: string?,
 }
 
-local SENSORY_KEYS: { string } = { "trigger", "event" }
+local SENSORY_KEYS: { string } = { "trigger", "event", "activation" }
 
 -- the same predicate as `blueprint.isReadable`, restated rather than imported
 -- because `blueprint.luau` requires THIS module (importing back would be a
@@ -113,14 +147,13 @@ end
 function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 	if type(spec) ~= "table" then
 		error(
-			`LuauUI UI.sensoryFeedback: expected a spec table — UI.sensoryFeedback(bp, \{ trigger = …, event = "select" }), got {typeof(
-				spec
-			)}`,
+			`LuauUI UI.sensoryFeedback: expected a spec table — UI.sensoryFeedback(bp, \{ trigger = …, event = "select" }) `
+				.. `or UI.sensoryFeedback(bp, \{ activation = "commit" }), got {typeof(spec)}`,
 			0
 		)
 	end
 	for key in spec :: any do
-		if key ~= "trigger" and key ~= "event" then
+		if key ~= "trigger" and key ~= "event" and key ~= "activation" then
 			error(
 				`LuauUI UI.sensoryFeedback: unknown spec key '{tostring(key)}'. Valid keys: {table.concat(
 					SENSORY_KEYS,
@@ -131,6 +164,45 @@ function feedback.declaration(spec: SensoryFeedbackSpec): SensoryFeedbackSpec
 				0
 			)
 		end
+	end
+	-- WHICH FORM IS THIS? Decided before either is validated, so a spec that
+	-- declares both gets the honest error (two causes, one verb) rather than
+	-- whichever branch happened to be checked first.
+	local wantsControl = spec.activation ~= nil
+	local wantsChange = spec.trigger ~= nil or spec.event ~= nil
+	if wantsControl and wantsChange then
+		error(
+			`LuauUI UI.sensoryFeedback: a spec is EITHER the change form \{ trigger, event } or the control form `
+				.. `\{ activation }, never both — they have different causes, so one verb could not describe both. `
+				.. "Fix: apply the modifier twice, once per cause.",
+			0
+		)
+	end
+	if not wantsControl and not wantsChange then
+		error(
+			`LuauUI UI.sensoryFeedback: an empty spec declares nothing. Pass \{ trigger = someSignal, event = "select" } `
+				.. `for a value change, or \{ activation = "commit" } for what this control's own press feels like.`,
+			0
+		)
+	end
+	if wantsControl then
+		if type(spec.activation) ~= "string" then
+			error(
+				`LuauUI UI.sensoryFeedback: \`activation\` must be a string (got {typeof(spec.activation)}). `
+					.. `One of: {feedback.TYPE_LIST}, or "{SILENT}".`,
+				0
+			)
+		end
+		local verb = spec.activation :: string
+		if verb ~= SILENT and not TYPE_SET[verb] then
+			error(
+				`LuauUI UI.sensoryFeedback: unknown activation verb '{verb}'. The v1 taxonomy is CLOSED: `
+					.. `{feedback.TYPE_LIST} — plus "{SILENT}" for a control that must be felt as nothing. `
+					.. "Growing it is a contract amendment with a gate.",
+				0
+			)
+		end
+		return table.freeze({ activation = verb }) :: any
 	end
 	if not isReadable(spec.trigger) then
 		error(
@@ -170,6 +242,23 @@ function feedback.readDeclarations(node: any): { SensoryFeedbackSpec }?
 		return nil
 	end
 	return list
+end
+
+-- the CONTROL form's verb in a declaration list, or nil when the list carries
+-- only change-form declarations. One reader, three callers (`blueprint.luau`'s
+-- duplicate refusal, `mount.luau`'s cascade, and the specs), because "which of
+-- these declarations is the control one" is exactly the kind of two-line scan
+-- that drifts when it is written three times.
+function feedback.activationIn(declarations: { SensoryFeedbackSpec }?): string?
+	if declarations == nil then
+		return nil
+	end
+	for _, decl in declarations do
+		if decl.activation ~= nil then
+			return decl.activation
+		end
+	end
+	return nil
 end
 
 function feedback.new(): Bus
