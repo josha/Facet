@@ -362,6 +362,56 @@ The same decision is available with no screen at all — `LuauUI.composition.res
 takes a declaration, a box and a measure callback — so "does this survive a
 landscape phone" is a unit test, not a device round.
 
+#### A HUD is a composition too
+
+A game HUD looks like the opposite problem — clusters pinned to the screen's
+corners with the world visible behind them, not a document that flows. It isn't.
+The three screen **columns** are three lanes (lanes sit side by side and never
+overlap, which is what stops two clusters from growing into each other), the
+three vertical **bands** are the `place` a lane already spreads its groups by,
+and the nine anchor names are the nine group ids. So the whole thing is data:
+
+```lua
+UI.Composition{
+    id = "Hud",
+    width = fill, height = fill,
+    groups = LuauUI.composition.HUD_GROUPS,     -- the twelve groups, frozen
+    arrangements = { LuauUI.composition.HUD },  -- one arrangement: three columns
+    children = {
+        UI.Region{ id = "Rounds", group = "topLeft", rank = 1, children = { strip, column } },
+        UI.Region{ id = "Tasks",  group = "left",   rank = 8, mayDrop = true,
+                   children = { panel, oneTask, chip } },
+        UI.Region{ id = "Clock",  group = "top",     rank = 2, children = { clockAndScore, clock } },
+        UI.Region{ id = "Rail",   group = "topRight", rank = 4, mayDrop = true,
+                   children = { tallRail, onePill } },
+        UI.Region{ id = "Actions", group = "bottomRight", rank = 3, children = { column, oneButton } },
+    },
+}
+```
+
+`topLeft`, `left`, `bottomLeft`, `top`, `center`, `bottom`, `topRight`, `right`,
+`bottomRight` — the same nine words the `anchor` box prop uses. Three things are
+worth knowing:
+
+- **The zones stay put.** Each column is a third of the box whatever is in it,
+  so a round with nothing in the middle does not slide the right-hand cluster
+  left. (That is what the `holdsLane` on each column group buys: it is the
+  opposite of "a lane with nothing in it is not there", and a HUD wants the
+  opposite, because its lane positions *are* its coordinate system.)
+- **Losing height degrades, it does not collapse.** A browser URL bar opening
+  takes ~200px off the box; the ladder above runs, in descending rank, and the
+  least important zone in the column that ran out gives up its richest form and
+  then leaves. Nothing lands on anything.
+- **A cluster your column cannot hold is reported.** `align` on those groups
+  means each zone takes *its own* measured width inside its column, so a row of
+  controls that cannot shrink to a third of a phone is visible rather than
+  silently painted over its neighbour: `resolution.collisions` names the pair and
+  the solver files a finding, which the always-on overflow sweep reads at every
+  viewport.
+
+The showcase's **Screen-anchored HUD** demo is exactly this, with a "URL bar"
+switch so you can watch it happen.
+
 For the coarse facts a screen sometimes still wants, `LuauUI.adaptive.conditions`
 now classifies **both** axes (`sizeClass` / `heightClass`, plus `orientation`), so
 no screen has to invent a height threshold of its own. They stay viewport-relative
