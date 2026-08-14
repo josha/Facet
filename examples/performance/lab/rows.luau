@@ -131,6 +131,69 @@ end
 -- the two cannot drift: the one-line form puts every control on the single line;
 -- the compact form has a controls line and a value line, and (under a theme that
 -- costs enough across) a third line for the button.
+--[[ HOW MANY TEXT LINES THE ARRANGEMENT STACKS, which is what the accessibility
+	text preference is charged per.
+
+	FOUND ON A REAL DEVICE, 2026-08-13 (game director, Galaxy A10e): `dense-scroll`,
+	`mount-ramp` and `resize-relayout` all REFUSED TO MOUNT with
+	"/PerfWorkload/Rows/Canvas/W/[r1]/Row/Row overflows its zstack by 0x11px". It
+	reproduced in Studio only once `preferredTextOffset` was raised — clean at 0,
+	+11px at offset 4, +39px at 10, +59px at 14 — so it was invisible to every
+	headless run and to a default Studio session, and visible to anyone whose phone
+	asks for larger text.
+
+	THE CAUSE IS THE THIRD MISSING INPUT TO THIS BOX, and it is the same story
+	twice already told above: `heightFor` learned the type scale after the ten-foot
+	row overflowed by 3px, and learned the theme after L-26 measured 19px under
+	fantasy-ornate. It never learned the ACCESSIBILITY TEXT PREFERENCE. A
+	VirtualList is a fixed-pitch window, so a slot measured without an input the
+	content actually has is simply wrong — `docs/lessons/luauui-fixed-px-heights.md`
+	names the class: a px height fixed against unfixed content.
+
+	`preferredTextOffset` adds its px to EVERY text line's font size, so the charge
+	is per line, not per row. Declared here rather than inlined for the reason
+	`controlLines` is: the builder below is what decides it, and a constant that
+	drifts from the builder is how this box was wrong the previous two times. ]]
+--[[ WHAT ONE STEP OF THE TEXT PREFERENCE COSTS ONE LINE, MEASURED.
+
+	The preference adds its px to a line's FONT SIZE, and a line's laid-out height
+	grows by more than that — line height is a multiple of font size, and the
+	large-text path composes the display scale on top. So charging the raw offset
+	is not enough, and the first attempt at this fix did exactly that and still
+	refused to mount.
+
+	MEASURED against the real engine in a Studio Play session, 2026-08-13, on the
+	one-line arrangement at 698x1513 (dense-scroll, flat theme, scale 1.0), by
+	mounting at each offset and reading the solver's own overflow:
+
+	  offset   slot   overflow   content actually needed
+	     0      56        0              56
+	     4      56        3              59
+	    10      65       19              84
+	    14      73       31             104
+
+	Content minus the 16px of fixed padding gives the text block: 40 (the avatar
+	wins), 43, 68, 88 — i.e. 3.5, 3.9 and 4.2 px per offset step across two lines,
+	rising rather than linear because each line's height rounds up independently.
+
+	2.5 px per line per step is therefore an OVER-reservation at every measured
+	point (headroom 6/16/11 px at offsets 4/10/14), and over is the correct
+	direction by this file's own rule, stated where ROW_HEIGHT is defined: "a slot
+	that is a few px too tall wastes space, and a slot a few px too short paints
+	one row over the next, which is the defect this whole constant exists to
+	prevent."
+
+	A future round that wants the exact number should MEASURE the block rather
+	than scale it — the table above is the fixture to check against. ]]
+rows.PREFERRED_PX_PER_LINE = 2.5
+
+function rows.textLines(compact: boolean): number
+	-- both arrangements stack `Name` over `Detail` (see the builder's UI.Text pair);
+	-- the compact form's block is taller because those lines wrap, not because there
+	-- are more of them
+	return 2
+end
+
 function rows.controlLines(compact: boolean, split: boolean?): number
 	if not compact then
 		return 1
@@ -152,17 +215,33 @@ end
 -- than re-derived: the height and the arrangement are ONE decision (the split brain
 -- `ctx.compact` exists to prevent), and this function has no viewport to re-decide
 -- from.
-function rows.heightFor(compact: boolean, typeScale: number?, snapshot: any?, split: boolean?): number
+function rows.heightFor(
+	compact: boolean,
+	typeScale: number?,
+	snapshot: any?,
+	split: boolean?,
+	preferredTextOffset: number?
+): number
 	local s = if type(typeScale) == "number" and typeScale == typeScale then math.clamp(typeScale, 0.5, 3) else 1
 	local isSplit = compact and split == true
 	local themed = rows.themeInset(snapshot).y * rows.controlLines(compact, isSplit)
+	-- THE ACCESSIBILITY TEXT PREFERENCE, charged per stacked text line (see
+	-- `rows.textLines`). Clamped to the framework's own declared range so a garbage
+	-- fact cannot produce a negative slot; 0 is the default and keeps every existing
+	-- height, pitch, window bound and recorded capture byte-identical.
+	local offset = if type(preferredTextOffset) == "number" and preferredTextOffset == preferredTextOffset
+		then math.clamp(preferredTextOffset, 0, 14)
+		else 0
+	local preferred = math.ceil(offset * rows.PREFERRED_PX_PER_LINE) * rows.textLines(compact)
 	if compact then
 		-- the extra line the split arrangement adds carries one control's height plus
 		-- the gap above it
 		local extra = if isSplit then rows.controlHeight(snapshot) + rows.COMPACT_LINE_GAP else 0
-		return rows.ROW_PADDING_V + math.ceil(rows.COMPACT_TEXT_BLOCK * s) + themed + extra
+		return rows.ROW_PADDING_V + math.ceil(rows.COMPACT_TEXT_BLOCK * s) + themed + extra + preferred
 	end
-	return rows.ROW_PADDING_V + math.ceil(math.max(rows.IMAGE_SIZE, rows.TEXT_BLOCK * s)) + themed
+	-- the one-line form's text can now EXCEED the avatar, which it never could at
+	-- offset 0 — so the preference joins the max() rather than being added after it
+	return rows.ROW_PADDING_V + math.ceil(math.max(rows.IMAGE_SIZE, rows.TEXT_BLOCK * s + preferred)) + themed
 end
 
 -- THE ONE ARRANGEMENT DECISION, from a measured width rather than a device size class.

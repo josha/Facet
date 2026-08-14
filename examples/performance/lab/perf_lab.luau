@@ -240,7 +240,11 @@ return {
 				use(isCompact) == true,
 				use(env:get("typographyScale")),
 				use(env:get("themeMetrics")),
-				use(splitControls)
+				use(splitControls),
+				-- the fourth input, added 2026-08-13 after a device refused to mount:
+				-- `use`d, so raising the preference re-solves the pitch live rather
+				-- than leaving every row overflowing a slot measured at Medium
+				use(env:get("preferredTextOffset"))
 			)
 		end))
 		-- forward: `listHeight` needs `viewportH`, which is declared with the window
