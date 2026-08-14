@@ -1794,3 +1794,241 @@ describe("table_input: a swipe that ends with no Activated does not eat the next
 		expect(#w.opened).toBe(0)
 	end)
 end)
+
+-- =============================================================================
+-- 7. THE ROW-ACTIONS SURFACE IS REACHABLE WITHOUT A POINTER
+--    (parity round 3, "Still owed" row 8; RED-TEAM cross-platform charter)
+--
+-- A Table row that declares `spec.rowActions` is WRAPPED: `row_actions.build`'s
+-- own root Anchor sits between the ForEach slot and the row's own `Row` node,
+-- and the tray `When`s and the edit-mode minus are that wrapper's OTHER
+-- children — SIBLINGS of `Row`, not descendants of it. Table's focus
+-- contribution collected the focusables INSIDE `Row`, so everything the wrapper
+-- owns landed in no focus group at all, and a contribution owns its subtree's
+-- focus (`focus_map.autoGroups` emits a contribution's groups and does not
+-- descend). A player could swipe a row open with a finger and then have no key
+-- and no d-pad direction that reached what they revealed; in edit mode the
+-- minus — the ONLY affordance a touch player has for delete — was unreachable
+-- to a keyboard and a pad outright.
+-- =============================================================================
+describe("table_input: a revealed tray and the edit minus are reachable by keyboard and pad", function()
+	local function trayWorld(opts: any?)
+		local options = opts or {}
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		env:set("preferredInput", "Gamepad")
+		env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local clock = { t = 100 }
+		local pres = LuauUI.newPresenter(core, env, adapter, system, {
+			now = function()
+				return clock.t
+			end,
+		})
+		local fired: { string } = {}
+		local editing = core:signal(options.editing == true)
+		local tbl = table_control.build(
+			LuauUI,
+			core,
+			{
+				id = "T",
+				rows = core:signal(bigRows(3)),
+				key = function(r: any)
+					return r.id
+				end,
+				columns = {
+					{
+						id = "name",
+						title = "Racer",
+						width = { type = "fill", weight = 1 },
+						value = function(r: any)
+							return r.name
+						end,
+					},
+				},
+				selection = "single",
+				rowHeight = 40,
+				env = env,
+				editing = editing,
+				rowActions = function(_item: any): any
+					return {
+						leading = if options.leading
+							then {
+								{
+									id = "flag",
+									label = "Flag",
+									onAction = function()
+										table.insert(fired, "flag")
+									end,
+								},
+							}
+							else nil,
+						trailing = {
+							{
+								id = "delete",
+								role = "destructive",
+								label = "Delete",
+								onAction = function()
+									table.insert(fired, "delete")
+								end,
+							},
+						},
+						fullSwipe = false, -- a long drag can only ever open, never commit
+					}
+				end,
+			} :: any
+		)
+		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }))
+		pres.refresh()
+		local w: any = {
+			core = core,
+			adapter = adapter,
+			pres = pres,
+			system = system,
+			tbl = tbl,
+			handle = handle,
+			fired = fired,
+			editing = editing,
+		}
+		function w.settle(frames: number?)
+			for _ = 1, frames or 150 do
+				clock.t += 1 / 60
+				pres.tick(1 / 60)
+				pres.refresh()
+			end
+		end
+		function w.press(key: string)
+			w.system.deviceKey(key, true)
+			w.system.deviceKey(key, false)
+			w.settle(2)
+		end
+		function w.groupFor(key: string): any
+			for _, group in w.handle.focusOrder().navigation do
+				if group.name == `row:{key}` then
+					return group
+				end
+			end
+			return nil
+		end
+		return w
+	end
+
+	local function rowRoot(key: string): string
+		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+	end
+	local function wrappedHit(key: string): string
+		return `{rowRoot(key)}/Content/Row/Hit`
+	end
+	local function trayAction(key: string, edge: string, action: string): string
+		local tid = if edge == "leading" then "TrayLeading" else "TrayTrailing"
+		return `{rowRoot(key)}/{tid}When/then/{tid}/Action:{action}`
+	end
+	local function minus(key: string): string
+		return `{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`
+	end
+
+	-- a horizontal swipe past the axis lock, released where the finger is
+	local function swipeOpen(w: any, key: string, direction: number)
+		local rect = w.adapter.node(wrappedHit(key)).rect
+		local originX = if direction < 0 then rect.x + rect.w - 8 else rect.x + 8
+		local y = rect.y + rect.h / 2
+		w.adapter.pointerDown(wrappedHit(key), originX, y, "touch")
+		w.settle(1)
+		for i = 1, 8 do
+			w.adapter.pointerMove(originX + direction * (rect.w * 0.3) * (i / 8), y, "touch")
+			w.settle(1)
+		end
+		w.adapter.pointerUp(originX + direction * rect.w * 0.3, y)
+		w.settle()
+	end
+
+	it("(R8-1) a revealed TRAILING tray joins the focused row's own group, and the pad walks into it", function()
+		local w = trayWorld()
+		-- CLOSED: the group is the row hit alone, and no overlay/tray path is in it
+		local closed = w.groupFor("r1")
+		expect(closed).never().toBeNil()
+		expect(closed.order).toEqual({ wrappedHit("r1") })
+
+		swipeOpen(w, "r1", -1)
+		expect(w.adapter.node(trayAction("r1", "trailing", "delete"))).never().toBeNil()
+		-- OPEN: the tray's button is a stop in the SAME horizontal row group,
+		-- after the row's own content — which is both where it is painted and
+		-- where the ordering rule puts every affordance (index 1 stays the row)
+		local open = w.groupFor("r1")
+		expect(open.axis).toBe("horizontal")
+		expect(open.order).toEqual({ wrappedHit("r1"), trayAction("r1", "trailing", "delete") })
+
+		-- ...and the d-pad reaches it for real, then fires it
+		w.pres.focus.focusOn(wrappedHit("r1"))
+		w.pres.refresh()
+		w.press("DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(trayAction("r1", "trailing", "delete"))
+		expect(w.adapter.node(trayAction("r1", "trailing", "delete")).focused).toBe(true)
+		w.press("ButtonA")
+		w.settle()
+		expect(w.fired).toEqual({ "delete" })
+	end)
+
+	it("(R8-2) a LEADING tray is reachable too, and the ROW keeps the primary stop", function()
+		--[[ The stated cost of one group per row: a leading affordance is reached
+			by continuing RIGHT off the row, not by pressing Left toward where it
+			is painted. What must NOT move is index 1 — every vertical entry into
+			a row lands there (`focus_graph.enterGroup`, ordinal nearest), and the
+			row's own activate is its primary verb. ]]
+		local w = trayWorld({ leading = true })
+		swipeOpen(w, "r2", 1)
+		expect(w.adapter.node(trayAction("r2", "leading", "flag"))).never().toBeNil()
+		local open = w.groupFor("r2")
+		expect(open.order).toEqual({ wrappedHit("r2"), trayAction("r2", "leading", "flag") })
+		w.pres.focus.focusOn(wrappedHit("r2"))
+		w.pres.refresh()
+		w.press("DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "leading", "flag"))
+		w.press("ButtonA")
+		w.settle()
+		expect(w.fired).toEqual({ "flag" })
+	end)
+
+	it("(R8-3) the EDIT-MODE MINUS is a focus stop, and Activate on it deletes", function()
+		--[[ The minus is the only delete affordance a touch player has in edit
+			mode, and it announces itself with the destructive action's own label
+			("Delete"). Pressing it runs the same `commitDestructive` funnel a tap
+			does (the 2026-08-13 director ruling).
+
+			IT IS NOT INDEX 1, deliberately: it is painted in the row's leading
+			gutter, but making it the first stop puts a Delete button under the
+			ring for every pad that walks down into an editing table. ]]
+		local w = trayWorld({ editing = true })
+		expect(w.adapter.node(minus("r1"))).never().toBeNil()
+		expect(w.groupFor("r1").order).toEqual({ wrappedHit("r1"), minus("r1") })
+		w.pres.focus.focusOn(wrappedHit("r1"))
+		w.pres.refresh()
+		w.press("DPadRight")
+		expect(w.pres.focus.focused:get()).toBe(minus("r1"))
+		w.press("ButtonA")
+		w.settle()
+		expect(w.fired).toEqual({ "delete" })
+	end)
+
+	it("(R8-4) a CLOSED row is byte-identical to today: no wrapper path is a focus stop", function()
+		--[[ The control for the three above. Every focusable the wrapper owns is
+			`When`-gated, so a row nobody has swiped and no edit mode has reached
+			must contribute exactly what it always did — the row hit and its own
+			focusable cell content, nothing more. ]]
+		local w = trayWorld()
+		for _, key in { "r1", "r2", "r3" } do
+			expect(w.groupFor(key).order).toEqual({ wrappedHit(key) })
+		end
+		-- ...and a tray that OPENS and CLOSES again leaves nothing behind
+		swipeOpen(w, "r1", -1)
+		expect(#w.groupFor("r1").order).toBe(2)
+		w.pres.focus.focusOn(wrappedHit("r1"))
+		w.pres.refresh()
+		w.press("ButtonB") -- Cancel closes the tray
+		w.settle()
+		expect(w.adapter.node(trayAction("r1", "trailing", "delete"))).toBeNil()
+		expect(w.groupFor("r1").order).toEqual({ wrappedHit("r1") })
+	end)
+end)

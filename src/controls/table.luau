@@ -2548,6 +2548,41 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- group per row, document order: [row hit, ...focusable cell content].
 	-- entry="nearest" keeps the column when stepping between rows. Feed the
 	-- result to present({ navigationGroups = function(root) ... }).
+	--
+	-- A ROW IS ITS WHOLE MOUNTED SUBTREE, NOT ITS `Row` NODE (parity round 3,
+	-- owed row 8, 2026-08-13). A row that declares `spec.rowActions` is WRAPPED:
+	-- `row_actions.build`'s root Anchor sits between the ForEach slot and this
+	-- row's own `Row`, and the tray `When`s plus the edit-mode minus are that
+	-- wrapper's OTHER children — siblings of `Row`, not descendants. This walk
+	-- used to anchor on `Row`, so every focusable the wrapper owns landed in NO
+	-- group at all; and a contribution owns its subtree's focus
+	-- (`focus_map.autoGroups` emits a contribution's groups and does not descend
+	-- into it), so a focusable this function never names is unreachable by Tab
+	-- AND by the d-pad. The player-visible defect: swipe a row open with a
+	-- finger and no key or pad direction reaches what you revealed, and in edit
+	-- mode the minus — the ONLY delete affordance a touch player has — was
+	-- unreachable to a keyboard and a pad outright.
+	--
+	-- THE ROW'S OWN CONTENT STAYS FIRST, and the affordances are appended in edge
+	-- order (leading, then trailing). Index 1 of a row group is not a detail: it
+	-- is where EVERY vertical entry into a row lands (`focus_graph.enterGroup` —
+	-- a perpendicular entry is ORDINAL nearest, and the group above a row has one
+	-- stop, so `fromIndex` is 1), so ordering the group by pure left-to-right
+	-- geometry would have put the edit-mode MINUS — a Delete button — under the
+	-- ring the moment a pad walked down into an editing table. Measured: it
+	-- reddened `examples_gallery`'s own end-to-end pad case, which pressed A
+	-- expecting to grab a row. The row's own activate is its primary verb and
+	-- keeps the primary stop.
+	--
+	-- The cost, stated rather than hidden: a LEADING affordance is reached by
+	-- continuing RIGHT off the row rather than by pressing Left toward where it
+	-- is painted. Only one edge can be revealed at a time (the open-edge policy),
+	-- so the walk is never ambiguous — but the honest repair is per-row `exit.up`
+	-- /`exit.down` declarations, which would free the group array for edge-side
+	-- groups the way `newVirtualList` uses them (its row group is VERTICAL, so a
+	-- horizontal strip of buttons cannot be spliced into it at all and its hosted
+	-- tray needs a group of its own). That is a navigation-model change for
+	-- every table, not a reachability fix, and it is not taken here.
 	function api.buildFocusGroups(rootNode: any): { any }
 		-- capture the mounted root so bindNativeScroll can default the scroll path
 		-- to <root>/Main/Body (the presenter calls this on every present/refresh)
@@ -2574,6 +2609,22 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				focusableIn(child, out)
 			end
 		end
+		-- the wrapper's children, in the order this group walks them (see the
+		-- header comment: the row first, then its affordances by edge). These four
+		-- ids are row_actions.luau's own (`trayId`, the `Content` ZStack,
+		-- `EditAffordanceWhen`); every one is `When`-gated but `Content`, so a row
+		-- nobody has swiped and no edit mode has reached contributes exactly what
+		-- it always did.
+		local WRAPPER_CHILD_ORDER = { "Content", "EditAffordanceWhen", "TrayLeadingWhen", "TrayTrailingWhen" }
+		local function wrappedRowFocusables(wrapper: any, out: { string })
+			for _, id in WRAPPER_CHILD_ORDER do
+				for _, child in wrapper.children or {} do
+					if string.match(child.path or "", `/{id}$`) ~= nil then
+						focusableIn(child, out)
+					end
+				end
+			end
+		end
 		local function walk(node: any)
 			if string.match(node.path or "", "/ToggleWhen/then/Toolbar/EditToggle$") ~= nil then
 				togglePath = node.path
@@ -2582,15 +2633,23 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			if headCol ~= nil then
 				headerHandleByCol[headCol] = node.path
 			end
-			-- Task 10: a wrapped row's OWN "Row" node sits one `RowActions/
-			-- Content/` infix deeper than an unwrapped one — see
-			-- `derowActionsPath`'s own comment. Matched against the cleaned
-			-- path; `node.path` itself (used below, in `focusableIn`) is
-			-- untouched, since focus navigation needs the REAL mounted path.
-			local rowKey = string.match(derowActionsPath(node.path or ""), "/Rows/%[(.-)@%d+%]/Row$")
+			-- A WRAPPED row is anchored on the wrapper (its whole subtree is the
+			-- row); an unwrapped one on `Row`, exactly as before. The two are
+			-- mutually exclusive by construction — `Row` sits under `Content`
+			-- inside the wrapper — and `derowActionsPath` is what lets the
+			-- unwrapped pattern keep matching a wrapped row's `Row` node for
+			-- every OTHER caller in this file (see its own comment); it is
+			-- deliberately not used for the wrapper itself, whose real mounted
+			-- path is what focus navigation needs.
+			local wrappedKey = string.match(node.path or "", "/Rows/%[(.-)@%d+%]/RowActions%-[^/]+$")
+			local rowKey = wrappedKey or string.match(derowActionsPath(node.path or ""), "/Rows/%[(.-)@%d+%]/Row$")
 			if rowKey ~= nil then
 				local order: { string } = {}
-				focusableIn(node, order)
+				if wrappedKey ~= nil then
+					wrappedRowFocusables(node, order)
+				else
+					focusableIn(node, order)
+				end
 				if #order > 0 then
 					local entry = { key = rowKey, order = order }
 					table.insert(rowsInOrder, entry)
