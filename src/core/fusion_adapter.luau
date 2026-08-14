@@ -22,7 +22,7 @@ type Use = contract.Use
 local FusionAdapter = {}
 
 function FusionAdapter.new()
-	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0 }
+	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0, settles = 0 }
 	local lastError: string? = nil
 	local newScope = scope_impl.factory(counts, function(message: string)
 		lastError = message
@@ -30,6 +30,33 @@ function FusionAdapter.new()
 	-- one root Fusion scope per core; every resource gets its own inner scope
 	-- so contract-level dispose maps to doCleanup of just that resource
 	local rootFusionScope = {}
+
+	-- settle registrations, in order; see the `settle` verb below for what this
+	-- substrate can and cannot promise
+	local settles: { any } = {}
+	local settling = false
+	local function runSettles()
+		-- `settling` is the re-entrancy guard: a settle callback that writes
+		-- propagates eagerly here and can reach `flush` again, and a phase that
+		-- re-entered itself would recurse rather than converge. ONE pass is all
+		-- this substrate can distinguish — with eager propagation there is no
+		-- write set to test for quiescence, so "repeat until a pass writes
+		-- nothing" is not implementable and is not faked.
+		if settling or #settles == 0 then
+			return
+		end
+		settling = true
+		for i = 1, #settles do
+			local s = settles[i]
+			if s ~= nil and not s.disposed then
+				local ok, err = pcall(s.fn)
+				if not ok then
+					lastError = tostring(err)
+				end
+			end
+		end
+		settling = false
+	end
 
 	local function fail(message: string)
 		lastError = message
@@ -177,10 +204,45 @@ function FusionAdapter.new()
 			end
 		end,
 
+		--[[ SETTLE, as honestly as this substrate allows (contract: "a flush
+			SETTLES before it ends"). Fusion propagates EAGERLY and has no flush
+			boundary at all — `flush` below is a no-op for exactly that reason — so
+			there is no "after propagation quiesces" moment to hang the phase on.
+			What this adapter can offer is the convergence half: run the callbacks
+			in registration order at every boundary the adapter DOES own
+			(`flush`/`transaction` close), repeating while a pass wrote, under a
+			round cap.
+
+			What it therefore does NOT offer is the half that produces the win: a
+			settle write cannot join "the flush that caused it", because on this
+			substrate every write is already its own propagation. Recorded here and
+			scored by the conformance suite rather than claimed — the rubric's
+			whole point is that a candidate says what it cannot do. ]]
+		settle = function(_self, run: () -> ())
+			counts.settles += 1
+			local record = { fn = run, disposed = false }
+			table.insert(settles, record)
+			return function()
+				if record.disposed then
+					return
+				end
+				record.disposed = true
+				counts.settles -= 1
+				local kept: { any } = {}
+				for _, s in settles do
+					if not s.disposed then
+						table.insert(kept, s)
+					end
+				end
+				settles = kept
+			end
+		end,
+
 		transaction = function(_self, body: () -> ())
 			-- Fusion has no write batching; the body runs as individual writes
 			-- (conformance records observer fire counts)
 			local ok, err = pcall(body)
+			runSettles()
 			if not ok then
 				error(err, 0)
 			end
@@ -190,7 +252,9 @@ function FusionAdapter.new()
 			-- Fusion propagates eagerly through its external scheduler; the
 			-- host steps it (LuneExternal). Nothing to do here beyond letting
 			-- deferred observer callbacks drain, which the test harness's
-			-- provider does synchronously.
+			-- provider does synchronously — and running the settle phase, which
+			-- is the only boundary this adapter owns.
+			runSettles()
 		end,
 
 		scope = function(_self, label: string?)

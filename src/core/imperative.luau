@@ -22,7 +22,7 @@ end
 local Imperative = {}
 
 function Imperative.new()
-	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0 }
+	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0, settles = 0 }
 	local lastError: string? = nil
 	local newScope = scope_impl.factory(counts, function(message: string)
 		lastError = message
@@ -33,6 +33,10 @@ function Imperative.new()
 	local memos: { any } = {} -- creation order; recompute-all per commit
 	local signals: { any } = {}
 	local effects: { any } = {}
+	-- settle callbacks in registration order (contract: "a flush SETTLES before
+	-- it ends"). The baseline has a real commit loop, so it can implement the
+	-- phase honestly rather than approximate it.
+	local settles: { any } = {}
 	local commit
 
 	local function fail(message: string)
@@ -52,59 +56,110 @@ function Imperative.new()
 		end
 	end
 
+	local commitRounds = 0
+	local commitCapped = false
+	local function commitRound()
+		dirty = false
+		-- 1. recompute every live memo in creation order
+		for _, memo in memos do
+			if not memo.disposed then
+				local ok, result = pcall(memo.compute, useRead)
+				if ok then
+					if not memo.eq(memo.value, result) then
+						memo.value = result
+						memo.changed = true
+					end
+				else
+					fail(tostring(result))
+				end
+			end
+		end
+		-- 2. fire observers of changed nodes: signals flagged at write,
+		-- then memos, so derived views observe after their sources
+		for _, signal in signals do
+			if signal.changed and not signal.disposed then
+				signal.changed = false
+				fireObservers(signal)
+			end
+		end
+		for _, memo in memos do
+			if memo.changed and not memo.disposed then
+				memo.changed = false
+				fireObservers(memo)
+			end
+		end
+		-- 3. run every live effect (baseline has no dep tracking); their
+		-- writes set `dirty` and run another round
+		for _, effect in effects do
+			if not effect.disposed then
+				local ok, err = pcall(effect.fn, useRead)
+				if not ok then
+					fail(tostring(err))
+				end
+			end
+		end
+	end
+
+	-- the settle phase (contract: "a flush SETTLES before it ends"). Same shape
+	-- as src/core/custom.luau's: propagation to quiescence, then terminal work in
+	-- registration order, restarting the pass after any write so every callback
+	-- sees every publication, all under the one round cap.
 	commit = function()
 		if committing then
 			return
 		end
 		committing = true
-		local rounds = 0
-		while dirty do
-			rounds += 1
-			if rounds > COMMIT_ROUND_CAP then
-				fail(`imperative: commit exceeded {COMMIT_ROUND_CAP} rounds (effect feedback loop?)`)
-				dirty = false
+		commitRounds = 0
+		commitCapped = false
+		local function overCap(): boolean
+			if commitRounds <= COMMIT_ROUND_CAP then
+				return false
+			end
+			fail(`imperative: commit exceeded {COMMIT_ROUND_CAP} rounds (effect or settle feedback loop?)`)
+			dirty = false
+			commitCapped = true
+			return true
+		end
+		while true do
+			while dirty do
+				commitRounds += 1
+				if overCap() then
+					break
+				end
+				commitRound()
+			end
+			if commitCapped or #settles == 0 then
 				break
 			end
-			dirty = false
-			-- 1. recompute every live memo in creation order
-			for _, memo in memos do
-				if not memo.disposed then
-					local ok, result = pcall(memo.compute, useRead)
-					if ok then
-						if not memo.eq(memo.value, result) then
-							memo.value = result
-							memo.changed = true
-						end
-					else
-						fail(tostring(result))
-					end
-				end
-			end
-			-- 2. fire observers of changed nodes: signals flagged at write,
-			-- then memos, so derived views observe after their sources
-			for _, signal in signals do
-				if signal.changed and not signal.disposed then
-					signal.changed = false
-					fireObservers(signal)
-				end
-			end
-			for _, memo in memos do
-				if memo.changed and not memo.disposed then
-					memo.changed = false
-					fireObservers(memo)
-				end
-			end
-			-- 3. run every live effect (baseline has no dep tracking); their
-			-- writes set `dirty` and run another round
-			for _, effect in effects do
-				if not effect.disposed then
-					local ok, err = pcall(effect.fn, useRead)
+			local wrote = false
+			for i = 1, #settles do
+				local s = settles[i]
+				if s ~= nil and not s.disposed then
+					local ok, err = pcall(s.fn)
 					if not ok then
 						fail(tostring(err))
 					end
+					if dirty then
+						wrote = true
+						break
+					end
 				end
 			end
+			if not wrote then
+				break
+			end
+			commitRounds += 1
+			if overCap() then
+				break
+			end
 		end
+		local kept: { any } = {}
+		for _, s in settles do
+			if not s.disposed then
+				table.insert(kept, s)
+			end
+		end
+		settles = kept
 		committing = false
 	end
 
@@ -224,11 +279,33 @@ function Imperative.new()
 			end
 		end,
 
+		settle = function(_self, run: () -> ())
+			counts.settles += 1
+			local record = { fn = run, disposed = false }
+			table.insert(settles, record)
+			return function()
+				if record.disposed then
+					return
+				end
+				record.disposed = true
+				counts.settles -= 1
+				if not committing then
+					local kept: { any } = {}
+					for _, s in settles do
+						if not s.disposed then
+							table.insert(kept, s)
+						end
+					end
+					settles = kept
+				end
+			end
+		end,
+
 		transaction = function(_self, body: () -> ())
 			txDepth += 1
 			local ok, err = pcall(body)
 			txDepth -= 1
-			if txDepth == 0 and dirty then
+			if txDepth == 0 and (dirty or #settles > 0) then
 				commit()
 			end
 			if not ok then
@@ -237,7 +314,7 @@ function Imperative.new()
 		end,
 
 		flush = function(_self)
-			if dirty then
+			if dirty or #settles > 0 then
 				commit()
 			end
 		end,

@@ -24,6 +24,22 @@
 --     the flush. And a transaction body MUST NOT YIELD: the transaction stays
 --     open across the yield, so every observer in the session waits and any
 --     unrelated write made meanwhile is held with it. Neither is enforced;
+--   * a flush SETTLES before it ends. `settle` registers terminal work — the
+--     expensive, externally-visible half of a change (the shipped case is a
+--     surface's layout solve and the geometry it feeds back to its consumer).
+--     Settle callbacks run after propagation quiesces, in REGISTRATION order;
+--     a callback that writes ends the pass, propagation drains, and the pass
+--     RESTARTS from the first callback, so every settle callback observes every
+--     other one's publication. Passes repeat until one writes nothing, and a
+--     settle pass counts against the same bounded iteration cap — a
+--     measure→publish cycle that will not converge is the same loud error an
+--     effect feedback loop is, never a hang and never a silent frame. Two
+--     obligations follow: a callback MUST be cheap and idempotent when it has
+--     nothing to do (it runs once per pass), and it must not assume it is the
+--     only writer. Settle is NOT an observer: it receives no value, it is not
+--     part of glitch-freedom, and it runs inside the flush — so a top-level
+--     write still returns with all of its consequences applied
+--     (optimization-log L-31, 2026-08-14);
 --   * cycles are reported with their path; failed memos are quarantined;
 --   * every resource is owned by a scope or disposed explicitly; disposal is
 --     reverse-order and idempotent; counters return to baseline.
@@ -63,6 +79,11 @@ export type Counters = {
 	observers: number,
 	effects: number,
 	scopes: number,
+	-- live `settle` registrations. Counted for the same reason every other
+	-- registry is: an un-disposed settle callback is a live reference held by
+	-- the core after its owner is gone, and the neutrality suites are the
+	-- tripwire that catches it.
+	settles: number,
 }
 
 export type Core = {
@@ -73,6 +94,9 @@ export type Core = {
 	observe: <T>(self: Core, source: Readable<T>, onChange: (T) -> ()) -> Unsubscribe,
 	-- effect: tracked run(use) immediately, re-runs post-commit on dep change
 	effect: (self: Core, run: (use: Use) -> ()) -> Unsubscribe,
+	-- settle: untracked terminal work, run after propagation quiesces and
+	-- re-run until the flush stops moving (see the semantics list above)
+	settle: (self: Core, run: () -> ()) -> Unsubscribe,
 	transaction: (self: Core, body: () -> ()) -> (),
 	flush: (self: Core) -> (),
 	scope: (self: Core, label: string?) -> Scope,

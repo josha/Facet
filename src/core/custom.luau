@@ -19,6 +19,9 @@ type Use = contract.Use
 -- Rounds are effect-write generations, not graph depth; 100 permits deep
 -- legitimate effect chains while still catching true feedback loops. Hitting
 -- the cap reports how many writes were discarded (verifier finding 5).
+-- A settle PASS counts as a round too (see flushBody), so a measure→publish
+-- cycle that will not converge is caught by the same bound and reported the
+-- same way — never a hang, never a silent frame.
 local FEEDBACK_ROUND_CAP = 100
 
 type Node = {
@@ -46,7 +49,7 @@ local Custom = {}
 
 function Custom.new()
 	local core: any
-	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0 }
+	local counts = { signals = 0, memos = 0, observers = 0, effects = 0, scopes = 0, settles = 0 }
 	local txDepth = 0
 	local flushing = false
 	local writeSet: { [Node]: boolean } = {}
@@ -55,6 +58,12 @@ function Custom.new()
 	local inEffectRun = false
 	local lastError: string? = nil
 	local observerSeq = 0
+	-- settle callbacks, in REGISTRATION order (see flushBody's settle phase).
+	-- Disposal marks rather than removes, so a callback disposing a sibling can
+	-- never corrupt an iteration in flight; the list is compacted at the end of
+	-- the flush that noticed.
+	local settles: { any } = {}
+	local settlesDirty = false
 
 	local flush -- forward
 
@@ -258,58 +267,170 @@ function Custom.new()
 		flushing = false
 	end
 
-	flushBody = function()
-		local rounds = 0
-		while next(writeSet) ~= nil do
-			rounds += 1
-			if rounds > FEEDBACK_ROUND_CAP then
-				local dropped = 0
-				for _ in writeSet do
-					dropped += 1
-				end
-				fail(
-					`LuauUI: flush exceeded the {FEEDBACK_ROUND_CAP}-round iteration cap (effect feedback loop?); {dropped} pending signal write(s) discarded`
-				)
-				writeSet = {}
-				break
+	--[[ THE SETTLE PHASE (optimization-log L-31, 2026-08-14).
+
+		THE SHAPE IT EXISTS FOR. A surface measures its own geometry and publishes
+		a number derived from it back into the environment, which invalidates the
+		measurement: a dock reserving space under a HUD, a keyboard-avoidance
+		inset, a sticky header, a safe-area publisher. Before this phase existed,
+		the terminal work (the layout solve) ran INSIDE observer dispatch — in the
+		middle of propagation — so a surface committed to a layout before the
+		flush had finished deciding what the environment was, and the consumer's
+		derived write arrived a whole FRAME later and opened a second flush.
+		Measured headless on the general two-surface shape
+		(tools/lune/_probe_settle): 2 reactive flushes and 4 solves per geometry
+		change against 1 and 2 without the round trip, plus one painted frame
+		carrying the wrong number (the content surface's root rect read 655 when
+		`env:batch` returned and 551 after the next refresh). The 2026-08-14
+		device capture priced the same shape at ~4 of 7.12 solves per step.
+
+		WHAT IT IS. Terminal work registers with `core:settle` and runs AFTER
+		propagation quiesces, in registration order. A callback that writes ends
+		the pass immediately: propagation drains, and the pass RESTARTS from the
+		first callback — so every settle callback sees every other one's
+		publication, which is the property that makes a measure→publish cycle
+		converge instead of oscillating between two half-applied views. Passes
+		repeat until one writes nothing.
+
+		WHY THIS IS NOT A SECOND SCHEDULER. It runs inside `flush`, inside the
+		`react` span, inside `flushing = true`: a top-level write still returns
+		with all of its consequences applied, and a `core:transaction` opened by a
+		settle callback still collapses into the flush already in progress
+		(`flush()` no-ops while `flushing`, and the writes stay in `writeSet` for
+		the loop below to drain). Nothing about glitch-freedom moves — settle
+		callbacks are not observers, and observers still see only post-flush
+		values.
+
+		TERMINATION. A settle pass counts as a round against FEEDBACK_ROUND_CAP,
+		so a cycle that will not converge is the same loud quarantined error an
+		effect feedback loop already produced. The alternative — an unbounded
+		loop, or silently dropping the last publication — is the one thing a
+		layout phase must never do.
+
+		THE OBLIGATION ON A CALLBACK. Because a pass restarts after any write, a
+		settle callback runs more than once per flush and MUST be cheap and
+		idempotent when it has nothing to do (the renderer's checks one boolean;
+		the presenter's compares one solve counter). ]]
+	-- ONE generation of propagation: the dirty walk, the memo recomputes, the
+	-- observer notifies and the effect runs that the current `writeSet` causes.
+	-- Hoisted out of `flushBody` (2026-08-14) only so the settle phase below can
+	-- drain propagation from two places without duplicating it; the body is
+	-- unchanged.
+	local function propagateRound()
+		local written = writeSet
+		writeSet = {}
+		local observerQueue: { any } = {}
+		local effectQueue: { any } = {}
+		local seen: { [any]: boolean } = {}
+		for signal in written do
+			if next(signal.observers) ~= nil then
+				table.insert(observerQueue, signal)
 			end
-			local written = writeSet
-			writeSet = {}
-			local observerQueue: { any } = {}
-			local effectQueue: { any } = {}
-			local seen: { [any]: boolean } = {}
-			for signal in written do
-				if next(signal.observers) ~= nil then
-					table.insert(observerQueue, signal)
-				end
-				for sub in signal.subs do
-					collect(sub, observerQueue, effectQueue, seen)
-				end
-			end
-			-- creation order, so a flush is reproducible run to run (see nodeSeq)
-			table.sort(observerQueue, function(x: any, y: any): boolean
-				return (x.seq or 0) < (y.seq or 0)
-			end)
-			for _, node in observerQueue do
-				if node.kind == "memo" then
-					local pullOk, pullErr = pcall(pull, node)
-					if not pullOk then
-						fail(tostring(pullErr))
-					end
-				end
-				if not node.disposed then
-					-- belt over safeEq: NOTHING inside notify may unwind the
-					-- flush loop and strand flushing=true (phase-4 verifier F1)
-					local notifyOk, notifyErr = pcall(notify, node)
-					if not notifyOk then
-						fail(tostring(notifyErr))
-					end
-				end
-			end
-			for _, effect in effectQueue do
-				runEffect(effect)
+			for sub in signal.subs do
+				collect(sub, observerQueue, effectQueue, seen)
 			end
 		end
+		-- creation order, so a flush is reproducible run to run (see nodeSeq)
+		table.sort(observerQueue, function(x: any, y: any): boolean
+			return (x.seq or 0) < (y.seq or 0)
+		end)
+		for _, node in observerQueue do
+			if node.kind == "memo" then
+				local pullOk, pullErr = pcall(pull, node)
+				if not pullOk then
+					fail(tostring(pullErr))
+				end
+			end
+			if not node.disposed then
+				-- belt over safeEq: NOTHING inside notify may unwind the
+				-- flush loop and strand flushing=true (phase-4 verifier F1)
+				local notifyOk, notifyErr = pcall(notify, node)
+				if not notifyOk then
+					fail(tostring(notifyErr))
+				end
+			end
+		end
+		for _, effect in effectQueue do
+			runEffect(effect)
+		end
+	end
+
+	local function compactSettles()
+		if not settlesDirty then
+			return
+		end
+		settlesDirty = false
+		local kept: { any } = {}
+		for _, s in settles do
+			if not s.disposed then
+				table.insert(kept, s)
+			end
+		end
+		settles = kept
+	end
+
+	flushBody = function()
+		local rounds = 0
+		local capped = false
+		-- one wording for both feedback shapes: an effect that keeps writing and
+		-- a measure→publish cycle that will not settle are the same failure
+		local function overCap(): boolean
+			if rounds <= FEEDBACK_ROUND_CAP then
+				return false
+			end
+			local dropped = 0
+			for _ in writeSet do
+				dropped += 1
+			end
+			fail(
+				`LuauUI: flush exceeded the {FEEDBACK_ROUND_CAP}-round iteration cap (effect or settle feedback loop?); {dropped} pending signal write(s) discarded`
+			)
+			writeSet = {}
+			capped = true
+			return true
+		end
+		while true do
+			-- ---- PROPAGATE, to quiescence -------------------------------------
+			while next(writeSet) ~= nil do
+				rounds += 1
+				if overCap() then
+					break
+				end
+				propagateRound()
+			end
+			if capped or #settles == 0 then
+				break
+			end
+			-- ---- SETTLE -------------------------------------------------------
+			local wrote = false
+			-- `#settles` is read ONCE: a callback registering another settle joins
+			-- the next pass, never the one iterating (same rule as an observer
+			-- added mid-flush)
+			for i = 1, #settles do
+				local s = settles[i]
+				if s ~= nil and not s.disposed then
+					-- quarantined like every other user callback (§6.2): a throwing
+					-- settle records lastError and must never unwind the flush loop
+					-- and strand flushing=true
+					local ok, err = pcall(s.fn)
+					if not ok then
+						fail(tostring(err))
+					end
+					if next(writeSet) ~= nil then
+						wrote = true
+						break
+					end
+				end
+			end
+			if not wrote then
+				break
+			end
+			rounds += 1
+			if overCap() then
+				break
+			end
+		end
+		compactSettles()
 	end
 
 	local function makeReadable(node: Node)
@@ -459,6 +580,28 @@ function Custom.new()
 				end
 				effect.deps = {}
 				counts.effects -= 1
+			end
+		end,
+
+		-- terminal work that must not run until the flush has stopped moving:
+		-- see the settle-phase block above `flushBody` for the whole story
+		settle = function(_self, run: () -> ())
+			counts.settles += 1
+			local record = { fn = run, disposed = false }
+			table.insert(settles, record)
+			return function()
+				if record.disposed then
+					return
+				end
+				record.disposed = true
+				settlesDirty = true
+				counts.settles -= 1
+				-- a disposal DURING a flush only marks; the list is compacted at
+				-- the end of that flush, so an iteration in flight cannot be
+				-- corrupted by a callback disposing itself or a sibling
+				if not flushing then
+					compactSettles()
+				end
 			end
 		end,
 

@@ -252,6 +252,124 @@ local checks: { Check } = {
 		end,
 	},
 	{
+		--[[ THE SETTLE PHASE (contract "a flush SETTLES before it ends";
+			optimization-log L-31, 2026-08-14). The shipped consumer is a
+			measure→publish cycle: a surface solves, measures itself, and publishes
+			a number derived from that measurement back into the environment, where
+			another surface consumes it. Before the phase existed the publication
+			landed a FRAME later and opened a second flush — 2 flushes and 4 solves
+			per geometry change where 1 and 2 would do.
+
+			This case is that cycle in miniature, with no UI in it: `produce`
+			settles by writing what it "measured", `consume` settles by recording
+			what it saw. The property is that ONE top-level write leaves the whole
+			cycle settled — `consume` must have seen the published value by the time
+			`set` returns, not on some later flush. ]]
+		name = "settle-runs-after-propagation-and-converges-in-one-flush",
+		requirement = "UI-RUNTIME-003",
+		run = function(core)
+			local viewport = core:signal(100)
+			local published = core:signal(0)
+			local seen: { number } = {}
+			local produced = 0
+			-- the PRODUCER: measures the viewport, publishes a derived number
+			core:settle(function()
+				local want = viewport:get() // 10
+				if published:get() ~= want then
+					produced += 1
+					published:set(want)
+				end
+			end)
+			-- the CONSUMER: terminal work that must see the settled publication
+			core:settle(function()
+				local v = published:get()
+				if seen[#seen] ~= v then
+					table.insert(seen, v)
+				end
+			end)
+			viewport:set(250)
+			if published:get() ~= 25 then
+				return false, `producer never settled (published={published:get()})`
+			end
+			-- the whole point: the consumer saw the SETTLED value inside the flush
+			-- the write opened, not a frame later
+			if seen[#seen] ~= 25 then
+				return false, `consumer did not see the published value in the same flush (saw {tostring(seen[#seen])})`
+			end
+			-- ...and it converged: the producer published once, not once per pass
+			if produced ~= 1 then
+				return false, `producer published {produced} times for one change (should converge to 1)`
+			end
+			if core:lastError() ~= nil then
+				return false, `unexpected error: {core:lastError()}`
+			end
+			return true, nil
+		end,
+	},
+	{
+		--[[ The negative control for the case above. Convergence is only a
+			guarantee if non-convergence is an ERROR: an unbounded settle loop
+			would hang the frame, and silently dropping the last publication would
+			paint a number nothing settled. Same bound, same diagnosis as an effect
+			feedback loop. ]]
+		name = "settle-that-never-converges-hits-the-iteration-cap",
+		requirement = "UI-RUNTIME-003",
+		run = function(core)
+			local s = core:signal(0)
+			local passes = 0
+			core:settle(function()
+				passes += 1
+				s:set(passes) -- a publication that always moves: never settles
+			end)
+			s:set(-1)
+			core:flush()
+			if passes <= 1 then
+				return false, `settle phase never re-ran (passes={passes})`
+			end
+			if passes > 500 then
+				return false, `settle phase ran unbounded ({passes} passes)`
+			end
+			if core:lastError() == nil then
+				return false, "runaway settle loop not capped/diagnosed"
+			end
+			return true, nil
+		end,
+	},
+	{
+		--[[ A settle registration is a live reference the core holds to its
+			registrant. Un-disposed, it outlives the surface it belongs to and
+			keeps running — which is why it is COUNTED, and why the neutrality
+			suites (tests/lib/fault_scenarios.luau assertBaseline) can see it. ]]
+		name = "settle-unsubscribe-is-idempotent-and-counter-neutral",
+		requirement = "UI-LIFE-002",
+		run = function(core)
+			local baseline = (core:counters() :: any).settles
+			local ran = 0
+			local scope = core:scope("settle")
+			local stop = scope:own(core:settle(function()
+				ran += 1
+			end))
+			if (core:counters() :: any).settles ~= baseline + 1 then
+				return false, "settle registration not counted"
+			end
+			core:flush()
+			if ran == 0 then
+				return false, "settle callback never ran"
+			end
+			local after = ran
+			scope:dispose()
+			stop() -- second disposal: must be a no-op, never a double-decrement
+			if (core:counters() :: any).settles ~= baseline then
+				return false, `settle counter off after dispose: {(core:counters() :: any).settles} vs {baseline}`
+			end
+			core:flush()
+			if ran ~= after then
+				return false, "a disposed settle callback still ran"
+			end
+			return true, nil
+		end,
+	},
+	{
 		name = "memo-error-quarantined",
 		requirement = "UI-RUNTIME-003",
 		run = function(core)
