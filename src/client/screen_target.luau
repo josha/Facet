@@ -2191,6 +2191,42 @@ function screen_target.new(opts: Opts?)
 			handle.path2d = path2d
 		end
 		if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+			--[[ AUTOLOCALIZE OFF, AND IT IS THE LARGEST DEVICE WIN THIS ROUND FOUND.
+
+				MEASURED on a physical device (Samsung Galaxy A10e, Android 11,
+				Release 734) in the first MicroProfiler capture that ever contained
+				LuauUI's solver scopes, 2026-08-13:
+
+				  LocalizationService::attemptLocalization  64 calls, 39.54 ms
+				  ...its parent, in ALL 64 cases                LuauUI/mount
+				  per call                                     0.6178 ms mean, 2.52 worst
+				  share of LuauUI/mount inclusive              25.1%
+				  share of ALL LuauUI CPU in the capture        8.9%
+				  of which Stat::send TELEMETRY                21.90 ms — 55%
+
+				The engine runs `attemptLocalization` when a `TextLabel`/`TextButton`
+				with `AutoLocalize = true` (the default) is parented or has its text
+				set, and more than half of what it costs on this hardware is
+				telemetry the game gets nothing from. Nothing in `src/` had ever
+				touched the property — `grep -rn "AutoLocalize" src/` returned
+				nothing — so every text instance LuauUI has ever created has paid it.
+
+				WHY IT IS SAFE TO DEFAULT OFF HERE. LuauUI owns its own text
+				pipeline: every string a consumer sets arrives through the blueprint
+				and is measured by `text_metrics` before the engine ever sees it. A
+				game that wants Roblox's `LocalizationTable` path can re-enable it on
+				its own surfaces; a framework that measures text itself should not be
+				paying a translation lookup, and a per-instance write is the only
+				place the decision can be made once.
+
+				It is a DEFAULT, not a lock: the property is left writable, and this
+				runs at creation before any consumer prop is applied.
+
+				This is invisible in Studio — an M4 executes the same telemetry path
+				one to two orders of magnitude faster, which is exactly why it
+				survived every green suite and every Studio session until a phone
+				was profiled. ]]
+			instance.AutoLocalize = false
 			-- default only; a declared `textAlign` arrives through setProp, which the
 			-- renderer calls for every style prop at creation and on every change
 			instance.TextXAlignment = Enum.TextXAlignment.Left
