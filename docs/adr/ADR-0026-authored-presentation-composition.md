@@ -281,6 +281,15 @@ shape here:
   author meets it without warning.
 - **`opacity` is not offered on a leaf** (Decision 4). The spelling is one `UI.ZStack` wrap, and the
   parity doc, `api.md` and the guide all say so in the same words.
+- **A HAND-OFF, not a decision here: an authored `opacity` is a fact any future
+  cross-surface overlap diagnostic must read.** A separate question is open (2026-08-14) about
+  detecting that two independently-mounted surfaces cover each other — a HUD under a debug
+  overlay, which ADR-0025's collision alarm cannot see because it works *within* one
+  composition. That is not this ADR's business and is not stretched to cover it. But whoever
+  takes it inherits a new fact from this one: **a node or surface at `opacity = 0` occupies its
+  box and covers nothing visible**, so a diagnostic that keys on geometry alone would report a
+  collision a player cannot see. `opacity` belongs beside `hidden` in whatever "this is not
+  covering anything" set that diagnostic ends up reading.
 - **A `drawingGroup`-style rasterization is still not on offer.** Declaring an opacity buys grouped
   alpha and a render buffer, never a cached bitmap — the half of [SW-134] the `canvasGroup` row
   already records as missing.
