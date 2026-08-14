@@ -2849,6 +2849,92 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		local leadingWidthProps = buildWidthProps(leadingNaturals, revealFracs.leading, leadingActions or {})
 		local trailingWidthProps = buildWidthProps(trailingNaturals, revealFracs.trailing, trailingActions or {})
 
+		--[[ THE PLATE'S OWN PADDING IS SPENT AT THE REVEAL FRACTION TOO — and this
+			is the half of the close-flight overflow that `REVEAL_EPS` did NOT fix
+			(director device round 2026-08-13: the plates "go past the end of the
+			rows, overlap, and then pop out").
+
+			MEASURED, LIVE, IN STUDIO — not deduced. Glossy Touch, `row-actions`,
+			the VirtualList surface, per frame through the close flight. The plate
+			LAYOUT rects are flush the whole way down, exactly as the headless sweep
+			says (`plateR == rootR == 700` on every frame). What is painted is not:
+
+			    plate w26 -> LuauUIChrome [674..700]   (flush)
+			    plate w16 -> LuauUIChrome [684..700]   (flush — the crossover)
+			    plate w13 -> LuauUIChrome [684..703]   ( +3 past the row)
+			    plate  w8 -> LuauUIChrome [684..708]   ( +8 past the row)
+			    plate  w4 -> LuauUIChrome [684..712]   (+12 past the row)
+
+			...and at w4 the two plates' decorations are [680..708] and [684..712]:
+			24 of their 28px overlap each other. Then the tray unmounts. Past the
+			end, overlapping, popping out — the three symptoms, in order.
+
+			THE MECHANISM IS AN ENGINE RULE, WHICH IS WHY NO SOLVER CAN SEE IT.
+			`screen_chrome.luau`'s `applyFullBleed` makes a decoration cover its
+			host's OWN box rather than the host's content box, by cancelling the
+			host's `UIPadding`: `Position = (0, -left)`, `Size = (1, left + right)`.
+			That cancellation is only an identity while the host is WIDER than its
+			own padding. Below that the padded content box inverts, and Roblox
+			normalizes an inverted box by absolute value, so the compensation stops
+			cancelling and starts INFLATING. Confirmed by a controlled probe with no
+			LuauUI in it at all — a bare Frame, `UIPadding(8,8)`, one child at
+			`(0,-8)`/`(1,+16)`, host width swept 40 -> 0 (12/12 exact):
+
+			    painted = if left + right <= w then w else 2 * (left + right) - w
+
+			With `buttonPad` 8 a side, that is `32 - w` for every plate under 16px —
+			a decoration that GROWS as its plate shrinks, centred on the plate, so
+			half the growth goes out past the band's right edge, which is the row's
+			right edge. The list clips at +25px, so all 12px of it is on screen.
+
+			THE FIX IS TO REMOVE THE LAST UNSCALED TERM IN THE BAND. Every other
+			quantity in this tray is already spent at the reveal fraction — the
+			plate widths above, the inter-plate gap and the band's row-facing
+			gutter below — for the one reason this file keeps restating: the tray
+			uncovered has to be the tray drawn. The plate's own interior padding was
+			the one thing still being paid in full at every width, and it is exactly
+			the term `applyFullBleed` compensates for. Spent at the fraction, `left +
+			right` shrinks with the plate it sits in, the precondition holds at every
+			width, and the decoration is the plate again.
+
+			IT MOVES NO LAYOUT. The padding lives INSIDE a `{ type = "fixed" }`
+			plate, so it never contributed to the plate's width, the band's width or
+			the row's travel; at `frac == 1` it is `buttonPad`, byte-identical to
+			what shipped. The only thing that changes is what gets painted.
+
+			THE `math.min` IS THE INVARIANT, NOT A GUARD. Deriving the padding from
+			the same fraction makes `left + right <= w` true for every fraction a
+			`buttonMinWidth` of 64 against a `buttonPad` of 8 can produce, but that
+			is an inequality argument about two theme metrics a package is free to
+			re-tune. Clamping to half the plate's OWN drawn width makes it true by
+			construction, for any package, at any width. ]]
+		local function buildPadProps(widthProps: { [string]: any }, fracSig: any, actions: { ActionSpec })
+			local props: { [string]: any } = {}
+			for _, action in actions do
+				local widthProp = widthProps[action.id]
+				props[action.id] = scope:own(core:memo(function(use)
+					local pad = use(buttonPadPx)
+					-- NO MOTION AUTHORITY is a static tray at its natural size (the
+					-- same branch, for the same reason, as `buildWidthProps` above):
+					-- there is no reveal fraction to spend, and the plate is never
+					-- painted narrower than `buttonMinWidth`, so full padding is
+					-- both correct and safe.
+					if not use(motionBound) then
+						return { left = pad, right = pad }
+					end
+					local spent = math.floor(pad * use(fracSig) + 0.5)
+					local w = use(widthProp)
+					if type(w) == "table" and w.type == "fixed" and type(w.px) == "number" then
+						spent = math.min(spent, math.floor(w.px / 2))
+					end
+					return { left = spent, right = spent }
+				end))
+			end
+			return props
+		end
+		local leadingPadProps = buildPadProps(leadingWidthProps, revealFracs.leading, leadingActions or {})
+		local trailingPadProps = buildPadProps(trailingWidthProps, revealFracs.trailing, trailingActions or {})
+
 		-- the band's row-facing padding and its inter-plate gap, ONE live memo each
 		-- per edge, built HERE for the identical reuse-not-leak reason as the
 		-- naturals and the width props above: `buildTray` runs inside a lazy `When`
@@ -2878,6 +2964,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 
 		local function buildTray(edge: Edge, actions: { ActionSpec })
 			local widthProps = if edge == "leading" then leadingWidthProps else trailingWidthProps
+			local padProps = if edge == "leading" then leadingPadProps else trailingPadProps
 			local buttons = {}
 			for _, action in actions do
 				table.insert(
@@ -2905,7 +2992,10 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 						role = if action.role == "destructive" then "destructive" else "default",
 						width = widthProps[action.id],
 						height = { type = "fill" },
-						padding = { left = BUTTON_PAD, right = BUTTON_PAD },
+						-- spent at the reveal fraction, never more than half the
+						-- plate's own drawn width — see `buildPadProps` above for the
+						-- live measurement and the engine rule behind it
+						padding = padProps[action.id],
 					})
 				)
 			end

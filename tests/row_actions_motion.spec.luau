@@ -772,3 +772,117 @@ describe("RowActions flight — reduced motion", function()
 		expect(#w.diagnostics()).toBe(0)
 	end)
 end)
+
+describe("RowActions flight — the plate's DECORATION never paints past the band", function()
+	--[[ THE CLOSE-FLIGHT OVERFLOW (director device round 2026-08-13, second half):
+		the plates "go past the end of the rows, overlap, and then pop out".
+
+		`REVEAL_EPS` closed the "pop out" half. This is the "past the end" half, and
+		it is a defect NO rect assertion in this file could ever have caught, because
+		every rect involved is flush. Measured live in Studio, Glossy Touch, per
+		frame through the close flight — plate LAYOUT rect vs what the engine
+		actually painted for its `LuauUIChrome` decoration:
+
+		    plate w26 -> chrome [674..700]   flush
+		    plate w16 -> chrome [684..700]   flush (the crossover)
+		    plate w13 -> chrome [684..703]   +3 past the row's right edge
+		    plate  w8 -> chrome [684..708]   +8
+		    plate  w4 -> chrome [684..712]  +12, and 24 of its 28px overlapping
+		                                    its neighbour's decoration
+
+		WHY: `screen_chrome.luau`'s `applyFullBleed` makes a decoration cover its
+		host's OWN box rather than its content box, by cancelling the host's
+		`UIPadding` — `Position = (0, -left)`, `Size = (1, left + right)`. That is an
+		identity only while the host is wider than its own padding. Below that the
+		padded content box inverts and Roblox normalizes it by absolute value, so the
+		compensation inflates instead of cancelling. Verified with a controlled probe
+		containing no LuauUI at all (bare Frame + `UIPadding(8,8)` + one child at
+		`(0,-8)`/`(1,+16)`, width swept 40 -> 0, 12/12 exact):
+
+		    painted = if left + right <= w then w else 2 * (left + right) - w
+
+		THAT RULE IS WHAT THIS CASE CARRIES. The headless world models layout, not
+		the engine's inverted-box normalization, so it cannot observe the overhang
+		directly — but the rule above is measured, total, and depends on nothing but
+		two numbers this file can already read: the plate's drawn width and the
+		padding the control asks the adapter to write on it. Applying it to the
+		recorded flight is the difference between a check that bites and a check that
+		restates the layout that was already flush.
+
+		BITES: with `padding = { left = BUTTON_PAD, right = BUTTON_PAD }` restored on
+		the tray button, this fails on the close flight with a painted decoration
+		28px wide inside a 4px plate. ]]
+	local function paintedWidth(w: number, pad: number): number
+		-- the engine rule, measured (see above)
+		if pad * 2 <= w then
+			return w
+		end
+		return 2 * (pad * 2) - w
+	end
+
+	it("no plate's decoration is ever wider than the plate, on any frame of open or close", function()
+		local fired: { string } = {}
+		local w = flight(function(core)
+			return twoActionRow(core, fired)
+		end)
+
+		local worstOverhang, worstDetail = 0, ""
+		local narrowest = math.huge
+		local sampled = 0
+		-- the trace records BANDS; this needs each plate's own box and the padding
+		-- the control asks the adapter to write onto it, so it samples the adapter
+		-- directly, once per stepped frame
+		local function sample()
+			for _, id in { "delete", "flag" } do
+				local node = w.adapter.node(`{TRAY_TRAILING}/Action:{id}`)
+				if node ~= nil and node.rect ~= nil and node.rect.w > 0 then
+					local pad = if node.props ~= nil then node.props.padding else nil
+					local left = if type(pad) == "table" then pad.left else pad
+					if type(left) == "number" then
+						sampled += 1
+						narrowest = math.min(narrowest, node.rect.w)
+						local painted = paintedWidth(node.rect.w, left)
+						if painted - node.rect.w > worstOverhang * 2 then
+							worstOverhang = (painted - node.rect.w) / 2
+							worstDetail = `{id} plate w={string.format("%.2f", node.rect.w)} `
+								.. `pad={string.format("%.2f", left)} painted={string.format("%.2f", painted)}`
+						end
+					end
+				end
+			end
+		end
+
+		-- open, let it settle, then close and ride the whole return flight down
+		w.ra._open("trailing")
+		for _ = 1, 40 do
+			w.step()
+			sample()
+		end
+		w.ra._close()
+		for _ = 1, 60 do
+			w.step()
+			sample()
+		end
+
+		--[[ THE ANTI-VACUITY GUARD, and this one is load-bearing (the house rule in
+			this file's C9a case). `worstOverhang` only moves up from 0, so a flight
+			in which no plate was ever narrow enough to invert its own padding would
+			pass this trivially — and the defect lives ENTIRELY in the last few
+			frames, where the plates are single-digit pixels wide. So the flight has
+			to be proved to have reached that regime. Instrumented on the real run:
+			the narrowest plate painted on the close flight is a few px. ]]
+		if sampled < 50 then
+			error(`the flight never sampled a mounted plate: {sampled} samples over 100 frames`, 0)
+		end
+		if narrowest > 8 then
+			error(
+				`the close flight never squeezed a plate below 8px — narrowest was `
+					.. `{string.format("%.2f", narrowest)}px. The overhang this case is about only exists `
+					.. `where the plate is narrower than its own padding, so a flight that never gets there `
+					.. `passes vacuously.`,
+				0
+			)
+		end
+		expect(`overhang: {string.format("%.2f", worstOverhang)}px {worstDetail}`).toBe("overhang: 0.00px ")
+	end)
+end)
