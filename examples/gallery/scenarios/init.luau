@@ -89,6 +89,14 @@ local ORDER = {
 	-- `onDisappear` produce no pixels at all, so the fixture gives them a live
 	-- event log and two counters that never reset.
 	"lifecycle_hidden",
+	-- ...and item C: the PER-ROW CAPABILITY OPT-OUTS (`rowSelectable`,
+	-- `rowMovable`, `rowDeletable`). One table, five rows, three of which refuse
+	-- exactly one of the three things the other two allow — and because a refusal
+	-- is an ABSENCE (the tap does nothing, the row does not move), the fixture
+	-- puts the framework's own question on screen: the live line is written from
+	-- inside the three predicates, at the instant each is asked. Also in
+	-- `demo_picker.DEMOS`.
+	"row_capabilities",
 }
 
 local scenarios = {}

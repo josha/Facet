@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the six fixtures", function()
+	it("lists every tutorial example plus the eight fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(13)
+		expect(#demos).toBe(15)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -50,7 +50,12 @@ describe("showcase catalogue", function()
 			expect(#d.module > 0).toBe(true)
 		end
 		expect(examples).toBe(7)
-		expect(fixtures).toBe(6)
+		-- EIGHT since 2026-08-14, and the two additions are one rule being paid
+		-- twice: `lifecycle-hidden` (round 3's O-15 — the scenario shipped into
+		-- ORDER and the sweep on 2026-08-13 and never entered this list, so it was
+		-- reachable by workspace attribute and by nothing a player can do) and
+		-- `row-capabilities`, the per-row opt-out family's own surface.
+		expect(fixtures).toBe(8)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -497,7 +502,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(6)
+		expect(fixtures).toBe(8)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

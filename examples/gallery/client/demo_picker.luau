@@ -149,6 +149,31 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "flow_wrap",
 	},
+	-- the seventh and eighth fixtures, and both are here for the reason the five
+	-- above them are: what they demonstrate is a DIFFERENCE between two states of
+	-- the same content, which a still screenshot flattens into one picture. The
+	-- lifecycle pair is one switch driving two badges (only one caption moves);
+	-- the opt-out family is five identical rows of which three refuse something,
+	-- and a refusal is an absence until something says who refused.
+	--
+	-- `lifecycle-hidden` closes round 3's O-15: `lifecycle_hidden` shipped into
+	-- `scenarios/init.luau` ORDER on 2026-08-13 and was left out of this list
+	-- because this file belonged to a concurrent agent that day, which made it
+	-- selectable by workspace attribute and unreachable in-experience.
+	{
+		id = "lifecycle-hidden",
+		title = "Lifecycle & hidden",
+		blurb = "One switch, two badges: the slot that stays and the events you cannot see",
+		kind = "fixture",
+		module = "lifecycle_hidden",
+	},
+	{
+		id = "row-capabilities",
+		title = "Rows that say no",
+		blurb = "Five rows, one table: pinned, protected and locked — and who refused",
+		kind = "fixture",
+		module = "row_capabilities",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

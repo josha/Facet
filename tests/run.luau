@@ -355,6 +355,11 @@ require("./row_actions_state.spec")
 -- row actions: the newRowActions composite skeleton (spec, lazy trays, static reveal)
 require("./row_actions.spec")
 require("./row_capability_optouts.spec")
+-- ...and the SHOWCASE surface for that family (parity round 3 item C, standing
+-- rule 4): the fixture a player opens, its three refusals driven through a real
+-- tap / a real swipe / the public move funnel, the live line that says WHO
+-- refused, and the geometry under every shipped theme and a 1.4x pseudo-locale
+require("./row_capabilities_scenario.spec")
 -- row actions: the mouse gesture (axis lock, live drag, flick velocity, full-swipe commit)
 require("./row_actions_input.spec")
 -- row actions: HOSTED mode (perf mission Task 2) — `buildHosted`, the same

@@ -196,6 +196,12 @@ local SCENARIOS = {
 	-- the two in both states — so a package whose chip face outgrows the page is
 	-- caught here rather than on somebody's phone
 	"lifecycle_hidden",
+	-- ...and item C: the per-row opt-out showcase. A Table whose row height the
+	-- FRAMEWORK derives (no `rowHeight` declared, deliberately) sitting under a
+	-- page that scrolls, with a toolbar that wraps — three things whose whole
+	-- failure mode is a viewport, which makes the swept cross product the direct
+	-- test of the packaging rather than a check on it
+	"row_capabilities",
 }
 
 local EXAMPLES = {
