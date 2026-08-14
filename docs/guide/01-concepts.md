@@ -369,6 +369,51 @@ and therefore coarse: when the answer must depend on the space a particular
 container really got, measure it — that is what `UI.Composition` and
 `UI.ViewThatFits` are for.
 
+### When a row is simply too long: `wrap`
+
+The three primitives above all *choose*: a different axis, a different candidate,
+a different arrangement. Sometimes there is nothing to choose — you have fourteen
+tags, or nine filter chips, and they just do not fit across the screen. For that
+there is one word:
+
+```lua
+UI.HStack{ id = "Tags", wrap = true, gap = 6, children = tags }
+```
+
+**In plain terms:** a normal `UI.HStack` is one line. It puts its children across,
+side by side, and if they run past the edge they run past the edge — the row
+paints outside its own box and the solver complains about it. With `wrap = true`
+it behaves like a paragraph of text instead: it fills a line, and when the next
+child will not fit it starts a **new line** underneath, as many times as it
+needs. A `UI.VStack{ wrap = true }` does the same thing sideways — it fills a
+column, then starts a new column beside it.
+
+Three things follow, and none of them is a new idea to learn:
+
+- **it adds no new words.** `align` still says where things sit on the cross axis
+  — it just now moves the whole *block* of lines rather than one line. `lineAlign`
+  on a child still says where that child sits inside its own line. `distribute`
+  still spreads the leftover along the main axis, now per line. And one `gap`
+  spaces both the children and the lines, exactly as Roblox's own `UIListLayout`
+  does;
+- **each line is as tall as its tallest child**, so a ragged row of chips does not
+  reserve the tallest chip's height for every line;
+- **it is a prop, not a class.** So you can *bind* it — `wrap = conditions.compact`
+  wraps the row on a phone and keeps it on one line on a desktop, and the flip
+  re-arranges the same nodes rather than rebuilding them. Nothing loses its focus,
+  its scroll position or its in-flight animation.
+
+One rule to know before you meet it: `align = "stretch"` is **refused** on a
+wrapping stack. On a one-line stack it means "each child fills the line's cross
+axis"; on a wrapping one it could just as easily mean "the lines grow to fill the
+container", and a word that means two things is a bug waiting to be written. Put
+`lineAlign = "stretch"` on the children that should fill their line instead.
+
+If a single child is wider than the whole line it gets a line to itself and is
+clamped to the line — and the solver says so on `controller.diagnostics()`, along
+with the case where you have more lines than the box is tall. Wrapping removes
+the main-axis overflow; it does not remove the need to have room.
+
 With these concepts in hand, [chapter 2](02-architecture.md) shows how the
 modules fit together, or [chapter 3](03-getting-started.md) jumps straight to a
 working screen.

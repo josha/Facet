@@ -915,3 +915,235 @@ rider in Rascal Rally's `tests/luauui_sponsor_results.spec.luau`, which asserts
 the bar's three registry cells directly (mutating `bar.valueLabel` to `false`
 reddens that one case and nothing else; mutating `bar.hasTrack` reddens 388,
 because the rally bar stops presenting).
+
+---
+
+## Item A shipped — flow-wrap, as one prop and no new alignment words
+
+Built 2026-08-13 against the Phase 0 verdict above, which is not re-litigated here:
+flow-wrap is a **native arrange branch**, the public `Layout` protocol stays a
+conditional refusal with a trigger, and the engine's cross-axis rule is a measured
+fact rather than a divergence LuauUI has to own. This section records the five
+decisions the verdict left open, the two things it got wrong, and the evidence.
+
+### A.1 The prop, and why it is a prop
+
+**`wrap` is a boolean prop on `UI.HStack` and `UI.VStack`.** Not a class, and not
+on any other container.
+
+The kind ladder (`docs/reference/constitution.md` §1) asks whether the thing
+"needs its own layout/paint/input semantics an existing class cannot compose". A
+wrapping stack has the same children, the same paint (none), the same input
+(none), the same `gap`, the same `align`, the same `lineAlign` and the same
+`distribute` as the stack it is a mode of. **One boolean is the entire
+difference**, which is standing rule 2's "a two-member union with a comment beats
+a registry" at the smallest possible scale.
+
+The decisive argument is not economy, it is the remount. `AdaptiveStack` exists
+because swapping `UI.VStack` for `UI.HStack` through a `When` "would remount every
+child and lose their state on a viewport flip" (`blueprint_schema.luau:1196-1199`).
+A `UI.FlowStack` class would have made *"wrap this row on a phone, keep it on one
+line on a desktop"* — the single most likely use of the feature — exactly that
+remount. `wrap` is reactive (`dirty = { "measure" }`), so the flip is a re-solve
+of the same nodes; `tests/flow_wrap.spec.luau` and the gallery case both assert
+node identity across a flip rather than only the geometry.
+
+**But the SOLVER kind is distinct: `hwrap` / `vwrap`.** One public class, two
+internal kinds — the same prop-decides-kind seam `AdaptiveStack.axis` already
+uses. This is forced, not stylistic: `solver.auditPlacement` is keyed on the
+layout kind, and a wrapping stack reads a **different placement set** from the
+stack it is a mode of (below). There is no way to express "an hstack that wraps
+reads a different set" in a table keyed by kind without a distinct kind.
+
+`Screen` and `AdaptiveStack` deliberately do **not** get `wrap`. A prop only two
+arrange branches read is a prop every other class must refuse (§4), and the schema
+is what refuses it — `UI.ZStack{ wrap = true }` is a construction error. If a
+consumer wants a wrapping `AdaptiveStack`, that is a one-line addition plus its
+own test row, and it should wait for the consumer.
+
+### A.2 The four sub-rules, decided and written down
+
+| Rule | Decision | Where it is enforced |
+|---|---|---|
+| an item wider than its line | it gets a line of its own, is **clamped** to the line, and files a **main-axis** diagnostic naming the child and the pixel count | `arrange`'s wrap branch, under the same `hiddenDepth` gate and reuse replay as the existing overflow message (it files under the STACK's id, so `filedBy` falls back to `d.node` exactly as that one does) |
+| `align = "stretch"` | **refused**, and treated as `start`. It already means "a child fills its line on the cross axis"; letting it also mean "the lines grow to fill the container" is one word meaning two things — the ambiguity `lineAlign` was created to end | **two seams, one rule**: a *literal* stretch is a construction error in `blueprint.luau` (the loudest answer, and `props.align == "stretch"` can only be true of a literal); a *bound* one — `align` is reactive, so this is the only other way it can arrive — is a solver diagnostic with the same wording |
+| composition with `newVirtualList` | **refused.** The virtualizer windows by `index × pitch` and needs a uniform item extent; a wrapped line has ragged extents and a variable items-per-line | already refused, by the closed spec: `newVirtualList{ wrap = … }` is an unknown-field construction error. **Pinned but not perfect — see A.6** |
+| a `fill` child on the main axis | it **takes a whole line to itself**, and is named rather than silently swallowed | found while building, not in the brief. `resolveAxis` can only report CONTENT for a `fill` axis, so a `fill`-width Box would otherwise have entered the partition at **zero** — three of them sharing one line at zero pixels each, invisible and silent |
+
+Two further rules that fell out of the measurement rather than a choice: **one
+`gap` spaces both the items and the lines** (`UIListLayout` has a single
+`Padding`; a `rowGap` on `HStack`/`VStack` would be accepted-and-ignored on every
+stack that does not wrap, which is the §4 violation the placement audit exists to
+end), and **an aspect-ratio child keeps the pair `measure` resolved** rather than
+re-deriving a main extent at arrange time — the partition is a function of the
+measured main extents, so an arrange-time re-derivation would make the two passes
+disagree about the lines.
+
+### A.3 The one new thing this ships that native does not: a cross-axis overflow
+
+**A wrapping stack cannot overflow its main axis — that is what wrapping means.**
+The direction it runs out of room is the **cross** axis, as the lines pile up, and
+**nothing in this repo had ever looked there.** Every overflow message in
+`solver.luau` was a main-axis message, and `tests/overflow_sweep.spec.luau` —
+the always-on sweep over every showcase surface at every viewport — greps for the
+literal string `"on the main axis"`. A wrapping stack on any screen would have
+been structurally invisible to it: the "instrument that cannot bite" class that
+sweep was written to end.
+
+So `arrange` files `"the wrapped lines overflow this <kind> by Npx on the cross
+axis"`, and the sweep now matches **either** axis. That broadening is
+mutation-proved in both directions (A.5): with a swept surface made to overflow on
+the cross axis, the old main-axis-only grep passes it **green** and the new one
+fails it.
+
+It found a real defect immediately. The gallery fixture's alignment panel was a
+200px box reasoned from Studio Neutral's ~36px chip; the nine-package sweep
+reported it overflowing on the cross axis under **four** packages at 320px wide —
+glossy_touch by 33px, fantasy_parchment by 33, fantasy_ornate by 49, pixel_quest
+by 88. That is `docs/lessons/luauui-fixed-px-heights` arriving on schedule, caught
+by an instrument that did not exist an hour earlier.
+
+### A.4 The cache key and the reuse skip: no widening, and here is the sentence
+
+**Verdict: neither the measure memo's key nor the incremental-arrange reuse skip
+needs widening**, because the line partition reads nothing that is not already a
+function of `(node identity, maxW, maxH, hiddenDepth)` — the child main extents
+come from `measure` at the box being partitioned (so they are keyed by that box
+already), `gap` and `align` are fields of the node itself, and the partition
+function reads no ctx, no clock and no ancestor.
+
+The reuse skip's own enumeration argument (`solver.luau:2500-2539`) survives for
+the same reason: "every dimension resolves against the parent's **offer**, which
+the rect carries", and a wrapping stack's lines are a function of its own inner
+box, which its rect carries.
+
+**What *did* need a key is the plan cache itself**, and this is where the mutation
+discipline paid. `flowPlan` is cached on `ctx` keyed by `{innerMain}|{innerCross}|
+{gap}`, exactly as `gridColumnPlan` is. Dropping the box from that key —
+`local key = "constant"` — reddened **nothing** on the first attempt: every
+fixture in the file measured a wrapping stack at the box it was then arranged in,
+so the key was an assertion no test could see. The case that makes it load-bearing
+is a wrapping stack that opts into `shrinkWeight` under a short parent: measured
+at the full offer, squeezed, re-measured at the reduced offer, arranged at the
+reduced offer — three questions, two boxes, one node. With the box in the key it
+reports `100x160` and four lines; without it, it answers the first question three
+times and paints four items side by side out of a box a quarter as wide. That
+case is now `"the plan is keyed by the BOX: a SHRUNK wrapping stack re-breaks its
+lines"`, and the same mutation now reddens it.
+
+### A.5 Every check, mutation-proved
+
+Each mutation asserts its anchor matched **exactly one site** before running —
+the orchestrator's "0 reddened" trap this session was a text surgery that silently
+matched nothing, which is indistinguishable from an uncovered check.
+
+| # | Mutation | Reddened |
+|---|---|---|
+| M1 | the partition never breaks a line (`elseif true`) | **14** cases incl. the fuzz, the measure report, all four probe cases |
+| M2 | a line's cross extent is its FIRST item, not its tallest | **6** incl. "ragged: line 2 starts at 90" |
+| M3 | the block of lines is not aligned (`+ 0`) | **3**: Center, End, and the gallery `align` case |
+| M4 | `flowPlan`'s cache key drops the box | **0 at first** → 1 after A.4's case was added |
+| M5 | an over-wide item is not clamped | 1 |
+| M6 | the over-wide diagnostic is deleted | 1 |
+| M7 | the cross-axis overflow diagnostic is deleted | 1 |
+| M8 | `PLACEMENT_READS` forgets `hwrap`/`vwrap` | 2 (and 1 in Rascal Rally) |
+| M9 | the solver's `stretch` refusal is deleted | 1 |
+| M10 | a `fill` main child no longer takes the line | 1 |
+| M11 | `distribute` is not applied per line | 1 |
+| M12 | the `lineAlign` ladder collapses to the block's word | 2 |
+| M13 | the renderer never produces a wrapping kind | **10**, incl. the sweep and every gallery case |
+| M14 | the construction refusal of a literal `stretch` is deleted | 1 |
+| M15 | schema `wrap` dirties `paint` instead of `measure` | 3, incl. the repo-wide property-parity check |
+| M16 | `wrap` is also declared on `ZStack` | 2 |
+| M17a | a swept surface is made to overflow on the cross axis | **6**, incl. `scenario 'flow_wrap'` in the always-on sweep |
+| M17b | …the same overflow, with the sweep's OLD main-axis-only grep | **0 — green.** The negative control for A.3 |
+| R1 | (Rascal Rally) the framework renderer never wraps | 1 |
+| R2 | (Rascal Rally) a game file starts declaring a layout `wrap` | 1 |
+| R3 | (Rascal Rally) `PLACEMENT_READS` forgets the wrapping kinds | 1 |
+
+### A.6 Performance — `tier 1 (headless Lune, regression signal only)`
+
+**The noise floor, re-measured in this session on a quiet machine** (0 other
+`lune` processes), three identical `tools/perf.sh` runs with no edit between them,
+aggregated as round 2 aggregated (the sum of `phases.total` over all 100
+scene × profile cells; every run `status: PASS`):
+
+| | run 1 | 2 | 3 | spread |
+|---|---|---|---|---|
+| Σ `total.p50_ms` | 39.016 | 38.680 | 39.722 | **2.69 %** |
+| Σ `total.p95_ms` | 64.410 | 64.704 | 67.623 | **4.99 %** |
+
+That is well under Phase 0's 3.78 %/6.03 %, which is consistent with Phase 0's own
+caveat that its floor was taken under five-agent CPU contention. **Phase 0's
+per-scene finding stands and is not re-measured: the median per-cell same-arm p95
+spread is 27.4 %, so no single-scene number is quoted below.**
+
+**The delta**, interleaved B A B A B in one session, against the same-arm floor
+above (medians; A = 5 samples including the floor runs, B = 3):
+
+| | BEFORE | AFTER | delta | floor |
+|---|---|---|---|---|
+| Σ `total.p50_ms` | 39.372 | 39.721 | **+0.89 %** | 2.69 % |
+| Σ `total.p95_ms` | 65.220 | 66.038 | **+1.25 %** | 4.99 % |
+
+**Inside the noise on both aggregates**, and every one of the 100 cells passed its
+budget in all eight runs. The B arm is the four source files at `fba3158^`
+(solver, renderer, schema, blueprint), swapped in and out around each run.
+
+The claim this supports is the narrow one: **not one perf scene contains a
+wrapping stack**, so this measures purely the *off-path* cost — the two string
+comparisons the wrap branch adds to `contentSize` and to `arrange`, on the stack
+fall-through only. It is a regression signal, not a device claim (§14.3), and it
+says the off-path cost is not resolvable by this harness rather than that it is
+zero.
+
+### A.7 What shipped, and what I found and did not fix
+
+`src/layout/solver.luau` (`flowPartition` — pure and exported, `flowPlan` —
+ctx-cached, the `hwrap`/`vwrap` measure and arrange branches, the three new
+diagnostics, and the `PLACEMENT_READS`/`PLACEMENT_BY`/`PLACEMENT_INSTEAD` rows) ·
+`src/blueprint_schema.luau` (`WRAP`) · `src/blueprint.luau` (the typed spec plus
+the literal-`stretch` refusal) · `src/render/renderer.luau` (`toLayoutNode`'s kind
+and the child axis) · `tests/flow_wrap.spec.luau` (**40 cases**) ·
+`examples/gallery/scenarios/flow_wrap.luau`, registered in the scenario `ORDER`,
+`demo_picker.DEMOS` and the always-on `overflow_sweep` list · six new cases in
+`tests/examples_gallery.spec.luau` · `tests/overflow_sweep.spec.luau` taught the
+cross axis · `docs/reference/api.md`, `docs/guide/01-concepts.md` (§1.9, the ELI5
+paragraph), and the three now-false flow-wrap rows in
+`docs/reference/swiftui-parity.md` (§4.1's scorecard, the `Wraps` row, §4.3) ·
+plus `games/RascalRally/code/tests/luauui_flow_wrap_contract.spec.luau` (8 cases).
+
+**Found and NOT fixed, in descending order of how much it would bother me:**
+
+1. **The `newVirtualList` refusal does not name the conflict.** `wrap` there is
+   caught by the closed-spec guard, so the message is the generic *"unknown
+   field"* rather than *"a wrapped line has ragged extents and a variable
+   items-per-line, so `index × pitch` cannot window it"*. Naming it means editing
+   `src/controls/virtual_list.luau`, which this task does not own. The refusal is
+   real and pinned by a test; only the message is generic. **Owed to whoever owns
+   that file.**
+2. **`AdaptiveStack` cannot wrap.** Its `axis` resolves to `hstack`/`vstack` in
+   the same `toLayoutNode` branch, so supporting it is one line plus a schema
+   entry — deliberately not taken, because a prop with no consumer is a prop with
+   no test that means anything. It is refused loudly (schema), not silently.
+3. **The word `wrap` was already taken in this codebase, twice.** A focus
+   NAVIGATION GROUP has had a `wrap` field for as long as groups have existed
+   (`wrap = true` = arrow past the last row and land on the first), and Rascal
+   Rally sets it in two files. The two live in disjoint tables and cannot be
+   confused by the framework — but they can be confused by a reader, and by a
+   naive `grep`. The Rascal Rally contract spec therefore pins the exact set of
+   existing occurrences by path rather than asserting there are none. Renaming
+   either was not considered worth it: both are the universal word for their own
+   idea, and CSS, Roblox and the focus literature all agree with both readings.
+4. **No live Studio canary was taken for this item.** The scenario is registered
+   and driven headlessly at every swept viewport under all nine themes, and the
+   cross-axis rule it reproduces came from a live Studio probe on 2026-08-13 — but
+   the *fixture itself* has not been mounted in Studio under Play. The gate row
+   for A should read **PENDING_PHYSICAL** on the device ledger; `flow_wrap` is the
+   surface to drive.
+5. **Two perf-lab specs were red mid-session and are not mine.**
+   `tests/perf_lab.spec` "refuses a pass the workload does not declare" and "loops
+   ONE pass" failed against an in-flight working-tree edit to
+   `examples/performance/lab/perf_lab.luau` (the orchestrator's file). Both were
+   green again by the final run. Named here so the transcript is not mistaken for
+   a flow-wrap regression.

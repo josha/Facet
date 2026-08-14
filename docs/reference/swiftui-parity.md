@@ -290,7 +290,7 @@ only the smallest enclosing subtree it can affect, not the whole tree.
 | Drag-to-edge autoscroll | **Covered** — no SwiftUI built-in ([SW-10]) | Dragging an item toward a scroller's edge scrolls it, through any nested chain of scrollers, innermost first, falling through when the innermost is pinned | `src/input/autoscroll.luau` |
 | `ScrollView` content virtualization | **Missing** | Every `ScrollView` child is measured and arranged regardless of visibility. Only the dedicated `VirtualList` and `Table` virtualize, and each does so independently — the solver's own comment names exactly those two | `src/layout/solver.luau:245-248` |
 | `LazyVStack` / `LazyHStack` (as `VirtualList`) ([SW-31]) | **Partial** | Windowed rendering of a long collection **on either axis** (`axis = "y" \| "x"`, construction-only), with a configurable gap and a focus policy keyed by item identity or index. **Neither SwiftUI name ships as a constructor** — see §4.2 for the decision and for the variable-extent gap that is the reason. Named divergences: uniform `itemExtent` only, no pinned section headers, no fling/inertia, no scrollbar. `rowActions` are refused at construction on a horizontal list, because there the tray's reveal swipe *is* the scroll gesture | `src/controls/virtual_list.luau:391` (axis), `:181-188,416,457` (naming), `:449` (uniform extent), `:581,2495` (refusal) |
-| Flow-wrap ("as many as fit per line", ragged widths) | **Missing** | Roblox's own `UIListLayout.Wraps` can do this and LuauUI cannot. It is a named gap with its own future mission, not a prop — see §4.3 | zero line-breaking arrange branch in `src/layout/solver.luau` |
+| Flow-wrap ("as many as fit per line", ragged widths) | **Covered** (new, 2026-08-13) — and there is **no SwiftUI equivalent to be parity with** | `UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` — Roblox's `UIListLayout.Wraps`. Apple's symbol index was searched on 2026-08-13 for every node whose title contains "flow" or "wrap" and every hit is `wrappedValue` / `FileWrapper` / `toolbarOverflowMenu`: **SwiftUI ships no flow layout**, and its answer to this shape is "write a custom `Layout`" ([SW-10]). So this row closes a NATIVE gap, not a SwiftUI one. One prop and no new alignment vocabulary — see §4.3 | `src/layout/solver.luau` (`flowPartition`/`flowPlan`, the `hwrap`/`vwrap` measure and arrange branches); `src/blueprint_schema.luau` (`WRAP`); `tests/flow_wrap.spec.luau` |
 | Incremental relayout | **Covered** — no SwiftUI-visible equivalent ([SW-10]) | A changed bound value re-solves only the subtree that can be affected. Measured on the framework's own instrumented surface: 141 arranged nodes down to 8 (~17×) for a one-value change, with zero pixel differences across 185 nodes in an engine-level visual diff. On by default | `src/render/renderer.luau:2442`; `src/present/presenter.luau:2152`; `artifacts/performance-stress-places/optimization-log.md:1017,1020`; `tests/incremental_layout.spec.luau` |
 | A property that is accepted must do something | **Covered** — no SwiftUI or Roblox equivalent ([SW-10]) | The nine placement props (`anchor`, `offsetX`, `offsetY`, `alignH`, `alignV`, `lineAlign`, `gridSpan`, `layoutPriority`, `shrinkWeight`) are legal on every node but read only by particular parent arrange branches. `solver.auditPlacement` reports every (parent kind, prop) pair the parent will never read, through `controller.diagnostics()`, so an inert prop is a complaint instead of a silent wrong result. The read table lives next to the arrange branches it describes, because a copy kept anywhere else goes stale the first time a branch learns a new prop | `src/layout/solver.luau:1919-1930`, `:2079`; `tests/placement_audit.spec.luau`; the twelve cleared call sites and the queue of *unfulfilled* intents: [`unfulfilled-placement-intents.md`](../plans/unfulfilled-placement-intents.md) |
 | Live 3D content inside a laid-out box | **Covered** — no SwiftUI equivalent (Roblox-specific) ([SW-10]) | `UI.Stage` hosts a Roblox `ViewportFrame` inside a solver-owned rectangle, with a pure camera/lighting contract. To the solver it is just another content leaf. Live consumers: a 3D dashboard hero and an avatar mannequin preview (§12) | `src/render/stage_content.luau` (147 lines); `src/client/screen_target.luau:145` |
@@ -347,14 +347,15 @@ per-item `ItemLineAlignment`.
 | `UIFlexMode` `Shrink`/`Fill` + `ShrinkRatio` | `shrinkWeight` (proportional, `weight × basis`) **inside** `layoutPriority` tiers (ordered, lowest-first) | **Superset.** This was gap 2: the solver had no shrink pass at all — `hug`/`content`/`fixed` never shrank and overflow only produced a diagnostic. Native gives a flat per-item ratio with no tiering concept; CSS gives only the proportional level and SwiftUI only the ordered one ([SW-13]). LuauUI composes both, for one sort |
 | `UIFlexMode` `Grow` + `GrowRatio` | weighted `fill` dims with largest-remainder rounding | **Equal** — already shipped before this round |
 | `ItemLineAlignment` (per-item cross-axis) | `lineAlign` (`start`/`center`/`end`/`stretch`) | **Superset.** This was gap 3: LuauUI had no leaf-level route to per-child cross-axis alignment at all — the solver read `child.align`, but `align` is a container-only prop, so it only worked on a child that was itself a stack, where the one word then meant two things. `lineAlign` is legal on **every** box, where native needs a `UIFlexItem` instance per item (`src/blueprint_schema.luau:549-559`, `src/layout/solver.luau:3462`) |
-| `Wraps` | **nothing** | **BEHIND.** This is gap 4 and it is still open — §4.3 |
+| `Wraps` | `wrap` on `UI.HStack`/`UI.VStack` — **closed 2026-08-13** | **Superset.** This was gap 4. Native's `Wraps` is a plain settable boolean; LuauUI's is a **reactive** prop, so a row can be bound to wrap on a phone and not on a desktop without remounting a child. It also reports what native silently does not: a child wider than its line is clamped **and named**, and a block of lines taller than its box files a cross-axis diagnostic — the first overflow message in the file that is not about a main axis |
 | `SortOrder` | document order only; no `LayoutOrder` analogue | **Divergence**, see the caveat above |
 | — | `layoutPriority` tiers, per-child `margin`, `minMax` dims, hug/content sizing, `ViewThatFits`, `UI.Composition`/`Region` ranked degradation, `containerRelativeFrame`, `GridRow` spanning, incremental layout, and the inert-placement-prop audit | **Ten capabilities with no native equivalent at all.** Native silently ignores a property the current layout mode does not use (`HorizontalFlex` under a vertical `FillDirection`, say) with no diagnostic channel; LuauUI files a complaint |
 
-**The honest scorecard: one behind, everything else equal or ahead.** Flow-wrap
-is the single place a Roblox developer can do something with `UIListLayout` that
-they cannot do with LuauUI, and it is deliberately deferred rather than
-overlooked.
+**The honest scorecard, as of 2026-08-13: nothing behind.** Flow-wrap was the one
+place a Roblox developer could do something with `UIListLayout` that they could
+not do with LuauUI, and `wrap` closed it. The single remaining divergence in this
+table is `SortOrder`, which is a deliberate one (document order is the only
+order, see the caveat above) rather than a missing capability.
 
 ### 4.2 Lazy stacks, and the variable-item-extent gap underneath them
 
@@ -419,28 +420,67 @@ worse than building neither, because the windowing arithmetic is load-bearing fo
 `Table`'s culling as well. The requirement and both designs are recorded here so
 the next mission starts from the problem statement.
 
-### 4.3 Flow-wrap — a named gap with its own mission
+### 4.3 Flow-wrap — closed 2026-08-13, and the "undefined rule" was defined
 
 Roblox's `UIListLayout.Wraps` packs "as many as fit per line" with ragged item
-widths. LuauUI cannot express it, and no combination of shipped constructs can
-fake it: `UI.Grid` is a **uniform-pitch** layout where every cell gets
+widths. LuauUI could not express it, and no combination of shipped constructs
+faked it: `UI.Grid` is a **uniform-pitch** layout where every cell gets
 `innerW / cols`, and `minColumnWidth = "intrinsic"` sizes every column to the
-widest child — a different and more wasteful shape, not a ragged one. There is no
-line-breaking arrange branch anywhere in the solver; the only wrapping LuauUI
-does is text wrapping.
+widest child — a different and more wasteful shape, not a ragged one.
 
-This one is genuinely **its own mission, not a prop**, and the reason is worth
-recording so it does not get scoped as a one-liner again:
+`UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }` is the closure. Three
+things about how it landed are worth keeping, because two of them contradict what
+this section previously predicted.
 
-- it is a new arrange branch with line breaking and a per-line cross extent;
-- it needs a **cross-axis line-distribution rule that the Roblox documentation
-  does not define** — so LuauUI would have to define it, and own the divergence;
-- it interacts non-trivially with incremental layout, instance recycling and
-  virtualization, each of which carries a live perf budget that a new arrange
-  branch could blow.
+**It is a prop, not a mission-sized construct.** The construction ladder's test is
+whether the thing "needs its own layout/paint/input semantics an existing class
+cannot compose". A wrapping stack has the same children, the same paint, the same
+input, the same `gap`/`align`/`lineAlign`/`distribute` as the stack it is a mode
+of; one boolean is the entire difference. Making it a class would also have made
+"wrap on a phone, one line on a desktop" a `UI.When` swap, i.e. a remount of every
+child — the exact defect `UI.AdaptiveStack` exists to prevent.
 
-It gets the same treatment as §4.2: the requirement and the open design question
-are recorded, and it is built when a screen wants it.
+**The "cross-axis rule the documentation does not define" is defined — it just is
+not written down.** This section said LuauUI "would have to define it, and own the
+divergence". `AlignContent` does appear zero times in the engine API dump, and
+neither the `UIListLayout` reference nor the flex-layouts guide discusses how
+wrapped *lines* are positioned. But undocumented is not undefined, and the engine
+had never been asked. Probed live in Studio on 2026-08-13 — a 300×400 container,
+six 100×40 items, so 80px of lines inside 400px:
+
+| `VerticalAlignment` | item `y` offsets | reading |
+|---|---|---|
+| `Top` (default) | `0,0,0, 40,40,40` | the block of lines packs at the start |
+| `Center` | `160,160,160, 200,200,200` | the **block** is centred — `(400−80)/2` exactly |
+| `Bottom` | `320,320,320, 360,360,360` | the block sits at the end — `400−80` exactly |
+| ragged (item 2 is 90 tall) | `0,0,0, 90,90,90` | a line is as tall as its **tallest** item |
+
+So the lines pack with no space between them, the whole block is placed by the
+alignment property the container already had, and there is **no separate
+`align-content` to invent**. LuauUI's `align` / `lineAlign` / `distribute` map
+one-to-one onto `VerticalAlignment` / `ItemLineAlignment` / `HorizontalFlex`
+already, so flow-wrap added **one prop and no alignment vocabulary at all**. The
+divergence this section expected to own does not exist; CSS's `space-between`
+*between lines* has no native counterpart and LuauUI does not add one.
+
+**SwiftUI is not the reference here.** Apple's live symbol index was searched on
+2026-08-13 for every node whose title contains "flow" or "wrap": every hit is
+`wrappedValue` / `FileWrapper` / `toolbarOverflowMenu`. SwiftUI ships **no** flow
+layout, and its answer to this shape is "write a custom `Layout`" ([SW-10]). That
+is the strongest argument for building a public `Layout` protocol instead, and it
+loses here for a reason recorded in full in `docs/plans/swiftui-parity-round3.md`:
+the gap is a native one, and a public `Layout` would be the first
+consumer-authored code inside the solve, which the measure memo's cache key, the
+incremental-arrange reuse skip and the placement-prop audit are each unsound
+without. The protocol is recorded there as a **conditional refusal with a
+trigger**, not an open TODO.
+
+The third prediction held: it does interact with the machinery around it, and the
+answers are all refusals rather than integrations. It does not compose with
+`newVirtualList` (the virtualizer windows by `index × pitch` and needs a uniform
+extent), the shrink pair is not read on a wrapping stack (wrapping *is* what this
+stack does with a deficit), and `align = "stretch"` is refused because it would
+mean two things at once.
 
 ### 4.4 Baseline alignment and `alignmentGuide` — named non-deliveries
 
