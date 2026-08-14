@@ -105,6 +105,10 @@ require("./fuzz_layout.spec")
 require("./fuzz_replication.spec")
 require("./faults.spec")
 require("./virtualization.spec")
+-- the RUNNING-OFFSET INDEX under variable item extents (2026-08-14): the pure
+-- prefix-sum arithmetic `index x pitch` cannot express, proved to contain the
+-- uniform rule as its special case and to stay logarithmic on a 10,000-item list
+require("./virtual_extents.spec")
 require("./virtual_list_row_gap.spec")
 require("./virtual_list_axis.spec")
 require("./virtual_list_focus_policy.spec")
