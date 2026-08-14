@@ -24,6 +24,18 @@
 -- The column is hosted in a `fill` ScrollView for the reason `path_ring`'s is:
 -- a short landscape phone has less vertical room than this page has content, and
 -- the shipped precedent is to make it reachable rather than clip it off.
+--
+-- ...AND THAT SCROLLER IS THIS SURFACE'S ONE KNOWN LIVE EXPOSURE, stated here
+-- rather than left for somebody to find on a phone. `ClipsDescendants` does not
+-- crop a `Path2D` — measured in Studio 2026-08-14 (canary D2a), and there is no
+-- property on the class by which it could — so when a ring scrolls out of this
+-- page's window the ARC keeps painting while every ordinary GuiObject beside it
+-- is cropped. Nothing in this repository can see that: the solver's geometry and
+-- the engine's own `GetBoundingRect` both honestly report the ring in-box, which
+-- is exactly why it is written down. It is not a function of the theme's ring
+-- size (progress_view's header has the arithmetic that closes the size-dependent
+-- half); it is a property of the primitive, and the alternative — a page that
+-- clips its own content off a short phone — is worse.
 
 -- EVERY PLAYER-VISIBLE STRING, in one table and exported, so the localization
 -- case in tests/examples_gallery.spec.luau can expand all of them ~1.4x. All of

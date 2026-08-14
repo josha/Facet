@@ -42,6 +42,32 @@
 -- angle needs no channel, contends no authority, and sidesteps the Rotation ⊥
 -- ClipsDescendants incompatibility outright.
 --
+-- ===== A `Path2D` IS NOT CLIPPED BY ANYTHING, AND THAT IS LIVE-ONLY ==========
+-- Measured in Studio 2026-08-14 (canary D2a,
+-- artifacts/swiftui-parity-round3/studio/canary-2026-08-14.md): the same octagon
+-- drawn in a clipping and a non-clipping panel painted IDENTICALLY past the
+-- edge, and `GetBoundingRect` answered 147x147 for both. Corroborated from the
+-- other end by a probe of the class itself the same day: a `Path2D`'s entire
+-- property surface is `Color3`, `Thickness`, `Closed`, `Visible`, `ZIndex`, and
+-- `IsA("GuiObject")` is FALSE — `ClipsDescendants` is a contract between a
+-- GuiObject and its GuiObject descendants, so there is nothing here for it to act
+-- on. The holder Frame therefore CANNOT bound the stroke, and no framework code
+-- can make it.
+--
+-- THE TWO HALVES OF THAT HAVE DIFFERENT ANSWERS, and only one of them is open:
+--   * painting outside its OWN box is CLOSED by arithmetic, at every size any
+--     theme may author: the arc sits at CIRCULAR_RADIUS (0.8) of the half-extent
+--     and the stroke's whole budget is the remaining 0.2, which `snapshot.resolve`
+--     fills against and `tests/progress_circular.spec` asserts per shipped
+--     package. This is why `circularThickness` is derived from `circularSize`
+--     where both numbers live rather than picked in this control;
+--   * a ring whose box is scrolled OUT of a clipping host still paints, and no
+--     diagnostic can see it (the solver's geometry and `GetBoundingRect` both
+--     honestly say it is in-box). That is SIZE-INDEPENDENT — equally true of the
+--     old single 24px default — and cannot be bounded from this side. A caller
+--     who puts a ring inside a ScrollView is accepting it; the shipped
+--     `progress_ring` scenario does, and says so.
+--
 -- NO `canvasGroup` HOLDER, AND THAT IS A DECISION, NOT AN OMISSION. `Path2D` has
 -- no `Transparency` (re-probed live 2026-08-13: both the read and the write
 -- pcall returned false), which is why `sheet_model.tintTransparency` refuses

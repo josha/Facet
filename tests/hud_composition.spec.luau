@@ -677,12 +677,13 @@ describe("ADR-0027: nothing the HUD paints lands on the platform's own controls"
 			record = function() end,
 			flags = { noTopbarStrip = profile.noStrip == true },
 		})
-		presenter.present(built.screen, built.present)
+		local handle = presenter.present(built.screen, built.present)
 		presenter.refresh()
 		return {
 			env = env,
 			adapter = adapter,
 			built = built,
+			handle = handle,
 			refresh = function()
 				presenter.refresh()
 			end,
@@ -714,6 +715,26 @@ describe("ADR-0027: nothing the HUD paints lands on the platform's own controls"
 			local node = w.adapter.node(path)
 			local rect = if node ~= nil then node.rect else nil
 			if rect == nil or node.elided == true or rect.w <= 0 or rect.h <= 0 then
+				continue
+			end
+			--[[ ...AND A HIDDEN NODE PAINTS NOTHING (hole found 2026-08-14, closed
+				rather than tolerated). A DROPPED region keeps its mount and gets a
+				zero rect plus the hidden mark — solver.luau, "it keeps its MOUNT (an
+				offer change must not rebuild it)" — and the adapter writes
+				`Visible = false` down that whole subtree. Its descendants' RECTS are
+				not all zero, though: a child with a fixed extent (a themed dot, a
+				badge's padding) keeps the box it was given, so this loop was reading
+				boxes for content the player cannot see and calling them painted.
+
+				It never fired before because every droppable region in the earlier
+				HUD held nothing but Text, and a Text in a zero-width box measures
+				zero width and was skipped by the line above — i.e. the check was
+				passing by a property of the fixture rather than by anything it
+				asserts. This is the check's own stated contract ("every node the
+				adapter would actually PAINT"), applied; and it cannot become a hole,
+				because `checked` — the floor that proves the HUD rendered at all —
+				now counts only the nodes that are really on screen. ]]
+			if w.adapter.visibleOf(path) == false then
 				continue
 			end
 			if STRUCTURAL[node.class] and node.decorationHint == nil then
@@ -788,6 +809,120 @@ describe("ADR-0027: nothing the HUD paints lands on the platform's own controls"
 		local rounds = w.adapter.node("/HudScreen/Hud/Rounds")
 		expect((rounds :: any).rect.y >= band.y + band.h).toBe(true)
 		w.dispose()
+	end)
+
+	--[[ THE HUD IS BUILT FROM REAL CONTROLS, NOT FROM TEXT DRESSED AS THEM
+		(director round 2026-08-14: *"for the showcase based on rivals, let's make
+		it pretty conceptually similar to rivals"*).
+
+		The redesign's whole risk is silent regression to the thing it replaced: a
+		HUD of text pills passes every geometric check in this file, because a pill
+		and a round button occupy boxes just the same. So the shape is pinned by
+		what each piece IS and by whether it MOVES — a ring that is not bound to the
+		round clock is a picture of a timer, which is exactly the "painted at a size
+		nobody measured" family read from the paint end. ]]
+	it("the timer is a live ring, the health bar is bound, and the buttons are icon discs", function()
+		local w = drive(PROFILES[1])
+		local RING = "/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Arc"
+		local arc = w.adapter.node(RING)
+		expect(`the timer's arc is a {if arc == nil then "MISSING node" else arc.class}`).toBe(
+			"the timer's arc is a Path"
+		)
+		-- SQUARE, and from the THEME's own ring metric rather than an authored box
+		local ring = (
+			w.adapter.node("/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring") :: any
+		).rect
+		expect(`the ring is {ring.w}x{ring.h}`).toBe(`the ring is {ring.w}x{ring.w}`)
+		-- ...AND IT IS BOUND: driving the round clock moves the arc's sweep. A
+		-- fixed picture of a ring would pass every line above this one.
+		local function sweepOf(): number
+			local pts = (w.adapter.node(RING) :: any).props.points
+			local function angle(p: any): number
+				return (math.deg(math.atan2(p.x - 0.5, 0.5 - p.y)) + 360) % 360
+			end
+			return (angle(pts[#pts]) - angle(pts[1]) + 360) % 360
+		end
+		local before = sweepOf()
+		local step = w.built.steps.tickRound()
+		w.refresh()
+		expect(`the round clock moved: {sweepOf() ~= before}`).toBe("the round clock moved: true")
+		expect(`...and reports its own fraction: {type(step.fraction)}`).toBe("...and reports its own fraction: number")
+		-- the health bar is a real ProgressView, and its FILL follows the signal
+		local fillPath = "/HudScreen/Hud/Health/HealthPod/HealthRow/HealthBarBox/HealthBar/Bar/Fill"
+		local fillBefore = (w.adapter.node(fillPath) :: any).rect.w
+		w.built.steps.takeDamage()
+		w.refresh()
+		expect(`the health fill shrank: {(w.adapter.node(fillPath) :: any).rect.w < fillBefore}`).toBe(
+			"the health fill shrank: true"
+		)
+		-- the two clusters are ICON DISCS: circle Buttons carrying a semantic icon
+		-- name, never an asset, and square by construction
+		for _, entry in
+			{ { "/HudScreen/Hud/Rounds/RoundStrip/R1", "menu" }, { "/HudScreen/Hud/Actions/ActionsCol/A1", "more" } }
+		do
+			local node = w.adapter.node(entry[1]) :: any
+			expect(`{entry[1]} is a {if node == nil then "MISSING node" else node.class}`).toBe(
+				`{entry[1]} is a Button`
+			)
+			expect(`{entry[1]} shape={tostring(node.props.shape)} icon={tostring(node.props.icon)}`).toBe(
+				`{entry[1]} shape=circle icon={entry[2]}`
+			)
+			expect(`{entry[1]} is {node.rect.w}x{node.rect.h}`).toBe(`{entry[1]} is {node.rect.w}x{node.rect.w}`)
+		end
+		-- ...and the thumb cluster is the LARGER one: a bottom-right action is what
+		-- a thumb reaches for and a top-left chip is not
+		local big = (w.adapter.node("/HudScreen/Hud/Actions/ActionsCol/A1") :: any).rect.w
+		local small = (w.adapter.node("/HudScreen/Hud/Rounds/RoundStrip/R1") :: any).rect.w
+		expect(`thumb disc {big} > chip disc {small}: {big > small}`).toBe(`thumb disc {big} > chip disc {small}: true`)
+		w.dispose()
+	end)
+
+	--[[ THE STUDIO'S STANDING LOCALIZATION RULE, ON A HUD.
+		`docs/lessons/localization-safe-ui-text.md`: all player copy must survive a
+		~1.4x expansion, fitting and wrapping, never clipping. A HUD is the hardest
+		case for it — every zone is a third of a lane and half of them are one line
+		— and the always-on sweep deliberately does NOT cover this axis (it sweeps
+		one locale; see its header). So it is asked here, on the surface, through
+		the fixture's own exported `copy` table: the module table is shared, so this
+		expands the REAL strings rather than a parallel copy of them. ]]
+	it("every string on the HUD survives a 1.4x pseudo-localization", function()
+		local l10n = require("./fixtures/a11y_l10n_fixtures")
+		local original: { [string]: string } = {}
+		for key, value in hudScenario.copy do
+			original[key] = value
+			hudScenario.copy[key] = l10n.pseudoLocalize(value)
+		end
+		local ok, err = pcall(function()
+			for _, profile in PROFILES do
+				local w = drive(profile)
+				for _, state in { "rest", "urlBar" } do
+					if state == "urlBar" then
+						w.built.steps.openUrlBar()
+						w.refresh()
+					end
+					local findings = w.handle.controller.diagnostics()
+					if #findings > 0 then
+						local lines: { string } = {}
+						for _, f in findings do
+							table.insert(lines, `  {f.node}: {f.issue}`)
+						end
+						error(
+							`{profile.id} ({state}), pseudo-localized: {#findings} diagnostic(s)\n`
+								.. table.concat(lines, "\n"),
+							0
+						)
+					end
+				end
+				w.dispose()
+			end
+		end)
+		for key, value in original do
+			hudScenario.copy[key] = value
+		end
+		expect(`restored: {hudScenario.copy.timer}`).toBe("restored: 2:14")
+		if not ok then
+			error(err, 0)
+		end
 	end)
 
 	it("the rung with no strip is EXACTLY what deviceSafeContent applied: the top band is spent whole", function()

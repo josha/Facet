@@ -216,7 +216,7 @@ demo_picker.DEMOS = {
 	{
 		id = "hud",
 		title = "Screen-anchored HUD",
-		blurb = "Nine pinned zones: open the URL bar and watch it give way instead of overlap",
+		blurb = "A game HUD: open the URL bar and watch it give way by rank instead of overlap",
 		kind = "fixture",
 		module = "hud",
 	},

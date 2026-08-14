@@ -2,11 +2,11 @@
 -- Scenario 'hud' (ADR-0025): THE SCREEN-ANCHORED HUD, and the thing it refuses
 -- to do.
 --
--- The commissioning case is two screenshots of a shipped FPS. Fullscreen the HUD
--- is right. Open a browser URL bar — SAME WIDTH, ~200px LESS HEIGHT — and it
--- collapses into itself: the task panel climbs into the round buttons above it,
--- the weapon rail runs into the fps/ping readout, and the action buttons land on
--- each other.
+-- The commissioning case is two screenshots of a shipped mobile FPS. Fullscreen
+-- the HUD is right. Open a browser URL bar — SAME WIDTH, ~200px LESS HEIGHT — and
+-- it collapses into itself: the task panel climbs into the round buttons above
+-- it, the weapon rail runs into the fps/ping readout, and the action buttons land
+-- on each other.
 --
 -- This fixture is that HUD, built on `composition.HUD` — corner clusters, a task
 -- panel down the middle-left, a weapon rail top-right — plus the ONE control that
@@ -20,6 +20,32 @@
 -- are the same event to it. The toggle exists because the DEFECT is a comparison
 -- between two states of one screen, and a still screenshot flattens a comparison
 -- into one picture (`flow_wrap`'s wrapping switch is here for the same reason).
+--
+-- ===== IT ALSO HAS TO LOOK LIKE A GAME HUD (director round 2026-08-14) =======
+-- *"for the showcase based on rivals, let's make it pretty conceptually similar
+-- to rivals."* The first cut proved the BEHAVIOUR and looked like a test
+-- harness: text pills in nine boxes. The reference screenshots are a specific
+-- shape and this now builds that shape out of the library's real controls —
+--
+--   top-left      a strip of round dark-glass ICON buttons (`shape = "circle"`,
+--                 the shipped semantic icon set: no art is invented here)
+--   top-centre    two team-score pills flanking a round timer, and the timer is
+--                 a CIRCULAR ProgressView — a ring reads as time remaining, which
+--                 is exactly the shape the screenshots use
+--   top-right     a weapon rail of chips, each with its ammo count, over a small
+--                 fps/ping readout
+--   middle-left   "Beginner tasks": rows of mark + label + `newProgressView` bar
+--                 + reward chip
+--   bottom-left   the health bar, with its figure in the `numeral` type role
+--   bottom-right  a cluster of LARGE round action buttons, under the weapon name
+--
+-- ONE PLATE, ONE RECIPE (`glass` below). Every surface here is the same
+-- construction — a tinted `UI.Box` under the content, rounded once — because
+-- Roblox cannot blur UI behind UI. So the "dark glass" is a STATED translucent
+-- plate (the `p3_sipworks` idiom) and is never called a blur anywhere. It is
+-- also THEME-COLOURED rather than literally dark: the plate tints toward the
+-- theme's own `surface`, so this HUD is smoked glass under Studio Neutral and
+-- waxed paper under Parchment, which is what "themeable" has to mean.
 --
 -- AND THE PLATFORM'S OWN ROW (ADR-0027, director 2026-08-14: *"we should be able
 -- to have things at top that are aligned with the controls but don't overlap"*).
@@ -38,14 +64,20 @@
 --                     reporting NO strip (desktop, or an engine without
 --                     `GetInsetArea`) gets automatically
 --
--- THE ZONES, and the director's own list of where things live:
---   topbar      the objective chip, in the free strip beside Roblox's own buttons
---   topLeft     the round-button strip (the platform's chrome sits above it)
---   left        the "Beginner Tasks" panel — three forms: full / one task / chip
---   top         the round timer and the score pill
---   topRight    the weapon rail (two forms) and the fps/ping readout (droppable)
---   bottomRight the action buttons (two forms)
---   bottomLeft  the kill feed (droppable)
+-- THE ZONES, and the RANK LADDER the fixture exists to show (rank 1 is the last
+-- thing to give way; 9 is the first). The ladder is on screen, under the HUD, so
+-- a viewer watching a zone step down can see WHY that zone was the one chosen:
+--   1 topLeft      the round-button strip (the platform's chrome sits above it)
+--   2 top          the round timer and the two team scores
+--   3 bottomRight  the action buttons
+--   4 topRight     the weapon rail
+--   5 bottomLeft   the health bar
+--   6 bottomRight  the weapon name (droppable)
+--   7 topRight     the fps/ping readout (droppable)
+--   8 left         "Beginner tasks" — three forms: full / one task / chip
+--   9 bottomLeft   the kill feed (droppable)
+--   + topbar       the objective chip, in the free strip beside Roblox's own
+--                  buttons — RESERVED while riding, never dropped
 
 -- EVERY PLAYER-VISIBLE STRING, in one table and exported, so the localization
 -- case can expand all of them ~1.4x. All of it must fit and wrap, never clip.
@@ -54,24 +86,39 @@ local COPY = {
 	task1 = "Win a round",
 	task2 = "Land 25 hits",
 	task3 = "Open a crate",
+	reward1 = "+50",
+	reward2 = "+120",
+	reward3 = "+300",
 	tasksChip = "Tasks 1/3",
 	timer = "2:14",
-	score = "12 - 9",
+	scoreHome = "12",
+	scoreAway = "9",
 	weapon1 = "Rifle",
 	weapon2 = "Pistol",
 	weapon3 = "Knife",
+	ammo1 = "24/90",
+	ammo2 = "7/21",
+	ammo3 = "--",
+	weaponName = "Ranger rifle",
 	readout = "60 FPS · 42 ms",
+	health = "84",
+	healthLabel = "Health",
+	-- the round buttons' semantic names. A circle Button does NOT draw a
+	-- multi-character label — the icon is the face and the label is the
+	-- accessible name — so these are the words a screen reader says.
 	action1 = "Shop",
-	action2 = "Team",
+	action2 = "Squad",
 	action3 = "Menu",
+	round1 = "Menu",
+	round2 = "Report",
+	round3 = "Loadout",
 	feed = "Ravi eliminated Mo",
 	urlBarOn = "URL bar",
 	rideOn = "Topbar strip",
 	objective = "Round 3 · Capture",
 	objectiveShort = "R3",
-	round1 = "A",
-	round2 = "B",
-	round3 = "C",
+	-- the mechanism, in one line, on the screen that demonstrates it
+	ladder = "Rank ladder, first to give way last: feed, tasks, fps, weapon, health, rail, actions, clock, buttons.",
 }
 
 -- the browser chrome the commissioning screenshot opened, in pixels. A landscape
@@ -87,6 +134,37 @@ local URL_BAR_PX = 200
 -- mechanism unexercised by every sweep, which is how a feature becomes decoration.
 local MODELLED_CLUSTER_PX = 164
 local MODELLED_STRIP_PX = 58
+
+--[[ ...AND THE FLOOR THE SIMULATED BAR MAY NEVER EAT THROUGH.
+	A simulated chrome bar cannot take more room than the screen has. Without
+	this the demo silently stopped being a demo on a short window: the driver
+	profile the director's own screenshot describes is 735x213 — a window that
+	ALREADY has a URL bar open — so opening this fixture's bar too left the
+	composition 0px, no arrangement was legal, and the declared fallback painted
+	the whole HUD at the origin (measured 2026-08-14: "no declared arrangement is
+	legal in 735x0"). A 0px HUD is not a degradation, it is an absence: nothing
+	steps down, nothing drops, and the one thing the fixture exists to show is
+	the one thing that cannot happen. It also put a weapon chip inside Roblox's
+	own button cluster, which is how it was found.
+
+	160 IS DERIVED, NOT PICKED: the platform's reserved row is 58px, one
+	target-sized zone per lane is 44, this fixture's own driver row is another 44,
+	and the Screen's gaps are the rest. Below that total nothing can step down
+	because there was never a step. Above it — every viewport the director
+	actually opens — the bar still takes its full 200px and nothing about the demo
+	changes. ]]
+local HUD_FLOOR_PX = 160
+
+-- HOW SEE-THROUGH THE GLASS IS. One number, used by every plate, so the whole HUD
+-- reads as one material rather than as nine panels that each guessed. 0.28 is far
+-- enough from 0 to read as glass over a moving world and far enough from 1 that
+-- the theme's own contrast gate still means something for the text on top of it.
+local GLASS = 0.28
+
+-- ...and the height below which this fixture drops its own caption (see the
+-- `UI.When` at the bottom of the Screen). A HUD is what this surface is FOR, so
+-- on a screen shorter than this the explanation yields to the thing it explains.
+local CAPTION_FLOOR = 360
 
 return {
 	title = "Screen-anchored HUD (ADR-0025)",
@@ -141,13 +219,19 @@ return {
 		-- fact, and the fact alone. Riding the band spends the top down to where the
 		-- band starts; not riding spends the whole band, which is exactly what
 		-- `deviceSafeContent` used to apply here.
+		local function urlBarPx(use: any): number
+			if not use(urlBar) then
+				return 0
+			end
+			return math.min(URL_BAR_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX))
+		end
 		local margin = scope:own(core:memo(function(use)
 			local chrome = use(chromeFact) :: any
 			local insets = if use(riding) then chrome.bandInsets else chrome.insets
 			return {
 				top = insets.top,
 				right = 0,
-				bottom = if use(urlBar) then URL_BAR_PX else 0,
+				bottom = urlBarPx(use),
 				left = 0,
 			}
 		end))
@@ -183,6 +267,15 @@ return {
 				return { type = "fixed", px = math.max(0, pick(chrome, use(viewportFact))) }
 			end))
 		end
+		-- ...and whether this screen has room for the fixture's own caption (see the
+		-- `UI.When` at the bottom). It reads the SAME two facts the HUD's margin
+		-- does — the viewport and the simulated URL bar — so "the instrument yields
+		-- first" is derived from the demo's own state rather than from a second
+		-- guess about screen size.
+		local roomForCaption = scope:own(core:memo(function(use)
+			return ((use(viewportFact) :: any).h - urlBarPx(use)) >= CAPTION_FLOOR
+		end))
+
 		local stripLead = edgeSpacer(function(chrome, _vp)
 			return chrome.band.x - chrome.insets.left
 		end)
@@ -190,31 +283,218 @@ return {
 			return (vp.w - chrome.insets.right) - (chrome.band.x + chrome.band.w)
 		end)
 
-		-- ---- the pieces --------------------------------------------------
-		local function roundButton(id: string, label: string): any
-			return UI.corners(UI.Button({ id = id, label = label, surface = "chip" }), "pill")
+		-- ---- the material ------------------------------------------------
+		--[[ THE HUD'S ONE PLATE. Everything a player sees here sits on this
+			construction and on no other, which is what makes nine independently
+			degrading zones read as one interface:
+
+			  a `UI.Box` — the one container-shaped class that takes the continuous
+			  tint channel — filling the stack behind the content, tinted to the
+			  theme's own `surface` at a single shared transparency, and rounded
+			  ONCE (on the plate, because the ZStack itself paints nothing and a
+			  square plate inside a rounded stack would just paint the corners back).
+
+			The plate is `fill` on both axes inside a HUGGING stack, which is exactly
+			the case tests/zstack_fill_diagnostic pins as legal: `measure` answers a
+			fill child with its content (nothing), so the stack hugs the CONTENT
+			child, and `arrange` then grants the plate the box that produced. So the
+			glass is always exactly as big as what is on it, at every text
+			preference and in every theme, with nobody sizing it. ]]
+		--
+		-- `width` is the ONE thing a caller may state: a plate that has to SPAN
+		-- something (the health bar's lane) cannot hug, and a ZStack that hugs would
+		-- measure a `fill` child as nothing and collapse it. Everything else about
+		-- the construction is fixed here on purpose.
+		local function glass(id: string, radius: string, content: any, width: any?): any
+			return UI.ZStack({
+				id = id,
+				width = width,
+				children = {
+					UI.corners(
+						UI.Box({
+							id = "Plate",
+							width = { type = "fill", weight = 1 },
+							height = { type = "fill", weight = 1 },
+							surface = "raised",
+							tint = { role = "surface", blend = 1, transparency = GLASS },
+						}),
+						radius
+					),
+					content,
+				},
+			})
 		end
 
-		local function pill(id: string, text: string, size: string): any
-			return UI.corners(
+		-- a glass PILL of one line of text: the HUD's smallest unit, used for the
+		-- objective chip, the scores, the readout and every caption that needs to
+		-- lift off the world behind it
+		local function pill(id: string, text: any, size: string): any
+			return glass(
+				id,
+				"pill",
 				UI.HStack({
-					id = id,
-					surface = "raised",
-					padding = 8,
+					id = id .. "Row",
+					padding = { top = 4, right = 10, bottom = 4, left = 10 },
+					align = "center",
 					children = { UI.Text({ id = id .. "T", text = text, textSize = size }) },
-				}),
-				"pill"
+				})
 			)
 		end
 
+		-- THE ROUND ICON BUTTON, the face of both clusters. `shape = "circle"` +
+		-- `icon` is the only icon affordance in the library that takes a SEMANTIC
+		-- NAME rather than an asset (a package that ships art for that name paints
+		-- it; every other package draws the framework's own ASCII-safe glyph) — so
+		-- this HUD invents no art at all. The `label` is the accessible name and is
+		-- deliberately not drawn on a circle.
+		--
+		-- `size` is a theme metric NAME, never a number: the bottom-right cluster is
+		-- the thumb-sized one and the top-left strip is the compact one, and both
+		-- follow whatever the installed package thinks those two sizes are.
+		local function roundButton(id: string, label: string, icon: string, size: string): any
+			return UI.Button({
+				id = id,
+				label = label,
+				icon = icon,
+				shape = "circle",
+				surface = "chip",
+				-- a circle takes at most ONE of width/height, and the other follows
+				height = { type = "fixed", px = size },
+			})
+		end
+
+		-- ---- the task panel ------------------------------------------------
+		-- each row: a mark, the task, its bar, and what it pays. The MARK is a small
+		-- accent disc rather than an icon, and that is a decision rather than an
+		-- omission: the shipped icon set has no "task" glyph, the only icon
+		-- affordance is a Button (which would put three focus stops in a HUD that
+		-- has none), and this fixture is not allowed to invent art.
 		local taskBars = {}
+		local taskRows = {}
 		for i, key in { "task1", "task2", "task3" } do
+			--[[ THE ROW IS THE CONTROL'S OWN ROW, and that is the second thing the
+				sweep decided. The reference screenshot stacks the label ABOVE the bar,
+				so the first cut did too — and a stacked label WRAPS: it measured as
+				one line where the lane is unbounded and arranged as three where the
+				lane is 142px, so `TasksFull` came out up to 93px taller than the box
+				the ladder had granted it, on every tablet-landscape pass. Measure said
+				it fit; arrange disagreed.
+
+				`newProgressView`'s own `label` is the arrangement that already solved
+				this: label and track on ONE line, with the label carrying
+				`shrinkWeight = 1` so it gives up pixels instead of lines (O-23). A
+				task row is therefore the control plus a mark and a reward, and the one
+				thing on it that can grow is the one thing that is allowed to. ]]
 			local view = LuauUI.newProgressView(LuauUI, core, {
 				id = `Task{i}`,
-				label = (COPY :: any)[key],
 				value = scope:own(core:signal(0.2 * i)),
 			})
 			table.insert(taskBars, view)
+			table.insert(
+				taskRows,
+				UI.HStack({
+					id = `TaskRow{i}`,
+					gap = 8,
+					align = "center",
+					width = { type = "fill", weight = 1 },
+					children = {
+						--[[ THE MARK IS PAINT, NOT A SURFACE, and the sweep is why.
+							`surface = "accent"` subscribes a node to the accent surface's
+							whole chrome recipe, and a themed package's `control` insets are
+							16-28px of border — on a dot the theme itself sized at 5-12px.
+							Every package with a skinned control reported it ("this control
+							is smaller than its theme expects",
+							docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md). A mark
+							is a COLOUR, so it takes the one continuous channel and no
+							recipe at all: `tint` at full blend to the accent role, which
+							re-themes exactly as far as it should and no further.
+
+							It is a mark and not an icon deliberately: the shipped icon set
+							has no task glyph, the only icon affordance is a Button (three
+							focus stops in a HUD that has none), and this fixture is not
+							allowed to invent art. ]]
+						UI.corners(
+							UI.Box({
+								id = `Mark{i}`,
+								width = { type = "fixed", px = "controls.progress.spinnerDotSize" },
+								height = { type = "fixed", px = "controls.progress.spinnerDotSize" },
+								tint = { role = "accent", blend = 1 },
+							}),
+							"pill"
+						),
+						--[[ THE NAME IS THIS ROW'S OWN TEXT, AND IT NEVER WRAPS.
+							`newProgressView`'s built-in `label` shrinks (O-23) but a Text
+							that has shrunk to its floor WRAPS, and a wrap is what broke
+							this panel: measured at an unbounded width every label is one
+							line, so the rank ladder was told the full form fits in 191px
+							and arrange then wrapped three labels inside a 142px tablet lane
+							and needed 267. Measure and arrange have to agree about height,
+							and `lineLimit = 1` is what makes them: this label gives up
+							pixels, then characters, and never lines. ]]
+						UI.Text({
+							id = `TaskName{i}`,
+							text = (COPY :: any)[key],
+							textSize = "caption",
+							lineLimit = 1,
+							shrinkWeight = 1,
+						}),
+						view.blueprint,
+						UI.Text({
+							id = `Reward{i}`,
+							text = (COPY :: any)[`reward{i}`],
+							textSize = "caption",
+							surface = "chip",
+							padding = { top = 2, right = 6, bottom = 2, left = 6 },
+						}),
+					},
+				})
+			)
+		end
+
+		-- ---- the round timer -------------------------------------------------
+		-- A RING IS A CLOCK. `presentation = "circular"` over the fraction of the
+		-- round still to run — the shape the reference screenshots use, and the one
+		-- the theme packages now size themselves (`controls.progress.circularSize` /
+		-- `circularThickness`, authored by all eight since 2026-08-14).
+		--
+		-- NO `label` and NO `showValue`: the ring's own row would put the text
+		-- BEFORE the ring, and `showValue` is refused on this shape outright (the
+		-- ring is theme-sized and small, so a readout has no size it is guaranteed
+		-- to fit). The time therefore sits beside it as this fixture's own Text, in
+		-- the `numeral` role — the type role that exists for a figure that has to
+		-- read at a glance.
+		local roundLeft = scope:own(core:signal(0.62))
+		local timerRing = LuauUI.newProgressView(LuauUI, core, {
+			id = "TimerRing",
+			value = roundLeft,
+			presentation = "circular",
+		})
+
+		local health = scope:own(core:signal(0.84))
+		local healthBar = LuauUI.newProgressView(LuauUI, core, { id = "HealthBar", value = health })
+
+		-- ---- the weapon rail -------------------------------------------------
+		local function weaponChip(id: string, name: string, ammo: string): any
+			return glass(
+				id,
+				"control",
+				UI.HStack({
+					id = id .. "Row",
+					gap = 8,
+					align = "center",
+					padding = { top = 4, right = 8, bottom = 4, left = 8 },
+					children = {
+						UI.Text({ id = id .. "Name", text = name, textSize = "caption", shrinkWeight = 1 }),
+						UI.Text({
+							id = id .. "Ammo",
+							text = ammo,
+							textSize = "caption",
+							surface = "badge",
+							padding = { top = 1, right = 5, bottom = 1, left = 5 },
+						}),
+					},
+				})
+			)
 		end
 
 		-- ---- the HUD -----------------------------------------------------
@@ -296,10 +576,18 @@ return {
 					group = "topLeft",
 					rank = 1,
 					children = {
+						-- TWO ACROSS, THREE DOWN, and the sweep chose the number: a HUD
+						-- lane is a third of the screen, so on a 359px phone this zone is
+						-- 119px and three compact discs plus their gaps are 120. One pixel
+						-- is still a finding, and the answer is not a smaller disc (the
+						-- theme owns that) but a row that fits the lane it lives in.
 						UI.HStack({
 							id = "RoundStrip",
 							gap = 6,
-							children = { roundButton("R1", COPY.round1), roundButton("R2", COPY.round2) },
+							children = {
+								roundButton("R1", COPY.round1, "menu", "controlSizes.compact.height"),
+								roundButton("R2", COPY.round2, "flag", "controlSizes.compact.height"),
+							},
 						}),
 						-- ...and the same three buttons stacked, for the column a 320px
 						-- phone actually has. Rank 1: it is the last thing to give way,
@@ -308,9 +596,9 @@ return {
 							id = "RoundColumn",
 							gap = 6,
 							children = {
-								roundButton("R1c", COPY.round1),
-								roundButton("R2c", COPY.round2),
-								roundButton("R3c", COPY.round3),
+								roundButton("R1c", COPY.round1, "menu", "controlSizes.compact.height"),
+								roundButton("R2c", COPY.round2, "flag", "controlSizes.compact.height"),
+								roundButton("R3c", COPY.round3, "more", "controlSizes.compact.height"),
 							},
 						}),
 					},
@@ -324,29 +612,137 @@ return {
 					mayDrop = true,
 					floor = { lines = 1 },
 					children = {
-						UI.VStack({
-							id = "TasksFull",
-							surface = "raised",
-							padding = 10,
-							gap = 6,
-							children = {
-								UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
-								taskBars[1].blueprint,
-								taskBars[2].blueprint,
-								taskBars[3].blueprint,
-							},
-						}),
-						UI.VStack({
-							id = "TasksOne",
-							surface = "raised",
-							padding = 10,
-							gap = 6,
-							children = {
-								UI.Text({ id = "TasksTitle2", text = COPY.tasksTitle, textSize = "label" }),
-								taskBars[1].blueprint,
-							},
-						}),
+						glass(
+							"TasksFull",
+							"panel",
+							UI.VStack({
+								id = "TasksFullBody",
+								padding = 10,
+								gap = 6,
+								width = { type = "fill", weight = 1 },
+								children = {
+									UI.Text({ id = "TasksTitle", text = COPY.tasksTitle, textSize = "label" }),
+									taskRows[1],
+									taskRows[2],
+									taskRows[3],
+								},
+							})
+						),
+						--[[ ONE TASK, AND NOTHING AROUND IT. Two measurements chose this
+							form, in order:
+
+							  * the HEADING went first. With the panel title kept over a
+							    single row this form was 14px taller than the middle-left
+							    zone can grant on an 812x375 window. A heading over one row
+							    is the least informative line on it — the row already says
+							    what it is.
+							  * then the MARK and the REWARD. A HUD lane is a third of the
+							    screen: 93px inside this panel's padding on a 359px phone.
+							    A mark, a task row and a reward chip do not fit that, so the
+							    row's label wrapped instead of shrinking and the panel came
+							    out 38-65px taller than its own plate at every preference.
+							    `ViewThatFits` on the reward was tried and is the wrong
+							    tool — it asks "do I fit the proposal", and inside an HStack
+							    the proposal is the whole width rather than what is left
+							    after its siblings, so the chip always "fit" and the bar got
+							    zero.
+
+							What survives is the control's own row, whose label shrinks by
+							construction (O-23). The rich row is what the FULL form is for,
+							and the full form is what a screen with room gets. ]]
+						glass(
+							"TasksOne",
+							"panel",
+							UI.VStack({
+								id = "TasksOneBody",
+								padding = 8,
+								gap = 6,
+								width = { type = "fill", weight = 1 },
+								children = {
+									UI.HStack({
+										id = "TasksOneRow",
+										gap = 8,
+										align = "center",
+										width = { type = "fill", weight = 1 },
+										children = {
+											-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With
+											-- the row alone the plate hugged to 16px — a bar is
+											-- `fill`, so it measures as nothing and there was
+											-- nothing else in here to measure ("content box
+											-- collapses to 0px on x: padding 8 + 8 on a 16px
+											-- width"). One non-fill child is what a hugging panel
+											-- needs, and the task's name is the one worth having.
+											UI.Text({
+												id = "TasksOneName",
+												text = COPY.task1,
+												textSize = "caption",
+												lineLimit = 1,
+												shrinkWeight = 1,
+											}),
+											taskBars[1].blueprint,
+										},
+									}),
+								},
+							})
+						),
 						pill("TasksChip", COPY.tasksChip, "caption"),
+					},
+				}),
+				-- LOWER LEFT — the health bar, and under it the kill feed.
+				UI.Region({
+					id = "Health",
+					group = "bottomLeft",
+					rank = 5,
+					-- DROPPABLE, and the measurement is why. The left lane's irreducible
+					-- floor is the round-button strip (rank 1, never dropped) plus
+					-- whatever else in that lane cannot leave; with the health pod pinned
+					-- that floor was 66px and a 735x213 window offers the lanes 30.
+					-- Nothing could give, so the whole arrangement went illegal and rule 8
+					-- showed the declared fallback — the same shape the weapon rail's own
+					-- `mayDrop` note records, one lane over. A health read-out is worth
+					-- more than a kill feed (rank 5 vs 9) and less than the buttons the
+					-- player is reaching for (rank 1), and saying so is what lets the
+					-- ladder finish.
+					mayDrop = true,
+					children = {
+						glass(
+							"HealthPod",
+							"pill",
+							UI.HStack({
+								id = "HealthRow",
+								gap = 8,
+								align = "center",
+								padding = { top = 4, right = 12, bottom = 4, left = 12 },
+								children = {
+									UI.Text({ id = "HealthNum", text = COPY.health, textSize = "numeral" }),
+									--[[ THE BAR NEEDS A BOX, and this pod HUGS.
+										`newProgressView`'s row is `fill` by construction — a bar
+										spans whatever it is given — so inside a hugging pod it
+										measures as nothing and vanishes.
+
+										`sizing = "fill"` on the region was tried first and is
+										wrong here: it makes the zone's own box the pod's, and the
+										bottom-left zone's granted HEIGHT then capped the pod 5px
+										under what its content needs — the sweep reported the pod
+										overflowing its own plate on every compact-phone pass. A
+										fixed 96px box is an app-level decision (a health bar you
+										can read without eating the corner), which is exactly the
+										kind of literal an app is allowed and a framework control
+										is not — and inside a DROPPED region it costs nothing,
+										because the adapter writes `Visible = false` down the whole
+										subtree (proved in tests/hud_composition.spec). ]]
+									UI.HStack({
+										id = "HealthBarBox",
+										width = { type = "fixed", px = 96 },
+										children = { healthBar.blueprint },
+									}),
+								},
+							})
+						),
+						-- the bar ALONE is the compact form: the figure is what a player
+						-- reads in a glance and the bar is what they read in a fight, so
+						-- when the pod cannot have both the FIGURE is what survives
+						pill("HealthOnly", COPY.health, "numeral"),
 					},
 				}),
 				-- LOWER LEFT — the kill feed, droppable: the first thing a real HUD
@@ -358,24 +754,65 @@ return {
 					mayDrop = true,
 					children = { UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" }) },
 				}),
-				-- UPPER CENTRE — the round clock and the score.
+				-- UPPER CENTRE — the round clock and the two team scores.
 				UI.Region({
 					id = "Clock",
 					group = "top",
 					rank = 2,
 					children = {
-						UI.VStack({
+						UI.HStack({
 							id = "ClockStack",
-							gap = 4,
+							gap = 6,
 							align = "center",
-							children = { pill("Timer", COPY.timer, "heading"), pill("Score", COPY.score, "label") },
+							children = {
+								pill("ScoreHome", COPY.scoreHome, "numeral"),
+								glass(
+									"TimerPod",
+									"pill",
+									UI.HStack({
+										id = "TimerRow",
+										gap = 6,
+										align = "center",
+										padding = { top = 4, right = 12, bottom = 4, left = 12 },
+										children = {
+											-- THE RING NEEDS A BOX, for the reason the health bar
+											-- does one zone over: `newProgressView`'s row is `fill`
+											-- on purpose, so inside a HUGGING pod it measures as
+											-- nothing and the ring inside it overflows by exactly
+											-- its own diameter (measured: "content overflows this
+											-- hstack by 24px"). The box is the THEME's ring metric,
+											-- so a package that draws a 44px ring gets a 44px box
+											-- and this fixture never learns a number.
+											UI.HStack({
+												id = "TimerRingBox",
+												width = { type = "fixed", px = "controls.progress.circularSize" },
+												children = { timerRing.blueprint },
+											}),
+											UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
+										},
+									})
+								),
+								pill("ScoreAway", COPY.scoreAway, "numeral"),
+							},
 						}),
-						-- the clock ALONE, and the Studio canary is why this exists: with
-						-- the URL bar open on a 735x413 window the centre column has 61px
-						-- and the pair needs 77. One form meant the centre could not give,
-						-- so a legal HUD still painted 16px below its own box. What a real
-						-- HUD gives up on a squeezed screen is the score, not the clock.
-						pill("TimerOnly", COPY.timer, "heading"),
+						-- the clock and the ring, WITHOUT the scores: the Studio canary
+						-- is why this exists. With the URL bar open on a 735x413 window
+						-- the centre column has 61px and the full row needs more. What a
+						-- real HUD gives up on a squeezed screen is the score, not the
+						-- clock.
+						glass(
+							"TimerOnlyPod",
+							"pill",
+							UI.HStack({
+								id = "TimerOnlyRow",
+								gap = 6,
+								align = "center",
+								padding = { top = 4, right = 12, bottom = 4, left = 12 },
+								children = {
+									UI.Text({ id = "TimerOnlyText", text = COPY.timer, textSize = "numeral" }),
+								},
+							})
+						),
 					},
 				}),
 				-- UPPER RIGHT — the weapon rail, two forms, and the readout beside
@@ -399,9 +836,9 @@ return {
 							gap = 4,
 							align = "end",
 							children = {
-								pill("W1", COPY.weapon1, "label"),
-								pill("W2", COPY.weapon2, "label"),
-								pill("W3", COPY.weapon3, "label"),
+								weaponChip("W1", COPY.weapon1, COPY.ammo1),
+								weaponChip("W2", COPY.weapon2, COPY.ammo2),
+								weaponChip("W3", COPY.weapon3, COPY.ammo3),
 							},
 						}),
 						-- the compact form is NARROWER, not merely shorter: a HUD column
@@ -417,7 +854,8 @@ return {
 					mayDrop = true,
 					children = { UI.Text({ id = "ReadoutText", text = COPY.readout, textSize = "caption" }) },
 				}),
-				-- LOWER RIGHT — the action buttons, two forms (column, then row).
+				-- LOWER RIGHT — the action buttons, two forms (column, then one), at
+				-- the thumb size the theme names.
 				UI.Region({
 					id = "Actions",
 					group = "bottomRight",
@@ -425,16 +863,26 @@ return {
 					children = {
 						UI.VStack({
 							id = "ActionsCol",
-							gap = 6,
+							gap = 8,
 							align = "end",
 							children = {
-								roundButton("A1", COPY.action1),
-								roundButton("A2", COPY.action2),
-								roundButton("A3", COPY.action3),
+								roundButton("A1", COPY.action1, "more", "controlSizes.large.height"),
+								roundButton("A2", COPY.action2, "menu", "controlSizes.large.height"),
+								roundButton("A3", COPY.action3, "checkmark", "controlSizes.large.height"),
 							},
 						}),
-						roundButton("A1r", COPY.action1),
+						roundButton("A1r", COPY.action1, "more", "controlSizes.regular.height"),
 					},
+				}),
+				-- ...and the weapon name over them, which is where the screenshot puts
+				-- it. Droppable: a player who cannot see the name of the gun in their
+				-- own hands has lost the least of everything on this screen.
+				UI.Region({
+					id = "Weapon",
+					group = "bottomRight",
+					rank = 6,
+					mayDrop = true,
+					children = { UI.Text({ id = "WeaponText", text = COPY.weaponName, textSize = "caption" }) },
 				}),
 			},
 		})
@@ -465,6 +913,33 @@ return {
 						UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
 					},
 				}),
+				--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
+					step down is only a demonstration if the viewer can see why THAT
+					zone was the one chosen, and the rank is otherwise only in the source
+					and in `report()`.
+
+					AND IT IS THE FIRST THING TO YIELD, which is the same rule the HUD
+					itself runs on, applied to the instrument: this caption is chrome
+					ABOUT the demo, so on a screen with no room to spare it goes before
+					any zone does. Measured, not guessed — with the caption
+					unconditional the 735x213 profile (the director's own URL-bar
+					screenshot, with the fixture's URL bar ALSO open) offered the
+					composition 0px instead of 13, no arrangement was legal, and the
+					declared fallback painted a weapon chip into Roblox's own button
+					cluster. An instrument that eats the thing it measures is exactly
+					what the comment above this Screen warns about, one level up. ]]
+				UI.When({
+					id = "LadderWhen",
+					condition = roomForCaption,
+					thenView = function()
+						return UI.Text({
+							id = "Ladder",
+							text = COPY.ladder,
+							textSize = "caption",
+							role = "secondary",
+						})
+					end,
+				}),
 			},
 		})
 
@@ -485,7 +960,12 @@ return {
 			steps = {
 				openUrlBar = function()
 					urlBar:set(true)
-					return { urlBar = true, lostPx = URL_BAR_PX }
+					-- the EFFECTIVE loss, not the constant: on a screen shorter than
+					-- `URL_BAR_PX + HUD_FLOOR_PX` the simulated bar is capped, and a
+					-- driver reading this number has to be told what actually happened
+					return { urlBar = true, lostPx = urlBarPx(function(r)
+						return r:get()
+					end) }
 				end,
 				closeUrlBar = function()
 					urlBar:set(false)
@@ -498,6 +978,17 @@ return {
 				leaveStrip = function()
 					ride:set(false)
 					return { riding = false }
+				end,
+				-- the two live values a driver can watch move: the round clock's ring
+				-- and the health bar. Both are ordinary ProgressViews, so this is the
+				-- fixture proving its own indicators are bound rather than painted.
+				takeDamage = function()
+					health:set(math.max(0, health:get() - 0.25))
+					return { health = health:get(), fraction = healthBar.dump().fraction }
+				end,
+				tickRound = function()
+					roundLeft:set(math.max(0, roundLeft:get() - 0.2))
+					return { roundLeft = roundLeft:get(), fraction = timerRing.dump().fraction }
 				end,
 			},
 			report = function()
@@ -529,12 +1020,18 @@ return {
 					riding = riding:get(),
 					band = chrome.band,
 					chromeRects = chrome.rects,
+					-- the two bound indicators, so a canary can assert the ring and the
+					-- bar are reading their signals rather than sitting at a constant
+					roundLeft = timerRing.dump().fraction,
+					health = healthBar.dump().fraction,
 				}
 			end,
 			dispose = function()
 				for _, view in taskBars do
 					view.dispose()
 				end
+				timerRing.dispose()
+				healthBar.dispose()
 				scope:dispose()
 			end,
 		}

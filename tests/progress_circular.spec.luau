@@ -30,6 +30,7 @@ local actionsLib = require("../src/input/actions")
 local motionClockLib = require("../src/motion/clock")
 local fake_target = require("../tests/lib/fake_target")
 local progress_view = require("../src/controls/progress_view")
+local path_shapes = require("../src/controls/path_shapes")
 local themes = LuauUI.themes
 local device_views = require("./lib/device_views")
 
@@ -467,6 +468,52 @@ describe("ProgressView circular: the stroke fits inside its own box, in every sh
 			-- ...and it is still a RING, not a filled disc
 			expect(`{row.name} visible={thickness > 0}`).toBe(`{row.name} visible=true`)
 		end
+	end)
+
+	--[[ WHY THIS INVARIANT IS NOW LOAD-BEARING RATHER THAN TIDY (Studio canary
+		2026-08-14, artifacts/swiftui-parity-round3/studio/canary-2026-08-14.md
+		item D2a): **`ClipsDescendants` does not crop a `Path2D` at all.** The same
+		octagon drawn in a clipping and a non-clipping 200x200 panel painted
+		identically past the edge, and `GetBoundingRect` answered 147x147 for both
+		— so nothing that reads a rect, this suite included, can see a stroke leave
+		its host.
+
+		Corroborated independently from the other end in the same repository, by a
+		probe of the class itself (Edit datamodel, 2026-08-14): a `Path2D`'s ENTIRE
+		property surface is `Color3`, `Thickness`, `Closed`, `Visible`, `ZIndex`,
+		and `IsA("GuiObject")` is FALSE. `ClipsDescendants` is a contract between a
+		GuiObject and its GuiObject descendants; there is no property here for it to
+		act on. So the holder cannot bound the stroke, and no amount of framework
+		code makes it.
+
+		WHAT THAT MEANS FOR A THEMED RING, exactly, because the two halves have very
+		different answers:
+		  * a ring painting outside ITS OWN BOX is closed by the arithmetic this
+		    case asserts — the arc sits at 0.8 of the half-extent and the stroke's
+		    budget is the remaining 0.2, so at every size any package may author the
+		    stroke lands inside the rect the solver measured. That is the half a
+		    themed size could have opened, and it cannot;
+		  * a ring whose box is scrolled OUT of a clipping host still paints. That
+		    is size-independent (it was equally true of the single 24px default),
+		    cannot be bounded from this side, and is recorded in progress_view's
+		    header and on the `progress_ring` scenario, which is the one shipped
+		    surface that hosts a ring inside a ScrollView. ]]
+	it("the ARC'S COST is a function of its sweep, not of the theme's size", function()
+		-- the canary's third number (~75 propWrites/frame for three live arcs) is a
+		-- desktop magnitude, and the question it raises is whether a package that
+		-- doubles the ring doubles the writes. It cannot: a point is a point at any
+		-- diameter, and the segment count is `ceil(sweep / 45)` — the RADIUS only
+		-- scales where each point lands.
+		local counts: { string } = {}
+		for _, radius in { 0.2, 0.8, 4, 40 } do
+			counts[#counts + 1] = `{#path_shapes.arc(0, 270, { radius = radius })}`
+		end
+		expect(`points at radius 0.2/0.8/4/40: {table.concat(counts, "/")}`).toBe(
+			"points at radius 0.2/0.8/4/40: 7/7/7/7"
+		)
+		-- ...and it IS a function of the sweep, so the check is not passing on a
+		-- constant
+		expect(`45deg={#path_shapes.arc(0, 45)} 360deg={#path_shapes.arc(0, 360)}`).toBe("45deg=3 360deg=9")
 	end)
 end)
 

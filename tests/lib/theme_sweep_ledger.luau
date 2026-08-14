@@ -1442,16 +1442,6 @@ theme_ledger.ROWS = {
 		kind = "collapsed-box",
 	},
 	{
-		surface = "hud",
-		variant = "-",
-		node = "/HudScreen/Hud/Tasks/TasksFull/Task1/Bar",
-		sig = "content box collapses to Npx on x: padding N",
-		px = 6,
-		since = 0,
-		packages = "pixel-quest",
-		kind = "collapsed-box",
-	},
-	{
 		surface = "sponsor_celebration",
 		variant = "-",
 		node = "/CelebrationLab",
