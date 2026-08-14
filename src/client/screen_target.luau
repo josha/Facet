@@ -211,6 +211,28 @@ end
 
 export type Opts = {
 	style: any?,
+	--[[ AUTOLOCALIZE — default `true`, which is Roblox's own default and keeps
+		`LocalizationTable` translation working. Pass `false` ONLY if this
+		experience does not localize.
+
+		WHY IT IS AN OPTION AND NOT A DEFAULT, corrected 2026-08-13 after the
+		game director's ruling: *"we do want to localize text."* The first cut of
+		this shipped `AutoLocalize = false` unconditionally, on the strength of a
+		device measurement, and that was the wrong call — it bought frame time by
+		silently removing a capability the game wants.
+
+		THE MEASUREMENT IS REAL AND IS WHY THE OPTION EXISTS (Galaxy A10e, the
+		first MicroProfiler capture ever to contain LuauUI's solver scopes,
+		2026-08-13): `LocalizationService::attemptLocalization` ran 64 times for
+		39.54 ms, parented to `LuauUI/mount` in ALL 64 cases — 25.1% of `mount`
+		and 8.9% of all LuauUI CPU, at 0.6178 ms per call. **55% of that is
+		`Stat::send` telemetry**, not translation.
+
+		So a game that localizes pays ~0.62 ms per text instance materialised on
+		that class of hardware, and a game that does not can now decline it in one
+		place instead of paying for a lookup that can never hit. Stated here so the
+		choice is informed rather than invisible. ]]
+	autoLocalize: boolean?,
 	--[[ DEPRECATED (C1, 2026-08-12) — do not reach for this in new code, and
 		nothing has to pass it any more. Reduced motion arrives on its own through
 		`adapter.setReducedMotion`, which the renderer pushes from the environment
@@ -264,6 +286,9 @@ export type Opts = {
 
 function screen_target.new(opts: Opts?)
 	local style: any = (opts and opts.style) or defaultStyle
+	-- default TRUE: Roblox's own default, and the director's ruling is that this
+	-- experience localizes. `false` is an explicit opt-out for one that does not.
+	local autoLocalize: boolean = not (opts ~= nil and opts.autoLocalize == false)
 	--[[ THE LIVE REDUCED-MOTION FACT (C1, 2026-08-12). Every bespoke tween in this
 		file asks `isReducedMotion()`; what changed is where the answer comes from.
 
@@ -2191,7 +2216,7 @@ function screen_target.new(opts: Opts?)
 			handle.path2d = path2d
 		end
 		if instance:IsA("TextLabel") or instance:IsA("TextButton") then
-			--[[ AUTOLOCALIZE OFF, AND IT IS THE LARGEST DEVICE WIN THIS ROUND FOUND.
+			--[[ AUTOLOCALIZE — MEASURED, AND LEFT ON BY DEFAULT.
 
 				MEASURED on a physical device (Samsung Galaxy A10e, Android 11,
 				Release 734) in the first MicroProfiler capture that ever contained
@@ -2211,22 +2236,27 @@ function screen_target.new(opts: Opts?)
 				touched the property — `grep -rn "AutoLocalize" src/` returned
 				nothing — so every text instance LuauUI has ever created has paid it.
 
-				WHY IT IS SAFE TO DEFAULT OFF HERE. LuauUI owns its own text
-				pipeline: every string a consumer sets arrives through the blueprint
-				and is measured by `text_metrics` before the engine ever sees it. A
-				game that wants Roblox's `LocalizationTable` path can re-enable it on
-				its own surfaces; a framework that measures text itself should not be
-				paying a translation lookup, and a per-instance write is the only
-				place the decision can be made once.
+				DEFAULTING THIS OFF WAS THE WRONG CALL AND WAS REVERSED THE SAME DAY.
+				The director's ruling: *"we do want to localize text."* Buying frame
+				time by silently removing a capability the game wants is not a
+				performance win, it is a feature regression with a good excuse. The
+				default is now Roblox's own (`true`), and declining it is an explicit
+				`screen_target.new({ autoLocalize = false })` for an experience that
+				does not localize.
 
-				It is a DEFAULT, not a lock: the property is left writable, and this
-				runs at creation before any consumer prop is applied.
+				What the measurement still buys is an INFORMED choice: the cost is
+				written down, in this file, next to the only place it is paid.
 
 				This is invisible in Studio — an M4 executes the same telemetry path
 				one to two orders of magnitude faster, which is exactly why it
 				survived every green suite and every Studio session until a phone
 				was profiled. ]]
-			instance.AutoLocalize = false
+			-- see `Opts.autoLocalize`: default true (translation works), opt-out for
+			-- an experience that does not localize and does not want to pay
+			-- ~0.62 ms per materialised text instance on low-end hardware
+			if not autoLocalize then
+				instance.AutoLocalize = false
+			end
 			-- default only; a declared `textAlign` arrives through setProp, which the
 			-- renderer calls for every style prop at creation and on every change
 			instance.TextXAlignment = Enum.TextXAlignment.Left
