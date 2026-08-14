@@ -2100,3 +2100,93 @@ scene the noise is ~27 %, so no single-scene number is quoted.
   large-text fixtures, and by `tests/virtual_list_slot_guard.spec.luau`.
 - RascalRally's two consumers fire **nothing**: every one of its 5 143 marked-row
   comparisons has ≥17px of headroom, at all four text preferences.
+
+## The solve count on a viewport change — L-27's lever, paid (2026-08-13)
+
+Brief item E named "start measuring performance with the instrument we already
+ship". The device capture did its job: it produced a ranked list, and the top
+item was not a slow function. It was a **count**.
+
+`rr.html` (tier 3, physical device): `arrange` **8.270 ms/occurrence**, `measure`
+**3.057 ms/occurrence**, **9.67 arranges per step**, `arrange` + `measure` =
+**58.5 % of wall**. Against L-27's standing record — *"one viewport change costs
+5 solves and 2 structural syncs, reproducibly"* — that prices the waste at
+roughly **45 ms of a ~200 ms frame**, and L-27's own conclusion said where to
+push: *"the lever for a resize is the solve COUNT, not the solve."*
+
+### The investigation, and the step that mattered
+
+The first probe **failed to reproduce it**. A bare `env:set("viewportRect", …)`
+on a mounted 40-row tree cost exactly **1** solve — at every size, and across
+every size-class boundary, five shapes tested. A device number that will not
+reproduce headless is a signal about *where* the cost lives, not about whether it
+is real, and the answer was the seam headless does not have: the **adapter**.
+
+`src/client/roblox_env.luau` `pushViewport()` writes **six** facts on one real
+resize. Mimicking exactly those six writes reproduced **5 solves** — L-27's
+number, on the first try.
+
+Two multipliers were compounding, and neither fix works alone:
+
+| configuration | solves |
+|---|---|
+| six loose writes + eight independent key observers (as shipped) | **5** |
+| batching the writes alone | 5 |
+| coalescing the observers alone | 4 |
+| **both** | **1** |
+
+The renderer had observed eight geometry keys *independently*, each callback
+running a full `solveAndApply()`; and `typographyScale` is a *memo over* two of
+the others, so even a single loose write fired twice.
+
+### What shipped
+
+`env:batch(body)` — the core's existing `core:transaction`, exposed on the
+environment and applied to the adapter's three fact-groups (viewport, input,
+accessibility) — plus **one scope-owned memo** over all eight geometry keys in
+`src/render/renderer.luau`. The core is glitch-free, so that memo recomputes at
+most once per flush however many dependencies moved.
+
+`8560f2b` (framework) · `0c3f507` (lab) · `d67af17` (log L-29) · `b631b50` (api.md)
+· RascalRally `1fb175a` (consumer rider) · `4fde677` (log L-29 residual 2).
+
+### And the lab was measuring a resize no device performs
+
+`resizeStorm` set `viewportRect` **alone**. The pass that exists to measure
+resize cost was therefore under-counting the shipped path's solve count — the
+very quantity L-27 named. It now drives the whole six-fact group, batched as the
+adapter batches it, with insets derived from the shape so an inset-driven
+re-solve regression cannot hide in a constant.
+
+### Three traps worth carrying forward
+
+1. **Headless could not see it.** When a device number will not reproduce
+   headless, suspect the adapter before the framework. Ten minutes of mimicking
+   what the adapter actually writes replaced a plausible story with the number.
+2. **An unowned `core:memo` is a leak.** The first cut of the coalescing memo was
+   not `scope:own(...)`-ed and turned **24** registry-neutrality specs red at
+   once. That suite is the tripwire for this whole class.
+3. **A compressed `.rbxl` is not a greppable oracle.** Probing the built binary
+   for `geometryFacts` returned **0** occurrences while the fix was demonstrably
+   in it; the same project built to `.rbxlx` showed **2**. Any past claim of the
+   form "the built bytes contain/lack X", taken from a binary place file, is
+   unsound and should be re-taken against XML.
+
+### Open, measured, not guessed
+
+A presented **modal** still costs **2** solves per geometry change where a plain
+surface costs 1 — and it is 2 whether or not the rotation crosses a size class
+(probed both ways). So it is neither the adaptive rebuild nor per-key fan-out.
+It is a second solve site on the modal presentation path, recorded as L-29
+residual 2 with the probe recipe that would settle it. The consumer rider
+asserts a **ceiling of 2** rather than an equality of 1, so that second solve can
+be removed later without the check moving, while a return to fan-out (~5) still
+reddens immediately.
+
+The lab's overlay adds its own: `forgetReservation` zeroes `coreSafeInsets` when
+the viewport moves and `onGeometry` republishes the measured dock height — two
+extra unbatched writes per resize, measured at **11** `coreSafeInsets` fires over
+4 steps against 4–5 for every other fact. That is a *measure-then-publish
+feedback loop*, the shape any app reserving space from measured geometry will
+have, and the honest fix (a measure→publish cycle settling inside one flush) is a
+design question rather than a patch.
