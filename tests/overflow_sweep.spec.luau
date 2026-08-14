@@ -1685,6 +1685,97 @@ end)
 	the sweep can see an overflow, which the axis control above already proves, and
 	would say nothing at all about whether the package ever reached the solver.
 ]]
+--[[ ── STANDING RULE 4, ASKED OF EVERY SURFACE RATHER THAN ONE AT A TIME ───────
+
+	Round 3's standing rule 4: "every gap closure ships its showcase demo,
+	registered in `scenarios/init.luau` ORDER **and** `demo_picker.DEMOS`, swept by
+	`tests/overflow_sweep.spec.luau` at all viewports, and verified across every
+	shipped theme". Three of those four halves were enforced by HAND, once per
+	capability: `tests/row_capabilities_scenario.spec.luau` reads this file's source
+	and asserts its own name is in it, and the `row-capability-optouts` gate row
+	carries twelve suite greps, not one of which asks whether the surface exists.
+
+	That is rule 2 of the same brief — general mechanism, never a special case — and
+	the special case has the failure mode you would expect: it protects the ONE
+	capability whose author remembered to write it, and the next gap closure ships
+	with no such line and nothing notices. A surface absent from `SCENARIOS`
+	produces no case at all, and a missing case is indistinguishable from a passing
+	one on any transcript.
+
+	So the question is asked of the REGISTRY: every scenario a player can pick must
+	be swept, and everything swept must be pickable. The two deliberate absences are
+	DERIVED from what they are rather than listed by name — `examples` and the five
+	`ref_*` scenarios are thin delegations that resolve their real module through a
+	replicated folder, so this file mounts those modules directly (see the header) —
+	and the check states that reasoning where it can be re-read.
+
+	The theme half is no longer anybody's to remember: it is the axis above.
+]]
+describe("overflow sweep: every registered showcase surface is swept", function()
+	local fs = require("@lune/fs")
+
+	it("RULE 4: the sweep list and the scenario registry are the same set", function()
+		local source = fs.readFile("examples/gallery/scenarios/init.luau")
+		local orderBlock = string.match(source, "local ORDER = (%b{})")
+		assert(orderBlock ~= nil, "scenarios/init.luau no longer has a `local ORDER = { ... }` block")
+
+		local swept: { [string]: boolean } = {}
+		for _, name in SCENARIOS do
+			swept[name] = true
+		end
+
+		-- the delegations, derived from their own shape: `examples` mounts one of
+		-- the seven tutorial examples (all seven are swept below in their own
+		-- describe) and each `ref_*` mounts one of the five proofs (likewise). A
+		-- sweep of the delegation would mount the same module through an engine seam
+		-- this file does not have.
+		local function isDelegation(name: string): boolean
+			return name == "examples" or string.sub(name, 1, 4) == "ref_"
+		end
+
+		local problems: { string } = {}
+		local registered: { [string]: boolean } = {}
+		-- ENTRIES, NOT EVERY QUOTED STRING IN THE BLOCK. The ORDER table is heavily
+		-- commented and those comments quote surface names in prose ("wrapping off"),
+		-- so a bare gmatch over the block reads a sentence as a registration.
+		for line in string.gmatch(orderBlock :: string, "[^\n]+") do
+			local entry = string.match(line, '^%s*"([^"]+)",%s*$')
+			if entry == nil then
+				continue
+			end
+			local name = entry
+			registered[name] = true
+			if isDelegation(name) then
+				if swept[name] then
+					table.insert(
+						problems,
+						`'{name}' is a delegation (it resolves its real module through a replicated `
+							.. `folder) and cannot be mounted here — the module it delegates to is swept directly`
+					)
+				end
+				continue
+			end
+			if not swept[name] then
+				table.insert(
+					problems,
+					`scenarios/init.luau registers '{name}' and this file's SCENARIOS does not sweep it — `
+						.. `a surface with no case is indistinguishable from a passing one (standing rule 4)`
+				)
+			end
+		end
+		for _, name in SCENARIOS do
+			if not registered[name] then
+				table.insert(
+					problems,
+					`this file sweeps '{name}' and scenarios/init.luau does not register it — a surface `
+						.. `no player can reach is a demo that does not exist (standing rule 4)`
+				)
+			end
+		end
+		expect(table.concat(problems, "; ")).toBe("")
+	end)
+end)
+
 describe("overflow sweep: the theme axis bites", function()
 	it("THEME CONTROL: a row that fits under Studio Neutral is REPORTED under a package", function()
 		local view = { id = "control", w = 400, h = 800, displaySize = "Medium", input = "KeyboardAndMouse" }
