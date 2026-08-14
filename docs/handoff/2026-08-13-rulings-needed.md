@@ -1,7 +1,7 @@
-# Six rulings needed to finish round 3 (2026-08-13)
+# Eight rulings needed to finish round 3 (2026-08-13)
 
 Everything in the round-3 ledger that could be closed from a desk is closed or in
-flight. These six cannot be: each is a **product decision**, not a repair, and
+flight. These eight cannot be: each is a **product decision**, not a repair, and
 guessing one would be inventing policy. Each is stated with the measurement, the
 options, and a recommendation.
 
@@ -123,6 +123,56 @@ burned by: silent, per-caller, and invisible until a device.
 
 Full evidence and the two traps the experiment nearly fell into:
 `docs/lessons/a-button-eats-the-swipe-underneath-it.md`.
+
+---
+
+## 7. Large text overflows a fixed `itemExtent` — the deferred feature now has its consumer
+
+**Measured 2026-08-13** by the widened overflow sweep (42 surfaces × 8 viewports ×
+4 text preferences). `VirtualList` windows each row into a declared `itemExtent`.
+At the default text preference a `row_actions` row already measures **88 against
+an 84px slot**. At the largest preference (`+14`) on a 320×640 phone it measures
+**249px of content in that 84px slot**.
+
+This is the "lying `itemExtent`" class — **184 findings, 3 distinct defects** —
+which the sweep structurally could not report from the hour the guard shipped.
+
+**Why this is a ruling and not a repair:** the round-3 plan defers *variable item
+extents* with the reason "needs a consumer; both candidate designs are recorded".
+**The consumer has arrived.** Accessibility text is not an edge case — this
+project already binds itself to the four measured offsets `{0, 4, 10, 14}` and to
+a ~1.4× localization expansion rule. A fixed extent cannot satisfy either.
+
+| option | consequence |
+|---|---|
+| **A. Build variable item extents** (recommended) | The deferred feature, now justified by measurement rather than by anticipation. Both candidate designs are already written down. The largest piece of work on this page. |
+| B. Make the declared extent grow with the text preference | Much cheaper and closes the accessibility case specifically; rows stay uniform, so a single tall row still overflows. A real improvement that does not solve the class. |
+| C. Clip, and keep the finding loud | Nothing overflows; tall content is cut. Honest, ugly, and cheap. |
+
+**Recommendation: A**, or **B now and A when a second consumer appears** if the
+schedule matters more than the class. What should not happen is leaving it: seven
+of the sweep's newly-visible defects are live **at the default preference**, so
+this is not only an accessibility-mode problem.
+
+---
+
+## 8. Is "no declared arrangement is legal — showing the declared fallback" a defect?
+
+The widened sweep now sees a `composition` finding class it previously could not:
+a composition reports that none of its declared arrangements fits and that it is
+showing its declared fallback.
+
+Rascal Rally **already excludes this class** from its own diagnostic check, with a
+reason on the record — so the two sides of the lockstep rule currently disagree
+about whether it is a defect.
+
+| option | consequence |
+|---|---|
+| **A. It is correct behaviour** (recommended) | It becomes a permanent, documented exclusion rather than a waiver with a ceiling. A fallback that was *declared* and is being *used as declared* is the system working. |
+| B. It is a defect | Every surface must declare an arrangement legal at every viewport × text preference, which is a much stronger contract than anything else here enforces. |
+
+**Recommendation: A**, matching what the consumer already decided — but it needs
+to be decided once, in one place, rather than differently on each side.
 
 ---
 
