@@ -379,6 +379,41 @@ permanent red: proved 2026-08-13 that the same script exits 0 against a
 
 Needs a human at Studio; no agent can close it headlessly.
 
+> **ATTEMPTED 2026-08-14, AND THE BLOCKER IS NOW MEASURED RATHER THAN ASSUMED.**
+> "Needs a human" was written before the MCP path had been tried. It has now been
+> tried, and the reason is sharper than "no agent can": **the Studio MCP's Play
+> bridge does not work in this environment at all.**
+> `mcp__Roblox_Studio__start_stop_play` times out on every call and then answers
+> `Start play hasn't finished yet` for the rest of that Studio instance's life,
+> and while a session *is* in Play (it does start — `get_studio_state` reports
+> `Play` with `Client, Server`), `execute_luau` answers
+> `Target is not reachable (createExecuteLuauBridge_loadCodeAsync, …)` for **both**
+> datamodels, so `user_keyboard_input` (which is Client-only) can never be
+> reached. Reproduced on **two** Studio instances, the second one fresh, so it is
+> not one wedged session. Synthetic input is not a way around it either: `CGEvent`
+> mouse clicks and `System Events` keystrokes and menu selections were all posted
+> at Studio and **none** of them reached it (proved by clicking an Explorer row
+> and a ribbon tab and observing no change).
+>
+> **Steps 1–2 and the source half are already done and can be skipped.** The
+> showcase place was injected from `tools/lune/studio_sync` this session and is
+> current at stamp `20950a06-5154740` with `LuauUI_SourceStale = 2` (only
+> `renderer`/`presenter`, both over the 200,000-char Source cap, both at
+> `965b8ed`); the device emulator was stopped; `LuauUI_Showcase` /
+> `LuauUI_Scenario` were restored afterwards, so set
+> `LuauUI_Showcase = false` and `LuauUI_Scenario = "keyboard_navigation"` again
+> before pressing Play. What is owed is a session in which **raw Tab actually
+> reaches the client** — a human pressing Play with a working input path, or the
+> MCP Play bridge repaired.
+>
+> Step 3's `tools/studio/install_matrix_driver` **does not exist as a file**; the
+> driver is installed by fetching `http://127.0.0.1:8642/driver` from
+> `tools/lune/studio_sync` into a `workspace.LuauUIMatrixDriver` ModuleScript
+> (`tools/studio/device_matrix.luau`'s own header). Note also that the artifact's
+> own `TD13-forward-traversal.driver` field records the 2026-08-03 session as
+> having used **`mcp user_keyboard_input keyPress Tab x5`**, not VirtualInput —
+> so that, not `run({ mode = "keyboard" })`, is the path known to have worked.
+
 1. Publish/sync the current source into the gallery place and open
    **`examples/places/LuauUI-Showcase.rbxl`** (or the stage's own Place1), then
    **Play (Client datamodel)** — the Edit datamodel caches `require()` results and
