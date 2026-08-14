@@ -419,3 +419,75 @@ describe("authored presentation D — off-path cost, and one write site", functi
 		expect(transparency).toBe(1)
 	end)
 end)
+
+--[[ ── E. THE PRESS DIP AND THE AUTHORED SCALE ────────────────────────────────
+
+	ADR-0026 shipped with this booked rather than fixed: the engine honours ONE
+	`UIScale` per object, so an authored `scale` and a `Button`'s press dip write
+	the same instance, and the dip's recovery tweened to an ABSOLUTE `1`. The
+	first release of a scaled Button therefore destroyed the authored value
+	permanently — the renderer's write is memoized on the composed value, which
+	had not changed, so nothing re-asserted it. It was recorded rather than fixed
+	because `src/client/screen_paint.luau` was an uncommitted in-flight extraction
+	owned by another agent; that landed in `38e47e2`, and this is the fix.
+
+	IT IS PINNED AS SOURCE TEXT AND THAT IS SAID OUT LOUD. Neither
+	`screen_paint.luau` nor `screen_target.luau` can load under Lune — they reach
+	engine globals at load time — so this whole family of pins reads them as text
+	through `tests/lib/adapter_source.luau`. What that CAN prove is exactly what
+	this defect was: an absolute literal where a variable belonged. What it cannot
+	prove is that a tween runs, which is the device round's job.
+]]
+describe("authored presentation E — an authored scale survives a press", function()
+	local adapter_source = require("./lib/adapter_source")
+	local fs = require("@lune/fs")
+
+	it("NO press-dip target in screen_paint is an absolute 1 — every one derives from the resting scale", function()
+		local paint = fs.readFile("src/client/screen_paint.luau")
+		local offenders: { string } = {}
+		local line = 0
+		for text in string.gmatch(paint, "[^\n]*") do
+			line += 1
+			-- code only: the file's own header quotes "all 25 UIScale objects sat
+			-- at Scale = 1.0", and a comment is not a write
+			if string.match(text, "^%s*%-%-") ~= nil then
+				continue
+			end
+			if string.find(text, "Scale = 1 }", 1, true) ~= nil or string.match(text, "%.Scale = 1%s*$") ~= nil then
+				table.insert(offenders, `{line}: {text}`)
+			end
+		end
+		expect(table.concat(offenders, "\n")).toBe("")
+	end)
+
+	it("...and all FOUR sites read it through one named helper, not four literals", function()
+		local paint = fs.readFile("src/client/screen_paint.luau")
+		local _, defs = string.gsub(paint, "local function restingScale%(", "")
+		expect(defs).toBe(1)
+		-- two dips (native + bespoke) and two recoveries (native + bespoke): four
+		-- call sites, which is the whole population of press-dip Scale targets
+		local _, calls = string.gsub(paint, "restingScale%(handle%)", "")
+		expect(calls).toBe(4)
+		-- the dip is RELATIVE: resting x pressedScale, never pressedScale alone
+		local _, dips = string.gsub(paint, "restingScale%(handle%) %* style%.extra%.pressedScale", "")
+		expect(dips).toBe(2)
+		local _, bare = string.gsub(paint, "{ Scale = style%.extra%.pressedScale }", "")
+		expect(bare).toBe(0)
+	end)
+
+	it("the presentation authority RECORDS the resting scale at the moment it writes it", function()
+		local source = adapter_source.live()
+		local from = string.find(source, "local function applyPresentationPaint(handle: any, t: any)", 1, true)
+		expect(from ~= nil).toBe(true)
+		local body = string.sub(source, from :: number, (from :: number) + 1200)
+		-- recorded from the COMPOSED value the renderer sent, and cleared rather
+		-- than pinned to 1 when nothing is scaling
+		expect(
+			string.find(body, "handle.restingScale = if scale ~= nil and scale ~= 1 then scale else nil", 1, true)
+				~= nil
+		).toBe(true)
+		-- exactly one writer of the field, and it is this authority
+		local _, writes = string.gsub(source, "handle%.restingScale =", "")
+		expect(writes).toBe(1)
+	end)
+end)

@@ -1152,6 +1152,14 @@ function screen_target.new(opts: Opts?)
 		end
 		local scale = if type(t) == "table" and type(t.scale) == "number" then t.scale else nil
 		local existing = handle.motionScale or handle.uiScale
+		-- THE PRESS DIP'S RESTING TARGET (ADR-0026 Consequences, fixed 2026-08-14).
+		-- The composed scale this authority is writing IS what a dip must come back
+		-- to, and this is the one moment it is known. Recorded even when the
+		-- instance is shared with the dip — especially then, since that sharing is
+		-- what made an absolute recovery destroy an authored scale. Cleared, not set
+		-- to 1, when nothing is scaling: `screen_paint.restingScale` reads it with
+		-- `or 1`, so an unscaled control never grows a field.
+		handle.restingScale = if scale ~= nil and scale ~= 1 then scale else nil
 		if scale ~= nil and scale ~= 1 then
 			local live = existing
 			if live == nil then

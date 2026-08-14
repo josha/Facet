@@ -259,26 +259,37 @@ shape here:
   rects, so a rotated button's tap target is its unrotated box. This matches Apple, who is explicit
   for both: `rotationEffect` *"has no effect on the view's frame"* ([SW-146]) and `scaleEffect`'s
   dimensions *"are considered to be unchanged by scaling the contents"* ([SW-147]).
-- **OWED, and measured rather than suspected: an authored `scale` on a `Button` does not survive a
-  press.** The engine honours exactly one `UIScale` per object, so the authored scale writes the
-  same instance the press dip tweens. The dip tweens it to `style.extra.pressedScale` on
-  `MouseButton1Down` and its recovery tweens it back to **`1`** on `MouseButton1Up` / `MouseLeave` —
-  an absolute target, so the authored value is gone from that release onward and nothing re-asserts
-  it (the renderer's write is memoized on the composed value, which has not changed).
+- **~~OWED~~ FIXED 2026-08-14: an authored `scale` on a `Button` now survives a press.** The engine
+  honours exactly one `UIScale` per object, so the authored scale writes the same instance the press
+  dip tweens. The dip tweened it to `style.extra.pressedScale` on `MouseButton1Down` and its
+  recovery tweened it back to **`1`** on `MouseButton1Up` / `MouseLeave` — an absolute target, so the
+  authored value was gone from that release onward and nothing re-asserted it (the renderer's write
+  is memoized on the composed value, which has not changed).
 
-  **This is a pre-existing hazard that an authored scale turns from rare into certain**, and the
-  file already says so in its own words: the recovery deliberately reads only the dip's own
+  **This was a pre-existing hazard that an authored scale turned from rare into certain**, and the
+  file already said so in its own words: the recovery deliberately reads only the dip's own
   `handle.uiScale` because *"a button released while a pop or an enter transition is live would have
-  its presentation scale snapped to 1, and nothing re-asserts it"*. That mitigation is not enough
+  its presentation scale snapped to 1, and nothing re-asserts it"*. That mitigation was not enough
   once the scale is permanent rather than transient.
 
-  **The fix is small and named**: record the composed resting scale on the handle when the
-  presentation paint is applied, then make the dip's target `resting × pressedScale` and its
-  recovery target `resting` instead of `1`. It is **not made here** because both call sites live in
-  `src/client/screen_paint.luau`, which on 2026-08-14 is an uncommitted in-flight extraction owned
-  by a concurrent agent — editing another agent's unstaged file is exactly how this session lost
-  work four times. It is booked as a device-round item, and `api.md`'s `scale` row says so, so no
-  author meets it without warning.
+  **The fix is the one this ADR named**, made when the file it lives in became committable
+  (`38e47e2` landed the extraction that was in flight on the day this ADR was written; the fix
+  followed the same day). `screen_target.luau`'s `applyPresentationPaint` records the composed
+  resting scale as `handle.restingScale` at the moment it writes it — cleared rather than pinned to
+  `1` when nothing is scaling, so an unscaled control never grows the field — and
+  `screen_paint.luau` reads it back through one named helper, `restingScale(handle)`, at **four**
+  sites: the two dips now target `resting × pressedScale` and the two recoveries target `resting`.
+  One helper rather than four literals, because the version with four literals is exactly how three
+  of them stayed at `1`.
+
+  **The dip is a relative gesture, and always meant to be.** A badge at `scale = 1.5` dips to
+  `1.4775` and returns to `1.5`; a control with no authored scale is byte-identical to before
+  (`resting = 1`). Pinned by `tests/authored_presentation.spec.luau` § E as source text — neither
+  adapter file can load under Lune, so the pin is what that family of pins always is, and it proves
+  exactly what this defect was: an absolute literal where a variable belonged. Five mutations
+  (each site reverted in turn, plus pinning the record to `1` instead of clearing it) each redden a
+  named case. `api.md`'s `scale` row and `swiftui-parity.md`'s `scaleEffect` row now describe the
+  behaviour instead of the workaround.
 - **`opacity` is not offered on a leaf** (Decision 4). The spelling is one `UI.ZStack` wrap, and the
   parity doc, `api.md` and the guide all say so in the same words.
 - **A HAND-OFF, not a decision here: an authored `opacity` is a fact any future
@@ -290,6 +301,13 @@ shape here:
   box and covers nothing visible**, so a diagnostic that keys on geometry alone would report a
   collision a player cannot see. `opacity` belongs beside `hidden` in whatever "this is not
   covering anything" set that diagnostic ends up reading.
+
+  **TAKEN — [ADR-0028](ADR-0028-cross-surface-overlap.md), same day.** The constraint held and
+  changed the design: the alarm's cover rect is the *union of what a surface paints*, not a
+  geometric box, so `opacity = 0`, `hidden`, a framework fade to nothing and a switched-off root
+  all answer "covers nothing" by construction rather than by a list of special cases.
+  `tests/surface_overlap.spec.luau` pins each of the four, and deleting the fully-faded ancestor
+  test reddens the `opacity = 0` case by name.
 - **A `drawingGroup`-style rasterization is still not on offer.** Declaring an opacity buys grouped
   alpha and a render buffer, never a cached bitmap — the half of [SW-134] the `canvasGroup` row
   already records as missing.

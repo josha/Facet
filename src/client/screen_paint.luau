@@ -304,6 +304,27 @@ function screen_paint.new(ctx: any)
 		return scale
 	end
 
+	--[[ WHAT THE DIP MUST COME BACK TO (ADR-0026 Consequences, fixed 2026-08-14).
+
+		The engine honours ONE `UIScale` per object, so an authored `scale` and the
+		press dip write the same instance. The dip used to tween to
+		`style.extra.pressedScale` and recover to an absolute **`1`** — so the first
+		release of a Button carrying an authored scale destroyed it permanently, and
+		nothing re-asserted it (the renderer's write is memoized on the composed
+		value, which had not changed).
+
+		`handle.restingScale` is that composed value, recorded by
+		`applyPresentationPaint` at the moment it writes it. The dip is now a
+		RELATIVE gesture — `resting x pressedScale` down, `resting` back — which is
+		what it always meant: a 1.5x badge dips to 1.4775x and returns to 1.5x, and
+		a control with no authored scale is byte-identical to before (resting = 1).
+
+		One function rather than four literals, because the version with four
+		literals is exactly how three of them stayed at `1`. ]]
+	local function restingScale(handle: any): number
+		return handle.restingScale or 1
+	end
+
 	-- pressed-dip presentation for native mode: the fills belong to the sheet
 	-- (:Press rules), but the quick UIScale dip is value-driven presentation
 	-- and stays bespoke (plan §6.5) — wired WITHOUT any fill writes.
@@ -314,10 +335,11 @@ function screen_paint.new(ctx: any)
 			if scale == nil then
 				return
 			end
+			local resting = restingScale(handle)
 			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
+				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = resting }):Play()
 			else
-				scale.Scale = 1
+				scale.Scale = resting
 			end
 		end
 		button.MouseButton1Down:Connect(function()
@@ -325,7 +347,7 @@ function screen_paint.new(ctx: any)
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),
-					{ Scale = style.extra.pressedScale }
+					{ Scale = restingScale(handle) * style.extra.pressedScale }
 				):Play()
 			end
 		end)
@@ -707,10 +729,14 @@ function screen_paint.new(ctx: any)
 			if scale == nil then
 				return
 			end
+			-- ...and it comes back to the AUTHORED resting scale, not to 1 (see
+			-- `restingScale` above): an absolute target is what destroyed an
+			-- authored `scale` on the first release
+			local resting = restingScale(handle)
 			if not isReducedMotion() and not handle.suppressStates then
-				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = 1 }):Play()
+				TweenService:Create(scale, motionInfo(style.motion.fast), { Scale = resting }):Play()
 			else
-				scale.Scale = 1
+				scale.Scale = resting
 			end
 		end
 		button.MouseLeave:Connect(function()
@@ -727,7 +753,7 @@ function screen_paint.new(ctx: any)
 				TweenService:Create(
 					ensureScale(button, handle),
 					motionInfo(style.motion.fast),
-					{ Scale = style.extra.pressedScale }
+					{ Scale = restingScale(handle) * style.extra.pressedScale }
 				):Play()
 			end
 		end)
