@@ -512,9 +512,13 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			local hasOpts = string.find(args, ",", 1, true) ~= nil
 			expect(`present({args}) has opts:{hasOpts}`).toBe(`present({args}) has opts:true`)
 		end
-		-- every single-line call site in the file (the two multi-line ones — the
-		-- backdrop and the chrome root — are literal tables written inline)
-		expect(calls).toBe(4)
+		-- every single-line call site left in the file. It used to be four: the
+		-- chrome's own `raiseChrome` was one of them, and the chrome is a required
+		-- module now (`showcase_chrome.luau`), which is a strict improvement on
+		-- this check — that surface is MOUNTED by tests/gallery_chrome.spec rather
+		-- than pattern-matched here. The two multi-line calls (the backdrop root
+		-- and the plain settings demo) pass literal tables written inline.
+		expect(calls).toBe(3)
 		-- and the DEMO branches are the ones this is really about: the picker's
 		-- fixture branch, the picker's tutorial branch, and the single-demo mount
 		-- path must all forward the built table's own opts

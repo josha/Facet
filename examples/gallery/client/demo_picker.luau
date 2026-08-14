@@ -267,6 +267,14 @@ export type MountOpts = {
 	-- called after this overlay re-presents itself, so the host can re-raise any
 	-- OTHER overlay it owns (the theme picker) above the freshly mounted demo
 	onRaise: (() -> ())?,
+	-- COMPOSED ONLY. What the chip's press means when the host owns panel
+	-- PRESENCE — the showcase chrome does, because the open panel is now its own
+	-- presented surface (showcase_chrome.luau §2). The chrome writes `open` back
+	-- so this picker's chip still says "Close" while its own section is showing.
+	onChip: (() -> ())?,
+	-- COMPOSED ONLY. Called after a ROW is chosen, so the host can take its panel
+	-- down. Absent, the picker closes its own `open` signal exactly as before.
+	onChose: (() -> ())?,
 	warn: ((message: string) -> ())?,
 }
 
@@ -320,35 +328,68 @@ function demo_picker.mount(opts: MountOpts): any
 		raise()
 	end
 
+	--[[ THE CHIP'S LABEL, AND WHERE THE CHARACTER CLIP DID AND DID NOT SURVIVE.
+
+		`CHIP_LABEL_CHARS = 14` is documented as "what fits beside the demo picker's
+		chip on the narrowest phone portrait (320px)" — which makes the constant a
+		TWO-CHIP BUDGET written as a number, and clipping by character count the
+		thing `[SHOWCASE-CHROME]: CONCERNS 16` replaced: the composed chrome steps
+		its chips down a `UI.ViewThatFits` ladder to icon-only instead, which is a
+		measurement rather than a guess about a font. So the COMPOSED chip carries
+		the demo's real title and lets the ladder decide.
+
+		The STANDALONE path keeps the clip byte-for-byte: it draws its own chip into
+		its own 62px strip with no ladder above it, and the eight single-example
+		places' geometry assertions are written against that. ]]
 	local currentTitle = scope:own(core:memo(function(use)
 		local demo = demo_picker.find(use(selection))
-		return demo_picker.clip(if demo ~= nil then demo.title else "—", demo_picker.CHIP_LABEL_CHARS)
+		local title = if demo ~= nil then demo.title else "—"
+		if opts.composed == true then
+			return title
+		end
+		return demo_picker.clip(title, demo_picker.CHIP_LABEL_CHARS)
 	end))
 	local toggleLabel = scope:own(core:memo(function(use)
 		return if use(open) then "Close" else use(currentTitle)
 	end))
 
-	local rows = {}
+	-- A FUNCTION, NOT AN ARRAY. The composed host draws its rows inside its own
+	-- card (`rows` below) while the standalone path keeps its own `ScrollView`
+	-- (`list`); building the blueprints twice keeps the two trees from ever
+	-- sharing a node table, which is the kind of aliasing that only misbehaves
+	-- once both are mounted at the same time. The `selected` memos are shared —
+	-- they are derived state, not nodes.
+	local isCurrentOf: { [string]: any } = {}
 	for _, demo in demo_picker.DEMOS do
-		local isCurrent = scope:own(core:memo(function(use)
+		isCurrentOf[demo.id] = scope:own(core:memo(function(use)
 			return use(selection) == demo.id
 		end))
-		table.insert(
-			rows,
-			UI.Button({
-				id = demo.id,
-				label = demo.title,
-				selected = isCurrent,
-				onActivate = function()
-					local command = demo_picker.choose(selection:get(), demo.id)
-					if command.action == "swap" then
-						selection:set(command.selection)
-						show(command.selection)
-					end
-					open:set(false)
-				end,
-			})
-		)
+	end
+	local function buildRows(): { any }
+		local rows = {}
+		for _, demo in demo_picker.DEMOS do
+			table.insert(
+				rows,
+				UI.Button({
+					id = demo.id,
+					label = demo.title,
+					selected = isCurrentOf[demo.id],
+					onActivate = function()
+						local command = demo_picker.choose(selection:get(), demo.id)
+						if command.action == "swap" then
+							selection:set(command.selection)
+							show(command.selection)
+						end
+						if opts.onChose ~= nil then
+							opts.onChose()
+						else
+							open:set(false)
+						end
+					end,
+				})
+			)
+		end
+		return rows
 	end
 
 	-- THE CHIP and THE LIST, as pieces. The host composes them into one chrome
@@ -356,13 +397,30 @@ function demo_picker.mount(opts: MountOpts): any
 	-- historical screen below is what a non-composing caller still gets.
 	-- see theme_picker's chip: one HStack cannot hold two children called
 	-- "Toggle", and the historical id stays on the non-composed path
+	local function pressChip()
+		if opts.onChip ~= nil then
+			opts.onChip()
+		else
+			open:set(not open:get())
+		end
+	end
 	local chip = UI.Button({
 		id = if opts.composed == true then "DemoToggle" else "Toggle",
 		label = toggleLabel,
 		surface = "chip",
-		onActivate = function()
-			open:set(not open:get())
-		end,
+		onActivate = pressChip,
+	})
+	-- THE ICON RUNG of the chrome's `ViewThatFits` ladder (CONCERNS 16: step the
+	-- chips down to icon-only rather than clipping their labels by character
+	-- count). `label` stays and is not drawn, so the rung is still a control with
+	-- an accessible name; "menu" is the framework's own list mark.
+	local iconChip = UI.Button({
+		id = "DemoToggleIcon",
+		label = toggleLabel,
+		surface = "chip",
+		shape = "circle",
+		icon = "menu",
+		onActivate = pressChip,
 	})
 	-- THE LIST SCROLLS, AND IT IS SIZED `hug` ON BOTH AXES (director report
 	-- 2026-07-27, found live under Pixel Quest). This was a plain `VStack`, so it
@@ -397,7 +455,19 @@ function demo_picker.mount(opts: MountOpts): any
 		padding = "s",
 		width = { type = "hug" },
 		height = { type = "hug" },
-		children = rows,
+		children = buildRows(),
+	})
+	-- ...AND THE PLAIN STACK the composed host puts inside ITS card. The chrome's
+	-- panel is already a `ScrollView` with `surface = "raised"` — the scroller IS
+	-- the card — so handing it the `list` above would nest a raised scroller in a
+	-- raised scroller, which is wrong shape #2 from the theme picker's round-10
+	-- write-up (a rounded panel inside a rounded panel with a gutter and no
+	-- meaning to it).
+	local rowsStack = UI.VStack({
+		id = "Rows",
+		gap = "xs",
+		width = { type = "fill", weight = 1 },
+		children = buildRows(),
 	})
 
 	if opts.composed == true then
@@ -413,7 +483,9 @@ function demo_picker.mount(opts: MountOpts): any
 		end
 		return {
 			chip = chip,
+			iconChip = iconChip,
 			list = list,
+			rows = rowsStack,
 			open = open,
 			selection = selection,
 			-- the host mounts the first demo itself once its chrome is up: this

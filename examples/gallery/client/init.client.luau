@@ -205,6 +205,8 @@ end)
 -- inert in every other place.
 if workspace:GetAttribute("LuauUI_Showcase") == true then
 	local demo_picker = require(script:WaitForChild("demo_picker")) :: any
+	local settings_panel = require(script:WaitForChild("settings_panel")) :: any
+	local showcase_chrome = require(script:WaitForChild("showcase_chrome")) :: any
 
 	-- RESERVE THE BAR, DO NOT FLOAT OVER IT.
 	--
@@ -441,32 +443,26 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		{ responder = "passive", rootPolicy = "edgeToEdge" }
 	)
 
-	-- ONE CHROME SURFACE, LAID OUT BY THE SOLVER.
+	-- THE CHROME: A STRIP THAT NEVER MOVES, AND A PANEL THAT COMES AND GOES.
 	--
-	-- The two chips used to be two presented surfaces held apart by a hard-coded
-	-- offset, because neither could measure the other. On a real iPhone 15 Pro
-	-- the text renders wider than the offset assumed and they OVERLAPPED — twice
-	-- reported from a device. An offset between two things that cannot see each
-	-- other is a guess, and a guess about text is a guess about every font, every
-	-- typography scale and every device.
+	-- The structural half lives in `showcase_chrome.luau`, where it can be
+	-- required and driven headlessly — this file is a LocalScript and reaches
+	-- engine globals at load, so anything built inline here can only ever be
+	-- checked by reading its source text. Read that module's header for the two
+	-- findings behind the shape: the chrome was unreachable by keyboard and
+	-- gamepad (nothing outside the presenter's tap handler ever calls `engage()`),
+	-- and the old always-on-top chrome owned the focus SCOPE, so no key could
+	-- reach the demo on screen either.
 	--
-	-- So the host composes: it asks each picker for its chip and its panel and
-	-- puts them in ONE screen. Now one solver owns both, the row can never
-	-- overlap, and the panels are children of a full-width column instead of
-	-- floating at a fixed x — which is what ran the theme list off the right edge
-	-- in portrait and mislaid it in landscape.
+	-- What survives from the composed-chrome round is the reason it exists: the
+	-- two chips are laid out by ONE solver, so they can never overlap the way two
+	-- separately-presented surfaces held apart by a hard-coded offset did on a
+	-- real iPhone 15 Pro. What changed is that the open PANEL is its own surface,
+	-- which is what lets the strip sit permanently underneath the demos.
 	local showcasePicker: any = nil
 	local demos: any = nil
+	local settings: any = nil
 	local chrome: any = nil
-
-	local function raiseChrome()
-		if chrome ~= nil and chrome.handle ~= nil then
-			pres.dismiss(chrome.handle)
-		end
-		if chrome ~= nil then
-			chrome.handle = pres.present(chrome.screen, chrome.opts)
-		end
-	end
 
 	demos = demo_picker.mount({
 		LuauUI = LuauUI,
@@ -475,138 +471,61 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		presenter = pres,
 		composed = true,
 		mountDemo = mountDemo,
-		-- z-order is present order, so the chrome goes back on top after every
-		-- demo swap
+		-- PANEL PRESENCE IS THE CHROME'S, so the chip asks and the row's choice
+		-- takes the panel down. `open` is handed in for the chip's own label
+		-- ("Close" while its section is showing).
+		onChip = function()
+			chrome.request("demos")
+		end,
+		onChose = function()
+			chrome.close()
+		end,
+		-- THE SETTING OUTLIVES THE DEMO. A demo may drive `reducedMotion` while it
+		-- is on screen (`scenarios/with_animation.luau` does, deliberately, and
+		-- restores what it found on dispose) — re-applying the preference after
+		-- every mount is what makes the settings control a SETTING rather than
+		-- something the next demo swap silently reverts.
 		onRaise = function()
-			raiseChrome()
+			if settings ~= nil then
+				settings.apply()
+			end
 		end,
 		warn = warn,
 	})
 	showcasePicker = mountThemePicker(true, true)
+	settings = settings_panel.mount({
+		LuauUI = LuauUI,
+		core = core,
+		env = env,
+		-- theme is a SETTING and lives in here now (CONCERNS 16); nil when no
+		-- package replicated, which leaves settings with just its motion section
+		themeSections = if showcasePicker ~= nil then showcasePicker.sections else nil,
+		onChip = function()
+			chrome.request("settings")
+		end,
+	})
 
-	-- ONE OPEN PANEL AT A TIME. They share the column under the chips, so two
-	-- open at once would stack into a screen-high wall of chrome.
-	local function closeOthers(which: string)
-		if which ~= "demo" then
-			demos.open:set(false)
-		end
-		if which ~= "theme" and showcasePicker ~= nil then
-			showcasePicker.open:set(false)
-		end
-	end
-	core:observe(demos.open, function(isOpen)
-		if isOpen then
-			closeOthers("demo")
-		end
-	end)
-	if showcasePicker ~= nil then
-		core:observe(showcasePicker.open, function(isOpen)
-			if isOpen then
-				closeOthers("theme")
+	chrome = showcase_chrome.mount({
+		LuauUI = LuauUI,
+		core = core,
+		env = env,
+		presenter = pres,
+		actionSystem = system,
+		demos = demos,
+		settings = settings,
+		coreTop = coreTopSignal,
+		-- THE MEASUREMENT THAT REPLACED THE LITERAL (see reserveBar). Fed after the
+		-- first solve and after every refresh, so a theme swap, an orientation
+		-- change or a raised text preference re-reports the chip row's real bottom
+		-- edge and the reserved strip follows it.
+		onChipsBottom = function(bottom: number)
+			if chipsBottom:get() ~= bottom then
+				chipsBottom:set(bottom)
 			end
-		end)
-	end
+		end,
+	})
 
-	local chipRow = { demos.chip }
-	if showcasePicker ~= nil then
-		table.insert(chipRow, showcasePicker.chip)
-	end
-	local barChildren = {
-		UI.HStack({ id = "Chips", gap = "s", children = chipRow }),
-		UI.When({
-			id = "DemoList",
-			condition = demos.open,
-			thenView = function()
-				return demos.list
-			end,
-		}),
-	}
-	if showcasePicker ~= nil then
-		table.insert(
-			barChildren,
-			UI.When({
-				id = "ThemePanel",
-				condition = showcasePicker.open,
-				thenView = function()
-					-- the picker owns its own scrolling now (theme_picker builds
-					-- the card with a ScrollView INSIDE it when composed); this
-					-- used to wrap the card in one, which clipped the card
-					return showcasePicker.panel
-				end,
-			})
-		)
-	end
-
-	chrome = {
-		screen = UI.Screen({
-			id = "ShowcaseChrome",
-			padding = "s",
-			children = {
-				UI.Anchor({
-					id = "Dock",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fill", weight = 1 },
-					children = {
-						UI.VStack({
-							id = "Bar",
-							anchor = "topLeft",
-							-- FULL HEIGHT, so the open panel has the whole screen
-							-- below the chips to be as tall as it needs
-							height = { type = "fill", weight = 1 },
-							-- PUSHED DOWN PAST THE ROBLOX BUTTONS, not lifted up
-							-- into a reserved strip. The chrome is presented
-							-- edge-to-edge because it OWNS the strip; lifting it
-							-- into an inset content area meant the panel could
-							-- never use the 62px the strip took, and the theme card
-							-- came out three pixels short of its own content.
-							offsetY = coreTopSignal,
-							-- FULL WIDTH. The panels are children of this column, so
-							-- they get the real available width and wrap inside it
-							-- rather than overflowing to the right of a fixed x.
-							width = { type = "fill", weight = 1 },
-							gap = "xs",
-							-- (no `alignH`: this column's parent `Dock` is a `UI.Anchor`, which places
-							-- by corner and reads no align — and a stack's own cross-axis word is
-							-- `align`, whose default is already `start`. Accepted and ignored both
-							-- ways round; deleted by the §2.1 placement audit)
-							children = barChildren,
-						}),
-					},
-				}),
-			},
-		}),
-		opts = {
-			responder = "passive",
-			-- the chrome owns the strip it draws in, so it is not inset by it
-			rootPolicy = "edgeToEdge",
-			-- THE MEASUREMENT THAT REPLACED THE LITERAL (see reserveBar). Fed after
-			-- the first solve and after every refresh, so a theme swap, an
-			-- orientation change or a raised text preference re-reports the chip
-			-- row's real bottom edge and the reserved strip follows it.
-			--
-			-- The CHIP ROW and not the Bar: the Bar is full-height by design (an open
-			-- panel wants the whole screen below the chips), and reserving THAT would
-			-- push every demo off the bottom of the screen the moment a panel opened.
-			onGeometry = function(rectOf: (string) -> any)
-				local r = rectOf("/ShowcaseChrome/Dock/Bar/Chips")
-				if type(r) == "table" and type(r.y) == "number" and type(r.h) == "number" then
-					local bottom = r.y + r.h
-					if chipsBottom:get() ~= bottom then
-						chipsBottom:set(bottom)
-					end
-				end
-			end,
-			-- NO `onActivate` HERE EITHER. A surface-level handler is an OVERRIDE
-			-- (presenter §dispatchActivate) — it wins outright and returns, so
-			-- every node on this surface would lose its own handler. That is what
-			-- killed both chips: the router only understood the theme picker's
-			-- rows, and answered for everything else by doing nothing. Each
-			-- control on this surface carries its own behaviour.
-		},
-		handle = nil,
-	}
-	raiseChrome()
-	-- the chrome is up; now mount the demo it advertises
+	-- the strip is up; now mount the demo it advertises
 	demos.show(demos.current())
 
 	local showcaseHeartbeat = RunService.Heartbeat:Connect(function()
@@ -622,7 +541,13 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	-- LocalScript, so `_G` does not cross but a BindableFunction in the shared
 	-- DataModel does. It is what lets the demo be advanced without a pointer,
 	-- which matters while the injected-input limitation (XP-B3) stands.
-	_G.LuauUIShowcase = { list = demo_picker.list, current = demos.current, showNext = demos.showNext }
+	_G.LuauUIShowcase = {
+		list = demo_picker.list,
+		current = demos.current,
+		showNext = demos.showNext,
+		chrome = chrome,
+		settings = settings,
+	}
 	local showcaseApi = Instance.new("Folder")
 	showcaseApi.Name = "LuauUIShowcaseAPI"
 	for fnName, impl in
@@ -661,12 +586,36 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				local ok = showcasePicker.pickPackage(tostring(arg))
 				return HttpService:JSONEncode({ ok = ok, current = showcasePicker.selection:get() })
 			end,
+			-- THE SAME CALL A CHIP PRESS AND THE TOGGLE KEY MAKE. Theme now lives
+			-- inside settings (CONCERNS 16), so "open the themes" is "open the
+			-- settings section" — one route, not a parallel one that can rot.
 			toggleThemes = function(_arg: string?)
-				if showcasePicker == nil then
-					return HttpService:JSONEncode({ open = false })
+				chrome.request("settings")
+				return HttpService:JSONEncode({ open = chrome.isOpen(), section = chrome.kind:get() })
+			end,
+			chrome = function(arg: string?)
+				if arg == "demos" or arg == "settings" then
+					chrome.request(arg)
+				else
+					chrome.request(nil)
 				end
-				showcasePicker.open:set(not showcasePicker.open:get())
-				return HttpService:JSONEncode({ open = showcasePicker.open:get() })
+				return HttpService:JSONEncode({
+					open = chrome.isOpen(),
+					section = chrome.kind:get(),
+					engaged = chrome.panelHandle() ~= nil and chrome.panelHandle().responder:get() or "none",
+				})
+			end,
+			-- the reduced-motion axis of a device canary, reachable without a
+			-- pointer and WITHOUT the one demo that used to own it being on screen
+			motion = function(arg: string?)
+				if arg == "full" or arg == "reduced" then
+					settings.setMode(arg)
+				end
+				return HttpService:JSONEncode({
+					motion = settings.mode:get(),
+					setting = settings.setting:get(),
+					reduced = env:get("reducedMotion"):get() == true,
+				})
 			end,
 		} :: { [string]: (string?) -> string }
 	do
@@ -681,9 +630,9 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	print(
 		`[LuauUI Showcase] {LuauUI.VERSION} — {#demo_picker.list()} demos, theme picker {if showcasePicker ~= nil
 			then "on"
-			else "unavailable"}`
+			else "unavailable"}; chrome toggle: {showcase_chrome.TOGGLE_KEYBOARD} / {showcase_chrome.TOGGLE_GAMEPAD}`
 	)
-	local _keep = { showcaseHeartbeat, demos, showcasePicker, unbindEnv, unbindResponderEffects }
+	local _keep = { showcaseHeartbeat, demos, showcasePicker, settings, chrome, unbindEnv, unbindResponderEffects }
 	return
 end
 

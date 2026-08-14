@@ -1370,3 +1370,207 @@ against `docs/guide/**` and `api.md`, and the results are what defect (2) report
 - `tests/reference/{cartwheel,foyer,wardrobe}_spec.luau` — 9 cases, 11 mutations
 - `artifacts/swiftui-reference-app-validation/capability-ledger.md` — gap #3 spent
 - all five `examples/places/LuauUI-Ref-*.rbxl` rebuilt
+
+---
+
+## E shipped — the chrome is reachable on four inputs, and the settings surface exists
+
+Item **E** rows 4 and 11: *"chrome is unreachable by keyboard and gamepad"* and
+*"reduced-motion settings surface — NOT BUILT, hard-blocked behind #4"*.
+
+### 1. The defect was bigger than the row said, and the extra half was measured
+
+Row 4's claim held exactly: both pickers presented `responder = "passive"`, a
+passive surface's nav context is created **disabled** (`presenter.luau:2595-2603`),
+Tab and Space bind only while the responder is **engaged** (`:2839-2842`), and the
+only `engage()` call in `src/` is inside the presenter's **tap** handler
+(`:2248`). No key and no pad button was bound to `demo_picker.showNext` anywhere,
+despite the comment at `demo_picker.luau:225` promising "the gamepad/keyboard
+path".
+
+**What nothing had reported is that the demo was unreachable too.** A presented
+surface pushes a focus **scope**; `focus_graph` navigates the **top** scope only
+(`navigate`, `traverse` and `focusOn` all read `top()`); and the old chrome
+re-presented itself after every demo mount, because z-order is present order. So
+the chrome's scope was permanently on top. Driven headlessly on the shipped
+assembly before any change:
+
+| press | result |
+|---|---|
+| `Tab` | focus → `/ShowcaseChrome/Chips/DemoToggle` (a chip on a **passive** surface, so no ring paints) |
+| `Return` / `ButtonA` | **nothing** — `dispatchActivate` ran against the **demo's** handle with a chrome path, found no node, and no-opped |
+| `Down` | focus stayed on the chip; no key reached a single control of the demo on screen |
+
+Keyboard and gamepad were dead in **both** directions. That is why the fix is a
+restructure rather than one `engage()` call.
+
+### 2. The chrome shape chosen: one strip that never moves, one panel that comes and goes
+
+Present order is z-order **and** focus-scope order, and a closed chrome needs
+opposite answers for the two: the strip must be visible (it is, and it can never
+be covered, because `coreSafeInsets.top` is reserved from the chips' own measured
+bottom edge) while the **demo** must own the focus scope. One surface cannot do
+both; two can.
+
+- **`ShowcaseChrome`** — the two chips. Presented **once**, before the first demo,
+  and never re-presented. Passive, `edgeToEdge`, and it feeds `chipsBottom`
+  through `onGeometry` exactly as before. Its scope stays buried, so Tab and the
+  d-pad belong to the demo.
+- **`ShowcasePanel`** — presented when a target opens, dismissed when it closes.
+  Presented last, so it draws over the demo and owns the top scope;
+  `initialFocus = "first"` and `engage()` on every open, so Tab/Space/arrows/A/B
+  are bound and sunk while it is up; **dismissed on resign**, so pad `Cancel`, an
+  outside tap and the toggle key all put the demo back — `removeScope` restores
+  focus to the surface beneath.
+
+The bar **never** engages. A tap on a focusable inside a passive surface engages
+it, so opening resigns the bar in the same breath: two engaged surfaces both sit
+at the engaged band's 3000, both receive `Traverse`, and one Tab press would step
+the ring twice. That is now an assertion (`one Tab press moves the ring one step,
+not two`), and mutation **M3** proves it bites.
+
+The structural half moved out of `init.client.luau` into
+**`examples/gallery/client/showcase_chrome.luau`**. `init.client.luau` is a
+LocalScript that reaches engine globals at load, so anything built inline there
+can only be checked by reading its source text — which is the shape of check the
+brief singled out (`gallery_theme_picker.spec.luau:194` asserting a file
+*contains* `responder = "passive"`). The chrome is now mounted and driven for
+real by `tests/gallery_chrome.spec.luau`.
+
+### 3. Two targets forever, and the ladder that replaces the character clip
+
+`[SHOWCASE-CHROME]: CONCERNS 16` stands as written. The strip carries **which
+demo** and **settings**, and the chips step down a `UI.ViewThatFits` ladder to
+**icon-only** (`menu` and `more`, both already in `src/themes/standard_icons`;
+the standard set ships no gear and inventing one is art plus an upload, not a
+chrome restructure) rather than clipping labels by character count.
+
+`p4_foyer` is the reference, including its trap: both rungs are sized
+`{ type = "content" }`, not `hug`, because **`hug` caps at the offer and a capped
+row can never tell a `ViewThatFits` that it does not fit** — the ladder silently
+pins its first candidate and the labels truncate anyway. Mutation **M10** flips
+exactly that word and reddens the 320 px case and the sweep.
+
+`CHIP_LABEL_CHARS = 14` survives on the **standalone** picker path only (the
+eight single-example places assert geometry against it); the composed chip now
+carries the demo's real title and lets the ladder decide. `Temperature converter`
++ `Settings` is what forces the icon rung at 320×640 — mutation **M22** puts the
+clip back and the case reddens, which is the arithmetic CONCERNS 16 did, executed.
+
+### 4. The bindings, and why these two
+
+The vocabulary is closed (`constitution.md` §9), so no new verb was invented: the
+chrome's own context declares **`Activate`** — "activate the chrome" — and
+nothing else. Everything after that press is the framework's own: `Navigate`
+walks the panel, `Traverse` walks it linearly, `Activate` presses a row, `Cancel`
+leaves.
+
+| class | key | why |
+|---|---|---|
+| keyboard | **`Backquote`** | `Escape` is engine-reserved, so there is no keyboard Cancel and the same key must toggle. `Tab` is `Traverse` (and CoreGui-contended), `Space`/`Return` are `Activate`, the arrows are `Navigate`, and a letter is contended by `05_word_game`, which reads the whole alphabet. Backquote is in none of those sets and is not in Roblox's hard-reserved set (`Esc`/`F9`/`F11`/`F12`/`PrintScreen`) |
+| gamepad | **`ButtonY`** | `ButtonA` is `Activate` and is eaten unconditionally by the legacy `jumpAction` (`gamepad-contention-truths.md` truth 1); `ButtonB` is `Cancel`; `ButtonX` is the row-actions menu; `ButtonStart`/`ButtonSelect` are the platform's own menu buttons, and claiming those is the trade that lesson refuses. ButtonY is the one face button no verb in this framework claims |
+
+The context sits at **priority 3500**, strictly above the engaged band's 3000, so
+the toggle key still works while the panel it opened is engaged and sinking.
+Sinking is per-**key** (`actions.luau`'s `deviceKey` only cuts candidates for the
+same key code) and nothing else in the place binds either key, so this steals
+nothing — asserted by pressing all twelve contended keys and requiring that none
+of them toggles the chrome.
+
+**One toggle key, two targets** is resolved inside the panel: its first control is
+a segmented `newPicker` (`Demos | Settings`). The strip's chips say *open this*;
+the segment says *which section am I in*. That is what makes both targets
+reachable from one key, and it switches sections in one press on touch as well.
+
+### 5. The settings surface, and what `with_animation` now composes to
+
+`examples/gallery/client/settings_panel.luau` ships. It owns a **`Full | Reduced`**
+segmented control — never "on/off": the env fact is binary but the effect is not
+(`motion.luau:31-42`), and a caption under the control says so in words that must
+survive pseudo-localization. A check enumerates every string in its exported
+`COPY` and refuses `on`, `off`, `disable`. The theme picker's two sections are
+composed into the **same card** (`theme_picker` now returns `sections` beside its
+`panel`), so there is one raised scroller rather than a raised card inside a
+raised card.
+
+**The composition rule, decided and now asserted — one fact, two editors:**
+
+- the settings control holds two signals: `setting` (the player's **preference**,
+  written only by a press on it, via `newPicker`'s `onChange`, which fires only
+  from `picker.choose`) and `mode` (**what is live**, mirrored from
+  `reducedMotion`, and what the picker shows);
+- `with_animation`'s inline control **stays** — it is the demo teaching its own
+  subject — and now also **reads the fact back**. Open Settings over that demo,
+  flip Motion, and the demo's own segmented control moves in the same frame.
+  Before this it would have read "Full" over a screen that had stopped travelling;
+- the demo's documented **restore-on-dispose is unchanged**: a change made from
+  inside the demo is a **local override** scoped to that demo, which is the trap
+  that rule exists for;
+- the showcase host calls `settings.apply()` after **every demo mount**, so
+  leaving a demo returns the place to the **preference** whichever control was
+  touched last. That is what makes it a setting rather than a demo's side effect,
+  and it is the exact sequence the case *"the host's re-apply is what makes the
+  SETTING win over that restore"* drives.
+
+Round 2's reason 3 is proved rather than restated: flipping the setting re-solves
+**without rebuilding** — `handle.root.counters().factoryRuns` and the adapter's
+instance count are both unchanged across the flip while `motionClock:isReduced()`
+goes true. Mutation **M15** makes the write a no-op and the case reddens, so it is
+not vacuous.
+
+The reduced-motion axis of a device canary is now reachable without a pointer and
+without that one demo on screen: `LuauUIShowcaseAPI.motion("reduced")`, plus
+`chrome("demos"|"settings"|nil)` and a `toggleThemes` that routes through the same
+`chrome.request` a chip press and the toggle key take.
+
+### 6. What is asserted, and how
+
+`tests/gallery_chrome.spec.luau` — 38 cases, **27 mutations, every one proved to
+bite** (and one anchor that matched zero times was reported as BROKEN rather than
+as "0 reddened"). Nothing in it reads source text; everything drives
+`system.deviceKey(keyCode, isDown)` through the real `InputBinding` table or
+`adapter.tap(path)` through the real hit path, against the real chrome on a real
+presenter.
+
+Groups: (0) a closed chrome leaves the demo's own input alone — the regression
+above; (1) keyboard alone changes demo **and** theme; (2) gamepad alone changes
+demo, theme **and** motion, with `capabilities.keyboard = false` so no keyboard
+binding can be helping; (3) mouse/touch unchanged; (4) exactly one engaged
+surface, one ring step per Tab, and no stolen keys; (5) the two-chip ladder;
+(6)–(8) the settings model, its persistence across demo swaps, and its
+composition with `with_animation`; (9) the sweep.
+
+**The showcase rule in full.** The chrome is not reachable by
+`tests/overflow_sweep.spec.luau` (that file sweeps demo surfaces under the
+chrome's reservation, not the chrome itself), so group (9) sweeps it directly:
+both surfaces, both sections, at all eight `device_views.VIEWS` viewports, under
+**all eight shipped reference packages**, failing on either overflow axis — 128
+mounts. Plus the 320×640 non-overlap case (the panel's top edge against the
+chips' bottom, and the strip against the right screen edge) under every package,
+and a ~1.4× pseudo-localization pass on the settings copy at three viewports
+through a `copy` override the surface itself accepts.
+
+### 7. What shipped
+
+- `examples/gallery/client/showcase_chrome.luau` — new
+- `examples/gallery/client/settings_panel.luau` — new
+- `examples/gallery/client/init.client.luau` — the chrome block replaced by the module; `settings.apply()` on every demo mount; `motion` / `chrome` added to `LuauUIShowcaseAPI`
+- `examples/gallery/client/demo_picker.luau` — `rows` (a plain stack for the panel's own card), `iconChip`, `onChip`/`onChose`, and the composed chip's label off the character clip
+- `examples/gallery/client/theme_picker.luau` — `sections` beside `panel`
+- `examples/gallery/scenarios/with_animation.luau` — reads the fact back; header updated
+- `tests/gallery_chrome.spec.luau` — new, 38 cases, 27 mutations
+- `tests/gallery_demo_picker.spec.luau` — the `pres.present` census follows the chrome out of the bootstrap
+- `examples/places/LuauUI-Showcase.rbxl` rebuilt
+
+### 8. Not closed
+
+- **No Studio canary was run.** Row 3 of the ledger stays open; everything above
+  is headless. The live questions this raises and does not answer: does a real
+  `Backquote` reach IAS (injected keys are known-unreliable for some classes —
+  `engine-input-truths-phaseb.md` items 3–5), and does a physical `ButtonY` fire
+  `Activate` end-to-end (the standing `physical-device-confirmation` rider —
+  a real pad button cannot be pressed headlessly or by injection).
+- The panel's **section switch** is a second rendering of the same two targets
+  that the strip's chips name. It reads as *which section* against the chips'
+  *open this*, and it is what makes one toggle key serve two targets, but it is a
+  judgement call a director may want to revisit on a device.

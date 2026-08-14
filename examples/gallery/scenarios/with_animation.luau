@@ -54,16 +54,22 @@
 	that the showcase chrome carries exactly TWO targets forever — "which demo"
 	and "settings" — and that a global motion switch belongs in the settings
 	surface, not in a third chip (at 320px the two existing chips already use
-	~284 of ~304px; a third needs ninety). That settings surface is a separate,
-	larger piece of work and is NOT this fixture. What lives here is the demo
-	teaching its own subject, which the same ruling explicitly keeps.
+	~284 of ~304px; a third needs ninety). THAT SETTINGS SURFACE NOW SHIPS
+	(`examples/gallery/client/settings_panel.luau`, parity round 3 item E). What
+	lives here is the demo teaching its own subject, which the same ruling
+	explicitly keeps.
 
 	CONSEQUENCE, AND IT IS DELIBERATE: this control writes the REAL environment
 	fact (`env:set("reducedMotion", …)`), because a fixture that faked it would
 	prove nothing about the framework — and it RESTORES whatever it found on
-	dispose. The persistent, place-wide toggle is the settings surface's job when
-	it ships; a demo that silently left every OTHER demo in reduced motion after
-	you walked away from it would be a trap, not a setting.
+	dispose, because a demo that silently left every OTHER demo in reduced motion
+	after you walked away from it would be a trap, not a setting.
+
+	AND IT NOW READS THE FACT BACK, so the two controls compose instead of
+	disagreeing: one fact, two editors, this one a LOCAL OVERRIDE for as long as
+	this demo is on screen and the settings one the place-wide PREFERENCE the host
+	re-applies after every demo mount. The full rule is written beside the
+	observer in `build` below.
 
 	=== TWO HOSTS MOUNT THIS FILE ===
 
@@ -162,8 +168,32 @@ return {
 		local function applyMotionMode(value: string)
 			-- `motionPolicy` is DERIVED from this fact and refuses a direct write,
 			-- which is the right refusal: there is one source of truth and this is it.
-			env:set("reducedMotion", value == "reduced")
+			if (env:get("reducedMotion"):get() == true) ~= (value == "reduced") then
+				env:set("reducedMotion", value == "reduced")
+			end
 		end
+
+		--[[ ...AND IT READS THE FACT BACK, which is new (parity round 3 item E).
+
+			The place now carries a PERSISTENT motion control in its settings surface
+			(`examples/gallery/client/settings_panel.luau`), and both write this ONE
+			fact. Without this observer the two would disagree on screen the moment the
+			player used the other one: open Settings over this demo, flip to Reduced,
+			and this fixture's own segmented control would still read "Full" while the
+			puck beside it had stopped travelling.
+
+			So the composition is ONE FACT, TWO EDITORS, and flipping either moves both
+			controls in the same frame. This demo's control remains a LOCAL OVERRIDE:
+			the restore-on-dispose below is unchanged and still stops a demo leaving
+			every other demo in reduced motion, and the showcase host re-applies the
+			place-wide PREFERENCE after every demo mount, so leaving this demo returns
+			the place to the setting whichever control was touched last. ]]
+		scope:own(core:observe(env:get("reducedMotion"), function(value: any)
+			local live = if value == true then "reduced" else "full"
+			if motionMode:get() ~= live then
+				motionMode:set(live)
+			end
+		end))
 
 		local motionPicker = LuauUI.newPicker(LuauUI, core, {
 			id = "MotionMode",

@@ -740,6 +740,13 @@ function theme_picker.mount(opts: MountOpts): any
 		return {
 			chip = chip,
 			panel = panel,
+			-- THE SECTIONS, BARE. Theme is a SETTING, and `[SHOWCASE-CHROME]:
+			-- CONCERNS 16` put every setting behind one chip — so the showcase's
+			-- settings surface composes these two stacks into its own card
+			-- (`settings_panel.mount{ themeSections = … }`) rather than nesting this
+			-- picker's raised `panel` inside another raised card. `panel` above is
+			-- unchanged for every caller that still wants the standalone card.
+			sections = panelSections,
 			open = panelOpen,
 			-- THE SAME PATH A TAP TAKES, exposed as the scriptable entry point.
 			--
