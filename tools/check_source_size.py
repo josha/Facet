@@ -85,8 +85,15 @@ CAP = 200_000
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER = {
     "src/render/renderer.luau": (
-        238_180,
-        "RAISED 2026-08-14 by ADR-0026 (authored opacity/scale/rotation), and the "
+        242_943,
+        "RAISED TWICE on 2026-08-14 — by ADR-0026 (authored opacity/scale/rotation) "
+        "and again +4,763 by ADR-0028 (cross-surface overlap's alarm). THAT IS THE "
+        "TREND WORTH READING: the two files still over the cap are the two where the "
+        "interesting work keeps landing, so they get further from the cap while the "
+        "stable files were the easy ones to split. renderer now has a proposed seam "
+        "(lift the presentation channel out as a factory, ~8 call sites, every "
+        "upvalue shareable by reference) and it should be taken before a third raise. "
+        "Original ADR-0026 note follows. RAISED 2026-08-14 by ADR-0026, and the "
         "raise is on the record rather than silent. What was NOT allowed to land "
         "here: the whole composition seam — the three composition rules, the "
         "authored triple's domain checks and their reasoning, and the write memo's "
@@ -112,9 +119,11 @@ KNOWN_OVER = {
         "carefully-ordered file in the library.",
     ),
     "src/present/presenter.luau": (
-        207_333,
+        207_852,
         "crossed on 2026-08-14 (O-29) and immediately cost a live verification of "
-        "ruling 9 — the running session held 198,387 chars, i.e. pre-fix code.",
+        "ruling 9 — the running session held 198,387 chars, i.e. pre-fix code. "
+        "RAISED +519 by ADR-0028 (cross-surface overlap): the surface registry and "
+        "its dispose-time unregister.",
     ),
 }
 
