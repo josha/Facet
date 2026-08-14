@@ -49,9 +49,11 @@ surface keeps working for at least one minor version after `since`, and every
 entry names its `replacement`.
 
 The current rows are `UI.Text.color` and `UI.Text.font` (schema-generated, since
-0.5.0), plus `newResourceProvider(opts.retryAttempts)` and
-`adaptive.conditions().contentWidth` (declared, since 0.8.0). Each is marked
-deprecated where it is documented below.
+0.5.0), plus five declared entries: `newResourceProvider(opts.retryAttempts)` and
+`adaptive.conditions().contentWidth` (since 0.8.0), and
+`newVirtualList(spec.rowHeight)`, `newVirtualList(spec.viewportHeight)` and
+`screen_target.new(opts.isReducedMotion)` (since 0.9.0, removed no earlier than
+0.10.0). Each is marked deprecated where it is documented below.
 
 One important exception to "keeps working": a property that **never** reached a
 render target was never working surface to preserve. Keeping it silently
@@ -1866,18 +1868,20 @@ the live adapter's disclosure engagement zones on `disclose` text nodes —
 `_discloseHover`/`_discloseLongPress` seams. Omit both on a hand-attached
 surface and no zones are wired (focus-driven disclosure still works).
 
-**Controller** — 28 members, all dot-called:
+**Controller** — 35 members, all dot-called:
 
 | Group | Members |
 |---|---|
 | Render cycle | `initialRender()`, `refresh()`, `dispose()` |
-| Geometry reads | `rectOf(path)` (solved), `screenRectOf(path)` (painted — see "Two rect reads"), `hiddenRoots()`, `compositionAt(path?)`, `textAt(path?)` (the per-text-node facts of the last solve: font, size, lines, naturalLines, truncated, disclose, reveal, naturalWidth, policy — the channel the disclosure plate and the auto reveal both read) |
+| Geometry reads | `rectOf(path)` (solved), `screenRectOf(path)` (painted — see "Two rect reads"), `hiddenRoots()`, `compositionAt(path?)`, `textAt(path?)` (the per-text-node facts of the last solve: font, size, lines, naturalLines, truncated, disclose, reveal, naturalWidth, policy — the channel the disclosure plate and the auto reveal both read), `structureEpoch()` (a monotonic counter bumped by exactly the two things that change what a tree derives to — a structural sync, and a change in which roots are hidden — so a caller can cache a derivation on it instead of redoing it every frame, which is what the presenter's focus map does) |
 | Focus | `setFocusPath(path?, visible?)` |
 | Scrolling | `scrollTo(path, {x,y})`, `scrollPosition(path)`, `scrollToVisible(path)`, `scrollHostFor(path, includeSelf?)` (the nearest `ScrollView` ancestor's handle — reach for this instead of re-deriving the host), `observeScroll(path, fn) -> unsubscribe`, `stepAutoscroll(dt?)`, `setPointerDrag(info?)` |
 | Drag | `dragRegistry()` (builds one on demand), `peekDragRegistry()` (nil when none exists yet), `setDragCollaborators(collaborators)`, `attachDragDetector(path, handlers) -> detach?` |
-| Presentation channel | `setPresentationTransform(path, t?)`, `setPresentationTransparency(path, alpha?)`, `setPresentationOffset(dy)` |
+| Presentation channel | `setPresentationTransform(path, t?)`, `setPresentationTransparency(path, alpha?)`, `setPresentationOffset(dy)`, `setPaintHeld(path, held)` (hold a node's own paint while something is painted over it — the auto reveal's strip is the framework's only caller; the solve, the rects and the truncation facts are untouched, and the hold survives a re-solve and a remount of that path) |
+| Engine content | `stageHost(path)` — the `UI.Stage` seam, nil on an adapter without it (see [The content seam](#the-content-seam-controllerstagehostpath)) |
+| `withAnimation` seams | `armAnimation(session)`, `disarmAnimation()` — armed by `presenter.withAnimation` for exactly one commit, which is why an ordinary refresh installs no records — and `animationRecordCount()`, the diagnostic behind `presenter.animationRecordCount()` |
 | Surface | `setDisplayOrder(n)`, `setRootVisible(visible) -> boolean` |
-| Diagnostics | `stats()`, `diagnostics()`, `textPending()` |
+| Diagnostics | `stats()`, `diagnostics()`, `textPending()`, `analyzeBoundaries()` (re-solves the last tree with boundary detection on and reports how much a boundary-aware layout would have had to redo; it changes nothing and runs only when called) |
 
 Two conventions worth knowing. **The read methods hand back copies** —
 `stats()`, `diagnostics()`, `hiddenRoots()` and `compositionAt(nil)` all return
@@ -2148,7 +2152,7 @@ Methods:
   screen. A focus trap and a live drag proxy cannot coexist, so a drag session
   subscribes here and cancels itself; the presenter states the fact and never
   reaches into a session it does not own.
-- `presenter.SURFACE_LAYER` — the five-layer surface order as display-order
+- `presenter.SURFACE_LAYER` — the four-layer surface order as display-order
   BANDS: `base` < `toast` < `dragProxy` < `modal`. Bands rather than one running
   counter, so a toast sits above every base screen and below every modal
   whatever order they were presented in; within a band, creation order decides.
