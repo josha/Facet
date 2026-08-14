@@ -34,8 +34,8 @@ gate refuses to let anyone quietly shorten.
 | **O-5** | `api.md` round-2 prose skim | `CLOSED_ROUND3` | `docs/reference/api.md`. Closed 2026-08-13 by the agent that owned the file, and the closure carries its own finding: the row's promised "12 concrete defects, listed below" **never existed** anywhere in the repo, so the skim was redone from scratch against a live schema dump and found **15**, including `recycleInstances` and `incrementalLayout` — ON BY DEFAULT and documented nowhere. D3's own documentation defect 1 (`rowSelectable`/`rowMovable`/`rowDeletable` absent from api.md) is closed with it |
 | **O-6** | Shrink gap (a): a shrinkable label can land outside its box | `OPEN` | needs a ruling; measured in the round-3 design |
 | **O-7** | Shrink gap (b): `shrinkWeight` flips the `ViewThatFits` winner at 10 of 28 widths | `OPEN` | needs a ruling; round 2's §2.4 claim is false and is recorded as such |
-| **O-8** | Table tray-focus: trays are in no focus group | `OPEN` | headless; `buildFocusGroups` collects inside the Row node, trays are its siblings |
-| **O-9** | Keyboard/pad Delete on an unswiped hosted row | `OPEN` | headless; the fix is priced (lazy engines mean no engine exists until a swipe) |
+| **O-8** | Table tray-focus: trays are in no focus group | `CLOSED_ROUND3` | `src/controls/table.luau` + `tests/table_input.spec.luau` (`e54d671`). Closed together with O-9 because they were one defect with two hosts |
+| **O-9** | Keyboard/pad Delete on an unswiped hosted row | `CLOSED_ROUND3` | `src/controls/virtual_list.luau` (`e725c68`) plus its showcase demo (`2774513`); recorded in the round-3 design |
 | **O-10** | A BLOCK table publishes a scroll path it has no host for | `OPEN` | headless + a ruling; the crash half is fixed, the design half is live in the playlist example |
 | **O-11** | Reduced-motion settings surface | `CLOSED_ROUND3` | `examples/gallery/client/settings_panel.luau`, driven by `tests/gallery_chrome.spec.luau` groups (6)-(8); `LuauUIShowcaseAPI.motion("reduced")` |
 | **O-12** | Row-actions menu not clamped to the viewport | `OPEN` | needs a ruling |
