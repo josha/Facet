@@ -1250,6 +1250,22 @@ return {
 					local w = baseW - ((i * 7) % 61)
 					local h = baseH - ((i * 11) % 41)
 					local t0 = clock()
+					--[[ YIELD PER STEP, not per lap.
+
+						DEVICE REPORT, 2026-08-13 (second round): with the inter-lap
+						yield in place the laps DO advance — the director sees "lap 1,
+						2, 3" — but "nothing visually changes and the MicroProfiler
+						hangs when I try to capture". That is the other half of the
+						same defect: one lap is 40 steps x 2 full re-solves = 80
+						synchronous solves with no frame between them, so the whole
+						lap lands inside ONE frame. Nothing repaints (the viewport is
+						set and restored without the engine ever drawing between), and
+						a profiler asked to capture during a several-hundred-millisecond
+						frame has nothing to sample but that frame.
+
+						A workload that never yields is not measurable BY CONSTRUCTION,
+						whatever the loop around it does. ]]
+					telemetry.step()
 					env:set("viewportRect", { x = 0, y = 0, w = math.max(240, w), h = math.max(240, h) })
 					ctx.presenter.refresh()
 					table.insert(resizeMs, (clock() - t0) * 1000)
@@ -1620,6 +1636,11 @@ return {
 						table.insert(results, { stoppedAt = i, reason = "emergency stop" })
 						break
 					end
+					-- YIELD PER RUNG, for the reason resizeStorm yields per step: a
+					-- rung rebuilds a dataset of up to 40,000 rows and mounts it, and
+					-- five of those inside one frame is a freeze whatever the caller
+					-- does. Frame-accurate mount timings need a frame boundary anyway.
+					telemetry.step()
 					rampIndex = i
 					local count = math.min(ladder[i], dataset.MAX_ROWS)
 					unmount()
