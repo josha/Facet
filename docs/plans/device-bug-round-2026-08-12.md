@@ -198,6 +198,18 @@ a size only one of them visits cannot exist.
 
 ### Found and NOT fixed (recorded, out of Group B's scope)
 
+> **RE-VERIFIED 2026-08-13, and all five are still real.** The sweep that found
+> them could not *fail* on them — it greped `"on the main axis"` — so they sat
+> here as prose for a day. That filter is now deleted (the sweep fails on every
+> solver finding) and each of the five is a recorded waiver carrying its
+> measurement. At `preferredTextOffset` +0 the numbers below reproduce **byte for
+> byte**, with two corrections: the chevron glyphs fire on *all eight* viewports
+> rather than the ten-foot row alone, and `p4_foyer`'s `FeedPage` now collapses on
+> `padding 8 + 8` (the padding halved since), which bought back the 705x338 cell
+> at +0 and nothing else. Full table and verdicts:
+> `docs/plans/swiftui-parity-round3.md`, "The overflow sweep asks about every
+> finding".
+
 Non-main-axis findings the same sweep surfaces, enumerated over all 37 surfaces x
 8 viewports x the declared variants (measured after the Group B fixes landed).
 They are OVERLAP and COLLAPSED-BOX diagnostics, not "content with nothing to
