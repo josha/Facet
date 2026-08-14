@@ -96,6 +96,32 @@ module crosses 200,000 characters, naming the live-sync consequence, so the
 crossing is a decision somebody makes rather than something a session discovers
 three files later.
 
+### The cap is `>=`, not `>` — measured, not read (2026-08-14)
+
+Asked directly, in a live session, on a throwaway ModuleScript, at four lengths:
+
+| assigned `Source` length | engine |
+|---|---|
+| 234,757 (`row_actions.luau`, before) | **refused** |
+| **200,000 exactly** | **refused** |
+| 198,960 | wrote, read back 198,960 |
+| 183,738 (`row_actions.luau`, after) | wrote, read back 183,738 |
+
+> `Unable to assign property Source. Provided string length (200000) is greater
+> than or equal to max length (200000)`
+
+Every write-up above, this file's own first line included, said "over 200,000".
+The boundary is **at** 200,000. `tools/check_source_size.py` was written with
+`size > CAP`, so a module sitting at exactly 200,000 characters would have read
+as compliant and been silently unsyncable — the precise failure this whole file
+exists to prevent, reintroduced by the check built to prevent it. Fixed to `>=`,
+with a mutation proving it bites at 200,000 and stays silent at 199,999.
+
+The general form is the same one this file already argues: **a limit is a
+property of an operation. Run the operation.** One `pcall` in a live session
+answered a question that three careful write-ups had all been slightly wrong
+about.
+
 ### The first file back under, and what the seam actually was (2026-08-14)
 
 `row_actions.luau`: **234,757 -> 183,738**, six commits, `buildEngine` untouched.

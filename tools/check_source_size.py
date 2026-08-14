@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
-"""check_source_size — no NEW module may cross the 200,000-char Source cap.
+"""check_source_size — no NEW module may reach the 200,000-char Source cap.
 
-WHY THIS EXISTS. Roblox refuses a `Script.Source` assignment over 200,000
-characters. Loading a big module from a built `.rbxl` is fine — `rojo build`
+WHY THIS EXISTS. Roblox refuses a `Script.Source` assignment of 200,000
+characters or more. MEASURED IN A LIVE SESSION 2026-08-14, on a throwaway
+ModuleScript, at four lengths — the engine's own words:
+
+    Unable to assign property Source. Provided string length (200000) is
+    greater than or equal to max length (200000)
+
+so the boundary is `>=`, not `>`, and a file sitting at EXACTLY 200,000 is
+unsyncable while reading as "not over the cap". This check was written with `>`
+and would have passed it. That is the whole reason to measure an operation
+instead of quoting its documentation. Loading a big module from a built `.rbxl` is fine — `rojo build`
 writes the file directly and is not capped — but **every live path is a write**:
 Rojo's Studio plugin, `execute_luau`, any plugin. So the moment a module crosses
 the cap it stops live-syncing into an open Studio session, silently.
@@ -114,9 +123,10 @@ def main() -> int:
                     f"the ceiling in tools/check_source_size.py so the progress "
                     f"ratchets and cannot silently reverse"
                 )
-        elif size > CAP:
+        elif size >= CAP:
             problems.append(
-                f"{rel} is {size:,} chars, over the {CAP:,} Source-write cap, and "
+                f"{rel} is {size:,} chars, at or over the {CAP:,} Source-write "
+                f"cap (the engine refuses `>= max`, measured live — not `>`), and "
                 f"is NOT a known offender. It will stop live-syncing into an open "
                 f"Studio session — silently, so a live check against it tests the "
                 f"place file rather than your edits. Split it, or add it to "
@@ -139,7 +149,7 @@ def main() -> int:
     over = len(KNOWN_OVER)
     total = sum(c for c, _ in KNOWN_OVER.values())
     print(
-        f"check_source_size: PASS — no new module over the {CAP:,}-char "
+        f"check_source_size: PASS — no new module at or over the {CAP:,}-char "
         f"Source-write cap. {over} known offender(s) at their ceilings "
         f"({total:,} chars total, {total - over * CAP:,} over)."
     )
