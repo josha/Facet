@@ -25,6 +25,7 @@ local row_actions = require("../src/controls/row_actions")
 local fake_target = require("../tests/lib/fake_target")
 local lt = require("./lib/large_text")
 local text_metrics = require("../src/layout/text_metrics")
+local themeSnapshot = require("../src/themes/snapshot")
 
 local ROW = "/S/Row"
 local HIT = ROW .. "/Content/Hit"
@@ -1734,6 +1735,169 @@ describe("RowActions Task 8: the action menu — WHERE it lands", function()
 		pres.refresh()
 		return { core = core, adapter = adapter, pres = pres, ra = ra, handle = handle, system = system }
 	end
+
+	--[[ RULING 4 (director, 2026-08-13): "flip the menu above the trigger when it
+		would overflow" — standard platform behaviour, over clamping to the edge,
+		because a clamp lets the menu cover its own trigger.
+
+		THE MEASUREMENT THAT MADE IT A RULING: a trigger at y=508 on a 600px viewport
+		put the menu at y=556..629 — 29px past the bottom. An `anchor` parent emits no
+		overflow diagnostic for a child it places, so nothing in the suite or the
+		sweeps could see it; only arithmetic on the solved rect can.
+
+		The fixture is `offsetMenuWorld` with a taller spacer and an `env` (the flip
+		needs the viewport height, and both shipped hosts pass one). 20 padding + 480
+		spacer + 8 gap = a trigger at exactly y=508, which is the reported case. ]]
+	local function bottomMenuWorld(spacerPx: number, withEnv: boolean?, viewportH: number?): any
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = viewportH or 600 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local ra = row_actions.build(LuauUI, core, {
+			id = "Row",
+			content = focusableBody("Body"),
+			env = if withEnv == false then nil else env,
+			trailing = {
+				{ id = "delete", role = "destructive", label = "Delete", onAction = function() end },
+				{ id = "flag", role = "normal", label = "Flag", onAction = function() end },
+			},
+		})
+		local screen = LuauUI.UI.Screen({
+			id = "S",
+			padding = 20,
+			children = {
+				LuauUI.UI.VStack({
+					id = "Cage",
+					gap = 8,
+					width = { type = "fill", weight = 1 },
+					children = {
+						LuauUI.UI.Box({
+							id = "Spacer",
+							height = { type = "fixed", px = spacerPx },
+							surface = "base",
+						}),
+						ra.blueprint,
+					},
+				}),
+			},
+		})
+		local handle = pres.present(screen, { sinkNavigation = true })
+		pres.refresh()
+		local w: any =
+			{ core = core, adapter = adapter, pres = pres, ra = ra, handle = handle, system = system, env = env }
+		function w.openMenu()
+			w.pres.focus.focusOn("/S/Cage/Row/Content/Body")
+			w.system.deviceKey("ButtonX", true)
+			w.system.deviceKey("ButtonX", false)
+			w.pres.refresh()
+			expect(w.ra.dump().menuOpen).toBe(true)
+		end
+		function w.menuRect(): any
+			local node = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows")
+			expect(node).never().toBeNil()
+			return node.rect
+		end
+		function w.triggerRect(): any
+			return w.handle.controller.screenRectOf("/S/Cage/Row")
+		end
+		return w
+	end
+
+	it("THE CASE: a trigger near the bottom would put the menu PAST the viewport", function()
+		-- the control that makes the flip mean something — without it, "the menu is
+		-- above the trigger" is equally explained by "it was always above"
+		local w = bottomMenuWorld(480)
+		local trigger = w.triggerRect()
+		expect(trigger.y).toBe(508) -- the reported number, reproduced
+		w.openMenu()
+		local menu = w.menuRect()
+		expect(`below-placement would overflow: {trigger.y + trigger.h + menu.h > 600}`).toBe(
+			"below-placement would overflow: true"
+		)
+	end)
+
+	it("...so it FLIPS above the trigger, wholly inside the viewport", function()
+		local w = bottomMenuWorld(480)
+		local trigger = w.triggerRect()
+		w.openMenu()
+		local menu = w.menuRect()
+		-- ABOVE: its bottom edge sits exactly on the trigger's top
+		expect(menu.y + menu.h).toBe(trigger.y)
+		-- ...and every row travelled with it, rather than one node moving
+		local first = w.adapter.node("/RowActionsMenu-Row/Menu/MenuRows/Action:delete")
+		expect(first.rect.y).toBe(menu.y)
+		-- WHOLLY ON SCREEN, both edges — the actual requirement
+		expect(`top inside: {menu.y >= 0}`).toBe("top inside: true")
+		expect(`bottom inside: {menu.y + menu.h <= 600}`).toBe("bottom inside: true")
+		-- and it never covers its own trigger, which is what a clamp would have done
+		expect(`clear of the trigger: {menu.y + menu.h <= trigger.y}`).toBe("clear of the trigger: true")
+		expect(menu.x).toBe(trigger.x) -- the horizontal placement is untouched
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	it("a trigger with room BELOW still opens below it — the flip is conditional", function()
+		local w = bottomMenuWorld(120)
+		local trigger = w.triggerRect()
+		w.openMenu()
+		local menu = w.menuRect()
+		expect(menu.y).toBe(trigger.y + trigger.h)
+		expect(`fits below: {menu.y + menu.h <= 600}`).toBe("fits below: true")
+	end)
+
+	it("the predicted height the flip DECIDES on is the height the solver PAINTS", function()
+		--[[ The flip has to know the menu's height before the menu exists, so it
+			computes `n * controlSizes.compact.height + (n - 1) * strokes.hairline`
+			from the same live theme snapshot the solver resolves those names against.
+			That is exact rather than approximate ONLY while `MenuRows` stays a
+			padding-free VStack of fixed-height rows — so this pins the arithmetic
+			against the solved rect. Add padding or a surface inset to the menu and
+			this case reddens instead of the flip silently mis-deciding. ]]
+		local w = bottomMenuWorld(480)
+		w.openMenu()
+		-- THE NUMBER THIS FILE ACTUALLY DECIDES ON (`dump().menuHeightPx`), not a
+		-- second copy of the arithmetic written here: comparing the test's own sum
+		-- against the solver would pass just as happily while `computeMenuAnchor`
+		-- flipped on a different, wrong height.
+		expect(w.ra.dump().menuHeightPx).toBe(w.menuRect().h)
+		-- ...and it is the shape it claims to be, so the pin above is not circular
+		local raw = w.env:get("themeMetrics"):get()
+		local metrics = if type(raw) == "table" and type(raw.controls) == "table" then raw else themeSnapshot.neutral()
+		local rowH = themeSnapshot.resolveNumber(metrics, "controlSizes.compact.height") or 0
+		local gap = themeSnapshot.resolveNumber(metrics, "strokes.hairline") or 0
+		expect(w.menuRect().h).toBe(2 * rowH + gap) -- two actions in this fixture
+	end)
+
+	it("NEGATIVE CONTROL: with no room ABOVE either, it stays BELOW rather than flipping", function()
+		--[[ The flip is two conditions, not one, and this is the second. A menu too
+			tall for the space above must NOT flip: partly clipped at the bottom is
+			one problem, and partly clipped at the TOP while also upside down from its
+			trigger is two. Without this case a gate that dropped the room-above test
+			passes everything else here (measured — mutation M10).
+
+			A 140px-tall window: the trigger lands at y=40 (20 padding + 12 spacer + 8
+			gap), so the below-placement overflows AND the menu is taller than the 40px
+			above it. ]]
+		local w = bottomMenuWorld(12, true, 140)
+		local trigger = w.triggerRect()
+		w.openMenu()
+		local menu = w.menuRect()
+		expect(`overflows below: {trigger.y + trigger.h + menu.h > 140}`).toBe("overflows below: true")
+		expect(`no room above: {trigger.y - menu.h < 0}`).toBe("no room above: true")
+		expect(menu.y).toBe(trigger.y + trigger.h) -- still below, unflipped
+	end)
+
+	--[[ WITHOUT AN `env` THERE IS NO VIEWPORT TO STAY INSIDE, and the menu keeps its
+		pre-ruling placement. Both shipped hosts (`table.luau`, `virtual_list.luau`)
+		thread `spec.env` through, so this is the bare-standalone degrade, stated
+		rather than discovered. ]]
+	it("a standalone row with no `env` cannot flip, and says so by not flipping", function()
+		local w = bottomMenuWorld(480, false)
+		local trigger = w.triggerRect()
+		w.openMenu()
+		expect(w.menuRect().y).toBe(trigger.y + trigger.h)
+	end)
 
 	it("the menu is placed at its TRIGGER, not at the origin of its own surface", function()
 		local w = offsetMenuWorld()
