@@ -2052,3 +2052,137 @@ Next step when picked up: instrument the four `solveAndApply()` call sites in
 `src/render/renderer.luau` with a call-site tag and drive one rotation against a
 presented modal — the same probe technique that found L-29, which took about ten
 minutes and replaced a plausible story with a number.
+
+---
+
+## L-30 — L-29, priced on the device: the count dropped, the solve did not
+
+**Date:** 2026-08-14 · **Evidence tier: 3 — physical device**, and therefore
+authoritative over every tier-1/tier-2 number in L-29.
+**Captures:** `resize.html` (`resize-relayout` → `resizeStorm`) and `mount.html`
+(`mount-ramp`), Samsung SM-A102U1 / Android 11 / 1 708 MB / Mali-G71, client 734,
+taken with the **Profile** button so the window lands inside the chosen workload.
+**Full analysis, method and per-scope tables:**
+`artifacts/performance-stress-places/device-capture-2026-08-14.md`.
+
+### The verdict: L-29 landed
+
+| | `rr.html` (pre-fix, tier 3) | `resize.html` (post-fix, tier 3) |
+|---|---:|---:|
+| `arrange` **occurrences per step** | **9.67** | **7.12** (−26.4 %) |
+| `arrange` ms/occurrence | 8.270 | **9.136** |
+| `measure` ms/occurrence | 3.057 | **3.236** |
+| `arrange` + `measure` share of wall | **58.5 %** | **50.8 %** |
+| `react` (reactive flushes) per step | — | **3.03** |
+
+**The per-occurrence cost did not move, and that is the pass condition, not a
+disappointment** — `env:batch` plus the coalescing memo were aimed at the count.
++10.5 % on `arrange` and +5.9 % on `measure` are noise on a handset whose frame
+time itself varies 129–204 ms.
+
+**The −26 % understates it, because the workload got six times harder underneath
+the comparison.** The pre-fix `resizeStorm` set `viewportRect` **alone**; the
+post-fix pass drives the whole six-fact adapter group, batched as the adapter
+batches it. So the honest line is **9.67 arranges/step for ONE fact, before →
+7.12 for SIX facts, after.** On the pre-fix build those six facts cost 5 workload
+solves (L-27's number, re-confirmed tier 2 in L-29); with two mounted surfaces and
+the overlay's two extra writes the same step would have cost ≈ 15 arranges. That
+makes the like-for-like win about **2×**.
+
+**`react` is the direct device proof that batching is live.** Six loose writes plus
+the overlay's two plus the data change is nine flushes per step; the device
+measured **3.03**. The six-fact group arrives as ONE flush. No trace of per-key
+fan-out; `geometry_solve_coalescing.spec.luau` is not owed an explanation.
+
+### Where the time goes now (resize, 60-frame window, 173.2 ms/frame, 5.77 fps)
+
+| scope | occ/step | total ms | ms/occ | % wall | worst ms |
+|---|---:|---:|---:|---:|---:|
+| `arrange` | **7.12** | 3 901.1 | 9.136 | **37.5 %** | **131.23** |
+| `measure` | 7.12 | 1 381.9 | 3.236 | 13.3 % | 45.16 |
+| `react` | 3.03 | 860.5 | 4.728 | 8.3 % | 28.26 |
+| `mount` (structuralSync) | **2.00** | 766.4 | 6.387 | 7.4 % | 23.11 |
+| `commit` | 10.15 | 726.1 | 1.192 | 7.0 % | 23.57 |
+| `present` | 2.97 | 469.4 | 2.637 | 4.5 % | 15.61 |
+| `focusmap` | 5.93 | 116.4 | **0.327** | 1.1 % | 4.23 |
+| `mutate` / `tick` / `scenario` | ~1 each | 9.2 / 5.2 / 0.6 | — | 0.2 % | — |
+| `resource` / `reset` | 0 | 0 | — | 0 % | — |
+
+`RenderTotalTime` 22.87 ms against a 173 ms frame: **not GPU-bound, by 8×.**
+
+### L-29 residual 1, quantified on the device — and it is the new top lever
+
+The overlay's reservation dance is no longer an argument; it is two numbers.
+
+* **`react` = 3.03 flushes per step** where the framework's own contribution is
+  **1**. The other two are `forgetReservation` zeroing `coreSafeInsets` and
+  `onGeometry` republishing the dock height. Every geometry flush re-solves every
+  mounted surface, and `focusmap` = exactly 2 × `present` (356/178) proves there
+  are two. `3 flushes × 2 surfaces + 1 data-change solve = 7`, against a measured
+  **7.12**. So **≈ 4 of 7.12 solves per step (57 %) exist only because of the
+  overlay's measure-then-publish loop.**
+* **Roblox's own layout counters say the same thing from outside the framework.**
+  `Root=LuauUI_PerfLabOverlay Relayouts=8 Updates=37 Resizes=38` against
+  `Root=LuauUI_PerfWorkload Relayouts=8 Updates=73 Resizes=66`. **One dock panel
+  provokes as many engine relayouts as the entire 2 000-row workload**, and 34 % of
+  the updates. In `mount.html` the same panel takes 39 of 131 window-size relayouts.
+
+Its *direct* time is small (~1–2 % of wall — a dock panel solve is cheap); its
+*induced* time is two extra full workload re-solves per step, worth roughly
+**−25 to −28 % of wall** to remove, i.e. a resize step going ~173 ms → ~125 ms on
+this device.
+
+L-29 left this open deliberately and was right to: the honest fix is that a
+measure→publish cycle must settle inside one flush — `env:batch`/`core:transaction`
+re-entrancy plus a settle phase in `src/core/custom.luau`'s flush, so a write made
+*while responding to* a geometry change joins the flush that caused it. Patching
+`perf_lab.luau` alone buys the lab a number and buys consumers nothing: every app
+that reserves space from measured geometry has this shape.
+`tests/perf_lab.spec.luau`'s `coreSafeInsets` exclusion is the regression test that
+gets deleted when it lands.
+
+### The other levers this capture ranks
+
+2. **The solve itself is now the frontier.** `arrange` 9.136 ms/occurrence, 37.5 %
+   of wall, **worst single occurrence 131.23 ms — 76 % of a whole frame in one
+   call**, and 2.8× `measure` per occurrence, so the cost is rect derivation and
+   stack distribution rather than text metrics. L-27's *"the lever for a resize is
+   the solve COUNT, not the solve"* has been paid and is now **superseded**:
+   incremental layout cannot help (L-27: 2 partial solves of 65 — a resize changes
+   every constraint), so this is `arrange()` in `src/layout/solver.luau`, starting
+   from the 131 ms tail rather than the 9.1 ms mean. A 30 % cut is −11 % of wall.
+3. **Two structural syncs per viewport change, still.** `LuauUI/mount` = exactly
+   **2.00 per step** at 6.387 ms = 12.8 ms/step, 7.4 % of wall. L-27 recorded
+   "5 solves and 2 structural syncs"; L-29 removed the 5 and **left the 2**. A
+   width change does not change the tree's structure —
+   `src/render/renderer.luau:3460`. Halving it is −3.7 % of wall.
+4. `commit` at 10.15/step (7.0 % of wall) is ~1.4 per solve and mostly falls out of
+   lever 1; listed so it is not mistaken for an independent prize.
+
+Recorded as healthy, not as a lever: `focusmap` at **0.327 ms/occurrence, 1.1 % of
+wall** — L-27's `structureEpoch` cache holds up on a real device on the one
+workload where every invalidation is legitimate.
+
+### Traps and instrument findings worth keeping
+
+* **The event log's timestamp column reconstructs engine scopes and NOT Lua
+  scopes.** It reproduces `queuePresent` (30 pairs, 308.3 ms vs the aggregate's
+  297.5 ms) and returns ~0.06 ms per `arrange` where the aggregate says 9.14 ms.
+  So a `LuauUI/*` scope's per-occurrence *distribution* is not recoverable from a
+  binary dump — only total, count and worst. Said out loud rather than guessed at,
+  because a plausible histogram would have been believed.
+* **`Script_PerfLab` is 27 ms in the resize capture and 3 865 ms in the mount
+  capture.** In `resizeStorm` essentially all LuauUI work runs off the Heartbeat
+  connection, not under the pass's script bar, so triaging that capture by "which
+  script is hot" concludes LuauUI costs nothing and is wrong by 8 000 ms.
+* **`mount.html` cannot rank LuauUI levers.** Its frames run 287–306 ms while the
+  entire LuauUI phase inventory sums to 8.6 % of wall and roughly half the wall is
+  inside no named scope at all. It answers "how slow is the ramp", not "which phase
+  to fix". A scope that can see the ramp's own tree construction is owed.
+* **Two zeros are health; nine are a missed window.** `resource` and `reset` at 0
+  in `resize.html` is correct — `resizeStorm` lands no asset and tears nothing
+  down. The failure mode to keep recognising is `perfPlace2gb.html`, where nine of
+  twelve were zero.
+* **`Relayouts` equals `Updates` exactly in `mount.html`** (92 = 92 on the rows,
+  39 = 39 on the overlay panel): the engine batched nothing during the ramp. Open,
+  unrelated to L-29.
