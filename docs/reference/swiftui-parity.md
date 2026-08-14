@@ -726,7 +726,7 @@ cost of the decision, and it is stated rather than hidden.
 | Dynamic Type ([SW-79], [SW-80]) | **Covered** — a rigorous equivalent | The player's Roblox "Text size" preference is first-class layout input, the way Apple's is on every platform it supports — and note that Apple's does *not* cover macOS ([SW-80]), while LuauUI's applies everywhere it runs. The framework measured the actual pixel offset each preference adds and uses those **measured per-preference constants** (Medium 0, Large 4, Larger 10, Largest 14 — uniform across font, weight, and size) rather than guesses; the engine paints `TextSize + offset` and the solver reserves exactly that box. Changing the preference mid-session re-solves every mounted surface in place, preserving identity, focus, scroll, and state. Eight typography roles carry font descriptor and line height together, and the offset composes additively with ten-foot (TV) scaling | `src/env/environment.luau:51-52,60`; `docs/guide/05-styling.md` |
 | `compositingGroup()` ([SW-133]) / `drawingGroup()` ([SW-134]) — flatten a subtree into one composited layer | **Partial** — `compositingGroup`'s job is covered, `drawingGroup`'s is not | The `canvasGroup` prop on `Box` and `ZStack` materializes the node as a Roblox `CanvasGroup`: the subtree renders into that node's own buffer, and the node becomes its subtree's real instance parent. That is exactly what `compositingGroup()` buys — “A compositing group makes compositing effects in this view’s ancestor views, such as opacity and the blend mode, take effect before this view is rendered” ([SW-133]) — and it is what makes a whole-subtree fade one engine property (`GroupTransparency`) instead of a per-node transparency write that would contest native-sheet paint. It is **required, not optional**, for a fading transition: `controller.setPresentationTransparency` refuses a node that is not a declared `canvasGroup` and the message names the fix. The half that is missing is `drawingGroup`'s: SwiftUI's flattens “this view’s contents into an offscreen image before final display” ([SW-134]) as a **rasterization** step, and a `CanvasGroup` re-renders its children every frame — so declaring one buys grouped alpha, never a cached bitmap, and it costs a render buffer. It is deliberately **not reactive**: it decides which engine class the node *is*, at creation, so it cannot arrive as a later prop write | `src/blueprint_schema.luau:950-957` (the prop), `:1078,1431` (`Box`, `ZStack`); `src/render/renderer.luau:1807-1808` (creation-time class choice), `:3884-3890` (the refusal) |
 | `hidden()` — invisible, uninteractive, and still occupying its layout box ([SW-140]) | **Covered** (new, 2026-08-13), and **wider than Apple's** | The `hidden` box prop, on every rendered class. Apple's sentence is the specification and all three clauses are implemented: hidden views “are invisible and can’t receive or respond to interactions. However, they do remain in the view hierarchy and affect layout” ([SW-140]). This is the one place where LuauUI arranging **absolutely** — it materializes no `UIListLayout`, `UIGridLayout` or `UITableLayout` anywhere — turns an engine limitation into a non-issue: Roblox documents `Visible = false` as freeing the layout slot *inside those layouts*, and there are none here, so the box simply stays. Neither existing answer was this: `UI.When` removes the node and the siblings close up, and a losing `ViewThatFits` candidate collapses to zero. **Wider than Apple's in one respect**: `hidden()` takes no argument (“Hides this view unconditionally”, [SW-140]) and Apple's page directs you to an `if` for the conditional case — which removes the view from layout, exactly what `UI.When` does — so LuauUI's is bindable, because otherwise the space-reserving case would have no spelling at all. It dirties `arrange` and merges into the **same** hidden set the solver publishes for a losing `ViewThatFits` candidate, so one line buys the paint walk, the hit-rect retraction, the focus-order filter and the structure-epoch bump | `src/blueprint_schema.luau` (`hidden` in the shared box group); `src/render/renderer.luau` (the merge, and the tap gate on the merged verdict); `tests/lifecycle_hooks.spec.luau`; fixture `examples/gallery/scenarios/lifecycle_hidden.luau` |
-| `opacity(_:)` — fade a view without removing it ([SW-141]) | **Missing**, and deliberately deferred 2026-08-13 — it is an authority decision, not a prop | A subtree CAN be faded: `controller.setPresentationTransparency` drives `GroupTransparency` on a declared `canvasGroup` node (see the compositing-group row above). What does not exist is an **authored** `opacity`, and the reason it was not added beside `hidden` in the same round is structural rather than a matter of effort: `transparency` is owned by the **presentation** channel (`src/render/authority.luau:59`), the manifest permits exactly one authority per engine property per class, and the schema has no presentation channel for an authored prop to declare. So an authorable opacity means either a second writer for a property the manifest exists to keep single, or a composition rule — effective transparency as a function of the authored value and the live presentation alpha — resolved at the one write site, which then has to be reconciled with `withAnimation`'s fade records and with the native sheet's ownership of `BackgroundTransparency`/`TextTransparency`. Apple's own page states the composition rule this would have to honour: applying `opacity` to a view “that has already had its opacity transformed… multiplies the effect of the underlying opacity transformation” ([SW-141]). That is a seam design with an ADR behind it, not a prop, and forcing it into a prop round is how a second silent authority gets shipped | `src/render/authority.luau:59`; `src/render/renderer.luau` (`setPresentationTransparency`, and its refusal for a non-`canvasGroup` node) |
+| `opacity(_:)` — fade a view without removing it ([SW-141]) | **Missing**, and deliberately deferred 2026-08-13 — it is an authority decision, not a prop | A subtree CAN be faded: `controller.setPresentationTransparency` drives `GroupTransparency` on a declared `canvasGroup` node (see the compositing-group row above). What does not exist is an **authored** `opacity`, and the reason it was not added beside `hidden` in the same round is structural rather than a matter of effort: `transparency` is owned by the **presentation** channel (`src/render/authority.luau:59`), the manifest permits exactly one authority per engine property per class, and the schema has no presentation channel for an authored prop to declare. So an authorable opacity means either a second writer for a property the manifest exists to keep single, or a composition rule — effective transparency as a function of the authored value and the live presentation alpha — resolved at the one write site, which then has to be reconciled with `withAnimation`'s fade records and with the native sheet's ownership of `BackgroundTransparency`/`TextTransparency`. Apple's own page states the composition rule this would have to honour: applying `opacity` to a view “that has already had its opacity transformed… multiplies the effect of the underlying opacity transformation” ([SW-141]). That is a seam design with an ADR behind it, not a prop, and forcing it into a prop round is how a second silent authority gets shipped. **Re-judged 2026-08-14, when `withAnimation` learned to animate size, and the deferral STANDS — with its scope now stated precisely.** It is not the animation system that blocks an animated opacity; it is that there is nothing authored to animate. `withAnimation` interpolates the difference between two commits, and the only values a commit produces are the solver's four rect numbers, all of which it now animates (§8.1). Every other property SwiftUI's `withAnimation` reaches is an authored paint value, and LuauUI has **no authored prop in the presentation channel at all** — all three presentation-authority properties (`transform`, `transparency`, `dragHeld`) are renderer-driven and none appears in `blueprint_schema.luau`. So the prerequisite is the authored prop and the composition rule Apple states ([SW-141]), in that order; the animation half then costs one more multiplication in a record that is already a tuple of deltas scaled by one progress value. Routing around it — a second writer, or a size-shaped fade smuggled through the transform — is exactly the failure the manifest exists to prevent | `src/render/authority.luau:59-66`; `src/render/renderer.luau` (`setPresentationTransparency`, and its refusal for a non-`canvasGroup` node); `src/blueprint_schema.luau` (zero occurrences of `opacity`/`transform`/`transparency` as authored props) |
 | Cascade / selector model | **Covered** (supporting infrastructure) | Rules resolve by priority first, then insertion order (later wins); there is no CSS-style specificity, on purpose, so the generator and the runtime can never disagree about which rule applies. Instances are classified for the cascade by `luau-*` CollectionService tags | [`ADR-0018`](../adr/ADR-0018-native-stylesheets.md); `src/client/native_style.luau:312` |
 
 **Caveats.**
@@ -870,11 +870,13 @@ interrupted by a new target continues rather than jumping; a differential test
 proves it, by showing a velocity-cut twin travels measurably less on the next
 frame.
 
-**The large gap here closed this round.** `withAnimation` ships.
+**`withAnimation` ships, and as of 2026-08-14 it animates size as well as
+position** — the round-2 deferral is closed. §8.1 is the detail.
 
 | SwiftUI capability | Verdict | What LuauUI has | Evidence |
 |---|---|---|---|
-| `withAnimation` — implicit write⇄interpolation coupling | **Covered** for position; see the detail below | `presenter.withAnimation(class, fn)` | `src/present/presenter.luau:3942`; `tests/with_animation.spec.luau`; `tests/animation_precedence.spec.luau`; `examples/gallery/scenarios/with_animation.luau` |
+| `withAnimation` — implicit write⇄interpolation coupling ([SW-143]) | **Covered** over the solver's whole output — position **and** size | `presenter.withAnimation(class, fn)`. Apple's page is silent on which properties animate ([SW-143]); the rule lives on `Animatable`, which states that SwiftUI “reads the old and new `animatableData` values, then interpolates between them over successive frames” ([SW-144]). LuauUI's answer to “which values” is exact: the four numbers a commit produces | `src/present/presenter.luau:3967`; `src/render/renderer.luau` (`installAnimationRecords`); `tests/with_animation.spec.luau`; `tests/animation_precedence.spec.luau`; `examples/gallery/scenarios/with_animation.luau` |
+| `.animation(_:value:)` — implicit animation attached to a VIEW rather than to a mutation ([SW-148]) | **Missing** | Every animation in LuauUI is declared at the mutation site or by a control that owns its own motion. There is no modifier that says "animate this subtree whenever *that* value changes" — Apple's returns "a view that applies `animation` to this view whenever `value` changes" ([SW-148]). The gap is a *declaration site*, not a capability: `withAnimation` reaches the same result when the author owns the write, and cannot when the write is somebody else's | zero occurrences |
 | `.spring(response:dampingFraction:)` ([SW-98]) | **Covered** | The same two-number model. Four named classes ship — `container`, `object`, `reward`, `decay` — and inline literals are refused with a did-you-mean | `src/motion/classes.luau:14-19,45-50,154-172` |
 | Spring interruption / retargeting ([SW-100]) | **Covered** — the same guarantee Apple states for `interpolatingSpring`, which "Preserves velocity across overlapping animations" ([SW-100]) | `setTarget` never touches value or velocity, and `getVelocity()` makes carry-over implementable rather than aspirational | `src/motion/motion.luau:306-341,405-407` |
 | Animation completion callbacks ([SW-101]) | **Covered**, callback-based | `MotionValue:onSettle(fn)` fires exactly once per arrival, after that frame's writes commit — the same once-only contract SwiftUI states for its completion variant ([SW-101]). No awaitable form | `src/motion/motion.luau:363-375` |
@@ -894,8 +896,77 @@ frame.
 
 `presenter.withAnimation("container", function() open:set(true) end)` — **the
 layout lands exactly and instantly as it always did, and every node whose box
-moved is *painted* travelling from where it used to be to where it now is, over
-one spring.**
+changed is *painted* travelling from where it used to be to where it now is,
+over one spring.**
+
+**What it animates, stated as a rule rather than a list.** `withAnimation`
+interpolates the difference between two commits, so the only values it can
+possibly interpolate are the values a commit *produces*: the solver's rect —
+`x`, `y`, `w`, `h`. **All four are animated.** A node that moves slides; a node
+that grows or shrinks opens and closes; a node that does both does both, on one
+shared progress spring, so a panel finishes growing on the very frame the rows
+it displaced finish sliding.
+
+That rule is also the honest statement of what is *left*. Everything else
+SwiftUI's `withAnimation` reaches — opacity, rotation, scale, colour — is an
+**authored paint value**, not a solver output. LuauUI has no authored prop in
+the presentation channel at all: its three presentation-authority properties
+(`transform`, `transparency`, `dragHeld`) are every one of them
+renderer-driven, and none is a blueprint prop. So there is nothing authored for
+`withAnimation` to diff, and closing that gap is an authority-seam decision
+(§6's `opacity(_:)` row) rather than an animation one. Once an authored value
+lands in that channel, the animation half is nearly free: a record is already a
+tuple of deltas scaled by one progress value, and a fifth component is another
+multiplication.
+
+Rotation and scale are the same shape and are named here so nobody re-derives
+it: both already exist as presentation-channel properties with a live write
+path, and both are unreachable from `withAnimation` for the identical reason —
+no authored declaration to diff. They would also not be substitutes for the size
+half if they were reachable, because Apple is explicit that neither changes a
+view's frame: `rotationEffect` "has no effect on the view's frame" ([SW-146]),
+and `scaleEffect`'s dimensions "are considered to be unchanged by scaling the
+contents. To change the dimensions of the view, use a modifier like `frame()`
+instead" ([SW-147]).
+
+**How the size half works, and the asymmetry an author has to know.** A record
+carries a per-path delta and the write composes it onto the solved rect at the
+adapter's one `Position`/`Size` write. The position half **accumulates down the
+subtree** — LuauUI's instance tree is flat, so a container's move carries
+nothing inside it and every descendant must re-add its ancestors' offsets. The
+size half **does not**, and it is the same fact reaching the opposite
+conclusion: a container's growth carries nothing inside it either, and there
+that means a child must keep its own solved size while the box around it opens.
+Records are therefore installed at animation *roots* for position and per node
+for size, and a `UI.Text` inside a growing card neither drifts nor stretches.
+
+**The round-2 deferral, and why it was reversed.** Apple's own pages will not
+settle this for you — `withAnimation`'s says nothing about which properties
+animate ([SW-143]) and `frame(width:height:alignment:)` does not contain the
+string "animat" at all ([SW-145]); the rule lives on `Animatable` and is stated
+in terms of *animatable values* ([SW-144]). So the decision was LuauUI's to make,
+and round 2 recorded five mechanisms as the reason size was not animated. The load-bearing one — *"an
+interpolated size re-fits icon art and re-scales normalized Path2D control
+points every frame of the flight"* — was already false when it was written: the
+shipped **position** animation calls `applyRect` on every handle in the animated
+subtree every frame, and `applyRect` already runs `refitIconArt` and
+`applyPathPoints`. Size adds no call; it changes two numbers inside calls that
+were already happening, and both of those passengers now read the *painted* box
+so a shape inside a travelling node re-scales with it. The other four
+mechanisms — a wrapped `TextLabel` re-wraps, a `Slice`/`Tile` image re-caps, a
+clip host crops, a `CanvasGroup` re-buffers, a `Stage` re-projects — describe
+what animating a size *means*, which is what SwiftUI's own frame animation
+means too; they are costs and consequences, not blockers. The one that is a
+genuine new per-frame cost is buffer-backed nodes (`canvasGroup`,
+`Stage`/ViewportFrame) re-allocating to a size that changes every frame, and the
+performance lab's `motion-flight` workload is where that gets measured rather
+than argued.
+
+**Hit geometry follows the painted POSITION and the solved SIZE.** That is the
+ratified PLAT-4 rule and size does not re-open it: `screenRectOf` composes
+presentation offsets so a shifted control is pressable where it looks, and a
+node mid-growth hit-tests at the box it will have — the same rule a scaled node
+already followed. A flight is short and its geometry is exact at both ends.
 
 - **It is a presenter method, not `UI.withAnimation`.** The constitution reserves
   `UI.lowerCase(bp, …)` for modifiers, which take a blueprint and return a frozen
@@ -904,13 +975,6 @@ one spring.**
   builds, the controller scopes that own the records, and `refresh` itself.
 - **The class is a NAME.** Inline `{ dampingRatio = … }` is refused here as
   everywhere else; `motion.registerClass` is the one dial.
-- **Position only.** Size changes land instantly and exactly. Size was
-  deliberately not animated this round: the write path (`applyRect`) also drives
-  the hit expander, the focus-ring float, icon refitting and Path2D control
-  points, and an interpolated size would re-run all four every frame of the
-  flight — while a wrapped `TextLabel` re-wraps mid-flight and clip hosts and
-  canvas groups crop rather than follow. A row that grows still reads correctly,
-  because the rows below it slide.
 - **Surviving paths only.** Structural insert and remove stay the transition
   system's job. A path another writer already owns — a structural transition,
   keep-visible — is excluded, and **the exclusion is the path, not its subtree**:
@@ -922,13 +986,11 @@ one spring.**
   does not animate at full delta. Env-driven relayouts — theme swap, viewport
   resize, preferred-text change — are never armed; animating a whole-tree theme
   relayout is a frame-budget accident, not a feature.
-- **Records are relative and installed only at animation roots.** Both halves of
-  the presentation channel already accumulate ancestor transforms, so an absolute
-  per-node delta would paint a panel's children at two and three times its
-  travel. One shared progress spring per call means a subtree provably cannot
-  tear; records are owned per **path**, so a second call touching a path the
-  first is still animating re-bases it rather than putting two springs on one
-  slot.
+- **One shared progress spring per call.** A subtree provably cannot tear,
+  because every component of every record is the same `p` times its own delta.
+  Records are owned per **path**, so a second call touching a path the first is
+  still animating re-bases it — carrying the offset *and* the extent it is
+  painted at right now — rather than putting two springs on one slot.
 - **Three refusals**, and one is late: nesting inside another `withAnimation`
   (arming is presenter-wide, so the inner call's disarm would silently kill the
   outer animation); an unknown class name; and "nothing flushed", which means
@@ -938,22 +1000,29 @@ one spring.**
   says so.
 - **Reduced motion is an explicit branch that installs no records at all.** `fn`
   still runs, the transaction still commits, the layout is still exact; there is
-  simply no flight. That is legal precisely because this motion is **decorative**
-  — the instant layout already carries every fact and the travel was pure
-  continuity.
+  simply no flight, and a size lands instantly for the same reason a position
+  does. That is legal precisely because this motion is **decorative** — the
+  instant layout already carries every fact and the travel was pure continuity.
+  The branch is worth knowing about when writing a test against it: under
+  reduced motion the spring settles *synchronously inside* `setTarget`, so
+  records install and clear within the call and no record **count** can tell the
+  branch from its absence. What the branch buys is the writes it never spends,
+  and that is what `tests/with_animation.spec.luau` asserts.
 - **Not reachable from inside a control.** Controls receive the presenter's
   *products* through contributions, never the presenter itself, so
   `row_actions`, `table` and `disclosure_group` cannot animate their own internal
   state through this API. That matches SwiftUI, where `withAnimation` is called
-  at the mutation site and takes the mutation itself ([SW-05]). The named escape hatch if it proves too tight is a
-  `presenter.animator()` handle — **not built**, and confirmed absent from source.
+  at the mutation site and takes the mutation itself ([SW-05]). The named escape
+  hatch if it proves too tight is a `presenter.animator()` handle — **not
+  built**, and confirmed absent from source.
 
-**One drift to close.** `docs/reference/api.md` states that beyond a per-frame
-cap the commit lands instantly and emits a diagnostic naming the count. **No such
-cap is implemented** — `animationRecordCount()` exists as a test diagnostic and
-nothing bounds it (`src/render/renderer.luau:3941-4061`, `:4086`). This document
-does not repeat the claim; the reference entry needs correcting or the cap needs
-building, and that is a follow-on, not something this report changed.
+**The per-frame cap does not exist, and both documents now say so.** An earlier
+`api.md` described a ceiling past which a commit would land instantly with a
+diagnostic; it was designed and never built, and the reference entry has since
+been corrected to record it as a missing guard rather than a feature. Nothing
+bounds `animationRecordCount()`. The roots-only rule keeps the count near the
+number of things that actually started moving, which is why this is a gap and
+not a live defect.
 
 **Caveats.**
 
@@ -1206,7 +1275,7 @@ section that owns it.
 | No container unifying virtualization + reorder + selection | **Missing** | §4 |
 | Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` / `deleteDisabled(_:)` / `moveDisabled(_:)` family. Blocked behind the container split above: the family would otherwise be built twice | **Missing** — deferred by decision 2026-08-13, evidence in §5 | §5, §4 |
 | Cell recycling for `VirtualList` rows | **Missing**, no longer load-bearing after hosted row actions | §10, §5.1 |
-| Authored `opacity` — an authority decision, not a prop. `transparency` is presentation-owned, one authority per engine property is the manifest's whole job, and the schema has no presentation channel for an authored prop to declare | **Missing** — examined and deferred 2026-08-13; a subtree fade through `canvasGroup` already works | §6 |
+| Authored `opacity` — an authority decision, not a prop. `transparency` is presentation-owned, one authority per engine property is the manifest's whole job, and the schema has no presentation channel for an authored prop to declare | **Missing** — examined and deferred 2026-08-13, **re-judged and upheld 2026-08-14**: it is the prerequisite for an animated opacity, not a consequence of one, because `withAnimation` can only diff what a commit produces and there is no authored presentation prop to diff. A subtree fade through `canvasGroup` already works | §6, §8.1 |
 | `.disabled()` as a subtree **cascade**. Per-control `enabled` ships on three leaves and is consistent on each; there is no inherited channel, and the classes with no disabled look (`Box`, `Text`, `Image`) would need a theme vocabulary before one would be honest | **Missing** — examined and deferred 2026-08-13 | §7 |
 | The other 36 of the completeness audit's 39 unexamined capabilities — rich text runs, 2-D transforms, scoped environment, programmatic scroll position, scroll snapping, `Section` headers, localization, `Form`, empty-state, pull-to-refresh, scroll observation, and the rest | **Unexamined**, now enumerated and ranked rather than silently absent | [`the audit`](../plans/parity-completeness-audit-2026-08-13.md) §5 |
 | Physical-device performance measurement | **Absent** — `deviceRun=false`, evidence level E1 | §10 |
@@ -1521,3 +1590,9 @@ Three conventions worth knowing before you use this table:
 | **SW-140** | [`hidden()`](https://developer.apple.com/documentation/swiftui/view/hidden()) | “Hides this view unconditionally.” “Hidden views are invisible and can’t receive or respond to interactions. However, they do remain in the view hierarchy and affect layout.” “If you want to conditionally include a view in the view hierarchy, use an if statement instead” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+. There is **no** `hidden(_:)` overload taking a Boolean — the unconditional signature is the whole API, which is why the LuauUI prop being bindable is a widening rather than a copy | 2026-08-13 |
 | **SW-141** | [`opacity(_:)`](https://developer.apple.com/documentation/swiftui/view/opacity(_:)) | “Sets the transparency of this view.” “When applying the opacity(_:) modifier to a view that has already had its opacity transformed, the modifier multiplies the effect of the underlying opacity transformation.” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-13 |
 | **SW-142** | [`disabled(_:)`](https://developer.apple.com/documentation/swiftui/view/disabled(_:)) | “Adds a condition that controls whether users can interact with this view.” “The higher views in a view hierarchy can override the value you set on this view.” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-13 |
+| **SW-143** | [`withAnimation(_:_:)`](https://developer.apple.com/documentation/swiftui/withanimation(_:_:)) | “Returns the result of recomputing the view’s body with the provided animation.” Its Discussion is one sentence and is purely mechanical: “This function sets the given `Animation` as the `animation` property of the thread’s current `Transaction`.” **Apple documents no behaviour here** on *which* properties animate — the page never says “size”, “frame”, “geometry”, “state change” or “interpolate” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-14 |
+| **SW-144** | [`Animatable`](https://developer.apple.com/documentation/swiftui/animatable) | “A type that describes how to animate a property of a view.” “When an animatable value changes inside a `withAnimation(_:_:)` block (or is affected by an `animation(_:value:)` modifier), SwiftUI reads the old and new `animatableData` values, then interpolates between them over successive frames using `VectorArithmetic` operations.” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-14 |
+| **SW-145** | [`frame(width:height:alignment:)`](https://developer.apple.com/documentation/swiftui/view/frame(width:height:alignment:)) | “Positions this view within an invisible frame with the specified size.” “Use this method to specify a fixed size for a view’s width, height, or both.” **Apple documents no behaviour here** on animating a frame size — the string “animat” does not occur anywhere on the page | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-14 |
+| **SW-146** | [`rotationEffect(_:anchor:)`](https://developer.apple.com/documentation/swiftui/view/rotationeffect(_:anchor:)) | “Rotates a view’s rendered output in two dimensions around the specified point.” “This modifier rotates the view’s content around the axis that points out of the xy-plane. **It has no effect on the view’s frame.**” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-14 |
+| **SW-147** | [`scaleEffect(_:anchor:)`](https://developer.apple.com/documentation/swiftui/view/scaleeffect(_:anchor:)) | “Scales this view uniformly by the specified factor, relative to an anchor point.” “The original dimensions of the view are considered to be unchanged by scaling the contents. To change the dimensions of the view, use a modifier like `frame()` instead.” | **visionOS 1+ only** at this exact URL — it resolves to the `UnitPoint3D` overload. The cross-platform form is [`scaleEffect(_:anchor:)-pmi7`](https://developer.apple.com/documentation/swiftui/view/scaleeffect(_:anchor:)-pmi7) (iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+), whose page does **not** carry the “dimensions unchanged” sentence | 2026-08-14 |
+| **SW-148** | [`animation(_:value:)`](https://developer.apple.com/documentation/swiftui/view/animation(_:value:)) | “Applies the given animation to this view when the specified value changes.” “A view that applies `animation` to this view whenever `value` changes.” “The animation to apply. If `animation` is `nil`, the view doesn’t animate.” | iOS 13+, iPadOS 13+, Mac Catalyst 13+, macOS 10.15+, tvOS 13+, watchOS 6+, visionOS 1+ | 2026-08-14 |

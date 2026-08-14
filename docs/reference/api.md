@@ -1976,8 +1976,8 @@ end)
 ```
 
 Runs `fn` in its own transaction, forces its own commit, and paints every node
-whose box **moved** travelling from where it used to be to where it now is, over
-ONE spring named by a motion **class**. The layout itself lands exactly and
+whose box **changed** travelling from where it used to be to where it now is,
+over ONE spring named by a motion **class**. The layout itself lands exactly and
 instantly, as it always did: only the paint travels, so hit-testing and focus
 never chase a moving pixel.
 
@@ -1987,8 +1987,29 @@ scopes that own the records, and `refresh` itself.
 
 **What it animates, and what it deliberately does not.**
 
-- **Position only.** Size changes land instantly and exactly; a row that grows
-  still reads correctly, because the rows below it slide.
+- **Position and size — the whole of what a commit produces.** A commit produces
+  one thing this can diff: the solver's rect, `x`/`y`/`w`/`h`. All four travel,
+  on the same spring, so a panel finishes growing on the very frame the rows it
+  displaced finish sliding. There is nothing else in the set: every other
+  property SwiftUI animates this way (opacity, rotation, scale, colour) is an
+  *authored paint* value, and LuauUI has no authored prop in the presentation
+  channel for one to be diffed from — see `swiftui-parity.md` §6's `opacity(_:)`
+  row for the authority decision that has to happen first.
+- **A size delta does NOT reach into the subtree**, and this is the one rule to
+  carry away. A position offset accumulates downward (LuauUI's instance tree is
+  flat, so a container's move carries nothing inside it and every descendant
+  re-adds its ancestors' offsets); a size delta is the node's own and stops
+  there. A label pinned to the top of a growing card stays exactly where it is
+  while the box opens underneath it — it neither drifts nor stretches.
+- **The box's interior relayouts while it travels**, because it is a real engine
+  `Size`: a wrapped label re-wraps at the intermediate width, a clip host crops
+  at the intermediate height, a `canvasGroup` re-buffers each frame. That is what
+  animating a size means (SwiftUI's frame animation behaves the same way), but
+  the `canvasGroup`/`Stage` case is the one with a real per-frame cost — the
+  performance lab's `motion-flight` workload is where it gets measured.
+- **Hit geometry follows the painted position and the SOLVED size.** A shifted
+  control is pressable where it looks; a node mid-growth hit-tests at the box it
+  will have, the same rule a scaled node already followed.
 - **Surviving paths only.** Structural insert and remove stay the transition
   system's job (`transition` on a region). A path another writer already owns — a
   structural transition, keep-visible — is excluded.
@@ -1999,14 +2020,17 @@ scopes that own the records, and `refresh` itself.
 
 **Reduced motion is an explicit branch that installs no records at all.** `fn`
 still runs, the transaction still commits, the layout is still exact; there is
-simply no flight. That is legal here precisely because this motion is
+simply no flight, and a size lands instantly for the same reason a position
+does. That is legal here precisely because this motion is
 DECORATIVE — the instant layout already carries every fact and the travel was
 pure continuity. (Contrast `newProgressView`'s indeterminate indicator, which is
 INFORMATIONAL and therefore keeps running.)
 
 **Interruption re-targets; it never restarts.** A second call while records are
-live re-bases each record from its current painted offset, re-aims the spring and
-carries velocity over. One spring per call means a subtree provably cannot tear.
+live re-bases each record from its current painted offset **and its current
+painted extent**, re-aims the spring and carries velocity over — so a card
+interrupted half-grown continues from the height on screen. One spring per call
+means a subtree provably cannot tear.
 
 **Three refusals, and one of them is late.** Calling it from inside another
 `withAnimation` is an error (arming is presenter-wide and the inner call would
