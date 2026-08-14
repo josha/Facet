@@ -196,6 +196,12 @@ return {
 							align = "center",
 							children = { pill("Timer", COPY.timer, "heading"), pill("Score", COPY.score, "label") },
 						}),
+						-- the clock ALONE, and the Studio canary is why this exists: with
+						-- the URL bar open on a 735x413 window the centre column has 61px
+						-- and the pair needs 77. One form meant the centre could not give,
+						-- so a legal HUD still painted 16px below its own box. What a real
+						-- HUD gives up on a squeezed screen is the score, not the clock.
+						pill("TimerOnly", COPY.timer, "heading"),
 					},
 				}),
 				-- UPPER RIGHT — the weapon rail, two forms, and the readout beside
@@ -204,6 +210,15 @@ return {
 					id = "Rail",
 					group = "topRight",
 					rank = 4,
+					-- DROPPABLE, and the Studio canary is why. On a 735x413 window with
+					-- the URL bar open the right column has 61px and holds a 31px rail
+					-- over a 46px button: neither could give any more, so the whole
+					-- arrangement went illegal and rule 8 showed the DECLARED FALLBACK —
+					-- correct by contract, and 16px of HUD painted below its own box. A
+					-- weapon rail is more expendable than the action buttons (rank 4 vs
+					-- 3), so saying so is what lets the ladder finish instead of falling
+					-- back.
+					mayDrop = true,
 					children = {
 						UI.VStack({
 							id = "RailTall",

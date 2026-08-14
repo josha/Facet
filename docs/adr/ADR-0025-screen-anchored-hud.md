@@ -220,12 +220,38 @@ showcase HUD and the sweep reddened.
      geometry change carrying its own waiver-list deletions, so it is flagged as its own scoped
      change rather than smuggled into a HUD mission (ENGINEERING.md, *"Flag refactors; don't smuggle
      them"*).
-  2. The **Studio/device canary** on the HUD showcase — the headless sweep is the floor under the
-     device matrix, never a replacement for it.
+  2. A **physical-device** run. The Studio canary is DONE (below); a phone is still the only thing
+     that supports a device claim.
   3. A `dense-hud` **perf-lab scene** row, if the measured cost below ever stops being noise.
   4. The **RascalRally consumer pass**. Nothing in the game declares a `UI.Composition` HUD today, so
      the lockstep obligation here is a compatibility proof (the game's compositions resolve and dump
      byte-identically), not a port.
+
+## The Studio canary — real engine, 2026-08-14
+
+Driven on `LuauUI-Showcase` in Play, viewport **735 x 413**, Studio Neutral, through the demo
+picker. The oracle is the ENGINE's own `AbsolutePosition` / `AbsoluteSize`, not the solver's rects,
+so it cannot agree with the solver by construction.
+
+| | HUD box | what is on screen |
+|---|---|---|
+| URL bar **closed** | 735 x 261 | all seven zones: rounds `@0,62`, tasks `@0,150`, kill feed `@0,308`, clock `@345,62` (centred in its own column), weapon rail `@699,62` (right edge exactly on 735), fps readout `@668,93`, actions `@673,173` |
+| URL bar **open** (200px of height gone) | 735 x 61 | tasks (rank 8), kill feed (rank 9), readout (rank 7) and the rail (rank 4) dropped; the clock stepped to its timer-only form (77px → 40px); the actions stepped to one button. Rounds still `@0,62`, clock still `@345,62`, actions still hard on the bottom-right at `bottom = 123` = the HUD's own bottom. **Pairwise overlap across every mounted zone: NONE.** |
+
+**The canary earned its keep twice**, which is the argument for running it rather than trusting the
+sweep. At 61px the right column first held a 31px rail over a 46px button with neither able to give,
+so the arrangement went illegal and rule 8 showed the declared fallback — correct by contract, and
+16px of HUD painted below its own box. Then the centre column did the same thing with a 77px
+clock+score pair that had only one form. Both are authoring facts about the *fixture*, not framework
+defects, and neither was visible to the swept viewports (none of which is 61px tall). The fix in both
+cases is what a real HUD does: the rail is droppable (it ranks below the action buttons), and the
+clock has a second form that is the clock without the score.
+
+**Delivery caveat, recorded rather than glossed:** the showcase place's Rojo session was stale, so
+the current `composition.luau` and the fixture were pushed into the datamodel over a local HTTP fetch
+rather than by live sync. `solver.luau` exceeds Studio's 200 000-character `Source` limit, so the
+**collision diagnostic itself was not live in this session** — its evidence is headless
+(`tests/hud_composition.spec.luau` and the always-on sweep). The geometry above is real-engine.
 
 ## Alternatives considered
 
