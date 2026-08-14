@@ -2546,11 +2546,10 @@ gains two options for real avatar games running the IAS player-script stack:
     game context above it that sinks (the doc-sanctioned 2000 band) takes `Space`
     first and this surface's Activate never fires — while a bare non-sinking
     context below it shares the press instead.
-  Set `false` for a surface that wants `Space` to reach the game: it then binds
-  neither Activate nor the guard. `ButtonA` is already sunk via Activate and
-  arrows/D-pad via Navigate. Set `false` for a surface that wants `Space` to
-  reach the game (a word-game modal): it then binds neither the guard nor the
-  Activate key. WASD is not sunk in v1.
+  Set `false` for a surface that wants `Space` to reach the game (a word-game
+  modal): it then binds neither the guard nor the Activate key. `ButtonA` is
+  already sunk via Activate and arrows/D-pad via Navigate; WASD is not sunk in
+  v1.
 
 ### Desktop keyboard conventions
 
@@ -3622,7 +3621,7 @@ pointer-handler funnel this feature rides is its own future task.
   than a child of the row that opened it, so the presenter's document-order
   Tab rank visits it last, not beside its row. The d-pad has the better
   experience — Left/Right enters and leaves the tray directly from the row,
-  because that ride's the focus GROUP `buildFocusGroups` splices in for the
+  because that ride is the focus GROUP `buildFocusGroups` splices in for the
   revealed tray, not raw document order. That group also **wins its own edge
   over an author's `navigation.exit`** for the one direction it is revealed
   on, for as long as it is up: a tray is transient and player-invoked, so a
@@ -4205,7 +4204,8 @@ less motion. Both policies are covered in `tests/display_controls.spec.luau`.
 
 The fill is a **percent** dimension, so the bar reflows with its container without
 recomputing pixels, and paint is style-owned through the **bar family**: the
-track declares the `barTrack` decoration slot and the fill declares `barFill`, so
+track declares the `barTrack` decoration slot and the fill declares `barFill`.
+
 The circular indicator's paint is not a slot at all: a Path stroke has a colour
 and a thickness and nothing else, so it takes the ordinary style roles and the two
 optional theme metrics named above. Both indeterminate shapes read the **same
