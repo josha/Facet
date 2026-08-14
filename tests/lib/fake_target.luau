@@ -97,9 +97,19 @@ fake_target.SCALE_MODE_ENGINE_NAME = table.freeze(SCALE_MODE_ENGINE_NAME)
 -- `setScrollRegion` below models that window.
 fake_target.SCROLL_BAR_THICKNESS = 8
 
--- the theme a tint resolves against here: the library's own style, which is what
--- a target with no package installed uses on the live path too
+-- the theme a tint resolves against with NO PACKAGE INSTALLED: the library's own
+-- style, which is what the live target's `paletteTheme()` falls back to. Once a
+-- package is pushed through `setThemePackage` this fake tracks that package's
+-- theme instead — see `paletteTheme` below. It used to be the ONLY answer here,
+-- which is precisely why no headless check could see the 2026-08-14 defect: a
+-- fake that resolves every tint against neutral cannot tell a themed colour from
+-- a stale one.
 local NEUTRAL_THEME = { colors = default_style.colors, extra = default_style.extra }
+
+-- a `UI.Path`'s stroke role -> the palette token it resolves to, in LOCKSTEP with
+-- `PATH_ROLE_TOKEN` in src/client/screen_paint.luau. A Path2D is not a GuiObject,
+-- so no rule can ever paint one: this is adapter-owned in both targets.
+local PATH_ROLE_TOKEN: { [string]: string } = { accent = "accent", secondary = "contentSecondary" }
 
 -- the engine property each class's tint claims (mirrors applyTint)
 local TINT_ENGINE_PROP: { [string]: { string } } = {
@@ -136,6 +146,18 @@ function fake_target.new(opts: Opts?)
 	local themeRoots: { any } = {}
 	local LEGACY_SHEET = { Name = "LuauUIStyle (legacy)" }
 	local activeThemeSheet: any = nil
+
+	-- ===== THE PALETTE ADAPTER-OWNED PAINT RESOLVES AGAINST =================
+	-- The mirror of screen_paint's `paletteTheme()`: the installed package theme,
+	-- or the library style when none is installed. Set by `setThemePackage`, which
+	-- is the ONE commit both targets take a theme through.
+	local activeThemePalette: any = nil
+	local function paletteTheme(): any
+		return activeThemePalette or NEUTRAL_THEME
+	end
+	local function pathRoleColor(role: any): any
+		return sheet_model.paletteColor(paletteTheme(), PATH_ROLE_TOKEN[tostring(role)] or "content")
+	end
 
 	-- pointer-capture state (declared up top: destroyRoot references it)
 	local pointerCapture: any = nil
@@ -226,6 +248,12 @@ function fake_target.new(opts: Opts?)
 		}
 		if createOpts ~= nil and createOpts.canvasGroup == true then
 			node.canvasGroupInstance = { className = "CanvasGroup", groupTransparency = 0 }
+		end
+		if class == "Path" then
+			-- the DEFAULT stroke role's colour, from the live theme: `role` is
+			-- optional, so a path that never declares one is painted only here
+			-- (mirrors screen_target's Path2D creation)
+			node.pathRoleColor = pathRoleColor(nil)
 		end
 		if FAKE_ELIDABLE[class] and decorationHint == nil and (createOpts == nil or createOpts.canvasGroup ~= true) then
 			node.elided = true
@@ -395,10 +423,15 @@ function fake_target.new(opts: Opts?)
 			-- is "this node took these engine properties from the sheet", so a mirror
 			-- that only recorded the value would prove emission and not application.
 			if value == nil then
+				handle.tintSpec = nil
 				handle.tintColor = nil
 				handle.tintTransparency = nil
 			else
-				handle.tintColor = sheet_model.tintColor(NEUTRAL_THEME, value, handle.class)
+				-- the SPEC is kept, not just the colour it resolved to: a theme commit
+				-- has to re-resolve it (mirrors screen_paint.refreshThemedPaint, where
+				-- the live adapter keeps `handle.tint` for the same reason)
+				handle.tintSpec = value
+				handle.tintColor = sheet_model.tintColor(paletteTheme(), value, handle.class)
 				-- the tint's own ALPHA, mirrored through the same pure resolver (which
 				-- also refuses a Path, where the engine has no such channel)
 				handle.tintTransparency = sheet_model.tintTransparency(value, handle.class)
@@ -412,6 +445,13 @@ function fake_target.new(opts: Opts?)
 					end
 				end
 			end
+		elseif prop == "role" and handle.class == "Path" then
+			-- A `UI.Path`'s STROKE COLOUR, mirrored (director report 2026-08-14). A
+			-- Path2D is not a GuiObject and no rule can select one, so the live
+			-- adapter resolves this itself against the installed theme — which makes
+			-- it exactly the kind of paint a headless target must model, or "the ring
+			-- is the theme's accent" stays an assumption.
+			handle.pathRoleColor = pathRoleColor(value)
 		elseif prop == "scaleMode" then
 			handle.appliedScaleType = if value == nil then nil else SCALE_MODE_ENGINE_NAME[tostring(value)]
 			if value ~= nil then
@@ -1138,6 +1178,34 @@ function fake_target.new(opts: Opts?)
 	local themePackagePushes: { any } = {}
 	function adapter.setThemePackage(package: any?, themeName: string?, snapshot: any?): boolean
 		table.insert(themePackagePushes, { package = package, theme = themeName, snapshot = snapshot })
+		-- THE PALETTE HALF OF THE COMMIT, mirrored from screen_target's
+		-- `setActiveTheme`: pick the named theme (or the package's default) out of
+		-- the package, and fall back to the library style when the package is
+		-- cleared. Everything adapter-owned that reads a palette resolves against
+		-- this, in both targets.
+		local theme: any = nil
+		if type(package) == "table" and type((package :: any).style) == "table" then
+			local wanted = themeName or (package :: any).style.defaultTheme
+			for _, entry in (package :: any).style.themes do
+				if entry.name == wanted then
+					theme = entry
+				end
+			end
+		end
+		activeThemePalette = theme
+		-- ...AND THE REPAINT, mirroring screen_paint.refreshThemedPaint. A commit is
+		-- a RE-SOLVE and never a rebuild (ADR-0019 §2), so nothing else will ever
+		-- re-visit a node whose layout did not change — and a `tint` and a Path's
+		-- stroke role are paint, not geometry. Without this a static tint keeps the
+		-- OUTGOING package's colour for the rest of its life.
+		for _, node in nodes do
+			if node.pathRoleColor ~= nil then
+				node.pathRoleColor = pathRoleColor(node.props.role)
+			end
+			if node.tintSpec ~= nil then
+				node.tintColor = sheet_model.tintColor(paletteTheme(), node.tintSpec, node.class)
+			end
+		end
 		return false
 	end
 	function adapter.themePackagePushes(): { any }

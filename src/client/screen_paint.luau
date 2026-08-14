@@ -39,10 +39,16 @@
 --                        through the call, exactly as screen_chrome reads its
 --                        own `snapshot`.
 --
--- `refreshToggleVisuals` is exported rather than bound: screen_target
--- forward-declares it above `setActiveTheme` (which calls it) and assigns it
--- from here, which is where it was assigned before — a local declared later is
--- not an upvalue (docs/lessons/later-locals-are-not-upvalues.md).
+-- `refreshToggleVisuals` and `refreshThemedPaint` are exported rather than
+-- bound: screen_target forward-declares both above `setActiveTheme` (which calls
+-- them) and assigns them from here — a local declared later is not an upvalue
+-- (docs/lessons/later-locals-are-not-upvalues.md).
+--
+-- THE THREE THINGS A THEME COMMIT REPAINTS, all of them adapter-owned because no
+-- StyleSheet rule can express them: `refreshFocusVisuals` (the host's, the ring's
+-- colour), `refreshToggleVisuals` (the switch's palette) and `refreshThemedPaint`
+-- (the `tint` channel and a `UI.Path`'s stroke role). Anything else here that
+-- learns to read the palette joins the third.
 
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
@@ -236,6 +242,73 @@ function screen_paint.new(ctx: any)
 		end
 		if handle.labelInstance ~= nil and handle.paintRestore ~= nil and handle.paintRestore.TextColor3 ~= nil then
 			handle.labelInstance.TextColor3 = handle.paintRestore.TextColor3
+		end
+	end
+
+	-- ===== A `UI.Path`'S STROKE ROLE (director report 2026-08-14) ==========
+	--
+	-- *"when i changed to the parchment theme, the spinner stayed blue."*
+	--
+	-- A Path2D is NOT a GuiObject and no StyleSheet rule can select one (see
+	-- applyTint's Path branch), so its colour is adapter-owned paint in every
+	-- mode — exactly like the focus ring and the toggle palette above it. It used
+	-- to resolve against `COLOR`, the palette this target was CONSTRUCTED with, so
+	-- a stroked path wore Studio Neutral under every package that was ever
+	-- installed. That is the same theme-blindness the focus ring carried before
+	-- the 2026-07-25 director round (screen_target's focus-treatment block, defect
+	-- (1)) — one seam over, and never fixed because a path has no interactive
+	-- state to make it obvious. The circular ProgressView is a Path, which is why
+	-- its accent arc was blue on a parchment screen.
+	--
+	-- WITH NO PACKAGE INSTALLED `paletteTheme()` is the constructed style, so
+	-- every existing game and every existing test is byte-identical.
+	local PATH_ROLE_TOKEN: { [string]: string } = { accent = "accent", secondary = "contentSecondary" }
+	local function applyPathRole(handle: any)
+		if handle.path2d == nil then
+			return
+		end
+		local color =
+			toColor3(sheet_model.paletteColor(paletteTheme(), PATH_ROLE_TOKEN[tostring(handle.pathRole)] or "content"))
+		-- A LIVE TINT OWNS `Path2D.Color3` — applyTint records the pre-tint colour
+		-- in `tintPathRestore` and paints over it — so while one is claimed the
+		-- role's colour is what a RELEASE returns to, not what is painted now.
+		-- Writing the instance here would silently overwrite the claim.
+		if handle.tintPathRestore ~= nil then
+			handle.tintPathRestore = color
+		else
+			handle.path2d.Color3 = color
+		end
+	end
+
+	-- ===== EVERY ADAPTER-OWNED PAINT THAT READS THE PALETTE, RE-RESOLVED =====
+	--
+	-- A theme commit is a RE-SOLVE and never a rebuild (ADR-0019 §2) — which is
+	-- what keeps mount identity, focus and scroll alive across a swap, and is
+	-- exactly why a PAINT-only property could be missed. `themeMetrics` is one of
+	-- the renderer's coalesced GEOMETRY keys, so a swap re-derives everything the
+	-- SOLVER reads and nothing the ADAPTER paints; a node whose layout did not
+	-- change is never re-visited, and a `tint` is paint, not geometry.
+	--
+	-- The focus ring and the toggle each got their own refresh at the moment a
+	-- director found them stale. The `tint` channel and the Path role never did:
+	-- measured live 2026-08-14, installing Fantasy Parchment (accent
+	-- rgb(122,72,26)) over a mounted surface left a tinted Box and both of a
+	-- circular ProgressView's paths reading rgb(44,98,210). A tint whose value is
+	-- REACTIVE self-heals on its next write (the dot spinner recolours on the next
+	-- animation tick), which is why this presented as "only some things are
+	-- stale"; a STATIC tint is stale for the rest of its life.
+	--
+	-- ONE sweep, beside refreshFocusVisuals/refreshToggleVisuals, so the next
+	-- adapter-owned palette consumer has an obvious place to join rather than
+	-- becoming a fourth seam that a director finds.
+	local function refreshThemedPaint()
+		for _, handle in handlesByPath do
+			applyPathRole(handle) -- no-op unless the node is a Path
+			if handle.tint ~= nil then
+				-- LAST, for the standing reason: the tint is the final word on the
+				-- property it claimed.
+				applyTint(handle)
+			end
 		end
 	end
 
@@ -1001,6 +1074,7 @@ function screen_paint.new(ctx: any)
 	return {
 		applyCorners = applyCorners,
 		applyGradient = applyGradient,
+		applyPathRole = applyPathRole,
 		applyShadow = applyShadow,
 		applyStroke = applyStroke,
 		applySurface = applySurface,
@@ -1013,6 +1087,7 @@ function screen_paint.new(ctx: any)
 		ensureScale = ensureScale,
 		focusColor = focusColor,
 		hairline = hairline,
+		refreshThemedPaint = refreshThemedPaint,
 		refreshToggleVisuals = refreshToggleVisuals,
 		releaseTint = releaseTint,
 		wireInteractiveStates = wireInteractiveStates,

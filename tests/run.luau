@@ -284,6 +284,9 @@ require("./theme_drift.spec")
 require("./example_drift.spec")
 -- theme controller specs (package 2)
 require("./theme_controller.spec")
+-- a theme commit repaints what NO rule can express: the tint channel and a
+-- UI.Path's stroke role (director report 2026-08-14, "the spinner stayed blue")
+require("./theme_paint_repaint.spec")
 -- theme chrome/reference specs (package 3)
 require("./theme_chrome.spec")
 -- a decoration is compensated for the padding its host ACTUALLY has (director

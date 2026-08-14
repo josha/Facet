@@ -663,6 +663,10 @@ function screen_target.new(opts: Opts?)
 	-- assigned AFTER applyToggleValue, which it calls: a local declared later is
 	-- not an upvalue, and this seam has already been bitten by that once
 	local refreshToggleVisuals: (() -> ())? = nil
+	-- ...and the THIRD adapter-owned paint a commit has to re-resolve: the `tint`
+	-- channel and a `UI.Path`'s stroke role (screen_paint.refreshThemedPaint).
+	-- Forward-declared for the same upvalue reason.
+	local refreshThemedPaint: (() -> ())? = nil
 	function setActiveTheme(package: any?, themeName: string?)
 		local recipe = chrome_slots.focusRecipeOf(package)
 		local theme: any = nil
@@ -688,6 +692,13 @@ function screen_target.new(opts: Opts?)
 		refreshFocusVisuals()
 		if refreshToggleVisuals ~= nil then
 			refreshToggleVisuals()
+		end
+		-- THE TINT CHANNEL AND THE PATH ROLE, re-resolved in the same commit
+		-- (director report 2026-08-14: "when i changed to the parchment theme, the
+		-- spinner stayed blue"). See screen_paint.refreshThemedPaint for why a
+		-- paint-only property survives a swap the renderer treats as a re-solve.
+		if refreshThemedPaint ~= nil then
+			refreshThemedPaint()
 		end
 	end
 
@@ -816,6 +827,7 @@ function screen_target.new(opts: Opts?)
 	})
 	local focusColor = paint.focusColor
 	local applyTint = paint.applyTint
+	local applyPathRole = paint.applyPathRole
 	local releaseTint = paint.releaseTint
 	local applyStroke = paint.applyStroke
 	local ensureScale = paint.ensureScale
@@ -834,6 +846,7 @@ function screen_target.new(opts: Opts?)
 	-- forward-declared above `setActiveTheme`, which calls it; assigned here, which
 	-- is exactly where it was assigned when this code was inline
 	refreshToggleVisuals = paint.refreshToggleVisuals
+	refreshThemedPaint = paint.refreshThemedPaint
 
 	-- §17 Phase 5: keyboardType capability detection. `TextBox.TextInputType` is
 	-- the ONLY member that could summon a numeric/email/password keyboard, but it
@@ -1397,9 +1410,13 @@ function screen_target.new(opts: Opts?)
 			local path2d = Instance.new("Path2D")
 			path2d.Name = "Stroke"
 			path2d.Thickness = 4
-			path2d.Color3 = COLOR.content
 			path2d.Parent = instance
 			handle.path2d = path2d
+			-- THE DEFAULT ROLE, FROM THE LIVE THEME. `role` is optional, so for a
+			-- path that never declares one this is its only paint — and a path
+			-- created while a package is installed has to be BORN wearing it, not
+			-- wearing the palette this target was constructed with.
+			applyPathRole(handle)
 		end
 		if instance:IsA("TextLabel") or instance:IsA("TextButton") then
 			--[[ AUTOLOCALIZE — MEASURED, AND LEFT ON BY DEFAULT.
@@ -3217,12 +3234,13 @@ function screen_target.new(opts: Opts?)
 				assertBespokePaint("TextColor3")
 				instance.TextColor3 = if value == "secondary" then COLOR.contentSecondary else COLOR.content
 			elseif handle.path2d ~= nil then
-				-- Path stroke color rides the style role hint (NS-A7): never a
-				-- raw color from screen code
-				handle.path2d.Color3 = if value == "accent"
-					then COLOR.accent
-					elseif value == "secondary" then COLOR.contentSecondary
-					else COLOR.content
+				-- Path stroke color rides the style role hint (NS-A7): never a raw
+				-- color from screen code — and, since 2026-08-14, never the palette
+				-- this target was CONSTRUCTED with either. A Path2D is adapter-owned
+				-- paint in every mode (no rule can select one), so the role resolves
+				-- against the LIVE theme; see screen_paint.applyPathRole.
+				handle.pathRole = value
+				applyPathRole(handle)
 			end
 		elseif prop == "points" then
 			if handle.path2d ~= nil then

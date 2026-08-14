@@ -330,7 +330,7 @@ selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. **A theme commit re-resolves it**, so a tint that nothing ever re-writes still follows a runtime package swap (fixed 2026-08-14; [`docs/lessons/a-re-solve-does-not-repaint.md`](../lessons/a-re-solve-does-not-repaint.md)). |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -1267,8 +1267,11 @@ progress rings, arcs, gauge needles. `points` is a (reactive) array of
 NORMALIZED control points from `LuauUI.pathShapes` — a points change is a
 paint-only prop write (never a re-solve), and the adapter re-scales the same
 normalized points when the solved rect changes. `role` picks the stroke color
-from the style (`"accent"`, `"secondary"`, default content) — never a raw
-color — or, for a value no role can name, `tint` (see
+from the **active theme's** palette (`"accent"`, `"secondary"`, default content)
+— never a raw color, and re-resolved on every theme commit, since a `Path2D` is
+not a `GuiObject` and no stylesheet rule can reach one (fixed 2026-08-14;
+[`docs/lessons/a-re-solve-does-not-repaint.md`](../lessons/a-re-solve-does-not-repaint.md))
+— or, for a value no role can name, `tint` (see
 [above](#continuous-colour-tint)), which writes the same stroke colour from the
 continuous channel and needs no claim (nothing can style a `Path2D`).
 `thickness` takes a px number **or a theme metric name**, resolved against the
