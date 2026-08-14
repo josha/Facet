@@ -164,8 +164,32 @@ timings are a Studio quantity, taken inside the lab bootstrap's per-frame
 | Tier | Status |
 |---|---|
 | Headless Lune — structural regression signal | **Run.** 24 records on each flight arm, both sampled only while live (47 frames at 60 Hz for `container`, against a 120-frame cap), surface dismissed, channel clean. `tests/perf_lab.spec.luau`. |
-| MicroProfiler in Studio — real engine work, real instance counts | `PENDING_PHYSICAL` — the workload and the capture path exist; the capture has not been taken. This is the tier that can see the `canvasGroup`/`Stage` re-buffer cost from mechanism 4 above. |
+| Studio session — real engine, real `GuiObject`s | **Run**, and it found something. [`../../artifacts/swiftui-parity-round3/with-animation-size-studio-canary.md`](../../artifacts/swiftui-parity-round3/with-animation-size-studio-canary.md): the engine `Size` really travels (100 → 171 at frame 8 → 200), the Panel's painted *height* and the Tail's painted *y* are the **same number** mid-flight so one spring holds across two property kinds on the real engine, and the child stayed `22x20` throughout. THE FINDING: `/S/Panel` is an **inert-elided container with no engine instance at all** before the flight — the one shape that could have thrown on a size record and the one the fake target cannot model, because it materializes everything. It materializes on demand and paints from its old height correctly. |
+| MicroProfiler in Studio — a profiled capture over `motion-flight` | `PENDING_PHYSICAL` — the workload and the capture path exist; the capture has not been taken. This is the tier that can see the `canvasGroup`/`Stage` re-buffer cost from mechanism 4 above. |
 | Physical device | `PENDING_PHYSICAL`. No device claim is made anywhere in this work. |
+
+## RascalRally
+
+The live consumer has zero `withAnimation` call sites and three write-only
+`setPresentationTransform(path, {x, y, scale})` writers, so nothing in the game
+was forced to change and no product change was authorized or made. The evidence
+the standing rule asks for is a contract block in
+`games/RascalRally/code/tests/luauui_motion_and_scroll_contract.spec.luau`
+(commit `24c1679`, +7 cases): a real shipped reactive size change — the docked
+racer list's content-hugging panel growing 160 → 280 px as the grid fills — plus
+the invariant that matters most to that package, that a settled record clears to
+`nil` and not to a `{w=0,h=0}` residue, since `luauui_sponsor_entry.spec.luau`
+pins `props.transform == nil` at rest in six places. Every case
+mutation-proved against a deliberately broken framework, restored byte-exact.
+Suite 3166 passed / 2 failed, both pre-existing and confirmed by re-running the
+file at `HEAD`.
+
+Worth recording because it happened twice independently: that agent's
+reduced-motion case was ALSO green under the "delete the branch" mutation, for
+the same reason described above, and was rewritten the same way — to count
+adapter writes. Two agents hit the identical trap from opposite ends of the same
+seam, which is a good sign the trap is a property of the design and not of one
+author's carelessness.
 
 ## Owed
 
