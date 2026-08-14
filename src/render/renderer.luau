@@ -26,6 +26,10 @@ local authority = require("./authority")
 -- the presentation channel's arithmetic (ADR-0026): the composition rules, the
 -- authored triple's domain checks, and the write memo's comparison. Pure.
 local presentation = require("./presentation")
+-- the cross-surface overlap alarm (ADR-0028): a live registry of surfaces per
+-- paint target, read only by `controller.diagnostics()` — nothing here runs in a
+-- solve, a commit or a frame
+local surface_overlap = require("./surface_overlap")
 local controlContract = require("../controls/contract")
 local themeSnapshot = require("../themes/snapshot")
 local themePackage = require("../themes/package")
@@ -1137,6 +1141,13 @@ function renderer.attach(
 	local rootHandle = adapter.createRoot(root.node.id or "Screen")
 	local attachScope = core:scope("renderer-attach")
 	local initialized = false
+	-- THE TWO FACTS THE CROSS-SURFACE ALARM READS BACK (ADR-0028). `rootVisible`
+	-- mirrors what the adapter accepted from `setRootVisible`, and
+	-- `declaredOrder` stays nil until something calls `setDisplayOrder` —
+	-- "nobody ordered this surface" and "this surface is at layer 0" are
+	-- different declarations and must not share a value.
+	local rootVisible = true
+	local declaredOrder: number? = nil
 	local handles: { [string]: any } = {} -- path -> adapter handle
 	local lastRects: { [string]: any } = {}
 	local lastScrollRegions: { [string]: any } = {}
@@ -4912,6 +4923,10 @@ function renderer.attach(
 	-- surfaces (base < scrim < modal) via the root's display order. Optional
 	-- adapter method — headless/older targets that don't order roots ignore it.
 	function controller.setDisplayOrder(n: number)
+		-- recorded whatever the adapter does with it: the ORDER is the caller's
+		-- declaration about layering (ADR-0028), and a headless target that cannot
+		-- order roots has not un-declared it
+		declaredOrder = n
 		if adapter.setRootDisplayOrder ~= nil then
 			adapter.setRootDisplayOrder(rootHandle, n)
 		end
@@ -4945,6 +4960,10 @@ function renderer.attach(
 			return false
 		end
 		adapter.setRootVisible(rootHandle, visible)
+		-- ...and a surface nobody can see covers nothing (ADR-0028). Recorded only
+		-- where the write LANDED: on a target that cannot hide a root the surface
+		-- is still on screen, and the alarm must go on believing that.
+		rootVisible = visible
 		return true
 	end
 
@@ -4969,8 +4988,96 @@ function renderer.attach(
 		return table.clone(stats)
 	end
 
+	--[[ coverRect() -> what this surface actually PAINTS, or nil (ADR-0028).
+
+		The union of every painted box below the root, with nothing that paints
+		nothing in it. The root's own rect is excluded by
+		`surface_overlap.coverRect`: a `UI.Screen`'s rect is the content rect its
+		`rootPolicy` resolved — the box the surface is allowed to paint in, which
+		is the same box for every base screen on the device — and what a surface
+		COVERS is what it puts in that box.
+
+		A node is skipped when it or any ancestor is hidden, paint-held, or faded
+		to nothing. That last one is ADR-0026's hand-off honoured by construction:
+		an authored `opacity = 0` composes to `T = 1` in `lastComposedAlpha`, and a
+		fade group is its subtree's real instance parent, so an ancestor at 1
+		hides everything under it. A surface with nothing left covers nothing, and
+		this answers nil — which is the whole reason the alarm is not a geometry
+		test.
+	]]
+	local FULLY_FADED = 1 - 1e-6
+	local function paintsNothing(path: string): boolean
+		local p = path
+		while p ~= "" do
+			if hiddenRoots[p] == true or paintHeld[p] == true then
+				return true
+			end
+			local alpha = lastComposedAlpha[p]
+			if alpha ~= nil and alpha >= FULLY_FADED then
+				return true
+			end
+			local cut = string.find(p, "/[^/]*$")
+			if cut == nil then
+				break
+			end
+			p = string.sub(p, 1, (cut :: number) - 1)
+		end
+		return false
+	end
+
+	function controller.coverRect(): any
+		if not rootVisible then
+			return nil
+		end
+		return surface_overlap.coverRect(root.node.path, lastRects, paintsNothing)
+	end
+
+	-- THE SURFACE, AS THE CROSS-SURFACE ALARM SEES IT. Registered once at attach,
+	-- dropped once at dispose; every field is answered on demand so nothing here
+	-- is computed by a frame.
+	local surfaceEntry: surface_overlap.Entry = {
+		id = root.node.id or "Screen",
+		snapshot = function()
+			return {
+				id = root.node.id or "Screen",
+				rect = controller.coverRect(),
+				displayOrder = declaredOrder,
+				rootPolicy = rootPolicy,
+			}
+		end,
+	}
+	local unregisterSurface = surface_overlap.register(adapter, surfaceEntry)
+
+	--[[ retireSurface() — this stops being a SURFACE now, whatever is still on
+		screen (ADR-0028).
+
+		`presenter.dismiss` takes a surface out of the stack immediately and
+		tears its tree down LATER, when the exit transition finishes or the
+		coordinator's cap fires. In that window a departing screen is fully
+		painted over its replacement — which is the transition doing its job, and
+		exactly what the framework arranged. Found by the corpus rather than by
+		design: `p3_sipworks` pushes one detail over another and the alarm
+		reported the pair on every compact viewport.
+
+		So the alarm's set of live surfaces is the PRESENTER's set of live
+		surfaces, and this is the one call that keeps them equal. Idempotent, and
+		`dispose()` calls it again for every surface that never went through a
+		presenter at all.
+	]]
+	function controller.retireSurface()
+		unregisterSurface()
+	end
+
 	function controller.diagnostics()
-		return table.clone(lastDiagnostics) -- a copy, like `stats()` (F-30)
+		local out = table.clone(lastDiagnostics) -- a copy, like `stats()` (F-30)
+		-- ...plus the findings no single solve can see: this surface covering, or
+		-- being covered by, another surface on the same target with neither having
+		-- declared it (ADR-0028). Costs one length check when this is the only
+		-- surface on the target, which is the overwhelming majority of reads.
+		for _, finding in surface_overlap.findingsFor(adapter, surfaceEntry, root.node.path) do
+			table.insert(out, finding)
+		end
+		return out
 	end
 
 	-- compositionAt(path) -> the last solve's `luauui-composition-dump/1` for that
@@ -5032,6 +5139,10 @@ function renderer.attach(
 		-- an async engine call): mark the controller dead so a late answer
 		-- neither re-solves nor writes into destroyed handles
 		disposed = true
+		-- ...and a disposed surface is no longer a surface: it leaves the
+		-- cross-surface registry before anything else, so a teardown that throws
+		-- later cannot leave a ghost overlapping the screen (ADR-0028)
+		unregisterSurface()
 		-- the selection bridge always clears on teardown (NS-A12): a dismissed
 		-- modal must never leave the engine pointing at a destroyed instance
 		if bridgeEngaged and adapter.setEngineSelection ~= nil then

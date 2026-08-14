@@ -124,6 +124,12 @@ local ORDER = {
 	-- screenshot's exact event can be watched degrading instead of colliding. Also
 	-- in `demo_picker.DEMOS`.
 	"hud",
+	-- ...and ADR-0028: the CROSS-SURFACE overlap alarm. One probe surface over
+	-- one screen, four declarations, and the framework's own sentence about each
+	-- — the difference the fixture exists to show is invisible in a screenshot,
+	-- because all four states paint identical pixels. Also in
+	-- `demo_picker.DEMOS`.
+	"surface_overlap",
 }
 
 local scenarios = {}

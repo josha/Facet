@@ -3877,6 +3877,15 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			The input half was already right. This makes the paint tell the same
 			story. ]]
 		handle.controller.setFocusPath(nil)
+		-- ...and it stops being a SURFACE at the same moment, for the same reason
+		-- (ADR-0028). With an exit transition the tree stays mounted and fully
+		-- painted for the whole animation, and a departing screen covering its
+		-- replacement is the transition rather than a defect — so the
+		-- cross-surface overlap alarm's set of live surfaces is exactly this
+		-- stack, and this is the one call that keeps the two equal.
+		if handle.controller.retireSurface ~= nil then
+			handle.controller.retireSurface()
+		end
 		-- ...and so does any disclosure plate this surface owns: the handle is out
 		-- of `stack` above, so the revalidation resolves it (LTN-4)
 		revalidateDisclosure()

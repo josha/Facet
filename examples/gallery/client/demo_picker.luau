@@ -220,6 +220,16 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "hud",
 	},
+	-- ...and the twelfth, for the same reason: what it shows is the difference
+	-- between four states that paint IDENTICAL pixels. Only the declaration
+	-- changes, and only the framework's own sentence tells them apart.
+	{
+		id = "surface-overlap",
+		title = "Cross-surface overlap",
+		blurb = "One probe over one screen: same pixels, four declarations, one alarm",
+		kind = "fixture",
+		module = "surface_overlap",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

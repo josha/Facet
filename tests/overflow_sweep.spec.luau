@@ -332,6 +332,12 @@ local SCENARIOS = {
 	-- takes 200px of HEIGHT off the box, which is the case a viewport sweep would
 	-- otherwise never reach
 	"hud",
+	-- ...and ADR-0028's alarm fixture. It mounts a SECOND surface at build, which
+	-- is the only surface in this corpus that does — so the swept assertion here
+	-- is that the declared pair stays quiet at every viewport, preference and
+	-- package, and the class is one edit away from reddening this file (which is
+	-- how it was proved to be visible at all)
+	"surface_overlap",
 }
 
 local EXAMPLES = {

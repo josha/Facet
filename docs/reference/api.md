@@ -1943,7 +1943,7 @@ surface and no zones are wired (focus-driven disclosure still works).
 | Presentation channel | `setPresentationTransform(path, t?)`, `setPresentationTransparency(path, alpha?)`, `setPresentationOffset(dy)`, `setPaintHeld(path, held)` (hold a node's own paint while something is painted over it — the auto reveal's strip is the framework's only caller; the solve, the rects and the truncation facts are untouched, and the hold survives a re-solve and a remount of that path) |
 | Engine content | `stageHost(path)` — the `UI.Stage` seam, nil on an adapter without it (see [The content seam](#the-content-seam-controllerstagehostpath)) |
 | `withAnimation` seams | `armAnimation(session)`, `disarmAnimation()` — armed by `presenter.withAnimation` for exactly one commit, which is why an ordinary refresh installs no records — and `animationRecordCount()`, the diagnostic behind `presenter.animationRecordCount()` |
-| Surface | `setDisplayOrder(n)`, `setRootVisible(visible) -> boolean` |
+| Surface | `setDisplayOrder(n)`, `setRootVisible(visible) -> boolean`, `coverRect()` (what this surface actually PAINTS — the union of every painted box below its root, or `nil` when it paints nothing; the root's own rect is excluded because a `Screen`'s rect is the content rect its `rootPolicy` resolved, the same box for every base screen on the device), `retireSurface()` (this stops being a surface NOW, whatever is still on screen — `presenter.dismiss` calls it, because a dismissed surface keeps painting until its exit transition finishes) |
 | Diagnostics | `stats()`, `diagnostics()`, `textPending()`, `analyzeBoundaries()` (re-solves the last tree with boundary detection on and reports how much a boundary-aware layout would have had to redo; it changes nothing and runs only when called) |
 
 #### Findings that are not defects
@@ -1952,6 +1952,18 @@ surface and no zones are wired (focus-driven disclosure still works).
 entry describes something nobody asked for — content painting outside its box, a
 child covering its neighbour, a row taller than the slot it was windowed into —
 and the right response is to go and fix it.
+
+One class of entry is not about this surface's own tree at all: **two surfaces
+covering each other**. Two independently mounted surfaces — a HUD and a debug
+overlay, a screen and a modal that never dismissed — that overlap while *neither*
+declared it means to cover the other are reported on both of them
+(ADR-0028). It is a defect like any other, and the three ways to say you meant it
+are the three the framework already had: put one in a display band above the
+other (`setDisplayOrder`, `presenter.SURFACE_LAYER`), present it
+`rootPolicy = "edgeToEdge"` if it is a decoration layer, or stop it covering
+anything (`hidden`, `opacity = 0`, a fade, `setRootVisible(false)` — a surface
+that paints nothing is in no pair). A modal over a HUD is silent, because a band
+difference is a declaration.
 
 A few entries are the opposite: they describe the framework doing exactly what
 the author told it to, and saying so. Those carry **`designed = true`**. Today
