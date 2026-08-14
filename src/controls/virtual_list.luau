@@ -1854,6 +1854,111 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return if hostedActiveKey ~= nil then hostedEngines[hostedActiveKey] else nil
 	end
 
+	--[[ ===== THE FOCUSED ROW'S KEY SURFACE (parity round 3, owed row 9) ========
+		A row's Delete/menu bindings belong to its ENGINE (`row_actions.luau`'s
+		`ensureKeysContext`), and a hosted engine is born at a pointer gesture's
+		AXIS LOCK — so until this, a row a keyboard-only or pad-only player had
+		merely focused had no engine and therefore no binding at all. Not Delete,
+		and not ButtonX/Shift+Return either, which is a pad's whole route to a
+		NON-destructive action. Row actions were reachable by pointer only.
+
+		THE LIST STANDS IN FOR THE ENGINE THAT DOES NOT EXIST YET. One context per
+		LIST (never per row), binding exactly `row_actions.ROW_KEYS` — the same
+		table the engine binds, so a host's spelling cannot drift from the
+		control's — and materialising that ONE row's engine on the press. The
+		alternative considered and refused was building an engine when focus
+		ARRIVES: that is one engine per row a d-pad passes over, which is the
+		laziness this whole design exists for, spent on a walk that presses
+		nothing.
+
+		WHY IT CANNOT DOUBLE-FIRE: the engine's own context is `sink = true` at
+		`ROW_KEY_PRIORITY`, this one sits strictly below, and the action system
+		cuts every strictly-lower context once a sink consumes
+		(`src/input/actions.luau`). So the moment a row HAS an engine with focus
+		inside it, the engine answers and this context never sees the key.
+
+		ENABLED BY FOCUS, BUILT BY THE PRESS: the context is enabled only while the
+		ring sits on a row hit whose row declares actions, so a TextField elsewhere
+		on the screen keeps Backspace and a plain list binds nothing at all. ]]
+	local hostedKeysContext: any = nil
+	-- the row the ring is on, IF that row declares actions. `hostedFieldsFor` is
+	-- the same cached decide-and-decline the pointer dispatcher asks on every
+	-- press — it calls the consumer's callback at most once per (key, item), and
+	-- it never builds anything.
+	local function hostedFocusedActionableKey(): string?
+		if hostedFocusGraph == nil then
+			return nil
+		end
+		local path = hostedFocusGraph.focused:get()
+		if path == nil then
+			return nil
+		end
+		local key = hostedKeyOfHit(path)
+		if key == nil then
+			return nil -- the ring is not on a row hit of this list
+		end
+		return if hostedFieldsFor(key) ~= nil then key else nil
+	end
+	local function hostedRouteKey(verb: (engine: any) -> ())
+		local key = hostedFocusedActionableKey()
+		if key == nil then
+			return
+		end
+		local engine = hostedEngineFor(key)
+		if engine ~= nil then
+			verb(engine)
+		end
+	end
+	local function hostedEnsureKeysContext()
+		if hostedActionSystem == nil or hostedKeysContext ~= nil then
+			return
+		end
+		local ctx = hostedActionSystem.createContext({
+			name = `VirtualListRowKeys-{id}`,
+			-- strictly below the engine's own — see the block comment above
+			priority = row_actions.ROW_KEY_PRIORITY - 1,
+			sink = true,
+		})
+		local deleteAction = ctx.createAction("RowActionsDelete", "Bool")
+		for _, binding in row_actions.ROW_KEYS.delete do
+			deleteAction.bind(binding)
+		end
+		deleteAction.onPressed(function()
+			hostedRouteKey(function(engine)
+				engine.commitDestructive()
+			end)
+		end)
+		local menuAction = ctx.createAction("RowActionsMenu", "Bool")
+		for _, binding in row_actions.ROW_KEYS.menu do
+			menuAction.bind(binding)
+		end
+		menuAction.onPressed(function()
+			hostedRouteKey(function(engine)
+				engine.toggleMenu()
+			end)
+		end)
+		ctx.setEnabled(false) -- enabled only while the ring is on an actionable row
+		hostedKeysContext = ctx
+		listScope:own(function()
+			if hostedKeysContext ~= nil then
+				hostedKeysContext.destroy()
+				hostedKeysContext = nil
+			end
+		end)
+	end
+	-- the same deferral row_actions' own `syncKeysEnabled` makes (Task 11b): a
+	-- list nobody has ever focused a row of builds no context at all.
+	local function hostedSyncKeysEnabled()
+		local on = hostedFocusedActionableKey() ~= nil
+		if not on and hostedKeysContext == nil then
+			return
+		end
+		hostedEnsureKeysContext()
+		if hostedKeysContext ~= nil then
+			hostedKeysContext.setEnabled(on)
+		end
+	end
+
 	--[[ RESOLVE THE AXIS, then build. Identical rule to the composite's own
 		`onPointerMove` and to `row_actions.composeWithReorder`'s `resolveAxis`: a
 		pure function of dx/dy against the one lock constant, ties go VERTICAL so
@@ -3215,6 +3320,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				for _, engine in hostedEngines do
 					engine.bindFocusGraph(graph)
 				end
+				-- ...and the list's own stand-in follows the ring exactly as an
+				-- engine's does (row_actions' `bindFocusGraph`, same shape)
+				listScope:own(core:observe(graph.focused, hostedSyncKeysEnabled))
+				hostedSyncKeysEnabled()
 			end
 		end
 	end
@@ -3237,6 +3346,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			for _, engine in hostedEngines do
 				engine.bindActionSystem(actionSystem)
 			end
+			-- the list's own stand-in needs one too (it may arrive after the focus
+			-- graph did, in which case the ring is already where it is)
+			hostedSyncKeysEnabled()
 		end
 		bundle.bindPresent = function(presentModal: any, dismiss: any)
 			hostedPresentModal = presentModal

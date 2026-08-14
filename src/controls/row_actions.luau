@@ -114,6 +114,29 @@ local specGuard = require("../spec_guard")
 
 local row_actions = {}
 
+--[[ THE ROW'S KEY SURFACE, DECLARED ONCE (parity round 3, owed row 9,
+	2026-08-13). Two readers: this file's own `ensureKeysContext`, which binds
+	them on the engine's focus-scoped context; and a HOST that has to stand in
+	for an engine it has not built yet (`newVirtualList` — a hosted engine is
+	born at a pointer gesture's axis lock, so a row a keyboard-only or pad-only
+	player has merely focused had no engine and therefore no binding at all,
+	neither Delete nor the menu that is a pad's route to a non-destructive
+	action). A host binding its own spelling of these keys is how the two drift;
+	one table is why they cannot.
+
+	`ROW_KEY_PRIORITY` is the ENGINE's, and it is the higher: with `sink = true`
+	a live engine consumes the key before any stand-in at a lower priority sees
+	it (`src/input/actions.luau`'s arbitration cuts strictly-lower contexts), so
+	a row whose engine exists commits exactly once however many bindings name
+	the key. A host binds strictly BELOW this number. ]]
+row_actions.ROW_KEY_PRIORITY = 10000
+row_actions.ROW_KEYS = {
+	-- Delete/Backspace: commit the first destructive action (`commitDestructive`)
+	delete = { { keyCode = "Delete" }, { keyCode = "Backspace" } },
+	-- gamepad ButtonX / keyboard Shift+Return: the action menu (`toggleMenu`)
+	menu = { { keyCode = "ButtonX" }, { keyCode = "Return", modifiers = { shift = true } } },
+}
+
 export type Edge = "leading" | "trailing"
 
 export type ActionSpec = {
@@ -2210,7 +2233,10 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- also sees them — none of the three is claimed by any base-screen
 	-- context today, so this is a no-op in practice, and future-proof if one
 	-- ever is.
-	local ROW_ACTIONS_KEY_PRIORITY = 10000
+	-- the keys themselves are `row_actions.ROW_KEYS`, module scope, because a host
+	-- binds the identical set while standing in for an engine that does not exist
+	-- yet — see that table's own comment.
+	local ROW_ACTIONS_KEY_PRIORITY = row_actions.ROW_KEY_PRIORITY
 	local function ensureKeysContext()
 		if actionSystemRef == nil or keysContext ~= nil then
 			return
@@ -2222,8 +2248,9 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		})
 		if hasDestructive then
 			local deleteAction = ctx.createAction("RowActionsDelete", "Bool")
-			deleteAction.bind({ keyCode = "Delete" })
-			deleteAction.bind({ keyCode = "Backspace" })
+			for _, binding in row_actions.ROW_KEYS.delete do
+				deleteAction.bind(binding)
+			end
 			deleteAction.onPressed(function()
 				-- MENU-OPEN CARVE-OUT (review round 1 MAJOR, see the big
 				-- comment above): the open menu owns ALL action dispatch
@@ -2238,8 +2265,9 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			end)
 		end
 		local menuAction = ctx.createAction("RowActionsMenu", "Bool")
-		menuAction.bind({ keyCode = "ButtonX" })
-		menuAction.bind({ keyCode = "Return", modifiers = { shift = true } })
+		for _, binding in row_actions.ROW_KEYS.menu do
+			menuAction.bind(binding)
+		end
 		menuAction.onPressed(function()
 			toggleMenu()
 		end)
@@ -4044,6 +4072,16 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		api.bindFocusGraph = contributionFields.bindFocusGraph
 		api.handleCancel = contributionFields.handleCancel
 		api.outsideDismiss = contributionFields.outsideDismiss
+		--[[ THE TWO KEY VERBS, for a host standing in for an engine that did not
+			exist when the key was pressed (owed row 9; `row_actions.ROW_KEYS`).
+			They are the SAME functions this engine's own context calls — the whole
+			point is that a press routed by the host and a press routed by the
+			engine take one path, so the slide-off/collapse/quarantine sequence and
+			the menu's own state guards cannot diverge by host. A host calls these
+			only after building the engine, which is what makes "one engine per
+			press that needs one" the whole cost of reaching a row by key. ]]
+		api.commitDestructive = commitDestructive
+		api.toggleMenu = toggleMenu
 	end
 	return api
 end

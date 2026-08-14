@@ -1741,32 +1741,194 @@ describe("VirtualList rowActions (Task 5): behavior parity", function()
 		expect(fired).toEqual({ "r1" })
 	end)
 
-	it("(P8b) KNOWN GAP: Delete on a row NOBODY has swiped does nothing (hosted engines are lazy)", function()
-		--[[ Recorded rather than asserted away. The Delete key context belongs to
-			the ENGINE, and a hosted engine is built on the first pointer gesture
-			that resolves horizontal — so a row a keyboard-only player has merely
-			focused has no engine and therefore no Delete binding. Standalone/Table
-			rows have a composite each, always, so they have never had this gap.
+	--[[ ===== THE UNSWIPED ROW'S KEY SURFACE (parity round 3, owed row 9) ======
+		(P8b) used to pin the GAP: the Delete context belongs to the ENGINE, and a
+		hosted engine is built by the first pointer gesture that resolves
+		horizontal, so a row a keyboard-only or pad-only player had merely focused
+		had no engine and therefore no binding at all — not Delete, and not the
+		action menu either, which is how a pad reaches a NON-destructive action.
+		Row actions were reachable by pointer only, which the cross-platform rule
+		forbids.
 
-			THE OPTION, stated properly (fix round 1): this does NOT have to mean
-			building an engine per focused row. The LIST already relays the action
-			system, so it can hold ONE Delete binding of its own, resolve the
-			focused row's key when the key is actually pressed, and build (or reuse)
-			that single row's engine THERE — one engine per Delete press, not one
-			per row a d-pad passes over. That is a real feature with a real
-			surface — which action a bare Delete means, what it does to a row with
-			no destructive action, how it interacts with the tray being open — so it
-			belongs to a task that can design it, not to a parity sweep. This case
-			pins today's answer so the change is visible when it happens. ]]
+		THE LIST HOLDS THE ROW'S KEY SURFACE NOW, standing in for the engine that
+		does not exist yet: one context per list, enabled only while the ring is on
+		a row hit whose row declares actions, binding exactly the keys row_actions
+		itself binds (`row_actions.ROW_KEYS`, one declaration both sides read), and
+		BUILDING that one row's engine on the press. One engine per press that
+		needs one — never one per row a d-pad passes over, which is what the
+		laziness the hosted design exists for would have cost. ]]
+	it("(P8b) Delete on a row NOBODY has swiped fires its destructive action, building ONE engine", function()
 		local fired: { string } = {}
 		local w = world({ rowActions = destructiveActions(fired) })
 		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		expect(w.debug().engineCount).toBe(0) -- nothing built by mounting or focusing
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(400)
+		expect(fired).toEqual({ "r1" })
+		expect(w.activations).toEqual({}) -- Delete is not an activate
+		expect(w.debug().engineCount).toBe(1) -- exactly the row the key was pressed on
+		-- and one press is one commit
+		w.settle(200)
+		expect(fired).toEqual({ "r1" })
+	end)
+
+	it(
+		"(P8c) ButtonX on an unswiped row opens its action MENU — the pad's route to a non-destructive action",
+		function()
+			local fired: { string } = {}
+			local w = world({ rowActions = bothEdges(fired) })
+			local function menuNodes(): number
+				local n = 0
+				for _, path in w.adapter.paths() do
+					if string.find(path, "RowActionsMenu", 1, true) ~= nil then
+						n += 1
+					end
+				end
+				return n
+			end
+			expect(w.debug().engineCount).toBe(0)
+			w.system.deviceKey("ButtonX", true)
+			w.system.deviceKey("ButtonX", false)
+			w.settle(60)
+			expect(menuNodes() > 0).toBe(true)
+			expect(w.debug().engineCount).toBe(1)
+			expect(w.debug().engagedKey).toBeNil() -- a menu is not a revealed tray
+		end
+	)
+
+	it("(P8d) a d-pad WALK builds nothing: the press is what materialises an engine", function()
+		--[[ The laziness guarantee, re-proved against the new binding. The context
+			is enabled by focus, but nothing is CONSTRUCTED by focus — a player who
+			walks the whole window and presses nothing must leave the list exactly
+			as cheap as they found it. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		for _ = 1, 8 do
+			w.system.deviceKey("DPadDown", true)
+			w.system.deviceKey("DPadDown", false)
+		end
+		w.settle(30)
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r9"))
 		expect(w.debug().engineCount).toBe(0)
 		w.system.deviceKey("Delete", true)
 		w.system.deviceKey("Delete", false)
+		w.settle(400)
+		expect(fired).toEqual({ "r9" }) -- the row the RING was on, not the first row
+		expect(w.debug().engineCount).toBe(1)
+	end)
+
+	it("(P8e) a row that declares NO actions is untouched: Delete builds nothing and fires nothing", function()
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				if item.id == "r1" then
+					return nil -- this row has no actions at all
+				end
+				return destructiveActions(fired)(item)
+			end,
+		})
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
 		w.settle(200)
-		expect(fired).toEqual({}) -- TODAY'S BEHAVIOR, not the wanted one
+		expect(fired).toEqual({})
 		expect(w.debug().engineCount).toBe(0)
+		-- the row below it, which does declare actions, still answers
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(400)
+		expect(fired).toEqual({ "r2" })
+	end)
+
+	it("(P8g) BOTH spellings of both verbs reach an unswiped row (the one shared key table)", function()
+		--[[ `row_actions.ROW_KEYS` is read twice — by the engine's own context and
+			by the list's stand-in — so that a host cannot ship half the vocabulary.
+			Delete/Backspace are one verb and ButtonX/Shift+Return are the other;
+			the primary spelling of each is proved in (P8b)/(P8c), and these are the
+			ones a host that hand-listed its bindings would have dropped. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		w.system.deviceKey("Backspace", true)
+		w.system.deviceKey("Backspace", false)
+		w.settle(400)
+		expect(fired).toEqual({ "r1" })
+
+		local menu = world({ rowActions = bothEdges({}) })
+		menu.system.deviceKey("LeftShift", true)
+		menu.system.deviceKey("Return", true)
+		menu.system.deviceKey("Return", false)
+		menu.system.deviceKey("LeftShift", false)
+		menu.settle(60)
+		local menuNodes = 0
+		for _, path in menu.adapter.paths() do
+			if string.find(path, "RowActionsMenu", 1, true) ~= nil then
+				menuNodes += 1
+			end
+		end
+		expect(menuNodes > 0).toBe(true)
+		expect(menu.activations).toEqual({}) -- and plain Return's Activate never ran
+	end)
+
+	it("(P8h) the list owns Delete only while the ring is on an ACTIONABLE row", function()
+		--[[ The stand-in sinks, so what it is enabled for decides what else on the
+			screen can still see the key. Enablement is scoped to "the ring is on a
+			row hit of this list, and that row declares actions" — a row with no
+			actions leaves Delete to whoever else wants it, which is the difference
+			between owning a key and squatting on it. ]]
+		local fired: { string } = {}
+		local w = world({
+			rowActions = function(item: any): any
+				if item.id == "r1" then
+					return nil
+				end
+				return destructiveActions(fired)(item)
+			end,
+		})
+		-- a sibling that also wants Delete, at an ordinary priority
+		local seen = 0
+		local ctx = w.system.createContext({ name = "SiblingDelete", priority = 1000 })
+		local action = ctx.createAction("SiblingDelete", "Bool")
+		action.bind({ keyCode = "Delete" })
+		action.onPressed(function()
+			seen += 1
+		end)
+		-- the ring starts on r1, which declares NO actions: the sibling gets it
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(30)
+		expect(seen).toBe(1)
+		expect(fired).toEqual({})
+		-- ...and on r2, which does declare actions, the row owns the key
+		w.system.deviceKey("DPadDown", true)
+		w.system.deviceKey("DPadDown", false)
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(400)
+		expect(seen).toBe(1) -- sunk, not delivered twice
+		expect(fired).toEqual({ "r2" })
+	end)
+
+	it("(P8f) once the engine EXISTS it is the one that answers: Delete still fires exactly once", function()
+		--[[ Two bindings now name Delete on the same row — the engine's own
+			(priority 10000, sink) and the list's stand-in. The engine's sink is
+			what keeps them from both firing; this is the case that would catch a
+			double commit if the two ever ended up at the same priority. ]]
+		local fired: { string } = {}
+		local w = world({ rowActions = destructiveActions(fired) })
+		w.dragLeft("r1", 80) -- build the engine the pointer way, then put it away
+		w.release()
+		w.settle()
+		w.close()
+		expect(w.debug().engineCount).toBe(1)
+		expect(w.pres.focus.focused:get()).toBe(rowHit("r1"))
+		w.system.deviceKey("Delete", true)
+		w.system.deviceKey("Delete", false)
+		w.settle(400)
+		expect(fired).toEqual({ "r1" }) -- ONE fire, not two
+		expect(w.debug().engineCount).toBe(1)
 	end)
 
 	-- press a device key (down + up), the shape every case here drives focus with
