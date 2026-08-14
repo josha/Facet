@@ -96,6 +96,46 @@ module crosses 200,000 characters, naming the live-sync consequence, so the
 crossing is a decision somebody makes rather than something a session discovers
 three files later.
 
+### The first file back under, and what the seam actually was (2026-08-14)
+
+`row_actions.luau`: **234,757 -> 183,738**, six commits, `buildEngine` untouched.
+The list above is now `renderer.luau`, `screen_target.luau`, `solver.luau`,
+`presenter.luau`.
+
+The architecture gate's own read of this file was that ~375 lines of periphery
+were extractable — under 9%, and nowhere near enough — because it stopped at the
+top-level functions. **The seam is bigger than the top level, and the test that
+finds it is one question, asked per block:**
+
+> does this read or WRITE a *mutable* upvalue of the big closure?
+
+`buildEngine`'s ~65 nested functions share ~60 upvalues, but only about twenty
+are ever reassigned (`spring`, `controller`, `drag`, `committed`, `commitLatched`,
+`menuHandle`, `rootPath`, `restorePending`, `api`, …). The rest — every
+`core:signal`/`core:memo` — are created ONCE and never reassigned, so a block that
+merely READS them can take them as arguments and behave identically. That is what
+took the two largest pieces out (the tray views, 18k; the row node, 19k) without
+threading any state record anywhere.
+
+**Mechanise the question rather than eyeballing it.** A twenty-line script that
+lists every `local` in the closure and every line that assigns one afterwards
+separates "shared and mutable" from "shared and frozen" in seconds, and that list
+is the extraction plan. Two false-positive classes to expect: table-constructor
+keys (`id = ...` inside a `UI.Button{}`) and same-named locals in inner scopes.
+
+**Two traps this run actually hit, both caught by a check rather than by care:**
+
+* **A new file under `src/controls/` needs a `controls_registry` row AND a
+  large-text `UNSWEEPABLE` reason.** The first extraction shipped with the
+  registry row and without the sweep reason; the failure was real and invisible,
+  because nine other agents' reds were in the same transcript. If the full suite
+  is noisy, build a focused runner over the specs your file owns and treat THAT
+  as the gate — one crisp number you can compare run to run.
+* **Landing at 198,960 is not landing.** The header comment explaining where the
+  six siblings went cost 2,267 characters and put the file back over at 201,227.
+  Stop at a real margin, not at 199,9xx: a ceiling reached by a hair is a file
+  that crosses again on its next honest comment.
+
 ## Why this is worth a file
 
 A cap observed on one path was generalised to every path, and that generalisation
@@ -107,6 +147,11 @@ There are still good reasons to split those two files — they are hard to revie
 and hard to reason about, and `row_actions.luau` has a documented history of
 repeat defects. **Split them for maintainability if and when that is the goal, on
 its own evidence.** Do not split them because of this cap.
+
+*(Updated 2026-08-14: that paragraph is still right about WHY, and the cap turned
+out to supply the evidence anyway — not because loading fails, but because the
+verification workflow stops working. `row_actions.luau` was split on exactly that
+argument; see the section above.)*
 
 The general rule: a limit is a property of an *operation*, not of a *file*.
 Before inheriting "X is too big", ask which operation refused it, and test the
