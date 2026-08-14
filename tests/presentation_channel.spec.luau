@@ -346,13 +346,59 @@ describe("screen_target: the presentation channel (source contract)", function()
 		expect(string.find(adapterSource, 'prop == "transparency"', 1, true) ~= nil).toBe(true)
 	end)
 
-	it("applyRect — the ONE Position write — composes the presentation offset", function()
+	-- the window is generous on purpose: it exists to prove the composition is IN
+	-- `applyRect`, not to pin how many bytes of comment sit above it. A 900-byte
+	-- window went red on a comment edit, which is a check reporting on the wrong
+	-- thing.
+	local function applyRectBody(): string
 		local from = string.find(adapterSource, "local function applyRect(handle: any)", 1, true)
 		expect(from ~= nil).toBe(true)
-		local body = string.sub(adapterSource, from :: number, (from :: number) + 900)
+		local stop = string.find(adapterSource, "\n\tend", from :: number, true)
+		return string.sub(adapterSource, from :: number, if stop ~= nil then stop else (from :: number) + 2000)
+	end
+
+	it("applyRect — the ONE Position write — composes the presentation offset", function()
+		local body = applyRectBody()
 		expect(string.find(body, "handle.instance.Position = UDim2.fromOffset(", 1, true) ~= nil).toBe(true)
 		expect(string.find(body, "handle.presentationOffsetX or 0", 1, true) ~= nil).toBe(true)
 		expect(string.find(body, "handle.presentationOffsetY or 0", 1, true) ~= nil).toBe(true)
+	end)
+
+	--[[ THE SIZE HALF (withAnimation size, 2026-08-14).
+
+		`applyRect` is the ONE place an engine `Size` is written, exactly as it is
+		the one place a `Position` is. That is what lets a painted size delta
+		compose at the write instead of anywhere near the solver — the whole
+		reason the round-2 deferral's "adding a size channel means touching
+		applyRect's four passengers" turned out to be the wrong worry: those
+		passengers already run on every frame of a POSITION flight.
+
+		Source contract, not behaviour: the behavioural proof is
+		tests/with_animation.spec's size block against the fake adapter. This one
+		exists because the fake adapter cannot see the real `UDim2` write, and a
+		Lune suite has never once executed this file. ]]
+	it("applyRect — the ONE Size write — composes the presentation SIZE delta", function()
+		local body = applyRectBody()
+		expect(string.find(body, "rect.w + (handle.presentationSizeW or 0)", 1, true) ~= nil).toBe(true)
+		expect(string.find(body, "rect.h + (handle.presentationSizeH or 0)", 1, true) ~= nil).toBe(true)
+		-- and the write itself uses the composed extent, not the raw rect
+		expect(string.find(body, "handle.instance.Size = UDim2.fromOffset(pw, ph)", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("the SIZE half does NOT accumulate — one own-path lookup, never an ancestor walk", function()
+		local from = string.find(adapterSource, "local function recomputePresentationOffset(handle: any)", 1, true)
+		expect(from ~= nil).toBe(true)
+		local stop = string.find(adapterSource, "\n\tend", from :: number, true)
+		local body = string.sub(adapterSource, from :: number, if stop ~= nil then stop else (from :: number) + 2400)
+		-- the size delta comes from THIS node's own transform...
+		expect(string.find(body, "presentationTransforms[handle.path]", 1, true) ~= nil).toBe(true)
+		expect(string.find(body, "handle.presentationSizeW", 1, true) ~= nil).toBe(true)
+		expect(string.find(body, "handle.presentationSizeH", 1, true) ~= nil).toBe(true)
+		-- ...and the ancestor loop is the OFFSET's alone: `ox`/`oy` are the only
+		-- things it adds to. A `sw +=` or `sh +=` inside that walk would mean every
+		-- child of a growing panel inflated with it.
+		expect(string.find(body, "sw +=", 1, true)).toBe(nil)
+		expect(string.find(body, "sh +=", 1, true)).toBe(nil)
 	end)
 
 	it("the offset ACCUMULATES down the subtree, because the instance tree is flat", function()

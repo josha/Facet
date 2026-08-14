@@ -62,6 +62,9 @@ local HANDLED_PROPS: { string } = {
 	-- dedicated seams (layout + presentation authority)
 	"clipChildren",
 	"textSize",
+	-- the SOLVER's wrap verdict (director ruling 5): the live adapter turns it into
+	-- `TextWrapped`, which it can only decide with the drawable width the solve knows
+	"textWrapped",
 	-- the typography role's FACE, beside its size (F2): the live adapter turns
 	-- this descriptor into a FontFace (bespoke) or a `luau-type-<role>` tag
 	-- (native), so it has to be a declared prop here or the parity pin blinds
@@ -262,8 +265,21 @@ function fake_target.new(opts: Opts?)
 			end
 		end
 		node.presentationOffset = { x = ox, y = oy }
+		-- THE SIZE HALF, AND IT DELIBERATELY DOES NOT ACCUMULATE (withAnimation size,
+		-- 2026-08-14). An offset has to accumulate because the instance tree is flat —
+		-- a container's move carries nothing inside it. A SIZE change carries nothing
+		-- either, and that is exactly why a child must NOT inherit it: every rect is
+		-- absolute, so growing a panel's painted box must leave the nodes inside it at
+		-- their own solved size. The live adapter reads only `presentationTransforms
+		-- [handle.path]` for this; the loop above is the offset's business alone.
+		local sw = if type(own) == "table" and type(own.w) == "number" then own.w else 0
+		local sh = if type(own) == "table" and type(own.h) == "number" then own.h else 0
+		node.presentationSize = { w = sw, h = sh }
 		if node.rect ~= nil then
 			node.presentedPosition = { x = node.rect.x + ox, y = node.rect.y + oy }
+			-- what the engine `Size` is actually written as, which is the fact both
+			-- adapters must agree on (the live one writes it in `applyRect`)
+			node.presentedSize = { w = node.rect.w + sw, h = node.rect.h + sh }
 			-- CENTERED SCALE PIVOT (director fix round, RR parity): the live adapter
 			-- re-anchors a motion-scaled instance to its center, so the scaled visual
 			-- rect inflates about the solved rect's center — the node's visual CENTER
@@ -283,6 +299,7 @@ function fake_target.new(opts: Opts?)
 			end
 		else
 			node.presentedPosition = nil
+			node.presentedSize = nil
 			node.presentedVisualRect = nil
 		end
 	end
@@ -877,6 +894,20 @@ function fake_target.new(opts: Opts?)
 	function adapter.hitRectOf(path: string): any
 		local node = nodes[path]
 		return if node ~= nil then node.hitRect else nil
+	end
+
+	-- the per-control sensory verb the renderer publishes (target_contract
+	-- `setActivationFeedback`). Recorded, never acted on: the real adapter turns
+	-- it into an attribute a haptics consumer reads, and the fake is where the
+	-- "a recycled instance never inherits the previous control's verb" claim is
+	-- provable without an engine.
+	function adapter.setActivationFeedback(handle: any, verb: string?)
+		handle.activationFeedback = verb
+		table.insert(ops, `activationfeedback {handle.path}={tostring(verb)}`)
+	end
+	function adapter.activationFeedbackOf(path: string): string?
+		local node = nodes[path]
+		return if node ~= nil then node.activationFeedback else nil
 	end
 
 	-- engine text premeasurement (text-measurement milestone). The renderer hands

@@ -169,7 +169,11 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 		pres.withAnimation("container", function()
 			tall:set(true)
 		end)
-		expect(pres.animationRecordCount()).toBe(1)
+		-- 2 = the Body's POSITION record + the Header's SIZE record. It read 1 until
+		-- `withAnimation` learned to animate size (2026-08-14); what this case is
+		-- about is that the count is not ZERO, which is what the whole-subtree
+		-- exclusion produced on any surface holding a keep-visible writer.
+		expect(pres.animationRecordCount()).toBe(2)
 		expect(adapter.node("/S/Body").presentedPosition.y).toBe(before)
 	end)
 
@@ -252,7 +256,8 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 		pres.withAnimation("container", function()
 			tall:set(true)
 		end)
-		expect(pres.animationRecordCount()).toBe(1)
+		-- the Body's position + the Header's size (1 before size was animated)
+		expect(pres.animationRecordCount()).toBe(2)
 		-- painted = solved rect + own record (-100) + the root's -40. At the seed
 		-- the body must appear exactly where the player last saw it: its OLD rect
 		-- lifted by 40.
@@ -269,7 +274,8 @@ describe("withAnimation survives a keep-visible writer on the root (BLOCKER 1)",
 		w.pres.withAnimation("container", function()
 			w.tall:set(true)
 		end)
-		expect(w.pres.animationRecordCount()).toBe(1)
+		-- the Body's position + the Header's size (1 before size was animated)
+		expect(w.pres.animationRecordCount()).toBe(2)
 		expect(w.adapter.node("/S/Body").presentedPosition.y).toBe(before)
 	end)
 end)

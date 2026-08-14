@@ -190,7 +190,11 @@ local function applyPathPoints(handle: any)
 	if path2d == nil or rect == nil or points == nil then
 		return
 	end
-	local w, h = math.max(rect.w, 1), math.max(rect.h, 1)
+	-- normalized against the PAINTED box, so a shape inside a node whose size is
+	-- travelling re-scales with it instead of sitting at its destination size
+	-- inside a smaller box (withAnimation size, 2026-08-14)
+	local w = math.max(rect.w + (handle.presentationSizeW or 0), 1)
+	local h = math.max(rect.h + (handle.presentationSizeH or 0), 1)
 	local cps = table.create(#points)
 	for _, p in points do
 		table.insert(
@@ -406,6 +410,12 @@ function screen_target.new(opts: Opts?)
 	--   * a claimed property no longer follows a theme swap. That is the price of a
 	--     continuous channel and the reason finite states must stay on tags.
 	local CLAIM_ATTRIBUTE = "LuauUI_PaintClaims"
+
+	-- the per-control sensory verb's attribute name. Kept identical to
+	-- `src/client/haptics.luau`'s `ACTIVATION_ATTRIBUTE` and pinned equal by
+	-- tests/control_feedback.spec.luau, because the two ends of a string-keyed
+	-- channel that drift apart fail as silence rather than as an error.
+	local ACTIVATION_FEEDBACK_ATTRIBUTE = "LuauUI_ActivationFeedback"
 
 	-- the value the sheet (or the bespoke path) had on this property when the claim
 	-- was taken. `GetStyled` is the instrument in native mode: a plain read is blind
@@ -1891,6 +1901,15 @@ function screen_target.new(opts: Opts?)
 		end
 		handle.presentationOffsetX = ox
 		handle.presentationOffsetY = oy
+		-- THE SIZE HALF, AND IT READS THIS NODE'S OWN TRANSFORM ONLY (withAnimation
+		-- size, 2026-08-14). The loop above accumulates because a container's MOVE
+		-- carries nothing inside it in a flat tree. A container's painted GROWTH
+		-- carries nothing inside it either — and there that same fact means the
+		-- opposite: every child holds an absolute rect, so it must keep its own solved
+		-- size while its parent's box travels. So: no ancestor walk, one lookup.
+		local ownT = presentationTransforms[handle.path]
+		handle.presentationSizeW = if ownT ~= nil and type(ownT.w) == "number" then ownT.w else 0
+		handle.presentationSizeH = if ownT ~= nil and type(ownT.h) == "number" then ownT.h else 0
 	end
 
 	local function applyHitExpander(handle: any)
@@ -1923,13 +1942,20 @@ function screen_target.new(opts: Opts?)
 		if handle.clipHost ~= nil and handle.clipHost.rect ~= nil then
 			ox, oy = handle.clipHost.rect.x, handle.clipHost.rect.y
 		end
+		-- THE PAINTED SIZE (withAnimation size, 2026-08-14): the solved extent plus
+		-- this node's own presentation delta. Zero for every node that is not
+		-- mid-flight, which is every node almost all of the time.
+		local pw = rect.w + (handle.presentationSizeW or 0)
+		local ph = rect.h + (handle.presentationSizeH or 0)
 		if handle.motionAnchorCentered then
 			-- a live motion scale re-anchored this instance to its center so the
 			-- UIScale pivots there (director fix round: pops and the drag ghost grew
-			-- down-right from the top-left) — same rect, written as its center
+			-- down-right from the top-left) — same rect, written as its center.
+			-- Half the PAINTED extent, so the two branches place the same box: a
+			-- growing node extends down-right from its solved origin either way.
 			handle.instance.Position = UDim2.fromOffset(
-				rect.x - ox + (handle.presentationOffsetX or 0) + rect.w / 2,
-				rect.y - oy + (handle.presentationOffsetY or 0) + rect.h / 2
+				rect.x - ox + (handle.presentationOffsetX or 0) + pw / 2,
+				rect.y - oy + (handle.presentationOffsetY or 0) + ph / 2
 			)
 		else
 			handle.instance.Position = UDim2.fromOffset(
@@ -1937,7 +1963,7 @@ function screen_target.new(opts: Opts?)
 				rect.y - oy + (handle.presentationOffsetY or 0)
 			)
 		end
-		handle.instance.Size = UDim2.fromOffset(rect.w, rect.h)
+		handle.instance.Size = UDim2.fromOffset(pw, ph)
 		applyHitExpander(handle)
 		if handle.focusRingFloat ~= nil and handle.focusRingFloat.Parent ~= nil then
 			-- the float ring rides the focused rect (it lives in the clip host,
@@ -1948,7 +1974,9 @@ function screen_target.new(opts: Opts?)
 				rect.x - ox + thickness + (handle.presentationOffsetX or 0),
 				rect.y - oy + thickness + (handle.presentationOffsetY or 0)
 			)
-			handle.focusRingFloat.Size = UDim2.fromOffset(rect.w - 2 * thickness, rect.h - 2 * thickness)
+			-- the ring traces the PAINTED box: a ring left at the solved size while its
+			-- node's box travels would visibly detach from the control it marks
+			handle.focusRingFloat.Size = UDim2.fromOffset(pw - 2 * thickness, ph - 2 * thickness)
 		end
 		-- a semantic icon is clamped to the box this node actually has, so a rect
 		-- that lands after the picture did has to re-fit it (director report
@@ -3378,6 +3406,29 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	-- THE PER-CONTROL SENSORY VERB (director request 2026-08-13;
+	-- `src/render/target_contract.luau`'s `setActivationFeedback`). An ATTRIBUTE,
+	-- for the same reason `LuauUI_PaintClaims` is one: it is a fact about the node
+	-- that something outside the renderer needs to read, and an attribute is the
+	-- engine's own channel for exactly that. `src/client/haptics.luau` reads it and
+	-- assigns `GuiButton.PressHapticEffect` accordingly — this adapter plays
+	-- nothing and knows nothing about haptics.
+	--
+	-- A NIL VERB CLEARS IT. The renderer pushes the nil deliberately (recycling),
+	-- and `SetAttribute(name, nil)` is the engine's own removal, so a control that
+	-- adopts a commit button's instance does not adopt its sensation. Deliberately
+	-- NOT `ensureInstance`: an elided node has no press to feel, so materialising
+	-- one to carry an attribute nothing will read would be pure cost.
+	function adapter.setActivationFeedback(handle: any, verb: string?)
+		local instance = handle.instance
+		if instance == nil then
+			return
+		end
+		pcall(function()
+			instance:SetAttribute(ACTIVATION_FEEDBACK_ATTRIBUTE, verb)
+		end)
+	end
+
 	-- a hit rect needs a real object, so an elided node materialises here
 	function adapter.setHitRect(handle: any, rect: any)
 		ensureInstance(handle)
@@ -4512,8 +4563,25 @@ function screen_target.new(opts: Opts?)
 			-- with no ellipsis, which is what the playlist's name column showed
 			-- ("Neon Straightawa"). The rule was never Button-specific — breaking a
 			-- WORD is damage wherever it happens — so the gate was the bug.
+			--
+			-- ...AND HALF THE RULE LIVES IN THE SOLVE (director ruling 5, 2026-08-13).
+			-- "Has a legal break" is all this seam can see; whether the break can
+			-- SUCCEED needs the drawable width, and a phrase wrapped into a column
+			-- narrower than one of its own words is broken mid-word exactly as a
+			-- single word would be. The solver measures that (`textFacts.wraps`) and
+			-- the renderer carries the verdict here as `textWrapped`; `handle.wraps`
+			-- is that verdict, `nil` until a solve has spoken. Both halves are ANDed,
+			-- so whichever of the two writes lands last, the answer is the same one.
 			if instance:IsA("TextLabel") or instance:IsA("TextButton") then
-				instance.TextWrapped = string.find(tostring(value), "%s") ~= nil
+				instance.TextWrapped = handle.wraps ~= false and string.find(tostring(value), "%s") ~= nil
+			end
+		elseif prop == "textWrapped" then
+			-- the other half of the same rule; re-applied against the string the
+			-- instance is currently drawing, because the two writes are independent
+			handle.wraps = value ~= false
+			if instance:IsA("TextLabel") or instance:IsA("TextButton") then
+				local drawn = if handle.labelInstance ~= nil then handle.labelInstance.Text else instance.Text
+				instance.TextWrapped = handle.wraps and string.find(drawn, "%s") ~= nil
 			end
 		elseif prop == "placeholder" then
 			if instance:IsA("TextBox") then

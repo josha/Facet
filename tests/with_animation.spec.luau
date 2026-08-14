@@ -145,9 +145,17 @@ describe("withAnimation: records are relative, and only at animation roots", fun
 			w.tall:set(true)
 		end)
 		-- /S/Body moved; /S/Body/Line moved by exactly the same delta because it
-		-- rode its parent. One record, not two — the adapter and the renderer
-		-- both accumulate ancestor offsets, so a second record would double it.
-		expect(w.pres.animationRecordCount()).toBe(1)
+		-- rode its parent. The adapter and the renderer both accumulate ancestor
+		-- offsets, so a record on the Line would double its travel — and THAT, not
+		-- the total, is what this case is about. It is asserted per path, because a
+		-- count is satisfied by the wrong two records as easily as the right two.
+		expect(w.adapter.node("/S/Body/Line").props.transform).toBe(nil)
+		-- The total is 2, and both are named: the Body's POSITION (it was pushed
+		-- down) and the Header's SIZE (its height is what changed). Before size was
+		-- animated this read 1 — the Header's growth was a silent snap.
+		expect(w.adapter.node("/S/Body").props.transform.y).toBe(-100)
+		expect(w.adapter.node("/S/Header").props.transform.h).toBe(-100)
+		expect(w.pres.animationRecordCount()).toBe(2)
 	end)
 
 	it("the riding child is painted at ONE delta, never two", function()
@@ -306,7 +314,11 @@ describe("withAnimation: nesting refuses the INNER call and leaves the outer fli
 		-- where the body used to be, and a record is live to carry it there.
 		-- Before the fix both of these read the settled value / 0.
 		expect(node.presentedPosition.y).toBe(before)
-		expect(w.pres.animationRecordCount()).toBe(1)
+		-- 2 = the Body's position record + the Header's size record (it read 1
+		-- before size was animated); the point of the line is "non-zero, and the
+		-- outer call's own record is one of them", so the Body's is named too
+		expect(node.props.transform.y).toBe(-100)
+		expect(w.pres.animationRecordCount()).toBe(2)
 		settle(w.pres)
 		expect(w.adapter.node("/S/Body").presentedPosition.y).toBe(w.adapter.node("/S/Body").rect.y)
 	end)
@@ -325,7 +337,8 @@ describe("withAnimation: nesting refuses the INNER call and leaves the outer fli
 			w.tall:set(true)
 		end)
 		expect(w.adapter.node("/S/Body").rect.y).toBe(before + 100)
-		expect(w.pres.animationRecordCount()).toBe(1)
+		-- the Body's position + the Header's size; 0 is what a latched refusal gives
+		expect(w.pres.animationRecordCount()).toBe(2)
 	end)
 end)
 
@@ -470,6 +483,225 @@ describe("withAnimation: interruption carries velocity", function()
 		settle(w.pres)
 		local node = w.adapter.node("/S/Body")
 		expect(node.presentedPosition.y).toBe(node.rect.y)
+		expect(w.pres.animationRecordCount()).toBe(0)
+	end)
+end)
+
+--[[ SIZE — the round-2 deferral, closed (docs/plans/with-animation-size.md).
+	Round 2 shipped position only and recorded five mechanisms as the reason.
+	Four of them describe what animating a size MEANS (content relayouts inside
+	a box that is changing size — which is what SwiftUI does too); the fifth,
+	"an interpolated size re-fits icon art and re-scales Path2D points every
+	frame of the flight", was already false when it was written: the shipped
+	POSITION animation calls `applyRect` on every handle in the animated subtree
+	every frame (src/client/screen_target.luau's `transform` branch), and
+	`applyRect` already runs `refitIconArt` and `applyPathPoints`. Size adds no
+	call; it changes two numbers inside calls that were already happening.
+
+	THE ONE STRUCTURAL DIFFERENCE FROM POSITION, and most of these cases are
+	about it: a position delta ACCUMULATES down the subtree (the instance tree is
+	flat, so a container's move does not carry the nodes inside it — every
+	descendant must add its ancestors' offsets), and a size delta does NOT. A
+	child's rect is absolute; growing its parent's painted box moves nothing.
+	So the size half of a record is the node's OWN absolute delta, with no `inh`
+	and no compensating record, and a child of a resizing node stays exactly its
+	own size. ]]
+local function sizeWorld(opts: any?)
+	local options = opts or {}
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+	if options.reducedMotion then
+		env:set("reducedMotion", true)
+	end
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = LuauUI.newPresenter(core, env, adapter, system)
+
+	local tall = core:signal(false)
+	local panelHeight = core:memo(function(use: any)
+		return { type = "fixed", px = if use(tall) then 200 else 100 }
+	end)
+	local UI = LuauUI.UI
+	-- Panel is FIRST, so its own position never changes: the only thing that can
+	-- animate about it is its SIZE. Tail sits under it and moves by exactly the
+	-- same 100 px the Panel grew, which is what makes the "one spring" assertion
+	-- below an exact equality rather than a correlation.
+	pres.present(UI.Screen({
+		id = "S",
+		padding = 0,
+		gap = 0,
+		children = {
+			UI.VStack({
+				id = "Panel",
+				padding = 0,
+				gap = 0,
+				height = panelHeight,
+				children = { UI.Text({ id = "Label", text = "row" }) },
+			}),
+			UI.Box({ id = "Tail", height = { type = "fixed", px = 40 } }),
+		},
+	}))
+	pres.refresh()
+	return { core = core, env = env, adapter = adapter, pres = pres, tall = tall }
+end
+
+describe("withAnimation: the painted SIZE travels, and the solved size is still exact", function()
+	it("the solved size is the NEW one on the frame the call returns", function()
+		local w = sizeWorld()
+		expect(w.adapter.node("/S/Panel").rect.h).toBe(100)
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		-- the same invariant every position case defends: geometry is at its
+		-- destination, exactly, on the frame the call returns
+		expect(w.adapter.node("/S/Panel").rect.h).toBe(200)
+	end)
+
+	it("the PAINTED size starts at the old one and travels to the new one", function()
+		local w = sizeWorld()
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		-- seeded synchronously inside the commit, exactly as the offset is: a size
+		-- record written a frame late paints one frame at the destination and jumps
+		expect(w.adapter.node("/S/Panel").presentedSize.h).toBe(100)
+		w.pres.tick(FRAME)
+		local mid = w.adapter.node("/S/Panel").presentedSize.h
+		expect(mid > 100).toBe(true)
+		expect(mid < 200).toBe(true)
+		settle(w.pres)
+		local node = w.adapter.node("/S/Panel")
+		expect(node.presentedSize.h).toBe(node.rect.h)
+	end)
+
+	it("a SIZE-ONLY change is claimed — the node never moved, and it still animates", function()
+		local w = sizeWorld()
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		local panel = w.adapter.node("/S/Panel")
+		-- it did not move, and the old `claimed` predicate (relX ~= 0 or relY ~= 0)
+		-- is exactly what made this case a silent snap
+		expect(panel.presentedPosition.y).toBe(panel.rect.y)
+		expect(panel.presentedSize.h).toBe(100)
+	end)
+
+	it("ONE spring drives both halves: the growth and the displacement are the same number", function()
+		local w = sizeWorld()
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		-- Panel painted height = 200 - 100p; Tail painted y = 200 - 100p. Same p,
+		-- so they are equal on EVERY frame — a subtree that tears reddens here
+		-- rather than in a screenshot nobody takes.
+		for _ = 1, 8 do
+			local panel = w.adapter.node("/S/Panel")
+			local tail = w.adapter.node("/S/Tail")
+			expect(panel.presentedSize.h).toBe(tail.presentedPosition.y)
+			w.pres.tick(FRAME)
+		end
+	end)
+
+	it("SIZE DOES NOT ACCUMULATE: the child of a growing node keeps its own size", function()
+		local w = sizeWorld()
+		local label = w.adapter.node("/S/Panel/Label")
+		local before = label.rect.h
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		local live = w.adapter.node("/S/Panel/Label")
+		-- the position half of a record accumulates down the subtree; the size half
+		-- must not, or every descendant of a growing panel would inflate with it
+		expect(live.presentedSize.h).toBe(live.rect.h)
+		expect(live.rect.h).toBe(before)
+		-- ...and the child carries no record of its own to do it with
+		expect(live.props.transform).toBe(nil)
+	end)
+
+	it("the record CLEARS at settle — the transform goes back to nil, not to a zero residue", function()
+		local w = sizeWorld()
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		settle(w.pres)
+		-- RascalRally's luauui_sponsor_entry.spec asserts `props.transform == nil`
+		-- at rest in six places; a size animation that left `{w=0,h=0}` behind would
+		-- break the game's own invariant while every count here still read zero
+		expect(w.adapter.node("/S/Panel").props.transform).toBe(nil)
+		expect(w.pres.animationRecordCount()).toBe(0)
+		local panel = w.adapter.node("/S/Panel")
+		expect(panel.presentedSize.h).toBe(panel.rect.h)
+	end)
+
+	--[[ REDUCED MOTION, AND THE ASSERTION THAT ACTUALLY BITES.
+
+		The policy is inherited, not re-decided: `withAnimation` is DECORATIVE
+		motion (the exact layout already carries every fact and the travel was
+		pure continuity), so under reduced motion it installs NO records —
+		src/present/presenter.luau's explicit `motionClock:isReduced()` branch.
+		Size changes nothing about that; a size that snaps loses no information
+		for the same reason a position that snaps loses none.
+
+		A RECORD-COUNT ASSERTION CANNOT SEE THAT BRANCH, and this was measured
+		(mutation M5, 2026-08-14): deleting the branch outright reddened NOTHING,
+		here or in the pre-existing reduced-motion case. Under reduced motion the
+		spring settles synchronously inside `setTarget`, and `claim` registers
+		`onSettle` BEFORE aiming, so records install and clear inside the same
+		call — the count is 0 either way and the paint is exact either way.
+
+		So the check is on what the branch actually buys, which is what the design
+		said all along: no writes. "Install and immediately clear" is two rounds of
+		amplified subtree writes per root for a visual no-op. Counting the adapter
+		ops is the only instrument that can tell the two implementations apart. ]]
+	it("reduced motion installs no size record — and spends no adapter write to do it", function()
+		local w = sizeWorld({ reducedMotion = true })
+		w.adapter.takeOps()
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		local transformWrites = 0
+		for _, op in w.adapter.takeOps() do
+			if string.find(op, ".transform=", 1, true) ~= nil then
+				transformWrites += 1
+			end
+		end
+		expect(transformWrites).toBe(0)
+		local panel = w.adapter.node("/S/Panel")
+		expect(panel.rect.h).toBe(200)
+		expect(panel.presentedSize.h).toBe(200)
+		expect(w.pres.animationRecordCount()).toBe(0)
+	end)
+
+	it("a second call mid-flight RE-BASES the size instead of snapping it", function()
+		local w = sizeWorld()
+		w.pres.withAnimation("container", function()
+			w.tall:set(true)
+		end)
+		for _ = 1, 6 do
+			w.pres.tick(FRAME)
+		end
+		local midFlight = w.adapter.node("/S/Panel").presentedSize.h
+		w.pres.withAnimation("container", function()
+			w.tall:set(false)
+		end)
+		local afterClaim = w.adapter.node("/S/Panel").presentedSize.h
+		-- a restart would snap the painted height to 200 (the new "old place");
+		-- a re-base continues from the pixel height that is actually on screen
+		expect(math.abs(afterClaim - midFlight) < 1).toBe(true)
+		settle(w.pres)
+		local panel = w.adapter.node("/S/Panel")
+		expect(panel.presentedSize.h).toBe(panel.rect.h)
+		expect(w.pres.animationRecordCount()).toBe(0)
+	end)
+
+	it("an ordinary refresh outside a call paints the size instantly, as it always did", function()
+		local w = sizeWorld()
+		w.tall:set(true)
+		w.pres.refresh()
+		local panel = w.adapter.node("/S/Panel")
+		expect(panel.presentedSize.h).toBe(panel.rect.h)
 		expect(w.pres.animationRecordCount()).toBe(0)
 	end)
 end)
