@@ -249,15 +249,18 @@ a construction error on it, not a no-op.
 
 Three groups recur in the column below and are worth naming once:
 
-- **every rendered class** — the twenty classes that produce a box:
+- **every rendered class** — the twenty-one classes that produce a box:
   `AdaptiveStack`, `Anchor`, `Box`, `Button`, `Composition`, `Divider`, `Grid`,
-  `Grip`, `HStack`, `Image`, `Path`, `Screen`, `ScrollView`, `Spacer`, `Text`,
-  `TextField`, `Toggle`, `VStack`, `ViewThatFits`, `ZStack`. `Region` is the
-  exception among containers: it takes **no** box properties at all, because a
-  Region *is* its ranked forms and a width on it would be a second authority
-  against the composition's own resolution. The structural regions (`When`,
-  `ForEach`, `ErrorBoundary`) take none of these either — they answer presence,
-  not paint.
+  `Grip`, `HStack`, `Image`, `Path`, `Screen`, `ScrollView`, `Spacer`, `Stage`,
+  `Text`, `TextField`, `Toggle`, `VStack`, `ViewThatFits`, `ZStack`. **Two
+  containers are the exceptions**, for the same kind of reason: `Region` takes
+  **no** box properties at all (constitution E-5 — a Region *is* its ranked
+  forms, and a width on it would be a second authority against the composition's
+  own resolution), and `GridRow` takes none either, because the grid it belongs
+  to owns the column widths and the row pitch (see `GridRow`). A `GridRow` does
+  carry the paint properties, and its own entry lists the exact set. The
+  structural regions (`When`, `ForEach`, `ErrorBoundary`) take none of these
+  either — they answer presence, not paint.
 - **layout containers** — the nine that inset, clip and declare overflow:
   `AdaptiveStack`, `Anchor`, `Composition`, `Grid`, `HStack`, `Screen`,
   `ScrollView`, `VStack`, `ZStack`. (`Button`, `Region` and `ViewThatFits` take
@@ -278,9 +281,9 @@ Three groups recur in the column below and are worth naming once:
 | `overflow` | layout containers | declared overflow handling (`clip`/`scroll`/`visible`/`intentionalOverlap`). **`"clip"` makes the node a clip host** — it sets `clipChildren` at construction unless you authored that flag yourself, so the word does the thing it names. The other three values are declared intent, read by the solver's overflow diagnostic and by the layout dump, and drive no engine property |
 | `clipChildren` | layout containers | make this container an engine clip host; `ScrollView` defaults it to true |
 | `active` | layout containers, `Box` | engine `Active` flag — an input-sinking panel (modal backdrops) |
-| `surface` | layout containers, `Box`, `Button`, `Image`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
-| `shadow`, `gradient`, `corners`, `stroke` | every rendered class | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
-| `zIndex` | every rendered class | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
+| `surface` | layout containers, `Box`, `Button`, `GridRow`, `Image`, `Stage`, `Text` (only `"badge"`/`"chip"` — see `Text`) | surface style role painted behind the node |
+| `shadow`, `gradient`, `corners`, `stroke` | every rendered class, **and `GridRow`** | normalized style-modifier data — produce them with `UI.shadow` / `UI.gradient` / `UI.corners` / `UI.stroke`, never by hand |
+| `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
 | `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. This is SwiftUI's `hidden()`, and it is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (LuauUI arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme. A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. Either form is scaled at both seams |
@@ -301,28 +304,28 @@ An unknown name is a construction error that lists the vocabulary. A literal
 number stays legal everywhere and thereby marks that value explicitly
 theme-independent.
 
-**Containers** (take `children`) — twelve, and this is the list the runtime's
+**Containers** (take `children`) — thirteen, and this is the list the runtime's
 own "does not take children" error prints: `AdaptiveStack`, `Anchor`, `Button`,
-`Composition`, `Grid`, `HStack`, `Region`, `Screen`, `ScrollView`, `VStack`,
-`ViewThatFits`, `ZStack`. **A `Button` is a container**: it takes `children`,
+`Composition`, `Grid`, `GridRow`, `HStack`, `Region`, `Screen`, `ScrollView`,
+`VStack`, `ViewThatFits`, `ZStack`. **A `Button` is a container**: it takes `children`,
 which render inside its one activation surface (see `Button` § Custom content).
 `Region` and `ViewThatFits` are containers whose children mean something
 specific — ranked forms and candidate layouts — which is why they carry none of
 the layout-container properties above.
 
 **Leaves**: `Text`, `Image`, `Toggle`, `TextField`, `Box`, `Spacer`, `Divider`,
-`Path`, `Grip`. **Structural regions**: `When`, `ForEach`, `ErrorBoundary`.
+`Path`, `Stage`, `Grip`. **Structural regions**: `When`, `ForEach`, `ErrorBoundary`.
 **Style modifiers**: `shadow`, `gradient`, `corners`, `stroke`, `styleGroup`.
 
 #### Continuous colour: `tint`
 
-`Box`, `Text`, `Image` and `Path` accept a **`tint`** — the one continuous colour
-channel, on the **binding** authority, for values a finite selector cannot
-express. Two value forms:
+`Box`, `Text`, `Image`, `Path` and `Stage` accept a **`tint`** — the one
+continuous colour channel, on the **binding** authority, for values a finite
+selector cannot express. Two value forms:
 
 | Form | Meaning |
 |---|---|
-| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image`. `blend = 0` is the base, `1` is the role. |
+| `{ role = "accent", blend = 0..1, from? }` | **themable, preferred.** Blends from `from` to `role` — both names from the closed palette vocabulary (`surface`, `surfaceStrong`, `content`, `contentStrong`, `contentSecondary`, `accent`, `control`, `controlSelected`, `danger`, `hairline`), resolved against the **active theme**. `from` defaults to the class's identity paint: the page colour for a `Box`, `content` for `Text`/`Path`, white (the picture as authored) for an `Image` — and white for a `Stage` too, for the same reason: white multiplies to the scene the engine already drew. `blend = 0` is the base, `1` is the role. |
 | `{ direct = { r, g, b } \| "#rrggbb" }` | a **declared theming-exempt** identity hue — the loud word is in the value, so every use greps. Use it when the colour IS game data (a racer's hue), never for a state. |
 
 **`transparency` (0..1, either form, default `0` = opaque).** The tint's own
@@ -334,9 +337,9 @@ stating the composite colour: one paint per node stays themable and
 contrast-checkable, and an alpha does not.
 
 It rides the tint's existing claim on a `Box` (a tinted Box has always owned
-`BackgroundTransparency`); on `Text` and `Image` it claims one more property
-(`TextTransparency` / `ImageTransparency`) and only when it is declared, so a
-tint without it is byte-identical to before. A `Path` **refuses** it at the write
+`BackgroundTransparency`); on `Text`, `Image` and `Stage` it claims one more
+property (`TextTransparency` / `ImageTransparency`) and only when it is declared,
+so a tint without it is byte-identical to before. A `Path` **refuses** it at the write
 site — `Path2D` carries a colour and a thickness and no transparency at all — and
 the error names the working idiom (fade the path's container).
 
@@ -350,7 +353,9 @@ cannot catch it for you.
 `Box` → `BackgroundColor3` **and** `BackgroundTransparency` (a tinted Box paints —
 a bare Frame is transparent until something says otherwise, so a colour alone
 would be an invisible fill), `Text` → `TextColor3`, `Image` → `ImageColor3`,
-`Path` → the `Path2D`'s colour. In native-stylesheet mode those properties are
+`Stage` → `ImageColor3` as well (a stage's "picture" is the scene it renders and
+the engine multiplies it through the same pair, so the tint hues the *content*,
+not the plate), `Path` → the `Path2D`'s colour. In native-stylesheet mode those properties are
 sheet-owned, so a tinted node **claims** them: the write is an intentional,
 recorded defeat of the rule, published on the instance as the
 `LuauUI_PaintClaims` attribute so the `GetStyled` authority audit reads a declared
