@@ -721,6 +721,15 @@ local FIXTURES: { Fixture } = {
 local UNSWEEPABLE: { [string]: string } = {
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
+	-- the two halves of src/controls/row_actions.luau that were lifted out on
+	-- 2026-08-14 so that file could get back under the 200,000-char
+	-- `Script.Source` WRITE cap (docs/lessons/
+	-- the-200k-source-cap-is-on-writing-not-loading.md). Neither is a control;
+	-- the RowActions row itself is swept and is the thing that mounts them.
+	RowActionsSpec = "pure ActionSpec validation and leaf string/id helpers — no blueprint, nothing to mount or "
+		.. "measure. The tray buttons its output describes are swept through the RowActions fixture",
+	RowActionsCoordinator = "three closures over one plain local (which row is open) — no blueprint, nothing to "
+		.. "mount or measure. The rows it coordinates are swept through the RowActions fixture",
 	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
 		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
 		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "

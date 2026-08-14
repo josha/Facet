@@ -833,6 +833,30 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- `LuauUI.newRowActionsCoordinator`, whole (2026-08-14). NOT a control: it
+		-- renders nothing and has no input surface — it is a one-slot registry of
+		-- "which row is currently open on this list surface", talking to rows only
+		-- through their public `_close`/`_closeMenu` handle. It was already a
+		-- PUBLIC export living inside src/controls/row_actions.luau's private body,
+		-- which made it the clearest seam there when that file had to shed
+		-- periphery to get back under the 200,000-char `Script.Source` WRITE cap
+		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		name = "RowActionsCoordinator",
+		kind = "composite",
+		module = "src/controls/row_actions_coordinator.luau",
+		export = "newRowActionsCoordinator",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions.spec.luau",
+		docsAnchor = "newRowActionsCoordinator",
+		-- STATELESS-BY-SHAPE: three closures over one plain local (the claimed
+		-- row's own API table). There is no reactive state here to summarize, and
+		-- the state a bug report needs is the claimed ROW's own dump().
+		dump = false,
+		reason = "three closures over one plain local: the claimed row's own dump() is the state a report needs, not a second copy of it here",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========
