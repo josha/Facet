@@ -937,6 +937,35 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- the standalone/Table row NODE (2026-08-14): the root Anchor, the trays
+		-- under it, the `Content` ZStack that slides over them (sign-following
+		-- anchor, edit-gutter padding, collapse `overflow`), the drag Hit Grip on
+		-- top of `content`, and the edit-mode leading minus painted over the lot.
+		-- HOSTED MODE BUILDS NONE OF IT — a closed hosted row costs its host
+		-- nothing — which is why this is a separate call rather than a branch
+		-- inside one blueprint. NOT a control in its own right: it is the node half
+		-- of RowActions, and its four-input story is that row's, since these ARE
+		-- the nodes every cited case presses, focuses and activates.
+		--
+		-- ITS PAINT ORDER IS A DEVICE FACT, not a style: the Hit Grip goes AFTER
+		-- `content` because the engine delivers a press to the TOPMOST interactive
+		-- object only (docs/lessons/a-button-eats-the-swipe-underneath-it.md), and
+		-- the minus goes after Content so a trailing swipe passes under it.
+		name = "RowActionsRoot",
+		kind = "composite",
+		module = "src/controls/row_actions_root.luau",
+		export = "newRowActions",
+		spec = "tests/row_actions.spec.luau",
+		conformance = "tests/row_actions.spec.luau",
+		docsAnchor = "newRowActions",
+		-- NO INSTANCE: `build()` returns one blueprint. The row engine's own dump()
+		-- reports the state these nodes are bound to (edge, offset, phase, height).
+		dump = false,
+		reason = "returns one blueprint, holds no instance: the row engine's dump() already reports the edge/offset/phase/height these nodes are bound to",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

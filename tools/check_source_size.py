@@ -33,14 +33,21 @@ the architecture gate proposed; when a module lands under 200,000, delete its
 row and it is guarded normally from then on.
 
 FIRST ROW CLEARED: `src/controls/row_actions.luau`, 2026-08-14, 234,757 ->
-198,960, in five commits and without touching `buildEngine` — the ONE ENGINE
+183,738, in six commits and without touching `buildEngine` — the ONE ENGINE
 whose ~3,230 lines share ~60 mutable upvalues on purpose. What came out was the
 periphery that shares NOTHING with it: the ActionSpec contract, the coordinator
-(already a public export), the reorder arbiter, the band metrics, and the tray
-views. The test each extraction had to pass was the same one: does it read or
-write a mutable upvalue of that closure? If not, it can leave; if so, it stays.
-That test, not a line count, is what makes this kind of split safe — and it is
-the recipe for the four rows still listed below.
+(already a public export), the reorder arbiter, the band metrics, the tray views
+and the standalone row node. The test each extraction had to pass was the same
+one: does it read or write a mutable upvalue of that closure? If not, it can
+leave; if so, it stays. That test, not a line count, is what makes this kind of
+split safe — and it is the recipe for the four rows still listed below.
+
+AND STOP AT A REAL MARGIN, not at 199,9xx. Landing this file at 198,960 was
+enough to pass and not enough to survive: adding the header comment that tells
+the next agent where the six siblings went put it straight back to 201,227, and
+this check caught it in one run. The sixth extraction bought ~15k of headroom
+instead. A ceiling reached by a hair is a file that crosses again on its next
+honest comment.
 
 THE CEILINGS WERE SNAPSHOT 2026-08-14 during a ten-agent session with features
 still landing, so they are a high-water mark rather than a considered budget.
