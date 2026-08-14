@@ -252,11 +252,30 @@ describe("LT-8 control matrix: the sweep's own coverage and mirrors", function()
 end)
 
 describe("LT-6 policy: reflow before truncation on the controls that can reflow", function()
-	it("LT6-ACTION a Button's action label wraps and grows instead of ellipsizing at any preference", function()
+	it("LT6-ACTION a Button's action label wraps and grows WHILE wrapping can succeed, and never breaks a word", function()
 		-- rung 1 of the overflow order, on the surface the plan protects hardest:
-		-- "an action ... must not disappear behind an ellipsis"
+		-- "an action ... must not disappear behind an ellipsis".
+		--
+		-- REWRITTEN FOR THE WRAP RULE (director ruling 5, 2026-08-13). This used to
+		-- assert `policy == "wrap"` at EVERY preference, which is a claim the engine
+		-- cannot honour: wrapping into a column narrower than the label's longest
+		-- WORD does not produce more lines of that word, it BREAKS the word — and
+		-- the solver's own wrap model breaks only at whitespace, so it reserves a
+		-- box for a shape the engine will not draw. Measured on this exact fixture
+		-- (150px fixed Button, `lt.PSEUDO_ACTION`):
+		--
+		--   studio-neutral    +0 / +4 / +10  longest word 79/96/122px  -> 3 lines
+		--   studio-neutral    +14            longest word 139px        -> 1 line
+		--   fantasy-parchment +0 .. +14      longest word 119..217px   -> 1 line
+		--
+		-- So the honest invariant is the RULE, not one of its arms: while wrapping
+		-- can succeed the action reflows and the box grows; once it cannot, the
+		-- action takes ONE line with an ellipsis rather than a broken word. The
+		-- declared way to keep the action's meaning past that point is the compact
+		-- form, which LT6-COMPACT below proves on the same control.
+		local sawWrap, sawOneLine = false, false
 		for _, theme in lt.THEMES do
-			local lastHeight = 0
+			local lastWrappedHeight = 0
 			for _, preference in lt.PREFERENCES do
 				local w = lt.world({ offset = preference.offset, theme = theme })
 				w.present(UI.Screen({
@@ -266,14 +285,27 @@ describe("LT-6 policy: reflow before truncation on the controls that can reflow"
 					},
 				}))
 				local facts = w.controller.textAt("/S/Go")
-				expect(facts.truncated).toBe(false)
-				expect(facts.policy).toBe("wrap")
 				local height = w.adapter.node("/S/Go").rect.h
-				expect(height).toBeGreaterThanOrEqual(lastHeight)
-				lastHeight = height
+				local label = `{theme.id} @+{preference.offset}`
+				if facts.wraps then
+					-- the reflow arm: nothing is cut, and the box grows with the text
+					sawWrap = true
+					expect(`{label} policy={facts.policy} truncated={facts.truncated}`).toBe(
+						`{label} policy=wrap truncated=false`
+					)
+					expect(height).toBeGreaterThanOrEqual(lastWrappedHeight)
+					lastWrappedHeight = height
+				else
+					-- the honest-degradation arm: ONE line, never a broken word
+					sawOneLine = true
+					expect(`{label} lines={facts.lines}`).toBe(`{label} lines=1`)
+				end
 			end
-			expect(lastHeight).toBeGreaterThan(0)
 		end
+		-- neither arm may be vacuous, or this test passes by never reaching the case
+		-- it is about (the two-sided discipline docs/lessons/the-solver-already-told-
+		-- you.md asks of every sweep)
+		expect(`wrapped={sawWrap} oneLine={sawOneLine}`).toBe("wrapped=true oneLine=true")
 	end)
 
 	it("LT6-COMPACT a bounded Button draws its declared compact form rather than cutting the full label", function()

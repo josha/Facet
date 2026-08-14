@@ -257,7 +257,14 @@ function example.build(LuauUI: any, core: any, _deps: any)
 				width = { type = "fill", weight = 1 },
 				height = { type = "fill", weight = 1 },
 				children = {
-					UI.Text({ id = "Title", text = "Audio Settings", textSize = "title" }),
+					-- EVERY LONG LINE ON THIS PAGE DECLARES ITS FULL-VALUE PATH (director
+					-- ruling 5, 2026-08-13). On a 360px phone at the +14px preference
+					-- under fantasy-parchment the theme's chrome leaves this box 294px
+					-- and the word "Settings" alone measures 336px — so wrapping cannot
+					-- succeed here (the engine would break the word) and the line
+					-- ellipsizes instead. `disclose` is what the framework owes a reader
+					-- when that happens; the compact-phone sweep re-proves it every run.
+					UI.Text({ id = "Title", text = "Audio Settings", textSize = "title", disclose = true }),
 					UI.Text({
 						id = "Lesson",
 						text = `The server accepts volume {VOLUME_MIN}..{VOLUME_MAX} only.`,
@@ -278,6 +285,7 @@ function example.build(LuauUI: any, core: any, _deps: any)
 								text = "What you see now (your optimistic draft)",
 								textSize = "caption",
 								role = "secondary",
+								disclose = true,
 							}),
 							UI.Text({ id = "Draft", text = draftLabel, textSize = "body" }),
 							UI.Divider({ id = "StateRule" }),
@@ -286,8 +294,9 @@ function example.build(LuauUI: any, core: any, _deps: any)
 								text = "What the server has confirmed",
 								textSize = "caption",
 								role = "secondary",
+								disclose = true,
 							}),
-							UI.Text({ id = "Server", text = serverLabel, textSize = "body" }),
+							UI.Text({ id = "Server", text = serverLabel, textSize = "body", disclose = true }),
 						},
 					}),
 
@@ -325,6 +334,7 @@ function example.build(LuauUI: any, core: any, _deps: any)
 								textSize = "control",
 								textAlign = "center",
 								width = { type = "fill", weight = 1 },
+								disclose = true,
 							}),
 							UI.Button({
 								id = "VolPlus",

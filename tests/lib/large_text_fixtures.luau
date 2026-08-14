@@ -37,6 +37,14 @@ local GERMAN = lt.GERMAN_COMPOUND
 	       `disclose = true` now stamps its value cells and header title
 	       (tests/table.spec "Table column disclosure").
 
+	LT-G4  (OPEN) a Picker's OPTION labels have no full-value path. `disclose` is
+	       a `UI.Text` prop and `newPicker` neither accepts nor forwards one, so an
+	       option label that ellipsizes has no way back to the whole string. Found
+	       2026-08-13 by the wrap rule (director ruling 5): before it, a wrapped
+	       phrase reported `truncated = false` no matter how squeezed, so this
+	       entire class was invisible to `clippedEssential`. Fix is a `disclose`
+	       pass-through on the option record; until then the sweep declares it.
+
 	LT-G3  (AUTHORING RULE) a pinned px `rowHeight` is honored verbatim and is
 	       preference-blind by contract: pin only a height that clears
 	       (textSize + Largest offset) * lineHeight for every cell, or leave it
@@ -44,7 +52,7 @@ local GERMAN = lt.GERMAN_COMPOUND
 	       An undisclosed clip from a too-short pinned row is caught by
 	       clippedEssential; the api.md Table entry states the rule.
 ]]
-local LT_GAPS = { G1 = "LT-G1", G2 = "LT-G2", G3 = "LT-G3" }
+local LT_GAPS = { G1 = "LT-G1", G2 = "LT-G2", G3 = "LT-G3", G4 = "LT-G4" }
 fixtures.LT_GAPS = LT_GAPS
 
 -- ── fixtures ────────────────────────────────────────────────────────────────
@@ -257,6 +265,8 @@ local FIXTURES: { Fixture } = {
 				},
 			}).blueprint
 		end,
+		allowClipped = { "/S/Ctl/Options" },
+		why = LT_GAPS.G4,
 	},
 	{
 		id = "DisclosureGroup",
@@ -496,7 +506,13 @@ local FIXTURES: { Fixture } = {
 				minColumnWidth = "intrinsic",
 				gap = 8,
 				children = {
-					UI.Button({ id = "A", label = lt.PSEUDO_ACTION }),
+					-- ...and the grid's action carries ITS fix, which for a Button is
+					-- the compact form rather than `disclose` (director ruling 5,
+					-- 2026-08-13): at Large under fantasy-parchment the theme's own
+					-- chrome insets leave less drawable width than the label's longest
+					-- word, so the label can no longer wrap and would ellipsize. A
+					-- declared compact form is the rung above the ellipsis.
+					UI.Button({ id = "A", label = lt.PSEUDO_ACTION, compactLabel = "\u{015E}\u{00E1}\u{1E7D}\u{00E9}" }),
 					UI.Button({ id = "B", label = lt.PSEUDO_SECONDARY }),
 				},
 			})
@@ -520,13 +536,22 @@ local FIXTURES: { Fixture } = {
 						id = "R1",
 						children = {
 							UI.Text({ id = "K1", text = lt.PSEUDO_SECONDARY }),
-							UI.Text({ id = "V1", text = lt.PSEUDO_ACTION }),
+							-- THE VALUE CELL CARRIES THE FIX (director ruling 5,
+							-- 2026-08-13). A row grid reduces its columns to fit the box,
+							-- and at Largest under fantasy-parchment this column is
+							-- narrower than the longest WORD of its value — so the value
+							-- can no longer wrap (wrapping there breaks the word) and it
+							-- ellipsizes. `disclose` is the framework's declared answer to
+							-- exactly that, and the sweep re-proves it every run.
+							UI.Text({ id = "V1", text = lt.PSEUDO_ACTION, disclose = true }),
 						},
 					}),
 					UI.GridRow({
 						id = "R2",
 						children = {
-							UI.Text({ id = "K2", text = lt.PSEUDO_ACTION }),
+							-- row 2's KEY is the same long string in the same reduced
+							-- column, so it carries the same declared path (see V1 above)
+							UI.Text({ id = "K2", text = lt.PSEUDO_ACTION, disclose = true }),
 							UI.Text({ id = "V2", text = lt.PSEUDO_SECONDARY }),
 						},
 					}),
