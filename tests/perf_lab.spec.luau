@@ -150,6 +150,79 @@ describe("perf lab: the dataset is deterministic (PL-2)", function()
 	end)
 end)
 
+describe("perf lab: a resize step is the resize a device performs", function()
+	it("drives the adapter's whole fact-group, batched into one flush", function()
+		--[[ THE PASS USED TO SET `viewportRect` ALONE — a resize no device performs.
+			`src/client/roblox_env.luau` `pushViewport()` learns SIX facts from one
+			rotation (viewport, three inset shapes, topbar rect, size class) and the
+			renderer re-solves for most of them, so a one-fact resize under-counted
+			the shipped path's SOLVE COUNT: the exact lever L-27 named. This asserts
+			the pass moves the whole group AND that the group still costs one solve,
+			i.e. it is batched (tests/geometry_solve_coalescing.spec).
+
+			Mutation-proved 2026-08-13: dropping the batch reddens the solve count;
+			dropping any inset from the group reddens the "moved" count. ]]
+		local built, ctx, core = newHarness(nil, { w = 900, h = 700 })
+		built.steps.select(nil, "scenario=resize-relayout,rows=120,seed=1")
+		built.steps.mount()
+
+		local env = ctx.env
+		local WATCHED =
+			{ "viewportRect", "coreSafeInsets", "deviceSafeInsets", "topbarSafeInsets", "topbarInset", "displaySize" }
+		local moved: { [string]: boolean } = {}
+		local counts: { [string]: number } = {}
+		for _, key in WATCHED do
+			moved[key] = false
+			counts[key] = 0
+			core:observe(env:get(key), function()
+				moved[key] = true
+				counts[key] += 1
+			end)
+		end
+
+		--[[ ONE memo over the group is the batching oracle: the core is glitch-free,
+			so it recomputes ONCE per flush however many dependencies moved. Batched,
+			the group is one flush per resize; loose, it is up to six.
+
+			`coreSafeInsets` is deliberately EXCLUDED from the oracle (it stays in
+			`moved` above). The lab's own overlay writes that one edge twice more per
+			resize on its own schedule — `forgetReservation` zeroes it when the
+			viewport moves, then `onGeometry` republishes the measured dock height —
+			so counting it here would measure the overlay's reservation dance rather
+			than this pass's batching. Measured 2026-08-13 over 4 steps: viewportRect
+			5, deviceSafeInsets/topbarSafeInsets/topbarInset 4 each, displaySize 1,
+			and coreSafeInsets ELEVEN. Those extra writes are a real cost, recorded in
+			the optimization log; they are simply not what this check is about. ]]
+		local BATCH_ORACLE = { "viewportRect", "deviceSafeInsets", "topbarSafeInsets", "topbarInset", "displaySize" }
+		local flushes = 0
+		local group = core:memo(function(use)
+			for _, key in BATCH_ORACLE do
+				use(env:get(key))
+			end
+			return {}
+		end)
+		core:observe(group, function()
+			flushes += 1
+		end)
+
+		local STEPS = 4
+		built.steps.pass(nil, `resizeStorm={STEPS}`)
+
+		for _, key in WATCHED do
+			-- false here means the lab measures a resize the shipped adapter never performs
+			expect(moved[key]).toBe(true)
+		end
+		-- THE CEILING IS THE CHECK. At most one flush per resize plus the restore at
+		-- the end; six loose writes would be up to 6x this. There is deliberately no
+		-- floor of STEPS: the storm's shape sequence can repeat, and a step that
+		-- lands on the shape already set changes no fact and costs no flush, which
+		-- is correct behaviour rather than a missed resize. `moved` above is what
+		-- proves the group is driven at all.
+		expect(flushes <= STEPS + 1).toBe(true)
+		expect(flushes >= 1).toBe(true)
+	end)
+end)
+
 describe("perf lab: the resize storm reports both costs separately", function()
 	it("separates a resize from a single-value change, and keeps the ratio visible", function()
 		-- The pass exists to make one number impossible to lose: how much of a full

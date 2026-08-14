@@ -1266,7 +1266,34 @@ return {
 						A workload that never yields is not measurable BY CONSTRUCTION,
 						whatever the loop around it does. ]]
 					telemetry.step()
-					env:set("viewportRect", { x = 0, y = 0, w = math.max(240, w), h = math.max(240, h) })
+					--[[ A RESIZE IS SIX FACTS, NOT ONE (2026-08-13). This pass used to
+						set `viewportRect` alone, which is a resize NO DEVICE PERFORMS:
+						`src/client/roblox_env.luau` `pushViewport()` learns SIX facts from
+						one rotation or window drag — the viewport, three inset shapes, the
+						topbar rect and the size class — and the renderer re-solves for most
+						of them. Measuring one fact under-counted the shipped path's solve
+						count, which is the very thing L-27 named as the lever.
+
+						So drive what the adapter drives, batched exactly as the adapter
+						batches it. The insets are derived from the shape rather than held
+						constant: a resize that never moves an inset would let a regression
+						in inset-driven re-solving hide here. ]]
+					local rw, rh = math.max(240, w), math.max(240, h)
+					local compact = rw < 600
+					env:batch(function()
+						env:set("viewportRect", { x = 0, y = 0, w = rw, h = rh })
+						local top = if compact then 36 else 0
+						env:set("coreSafeInsets", { top = top, bottom = 0, left = 0, right = 0 })
+						env:set("deviceSafeInsets", {
+							top = if compact then 44 else 0,
+							bottom = if compact then 34 else 0,
+							left = 0,
+							right = 0,
+						})
+						env:set("topbarSafeInsets", { top = top, bottom = 0, left = 0, right = 0 })
+						env:set("topbarInset", { x = 0, y = 0, w = rw, h = top })
+						env:set("displaySize", if compact then "Compact" else "Large")
+					end)
 					ctx.presenter.refresh()
 					table.insert(resizeMs, (clock() - t0) * 1000)
 					if stats ~= nil then
