@@ -95,6 +95,79 @@
 --     preference. Narrow is not where large-text risk lives; it is merely where
 --     it is easiest to imagine.
 --
+-- ── THE THEME AXIS (standing rule 4, 2026-08-14) ─────────────────────────────
+--
+-- This sweep ran its entire cross product on the flat Studio Neutral resolution
+-- and nothing else, while the round-3 brief's standing rule 4 requires every gap
+-- closure to be "verified to not overlap or clip ACROSS EVERY SHIPPED THEME —
+-- Pixel Quest and Parchment have both broken layouts that Studio Neutral
+-- survived". That clause was carried by three hand-written per-file sweeps
+-- (theme_matrix_audit, theme_reference_packages, instance_recycling_themed),
+-- none of which asks this question of the showcase corpus. It was the house
+-- defect class one level up — an instrument claiming more coverage than it has —
+-- and it hid two defects that this axis found in its first run:
+--
+--   O-23  `progress_ring`'s own spinner row overflowed by 40px under Glossy
+--         Mobile and Glossy Touch and 6px under Fantasy Ornate and Parchment, at
+--         320x640, at the DEFAULT text preference. Round 3's own D2 feature.
+--   O-25  every `02_playlist_table` cell painted 4px outside its cell under Pixel
+--         Quest, at the default preference, on every viewport: the Table derived
+--         its row height without the `chromeInsets.selection` the same control
+--         makes its cells SPEND.
+--
+-- Both are fixed; both are pinned by tests/table_theme_row_box.spec.luau and
+-- tests/progress_view.spec.luau. Neither could be seen from a consumer.
+--
+-- WHAT A THEME COSTS, AND WHAT THE TIER IS. Naively this is a 9x multiplier on an
+-- always-on check (33.5s, +30s on a 62s suite), so the shape was measured over the
+-- WHOLE cross product first (43 surfaces x 12 themes x 8 viewports x 4
+-- preferences, artifacts/swiftui-parity-round3/theme-sweep-tier.md) and the tier
+-- chosen from that data:
+--
+--   1. A PACKAGE IS THE GEOMETRY AXIS; A THEME IS ITS PALETTE. `classic-desktop`
+--      Day vs Night, `fantasy-ornate` Crypt vs Grand Hall and `fantasy-parchment`
+--      Candlelight vs Daylight each produced BYTE-IDENTICAL finding sets over the
+--      whole cross product — 527 / 3863 / 2202 rows, zero difference — which is
+--      ADR-0019's "a swap moves the palette, not the geometry" measured rather
+--      than recalled. So the axis is the eight shipped PACKAGES, not the twelve
+--      themes, and that costs nothing at all in coverage.
+--   2. EVERY VIEWPORT, because a viewport changes the TREE and not just the box.
+--      `p4_foyer`'s NavRail is behind a `SideRailWhen` that only exists on
+--      desktop, `p3_sipworks`' panes likewise: 16 of the 240 theme-only findings
+--      are on nodes a narrow-only pass never BUILDS. That is §13.1's rule again —
+--      a sweep only covers the configurations its fixture actually builds.
+--   3. THE DEFAULT PREFERENCE for every package at every viewport, plus the
+--      LARGEST preference at the two narrowest viewports. A package's own
+--      contribution is its metric ladder, which moves content at every
+--      preference; the preference axis's own job is already done in full on the
+--      same surfaces by the neutral pass above.
+--
+-- Measured: 3.50x this file's cost (3.0s -> 9.8s, +6.8s on the suite) for 224 of
+-- the 240 theme-only findings the full cross product reports — 93%, against 9.00x
+-- for the last 16.
+--
+-- ...AND THE SWING IS THE SAME MOUNT. A package is committed the way the theme
+-- picker commits one — `env:set("themeMetrics", snapshot)`, the metric half of
+-- ADR-0019 §7's one transaction — so one mount per (surface, viewport) serves
+-- every package, exactly as it already serves every preference. Proved rather
+-- than assumed, over the whole cross product: swinging and re-mounting produced
+-- the SAME 24 963 distinct findings, zero on either side alone.
+--
+-- WHAT THE THEME AXIS DOES NOT COVER, stated here rather than left to be assumed
+-- (see `themeCoverage` at the bottom of this file, which fails if this list and
+-- the code disagree):
+--   * the six WIDE viewports at any preference above the default — 16 measured
+--     findings, listed in artifacts/swiftui-parity-round3/theme-sweep-tier.md;
+--   * the two narrow viewports at +4 and +10 under a package — 3 measured
+--     findings, and the preference axis is NOT monotone (this file's own header
+--     proves that on the neutral pass), so this is a known hole and not a claim
+--     that +14 dominates;
+--   * the SECOND theme of a package, which the equivalence above makes free —
+--     but it is an equivalence about GEOMETRY, and a palette defect (contrast, a
+--     tint that eats a label) is not a thing the solver can see at all;
+--   * `examples/themes/ornate_gauge` and `custom_control`, which are control
+--     contributions rather than packages, and the two `testOnly` fixtures.
+--
 -- WHAT IT IS NOT. It is not a paint check and it cannot see the engine's own text
 -- bounds, so a live surface can still overflow on measurements this suite
 -- estimates. Nor does it see the scroll host's WINDOW: the engine's visible box is
@@ -136,6 +209,49 @@ for _, preference in large_text.PREFERENCES do
 end
 table.sort(OFFSETS)
 assert(OFFSETS[1] == 0, "the sweep's first pass must be the DEFAULT preference (offset 0)")
+local LARGEST = OFFSETS[#OFFSETS]
+
+-- ...and the THEME axis (see the header). Every package the showcase's theme
+-- picker offers a player, each resolved ONCE at its own default theme, because a
+-- package's second theme is its palette and was measured to move no geometry at
+-- all. The two `testOnly` fixtures are absent for the same reason the picker
+-- hides them, and `ornate_gauge` / `custom_control` are control contributions
+-- rather than packages.
+local PACKAGE_MODULES: { { id: string, module: any } } = {
+	{ id = "classic-desktop", module = require("../examples/themes/classic_desktop") },
+	{ id = "compact-pointer", module = require("../examples/themes/compact_pointer") },
+	{ id = "fantasy-ornate", module = require("../examples/themes/fantasy_ornate") },
+	{ id = "fantasy-parchment", module = require("../examples/themes/fantasy_parchment") },
+	{ id = "glossy-mobile", module = require("../examples/themes/glossy_mobile") },
+	{ id = "glossy-touch", module = require("../examples/themes/glossy_touch") },
+	{ id = "pixel-quest", module = require("../examples/themes/pixel_quest") },
+	{ id = "scifi-hud", module = require("../examples/themes/scifi_hud") },
+}
+local PACKAGES: { { id: string, snapshot: any } } = {}
+for _, entry in PACKAGE_MODULES do
+	local pkg, report = entry.module.build(LuauUI.themes)
+	assert(
+		pkg ~= nil,
+		`{entry.id} failed its own package gate: {report and report.errors[1] and report.errors[1].message}`
+	)
+	table.insert(PACKAGES, { id = entry.id, snapshot = LuauUI.themes.resolve(pkg, nil, {}) })
+end
+
+-- THE CELLS A PACKAGE IS SWEPT AT (the tier, from the header): every viewport at
+-- the default preference — because a viewport changes the TREE — plus the largest
+-- preference at the two narrowest viewports, where a package's type ladder and
+-- the player's preference compound. Derived from the view table rather than
+-- written as ids, so a new viewport joins the structural pass automatically.
+local NARROWEST_W = math.huge
+for _, view in VIEWS do
+	NARROWEST_W = math.min(NARROWEST_W, math.min(view.w, view.h))
+end
+local function themedOffsets(view: any): { number }
+	if math.min(view.w, view.h) == NARROWEST_W then
+		return { 0, LARGEST }
+	end
+	return { 0 }
+end
 
 -- The CoreGui topbar inset every matrix row measured, plus the strip the showcase
 -- reserves for its two picker chips — `barReservation(coreTop, nil, slack)` is
@@ -786,16 +902,14 @@ local WAIVERS: { Waiver } = {
 		kind = "layer-overlap",
 		where = "320x640 @ +14 — 20px on the CROSS axis, which is the axis the slot guard deliberately leaves to this finding",
 	},
-	{
-		surface = "progress_ring",
-		variant = "-",
-		node = "/ProgressRing/Page/Dots",
-		sig = "content overflows this hstack by Npx on the",
-		px = 20,
-		since = 14,
-		kind = "row-cannot-shrink",
-		where = "320x640 ONLY @ +14",
-	},
+	-- CLOSED 2026-08-14 by director ruling 1 (the degrade cascade). This entry
+	-- recorded `/ProgressRing/Page/Dots` overflowing 20px at +14 on 320x640, kind
+	-- `row-cannot-shrink` — and that kind is the ruling's own subject. The spinner
+	-- row's label declares `shrinkWeight = 1` (src/controls/progress_view.luau), so
+	-- the row runs the cascade; before the ruling its floor stopped at the label's
+	-- longest word and the remaining deficit was simply not absorbed. It now
+	-- descends to the ellipsis rung, the row fits, and the finding no longer fires
+	-- anywhere in the sweep — which is what this list exists to notice.
 	{
 		surface = "p4_foyer",
 		variant = "-",
@@ -934,6 +1048,101 @@ for _, waiver in WAIVERS do
 	if waiver.since == 0 then
 		DEFAULT_WAIVERS += 1
 	end
+end
+
+--[[ ── THE THEME LEDGER ───────────────────────────────────────────────────────
+
+	The themed passes are matched against their OWN list, never against the neutral
+	one above, and that separation is deliberate rather than tidy: a neutral
+	waiver's `px` is a ceiling MEASURED ON STUDIO NEUTRAL, and letting it pardon the
+	same node under Pixel Quest would be a ceiling nobody measured — the exact
+	mistake rule 4 of the list above exists to prevent, one axis over. So a themed
+	finding needs a themed row, even where the neutral list already names its node.
+
+	The rules are the same three, plus one the theme axis needs:
+	  * `px` is a CEILING — a themed finding above it fails;
+	  * `since` is the smallest preference it was measured at — earlier fails;
+	  * a row that fires NOWHERE fails, so the ledger can only shrink;
+	  * `packages` names every package that reports it. A finding under a package
+	    NOT on that list fails, because "Parchment does this too now" is a
+	    regression even inside a known defect.
+
+	`node` may carry a `*` inside a segment (`key_*`, `Row_*`). A run of siblings
+	that carry one defect is one row — the same judgement `normalizePath` already
+	makes for `[key]` children, made explicitly for fixtures that name their
+	children by hand (05_word_game's 26 keyboard keys, p2_cartwheel's 11 rail rows).
+	A segment that IS `[*]` or `*` stays literal: those two are normalizePath's own
+	output, not a wildcard somebody wrote.
+]]
+local theme_ledger = require("./lib/theme_sweep_ledger")
+
+local THEME_MATCHED: { [number]: boolean } = {}
+-- exact rows by key, and the globbed ones as a list (there are few, and they are
+-- only consulted when the exact lookup misses)
+local THEME_BY_KEY: { [string]: number } = {}
+local THEME_GLOBS: { number } = {}
+
+local function isGlob(node: string): boolean
+	for segment in string.gmatch(node, "[^/]+") do
+		if segment ~= "[*]" and segment ~= "*" and string.find(segment, "*", 1, true) ~= nil then
+			return true
+		end
+	end
+	return false
+end
+
+local function globMatches(pattern: string, node: string): boolean
+	local p: { string } = {}
+	for segment in string.gmatch(pattern, "[^/]+") do
+		table.insert(p, segment)
+	end
+	local n: { string } = {}
+	for segment in string.gmatch(node, "[^/]+") do
+		table.insert(n, segment)
+	end
+	if #p ~= #n then
+		return false
+	end
+	for i, segment in p do
+		if segment == "[*]" or segment == "*" or string.find(segment, "*", 1, true) == nil then
+			if segment ~= n[i] then
+				return false
+			end
+		else
+			-- escape every Lua pattern magic character, then let `*` mean "any run
+			-- of characters inside this segment"
+			local escaped = string.gsub(segment, "([%^%$%(%)%%%.%[%]%+%-%?])", "%%%1")
+			if string.match(n[i], "^" .. string.gsub(escaped, "%*", ".*") .. "$") == nil then
+				return false
+			end
+		end
+	end
+	return true
+end
+
+for index, row in theme_ledger.ROWS do
+	if isGlob(row.node) then
+		table.insert(THEME_GLOBS, index)
+	else
+		local key = waiverKey(row.surface, row.variant, row.node, row.sig)
+		assert(THEME_BY_KEY[key] == nil, `duplicate theme-ledger row for {key}`)
+		THEME_BY_KEY[key] = index
+	end
+end
+
+-- the ledger row covering this finding, or nil. Exact first, then the globs.
+local function themeRowFor(surface: string, variant: string, node: string, sig: string): number?
+	local exact = THEME_BY_KEY[waiverKey(surface, variant, node, sig)]
+	if exact ~= nil then
+		return exact
+	end
+	for _, index in THEME_GLOBS do
+		local row = theme_ledger.ROWS[index]
+		if row.surface == surface and row.variant == variant and row.sig == sig and globMatches(row.node, node) then
+			return index
+		end
+	end
+	return nil
 end
 
 -- A SURFACE MAY PUBLISH ITS OWN MEASURED GEOMETRY BACK INTO ITS TREE, and the
