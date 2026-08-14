@@ -188,6 +188,11 @@ local DIRECT_PROPS: { [string]: string } = {
 	clipChildren = "ensureTree's clip-host declaration (layout authority)",
 	textSize = "applyTextScale — the scaled-text paint seam",
 	textFont = "applyTextScale — the typography role's FACE, beside its size (F2)",
+	-- THE WRAP RULE'S PAINT HALF (director ruling 5, 2026-08-13). The solver is the
+	-- only seam that knows the drawable width, so it decides whether wrapping can
+	-- succeed and publishes the verdict; this carries it to the adapter, which
+	-- otherwise sees the string and not the box.
+	textWrapped = "applyTextVerdicts — the wrap-rule paint seam (layout authority)",
 	padding = "applyPadding — the Button and padded-Text text-inset paint seam",
 	transform = "controller.setPresentationTransform / setPresentationOffset (presentation authority)",
 	transparency = "controller.setPresentationTransparency (presentation authority)",
@@ -264,7 +269,7 @@ end
 
 -- drawnButtonText(props, compact): what a Button's own engine text NODE shows.
 -- `compact` is the SOLVER's verdict for this node on this solve — see
--- `applyCompactLabel` below.
+-- `applyTextVerdicts` below.
 function renderer.drawnButtonText(props: any, compact: boolean?): any
 	if compact == true then
 		local form = renderer.compactForm(props)
@@ -457,6 +462,14 @@ local function toLayoutNode(
 		-- phone on purpose (round 9), and blanket single-line would clip them to
 		-- "Classic Deskt…". So the label's own shape decides, per solve, and both
 		-- seams read the same label.
+		--
+		-- THE STRING IS ONLY HALF THE RULE (director ruling 5, 2026-08-13). "Has
+		-- this a legal break at all" is all a string can answer; whether that break
+		-- can SUCCEED needs the drawable width, so the solver finishes the rule in
+		-- its own wrap block (a phrase whose LONGEST WORD does not fit is measured
+		-- on one line too) and publishes `textFacts.wraps`, which `applyTextVerdicts`
+		-- below carries to paint. This line is unchanged — a word is single-line at
+		-- every width — and the width-dependent half is added on top of it.
 		buttonSingleLine = kind == "text" and isSingleWord(props.label)
 	elseif class == "Toggle" then
 		kind = "text" -- label-driven sizing; track chrome reserved below
@@ -2427,6 +2440,19 @@ function renderer.attach(
 	-- writes and a node with no compact form is never visited twice.
 	local lastCompact: { [string]: boolean } = {}
 
+	-- ...and the WRAP verdict, on the same seam and for the same reason (director
+	-- ruling 5, 2026-08-13). `screen_target`'s TextWrapped rule sees the string and
+	-- not the box, so it cannot answer "does this phrase's longest word fit"; the
+	-- solver can, and does (`textFacts.wraps`). Unlike `lastCompact` this IS a value
+	-- the instance holds, so it rides the parked-props record across a recycle
+	-- exactly as `lastTextSize` does — a recycled instance carrying `TextWrapped =
+	-- false` with a cleared cache would silently keep it.
+	--
+	-- `nil` means "never written", which is the adapter's own default (wrap on
+	-- whitespace) — so the overwhelmingly common `wraps = true` node costs ZERO
+	-- writes, on the first solve and every one after it.
+	local lastWrapped: { [string]: boolean } = {}
+
 	-- The instance's own property record, moved with it across a recycle. These say
 	-- what the ENGINE OBJECT holds, so they stay true when the path changes — which is
 	-- what lets adoption write only the differences.
@@ -2434,7 +2460,7 @@ function renderer.attach(
 	-- TWO ARE DELIBERATELY EXCLUDED, and the difference is worth stating: a cache may
 	-- be carried only if it records a VALUE the instance holds. `solverHidden` is a
 	-- verdict about the node. `lastCompact` looks like a value and is not — it gates
-	-- `applyCompactLabel`, whose WRITE depends on the new node's label, so a carried
+	-- `applyTextVerdicts`' compact half, whose WRITE depends on the new node's label, so a carried
 	-- `true` skips re-applying a different row's glyph and the previous row's label
 	-- survives. (Caught by "a REMOUNTED button gets its verdict re-applied", which is
 	-- itself the pin for a defect found live on RascalRally's watch-cycle buttons.)
@@ -2447,6 +2473,7 @@ function renderer.attach(
 			padding = lastPadding[path],
 			visible = lastVisible[path],
 			hitRect = lastHitRects[path],
+			textWrapped = lastWrapped[path],
 		}
 	end
 	restoreParkedProps = function(path: string, carried: any)
@@ -2457,28 +2484,48 @@ function renderer.attach(
 		lastPadding[path] = carried.padding
 		lastVisible[path] = carried.visible
 		lastHitRects[path] = carried.hitRect
+		lastWrapped[path] = carried.textWrapped
 	end
-	local function applyCompactLabel(rects: any)
+	-- ONE WALK, TWO VERDICTS. Both are the solver's answers about text, both reach
+	-- paint through the rects that produced them, and both are cached per path — so
+	-- they share the traversal rather than paying for a second one on every solve.
+	local function applyTextVerdicts(rects: any)
 		local function walk(node: any)
-			if node.class == "Button" and #node.children == 0 and handles[node.path] ~= nil then
+			local handle = handles[node.path]
+			local labelDriven = node.class == "Text" or (node.class == "Button" and #node.children == 0)
+			if labelDriven and handle ~= nil then
 				local entry = rects[node.path]
-				local isCompact = entry ~= nil and entry.compact == true
-				local form = renderer.compactForm(node.props)
-				if form ~= nil and lastCompact[node.path] ~= isCompact then
-					local handle = handles[node.path]
-					authority.assertWrite("Button", "text", "binding")
-					adapter.setProp(handle, "label", renderer.drawnButtonText(node.props, isCompact), "binding")
-					stats.propWrites += 1
-					if form.kind == "icon" then
-						authority.assertWrite("Button", "icon", "style")
-						adapter.setProp(handle, "icon", if isCompact then form.icon else nil, "style")
+				if node.class == "Button" then
+					local isCompact = entry ~= nil and entry.compact == true
+					local form = renderer.compactForm(node.props)
+					if form ~= nil and lastCompact[node.path] ~= isCompact then
+						authority.assertWrite("Button", "text", "binding")
+						adapter.setProp(handle, "label", renderer.drawnButtonText(node.props, isCompact), "binding")
 						stats.propWrites += 1
-					elseif form.kind == "image" then
-						authority.assertWrite("Button", "compactLabel", "style")
-						adapter.setProp(handle, "compactLabel", if isCompact then form else nil, "style")
+						if form.kind == "icon" then
+							authority.assertWrite("Button", "icon", "style")
+							adapter.setProp(handle, "icon", if isCompact then form.icon else nil, "style")
+							stats.propWrites += 1
+						elseif form.kind == "image" then
+							authority.assertWrite("Button", "compactLabel", "style")
+							adapter.setProp(handle, "compactLabel", if isCompact then form else nil, "style")
+							stats.propWrites += 1
+						end
+						lastCompact[node.path] = isCompact
+					end
+				end
+				-- THE WRAP VERDICT (ruling 5). A node the solve did not reach (hidden,
+				-- not yet solved) keeps whatever it has: absent facts are not a verdict.
+				local facts = if entry ~= nil then entry.textFacts else nil
+				if facts ~= nil then
+					local wraps = facts.wraps == true
+					local previous = lastWrapped[node.path]
+					if (if previous == nil then true else previous) ~= wraps then
+						authority.assertWrite(node.class, "textWrapped", "layout")
+						adapter.setProp(handle, "textWrapped", wraps, "layout")
+						lastWrapped[node.path] = wraps
 						stats.propWrites += 1
 					end
-					lastCompact[node.path] = isCompact
 				end
 			end
 			for _, child in node.children do
@@ -2642,7 +2689,7 @@ function renderer.attach(
 			lastDiagnostics = result.diagnostics
 			applyTextScale(paintScale, metrics)
 			applyPadding(metrics)
-			applyCompactLabel(result.rects)
+			applyTextVerdicts(result.rects)
 			-- hidden subtrees (A-AL1): a ViewThatFits candidate that lost keeps its
 			-- mount but must not be reachable. The solver marks the losing candidate
 			-- roots; the presenter reads this set to exclude them from focus order,
@@ -3156,6 +3203,10 @@ function renderer.attach(
 				lastTextSize[path] = nil
 				lastTextFont[path] = nil
 				lastPadding[path] = nil
+				-- ...and the wrap verdict, which is a VALUE the departed instance held:
+				-- a path re-created with a different string would otherwise be told
+				-- nothing and keep the old node's `TextWrapped` (ruling 5)
+				lastWrapped[path] = nil
 				-- paths are REUSED across a structural remount (a When/ForEach child, a
 				-- re-created ViewThatFits candidate), so these caches must be forgotten
 				-- too. Leaving them made a fresh instance inherit the old verdict: a node
@@ -3182,7 +3233,7 @@ function renderer.attach(
 				-- RascalRally's watch-cycle buttons painted "Previous racer" ellipsized
 				-- after a pose toggle at EVERY preference). A re-created button is
 				-- born with its FULL label; a surviving `true` here said the swap was
-				-- already applied, so `applyCompactLabel` never wrote the glyph again.
+				-- already applied, so `applyTextVerdicts` never wrote the glyph again.
 				-- One mount looked right — which is why the device pass that shipped
 				-- the feature saw chevrons — and every remount after it did not.
 				lastCompact[path] = nil
@@ -3265,9 +3316,18 @@ function renderer.attach(
 
 		One level deep is deliberate and sufficient: no environment geometry fact
 		nests, and a deep walk would be a general-purpose comparison bolted to a
-		specific eight. If a nested geometry fact is ever added, this returns false
-		for it — conservative, i.e. it re-solves — rather than silently missing a
-		change. ]]
+		specific eight. A nested fact is REFUSED rather than half-compared — any
+		table-valued FIELD returns false, i.e. re-solves.
+
+		That refusal is load-bearing and the reason is worth stating, because the
+		comment here used to promise conservatism it did not deliver (architecture
+		gate F3, 2026-08-14). Comparing a nested field by identity is only safe
+		when the inner table is rebuilt with the outer one. A future fact shaped
+		`{ rect = <cached>, insets = <fresh> }` — outer rebuilt, inner reused —
+		would compare the inner references as EQUAL and report "unchanged", which
+		is a MISSED re-solve, not an extra one: the surface goes silently deaf to
+		one platform fact. Refusing the shape costs nothing today (no fact has a
+		table-valued field) and makes the conservative claim literally true. ]]
 	local function sameGeometryValue(a: any, b: any): boolean
 		if a == b then
 			return true
@@ -3276,6 +3336,10 @@ function renderer.attach(
 			return false
 		end
 		for k, v in a do
+			-- a nested fact is refused, never half-compared (see above)
+			if type(v) == "table" then
+				return false
+			end
 			if b[k] ~= v then
 				return false
 			end
@@ -4044,7 +4108,12 @@ function renderer.attach(
 		if a == nil or b == nil then
 			return a == nil and b == nil
 		end
-		return a.x == b.x and a.y == b.y and a.scale == b.scale and a.rotation == b.rotation
+		return a.x == b.x
+			and a.y == b.y
+			and a.w == b.w
+			and a.h == b.h
+			and a.scale == b.scale
+			and a.rotation == b.rotation
 	end
 
 	-- the mounted node behind a path, memoized. A motion writes EVERY FRAME while it
@@ -4062,9 +4131,13 @@ function renderer.attach(
 		return node
 	end
 
+	-- `w`/`h` are a PAINTED SIZE DELTA in pixels, added to the solved rect at the
+	-- adapter's one Size write (withAnimation size, 2026-08-14). Unlike `x`/`y`
+	-- they do NOT accumulate down the subtree: every rect is absolute, so a
+	-- container's painted growth carries nothing inside it and must not.
 	function controller.setPresentationTransform(
 		path: string,
-		t: { x: number, y: number, scale: number?, rotation: number? }?
+		t: { x: number, y: number, w: number?, h: number?, scale: number?, rotation: number? }?
 	)
 		local handle = handles[path]
 		if handle == nil then
@@ -4140,7 +4213,9 @@ function renderer.attach(
 		for path in set.paths do
 			local rec = animationRecords[path]
 			if rec ~= nil and rec.set == set then
-				controller.setPresentationTransform(path, { x = rec.x * p, y = rec.y * p })
+				-- one `p` for position AND size, which is what makes a panel's growth
+				-- and the displacement of everything below it arrive on the same frame
+				controller.setPresentationTransform(path, { x = rec.x * p, y = rec.y * p, w = rec.w * p, h = rec.h * p })
 			end
 		end
 	end
@@ -4182,7 +4257,10 @@ function renderer.attach(
 		-- is `rel * dp/dt`, so holding `relOld_max * vOld == relNew_max * vNew` keeps
 		-- the biggest motion's speed continuous and puts a small kink on the rest.
 		local carryMagOld, carryVelocity, carryMagNew = 0, 0, 0
-		local function claim(path: string, relX: number, relY: number)
+		-- `relX`/`relY` are RELATIVE to the ancestors' composed delta (the offset half
+		-- accumulates); `dw`/`dh` are the node's OWN absolute size delta, because the
+		-- size half does not accumulate. See the walk below.
+		local function claim(path: string, relX: number, relY: number, dw: number, dh: number)
 			if set == nil then
 				set = { spring = session.newSpring(), paths = {}, done = false }
 				-- the write rides the VALUE, not the clock step, exactly as a
@@ -4201,24 +4279,31 @@ function renderer.attach(
 				-- painted at right now into the new record, so a path claimed by two
 				-- calls re-targets instead of jumping, and hand it to the new spring
 				local p = prev.set.spring:get()
-				local mag = math.max(math.abs(prev.x), math.abs(prev.y))
+				-- all four components are PIXELS on the same progress spring, so the
+				-- dominant magnitude is the largest of the four, not the largest offset
+				local mag = math.max(math.abs(prev.x), math.abs(prev.y), math.abs(prev.w), math.abs(prev.h))
 				if mag > carryMagOld then
 					carryMagOld = mag
 					carryVelocity = prev.set.spring:getVelocity()
 				end
 				relX += prev.x * p
 				relY += prev.y * p
+				-- the size half re-bases on exactly the same rule: carry the delta this
+				-- path is PAINTED at right now, so a panel interrupted half-grown
+				-- continues from the height on screen instead of snapping to its start
+				dw += prev.w * p
+				dh += prev.h * p
 				animationClear(path, false)
 			end
-			carryMagNew = math.max(carryMagNew, math.abs(relX), math.abs(relY))
-			animationRecords[path] = { x = relX, y = relY, set = set }
+			carryMagNew = math.max(carryMagNew, math.abs(relX), math.abs(relY), math.abs(dw), math.abs(dh))
+			animationRecords[path] = { x = relX, y = relY, w = dw, h = dh, set = set }
 			animationRecordN += 1
 			set.paths[path] = true
 			-- SEED SYNCHRONOUSLY, before the first step (transitions.luau's seed at
 			-- `writeEntry(entry)` before `setTarget`): `tick` runs on PreRender and
 			-- `refresh` on Heartbeat, so a record written a frame late paints one frame
 			-- at the destination and then jumps back.
-			controller.setPresentationTransform(path, { x = relX, y = relY })
+			controller.setPresentationTransform(path, { x = relX, y = relY, w = dw, h = dh })
 		end
 		-- TOP-DOWN, because a node cannot be classified before its ancestors.
 		-- `inh` is the composed ABSOLUTE delta this path inherits from the records
@@ -4255,7 +4340,7 @@ function renderer.attach(
 			-- from the descendant twice.
 			local owned = lastTransform[path] ~= nil and animationRecords[path] == nil
 			if not owned then
-				local dx, dy = 0, 0
+				local dx, dy, dw, dh = 0, 0, 0, 0
 				-- LIVENESS IS NOT `lastRects[path] ~= nil`: `restoreParkedProps` carries
 				-- `lastRects` across paths for a recycled instance, so a brand-new row
 				-- would fly in from the position of whatever dead row it adopted.
@@ -4266,15 +4351,27 @@ function renderer.attach(
 					if last ~= nil and entry ~= nil then
 						dx = last.x - entry.rect.x
 						dy = last.y - entry.rect.y
+						-- THE SIZE DELTA IS ABSOLUTE, not relative, and that asymmetry is
+						-- the whole design (docs/plans/with-animation-size.md). A position
+						-- offset accumulates down the subtree because the instance tree is
+						-- FLAT — a container's move carries nothing inside it, so every
+						-- descendant re-adds its ancestors' offsets. A size change carries
+						-- nothing inside it EITHER, and there the same fact means the
+						-- opposite: a child's rect is absolute, so the parent's painted
+						-- growth must not reach it. Hence no `inh` for w/h, and no
+						-- compensating record for a child that did not resize.
+						dw = last.w - entry.rect.w
+						dh = last.h - entry.rect.h
 					end
 				end
 				local relX, relY = dx - inhX, dy - inhY
 				-- a path already carrying a record must be re-based even when its relative
 				-- delta is zero this time, or it keeps flying to a place it no longer sits
-				local claimed = relX ~= 0 or relY ~= 0 or animationRecords[path] ~= nil
+				local claimed = relX ~= 0 or relY ~= 0 or dw ~= 0 or dh ~= 0 or animationRecords[path] ~= nil
 				if live and claimed and handles[path] ~= nil then
-					claim(path, relX, relY)
-					-- what the children inherit is this path's composed ABSOLUTE delta
+					claim(path, relX, relY, dw, dh)
+					-- what the children inherit is this path's composed ABSOLUTE POSITION
+					-- delta. Size is deliberately absent: see the comment above.
 					inhX, inhY = dx, dy
 				end
 			end

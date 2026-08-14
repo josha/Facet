@@ -12,6 +12,18 @@
 --   * writing state during memo evaluation is an error;
 --   * effect writes schedule a later flush round; a bounded iteration cap
 --     turns feedback loops into errors;
+--   * within one flush, OBSERVERS are notified in node CREATION order — a total
+--     order across nodes, not merely within one node. Consumers that each watch
+--     their OWN memo (the renderer's per-surface geometry memo is the shipped
+--     case) would otherwise be notified in table-hash order, which varies run to
+--     run; a surface's re-solve order is part of what makes a frame
+--     reproducible. NOTE this is stated for observers only: effect ordering is
+--     NOT yet promised (architecture gate F2, 2026-08-14);
+--   * a transaction is a GROUPING, not a rollback — a body that throws leaves
+--     writes made before the throw published, and the error is re-raised after
+--     the flush. And a transaction body MUST NOT YIELD: the transaction stays
+--     open across the yield, so every observer in the session waits and any
+--     unrelated write made meanwhile is held with it. Neither is enforced;
 --   * cycles are reported with their path; failed memos are quarantined;
 --   * every resource is owned by a scope or disposed explicitly; disposal is
 --     reverse-order and idempotent; counters return to baseline.

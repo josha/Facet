@@ -145,6 +145,47 @@ describe("one geometry change is one solve", function()
 		end
 	end)
 
+	it("typographyScale is covered — the DERIVED key nothing could drive directly", function()
+		--[[ ARCHITECTURE GATE F4, 2026-08-14. The renderer's memo reads EIGHT keys
+			and the `GEOMETRY` table above drives SEVEN. `typographyScale` is absent
+			and correctly so — it is derived and cannot be `env:set` — but that left
+			it genuinely uncovered: delete `"typographyScale"` from GEOMETRY_KEYS and
+			no case reddened, while every surface went deaf to the player's text-size
+			preference. The neighbouring `preferredTextSize` case asserts a CLAMPED
+			no-op costs zero solves, so it cannot cover this either.
+
+			Drive it through its real dependency, at values that actually move the
+			derived scale. ]]
+		local _core, env, pres, solves = harness(8)
+		env:set("preferredTextSize", 1)
+		pres.refresh()
+
+		local before = solves()
+		env:set("preferredTextSize", 2)
+		pres.refresh()
+		expect(solves() - before).toBe(1)
+	end)
+
+	it("a nested geometry fact is REFUSED, not half-compared", function()
+		--[[ ARCHITECTURE GATE F3, 2026-08-14. The value comparison walks one level.
+			A nested fact whose OUTER table is rebuilt while an inner table is reused
+			by reference would compare equal and report "unchanged" — a MISSED
+			re-solve, the surface going silently deaf. Any table-valued field now
+			returns false instead. `themeMetrics` is the one key that takes an
+			arbitrary table, so it is the one that can carry the shape. ]]
+		local _core, env, pres, solves = harness(8)
+		local shared = { a = 1 }
+		env:set("themeMetrics", { nested = shared, density = 1 })
+		pres.refresh()
+
+		local before = solves()
+		-- outer rebuilt, inner REUSED by reference: identity comparison would call
+		-- this unchanged and never re-solve
+		env:set("themeMetrics", { nested = shared, density = 1 })
+		pres.refresh()
+		expect(solves() - before).toBe(1)
+	end)
+
 	it("a non-geometry write does not solve", function()
 		local _core, env, pres, solves = harness(8)
 		local before = solves()

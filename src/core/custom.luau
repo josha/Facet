@@ -364,8 +364,12 @@ function Custom.new()
 		not an order.
 
 		Stamping each node at creation and sorting the queue by it restores the
-		guarantee for every consumer at once, at the cost of one sort of a small
-		queue per flush. Creation order is the right key because it is the order the
+		guarantee for OBSERVERS, at the cost of one sort of a small queue per
+		flush. `effectQueue` is deliberately NOT sorted and effect records carry no
+		seq, so effect order is not promised — `src/core/contract.luau` says so.
+		There is exactly one `core:effect` in `src/` today, so nothing rests on it;
+		if a second arrives, sort that queue too rather than assuming it inherited
+		this (architecture gate F2, 2026-08-14). Creation order is the right key because it is the order the
 		application built things in -- surfaces re-solve in mount order. ]]
 	local nodeSeq = 0
 	local function nextNodeSeq(): number
