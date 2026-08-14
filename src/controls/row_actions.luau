@@ -163,6 +163,23 @@ export type Spec = {
 	-- own `metricsOr` fallback — "the neutral package at authored size... which
 	-- is what the suite has always solved" (table.luau).
 	env: any?,
+	--[[ MAY THIS ROW BE DELETED AT ALL? (`rowDeletable`, wired 2026-08-14.)
+		A thunk, evaluated at COMMIT time inside `doCommitAction` — the one funnel
+		the swipe commit, the revealed tray's Delete button, the edit-mode ⊖, the
+		Delete/Backspace key and the action menu's destructive row all reach.
+		Returning `false` refuses the delete; every non-destructive action is
+		untouched.
+
+		A THUNK AND NOT A BOOLEAN, because this composite has NO NOTION OF AN ITEM
+		— it receives already-resolved `ActionSpec` lists. `newTable` /
+		`newVirtualList` own the item and own `spec.rowDeletable`, so each closes
+		over both and hands the verdict down; evaluating it late means a predicate
+		reading a mutated item still decides correctly, and it keeps the fail-closed
+		reading in ONE place (`row_capability.allows`) rather than two.
+
+		`nil` (the default) means "every destructive action commits", which is what
+		makes this cost nothing for every caller that never wires it. ]]
+	deletable: (() -> boolean)?,
 	-- Task 9 (iOS edit-mode leading minus). PUBLIC, not `_editing`: `table.luau`'s
 	-- own `editing` spec key (Spec.editing there, "owner-held edit-mode signal")
 	-- is the shipped precedent for a Readable-valued spec key living in the
@@ -316,6 +333,7 @@ local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"fullSwipe",
 	"coordinator",
 	"env",
+	"deletable",
 	"editing",
 	"externalGesture",
 	"width",
@@ -332,6 +350,7 @@ local HOSTED_KEYS = specGuard.keySet({
 	"fullSwipe",
 	"coordinator",
 	"env",
+	"deletable",
 	"paths",
 	"onSlide",
 	"onCommitHeight",
@@ -1417,7 +1436,22 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local menuOpen = scope:own(core:signal(false))
 	local menuHandle: any = nil
 	local menuOx = scope:own(core:signal(0))
-	local menuOy = scope:own(core:signal(0))
+	--[[ `menuOy` IS NOT ALWAYS A PIXEL COUNT (ruling 4, director 2026-08-13).
+		Paired with `menuAnchorKind` below, it spells BOTH placements:
+
+		  * `topLeft` + a plain number — the menu's TOP at that y (the default,
+		    "just below the trigger", unchanged);
+		  * `bottomLeft` + `{ scale = -1, offset = <trigger top> }` — the menu's
+		    BOTTOM at the trigger's top, i.e. FLIPPED above it.
+
+		The flipped form is a FRACTION of the anchor's inner height (`solver.luau`
+		`offsetPx`, ADR-0022 row SF-P5) precisely so this file never has to know
+		that height: a `bottomLeft` child lands at `(innerH - h) + oy`, so
+		`oy = trigger.y - innerH` puts its bottom edge exactly on the trigger's top
+		WITHOUT this file measuring the menu at all. Spelling it as a scale lets the
+		solver supply `innerH`, which is the number that is actually true. ]]
+	local menuOy = scope:own(core:signal(0 :: any))
+	local menuAnchorKind = scope:own(core:signal("topLeft"))
 	-- `menuOpen:set(false)` runs FIRST, BEFORE `dismissFn(handle)` — found
 	-- live (a real bug, not a style choice): `dismissFn` synchronously
 	-- restores focus (`focus_graph.luau`'s own `restoreStack`), which fires
@@ -1591,6 +1625,36 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		if committed then
 			return false
 		end
+		--[[ THE DELETE GATE — `rowDeletable`, the ONE place it is evaluated
+			(architecture gate, 2026-08-14; director ruling, parity round 3: "both
+			routes gate the same funnel... with one predicate evaluated in one
+			place").
+
+			WHY HERE AND NOWHERE ELSE. Five affordances reach a destructive commit —
+			the full-swipe gesture (`settleTo` -> `doCommit`), a tap on the revealed
+			tray's own Delete (`fireTrayAction`), the edit-mode ⊖ (`handleActivate`
+			-> `commitDestructive`), the Delete/Backspace key (the IAS action, same
+			`commitDestructive`) and the action menu's destructive row
+			(`menuHandleActivate`) — and every one of them funnels through THIS
+			function. `table.luau:1015-1030` records what a per-affordance guard
+			costs: "a third, wholly separate way to start the identical reorder"
+			that missed one. One gate at the funnel cannot be missed by a sixth.
+
+			DESTRUCTIVE ONLY. The predicate answers "may this row be DELETED"; a
+			protected row still flags, archives and pins exactly as before, so the
+			non-destructive branch below must not see this at all.
+
+			ponytail: the AFFORDANCE is not hidden — a protected row still paints its
+			tray Delete and its ⊖, and they do nothing. Hiding them needs the verdict
+			as a REACTIVE fact (this is a thunk, so no memo can track it), and the
+			already-shipped spelling for removing the affordance is the one the
+			parity doc names: return no destructive action from `spec.rowActions` for
+			that row, which takes the tray button, the ⊖, the menu row and the key
+			arming with it. Upgrade path: accept a `Readable<boolean>` here and let
+			`hasEditAffordance`/`hasDestructive` read it. ]]
+		if action.role == "destructive" and spec.deletable ~= nil and spec.deletable() == false then
+			return false
+		end
 		-- REDTEAM FIX (item 4, MAJOR — director ruling, SwiftUI behavior): a
 		-- full swipe commits differently by role. A DESTRUCTIVE first action
 		-- keeps the full slide-off + collapse sequence below unchanged. A
@@ -1722,10 +1786,23 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			if doCommit(verdict.edge, verdict.target) then
 				return
 			end
-			-- unreachable in practice (row_actions_state only ever proposes a
-			-- commit against a real, positive tray width, which always has an
-			-- action behind it) — stay honest and settle normally rather than
-			-- silently doing nothing if that invariant is ever wrong.
+			--[[ REACHABLE NOW, AND ALREADY HANDLED (`rowDeletable`, 2026-08-14).
+				This used to say "unreachable in practice"; the delete gate in
+				`doCommitAction` makes a refused commit real, so the fall-through
+				below is what a refused full swipe actually takes — and it aims at
+				`verdict.target`, which for a full swipe is ±the whole ROW WIDTH.
+
+				That would be wrong, and it is not what happens: `openEdge` is set to
+				the swiped edge here, and `syncGeometry`'s open-edge re-assert (search
+				`openEdge:get() == "trailing"`) re-aims the spring at the TRAY width on
+				the very next sync. The row therefore settles revealed, on screen,
+				exactly where an ordinary open swipe leaves it.
+
+				An explicit `retarget(targetFor(verdict.edge))` was written here first
+				and then DELETED: it could not be mutation-proved, because that
+				re-assert already produces the identical settle (measured — the row
+				travels 91px either way, the tray's own width). A guard nothing can
+				redden is a guard that will rot. ]]
 		end
 		openEdge:set(verdict.edge)
 		retarget(verdict.target)
@@ -1887,6 +1964,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	local MENU_SURFACE_ID = "RowActionsMenu-" .. id
 	local MENU_ROOT_ID = "Menu"
 	local MENU_ROW_HEIGHT = "controlSizes.compact.height" -- same theme
+	local MENU_ROW_GAP = "strokes.hairline" -- ...and the hairline between two rows
 	-- token popup_button.luau's own compact-menu row uses (ADR-0019 §2);
 	-- no new theme surface needed.
 	local function buildMenuRows(): { any }
@@ -1978,31 +2056,108 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		return false
 	end
 
-	-- live anchor position: `srcRect` is THIS row's own solved window-space
-	-- rect (`controller`/`rootPath` — the SAME facts `currentRect` above
-	-- reads); the menu opens just below the row's own left edge, matching
-	-- `popup_button.luau`'s own "menu" placement (`offsetY = TRIGGER_HEIGHT`,
-	-- just below the trigger) translated into absolute window-space
-	-- coordinates rather than a relative offset (the node these are spent on
-	-- is `MenuRows`, whose `anchor`-kind parent `Menu` fills the surface's own
-	-- edge-to-edge root, so the anchor's inner origin IS the window origin —
-	-- see `buildMenuBlueprint`'s own comment for why the placement props ride
-	-- the CHILD and not the Anchor itself). NOT clamped to the viewport: a row
-	-- near the bottom edge puts its menu partly past it (recorded, not fixed —
-	-- flipping above the trigger is a placement decision of its own).
-	-- Absent `controller`/`rootPath` (no presenter, or the very first frame
-	-- before any solve — `openMenu` never runs at all without `controller`,
-	-- see its own guard below) degrades to `0, 0` rather than erroring.
-	local function computeMenuAnchor(): (number, number)
+	--[[ THE MENU'S OWN SOLVED HEIGHT, PREDICTED (ruling 4). It is a prediction
+		only in name: `MenuRows` is a plain VStack with no padding whose every child
+		declares `height = { type = "fixed", px = MENU_ROW_HEIGHT }`, so its solved
+		height is exactly `n * rowHeight + (n - 1) * gap` — and both metric names are
+		resolved HERE against `metricsSig`, the same live theme snapshot the solver
+		resolves them against when it lays the menu out. The two cannot disagree
+		about a themed or text-scaled row height, which is the failure this would
+		otherwise have (`table.luau`'s `rowGapPx` makes the identical argument for
+		the identical reason).
+
+		`row_actions_menu_placement.spec` pins the prediction against the SOLVED
+		rect, so a future padding/surface change to `buildMenuBlueprint` reddens a
+		named case instead of silently un-flipping the menu. ]]
+	local function predictedMenuHeight(): number
+		local n = #menuItemsOrdered
+		if n == 0 then
+			return 0
+		end
+		local metrics = metricsSig:get()
+		local rowH = themeSnapshot.resolveNumber(metrics, MENU_ROW_HEIGHT) or 0
+		local gap = themeSnapshot.resolveNumber(metrics, MENU_ROW_GAP) or 0
+		return n * rowH + (n - 1) * gap
+	end
+
+	-- the height of the window the menu has to stay inside. `spec.env` is
+	-- OPTIONAL everywhere in this file (see `metricsSig`), and BOTH shipped hosts
+	-- pass it (`table.luau` and `virtual_list.luau` both thread `spec.env`
+	-- through); a bare standalone mount without one simply never flips, which is
+	-- exactly the placement it had before this ruling.
+	local function viewportHeightPx(): number?
+		local env = spec.env
+		if env == nil then
+			return nil
+		end
+		local vp = env:get("viewportRect"):get()
+		return if type(vp) == "table" and type(vp.h) == "number" then vp.h else nil
+	end
+
+	--[[ WHERE THE MENU LANDS, AND WHICH WAY UP (ruling 4, director 2026-08-13:
+		"flip the menu above the trigger when it would overflow" — option A, over
+		clamping, because a clamp lets the menu cover its own trigger).
+
+		`rect` is THIS row's own solved window-space rect (`controller`/`rootPath` —
+		the SAME facts `currentRect` above reads). By default the menu opens just
+		below the row's own left edge, matching `popup_button.luau`'s own "menu"
+		placement (`offsetY = TRIGGER_HEIGHT`) translated into absolute window-space
+		coordinates rather than a relative offset (the node these are spent on is
+		`MenuRows`, whose `anchor`-kind parent `Menu` fills the surface's own
+		edge-to-edge root, so the anchor's inner origin IS the window origin — see
+		`buildMenuBlueprint`'s own comment for why the placement props ride the CHILD
+		and not the Anchor itself).
+
+		THE FLIP. Measured before this: a trigger at y=508 on a 600px viewport put
+		the menu at y=556..629 — 29px past the bottom edge, silently, because an
+		anchor parent emits no overflow diagnostic for a child it places. When the
+		below-placement would run past the bottom AND there is room above, the menu
+		is anchored `bottomLeft` with its bottom edge on the trigger's top instead.
+
+		IT NEVER FLIPS INTO A WORSE PLACE. Both conditions have to hold: a menu too
+		tall for the space above stays below (partly clipped is better than partly
+		clipped AND upside down), which is the standard platform behaviour and the
+		reason this is a flip rather than a clamp.
+
+		Absent `controller`/`rootPath` (no presenter, or the very first frame before
+		any solve — `openMenu` never runs at all without `controller`, see its own
+		guard below) degrades to `0, 0, "topLeft"` rather than erroring. ]]
+	--[[ WRITE THE THREE PLACEMENT SIGNALS, AND ONLY WHEN SOMETHING MOVED.
+		`core:signal`'s baseline no-op-on-same-value covers the plain-number case for
+		free, but the flipped form is a FRESH `{ scale, offset }` table every call —
+		so a straight `set` would dirty the menu's arrange on every single
+		`syncGeometry` frame the menu is open, which is exactly the per-frame churn
+		the re-aim below is careful to avoid. Compared field-wise instead. ]]
+	local function setMenuAnchor(ox: number, oy: any, kind: string)
+		menuOx:set(ox)
+		menuAnchorKind:set(kind)
+		local current = menuOy:get()
+		if type(oy) == "table" and type(current) == "table" then
+			if current.scale == oy.scale and current.offset == oy.offset then
+				return
+			end
+		end
+		menuOy:set(oy)
+	end
+
+	local function computeMenuAnchor(): (number, any, string)
 		local path = pathsOf()
 		if controller == nil or path == nil then
-			return 0, 0
+			return 0, 0, "topLeft"
 		end
 		local rect = controller.screenRectOf(path)
 		if rect == nil then
-			return 0, 0
+			return 0, 0, "topLeft"
 		end
-		return rect.x, rect.y + rect.h
+		local below = rect.y + rect.h
+		local viewportH = viewportHeightPx()
+		local menuH = predictedMenuHeight()
+		if viewportH ~= nil and menuH > 0 and below + menuH > viewportH and rect.y - menuH >= 0 then
+			-- see `menuOy`'s own comment: a fraction of the anchor's inner height,
+			-- so the solver supplies the height this file must not guess at
+			return rect.x, { scale = -1, offset = rect.y }, "bottomLeft"
+		end
+		return rect.x, below, "topLeft"
 	end
 
 	--[[ THE PLACEMENT PROPS BELONG TO THE CHILD, NOT TO THE ANCHOR ITSELF (live
@@ -2026,11 +2181,13 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		`/{MENU_SURFACE_ID}/{MENU_ROOT_ID}/MenuRows` — so the Activate pattern, the
 		focus assertions and the contribution's own subtree all stay put.
 
-		STILL NOT CLAMPED TO THE VIEWPORT: a menu opened on a row near the bottom
-		edge is placed below that row and may extend past it. That was true before
-		too (and invisible under the origin bug), an anchor parent emits no overflow
-		diagnostic for it, and flipping the menu above its trigger is a placement
-		decision rather than this fix — recorded here rather than quietly widened. ]]
+		AND IT IS KEPT INSIDE THE VIEWPORT NOW (ruling 4, 2026-08-13). This block
+		used to end "STILL NOT CLAMPED TO THE VIEWPORT... flipping the menu above its
+		trigger is a placement decision rather than this fix". The director made that
+		decision: `computeMenuAnchor` above flips the menu to `bottomLeft` above its
+		trigger when the below-placement would run past the bottom edge. An anchor
+		parent still emits no overflow diagnostic, which is why the flip is pinned by
+		a test that measures the solved rect rather than trusting one. ]]
 	local function buildMenuBlueprint(): any
 		return UI.Screen({
 			id = MENU_SURFACE_ID,
@@ -2043,11 +2200,13 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 						children = {
 							UI.VStack({
 								id = "MenuRows",
-								anchor = "topLeft",
+								-- ruling 4: `topLeft` (below the trigger) or `bottomLeft`
+								-- (flipped above it) — see `computeMenuAnchor`
+								anchor = menuAnchorKind,
 								offsetX = menuOx,
 								offsetY = menuOy,
 								surface = "raised",
-								gap = "strokes.hairline",
+								gap = MENU_ROW_GAP,
 								children = buildMenuRows(),
 							}),
 						},
@@ -2086,9 +2245,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			return -- no presenter to present onto, or already open (toggleMenu's
 			-- own guard already prevents the latter in practice — stay honest).
 		end
-		local ox, oy = computeMenuAnchor()
-		menuOx:set(ox)
-		menuOy:set(oy)
+		setMenuAnchor(computeMenuAnchor())
 		-- REAL BUG, caught live (not a style choice — see `closeMenu`'s own
 		-- mirror-image comment). `presentModal` synchronously paints the
 		-- surface's INITIAL focus (`makeHandle`'s own "paint the INITIAL
@@ -2739,6 +2896,13 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- Task 8: the action menu's own open state, independent of the
 			-- tray's `openEdge`/`phase` above.
 			menuOpen = menuOpen:get(),
+			-- ruling 4: the height the FLIP decision is made against, published so a
+			-- test can compare the number this file actually uses with the one the
+			-- solver paints. Without it the only available check compares the solver
+			-- against a second copy of the same arithmetic written in the test — a
+			-- check that cannot see this file being wrong, which is the class
+			-- docs/lessons and the simplicity gate both name.
+			menuHeightPx = predictedMenuHeight(),
 		}
 	end
 
@@ -3782,9 +3946,10 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- write only on an actual change — `core:signal`'s own baseline
 			-- no-op-on-same-value behavior).
 			if menuOpen:get() then
-				local ox, oy = computeMenuAnchor()
-				menuOx:set(ox)
-				menuOy:set(oy)
+				-- ...and the FLIP is re-decided here too (ruling 4): a row scrolling
+				-- toward the bottom edge with its menu open has to flip as it goes,
+				-- for the same reason the position is re-read at all.
+				setMenuAnchor(computeMenuAnchor())
 			end
 		end
 

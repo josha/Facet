@@ -358,3 +358,393 @@ describe("flow-wrap x virtualization: refused, and the refusal names the conflic
 		expect(string.find(message, "ScrollView", 1, true) ~= nil).toBe(true)
 	end)
 end)
+
+--[[ ═══ `rowDeletable` WAS ACCEPTED, VALIDATED, DOCUMENTED — AND INERT ═══════
+	Found by the fresh-context architecture gate, 2026-08-14, and it is the exact
+	defect this file's own header rule 2 is written against. `rowSelectable` had
+	two `allows` gate sites and `rowMovable` had four; `rowDeletable` had ZERO.
+	Every mention of it in `src/` was the closed-key-set entry or the construction
+	refusal — `row_actions.luau` did not reference the property at all. So an
+	author holding a documented, deliberately fail-CLOSED delete guard held an
+	inert one, and the row they were protecting deleted through all four routes.
+
+	THE FUNNEL IS `row_actions.doCommitAction` — the swipe commit, the revealed
+	tray's Delete button, the edit-mode ⊖, the `Delete`/`Backspace` key and the
+	action menu's destructive row ALL reach it, which is why one gate there covers
+	every route (director, parity round 3: "both routes gate the same funnel...
+	with one predicate evaluated in one place"). `row_actions` has no notion of an
+	item, so each host threads the already-resolved verdict in as `spec.deletable`,
+	a thunk it evaluates at commit time.
+
+	THESE ARE THE BEHAVIOURAL CASES the shipping commit did not have: `46eb1fc`
+	claimed six mutations proved to bite, and all six were `rowSelectable` /
+	`rowMovable`. The only `rowDeletable` case in this file was the construction
+	refusal above — which passes just as happily when the predicate does nothing. ]]
+
+local ROW_KEYS_DELETE = "Delete"
+
+-- ── Table: all FOUR delete routes ───────────────────────────────────────────
+local function deletableTableWorld(protectedId: string?)
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local clock = { t = 100 }
+	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		now = function()
+			return clock.t
+		end,
+	})
+	local fired: { string } = {}
+	local editing = core:signal(true) -- the ⊖ route needs edit mode
+	local spec: any = {
+		id = "T",
+		rows = core:signal(ITEMS),
+		key = keyOf,
+		header = false,
+		rowHeight = 40,
+		selection = "single",
+		env = env,
+		editing = editing,
+		rowActions = function(item: any)
+			return {
+				-- a NON-destructive action on the other edge: `rowDeletable` answers
+				-- "may this row be DELETED", so this one must keep working on a
+				-- protected row. Without it here, a gate that dropped its
+				-- `role == "destructive"` qualifier would pass every case in this
+				-- file (measured — mutation M7).
+				leading = {
+					{
+						id = "flag",
+						label = "Flag",
+						onAction = function()
+							table.insert(fired, `flag:{item.id}`)
+						end,
+					},
+				},
+				trailing = {
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, item.id)
+						end,
+					},
+				},
+				fullSwipe = true, -- the swipe route needs a committing full swipe
+			}
+		end,
+		columns = {
+			{
+				id = "name",
+				title = "Name",
+				width = { type = "fill", weight = 1 },
+				value = function(item: any)
+					return item.name
+				end,
+			},
+		},
+	}
+	if protectedId ~= nil then
+		spec.rowDeletable = function(item: any)
+			return item.id ~= protectedId
+		end
+	end
+	local tbl = table_control.build(LuauUI, core, spec)
+	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { tbl.blueprint } }), {
+		onActivate = function(path, meta)
+			tbl.api.handleActivate(path, meta)
+		end,
+	})
+	pres.refresh()
+	local w: any =
+		{ core = core, adapter = adapter, pres = pres, system = system, tbl = tbl, handle = handle, fired = fired }
+	function w.settle(frames: number?)
+		for _ = 1, frames or 200 do
+			clock.t += 1 / 60
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
+	end
+	function w.press(key: string)
+		system.deviceKey(key, true)
+		system.deviceKey(key, false)
+		w.settle(3)
+	end
+	function w.root(key: string): string
+		return `/S/T/Main/Body/Rows/[{key}@0]/RowActions-{key}`
+	end
+	function w.hit(key: string): string
+		return `{w.root(key)}/Content/Row/Hit`
+	end
+	-- a FULL swipe: far enough past COMMIT_FRACTION of the row width to commit
+	function w.fullSwipe(key: string)
+		local rect = w.adapter.node(w.hit(key)).rect
+		local originX = rect.x + rect.w - 8
+		local y = rect.y + rect.h / 2
+		w.adapter.pointerDown(w.hit(key), originX, y, "mouse")
+		w.settle(1)
+		for i = 1, 10 do
+			w.adapter.pointerMove(originX - rect.w * 0.95 * (i / 10), y, "mouse")
+			w.settle(1)
+		end
+		w.adapter.pointerUp(originX - rect.w * 0.95, y)
+		w.settle(300)
+	end
+	return w
+end
+
+describe("rowDeletable — Table: a protected row survives ALL FOUR delete routes", function()
+	it("ROUTE 1 (full swipe): the protected row refuses to commit; an unprotected one deletes", function()
+		local w = deletableTableWorld("b")
+		local closedX = w.adapter.node(w.hit("b")).rect.x
+		w.fullSwipe("b")
+		expect(w.fired).toEqual({})
+		--[[ ...AND IT IS STILL ON SCREEN. A refused commit takes `settleTo`'s
+			ordinary settle, which aims at `verdict.target` — ±the whole ROW WIDTH for
+			a full swipe. What keeps the row from parking off-screen is `syncGeometry`'s
+			open-edge re-assert, which re-aims the spring at the TRAY width on the next
+			sync; this pins that, because "refused to delete AND vanished" would be the
+			worst of both answers and nothing else in the suite would have seen it. ]]
+		local afterX = w.adapter.node(w.hit("b")).rect.x
+		local travel = closedX - afterX
+		expect(`refused swipe moved the row: {travel > 0}`).toBe("refused swipe moved the row: true")
+		local rowW = w.adapter.node(w.hit("b")).rect.w
+		expect(`...but not a whole row width: {travel < rowW}`).toBe("...but not a whole row width: true")
+		w.fullSwipe("a")
+		expect(w.fired).toEqual({ "a" })
+	end)
+
+	it("ROUTE 1b (revealed tray button): tapping Delete on a protected row fires nothing", function()
+		local w = deletableTableWorld("b")
+		-- open without committing, then tap the tray's own Delete
+		local rect = w.adapter.node(w.hit("b")).rect
+		local originX, y = rect.x + rect.w - 8, rect.y + rect.h / 2
+		w.adapter.pointerDown(w.hit("b"), originX, y, "mouse")
+		w.settle(1)
+		for i = 1, 8 do
+			w.adapter.pointerMove(originX - rect.w * 0.25 * (i / 8), y, "mouse")
+			w.settle(1)
+		end
+		w.adapter.pointerUp(originX - rect.w * 0.25, y)
+		w.settle(200)
+		local button = `{w.root("b")}/TrayTrailingWhen/then/TrayTrailing/Action:delete`
+		expect(`tray open: {w.adapter.node(button) ~= nil}`).toBe("tray open: true")
+		w.adapter.tap(button)
+		w.settle(300)
+		expect(w.fired).toEqual({})
+	end)
+
+	it("ROUTE 2 (edit-mode ⊖): the minus on a protected row deletes nothing", function()
+		local w = deletableTableWorld("b")
+		local minus = `{w.root("b")}/EditAffordanceWhen/then/EditAffordance`
+		expect(`minus mounted: {w.adapter.node(minus) ~= nil}`).toBe("minus mounted: true")
+		w.adapter.tap(minus)
+		w.settle(300)
+		expect(w.fired).toEqual({})
+		-- ...and the same affordance on an UNPROTECTED row still deletes (the
+		-- control that makes the line above mean something)
+		w.adapter.tap(`{w.root("a")}/EditAffordanceWhen/then/EditAffordance`)
+		w.settle(300)
+		expect(w.fired).toEqual({ "a" })
+	end)
+
+	it("ROUTE 3 (Delete key): the keyboard route is refused on a protected row", function()
+		local w = deletableTableWorld("b")
+		w.pres.focus.focusOn(w.hit("b"))
+		w.pres.refresh()
+		w.press(ROW_KEYS_DELETE)
+		w.settle(300)
+		expect(w.fired).toEqual({})
+		w.pres.focus.focusOn(w.hit("a"))
+		w.pres.refresh()
+		w.press(ROW_KEYS_DELETE)
+		w.settle(300)
+		expect(w.fired).toEqual({ "a" })
+	end)
+
+	it("ROUTE 4 (action menu): the menu's destructive row is refused too", function()
+		local w = deletableTableWorld("b")
+		w.pres.focus.focusOn(w.hit("b"))
+		w.pres.refresh()
+		w.press("ButtonX")
+		w.settle(30)
+		local menuRow = "/RowActionsMenu-RowActions-b/Menu/MenuRows/Action:delete"
+		expect(`menu open: {w.adapter.node(menuRow) ~= nil}`).toBe("menu open: true")
+		w.adapter.tap(menuRow)
+		w.settle(300)
+		expect(w.fired).toEqual({})
+	end)
+
+	it("an absent rowDeletable deletes through every route, unchanged", function()
+		local w = deletableTableWorld(nil)
+		w.fullSwipe("b")
+		expect(w.fired).toEqual({ "b" })
+	end)
+
+	it("the predicate subtracts DELETE ONLY: a protected row still flags, archives, pins", function()
+		--[[ `rowDeletable` answers "may this row be DELETED", not "may this row do
+			anything". A gate that forgot its `role == "destructive"` qualifier would
+			silently make a protected row inert to every action it has — and would
+			pass every other case in this file, because they all fire the destructive
+			one. ]]
+		--[[ Driven as a FULL LEADING SWIPE, deliberately. A tray-button TAP on a
+			non-destructive action never enters `doCommitAction` at all
+			(`fireTrayAction`'s own else-branch fires and closes), so it cannot see a
+			gate that lives there — it passed the mutation happily. A full swipe on a
+			non-destructive first action DOES go through the funnel
+			(`settleTo` -> `doCommit` -> `doCommitAction`'s "fires immediately and
+			springs back" branch), which is the one drive that can catch this. ]]
+		local w = deletableTableWorld("b")
+		local rect = w.adapter.node(w.hit("b")).rect
+		local originX, y = rect.x + 8, rect.y + rect.h / 2
+		w.adapter.pointerDown(w.hit("b"), originX, y, "mouse")
+		w.settle(1)
+		for i = 1, 10 do
+			w.adapter.pointerMove(originX + rect.w * 0.95 * (i / 10), y, "mouse")
+			w.settle(1)
+		end
+		w.adapter.pointerUp(originX + rect.w * 0.95, y)
+		w.settle(300)
+		expect(w.fired).toEqual({ "flag:b" })
+	end)
+end)
+
+-- ── hosted VirtualList: the same funnel, the other host ─────────────────────
+local function deletableVListWorld(protectedId: string?)
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+	env:set("capabilities", { keyboard = true, mouse = true, touch = false, gamepad = true })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local clock = { t = 100 }
+	local pres = LuauUI.newPresenter(core, env, adapter, system, {
+		now = function()
+			return clock.t
+		end,
+	})
+	local fired: { string } = {}
+	local spec: any = {
+		id = "VL",
+		rows = core:signal(ITEMS),
+		key = keyOf,
+		rowHeight = 40,
+		viewportHeight = 400,
+		env = env,
+		cell = function(item: any)
+			return LuauUI.UI.Text({ id = "Label", text = item.name, textSize = 14 })
+		end,
+		rowActions = function(item: any)
+			return {
+				trailing = {
+					{
+						id = "delete",
+						role = "destructive",
+						label = "Delete",
+						onAction = function()
+							table.insert(fired, item.id)
+						end,
+					},
+				},
+				fullSwipe = true,
+			}
+		end,
+	}
+	if protectedId ~= nil then
+		spec.rowDeletable = function(item: any)
+			return item.id ~= protectedId
+		end
+	end
+	local list = virtual_list.build(LuauUI, core, spec)
+	local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+	pres.refresh()
+	list.bindNativeScroll(handle.controller)
+	local w: any =
+		{ core = core, adapter = adapter, pres = pres, system = system, list = list, handle = handle, fired = fired }
+	function w.settle(frames: number?)
+		for _ = 1, frames or 200 do
+			clock.t += 1 / 60
+			pres.tick(1 / 60)
+			pres.refresh()
+		end
+	end
+	function w.press(key: string)
+		system.deviceKey(key, true)
+		system.deviceKey(key, false)
+		w.settle(3)
+	end
+	function w.hit(key: string): string
+		return `/S/VL/Canvas/W/[{key}]/Row/Hit`
+	end
+	function w.fullSwipe(key: string)
+		local rect = w.adapter.node(w.hit(key)).rect
+		local originX = rect.x + rect.w - 8
+		local y = rect.y + rect.h / 2
+		w.adapter.pointerDown(w.hit(key), originX, y, "mouse")
+		w.settle(1)
+		for i = 1, 10 do
+			w.adapter.pointerMove(originX - rect.w * 0.95 * (i / 10), y, "mouse")
+			w.settle(1)
+		end
+		w.adapter.pointerUp(originX - rect.w * 0.95, y)
+		w.settle(300)
+	end
+	return w
+end
+
+describe("rowDeletable — hosted VirtualList: the same predicate, the other host", function()
+	it("ROUTE 1 (full swipe): a protected row refuses; an unprotected one deletes", function()
+		local w = deletableVListWorld("b")
+		w.fullSwipe("b")
+		expect(w.fired).toEqual({})
+		w.fullSwipe("a")
+		expect(w.fired).toEqual({ "a" })
+	end)
+
+	--[[ ONE WORLD PER PRESS, and it is not fussiness: a SECOND hosted Delete in
+		the same session does not fire even with no predicate at all (measured — the
+		control below is that measurement, and it holds identically on stock `main`).
+		Writing the refusal and its control as two presses in one world would have
+		produced a case that reddens for a reason that has nothing to do with
+		`rowDeletable`. ]]
+	it("ROUTE 3 (Delete key): the list's own key surface is refused on a protected row", function()
+		local w = deletableVListWorld("b")
+		w.pres.focus.focusOn(w.hit("b"))
+		w.pres.refresh()
+		w.press(ROW_KEYS_DELETE)
+		w.settle(300)
+		expect(w.fired).toEqual({})
+	end)
+
+	it("...and the SAME drive on an UNPROTECTED row deletes — the control that makes it evidence", function()
+		local w = deletableVListWorld("b")
+		w.pres.focus.focusOn(w.hit("a"))
+		w.pres.refresh()
+		w.press(ROW_KEYS_DELETE)
+		w.settle(300)
+		expect(w.fired).toEqual({ "a" })
+	end)
+
+	it("ROUTE 4 (action menu): the menu's destructive row is refused too", function()
+		local w = deletableVListWorld("b")
+		w.pres.focus.focusOn(w.hit("b"))
+		w.pres.refresh()
+		w.press("ButtonX")
+		w.settle(30)
+		local menuRow = "/RowActionsMenu-VL:b/Menu/MenuRows/Action:delete"
+		expect(`menu open: {w.adapter.node(menuRow) ~= nil}`).toBe("menu open: true")
+		w.adapter.tap(menuRow)
+		w.settle(300)
+		expect(w.fired).toEqual({})
+	end)
+
+	it("an absent rowDeletable deletes through the hosted funnel, unchanged", function()
+		local w = deletableVListWorld(nil)
+		w.fullSwipe("b")
+		expect(w.fired).toEqual({ "b" })
+	end)
+end)
