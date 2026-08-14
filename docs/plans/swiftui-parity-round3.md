@@ -726,8 +726,8 @@ The most valuable half of the audit, each with its evidence:
 | 5 | **`api.md` round-2 prose skim** | **CLOSED 2026-08-13** (`c265015`, `fa03dcc`, `46a9cd5`, `023b0fe`, `5aaa79e`). **The "12 concrete defects, listed below" this row promised DO NOT EXIST**: nothing below it is that list, no match for "prose skim"/"12 concrete" exists anywhere in `docs/`, `artifacts/` or `tools/`, and the commit that wrote this row (`9518d8a`) added the row and no list. The Phase-0 agent counted 12 and never wrote them down — this document's own "reviews must land as artifacts" finding, committed by the document. The skim was therefore redone from scratch (all 5,610 lines, against a live schema dump) and found **15**, all fixed: four wrong class counts, `Stage` missing from three inventories and from `tint`, three drifted ledgers (DEPRECATIONS 2→5, Controller 28→35, SURFACE_LAYER "five"→four bands), a paragraph cut in half mid-sentence by an earlier insert, `newVirtualList`'s `axis` and `selectionPaint` undocumented while the prose referred to `axis`, and **`recycleInstances` / `incrementalLayout` documented NOWHERE despite being ON BY DEFAULT**. The mechanical half was already closed; `check_prop_parity` is a bare substring test, so one mention anywhere satisfies it | headless |
 | 6 | **Shrink gap (a): a shrinkable label lands outside its box** | **TRUE, measured.** Three `shrinkWeight=1` texts in a 120px box solve to `x0 w120 / x120 w120 / x240 w100` — two land wholly outside. `absorbTier` absorbs at most `Σ(basis−floor)`; residual deficit is simply not absorbed and nothing clips. The shrink pass is **best-effort and its own diagnostic says so** | headless + a ruling |
 | 7 | **Shrink gap (b): `shrinkWeight` flips the `ViewThatFits` winner** | **TRUE, measured — and round 2's §2.4 claim is FALSE.** That doc says `ViewThatFits` "picks its candidate before any of this and is therefore unaffected"; PASS 1.5 (the measure-side shrink, landed a day later) invalidated it. Swept 150→420px, adding `shrinkWeight=1` to a candidate's children flips the winner at **10 of 28 widths (290–380px)**, because the candidate now *reports* a shrunk extent and `fitsW` becomes true | headless + a ruling |
-| 8 | **Table tray-focus: trays are in no focus group** | **OPEN, confirmed.** `buildFocusGroups` collects focusables *inside* the Row node; tray buttons live under the `RowActions/` wrapper, which is the Row's **parent**. Siblings, not descendants — so Tab and D-pad reach neither a Table-composed tray nor its edit-minus | headless |
-| 9 | **Keyboard/pad Delete on an unswiped hosted row** | **OPEN.** Lazy engines mean no engine exists until a swipe. The fix is already priced | headless |
+| 8 | **Table tray-focus: trays are in no focus group** | **DONE 2026-08-13** (`e54d671`) — the walk anchors on the wrapper, so a row is its whole mounted subtree. See "Rows 8 and 9 shipped" below | — |
+| 9 | **Keyboard/pad Delete on an unswiped hosted row** | **DONE 2026-08-13** (`e725c68`) — the LIST holds the focused row's key surface and builds the engine on the press. The gap was wider than Delete: the action menu was in it too | — |
 | 10 | **A BLOCK table publishes a scroll path it has no host for** | **OPEN, not named by the brief.** `table.luau:2869-2871` returns `…/Main/Body` unconditionally with no `scrolls` check. The crash half is fixed; the design half is live in the shipped playlist example — open a tray, scroll the page, and the tray rides along still open, because "any scroll closes the tray" binds to a node that never scrolls | headless + a ruling |
 | 11 | **Reduced-motion settings surface** | **NOT BUILT.** `with_animation` writes the real env fact but restores it on dispose (`:159`, `:486`), so the reduced-motion axis is reachable only while that one demo is on screen. **Hard-blocked behind #4** — a settings surface only a finger can open cannot run the keyboard or gamepad axis of a canary | headless |
 | 12 | **Row-actions menu not clamped to the viewport** | **OPEN**, comment unchanged. Trigger at y=508 on a 600px viewport → menu at y=556..629 | a ruling |
@@ -2350,3 +2350,96 @@ slot — so on that surface the guard is not the protection; the geometry pins a
 - **`tests/lib/tiers.luau` still records this spec at 1036 ms** with a stale
   reason. The widening adds no measurable cost (the loop is unchanged; only the
   `continue` was removed), and the file belongs to another agent this round.
+
+---
+
+# Rows 8 and 9 shipped — row actions are no longer pointer-only
+
+**Closed 2026-08-13.** `e54d671` (Table), `e725c68` (VirtualList), `2774513`
+(showcase), `245e6bb` (the engine measurement). LuauUI **4842 → 4856**, Rascal
+Rally **3154 → 3160**, both green.
+
+## One sentence, two hosts
+
+The ledger filed these as separate items and they are one defect: **a row's
+row-actions surface was built by the pointer path, so every non-pointer path was
+missing whatever the pointer had not yet produced.**
+
+- **Table** wraps a row that declares `rowActions` — `row_actions.build`'s root
+  Anchor sits between the ForEach slot and the row's own `Row` node, and the tray
+  `When`s and the edit-mode minus are that wrapper's OTHER children. The focus
+  contribution walked `Row`, so everything the wrapper owns was in **no focus
+  group**, and a contribution owns its subtree's focus — nothing downstream could
+  pick them up.
+- **`newVirtualList`** builds a hosted row's engine at a pointer gesture's **axis
+  lock**, and that engine owns the row's key bindings. A row that had only been
+  focused had none.
+
+They do not collapse into one patch, and the honest reason is that the two hosts
+mount a tray in deliberately different places — that difference *is* hosted
+mode. What is shared is the rule and one declaration: `row_actions.ROW_KEYS` +
+`ROW_KEY_PRIORITY` now carry the row's key vocabulary once, read by the engine's
+own context and by any host standing in for one, so a host cannot ship half a
+verb. (Mutation N5: dropping `Backspace` from that table reddens the hosted
+case.)
+
+## What the ledger's row 9 under-stated
+
+The priced fix named Delete. **The action menu was in the same hole** — `ButtonX`
+and `Shift+Return` are a pad's whole route to a *non-destructive* action, and
+they live on the same engine. The stand-in binds both verbs, so the fix is the
+row's key surface rather than one key.
+
+## Two decisions worth keeping
+
+**The row's own content stays FIRST in its focus group.** Index 1 is where every
+vertical entry into a row lands (`focus_graph.enterGroup` — a perpendicular entry
+is *ordinal* nearest, and the group above a row has one stop), so ordering the
+group by pure left-to-right geometry puts the edit-mode **minus — a Delete
+button — under the ring** the moment a pad walks down into an editing table.
+Measured: that ordering reddens `examples_gallery`'s own end-to-end pad case,
+which presses A there expecting to grab a row. The cost of the choice, stated:
+a *leading* affordance is reached by continuing Right off the row rather than by
+pressing Left toward where it is painted. The honest repair is per-row
+`exit.up`/`exit.down` declarations, which would free the group array for
+edge-side groups the way `newVirtualList` uses them — a navigation-model change
+for every table, not a reachability fix, and not taken.
+
+**One engine per press that needs one.** Building an engine when focus *arrives*
+would have been simpler and spends exactly the laziness hosted mode exists for on
+a d-pad walk that presses nothing. The stand-in is enabled by focus and
+**constructs nothing** until a key lands (case P8d).
+
+## The engine fact this rests on, measured rather than modelled
+
+The two-binder design is safe only because a higher-priority sinking
+`InputContext` consumes the key. The tree's only citation for that was a
+**headless spike**. Probed live under Play, 2026-08-13: two sinking contexts on
+`Delete` deliver to the higher **alone**; the lower receives it the moment the
+higher is disabled; and a `PrimaryModifier = LeftShift` binding fires on the
+chord and not on a bare `Return`. Both directions, each the other's control —
+`docs/lessons/input-context-arbitration-measured.md`, which also corrects
+`engine-input-truths-phaseb` truth 3 (a `PrimaryModifier` chord *is* drivable by
+injection today).
+
+## Where it is proved
+
+`tests/table_input.spec.luau` (4 cases, 5 mutations) ·
+`tests/virtual_list_row_actions.spec.luau` ((P8b) re-decided from the known-gap
+pin it was, plus 5 more; 6 mutations) · `tests/row_actions_scenario.spec.luau` +
+`examples/gallery/scenarios/row_actions.luau` (`keyDeleteVList`, `menuVList`,
+`padMinusTable` — the showcase demo the rule requires) ·
+`tests/examples_gallery.spec.luau` (the shipped playlist, by keyboard) ·
+`games/RascalRally/code/tests/luauui_row_actions_reach_contract.spec.luau`
+(7 cases, 4 mutations).
+
+## Found and NOT fixed
+
+**A value control inside a row traps directional navigation.** On the shipped
+playlist the rating strip owns Left/Right (measured: `DPadRight` on it moves the
+rating 4 → 5 and never the ring, *even at the maximum*), so nothing later in that
+row is reachable by d-pad — the tray included. That is the rating control's arrow
+ownership, not this fix, and it is why the playlist's showcase case is driven by
+Tab. It is a genuine cross-platform gap on a shipped surface and it wants a
+ruling: should a focused value control own the arrows along its own group's axis,
+or should it yield at its limit?
