@@ -2571,6 +2571,12 @@ function renderer.attach(
 	local lastResult: any = nil
 	local dirtyContains: { [string]: boolean }? = nil
 
+	-- `controller.onSolved` listeners: run at the tail of every OUTERMOST solve.
+	-- The presenter uses exactly one of these, to feed solved geometry to the
+	-- consumers that measure this surface (see the tail of solveAndApply, L-31).
+	local solvedListeners: { () -> () } = {}
+	local notifyingSolved = false
+
 	local function solveAndApply()
 		stats.solves += 1
 		local vp = env:get("viewportRect"):get()
@@ -3036,6 +3042,37 @@ function renderer.attach(
 				dragRegistryInstance.refreshTargets()
 			end
 		end)
+		--[[ THE SOLVE IS OVER: tell whoever measures this surface (L-31).
+			The presenter's `feedGeometry` used to run only from `refresh()` on the
+			host's frame connection, which put a whole FRAME between a solve and the
+			consumer that measures it — so a consumer publishing a number derived
+			from its own geometry (a dock reserving space, a keyboard inset, a
+			sticky header) could never join the flush that caused it, and opened a
+			second one. Fed from here, that write lands inside the settle phase that
+			produced the rects and the cycle converges before anything is painted.
+
+			RE-ENTRANCY IS THE ONLY HAZARD, and it is real: the text-measurement
+			round above calls `solveAndApply()` again from inside this very
+			function. Notifying from the inner call would feed rects the outer call
+			is about to rewrite, so the guard reports once, from the outermost
+			solve, with the final geometry. ]]
+		if not notifyingSolved then
+			notifyingSolved = true
+			-- deliberately NOT pcall'd: `feedGeometry` runs unguarded from
+			-- `refreshBody` today and a throwing consumer must keep behaving the
+			-- same way. When this fires from the settle phase the core quarantines
+			-- it into `lastError` like every other callback; when it fires from
+			-- `controller.refresh()` it propagates, exactly as before.
+			local ok, err = pcall(function()
+				for _, fn in solvedListeners do
+					fn()
+				end
+			end)
+			notifyingSolved = false
+			if not ok then
+				error(err, 0)
+			end
+		end
 	end
 
 	-- flat sibling rendering paints in z-order; instance creation order is NOT
@@ -3381,6 +3418,30 @@ function renderer.attach(
 		-- selection, scroll and text entry survive a swap untouched
 		"themeMetrics",
 	}
+	--[[ AN edgeToEdge SURFACE DOES NOT CONSUME A SAFE-AREA INSET (L-31).
+		`solveAndApply` opens with `if rootPolicy == "edgeToEdge" then insets =
+		{0,0,0,0}` — it reads `coreSafeInsets` and throws the value away, and never
+		reads `deviceSafeInsets` at all. Leaving both in the dependency list made
+		every scrim, backdrop and dock re-solve for an inset it is defined to
+		ignore, and the shipped case is the one that hurts: a dock that PUBLISHES
+		its measured height into `coreSafeInsets` re-solved for its own
+		publication, every time, forever. Measured on the general two-surface
+		shape: 4 arranges per geometry change, 3 with this narrowing.
+
+		The two remaining policies both consume both keys (`coreSafeContent` uses
+		coreSafeInsets; `deviceSafeContent` takes the per-edge max of both), so
+		this is the only policy that can be narrowed and it is narrowed on the
+		exact branch that proves it. `rootPolicy` is fixed for the controller's
+		life (read once at attach), so the key list is safe to fix with it. ]]
+	if rootPolicy == "edgeToEdge" then
+		local narrowed = {}
+		for _, key in GEOMETRY_KEYS do
+			if key ~= "coreSafeInsets" and key ~= "deviceSafeInsets" then
+				table.insert(narrowed, key)
+			end
+		end
+		GEOMETRY_KEYS = narrowed
+	end
 	-- scope-owned like every other memo: an unowned one is a live registry node
 	-- after dispose, which the registry-neutrality suites catch as a leak
 	local geometryFacts = attachScope:own(core:memo(function(use)
@@ -3400,7 +3461,34 @@ function renderer.attach(
 		end
 		return true
 	end))
+	--[[ THE RE-SOLVE IS SETTLE WORK, NOT OBSERVER WORK (L-31, 2026-08-14).
+		This observer used to call `solveAndApply()` inline, which meant a surface
+		committed to a layout in the MIDDLE of propagation — before the flush had
+		finished deciding what the environment was. Any write made later in the
+		same flush (the shipped case: a sibling surface publishing its measured
+		height back into `coreSafeInsets`) then invalidated that solve, and the
+		surface solved a second time. Measured headless on the general
+		two-surface shape (tools/lune/_probe_settle): 4 solves and 2 reactive
+		flushes per geometry change against 2 and 1 with no round trip.
+
+		Deferring to `core:settle` costs nothing anyone can observe — the settle
+		phase runs INSIDE the flush, so a top-level `env:set` still returns with
+		the surface solved — and buys the whole cycle one flush instead of two.
+		The flag is the idempotence the settle contract requires: the callback
+		runs once per settle pass and must be a boolean read when there is
+		nothing to do. ]]
+	local geometryPending = false
 	attachScope:own(core:observe(geometryFacts, function()
+		geometryPending = true
+	end))
+	attachScope:own(core:settle(function()
+		if not geometryPending then
+			return
+		end
+		-- cleared even when the surface is not initialized yet, so a geometry
+		-- change made before the first render cannot solve on some later flush —
+		-- the inline observer dropped it, and this must drop it identically
+		geometryPending = false
 		if initialized then
 			solveAndApply()
 		end
@@ -3748,6 +3836,26 @@ function renderer.attach(
 		return stats
 	end
 
+	--[[ "THIS SURFACE JUST FINISHED SOLVING" — the seam a measurer needs (L-31).
+		The presenter registers exactly one listener here and uses it to feed
+		solved rects to `onGeometry` and every contribution's `syncGeometry`. It
+		exists because the alternative is polling `stats().solves`, which clones a
+		table on every settle pass of every flush in the session.
+
+		It fires at the tail of the OUTERMOST solve only (a text-measurement
+		re-solve nests), so a listener always sees final geometry. ]]
+	function controller.onSolved(fn: () -> ()): () -> ()
+		table.insert(solvedListeners, fn)
+		return function()
+			for i, existing in solvedListeners do
+				if existing == fn then
+					table.remove(solvedListeners, i)
+					break
+				end
+			end
+		end
+	end
+
 	controller.rectOf = rectOf
 	-- ...and the same rect in WINDOW space (ADR-0022 D5). `rectOf` answers the
 	-- SOLVED rect, which inside a scroll host is canvas-space — the engine shifts
@@ -3891,6 +3999,118 @@ function renderer.attach(
 			y = if isX then current.y else wanted,
 		})
 		return true
+	end
+
+	--[[ HAND A PRESS TO WHAT IS UNDERNEATH IT (ruling 6, director 2026-08-13).
+
+		THE ENGINE FACT THIS EXISTS FOR, measured live in Studio 2026-08-13 and
+		written up in `docs/lessons/a-button-eats-the-swipe-underneath-it.md`: Roblox
+		delivers `InputBegan` to the TOPMOST interactive object only. A `GuiButton`
+		sinks it and an Active `Frame` behind it receives NOTHING. So a hit surface
+		painted BEHIND a row's content — which is how `row_actions` and `table`'s own
+		`rowBlueprint` were both built, on a comment claiming the opposite — is dead
+		wherever a Button covers it, and the row cannot be swiped there.
+
+		The ruled repair (option A) puts the gesture surface ON TOP, where it always
+		receives the press, and makes it FORWARD a press it decides was not its own.
+		Forwarding cannot go back through the engine — the press has already been
+		delivered and sunk — so it comes here instead, to the one place that holds
+		the live tree, the solved rects and the tap dispatch the engine's own
+		`Activated` would have reached.
+
+		WHAT IT PICKS. The LAST node in document order (which is paint order, so the
+		last match is the topmost) that (i) sits under `within` and is not under
+		`skip`, (ii) is something the engine would have delivered the press to at
+		all, (iii) is not hidden or disabled, (iv) contains the point in WINDOW
+		space, and (v) is not scrolled out of its own clip host.
+
+		"SOMETHING THE ENGINE WOULD HAVE DELIVERED TO" IS TWO FAMILIES, NOT ONE, and
+		getting that wrong would have traded one dead control for another. A `Button`
+		/`Toggle`/`TextField` is activated through `setActivateHandler`, so a
+		forwarded press has to run that dispatch. But a `Rating`, a `Slider` and every
+		other control built on a POINTER ZONE (`onPointerDown`/`onPointerUp` props,
+		ADR-0008) is not `TAPPABLE` at all — it hears the raw press. Before this
+		ruling those worked and the swipe did not, because they were painted on top;
+		forwarding only the tappable family would have inverted exactly that, on the
+		same surfaces. So a pointer zone gets its down/up pair replayed at the point,
+		in order, with the same `screenRectOf` a native press is handed.
+
+		The `skip` prefix exists because the forwarding surface is ITSELF a pointer
+		zone and lives inside `within` — without it, the Grip would forward every
+		press straight back to itself.
+
+		The tappable path runs the SAME body `setActivateHandler` runs — the hidden
+		gate, the per-press dedupe, the drag-arm check, `opts.onNodeTap` — because a
+		forwarded tap must be indistinguishable from a native one. Returns the path it
+		dispatched to, or nil when nothing was under the point. ]]
+	local function isPointerZone(node: any): boolean
+		local props = node.props
+		return props ~= nil and (props.onPointerDown ~= nil or props.onPointerUp ~= nil)
+	end
+	function controller.tapAt(x: number, y: number, sel: any?): string?
+		local within: string? = if type(sel) == "table" then sel.within else nil
+		local skip: string? = if type(sel) == "table" then sel.skip else nil
+		local found: any = nil
+		local function walk(node: any)
+			local path = node.path
+			if skip ~= nil and (path == skip or string.sub(path, 1, #skip + 1) == skip .. "/") then
+				return -- the forwarding surface's own subtree is never a target
+			end
+			local tappable = TAPPABLE[node.class]
+			if
+				(tappable or isPointerZone(node))
+				and solverHidden[path] ~= true
+				and (node.props == nil or node.props.enabled ~= false)
+			then
+				local rect = screenRectOf(path)
+				if
+					rect ~= nil
+					and x >= rect.x
+					and x <= rect.x + rect.w
+					and y >= rect.y
+					and y <= rect.y + rect.h
+					and not pathEscapesClip(path, screenRectOf)
+				then
+					found = node -- last match wins: document order IS paint order
+				end
+			end
+			for _, child in node.children do
+				walk(child)
+			end
+		end
+		local from = if within ~= nil then findNode(within) else root.node
+		if from == nil then
+			return nil
+		end
+		walk(from)
+		if found == nil then
+			return nil
+		end
+		local node = found :: any
+		local target = node.path :: string
+		if not TAPPABLE[node.class] then
+			-- a POINTER ZONE: replay the press it never received, in order
+			local pos = { x = x, y = y, pointerType = "touch", forwarded = true }
+			if node.props.onPointerDown ~= nil then
+				node.props.onPointerDown(target, pos, screenRectOf)
+			end
+			if node.props.onPointerUp ~= nil then
+				node.props.onPointerUp(target, pos, screenRectOf)
+			end
+			return target
+		end
+		local onNodeTap = opts and opts.onNodeTap
+		if onNodeTap == nil then
+			return nil
+		end
+		if not dispatchNodeTapOnce(target) then
+			return nil
+		end
+		if tapArmsInstead(target, { via = "forwardedTap" }) then
+			return target
+		end
+		onNodeTap(target, { via = "forwardedTap" })
+		return target
 	end
 
 	-- THE SCROLL HOST THAT CARRIES A NODE, with everything an edge autoscroll

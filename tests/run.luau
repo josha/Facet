@@ -202,6 +202,11 @@ require("./grid_row.spec")
 -- the ctx exactly as `gridColumnPlan` is, so the two passes cannot disagree
 require("./flow_wrap.spec")
 require("./geometry_solve_coalescing.spec")
+-- a measure→publish cycle settles inside ONE flush (optimization-log L-31): the
+-- general shape behind L-29 residual 1, which the 2026-08-14 device capture
+-- priced at ~4 of 7.12 solves per step. Two arms in every case — with the round
+-- trip and without — so a change that slows both cannot pass
+require("./measure_publish_settle.spec")
 -- view lifecycle hooks + the space-reserving hide (round 3, item D): the two
 -- capabilities the completeness audit ranked highest per line of work —
 -- `onAppear`/`onDisappear` (zero hits in `src/` before this) and `hidden`,
@@ -387,6 +392,10 @@ require("./sponsor_scenarios.spec")
 -- (arrangement choice, step-down/drop order, floors, reserved-at-rest, the
 -- one-scroll refusal, the column fallback) plus the mounted re-solve identity
 require("./composition.spec")
+-- ADR-0025: the SCREEN-ANCHORED HUD — the nine anchors as a partition that cannot
+-- overlap, `holdsLane` (rule 9's counterpart), rank degradation under a HEIGHT
+-- shrink, and the collision alarm for the one case a partition cannot remove
+require("./hud_composition.spec")
 -- THE CLOSED-KEY SWEEP (ARCH-1): every composite control spec and every
 -- service/model opts table refuses an unknown key, naming the boundary, the key
 -- and the legal set — and still accepts the legal call it was derived from

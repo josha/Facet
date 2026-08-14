@@ -2464,6 +2464,33 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		end
 		feedGeometry(controller.rectOf) -- feed the first solved geometry
 
+		--[[ ...AND FEED IT AGAIN THE INSTANT THIS SURFACE RE-SOLVES (L-31,
+			2026-08-14), not on the next frame.
+
+			`refreshBody` below still calls `feedGeometry` once per frame, and that
+			call is what a contribution needs after `syncContributions` mounts a new
+			control without any solve happening. What it could never do is serve a
+			consumer that PUBLISHES something derived from the rects it is handed —
+			a dock reserving its measured height as a safe-area inset, a keyboard
+			avoidance inset, a sticky header. That write arrived a whole frame after
+			the solve that produced it, so it always opened a SECOND reactive flush
+			and re-solved every mounted surface a second time: measured headless on
+			the general two-surface shape, 2 flushes and 4 solves per geometry
+			change against 1 and 2 with no round trip, plus one painted frame
+			carrying the un-settled number.
+
+			Fed from the solve itself — which now runs in the core's settle phase —
+			the consumer's write joins the flush that caused it and the cycle
+			converges before anything is committed. Both calls are kept because
+			`feedGeometry` is idempotent by construction (every syncGeometry in the
+			framework is equality-guarded, and that is stated above); feeding the
+			same rects twice moves nothing. ]]
+		if controller.onSolved ~= nil then
+			scope:own(controller.onSolved(function()
+				feedGeometry(controller.rectOf)
+			end))
+		end
+
 		-- navigation groups: an explicit array/function wins; `false` forces the
 		-- flat ring; ABSENT auto-derives grouped nav when any contribution
 		-- provides focusGroups, else the flat ring stays (today's behavior)
@@ -2817,7 +2844,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				adjust.bind({ keyCode = "Comma", direction = -1 }),
 				adjust.bind({ keyCode = "Period", direction = 1 }),
 				adjust.bind({ keyCode = "ButtonL1", direction = -1 }),
-				adjust.bind({ keyCode = "ButtonR1", direction = 1 }),
+				adjustAxis.bind({ keyCode = "ButtonR1", direction = 1 }),
 			}
 			local axis = state
 			local action = adjustAxis
