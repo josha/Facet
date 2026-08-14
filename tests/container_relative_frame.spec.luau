@@ -459,15 +459,16 @@ describe("§2.5 the scope key has exactly two assignment sites, and the header s
 		table.sort(sites)
 		expect(table.concat(sites, " | ")).toBe(
 			"ctx.containerW, ctx.containerH, ctx.scopeKey = w, h, key | "
-				.. "ctx.scopeKey = `{ctx.hiddenDepth}|{ctx.containerW}|{ctx.containerH}` | "
-				.. "ctx.scopeKey = tostring(ctx.hiddenDepth)"
+				.. "ctx.scopeKey = `{ctx.hiddenDepth}{probe}` | "
+				.. "ctx.scopeKey = `{ctx.hiddenDepth}|{ctx.containerW}|{ctx.containerH}{probe}`"
 		)
 	end)
 
 	it("the header counts the writers it actually has", function()
-		expect(string.find(source, "THE FOUR WRITERS OF `ctx.scopeKey`", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "THE FIVE WRITERS OF `ctx.scopeKey`", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "THE FOUR WRITERS OF `ctx.scopeKey`", 1, true) == nil).toBe(true)
 		expect(string.find(source, "THE THREE WRITERS OF `ctx.scopeKey`", 1, true) == nil).toBe(true)
-		-- and the fourth is named in the block that lists them, not merely defined
-		expect(string.find(source, "THREE OF THE FOUR REBUILD; THE FOURTH RESTORES", 1, true) ~= nil).toBe(true)
+		-- and the fifth is named in the block that lists them, not merely defined
+		expect(string.find(source, "FOUR OF THE FIVE REBUILD; THE FIFTH RESTORES", 1, true) ~= nil).toBe(true)
 	end)
 end)

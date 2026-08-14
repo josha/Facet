@@ -1157,12 +1157,115 @@ describe("shrink pass: the two edges the RED-TEAM named, pinned as they actually
 			return if wide ~= nil and wide.rect.w > 0 then "Wide" else "Fallback"
 		end
 
-		-- 290px is inside the measured divergence band (290-380)
-		expect(winnerAt(290, false)).toBe("Fallback")
-		expect(winnerAt(290, true)).toBe("Wide")
-		-- ...and outside the band the two agree, which is what makes the case above
-		-- a statement about the shrink pass rather than about this fixture
-		expect(winnerAt(200, false)).toBe(winnerAt(200, true))
-		expect(winnerAt(420, false)).toBe(winnerAt(420, true))
+		-- THE WHOLE SWEPT RANGE, not a sample of it. Any width where the two runs
+		-- disagree is named in the failure message, so a regression says WHERE.
+		local flipped: { string } = {}
+		for width = 150, 420, 10 do
+			local without, with = winnerAt(width, false), winnerAt(width, true)
+			if without ~= with then
+				table.insert(flipped, `{width}:{without}->{with}`)
+			end
+		end
+		expect(`flipped=[{table.concat(flipped, " ")}]`).toBe("flipped=[]")
+
+		-- ...and the sweep is only meaningful because the winner actually MOVES
+		-- across it — a fixture that answered "Fallback" at all 28 widths would pass
+		-- the line above while proving nothing.
+		expect(winnerAt(150, false)).toBe("Fallback")
+		expect(winnerAt(420, false)).toBe("Wide")
+	end)
+
+	it("(c) ...and the candidate that WINS is still shrunk to the offer it is given", function()
+		--[[ The second half of SwiftUI's contract, and the reason (b) is a rule about
+			the CHOICE rather than a switch that turns the feature off: the chosen
+			child is laid out against the proposal `ViewThatFits` itself received.
+
+			The fixture forces the LAST candidate (rule 8's declared fallback: nothing
+			fits, so the last one shows). Its children declare `shrinkWeight`, so once
+			it is showing it must absorb the deficit — if the fit probe's "no shrink"
+			leaked into the real layout, these two would still be at their natural
+			widths and w1 would run past the box. ]]
+		local function fallbackWidths(): (number, number)
+			local res = solve({
+				kind = "fits",
+				id = "F",
+				children = {
+					{ kind = "text", id = "Wide", text = "Sort alphabetically and then chronologically" },
+					{
+						kind = "hstack",
+						id = "Narrow",
+						gap = 0,
+						children = {
+							{ kind = "text", id = "n1", text = "Alphabetical", shrinkWeight = 1 },
+							{ kind = "text", id = "n2", text = "Chronological", shrinkWeight = 1 },
+						},
+					},
+				},
+			}, 150, 60)
+			return res.rects.n1.rect.w, res.rects.n2.rect.w
+		end
+		local w1, w2 = fallbackWidths()
+		-- the pair is squeezed INTO the 150px box rather than reported at its
+		-- natural ~220px; shrink is best-effort (case (a)), so the assertion is
+		-- "compressed", not "exactly 150"
+		expect(`n1={w1 < 110} n2={w2 < 110}`).toBe("n1=true n2=true")
+	end)
+
+	it("(d) the fit probe is part of the MEASURE MEMO's key, or a row reserves the wrong height", function()
+		--[[ THE THIRD PIECE, and the one that is invisible without a ScrollView. The
+			probe answers a DIFFERENT question about the same node at the same offer —
+			"how big without the shrink" — so it has to be a different cache key
+			(`ctx.scopeKey`'s fifth writer). Sharing one key means the real measure of
+			the WINNING candidate hits the probe's entry and gets the unshrunk answer.
+
+			The consequence is not academic: the row here holds two labels squeezed
+			into a fixed 260px, and squeezed labels WRAP. Unshrunk they are one line
+			(20px); shrunk they are two (39px). A shared key reserves 20 and paints
+			39 — `docs/lessons/measure-the-requirement-not-the-render.md`, the class
+			this solver has now fixed five times.
+
+			IT MUST BE UNDER A SCROLLVIEW: the memo is gated on `ctx.hasScroll`, so a
+			fixture without one runs uncached and can say nothing about the key. The
+			no-scroll run is asserted beside it as the control — same tree, same
+			answer, and the difference between them is entirely the cache. ]]
+		local function rowHeight(withScroll: boolean): number
+			local fits = {
+				kind = "fits",
+				id = "F",
+				children = {
+					{
+						kind = "vstack",
+						id = "Wide",
+						gap = 0,
+						children = {
+							{
+								kind = "hstack",
+								id = "S",
+								gap = 0,
+								width = { type = "fixed", px = 260 },
+								children = {
+									{ kind = "text", id = "s1", text = "Alphabetical order today", shrinkWeight = 1 },
+									{ kind = "text", id = "s2", text = "Chronological order today", shrinkWeight = 1 },
+								},
+							},
+						},
+					},
+					{ kind = "text", id = "Fb", text = "x" },
+				},
+			}
+			local root: any = fits
+			if withScroll then
+				root = {
+					kind = "scroll",
+					id = "Sc",
+					axis = "y",
+					width = { type = "fill" },
+					height = { type = "fill" },
+					children = { fits },
+				}
+			end
+			return solve(root, 400, 600).rects.S.rect.h
+		end
+		expect(`scrolled={rowHeight(true)} plain={rowHeight(false)}`).toBe("scrolled=39 plain=39")
 	end)
 end)
