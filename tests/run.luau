@@ -109,6 +109,11 @@ require("./virtualization.spec")
 -- prefix-sum arithmetic `index x pitch` cannot express, proved to contain the
 -- uniform rule as its special case and to stay logarithmic on a 10,000-item list
 require("./virtual_extents.spec")
+-- ...and the CONTROL wired to it: variable item extents (ruling 7, 2026-08-13).
+-- Per-item extents, bounded builds on a 10,000-item ragged list, an anchored
+-- scroll when the extents re-derive, and the differential against the uniform
+-- list it must contain
+require("./virtual_list_variable_extents.spec")
 require("./virtual_list_row_gap.spec")
 require("./virtual_list_axis.spec")
 require("./virtual_list_focus_policy.spec")
@@ -330,6 +335,10 @@ require("./feedback.spec")
 -- nothing
 require("./sensory_feedback.spec")
 require("./haptics.spec")
+-- ...and the PER-CONTROL form of the same modifier — UI.sensoryFeedback(bp,
+-- { activation = verb }) — which cascades down the mounted tree and replaces the
+-- verb a press emits (director request 2026-08-13; swiftui-parity.md §7.1)
+require("./control_feedback.spec")
 -- bounded retry with a session give-up, the preload seam, and the AsyncImage dim
 -- treatment (ADR-0022 Decision 8, rows SF-A1..A3)
 require("./async_completeness.spec")

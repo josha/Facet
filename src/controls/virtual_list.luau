@@ -249,6 +249,7 @@ local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
+local virtual_extents = require("../virtual_extents")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -480,20 +481,40 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return if canonical ~= nil then canonical else alias
 	end
 	local itemExtentSpec = oneOf("itemExtent", spec.itemExtent, "rowHeight", spec.rowHeight)
-	-- THE ITEM EXTENT MAY BE DERIVED, BUT IT IS ONE NUMBER FOR THE WHOLE LIST
-	-- (finding F13). A Readable is accepted so an extent derived from the theme
-	-- metrics snapshot (or the preferred-text offset) re-derives on a swap
-	-- without rebuilding the list; what is NOT accepted is a per-item extent,
-	-- because the windowing arithmetic is index×extent and a per-row wrap
-	-- difference would silently mis-window at the largest text offset.
+	--[[ THREE FORMS, TWO ARITHMETICS (variable item extents, 2026-08-14).
+
+		  * a NUMBER — one extent for the whole list, windowed by `index × pitch`;
+		  * a Readable<number> — the same, re-derived when the theme metrics or the
+		    preferred-text offset move, without rebuilding the list;
+		  * a FUNCTION `(item, index, use) -> px` — a PER-ITEM extent, windowed by a
+		    running-offset index (`src/virtual_extents.luau`).
+
+		THE FUNCTION FORM WAS REFUSED UNTIL A MEASUREMENT BOUGHT IT. The refusal
+		that used to stand here said a per-row wrap difference would silently
+		mis-window at the largest text offset — true, and the answer is the prefix
+		sum, not the ban. The widened overflow sweep measured the ban's own cost: a
+		`row_actions` row declares 84 and measures 88 at the DEFAULT preference, and
+		249 on a 320×640 phone at `preferredTextOffset = 14` (ruling 7, ruled
+		2026-08-13). One number cannot describe rows that differ, and this project
+		binds itself to four measured text offsets and a ~1.4× localization
+		expansion.
+
+		READ EVERY LIVE FACT THROUGH `use`, THE THIRD ARGUMENT. It is the memo's own
+		`use`: `use(preferredTextOffset)` inside the function makes the whole extents
+		table re-derive when that signal moves. Calling `:get()` on a Readable
+		instead reads the right number ONCE and never registers the dependency —
+		the extents then go stale silently, which is the failure mode this whole
+		feature exists to end. ]]
 	local itemExtentIsLive = type(itemExtentSpec) == "table" and type(itemExtentSpec.get) == "function"
+	local itemExtentIsPerItem = type(itemExtentSpec) == "function"
 	assert(
-		itemExtentIsLive or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
+		itemExtentIsPerItem or itemExtentIsLive or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
 		"VirtualList.itemExtent (deprecated alias: rowHeight — both are accepted, one at a time) must be a positive "
-			.. "number or a Readable<number>: ONE item's size along the list's own axis (its height on axis=\"y\", its "
-			.. 'width on axis="x"), uniform per list. Derive it from the theme metrics snapshot at the call site. '
-			.. "Variable item extents are a RECORDED GAP with no implementation and no reserved seam "
-			.. "(docs/plans/swiftui-parity-round2.md §2.3)."
+			.. "number, a Readable<number>, or a function (item, index, use) -> px: ONE item's size along the list's "
+			.. 'own axis (its height on axis="y", its width on axis="x"). A number or Readable is UNIFORM and windows '
+			.. "by index × pitch; a function is a PER-ITEM extent and windows by a running-offset index. Read live "
+			.. "facts (the preferred-text offset, the theme metrics) through the function's third argument `use`, or "
+			.. "the extents will not re-derive when they move."
 	)
 	--[[ THE GUTTER BETWEEN ROW SLOTS, one number for the whole list for exactly
 		the reason the row height is one number: the windowing arithmetic is
@@ -704,6 +725,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return if isX then cross else main
 	end
 
+	-- THE UNIFORM EXTENT — read ONLY on the uniform path (`itemExtentIsPerItem`
+	-- false). Every variable-mode number comes off the running-offset index
+	-- instead; see `layoutIndex` below.
 	local function itemExtentNow(): number
 		return if itemExtentIsLive then (itemExtentSpec :: any):get() else itemExtentSpec
 	end
@@ -716,29 +740,19 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local function rowGapIn(use: any): number
 		return if rowGapIsLive then use(rowGapSpec) else rowGapSpec
 	end
-	-- THE PITCH: one slot, gutter included. Every windowing number is on this,
-	-- and nothing that describes the ROW is (see the header).
-	local function pitchNow(): number
-		return itemExtentNow() + rowGapNow()
-	end
+	--[[ THE PITCH: one slot, gutter included. Nothing that describes the ROW is on
+		it (see the header).
+
+		READ ONLY ON THE UNIFORM PATH, and only by the two PER-ROW memos that keep
+		their pre-feature bodies — a row's canvas offset and the hosted tray's. Every
+		other windowing number goes through `layoutIndex`, which owns both
+		arithmetics. Keeping these two off it is deliberate and is the reason a
+		uniform list's per-row reactivity is unchanged: `layoutIndex` depends on the
+		ROW DATA, so routing a uniform row's offset through it would invalidate every
+		mounted row's memo on every data edit, where today a constant extent
+		resolves once and never recomputes. ]]
 	local function pitchIn(use: any): number
 		return itemExtentIn(use) + rowGapIn(use)
-	end
-	-- ...and the CONTENT EXTENT the canvas spans: N slots with NO trailing
-	-- gutter, because the gap is BETWEEN rows exactly as a UIListLayout's padding
-	-- is. An empty list spans nothing.
-	local function contentIn(use: any, count: number): number
-		if count <= 0 then
-			return 0
-		end
-		return count * itemExtentIn(use) + (count - 1) * rowGapIn(use)
-	end
-	local function contentNow(): number
-		local count = #(spec.rows:get() :: { any })
-		if count <= 0 then
-			return 0
-		end
-		return count * itemExtentNow() + (count - 1) * rowGapNow()
 	end
 
 	-- id -> path-pattern piece: a row hit path looks like
@@ -779,6 +793,78 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	local listScope = core:scope(`virtual-list-{id}`)
+	--[[ ── THE RUNNING-OFFSET INDEX (variable item extents, 2026-08-14) ───────────
+		ONE PLACE ANSWERS "where is slot i, and which slots does this viewport
+		touch". Everything that used to multiply by the pitch — the canvas extent,
+		the scroll clamp, window membership, each row's canvas offset and box, the
+		keep-visible target, the insertion slot and its hairline — reads it, so the
+		two arithmetics can never disagree about the same list.
+
+		WHICH ARITHMETIC IS CHOSEN ONCE, AT BUILD, on `itemExtentIsPerItem`:
+
+		  · UNIFORM (`virtual_extents.uniform`) is the pre-feature formulas verbatim.
+		    It allocates nothing, answers in O(1), and every shipped list keeps the
+		    numbers and the window it always had. Where a memo body would have gained
+		    a dependency it did not have — a row's own extent, a row's own offset —
+		    the branch below keeps the OLD body instead of routing through here, so a
+		    uniform list's per-row reactivity is unchanged too.
+
+		  · VARIABLE (`virtual_extents.variable`) builds a prefix sum: O(N)
+		    ARITHMETIC once per data change — no item built, nothing measured — and
+		    O(log N) per query. That distinction IS the design. Virtualization's
+		    promise is not to build or measure what you cannot see, and adding up N
+		    numbers breaks neither; the rejected alternative ("measure every item at
+		    mount") breaks both, which is why `virtual_list_variable_extents.spec`
+		    counts cell builds rather than timing anything.
+
+		The extents are resolved INSIDE the memo, so a function that reads live facts
+		through its `use` argument makes the whole table re-derive when they move. ]]
+	local function extentsFor(use: any): { number }
+		local items = use(spec.rows) :: { any }
+		local out = table.create(math.max(#items, 1))
+		for i = 1, #items do
+			local px = (itemExtentSpec :: any)(items[i], i, use)
+			if type(px) ~= "number" or px ~= px or px <= 0 then
+				-- NAME THE ROW. On a 10,000-item list "itemExtent returned nil" without
+				-- the key is a scavenger hunt, and the key is what the consumer's own
+				-- data is addressed by.
+				error(
+					`newVirtualList '{id}': spec.itemExtent(item, {i}) returned {tostring(px)} for row `
+						.. `'{tostring(spec.key(items[i]))}' — a per-item extent must be a positive number of px `
+						.. "(the item's size along the list's own axis).",
+					0
+				)
+			end
+			out[i] = px
+		end
+		return out
+	end
+	local layoutIndex = listScope:own(core:memo(function(use)
+		if itemExtentIsPerItem then
+			return virtual_extents.variable(extentsFor(use), rowGapIn(use))
+		end
+		return virtual_extents.uniform(#(use(spec.rows) :: { any }), itemExtentIn(use), rowGapIn(use))
+	end))
+	local function layoutNow(): any
+		return layoutIndex:get() :: any
+	end
+	--[[ VALIDATE THE CURRENT DATA AT THE CALL SITE. A throwing memo body is
+		QUARANTINED by the core (`src/core/custom.luau`'s `fail`) — it records the
+		message and the memo reads `nil`, which downstream turns into "attempt to
+		iterate over a nil value" three frames away from the mistake. That is the
+		wrong channel for an authoring error, so the extents are resolved once here,
+		outside any memo, where the error unwinds out of `build()` naming the row.
+
+		THE COST IS ONE EXTRA PASS OVER THE DATA AT CONSTRUCTION and nothing after:
+		the memo's own first pull would have made that pass regardless. Data that
+		arrives LATER and is invalid still lands on the quarantine channel — the
+		construction check is what makes the common case (a function that was always
+		wrong) fail where it was written. ]]
+	if itemExtentIsPerItem then
+		extentsFor(function(readable: any): any
+			return readable:get()
+		end)
+	end
 	--[[ ── THE DECLARED SLOT, HANDED TO THE SOLVER (2026-08-13) ────────────────────
 		This control makes the CONSUMER responsible for predicting its own row's
 		extent — `index × itemExtent` is O(1) and exact only because that extent is
@@ -797,26 +883,36 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		`controller.diagnostics()` (the channel `tests/overflow_sweep.spec.luau`
 		already fails the suite on).
 
-		ONE TABLE FOR THE WHOLE LIST, not one per row: every field is a property of
-		the LIST, and the row's own identity is already its node path (`…/W/[key]/
-		Row/…`), which is what the finding is filed under. A row's marginal cost is
-		one prop assignment. It is a memo only because `itemExtent` may be a
-		Readable; a plain number resolves it once and never again.
+		ONE TABLE FOR THE WHOLE LIST ON THE UNIFORM PATH, not one per row: every
+		field is a property of the LIST, and the row's own identity is already its
+		node path (`…/W/[key]/Row/…`), which is what the finding is filed under. A
+		row's marginal cost is one prop assignment. It is a memo only because
+		`itemExtent` may be a Readable; a plain number resolves it once and never
+		again.
+
+		UNDER VARIABLE EXTENTS THE DECLARATION IS PER ROW, because that is what it
+		now is — see `rowSlotDeclaration`. The guard does not go away with this
+		feature and must not: a declared per-item extent is still a PREDICTION, so a
+		row can still exceed it, and now the finding names that row's own number
+		instead of one list-wide one.
 
 		IT PUBLISHES THE DECLARED EXTENT, NEVER THE ROW'S CURRENT BOX — a hosted
 		row-actions commit collapse drives one row's box down its own height ladder
 		on purpose, and comparing against the box would make that animation shout. ]]
-	local slotDeclaration = listScope:own(core:memo(function(use)
-		return {
-			list = id,
-			axis = axis,
-			extent = itemExtentIn(use),
-			-- child 1 is the control's own full-row hit Button; the consumer's cell
-			-- is everything from 2 on (a cell that is a `UI.When`/`UI.ForEach`
-			-- splices several children in, and they all sit after the hit)
-			contentFrom = 2,
-		}
-	end))
+	-- child 1 is the control's own full-row hit Button; the consumer's cell is
+	-- everything from 2 on (a cell that is a `UI.When`/`UI.ForEach` splices
+	-- several children in, and they all sit after the hit)
+	local SLOT_CONTENT_FROM = 2
+	local slotDeclaration = if itemExtentIsPerItem
+		then nil
+		else listScope:own(core:memo(function(use)
+			return {
+				list = id,
+				axis = axis,
+				extent = itemExtentIn(use),
+				contentFrom = SLOT_CONTENT_FROM,
+			}
+		end))
 	--[[ scrollTop: the engine CanvasPosition MIRROR (native-substrate NS-A2). Fed
 		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
 
@@ -843,20 +939,46 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return map
 	end))
 
+	--[[ ONE ROW'S DECLARED EXTENT, BY KEY — what the row's box is sized to and
+		what its slot declaration promises the solver.
+
+		UNIFORM: the list's one number, read WITHOUT touching `layoutIndex`, so a
+		constant extent still resolves once and never recomputes.
+
+		VARIABLE: that row's own entry in the running-offset index.
+
+		THE LAST-KNOWN CACHE EXISTS FOR ONE FRAME OF ONE CASE: a row whose key has
+		already left the data but whose node has not yet unmounted. Its index is nil,
+		and answering 0 there would collapse the row's box on its way out and make
+		the slot guard shout at a corpse. It keeps the extent it last had instead.
+		Entries are written only by MOUNTED rows and pruned with the data below, so
+		the cache is window-sized, not list-sized. ]]
+	local lastRowExtent: { [string]: number } = {}
+	local function rowExtentIn(use: any, key: string): number
+		if not itemExtentIsPerItem then
+			return itemExtentIn(use)
+		end
+		local index = (use(indexByKey) :: { [string]: number })[key]
+		if index == nil then
+			return lastRowExtent[key] or 0
+		end
+		local px = (use(layoutIndex) :: any).extentOf(index)
+		lastRowExtent[key] = px
+		return px
+	end
+
 	-- the full virtual extent as a live fixed Dim: the ScrollView's single Canvas
 	-- child is this big ALONG THE SCROLL AXIS, so the solver's scroll-axis sum ==
 	-- the full virtual extent and the renderer pushes it as CanvasSize (native §6).
 	-- Rows mount only in the window, but the canvas always spans the whole list.
 	local canvasDim = listScope:own(core:memo(function(use)
-		local count = #(use(spec.rows) :: { any })
-		return { type = "fixed", px = contentIn(use, count) }
+		return { type = "fixed", px = use(layoutIndex).content }
 	end))
 
 	-- scroll clamped into the content band, so garbage/overshoot mirror values
 	-- cannot mount phantom windows
 	local clampedTop = listScope:own(core:memo(function(use)
-		local count = #(use(spec.rows) :: { any })
-		local maxTopPx = math.max(0, contentIn(use, count) - viewportIn(use))
+		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
 		local raw = use(scrollTop)
 		if type(raw) ~= "number" or raw ~= raw then
 			return 0
@@ -880,13 +1002,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local windowItems = listScope:own(core:memo(function(use)
 		local items = use(spec.rows) :: { any }
 		local top = use(clampedTop)
-		-- SLOTS, not rows: a viewport spans `viewport / pitch` whole slots and the
-		-- canvas offset of slot k is (k-1)*pitch, so both halves read the pitch
-		local pitch = pitchIn(use)
-		local firstVisible = math.floor(top / pitch) + 1
-		local visibleCount = math.ceil(viewportIn(use) / pitch)
-		local first = math.max(1, firstVisible - overscan)
-		local last = math.min(#items, firstVisible + visibleCount - 1 + overscan)
+		-- SLOTS, not rows, and the index owns which arithmetic that is: division
+		-- on a uniform list, a binary search over the prefix sums on a variable one
+		local first, last = use(layoutIndex).window(top, viewportIn(use), overscan)
 		local window = {}
 		for i = first, last do
 			table.insert(window, { key = spec.key(items[i]), item = items[i] })
@@ -933,6 +1051,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- item that now occupies the removed item's index is its old follower
 	local lastIndexOfFocused: number? = nil
 	listScope:own(core:observe(indexByKey, function(map: { [string]: number })
+		-- ...and so does the last-known extent cache (see `rowExtentIn`): it exists
+		-- to cover a row between leaving the data and leaving the tree, so it must
+		-- not outlive the tree.
+		for key in lastRowExtent do
+			if map[key] == nil then
+				lastRowExtent[key] = nil
+			end
+		end
 		-- SELECTION PRUNES WITH THE DATA: a removed row must never linger as a
 		-- phantom selection, nor pre-select a key that comes back later.
 		local selected = selectedKey:get()
@@ -962,6 +1088,75 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		focusedKey:set(neighbor)
 	end))
 
+	--[[ ── SCROLL ANCHORING (variable item extents, 2026-08-14) ───────────────────
+		A LIST WHOSE ROWS RESIZE UNDER THE PLAYER MUST NOT JUMP. `scrollTop` is a
+		PIXEL offset into the canvas, so the moment every row grows — the player
+		raised the accessibility text preference, a localization swapped in ~1.4x the
+		copy, the theme metrics moved — that same pixel lands on a different item and
+		the player is somewhere else in their list. This repo has a recorded jump
+		class of exactly that shape (`docs/lessons/`, the minimap jump), and the
+		parity doc calls the mitigation "partial" for the estimate-and-correct design
+		because it was never built.
+
+		THE ANCHOR IS THE ITEM UNDER THE VIEWPORT'S LEADING EDGE, AND THE OFFSET INTO
+		IT. Captured on every scroll the ENGINE reports (or a test writes), which is
+		the only time the player chooses where they are; re-applied whenever the
+		offset table changes, by scrolling to that item's NEW offset plus the same
+		delta. The content under the eye does not move.
+
+		VARIABLE EXTENTS ONLY, deliberately. On a uniform list the offset table also
+		moves when the row count changes, and re-anchoring THAT would change what
+		every shipped list does when a row is inserted above the viewport — a real
+		behaviour change with no measurement asking for it. The generalization is
+		recorded in `docs/plans/variable-item-extents.md` rather than smuggled in
+		here.
+
+		IT WRITES THROUGH THE BOUND CONTROLLER, the framework's one programmatic
+		scroll write (native §4): unbound, there is no engine to correct and the
+		correction is skipped rather than faked into the mirror. ]]
+	local anchorKey: string? = nil
+	local anchorDelta = 0
+	if itemExtentIsPerItem then
+		listScope:own(core:observe(scrollTop, function()
+			local items = spec.rows:get() :: { any }
+			if #items == 0 then
+				anchorKey = nil
+				return
+			end
+			local ix = layoutNow()
+			local top = math.clamp(clampedTop:get(), 0, math.max(0, ix.content - viewportNow()))
+			-- a zero-extent viewport asks the index exactly one question: which slot
+			-- is the leading edge in
+			local first = (ix.window(top, 0, 0))
+			first = math.clamp(first, 1, #items)
+			anchorKey = spec.key(items[first])
+			anchorDelta = top - ix.offsetOf(first)
+		end))
+		listScope:own(core:observe(layoutIndex, function(ix: any)
+			local key = anchorKey
+			if key == nil or boundController == nil then
+				return
+			end
+			local host = boundScrollPath or mountedScrollPath
+			if host == nil then
+				return
+			end
+			local index = (indexByKey:get() :: { [string]: number })[key]
+			if index == nil then
+				-- the anchored item is gone; there is nothing to hold the view onto,
+				-- and inventing a neighbour would be a jump with extra steps
+				return
+			end
+			local target = math.clamp(ix.offsetOf(index) + anchorDelta, 0, math.max(0, ix.content - viewportNow()))
+			-- the same round-to-nearest the slot guard uses: sub-pixel drift is not a
+			-- jump, and correcting it would fight the engine's own rounding forever
+			if math.abs(target - clampedTop:get()) < 0.5 then
+				return
+			end
+			boundController.scrollTo(host, vec(target))
+		end))
+	end
+
 	-- ===== native scroll seam (native-substrate NS-A2) =======================
 	-- scrollTop is written only by the engine mirror (bindNativeScroll) or a
 	-- test. The control can reach the renderer's controller only AFTER present,
@@ -970,7 +1165,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- scroll path (the ScrollView IS the control root) is captured in
 	-- buildFocusGroups, which the presenter calls on every refresh.
 	local function maxTop(): number
-		return math.max(0, contentNow() - viewportNow())
+		return math.max(0, layoutNow().content - viewportNow())
 	end
 
 	-- keep-visible target: the canvas offset that brings row `index` fully into
@@ -984,11 +1179,11 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- is already fully readable.
 	local function keepVisibleTarget(index: number): number?
 		return solverLib.keepVisibleOffset(
-			(index - 1) * pitchNow(),
-			itemExtentNow(),
+			layoutNow().offsetOf(index),
+			layoutNow().extentOf(index),
 			clampedTop:get(),
 			viewportNow(),
-			contentNow()
+			layoutNow().content
 		)
 	end
 
@@ -1155,18 +1350,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- so the first and last boundaries stay inside the canvas the host clips to.
 	-- At rowGap 0 this is `slot * itemExtent`, clamped exactly as before.
 	local function slotBoundary(slot: number): number
-		local gap = rowGapNow()
-		return math.clamp(slot * pitchNow() - gap / 2, 0, contentNow())
+		return layoutNow().boundaryOffset(slot)
 	end
 
 	-- the insertion slot for a canvas offset: the number of whole SLOTS before it,
 	-- using each slot's MIDPOINT so the line snaps to the nearer boundary. Returns
 	-- the 0-based insertion slot and its canvas boundary offset.
 	local function insertSlotAt(canvasY: number): (number, number)
-		local pitch = pitchNow()
-		local count = #(spec.rows:get() :: { any })
-		local slot = math.floor((canvasY + pitch / 2) / pitch)
-		slot = math.clamp(slot, 0, count)
+		local slot = layoutNow().slotAt(canvasY)
 		return slot, slotBoundary(slot)
 	end
 
@@ -1296,12 +1487,16 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 	if reorderable then
 		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
-			-- the slide is a SLOT delta: rows move by whole pitches, gutter included
-			local pitch = pitchNow()
+			-- the slide is the distance between the two SLOTS, gutter included. On a
+			-- uniform list that is `(previous - index) * pitch` exactly as it was; on a
+			-- variable one the slots are different sizes, so it is the difference of
+			-- their offsets — the one place a pitch multiply would have been silently
+			-- wrong rather than merely approximate.
+			local ix = layoutNow()
 			for key, index in map do
 				local previous = lastIndexByKey[key]
 				if previous ~= nil and previous ~= index then
-					slideRow(key, (previous - index) * pitch)
+					slideRow(key, ix.offsetOf(previous) - ix.offsetOf(index))
 				end
 			end
 			for key in lastIndexByKey do
@@ -1562,7 +1757,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if use(hostedCommitKey) == key then
 			return use(hostedCommitPx)
 		end
-		return itemExtentIn(use)
+		return rowExtentIn(use, key)
 	end
 
 	-- what the PRESENTER handed this list's contribution, held so a lazily-built
@@ -1808,6 +2003,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			-- absent, row_actions degrades to the neutral snapshot exactly as it
 			-- does for a Table row built without one.
 			env = spec.env,
+			-- `rowDeletable`, threaded the same way Table threads it: this side owns
+			-- the item and the predicate, the engine owns the one destructive funnel
+			-- that evaluates the verdict. Fail-closed via `rowCapability.allows`.
+			deletable = if spec.rowDeletable ~= nil
+				then function()
+					return rowCapability.allows(spec.rowDeletable, itemForKey(key))
+				end
+				else nil,
 			paths = {
 				-- the row node, NOT the cell: it is what the engine reads a live
 				-- rect from (the commit threshold is a fraction of the row width)
@@ -3032,15 +3235,23 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- uniform item extent), not the scroll: a same-window scroll
 				-- delta is zero writes. Owned by the item scope, so it dies
 				-- with its row.
-				local slotOffset = itemScope:own(core:memo(function(use)
-					local index = (use(indexByKey) :: { [string]: number })[entry.key]
-					if index == nil then
-						return 0 -- row is leaving; the unmount is in flight
+				local slotOffset = itemScope:own(core:memo(if itemExtentIsPerItem
+					then function(use)
+						local index = (use(indexByKey) :: { [string]: number })[entry.key]
+						if index == nil then
+							return 0 -- row is leaving; the unmount is in flight
+						end
+						return use(layoutIndex).offsetOf(index)
 					end
-					-- the SLOT's LEADING edge: the gutter belongs to the
-					-- space between slots, never to the row that follows it
-					return (index - 1) * pitchIn(use)
-				end))
+					else function(use)
+						local index = (use(indexByKey) :: { [string]: number })[entry.key]
+						if index == nil then
+							return 0 -- row is leaving; the unmount is in flight
+						end
+						-- the SLOT's LEADING edge: the gutter belongs to the
+						-- space between slots, never to the row that follows it
+						return (index - 1) * pitchIn(use)
+					end))
 				--[[ THE ROW BOX. A plain list builds today's memo, unchanged and
 					unconditional; a `rowActions` list builds one that also composes
 					the commit collapse (the engine's own height ladder, arriving
@@ -3054,9 +3265,28 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					then function(use)
 						return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
 					end
+					elseif itemExtentIsPerItem then function(use)
+						return { type = "fixed", px = rowExtentIn(use, entry.key) }
+					end
 					else function(use)
 						return { type = "fixed", px = itemExtentIn(use) }
 					end))
+				--[[ WHAT THIS ROW WAS PROMISED TO BE. On the uniform path it is the
+					list-wide `slotDeclaration` (one table, one prop assignment per
+					row); under variable extents the promise is per row, so the
+					declaration is too. The guard it feeds is NOT retired by this
+					feature — a declared per-item extent is still a prediction, and a
+					row can still exceed it — it just names the right number now. ]]
+				local rowSlot = if itemExtentIsPerItem
+					then itemScope:own(core:memo(function(use)
+						return {
+							list = id,
+							axis = axis,
+							extent = rowExtentIn(use, entry.key),
+							contentFrom = SLOT_CONTENT_FROM,
+						}
+					end))
+					else slotDeclaration
 				-- a full-row focusable Button hit sits BEHIND the cell
 				-- content (ZStack, z = tree order): it gives the row a
 				-- focus ring and a tap-activate. There is NO pointer/pan
@@ -3148,7 +3378,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					-- what this row was PROMISED to be (see `slotDeclaration`): the
 					-- solver compares the cell's own measure against it and names both
 					-- numbers when the promise is not kept
-					virtualSlot = slotDeclaration,
+					virtualSlot = rowSlot,
 					offsetY = if isX then nil else slotOffset,
 					offsetX = if isX then slotOffset else nil,
 					width = widthOf(rowExtentDim, rowCross),
@@ -3193,13 +3423,21 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 						-- the engaged row's own canvas offset — the SAME slot
 						-- arithmetic the row itself uses, read from the same memo,
 						-- so the tray cannot drift from the row by a gap
-						offsetY = itemScope:own(core:memo(function(use)
-							local index = (use(indexByKey) :: { [string]: number })[entry.key]
-							if index == nil then
-								return 0
+						offsetY = itemScope:own(core:memo(if itemExtentIsPerItem
+							then function(use)
+								local index = (use(indexByKey) :: { [string]: number })[entry.key]
+								if index == nil then
+									return 0
+								end
+								return use(layoutIndex).offsetOf(index)
 							end
-							return (index - 1) * pitchIn(use)
-						end)),
+							else function(use)
+								local index = (use(indexByKey) :: { [string]: number })[entry.key]
+								if index == nil then
+									return 0
+								end
+								return (index - 1) * pitchIn(use)
+							end)),
 						width = { type = "fill", weight = 1 },
 						-- ...and the row's own height, commit collapse included, so
 						-- a committing row's tray shrinks with it
@@ -3461,7 +3699,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			schema = "luauui-virtual-list-dump/1",
 			id = id,
 			axis = axis,
-			itemExtent = itemExtentNow(),
+			--[[ WHICH ARITHMETIC IS RUNNING, and the number only one of them has.
+				Under variable extents there IS no single item extent, so the field is
+				ABSENT rather than reporting the first row's — a dump that answers a
+				question the list cannot answer is worse than one that does not. The
+				total the canvas spans is reported on both paths, because "how long is
+				this list" is the question a windowing bug report always needs. ]]
+			itemExtentMode = if itemExtentIsPerItem then "variable" else "uniform",
+			itemExtent = if itemExtentIsPerItem then nil else itemExtentNow(),
+			contentExtent = layoutNow().content,
 			viewportExtent = viewportNow(),
 			rowGap = rowGapNow(),
 			overscan = overscan,
@@ -3483,6 +3729,8 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			totalRows = #(spec.rows:get() :: { any }),
 		}
 		if not isX then
+			-- ...and the deprecated alias follows `itemExtent` exactly, absence
+			-- included: a variable list has no row height either
 			d.rowHeight = d.itemExtent
 			d.viewportHeight = d.viewportExtent
 		end

@@ -776,26 +776,41 @@ describe("unified collection: uniform derived row height (finding F13)", functio
 		list.dispose()
 	end)
 
-	it("refuses a per-row height: uniformity is what the windowing math rests on", function()
+	it("ACCEPTS a per-row height, and windows on the running offsets it implies", function()
+		--[[ THIS CASE USED TO ASSERT THE OPPOSITE. Until 2026-08-14 a per-row extent
+			was refused with "uniformity is what the windowing math rests on" — true of
+			`index × pitch`, and the reason the refusal was written. The widened
+			overflow sweep then measured what the refusal costs (a `row_actions` row
+			declaring 84 and measuring 249 at `preferredTextOffset = 14` on a 320×640
+			phone), and the game director ruled to build variable extents rather than
+			keep the ban (`docs/handoff/2026-08-13-rulings-needed.md` ruling 7).
+
+			The characterization is REVERSED here rather than deleted, because "what
+			happens when a caller hands in a function" is still a contract this file
+			owns — it is now a running-offset index, and the numbers below are what
+			that means. `virtual_list_variable_extents.spec` holds the whole feature. ]]
 		local core = LuauUI.newCore()
-		local ok, err = pcall(function()
-			virtual_list.build(LuauUI, core, {
-				id = "VL",
-				rows = core:signal({}),
-				key = function()
-					return "k"
-				end,
-				rowHeight = function()
-					return 40
-				end,
-				viewportHeight = 400,
-				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x" })
-				end,
-			})
-		end)
-		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "uniform per list", 1, true) ~= nil).toBe(true)
+		local rows = core:signal(makeRows(6))
+		local list = virtual_list.build(LuauUI, core, {
+			id = "VL",
+			rows = rows,
+			key = function(item: any)
+				return item.id
+			end,
+			rowHeight = function(_item: any, index: number)
+				return if index % 2 == 0 then 80 else 40
+			end,
+			viewportHeight = 400,
+			cell = function()
+				return LuauUI.UI.Text({ id = "L", text = "x" })
+			end,
+		})
+		local d = list.dump()
+		expect(d.itemExtentMode).toBe("variable")
+		expect(d.contentExtent).toBe(3 * 40 + 3 * 80)
+		-- ...and the deprecated alias reaches the same feature: one field, two names
+		expect(d.rowHeight).toBe(nil)
+		list.dispose()
 	end)
 end)
 
