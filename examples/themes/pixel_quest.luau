@@ -264,7 +264,23 @@ function pixel_quest.definition(themes: any): any
 			-- 2*4+1 = 9px; and 12px is three whole design pixels of fill, which reads
 			-- as a value rather than as a hairline. The 40px heart caps then overhang
 			-- (40-28)/2 = 6px per edge, which `chromeOutsets` already reserves.
-			controls = { progress = { trackHeight = 28, rowMinHeight = 40 } },
+			controls = {
+				progress = { trackHeight = 28, rowMinHeight = 40 },
+				--[[ ...AND THE FIELD IS THE SAME DEFECT AS THE TROUGH, found the same
+					way and fixed the same way (theme sweep, 2026-08-14). `chrome.field`
+					carves 16px of border a side and `controls.textInput.padding` spends
+					another 12 inside it, which is 56px of a 44px field: every TextField in
+					the corpus solved to a ZERO content box under this package — ten of the
+					theme ledger's rows, on ten different surfaces, all one number.
+
+					76 is that arithmetic and nothing else: 16 border + 12 padding, twice,
+					plus one line of `control` type (16px at this package's 1.25 line
+					height = 20). On the 4px grid, so R5's snap leaves it alone. Anything
+					smaller silences the guard — it only fires at zero — while still
+					leaving no room for the line, which is the check-that-proves-nothing
+					class rather than a fix. ]]
+				textInput = { fieldHeight = 76 },
+			},
 			insets = {
 				panel = inset,
 				control = inset,

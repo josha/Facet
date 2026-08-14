@@ -1842,14 +1842,16 @@ describe("overflow sweep: the theme ledger", function()
 		-- 44 surfaces, none of it in files that mission could touch. Every addition
 		-- is a decision somebody makes on purpose.
 		--
-		-- RAISED 146 -> 148 ON 2026-08-14, and the reason is the only one that can
-		-- justify raising it: the CORPUS grew. `text_degrade` and `variable_extents`
-		-- were registered by two in-flight missions and swept by neither, which is
-		-- what the registry case below now makes impossible; adopting them added two
-		-- surfaces' themed findings to a ledger sized for 44. Both surfaces' real
-		-- defects were fixed rather than rowed (418 findings closed to 16), so these
-		-- two rows are what is genuinely left, not what was not looked at.
-		expect(#theme_ledger.ROWS <= 148).toBe(true)
+		-- 146 -> 148 -> 139 ON 2026-08-14, in that order, and both moves were
+		-- decisions. UP by two because the CORPUS grew: `text_degrade` and
+		-- `variable_extents` were registered by two in-flight missions and swept by
+		-- neither, which is what the registry case below now makes impossible, and
+		-- adopting them added two surfaces to a ledger sized for 44. Then DOWN by
+		-- nine, because ten of these rows were ONE package metric: Pixel Quest carved
+		-- a 16px field border and left `controls.textInput.fieldHeight` at the
+		-- inherited 44, so every TextField in the corpus had a zero content box under
+		-- it. The ratchet is re-set to what is actually there.
+		expect(#theme_ledger.ROWS <= 139).toBe(true)
 	end)
 
 	it("COVERAGE: the themed tier is what the header says it is, and says what it skips", function()
