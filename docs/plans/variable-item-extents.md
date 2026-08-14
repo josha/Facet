@@ -196,6 +196,42 @@ Stage 2 is not started. Nothing in Stage 1 is staged for it and no field is
 reserved — the index takes an array of numbers and does not care where they came
 from, which is the only seam it needs.
 
+## What the showcase proved about Stage 1, the hard way (2026-08-14)
+
+The overflow sweep reached `variable_extents` for the first time — the sweep's own
+registry check and this fixture landed the same day — and filed **418 findings on
+it, 372 of them the lying-extent guard.** On the fixture written to demonstrate the
+feature, by the mission that built it.
+
+The cause is worth recording because it is the strongest argument for Stage 2 that
+exists. `rowExtent` multiplied `(size + the fixture's own chip offset)` by a
+literal `1.25` and stopped. It was right on Studio Neutral at the default text
+preference and wrong everywhere else: 8px short at `preferredTextOffset` 4, 54px
+at 14, and 15px short *at the default preference* on a ten-foot display, whose
+Large class multiplies the type ladder by 1.5.
+
+**So "Stage 1 buys the expressive power to be correct per row" is true, and the
+power is harder to use than it looks.** The correct declaration is the solver's own
+arithmetic, reproduced by hand:
+
+```
+px = ceil(lines * (authoredSize * max(typographyScale, typographyPaintScale)
+                   + preferredTextOffset) * theRole'sLineHeight)
+```
+
+Three env facts, one theme number, and one seam (`typographyPaintScale`) that
+exists only because a sub-1 accessibility preference makes the paint seam the
+larger of the two. The fixture is now the reference for that spelling, and the
+sweep is what keeps it honest — but **no public helper turns those facts into a
+line box**, and every itemExtent consumer in the repo currently gets it wrong the
+same way: `row_actions`, `perf_capture` and `virtual_list_native` each carry a
+lying-extent waiver in `tests/overflow_sweep.spec.luau` for exactly this.
+
+Flagged rather than smuggled: a `LuauUI.text` helper for "the height of N lines of
+this size, against these live facts" would close all three waivers and remove the
+whole class from Stage-1 authoring. It is an API addition and belongs to whoever
+takes Stage 2 — the two are the same problem, once from each side.
+
 ## Follow-ups flagged, not taken
 
 - **Tighten the uniform `window()` rule** to the exact containing-slot question,
