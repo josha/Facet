@@ -202,6 +202,12 @@ local SCENARIOS = {
 	-- failure mode is a viewport, which makes the swept cross product the direct
 	-- test of the packaging rather than a check on it
 	"row_capabilities",
+	-- ...and the director's per-control sensory fixture. Two WRAPPING chip rows
+	-- and a four-line sensation table under a page that scrolls: at the Largest
+	-- text preference under Parchment the chips are the widest thing on the
+	-- surface, so a swept viewport is the direct test of whether the wrap earns
+	-- its keep rather than a check on the packaging around it
+	"sensory_feedback",
 }
 
 local EXAMPLES = {
@@ -382,8 +388,11 @@ end
 	                        to cap the cell's content (`lineLimit`)
 	  * collapsed-box     — padding won: the content box is 0px on an axis and
 	                        nothing inside the node can draw at all
-	  * declared-fallback — a `UI.Composition` whose declared arrangements are all
-	                        illegal at this size, showing the fallback it declared
+	...and NOT `declared-fallback` any more (ruling 8, 2026-08-14): a
+	`UI.Composition` showing the fallback it declared is the framework doing what
+	the author told it to, so the solver marks that finding `designed = true` and
+	the collector skips it before it can reach this list at all. It is a permanent
+	exclusion, not a waiver: there is no ceiling to breach and no line to delete.
 ]]
 type Waiver = {
 	surface: string,
@@ -397,16 +406,6 @@ type Waiver = {
 }
 
 local WAIVERS: { Waiver } = {
-	{
-		surface = "composition",
-		variant = "-",
-		node = "/CompositionScreen/Body/OfferFrame/Summary",
-		sig = "no declared arrangement is legal in NxN —",
-		px = 322,
-		since = 10,
-		kind = "declared-fallback",
-		where = "compact-portrait/640x320/320x640 @ +10/+14 — every declared arrangement is illegal (lane 1 needs 322px in 313px) and the DECLARED fallback is shown. The one entry here that may not be a defect at all — see the report",
-	},
 	{
 		surface = "row_actions",
 		variant = "vlist",
@@ -1014,6 +1013,24 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			settle(w.presenter)
 			local function collect(offset: number, variantValue: string, suffix: string)
 				for _, finding in built.handle.controller.diagnostics() do
+					-- A FINDING THE FRAMEWORK MARKS AS DESIGNED IS NOT A DEFECT AND IS
+					-- NOT SWEPT (ruling 8, 2026-08-14). The solver files two kinds of
+					-- sentence: most report something the author did not intend, and a
+					-- few report the author's own instruction being followed — today
+					-- exactly one, `UI.Composition` showing the fallback it declared
+					-- when nothing richer is legal. That one used to sit in the waiver
+					-- list below with a px ceiling, which said "a defect we tolerate,
+					-- and it must not get worse" about behaviour that is simply
+					-- correct; the consumer (Rascal Rally) had already excluded the
+					-- identical note from its own check, so the two halves of the
+					-- lockstep rule disagreed. They now read the same field, set in
+					-- one place: `src/layout/solver.luau`'s composition arrange
+					-- branch. This is a PERMANENT exclusion with no ceiling and no
+					-- expiry — see `docs/reference/api.md` § "Findings that are not
+					-- defects" for the plain-language version.
+					if finding.designed == true then
+						continue
+					end
 					local key = waiverKey(name, variantValue, normalizePath(finding.node), signature(finding.issue))
 					local waiver = WAIVER_BY_KEY[key]
 					-- RULE 1: a waiver recorded from +4 or later does not apply at the

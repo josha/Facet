@@ -712,3 +712,199 @@ describe("the haptics adapter plays the declared sensation through the engine", 
 		expect(string.find(body, `"{hapticsLib.ACTIVATION_ATTRIBUTE}"`, 1, true) ~= nil).toBeTruthy()
 	end)
 end)
+
+-- ===========================================================================
+-- THE SHOWCASE FIXTURE
+-- ===========================================================================
+--
+-- Every gap closure ships its demo, and a demo nobody drives is a screenshot.
+-- These cases drive `examples/gallery/scenarios/sensory_feedback` the way a
+-- player does — real presses through the adapter's activate path — and hold it
+-- under every shipped theme, because STUDIO NEUTRAL IS NOT EVIDENCE ON ITS OWN:
+-- it reserves no chrome, so a surface measured only there has slack no shipped
+-- package gives it, and Pixel Quest and Parchment have each broken a layout
+-- Neutral survived.
+describe("the showcase fixture drives the real thing", function()
+	local snapshot = require("../src/themes/snapshot") :: any
+	local scenario = require("../examples/gallery/scenarios/sensory_feedback") :: any
+
+	local PACKAGES = {
+		"glossy_mobile",
+		"glossy_touch",
+		"pixel_quest",
+		"fantasy_ornate",
+		"scifi_hud",
+		"compact_pointer",
+		"classic_desktop",
+		"fantasy_parchment",
+	}
+	-- the narrowest supported viewport in BOTH orientations plus a desktop: two
+	-- wrapping chip rows fail on width, and landscape-only defects are how the
+	-- 2026-08-12 round's B5 survived a portrait-only capture set
+	local VIEWS = { { w = 320, h = 640 }, { w = 640, h = 320 }, { w = 1232, h = 1067 } }
+
+	local function mountUnder(pkgName: string?, view: any): (any, any)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		if pkgName ~= nil then
+			env:set(
+				"themeMetrics",
+				snapshot.resolve((require)(`../examples/themes/{pkgName}`).build(LuauUI.themes), nil, {})
+			)
+		end
+		local built = scenario.build({
+			LuauUI = LuauUI,
+			core = core,
+			env = env,
+			actionSystem = system,
+			presenter = pres,
+		})
+		built.handle = pres.present(built.screen, built.present)
+		for _ = 1, 3 do
+			pres.refresh()
+		end
+		return { adapter = adapter, core = core, pres = pres }, built
+	end
+
+	it("the sensation column is the SHIPPED map, not a story about it", function()
+		-- the fixture may not require a client module, so its table is written out
+		-- — which is exactly the shape that drifts into fiction. This is the pin.
+		for _, row in scenario.sensation do
+			local expected = hapticsLib.pressEffectFor(row.verb)
+			expect(`{row.verb}:{tostring(row.effect)}`).toBe(`{row.verb}:{tostring(expected)}`)
+		end
+		-- ...and it covers every verb the fixture can actually produce
+		for _, entry in scenario.declared do
+			if entry.activation ~= nil and entry.activation ~= feedbackLib.ACTIVATION_SILENT then
+				local found = false
+				for _, row in scenario.sensation do
+					if row.verb == entry.activation then
+						found = true
+					end
+				end
+				expect(`{entry.activation} is explained:{found}`).toBe(`{entry.activation} is explained:true`)
+			end
+		end
+	end)
+
+	it("pressing the five leaves writes four lines and Mute writes none", function()
+		local w, built = mountUnder(nil, { w = 390, h = 844 })
+		for _, entry in scenario.declared do
+			w.adapter.tap(`/SensoryFeedback/Page/Leaves/LeafRow/{entry.id}`)
+		end
+		local log = built.logText:get()
+		expect(built.reported:get()).toBe(4)
+		for _, verb in { "commit", "reject", "select", "activate" } do
+			expect(`{verb} logged:{string.find(log, verb, 1, true) ~= nil}`).toBe(`{verb} logged:true`)
+		end
+		expect(string.find(log, "Mute", 1, true)).toBeNil()
+		built.dispose()
+	end)
+
+	it("the CASCADE panel: three controls, one declaration, one verb", function()
+		local w, built = mountUnder(nil, { w = 390, h = 844 })
+		local base = "/SensoryFeedback/Page/Cascade/CascadeRow"
+		for _, path in { `{base}/First`, `{base}/Nested/Second`, `{base}/Nested/Third` } do
+			w.adapter.tap(path)
+		end
+		expect(built.reported:get()).toBe(3)
+		local _, count = string.gsub(built.logText:get(), "pickup", "")
+		expect(count).toBe(3)
+		built.dispose()
+	end)
+
+	it("a NON-activation event on the same surface writes no line", function()
+		-- the fixture's subscriber filters on `reason`, and a filter nothing
+		-- exercises is decoration: the showcase presents toasts and modals on the
+		-- same presenter, and every one of their verbs would otherwise land in this
+		-- surface's press log. Emitted through the presenter's own registration
+		-- point, which is the seam a game's session code uses.
+		local w, built = mountUnder(nil, { w = 390, h = 844 })
+		w.pres.emitFeedback({ type = "commit", path = "/SensoryFeedback/Page/Leaves/LeafRow/Buy" })
+		expect(built.reported:get()).toBe(0)
+		expect(built.logText:get()).toBe(scenario.copy.logEmpty)
+		-- ...and a real press on the same path still does
+		w.adapter.tap("/SensoryFeedback/Page/Leaves/LeafRow/Buy")
+		expect(built.reported:get()).toBe(1)
+		built.dispose()
+	end)
+
+	it("a press on ANOTHER surface of the same presenter writes no line", function()
+		-- the showcase presents its chrome and its demo on ONE presenter, so every
+		-- chip-strip press is an `activation` event this subscriber sees. Without
+		-- the path filter the fixture would count the picker's own buttons, which
+		-- is the log lying about what the player just pressed.
+		local w, built = mountUnder(nil, { w = 390, h = 844 })
+		w.pres.present(UI.Screen({ id = "Chrome", children = { UI.Button({ id = "Pick", label = "p" }) } }))
+		w.adapter.tap("/Chrome/Pick")
+		expect(built.reported:get()).toBe(0)
+		w.adapter.tap("/SensoryFeedback/Page/Leaves/LeafRow/Buy")
+		expect(built.reported:get()).toBe(1)
+		built.dispose()
+	end)
+
+	it("no diagnostic, in any package, at any of the three viewports", function()
+		local problems: { string } = {}
+		for _, pkgName in { false, table.unpack(PACKAGES) } do
+			for _, view in VIEWS do
+				local name = if pkgName == false then "flat" else tostring(pkgName)
+				local w, built = mountUnder(if pkgName == false then nil else tostring(pkgName), view)
+				local parts: { string } = {}
+				for _, f in built.handle.controller.diagnostics() do
+					table.insert(parts, `{f.node}: {f.issue}`)
+				end
+				if #parts > 0 then
+					table.insert(problems, `  {name} at {view.w}x{view.h}: {table.concat(parts, " | ")}`)
+				end
+				expect(w.core:lastError()).toBeNil()
+				built.dispose()
+			end
+		end
+		if #problems > 0 then
+			error(
+				`sensory_feedback reports diagnostics under {#problems} package/viewport pair(s):\n`
+					.. table.concat(problems, "\n"),
+				0
+			)
+		end
+	end)
+
+	it("...and no two chips in a row ever overlap, in any package, at any viewport", function()
+		local ROW = "/SensoryFeedback/Page/Leaves/LeafRow"
+		for _, pkgName in { false, table.unpack(PACKAGES) } do
+			for _, view in VIEWS do
+				local name = if pkgName == false then "flat" else tostring(pkgName)
+				local w, built = mountUnder(if pkgName == false then nil else tostring(pkgName), view)
+				local placed: { any } = {}
+				for _, entry in scenario.declared do
+					local node = w.adapter.node(`{ROW}/{entry.id}`)
+					if node == nil or node.rect == nil then
+						error(`{name} at {view.w}x{view.h}: chip {entry.id} was never placed`, 0)
+					end
+					local r = node.rect
+					for _, other in placed do
+						if
+							r.x < other.r.x + other.r.w
+							and other.r.x < r.x + r.w
+							and r.y < other.r.y + other.r.h
+							and other.r.y < r.y + r.h
+						then
+							error(
+								`{name} at {view.w}x{view.h}: chip {entry.id} [{r.x},{r.y} {r.w}x{r.h}] overlaps `
+									.. `{other.id} [{other.r.x},{other.r.y} {other.r.w}x{other.r.h}]`,
+								0
+							)
+						end
+					end
+					table.insert(placed, { id = entry.id, r = r })
+				end
+				built.dispose()
+			end
+		end
+	end)
+end)
