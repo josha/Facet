@@ -127,7 +127,7 @@ local CHARGE_SECONDS = 1.4
 	words this whole fixture argues about. Anyone tempted to shorten them to
 	"On"/"Off" has to walk past the header first. ]]
 local COPY = {
-	title = "withAnimation — one spring, three effects",
+	title = "withAnimation — one spring, five effects",
 	motionLabel = "Motion",
 	full = "Full",
 	reduced = "Reduced",
@@ -146,6 +146,10 @@ local COPY = {
 	-- wrapping inside the card rather than truncating — the card is deliberately
 	-- the narrow column's full width so there is room for the expansion.
 	cardLabel = "The card below grows — the pip inside it does not",
+	-- (5) THE PAINT. Player-facing, and it names all three effects because the
+	-- point is that they are ONE call: a reader who sees only "fades" will not
+	-- look for the turn.
+	effectsLabel = "The badge fades, shrinks and turns — same spring",
 }
 
 return {
@@ -334,6 +338,79 @@ return {
 							surface = "accent",
 							width = { type = "fixed", px = 24 },
 							height = { type = "fixed", px = 20 },
+						}),
+					},
+				}),
+				--[[ (5) THE PAINT — opacity, scale and rotation, authored (ADR-0026).
+
+					These are the consequence the director asked for: *"should opacity,
+					transparency, and scale get owned/influenced by luauui? it seems
+					like we should be able to animate those."* Until this round the
+					only values `withAnimation` could interpolate were the solver's
+					four rect numbers, because they were the only values a commit
+					produced — the presentation channel had no authored prop in it at
+					all. Now it has three, and this badge binds every one of them to
+					the same `laneRight` signal the puck above is riding.
+
+					SO THE THING TO WATCH IS NOT THE FADE, IT IS THE SYNCHRONY. The
+					badge's alpha, its size and its angle are all at the same fraction
+					of their journey as the puck's position and the card's height, on
+					every frame, because there is one progress spring for the whole
+					call. Four independent tweens would look almost right and drift.
+
+					AND THE BOX DOES NOT MOVE. Scale and rotation are paint: the
+					solver never sees them, so the badge's layout box, its tap target
+					and its focus position are the unrotated, unscaled ones. That is
+					Apple's rule for `scaleEffect`/`rotationEffect` too, and it is why
+					the lane below it does not reflow when the badge turns.
+
+					THE BADGE IS 40px BECAUSE THE SWEEP SAID SO. The first draft made
+					it 28, and `tests/overflow_sweep.spec.luau` filed 40 findings on it
+					at once: a `control`-chrome package (fantasy-ornate, glossy-touch,
+					pixel-quest) wants 28-32px of border on each axis, so a 28px plate
+					could not spend its own theme's insets and drew smaller than the
+					theme expects. Studio Neutral said nothing, which is the whole
+					reason that sweep runs every shipped package. 40px is the size the
+					puck above already proves.
+
+					The lane is 60px for that 40px badge: a square turned 45 degrees is
+					56.6px across its diagonal, and paint leaving its own plate would be
+					a defect rather than a demo. Scale stays at or below 1 for the same
+					reason — this fixture shrinks rather than grows.
+
+					Under REDUCED MOTION all three land instantly at their
+					destination, exactly as the puck's travel does: the flight is
+					decorative, the end state carries every fact, and a scale is NOT
+					substituted by a cross-fade (deleting the zoom is strictly less
+					motion than replacing it with another animation — ADR-0026
+					Decision 8). ]]
+				UI.Text({
+					id = "EffectsCaption",
+					text = COPY.effectsLabel,
+					textSize = 12,
+					role = "secondary",
+				}),
+				UI.Anchor({
+					id = "Effects",
+					surface = "control",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 60 },
+					children = {
+						UI.Box({
+							id = "Badge",
+							surface = "accent",
+							anchor = "center",
+							width = { type = "fixed", px = 40 },
+							height = { type = "fixed", px = 40 },
+							opacity = scope:own(core:memo(function(use)
+								return if use(laneRight) then 0.3 else 1
+							end)),
+							scale = scope:own(core:memo(function(use)
+								return if use(laneRight) then 0.6 else 1
+							end)),
+							rotation = scope:own(core:memo(function(use)
+								return if use(laneRight) then 45 else 0
+							end)),
 						}),
 					},
 				}),
@@ -570,6 +647,12 @@ return {
 					cardTall = cardTall:get(),
 					detailOpen = detailOpen:get(),
 					chipOrder = table.clone(chipOrder:get() :: { string }),
+					-- the authored presentation triple this run is aimed at, so a
+					-- headless spec reads the DECLARED destination rather than
+					-- re-deriving it (ADR-0026)
+					badgeOpacity = if laneRight:get() then 0.3 else 1,
+					badgeScale = if laneRight:get() then 0.6 else 1,
+					badgeRotation = if laneRight:get() then 45 else 0,
 					charge = charge:get(),
 					chargeTarget = chargeTarget,
 					busyPhase = busyBar.dump().phase,

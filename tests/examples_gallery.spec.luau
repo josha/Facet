@@ -2385,6 +2385,85 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 		end
 	)
 
+	--[[ THE BADGE — the fifth consequence, and the director's own question
+		(ADR-0026, 2026-08-14): *"should opacity, transparency, and scale get
+		owned/influenced by luauui? it seems like we should be able to animate
+		those."*
+
+		THREE ASSERTIONS, and each of them fails against a DIFFERENT plausible
+		defect, which is why none of them is redundant:
+
+		  · the three engine values REACH their destinations — a design that
+		    accepted the props and never composed them passes nothing here;
+		  · the LAYOUT BOX does not move — scale and rotation are paint, and a
+		    design that let either reach the solver would move the tap target;
+		  · the values TRAVEL rather than snapping, and they travel at the SAME
+		    fraction as the puck's position — four independent tweens would land in
+		    the right places and drift on the way, which no end-state check sees. ]]
+	it("the BADGE fades, shrinks and turns — on the puck's own spring, and its BOX never moves", function()
+		local w, built = motionWorld()
+		local BADGE = STAGE .. "/Effects/Badge"
+		local boxBefore = w.adapter.node(BADGE).rect
+		local puckBefore = w.adapter.node(PUCK).rect.x
+		local cardBefore = w.adapter.node(CARD).rect.h
+
+		w.adapter.tap(RUN)
+
+		--[[ THE SOLVER NEVER SAW ANY OF THE THREE, stated as a differential rather
+			than as "nothing moved" — because something DID move it. The card above
+			this badge grows on the same press, so the badge's `y` slides down by
+			exactly the card's growth and by nothing else. Asserting `y` was
+			unchanged would have been a check that fails for the wrong reason;
+			asserting the delta EQUALS the card's is the check that proves the scale
+			and the rotation contributed zero to layout. ]]
+		local boxAfter = w.adapter.node(BADGE).rect
+		expect(boxAfter.x).toBe(boxBefore.x)
+		expect(boxAfter.w).toBe(boxBefore.w)
+		expect(boxAfter.h).toBe(boxBefore.h)
+		expect(boxAfter.y - boxBefore.y).toBe(w.adapter.node(CARD).rect.h - cardBefore)
+
+		-- SEEDED at the old paint, not the new one
+		expect(w.adapter.node(BADGE).canvasGroupInstance.groupTransparency).toBeCloseTo(0)
+		local puckAfter = w.adapter.node(PUCK).rect.x
+
+		-- ...and mid-flight every one of them is at the SAME fraction as the puck
+		for _ = 1, 8 do
+			w.presenter.tick(FRAME)
+			local node = w.adapter.node(BADGE)
+			local alpha = node.canvasGroupInstance.groupTransparency
+			local painted = w.adapter.node(PUCK).presentedPosition.x
+			local moveFrac = (painted - puckBefore) / (puckAfter - puckBefore)
+			-- opacity 1 -> 0.3 means transparency 0 -> 0.7
+			expect(alpha / 0.7).toBeCloseTo(moveFrac, 1e-3)
+			-- scale 1 -> 0.6 and rotation 0 -> 45, on the same fraction
+			expect((1 - node.motionScaleInstance.scale) / 0.4).toBeCloseTo(moveFrac, 1e-3)
+			expect(node.rotation / 45).toBeCloseTo(moveFrac, 1e-3)
+		end
+
+		settleMotion(w)
+		local settled = w.adapter.node(BADGE)
+		expect(settled.canvasGroupInstance.groupTransparency).toBeCloseTo(0.7)
+		expect(settled.motionScaleInstance.scale).toBeCloseTo(0.6)
+		expect(settled.rotation).toBeCloseTo(45)
+		expect(built.report().badgeRotation).toBe(45)
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("REDUCED MOTION lands the badge's three values instantly, and never deletes one", function()
+		local w, built = motionWorld()
+		local BADGE = STAGE .. "/Effects/Badge"
+		built.steps.setMotion(built, "reduced")
+		w.adapter.tap(RUN)
+		-- no flight at all, and the destination is exact on the frame the call returns
+		expect(w.presenter.animationRecordCount()).toBe(0)
+		local node = w.adapter.node(BADGE)
+		expect(node.canvasGroupInstance.groupTransparency).toBeCloseTo(0.7)
+		expect(node.motionScaleInstance.scale).toBeCloseTo(0.6)
+		expect(node.rotation).toBeCloseTo(45)
+		built.dispose()
+	end)
+
 	--[[ THE CARD, AND THE LESSON IT IS SHAPED TO TEACH (withAnimation size,
 		2026-08-14). Before round 3 this fixture had nothing that changed size, so
 		the one thing `withAnimation` could not do was also the one thing nobody

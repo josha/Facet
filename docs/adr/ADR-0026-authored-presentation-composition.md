@@ -259,10 +259,26 @@ shape here:
   rects, so a rotated button's tap target is its unrotated box. This matches Apple, who is explicit
   for both: `rotationEffect` *"has no effect on the view's frame"* ([SW-146]) and `scaleEffect`'s
   dimensions *"are considered to be unchanged by scaling the contents"* ([SW-147]).
-- **`scale` shares the one `UIScale` with the press dip**, because the engine honours exactly one
-  per object. The dip's target and its recovery target therefore become *relative to the resting
-  authored scale* rather than absolute — without that, one press would silently delete an authored
-  scale for the rest of the node's life.
+- **OWED, and measured rather than suspected: an authored `scale` on a `Button` does not survive a
+  press.** The engine honours exactly one `UIScale` per object, so the authored scale writes the
+  same instance the press dip tweens. The dip tweens it to `style.extra.pressedScale` on
+  `MouseButton1Down` and its recovery tweens it back to **`1`** on `MouseButton1Up` / `MouseLeave` —
+  an absolute target, so the authored value is gone from that release onward and nothing re-asserts
+  it (the renderer's write is memoized on the composed value, which has not changed).
+
+  **This is a pre-existing hazard that an authored scale turns from rare into certain**, and the
+  file already says so in its own words: the recovery deliberately reads only the dip's own
+  `handle.uiScale` because *"a button released while a pop or an enter transition is live would have
+  its presentation scale snapped to 1, and nothing re-asserts it"*. That mitigation is not enough
+  once the scale is permanent rather than transient.
+
+  **The fix is small and named**: record the composed resting scale on the handle when the
+  presentation paint is applied, then make the dip's target `resting × pressedScale` and its
+  recovery target `resting` instead of `1`. It is **not made here** because both call sites live in
+  `src/client/screen_paint.luau`, which on 2026-08-14 is an uncommitted in-flight extraction owned
+  by a concurrent agent — editing another agent's unstaged file is exactly how this session lost
+  work four times. It is booked as a device-round item, and `api.md`'s `scale` row says so, so no
+  author meets it without warning.
 - **`opacity` is not offered on a leaf** (Decision 4). The spelling is one `UI.ZStack` wrap, and the
   parity doc, `api.md` and the guide all say so in the same words.
 - **A `drawingGroup`-style rasterization is still not on offer.** Declaring an opacity buys grouped
