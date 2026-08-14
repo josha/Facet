@@ -159,6 +159,31 @@ describe("ruling 1: the degrade cascade descends only as far as it must", functi
 		)
 	end)
 
+	it("the compact rung SPARES A SIBLING: the label with something shorter to say gives it up", function()
+		-- WHY THE COMPACT RUNG EXISTS AT ALL, found by a differential sweep over 1200
+		-- configurations with the rung removed (144 of them differ). Absorption takes
+		-- only what the deficit asks for, so on a single shrinkable child the compact
+		-- rung and the ellipsis rung reach the same width and the rung looks inert.
+		-- With a SIBLING it is not: at the compact rung `A` freezes at the width its
+		-- compact form needs and the remainder redistributes, so `B` keeps its whole
+		-- string. Drop the rung and both shrink proportionally into the ellipsis
+		-- floor — `A` keeps 77px it does not need and `B` is CUT. That is the
+		-- director's order failing, and it is the case that proves the order is real.
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			gap = 0,
+			children = {
+				{ kind = "text", id = "A", text = "Configuration", compactText = "Cfg", shrinkWeight = 1 },
+				{ kind = "text", id = "B", text = "Relevance", shrinkWeight = 1 },
+			},
+		}, 130, 60)
+		expect(
+			`A w={r.rects.A.rect.w} compact={tostring(r.rects.A.compact)} cut={r.rects.A.textFacts.truncated} `
+				.. `B w={r.rects.B.rect.w} cut={r.rects.B.textFacts.truncated}`
+		).toBe("A w=40 compact=true cut=false B w=90 cut=false")
+	end)
+
 	it("an authored `minMax.min` is a CONTRACT, not a rung — the cascade never descends below it", function()
 		-- the framework's derived floor gives way; a number the author wrote does
 		-- not. Without this the cascade would silently undo a deliberate minimum,
@@ -227,6 +252,31 @@ describe("ruling 1: clip is the floor of the cascade, never its first move", fun
 		end
 	end)
 
+	it("the cascade absorbs the deficit ONCE, so a `fill` sibling is handed nothing extra", function()
+		-- the rungs re-run from the ORIGINAL basis rather than stacking on each
+		-- other, and this is the case that can tell: with a `fill` sibling present,
+		-- an `absorbed` that double-counted rung 1 and rung 3 would report surplus
+		-- the row does not have and hand it to the filler, pushing the row past its
+		-- own box — a shrink pass that overflows by fixing an overflow.
+		local r = solve({
+			kind = "hstack",
+			id = "R",
+			width = fill(),
+			children = {
+				{ kind = "box", id = "rigid", width = fixed(340), height = fixed(20) },
+				{ kind = "text", id = "label", text = "Configuration options", shrinkWeight = 1 },
+				{ kind = "box", id = "filler", width = fill(), height = fixed(20) },
+			},
+		}, 400, 400)
+		-- the label crosses TWO rungs here (its longest word cannot absorb the whole
+		-- deficit), so a stacking `absorbed` would be visible
+		expect(r.rects.label.textFacts.truncated).toBe(true)
+		expect(`filler={r.rects.filler.rect.w} rowEnds={r.rects.filler.rect.x + r.rects.filler.rect.w}`).toBe(
+			"filler=0 rowEnds=400"
+		)
+		expect(insideReport(r, { "rigid", "label", "filler" }, 400)).toBe("rigid:in label:in filler:in")
+	end)
+
 	it("a stack that declared NO shrinkWeight is untouched — it still paints outside its box", function()
 		-- the scope of the crop, stated as a test. Cropping every overflowing stack
 		-- in the library would be the silent re-flow of shipped screens the overflow
@@ -286,6 +336,22 @@ describe("ruling 5: wrapping is attempted only where it can succeed", function()
 		-- would keep a label single-line after a re-solve made room for the wrap.
 		local wide = text_metrics.minWidth(TEXT, "BuilderSans", 16) + 20
 		expect(`{measured(wide - 28).wraps} -> {measured(wide).wraps}`).toBe("false -> true")
+	end)
+
+	it("a FIXED-width label is clamped to ITS OWN box, and says so when it is cut", function()
+		-- the clamp read the parent's OFFER, not the width this node occupies, for
+		-- exactly the node kind that is excluded from the self-clamp above it. A
+		-- `fixed(60)` label wanting 130px on one line therefore reported
+		-- `truncated = false` — inside a 600px screen the offer was never exceeded —
+		-- and `clippedEssential`, whose whole job is "this label was cut", was blind
+		-- to every fixed-width label in the library.
+		local r = solve({
+			kind = "vstack",
+			id = "R",
+			width = fill(),
+			children = { { kind = "text", id = "t", text = "Extraordinarily", width = fixed(60) } },
+		}, 600, 400)
+		expect(`w={r.rects.t.rect.w} truncated={r.rects.t.textFacts.truncated}`).toBe("w=60 truncated=true")
 	end)
 
 	it("a ZERO-width box gives no verdict: a collapsed control is not a label being cut", function()
