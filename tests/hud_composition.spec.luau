@@ -137,6 +137,19 @@ describe("ADR-0025: the nine anchors PARTITION the screen", function()
 		expect(by.Tasks.rect.y > by.Chrome.rect.y + by.Chrome.rect.h).toBe(true)
 	end)
 
+	it("an aligned zone takes ITS OWN width inside the column, not the whole column", function()
+		-- `align` is what asks for the content width: aligning a box that already
+		-- fills its lane would mean nothing. Without it the zone is the column, and
+		-- "hard against the right edge" would be true of a 300px-wide blank.
+		local r = composition.resolve(hud(FULL), { w = 900, h = 500 }, CTX)
+		expect(r.regionById.Rail.rect.w).toBe(160) -- its measure, not the 300px lane
+		expect(r.regionById.Rail.rect.x).toBe(740) -- 900 - 160
+		expect(r.regionById.Timer.rect.w).toBe(120)
+		expect(r.regionById.Timer.rect.x).toBe(390) -- 300 + (300 - 120) / 2
+		expect(r.regionById.Chrome.rect.w).toBe(180)
+		expect(r.regionById.Chrome.rect.x).toBe(0)
+	end)
+
 	it("no two zones intersect, at any height a landscape phone can lose", function()
 		for _, h in { 500, 440, 380, 320, 300, 260, 240, 200 } do
 			local r = composition.resolve(hud(FULL), { w = 900, h = h }, CTX)
@@ -289,6 +302,22 @@ describe("ADR-0025 Decision 3: a zone painting over its neighbour is REPORTED", 
 		-- the same 400px zone, alone: it overflows its column and lands on empty
 		-- screen. That is the inner stack's finding, not a collision
 		local r = composition.resolve(hud({ WIDE[1] }), { w = 900, h = 500 }, wideCtx(400))
+		expect(#r.collisions).toBe(0)
+	end)
+
+	it("the SCROLL region is excluded — its content is meant to be bigger than its box", function()
+		-- rule 5's one scroll region clips its own content, so a measure past the
+		-- column it was given is the mechanism working, not a zone on a zone. The
+		-- same 400px measure that is a collision above is silence here.
+		local r = composition.resolve(
+			hud({
+				{ id = "Chrome", group = "topLeft", rank = 1, forms = 1, mayScroll = true },
+				{ id = "Timer", group = "top", rank = 2, forms = 1 },
+			}),
+			{ w = 900, h = 500 },
+			wideCtx(400)
+		)
+		expect(r.scroller).toBe("Chrome")
 		expect(#r.collisions).toBe(0)
 	end)
 
