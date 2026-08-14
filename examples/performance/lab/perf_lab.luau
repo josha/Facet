@@ -2436,22 +2436,88 @@ return {
 			the aiming problem one level down — the person taking the dump would have
 			to hit a window again. It runs until `Stop`. ]]
 		steps.profileWindow = function(_self: any, payload: string?)
-			local id = payload
-			if id == nil or id == "" then
-				id = settings.scenario
-			end
-			local known = false
-			for _, candidate in WORKLOAD_ORDER do
-				if candidate == id then
-					known = true
-					break
+			--[[ payload: "" | "<workload>" | "<workload>:<pass>" | "<workload>:<pass>:<laps>"
+
+				`laps` defaults to 0 = UNBOUNDED, which is the shape a profiling
+				session wants: a fixed duration would just re-create the aiming
+				problem one level down, with the operator having to hit a window
+				again. A bounded count exists for two real cases — a scripted run
+				that must terminate, and this file's own spec, which cannot
+				interrupt an infinite loop because the headless harness's pass is
+				synchronous and Lune has no `task` library. ]]
+			local wantWorkload, wantPass, wantLaps = nil, nil, nil
+			if payload ~= nil and payload ~= "" then
+				-- SPLIT ON ":" KEEPING EMPTY SEGMENTS, without `[^:]*` — that pattern
+				-- also matches the empty string BETWEEN characters, so
+				-- "a:b:2" yields {"a","","b","","2",...} and every index after the
+				-- first is shifted. It cost an infinite loop: the laps segment
+				-- landed on parts[3] = "scrollSteady", tonumber returned nil, the
+				-- cap fell back to 0 = unbounded, and the spec hung the suite.
+				local parts = {}
+				local from = 1
+				while true do
+					local at = string.find(payload, ":", from, true)
+					if at == nil then
+						table.insert(parts, string.sub(payload, from))
+						break
+					end
+					table.insert(parts, string.sub(payload, from, at - 1))
+					from = at + 1
 				end
+				wantWorkload = if parts[1] == nil or parts[1] == "" then nil else parts[1]
+				wantPass = if parts[2] == nil or parts[2] == "" then nil else parts[2]
+				wantLaps = if parts[3] == nil or parts[3] == "" then nil else tonumber(parts[3])
 			end
-			if not known then
-				local names = table.concat(WORKLOAD_ORDER, ", ")
+			local maxLaps = wantLaps or 0
+			local id = wantWorkload or settings.scenario
+			local w = WORKLOAD_BY_ID[id]
+			if w == nil then
 				error(
 					`[LuauUI PerfLab] profileWindow: unknown workload '{tostring(id)}'. `
-						.. `Legal: {names}. Omit the payload to profile the selected workload.`,
+						.. `Legal: {table.concat(WORKLOAD_ORDER, ", ")}.`,
+					0
+				)
+			end
+			--[[ REFUSE A WORKLOAD WITH NO LUAUUI IN IT.
+
+				TWO CONSECUTIVE DEVICE CAPTURES SAMPLED `dense-scroll-native`, the one
+				workload whose `implementation = "native"` means it runs the raw-Roblox
+				reference list and calls no framework code at all. Both dumps therefore
+				recorded ZERO occurrences of `measure`, `arrange`, `commit`, `mount`,
+				`react` and `reset` — the six scopes every device estimate in
+				`artifacts/performance-stress-places/` rests on — and the 22x
+				extrapolation in `low-end-target.md` is still untested because of it.
+
+				Nothing on screen said which implementation was mounted, so the mistake
+				was invisible until the dump was parsed. It is refused here instead:
+				profiling the native reference is a legitimate thing to want, but it has
+				to be asked for in words. ]]
+			if w.implementation == "native" and wantWorkload == nil then
+				error(
+					`[LuauUI PerfLab] profileWindow: '{id}' is the raw-Roblox reference `
+						.. `(implementation = "native") — it calls NO LuauUI code, so a capture of it `
+						.. `records zero solver scopes. Two device captures have already been lost this `
+						.. `way. Select a LuauUI workload, or ask for this one explicitly: `
+						.. `profileWindow:{id}`,
+					0
+				)
+			end
+			--[[ ONE PASS, LOOPED — not the workload's whole declared sequence.
+
+				The first version looped `steps.run()`, which runs every pass the
+				workload declares (`dense-scroll` declares seven). `scrollSteady` alone
+				is 60 steps ~= 60 Heartbeats, and at the ~23 fps this device achieves a
+				MicroProfiler dump holds ~30 frames / ~1.3 s — so the window cannot
+				escape pass #1 and the other six were never sampled. The aiming problem
+				moved down one level instead of going away.
+
+				So the loop is over ONE pass, named, defaulting to the workload's first.
+				A capture then contains that pass and nothing else. ]]
+			local passName = wantPass or w.passes[1]
+			if passes[passName] == nil then
+				error(
+					`[LuauUI PerfLab] profileWindow: '{id}' declares no pass '{tostring(passName)}'. `
+						.. `Its passes: {table.concat(w.passes, ", ")}.`,
 					0
 				)
 			end
@@ -2460,31 +2526,44 @@ return {
 			steps.select(nil, `scenario={id}`)
 			mount()
 			refreshCounters()
+			-- SAY WHAT IS BEING PROFILED, LOUDLY AND ON EVERY LAP. A dump carries no
+			-- workload label, so both previous captures had to be identified by
+			-- reverse-engineering their Text-write signature. This line is what a
+			-- capture session pastes back with the dump.
+			warn(
+				`[perf lab] PROFILING workload='{id}' pass='{passName}' implementation='{tostring(
+					w.implementation or "luauui"
+				)}' `
+					.. `rows={settings.rows} theme='{tostring(settings.theme)}' viewport={(function()
+						local v = env:get("viewportRect"):get()
+						return `{math.floor(v.w)}x{math.floor(v.h)}`
+					end)()}`
+			)
 			local laps = 0
-			-- THE LOOP IS THE FEATURE. Each `run` executes the workload's own declared
-			-- pass sequence and yields inside it, so the frame loop advances and the
-			-- profiler records real frames between iterations.
-			while not emergencyStopped do
+			while not emergencyStopped and (maxLaps <= 0 or laps < maxLaps) do
 				laps += 1
-				statusLine:set(`PROFILING {id} · lap {laps} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`)
+				statusLine:set(`PROFILING {id}/{passName} · lap {laps} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`)
 				local ok, err = pcall(function()
-					steps.run()
+					passes[passName]()
 				end)
 				if not ok then
-					statusLine:set(`PROFILING {id} FAILED on lap {laps}: {tostring(err)}`)
+					statusLine:set(`PROFILING {id}/{passName} FAILED on lap {laps}: {tostring(err)}`)
 					break
 				end
 			end
 			pcall(unmount)
 			refreshCounters()
-			statusLine:set(`profileWindow stopped after {laps} lap(s) of {id}`)
+			statusLine:set(`profileWindow stopped after {laps} lap(s) of {id}/{passName}`)
 			return {
 				scenario = id,
+				pass = passName,
+				implementation = w.implementation or "luauui",
 				laps = laps,
+				maxLaps = maxLaps,
 				stopped = emergencyStopped,
-				note = "one workload on a loop, so a ~1s MicroProfiler window cannot miss it. "
-					.. "Press Stop to end. Dump: Ctrl+F6 (Cmd+F6 on macOS), Ctrl+P to pause, "
-					.. "then Dump -> Dump in binary format.",
+				note = "ONE pass on a loop, so a ~1s MicroProfiler window cannot miss it and cannot "
+					.. "drift into a later pass. Press Stop to end. Dump: Ctrl+F6 (Cmd+F6 on macOS), "
+					.. "Ctrl+P to pause, then Dump -> Dump in binary format.",
 			}
 		end
 

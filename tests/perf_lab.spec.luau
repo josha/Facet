@@ -1020,3 +1020,95 @@ describe("perf lab: installing a theme installs BOTH halves (L-26)", function()
 		expect(split).toBe(inset.y + rowsLib.controlHeight(snap) + rowsLib.COMPACT_LINE_GAP)
 	end)
 end)
+
+--[[ THE CAPTURE-AIMING GUARDS (device captures 1 and 2, 2026-08-13).
+
+	Two consecutive physical-device MicroProfiler captures recorded ZERO
+	occurrences of `measure`, `arrange`, `commit`, `mount`, `react` and `reset` —
+	the six scopes every device estimate in artifacts/performance-stress-places/
+	rests on, and the reason the 22x extrapolation in low-end-target.md is still
+	untested. Neither failure was a workload defect. Both were AIMING failures:
+
+	  capture 1: `Run all` sweeps ten workloads over tens of seconds; a dump holds
+	             ~30 frames / ~1.3s, so it sampled ~3% of the sweep and drew
+	             `dense-scroll-native`.
+	  capture 2: `profileWindow` looped `steps.run()`, which runs the workload's
+	             WHOLE declared pass list; `scrollSteady` alone is 60 steps, so the
+	             window could not escape pass #1 — and the selected workload was
+	             again the native reference, which calls no LuauUI code at all.
+
+	Nothing on screen said which implementation was mounted, so both mistakes were
+	invisible until the dump was parsed. These cases are the guards that make them
+	impossible rather than merely unlikely.
+]]
+describe("perf lab: profileWindow cannot be aimed at nothing (device captures 1 and 2)", function()
+	it("REFUSES the raw-Roblox reference unless it is asked for by name", function()
+		local built = newHarness()
+		built.steps.select(nil, "scenario=dense-scroll-native,rows=50,seed=1")
+		local ok, err = pcall(function()
+			built.steps.profileWindow(nil, nil)
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "calls NO LuauUI code") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "zero solver scopes") ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("...and the refusal names the explicit spelling that overrides it", function()
+		local built = newHarness()
+		built.steps.select(nil, "scenario=dense-scroll-native,rows=50,seed=1")
+		local _, err = pcall(function()
+			built.steps.profileWindow(nil, nil)
+		end)
+		-- the escape hatch must be in the message: profiling the native reference is
+		-- legitimate, it just has to be asked for in words
+		expect(string.find(tostring(err), "profileWindow:dense%-scroll%-native") ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("refuses a pass the workload does not declare, and lists the ones it does", function()
+		local built = newHarness()
+		local ok, err = pcall(function()
+			built.steps.profileWindow(nil, "dense-scroll:notAPass")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "declares no pass") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "scrollSteady") ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("refuses an unknown workload and lists the legal set", function()
+		local built = newHarness()
+		local ok, err = pcall(function()
+			built.steps.profileWindow(nil, "not-a-workload")
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "unknown workload") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "dense%-scroll") ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("loops ONE pass — not the workload's whole declared sequence", function()
+		-- the capture-2 defect, asserted directly: `dense-scroll` declares seven
+		-- passes, and a profiling window must contain exactly the one it was aimed
+		-- at. Stop after the first lap so this terminates.
+		local built = newHarness()
+		local ran: { string } = {}
+		local realRun = built.steps.run
+		built.steps.run = function(...)
+			table.insert(ran, "run")
+			return realRun(...)
+		end
+		-- bounded to two laps: the loop is unbounded by design (a fixed duration
+		-- re-creates the aiming problem one level down), and Lune has no `task` to
+		-- interrupt it from, so the cap is how this is assertable at all
+		local out = built.steps.profileWindow(nil, "dense-scroll:scrollSteady:2")
+		expect(out.pass).toBe("scrollSteady")
+		expect(out.scenario).toBe("dense-scroll")
+		expect(out.implementation).toBe("luauui")
+		expect(out.laps).toBe(2)
+		-- steps.run would have executed all seven passes; profileWindow must not use it
+		expect(#ran).toBe(0)
+		built.dispose()
+	end)
+end)
