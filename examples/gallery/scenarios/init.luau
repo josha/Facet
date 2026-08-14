@@ -97,6 +97,13 @@ local ORDER = {
 	-- inside the three predicates, at the instant each is asked. Also in
 	-- `demo_picker.DEMOS`.
 	"row_capabilities",
+	-- ...and rulings 1 and 5 (2026-08-13): THE TEXT DEGRADE CASCADE. Four width
+	-- stops on one row, because the feature is not any single frame — it is the
+	-- ORDER a label gives things up in (reflow, the compact form, an ellipsis, and
+	-- only then a crop), and an order needs a driver. The last stop is the one
+	-- state here that files a solver finding, deliberately, exactly as
+	-- `flow_wrap`'s "wrapping off" state does. Also in `demo_picker.DEMOS`.
+	"text_degrade",
 	-- ...and ruling 7 (2026-08-13): VARIABLE ITEM EXTENTS. A feed of 400 posts of
 	-- four different heights, with one toggle that makes the list declare a single
 	-- number for all of them — the pre-feature contract — so the defect the sweep

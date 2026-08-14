@@ -3297,3 +3297,168 @@ describe("examples/gallery fixture: lifecycle hooks and hidden", function()
 		end)
 	end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- text_degrade — the degrade cascade and the wrap rule (director rulings 1 & 5)
+-- ---------------------------------------------------------------------------
+describe("examples/gallery fixture: what a label gives up first", function()
+	local module = require("../examples/gallery/scenarios/text_degrade") :: any
+	local ROW = "/TextDegrade/Page/RowPanel/Row"
+	local WRAP_BODY = "/TextDegrade/Page/WrapPanel/WrapBody"
+
+	local function degradeWorld(view: any)
+		local w = fixtureWorld(view)
+		return w, mountFixture(w, module)
+	end
+
+	-- the fixture's own driver, so a case reads a rung by NAME rather than by a
+	-- width literal it would have to keep in step with the scenario
+	local function at(w: any, built: any, stop: string)
+		built.steps.setStop(built, stop)
+		settleFixture(w.presenter)
+	end
+
+	local function rowSpans(w: any): string
+		local row = w.adapter.node(ROW).rect
+		local out: { string } = {}
+		for _, id in { "Sort", "Rank", "Date" } do
+			local rect = w.adapter.node(`{ROW}/{id}`).rect
+			table.insert(out, `{id}:{rect.x - row.x}..{rect.x - row.x + rect.w}`)
+		end
+		return table.concat(out, " ")
+	end
+
+	it("mounts under the showcase's own chrome, and only the LAST stop files a finding", function()
+		-- the deliberate exception, and the reason it is stated as one: the
+		-- Impossible stop exists to show the clip rung, so it MUST reach the
+		-- overflow diagnostic — exactly as `flow_wrap`'s "wrapping off" state does.
+		-- Every other stop must be silent, which is what makes the last one signal.
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = degradeWorld(view)
+			for _, entry in module.stops do
+				at(w, built, entry.value)
+				local count = #built.handle.controller.diagnostics()
+				if entry.value == "impossible" then
+					expect(`{view.w}x{view.h} {entry.value} findings>0: {count > 0}`).toBe(
+						`{view.w}x{view.h} {entry.value} findings>0: true`
+					)
+				else
+					local detail = ""
+					for _, d in built.handle.controller.diagnostics() do
+						detail ..= ` [{d.node}] {string.sub(d.issue, 1, 90)}`
+					end
+					expect(`{view.w}x{view.h} {entry.value} findings: {count}{detail}`).toBe(
+						`{view.w}x{view.h} {entry.value} findings: 0`
+					)
+				end
+			end
+			expect(w.core:lastError()).toBeNil()
+			built.dispose()
+		end
+	end)
+
+	it("THE ORDER IS THE ARGUMENT: it says it shorter BEFORE anything is cut", function()
+		-- the whole fixture in one assertion, and stated as the ORDER rather than as
+		-- four width literals: literals would have to be re-tuned for every theme and
+		-- every viewport the showcase chrome hands this row, and re-tuning a literal
+		-- until it passes is how a check stops meaning anything. What the ruling
+		-- claims is a sequence, so the sequence is what is asserted.
+		--
+		-- Read off the ADAPTER: the drawn label is what a player sees, and asserting
+		-- the declaration would be emission-not-application.
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = degradeWorld(view)
+			local firstCompact, firstCut = nil, nil
+			for index, entry in module.stops do
+				at(w, built, entry.value)
+				if firstCompact == nil and w.adapter.node(`{ROW}/Sort`).props.label == module.sortCompact then
+					firstCompact = index
+				end
+				for _, id in { "Sort", "Rank", "Date" } do
+					local facts = built.handle.controller.textAt(`{ROW}/{id}`)
+					if firstCut == nil and facts ~= nil and facts.truncated == true then
+						firstCut = index
+					end
+				end
+			end
+			local label = `{view.w}x{view.h}`
+			-- both arms have to happen, or the surface never reaches the rungs it
+			-- exists to show and this case passes by demonstrating nothing
+			expect(`{label} compact={firstCompact ~= nil} cut={firstCut ~= nil}`).toBe(`{label} compact=true cut=true`)
+			-- ...and the compact form is spent STRICTLY EARLIER than the first cut,
+			-- which is the director's order: "switch to compact and THEN truncate"
+			expect(`{label} compactAt<{firstCut}: {(firstCompact :: number) < (firstCut :: number)}`).toBe(
+				`{label} compactAt<{firstCut}: true`
+			)
+			built.dispose()
+		end
+	end)
+
+	it("the widest stop gives nothing up at all, so the sequence has a top", function()
+		-- the negative control for the case above: at its first stop this row is a
+		-- plain row of labels, full strings and no compact form. Without it, a
+		-- fixture that started already degraded would satisfy every ordering claim.
+		local w, built = degradeWorld(DESKTOP)
+		at(w, built, module.stops[1].value)
+		expect(`label={w.adapter.node(`{ROW}/Sort`).props.label}`).toBe(`label={module.copy.sortLabel}`)
+		for _, id in { "Sort", "Rank", "Date" } do
+			expect(`{id} cut={built.handle.controller.textAt(`{ROW}/{id}`).truncated}`).toBe(`{id} cut=false`)
+		end
+		built.dispose()
+	end)
+
+	it("nothing ever leaves the row, at any stop, at any viewport", function()
+		-- the floor guarantee, asked of the surface rather than of the solver: this
+		-- is the claim ruling 1 exists to make true, so the demo has to carry it.
+		for _, view in { NARROW_PORTRAIT, NARROW_LANDSCAPE, DESKTOP } do
+			local w, built = degradeWorld(view)
+			for _, entry in module.stops do
+				at(w, built, entry.value)
+				local row = w.adapter.node(ROW).rect
+				for _, id in { "Sort", "Rank", "Date" } do
+					local rect = w.adapter.node(`{ROW}/{id}`).rect
+					expect(`{entry.value}@{view.w} {id} inside: {rect.x + rect.w <= row.x + row.w}`).toBe(
+						`{entry.value}@{view.w} {id} inside: true`
+					)
+				end
+			end
+			built.dispose()
+		end
+	end)
+
+	it("the lower panel is ruling 5 on its own: it wraps until it cannot, then cuts", function()
+		local w, built = degradeWorld(NARROW_PORTRAIT)
+		at(w, built, "roomy")
+		local roomy = built.handle.controller.textAt(WRAP_BODY)
+		at(w, built, "impossible")
+		local narrow = built.handle.controller.textAt(WRAP_BODY)
+		expect(`roomy wraps={roomy.wraps} cut={roomy.truncated}`).toBe("roomy wraps=true cut=false")
+		expect(`narrow wraps={narrow.wraps} lines={narrow.lines} cut={narrow.truncated}`).toBe(
+			"narrow wraps=false lines=1 cut=true"
+		)
+		built.dispose()
+	end)
+
+	it("pseudo-localized (~1.4x), the row still keeps every label inside its box", function()
+		-- the studio's standing localization rule, on the surface built to be
+		-- squeezed. The expanded strings reach the lower rungs SOONER, which is the
+		-- point: what must survive is the box, not the wrapping.
+		underPseudoLocalization(module, function()
+			for _, view in { NARROW_PORTRAIT, DESKTOP } do
+				local w, built = degradeWorld(view)
+				for _, entry in module.stops do
+					at(w, built, entry.value)
+					local row = w.adapter.node(ROW).rect
+					for _, id in { "Sort", "Rank", "Date" } do
+						local rect = w.adapter.node(`{ROW}/{id}`).rect
+						expect(`xa {entry.value}@{view.w} {id} inside: {rect.x + rect.w <= row.x + row.w}`).toBe(
+							`xa {entry.value}@{view.w} {id} inside: true`
+						)
+					end
+				end
+				expect(`spans at {view.w}: {#rowSpans(w) > 0}`).toBe(`spans at {view.w}: true`)
+				built.dispose()
+			end
+		end)
+	end)
+end)

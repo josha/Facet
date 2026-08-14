@@ -174,6 +174,16 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "row_capabilities",
 	},
+	-- ...and the ninth, for the reason every fixture above it is here: what it
+	-- shows is a SEQUENCE, and a still screenshot flattens a sequence into one
+	-- picture. Four stops, one row, and a label that gives things up in order.
+	{
+		id = "text-degrade",
+		title = "What a label gives up",
+		blurb = "Narrow one row four times: it says it shorter before anything is cut",
+		kind = "fixture",
+		module = "text_degrade",
+	},
 	-- the ninth fixture, and it is here for the reason the others are: what it
 	-- demonstrates is a DIFFERENCE between two states of the same list. One toggle
 	-- makes every row declare the same height, and the taller posts immediately
@@ -194,7 +204,7 @@ demo_picker.DEMOS = {
 	{
 		id = "sensory-feedback",
 		title = "Sensory feedback",
-		blurb = "Five identical buttons that mean different things — and one panel that speaks for three",
+		blurb = "Five identical buttons that mean different things — one panel speaks for three",
 		kind = "fixture",
 		module = "sensory_feedback",
 	},
