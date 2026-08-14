@@ -24,6 +24,7 @@ local FEEDBACK_ROUND_CAP = 100
 type Node = {
 	kind: string, -- "signal" | "memo"
 	name: string?,
+	seq: number?, -- creation order; gives flushBody a total order across nodes
 	value: any,
 	eq: (any, any) -> boolean,
 	subs: { [any]: boolean }, -- dependent memos/effects
@@ -285,6 +286,10 @@ function Custom.new()
 					collect(sub, observerQueue, effectQueue, seen)
 				end
 			end
+			-- creation order, so a flush is reproducible run to run (see nodeSeq)
+			table.sort(observerQueue, function(x: any, y: any): boolean
+				return (x.seq or 0) < (y.seq or 0)
+			end)
 			for _, node in observerQueue do
 				if node.kind == "memo" then
 					local pullOk, pullErr = pcall(pull, node)
@@ -350,6 +355,24 @@ function Custom.new()
 		return public
 	end
 
+	--[[ A TOTAL ORDER OVER A WHOLE FLUSH (RED-TEAM 2026-08-13). `notify` sorts a
+		node's observers by their own seq, which gave a total order only while every
+		consumer observed the SAME signal. Once consumers observe their own memos --
+		which is exactly what the renderer's geometry coalescing does, one memo per
+		surface -- the order across nodes is `flushBody`'s queue order, and that
+		queue is built by iterating tables keyed by node REFERENCES. Hash order is
+		not an order.
+
+		Stamping each node at creation and sorting the queue by it restores the
+		guarantee for every consumer at once, at the cost of one sort of a small
+		queue per flush. Creation order is the right key because it is the order the
+		application built things in -- surfaces re-solve in mount order. ]]
+	local nodeSeq = 0
+	local function nextNodeSeq(): number
+		nodeSeq += 1
+		return nodeSeq
+	end
+
 	core = {
 		name = "custom",
 
@@ -357,6 +380,7 @@ function Custom.new()
 			counts.signals += 1
 			local node: Node = {
 				kind = "signal",
+				seq = nextNodeSeq(),
 				value = initial,
 				eq = eq or defaultEq,
 				subs = {},
@@ -375,6 +399,7 @@ function Custom.new()
 			counts.memos += 1
 			local node: Node = {
 				kind = "memo",
+				seq = nextNodeSeq(),
 				value = nil,
 				eq = eq or defaultEq,
 				subs = {},

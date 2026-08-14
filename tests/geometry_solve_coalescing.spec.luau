@@ -204,6 +204,40 @@ describe("one geometry change is one solve", function()
 		expect(solves() - before).toBe(0)
 	end)
 
+	it("consumers on SEPARATE memos are notified in creation order", function()
+		--[[ RED-TEAM 2026-08-13. Coalescing moved each surface's solve observer off
+			the shared env signal onto its OWN memo. `notify` sorts observers by seq
+			WITHIN one node, which gave a total order only while every consumer
+			observed the same signal; `flushBody` builds its queue by iterating
+			tables keyed by node REFERENCES, and hash order is not an order. Measured
+			solve order across six surfaces varying run to run within one process.
+
+			A FIRST CUT OF THIS CASE PROVED NOTHING. It presented six surfaces and
+			compared their `onGeometry` order across three runs — and passed with the
+			sort REMOVED, because six small surfaces happened to hash stably. Twelve
+			memos do not: without the sort this reads `4,10,6,9,8,12,11,7,3,2,5,1`,
+			then `1,11,7,2,6,3,5,9,12,10,4,8`, then `4,11,1,9,7,3,2,12,6,8,5,10`.
+			That is the shape a determinism check has to have — seen to fail. ]]
+		local core = LuauUI.newCore()
+		local sig = core:signal(0)
+		local order: { number } = {}
+		for i = 1, 12 do
+			local m = core:memo(function(use)
+				return use(sig) + i
+			end)
+			core:observe(m, function()
+				table.insert(order, i)
+			end)
+		end
+		sig:set(1)
+
+		local expected = {}
+		for i = 1, 12 do
+			table.insert(expected, tostring(i))
+		end
+		expect(table.concat(order, ",")).toBe(table.concat(expected, ","))
+	end)
+
 	it("env:batch is the general mechanism", function()
 		local _core, env, pres, solves = harness(8)
 
