@@ -463,10 +463,18 @@ function dashboard.new(app: any): any
 	})
 
 	-- ---- card 4: Town Chatter (tag cloud) -----------------------------------
-	-- `Grid{ minColumnWidth = "intrinsic", itemSizing = "uniform" }` is the
-	-- DECLARED approximation of the reference's ragged flow layout (ledger §A):
-	-- uniform columns, not a wrap. It reads as a tidy cloud rather than a
-	-- ragged one, and the ledger's bounded gap #3 stays unspent.
+	--[[ BOUNDED GAP #3 IS NOW SPENT. The capability ledger nominated
+		"stack `wrap`/flow" as a candidate bounded gap, scoped to exactly this
+		cloud, "only if P2's tag cloud reads wrong as a uniform grid". It did:
+		`Grid{ minColumnWidth = "intrinsic", itemSizing = "uniform" }` was the
+		DECLARED approximation of the reference's ragged flow layout (ledger §A),
+		and it forced every chip to the WIDEST chip's width — measured 2026-08-13
+		at 1440x900, all sixteen tags came out 135x23 on a uniform 3-column pitch.
+		A tidy cloud, not a ragged one.
+
+		`wrap = true` (parity round 3) is the whole fix: each chip takes its own
+		natural width and the lines are ragged. It is a PROP on the stack the row
+		already wanted to be, so nothing else here changes. ]]
 
 	local chipChildren: { any } = {}
 	for index, tag in data.chatterTags :: any do
@@ -484,10 +492,9 @@ function dashboard.new(app: any): any
 					app.actions.selectSection("chatter")
 				end,
 			}),
-			UI.Grid({
+			UI.HStack({
 				id = "Cloud",
-				minColumnWidth = "intrinsic",
-				itemSizing = "uniform",
+				wrap = true,
 				gap = "xs",
 				children = chipChildren,
 			}),

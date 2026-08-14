@@ -279,6 +279,9 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 													UI.HStack({
 														id = "Footer",
 														gap = "m",
+														-- same story as the section Header: primary leading,
+														-- dismiss trailing, said once on the row
+														distribute = "spaceBetween",
 														children = {
 															UI.Button({
 																id = "Visit",
@@ -289,7 +292,6 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 																	services.visit(tile.id)
 																end,
 															}),
-															UI.Spacer({}),
 															UI.Button({
 																id = "Close",
 																label = Lnow("close.label"),
@@ -347,14 +349,6 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		if approval.dispose ~= nil then
 			itemScope:own(approval.dispose)
 		end
-		local approvalB = LuauUI.newLabel(LuauUI, core, {
-			id = "ApprovalB",
-			title = tile.approval .. "%",
-			icon = "foyer:approval",
-		})
-		if approvalB.dispose ~= nil then
-			itemScope:own(approvalB.dispose)
-		end
 		return UI.Button({
 			id = tile.id,
 			label = tile.title,
@@ -377,56 +371,48 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 							{ type = "aspect", ratio = 16 / 9 }
 						),
 						UI.Text({ id = "Title", text = tile.title, textSize = "label", lineLimit = 2 }),
-						-- row when it fits, column at large type (large-text axis
-						-- 2026-08-08: approval + Sponsored overflowed the cell by
-						-- 9-14px at preference +14 — reflow, never squeeze)
-						UI.ViewThatFits({
+						--[[ THIS WAS A TWO-RUNG `ViewThatFits`: `MetaRow` (approval + a
+							trailing Sponsored chip) with `MetaColumn` (the same two, stacked)
+							behind it, because at preference +14 the pair overflowed the cell
+							by 9-14px (large-text axis, 2026-08-08). The comment it carried
+							said "REFLOW, NEVER SQUEEZE" — which is the definition of a flow
+							wrap, hand-built out of the only parts that existed then.
+
+							`wrap = true` (parity round 3) is that intent as one prop, and the
+							ladder's cost goes with it: the column rung needed its OWN
+							`newLabel` (`ApprovalB`, a second disposable control per tile) and
+							its own `When`/`ChipB`, so every tile paid for two of everything
+							and `Approval` was published at two paths, one of them always at a
+							zero rect. One wrapping row, one label, one path each.
+
+							THE `Spacer` WENT TOO, and had to: a `fill` main-axis child takes
+							a whole line to itself in a wrapping stack, which the framework
+							reports rather than silently doing. `distribute = "spaceBetween"`
+							is the container-level word for what the Spacer was doing, and it
+							acts PER LINE — so the chip is pushed to the trailing edge while
+							the two share a line, and sits at the start of its own line once
+							they do not. ]]
+						UI.HStack({
 							id = "MetaFits",
+							wrap = true,
+							gap = "xs",
+							distribute = "spaceBetween",
 							children = {
-								UI.HStack({
-									id = "MetaRow",
-									gap = "xs",
-									children = {
-										approval.blueprint,
-										UI.Spacer({}),
-										UI.When({
-											id = "Sponsored",
-											condition = core:memo(function()
-												return tile.sponsored
-											end),
-											thenView = function()
-												return UI.Text({
-													id = "Chip",
-													surface = "chip",
-													text = L("chip.sponsored"),
-													textSize = "caption",
-													role = "secondary",
-												})
-											end,
-										}),
-									},
-								}),
-								UI.VStack({
-									id = "MetaColumn",
-									gap = "xs",
-									children = {
-										approvalB.blueprint,
-										UI.When({
-											id = "SponsoredB",
-											condition = core:memo(function()
-												return tile.sponsored
-											end),
-											thenView = function()
-												return UI.Text({
-													id = "ChipB",
-													surface = "chip",
-													text = L("chip.sponsored"),
-													textSize = "caption",
-													role = "secondary",
-												})
-											end,
-										}),
-									},
+								approval.blueprint,
+								UI.When({
+									id = "Sponsored",
+									condition = core:memo(function()
+										return tile.sponsored
+									end),
+									thenView = function()
+										return UI.Text({
+											id = "Chip",
+											surface = "chip",
+											text = L("chip.sponsored"),
+											textSize = "caption",
+											role = "secondary",
+										})
+									end,
 								}),
 							},
 						}),
@@ -441,9 +427,13 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		local header = UI.HStack({
 			id = "Header",
 			gap = "s",
+			-- `distribute` (parity round 2), not the `UI.Spacer({})` that used to sit
+			-- between these two: title leading, action trailing is a property OF THE
+			-- ROW, and saying it on the container survives a child appearing or
+			-- disappearing, which a hand-placed separator does not
+			distribute = "spaceBetween",
 			children = {
 				UI.Text({ id = "Title", text = L(section.titleKey), textSize = "heading" }),
-				UI.Spacer({}),
 				UI.Button({
 					id = "SeeAll",
 					label = Lnow("section.seeAll", Lnow(section.titleKey)),
@@ -992,10 +982,28 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		gap = "m",
 		padding = "s",
 		children = {
+			--[[ NO SHRINK PAIR HERE, AND THE MEASUREMENT IS WHY. This row reports
+				"content overflows this hstack by 46px on the main axis" on
+				`controller.diagnostics()` at 390x844 with `preferredTextSize` raised to
+				+4 and +14 — the phone, at two of the four shipping text offsets. (The
+				proof's five-view sweep raises `displaySize`, never `preferredTextSize`,
+				which is why it never said so; the sweep now covers the offsets.)
+
+				Round 2's `layoutPriority`/`shrinkWeight` LOOK like the answer and are
+				not. Tried 2026-08-13 (`Brand` tier 0 weight 1, `SearchSlot` tier 1);
+				the overflow stayed at exactly 46px and the framework said why:
+				"every shrinkable child is already at its floor (layoutPriority order
+				tried: 0)". A text node's shrink floor is ITS LONGEST WORD, and the
+				brand is the single word "Foyer" — which measures 224px at title+4, so
+				there is nothing for a weight to give. The prop was deleted rather than
+				left in place looking like a fix. Recorded as a gap in the round-3
+				adoption ledger: no vocabulary lets a one-word label truncate BELOW its
+				longest word, so a hand-chosen `minMax` cap is still the only lever. ]]
 			UI.Text({ id = "Brand", text = L("app.name"), textSize = "title" }),
 			UI.ViewThatFits({
 				id = "SearchSlot",
 				width = { type = "fill", weight = 1 },
+				layoutPriority = 1,
 				children = {
 					UI.HStack({
 						id = "FieldForm",

@@ -62,7 +62,7 @@ E3 citation at close. This is not a score and must not be summed.
 | 3D card flip (Fruta flip, perspective) | no host equivalent (perspective) / composable (approximation) | Roblox 2D GUI has no perspective transform; a width-collapse flip (scale-X through zero via motion) is the declared approximation |
 | UI-over-UI blur / vibrancy materials (Fruta materials) | no host equivalent | Roblox cannot blur UI behind UI (`BlurEffect` is 3D-only). Adaptation: translucent theme surfaces + scrims |
 | Custom `Layout` protocol conformances (FT diagonal stack, hero tiling, lattice, flow) | composable | `Anchor` fractional offsets (diagonal stack, staggered lattice), `Composition` (hero+tiles), `Grid` (tag cloud). A general author-defined layout protocol is deliberately absent (constitution); if a proof cannot express one of these with public primitives, that becomes a named finding, never a local layout engine |
-| Wrapping tag cloud (FT `FlowLayout`) | composable (approximation) | `Grid{minColumnWidth="intrinsic"}` — uniform columns, not ragged flow. If the ragged-flow reading is essential, candidate *bounded* gap (`wrap` on stacks); decided by the proof, not assumed |
+| Wrapping tag cloud (FT `FlowLayout`) | **available** (was: composable approximation) | **`UI.HStack{ wrap = true }`** — real ragged flow, shipped parity round 3. The proof decided it, as this row required: `Grid{minColumnWidth="intrinsic", itemSizing="uniform"}` measured all sixteen of P2's tags at an identical 135x23 (1440x900, 2026-08-13), i.e. it *did* read wrong as a uniform grid. Now 83/68/135/105/113… on ragged lines. See the round-3 adoption ledger |
 | Live 3D content in a UI box (avatar preview; FT city orbit hero) | framework gap (bounded) | **new engine-content leaf backed by `ViewportFrame`** via the new-engine-feature playbook: LuauUI owns the box, lifecycle, style chrome, capability fallback; the proof owns camera/rig/content through a handle. E2 probe + E3 slice required |
 | Charts — bars (FT top-five) | composable | `Grid`/`HStack` of `Box` columns + value badges; image-under-axis labels are plain cells |
 | Charts — multi-series lines (FT sales history) | composable | `UI.Path` per series (≤100 pts each), legend chips |
@@ -178,6 +178,9 @@ E3 citation at close. This is not a score and must not be summed.
   (required: P5, used by P2 city hero); **(2) masked/secure text entry**
   (P2 sign-up; engine `TextBox` capability must be probed first — may resolve to
   "engine makes it hard → recorded gap, unmasked field + disclosure in proof");
-  **(3) stack `wrap`/flow** (only if P2's tag cloud reads wrong as a uniform
-  grid). Everything else listed as *proposal* ships as a follow-on document,
-  not code.
+  ~~**(3) stack `wrap`/flow** (only if P2's tag cloud reads wrong as a uniform
+  grid)~~ — **SPENT, parity round 3 (2026-08-13).** The condition was met and
+  measured (P2's cloud, legend and post tags all came out one uniform width),
+  and `wrap = true` landed as a prop on `VStack`/`HStack`. Adopted in P2 (four
+  rows), P4 (the tile meta ladder) and P5 (the worn-chips column). Everything
+  else listed as *proposal* ships as a follow-on document, not code.

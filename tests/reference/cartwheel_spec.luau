@@ -1204,3 +1204,155 @@ describe("Cartwheel — reduced motion", function()
 		end
 	end)
 end)
+
+describe("Cartwheel — the rows that WRAP (parity round 3)", function()
+	-- WHY THESE CASES EXIST, AND WHY THEY ASSERT RECTS RATHER THAN PRESENCE.
+	-- Four rows here used to be hand-built approximations of a ragged flow: three
+	-- were `Grid{ minColumnWidth = "intrinsic", itemSizing = "uniform" }` (uniform
+	-- columns wearing a cloud's clothes) and one was a three-rung `ViewThatFits`
+	-- ladder that DROPPED chips to fit. `HStack{ wrap = true }` replaced all four.
+	--
+	-- A presence assertion cannot guard any of that. The ladder mounted its losers
+	-- at a ZERO RECT, so "a node named Charge carries this text" was satisfied by a
+	-- node the player could not see — the same way `06_tile_game`'s readouts moved
+	-- off their published paths past a green suite. So every case below reads
+	-- `screenRectOf` and insists on a NON-ZERO rect at a NAMED path.
+	local function worldAt(w: number, h: number, section: string)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new();
+		(adapter :: any).scrollBarThickness = 8
+		local presenter = LuauUI.newPresenter(core, env, adapter, system, { keyboardNavigation = true })
+		local built = proof.build(LuauUI, core, {
+			env = env,
+			actionSystem = system,
+			presenter = presenter,
+			adapter = adapter,
+			section = section,
+		})
+		presenter.refresh()
+		return built, adapter
+	end
+
+	-- every path whose tail matches, with its solved rect — the fixture's own view
+	-- of what the player can actually see
+	local function rectsUnder(built: any, adapter: any, needle: string): { [string]: any }
+		local out: { [string]: any } = {}
+		for _, path in adapter.paths() do
+			if string.find(path, needle, 1, true) ~= nil then
+				out[path] = built.handle.controller.screenRectOf(path)
+			end
+		end
+		return out
+	end
+
+	local function countKeys(map: { [string]: any }): number
+		local n = 0
+		for _ in map do
+			n += 1
+		end
+		return n
+	end
+
+	it("THE PLAZA SUMMARY IS ONE ROW: each chip at ONE path, none at a zero rect", function()
+		local built, adapter = worldAt(1440, 900, "plaza:willowmere")
+		-- the ladder's rungs are GONE. Before this change `Charge` existed three
+		-- times (`Summary/Full`, `Summary/Two`, `Summary/One`) and the last two were
+		-- measured at 8x0 on every viewport this section is reachable on.
+		expect(countKeys(rectsUnder(built, adapter, "Summary/Full"))).toBe(0)
+		expect(countKeys(rectsUnder(built, adapter, "Summary/Two"))).toBe(0)
+		expect(countKeys(rectsUnder(built, adapter, "Summary/One"))).toBe(0)
+
+		local widths: { number } = {}
+		for _, id in { "Charge", "Popular", "Trending" } do
+			local found = rectsUnder(built, adapter, "Pitch/Summary/" .. id)
+			-- EXACTLY ONE path per chip: a second one is the duplication defect back
+			expect(countKeys(found)).toBe(1)
+			for path, rect in found do
+				expect(rect ~= nil).toBe(true)
+				if rect.w <= 0 or rect.h <= 0 then
+					error(`{path} solved to {rect.w}x{rect.h} — a chip nobody can see`, 2)
+				end
+				table.insert(widths, rect.w)
+			end
+		end
+		-- RAGGED, not uniform: a grid would have handed all three the widest width
+		expect(widths[1] ~= widths[2] or widths[2] ~= widths[3]).toBe(true)
+		built.dispose()
+	end)
+
+	it("THE TAG CLOUD IS RAGGED AND MULTI-LINE, where a uniform grid gave one width", function()
+		local built, adapter = worldAt(1440, 900, "cart")
+		local found = rectsUnder(built, adapter, "ChatterCard/Cloud/Tag")
+		expect(countKeys(found) >= 12).toBe(true)
+
+		local widths: { [number]: boolean } = {}
+		local lines: { [number]: boolean } = {}
+		for path, rect in found do
+			expect(rect ~= nil).toBe(true)
+			if rect.w <= 0 or rect.h <= 0 then
+				error(`{path} solved to {rect.w}x{rect.h}`, 2)
+			end
+			widths[rect.w] = true
+			lines[rect.y] = true
+		end
+		-- THE WHOLE POINT. `Grid{ intrinsic, uniform }` measured every one of these
+		-- sixteen tags at 135x23 — one width, because a uniform column takes the
+		-- widest child's measure. A flow gives each tag its own.
+		local distinctWidths = countKeys(widths :: any)
+		if distinctWidths < 4 then
+			error(
+				`the cloud has only {distinctWidths} distinct chip width(s) — that is a uniform grid, not a flow`,
+				2
+			)
+		end
+		-- and it really WRAPPED: more than one line of chips
+		expect(countKeys(lines :: any) > 1).toBe(true)
+		built.dispose()
+	end)
+
+	it("A POST'S TAGS AND THE CHART LEGEND KEEP THEIR OWN WIDTHS", function()
+		-- both were uniform grids too: a post's two tags came out the same width as
+		-- each other (105/105, 113/113, 83/83 ... across the six seeded posts) and
+		-- the three legend chips all took the widest plaza name's width
+		local built, adapter = worldAt(1440, 900, "chatter")
+		local raggedPosts = 0
+		for index = 1, 6 do
+			local pair = rectsUnder(built, adapter, `Post_c{index}/Body/Tags/Tag`)
+			expect(countKeys(pair)).toBe(2)
+			local seen: { number } = {}
+			for path, rect in pair do
+				if rect == nil or rect.w <= 0 or rect.h <= 0 then
+					error(`{path} is not visible`, 2)
+				end
+				table.insert(seen, rect.w)
+			end
+			if seen[1] ~= seen[2] then
+				raggedPosts += 1
+			end
+		end
+		-- a uniform grid would make this zero
+		expect(raggedPosts >= 4).toBe(true)
+		built.dispose()
+
+		local ledger, ledgerAdapter = worldAt(1440, 900, "ledger")
+		local legend = rectsUnder(ledger, ledgerAdapter, "PlotHost/Legend/Legend")
+		expect(countKeys(legend)).toBe(3)
+		local sameLine: { [number]: boolean } = {}
+		local legendWidths: { [number]: boolean } = {}
+		for path, rect in legend do
+			if rect == nil or rect.w <= 0 or rect.h <= 0 then
+				error(`{path} is not visible`, 2)
+			end
+			sameLine[rect.y] = true
+			legendWidths[rect.w] = true
+		end
+		-- three ragged chips fit on ONE line; three uniform ones needed two rows and
+		-- left a dead cell
+		expect(countKeys(sameLine :: any)).toBe(1)
+		expect(countKeys(legendWidths :: any) > 1).toBe(true)
+		ledger.dispose()
+	end)
+end)

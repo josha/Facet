@@ -1147,3 +1147,226 @@ plus `games/RascalRally/code/tests/luauui_flow_wrap_contract.spec.luau` (8 cases
    `examples/performance/lab/perf_lab.luau` (the orchestrator's file). Both were
    green again by the final run. Named here so the transcript is not mistaken for
    a flow-wrap regression.
+
+---
+
+# Item D3 — the five clean-room reference apps, re-proved
+
+**Closed 2026-08-13.** `examples/reference/p1_glade`, `p2_cartwheel`,
+`p3_sipworks`, `p4_foyer`, `p5_wardrobe`. Suites **4725 → 4734** (LuauUI) and
+**3149 → 3149** (Rascal Rally, untouched by this item). Nine new cases, every one
+mutation-proved. Five places rebuilt.
+
+## The headline, before the diff
+
+**Round 2's vocabulary had a zero-percent adoption rate in these five apps.** A
+grep across all five trees before this session found no `withAnimation`, no
+`distribute`, no `containerRelativeFrame`, no `layoutPriority`, no
+`shrinkWeight`, no `sensoryFeedback`, no `GridRow`/`gridSpan`, no `Table`
+`onPrimaryAction`, no `newVirtualList`, and no swipe actions. Round 2's commit
+`a42ef97` did touch these apps — but only to *delete* no-op alignment props in
+the §2.1 placement audit. Not one round-2 API was ever adopted here.
+
+That is not a failure of round 2's APIs; it is what "the apps are only re-proved
+when someone re-proves them" looks like. It is also why D3 was worth doing: three
+of this session's strongest findings were sitting in prose comments the original
+authors wrote, describing intents the framework had since grown a word for.
+
+## Adoption ledger
+
+Legend: **U** = found unaided from `docs/guide/**` + `docs/reference/api.md`;
+**T** = found only after being told (a documentation defect); **A** = wanted and
+absent.
+
+### p2_cartwheel — 4 adoptions, all `wrap`
+
+| Capability | Verdict | Site | Evidence |
+|---|---|---|---|
+| `HStack{ wrap = true }` | **U** | `screens/dashboard.luau` tag cloud | **This spends bounded gap #3.** The capability ledger nominated "stack `wrap`/flow" as a candidate bounded gap in round 1, scoped precisely — *"only if P2's tag cloud reads wrong as a uniform grid"* — and the source comment recorded it as unspent. It read wrong: `Grid{ minColumnWidth = "intrinsic", itemSizing = "uniform" }` measured **all sixteen tags at an identical 135x23** on a 3-column pitch. Now 83/68/135/105/113 … ragged, on 3 lines. |
+| `HStack{ wrap = true }` | **U** | `screens/ledger.luau` chart legend | Three plaza-name chips, all forced to 135x23 across **two** rows with a dead third cell. Now 113/135/113 on **one** line. |
+| `HStack{ wrap = true }` | **U** | `screens/chatter.luau` post tags | Every post's two tags came out the same width as each other (105/105, 113/113, 83/83, 135/135, 90/90, 105/105 across the six seeded posts). Now ragged in 5 of 6. |
+| `HStack{ wrap = true }` | **U** | `screens/plaza.luau` summary — **a `ViewThatFits` ladder deleted** | See "the trap, found live" below. |
+
+### p4_foyer — 3 adoptions
+
+| Capability | Verdict | Site | Evidence |
+|---|---|---|---|
+| `HStack{ wrap = true }` | **U** | `MetaFits`, the tile meta row | **The strongest single proof in the set.** The ladder's own comment read *"reflow, never squeeze"* — which is the definition of a flow wrap, written in prose by an author who had no word for it and built a two-rung `ViewThatFits` instead. Verified at `preferredTextSize` +14: `Approval` @ y1872, `Chip` @ y1934 — a genuine second line, from one node set. |
+| `distribute = "spaceBetween"` | **U** | `MetaFits` (per line), section `Header`, detail `Footer` | Replaces three hand-placed `UI.Spacer({})`. It also *had* to replace the one inside `MetaFits`: a `fill` main-axis child takes a whole line to itself in a wrapping stack, which api.md states and the framework reports. |
+| `layoutPriority` × `shrinkWeight` | **A** | `TopBar` | Tried and **reverted**. See "the gap this session actually hit". |
+
+### p5_wardrobe — 2 adoptions
+
+| Capability | Verdict | Site | Evidence |
+|---|---|---|---|
+| `HStack{ wrap = true }` | **U** | `WornRow`, the stage-fallback worn chips | A bare `ForEach` under a `VStack` gave **every worn piece its own line**: five equipped categories measured at y = 93, 116, 139, 162, 185 — a 115px column of short words on a plate already competing with the preview pane for height. Now all five at y = 93, one line, 15px. |
+| `distribute = "center"` | **U** | same | And this is the case that *could not be hand-built*: a `ForEach` row returns exactly one blueprint, so no `Spacer` could ever be interleaved, and the chip count follows what the player is wearing. api.md says this explicitly under `distribute`, and it is why the prop exists. |
+
+### p1_glade, p3_sipworks — deliberately unchanged
+
+Surveyed in full; **no change shipped, with reasons**. This is a legitimate
+outcome and the reasons are the finding:
+
+- **Neither app contains a chip/tag/badge cloud at all.** Every `parts.chip` call
+  site in p1 is a lone child of a `VStack`; p3's three `surface = "chip"` nodes
+  are full-width or toast chips. There is nothing for `wrap` to claim.
+- **Both apps' `Grid` sites are legitimately uniform.** `p3_sipworks` `Tiles`
+  (`views/detail.luau:225`) is a grid of 96px *art plates* under centred labels —
+  `intrinsic` + `uniform` is exactly the contract that keeps the plates aligned
+  across rows, and the existing comment explains why a px literal was worse. Same
+  for `rewards.luau` `Seals` (a 2×5 stamp card, `columns = 5`), and for p1's
+  `Cards`/`WispCards`/`FloraCards`, all of which use a numeric `minColumnWidth`.
+  A ragged wrap would **break** all five.
+- **`percent` is justified in p3 and `containerRelativeFrame` would be wrong.**
+  Two of the uses *are* the flip animation (`views/parts.luau`), one is
+  necessarily parent-relative against a collapsing face, and every capped card box
+  uses `percentMax` — for which `containerRelativeFrame` has no equivalent (see
+  the gap list). Only `views/shell.luau:417` is a clean crf candidate, and it is
+  low value.
+
+## The trap, found live — and it was worse than the precedent
+
+The brief warned about `06_tile_game`: a `ViewThatFits` ladder wrote its readouts
+twice, moving them off their published paths past a green suite, because a losing
+candidate satisfies a presence assertion **at a deliberate zero rect**.
+
+`p2_cartwheel`'s plaza summary was the same defect, and measurably worse:
+
+- `Charge` existed at **three** published paths (`Summary/Full/Charge`,
+  `Summary/Two/Charge`, `Summary/One/Charge`);
+- the two losers measured **8x0 at 733x313, 1024x768 and 1440x900** — *every*
+  viewport this section is reachable on. **The ladder never once chose them.**
+  They were pure dead weight for the whole life of the app;
+- and the ladder's purpose was to **drop facts**: narrowing the card deleted
+  "Trending", then "Popular". A summary chip is a fact about the plaza. The honest
+  narrow form is the same three chips on two lines.
+
+`p4_foyer` carried the identical shape at a higher price: the losing `MetaColumn`
+rung needed its **own `newLabel` control** (`ApprovalB`, a second disposable per
+tile) plus its own `When`/`ChipB`.
+
+**Every case added here reads `screenRectOf` and insists on a non-zero rect at a
+named path.** A presence assertion would have passed with either ladder intact.
+
+Node count, p4_foyer, 1400x900: **601 → 454 (−24.5%)**, and **24 mounted
+`Spacer` instances → 0**.
+
+## The `align` double-read (a real trap when a ladder comes out)
+
+Promoting a ladder's inner `align = "center"` onto the wrapping container that
+replaces it **moves pixels**. On a wrapping stack `align` places the *block of
+lines* on the cross axis, and the parent *also* reads a child's own `align` as
+that child's cross placement. Keeping it slid the plaza summary 80px right, off
+the card's leading edge (x 270 → 350, measured 1440x900). It was a no-op on the
+ladder's inner row (chips are one height) and load-bearing twice once promoted.
+
+api.md's wrap table does document both readings; it does not warn that migrating
+a ladder is where they collide. Suggested one-line addition under the table —
+**for agent A, whose file this is**:
+
+> When a `ViewThatFits` ladder is replaced by `wrap = true`, do not carry the
+> losing rung's `align` up onto the container: on the inner row it was cross-axis
+> only, but on the container the PARENT reads it too.
+
+## The gap this session actually hit
+
+**A text node cannot be told to yield below its longest word**, so
+`layoutPriority`/`shrinkWeight` cannot rescue a row whose deficit sits in a
+single-word label.
+
+`p4_foyer`'s `TopBar` reports *"content overflows this hstack by 46px on the main
+axis"* at 390x844 with `preferredTextSize` at **+4 and +14** — the phone, at two
+of the four shipping text offsets. It is a **pre-existing defect**, not a
+regression (verified by stashing every edit; the diagnostics are byte-identical),
+and it was invisible because the proof's five-view sweep raises `displaySize` and
+**never `preferredTextSize`**.
+
+The round-2 shrink pair looks like the answer and is not. Applied
+(`Brand` tier 0 weight 1, `SearchSlot` tier 1) the overflow stayed at **exactly
+46px**, and the framework said why — a genuinely excellent diagnostic:
+
+> every shrinkable child is already at its floor (layoutPriority order tried: 0)
+
+A text node's shrink floor is its longest word; the brand is the single word
+"Foyer", which measures **224px at title+4**. There is nothing for a weight to
+give. The props were **deleted rather than left in place looking like a fix**, and
+the measurement is recorded in the source at the site.
+
+The lever that would close it does not exist in any round: something like a
+`truncatesBelowFloor` / explicit shrink floor on `Text`. Today the only tool is a
+hand-chosen `minMax` cap — exactly the kind of magic number the shrink pair was
+introduced to retire. **Cross-checked against
+`parity-completeness-audit-2026-08-13.md`: this is not among its 39.**
+
+## Documentation defects found
+
+1. **`rowSelectable` / `rowMovable` / `rowDeletable` — shipped this round, and
+   `docs/reference/api.md` has ZERO occurrences of all three.** Nothing in
+   `docs/guide/**` either. Undiscoverable by any means short of reading `src`.
+   *(agent A's file — reported, not edited.)*
+2. **Seven round-2/3 APIs appear in `api.md` but in no guide file at all**:
+   `containerRelativeFrame`, `shrinkWeight`, `layoutPriority`, `sensoryFeedback`,
+   `withAnimation`, `GridRow`, `gridSpan`. `distribute` reaches the guide only in
+   `01-concepts.md`. An author working the way these apps were authored reads the
+   guide first; every one of these is reachable only by already knowing its name.
+3. The `align` migration note above.
+
+`wrap` itself is the counter-example and the reason all seven adoptions here are
+**U**: its api.md entry is the second paragraph of the `VStack`/`HStack` section,
+states the four rules worth knowing before you reach them, and includes the table
+that resolves `align` vs `lineAlign` vs `distribute`.
+
+## Findings recorded but NOT acted on
+
+Surfaced by full reads of all five apps; each is a real shape, none was shipped
+because none could be proved as cleanly as the seven above inside this item.
+
+1. **The duplicated-readout ladder is systemic.** Seven further `ViewThatFits`
+   ladders re-emit the same ids in more than one candidate:
+   `p1_glade/init.luau:865`, `:895`, `p1_glade/ui/overview.luau:303`,
+   `p3_sipworks/views/detail.luau:140`, `views/shell.luau:139`, `:162`, `:191`.
+   Both apps' scenario runners address nodes by id-path tail, so the drift is
+   load-bearing. **Recommend a dedicated follow-on**; it is bigger than D3.
+2. **Three of those seven are not content step-downs at all** —
+   `p1_glade/init.luau:895` and `p3_sipworks/views/shell.luau:139`, `:162` pass
+   `short = true` on *both* rungs: identical labels, identical ids, differing only
+   in `hug` vs `fill`. That is a distribution choice spelled as a remount.
+   **Deliberately left alone**: these are the HIG tab-bar ladders and the
+   hug-caps-the-offer construction was hard-won. Any change needs its own round.
+3. **Indeterminate circular progress has ~10 genuine sites and zero adoptions.**
+   Every "working" state in all five apps is a text swap — "Visiting…",
+   "Confirming…", "Placing…", "Unlocking…", "Working…" — usually paired with a
+   disabled control. Two are stronger still: `p4_foyer`'s `Refresh` and
+   `p5_wardrobe`'s per-card pending render an observable pending window as *pure
+   absence of interactivity*, with no visible token at all. Not shipped here
+   because adding a spinner to a proof is a **design** decision (where it sits
+   relative to the label, whether every card gets one), not an API swap — and the
+   `xa` label-swap width jump it would remove deserves its own measurement.
+4. **`p5_wardrobe:257` is a false positive for `distribute`** and is worth
+   recording as such: the modal footer is `Confirm`, `Cancel`, `Spacer`, `Close` —
+   a 2-and-1 split. `spaceBetween` would push `Confirm` and `Cancel` apart from
+   each other too. The existing `Spacer` is the simpler correct code.
+5. **`p1_glade/ui/detail.luau:87` and `p3_sipworks/views/book.luau:317`** carry
+   their own diagnosis in comments (*"none of them yields — so the gaps are the
+   only slack there is"*) and are the clearest remaining
+   `layoutPriority`+`shrinkWeight` sites. Unlike p4's `TopBar` these have real
+   multi-word children with somewhere to go.
+
+## Method note, stated honestly
+
+Each app was worked from `docs/guide/**` and `docs/reference/api.md`, never from
+`src/`. The two full-app *surveys* were delegated, and those subagents did read
+`src/blueprint_schema.luau` and `src/blueprint.luau` to check spellings. They
+located and judged shapes; every adoption decision, measurement and doc verdict
+above is from the public docs. The **U** verdicts were additionally probed
+mechanically: for each capability, the term an author would search for was run
+against `docs/guide/**` and `api.md`, and the results are what defect (2) reports.
+
+## What shipped
+
+- `examples/reference/p2_cartwheel/screens/{dashboard,ledger,chatter,plaza}.luau`
+- `examples/reference/p4_foyer/init.luau`
+- `examples/reference/p5_wardrobe/init.luau`
+- `tests/reference/{cartwheel,foyer,wardrobe}_spec.luau` — 9 cases, 11 mutations
+- `artifacts/swiftui-reference-app-validation/capability-ledger.md` — gap #3 spent
+- all five `examples/places/LuauUI-Ref-*.rbxl` rebuilt

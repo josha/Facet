@@ -86,10 +86,14 @@ function chatter.new(app: any): any
 							lineLimit = 3,
 							disclose = true,
 						}),
-						UI.Grid({
+						-- ragged, not uniform: a post's tags are words of different
+						-- lengths, and the uniform grid this used to be padded both of
+						-- them out to the wider one (measured 105/105, 113/113, 83/83 ...
+						-- across the six seeded posts). `wrap = true` also means a third
+						-- tag would drop to a second line instead of squeezing the row.
+						UI.HStack({
 							id = "Tags",
-							minColumnWidth = "intrinsic",
-							itemSizing = "uniform",
+							wrap = true,
 							gap = "xs",
 							children = tags,
 						}),

@@ -217,37 +217,43 @@ function plaza.new(app: any): any
 						textSize = "caption",
 						role = "secondary",
 					}),
-					-- three candidate summaries, richest first: the framework
-					-- measures and picks, and the losers stay mounted but leave
-					-- the focus ring
-					UI.ViewThatFits({
+					--[[ THIS WAS A `ViewThatFits` LADDER: three candidate summaries,
+						richest first (Full = 3 chips, Two = 2, One = 1), and the framework
+						measured and picked. Two things were wrong with it, and
+						`HStack{ wrap = true }` (parity round 3) fixes both.
+
+						(1) IT DROPPED FACTS TO FIT. Narrowing the card deleted "Trending",
+						then "Popular". A summary chip is a fact ABOUT THE PLAZA, not chrome
+						— the honest narrow form is the same three chips on two lines, which
+						is exactly what a wrap gives.
+
+						(2) IT WROTE THE CHIPS THREE TIMES, so `Charge` existed at THREE
+						published paths and the two losers sat permanently at a ZERO rect.
+						MEASURED 2026-08-13 before deleting: `Summary/Two/Charge` and
+						`Summary/One/Charge` were both 8x0 at 733x313, 1024x768 and
+						1440x900 — every viewport this section is reachable on. The ladder
+						NEVER ONCE chose them, so they were dead weight and a trap besides:
+						a fixture asserting "a node named Charge carries this text" is
+						satisfied by a loser at h=0, which is exactly how `06_tile_game`'s
+						readouts moved off their published paths past a green suite. One
+						wrapping row publishes each chip at ONE path.
+
+					NO `align` HERE, THOUGH THE LADDER'S CANDIDATES ALL CARRIED
+						`align = "center"`. On the inner candidate it was a no-op (chips are
+						one height). Promoted onto the container the ladder used to be, it
+						becomes load-bearing TWICE: it places the block of lines on the
+						wrap's cross axis, AND the parent `Pitch` VStack reads a child's own
+						`align` as that child's cross placement — so keeping it slid the
+						whole row 80px right, off the card's leading edge (measured
+						1440x900: x 270 -> 350). Dropped, and the row stays where it was. ]]
+					UI.HStack({
 						id = "Summary",
+						wrap = true,
+						gap = "xs",
 						children = {
-							UI.HStack({
-								id = "Full",
-								gap = "xs",
-								align = "center",
-								children = {
-									parts.chip(app, "Charge", chargeText),
-									parts.chip(app, "Popular", S.t("plaza.popular")),
-									parts.chip(app, "Trending", S.t("plaza.trending")),
-								},
-							}),
-							UI.HStack({
-								id = "Two",
-								gap = "xs",
-								align = "center",
-								children = {
-									parts.chip(app, "Charge", chargeText),
-									parts.chip(app, "Popular", S.t("plaza.popular")),
-								},
-							}),
-							UI.HStack({
-								id = "One",
-								gap = "xs",
-								align = "center",
-								children = { parts.chip(app, "Charge", chargeText) },
-							}),
+							parts.chip(app, "Charge", chargeText),
+							parts.chip(app, "Popular", S.t("plaza.popular")),
+							parts.chip(app, "Trending", S.t("plaza.trending")),
 						},
 					}),
 				},

@@ -326,10 +326,13 @@ function ledger.new(app: any): any
 						width = { type = "fill", weight = 1 },
 						children = {
 							plot,
-							UI.Grid({
+							-- a chart legend is plaza NAMES, so its chips are ragged by
+							-- nature; the uniform grid this used to be gave all three the
+							-- widest name's width (135x23 each, measured 1440x900) and left
+							-- a dead third cell on the second row
+							UI.HStack({
 								id = "Legend",
-								minColumnWidth = "intrinsic",
-								itemSizing = "uniform",
+								wrap = true,
 								gap = "xs",
 								children = legendChips,
 							}),

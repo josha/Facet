@@ -660,3 +660,149 @@ describe("Foyer proof — notices, locale, images, determinism", function()
 		expect(w.core:lastError()).toBeNil()
 	end)
 end)
+
+describe("Foyer — the tile meta row WRAPS where it used to ladder (parity round 3)", function()
+	-- WHAT CHANGED AND WHY IT NEEDED THESE CASES. The tile card's meta line was a
+	-- two-rung `ViewThatFits`: `MetaRow` (approval + a trailing Sponsored chip)
+	-- with `MetaColumn` (the same two, stacked) behind it, because at a raised text
+	-- preference the pair overflowed the cell. The comment on it read "REFLOW,
+	-- NEVER SQUEEZE" — a flow wrap, described in prose and hand-built out of a
+	-- ladder. It cost a SECOND `newLabel` control per tile (`ApprovalB`) and a
+	-- second `When`/`ChipB`, and it published `Approval` at two paths.
+	--
+	-- `HStack{ wrap = true, distribute = "spaceBetween" }` is the same intent as
+	-- two props, so these cases pin BOTH ends of the behaviour the ladder gave:
+	-- one line with the chip pushed trailing when it fits, two lines when it does
+	-- not — and they read rects, never mere presence, because the ladder's losing
+	-- rung was mounted at a zero rect and would satisfy a presence check.
+	local SPONSORED = "Sections/[new]/Body/Grid/Tiles/[harbor-watch]/harbor-watch/Col/MetaFits"
+
+	local function worldAtText(offset: number)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1400, h = 900 })
+		env:set("preferredTextSize", offset)
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local built =
+			proof.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		local handle = presenter.present(built.screen, built.present)
+		presenter.refresh()
+		return { built = built, adapter = adapter, handle = handle, presenter = presenter }
+	end
+
+	local function rectOf(w: any, needle: string): any
+		local path = findPath(w.adapter, needle)
+		if path == nil then
+			error(`no node matched "{needle}"`, 2)
+		end
+		local rect = w.handle.controller.screenRectOf(path)
+		if rect == nil or rect.w <= 0 or rect.h <= 0 then
+			error(`{path} solved to {if rect then `{rect.w}x{rect.h}` else "nil"} — nothing a player can see`, 2)
+		end
+		return rect
+	end
+
+	it("THE LADDER'S TWIN NODES ARE GONE: no MetaColumn, no ApprovalB, no ChipB", function()
+		local w = worldAtText(0)
+		-- these are the ids the second rung published. Each was a real, mounted
+		-- node at a zero rect for the whole life of every tile.
+		for _, ghost in { "MetaColumn", "ApprovalB", "SponsoredB", "ChipB", "MetaRow" } do
+			local path = findPath(w.adapter, ghost)
+			if path ~= nil then
+				error(`the ladder is back: {path}`, 2)
+			end
+		end
+		-- and the survivors are each published exactly once per tile
+		local approvals = 0
+		for _, path in w.adapter.paths() do
+			if
+				string.find(path, "harbor-watch/Col/MetaFits/Approval", 1, true) ~= nil
+				and string.sub(path, -8) == "Approval"
+			then
+				approvals += 1
+			end
+		end
+		-- harbor-watch appears in two seeded sections, so exactly two Approvals
+		expect(approvals).toBe(2)
+		teardown(w)
+	end)
+
+	it("AT NORMAL TEXT they share a line and `distribute` pushes the chip to the TRAILING edge", function()
+		local w = worldAtText(0)
+		local row = rectOf(w, SPONSORED)
+		local approval = rectOf(w, SPONSORED .. "/Approval")
+		local chip = rectOf(w, SPONSORED .. "/Sponsored/then/Chip")
+
+		expect(approval.y).toBe(chip.y) -- one line
+		expect(approval.x).toBe(row.x) -- approval leads
+		-- THE `distribute` ASSERTION: the chip's trailing edge IS the row's. A
+		-- hand-placed `Spacer` used to do this, and cannot: a `fill` child takes a
+		-- whole line to itself inside a wrapping stack.
+		expect(chip.x + chip.w).toBe(row.x + row.w)
+		expect(chip.x > approval.x + approval.w).toBe(true)
+		teardown(w)
+	end)
+
+	it("AT RAISED PREFERRED TEXT it REFLOWS to a second line instead of squeezing", function()
+		-- the exact condition the ladder existed for (its comment recorded a 9-14px
+		-- overflow at preference +14), now met by the same node set
+		local w = worldAtText(14)
+		local row = rectOf(w, SPONSORED)
+		local approval = rectOf(w, SPONSORED .. "/Approval")
+		local chip = rectOf(w, SPONSORED .. "/Sponsored/then/Chip")
+
+		expect(chip.y > approval.y).toBe(true) -- a SECOND line
+		expect(approval.x).toBe(row.x) -- both at the leading edge of their own line
+		expect(chip.x).toBe(row.x)
+		-- the row grew to hold both lines rather than painting past its box
+		expect(row.h >= approval.h + chip.h).toBe(true)
+		expect(chip.x + chip.w <= row.x + row.w).toBe(true)
+		teardown(w)
+	end)
+
+	it("NOT ONE `Spacer` INSTANCE IS MOUNTED: `distribute` says it on the container", function()
+		--[[ THE MEASUREMENT THAT DECIDED THIS SWAP, and it is not about pixels.
+			The section header and the detail footer each carried a `UI.Spacer({})`
+			between a leading title and a trailing action. A/B at 1400x900 on
+			2026-08-13: the header solves to EXACTLY the same rects either way
+			(214x44 @ 168,979, Title 162x24, SeeAll 44x44 @ 338) — the row HUGS, so
+			there is no leftover for a Spacer or a `distribute` to spread, and both
+			spellings are arrange-identical.
+
+			What is NOT identical is the tree. A `Spacer` is a real mounted node:
+			this proof published 24 of them, and the whole surface went from 601
+			nodes to 454 (-24.5%) once they and the meta ladder's second rung came
+			out. That is the reason the swap shipped, so that is what this case
+			pins — a rect assertion here would pass with the Spacers back. ]]
+		local w = worldAtText(0)
+		-- THE DETAIL FOOTER IS ONLY MOUNTED INSIDE THE MODAL, so the sweep has to
+		-- open it or it silently misses the second Spacer site entirely (found by a
+		-- mutation that reddened nothing, 2026-08-13)
+		local tile = findPath(w.adapter, "Sections/[picked]/Body/Grid/Tiles/[moss-kingdom]/moss-kingdom")
+		expect(tile ~= nil).toBe(true)
+		w.adapter.tap(tile :: string)
+		w.presenter.refresh()
+		expect(findPath(w.adapter, "Plate/Page/Footer/Close") ~= nil).toBe(true)
+
+		local spacers: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, "Spacer", 1, true) ~= nil then
+				table.insert(spacers, path)
+			end
+		end
+		if #spacers > 0 then
+			error(`{#spacers} Spacer instance(s) are back, first = {spacers[1]}`, 2)
+		end
+
+		-- and the arrangement they used to produce still holds, from the container
+		local header = rectOf(w, "Sections/[new]/Body/Header")
+		local title = rectOf(w, "Sections/[new]/Body/Header/Title")
+		local seeAll = rectOf(w, "Sections/[new]/Body/Header/SeeAll")
+		expect(title.x).toBe(header.x)
+		expect(seeAll.x + seeAll.w).toBe(header.x + header.w)
+		expect(seeAll.x > title.x + title.w).toBe(true)
+		teardown(w)
+	end)
+end)

@@ -294,3 +294,110 @@ describe("Wardrobe proof — filters, sections, locale, determinism", function()
 		expect(b.core:lastError()).toBeNil()
 	end)
 end)
+
+describe("Wardrobe — the worn chips FLOW (parity round 3)", function()
+	-- The stage-unavailable fallback plate lists what the mannequin is wearing as
+	-- chips. They came off a bare `UI.ForEach` whose parent was a `VStack`, so
+	-- EVERY PIECE GOT A LINE OF ITS OWN — five equipped categories measured at
+	-- y = 93, 116, 139, 162, 185 (2026-08-13, 1400x900), a 115px column of short
+	-- words on a plate that is already competing with the preview pane for height.
+	--
+	-- This is also the shape that could not be hand-built: a `ForEach` row returns
+	-- exactly one blueprint, so no `Spacer` could ever be interleaved, and the
+	-- count follows what the player is wearing. `HStack{ wrap = true }` +
+	-- `distribute` on the CONTAINER is the only spelling that reaches it.
+	local WORN = "PaneZ/FallbackWhen/then/Fallback/WornRow"
+	local EQUIP = { "puffin-beanie", "tidepool-tee", "fen-trousers", "marsh-boots", "quiet-smile" }
+
+	local function fallbackWorld(viewportW: number)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = viewportW, h = 900 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		-- NO STAGE SEAM: this is the capability-absent world the fallback plate
+		-- exists for, and the only one that mounts these chips at all
+		adapter.stageHost = nil
+		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local built =
+			proof.build(LuauUI, core, { env = env, actionSystem = system, presenter = presenter, adapter = adapter })
+		presenter.refresh()
+		local w = { core = core, adapter = adapter, presenter = presenter, built = built, handle = built.handle }
+		-- dress the rig THROUGH THE CARDS, never through the service
+		for _, id in EQUIP do
+			local card = findPath(adapter, "/" .. id)
+			if card ~= nil then
+				adapter.tap(card)
+				presenter.refresh()
+			end
+		end
+		return w
+	end
+
+	local function chipRects(w: any): { { path: string, x: number, y: number, width: number } }
+		local out = {}
+		for _, path in w.adapter.paths() do
+			if string.find(path, WORN .. "/WornChips/", 1, true) ~= nil and string.sub(path, -5) == "/Chip" then
+				local rect = w.handle.controller.screenRectOf(path)
+				if rect == nil or rect.w <= 0 or rect.h <= 0 then
+					error(`{path} solved to {if rect then `{rect.w}x{rect.h}` else "nil"}`, 2)
+				end
+				table.insert(out, { path = path, x = rect.x, y = rect.y, width = rect.w })
+			end
+		end
+		table.sort(out, function(a, b)
+			return a.path < b.path
+		end)
+		return out
+	end
+
+	it("FIVE WORN PIECES SHARE ONE LINE, each at its own width — not five stacked lines", function()
+		local w = fallbackWorld(1400)
+		local chips = chipRects(w)
+		expect(#chips).toBe(5)
+
+		local lines: { [number]: boolean } = {}
+		local widths: { [number]: boolean } = {}
+		local lineCount, widthCount = 0, 0
+		for _, chip in chips do
+			if not lines[chip.y] then
+				lines[chip.y] = true
+				lineCount += 1
+			end
+			if not widths[chip.width] then
+				widths[chip.width] = true
+				widthCount += 1
+			end
+		end
+		-- ONE line, where the column gave five
+		if lineCount ~= 1 then
+			error(`the worn chips occupy {lineCount} lines — the flow is not flowing`, 2)
+		end
+		-- and ragged: they are item names, not cells
+		expect(widthCount > 1).toBe(true)
+		-- the row still fits its plate, and the solver agrees
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		teardown(w)
+	end)
+
+	it("IN A NARROW PANE THEY WRAP to a second line rather than paint past the plate", function()
+		local w = fallbackWorld(760)
+		local chips = chipRects(w)
+		expect(#chips).toBe(5)
+		local lines: { [number]: boolean } = {}
+		local lineCount = 0
+		local row = w.handle.controller.screenRectOf(findPath(w.adapter, WORN) :: string)
+		for _, chip in chips do
+			if not lines[chip.y] then
+				lines[chip.y] = true
+				lineCount += 1
+			end
+			-- nothing escapes the row's box on the main axis
+			expect(chip.x >= row.x).toBe(true)
+			expect(chip.x + chip.width <= row.x + row.w).toBe(true)
+		end
+		expect(lineCount > 1).toBe(true)
+		expect(#w.handle.controller.diagnostics()).toBe(0)
+		teardown(w)
+	end)
+end)

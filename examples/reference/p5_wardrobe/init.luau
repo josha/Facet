@@ -788,33 +788,55 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 												textSize = "caption",
 												role = "secondary",
 											}),
-											UI.ForEach({
-												id = "WornChips",
-												items = core:memo(function(use)
-													local out: { seedData.Item } = {}
-													local worn = use(services.worn)
-													for _, cat in seedData.categories do
-														local id = worn[cat]
-														if id ~= nil then
-															local item = seedData.itemById(id)
-															if item ~= nil then
-																out[#out + 1] = item
+											--[[ A WRAPPING ROW (parity round 3), not the bare `ForEach`
+												this used to be. A `ForEach` whose parent is this `VStack`
+												gave every worn piece A LINE OF ITS OWN: four equipped
+												categories burned four stacked lines of a fallback plate that
+												is already competing with the preview pane for height, and
+												the names are short words ("Cap", "Visor").
+
+												This is also the case that could not be hand-built. A
+												`ForEach` row returns exactly ONE blueprint, so no separator
+												could ever be interleaved on the parent's main axis, and the
+												count is variable (it follows what the mannequin is wearing).
+												`wrap` + `distribute` on the CONTAINER is the only spelling
+												that reaches a variable-count list. ]]
+											UI.HStack({
+												id = "WornRow",
+												wrap = true,
+												gap = "xs",
+												distribute = "center",
+												width = { type = "fill", weight = 1 },
+												children = {
+													UI.ForEach({
+														id = "WornChips",
+														items = core:memo(function(use)
+															local out: { seedData.Item } = {}
+															local worn = use(services.worn)
+															for _, cat in seedData.categories do
+																local id = worn[cat]
+																if id ~= nil then
+																	local item = seedData.itemById(id)
+																	if item ~= nil then
+																		out[#out + 1] = item
+																	end
+																end
 															end
-														end
-													end
-													return out
-												end),
-												key = function(item: seedData.Item)
-													return item.id
-												end,
-												row = function(item: seedData.Item)
-													return UI.Text({
-														id = "Chip",
-														surface = "chip",
-														text = item.name,
-														textSize = "caption",
-													})
-												end,
+															return out
+														end),
+														key = function(item: seedData.Item)
+															return item.id
+														end,
+														row = function(item: seedData.Item)
+															return UI.Text({
+																id = "Chip",
+																surface = "chip",
+																text = item.name,
+																textSize = "caption",
+															})
+														end,
+													}),
+												},
 											}),
 										},
 									})
