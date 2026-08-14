@@ -29,8 +29,11 @@ local styling = require("../src/tokens/styling")
 local sheet_model = require("../src/tokens/sheet_model")
 local default_style = require("../src/tokens/default_style")
 local fake_target = require("./lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
-local adapterSource = fs.readFile("src/client/screen_target.luau")
+-- the LIVE adapter as ONE text: it is three files since the 200k `Source`
+-- write-cap split (tests/lib/adapter_source names them and says why)
+local adapterSource = adapter_source.live()
 local rendererSource = fs.readFile("src/render/renderer.luau")
 local runnerSource = fs.readFile("examples/gallery/scenarios/runner.luau")
 

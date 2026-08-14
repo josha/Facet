@@ -43,8 +43,11 @@ local themes = require("../src/themes/package")
 local snapshot = require("../src/themes/snapshot")
 local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
+local adapter_source = require("./lib/adapter_source")
 
-local source = fs.readFile("src/client/screen_target.luau")
+-- the LIVE adapter as ONE text: it is three files since the 200k `Source`
+-- write-cap split (tests/lib/adapter_source names them and says why)
+local source = adapter_source.live()
 -- the chrome/decoration materializer was extracted to a sibling module when
 -- screen_target.luau reached Studio's 200_000-byte Source ceiling. Every anchor
 -- below is unchanged and every assertion keeps its strength — `section` simply

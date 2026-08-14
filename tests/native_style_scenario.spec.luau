@@ -12,6 +12,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local LuauUI = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
 local scenario = require("../examples/gallery/scenarios/native_style") :: any
 
@@ -144,7 +145,8 @@ end)
 -- source contract is a cheaper guard than rediscovering them on a device.
 
 describe("screen_target's chrome text lift: the source contract", function()
-	local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+	-- the LIVE adapter as ONE text: three files since the 200k split
+	local source = adapter_source.live()
 
 	-- the chrome/decoration materializer was extracted to a sibling module when
 	-- screen_target.luau reached Studio's 200_000-byte Source ceiling. Every
@@ -218,7 +220,8 @@ end)
 -- green suite.
 
 describe("screen_target: the image IS the button (source contract)", function()
-	local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+	-- the LIVE adapter as ONE text: three files since the 200k split
+	local source = adapter_source.live()
 	local renderer = require("@lune/fs").readFile("src/render/renderer.luau")
 
 	-- the chrome/decoration materializer was extracted to a sibling module when
@@ -329,7 +332,8 @@ describe("screen_target: the image IS the button (source contract)", function()
 end)
 
 describe("screen_target: the focus treatment (source contract)", function()
-	local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+	-- the LIVE adapter as ONE text: three files since the 200k split
+	local source = adapter_source.live()
 	local controller = require("@lune/fs").readFile("src/client/theme_controller.luau")
 
 	local function section(fromNeedle: string, toNeedle: string): string
@@ -347,7 +351,11 @@ describe("screen_target: the focus treatment (source contract)", function()
 		expect(string.find(source, "stroke.Color = COLOR.accent", 1, true)).toBeNil()
 		expect(string.find(source, "stroke.Color = focusColor()", 1, true) ~= nil).toBe(true)
 		local resolve = section("local function focusColor(): Color3", "\n\tend")
-		expect(string.find(resolve, "focusTreatment.color or COLOR.accent", 1, true) ~= nil).toBe(true)
+		-- `focusTreatment` is READ THROUGH A CALL since the paint extraction: the
+		-- host reassigns it in `setActiveTheme`, so screen_paint takes an accessor
+		-- rather than a value it would freeze at construction. Same ruling, and the
+		-- capture this pin exists to forbid is now impossible by construction.
+		expect(string.find(resolve, "focusTreatment().color or COLOR.accent", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("a live theme swap repaints whatever is focused RIGHT NOW", function()
@@ -405,7 +413,8 @@ describe("screen_target: the focus treatment (source contract)", function()
 end)
 
 describe("screen_target: a value control's own paint (source contract)", function()
-	local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+	-- the LIVE adapter as ONE text: three files since the 200k split
+	local source = adapter_source.live()
 
 	-- the chrome/decoration materializer was extracted to a sibling module when
 	-- screen_target.luau reached Studio's 200_000-byte Source ceiling. Every
@@ -480,7 +489,8 @@ describe("screen_target: a value control's own paint (source contract)", functio
 end)
 
 describe("screen_target: the toggle reads the live palette (source contract)", function()
-	local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+	-- the LIVE adapter as ONE text: three files since the 200k split
+	local source = adapter_source.live()
 
 	local function section(fromNeedle: string, toNeedle: string): string
 		local from = string.find(source, fromNeedle, 1, true)
@@ -510,7 +520,9 @@ describe("screen_target: the toggle reads the live palette (source contract)", f
 
 	it("the resolver falls back to today's constants when no package is installed", function()
 		local resolve = section("local function togglePalette()", "\n\tend")
-		expect(string.find(resolve, "if activeTheme == nil then", 1, true) ~= nil).toBe(true)
+		-- read through a call for the same reason `focusTreatment` is: the host
+		-- reassigns `activeTheme` on every swap
+		expect(string.find(resolve, "if activeTheme() == nil then", 1, true) ~= nil).toBe(true)
 		-- byte-identical to what shipped: accent / surface / content, content
 		expect(
 			string.find(
@@ -524,6 +536,14 @@ describe("screen_target: the toggle reads the live palette (source contract)", f
 		local colorAt = string.find(source, "local COLOR = {", 1, true)
 		local resolverAt = string.find(source, "local function togglePalette()", 1, true)
 		expect((colorAt :: number) < (resolverAt :: number)).toBe(true)
+		-- ...and inside screen_paint TOO, where the resolver actually lives now: the
+		-- palette arrives as `ctx.palette` and the check above would still pass on a
+		-- paint file that bound it after the resolver, which is the trap itself
+		local paint = require("@lune/fs").readFile("src/client/screen_paint.luau")
+		local bindAt = string.find(paint, "local COLOR = ctx.palette", 1, true)
+		local paintResolverAt = string.find(paint, "local function togglePalette()", 1, true)
+		expect(`palette bound: {bindAt ~= nil}`).toBe("palette bound: true")
+		expect((bindAt :: number) < (paintResolverAt :: number)).toBe(true)
 	end)
 
 	it("a live swap repaints a mounted toggle without touching its value", function()

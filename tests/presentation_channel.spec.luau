@@ -26,8 +26,11 @@ local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local authority = require("../src/render/authority")
 local fake_target = require("./lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
-local adapterSource = fs.readFile("src/client/screen_target.luau")
+-- the LIVE adapter as ONE text: it is three files since the 200k `Source`
+-- write-cap split (tests/lib/adapter_source names them and says why)
+local adapterSource = adapter_source.live()
 
 local function render(screen: any, w: number?, h: number?)
 	local core = customFactory.new()

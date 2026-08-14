@@ -51,6 +51,19 @@ one: does it read or write a mutable upvalue of that closure? If not, it can
 leave; if so, it stays. That test, not a line count, is what makes this kind of
 split safe — and it is the recipe for the four rows still listed below.
 
+SECOND ROW CLEARED: `src/client/screen_target.luau`, 2026-08-14, 234,055 ->
+189,670, in two commits. The same test decided the seam: the scroll indicators
+(`screen_scroll_indicators`) share ONE mutable upvalue with the host — the
+indicator policy the create path reads at instance birth — and it became a
+shared record; the bespoke paint vocabulary (`screen_paint`) reads three
+reassigned host locals and takes accessors for them, which is the precedent
+`screen_chrome` set inside this same file. Both were proved with a live A/B in
+Studio: the same blueprint through the pre-split adapter and the split one
+painted 34 nodes/modifiers with every compared property equal. The remaining two
+proposed extractions (presentation ~575 lines, pointer ~310) were NOT taken —
+10,330 chars of headroom is a real margin, and the paragraph above is the reason
+to keep the seams for when they are needed rather than spending them now.
+
 AND STOP AT A REAL MARGIN, not at 199,9xx. Landing this file at 198,960 was
 enough to pass and not enough to survive: adding the header comment that tells
 the next agent where the six siblings went put it straight back to 201,227, and
@@ -71,16 +84,6 @@ CAP = 200_000
 
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER = {
-    "src/client/screen_target.luau": (
-        226_687,
-        "many-purposed: a factory returning ~45 adapter methods, already "
-        "banner-sectioned. The architecture gate proposes four extractions in "
-        "order (scroll indicators ~215 lines as the cheap proof, then paint ~930, "
-        "presentation ~575, pointer ~310), each following the screen_chrome "
-        "precedent already inside this file so no call site changes. "
-        "SPLIT IN PROGRESS: extraction 1 of 4 landed (screen_scroll_indicators), "
-        "234,055 -> 226,687. Paint is next and is the one that clears the cap.",
-    ),
     "src/render/renderer.luau": (
         238_180,
         "RAISED 2026-08-14 by ADR-0026 (authored opacity/scale/rotation), and the "

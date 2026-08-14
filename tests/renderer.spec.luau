@@ -15,6 +15,7 @@ local renderer = require("../src/render/renderer")
 local authority = require("../src/render/authority")
 local tokensLib = require("../src/tokens/tokens")
 local fake_target = require("../tests/lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
 local function makeSlice()
 	local core = customFactory.new()
@@ -613,7 +614,8 @@ describe("Button padding is re-pushed on every solve, minimally", function()
 		-- reading `solver.sides` gave the measure pass. Anchored on source: this
 		-- half is an engine write.
 		local fs = require("@lune/fs")
-		local target = fs.readFile("src/client/screen_target.luau")
+		-- the LIVE adapter as ONE text: three files since the 200k split
+		local target = adapter_source.live()
 		local at = string.find(target, 'elseif prop == "padding" then', 1, true)
 		expect(at ~= nil).toBe(true)
 		local body = string.sub(target, at :: number, (at :: number) + 1400)
@@ -688,7 +690,8 @@ describe("RS-DIR9: the Toggle's label column is ONE description, not two", funct
 		-- function. Anchored on source because the adapter half is an engine write.
 		local renderer = fs.readFile("src/render/renderer.luau")
 		expect(string.find(renderer, "themeSnapshot.toggleRowPadding(metrics)", 1, true) ~= nil).toBe(true)
-		local target = fs.readFile("src/client/screen_target.luau")
+		-- the LIVE adapter as ONE text: three files since the 200k split
+		local target = adapter_source.live()
 		expect(string.find(target, "themeSnapshot.toggleRowPadding(snap)", 1, true) ~= nil).toBe(true)
 		-- ...and the boot-constant expression is gone
 		expect(string.find(target, "style.space.s + 4 + 44 + 12 + style.space.m", 1, true)).toBeNil()
@@ -818,7 +821,8 @@ describe("RS-DIR13: a Toggle's label is ONE line — it never breaks mid-word", 
 	-- 104 under classic-desktop.
 
 	it("the adapter draws the toggle label on one line and ellipsizes rather than wrapping", function()
-		local target = fs.readFile("src/client/screen_target.luau")
+		-- the LIVE adapter as ONE text: three files since the 200k split
+		local target = adapter_source.live()
 		local at = string.find(target, "local function buildToggleVisual", 1, true)
 		expect(at ~= nil).toBe(true)
 		local body = string.sub(target, at :: number, (at :: number) + 2200)
