@@ -332,21 +332,61 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- cap is how many whole lines fit inside it, floored at one. That is what makes
 	-- overflow impossible by construction instead of by tuning — including for a
 	-- consumer who pins `rowHeight` by hand, whose cells are capped to THEIR row.
+	--
+	-- ...AND THE ROW'S OWN ART IS ROOM THE CELLS NEVER GET (O-25, measured
+	-- 2026-08-14 under the widened overflow sweep). This arithmetic described a
+	-- row as `lines x lineBox + padding` and stopped there — but a hundred lines
+	-- below, `ROW_ART` makes the cell stack spend `chromeInsets.selection` as
+	-- PADDING, because the row's painted card is a different node from its cells
+	-- and something has to honour the reservation. So under a package that carves
+	-- a real border the row was sized for its text and then handed the text
+	-- whatever the frame left over: Pixel Quest reserves 16px on all four sides,
+	-- the 02_playlist_table row solved to 48px, the cell stack got 48 - 32 = 16px,
+	-- and every cell `Value` in every row measured 20px — 4px outside its own
+	-- cell, at the DEFAULT text preference, on every viewport. Studio Neutral and
+	-- Classic Desktop reserve nothing, which is why it was invisible.
+	--
+	-- `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md` names the class and
+	-- its own closing line is this defect exactly: *"reserving room is only half
+	-- of it — something has to SPEND the reservation"*. The cells spend it; the
+	-- height was derived as though nobody would. The art therefore enters BOTH
+	-- halves of the answer — it is added to the height a row needs, and subtracted
+	-- from the box the cap is computed against, so the two still agree.
+	--
+	-- It is added to the CONTENT term, never to the floor: `rowHeight[paradigm]`
+	-- is a touch-target/compact-control minimum about the whole row, and a border
+	-- does not make a fingertip bigger.
+	--
+	-- FLAT PACKAGES DO NOT MOVE BY A PIXEL — `chromeInsets.selection` is zero for
+	-- every one of them, which is the same property that let `ROW_ART` land.
+	local function selectionArtV(metrics: any): number
+		local insets: any = metrics.chromeInsets
+		local art: any = if type(insets) == "table" then insets.selection else nil
+		if type(art) ~= "table" then
+			return 0
+		end
+		local top = if type(art.top) == "number" then art.top else 0
+		local bottom = if type(art.bottom) == "number" then art.bottom else 0
+		return top + bottom
+	end
 	local function rowBoxFor(metrics: any, classes: any, textScale: number, textOffset: number): any
 		local family: any = metrics.controls.table
 		local cellSize = family.cellTextSize * textScale + textOffset
 		local lineBox = math.ceil(cellSize * metrics.type.body.lineHeight)
 		local padV = family.rowPadding
+		local artV = selectionArtV(metrics)
 		local touch = if type(classes) == "table" and classes.touch == true then true else false
 		local paradigm = if touch then "touch" else "pointer"
 		local floor = family.rowHeight[paradigm]
-		local height = math.max(floor, family.rowLines[paradigm] * lineBox + 2 * padV)
-		return { height = height, lineBox = lineBox, padV = padV }
+		local height = math.max(floor, family.rowLines[paradigm] * lineBox + 2 * padV + artV)
+		return { height = height, lineBox = lineBox, padV = padV, artV = artV }
 	end
 	-- the authored override wins on HEIGHT (a consumer who pins a row height means
-	-- it) but never on the cap, which is re-derived from whichever height won
+	-- it) but never on the cap, which is re-derived from whichever height won —
+	-- against the box the CELLS get, which is the row minus the art they are made
+	-- to spend on it
 	local function capFor(box: any, height: number): number
-		return math.max(1, math.floor((height - 2 * box.padV) / box.lineBox))
+		return math.max(1, math.floor((height - box.artV - 2 * box.padV) / box.lineBox))
 	end
 	-- a garbage `themeMetrics` fact falls back to neutral rather than erroring —
 	-- the same guard, for the same reason, as the presenter's `metricsNow`
@@ -420,7 +460,13 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- is precisely when honouring a stale pixel count would be the wrong answer;
 		-- at the shipped text size every height any consumer has ever pinned clears
 		-- it, so nothing that works today moves by a pixel.
-		return math.max(pinned, live.lineBox + 2 * live.padV)
+		--
+		-- `artV` is in the floor for the same reason it is in the derived height
+		-- (O-25, above): the one line this row is obliged to draw is drawn INSIDE
+		-- the card the theme carves, so a pin that clears the line and not the
+		-- frame produces exactly the overflow the floor exists to remove. Zero on
+		-- every flat package.
+		return math.max(pinned, live.lineBox + 2 * live.padV + live.artV)
 	end
 
 	-- selection state: { [rowKey]: true }

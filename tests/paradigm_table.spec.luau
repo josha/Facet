@@ -694,6 +694,13 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 		env:set("capabilities", { keyboard = not touch, mouse = not touch, touch = touch, gamepad = false })
 		env:set("preferredInput", if touch then "Touch" else "KeyboardAndMouse")
 		env:set("preferredTextOffset", opts.textOffset or 0)
+		if opts.package ~= nil then
+			-- the metric half of a package install, exactly as the theme picker
+			-- commits it (ADR-0019 §7) — which is what makes a themed row solvable
+			-- headlessly at all
+			local pkg = require(`../examples/themes/{opts.package}`).build(LuauUI.themes)
+			env:set("themeMetrics", LuauUI.themes.resolve(pkg, nil, {}))
+		end
 		local rows = core:signal({ { id = "drift", name = LONG } })
 		local tbl = table_control.build(LuauUI, core, {
 			id = "T",
@@ -736,7 +743,17 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 		local handle = pres.present(LuauUI.UI.Screen({ id = "S", padding = 16, children = { tbl.blueprint } }))
 		local rectOf = handle.controller.rectOf
 		local base = "/S/T/Main/Body/Rows/[drift@0]/Row"
-		local out = { row = rectOf(base), text = rectOf(base .. "/Cells/Cell-name/Value") }
+		local out = {
+			row = rectOf(base),
+			-- THE CELL, NOT JUST THE ROW (O-25). A row that is tall enough while its
+			-- cell is not is exactly the defect: the cells spend the theme's
+			-- `chromeInsets.selection` out of the row, so `text <= row` is satisfied
+			-- by a cell nobody measured. Asserting the cell is what makes the check
+			-- bite (mutation-proved 2026-08-14: with the art term removed from the
+			-- derived height, `text <= row` still passed and `text <= cell` failed).
+			cell = rectOf(base .. "/Cells/Cell-name"),
+			text = rectOf(base .. "/Cells/Cell-name/Value"),
+		}
 		pres.dismiss(handle)
 		tbl.dispose()
 		rows:dispose()
@@ -793,6 +810,51 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 		})
 		expect(fn.row.h).toBe(34)
 		expect(fn.text.h <= 34).toBe(true)
+	end)
+
+	--[[ O-25, measured 2026-08-14 by the overflow sweep's theme axis.
+
+		THE ROW'S OWN ART IS ROOM THE CELLS NEVER GET. A row is a full-bleed hit
+		Button whose painted card is a DIFFERENT node from its cells, so the cells
+		spend `chromeInsets.selection` as their own padding (`ROW_ART` in
+		src/controls/table.luau) — while the height the row was derived at counted
+		only its text and its `rowPadding`. Under Pixel Quest, which carves 16px on
+		all four sides, that left a 48px row handing its cells 16px for a 20px line:
+		4px of text outside its own cell, in every row, on every viewport, AT THE
+		DEFAULT TEXT PREFERENCE. Studio Neutral and Classic Desktop reserve nothing,
+		which is exactly why every check in this repo was silent on it.
+
+		The two cases below are the same question from both ends: the derived row
+		must GROW by the art, and the flat packages must not move by a pixel.
+	]]
+	it("a package that carves a border GROWS the row — the cell never pays for the frame", function()
+		for _, package in { "pixel_quest", "glossy_touch", "fantasy_ornate", "compact_pointer" } do
+			for _, touch in { false, true } do
+				for _, offset in { 0, 4, 10, 14 } do
+					local r = solveRow({ touch = touch, textOffset = offset, package = package })
+					if r.text.h > r.cell.h then
+						error(
+							`under {package}, cell text {r.text.h}px overflowed a {r.cell.h}px CELL `
+								.. `in a {r.row.h}px row (touch={tostring(touch)}, offset={offset})`
+						)
+					end
+				end
+			end
+		end
+	end)
+
+	it("...and a FLAT package's rows are byte-identical to the untethered ones", function()
+		-- the other half of the fix's claim: `chromeInsets.selection` is zero for
+		-- every flat package, so the art term is zero and nothing moves
+		for _, package in { "classic_desktop", "scifi_hud" } do
+			for _, touch in { false, true } do
+				local themed = solveRow({ touch = touch, package = package })
+				-- a flat package reserves nothing, so the cell IS the row and the
+				-- art term is zero — the arithmetic reduces to what it always was
+				expect(themed.cell.h).toBe(themed.row.h)
+				expect(themed.text.h <= themed.cell.h).toBe(true)
+			end
+		end
 	end)
 
 	it("a pin below ONE LINE of its own text is raised to it, never drawn through", function()

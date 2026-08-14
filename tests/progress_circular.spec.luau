@@ -381,4 +381,62 @@ describe("ProgressView circular: it lays out in every shipped theme, at every sw
 		end
 		expect(`problems: {table.concat(problems, " | ")}`).toBe("problems: ")
 	end)
+
+	--[[ O-23, measured 2026-08-14 by the overflow sweep's theme axis.
+
+		THE ROW'S FLEXIBLE HALF IS THE LABEL, AND IT COULD NOT SHRINK. Two of the
+		three shapes are a fixed px box from a theme metric — the spinner is five
+		`controls.progress.spinnerDotSize` dots plus four `xs` gaps, the ring is
+		`CIRCULAR_SIZE` — so on a narrow screen nothing in the row could give up a
+		pixel and it simply painted past its own box. Measured on the shipped
+		`progress_ring` scenario at 320x640 at the DEFAULT preference: 40px past
+		under Glossy Mobile and Glossy Touch, 6px under Fantasy Ornate and
+		Parchment, and clean under Studio Neutral with 110px to spare — which is why
+		nothing in this repository saw it.
+
+		THE CASE ABOVE COULD NOT SEE IT and that is the interesting part: it asks
+		the same question of the same packages, with a short label on a wide screen,
+		so every row fit by accident. The narrow viewport and the long label are the
+		whole test.
+	]]
+	it("a LONG label on a NARROW screen still fits — every presentation, every package", function()
+		local ALL = {
+			"fantasy_ornate",
+			"fantasy_parchment",
+			"pixel_quest",
+			"glossy_touch",
+			"glossy_mobile",
+			"compact_pointer",
+			"classic_desktop",
+			"scifi_hud",
+		}
+		local problems: { string } = {}
+		for _, name in ALL do
+			local pkg = (require)(`../examples/themes/{name}`).build(themes)
+			for _, presentation in { "bar", "spinner", "circular" } do
+				local core, env, adapter, pres = harness(320, 640)
+				env:set("themeMetrics", themes.resolve(pkg, nil, {}))
+				local spec: any = {
+					id = "Load",
+					label = "Downloading the season pass",
+					presentation = presentation,
+				}
+				if presentation == "spinner" then
+					spec.motionClock = pres.motionClock
+					spec.scope = core:scope("o23")
+				else
+					spec.value = 0.42
+				end
+				local p = LuauUI.newProgressView(LuauUI, core, spec)
+				local handle = pres.present(UI.Screen({ id = "S", padding = 16, children = { p.blueprint } }))
+				pres.refresh()
+				pres.refresh()
+				for _, finding in handle.controller.diagnostics() do
+					table.insert(problems, `{name}/{presentation}: {finding.node} {finding.issue}`)
+				end
+				p.dispose()
+			end
+		end
+		expect(`problems: {table.concat(problems, " | ")}`).toBe("problems: ")
+	end)
 end)

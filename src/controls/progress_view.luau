@@ -463,7 +463,34 @@ function progress_view.build(LuauUI: any, core: any, spec: Spec)
 	local api = {}
 
 	if spec.label ~= nil then
-		table.insert(children, UI.Text({ id = "Label", text = spec.label, textSize = "label" }))
+		-- THE LABEL IS THE ROW'S FLEXIBLE HALF, AND THE INDICATOR IS NOT (O-23,
+		-- measured 2026-08-14 under the widened overflow sweep).
+		--
+		-- Two of this control's three shapes are a FIXED px box that comes from a
+		-- theme metric — the spinner is `5 x controls.progress.spinnerDotSize` plus
+		-- four `xs` gaps, the ring is `CIRCULAR_SIZE` — so on a narrow screen the
+		-- only thing in this row that CAN give up pixels is the label. It could not:
+		-- a `UI.Text` shrinks only when it is told it may (`shrinkWeight` defaults to
+		-- 0 = never, matching `UIFlexMode.None`), so the row simply painted past its
+		-- own box. Measured on `progress_ring` at 320x640, at the DEFAULT text
+		-- preference: 40px past under Glossy Mobile and Glossy Touch (dot 10, `s` 10
+		-- -> a 74px spinner beside a 210px label in 254px), 6px under Fantasy Ornate
+		-- and Parchment. Studio Neutral fit with 110px to spare, which is exactly why
+		-- nothing saw it — `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md`
+		-- is the same family read from the other end: there a fixed box could not hold
+		-- a theme's frame, here a fixed indicator leaves a theme's type nowhere to go.
+		--
+		-- ONLY the label, deliberately, and that is the precedence rather than an
+		-- oversight: with `showValue` the row also carries a numeric readout, and a
+		-- percentage that shrinks to "2…" tells the player nothing while a clipped
+		-- descriptive label still reads. Weight without a `layoutPriority` keeps this
+		-- inside one tier — the indicator's own 0 already protects it absolutely, so
+		-- a second knob would say nothing the default does not.
+		--
+		-- FLAT THEMES DO NOT MOVE: shrink is only spent when the row is
+		-- over-subscribed, so a label that already fits is laid out at exactly the
+		-- width it had before.
+		table.insert(children, UI.Text({ id = "Label", text = spec.label, textSize = "label", shrinkWeight = 1 }))
 	end
 
 	-- ONE BUILDER PER SHAPE, dispatched from the registry below rather than

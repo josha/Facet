@@ -1226,7 +1226,14 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			local w = world(view)
 			local built = mount(w)
 			settle(w.presenter)
-			local function collect(offset: number, variantValue: string, suffix: string)
+			-- `package` is nil on the neutral pass and the package's id on a themed
+			-- one, and it selects WHICH list the finding is matched against — see
+			-- "THE THEME LEDGER" above for why a neutral ceiling may not pardon a
+			-- themed finding.
+			local function collect(offset: number, variantValue: string, suffix: string, package: string?)
+				if package ~= nil then
+					suffix ..= `\n      [theme package = {package}]`
+				end
 				for _, finding in built.handle.controller.diagnostics() do
 					-- A FINDING THE FRAMEWORK MARKS AS DESIGNED IS NOT A DEFECT AND IS
 					-- NOT SWEPT (ruling 8, 2026-08-14). The solver files two kinds of
@@ -1246,7 +1253,47 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 					if finding.designed == true then
 						continue
 					end
-					local key = waiverKey(name, variantValue, normalizePath(finding.node), signature(finding.issue))
+					local node = normalizePath(finding.node)
+					local sig = signature(finding.issue)
+					local key = waiverKey(name, variantValue, node, sig)
+					if package ~= nil then
+						-- ── THE THEMED PASS ─────────────────────────────────────────
+						local index = themeRowFor(name, variantValue, node, sig)
+						local row = if index ~= nil then theme_ledger.ROWS[index] else nil
+						if row ~= nil and offset == 0 and row.since > 0 then
+							row = nil
+						end
+						if row == nil then
+							table.insert(problems, describeFinding(w, view, offset, finding) .. suffix)
+							continue
+						end
+						local themedPx = findingPx(finding.issue)
+						if themedPx > row.px then
+							table.insert(
+								problems,
+								describeFinding(w, view, offset, finding)
+									.. suffix
+									.. `\n      ^ WORSE than the recorded ledger row: {themedPx}px against a {row.px}px ceiling`
+							)
+						elseif offset < row.since then
+							table.insert(
+								problems,
+								describeFinding(w, view, offset, finding)
+									.. suffix
+									.. `\n      ^ EARLIER than the recorded ledger row: reported at +{offset}, recorded from +{row.since}`
+							)
+						elseif string.find(`,{row.packages},`, `,{package},`, 1, true) == nil then
+							table.insert(
+								problems,
+								describeFinding(w, view, offset, finding)
+									.. suffix
+									.. `\n      ^ A PACKAGE THE LEDGER DOES NOT RECORD: '{package}' against '{row.packages}'`
+							)
+						else
+							THEME_MATCHED[index :: number] = true
+						end
+						continue
+					end
 					local waiver = WAIVER_BY_KEY[key]
 					-- RULE 1: a waiver recorded from +4 or later does not apply at the
 					-- default preference. Only a waiver that ADMITS the defect is there at
@@ -1283,17 +1330,33 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			-- through. Offset 0 is the first pass, so the pre-axis contract — "this
 			-- surface is clean at the default preference, mounted fresh" — is
 			-- evaluated on exactly the tree it was evaluated on before.
-			for _, offset in OFFSETS do
+			local function atOffset(offset: number, package: string?)
 				w.env:set("preferredTextOffset", offset)
 				settle(w.presenter)
 				if variant == nil then
-					collect(offset, "-", "")
+					collect(offset, "-", "", package)
 				else
 					for _, value in variant.values do
 						built.steps[variant.step](built, value)
 						settle(w.presenter)
-						collect(offset, value, `\n      [{variant.step} = {value}]`)
+						collect(offset, value, `\n      [{variant.step} = {value}]`, package)
 					end
+				end
+			end
+			for _, offset in OFFSETS do
+				atOffset(offset, nil)
+			end
+			-- ...AND THE PACKAGE IS SWUNG THE SAME WAY (see the header's theme-axis
+			-- section). `themeMetrics` is the metric half of ADR-0019 §7's one
+			-- transaction and the seam the theme picker itself drives, so a package
+			-- lands on this already-mounted tree exactly as a player's swap would —
+			-- proved equivalent to a fresh mount over the whole cross product. The
+			-- neutral passes run FIRST and to completion, so the pre-theme contract is
+			-- still evaluated on a tree no package has touched.
+			for _, package in PACKAGES do
+				w.env:set("themeMetrics", package.snapshot)
+				for _, offset in themedOffsets(view) do
+					atOffset(offset, package.id)
 				end
 			end
 		end
@@ -1594,5 +1657,199 @@ describe("overflow sweep: the accessibility waiver list", function()
 		-- preference, every one of them in a class this file was blind to. A new one
 		-- means a +0 contract was surrendered, which is never a number to nudge.
 		expect(DEFAULT_WAIVERS).toBe(7)
+	end)
+end)
+
+--[[ ── THE THEME AXIS'S OWN CONTROL ────────────────────────────────────────────
+
+	The same discipline the two controls above are under, for the axis added on
+	2026-08-14: "it went green" is indistinguishable from "it asked nothing", and a
+	theme axis that cannot see a theme-only defect is the instrument defect it was
+	built to remove, one level up.
+
+	THE SCREEN IS THE O-23 SHAPE, REDUCED TO ARITHMETIC. A 120px row holding five
+	4px boxes with the theme's own `l` step between them — the shape every one of
+	this framework's indicators has, where the pieces are fixed and the SPACING
+	comes from the package. Studio Neutral's `l` is 24, so the row needs 20 + 4x24 =
+	116 and fits with 4px to spare; Glossy Touch's is 28, so the same row needs 132
+	and is 12px over. Nothing about the screen changes between the two passes except
+	the one `env:set` the sweep above makes.
+
+	The boxes carry no `surface`, deliberately: a surfaced box is a chrome slot, and
+	under a skinning package it files a `contentInsets could not be spent` finding
+	of its own — which would make this control pass for a reason that has nothing to
+	do with the arithmetic it is testing.
+
+	THE FIRST ASSERTION IS THE NEGATIVE CONTROL and it is the whole point: the
+	neutral pass must be SILENT. A control that fires under both themes would prove
+	the sweep can see an overflow, which the axis control above already proves, and
+	would say nothing at all about whether the package ever reached the solver.
+]]
+describe("overflow sweep: the theme axis bites", function()
+	it("THEME CONTROL: a row that fits under Studio Neutral is REPORTED under a package", function()
+		local view = { id = "control", w = 400, h = 800, displaySize = "Medium", input = "KeyboardAndMouse" }
+		local w = world(view)
+		local screen = UI.Screen({
+			id = "ThemeControl",
+			padding = 0,
+			children = {
+				UI.HStack({
+					id = "Row",
+					width = { type = "fixed", px = 120 },
+					gap = "l",
+					children = {
+						UI.Box({ id = "B1", width = { type = "fixed", px = 4 }, height = { type = "fixed", px = 8 } }),
+						UI.Box({ id = "B2", width = { type = "fixed", px = 4 }, height = { type = "fixed", px = 8 } }),
+						UI.Box({ id = "B3", width = { type = "fixed", px = 4 }, height = { type = "fixed", px = 8 } }),
+						UI.Box({ id = "B4", width = { type = "fixed", px = 4 }, height = { type = "fixed", px = 8 } }),
+						UI.Box({ id = "B5", width = { type = "fixed", px = 4 }, height = { type = "fixed", px = 8 } }),
+					},
+				}),
+			},
+		})
+		local handle = w.presenter.present(screen)
+		settle(w.presenter)
+
+		local function findings(): { any }
+			local out: { any } = {}
+			for _, finding in handle.controller.diagnostics() do
+				table.insert(out, finding)
+			end
+			return out
+		end
+
+		-- the NEGATIVE control: 5x4 + 4 x a 24px `l` step = 116 in 120
+		local neutral = findings()
+		if #neutral > 0 then
+			error(
+				`the theme control reported under Studio Neutral, where it must be silent: `
+					.. `{neutral[1].node} — {neutral[1].issue}`,
+				0
+			)
+		end
+
+		-- ...and the mutation: a package whose `m` step is wider does not fit, and
+		-- the SWEEP'S OWN SEAM is what delivers it
+		local glossy: any = nil
+		for _, package in PACKAGES do
+			if package.id == "glossy-touch" then
+				glossy = package
+			end
+		end
+		assert(glossy ~= nil, "glossy-touch is not in PACKAGES — the theme axis is not sweeping what it says")
+		w.env:set("themeMetrics", glossy.snapshot)
+		settle(w.presenter)
+
+		local themed = findings()
+		expect(#themed).toBe(1)
+		expect(themed[1].node).toBe("/ThemeControl/Row")
+		expect(findingPx(themed[1].issue)).toBe(12)
+	end)
+end)
+
+--[[ ── THE THEME LEDGER IS A TO-DO LIST, AND ITS COVERAGE IS DECLARED ──────────
+
+	Two cases, for the two ways a ledger rots.
+
+	The first is the same rule the waiver list above is under: a row that fires
+	NOWHERE is a defect somebody fixed (or a node that moved), and the suite says so
+	on the run that fixes it. That is what makes 157 a number rather than a
+	decoration.
+
+	The second is the one this axis needs and the waiver list does not. A tier is a
+	CHOICE about what not to look at, and the failure mode of a choice like that is
+	that it stops being written down — the sweep then reads as "covered every
+	theme", which is exactly the claim that was false before this axis existed. So
+	the coverage is DERIVED from the code that does the sweeping, compared against
+	what the header says, and PRINTED on every run. If somebody narrows the tier,
+	this case fails rather than the sweep quietly asking less.
+]]
+describe("overflow sweep: the theme ledger", function()
+	it("every ledger row still fires — a stale row is a fixed defect, delete the line", function()
+		local stale: { string } = {}
+		for index, row in theme_ledger.ROWS do
+			if THEME_MATCHED[index] ~= true then
+				table.insert(
+					stale,
+					`  {row.surface} [{row.variant}] {row.node}\n`
+						.. `      "{row.sig}"\n`
+						.. `      recorded {row.px}px from +{row.since} ({row.kind}; {row.packages})`
+				)
+			end
+		end
+		if #stale > 0 then
+			error(
+				`{#stale} theme-ledger row(s) no longer fire anywhere in the themed passes. If the surface `
+					.. `was fixed, delete the entry (that is the point of the ledger); if the node moved or the `
+					.. `solver reworded the finding, re-record it:\n{table.concat(stale, "\n")}`,
+				0
+			)
+		end
+		-- ...and the ledger is not allowed to quietly grow either. 157 is what
+		-- turning the theme axis on found on 2026-08-14, over eight packages and
+		-- 44 surfaces, none of it in files that mission could touch. Every addition
+		-- is a decision somebody makes on purpose.
+		expect(#theme_ledger.ROWS <= 146).toBe(true)
+	end)
+
+	it("COVERAGE: the themed tier is what the header says it is, and says what it skips", function()
+		-- what the code really sweeps, derived from the same two functions the sweep
+		-- calls — never restated, or this case would pass against a narrower tier
+		local sweptCells: { [string]: boolean } = {}
+		local swept, skipped = 0, 0
+		local skippedRows: { string } = {}
+		for _, view in VIEWS do
+			local offsets: { [number]: boolean } = {}
+			for _, offset in themedOffsets(view) do
+				offsets[offset] = true
+				sweptCells[`{view.id}@{offset}`] = true
+				swept += 1
+			end
+			for _, offset in OFFSETS do
+				if not offsets[offset] then
+					skipped += 1
+					table.insert(skippedRows, `{view.id} ({view.w}x{view.h}) @ +{offset}`)
+				end
+			end
+		end
+
+		-- THE DECLARATION, and the header's claim in one place: every viewport at the
+		-- default preference, plus the largest preference at the two narrowest.
+		for _, view in VIEWS do
+			assert(
+				sweptCells[`{view.id}@0`] == true,
+				`the themed tier skips {view.id} at the DEFAULT preference — a viewport changes the TREE `
+					.. `(p4_foyer's NavRail exists only on desktop), so the structural pass may not be narrowed`
+			)
+		end
+		local narrow = 0
+		for _, view in VIEWS do
+			if sweptCells[`{view.id}@{LARGEST}`] == true then
+				narrow += 1
+			end
+		end
+		expect(narrow).toBe(2)
+		expect(#PACKAGES).toBe(8)
+		expect(swept).toBe(#VIEWS + 2)
+
+		-- ...and the part nobody is allowed to forget, printed on every run rather
+		-- than left in a comment somebody stops reading (the round-3 brief's "an
+		-- instrument nobody runs is a comment"). Measured on 2026-08-14 over the FULL
+		-- cross product: these cells carry 16 findings this tier does not see.
+		print(
+			`\n  [theme axis] {#PACKAGES} packages x {swept} (viewport, preference) cells = `
+				.. `{#PACKAGES * swept} themed passes per surface; 3.50x this file's cost, 224 of the 240 `
+				.. `theme-only findings the full cross product reports.`
+		)
+		print(`  [theme axis] NOT COVERED — {skipped} (viewport, preference) cells carry no themed pass:`)
+		for _, row in skippedRows do
+			print(`      {row}`)
+		end
+		print(
+			"  [theme axis] NOT COVERED — a package's SECOND theme (measured to move no geometry at all, "
+				.. "so this is free on the solver and blind to every palette defect), the two `testOnly` "
+				.. "packages, `ornate_gauge`/`custom_control` (control contributions, not packages), and the "
+				.. "1.4x pseudo-locale, which is a second expansion axis this whole file already skips."
+		)
 	end)
 end)
