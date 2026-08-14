@@ -96,6 +96,36 @@ already binds itself to.
 
 ---
 
+## 6. A Button in a row's content eats the swipe underneath it (NEW, measured live)
+
+**Confirmed on the real engine, 2026-08-13.** `row_actions.luau:3322` says Roblox
+delivers input "to every Active GuiObject under the point independently of paint
+order". It does not. The engine delivers to the **topmost** interactive object;
+a `GuiButton` sinks it and the Active Frame behind gets nothing.
+
+| click point | what fired |
+|---|---|
+| grip only, nothing on top | `GRIP InputBegan` |
+| **over a button in the content** | `BUTTON InputBegan`, `BUTTON Activated`, **grip: nothing** |
+
+**Consequence: a row whose content contains a Button cannot be swiped where that
+button covers it.** Unnoticed so far because every swipe demo built to date uses
+inert content (text, images). `table.luau`'s `rowBlueprint` uses the same
+behind-the-content arrangement and is cited by the same comment.
+
+| option | consequence |
+|---|---|
+| **A. Grip on TOP, forwarding taps it does not claim** (recommended) | The gesture always reaches the row. The Grip must forward a press it decides is not a swipe to whatever is beneath — real work, and the axis-lock machinery to decide already exists. |
+| B. Interactive content opts into forwarding | Each button in a row declares "offer my presses to the row first". Less framework work, but every consumer has to remember, and forgetting is silent. |
+
+**Recommendation: A** — B fails in the direction this framework keeps getting
+burned by: silent, per-caller, and invisible until a device.
+
+Full evidence and the two traps the experiment nearly fell into:
+`docs/lessons/a-button-eats-the-swipe-underneath-it.md`.
+
+---
+
 ## Also worth a decision, not blocking
 
 **Should `row_actions.luau` and `screen_target.luau` be split?** They are 219,701
