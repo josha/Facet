@@ -35,6 +35,36 @@ So:
   write, or edit on disk and rebuild the place.
 - **Loading** a >200k module from a `.rbxl`: fine, verified above.
 
+## CORRECTION (2026-08-14, later): the cap was NOT the main cause that day
+
+The section below is true about the cap and **wrong about why nothing synced**.
+The primary cause was far more boring, and finding it took a split mission
+noticing that `rojo serve` disagreed with disk:
+
+**The showcase `rojo serve` had been running since 2026-07-26 — nineteen days —
+and its file watcher was dead.** It served `screen_target` at 228,076 and had
+never heard of eleven files created since, with 26 more stale. `touch`ing them
+changed nothing. The perf-lab serve, started that same morning, was stale from
+its own start time. The repo lives on a Dropbox CloudStorage path, which is the
+prime suspect for the watcher never firing.
+
+So the observation "additions land, modifications do not" — which I explained
+with a story about an oversized write aborting the batch — was really "this
+serve knows about the tree as it existed 19 days ago". A file added since simply
+was not in its snapshot at all. **The story was plausible, fitted the evidence,
+and was wrong**; the tell was that a 13,748-char module was stale, which no cap
+can explain. Restarting both serves fixed it, verified by querying
+`/api/read/<rootInstanceId>` for files created that day.
+
+**Both failures are real and they stack.** A stale serve syncs nothing; a healthy
+serve still cannot write a module at or over the cap. Check the serve's age
+FIRST — `ps -o lstart -p <pid>` — and only then reach for the cap.
+
+**And the cap is `>=`, not `>`.** Bracketed on the live engine: 200,000 refused,
+199,999 written. Every write-up here originally said "over 200,000", and
+`tools/check_source_size.py` used `>` until it was fixed — so a module at exactly
+200,000 read as compliant while being silently unsyncable.
+
 ## And Rojo live-sync is a WRITING path (2026-08-14)
 
 This is the operational bite, found by measuring a live session rather than
