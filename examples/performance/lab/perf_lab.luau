@@ -117,6 +117,15 @@ local WORKLOADS = {
 		passes = { "motionFlight" },
 	},
 	{
+		-- `implementation = "none"`: the pass mounts its own four arms, so the
+		-- cascade's cost is not blended with virtual-list windowing (the same
+		-- reason `motion-flight` stands alone).
+		id = "sensory-cascade",
+		implementation = "none",
+		question = "What does the per-control sensory cascade cost a tree that declares nothing, and what does one declaration on a root cost when it reaches every node?",
+		passes = { "sensoryCascade" },
+	},
+	{
 		id = "lifecycle-soak",
 		implementation = "luauui",
 		question = "Do Instances, connections, memory or stale work trend upward?",
@@ -1228,9 +1237,7 @@ return {
 					end)
 					local idleB = sampleIdle(cap)
 					local a1, a2 = summarize(idleA), summarize(idleB)
-					local spread = if a1.measured and a2.measured
-						then math.abs(a1.p50_ms - a2.p50_ms)
-						else 0
+					local spread = if a1.measured and a2.measured then math.abs(a1.p50_ms - a2.p50_ms) else 0
 					return {
 						rows = MOTION_FLIGHT_ROWS,
 						-- READ THIS FIRST: any B-vs-C delta smaller than this is noise
@@ -1255,6 +1262,125 @@ return {
 					error(result, 0)
 				end
 				return result
+			end)
+		end
+
+		--[[ WHAT THE PER-CONTROL SENSORY HOOK COSTS (director ask 2026-08-13).
+
+			`UI.sensoryFeedback(bp, { activation = … })` is a CASCADE: `mount.luau`
+			resolves it down the tree, so a declaration on a page root touches every
+			node under it, and the renderer publishes the resolved verb to the
+			adapter for every activatable control. Two cost questions follow, and
+			neither is answerable by reading the code:
+
+			  · what does a tree that declares NOTHING pay? (it must be ~zero, or a
+			    feature nobody uses is charging every screen in the framework);
+			  · what does ONE declaration on a root cost when it reaches N nodes,
+			    versus N declarations on N leaves?
+
+			THREE ARMS OVER AN IDENTICAL TREE. Same class, same count, same content,
+			same presenter, same sequence — only the declaration differs, which is
+			the only way a difference means the declaration. A and A' bracket the
+			run so the harness's own same-arm spread is stated BEFORE any delta:
+			round 2 lost three "improvements" to exactly that omission.
+
+			PRESSES ARE MEASURED SEPARATELY from mounts, because they are different
+			questions: the mount half is the cascade, the press half is one field
+			read and one bus emission per activation. `driveActivate` is the
+			adapter's own dev-drive seam into the SAME closure a real press reaches,
+			so the press arm is not a private code path wearing the name of one.
+
+			Tier discipline unchanged: Lune = regression signal, Studio (this lab) =
+			real engine work with real Instance counts, a physical device = the only
+			thing that supports a device claim.
+		]]
+		local SENSORY_ROWS = 120
+
+		passes.sensoryCascade = function(payload: string?)
+			return timed("sensoryCascade", function()
+				local presses = math.clamp(math.floor(tonumber(payload or "") or 60), 5, 400)
+				local U = LuauUI.UI
+
+				-- one arm: `decorate` decides where (if anywhere) the declaration goes
+				local function arm(decorate: string): any
+					local children = table.create(SENSORY_ROWS)
+					for i = 1, SENSORY_ROWS do
+						local button = U.Button({ id = `B{i}`, label = `row {i}` })
+						children[i] = if decorate == "leaves"
+							then U.sensoryFeedback(button, { activation = "commit" })
+							else button
+					end
+					local page = U.ScrollView({
+						id = "Page",
+						axis = "y",
+						gap = 2,
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = children,
+					})
+					local screen = U.Screen({ id = "SensoryCascade", padding = 8, children = { page } })
+					if decorate == "root" then
+						screen = U.sensoryFeedback(screen, { activation = "commit" })
+					end
+					local before = telemetry.memory()
+					local t0 = clock()
+					local handle = ctx.presenter.present(screen)
+					ctx.presenter.refresh()
+					local mountMs = (clock() - t0) * 1000
+					local after = telemetry.memory()
+
+					-- the press half, through the adapter's own activate closure
+					local heard = 0
+					local unsubscribe = handle.onFeedback(function()
+						heard += 1
+					end)
+					local samples = table.create(presses)
+					local drove = 0
+					for i = 1, presses do
+						local path = `/SensoryCascade/Page/B{((i - 1) % SENSORY_ROWS) + 1}`
+						local t1 = clock()
+						local fired = ctx.adapter.driveActivate ~= nil and ctx.adapter.driveActivate(path) or false
+						samples[i] = (clock() - t1) * 1000
+						if fired then
+							drove += 1
+						end
+					end
+					unsubscribe()
+					local guiObjects = telemetry.instances().guiObjects
+					ctx.presenter.dismiss(handle)
+					ctx.presenter.refresh()
+					return {
+						mountMs = mountMs,
+						pressMs = summarize(samples),
+						pressesDriven = drove,
+						eventsHeard = heard,
+						guiObjects = guiObjects,
+						luaHeapKbDelta = if type(after.luaHeapKb) == "number"
+								and type(before.luaHeapKb) == "number"
+							then after.luaHeapKb - before.luaHeapKb
+							else nil,
+					}
+				end
+
+				local a = arm("none")
+				local root = arm("root")
+				local leaves = arm("leaves")
+				local aPrime = arm("none")
+				return {
+					rows = SENSORY_ROWS,
+					presses = presses,
+					-- READ THIS FIRST: any arm-to-arm delta smaller than this is noise
+					harnessSpreadMs = math.abs(a.mountMs - aPrime.mountMs),
+					undeclared = a,
+					undeclaredRepeat = aPrime,
+					declaredOnRoot = root,
+					declaredOnEveryLeaf = leaves,
+					note = "identical tree in all four arms; only the declaration moves. `undeclared` is the "
+						.. "off-path cost every screen in the framework pays and must sit inside "
+						.. "harnessSpreadMs of `undeclaredRepeat`. `eventsHeard` proves the presses "
+						.. "landed — an arm that drove nothing would otherwise report a very fast press. "
+						.. "Lune = regression signal, this lab = real engine, device = the only device claim.",
+				}
 			end)
 		end
 

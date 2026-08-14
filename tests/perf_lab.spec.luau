@@ -291,6 +291,60 @@ describe("incremental layout Stage 1: boundary detection sizes the prize", funct
 	end)
 end)
 
+--[[ THE SENSORY-CASCADE PASS (per-control feedback, 2026-08-13).
+
+	The pass exists to answer one number the code cannot be read for: what a tree
+	that declares NOTHING pays for a cascade nobody used. These cases do not judge
+	the number — headless timings are a regression signal, and the lab's own note
+	says so — they prove the INSTRUMENT is real: four arms actually mount, the
+	presses actually land, and the declared arms actually carry the verb. A pass
+	that drove nothing would report a beautifully fast press.
+]]
+describe("perf lab: the sensory-cascade pass measures something (director ask 2026-08-13)", function()
+	it("runs four arms, and every one of them really pressed", function()
+		local built = newHarness()
+		built.steps.select(nil, "scenario=sensory-cascade")
+		local result = built.steps.pass(nil, "sensoryCascade=8").detail
+		for _, armName in { "undeclared", "undeclaredRepeat", "declaredOnRoot", "declaredOnEveryLeaf" } do
+			local arm = result[armName]
+			expect(`{armName} ran:{arm ~= nil}`).toBe(`{armName} ran:true`)
+			-- THE ANTI-VACUUM CHECK: an arm whose drive found no handler would be
+			-- the fastest arm in the run and would mean nothing
+			expect(`{armName} drove:{arm.pressesDriven}`).toBe(`{armName} drove:8`)
+		end
+		-- ...and the declaration is what the arms differ by: only the two declared
+		-- arms put anything on the bus, because the undeclared ones emit `activate`
+		-- (which they DO hear) — so the discriminator is the verb, asserted below
+		expect(result.rows).toBe(120)
+		expect(type(result.harnessSpreadMs)).toBe("number")
+	end)
+
+	it("the declared arms really carry the verb — the arms are not three copies", function()
+		-- the pass's own numbers cannot show this (it counts events, not verbs), so
+		-- the discriminator is asserted here rather than assumed from the arm names.
+		local built, ctx = newHarness()
+		built.steps.select(nil, "scenario=sensory-cascade")
+		local seen: { string } = {}
+		ctx.presenter.onFeedback(function(event: any)
+			if event.reason == "activation" then
+				table.insert(seen, event.type)
+			end
+		end)
+		built.steps.pass(nil, "sensoryCascade=8")
+		-- 4 arms x 8 presses; the two undeclared arms say `activate`, the two
+		-- declared ones say `commit`
+		local activates, commits = 0, 0
+		for _, verb in seen do
+			if verb == "activate" then
+				activates += 1
+			elseif verb == "commit" then
+				commits += 1
+			end
+		end
+		expect(`activate:{activates} commit:{commits}`).toBe("activate:16 commit:16")
+	end)
+end)
+
 describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 	it("every declared workload names only passes the scenario implements", function()
 		local built = newHarness()
@@ -300,7 +354,10 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		-- makes the incremental-layout gap measurable instead of argued. ELEVEN since
 		-- motion-flight joined (director ask 2026-08-14): the per-frame cost of an
 		-- interpolating property, and what the size half adds to the position half.
-		expect(#declared.order).toBe(11)
+		-- TWELVE since sensory-cascade joined (director ask 2026-08-13): what the
+		-- per-control feedback cascade costs a tree that declares nothing, which is
+		-- the number that decides whether a feature nobody uses charges every screen.
+		expect(#declared.order).toBe(12)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
 				-- `pass` refuses an unknown name, so an unimplemented pass in a

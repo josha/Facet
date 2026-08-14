@@ -563,7 +563,12 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			end
 		end
 
-		local declarations = feedbackContract.readDeclarations(node)
+		-- THE OFF-PATH COST IS ONE NIL CHECK. `meta` is absent on the overwhelming
+		-- majority of nodes (it exists only where a modifier put something there),
+		-- and the cascade below now runs for every node rather than only when a
+		-- feedback sink is wired — so the read is gated on the channel existing at
+		-- all rather than being paid per node on every mount in the framework.
+		local declarations = if bp.meta ~= nil then feedbackContract.readDeclarations(node) else nil
 
 		-- SENSORY FEEDBACK, THE CONTROL FORM (round 3): the cascade. Resolved
 		-- HERE because this is the only walk that sees a blueprint's ancestors and
