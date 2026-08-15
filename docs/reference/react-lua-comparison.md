@@ -72,9 +72,10 @@ Nothing in this document is sourced from the fork.
   what a Roblox game author would compare, not by a mechanical sweep. **Silence
   outside §4 is not evidence.**
 - **Fusion is a separate document.** The director's question spans React and
-  Fusion; a sibling comparison document covers Fusion, and §5 confines itself to
-  candidates that come from React-Lua. Where a candidate has a Fusion twin, the
-  row says so and leaves the Fusion argument to that document.
+  Fusion; [`fusion-comparison.md`](fusion-comparison.md) covers Fusion, and §5
+  confines itself to candidates that come from React-Lua. Three candidates appear
+  on both lists from different directions, and §5's preamble reconciles them
+  rather than leaving the reader to notice.
 - **Distribution is out of scope but not out of mind.** React-Lua ships on Wally
   and the Creator Store ([RL-25], [RL-26]); LuauUI 0.9.0 has no public
   distribution at all. That is the single largest practical difference between
@@ -978,10 +979,26 @@ LuauUI already answers it differently, and one of three recommendations:
 - **DEFER** — real, but the trigger that should lift it is named.
 - **DECLINE** — with the reason, so it is not rediscovered.
 
-Two candidates are deliberately not on this list because they are not §5's:
+One candidate is deliberately not on this list because it is not §5's:
 **distribution** (Wally/Creator Store — [`distribution-readiness.md`](../plans/distribution-readiness.md)
-owns it) and the **Fusion-side candidates**, which belong to the sibling Fusion
-comparison document.
+owns it).
+
+**Where this list meets the Fusion document's.** [`fusion-comparison.md`](fusion-comparison.md)
+§5 was written in parallel against the same framework, and three items touch.
+They are named here so a reader dispatching from both lists is not reconciling
+them by hand:
+
+| This list | Fusion §5 | Are they the same thing? |
+|---|---|---|
+| **Rank 1**, a foreign **GuiObject** inside a LuauUI layout | **G-7**, driving arbitrary Roblox instances (`New "Part"` — a `Part`, a `Beam`, a `Sound`) | **No.** G-7 is the 3D/world-instance question and it is already decided by [`ADR-0024`](../adr/ADR-0024-declarative-3d.md) — a sibling scene system on the shared kernel, build waiting for a consumer. Rank 1 is the *2-D* question: a GuiObject class the solver must lay out. ADR-0024 does not cover it |
+| **Rank 1** (again) | **G-2**, an instance escape hatch (`Ref`/`Out`) — **DEFER** | **Adjacent, and the distinction is the whole design.** G-2 is *handing out the `GuiObject` LuauUI created*, and its argument for deferring is exactly right: a writable handle to a framework-owned instance is the second-writer hole §2.5 exists to close. Rank 1 hands out **nothing LuauUI owns** — it is a container the *caller* creates the instance inside, so the framework claims one authority (the container's rect) and disclaims the rest by construction. Rank 1 does not weaken G-2's refusal and should not be read as overturning it |
+| **Rank 6**, subtree-scoped environment overrides | **G-4**, consumer-defined environment values (`Contextual`) — **DEFER** | **Two halves of one hole.** G-4 is *new keys a consumer defines*; Rank 6 is *existing framework keys overridden for a subtree*. Either build should look at both before choosing a shape |
+
+One disagreement is worth stating plainly rather than smoothing over: this
+document ranks the escape hatch **BUILD NOW** and the Fusion document ranks its
+nearest neighbour **DEFER**. The reason for the difference is the scope above —
+G-2 defers handing out a framework-owned instance, which this list also does not
+propose. Nothing here asks for `Ref`.
 
 ---
 
@@ -1031,6 +1048,15 @@ The bounded version costs much less and keeps all three. A leaf class — call i
 That is one blueprint class, one render-target optional method (with a named
 degrade), and one solver content-leaf branch. `UI.Stage` is the working
 precedent for every part of it.
+
+**What this is not.** It is not
+[`ADR-0024`](../adr/ADR-0024-declarative-3d.md)'s question — that record decided
+the *3-D/world-instance* case (a `Part`, a `Beam`, a `Sound`) in favour of a
+sibling scene system on the shared kernel, with the build waiting for a consumer.
+This is the 2-D case: a `GuiObject` class the solver has to lay out. And it is not
+`fusion-comparison.md` §5's `Ref` — nothing here hands out an instance LuauUI
+created, which is why the authority argument that defers `Ref` does not defer
+this. See §5's preamble table.
 
 **Recommendation: BUILD NOW.** Bounded form only. The refusal of the unbounded
 form should ship with it, as a construction error naming the reason — the same
@@ -1167,7 +1193,10 @@ That cascade exists and works, but it carries one static string; carrying live
 
 **Recommendation: DEFER.** The trigger: **the third control that has to take an
 environment fact as a spec parameter.** Two have; a third means the workaround is
-the pattern and the pattern should be the mechanism.
+the pattern and the pattern should be the mechanism. Whoever picks this up should
+read [`fusion-comparison.md`](fusion-comparison.md) §5 G-4 first — that is the
+other half of the same hole (consumer-*defined* keys, where this is consumer-
+*overridden* ones), and one shape should answer both.
 
 ---
 
