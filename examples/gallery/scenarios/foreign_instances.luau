@@ -116,9 +116,7 @@ end
 -- goes on screen, so a refusal is visible in the experience rather than only in
 -- the output window.
 function foreign_instances.adopt(controller: any, nodePath: string, content: any): string
-	local host = if controller ~= nil and controller.foreignHost ~= nil
-		then controller.foreignHost(nodePath)
-		else nil
+	local host = if controller ~= nil and controller.foreignHost ~= nil then controller.foreignHost(nodePath) else nil
 	if host == nil then
 		return "no host (this adapter has no foreign seam; the box still paints its plate)"
 	end

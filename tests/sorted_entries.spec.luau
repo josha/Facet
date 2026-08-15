@@ -215,7 +215,12 @@ describe("sortedEntries: the comparator", function()
 			return RANK[a] < RANK[b]
 		end
 		local expected: string? = nil
-		for _, order in { { "music", "sfx", "haptics", "subtitles", "contrast" }, { "contrast", "haptics", "music", "subtitles", "sfx" } } do
+		for _, order in
+			{
+				{ "music", "sfx", "haptics", "subtitles", "contrast" },
+				{ "contrast", "haptics", "music", "subtitles", "sfx" },
+			}
+		do
 			local d: { [string]: boolean } = {}
 			for _, k in order do
 				d[k] = true

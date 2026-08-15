@@ -234,7 +234,9 @@ return {
 		local widths = scope:own(core:memo(function(use)
 			local overrides = use(tbl.api.columnWidthOverrides) :: { [string]: number }
 			local parts = {}
-			for _, column in { { "name", copy.colName, true }, { "team", copy.colTeam, true }, { "best", copy.colBest, false } } do
+			for _, column in
+				{ { "name", copy.colName, true }, { "team", copy.colTeam, true }, { "best", copy.colBest, false } }
+			do
 				local id, label, resizable = column[1] :: string, column[2] :: string, column[3] :: boolean
 				local px = overrides[id]
 				local shown = if px ~= nil

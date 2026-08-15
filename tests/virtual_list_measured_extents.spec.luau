@@ -576,7 +576,7 @@ describe("VirtualList measured extents: a fill main axis is refused", function()
 		w.dispose()
 	end)
 
-	it('a DECLARED list still accepts a fill cell — the refusal is measured mode\'s', function()
+	it("a DECLARED list still accepts a fill cell — the refusal is measured mode's", function()
 		local core = LuauUI.newCore()
 		local rows = core:signal(makeRows(3))
 		local ok = pcall(function()

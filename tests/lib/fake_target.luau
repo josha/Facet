@@ -1169,7 +1169,13 @@ function fake_target.new(opts: Opts?)
 			assertLive()
 			local candidate: any = if type(instance) == "table"
 				then instance
-				else { present = false, className = "", isGuiObject = false, isLayerCollector = false, alive = false }
+				else {
+					present = false,
+					className = "",
+					isGuiObject = false,
+					isLayerCollector = false,
+					alive = false,
+				}
 			foreign_content.assertAdmissible(handle.foreignPath or handle.path, candidate)
 			table.insert(api.calls, {
 				method = "adopt",
