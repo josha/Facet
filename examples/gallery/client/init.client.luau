@@ -287,6 +287,12 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	reserveBar()
 	local examplesFolder = ReplicatedStorage:WaitForChild("LuauUIExamples", 10)
 	local scenariosFolder = ReplicatedStorage:FindFirstChild("LuauUIScenarios")
+	-- the engine-side materializer BOTH hosts share (ADR-0034). Required here and
+	-- not inside `mountDemo` so a missing module is a loud boot failure rather than
+	-- a demo that silently mounts empty panes.
+	local foreignInstances = if scenariosFolder ~= nil
+		then require(scenariosFolder:WaitForChild("foreign_instances")) :: any
+		else nil
 
 	-- EVERY DEMO GETS ITS OWN SCOPE, AND THE HOST INSTALLS IT.
 	--
@@ -339,12 +345,33 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 			-- waits for a mounted scroll path). `actionSystem` rides along for
 			-- the same reason it does in the runner — a fixture's steps never
 			-- run here, but nothing a fixture reads at BUILD may be absent.
+			--[[ THE `foreign` SEAM RIDES ALONG (UI.Foreign, ADR-0034), for exactly
+				the reason the `present`-opts comment below records. A fixture whose
+				panes hold caller-owned instances declares them as DATA and adopts
+				them through `ctx.foreign.adopt` — a seam only the scenario RUNNER
+				had. Without this the showcase a player actually opens would mount
+				`foreign_content`'s three panes EMPTY while the runner and the sweep
+				showed them full: the test rig more correct than the shipped host,
+				which is the failure this file has already shipped once.
+
+				It resolves the demo's own controller lazily, because the handle does
+				not exist until `present` returns two dozen lines below and the
+				fixture's buttons are pressed long after that. ]]
+			local demoHandle: any = nil
 			built = mod.build({
 				LuauUI = LuauUI,
 				core = demoCore,
 				env = env,
 				actionSystem = system,
 				presenter = pres,
+				foreign = {
+					adopt = function(nodePath: string, content: any): string
+						if demoHandle == nil then
+							return "not-presented"
+						end
+						return foreignInstances.adopt(demoHandle.controller, nodePath, content)
+					end,
+				},
 			})
 			--[[ A FIXTURE'S `present` OPTS ARE PART OF THE FIXTURE (C2, 2026-08-12).
 				This dropped the second argument, so every `present` table a fixture
@@ -363,6 +390,13 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				`present` is nil for a fixture that declares none, which is exactly
 				what `present(screen)` meant before. ]]
 			built.handle = pres.present(built.screen, built.present)
+			demoHandle = built.handle
+			-- ...and the DECLARED half, the exact parallel of the runner's
+			-- post-present pass (ADR-0034): whatever `built.foreignContent` names is
+			-- adopted now, and the per-node status is kept so a fixture can report it
+			if built.foreignContent ~= nil then
+				built.foreignApplied = foreignInstances.applyAll(built.handle.controller, built.foreignContent)
+			end
 		else
 			local mod = require(examplesFolder:FindFirstChild(demo.module)) :: any
 			built = mod.build(LuauUI, demoCore, {

@@ -212,4 +212,8 @@ return {
 	order = ORDER,
 	modules = scenarios,
 	runner = script:WaitForChild("runner"),
+	-- the ENGINE-SIDE sibling `runner` and the shipped showcase host BOTH need
+	-- (UI.Foreign, ADR-0034): one materializer for `built.foreignContent`, so the
+	-- test rig cannot end up more capable than the surface a player opens
+	foreignInstances = script:WaitForChild("foreign_instances"),
 }

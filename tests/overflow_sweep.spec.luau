@@ -368,6 +368,14 @@ local SCENARIOS = {
 	-- takes 200px of HEIGHT off the box, which is the case a viewport sweep would
 	-- otherwise never reach
 	"hud",
+	-- ...and UI.Foreign (ADR-0034). Its panes are FIXED-PX boxes that cannot
+	-- reflow — the framework cannot ask a foreign instance how big it would like
+	-- to be, so the box is declared — sitting in a WRAPPING row beside captions
+	-- that grow with the text preference. That combination (rigid boxes, growing
+	-- labels, a wrap point that moves) is exactly what a swept viewport x text
+	-- cross product is for, and it is the only fixture here where an overflow
+	-- would be the framework's own contract failing rather than a packaging slip
+	"foreign_content",
 	-- ...and ADR-0028's alarm fixture. It mounts a SECOND surface at build, which
 	-- is the only surface in this corpus that does — so the swept assertion here
 	-- is that the declared pair stays quiet at every viewport, preference and

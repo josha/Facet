@@ -212,6 +212,9 @@ function Runner.start(deps: { [string]: any })
 	local registry = deps.registry
 	local name = deps.scenarioName :: string
 	local mod = registry.modules[name]
+	-- the shared foreign-content materializer (ADR-0034); see the note at
+	-- `applyForeignContent` below for why it is not a local in this file
+	local foreign_instances = require(registry.foreignInstances) :: any
 	if mod == nil then
 		workspace:SetAttribute("LuauUI_ScenarioState", "failed:unknown-scenario:" .. name)
 		error(`[LuauUI Scenario] unknown scenario '{name}' (registered: {table.concat(registry.order, ",")})`)
@@ -277,6 +280,16 @@ function Runner.start(deps: { [string]: any })
 			return "no-parts"
 		end
 		return "stub-root"
+	end
+
+	-- FOREIGN CONTENT (UI.Foreign, ADR-0034) is materialized by a SHARED sibling
+	-- module rather than by a local like `applyStageContent` above, because the
+	-- shipped showcase host needs the identical capability and a runner-only
+	-- version would make the test rig more correct than the thing a player opens
+	-- (the C2 failure this file's own `present`-opts comment records). See
+	-- `foreign_instances.luau`.
+	local function applyForeignContent(controller: any, nodePath: string, content: any): string
+		return foreign_instances.adopt(controller, nodePath, content)
 	end
 
 	local function build()
@@ -485,6 +498,17 @@ function Runner.start(deps: { [string]: any })
 						return "not-presented"
 					end
 					return applyStageContent((built.handle :: any).controller, nodePath, content)
+				end,
+			},
+			-- ...and the same live seam for a FOREIGN box (ADR-0034), so a scenario's
+			-- own buttons can adopt (and be refused) while the surface is up
+			foreign = {
+				adopt = function(nodePath: string, content: any): string
+					local built = session.built
+					if built == nil or built.handle == nil then
+						return "not-presented"
+					end
+					return applyForeignContent((built.handle :: any).controller, nodePath, content)
 				end,
 			},
 			themePackages = (function(): { [string]: any }
@@ -1121,6 +1145,17 @@ function Runner.start(deps: { [string]: any })
 				applied[nodePath] = applyStageContent(controller, nodePath, content)
 			end
 			session.built.stageApplied = applied
+		end
+		-- FOREIGN CONTENT, same contract (ADR-0034): `built.foreignContent =
+		-- { [nodePath] = { kind, … } }`. A nil host is recorded as a status string,
+		-- never an error — the declared fallback there is the box's own plate.
+		if session.built.foreignContent ~= nil and session.built.handle ~= nil then
+			local controller = (session.built.handle :: any).controller
+			local applied: { [string]: string } = {}
+			for nodePath, content in session.built.foreignContent :: { [string]: any } do
+				applied[nodePath] = applyForeignContent(controller, nodePath, content)
+			end
+			session.built.foreignApplied = applied
 		end
 	end
 
