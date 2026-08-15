@@ -1516,17 +1516,27 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		gesture (`hostedActiveKey`), or when nothing is engaged at all. The second
 		clause is what lets a programmatic `_open` — no gesture anywhere — engage a
 		row; the first is what stops a row that is merely FINISHING ITS CLOSE from
-		taking the tray back off the row the player is actually dragging. The
-		engine keeps counting down its own `offset` regardless — but `hostedWriteSlide`
-		below paints only the ENGAGED row, so a row that loses engagement while its
-		close spring is still in flight is NOT painted through the rest of that
-		flight: it snaps flat instantly, on the very frame it stops being engaged
-		(pinned by `tests/virtual_list_row_actions.spec.luau`'s "r2 is flat again").
-		Device-pass rider: iOS animates the previously-open row closed under it;
-		hosted mode jumps it. Not fixed here — recorded for the device pass.
+		taking the tray back off the row the player is actually dragging.
 
-		Both writes ride ONE transaction so a memo over the pair can never observe
-		the new row against the previous row's pixels. ]]
+		ENGAGEMENT IS NOT THE PAINT (fixed 2026-08-15; carried defect 2 of
+		`docs/plans/table-hosted-row-actions-stage2.md` §"three open hosted-mode
+		defects" — "a visible regression on a shipped Table surface, not a
+		theoretical one", because Table animates it today and a hosted Table would
+		inherit the jump). `hostedWriteSlide` USED TO paint only the engaged row, so
+		a row that lost engagement while its own close spring was still in flight
+		stopped being painted on that very frame and snapped flat, while its engine
+		went on computing pixels nobody wrote.
+
+		The two really are different things and are now spelled as two. ENGAGEMENT
+		is singular by policy — the coordinator's one-open rule means at most one
+		row owns the TRAY, the overlay's anchor and the focus-restore target — and
+		that arbitration below is unchanged. The SLIDE is per row, because two
+		springs are genuinely in flight at once during a handover, so it rides
+		`hostedSlideByKey` and every entry in it is painted. iOS animates the
+		previously-open row closed under the new one; so does this now.
+
+		Both engagement writes ride ONE transaction so a memo over the pair can
+		never observe the new row against the previous row's pixels. ]]
 	--[[ SUB-PIXEL IS HOME (device bug round 2026-08-12, finding C9b). This tested
 		`px ~= 0`, and a position-domain spring only reaches its target at
 		`spring.luau`'s 1e-3 epsilon — 35 frames after the row has visually arrived,
@@ -1537,8 +1547,24 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		the tray's focused button unmounted first the ring would have nowhere left to
 		come back from. ]]
 	local HOSTED_HOME_EPS: number = (row_actions :: any).REVEAL_EPS
+	--[[ EVERY ROW THAT IS NOT AT HOME, and how far. Keyed by row key, never by
+		path (a row's path changes as the window scrolls; its key does not), and a
+		plain table rather than a signal: `hostedWriteSlide` is called explicitly at
+		the one place this is written, so nothing needs to observe it, and a signal
+		per drag pixel is exactly the per-row reactive cost the hosted design's own
+		floor experiment rejected. An entry exists only while |px| >= the half-pixel
+		home epsilon — see `hostedApplySlide` — so the table is empty on a list
+		nobody has swiped, and empty again the moment the last spring lands. ]]
+	local hostedSlideByKey: { [string]: number } = {}
+	-- FORWARD-DECLARED, and it has to be: `hostedApplySlide` below calls it, and a
+	-- `local function` declared after its caller is a GLOBAL lookup at call time —
+	-- nil, silently (docs/lessons/a-helper-declared-below-its-caller-is-a-global.md,
+	-- docs/lessons/later-locals-are-not-upvalues.md). It is defined a few lines
+	-- down, beside the presentation-channel comment that explains what it writes.
+	local hostedWriteSlide: () -> ()
 	local function hostedApplySlide(key: string, px: number)
 		if math.abs(px) >= HOSTED_HOME_EPS then
+			hostedSlideByKey[key] = px
 			local engaged = engagedKey:get()
 			if engaged == key then
 				engagedOffset:set(px)
@@ -1548,12 +1574,20 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					engagedOffset:set(px)
 				end)
 			end
-		elseif engagedKey:get() == key then
-			core:transaction(function()
-				engagedOffset:set(0)
-				engagedKey:set(nil)
-			end)
+		else
+			hostedSlideByKey[key] = nil
+			if engagedKey:get() == key then
+				core:transaction(function()
+					engagedOffset:set(0)
+					engagedKey:set(nil)
+				end)
+			end
 		end
+		-- ...and paint, here rather than only from the two engagement observers:
+		-- a row that is closing WITHOUT the engagement moves no signal at all, and
+		-- that silence is exactly what the carried defect was made of. The write is
+		-- change-gated inside the renderer, so a repeat costs one comparison.
+		hostedWriteSlide()
 	end
 
 	--[[ THE SLIDE ITSELF — the PRESENTATION CHANNEL, not a layout prop (design §3;
@@ -1571,27 +1605,38 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		while this control still believed it was translated. The write is
 		change-gated inside the renderer, so re-asserting an unchanged transform
 		costs one comparison. ]]
-	local hostedSlidPath: string? = nil
-	local function hostedWriteSlide()
+	-- what this control last wrote, key -> path. Keyed the same way the slide
+	-- itself is, so a row that scrolled to a new path (or out of the window
+	-- entirely) has its OLD path cleared rather than left behind translated.
+	local hostedSlidPaths: { [string]: string } = {}
+	function hostedWriteSlide()
 		local ctrl = boundController
 		if ctrl == nil then
 			return -- not presented yet; the next sync writes it
 		end
-		local key = engagedKey:get()
-		local px = if key ~= nil then engagedOffset:get() else 0
-		local path = if key ~= nil and px ~= 0 then mountedRowPath(key) else nil
-		if hostedSlidPath ~= nil and hostedSlidPath ~= path then
-			-- RESTORED, not zeroed: nil clears the presentation transform outright
-			-- (and decrements the renderer's own live-presentation count), so a
-			-- disengaged row is exactly as untransformed as one that never slid.
-			ctrl.setPresentationTransform(hostedSlidPath, nil)
-			hostedSlidPath = nil
+		-- CLEAR FIRST, in its own pass. A row can leave for two reasons — it
+		-- reached home, or it moved to a different path — and both have to release
+		-- the path they were written at BEFORE anything is written, or a row that
+		-- scrolled by exactly one slot would clear the entry the row now occupying
+		-- that path had just been given. Assigning nil to the key `pairs` is
+		-- currently visiting is the one table mutation Lua allows mid-iteration.
+		for key, path in hostedSlidPaths do
+			if hostedSlideByKey[key] == nil or mountedRowPath(key) ~= path then
+				-- RESTORED, not zeroed: nil clears the presentation transform
+				-- outright (and decrements the renderer's own live-presentation
+				-- count), so a row at home is exactly as untransformed as one that
+				-- never slid.
+				ctrl.setPresentationTransform(path, nil)
+				hostedSlidPaths[key] = nil
+			end
 		end
-		if path == nil then
-			return
+		for key, px in hostedSlideByKey do
+			local path = mountedRowPath(key)
+			if path ~= nil then
+				ctrl.setPresentationTransform(path, { x = px, y = 0 })
+				hostedSlidPaths[key] = path
+			end
 		end
-		ctrl.setPresentationTransform(path, { x = px, y = 0 })
-		hostedSlidPath = path
 	end
 
 	local function hostedApplyCommitHeight(key: string, px: number?)
@@ -1850,6 +1895,30 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 		if math.abs(dx) <= math.abs(dy) then
 			pending.declined = true -- vertical: the native scroll owns this gesture
+			--[[ ...AND A PAN IS NOT A TAP (carried defect 3, fixed 2026-08-15 —
+				`docs/plans/table-hosted-row-actions-stage2.md` §"three open
+				hosted-mode defects": "a vertical pan begun on a row still fires that
+				row's `onActivate`").
+
+				IT IS redteam NEW-1's DEFECT IN THE BRANCH THAT WAS MISSED. The
+				horizontal branch below arms for one reason — the row's `Hit` is a
+				real engine `GuiButton`, so the same pointer sequence that swipes it
+				ends in an `Activated` on it — and that reason does not care which
+				way the axis went. The native scroll owning the gesture makes this
+				dispatcher inert; it does not move the button out from under the
+				finger. A short pan that begins and ends inside one row still
+				delivers `Activated`, so reading a list by dragging it opened
+				whatever the row opens.
+
+				ARMED HERE, at the lock, for the same reason the horizontal branch
+				is: an `Activated` can land before `InputEnded`, so `onPointerUp` is
+				already too late. And it stays one pan wide — spent by the one
+				pointer Activate it exists for, cleared by the next down and by
+				`onPointerCancel` (which is where a scroll that steals the capture
+				arrives), and never eligible for a DEVICE Activate at all
+				(`meta.source == "action"`; docs/lessons/an-arm-set-by-a-gesture-
+				must-name-what-may-spend-it.md). ]]
+			suppressActivatePath = pending.path
 			return
 		end
 		local engine = hostedEngineFor(pending.key)
@@ -2134,7 +2203,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			hostedCommitKey:set(nil)
 		end
 		-- the row is gone or rebuilding: whatever it was translated by is not a
-		-- fact about anything any more
+		-- fact about anything any more. The engine that was computing that number
+		-- has just been disposed, so nothing will ever write it home — this entry
+		-- has to go with the engine, or the row comes back translated forever.
+		hostedSlideByKey[key] = nil
 		hostedWriteSlide()
 	end
 

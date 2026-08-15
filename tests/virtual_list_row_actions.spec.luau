@@ -1079,8 +1079,82 @@ describe("VirtualList rowActions (Task 4): the shared tray overlay", function()
 		expect(group).never().toBeNil()
 		expect(group.rect.y).toBe(120) -- (4-1) * 40: r4's own slot, not r2's
 		expect(w.adapter.node(trayAction("r4", "trailing", "delete"))).never().toBeNil()
-		-- ...and the slide moved with it: r2 is flat again, r4 is translated
-		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0)
+		-- ...and the OVERLAY moved with it, which is what this case is about.
+		expect(w.adapter.node(rowPath("r4")).presentationOffset.x).toBe(-80)
+		--[[ RE-BASELINED 2026-08-15, deliberately, and it is the carried defect
+			going away rather than a characterization being weakened. This line used
+			to read `…node(rowPath("r2")).presentationOffset.x).toBe(0)` with the
+			comment "r2 is flat again" — and that WAS the shipped behavior, recorded
+			as a defect in both `virtual_list.luau`'s own slide-seam comment
+			("Device-pass rider: iOS animates the previously-open row closed under it;
+			hosted mode jumps it") and in `docs/plans/table-hosted-row-actions-stage2.md`
+			§"three open hosted-mode defects", item 2 — "a visible regression on a
+			shipped Table surface, not a theoretical one", because Table animates it
+			today and a hosted Table would have inherited the jump.
+
+			r2 lost ENGAGEMENT on the frame r4 took it, but r2's own close spring is
+			still in flight: its engine is still counting down its own offset and
+			still calling `onSlide`. The paint now follows the engine instead of the
+			engagement, so r2 is mid-flight here, not flat — strictly between its
+			open offset and home, and on the way home. ]]
+		local r2 = w.adapter.node(rowPath("r2")).presentationOffset.x
+		expect(r2).toBeLessThan(0) -- still translated: it is animating, not snapped
+		expect(r2).toBeGreaterThan(-80) -- ...and already on its way back
+		w.settle()
+		expect(w.adapter.node(rowPath("r2")).presentationOffset.x).toBe(0) -- it arrives
+		expect(w.adapter.node(rowPath("r4")).presentationOffset.x).toBe(-80) -- r4 held open
+	end)
+
+	--[[ (x2) THE CARRIED DEFECT ITSELF, as its own case rather than as a rider on
+		the overlay's (`docs/plans/table-hosted-row-actions-stage2.md` §"three open
+		hosted-mode defects", item 2 — the one the plan calls "a visible regression
+		on a shipped Table surface"). (x) above proves the row is not flat on the
+		handover frame; this proves the whole flight is a CLOSE, monotonically, the
+		way a standalone/Table row's own spring already does it.
+
+		WHY IT WAS BROKEN: `hostedWriteSlide` painted only the ENGAGED row, and
+		engagement is a single-slot arbitration (`hostedApplySlide`) that r4 wins the
+		instant it starts driving. r2's pixels went on being computed and were simply
+		not written. The fix is the smallest one that is honest about what the two
+		things are: engagement is who owns the TRAY (the coordinator's one-open
+		policy makes that genuinely singular); the SLIDE is per row, because two
+		springs really are in flight at once. ]]
+	it("(x2) the row that loses engagement animates closed under the new one, monotonically", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = trailingActions(fired) })
+		w.dragLeft("r2", 80)
+		w.release()
+		w.settle()
+		-- settled OPEN at the band's own width (not the 80px drag) — read, not
+		-- hard-coded, because the width is the theme's measurement, not this case's
+		local openPx = w.adapter.node(rowPath("r2")).presentationOffset.x
+		expect(openPx).toBeLessThan(0)
+
+		w.dragLeft("r4", 80) -- r4 claims the coordinator; r2 is closed by it
+		local samples: { number } = {}
+		for _ = 1, 40 do
+			w.tick(FRAME)
+			table.insert(samples, w.adapter.node(rowPath("r2")).presentationOffset.x)
+		end
+		-- it MOVED, over more than one frame — a snap would have put 0 in every
+		-- sample including the first
+		expect(samples[1]).never().toBe(0)
+		expect(samples[#samples]).toBe(0)
+		-- ...and it only ever went one way: no overshoot past home, no re-open
+		for i = 2, #samples do
+			expect(samples[i]).toBeGreaterThanOrEqual(samples[i - 1])
+			expect(samples[i]).toBeLessThanOrEqual(0)
+		end
+		-- at least one intermediate frame that is neither the start nor home:
+		-- that is the animation this case exists for
+		local intermediates = 0
+		for _, px in samples do
+			if px < 0 then
+				intermediates += 1
+			end
+		end
+		expect(intermediates).toBeGreaterThan(1)
+		-- and r4, the row that took the engagement, is unaffected throughout
 		expect(w.adapter.node(rowPath("r4")).presentationOffset.x).toBe(-80)
 	end)
 
@@ -2621,5 +2695,107 @@ describe("VirtualList rowActions (redteam NEW-1): a hosted swipe survives its ow
 		w.system.deviceKey("ButtonA", false)
 		w.settle()
 		expect(w.activations).toEqual({ "r2" })
+	end)
+
+	--[[ ===== CARRIED DEFECT 3: A VERTICAL PAN IS NOT A TAP ====================
+		`docs/plans/table-hosted-row-actions-stage2.md` §"three open hosted-mode
+		defects", item 3 — "a vertical pan begun on a row still fires that row's
+		`onActivate`", recorded as pre-existing and awaiting a device answer.
+
+		IT IS THE SAME DEFECT redteam NEW-1 fixed one branch over, and the fix is
+		the same line in the branch that was missed. `hostedResolveAxis` arms
+		`suppressActivatePath` when the axis resolves HORIZONTAL, because the row's
+		`Hit` is a real `GuiButton` and the swipe's own release produces an
+		`Activated` on it. A gesture that resolves VERTICAL is a scroll — the native
+		ScrollingFrame owns it and this dispatcher goes inert — but the button is
+		STILL under the finger, and a short pan that begins and ends inside the same
+		row still delivers `Activated` on release. So panning a list to read it
+		opened whatever the row opens.
+
+		THE ARM CANNOT OVER-REACH, which is what made this safe to fix without
+		waiting for a device: it is one path wide, and it is spent or cleared by
+		every producer that could otherwise be swallowed — the one POINTER Activate
+		it exists for, the next pointer-down, a cancel (a scroll that takes the
+		capture away goes through `onPointerCancel`, which clears it), and a DEVICE
+		Activate is never eligible at all (`meta.source == "action"`; the rule in
+		`docs/lessons/an-arm-set-by-a-gesture-must-name-what-may-spend-it.md`). The
+		three cases below pin exactly those escapes.
+
+		A LIVE MEASUREMENT STILL BELONGS TO IT and is recorded in the mission report:
+		`fake_target` models handler WIRING, not the engine's input sinking, so
+		whether the real engine delivers `Activated` after a scroll-stealing pan is
+		a live-engine claim. What the headless net proves is the direction of the
+		fix and that nothing else was swallowed by it. ]]
+	it("(defect 3) a vertical pan begun on a row does NOT fire that row's onActivate", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		w.dragDown("r2", 60, "touch") -- a pan: resolves VERTICAL, native scroll owns it
+		w.releaseActivating("after") -- ...and the button under the finger fires anyway
+		w.settle()
+		expect(w.activations).toEqual({}) -- reading a list is not tapping it
+		expect(fired).toEqual({}) -- and it ran no action either
+		expect(w.debug().engagedKey).toBeNil() -- a pan opens no tray
+	end)
+
+	it("(defect 3) ...on BOTH sides of InputEnded, and upward too", function()
+		for _, order in { "before", "after" } do
+			local fired: { string } = {}
+			local w = world({ rowActions = bothEdges(fired) })
+			w.dragDown("r2", 90, "touch")
+			w.releaseActivating(order :: any)
+			w.settle()
+			expect(w.activations).toEqual({})
+			expect(fired).toEqual({})
+		end
+		-- upward, i.e. a negative dy — the sign the axis test reads through
+		-- `math.abs`, pinned so a one-sided fix cannot pass
+		local upFired: { string } = {}
+		local up = world({ rowActions = bothEdges(upFired) })
+		up.dragDown("r3", -70, "touch")
+		up.releaseActivating("after")
+		up.settle()
+		expect(up.activations).toEqual({})
+	end)
+
+	--[[ THE THREE ESCAPES, so the fix stays one pan wide. A pan that suppressed
+		more than its own release Activate would be a worse defect than the one it
+		replaced: a list nobody could ever tap after scrolling it. ]]
+	it("(defect 3) the pan's arm is spent by its own release and nothing more", function()
+		local fired: { string } = {}
+		local w = world({ rowActions = bothEdges(fired) })
+		w.dragDown("r2", 60, "touch")
+		w.releaseActivating("after")
+		w.settle()
+		expect(w.activations).toEqual({})
+		-- (1) the very next TAP on the panned row is genuine
+		w.adapter.touchTap(rowHit("r2"))
+		w.settle()
+		expect(w.activations).toEqual({ "r2" })
+
+		-- (2) a pan whose release delivers NO Activated at all (the capture went
+		-- to the scroll) must not leave the arm standing over the next gamepad A
+		local w2 = world({ rowActions = bothEdges({}) })
+		w2.dragDown("r2", 60, "touch")
+		w2.adapter.interruptCapture()
+		w2.settle()
+		w2.pres.focus.focusOn(rowHit("r2"))
+		w2.pres.refresh()
+		w2.system.deviceKey("ButtonA", true)
+		w2.system.deviceKey("ButtonA", false)
+		w2.settle()
+		expect(w2.activations).toEqual({ "r2" })
+
+		-- (3) a DEVICE Activate is never eligible to spend it: pan, then A,
+		-- without any pointer release in between
+		local w3 = world({ rowActions = bothEdges({}) })
+		w3.dragDown("r2", 60, "touch")
+		w3.release()
+		w3.settle()
+		w3.pres.focus.focusOn(rowHit("r2"))
+		w3.pres.refresh()
+		w3.system.deviceKey("ButtonA", true)
+		w3.system.deviceKey("ButtonA", false)
+		w3.settle()
+		expect(w3.activations).toEqual({ "r2" })
 	end)
 end)

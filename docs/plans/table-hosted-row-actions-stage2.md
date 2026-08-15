@@ -196,6 +196,64 @@ Recorded in `virtual_list.luau` as carried, and Table does not have them today:
 
 (2) is a visible regression on a shipped Table surface, not a theoretical one.
 
+### Status after stage 3 (2026-08-15) — measured, live, on the showcase VList
+
+**(2) FIXED.** `hostedWriteSlide` painted the *engagement*; engagement is a
+single-slot arbitration another row wins outright. The two are now spelled as two:
+engagement stays singular (the coordinator's one-open policy really does make the
+TRAY singular), and the slide rides a per-key `hostedSlideByKey` because two
+springs are genuinely in flight during a handover. Pinned by
+`virtual_list_row_actions.spec.luau` cases `(x)` and `(x2)`, both of which redden
+under a faithful "paint follows engagement" mutation.
+
+*Live rider, recorded so nobody re-derives it:* the live probe on this
+configuration **cannot discriminate** the fix. The previously-open row's close
+spring runs ~4 frames, and the second row's `down → axis lock → build → first
+slide` path takes ~6 under Studio-injected input, so the two flights never
+overlap and the fixed and mutated builds produce an identical trace
+(`-132 → -63 → -18 → -1 → 8`, then the new row starts). Pre-warming the second
+row's engine does not close the 2-frame gap. The defect's window is real in code
+but needs a faster second gesture than injected input can deliver here — a real
+finger on a phone. The discrimination evidence is therefore the headless mutation,
+disclosed rather than dressed up as a live proof.
+
+**(3) FIXED, and the device answer is "not on this input class".** It was
+redteam NEW-1's defect in the branch that was missed: `hostedResolveAxis` armed
+`suppressActivatePath` on the horizontal lock only, and the reason for the arm —
+the row's `Hit` is a real `GuiButton` whose own release fires `Activated` — does
+not care which way the axis went. One assignment, plus three cases pinning that it
+stays one pan wide.
+
+*But the live measurement partly contradicts the premise.* With the arm REMOVED
+(positive control, same session, same drive), a 12px and a 45px vertical pan on a
+showcase row both left the row unread — i.e. the engine delivered no `Activated`
+at all — while a plain tap on the same row cleared it in both builds, so the
+oracle was live and sensitive. Roblox's own drag threshold already suppresses
+`Activated` past ~12px for the injected input class (which arrives as
+`UserInputType.Touch`). The fix is kept because it costs one assignment, is the
+same rule the sibling branch carries, and cannot over-suppress; but a REAL mouse
+drag and a real finger remain untested, and this is what "awaiting a device
+answer" now means.
+
+**(1) CONFIRMED REAL, still deferred — and the deferral's own reasoning is now
+sharper.** Live: with one row left and 45px of empty canvas under it, an open
+tray survives a tap on that empty area (`m6` hit x = -132, unchanged). The
+measurement the deferral lacked is what is under the point:
+`PlayerGui:GetGuiObjectsAtPosition` returns the **`VList` ScrollingFrame itself**
+as the topmost node there — an instance that already exists. So the two costs the
+deferral priced are both avoidable: no permanent `Grip` is needed (that was the
+"one instance per list" objection), and nothing has to be made `active` between
+the finger and the native scroller (that was the touch-scroll-regression
+objection) — the scroller IS the node.
+
+What it needs instead is for `ScrollView` to report a press at all: the class
+declares `onScrollWheel` and no pointer handlers, so the framework never routes
+one. That is a change to `blueprint_schema.luau` + the screen-target pointer seam,
+**not** to `virtual_list.luau` — a different owner, and that file was mid-split by
+another agent on the day this was measured. Booked as its own scoped item rather
+than crossed into. The refusal was right; the follow-up is now one sentence long
+instead of a device pass.
+
 ---
 
 ## What ports for free — so the next agent does not re-derive it
