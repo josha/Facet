@@ -3360,6 +3360,37 @@ scenario is billed for it. On these sub-10-microsecond core scenes the bench is
 measuring GC attribution, not the change. The p50 SUM over the whole run is the
 number that survived scrutiny.
 
+### 7.5. The live-engine canary, and the trap it walked into first
+
+Same Studio session, `ReplicatedStorage.LuauUI.layout.solver` confirmed byte-current
+with the commit (178 598 chars, both sides), a 12-level chain of 4 leaves per level
+solved through the real engine VM: **arranged 61, uncached measures 119, fan-out
+1.95** against a headless 2.05 and a pre-fix 8.32. Root rect 400x600, geometry sane.
+
+**The first run of that canary read 8.18 — the pre-fix number — on source that had
+the fix in it.** `require` on a ModuleScript is CACHED per datamodel, and the Edit
+session had already required the solver before the Rojo sync landed. The string
+check on the Source passed while the running module was the old one, which is the
+"a dump is not a witness for its own behavior" class in a new costume: *reading the
+right source does not prove you ran it.* Cloning the package and requiring the clone
+forces a fresh module identity and gives the real answer. Any future Studio A/B in a
+long-lived session has to do the same.
+
+### 7.6. The consumer rider (root CLAUDE.md)
+
+`games/RascalRally/code/tests/luauui_measure_fanout_contract.spec.luau`, RR
+`181a0ee`, suite **3234 passed / 0 failed**. It pins `controller.stats()`'s
+`lastArranged`/`lastMeasured` on two real shipped surfaces and is mutation-proved
+against this framework change — re-coupling the key reddens both, closing the
+nesting arm reddens the ScrollView-free modal only.
+
+**It deliberately claims the smaller thing.** Rascal Rally's surfaces are shallow —
+the racer list arranges 37 nodes and the role-pick modal 9 — so the fix is worth
+73 -> 61 and 35 -> 21 uncached measures there, not 82%. The rider proves the live
+consumer is current and would catch the mechanism returning; the 82% lives on trees
+this game does not build, and the device dump is what will say whether the game's
+real screens are any deeper than these two.
+
 ### 8. Residuals
 
 1. **L-36 residual 1 is closed.** The fan-out at depth no longer rises with depth;
