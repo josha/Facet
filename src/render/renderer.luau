@@ -23,9 +23,10 @@ local solver = require("../layout/solver")
 local profile = require("../core/profile")
 local text_metrics = require("../layout/text_metrics")
 local authority = require("./authority")
--- the presentation channel's arithmetic (ADR-0026): the composition rules, the
--- authored triple's domain checks, and the write memo's comparison. Pure.
-local presentation = require("./presentation")
+-- the per-node presentation channel (ADR-0022 D2 / ADR-0026): transform,
+-- transparency, the authored triple and the `withAnimation` records, behind one
+-- write site. Constructed per surface in `attach` — see the pointer there.
+local presentation_channel = require("./presentation_channel")
 -- the cross-surface overlap alarm (ADR-0028): a live registry of surfaces per
 -- paint target, read only by `controller.diagnostics()` — nothing here runs in a
 -- solve, a commit or a frame
@@ -397,102 +398,59 @@ function renderer.attach(
 		end
 		return dx, dy
 	end
-	-- the presentation transform currently pushed per path (ADR-0022 Decision 2).
-	-- Declared up here with `rectOf`, because `screenRectOf` reads it: a rect
-	-- compared against a POINTER has to answer where the node is PAINTED, and while
-	-- a presentation offset is live that is not where the solver put it. It must
-	-- also be forgotten when a path is removed: a re-created node starts at rest,
-	-- and a cached value would suppress the write that puts it there (the same
-	-- verdict-inheritance defect the visible and hit-rect caches were bitten by —
-	-- verifier finding V10). `presentationLive` counts the non-nil entries so a
-	-- surface with no motion running pays one integer compare per hit-test.
-	local lastTransform: { [string]: any } = {}
-	local presentationLive = 0
-	-- AUTHORED PRESENTATION (ADR-0026, and render/presentation.luau's header): the
-	-- blueprint's `opacity`/`scale`/`rotation` are a second TERM in this channel,
-	-- never a second writer. `authoredN` is the off-path gate — zero means the
-	-- composition is skipped entirely.
-	local authored: { [string]: any } = {}
-	local authoredN = 0
-	local lastTransparency: { [string]: number } = {}
-	-- what was last WRITTEN, per engine property: the memo must live on the COMPOSED
-	-- value, or one contributor moving alone is swallowed by the other's cache
-	local lastComposedTransform: { [string]: any } = {}
-	local lastComposedAlpha: { [string]: number } = {}
-	-- ===== `withAnimation` RECORDS (docs/plans/swiftui-parity-round2.md §Phase 1,
-	-- "Blocker 3") ===========================================================
-	-- A record is the RELATIVE delta a path is currently flying, installed only at
-	-- an animation ROOT. Both halves of the presentation channel already accumulate
-	-- ancestor offsets (see the accumulation rule below), so a per-node ABSOLUTE
-	-- delta would paint a sliding panel's children at double the distance.
-	--
-	-- The record belongs to the PATH; the spring is merely the driver it is
-	-- attached to right now. That is what keeps two calls off one `lastTransform`
-	-- slot: a later call re-bases the path and re-attaches it, and the older
-	-- spring's settle clears only what it still owns.
-	--
-	-- They live on the CONTROLLER because they are controller-scoped state that
-	-- must be cleared per path at removal, beside every other per-path cache.
-	local animationSession: any = nil -- non-nil only for the duration of an ARMED commit
-	local animationBaseline: { [string]: boolean }? = nil
-	local animationRecords: { [string]: any } = {}
-	local animationSets: { any } = {}
-	local animationRecordN = 0
-	-- per-path `{ o, s, r }` deltas parked by an ARMED commit and consumed by the
-	-- walk below (ADR-0026 Decision 7) — the authored value is already at its
-	-- destination by then, the same reason the rect half needs `lastRects`
-	local animationPaintDelta: { [string]: any } = {}
-	-- assigned once the controller (and its presentation writes) exist; called from
-	-- the commit, which runs earlier in this file than the writes it needs
-	local installAnimationRecords: (rects: any) -> ()
-	local animationClear: (path: string, write: boolean) -> ()
-	-- the ONE presentation write site (ADR-0026 Decision 3) and the authored-triple
-	-- re-read, forward-declared: mount and the commit both reach them from above
-	local pushPresentationPaint: (path: string) -> ()
-	local readAuthoredPresentation: (node: any) -> boolean
-	-- PLAT-4 (platform verifier, 2026-07-27): the paint half of the presentation
-	-- channel was sound and the geometry half was not — `screenRectOf` composed
-	-- scroll offsets only, so while the keyboard keep-visible shift sat on the root
-	-- (the whole time the OS keyboard is up) or an enter/exit slide sat on a region,
-	-- LuauUI's own drop verdicts disagreed with what the player was looking at by
-	-- exactly the offset.
-	--
-	-- THE ACCUMULATION RULE, IN WINDOW SPACE. The adapter stops its own
-	-- accumulation at the nearest REAL PARENT (a clip host / fade group), because
-	-- that parent's instance move already carries its children
-	-- (screen_target.recomputePresentationOffset). In ABSOLUTE window space that
-	-- stop cancels out — the parent re-adds its own shift by moving — so the
-	-- painted rect of a node is its solved rect plus its own transform plus EVERY
-	-- ancestor's, with no stop. One rule, and the root case (the whole surface
-	-- shifts) falls out of it, exactly as it does on the paint side.
-	--
-	-- OFFSETS ONLY. A transform's `scale`/`rotation` reach only the node's own
-	-- instance (and whatever is really parented under it) and would turn a hit rect
-	-- into a quad; hit geometry stays axis-aligned this round and a scaled node
-	-- hit-tests at its solved size (documented in docs/reference/api.md).
-	local function presentationShift(path: string): (number, number)
-		if presentationLive == 0 then
-			return 0, 0
-		end
-		local dx, dy = 0, 0
-		local own = lastTransform[path]
-		if own ~= nil then
-			dx += own.x or 0
-			dy += own.y or 0
-		end
-		local i = #path
-		while i > 1 do
-			if string.sub(path, i, i) == "/" then
-				local t = lastTransform[string.sub(path, 1, i - 1)]
-				if t ~= nil then
-					dx += t.x or 0
-					dy += t.y or 0
+	-- ONE mounted-node lookup for the whole surface (Step 5.5 cleanup ledger C-02).
+	-- `refresh` used to declare an identical depth-first walk as a closure INSIDE
+	-- its dirty loop — one allocation per changed prop per frame — while the
+	-- presentation channel had written the same walk once more of its own.
+	-- IT SITS HERE, above its old home next to `refresh`, because the presentation
+	-- channel is constructed immediately below and takes it as a dependency: a
+	-- `local function` declared later is not an upvalue of anything above it, it is
+	-- a nil global (docs/lessons/later-locals-are-not-upvalues.md).
+	local function findNode(path: string): any
+		local function walk(node: any): any
+			if node.path == path then
+				return node
+			end
+			for _, child in node.children do
+				local found = walk(child)
+				if found then
+					return found
 				end
 			end
-			i -= 1
+			return nil
 		end
-		return dx, dy
+		return walk(root.node)
 	end
+
+	-- THE PRESENTATION CHANNEL MOVED (2026-08-14, the 200k `Source` write-cap
+	-- split). `transform`/`transparency` are PRESENTATION properties and this
+	-- surface's whole motion write surface — the imperative channel, the authored
+	-- `opacity`/`scale`/`rotation` triple, the `withAnimation` records and the one
+	-- write site they compose through — now lives in
+	-- `render/presentation_channel.luau`. WHY: Roblox refuses a `Script.Source`
+	-- write at >= 200,000 chars, so an over-cap module stops live-syncing into an
+	-- open Studio session and a live check against it tests the place file instead
+	-- of the edits (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+	--
+	-- WHAT MADE THE SEAM CHEAP: every upvalue the channel needs is shareable BY
+	-- REFERENCE. `handles` and `lastRects` are tables the renderer mutates in place
+	-- and the channel reads; `findNode`, `adapter`, `core` and `root` never change
+	-- identity. Nothing crosses this boundary as a reassigned local, which is why
+	-- no accessor callbacks were needed (contrast `screen_paint`'s three). The
+	-- price is that `dispose` must CLEAR `handles`/`lastRects` rather than rebind
+	-- them — see the note there.
+	local channel = presentation_channel.new({
+		core = core,
+		root = root,
+		adapter = adapter,
+		handles = handles,
+		lastRects = lastRects,
+		findNode = findNode,
+	})
+	-- rebound to locals of their original names, so no call site in this file moved
+	local presentationShift = channel.presentationShift
+	local readAuthoredPresentation = channel.readAuthoredPresentation
+
 	-- the solved rect in WINDOW space: nested scroll offsets accumulate up the
 	-- chain, so a list inside a scrolled panel still answers where it is drawn —
 	-- and presentation offsets accumulate with them, so a shifted surface answers
@@ -804,13 +762,6 @@ function renderer.attach(
 	local departedQueue: { { path: string, fn: (string) -> () } } = {}
 	-- the expanded hit rect currently pushed per path (nil = none needed)
 	local lastHitRects: { [string]: any } = {}
-	-- path -> mounted node, memoized for the presentation channel's write sites (see
-	-- nodeAt). Declared here, above structuralSync, because that is where it has to
-	-- be dropped: mounted identity is stable except across a structural change.
-	local presentationNodes: { [string]: any } = {}
-	-- (`lastTransform`, the presentation transform pushed per path, is declared up
-	-- with `rectOf` — `screenRectOf` reads it — and is dropped in structuralSync
-	-- below like every other per-path cache.)
 	-- THE metric authority for this surface (ADR-0019 §2). Read fresh at every
 	-- use rather than captured, because `themeMetrics` is a live fact: the swap
 	-- transaction sets it and re-solves in the same invocation, and a captured
@@ -1167,11 +1118,9 @@ function renderer.attach(
 				adapter.setActivationFeedback(handles[node.path], node.activationFeedback)
 			end
 			applyProps(handles[node.path], node)
-			-- ...and the authored triple, now that a handle exists. Gated, so a node
-			-- declaring none of the three pays one hash lookup at mount and no more.
-			if authoredN > 0 and authored[node.path] ~= nil then
-				pushPresentationPaint(node.path)
-			end
+			-- ...and the authored triple, now that a handle exists (the channel's own
+			-- gate keeps a node declaring none of the three to one hash lookup)
+			channel.paintAuthored(node.path)
 			-- the engine text inset must MATCH the solver's padding (the adapter
 			-- used to hardcode 12px, which rendered a 22px star button's glyph
 			-- into a negative text area — playlist place, 2026-07-20). The write
@@ -2082,8 +2031,8 @@ function renderer.attach(
 			-- (design §"Blocker 1"). It must sit HERE: root classification is
 			-- top-down, so it needs a tree walk rather than the unordered rect hash
 			-- below, and it has to read `lastRects` before that loop overwrites it.
-			if animationSession ~= nil then
-				installAnimationRecords(result.rects)
+			if channel.armed() then
+				channel.installAnimationRecords(result.rects)
 			end
 			for path, entry in result.rects do
 				local handle = handles[path]
@@ -2414,7 +2363,7 @@ function renderer.attach(
 		-- mounted identity may have changed under any path (a When branch, a ForEach
 		-- row, a re-created ViewThatFits candidate), so the presentation channel's
 		-- node memo is dropped wholesale rather than patched per path
-		presentationNodes = {}
+		channel.dropNodeCache()
 		local alive: { [string]: boolean } = {}
 		table.clear(scrollHostOf)
 		table.clear(clipHostOf)
@@ -2527,29 +2476,12 @@ function renderer.attach(
 					pathClipObservers[path] = nil
 					detach()
 				end
-				if lastTransform[path] ~= nil then
-					lastTransform[path] = nil
-					presentationLive -= 1
-				end
-				-- ...and every other per-path presentation cache: a stale composed memo
-				-- would answer for a path a recycled instance adopts, and a leaked
-				-- `authored` entry would make an idle surface pay forever (ADR-0026)
-				lastTransparency[path] = nil
-				lastComposedTransform[path] = nil
-				lastComposedAlpha[path] = nil
-				animationPaintDelta[path] = nil
-				if authored[path] ~= nil then
-					authored[path] = nil
-					authoredN -= 1
-				end
-				-- ...and the `withAnimation` record for this path, HERE rather than by
-				-- blanket-dropping every record in structuralSync: structural syncs are
-				-- frequent (virtual-list windowing, `When` branches) and a blanket drop
-				-- would snap unrelated in-flight animations. The write is skipped — the
-				-- handle is already gone (V10's per-path clear, one line above).
-				if animationRecords[path] ~= nil then
-					animationClear(path, false)
-				end
+				-- ...and every per-path presentation cache, which the channel forgets
+				-- together: the transform (and its live count), the transparency, both
+				-- composed memos, the parked paint delta, the authored triple and any
+				-- `withAnimation` record. The write is skipped — the handle is already
+				-- gone (V10's per-path clear, above).
+				channel.forgetPath(path)
 				stats.removes += 1
 			end
 		end
@@ -2741,28 +2673,6 @@ function renderer.attach(
 
 	local controller = {}
 
-	-- ONE mounted-node lookup for the whole controller (Step 5.5 cleanup ledger
-	-- C-02). `refresh` used to declare an identical depth-first walk as a closure
-	-- INSIDE its dirty loop — one allocation per changed prop per frame — while
-	-- this same walk was already written once more further down for the
-	-- presentation channel. Declared here because `refresh` is the first consumer
-	-- and a `local function` is not an upvalue of anything above it.
-	local function findNode(path: string): any
-		local function walk(node: any): any
-			if node.path == path then
-				return node
-			end
-			for _, child in node.children do
-				local found = walk(child)
-				if found then
-					return found
-				end
-			end
-			return nil
-		end
-		return walk(root.node)
-	end
-
 	function controller.refresh()
 		local dirty = root.takeDirty()
 		local needsSolve = false
@@ -2832,33 +2742,7 @@ function renderer.attach(
 		-- value, and because on an ARMED commit the OLD value has to be captured
 		-- before it is overwritten: that difference is what `withAnimation` flies.
 		if presentationTouched ~= nil then
-			local seen: { [string]: boolean } = {}
-			for _, path in presentationTouched :: { string } do
-				if not seen[path] then
-					seen[path] = true
-					local node = findNode(path)
-					if node ~= nil then
-						local before = authored[path]
-						if readAuthoredPresentation(node) and handles[path] ~= nil then
-							if animationSession ~= nil then
-								local now = authored[path]
-								local function was(key: string, identity: number): number
-									return (before ~= nil and before[key]) or identity
-								end
-								local function isNow(key: string, identity: number): number
-									return (now ~= nil and now[key]) or identity
-								end
-								animationPaintDelta[path] = {
-									o = was("opacity", 1) - isNow("opacity", 1),
-									s = was("scale", 1) - isNow("scale", 1),
-									r = was("rotation", 0) - isNow("rotation", 0),
-								}
-							end
-							pushPresentationPaint(path)
-						end
-					end
-				end
-			end
+			channel.reactAuthored(presentationTouched :: { string })
 		end
 		-- prop writes for changed nodes (paint/semantics): write ONLY the
 		-- changed prop, once, even when it dirtied several classes
@@ -2893,7 +2777,7 @@ function renderer.attach(
 		-- inside the solve, and an authored opacity dirties `paint` alone, so a pure
 		-- fade would otherwise have no walk to record itself in. One armed commit per
 		-- `withAnimation` call, and incremental layout skips a solve nothing dirtied.
-		if animationSession ~= nil then
+		if channel.armed() then
 			needsSolve = true
 		end
 		if needsSolve then
@@ -3617,479 +3501,15 @@ function renderer.attach(
 		return function() end
 	end
 
-	-- ===== THE PER-NODE PRESENTATION CHANNEL (ADR-0022 Decision 2) ==========
-	--
-	-- The authority manifest has declared `transform` and `transparency` as
-	-- PRESENTATION properties since §7.3; until now the only writer was the
-	-- keep-visible offset below, and it wrote them at the ROOT only. These two
-	-- methods are the whole motion write surface: a transform never touches solver
-	-- geometry (no Size, no re-solve, no layout-affecting animation) and never
-	-- writes a native-sheet-owned property, which is what lets a 60 Hz motion run
-	-- beside sheet paint without contesting it.
-	--
-	-- `nil` clears. Values are compared before writing, so a settled motion that
-	-- keeps re-asserting its rest value costs nothing (minimal-write contract).
-	local transformsEqual = presentation.transformsEqual
-
-	-- the mounted node behind a path, memoized. A motion writes EVERY FRAME while it
-	-- runs and each write needs the node's class (for the authority assertion), so
-	-- walking the tree per write would put a tree walk on the frame budget. Mounted
-	-- identity is stable except across a structural sync, which is where the cache is
-	-- dropped (`presentationNodes = {}` in structuralSync).
-	local function nodeAt(path: string): any
-		local hit = presentationNodes[path]
-		if hit ~= nil then
-			return hit
-		end
-		local node = findNode(path)
-		presentationNodes[path] = node
-		return node
-	end
-
-	-- ===== THE ONE PRESENTATION WRITE SITE (ADR-0026 Decision 3) ==============
-	-- Every contributor routes through here and NOTHING else in this file calls
-	-- `adapter.setProp` for `transform` or `transparency` — which is what makes
-	-- "one authority per engine property" a fact in the code rather than a claim in
-	-- a comment (`tests/authored_presentation.spec.luau` counts the sites in the
-	-- source). The arithmetic and its reasoning live in `render/presentation.luau`;
-	-- what is here is the STATE and the write.
-	--
-	-- The memo is on the COMPOSED value, never on a contributor's: it was correct
-	-- on the channel value while there was one contributor and would go stale the
-	-- instant there were two.
-	function pushPresentationPaint(path: string)
-		local handle = handles[path]
-		if handle == nil then
-			return
-		end
-		local t = lastTransform[path]
-		-- THE OFF-PATH GATE (Decision 9). Nothing on this surface authored one of the
-		-- three, so there is nothing to compose and `composeTransform` returns the
-		-- channel value by identity.
-		local o, s, r = nil, nil, nil
-		if authoredN > 0 then
-			local rec = animationRecords[path]
-			o, s, r = presentation.effective(authored[path], rec, if rec ~= nil then rec.set.spring:get() else 0)
-		end
-		local node: any = nil
-
-		local composed = presentation.composeTransform(t, s, r)
-		if not transformsEqual(lastComposedTransform[path], composed) then
-			node = nodeAt(path)
-			if node ~= nil then
-				lastComposedTransform[path] = composed
-				authority.assertWrite(node.class, "transform", "presentation")
-				adapter.setProp(handle, "transform", composed, "presentation")
-			end
-		end
-
-		local alpha = presentation.composeAlpha(lastTransparency[path], o)
-		if lastComposedAlpha[path] ~= alpha then
-			if node == nil then
-				node = nodeAt(path)
-			end
-			if node ~= nil then
-				lastComposedAlpha[path] = alpha
-				authority.assertWrite(node.class, "transparency", "presentation")
-				adapter.setProp(handle, "transparency", alpha, "presentation")
-			end
-		end
-	end
-
-	--[[ A FADE IS A FADE-GROUP FACT, and the node must have said so — either
-		`canvasGroup = true`, or an authored `opacity`, which IS that declaration
-		(ADR-0026 Decision 4). The alternative — writing BackgroundTransparency /
-		TextTransparency per node — is exactly the write that permanently defeats a
-		native sheet rule (spike m10), and it fades one node's own paint rather than
-		the group the caller means. So the refusal is loud and names the fix instead
-		of fading something nobody asked for. ]]
-	local function isFadeGroup(node: any): boolean
-		return node.props ~= nil and (node.props.canvasGroup == true or node.props.opacity ~= nil)
-	end
-
-	-- `w`/`h` are a PAINTED SIZE DELTA in pixels, added to the solved rect at the
-	-- adapter's one Size write (withAnimation size, 2026-08-14). Unlike `x`/`y`
-	-- they do NOT accumulate down the subtree: every rect is absolute, so a
-	-- container's painted growth carries nothing inside it and must not.
-	function controller.setPresentationTransform(
-		path: string,
-		t: {
-			x: number,
-			y: number,
-			w: number?,
-			h: number?,
-			scale: number?,
-			rotation: number?,
-		}?
-	)
-		local handle = handles[path]
-		if handle == nil then
-			return
-		end
-		if transformsEqual(lastTransform[path], t) then
-			return
-		end
-		local node = nodeAt(path)
-		if node == nil then
-			return
-		end
-		if (lastTransform[path] == nil) ~= (t == nil) then
-			presentationLive += if t ~= nil then 1 else -1
-		end
-		lastTransform[path] = t
-		pushPresentationPaint(path)
-	end
-
-	function controller.setPresentationTransparency(path: string, alpha: number?)
-		local handle = handles[path]
-		if handle == nil then
-			return
-		end
-		local node = nodeAt(path)
-		if node == nil then
-			return
-		end
-		if not isFadeGroup(node) then
-			error(
-				`LuauUI presentation: {path} cannot be faded — presentation transparency needs a fade GROUP. `
-					.. "Wrap the subtree in UI.Box{ canvasGroup = true } (or declare an authored `opacity`, "
-					.. "which implies one) and fade that: GroupTransparency is one engine property no style "
-					.. "rule owns, while per-node transparency would contest native-sheet paint and fade only "
-					.. "that node's own glyphs or fill.",
-				0
-			)
-		end
-		if lastTransparency[path] == alpha then
-			return
-		end
-		lastTransparency[path] = alpha
-		pushPresentationPaint(path)
-	end
-
-	-- THE AUTHORED TRIPLE, re-read off the LIVE tree (ADR-0026). The reading and
-	-- its domain checks are `presentation.readAuthored`; what is here is the
-	-- bookkeeping — the map, and `authoredN`, which is the off-path gate above.
-	-- Returns true when the stored triple moved, so a caller can skip a write.
-	function readAuthoredPresentation(node: any): boolean
-		local path = node.path
-		local next = presentation.readAuthored(node.props, node.class, path)
-		local prev = authored[path]
-		if presentation.sameAuthored(prev, next) then
-			return false
-		end
-		if (prev == nil) ~= (next == nil) then
-			authoredN += if next ~= nil then 1 else -1
-		end
-		authored[path] = next
-		return true
-	end
-
-	-- ===== `withAnimation`: arming, roots, and the one progress spring ========
-	-- The verb is `presenter.withAnimation` (design §"Where it lives"); this is the
-	-- half that has to be controller-scoped, because a record is per-path state
-	-- that dies with its path.
-
-	function animationClear(path: string, write: boolean)
-		local rec = animationRecords[path]
-		if rec == nil then
-			return
-		end
-		animationRecords[path] = nil
-		animationRecordN -= 1
-		rec.set.paths[path] = nil
-		if write then
-			-- No paint-half recompose here, deliberately, and it was checked rather
-			-- than assumed: the spring SNAPS to its target before `onSettle` runs
-			-- (motion/motion.luau `sp:snap(sp:getTarget())`, and the clock's commit
-			-- phase precedes its post phase), so `animationWrite` has already painted
-			-- the record at p = 0 — which is the authored destination exactly. A push
-			-- here reddened nothing when deliberately removed, and a line no check can
-			-- fail is decoration.
-			controller.setPresentationTransform(path, nil)
-		end
-	end
-
-	-- ONE progress spring drives a whole call: 1 = at the old place, 0 = at the
-	-- solved place, so every record's absolute offset is `(its delta) x p` for a
-	-- single `p` — a uniform interpolation that provably cannot TEAR a subtree.
-	-- `transitions.luau`'s ratified shape (its header, "one spring per transition").
-	local function animationWrite(set: any)
-		local p = set.spring:get()
-		for path in set.paths do
-			local rec = animationRecords[path]
-			if rec ~= nil and rec.set == set then
-				-- one `p` for position AND size, which is what makes a panel's growth
-				-- and the displacement of everything below it arrive on the same frame
-				-- ...and, since ADR-0026, for opacity/scale/rotation too, which is what
-				-- makes a card that slides, grows and fades land on ONE frame.
-				if rec.moves then
-					controller.setPresentationTransform(
-						path,
-						{ x = rec.x * p, y = rec.y * p, w = rec.w * p, h = rec.h * p }
-					)
-				end
-				if rec.paints then
-					pushPresentationPaint(path)
-				end
-			end
-		end
-	end
-
-	local function animationSettle(set: any)
-		if set.done then
-			return
-		end
-		set.done = true
-		-- ONLY the paths it STILL owns: a later call may have re-based some of them
-		-- onto its own spring, and clearing those would snap a live animation
-		local owned: { string } = {}
-		for path in set.paths do
-			table.insert(owned, path)
-		end
-		for _, path in owned do
-			animationClear(path, true)
-		end
-		if set.unobserve ~= nil then
-			set.unobserve()
-			set.unobserve = nil
-		end
-		set.spring:dispose()
-		local at = table.find(animationSets, set)
-		if at ~= nil then
-			table.remove(animationSets, at)
-		end
-	end
-
-	function installAnimationRecords(rects: any)
-		local session = animationSession
-		local baseline = animationBaseline
-		if session == nil or baseline == nil then
-			return
-		end
-		local set: any = nil
-		-- the INTERRUPTION carry (design §Interruption). One spring serves the whole
-		-- call, so the velocity that survives is the DOMINANT record's: painted speed
-		-- is `rel * dp/dt`, so holding `relOld_max * vOld == relNew_max * vNew` keeps
-		-- the biggest motion's speed continuous and puts a small kink on the rest.
-		local carryMagOld, carryVelocity, carryMagNew = 0, 0, 0
-		-- `relX`/`relY` are RELATIVE to the ancestors' composed delta (the offset half
-		-- accumulates); `dw`/`dh` are the node's OWN absolute size delta, because the
-		-- size half does not accumulate. See the walk below.
-		-- `dOp`/`dSc`/`dRo` are the AUTHORED presentation deltas (ADR-0026 Decision 7):
-		-- `old - new`, painted as `destination + delta x p` on the SAME spring as the
-		-- four rect numbers. Per-node like the size half, never accumulated: a fade
-		-- group's children are really inside its buffer and would fade twice.
-		local function claim(
-			path: string,
-			relX: number,
-			relY: number,
-			dw: number,
-			dh: number,
-			dOp: number,
-			dSc: number,
-			dRo: number
-		)
-			if set == nil then
-				set = { spring = session.newSpring(), paths = {}, done = false }
-				-- the write rides the VALUE, not the clock step, exactly as a
-				-- transition's does, so an instantly-placed value lands the same way
-				set.unobserve = core:observe(set.spring, function()
-					animationWrite(set)
-				end)
-				set.spring:onSettle(function()
-					animationSettle(set)
-				end)
-				table.insert(animationSets, set)
-			end
-			local prev = animationRecords[path]
-			if prev ~= nil then
-				-- INTERRUPTION (design §Interruption): carry the offset this path is
-				-- painted at right now into the new record, so a path claimed by two
-				-- calls re-targets instead of jumping, and hand it to the new spring
-				local p = prev.set.spring:get()
-				-- all four components are PIXELS on the same progress spring, so the
-				-- dominant magnitude is the largest of the four, not the largest offset
-				local mag = math.max(math.abs(prev.x), math.abs(prev.y), math.abs(prev.w), math.abs(prev.h))
-				if mag > carryMagOld then
-					carryMagOld = mag
-					carryVelocity = prev.set.spring:getVelocity()
-				end
-				relX += prev.x * p
-				relY += prev.y * p
-				-- the size half re-bases on exactly the same rule: carry the delta this
-				-- path is PAINTED at right now, so a panel interrupted half-grown
-				-- continues from the height on screen instead of snapping to its start
-				dw += prev.w * p
-				dh += prev.h * p
-				-- ...and the paint half re-bases identically: a panel interrupted
-				-- half-faded continues from the alpha on screen. The CARRY MAGNITUDE
-				-- above stays on the four PIXEL numbers on purpose — a `math.max` over
-				-- a ratio, a factor, an angle and pixels is a number with no meaning —
-				-- so a pure-paint record re-targets from rest, which is the same small
-				-- kink the dominant-record rule already accepts.
-				dOp += prev.o * p
-				dSc += prev.s * p
-				dRo += prev.r * p
-				animationClear(path, false)
-			end
-			carryMagNew = math.max(carryMagNew, math.abs(relX), math.abs(relY), math.abs(dw), math.abs(dh))
-			local moves = relX ~= 0 or relY ~= 0 or dw ~= 0 or dh ~= 0
-			local paints = dOp ~= 0 or dSc ~= 0 or dRo ~= 0
-			animationRecords[path] = {
-				x = relX,
-				y = relY,
-				w = dw,
-				h = dh,
-				o = dOp,
-				s = dSc,
-				r = dRo,
-				moves = moves,
-				paints = paints,
-				set = set,
-			}
-			animationRecordN += 1
-			set.paths[path] = true
-			-- SEED SYNCHRONOUSLY, before the first step (transitions.luau's seed at
-			-- `writeEntry(entry)` before `setTarget`): `tick` runs on PreRender and
-			-- `refresh` on Heartbeat, so a record written a frame late paints one frame
-			-- at the destination and then jumps back.
-			--
-			-- A PURE-PAINT RECORD WRITES NO TRANSFORM AT ALL: a zero transform is not
-			-- free (it counts into `presentationLive` and makes the adapter recompose
-			-- the subtree's offsets) and a fade has no offset to declare.
-			controller.setPresentationTransform(path, if moves then { x = relX, y = relY, w = dw, h = dh } else nil)
-			if paints then
-				pushPresentationPaint(path)
-			end
-		end
-		-- TOP-DOWN, because a node cannot be classified before its ancestors.
-		-- `inh` is the composed ABSOLUTE delta this path inherits from the records
-		-- installed above it — never an ancestor's stored RELATIVE, and never a live
-		-- record from an EARLIER call (which is not this diff's business).
-		local function walk(node: any, inhX: number, inhY: number)
-			local path = node.path
-			-- PRECEDENCE (design §Composition), SCOPED TO THE NODE — RED-TEAM
-			-- Milestone 1, blocker 1 (tests/animation_precedence.spec.luau).
-			--
-			-- There is one `lastTransform` slot per path and no contributor stack,
-			-- so a path another writer already owns — a structural transition,
-			-- keep-visible — must stay out of this diff: two writers alternating on
-			-- one slot is the contention this rule exists to prevent.
-			--
-			-- THAT IS A STATEMENT ABOUT THE SLOT, AND A SLOT BELONGS TO ONE PATH.
-			-- Taking the owned path's whole SUBTREE out of the diff protects
-			-- nothing (a child has its own slot, uncontended) and costs everything
-			-- when the owned path is the ROOT: every `UI.TextInput` declares a
-			-- `keepVisibleOffset`, and `presenter.present` wires it eagerly, so
-			-- `setPresentationOffset(0)` writes a zero transform onto the root at
-			-- boot on any surface holding a text field. `withAnimation` on that
-			-- surface then installed zero records and snapped, with no error and no
-			-- diagnostic.
-			--
-			-- So the owned node is EXCLUDED and the walk CONTINUES with `inh`
-			-- UNCHANGED. `inh` is the composed delta of records installed in THIS
-			-- diff, and a foreign writer's shift is not one of them: both halves of
-			-- the presentation channel accumulate every ancestor's transform
-			-- independently (`presentationShift`, the adapter's compose), so the
-			-- keep-visible shift is already added on top of whatever a descendant's
-			-- own record paints. Passing it through unchanged is what makes the
-			-- painted sum come out right; folding it into `inh` would subtract it
-			-- from the descendant twice.
-			local owned = lastTransform[path] ~= nil and animationRecords[path] == nil
-			if not owned then
-				local dx, dy, dw, dh = 0, 0, 0, 0
-				-- LIVENESS IS NOT `lastRects[path] ~= nil`: `restoreParkedProps` carries
-				-- `lastRects` across paths for a recycled instance, so a brand-new row
-				-- would fly in from the position of whatever dead row it adopted.
-				local live = baseline[path] == true
-				if live then
-					local last = lastRects[path]
-					local entry = rects[path]
-					if last ~= nil and entry ~= nil then
-						dx = last.x - entry.rect.x
-						dy = last.y - entry.rect.y
-						-- THE SIZE DELTA IS ABSOLUTE, not relative, and that asymmetry is
-						-- the whole design (docs/plans/with-animation-size.md). A position
-						-- offset accumulates down the subtree because the instance tree is
-						-- FLAT — a container's move carries nothing inside it, so every
-						-- descendant re-adds its ancestors' offsets. A size change carries
-						-- nothing inside it EITHER, and there the same fact means the
-						-- opposite: a child's rect is absolute, so the parent's painted
-						-- growth must not reach it. Hence no `inh` for w/h, and no
-						-- compensating record for a child that did not resize.
-						dw = last.w - entry.rect.w
-						dh = last.h - entry.rect.h
-					end
-				end
-				local relX, relY = dx - inhX, dy - inhY
-				-- THE AUTHORED PAINT DELTAS (ADR-0026), parked by the commit phase —
-				-- exactly the role `lastRects` plays for the rect numbers, and for the
-				-- same reason: `authored[path]` already holds the destination here.
-				local dOp, dSc, dRo = 0, 0, 0
-				local pd = if live then animationPaintDelta[path] else nil
-				if pd ~= nil then
-					dOp, dSc, dRo = pd.o, pd.s, pd.r
-				end
-				-- a path already carrying a record must be re-based even when its relative
-				-- delta is zero this time, or it keeps flying to a place it no longer sits
-				local claimed = relX ~= 0
-					or relY ~= 0
-					or dw ~= 0
-					or dh ~= 0
-					or dOp ~= 0
-					or dSc ~= 0
-					or dRo ~= 0
-					or animationRecords[path] ~= nil
-				if live and claimed and handles[path] ~= nil then
-					claim(path, relX, relY, dw, dh, dOp, dSc, dRo)
-					-- what the children inherit is this path's composed ABSOLUTE POSITION
-					-- delta. Size is deliberately absent: see the comment above.
-					inhX, inhY = dx, dy
-				end
-			end
-			for _, child in node.children do
-				walk(child, inhX, inhY)
-			end
-		end
-		walk(root.node, 0, 0)
-		-- the parked deltas belong to THIS armed commit only: a path the walk declined
-		-- (not live, no handle) must not be flown by the next call
-		animationPaintDelta = {}
-		if set ~= nil then
-			set.spring:setTarget(0)
-			-- after the aim, so the seed is what integrates from here
-			if carryMagOld > 0 and carryMagNew > 0 then
-				set.spring:setVelocity(carryVelocity * (carryMagOld / carryMagNew))
-			end
-		end
-	end
-
-	-- Armed by `presenter.withAnimation` for exactly one commit, which it forces
-	-- itself after draining the queue UNARMED — so the frame-coalesced refresh,
-	-- virtual-list windowing, replication reverts and async landings never install
-	-- records. `session.newSpring()` is called lazily, so a call that moves nothing
-	-- builds no spring.
-	function controller.armAnimation(session: any)
-		animationSession = session
-		-- the paths alive at the PREVIOUS (unarmed) commit — see `live` above for
-		-- why this cannot be `lastRects`
-		local alive: { [string]: boolean } = {}
-		for path in handles do
-			alive[path] = true
-		end
-		animationBaseline = alive
-	end
-
-	function controller.disarmAnimation()
-		animationSession = nil
-		animationBaseline = nil
-	end
-
-	-- DIAGNOSTIC (design §Proof), not a feature: how many paths currently carry a
-	-- `withAnimation` record. The suite reads it to prove roots-only recording.
-	function controller.animationRecordCount(): number
-		return animationRecordN
-	end
+	-- THE PRESENTATION CHANNEL'S FIVE PUBLIC METHODS, rebound onto the controller
+	-- from `render/presentation_channel.luau` (see the construction above). Same
+	-- functions, same names, same contract — `controller` is the renderer's public
+	-- surface and none of it moved.
+	controller.setPresentationTransform = channel.setPresentationTransform
+	controller.setPresentationTransparency = channel.setPresentationTransparency
+	controller.armAnimation = channel.armAnimation
+	controller.disarmAnimation = channel.disarmAnimation
+	controller.animationRecordCount = channel.animationRecordCount
 
 	-- keep-visible, REIMPLEMENTED OVER THE PER-NODE CHANNEL (fixes SF-M9). The
 	-- root node IS the surface, so its transform is the whole-surface shift the
@@ -4196,7 +3616,7 @@ function renderer.attach(
 			if hiddenRoots[p] == true or paintHeld[p] == true then
 				return true
 			end
-			local alpha = lastComposedAlpha[p]
+			local alpha = channel.composedAlpha(p)
 			if alpha ~= nil and alpha >= FULLY_FADED then
 				return true
 			end
@@ -4352,14 +3772,15 @@ function renderer.attach(
 		pathNodeCount = 0
 		-- a `withAnimation` spring is built on the presenter's clock, which OUTLIVES
 		-- this surface, so the springs die with the surface that started them
-		for i = #animationSets, 1, -1 do
-			animationSettle(animationSets[i])
-		end
+		channel.settleAll()
 		attachScope:dispose()
 		drainRecyclePool()
 		adapter.destroyRoot(rootHandle)
-		handles = {}
-		lastRects = {}
+		-- CLEARED IN PLACE, never rebound: the presentation channel holds both of
+		-- these BY REFERENCE (see its construction above), so `handles = {}` here
+		-- would leave it answering out of a table this surface had abandoned.
+		table.clear(handles)
+		table.clear(lastRects)
 		-- TEARDOWN IS A DISAPPEARANCE, and it is the most common one: a panel closes
 		-- by being dismissed, not by having its rows re-keyed. Queued here, after the
 		-- root is destroyed, so the hooks run with nothing left to reach and an error

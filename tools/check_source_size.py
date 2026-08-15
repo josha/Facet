@@ -139,6 +139,45 @@ pin went red rather than silently passing forever — which is the good outcome,
 and it is why `check_prop_parity` now reads the solver as a PARTS LIST the way
 it already reads the renderer.
 
+FIFTH ROW CLEARED, AND THE LAST ONE: `src/render/renderer.luau`, 2026-08-14,
+242,943 -> 175,901 in two commits. `KNOWN_OVER` is now EMPTY, so from here every
+module in `src/` is guarded normally and any file that reaches the cap fails this
+check on the run that crosses it.
+
+A seam had been proposed for this one (the presentation channel), and the
+mechanised test found a bigger one FIRST by asking the question of the whole file
+rather than of the proposal: `toLayoutNode`, the measure seam, is not inside
+`renderer.attach` at all — it is module-scope, every input already arrives as an
+argument, and the nine module locals it reads are never reassigned. 46,476 chars
+that entangle NOTHING (`src/render/layout_node.luau`). The proposed seam then
+took the rest: the PRESENTATION CHANNEL — the imperative transform/transparency
+writes, the authored `opacity`/`scale`/`rotation` triple, the `withAnimation`
+records and the one write site they compose through — became a per-surface
+factory (`src/render/presentation_channel.luau`, 34,390). Its thirteen pieces of
+state are all private to it; the four things it needs from the renderer
+(`handles`, `lastRects`, `findNode`, plus `core`/`root`/`adapter`) are shared BY
+REFERENCE and never reassigned, which is why it needed no accessor callbacks
+where `screen_paint` needed three. The one price: `dispose` now CLEARS
+`handles`/`lastRects` in place instead of rebinding them, or the channel would
+answer out of a table the surface had abandoned.
+
+WHAT WAS JUDGED TOO ENTANGLED: `ensureTree` (~21.6k) and `solveAndApply` (~25.3k)
+are the mount and commit cores and read or write nearly the whole ~120-local
+`attach` closure — `handles`, `lastRects`, `lastVisible`, `lastHitRects`,
+`lastPadding`, `lastCompact`, `lastWrapped`, `solverHidden`, `authoredHidden`,
+`structureEpoch`, `pathNodeCount`, `dirtyContains`, the recycle pool and the
+stats record among them, several of which are REASSIGNED (`presentationNodes`
+was one, and it left with the channel). `structuralSync` (~10.5k) is the same
+closure's retire sweep. None of the three is a mechanical move, and at 175,901 —
+24,099 of headroom — none is needed.
+
+LIVE PROOF, which is the whole point of this check: after the second commit the
+Rojo plugin live-synced `renderer.luau` into the open Showcase session again, and
+the injector reported `refused: []` / `staleModules: 0` where it would previously
+have refused the file outright. The running datamodel holds 175,901 chars with
+this mission's own pointer comments in it, and the 20-demo walk, a `withAnimation`
+press, four theme swaps and both motion modes ran with no library error.
+
 AND STOP AT A REAL MARGIN, not at 199,9xx. Landing this file at 198,960 was
 enough to pass and not enough to survive: adding the header comment that tells
 the next agent where the six siblings went put it straight back to 201,227, and
@@ -158,48 +197,7 @@ from pathlib import Path
 CAP = 200_000
 
 # path -> (ceiling, why it is over and what the plan is)
-KNOWN_OVER = {
-    "src/render/renderer.luau": (
-        200_109,
-        "SPLIT IN PROGRESS, 2026-08-14: 242,943 -> 200,109 with the MEASURE SEAM "
-        "out (`src/render/layout_node.luau`, 46,476) — `toLayoutNode` plus the "
-        "button-text grammar it shares with the paint seam and the declared hit "
-        "floor. It entangles NOTHING: it was already a module-scope function whose "
-        "every input arrives as an argument, so the split is a move plus two "
-        "re-exports (`renderer.compactForm`/`renderer.drawnButtonText` did not "
-        "budge). The pins that read 'the renderer' as text now read it through "
-        "`tests/lib/renderer_source.all()`, the same instrument "
-        "`tests/lib/adapter_source` already is for the adapter, and "
-        "`check_prop_parity`/`check_theme_drift` scan both files — a source pin "
-        "that silently stops seeing the code it names is this split's real hazard. "
-        "NEXT: the presentation channel, below. Original entry follows. "
-        "RAISED TWICE on 2026-08-14 — by ADR-0026 (authored opacity/scale/rotation) "
-        "and again +4,763 by ADR-0028 (cross-surface overlap's alarm). THAT IS THE "
-        "TREND WORTH READING: the two files still over the cap are the two where the "
-        "interesting work keeps landing, so they get further from the cap while the "
-        "stable files were the easy ones to split. renderer now has a proposed seam "
-        "(lift the presentation channel out as a factory, ~8 call sites, every "
-        "upvalue shareable by reference) and it should be taken before a third raise. "
-        "Original ADR-0026 note follows. RAISED 2026-08-14 by ADR-0026, and the "
-        "raise is on the record rather than silent. What was NOT allowed to land "
-        "here: the whole composition seam — the three composition rules, the "
-        "authored triple's domain checks and their reasoning, and the write memo's "
-        "comparison — went into a NEW pure module, `src/render/presentation.luau`, "
-        "which is where the seam belongs anyway. What did land is state and call "
-        "sites that close over `handles`/`adapter`/`nodeAt`/the animation records. "
-        "THE SEAM IS NOW PROPOSED, which is the change from the old entry's 'no "
-        "seam proposed yet': lift the PRESENTATION CHANNEL out as a factory — "
-        "`pushPresentationPaint`, `setPresentationTransform`, "
-        "`setPresentationTransparency`, `readAuthoredPresentation`, "
-        "`presentationShift`, and the six per-path maps (`lastTransform`, "
-        "`lastTransparency`, `authored`, the two composed memos, `presentationLive`) "
-        "— against ~8 call sites. Every upvalue it needs is shareable BY REFERENCE "
-        "(the handle table, the adapter, `nodeAt`, `animationRecords`), which is "
-        "what makes this seam cheap where `row_actions`'s and `presenter`'s are "
-        "not. It is a scoped refactor mission (STUDIO.md: flag refactors, do not "
-        "smuggle them into feature work) and is worth ~200 lines.",
-    ),
-}
+KNOWN_OVER: dict[str, tuple[int, str]] = {}
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -250,6 +248,16 @@ def main() -> int:
         return 1
 
     over = len(KNOWN_OVER)
+    if over == 0:
+        # the list emptied on 2026-08-14 (see the header). Say so rather than
+        # printing "0 known offenders ... 0 over", which reads like a check that
+        # is not looking at anything.
+        print(
+            f"check_source_size: PASS — every module in src/ is under the "
+            f"{CAP:,}-char Source-write cap, and KNOWN_OVER is empty. Nothing is "
+            f"waived: a file that reaches the cap fails on the run that crosses it."
+        )
+        return 0
     total = sum(c for c, _ in KNOWN_OVER.values())
     print(
         f"check_source_size: PASS — no new module at or over the {CAP:,}-char "

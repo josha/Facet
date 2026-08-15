@@ -405,7 +405,11 @@ describe("authored presentation D — off-path cost, and one write site", functi
 	end)
 
 	it("ONE SITE writes each presentation engine property — the manifest's promise, in the source", function()
-		local source = require("@lune/fs").readFile("src/render/renderer.luau")
+		-- the renderer as ONE text: three files since the 200k `Source` write-cap
+		-- split, and the count is only a promise about the whole family. The write
+		-- site lives in `render/presentation_channel.luau` now
+		-- (tests/lib/renderer_source names the parts and says why).
+		local source = require("./lib/renderer_source").all()
 		local transform, transparency = 0, 0
 		for line in string.gmatch(source, "[^\n]+") do
 			if string.find(line, "adapter.setProp(", 1, true) then

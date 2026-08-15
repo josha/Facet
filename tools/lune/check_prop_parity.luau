@@ -48,7 +48,8 @@ local SRC_BLUEPRINT = "src/blueprint.luau"
 -- where nearly every layout prop is read) left for `render/layout_node.luau` in
 -- the 200k `Source` write-cap split. Reading only the first file would have made
 -- 38 layout props look unread. ADD A PART WHENEVER MORE OF THE RENDERER MOVES OUT.
-local SRC_RENDERER_PARTS = { "src/render/renderer.luau", "src/render/layout_node.luau" }
+local SRC_RENDERER_PARTS =
+	{ "src/render/renderer.luau", "src/render/layout_node.luau", "src/render/presentation_channel.luau" }
 local SRC_RENDERER = SRC_RENDERER_PARTS[1]
 -- THE SOLVER AS ONE TEXT, for the same reason and by the same rule: the layout
 -- channel asks "does the solver read `node.<name>`/`child.<name>`?", and the

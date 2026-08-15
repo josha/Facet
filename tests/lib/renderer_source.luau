@@ -13,8 +13,9 @@
 	Studio session, and a live check against it then tests the code baked into the
 	place file rather than the edits on disk
 	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). `renderer.luau`
-	was 242,943 characters; the measure seam (`render/layout_node.luau`) left
-	first.
+	was 242,943 characters and shed two seams: the measure seam
+	(`render/layout_node.luau`) and the presentation channel
+	(`render/presentation_channel.luau`).
 
 	ADD A PART HERE WHENEVER MORE OF THE RENDERER MOVES OUT — otherwise the pins
 	quietly stop seeing the code they name, which is the failure this file exists
@@ -26,6 +27,7 @@ local fs = require("@lune/fs")
 local PARTS = {
 	"src/render/renderer.luau",
 	"src/render/layout_node.luau",
+	"src/render/presentation_channel.luau",
 }
 
 local renderer_source = {}
