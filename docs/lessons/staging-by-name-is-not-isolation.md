@@ -226,6 +226,114 @@ on the location. The only operations that are genuinely scoped to your changes a
 hunk-level ones (`git apply --cached` with a filtered patch) and the only thing
 that makes location and ownership coincide again is a worktree of your own.
 
+---
+
+## Round 5 (2026-08-15): the fix is a private index, and it is cheaper than a worktree
+
+The paragraph immediately above is the conclusion this round **corrects**. It said
+the only structural fix was `isolation: "worktree"`. There is a better one, it
+costs no setup and no merge, and it is now a script:
+
+```
+tools/commit_isolated.py -m <message-file> <path>[:marker,marker] ...
+```
+
+### What it does
+
+`GIT_INDEX_FILE` makes the index a **parameter**, not a singleton. Seed a private
+one from HEAD, apply only your own hunks to it with `git apply --cached`, write
+the tree, `commit-tree` it, and advance the branch with `git update-ref <ref>
+<new> <old>` — a compare-and-swap. `.git/index`, the shared mutable every other
+agent is also writing, is never touched for staging. The working tree is never
+modified: no reset, no checkout, no stash, no `add -A`.
+
+That closes the round-3 failure **structurally**. Round 3's window was
+`check → commit`, and it was filled by composing a commit message. Here the
+message is written *before* the tool runs and staging-plus-committing is one
+process invocation with no interval inside it for anyone to land in.
+
+### Why this beats a worktree for this workload
+
+A worktree buys a private index *and* a private working tree, and charges setup, a
+second checkout, and a merge back. Almost every collision in rounds 1–4 was a
+**staging** collision, not an editing one: the agents were editing different parts
+of shared files quite happily and only destroyed each other at commit time. A
+private index is the half that was actually needed. Reach for a worktree when
+agents genuinely need different *file contents* on disk at the same time — which
+is a rarer situation than this file's earlier rounds assumed.
+
+### The hole this introduced, which was measured, not reasoned
+
+A commit made this way moves HEAD **without updating the shared index**, and that
+is not cosmetic. In a scratch repo, with the index left stale:
+
+```
+me:      commit A.txt = "mine v2"   (private index, update-ref)
+them:    git commit                  (ordinary, from the stale shared index)
+result:  git show HEAD:A.txt  ->  "mine v1"      <- SILENTLY REVERTED
+```
+
+Their commit writes the index as a tree, and their index still held the
+pre-commit blob for my path. Green tests, clean status, my work gone.
+
+**This already happened here.** Round 4b above — the phantom staged deletions of
+`branch_scope.luau`, `sorted_entries.luau` and `tests/sorted_entries.spec.luau`
+that nearly went out in an easing commit — was *this* hole, caused by the first
+three private-index commits of this very round. Round 4b diagnosed it as a
+property of `git commit -- <pathspec>`; it is the general property of **any commit
+that does not refresh the index**, and a private-index commit is one of those.
+
+So the republish is mandatory and the script does it, using round 4b's own repair:
+
+```
+info=$(git ls-tree <my-commit> -- "$p" | awk '{print $1","$3}')
+git update-index --cacheinfo "$info,$p"
+```
+
+It reads no working-tree bytes, so it cannot sweep anyone's in-flight edits. Where
+another agent had *staged* content at one of those paths, republishing returns
+their staging to unstaged — their file on disk is untouched and they simply
+re-stage — and the script prints a `NOTE` naming the path rather than doing it
+quietly. Left alone, that same entry would have reverted the commit instead.
+
+`tools/commit_isolated.py --repair <path>...` is the standalone form, for when you
+find phantom deletions in `git diff --cached` and want round 4b's fix without
+looking it up.
+
+### One correction to round 4b's advice
+
+Round 4b ends "prefer `git commit` with no pathspec, because once the index is
+verified correct a later working-tree write cannot contaminate it." That is right
+about *contamination* and wrong as a default in a tree where anyone is committing
+without refreshing the index — a bare `git commit` is precisely the command that
+turns a stale index into a silent revert. Verify the index against HEAD first
+(`git diff --cached --stat` empty, or `--repair` the paths), *then* the advice
+holds.
+
+### The hole that is still open, named
+
+**Hunk granularity.** `git diff` merges nearby edits into one hunk, so if another
+agent's change lands within the context window of yours, a marker match takes
+both and the script cannot tell. It diffs at `-U1` to make that window one line
+instead of three, and it writes the exact committed bytes to a `patch:` file so
+the claim is auditable afterwards — but it does not close it. Two agents inside
+the same few lines are not separated by anything short of a worktree.
+
+Everything else is closed: the private index cannot be swept or destroyed; the
+compare-and-swap makes a genuine race a loud exit-3 rather than a clobber (a
+commit landing between the read and the update-ref fails with `is at X but
+expected Y`, and the working tree is untouched so a re-run is free); the
+republish removes the stale-index revert. `commit-tree` bypasses pre-commit and
+commit-msg hooks — this repo has none, and a repo that has them must run them
+itself.
+
+### The rule, corrected a fourth time
+
+> Do not stage into the shared index at all. Write the message first, then
+> `tools/commit_isolated.py -m <msg> <paths...>` — private index, hunk-filtered,
+> compare-and-swapped, index republished — and read its `drop` lines, which are
+> the claim you are making about what is not yours.
+
 ### 4c. The root cause of 4a was not the `sed` — it was an identifier assigned from stale knowledge
 
 Worth separating, because fixing the wrong one of these fixes nothing.

@@ -477,6 +477,13 @@ blueprint.isReadable = isReadable
 	deterministic dumps must not hand its consumers a one-liner that breaks
 	determinism inside their own screen, so the flatten ships here, once.
 
+	AND IT IS NOT A LUNE ARTEFACT. Confirmed the same day in ROBLOX'S OWN LUAU VM,
+	in a live Studio Play session: the same twelve player ids inserted ascending
+	and descending gave `player_1021,player_1014,…` and `player_1070,player_1014,…`
+	respectively, while `sortedEntries` gave one order for both. That is the fact
+	this helper exists for — a headless-only measurement would have left open the
+	reading that the engine's VM is stabler than the test harness's, and it is not.
+
 	IT IS PURE, AND THAT IS THE WHOLE DESIGN. The gap note sketched it returning a
 	`Readable`, but building one would force the helper to take a core AND a scope
 	it has no other use for, to duplicate the `core:memo` a consumer already writes

@@ -1649,6 +1649,11 @@ Normalized style data is read once at construction, so a Signal *inside* the spe
 is refused there and the error names this fix: bind the whole `stroke` prop
 instead.
 
+Confirmed in **Roblox's own Luau VM**, not only headless: in a live Studio Play
+session the same twelve player ids inserted ascending and descending iterated
+`player_1021,player_1014,…` and `player_1070,player_1014,…`, while
+`sortedEntries` returned one order for both.
+
 ```lua
 UI.Box({
     id = "Row",
