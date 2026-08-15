@@ -64,6 +64,20 @@ proposed extractions (presentation ~575 lines, pointer ~310) were NOT taken —
 10,330 chars of headroom is a real margin, and the paragraph above is the reason
 to keep the seams for when they are needed rather than spending them now.
 
+THIRD ROW CLEARED: `src/present/presenter.luau`, 2026-08-14, 207,852 -> 192,454
+in one commit, and the seam was found by MECHANISING the same test rather than
+by reading for "things that look separable". A script listed every local
+declared at `presenter.new`'s scope, then every later assignment to one, which
+splits the closure's 95 locals into ~68 that are only ever READ (a by-reference
+table, a pure helper, a constant — all of them safe to pass as arguments) and
+~27 that are REASSIGNED. Only the second set entangles. The two catchers —
+the modal/engaged scrim and the transient popup catcher — came out first
+because they scored ZERO on it: the only mutable upvalues they touch (`scrim`,
+`popupCatcher`) are ones they also declare and nothing else in the file reads,
+so the state left with the code. Everything else they need is `stack`, the
+presenter instance and `metricsNow()`, none of which is ever reassigned.
+See `src/present/catchers.luau`.
+
 AND STOP AT A REAL MARGIN, not at 199,9xx. Landing this file at 198,960 was
 enough to pass and not enough to survive: adding the header comment that tells
 the next agent where the six siblings went put it straight back to 201,227, and
@@ -134,13 +148,6 @@ KNOWN_OVER = {
         "with it. Under the cap but NOT at a real margin yet — 3,253 chars is one "
         "honest comment, which is the mistake `screen_target` made at 198,960. The "
         "shrink cascade goes next.",
-    ),
-    "src/present/presenter.luau": (
-        207_852,
-        "crossed on 2026-08-14 (O-29) and immediately cost a live verification of "
-        "ruling 9 — the running session held 198,387 chars, i.e. pre-fix code. "
-        "RAISED +519 by ADR-0028 (cross-surface overlap): the surface registry and "
-        "its dispose-time unregister.",
     ),
 }
 
