@@ -74,10 +74,84 @@ What a headless run *can* hold is the geometry that produces it, and
 exactly that: the 44×44 request, the 26px band, and `grip.z - 1 > column.z`. If
 any of the three moves, the live table above has to be re-measured.
 
-## Not fixed here, and why
+## Ruled and fixed the same day (director, option 1)
 
-The repair is a design decision with at least four shapes, and picking one from a
-desk is how the original comment got written:
+> "Give the expander the grip's gesture, forwarding via `tapAt`."
+
+It was the only one of the four that closes both symptoms in one move, and it is
+the **general mechanism rather than a new concept**: `row_actions` already
+forwards unclaimed presses through `controller.tapAt(x, y, { within, skip })`
+(ruling 6, `aa1e271`). Two halves:
+
+1. **The adapter** (`screen_target.luau`). The `InputBegan` body that starts a
+   pointer capture was extracted as `beginPointerCapture` and is now connected to
+   the expander as well as to the host instance — the expander's whole contract is
+   "a press here is a press on the host", and it had been honouring that for
+   `handle.activate` only. `dropHitExpander` takes both down in one place.
+2. **The control** (`table.luau`'s `gripFor`). A press is not a resize until it
+   travels: `interaction_tokens.promoted(dx, dy, pointerType)` — the shared
+   press→drag gate, 6px on a mouse and 14px on a finger, which this control
+   already reads for its row drag. Under the gate the press was never this zone's
+   gesture, so it is handed to whatever the expander was covering:
+   `controller.tapAt(pos.x, pos.y, { within = cellPath, skip = gripPath })`.
+   No width is committed, and the guide line no longer flashes for a tap.
+
+### Which `tapAt` family, and a correction to the ruling's note
+
+The ruling said "a resize grip is a pointer zone, so [the pointer-zone] family is
+the one you need". That reads the direction backwards, and it matters:
+
+- `tapAt` replays a pointer zone's **down/up pair at one point**. A resize is a
+  *drag*, so a replay could never produce one — and the grip's solved rect is 8px
+  wide, so `tapAt` would not find it at a point 18px to its left anyway.
+- What actually lands under the expander is the header cell's own `Column`
+  **Button**, so the **tappable** family runs: the same activate dispatch a native
+  press reaches. The pointer-zone family still earns its place here — it is what
+  makes the Grip a `tapAt` candidate at all, which is precisely why `skip` names
+  the Grip so it cannot forward to itself.
+
+The 44px drag target comes from the *adapter* half, not from `tapAt`. Nothing
+about the ruling's choice changes; only the note about which family does the work.
+
+### Measured live afterwards, same place, same session (2026-08-14)
+
+| input | where | before | after |
+|---|---|---|---|
+| click (264,134) | trailing 26px of the name header, over the expander | **nothing** | **sort cycles, `SortMark` = `▲` 7x14; widths still `auto`** |
+| click (100,134) | same cell, clear of the expander (the control) | sort cycles | sort cycles, `▼` |
+| press (258,134), drag to (200,134) | inside the 44px band, 11px clear of the 8px grip | **nothing** | **Entrant 265 -> 207px**, readout follows |
+| press (215,134), drag to (275,134) | the 8px grip itself (the old route) | resizes | resizes, 207 -> 267px |
+
+The 26px dead band is gone and the band is a real resize target. Row 4 is there
+because "the band works now" would otherwise be equally explained by "the grip
+stopped working and only the band is live".
+
+**And the phone is answered.** Point 3 above — "a resizable column is not
+resizable on a phone" — was true because the only pointer target was 8px wide.
+The target is now the whole 44x44 the floor always asked for, and the tap/drag
+gate reads the touch token (14px) from the pointer type of the event in hand, so
+a finger that travels resizes and a finger that does not sorts. Injected Studio
+input arrives as `UserInputType.Touch`, so the drags in rows 3 and 4 above were
+touch presses; a physical-device confirmation is still the standing rider.
+
+### The open ceiling, inherited
+
+Ruling 6's `ponytail` applies here unchanged: **a forwarded press has no pressed
+visual.** The header button under the finger does not light up while held, because
+the engine never told it it was pressed. The activation itself is exact. Upgrade
+path is the same one — forward the down/up pair rather than the resolved tap.
+
+### What the geometry pin does now
+
+`tests/table_columns.spec.luau`'s 44x44 / 26px / `grip.z - 1 > column.z` pin is
+**unchanged at the same numbers**: the repair was to what the rect *does*, not to
+where it is. The z relationship in particular is now load-bearing for the opposite
+reason — the expander has to be the topmost thing under a finger aiming at the
+divider, or there would be no press to promote into a drag.
+
+### The options that were not taken, and why
+
+(Recorded as they stood before the ruling.)
 
 - **Give the expander the grip's gesture** (forward via `tapAt`, as `row_actions`
   does) — makes the 44px band a real resize target and removes the dead zone in
@@ -90,4 +164,4 @@ desk is how the original comment got written:
 - **A separate touch affordance** — a drag handle in edit mode, the way reorder
   already works.
 
-Recorded for a ruling. The measurement is the deliverable.
+The measurement was the deliverable; the ruling followed the same day.

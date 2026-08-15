@@ -108,15 +108,18 @@ describe("table_columns fixture: the header is on screen and legible", function(
 		w.built.dispose()
 	end)
 
-	it("a resizable column grows a divider and a locked one refuses — both invisibly, so the readout names them", function()
-		local w = world()
-		expect(w.adapter.node(`{HEADER}/Head-name/Grip`) ~= nil).toBe(true)
-		expect(w.adapter.node(`{HEADER}/Head-team/Grip`) ~= nil).toBe(true)
-		expect(w.adapter.node(`{HEADER}/Head-best/Grip`)).toBe(nil)
-		-- the fixture's own sentence about the same three facts
-		expect(w.built.widths:get()).toBe("Entrant auto · Team auto · Best lap locked")
-		w.built.dispose()
-	end)
+	it(
+		"a resizable column grows a divider and a locked one refuses — both invisibly, so the readout names them",
+		function()
+			local w = world()
+			expect(w.adapter.node(`{HEADER}/Head-name/Grip`) ~= nil).toBe(true)
+			expect(w.adapter.node(`{HEADER}/Head-team/Grip`) ~= nil).toBe(true)
+			expect(w.adapter.node(`{HEADER}/Head-best/Grip`)).toBe(nil)
+			-- the fixture's own sentence about the same three facts
+			expect(w.built.widths:get()).toBe("Entrant auto · Team auto · Best lap locked")
+			w.built.dispose()
+		end
+	)
 end)
 
 describe("table_columns fixture: the three routes all move the same column", function()
@@ -169,15 +172,18 @@ describe("table_columns fixture: the three routes all move the same column", fun
 		w.built.dispose()
 	end)
 
-	it("SELECTING A COLUMN PAINTS NOTHING, so the hint line is the only thing that says the arrows moved house", function()
-		local w = world()
-		expect(w.built.hint:get()).toBe("Drag a divider, or Tab to a heading and press Return")
-		key(w, "Return")
-		expect(w.built.hint:get()).toBe("Entrant has the keys: , and . resize it, ↑/↓ sorts")
-		key(w, "Return") -- and the second Activate hands them back
-		expect(w.built.hint:get()).toBe("Drag a divider, or Tab to a heading and press Return")
-		w.built.dispose()
-	end)
+	it(
+		"SELECTING A COLUMN PAINTS NOTHING, so the hint line is the only thing that says the arrows moved house",
+		function()
+			local w = world()
+			expect(w.built.hint:get()).toBe("Drag a divider, or Tab to a heading and press Return")
+			key(w, "Return")
+			expect(w.built.hint:get()).toBe("Entrant has the keys: , and . resize it, ↑/↓ sorts")
+			key(w, "Return") -- and the second Activate hands them back
+			expect(w.built.hint:get()).toBe("Drag a divider, or Tab to a heading and press Return")
+			w.built.dispose()
+		end
+	)
 
 	it("a LOCKED column binds no Adjust key at all — the bumper stays the game's", function()
 		local w = world()
@@ -252,7 +258,7 @@ describe("table_columns: how big the divider actually is", function()
 		for _, input in { "KeyboardAndMouse", "Touch", "Gamepad" } do
 			local w = world({ preferredInput = input })
 			local grip = w.adapter.node(`{HEADER}/Head-name/Grip`)
-				-- THE POSITIVE CONTROL: the ROW box IS paradigm-derived
+			-- THE POSITIVE CONTROL: the ROW box IS paradigm-derived
 			-- (`controls.table.rowHeight.touch`), so if the row height does not move
 			-- between these three the paradigm never switched and the grip
 			-- measurement beside it would prove nothing.
@@ -300,14 +306,24 @@ end)
 	  | (264, 134)       | name header, over the expander | NOTHING |
 	  | (100, 134)       | name header, clear of it       | sort cycles, mark '▲' |
 
-	THIS SPEC CANNOT SEE THAT. `controller.tapAt` is the FRAMEWORK's hit test and it
-	arbitrates on solved rects, not on the adapter's expander instances — it answers
-	`Column` at every one of those points. So what is pinned here is the GEOMETRY
-	that produces the defect, which is the part a headless run can honestly hold:
-	the requested hit rect and the z relationship. If either changes, this reddens
-	and the live table above has to be re-measured. ]]
+	RULED AND FIXED THE SAME DAY (director, option 1 of the four the lesson listed):
+	the expander now runs the grip's own gesture, so the 44x44 IS the drag target the
+	floor always claimed; and a press that never travels forwards through
+	`controller.tapAt` to the `Column` button underneath, so the band sorts. THE
+	GEOMETRY BELOW IS UNCHANGED BY THAT FIX AND STAYS PINNED AT THE SAME NUMBERS —
+	the repair was to what the rect DOES, not to where it is. It is still the
+	geometry that would make the dead band possible, so if any of the three moves,
+	the live table has to be re-measured before the behaviour above can be claimed
+	again.
+
+	THIS CASE STILL CANNOT SEE THE BEHAVIOUR. `controller.tapAt` is the FRAMEWORK's
+	hit test and it arbitrates on solved rects, not on the adapter's expander
+	instances — it answers `Column` at every one of those points, before and after.
+	The behaviour is held by "the divider forwards a press it did not turn into a
+	drag" (below), by the adapter source anchors in `tests/adaptive.spec.luau`, and
+	by the live drive in the lesson. ]]
 describe("the resize grip's hit floor lands on top of its own header button", function()
-	it("asks for 44x44 centred on an 8x28 grip, which eats 26px of the header cell it sits in", function()
+	it("asks for 44x44 centred on an 8x28 grip, which covers 26px of the header cell it sits in", function()
 		local w = world()
 		local cell = w.adapter.node(`{HEADER}/Head-name`)
 		local grip = w.adapter.node(`{HEADER}/Head-name/Grip`)
@@ -322,8 +338,11 @@ describe("the resize grip's hit floor lands on top of its own header button", fu
 		expect(`band:{band}`).toBe("band:26")
 		-- THE Z RELATIONSHIP IS THE OTHER HALF. The engine paints the expander at
 		-- `grip.z - 1`, and the header's own button is lower still, so the expander
-		-- wins the press. A grip that sorted BELOW its Column button would make the
-		-- live table above impossible.
+		-- wins the press. It is what made the band dead before the ruling, and after
+		-- it it is what makes the band a RESIZE target: the expander has to be the
+		-- topmost thing under a finger aiming at the divider, or the header button
+		-- would take the press and there would be nothing to promote into a drag.
+		-- The same number, load-bearing for the opposite reason.
 		expect(`above:{grip.z - 1 > column.z}`).toBe("above:true")
 		w.built.dispose()
 	end)
@@ -407,5 +426,185 @@ describe("column resize on a VIRTUALIZED table", function()
 		expect(tbl.dump().rowCount).toBe(2000)
 		expect(`mounted:{tbl.dump().windowRows < 40}`).toBe("mounted:true")
 		expect(adapter.node("/S/V/Main/Body/Canvas/Rows/[r1500@1]/Row/Cells/Cell-name")).toBe(nil)
+	end)
+end)
+
+--[[ A PRESS IN THE 44px BAND THAT NEVER MOVES IS A TAP, AND A TAP BELONGS TO THE
+	HEADER UNDERNEATH (director ruling, 2026-08-14 — option 1 of the four in
+	`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
+
+	The lesson measured two symptoms of one mechanism: the grip's `minHitSize = 44`
+	expander SANK every press in the trailing 26px of the header cell and forwarded
+	nothing (a dead band), while buying the divider no drag target at all (the
+	expander is painted BEHIND the grip). The ruled repair gives the expander the
+	grip's own gesture — so the 44px band really is the resize target — and makes a
+	press the gesture did NOT claim forward on through `controller.tapAt`, which is
+	the machinery `row_actions` already uses for exactly this (ruling 6, `aa1e271`).
+
+	THE HALF THIS SPEC CAN HOLD is the control's: whether the grip distinguishes a
+	tap from a drag and hands the tap on. The adapter half (the expander running the
+	host's `InputBegan`) is engine-only and is asserted at the source anchors in
+	`tests/adaptive.spec.luau`, then measured live.
+
+	IT BITES: before the ruling `onPointerUp` committed `setColumnWidth(id, width)`
+	unconditionally, so a press-and-release on the divider wrote a phantom width
+	override for a column nobody had moved and cycled no sort. ]]
+describe("table_columns: the divider forwards a press it did not turn into a drag", function()
+	local function tapGrip(w: World, dx: number)
+		local grip = w.adapter.node(`{HEADER}/Head-name/Grip`)
+		local x, y = grip.rect.x + 2, grip.rect.y + 4
+		w.adapter.pointerDown(`{HEADER}/Head-name/Grip`, x, y)
+		if dx ~= 0 then
+			w.adapter.pointerMove(x + dx, y)
+		end
+		w.adapter.pointerUp(x + dx, y)
+		w.pres.refresh()
+	end
+
+	it("a press and release with no travel sorts the column and commits NO width", function()
+		local w = world()
+		expect(w.built.report().sortOrder).toBeNil()
+		tapGrip(w, 0)
+		-- the tap reached the header cell's own Button, one layer down
+		expect(`sorted:{w.built.report().sortOrder.column}`).toBe("sorted:name")
+		-- ...and nothing was resized: `auto` is the readout for a column with no
+		-- committed override at all
+		expect(w.built.widths:get()).toBe("Entrant auto · Team auto · Best lap locked")
+		w.built.dispose()
+	end)
+
+	it("travel UNDER the pointer promotion gate is still a tap; travel over it is a resize", function()
+		local w = world()
+		local before = headWidth(w, "name")
+		-- 3px on a mouse: under `interaction_tokens.promotionPx("pointer")` = 6
+		tapGrip(w, -3)
+		expect(`under:{headWidth(w, "name") == before}`).toBe("under:true")
+		expect(w.built.widths:get()).toBe("Entrant auto · Team auto · Best lap locked")
+		-- the SAME gesture 40px further is the resize it always was — the positive
+		-- control, because "nothing moved" is otherwise equally explained by a grip
+		-- that stopped receiving presses at all
+		tapGrip(w, -40)
+		expect(`over:{headWidth(w, "name") - before}`).toBe("over:-40")
+		w.built.dispose()
+	end)
+
+	it("the guide line does not appear for a press that never becomes a drag", function()
+		local w = world()
+		local grip = w.adapter.node(`{HEADER}/Head-name/Grip`)
+		local x, y = grip.rect.x + 2, grip.rect.y + 4
+		w.adapter.pointerDown(`{HEADER}/Head-name/Grip`, x, y)
+		w.adapter.pointerMove(x - 2, y)
+		w.pres.refresh()
+		-- a 44px band that flashed a resize guide under every press near a column
+		-- edge would be the dead zone's cosmetic twin
+		expect(w.adapter.node(`{ROOT}/ResizeWhen/then/ResizeLine`)).toBe(nil)
+		w.adapter.pointerMove(x - 30, y)
+		w.pres.refresh()
+		expect(w.adapter.node(`{ROOT}/ResizeWhen/then/ResizeLine`) ~= nil).toBe(true)
+		w.adapter.pointerUp(x - 30, y)
+		w.pres.refresh()
+		w.built.dispose()
+	end)
+end)
+
+--[[ THE ARROW KEYS: THE CLAIM THAT WAS RULED, BUILT, MEASURED AND WITHDRAWN.
+
+	`docs/lessons/the-camera-still-owns-the-arrow-keys.md` measured live 2026-08-14:
+	Roblox's own default camera binds Left/Right as `RbxCameraKeypress` through
+	ContextActionService at priority 2000 and SINKS them, so a selected column's
+	Left/Right resize never receives a press. The ruled repair was a sinking
+	`InputContext` above the camera, scoped to the selection.
+
+	IT WAS BUILT AND IT DOES NOT WORK, and the measurement is in the second lesson
+	round and in `src/controls/table.luau`'s own comment: a ContextActionService
+	sink at priority **100** consumed both presses while a LuauUI `InputContext` at
+	priority **10000, Sink = true** received nothing. The two priorities are not one
+	arbitration space, so no number takes a key back from a CAS binding. What is
+	left of the ruling is the RELEASE — which was a live bug in its own right, and
+	is the half that ships.
+
+	The engine truth itself is carried by `src/client/gamepad_contention.luau` (the
+	module this repo already uses for "a CoreScript binding eats our key") and
+	checked in `tests/gamepad_contention.spec.luau`. There is no headless surface
+	for CAS at all, which is exactly why it took a live drive to find. ]]
+describe("table_columns: a selected column is released the moment focus leaves it", function()
+	it("Cancel releases it, and a second Activate releases it", function()
+		local w = world()
+		key(w, "Return")
+		expect(w.built.table_.api.selectedColumn:get()).toBe("name")
+		key(w, "ButtonB")
+		expect(w.built.table_.api.selectedColumn:get()).toBeNil()
+		key(w, "Return")
+		expect(w.built.table_.api.selectedColumn:get()).toBe("name")
+		key(w, "Return")
+		expect(w.built.table_.api.selectedColumn:get()).toBeNil()
+		w.built.dispose()
+	end)
+
+	--[[ THE LEAK, and it was already shipped.
+
+		The presenter routes `focusMoved` only to the contributions whose mounted path
+		is a PREFIX of the newly focused one, so focus leaving the Table entirely never
+		reached `api.handleFocusMoved` and `releaseColumnOnFocusLeave` never ran. A
+		column stayed selected after the ring had gone somewhere else — and a selected
+		column swallows EVERY direction (`handleGrabNavigate` returns true for all four
+		so the selection cannot be steered off) and answers Cancel. The ring was on
+		another control and the arrows still belonged to a table nobody was looking at.
+
+		Driven live in the showcase the same day, on the shipped fix: select Team,
+		press Tab twice, and the hint line goes back to idle with the selection
+		released. This needs a second control on the screen to move to, which the
+		fixture deliberately does not have. ]]
+	it("focus leaving the table entirely releases it too, however it left", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 900, h = 640 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(LuauUI, core, {
+			id = "T",
+			columns = {
+				{
+					id = "name",
+					title = "Racer",
+					width = { type = "fill", weight = 1 },
+					minWidth = 80,
+					resizable = true,
+					value = function(item: any)
+						return item.id
+					end,
+				},
+			},
+			rows = core:signal({ { id = "r1" } }),
+			key = function(item: any)
+				return item.id
+			end,
+			header = true,
+			env = env,
+		})
+		pres.present(
+			LuauUI.UI.Screen({
+				id = "S",
+				children = { tbl.blueprint, LuauUI.UI.Button({ id = "Away", label = "Away", focusable = true }) },
+			}),
+			{}
+		)
+		pres.refresh()
+		tbl.api.handleActivate("/S/T/Main/Header/Head-name/Column", { source = "action" })
+		pres.refresh()
+		expect(tbl.api.selectedColumn:get()).toBe("name")
+		-- a selected column swallows every direction, so while it is held the ring
+		-- cannot be steered off it: that is what makes a leaked selection permanent
+		expect(`swallows:{tbl.api.handleGrabNavigate("down")}`).toBe("swallows:true")
+
+		-- the ring goes somewhere this table does not own
+		pres.focus.focusOn("/S/Away")
+		pres.refresh()
+		expect(pres.focus.focused:get()).toBe("/S/Away")
+		expect(tbl.api.selectedColumn:get()).toBeNil()
+		-- ...and it has stopped answering for a stick that is not its own
+		expect(`released:{tbl.api.handleGrabNavigate("down")}`).toBe("released:false")
+		tbl.dispose()
 	end)
 end)

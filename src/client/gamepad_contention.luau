@@ -28,6 +28,26 @@
 -- code can neither read nor set it. This module cannot detect or toggle it — the
 -- human must set it in Studio's Properties panel. Surfaced in docs, not here.
 --
+-- ENGINE TRUTH 5 — CAS PRIORITY AND InputContext.Priority ARE NOT ONE
+-- ARBITRATION SPACE (measured live in the showcase 2026-08-14, four readings in
+-- one session). A sinking `ContextActionService` binding consumes a key BEFORE
+-- any `InputContext` is offered it, at ANY priority: a CAS Sink at priority 100
+-- beat a LuauUI `InputContext` at priority 10000 with `Sink = true` (the probe
+-- fired twice; the InputContext action never fired). Unbinding the CAS action
+-- made the identical presses reach the InputContext immediately.
+--
+-- The consequence is the one that matters for design: THERE IS NO NUMBER a
+-- framework can put on an `InputContext` that takes a key back from a legacy
+-- CoreScript CAS binding. `RbxCameraKeypress` (Left/Right/I/O, priority 2000,
+-- Sink) is therefore un-outrankable from IAS, and a control that wants those
+-- arrows must either accept losing them or claim them IN CAS
+-- (`BindActionAtPriority` above 2000, unbound again on release — measured to
+-- work, and to hand the key straight back). That second option is a framework
+-- architecture decision, not a patch: `src/client/roblox_input.luau` deliberately
+-- never re-implements or reaches into arbitration. Recorded here so the next
+-- agent does not spend a round discovering that a bigger number does nothing.
+-- Full story: docs/lessons/the-camera-still-owns-the-arrow-keys.md.
+--
 -- ENGINE TRUTH 3 — CoreGuiNavigationEnabled fights back. `GuiService.
 -- CoreGuiNavigationEnabled` re-enables itself if scripted off (CoreScripts
 -- reassert it) and is NOT the ButtonA eater anyway. This module deliberately
@@ -61,6 +81,16 @@ local CONTENTION_DESCRIPTION = table.concat({
 	"3. GuiService.CoreGuiNavigationEnabled re-enables itself if scripted off "
 		.. "(CoreScripts fight back) and is not the eater anyway; do not rely on "
 		.. "scripting it off.",
+	"5. ContextActionService priority and InputContext.Priority are NOT one "
+		.. "arbitration space (measured live 2026-08-14): a sinking CAS binding at "
+		.. "priority 100 consumed Left/Right while a LuauUI InputContext at priority "
+		.. "10000 with Sink=true never fired, and unbinding the CAS action let the "
+		.. "identical presses through at once. So no number outranks a legacy "
+		.. "CoreScript binding from IAS — RbxCameraKeypress (Left/Right/I/O, prio "
+		.. "2000, Sink) is un-outrankable that way. The only measured lever is a "
+		.. "BindActionAtPriority claim of our OWN action above it, unbound on release "
+		.. "(the camera receives the very next press) — a framework architecture "
+		.. "decision, since roblox_input.luau never reaches into arbitration.",
 	"4. Tab is the CoreGui PLAYERS LIST shortcut, and while that CoreGuiType is "
 		.. "enabled (the default) the platform documents it as reserved — so "
 		.. "LuauUI's Tab/Shift+Tab focus traversal will not receive it. Roblox "

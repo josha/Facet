@@ -40,6 +40,21 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		expect(string.find(text, "PlayerScriptsUseInputActionSystem", 1, true) ~= nil).toBeTruthy()
 		-- truth 3: the CoreGui nav flag that fights back
 		expect(string.find(text, "CoreGuiNavigationEnabled", 1, true) ~= nil).toBeTruthy()
+		--[[ truth 5 (2026-08-14): the two priority spaces do not compare.
+
+			Measured live in the showcase, four readings in one session: a sinking
+			ContextActionService binding at priority 100 consumed Left/Right while a
+			LuauUI `InputContext` at priority 10000 with `Sink = true` never fired, and
+			unbinding the CAS action let the identical presses through at once. It is
+			pinned HERE, in the module this repo already keeps engine input truths in,
+			because there is no headless surface for ContextActionService at all —
+			which is exactly why a whole ruling was built on the assumption that a
+			bigger number would work. What a check can hold is that the truth is still
+			written down where the next agent will look for it. ]]
+		expect(string.find(text, "NOT one", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "arbitration space", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "RbxCameraKeypress", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "BindActionAtPriority", 1, true) ~= nil).toBeTruthy()
 	end)
 
 	it("disableLegacyControls() is guarded: headless it returns false, never throws", function()

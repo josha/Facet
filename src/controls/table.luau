@@ -1939,6 +1939,53 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		return rowActionsApi.blueprint
 	end
 
+	--[[ A PRESS THE DIVIDER DID NOT TURN INTO A DRAG GOES TO THE HEADER UNDERNEATH
+		(director ruling 2026-08-14, option 1 of the four in
+		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
+
+		THE MEASUREMENT: `contract.luau` gives `Grip` `minHitSize = 44`, so the
+		renderer asks the adapter for a 44x44 hit rect centred on this 8x28 divider
+		and the engine adapter realises it as a real `LuauUIHitExpander` TextButton.
+		That button sits ABOVE the header cell's own `Column` button, and a GuiButton
+		sinks `InputBegan` — so live, in the showcase, a click at (264,134) inside the
+		name header did NOTHING while the same click at (100,134) cycled the sort. A
+		26px dead band ran down the trailing edge of every resizable header cell.
+
+		THE REPAIR IS ONE MECHANISM FOR BOTH HALVES. The adapter now runs the grip's
+		own gesture from the expander too (`screen_target.beginPointerCapture`), so
+		the 44px band really is the drag target the floor always claimed to be; and a
+		press that never travels — which is what a TAP is — is handed on to whatever
+		the expander was covering, through the exact forwarding `row_actions` already
+		uses (`controller.tapAt`, ruling 6). Underneath is the cell's own `Column`
+		button, so the band sorts again.
+
+		WHICH `tapAt` FAMILY. Ruling 6 grew two: a tappable gets the activate dispatch,
+		a pointer zone gets its down/up pair replayed. The forward from here lands on
+		the header's `Column` Button, so it is the TAPPABLE family that runs — the
+		pointer-zone family is what stops the Grip forwarding to ITSELF, which is why
+		`skip` names it.
+
+		WHY THE PROMOTION GATE AND NOT "did the width change". A zero-travel press
+		used to commit `setColumnWidth(id, currentWidth)` — a phantom override on a
+		column nobody moved, which is how `auto` silently became a pinned number. The
+		gate is `interaction_tokens`', not a private one: a finger's resting jitter is
+		14px and a mouse's is 6, and this control already reads that table for its row
+		drag.
+
+		ponytail (inherited from ruling 6, and it applies here too): the forwarded
+		press has no PRESSED VISUAL — the header button under the finger does not
+		light up while held, because the engine never told it it was pressed. The
+		activation itself is exact. Upgrade path is the same one: forward the down/up
+		pair rather than the resolved tap. ]]
+	local function forwardUnclaimedGripTap(drag: any, pos: any)
+		local ctrl = renderController
+		if ctrl == nil or type(ctrl.tapAt) ~= "function" or drag.cellPath == nil then
+			return -- no presenter/controller (a bare mount in a spec): nothing to hand to
+		end
+		-- scoped to THIS header cell, and never back to the Grip that is forwarding
+		ctrl.tapAt(pos.x, pos.y, { within = drag.cellPath, skip = drag.gripPath })
+	end
+
 	-- resize grip (Phase B): a non-button, cursor-hinted pointer zone on the
 	-- right edge of a resizable header cell; drag previews a guide line and
 	-- commits through the Phase A model (setColumnWidth) on release
@@ -1965,27 +2012,55 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				resizeDrag = {
 					columnId = column.id,
 					startX = pos.x,
+					startY = pos.y,
+					-- the two paths a forwarded tap needs, captured while the press
+					-- that produced them is still in hand
+					gripPath = path,
+					cellPath = cellPath,
+					pointerType = pos.pointerType,
 					startWidth = cellRect.w,
 					relX = cellRect.x - rootRect.x,
 					minWidth = column.minWidth or 24,
 					width = cellRect.w,
+					-- NOTHING IS A RESIZE UNTIL IT TRAVELS (see the ruling above). The
+					-- guide line waits too: a band 44px wide that flashed a resize guide
+					-- under every press near a column edge is the dead zone's cosmetic
+					-- twin.
+					promoted = false,
 				}
-				previewX:set(resizeDrag.relX + resizeDrag.width)
-				resizing:set(true)
 			end,
 			onPointerMove = function(_path: string, pos: any)
 				if resizeDrag == nil then
 					return
 				end
+				if not resizeDrag.promoted then
+					if
+						not interactionTokens.promoted(
+							pos.x - resizeDrag.startX,
+							pos.y - resizeDrag.startY,
+							resizeDrag.pointerType
+						)
+					then
+						return
+					end
+					resizeDrag.promoted = true
+					resizing:set(true)
+				end
 				resizeDrag.width = math.max(resizeDrag.minWidth, resizeDrag.startWidth + pos.x - resizeDrag.startX)
 				previewX:set(resizeDrag.relX + resizeDrag.width)
 			end,
-			onPointerUp = function()
+			onPointerUp = function(_path: string, pos: any)
 				if resizeDrag == nil then
 					return
 				end
 				local drag = resizeDrag
 				resizeDrag = nil
+				if not drag.promoted then
+					-- a TAP: it was never this zone's gesture, so it goes to whatever the
+					-- 44px hit expander was covering
+					forwardUnclaimedGripTap(drag, pos)
+					return
+				end
 				resizing:set(false)
 				api.setColumnWidth(drag.columnId, drag.width)
 			end,
@@ -3252,15 +3327,66 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 
 	-- ...and moving focus off the header releases it too: a selection that
 	-- outlived the thing it was pointing at would keep swallowing the stick.
-	local function releaseColumnOnFocusLeave(path: string)
+	--
+	-- DRIVEN FROM THE FOCUS GRAPH, not only from `handleFocusMoved` (2026-08-14).
+	-- The presenter routes `focusMoved` to the contributions whose path is a PREFIX
+	-- of the newly focused one, so focus leaving this table entirely — a Tab into
+	-- the next control, the canonical way out — never reached this function at all
+	-- and the selection stood: a column stayed selected — swallowing every direction
+	-- through `handleGrabNavigate`, and answering Cancel — after the ring had gone
+	-- somewhere else entirely. The graph's own `focused` signal is the one source
+	-- that sees every move wherever it lands, so the release cannot be leaked by a
+	-- path this control never sees.
+	local function releaseColumnOnFocusLeave(path: string?)
 		local held = selectedColumn:get()
 		if held == nil then
 			return
 		end
-		if string.match(path, `/{tableIdPattern}/Main/Header/Head%-(.-)/Column$`) ~= held then
+		if path == nil or string.match(path, `/{tableIdPattern}/Main/Header/Head%-(.-)/Column$`) ~= held then
 			selectedColumn:set(nil)
 		end
 	end
+
+	--[[ THE ARROWS ARE NOT TAKEABLE FROM THE CAMERA, AND HERE IS THE MEASUREMENT
+		(director ruling 2026-08-14 attempted, then withdrawn on evidence;
+		`docs/lessons/the-camera-still-owns-the-arrow-keys.md`).
+
+		The ruling was: a column selected for resize claims Left/Right at a priority
+		ABOVE the camera's, scoped to the selection, released the instant it ends —
+		the same shape `row_actions` uses for Delete/Backspace/ButtonX. It was built
+		exactly that way: a sinking `InputContext` at priority 10000, created lazily on
+		the first selection, enabled only while `selectedColumn ~= nil`.
+
+		IT DOES NOT WORK, and the reason is an engine fact nobody here had measured.
+		Driven live in the showcase, 2026-08-14, all four readings in one session:
+
+		  | who is bound on Left/Right | LuauUI claim | result |
+		  |---|---|---|
+		  | `RbxCameraKeypress`, CAS prio 2000, Sink | InputContext 10000 Sink | column UNCHANGED |
+		  | nothing (camera unbound) | InputContext 10000 Sink | 352 -> 384px |
+		  | a CAS Sink at prio **100** | InputContext 10000 Sink | probe fired 2x, column UNCHANGED |
+		  | a CAS Sink at prio 2001 | (CAS, not IAS) | claim fired 2x, camera 0 |
+
+		The third row is the whole finding: **ContextActionService priority and
+		InputContext.Priority are not one arbitration space.** A sinking CAS binding
+		consumes a key before ANY InputContext is offered it, at any priority — 100
+		beats 10000. So there is no number this framework can write that takes a key
+		back from a legacy CAS binding, and the claim was removed rather than shipped
+		inert: where it could fire (camera absent) the presenter's own focus-gated
+		Adjust binding already resized the column through the identical
+		`stepColumnWidth`, so it had zero observable effect anywhere, while still
+		sinking Left/Right away from any lower IAS context — cost with no benefit.
+
+		The fourth row is the lever that DOES work and is a framework-architecture
+		decision, not a patch: a `BindActionAtPriority` of our OWN action above the
+		camera's, unbound on release (measured: the camera received the very next
+		press). It means LuauUI reaching into ContextActionService, which
+		`src/client/roblox_input.luau` deliberately does not do ("arbitration is the
+		ENGINE's job here"), so it is carried to the director rather than taken here.
+
+		What a player has today, unchanged and uncontended: `,`/`.` and the bumpers,
+		bound while a resizable header holds focus, which is what the fixture's hint
+		line names. `src/client/gamepad_contention.luau` carries the engine truth. ]]
 
 	function api.handleFocusMoved(path: string): boolean
 		-- selection follows focus into ANY node of a row — hit, cell content,
@@ -3588,6 +3714,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- name it. Re-called on every structural sync; assignment is idempotent.
 			bindController = function(controller)
 				renderController = controller
+			end,
+			-- the focus graph, for the RELEASE of a selected column: the presenter only
+			-- routes `focusMoved` to contributions that prefix the newly focused path,
+			-- so focus leaving this table is invisible there and a selected column would
+			-- stand forever, swallowing directions it no longer owns (see
+			-- `releaseColumnOnFocusLeave`).
+			bindFocusGraph = function(graph)
+				scope:own(core:observe(graph.focused, releaseColumnOnFocusLeave))
 			end,
 			-- THE CLOCK, FOR ONE MEASUREMENT ONLY (parity round 2 §3.4): the
 			-- double-click window. Table animates nothing, so it takes the `now`

@@ -1095,6 +1095,22 @@ function screen_target.new(opts: Opts?)
 		expander.ZIndex = handle.instance.ZIndex - 1
 	end
 
+	-- ONE teardown for the expander and everything wired onto it. Destroying the
+	-- instance disconnects its own signals, but the handle slot has to go dead too
+	-- or `setPointerHandlers` would see a stale `hitExpanderPointerConn` and refuse
+	-- to wire the NEXT expander this handle grows (a recycled node's hit rect
+	-- arriving after its handlers — see that function's order note).
+	local function dropHitExpander(handle: any)
+		if handle.hitExpanderPointerConn ~= nil then
+			handle.hitExpanderPointerConn:Disconnect()
+			handle.hitExpanderPointerConn = nil
+		end
+		if handle.hitExpander ~= nil then
+			handle.hitExpander:Destroy()
+			handle.hitExpander = nil
+		end
+	end
+
 	local function applyRect(handle: any)
 		local rect = handle.windowRect
 		if rect == nil then
@@ -2189,6 +2205,7 @@ function screen_target.new(opts: Opts?)
 	local CENSUS_SLOTS = {
 		"activatedConn",
 		"pointerBeganConn",
+		"hitExpanderPointerConn",
 		"hoverEnterConn",
 		"hoverLeaveConn",
 		"hoverStateConn",
@@ -2253,101 +2270,141 @@ function screen_target.new(opts: Opts?)
 		}
 	end
 
+	--[[ WHAT A PRESS ON A POINTER ZONE STARTS, IN ONE BODY, FOR BOTH SURFACES THAT
+		CAN RECEIVE IT (director ruling, 2026-08-14; the lesson
+		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
+
+		A control whose solved rect is under its contract's `minHitSize` gets a
+		second real `TextButton` from `setHitRect` — the `LuauUIHitExpander`, a
+		sibling at `host.z - 1`. Until now that button was wired to `handle.activate`
+		ALONE, and `activate` is assigned for TAPPABLE classes only (Button, Toggle,
+		TextField). A `Grip` is a POINTER ZONE, not a tappable, so its expander was a
+		GuiButton that SANK `InputBegan` and forwarded nothing — and a GuiButton sinks
+		it for everything underneath too (`docs/lessons/a-button-eats-the-swipe-
+		underneath-it.md`).
+
+		Measured live on the Table's 8x28 resize divider: a click in the 26px band the
+		expander covers did NOTHING, while the same click clear of it cycled the sort.
+		And the floor bought the grip nothing either — the expander sits BEHIND the
+		control, so it never widened the draggable band: the resize target stayed
+		8x28 = 224px^2 against the 1936px^2 a finger needs.
+
+		So the expander runs the host's gesture as well, and it is the SAME body
+		extracted rather than a second copy: the expander's whole contract is "a press
+		here is a press on the host", and two spellings of what a press starts is
+		exactly how the two surfaces come to disagree. The tap half of the repair is
+		the control's — a zone that decides the press was not its gesture forwards it
+		on through `controller.tapAt` (row_actions' ruling 6 machinery, reused). ]]
+	local function beginPointerCapture(handle: any, handlers: any, inputObject: InputObject)
+		if
+			inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
+			and inputObject.UserInputType ~= Enum.UserInputType.Touch
+		then
+			return
+		end
+		-- a live capture OWNS the pointer until it ends: crossing another
+		-- pointer zone mid-drag fires that zone's InputBegan, which used
+		-- to silently kill the capture (no cancel reason -> stuck ghost,
+		-- no drop commit; live-found in the playlist place 2026-07-20)
+		if activeCapture ~= nil then
+			-- REDTEAM FIX (item 14, LOW). `destroyRoot`'s own
+			-- capture-cancel (below) only ever fires for a capture
+			-- belonging to the ROOT being destroyed — correct for a
+			-- whole-root teardown, but a captured node that dies
+			-- through some OTHER path (a single-row removal that
+			-- destroys its own Instance directly, say) leaves
+			-- `activeCapture` pointing at a destroyed instance
+			-- forever: a destroyed instance has no parent chain at
+			-- all, so `IsDescendantOf` is false against EVERY root —
+			-- no `destroyRoot` call, on ANY root, ever reaches it.
+			-- The adapter's single capture slot then blocks every
+			-- future press permanently (the comment above: "a live
+			-- capture OWNS the pointer... never a steal") — a
+			-- genuine adapter-wide input death. A pcall-guarded
+			-- liveness check (per code review) treats a capture
+			-- whose own instance is no longer part of the live tree
+			-- at all as already-ended, cleaning it up here instead
+			-- of leaving it to never end.
+			local ok, stillLive = pcall(function()
+				return (activeCapture.handle.instance :: Instance):IsDescendantOf(game)
+			end)
+			if ok and stillLive then
+				return
+			end
+			endCapture("destroyed")
+		end
+		local connections = {}
+		activeCapture = { handle = handle, connections = connections }
+		captureHint = handle.cursorHint
+		applyCursor()
+		table.insert(
+			connections,
+			UserInputService.InputChanged:Connect(function(moveObject: InputObject)
+				if
+					moveObject.UserInputType == Enum.UserInputType.MouseMovement
+					or moveObject.UserInputType == Enum.UserInputType.Touch
+				then
+					if handlers.move then
+						handlers.move(
+							toWindowSpace(
+								moveObject.Position,
+								if moveObject.UserInputType == Enum.UserInputType.Touch then "touch" else "mouse"
+							)
+						)
+					end
+				end
+			end)
+		)
+		table.insert(
+			connections,
+			UserInputService.InputEnded:Connect(function(endObject: InputObject)
+				if
+					endObject.UserInputType == Enum.UserInputType.MouseButton1
+					or endObject.UserInputType == Enum.UserInputType.Touch
+				then
+					if handlers.up then
+						handlers.up(toWindowSpace(endObject.Position, pointerTypeOf(endObject)))
+					end
+					endCapture()
+				end
+			end)
+		)
+		if handlers.down then
+			local claimed = handlers.down(toWindowSpace(inputObject.Position, pointerTypeOf(inputObject)))
+			-- a zone may DECLINE (return false): dissolve this capture so
+			-- the engine's next InputBegan (another zone under the same
+			-- point, e.g. the edit handle above a row body) can claim it
+			if claimed == false then
+				for _, connection in connections do
+					connection:Disconnect()
+				end
+				activeCapture = nil
+				captureHint = nil
+				applyCursor()
+			end
+		end
+	end
+
+	-- one wiring, used for the control's own instance and for its hit expander
+	local function connectPointerBegan(handle: any, instance: GuiObject, handlers: any): RBXScriptConnection
+		return instance.InputBegan:Connect(function(inputObject: InputObject)
+			beginPointerCapture(handle, handlers, inputObject)
+		end)
+	end
+
 	function adapter.setPointerHandlers(handle: any, handlers: any)
 		local instance = handle.instance
 		if not instance:IsA("GuiObject") then
 			return
 		end
 		handle.pointer = handlers
-		handle.pointerBeganConn = instance.InputBegan:Connect(function(inputObject: InputObject)
-			if
-				inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
-				and inputObject.UserInputType ~= Enum.UserInputType.Touch
-			then
-				return
-			end
-			-- a live capture OWNS the pointer until it ends: crossing another
-			-- pointer zone mid-drag fires that zone's InputBegan, which used
-			-- to silently kill the capture (no cancel reason -> stuck ghost,
-			-- no drop commit; live-found in the playlist place 2026-07-20)
-			if activeCapture ~= nil then
-				-- REDTEAM FIX (item 14, LOW). `destroyRoot`'s own
-				-- capture-cancel (below) only ever fires for a capture
-				-- belonging to the ROOT being destroyed — correct for a
-				-- whole-root teardown, but a captured node that dies
-				-- through some OTHER path (a single-row removal that
-				-- destroys its own Instance directly, say) leaves
-				-- `activeCapture` pointing at a destroyed instance
-				-- forever: a destroyed instance has no parent chain at
-				-- all, so `IsDescendantOf` is false against EVERY root —
-				-- no `destroyRoot` call, on ANY root, ever reaches it.
-				-- The adapter's single capture slot then blocks every
-				-- future press permanently (the comment above: "a live
-				-- capture OWNS the pointer... never a steal") — a
-				-- genuine adapter-wide input death. A pcall-guarded
-				-- liveness check (per code review) treats a capture
-				-- whose own instance is no longer part of the live tree
-				-- at all as already-ended, cleaning it up here instead
-				-- of leaving it to never end.
-				local ok, stillLive = pcall(function()
-					return (activeCapture.handle.instance :: Instance):IsDescendantOf(game)
-				end)
-				if ok and stillLive then
-					return
-				end
-				endCapture("destroyed")
-			end
-			local connections = {}
-			activeCapture = { handle = handle, connections = connections }
-			captureHint = handle.cursorHint
-			applyCursor()
-			table.insert(
-				connections,
-				UserInputService.InputChanged:Connect(function(moveObject: InputObject)
-					if
-						moveObject.UserInputType == Enum.UserInputType.MouseMovement
-						or moveObject.UserInputType == Enum.UserInputType.Touch
-					then
-						if handlers.move then
-							handlers.move(
-								toWindowSpace(
-									moveObject.Position,
-									if moveObject.UserInputType == Enum.UserInputType.Touch then "touch" else "mouse"
-								)
-							)
-						end
-					end
-				end)
-			)
-			table.insert(
-				connections,
-				UserInputService.InputEnded:Connect(function(endObject: InputObject)
-					if
-						endObject.UserInputType == Enum.UserInputType.MouseButton1
-						or endObject.UserInputType == Enum.UserInputType.Touch
-					then
-						if handlers.up then
-							handlers.up(toWindowSpace(endObject.Position, pointerTypeOf(endObject)))
-						end
-						endCapture()
-					end
-				end)
-			)
-			if handlers.down then
-				local claimed = handlers.down(toWindowSpace(inputObject.Position, pointerTypeOf(inputObject)))
-				-- a zone may DECLINE (return false): dissolve this capture so
-				-- the engine's next InputBegan (another zone under the same
-				-- point, e.g. the edit handle above a row body) can claim it
-				if claimed == false then
-					for _, connection in connections do
-						connection:Disconnect()
-					end
-					activeCapture = nil
-					captureHint = nil
-					applyCursor()
-				end
-			end
-		end)
+		handle.pointerBeganConn = connectPointerBegan(handle, instance, handlers)
+		-- ORDER-INDEPENDENT: `setHitRect` may run before or after this (the renderer
+		-- pushes hit geometry from the solve, handlers from the structural sync), so
+		-- each side wires the expander if the other got there first.
+		if handle.hitExpander ~= nil and handle.hitExpanderPointerConn == nil then
+			handle.hitExpanderPointerConn = connectPointerBegan(handle, handle.hitExpander, handlers)
+		end
 		-- hover: request/clear the zone's semantic cursor
 		if handle.class == "Grip" then
 			handle.hoverEnterConn = instance.MouseEnter:Connect(function()
@@ -2463,10 +2520,7 @@ function screen_target.new(opts: Opts?)
 		local instance = handle.instance
 		if rect == nil then
 			handle.hitRectWant = nil
-			if handle.hitExpander ~= nil then
-				handle.hitExpander:Destroy()
-				handle.hitExpander = nil
-			end
+			dropHitExpander(handle)
 			return
 		end
 		handle.hitRectWant = rect
@@ -2497,6 +2551,13 @@ function screen_target.new(opts: Opts?)
 				end
 			end)
 			handle.hitExpander = expander
+			-- ...AND THE HOST'S POINTER GESTURE, for a control that has one (see
+			-- `beginPointerCapture`'s header). `Activated` alone covers the tappable
+			-- family only; a pointer zone's expander was inert without this, which is
+			-- the whole 26px dead band the ruling above exists to close.
+			if handle.pointer ~= nil and handle.hitExpanderPointerConn == nil then
+				handle.hitExpanderPointerConn = connectPointerBegan(handle, expander, handle.pointer)
+			end
 		end
 		-- re-base by the clip host exactly as applyRect does (verifier finding V11).
 		-- The solver rect is WINDOW space; a child of a clip host is positioned
@@ -4075,10 +4136,7 @@ function screen_target.new(opts: Opts?)
 		end
 		handle.focusVisualHost = nil
 		focusedHandles[handle] = nil
-		if handle.hitExpander ~= nil then
-			handle.hitExpander:Destroy()
-			handle.hitExpander = nil
-		end
+		dropHitExpander(handle)
 		-- THE STAGE SEAM DIES WITH ITS NODE. The WorldModel and Camera are children
 		-- of the frame, so the Destroy below takes them; what has to happen HERE is
 		-- the HANDLE going dead, or a consumer still holding it would go on aiming a

@@ -933,6 +933,59 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		expect(string.find(source, 'handle.activate({ source = "hitExpander" })', 1, true)).toBe(nil)
 	end)
 
+	--[[ THE EXPANDER RUNS THE HOST'S GESTURE, NOT ONLY ITS ACTIVATION (director
+		ruling 2026-08-14) ────────────────────────────────────────────────────────
+		`handle.activate` is assigned for TAPPABLE classes only (Button, Toggle,
+		TextField — `renderer.luau`'s own TAPPABLE table). A `Grip` is a POINTER ZONE,
+		so wiring the expander to `Activated` alone made it a `GuiButton` that sank
+		`InputBegan` and forwarded nothing: measured live on the Table's 8x28 resize
+		divider, a click in the 26px band the expander covers did NOTHING while the
+		same click clear of it cycled the sort — and the floor bought the divider no
+		drag target either, because the expander is painted BEHIND its host.
+
+		Asserted at the source anchors because `screen_target.luau` is engine-only,
+		and asserted as the SHAPE OF THE FIX — one capture body, reached from two
+		surfaces — because a second copy of "what a press starts" is exactly how the
+		two would come to disagree. The live drive is in
+		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`. ]]
+	it("the minimum-target expander begins the host's pointer capture, through the one shared body", function()
+		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- ONE body, extracted rather than copied
+		local atBegin = string.find(source, "local function beginPointerCapture", 1, true)
+		expect(atBegin ~= nil).toBe(true)
+		expect(string.find(source, "local function beginPointerCapture", (atBegin :: number) + 1, true)).toBe(nil)
+		-- ...and exactly one place that connects it, used by both surfaces
+		local atConnect = string.find(source, "local function connectPointerBegan", 1, true)
+		expect(atConnect ~= nil).toBe(true)
+		local connectBody = string.sub(source, atConnect :: number, (atConnect :: number) + 400)
+		expect(string.find(connectBody, "instance.InputBegan:Connect", 1, true) ~= nil).toBe(true)
+		expect(string.find(connectBody, "beginPointerCapture(handle, handlers, inputObject)", 1, true) ~= nil).toBe(
+			true
+		)
+		-- surface 1: the control's own instance
+		local atHandlers = string.find(source, "function adapter.setPointerHandlers", 1, true)
+		local handlersBody = string.sub(source, atHandlers :: number, (atHandlers :: number) + 900)
+		expect(string.find(handlersBody, "connectPointerBegan(handle, instance, handlers)", 1, true) ~= nil).toBe(true)
+		-- surface 2: the expander, wired from WHICHEVER of the two seams runs first —
+		-- the renderer pushes hit geometry from the solve and handlers from the
+		-- structural sync, and neither order is guaranteed
+		expect(string.find(handlersBody, "connectPointerBegan(handle, handle.hitExpander, handlers)", 1, true) ~= nil).toBe(
+			true
+		)
+		local atHit = string.find(source, "function adapter.setHitRect", 1, true)
+		local hitBody = string.sub(source, atHit :: number, (atHit :: number) + 2600)
+		expect(string.find(hitBody, "connectPointerBegan(handle, expander, handle.pointer)", 1, true) ~= nil).toBe(true)
+		-- ...and it comes down with the expander, in ONE teardown both call sites use
+		local atDrop = string.find(source, "local function dropHitExpander", 1, true)
+		expect(atDrop ~= nil).toBe(true)
+		local dropBody = string.sub(source, atDrop :: number, (atDrop :: number) + 400)
+		expect(string.find(dropBody, "handle.hitExpanderPointerConn:Disconnect()", 1, true) ~= nil).toBe(true)
+		expect(string.find(dropBody, "handle.hitExpander:Destroy()", 1, true) ~= nil).toBe(true)
+		-- no second, un-torn-down copy of the destroy
+		local firstDestroy = string.find(source, "handle.hitExpander:Destroy()", 1, true)
+		expect(string.find(source, "handle.hitExpander:Destroy()", (firstDestroy :: number) + 1, true)).toBe(nil)
+	end)
+
 	it("RS-A16-D1b: the expander is placed by the SAME path that places its control", function()
 		-- FOUND LIVE while proving the fix above (2026-07-26, stamp 1dc16785-1707271).
 		-- `pushHitRects` runs BEFORE the commit that writes rects, so on a FRESH build
