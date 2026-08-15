@@ -640,7 +640,7 @@ The one area where Fusion has something LuauUI genuinely lacks.
 | `Spring(goal, speed, damping)` — a value that follows another as if on a damped spring ([FU-09]) | **Covered**, with a different vocabulary | `MotionValue` springs declared as `{ dampingRatio, response }`. Fusion's damping is the same idea in the same words — "`0` represents no friction, and `1` is just enough friction to reach the goal without overshooting" ([FU-09]). LuauUI's `response` is a time constant where Fusion's `speed` "does not directly correlate to a duration" ([FU-09]) | `src/motion/motion.luau`, `src/motion/spring.luau` |
 | An inline spring at a call site ([FU-09]) | **Missing, by decision** | Refused with a hard error naming `motion.registerClass`. Four named classes ship, and re-registering one is the sanctioned way to tune it. The reason is drift: a library with forty slightly different feels got there one call site at a time | `src/motion/classes.luau` |
 | `Spring:setVelocity` / `addVelocity` / `setPosition` ([FU-09]) | **Covered**, and deeper | `setTarget` never touches value or velocity, so an interrupted spring continues instead of jumping — pinned by a differential test against a velocity-cut twin. A 100 ms rolling-window velocity tracker feeds gesture→animation hand-off | `src/motion/motion.luau`; `src/input/drag_velocity.luau` |
-| **`Tween(goal, tweenInfo)` — time-based easing ([FU-10])** | **Missing** | Nothing in `src/motion/` takes a duration and a curve. `Enum.EasingStyle`, `TweenInfo` and the word `easing` appear nowhere in `src/`. What ships is springs, a beat-sequenced `timeline`, a 2-D `chase`, a `counter` and a `timer` — none of which expresses "over exactly 400 ms, quad ease-out". **This is the highest-ranked gap in §5** | verified absent by search of `src/` |
+| **`Tween(goal, tweenInfo)` — time-based easing ([FU-10])** | **Covered** (built 2026-08-15, ADR-0033) | `clock:tween(initial, curveName)` and the `motion.registerCurve` registry. Before that mission: nothing in `src/motion/` took a duration and a curve. `Enum.EasingStyle`, `TweenInfo` and the word `easing` appear nowhere in `src/`. The engine's own `TweenService:GetValue` evaluates the curve in production (a PURE evaluator, so it can drive a value LuauUI owns where `TweenService:Create` cannot); a twin pinned to it by a 33,033-sample differential oracle serves Lune. Fusion takes a plain `TweenInfo` at the call site; LuauUI refuses that and takes a registered curve NAME, which is the same drift rule the spring classes already carry | `src/motion/curves.luau`; ADR-0033; `artifacts/time-based-easing/` |
 | — | **No Fusion equivalent** | **Reduce Motion that preserves information.** Decorative motion snaps but still fires its completion callback; *informational* motion (a count-up whose number is the message) keeps running to the same terminus but quantizes its writes to a 250 ms step | `src/motion/motion.luau` |
 | — | **No Fusion equivalent** | **`withAnimation`** — wrap a state write and every node whose box changed is painted travelling, on one shared progress spring, plus the three authored paint values | `src/present/presenter.luau` |
 | — | **No Fusion equivalent** | **Arrival at a live target** (`chase`), **choreography** (`timeline` with `interrupt`/`skip`), and structural **enter/exit transitions** shared by `ForEach` and `When` | `src/motion/`; `src/render/transitions.luau` |
@@ -696,12 +696,12 @@ implement before LuauUI's first release?*
 
 **The short answer is two, and they are both small.** Ranked by what a real game
 author would actually miss, with a cost, whether LuauUI already answers it
-differently, and a recommendation. Nothing here is implemented; this is the list
-to dispatch from.
+differently, and a recommendation. This was the list to dispatch from; **G-1 was
+built on 2026-08-15 (ADR-0033) and G-3 alongside it** — the rest stand as written.
 
 | # | Gap | Recommendation |
 |---|---|---|
-| **G-1** | Time-based easing (`Tween` / `TweenInfo`) | **BUILD NOW** |
+| **G-1** | Time-based easing (`Tween` / `TweenInfo`) | ~~BUILD NOW~~ — **BUILT 2026-08-15**, ADR-0033 |
 | **G-2** | An instance escape hatch (`Ref` / `Out`) | **DEFER** — trigger named |
 | **G-3** | Reactive iteration over a dictionary (`ForKeys` / `ForPairs`) | **BUILD NOW** (a helper, not a class) |
 | **G-4** | Consumer-defined environment values (`Contextual`) | **DEFER** — trigger named |
@@ -744,7 +744,17 @@ in a registry beside `motion.registerClass` — `motion.registerCurve("banner",
 per-call magic numbers", which is the invariant the spring-only decision was
 protecting in the first place.
 
-**Recommendation: build now.** It is the only row in §4 where a Fusion user
+**Recommendation: build now.** — **DONE, 2026-08-15 (ADR-0033).** Shipped as
+`clock:tween(initial, curveName)` plus `motion.registerCurve`, with the curve
+evaluated by the engine's own `TweenService:GetValue` and a pure twin, pinned to
+it by a differential oracle, serving the headless suite. Two findings worth
+carrying back into this document's own claims: the gap was never "no duration"
+(`timer` and `glide` both had one) but "no SHAPE" — both were strictly linear;
+and the consumer proof was already in-repo, since RascalRally's `p^1.6` ease-in
+had been flattened to a linear timer in its LuauUI port for want of a curve to
+name. The original reasoning below stands as written.
+
+It is the only row in §4 where a Fusion user
 moving to LuauUI loses a capability outright, it is the shape every design
 handoff arrives in, and shipping 1.0 of a motion system with no duration is a
 hole a reviewer will find in the first hour.
