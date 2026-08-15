@@ -2751,3 +2751,438 @@ holding a moving inner probe — and `arrange`'s skip declined to fire on any of
 (it also requires the subtree to land on the rect it already had). It is kept
 because a feedback solve is rare and a full solve is always correct; the honest
 status is *unproven guard*, not *mutation-proven check*.
+
+---
+
+## L-35 — the collections round, on the device: two captures are evidence, one is a lab defect, and `arrange` is the answer again
+
+**Date:** 2026-08-15 · **Evidence tier: 3 — physical device** (Samsung SM-A102U1,
+Android 11, client 734), and therefore authoritative over every tier-1 and tier-2
+number in L-33 and in `artifacts/variable-item-extents/perf.md`.
+**Captures:** `variableExtent.html`, `tableUnified.html`, `asyncImage.html`,
+`collectionChurn.html`.
+**Full analysis, method, per-scope tables and per-frame histograms:**
+`artifacts/performance-stress-places/device-capture-2026-08-15.md`.
+
+### The usability verdict, first, because two of the four are not evidence
+
+| capture | verdict |
+|---|---|
+| `collectionChurn.html` | **evidence** — and the most informative of the four |
+| `variableExtent.html` | **evidence**, sampling one *unidentifiable* arm's edit phase |
+| `tableUnified.html` | **half-evidence**: the workload demonstrably ran; the aggregate window is **0 frames**, so no timing survives |
+| `asyncImage.html` | **not evidence — a lab defect**, twenty-nine byte-identical frames |
+
+The director's report that the last two "didn't do anything visually" was right
+about both and for two entirely different reasons, and only one of them is a bug.
+
+### Decode corrections that invalidate a past technique
+
+* **The event log's `u16` token is the timer record's `id`, NOT its array index.**
+  `id != index` for every record in these blobs. Reading the log by index
+  attributes every `LuauUI/*` scope to its neighbour: `arrange` and `measure` read
+  **zero** tokens while `mount` read 120. Any past event-log claim taken by index
+  is unsound.
+* **The event log is three parallel equal-length columns** — `u8` at `0x80..0x84`,
+  `u64` timestamps at `0x88..0x8c`, `u16` tokens at `0x90..0x94`. Enter/leave
+  pairing across the flat array still does not work (L-30's finding stands: Lua
+  scope *durations* are unrecoverable), but **occurrence counts are exact**, and
+  `queuePresent` (exactly 1/frame, 30 in every ring) delimits frames. That yields
+  a **per-frame histogram**, which is the instrument that found both defects below.
+* **Check `header[0x20]` before reading a timer table.** `tableUnified.html`
+  carries a full event ring and an entirely empty aggregate. A legitimate capture
+  reads as twelve zeros and gets filed as a broken workload.
+* **`collectionChurn`'s ring and aggregate disagree about rates by 4.6×** (26.0 vs
+  5.72 arranges/frame): different windows. Per-occurrence costs are unaffected;
+  per-frame rates must come from the ring. Never multiply an aggregate rate by a
+  ring frame period.
+
+### `async-image-churn` was profiling a pass that does nothing — the THIRD aiming failure
+
+`asyncImage.html` is twenty-nine consecutive frames of **2 arranges, 2 measures,
+0 mounts, 0 `LuauUI/resource`, 0 `LuauUI/reset`**, with no `Context=` engine layout
+counter emitted at all. `profileWindow` loops `w.passes[1]`, and this workload's is
+`imagesCold`, whose whole body is `settings.resourceState = "cold"` plus one
+`refresh()`. Looped, it re-sets a flag that is already set. Priced headless per lap
+(`tools/lune/_probe_profile_aim`):
+
+| pass | arrange | mount | resource |
+|---|---:|---:|---:|
+| `imagesCold` / `imagesWarm` | 1 | **0** | **0** |
+| `imagesFail` | 1 | **0** | 2 |
+| **`imagesReuse`** | **9** | **8** | 0 |
+
+Two guards already exist for the first two aiming failures (a workload with no
+framework in it; a window that cannot escape pass #1). This is a new class: a pass
+that is legitimate inside its declared *sequence* and inert on a *loop*.
+
+**Fixed, two ways, neither touching any workload's `passes` list** — so
+`SCENARIO_VERSION` does not move and `check_perf_captures.py` stays PASS at 18
+admissible rows (L-33's ruling on additive change, applied again):
+
+1. **`profilePass`** on the workload declaration — `async-image-churn` →
+   `"imagesReuse"`. An explicitly named pass still wins.
+2. **`lapWork`** — the scope deltas of the last lap, returned by `profileWindow`
+   and written to the overlay status line every lap
+   (`arrange=9 mount=8 react=11 resource=0`). A lap reading `arrange=1 mount=0` is
+   now visible **on the phone before the dump is taken**. A readout, not a refusal:
+   `idle-baseline` is a legitimate zero and a threshold would be a number invented
+   rather than measured. `lapWork.measured` is the honesty field, because
+   `cleanCapture` turns scopes off and a bare zero would accuse a healthy pass.
+
+**Mutation-proved, one at a time** (four new cases in `tests/perf_lab.spec.luau`):
+deleting `profilePass` reddens only *"loops the workload's declared PROFILE pass"*;
+`work.measured = true` reddens only *"says the readout is UNMEASURED"*; a lap delta
+of `after - after` reddens only *"reports what ONE lap provoked"*.
+
+### `collection-churn` earns its keep: the mounting is right and the solving is not
+
+Per-frame histogram, **29 of 29 frames identical**: `26 arrange · 26 measure ·
+26 react · 0 mount · 52 commit · 26 present`. `passes.insert` runs 25 iterations
+with **no yield inside the loop**, so one lap is one frame; 25 + 1 = 26, and the
+headless probe returns the same 26/26/52/0-mount. Composed with the aggregate's
+per-occurrence costs, **26 × 9.384 ms = 244 ms of `arrange` inside a 557 ms
+frame — ~44 % of the frame in one scope.**
+
+* **`LuauUI/mount` = 0 across all 29 frames.** Twenty-five inserts at logical row
+  ~500 of 2 000, window at the top, provoke **not one structural sync**. The
+  workload's own question — *"do updates stay proportional to changed and visible
+  content?"* — is answered **yes for materialisation**, on hardware, at 2 000 rows.
+* **Every one of those inserts still costs a FULL solve.** An edit that changes
+  nothing any mounted row displays re-derives every rect.
+* **`arrange`'s worst single occurrence is 298.87 ms** — 54 % of an already
+  catastrophic frame in one call, and 2.3× L-30's resize tail (131.23 ms). Largest
+  single-occurrence figure ever recorded in this lab.
+* "Nothing happened visually" is explained twice over: the insertion point is ~475
+  rows below the last mounted row, and at 1.8 fps a repaint would read as frozen
+  anyway.
+
+**The missing yield is a real defect and is deliberately NOT fixed.** The diff is
+designed (time each rep between `clock()` calls, `telemetry.step()` outside the
+timed region, report `summarize` + `arrangesPerRep` — the pattern `extentArms` and
+`tableUnified.verb` already use), but it changes the workload's STEPS, which by
+this log's own rule requires bumping `SCENARIO_VERSION` and thereby declares all
+18 admissible Studio capture rows to describe a workload that no longer exists.
+L-33 faced this exact trade and refused the bump; the same answer holds. Named as
+a residual with the diff ready.
+
+### `variable-extents`: L-33's zero-extra-solve claim holds at tier 3; the +96 % does not become a device claim
+
+The ring's histogram identifies the phase unambiguously — 23 frames of `1 arrange,
+0 mount` (`sameCountEdit`, no row count change, nothing remounts) then 6 of
+`1 arrange, 1 mount` (`growEdit`, canvas and window change). The 23 / 6 split
+matches the pass's 24 / 24 structure.
+
+> **Arrange is exactly 1.00 per data edit across 29 consecutive frames**, in both
+> the cache-hitting and the cache-missing case, and it stays 1.00 while a
+> structural sync is also happening. L-33 recorded `arrangesPerGrow = 1.00` at tier
+> 1; it now holds at tier 3.
+
+**The +96 % scroll-step cost of `itemExtent = "measured"` cannot be confirmed or
+refuted by any device dump, and this is an instrument mismatch rather than a
+missing measurement.** One `extentArms` lap is five arms × (24 + 24 + 60) = **540
+frames**; the aggregate window is 60 and the ring is 30. The window lands inside
+one arm and **nothing in the dump names which arm** — every arm mounts the same
+surface id, the same canvas path, and indistinguishable engine layout counters.
+The arm-level p50s and the `harnessSpread*` control bands the whole comparison
+rests on **are computed every lap** and are returned to the caller; they are simply
+not in the binary dump, and the person holding the phone cannot read them.
+
+So `artifacts/variable-item-extents/perf.md`'s **+96 % converging / +27–40 % steady
+state, against a 1.6 % A/A control**, remains **tier 1** — a good number, honestly
+labelled, and the justification for `"measured"` being opt-in is unchanged and
+unchallenged. What is owed is not a re-measurement but a *route*: the pass's own
+headline p50s surfaced where a device can show them. `lapWork` is the seam;
+building it out is a lab feature, not a patch. **Named, not built.**
+
+### `table-unified`: the workload ran, and nothing timed it
+
+`tableUnified.html` carries the surface (`Cause=LuauUI_TableUnified Root=…
+Relayouts=6 Updates=57 Resizes=71`), a 30-frame ring at 99.95 ms/frame, and an
+aggregate window of **0 frames** with every timer at zero. Its ring landed in a
+uniform stretch (`2 arrange · 2 measure · 1 mount · 3 commit · 2 present` on 26 of
+29 frames), not on `selectRange`'s 12 reps.
+
+**The 201-row range selection provoking 0 arranges is therefore still a tier-2
+Studio claim**, unmoved and unchallenged. The handoff's named invariant
+(`selectRange` reports `arrangesPerRep` of 0) is not owed an explanation by
+anything in this capture; it is simply not tested by it. Same for recycling's 24 %
+of creates for a 1.7 % reveal cost against a 0.5 % band — the recycle A/B needs two
+dumps and neither carries timings.
+
+### `$newindex` (L-33 residual 2): the device instrument does not contain the cost
+
+`$newindex` and `$index` appear as **registered timers with count 0 in all four
+blobs**, and no `$`-prefixed timer has a non-zero count in any of them. Roblox
+retail client dumps do not populate Luau function-level scopes; L-33's 79 538
+writes over 127 frames came from **LibMP inside Studio**. Nothing here says that
+finding is wrong — only that **a device capture cannot see it**, so
+"is `$newindex` still the top lever?" cannot be answered this way and residual 2
+stays open as a Studio + LibMP question.
+
+### The lever, and why nothing was optimised
+
+`LuauUI/arrange` is the top cost in **all four** captures:
+
+| capture | ms/occ | occ/frame | share | worst |
+|---|---:|---:|---:|---:|
+| `collectionChurn` | **9.384** | 26.0 | **~44 %** | **298.87 ms** |
+| `variableExtent` | **10.569** | 1.02 | 28.3 % | 22.60 ms |
+| `asyncImage` (inert) | 5.269 | 1.77 | 19.6 % | 29.95 ms |
+| `resize.html` (L-30) | 9.136 | 7.12 | 37.5 % | 131.23 ms |
+
+**9.1–10.6 ms per occurrence across four independent workloads and two capture
+sessions**, 2–3× `measure` per occurrence everywhere — a stable number that does
+not depend on what provoked the solve, and confirmation that the cost is rect
+derivation rather than text metrics.
+
+**Not touched, as a routing decision:** `arrange()` is `src/layout/solver.luau`,
+which another agent is editing concurrently. The 298.87 ms tail is new and is the
+thing to hand that agent or to schedule after them.
+
+**The second lever this capture opens**, and it is genuinely new: L-27 measured
+incremental layout as inert on a *resize* (2 partial solves of 65 — a resize
+changes every constraint). **A collection edit is the opposite case** — one row's
+data moved and the viewport did not — and no capture in this log has ever measured
+incremental layout on it. `collection-churn` now prices exactly that shape at 26
+full solves per frame with zero structural change. Same file, same agent, next
+question.
+
+Recorded as healthy for the third session running: **`focusmap` at 0.125 ms/occ
+(`variableExtent`) and 0.047 ms/occ over 772 occurrences (`collectionChurn`)** —
+L-27's `structureEpoch` cache holding on a container that restructures constantly.
+And for the fourth session running, **nothing is GPU-bound**: 33.97 ms
+`RenderTotalTime` against a 557 ms frame.
+
+### Residuals
+
+1. **`insert`/`remove`/`reorder` run a lap in one frame.** Diff designed, refused
+   on the `SCENARIO_VERSION` trade above.
+2. **A 60-frame window cannot aim at a 540-frame pass.** `extentArms` and
+   `tableUnified` both compute their headline numbers out of a dump's reach.
+   Surfacing a pass's own p50s through the status line would make a device capture
+   of the measured-extent question possible for the first time.
+3. **`table-unified` is owed a re-capture** with the aggregate armed, and
+   specifically one that lands on `selectRange`.
+4. **`LuauUI/scenario`'s worst occurrence is 52.55 ms** in `collectionChurn`
+   against 0.010–0.019 ms elsewhere — the instrument absorbing one bad frame.
+   Not investigated; recorded before it is quoted as workload time.
+
+---
+
+## L-36 — the two levers get workloads, and the ranking changes: it is DEPTH, and the lab has been measuring the wrong configuration
+
+**Date:** 2026-08-16 · **Evidence tier: 1 (headless Lune) + 2 (Studio, real
+engine Luau VM).** No device claim is made here; the handoff
+`docs/handoff/2026-08-16-device-capture-arrange-and-edits.md` is what asks for
+one.
+
+L-35 §7 ranked two levers and recorded that **neither had a workload aimed at
+it**. `arrange` was the top cost in all four device captures (9.1–10.6 ms/occ,
+worst 298.87 ms) and nothing could be done about it because no analysis could get
+*inside* one scope wrapping one recursive walk. Incremental layout had been
+measured inert on a *resize* (L-27) and never on a *collection edit*, which is
+the opposite case. This entry is those two workloads and what they immediately
+found.
+
+### The instrument, and the four rules it obeys
+
+`arrange-shapes` (nine arms) and `edit-locality` (five arms) live in
+**`examples/performance/lab/levers.luau`** — its own module because `perf_lab` is
+172 876 characters against the 200 000-character `Source`-WRITE cap, and a module
+that crosses it stops live-syncing into an open Studio session *silently*
+(`docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md`). Spending three
+quarters of the remaining headroom on the one file a profiling session has to be
+able to live-patch is how a future session manufactures false evidence.
+
+Each of the four rules below closes a capture this lab has actually lost:
+
+1. **An arm IS a pass.** One lap = one arm = ~24 frames, so a 60-frame
+   MicroProfiler aggregate contains it whole. `extentArms` is 5 arms × 108 = 540
+   frames per lap, which is why `variableExtent.html` could not answer the
+   question it was built for.
+2. **The arm identity is a `workspace` attribute**, for free:
+   `profileWindow` already stamps `LuauUI_ProfilingPass`, and an arm is a pass.
+3. **Every rep yields**, `telemetry.step()` outside the timed region.
+4. **`lapWork` is populated honestly** — the phone reads `arrange=24 mount=0`
+   before a dump is spent.
+
+And one new control, because an arm comparison needs one dump per arm and the
+operator is holding a phone: **`Arm >`** in the overlay's action row moves a
+per-workload pointer and says where it landed; `Profile 1` reads it. Two buttons
+rather than one, because `Profile 1` runs until Stop and a control that both
+advanced the arm and started a run would race the loop it had just started.
+
+**`SCENARIO_VERSION` does not move.** No existing workload's steps changed, so
+`tools/check_perf_captures.py` stays PASS at 18 admissible rows. Same ruling as
+2026-08-14 and L-33.
+
+### Did arrange get finer profile scopes? NO, and the reason is structural
+
+`profile.MAX_SCOPES` stays **12**. This was judged, not ducked:
+
+`arrange` (solver.luau:2448-3809) is **one recursive per-node function with a
+`node.kind` dispatch chain**. It has no prologue, no epilogue, no per-solve phase
+structure at all — the stack fill distribution, the shrink pass and its
+re-measure, the wrap line-breaking, the grid track consumption and the scroll
+canvas extent are each the *body of one invocation*, running once per node of
+that kind. **There is nothing inside arrange that a scope could wrap once per
+solve.** A `profile.span` on any of them opens a scope per node — a closure and
+two pcalls per node per frame — which is precisely the per-call-site label set
+`src/core/profile.luau` rule 1 forbids, and would cost more than it measures.
+
+But the same fact hands the measurement over for free: **arrange's phases are
+dispatched by node kind, so a tree built of ONE kind isolates that kind's
+phase.** That is what the nine arms are. It needed no new scopes and no edit to
+`src/layout/solver.luau`, which another agent is live in.
+
+**If a future mission wants per-phase numbers inside arrange, the right
+instrument is not a scope — it is a counter on `ctx` beside the existing
+`ctx.arranged` / `ctx.measured` / `ctx.skipped`, surfaced through `result.work`
+and `controller.stats()`.** That is the pattern this codebase already uses, it is
+free when nobody reads it, and it is a solver edit — so it is routed, not taken.
+
+### Lever 1, priced — and the answer is not the one the arms were designed around
+
+Tier 2, Studio, warmed then **ABBA-interleaved** (a straight forward sweep put
+the A/A control at **35 %** because the first arm pays the solver's first-call
+cost; interleaving brought it to 2.3 %). n = 120. Every arm is 240 leaves; only
+the tree differs.
+
+**A/A control first: `flat` 1.196 vs `flatRepeat` 1.224 µs per arranged node =
+2.3 %. Nothing below that is a result.**
+
+| arm | µs/arranged node | vs `flat` | measures per arranged node |
+|---|---:|---:|---:|
+| `flat` (control) | 1.196 | — | 2.00 |
+| `flatRepeat` (A/A) | 1.224 | +2.3 % | 2.00 |
+| `zstack` | 1.295 | +8.3 % | 2.99 |
+| `wrap` | 1.288 | +7.7 % | 2.00 |
+| `scroll` | 1.811 | **+51 %** | 1.99 |
+| `fill` | 3.014 | **+152 %** | 2.99 |
+| `deep` | 10.355 | **+766 %** | **16.39** |
+| `deepScroll` | 14.971 | **+1152 %** | 16.33 |
+
+**The lever is DEPTH, and the mechanism is re-measuring, not placing.** The same
+240 leaves cost **8.7× more per node** under 30 nested stacks than under one, and
+the last column says why: a flat tree measures each node twice per solve, a
+30-deep tree measures it **sixteen** times. Every enclosing level re-measures the
+subtree below it (arrange calls `measure` from a dozen sites — scroll's
+`measureAll`, the stack's base/hug/post-shrink/post-fill passes, zstack's
+diagnostic *and* real measure).
+
+`fill` (+152 %) is second and real — the largest-remainder `table.sort` plus the
+fill second measure, visible as exactly +1 measure per leaf. `zstack` and `wrap`
+are inside or barely outside the band.
+
+### The refuted hypothesis, kept because it is the finding
+
+`solver.measure`'s memo opens `if not ctx.hasScroll then return
+measureUncached(...) end` — the cache only arms itself when the tree contains a
+ScrollView. `deepScroll` is the single-variable test: the same 240 leaves, the
+same 30 levels, the same provocation, inside a scroller.
+
+**It does not help. `work.measured` (which counts UNCACHED measures) reads 4 425
+for `deep` and 4 426 for `deepScroll` — the cache produces ZERO hits** — and the
+scroller's own double `measureAll` makes the arm 45 % slower. So the `hasScroll`
+gate is not the thing to open.
+
+The candidate mechanism, from source and **not yet measured**: the memo's key is
+`{maxW}|{maxH}|{scopeKey}` (solver.luau:2122) and a nested chain offers a
+different `maxH` at every level, so every re-measure of the same node is a
+different key. **Routed as evidence, not acted on** — `src/layout/solver.luau` is
+another agent's file this week.
+
+### Lever 2, priced — and it reframes three capture sessions
+
+Tier 2, Studio, warmed + ABBA, n = 150, on a 33-row windowed-list tree solved
+through `solver.solve` with and without `reuse`.
+
+**A/A control: two identical `reuse=off` arms, 0.3308 vs 0.3444 ms = 4.1 %.**
+
+| | full solve | incremental | change |
+|---|---:|---:|---:|
+| off-window edit (insert ~475 rows below the window) | 0.3308 ms | **0.2182 ms** | **−34.0 %** |
+| in-window edit (one visible row's value) | 0.3350 ms | **0.2205 ms** | **−34.2 %** |
+| nodes arranged | 101 | **2** / 5 | −98 % |
+| nodes skipped | 0 | **99** / 96 | — |
+
+**L-27 found incremental layout inert on a resize. On a collection edit it bites,
+hard.** A resize changes every constraint so nothing can be reused; an edit below
+the window changes one number and 99 of 101 subtrees land on exactly the rect
+they had. Tier 1 agrees in direction at −10 to −15 % against a 0.9 % control —
+smaller because the headless arm times the whole set→refresh round trip, so
+arrange is a smaller share of the denominator.
+
+**AND THE THING THAT REFRAMES THE LAST THREE SESSIONS: the lab has been running
+with incremental layout OFF.** `renderer.luau:1764` is
+`incrementalEnabled = opts == nil or opts.incrementalLayout ~= false` — the
+framework ships it **ON**, a surface opts *out*. The lab's own selector
+(`settings.incremental`) defaults to **false** and `buildLuauUI` passes it
+through. So **`collectionChurn.html`'s 26 solves at 9.384 ms each were 26 FULL
+solves, in a configuration production does not ship.** Every collection number in
+this log taken through the shared mount has the same caveat.
+
+Not flipped here: the lab default is a selector with recorded captures behind it,
+and changing what the shared mount measures mid-log is exactly the trade L-33 and
+2026-08-15 both refused. The lever workload hard-codes the flag per arm (like
+`extentArms` hard-codes `itemExtent`) so the A/B is two configurations rather
+than one measured twice, and a negative control asserts the `off` arm skips
+nothing.
+
+### What the workloads deliberately do NOT claim
+
+- **`text` is tier-1-only.** Headless text metrics are a stub, so its +335 %
+  under Lune is not a regression signal for the engine, and the Studio
+  solver-level probe cannot price it either (no adapter text seam). The arm
+  exists so a device dump can.
+- **`usPerArrangedNode` is not a MicroProfiler `LuauUI/arrange` occurrence.** The
+  lab arm times the whole set→refresh round trip; the Studio probe times
+  `solver.solve`. Both are comparable arm-to-arm and neither is comparable to a
+  dump's ms/occurrence.
+- **`partialSolves == 0` on a shape arm proves nothing about the flag**, and the
+  check that claimed it was deleted after the mutation round showed it passing
+  with the flag flipped: the provocation moves every rect, so nothing can be
+  skipped either way. The load-bearing check is `arrangePerRep == 1`.
+
+### Mutation evidence
+
+Ten new cases in `tests/perf_lab.spec.luau`, each reddened one at a time
+(`lune run tests/run_one perf_lab`):
+
+| mutation | reddened |
+|---|---|
+| M1 — `shapeTree` ignores `kind`; every arm builds `flat` | *"the nine shape arms are NINE TREES"* |
+| M2 — shape arms present with `incrementalLayout = true` | **nothing** — the check was vacuous and was replaced |
+| M2b — the provocation writes the same padding every rep | *"every rep provokes exactly ONE full solve"* |
+| M3 — both edit arms hard-code `incremental = false` | *"the incremental A/B is TWO configurations"* |
+| M4 — the shape rep loop stops yielding | *"ONE LAP FITS A 60-FRAME WINDOW"* |
+| M5 — the off-window edit lands inside the window | the A/B case + *"an off-window edit provokes ONE solve and NO structural sync"* |
+| M6 — the arm pointer never leaves arm 1 | all three arm-selector cases |
+| M7 — an arm renamed in the declaration only | *"the declared arms ARE the installed arms"* + the pre-existing workload invariant |
+| M8b — the measure fan-out reported as a constant | *"the nine shape arms are NINE TREES"* |
+| M9 — the no-passes guard dropped | *"a workload that declares no passes says so"* |
+| M10 — `check_perf_place` row points at a module that is not there | `check_perf_place: FAIL` |
+
+**M2 is the one worth keeping.** The obvious check — "an arm built with the reuse
+path off must report zero partial solves" — passes with the flag flipped to
+`true`, because the provocation moves every rect and the reuse path needs a
+byte-identical rect to skip anything. It was a check that proved nothing, and it
+was found by running the mutation rather than by reading it. A second one was
+caught the same way: *"every rep provokes exactly ONE full solve"* failed on
+**unmutated** source, because `scopeCount` is nil-safe and the default harness
+installs a no-op profiler, so every count read 0. **Confirm the check passes
+green before trusting that a mutation reddened it.**
+
+### Residuals
+
+1. **The measure fan-out at depth is not fixed.** 16.4 measures per arranged node
+   at depth 30 against 2.0 at depth 1, and the memo produces zero hits on that
+   shape. Routed to whoever owns `src/layout/solver.luau` next; the candidate is
+   the cache key's `maxH` term.
+2. **The lab's `incremental = false` default.** Every collection number in this
+   log describes a configuration production does not ship. Flipping it is a
+   deliberate decision with capture rows behind it, not a patch.
+3. **`text` has no honest tier-1 or tier-2 number**, only a device one it has not
+   been given yet.
+4. L-35 residuals 1–4 are unchanged.
