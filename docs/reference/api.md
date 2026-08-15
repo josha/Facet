@@ -251,10 +251,10 @@ a construction error on it, not a no-op.
 
 Three groups recur in the column below and are worth naming once:
 
-- **every rendered class** — the twenty-one classes that produce a box:
-  `AdaptiveStack`, `Anchor`, `Box`, `Button`, `Composition`, `Divider`, `Grid`,
-  `Grip`, `HStack`, `Image`, `Path`, `Screen`, `ScrollView`, `Spacer`, `Stage`,
-  `Text`, `TextField`, `Toggle`, `VStack`, `ViewThatFits`, `ZStack`. **Two
+- **every rendered class** — the twenty-two classes that produce a box:
+  `AdaptiveStack`, `Anchor`, `Box`, `Button`, `Composition`, `Divider`, `Foreign`,
+  `Grid`, `Grip`, `HStack`, `Image`, `Path`, `Screen`, `ScrollView`, `Spacer`,
+  `Stage`, `Text`, `TextField`, `Toggle`, `VStack`, `ViewThatFits`, `ZStack`. **Two
   containers are the exceptions**, for the same kind of reason: `Region` takes
   **no** box properties at all (constitution E-5 — a Region *is* its ranked
   forms, and a width on it would be a second authority against the composition's
@@ -319,7 +319,7 @@ specific — ranked forms and candidate layouts — which is why they carry none
 the layout-container properties above.
 
 **Leaves**: `Text`, `Image`, `Toggle`, `TextField`, `Box`, `Spacer`, `Divider`,
-`Path`, `Stage`, `Grip`. **Structural regions**: `When`, `ForEach`, `ErrorBoundary`.
+`Path`, `Stage`, `Foreign`, `Grip`. **Structural regions**: `When`, `ForEach`, `ErrorBoundary`.
 **Style modifiers**: `shadow`, `gradient`, `corners`, `stroke`, `styleGroup`.
 
 #### Continuous colour: `tint`
@@ -1391,6 +1391,127 @@ assume the handle. `billboard_target` deliberately does **not** implement the se
 a scene rendered inside a camera-projected world canvas is unproven, so it degrades
 by name rather than shipping an unmeasured render.
 
+### `Foreign`
+
+`UI.Foreign{ id?, width?, height?, surface? }` — the **bounded escape hatch**:
+a leaf that reserves a rectangle for a Roblox `GuiObject` **LuauUI does not wrap**.
+A `VideoFrame`, an `EditableImage` surface, a vendored widget, a first-party class
+Roblox ships next month. It is `UI.Stage`'s 2-D sibling — same "the framework owns
+the box, somebody else owns the content" shape — and it is decided by
+[ADR-0034](../adr/ADR-0034-foreign-instance-seam.md).
+
+**It takes no engine properties, and that is the whole design.** There is no
+`class`, no `props`, no `instance` — typing one is refused at construction with the
+reason and the line that works, not a did-you-mean. The framework claims exactly
+*one* thing about the instance you adopt (its `Parent`) and disclaims the rest **by
+construction**: it never creates your instance, never sizes it, never paints it,
+and keeps no reference to it, so there is no second writer to arbitrate. That
+matters on this engine specifically, because a second writer is **silent** — an
+explicit write defeats a StyleSheet rule and fires no signal.
+
+**It measures 0×0 without explicit dimensions**, exactly like `UI.Box` and
+`UI.Stage`, and here the reason is sharper: an engine instance with `AutomaticSize`
+measures *itself*, which the solver cannot see. The box is **declared**, never
+inferred — and the container **clips**, so nothing you adopt can paint one pixel
+outside the rect the solver reserved.
+
+```lua
+UI.Foreign({
+    id = "Trailer",
+    width = { type = "fixed", px = 320 },
+    height = { type = "fixed", px = 180 },
+    surface = "raised", -- the plate BEHIND your content (a fallback while it loads)
+})
+```
+
+`surface` is the standard eight-surface vocabulary and paints the container, which
+LuauUI owns. There is deliberately **no `tint`**: a tint multiplies the node's own
+picture, and this node's picture is *your* instance — painting it would be the
+framework writing the content it exists to disclaim.
+
+#### The content seam: `controller.foreignHost(path)`
+
+One verb, because the caller already owns everything else:
+
+| Call | Shape | What it does |
+|---|---|---|
+| `adopt(instance)` | a live `GuiObject` | parents it into the box. This is the single `Parent` write, declared in the authority manifest as `Foreign.Parent = "host"` and made through the same gate every other engine write goes through |
+
+```lua
+local host = controller.foreignHost("/Watch/Trailer")
+if host == nil then
+    -- this adapter has no foreign seam: the box still paints its `surface`
+else
+    local video = Instance.new("VideoFrame")
+    video.Video = "rbxassetid://…"
+    video.Size = UDim2.fromScale(1, 1) -- YOUR coordinate space is the box
+    host.adopt(video)
+    video.Playing = true               -- ...and every property stays yours
+end
+```
+
+**Who owns what.** LuauUI owns the container, its rect, its plate, its clip and its
+lifecycle. **You own the instance**: its class, every one of its properties, its own
+children, and its lifetime. Position and size it in the container's own space
+(`UDim2.fromScale(1, 1)` fills the box and tracks it with no per-frame work).
+
+**It dies with the box.** The container is destroyed on unmount and engine `Destroy`
+propagates, so adopted content goes with it. If you need it to outlive the node,
+re-parent it out yourself in `onDisappear`. A handle whose node has died refuses by
+name — ask `controller.foreignHost(path)` again after a remount.
+
+**There is no `contentRoot()` here**, unlike `stageHost`, and the asymmetry is
+deliberate: handing back the container would hand back a framework-owned
+`GuiObject` that the renderer writes a rect and a plate onto every solve, which is
+exactly the writable-handle hole that defers `Ref`-shaped APIs. Adopting *into* the
+container hands back nothing at all.
+
+**One thing the framework does not write but does still reach: the theme sheet.**
+LuauUI writes exactly one property on your instance. A *native-mode* surface,
+however, links a theme `StyleSheet` at its root, and a `StyleLink` is **ambient in
+the DataModel and selects by class** — so a rule can style an instance the
+framework has never heard of, simply because it is now a descendant. LuauUI's own
+sheet carries class-default rules for the seven GuiObject classes it renders
+(`Frame`, `TextLabel`, `TextButton`, `ImageLabel`, `TextBox`, `ScrollingFrame`,
+`CanvasGroup`), including `BackgroundTransparency = 1`.
+
+**Measured live, 2026-08-15, and it has a sharp edge.** A rule loses to an explicit
+write — but the engine decides "explicit" **by value, not by assignment**. An
+adopted `Frame` is born at `BackgroundTransparency = 0`, which *is* the class
+default, so writing `0` changes nothing the engine can see and the rule keeps
+winning: `GetStyled("BackgroundTransparency")` reads **1** while the raw property
+reads **0**, and the box renders empty. Writing `0.5` gave `styled = 0.5`; writing
+`0` again went straight back to `styled = 1`.
+
+So: **a class-default value cannot be held against a style rule at all.** Give any
+property you care about a non-default value (`0.02` instead of `0`). Note that the
+classes you most likely came here for — `VideoFrame`, `EditableImage` surfaces, a
+vendored widget's own class — are **not** selected by that sheet and are
+unaffected; the collision is specifically with the classes LuauUI itself renders.
+
+**What it is outside of.** A Foreign box takes **no focus stop** and consumes no
+semantic action. The framework has never seen your instance, so LuauUI's
+Tab/gamepad traversal cannot stop on it; its own engine input still works normally.
+Compose a focus stop *around* the box (a `Button` overlay, a focusable `Grip`
+sibling) exactly as you would around a `Stage`. It is also **never recycled** into
+the instance pool (a new identity must never inherit somebody else's content) and
+**never wears a theme package's decoration slot** (a whole-art recipe would paint
+its plate over your content); a theme still reaches its *edge* through the authored
+`UI.stroke` / `UI.corners` modifiers.
+
+**Refusals name the alternative.** `adopt` refuses nothing-passed, a
+`LayerCollector` (a `ScreenGui` cannot be a child of a `GuiObject`), a
+non-`GuiObject` — for a `Part`/`Model`/`Beam`, the message points at `UI.Stage` and
+[ADR-0024](../adr/ADR-0024-declarative-3d.md), which is the 3-D case — and an
+instance the engine has already destroyed.
+
+**The fallback contract.** `foreignHost` is an OPTIONAL render-target method
+(`render/target_contract.luau`). A controller whose adapter does not implement it,
+or a path that is not a live `Foreign`, returns **nil**, and the node is simply an
+empty reserved box that still paints its `surface`. `billboard_target` deliberately
+does **not** implement it, for the same unmeasured-canvas reason it withholds
+`stageHost`.
+
 ### `Grip`
 
 `UI.Grip{ id?, cursorHint?, focusable?, focusVisual?, onPointerDown?,
@@ -2032,6 +2153,7 @@ surface and no zones are wired (focus-driven disclosure still works).
 | Drag | `dragRegistry()` (builds one on demand), `peekDragRegistry()` (nil when none exists yet), `setDragCollaborators(collaborators)`, `attachDragDetector(path, handlers) -> detach?` |
 | Presentation channel | `setPresentationTransform(path, t?)`, `setPresentationTransparency(path, alpha?)`, `setPresentationOffset(dy)`, `setPaintHeld(path, held)` (hold a node's own paint while something is painted over it — the auto reveal's strip is the framework's only caller; the solve, the rects and the truncation facts are untouched, and the hold survives a re-solve and a remount of that path) |
 | Engine content | `stageHost(path)` — the `UI.Stage` seam, nil on an adapter without it (see [The content seam](#the-content-seam-controllerstagehostpath)) |
+| Foreign content | `foreignHost(path)` — the `UI.Foreign` seam, nil on an adapter without it (see [The content seam](#the-content-seam-controllerforeignhostpath)) |
 | `withAnimation` seams | `armAnimation(session)`, `disarmAnimation()` — armed by `presenter.withAnimation` for exactly one commit, which is why an ordinary refresh installs no records — and `animationRecordCount()`, the diagnostic behind `presenter.animationRecordCount()` |
 | Surface | `setDisplayOrder(n)`, `setRootVisible(visible) -> boolean`, `coverRect()` (what this surface actually PAINTS — the union of every painted box below its root, or `nil` when it paints nothing; the root's own rect is excluded because a `Screen`'s rect is the content rect its `rootPolicy` resolved, the same box for every base screen on the device), `retireSurface()` (this stops being a surface NOW, whatever is still on screen — `presenter.dismiss` calls it, because a dismissed surface keeps painting until its exit transition finishes) |
 | Diagnostics | `stats()`, `diagnostics()`, `textPending()`, `analyzeBoundaries()` (re-solves the last tree with boundary detection on and reports how much a boundary-aware layout would have had to redo; it changes nothing and runs only when called) |
