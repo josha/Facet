@@ -49,7 +49,22 @@ if ! mkdir "$LOCK" 2>/dev/null; then
 	echo "prior_gates: another sweep holds $LOCK — refusing to start a second (rmdir it if stale)" >&2
 	exit 2
 fi
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+# ONE EXIT TRAP, DOING BOTH JOBS. bash traps REPLACE, they do not accumulate:
+# this file used to set `trap 'rmdir "$LOCK"' EXIT` here and then
+# `trap 'rm -f "$tmp"' EXIT` further down, and the second silently discarded the
+# first — so the lock was NEVER released, on any path, including a clean run
+# (which then also did `trap - EXIT`, clearing what was left). MEASURED
+# 2026-08-15: the sweep that finished at 16:43 left /tmp/luauui_prior_gates.lock
+# behind, created 12:54, with no process holding it. Every run orphaned its own
+# lock, so the NEXT run exits 2 — silently, because the refusal goes to stderr
+# and the caller only reads the roll-up. That is the whole "the lock refuses
+# silently" folklore, and it is also why a finished run has been misdiagnosed as
+# a hung one and killed. Proved with a four-line repro before changing anything.
+cleanup() {
+	[ -n "${tmp:-}" ] && rm -f "$tmp" 2>/dev/null
+	rmdir "$LOCK" 2>/dev/null || true
+}
+trap cleanup EXIT
 cd "$(dirname "$0")/.."
 # ROKIT'S rojo, NOT whatever is first on PATH. A stale /usr/local/bin/rojo
 # (7.7.0-rc.1, Nov 2025) shadowed the rokit-managed 7.7.0 for months; its
@@ -86,7 +101,7 @@ if [ "${#gates[@]}" -eq 0 ]; then
 fi
 
 tmp="$(mktemp)"
-trap 'rm -f "$tmp"' EXIT
+# no second trap here: `cleanup` above already removes $tmp AND the lock.
 
 # SETTLE BETWEEN GATES. Several prior gates contain timing- and
 # resource-sensitive checks (phase-3-pilot's `no-leak-regression` runs
@@ -154,5 +169,7 @@ done >>"$tmp"
 
 echo "DONE" >>"$tmp"
 mv "$tmp" "$out"
-trap - EXIT
+# NO `trap - EXIT` here. Clearing the trap on the success path is exactly how the
+# lock leaked: $tmp is already moved, and `rm -f` on a moved path is a no-op, so
+# letting cleanup run is harmless and is what finally releases the lock.
 echo "prior_gates: ${#gates[@]} gates re-run -> $out" >&2
