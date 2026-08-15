@@ -53,12 +53,17 @@ local SRC_RENDERER_PARTS =
 local SRC_RENDERER = SRC_RENDERER_PARTS[1]
 -- THE SOLVER AS ONE TEXT, for the same reason and by the same rule: the layout
 -- channel asks "does the solver read `node.<name>`/`child.<name>`?", and the
--- 200k `Source` write-cap split moved two blocks of it out — the placement-prop
--- audit and the main-axis shrink pass. `layoutPriority` is read ONLY in
--- `shrink.luau` now, so a solver-only read would already be answering about a
--- file that no longer holds the code. ADD A PART WHENEVER MORE OF THE SOLVER
--- MOVES OUT.
-local SRC_SOLVER_PARTS = { "src/layout/solver.luau", "src/layout/placement_audit.luau", "src/layout/shrink.luau" }
+-- 200k `Source` write-cap split moved three blocks of it out — the placement-prop
+-- audit, the main-axis shrink pass and the whole grid. `layoutPriority` is read
+-- ONLY in `shrink.luau` now, and `columns`/`minColumnWidth`/`itemSizing` ONLY in
+-- `grid.luau`, so a solver-only read would already be answering about a file that
+-- no longer holds the code. ADD A PART WHENEVER MORE OF THE SOLVER MOVES OUT.
+local SRC_SOLVER_PARTS = {
+	"src/layout/solver.luau",
+	"src/layout/placement_audit.luau",
+	"src/layout/shrink.luau",
+	"src/layout/grid.luau",
+}
 local SRC_SOLVER = SRC_SOLVER_PARTS[1]
 local SRC_ADAPTER = "src/client/screen_target.luau"
 local DOCS_API = "docs/reference/api.md"

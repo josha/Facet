@@ -239,6 +239,52 @@ this check caught it in one run. The sixth extraction bought ~15k of headroom
 instead. A ceiling reached by a hair is a file that crosses again on its next
 honest comment.
 
+SEVENTH FILE, AND THE FIRST SPLIT ALONG A SEAM ITS OWN AUTHOR NAMED:
+`src/layout/solver.luau` again, 2026-08-15, 194,222 -> 169,436 in one commit.
+5,778 chars from the cap, which is one honest comment, and the seam had been
+written down eight days earlier by the mission that grew the file (`02b9df1`):
+"the grid is now a coherent ~9k unit (`gridFlowPlan`, `gridColumnPlan`, both
+measure and arrange branches). The next grid change should extract it to
+`src/layout/grid.luau` the way `shrink.luau` was extracted, not squeeze." It
+measured 24,786 rather than ~9k, because the estimate counted the two plan
+functions and not the ~430 lines of block comment that carry four device rounds
+of reasoning about them — which is the argument for the seam, not against it.
+
+THE MECHANISED TEST WAS RE-RUN RATHER THAN TRUSTED, and it still returns three:
+the solver is not a closure (every function is module-scope and takes `ctx`), and
+`measure`, `measureUncached` and `setFitProbe` are the only mutable module-level
+locals. The grid block WRITES none of them and READS exactly one, `measure`. That
+one read is the whole reason its `Deps` record differs from `shrink`'s: a forward
+declaration cannot go into a load-time record BY VALUE, so `GRID_DEPS` holds a
+two-line forwarder that reads the local at call time. `src/layout/grid.luau`
+itself has ZERO mutable module locals, which a case in
+`tests/grid_measure_arrange.spec.luau` now pins.
+
+WHAT MOVED WITH IT, AND WHY THE BRANCHES COULD NOT STAY BEHIND. The flow grid is
+written once in LANE/FLOW words that bind to width/height in exactly two places:
+`innerLane`/`innerFlow` inside `gridFlowPlan`, and the placement in the arrange
+branch. Leaving one of those two bindings in the solver would put the transpose
+(`flow = "column"`) one edit away from disagreeing with itself, so both measure
+branches and both arrange branches came too. The price is honest and visible: the
+arrange entries take `place` (the solver's recursive `arrange`) and `alignOffset`
+as ORDINARY ARGUMENTS rather than `Deps` fields, because both are declared below
+where `GRID_DEPS` is built and a forwarder written up there would resolve the nil
+GLOBAL (`docs/lessons/a-helper-declared-below-its-caller-is-a-global.md`).
+Forward-declaring them to avoid that would have added a FOURTH mutable module
+local — the opposite of the property this whole ratchet is measured on.
+
+THE SINGLE-OWNER PROPERTY IS THE THING A GRID SPLIT CAN BREAK, and it is now
+pinned rather than assumed. Measure and arrange call ONE plan function; the
+`ctx.gridPlan` cache is determinism and cost, NOT the guarantee. Measured, not
+argued: emptying the arrange side's cache entry (`ctx.gridPlan[node.id] = nil`
+immediately before `grid.arrange`) moves NO RECT — the suite goes 5359 -> 5355
+passed with 4 red, three of them instance-count/pool cases reacting to the extra
+re-measure and the fourth this split's own structural pin objecting to the
+mutation itself. So a second copy that agrees today would pass every behavioural
+case in the file, which is why the pin is structural and directional: a decoy
+second definition in the solver, an arrange that reads the cache instead of the
+owner, and a mutable module local in `grid.luau` were each confirmed to redden it.
+
 THE CEILINGS WERE SNAPSHOT 2026-08-14 during a ten-agent session with features
 still landing, so they are a high-water mark rather than a considered budget.
 Re-snapshot them once the wave lands: a ceiling set mid-churn that nobody

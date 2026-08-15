@@ -32,6 +32,7 @@
 	example and control actually ships did not move.
 ]]
 
+local fs = require("@lune/fs")
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
@@ -384,6 +385,121 @@ describe("grid measure/arrange agreement — column flow", function()
 		expect(issues(colController)).toBe("")
 		local _, rowController = render(reofferable(nil, "uniform", { minColumnWidth = 90 })(nil), 1400, 900)
 		expect(issues(rowController)).toBe("")
+	end)
+end)
+
+--[[ ===== ONE OWNER, NOT ONE CACHE (the 200k split, 2026-08-15) ===============
+
+	Everything above is BEHAVIOURAL and it is the real proof; this block guards the
+	structural property those cases rest on, because the grid's arithmetic left
+	`src/layout/solver.luau` for `src/layout/grid.luau` when the solver came within
+	5,778 characters of the `Script.Source` write cap (tools/check_source_size.py).
+
+	WHY A STRUCTURAL PIN IS THE RIGHT INSTRUMENT HERE, and what it is NOT for. The
+	fixed point above holds because measure and arrange call the SAME function —
+	not because a cache makes them agree. That was measured: clearing
+	`ctx.gridPlan` before arrange reddens nothing at all, so the cache is
+	determinism and cost, and the single OWNER is the guarantee. A behavioural case
+	therefore cannot see the failure this pin exists for — two copies that agree
+	today pass every case above and drift on the next edit, which is exactly how
+	this library's four "measured one shape, arranged another" defects happened.
+
+	It is DIRECTIONAL: re-inlining either plan into the solver, or adding a second
+	definition anywhere, reddens it.
+]]
+describe("the grid's plan has ONE owner, and both passes read it", function()
+	local gridSource = fs.readFile("src/layout/grid.luau")
+	local solverSource = fs.readFile("src/layout/solver.luau")
+
+	local function count(haystack: string, needle: string): number
+		local n = 0
+		local from = 1
+		while true do
+			local at = string.find(haystack, needle, from, true)
+			if at == nil then
+				break
+			end
+			n += 1
+			from = (at :: number) + 1
+		end
+		return n
+	end
+
+	it("each plan is defined exactly once, and in `src/layout/grid.luau`", function()
+		for _, plan in { "gridFlowPlan", "gridColumnPlan" } do
+			expect(`{plan} defined in grid.luau: {count(gridSource, `local function {plan}(`)}`).toBe(
+				`{plan} defined in grid.luau: 1`
+			)
+			expect(`{plan} defined in solver.luau: {count(solverSource, `local function {plan}(`)}`).toBe(
+				`{plan} defined in solver.luau: 0`
+			)
+		end
+	end)
+
+	it("the solver keeps no grid arithmetic of its own — it only holds the cache's home", function()
+		-- `ctx.gridPlan` / `ctx.gridRowPlan` are declared on the solver's Ctx type and
+		-- initialised by `solve`, which is what scopes them to one solve; every READ
+		-- and every WRITE is in the module that owns the plan.
+		expect(
+			`solver indexes the plan caches: {count(solverSource, "ctx.gridPlan[") + count(
+				solverSource,
+				"ctx.gridRowPlan["
+			)}`
+		).toBe("solver indexes the plan caches: 0")
+		expect(
+			`grid indexes the plan caches: {count(gridSource, "ctx.gridPlan[") > 0 and count(
+				gridSource,
+				"ctx.gridRowPlan["
+			) > 0}`
+		).toBe("grid indexes the plan caches: true")
+	end)
+
+	it("`grid.measure` and `grid.arrange` both call the SAME flow plan", function()
+		-- split the module at its two public entry points and look inside each half,
+		-- so the case says "both passes go through the owner" rather than counting
+		-- call sites and hoping they are the two that matter
+		local measureAt = string.find(gridSource, "function grid.measure(", 1, true)
+		local arrangeAt = string.find(gridSource, "function grid.arrange(", 1, true)
+		expect(`both entry points found: {measureAt ~= nil and arrangeAt ~= nil}`).toBe("both entry points found: true")
+		local measureBody = string.sub(gridSource, measureAt :: number, arrangeAt :: number)
+		local arrangeBody = string.sub(gridSource, arrangeAt :: number)
+		expect(`measure calls gridFlowPlan: {string.find(measureBody, "gridFlowPlan(", 1, true) ~= nil}`).toBe(
+			"measure calls gridFlowPlan: true"
+		)
+		expect(`arrange calls gridFlowPlan: {string.find(arrangeBody, "gridFlowPlan(", 1, true) ~= nil}`).toBe(
+			"arrange calls gridFlowPlan: true"
+		)
+		-- ...and the row grid's columns, the other plan, on the same rule
+		expect(`measure calls gridColumnPlan: {string.find(measureBody, "gridColumnPlan(", 1, true) ~= nil}`).toBe(
+			"measure calls gridColumnPlan: true"
+		)
+		expect(`arrange calls gridColumnPlan: {string.find(arrangeBody, "gridColumnPlan(", 1, true) ~= nil}`).toBe(
+			"arrange calls gridColumnPlan: true"
+		)
+	end)
+
+	it("the grid module holds no state: no mutable module-level local at all", function()
+		-- the test that decided this seam (tools/check_source_size.py): does the block
+		-- read or WRITE a mutable upvalue of the file it is leaving? The grid wrote
+		-- none, and it must not acquire one here — a module-level `local` assigned
+		-- later is both shared state across solves and the nil-global trap
+		-- (docs/lessons/later-locals-are-not-upvalues.md).
+		local declared: { [string]: boolean } = {}
+		local written: { string } = {}
+		for line in string.gmatch(gridSource, "[^\n]+") do
+			local name = string.match(line, "^local ([A-Za-z_][A-Za-z0-9_]*)")
+				or string.match(line, "^local function ([A-Za-z_][A-Za-z0-9_]*)")
+			if name ~= nil then
+				declared[name] = true
+			end
+			local assigned = string.match(line, "^([A-Za-z_][A-Za-z0-9_]*)%s*=[^=]")
+			if assigned ~= nil and declared[assigned] then
+				table.insert(written, assigned)
+			end
+		end
+		expect(`mutable module locals in grid.luau: {table.concat(written, ", ")}`).toBe(
+			"mutable module locals in grid.luau: "
+		)
 	end)
 end)
 
