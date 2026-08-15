@@ -1149,7 +1149,17 @@ end)
 --   BEHAVIOURAL — the INVARIANCE the eliminations must preserve, which is where
 --   the real risk lives: a guard that is too eager silently disables the shrink
 --   pass, and no existing case here would notice for the stack shapes below.
+--
+-- THE PASS NOW SPANS TWO FILES (2026-08-14): its setup — both allocation guards,
+-- which is what C5 and C6 are about — is still the solver's arrange and measure
+-- branches, but the pass itself moved to `src/layout/shrink.luau` in the 200k
+-- `Source` write-cap split. A source pin that keeps reading only the first file
+-- silently stops seeing the code it names, so C6's "and the same filter really is
+-- what the pass applies one level down" reads the module that now holds it. That
+-- is the hazard this whole split has to defend against, and it is why the miss
+-- was a red test rather than a discovery six months from now.
 local solverSource = fs.readFile("src/layout/solver.luau")
+local shrinkSource = fs.readFile("src/layout/shrink.luau")
 
 describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member", function()
 	it("STRUCTURAL C5: arrange scans for a member BEFORE allocating `shrunk` and `basisMain`", function()
@@ -1182,10 +1192,13 @@ describe("§2.4 shrink — C5/C6: the pass costs nothing until it has a member",
 			string.find(solverSource, "if child.shrinkWeight ~= nil and child.shrinkWeight > 0 then", 1, true) ~= nil
 		).toBe(true)
 		-- DIRECTIONAL, same shape: the pre-fix gate was the bare nil test, and
-		-- `shrinkWeight = 0` is a legal authored value meaning "never shrink"
+		-- `shrinkWeight = 0` is a legal authored value meaning "never shrink".
+		-- Checked in BOTH files — the gate could regress on either side of the seam.
 		expect(string.find(solverSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
-		-- and the same filter really is what the pass applies one level down
-		expect(string.find(solverSource, "and weight > 0", 1, true) ~= nil).toBe(true)
+		expect(string.find(shrinkSource, "if child.shrinkWeight ~= nil then", 1, true) == nil).toBe(true)
+		-- and the same filter really is what the pass applies one level down —
+		-- read out of `shrink.luau`, which is where the pass lives now
+		expect(string.find(shrinkSource, "and weight > 0", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("BEHAVIOURAL: an explicit `shrinkWeight = 0` is byte-identical to omitting it", function()

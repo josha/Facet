@@ -50,7 +50,15 @@ local SRC_BLUEPRINT = "src/blueprint.luau"
 -- 38 layout props look unread. ADD A PART WHENEVER MORE OF THE RENDERER MOVES OUT.
 local SRC_RENDERER_PARTS = { "src/render/renderer.luau", "src/render/layout_node.luau" }
 local SRC_RENDERER = SRC_RENDERER_PARTS[1]
-local SRC_SOLVER = "src/layout/solver.luau"
+-- THE SOLVER AS ONE TEXT, for the same reason and by the same rule: the layout
+-- channel asks "does the solver read `node.<name>`/`child.<name>`?", and the
+-- 200k `Source` write-cap split moved two blocks of it out — the placement-prop
+-- audit and the main-axis shrink pass. `layoutPriority` is read ONLY in
+-- `shrink.luau` now, so a solver-only read would already be answering about a
+-- file that no longer holds the code. ADD A PART WHENEVER MORE OF THE SOLVER
+-- MOVES OUT.
+local SRC_SOLVER_PARTS = { "src/layout/solver.luau", "src/layout/placement_audit.luau", "src/layout/shrink.luau" }
+local SRC_SOLVER = SRC_SOLVER_PARTS[1]
 local SRC_ADAPTER = "src/client/screen_target.luau"
 local DOCS_API = "docs/reference/api.md"
 
@@ -277,7 +285,11 @@ function checker.check(opts: Options?)
 	end
 	-- joined by a newline so no two files' lines ever merge into one
 	local rendererSource = table.concat(rendererParts, "\n")
-	local solverSource = fs.readFile(SRC_SOLVER)
+	local solverParts: { string } = {}
+	for _, path in SRC_SOLVER_PARTS do
+		table.insert(solverParts, fs.readFile(path))
+	end
+	local solverSource = table.concat(solverParts, "\n")
 	local adapterSource = fs.readFile(SRC_ADAPTER)
 	local docsSource = fs.readFile(DOCS_API)
 

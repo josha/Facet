@@ -94,7 +94,7 @@ local PLACEMENT_READS: { [string]: { [string]: boolean } } = {
 	gridrow = { alignH = true, alignV = true, gridSpan = true },
 	-- STACKS ONLY, for the shrink pair: the deficit is discovered by a stack's own
 	-- main axis (measure PASS 1.5 and arrange's shrink block), and no other branch
-	-- calls `shrinkStack` at all.
+	-- calls `src/layout/shrink.luau`'s `stack` at all.
 	vstack = { lineAlign = true, layoutPriority = true, shrinkWeight = true },
 	hstack = { lineAlign = true, layoutPriority = true, shrinkWeight = true },
 	-- ...AND THE WRAPPING STACKS, WHICH ARE NOT THE SAME ROW (round 3 item A).
