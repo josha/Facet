@@ -23,7 +23,12 @@ local fs = require("@lune/fs")
 
 local checker = {}
 
-local SCANNED_FILES = { "src/render/renderer.luau", "src/present/presenter.luau" }
+-- `layout_node.luau` is the renderer's MEASURE SEAM, split out of `renderer.luau`
+-- when it hit the 200k `Source` write cap — it is where nearly every metric a
+-- theme owns is resolved, so leaving it unscanned would have opened the exact
+-- hole this checker exists to close.
+local SCANNED_FILES =
+	{ "src/render/renderer.luau", "src/render/layout_node.luau", "src/present/presenter.luau" }
 local SCANNED_DIRS = { "src/controls" }
 
 -- assignment contexts where a bare number IS a theme-owned metric. Each pattern

@@ -16,6 +16,9 @@ local authority = require("../src/render/authority")
 local tokensLib = require("../src/tokens/tokens")
 local fake_target = require("../tests/lib/fake_target")
 local adapter_source = require("./lib/adapter_source")
+-- the renderer as ONE text: two files since the 200k `Source` write-cap split
+-- (tests/lib/renderer_source names them and says why)
+local renderer_source = require("./lib/renderer_source")
 
 local function makeSlice()
 	local core = customFactory.new()
@@ -688,7 +691,7 @@ describe("RS-DIR9: the Toggle's label column is ONE description, not two", funct
 	it("the renderer's measure seam reads it, and so does the adapter's paint seam", function()
 		-- the whole property: the two seams cannot disagree because there is one
 		-- function. Anchored on source because the adapter half is an engine write.
-		local renderer = fs.readFile("src/render/renderer.luau")
+		local renderer = renderer_source.all()
 		expect(string.find(renderer, "themeSnapshot.toggleRowPadding(metrics)", 1, true) ~= nil).toBe(true)
 		-- the LIVE adapter as ONE text: three files since the 200k split
 		local target = adapter_source.live()

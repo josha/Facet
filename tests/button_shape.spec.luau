@@ -45,7 +45,9 @@ local adapter_source = require("./lib/adapter_source")
 -- the LIVE adapter as ONE text: it is three files since the 200k `Source`
 -- write-cap split (tests/lib/adapter_source names them and says why)
 local adapterSource = adapter_source.live()
-local rendererSource = fs.readFile("src/render/renderer.luau")
+-- the renderer as ONE text: two files since the 200k `Source` write-cap split
+-- (tests/lib/renderer_source names them and says why)
+local rendererSource = require("./lib/renderer_source").all()
 
 local CIRCLE_TAG = sheet_model.TAGS.shapePrefix .. "circle"
 

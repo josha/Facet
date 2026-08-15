@@ -42,7 +42,14 @@ local renderer = require("../../src/render/renderer")
 local checker = {}
 
 local SRC_BLUEPRINT = "src/blueprint.luau"
-local SRC_RENDERER = "src/render/renderer.luau"
+-- THE RENDERER AS ONE TEXT. The views below ask "does the renderer read
+-- `props.<name>`?" and "what does its BINDING_PROP_CLASSES allowlist say?" — both
+-- are questions about the renderer MODULE FAMILY, and the measure seam (which is
+-- where nearly every layout prop is read) left for `render/layout_node.luau` in
+-- the 200k `Source` write-cap split. Reading only the first file would have made
+-- 38 layout props look unread. ADD A PART WHENEVER MORE OF THE RENDERER MOVES OUT.
+local SRC_RENDERER_PARTS = { "src/render/renderer.luau", "src/render/layout_node.luau" }
+local SRC_RENDERER = SRC_RENDERER_PARTS[1]
 local SRC_SOLVER = "src/layout/solver.luau"
 local SRC_ADAPTER = "src/client/screen_target.luau"
 local DOCS_API = "docs/reference/api.md"
@@ -264,7 +271,12 @@ function checker.check(opts: Options?)
 	end
 
 	local blueprintSource = fs.readFile(SRC_BLUEPRINT)
-	local rendererSource = fs.readFile(SRC_RENDERER)
+	local rendererParts: { string } = {}
+	for _, path in SRC_RENDERER_PARTS do
+		table.insert(rendererParts, fs.readFile(path))
+	end
+	-- joined by a newline so no two files' lines ever merge into one
+	local rendererSource = table.concat(rendererParts, "\n")
 	local solverSource = fs.readFile(SRC_SOLVER)
 	local adapterSource = fs.readFile(SRC_ADAPTER)
 	local docsSource = fs.readFile(DOCS_API)
