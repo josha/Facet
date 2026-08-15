@@ -114,7 +114,7 @@ step("run")                    -- the scenario's declared pass sequence
 print(HttpService:JSONEncode(step("export:1")))
 ```
 
-### The nine workloads
+### The fourteen workloads
 
 | id | question it answers |
 |---|---|
@@ -124,9 +124,22 @@ print(HttpService:JSONEncode(step("export:1")))
 | `dense-scroll-native` | which cost is unavoidable engine work vs framework overhead |
 | `collection-churn` | do updates stay proportional to changed content |
 | `layout-style-churn` | which invalidations cause unnecessary whole-tree work |
+| `resize-relayout` | what a continuous resize costs, and how much re-solves what did not change |
 | `large-text-overflow` | are measurement, disclosure and motion bounded without hiding content |
 | `async-image-churn` | are decoding, resource lifecycle and UI updates separated and bounded |
+| `motion-flight` | what an interpolating property costs per frame, and what a surface authoring none pays |
+| `sensory-cascade` | what the per-control sensory cascade costs a tree that declares nothing |
+| `variable-extents` | what a variable-extent window costs against the uniform arithmetic it replaces |
+| `table-unified` | what virtualization, multi-selection and reordering cost in ONE container |
 | `lifecycle-soak` | do Instances, connections, memory or stale work trend upward |
+
+The last two mount their own surfaces (`implementation = "none"`), so neither
+re-bases any number above them. Both take a `frames/reps` payload —
+`pass:tableUnified=30/40` — because their headline quantities are p50s and an
+operator who cannot raise n cannot get out of a wide control band. Their control
+bands, deltas and the MicroProfiler pass over them are
+`artifacts/performance-stress-places/optimization-log.md` **L-33**; the device
+recipe is `docs/handoff/2026-08-14-device-capture-collections.md`.
 
 ### One button: Run all
 
@@ -134,11 +147,11 @@ The panel's top row is always on screen, whatever the panel is capped at, and ho
 everything a profiling session needs:
 
 ```
-◀   dense-scroll   3/9   ▶   ▶ Run all
-DONE 9/9 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
+◀   dense-scroll   3/14   ▶   ▶ Run all
+DONE 14/14 — dump now: Ctrl/Cmd+F6, Ctrl+P to pause
 ```
 
-- **◀ / ▶** step through the nine workloads and wrap at both ends. Each step unmounts,
+- **◀ / ▶** step through the fourteen workloads and wrap at both ends. Each step unmounts,
   selects and remounts, so the label and what is running can never disagree. The chip
   list further down jumps straight to one.
 - **▶ Run all** runs every workload in order, back to back, in its own thread so the

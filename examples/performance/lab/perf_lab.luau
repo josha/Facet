@@ -38,7 +38,16 @@
 -- /3 (2026-08-05): the row restacks on a compact width (perf-row/2) and the list's
 -- rowHeight follows the same decision, so a phone no longer paints rows over each
 -- other. The layout audit is now enforced at mount and after every pass.
-local SCENARIO_VERSION = "perf-scenarios/4"
+--
+-- /5 (2026-08-14): TWO WORKLOADS FOR WHAT ROUND 3 SHIPPED. Every pass above this
+-- date windows by ONE number (`index x pitch`) and no pass anywhere touched
+-- `newTable`, so the two things the collection round actually built — the
+-- running-offset index behind variable item extents (`src/virtual_extents.luau`)
+-- and `newTable{ virtualized = true }` — were unmeasured by construction.
+-- `variable-extents` and `table-unified` are those two. Both mount their own
+-- surfaces, so no existing workload's numbers move: the additions are new rows in
+-- the table, not a re-basing of the old ones.
+local SCENARIO_VERSION = "perf-scenarios/5"
 
 -- ---- the declared workloads ----------------------------------------------
 -- Each isolates ONE cost so a profile has an interpretable cause. The plan is
@@ -124,6 +133,25 @@ local WORKLOADS = {
 		implementation = "none",
 		question = "What does the per-control sensory cascade cost a tree that declares nothing, and what does one declaration on a root cost when it reaches every node?",
 		passes = { "sensoryCascade" },
+	},
+	{
+		-- `implementation = "none"`: the pass mounts its own four arms, for the same
+		-- reason `motion-flight` does — an A/B between two windowing ARITHMETICS has
+		-- to hold everything else identical, and the shared `mounted` list is built
+		-- from one spec.
+		id = "variable-extents",
+		implementation = "none",
+		question = "What does a variable-extent window cost against the uniform arithmetic it replaces — to build the index on a data change, and to scroll?",
+		passes = { "extentArms" },
+	},
+	{
+		-- `implementation = "none"`: this workload's subject is `newTable`, not
+		-- `newVirtualList`, so it mounts its own surface rather than teaching the
+		-- shared mount seam a third implementation.
+		id = "table-unified",
+		implementation = "none",
+		question = "What do virtualization, multi-selection and reordering cost in ONE container, and does each verb still reach a row no window has held?",
+		passes = { "tableUnified" },
 	},
 	{
 		id = "lifecycle-soak",
@@ -816,6 +844,27 @@ return {
 			}
 		end
 
+		--[[ HOW MANY TIMES A FRAMEWORK PHASE SCOPE OPENED, since the session started.
+
+			`src/core/profile.luau` counts every `LuauUI/<phase>` span whenever
+			scopes are on, which is what the lab boots with. A pass takes the count
+			before and after and reports the difference, which makes "how many
+			solves did this cost" a FIELD rather than something read out of a binary
+			MicroProfiler dump by hand.
+
+			NIL-SAFE rather than asserted: `cleanCapture` deliberately turns scopes
+			OFF, and a pass that threw in that configuration would break the one
+			measurement a clean capture exists to take. Zero means "not counted",
+			never "did not happen" — so a count is only ever quoted as a DELTA
+			alongside the ms it is explaining. ]]
+		local function scopeCount(key: string): number
+			local ok, counters = pcall(profile.counters)
+			if not ok or counters == nil or counters.byScope == nil then
+				return 0
+			end
+			return (counters.byScope :: any)[key] or 0
+		end
+
 		local function requireList(): any
 			assertNoRemountError()
 			assert(mounted ~= nil, "[perf lab] no implementation is mounted; call `mount` first")
@@ -1471,6 +1520,699 @@ return {
 			end)
 		end
 
+		--[[ WHAT A VARIABLE-EXTENT WINDOW COSTS AGAINST THE UNIFORM ONE IT REPLACES.
+
+			`src/virtual_extents.luau` (2026-08-14) gave `newVirtualList` a second
+			windowing arithmetic: a prefix sum, O(N) to build per data change and
+			O(log N) to query, chosen at build time by `itemExtent` being a FUNCTION.
+			The uniform path was deliberately left byte-identical, because it is the
+			baseline every instance-count and frame-time number in
+			`artifacts/performance-stress-places/optimization-log.md` was measured
+			against. Nothing in this lab exercised the new path at all — every
+			workload above windows by one number — so the feature shipped with no
+			perf row of its own. This is that row.
+
+			FOUR ARMS OVER ONE TREE, and the middle one is the point:
+
+			  A  uniform   — `itemExtent` is a number. The pre-feature arithmetic.
+			  A' uniform   — the SAME arm again. Its distance from A is the harness's
+			                 own spread, and it is reported FIRST because three
+			                 separate rounds this month lost an "improvement" that
+			                 turned out to sit inside a control band nobody had
+			                 measured.
+			  B  variable, FLAT — `itemExtent` is a function returning the SAME px for
+			                 every row. Identical picture, identical window, identical
+			                 rects; the only difference is that the list built and
+			                 queried a prefix-sum index instead of dividing. B-minus-A
+			                 is therefore the price of the MACHINERY with the feature's
+			                 benefit subtracted out, which is the number a shipped
+			                 uniform list would pay if the paths were ever merged.
+			  C  variable, RAGGED — extents of 1..4 text lines, which is the feature.
+			                 C-minus-B is what raggedness itself costs.
+
+			THE ARM IS PROVEN TO HAVE TAKEN THE PATH IT CLAIMS. `dump().itemExtentMode`
+			is asserted per arm ("uniform" / "variable"). An A/B whose two arms
+			silently ran the same code is the "check that proves nothing" class this
+			project has a lesson about, and here it is one typo away: `itemExtent`
+			accepts a number, a Readable AND a function, and only the third switches
+			arithmetic.
+
+			TWO DATA-CHANGE MEASUREMENTS, BECAUSE THE INDEX IS CACHED. The list keys
+			its index on the extents themselves, so an edit that leaves every extent
+			where it was returns the SAME index object and rebuilds nothing — but the
+			O(N) extent WALK still runs, because that is how it finds out. So:
+
+			  · `sameCountEditMs` — the common case (a value ticks, a row is renamed).
+			    Walk, no rebuild.
+			  · `growEditMs` — one row appended. The cache misses by construction, so
+			    this is the walk PLUS the prefix-sum build, and it is the number that
+			    answers "does the index build bite on a large ragged list".
+
+			THE ROW PAINTS EXACTLY WHAT IT DECLARES. `extentFor` is called by the row
+			blueprint and by `itemExtent`, so the declared slot and the painted content
+			cannot drift — the painted-at-a-size-nobody-measured family
+			(`docs/lessons/`) is the defect a lying `itemExtent` produces, and it would
+			read here as a fast arm rather than as a broken one.
+
+			Tier discipline unchanged: Lune = regression signal only, this lab under
+			Studio = the real engine, a physical device = the only device claim. ]]
+		local EXTENT_ROWS = 2000
+		local EXTENT_LINE_H = 16
+		local EXTENT_PAD = 4
+		local EXTENT_GAP = 2
+		-- ragged but DETERMINISTIC and seed-free: the same row is the same height in
+		-- Lune, in Studio and on the device, which is what makes two captures
+		-- comparable at all
+		local function extentLines(index: number): number
+			return 1 + (index * 7) % 4
+		end
+		local function extentFor(lines: number): number
+			return 2 * EXTENT_PAD + lines * EXTENT_LINE_H + (lines - 1) * EXTENT_GAP
+		end
+		local EXTENT_UNIFORM_PX = extentFor(1)
+
+		--[[ `frames` or `frames/reps` — the SECOND number is why this helper exists.
+
+			Every sampled quantity in this lab is quoted as a p50 over n, and the
+			first cut of the two collection passes hard-coded n. Measured in Studio
+			2026-08-14 at n=8, the A/A control spread on the index-build arm was
+			**0.49 ms against a ~2.5 ms number** — 20%, which is larger than the
+			effect being looked for. An operator who cannot raise n cannot get out of
+			that hole, and a device is noisier than a desktop, not quieter. ]]
+		local function framesAndReps(payload: string?, defaultFrames: number, defaultReps: number): (number, number)
+			local f, r = string.match(payload or "", "^%s*(%d*)%s*/%s*(%d+)%s*$")
+			local frames = math.clamp(math.floor(tonumber(f or payload or "") or defaultFrames), 10, 300)
+			local reps = math.clamp(math.floor(tonumber(r or "") or defaultReps), 1, 200)
+			return frames, reps
+		end
+
+		passes.extentArms = function(payload: string?)
+			return timed("extentArms", function()
+				local frames, EDITS = framesAndReps(payload, 60, 24)
+				local U = LuauUI.UI
+
+				--[[ ONE ARM. `mode` picks the arithmetic and the raggedness; everything
+					else — the item count, the cell class, the viewport, the overscan,
+					the presenter, the sequence — is held identical, because a
+					difference that is not the only difference is not a measurement. ]]
+				local function arm(mode: string): any
+					local ragged = mode == "ragged"
+					local variable = mode ~= "uniform"
+					local base = dataset.build({
+						count = EXTENT_ROWS,
+						seed = settings.seed,
+						content = "normal",
+					})
+					-- OWNED AND DISPOSED. Four arms per pass and the pass loops under
+					-- `Profile 1`, so an un-owned signal per arm is a leak the soak row
+					-- would eventually report as a framework trend — the exact shape
+					-- `dataScope` was added for after a reset left 488 live signals.
+					local armScope = labScope:child(`extent-arm-{mode}`)
+					local armRows = armScope:own(core:signal(base))
+					local function linesOf(item: any): number
+						return if ragged then extentLines(item.rank) else 1
+					end
+					local list = LuauUI.newVirtualList(LuauUI, core, {
+						id = "ExtentRows",
+						rows = armRows,
+						key = function(item: any)
+							return item.id
+						end,
+						-- THE ONLY LINE THAT DIFFERS BETWEEN THE ARMS
+						itemExtent = if variable
+							then function(item: any)
+								return extentFor(linesOf(item))
+							end
+							else EXTENT_UNIFORM_PX,
+						rowGap = 0,
+						viewportHeight = listHeight,
+						overscan = rows.OVERSCAN,
+						cell = function(item: any)
+							local n = linesOf(item)
+							local children = table.create(n)
+							for i = 1, n do
+								children[i] = U.Text({
+									id = `L{i}`,
+									text = if i == 1 then item.name else item.detail,
+									textSize = 12,
+									lineLimit = 1,
+									height = { type = "fixed", px = EXTENT_LINE_H },
+								})
+							end
+							return U.VStack({
+								id = "Row",
+								padding = EXTENT_PAD,
+								gap = EXTENT_GAP,
+								width = { type = "fill", weight = 1 },
+								children = children,
+							})
+						end,
+					})
+					--[[ THE PRESENT OPTIONS COME FROM THE SELECTORS, exactly as
+						`buildLuauUI` takes them. A self-mounting pass that presents
+						with no options silently ignores `select:recycle=off` and
+						`select:incremental=on` — so the lab would answer an A/B
+						question with two identical arms and no error, which is the
+						"check that proves nothing" class. Instance recycling is worth
+						-32% on a flat scroll (L-27), so this is not a small thing to
+						leave un-selectable. ]]
+					local handle = ctx.presenter.present(
+						U.Screen({
+							id = "ExtentArm",
+							padding = 0,
+							gap = 0,
+							children = { list.blueprint },
+						}),
+						{
+							recycleInstances = settings.recycle == true,
+							incrementalLayout = settings.incremental == true,
+						}
+					)
+					local unbind: any = nil
+					if list.bindNativeScroll ~= nil and handle.controller ~= nil then
+						local ok, result = pcall(list.bindNativeScroll, handle.controller)
+						if ok then
+							unbind = result
+						end
+					end
+
+					local function finish()
+						if unbind ~= nil then
+							unbind()
+						end
+						ctx.presenter.dismiss(handle)
+						list.dispose()
+						armScope:dispose()
+					end
+
+					local ok, result = pcall(function()
+						local d0 = list.dump()
+						--[[ THE ARM TOOK THE PATH IT SAYS IT DID. One typo in the
+							`itemExtent` branch above turns this whole pass into four
+							copies of arm A that agree with each other beautifully. ]]
+						assert(
+							d0.itemExtentMode == (if variable then "variable" else "uniform"),
+							`[perf lab] extent arm '{mode}' wanted itemExtentMode='{if variable
+								then "variable"
+								else "uniform"}' and the list reports '{tostring(d0.itemExtentMode)}' — `
+								.. "the A/B is measuring one arithmetic twice"
+						)
+
+						-- ---- the data-change halves ----------------------------
+						-- SAME COUNT: every extent lands where it was, so the index
+						-- cache hits and this is the O(N) extent walk alone.
+						local sameCount = {}
+						for i = 1, EDITS do
+							local next_ = table.clone(armRows:get() :: { any })
+							local at = ((i - 1) * 97) % #next_ + 1
+							local row = table.clone(next_[at])
+							row.value = (row.value + 0.01) % 1
+							next_[at] = row
+							local t0 = clock()
+							armRows:set(next_)
+							ctx.presenter.refresh()
+							table.insert(sameCount, (clock() - t0) * 1000)
+							telemetry.step()
+						end
+						-- GROWING: one row appended, so the extents array is a
+						-- different length and the cached index cannot be reused.
+						-- This is walk + prefix-sum build.
+						local grow = {}
+						local arrangeBeforeGrow = scopeCount("arrange")
+						for i = 1, EDITS do
+							local next_ = table.clone(armRows:get() :: { any })
+							local added = table.clone(next_[1])
+							added.id = `grow{i}`
+							added.rank = #next_ + 1
+							table.insert(next_, added)
+							local t0 = clock()
+							armRows:set(next_)
+							ctx.presenter.refresh()
+							table.insert(grow, (clock() - t0) * 1000)
+							telemetry.step()
+						end
+						local arrangePerGrow = (scopeCount("arrange") - arrangeBeforeGrow) / EDITS
+
+						-- ---- steady scroll -------------------------------------
+						local d1 = list.dump()
+						local extent = math.max(1, d1.contentExtent - viewportH())
+						local y = 0
+						local steps = {}
+						for i = 1, frames do
+							y = (y + 40) % extent
+							local t0 = clock()
+							if list.scrollTo ~= nil and handle.controller ~= nil then
+								list.scrollTo(handle.controller, y)
+							else
+								list.scrollTop:set(y)
+							end
+							local writeMs = (clock() - t0) * 1000
+							telemetry.step()
+							local t1 = clock()
+							ctx.presenter.refresh()
+							table.insert(steps, writeMs + (clock() - t1) * 1000)
+							if i % 20 == 0 then
+								local w = 0
+								for _ in list.debugWindow() do
+									w += 1
+								end
+								--[[ THE BOUND IS DERIVED FROM THE ARM'S OWN SMALLEST
+									SLOT, not from `rows.expectedWindow` — that helper
+									describes the SHARED perf row, and a ragged list's
+									worst case is "every visible row is the shortest
+									one". A window that grows with the logical
+									collection is the regression this exists to catch,
+									and under a variable index it is the FIRST thing a
+									wrong binary search would do. ]]
+								local bound = math.ceil(viewportH() / extentFor(1)) + 2 * rows.OVERSCAN + 2
+								assert(
+									w <= bound,
+									`[perf lab] extent arm '{mode}' is NOT bounded at scroll frame {i}: {w} rows `
+										.. `mounted for a {viewportH()}px viewport (bound {bound}, logical `
+										.. `{#(armRows:get() :: { any })})`
+								)
+							end
+						end
+						local final = list.dump()
+						local windowed = 0
+						for _ in list.debugWindow() do
+							windowed += 1
+						end
+						-- the same mechanism readout `tableUnified` carries, for the same
+						-- reason: `recycle=on/off` is a selector, and a selector whose
+						-- effect is invisible is a selector nobody can trust
+						local rstats = if handle.controller ~= nil and handle.controller.stats ~= nil
+							then handle.controller.stats()
+							else nil
+						return {
+							itemExtentMode = final.itemExtentMode,
+							logicalRows = final.totalRows,
+							recycling = if rstats == nil
+								then { measured = false }
+								else {
+									measured = true,
+									armed = rstats.recycleArmed,
+									parked = rstats.parked,
+									parkRefused = rstats.parkRefused,
+									recycled = rstats.recycled,
+								},
+							mountedRows = windowed,
+							contentExtent = final.contentExtent,
+							sameCountEditMs = summarize(sameCount),
+							growEditMs = summarize(grow),
+							arrangePerGrow = arrangePerGrow,
+							scrollStepMs = summarize(steps),
+						}
+					end)
+					finish()
+					if not ok then
+						error(result, 0)
+					end
+					return result
+				end
+
+				local a = arm("uniform")
+				local aPrime = arm("uniform")
+				local flat = arm("flat")
+				local ragged = arm("ragged")
+				local function spread(x: any, y: any, key: string): number
+					if not x[key].measured or not y[key].measured then
+						return 0
+					end
+					return math.abs(x[key].p50_ms - y[key].p50_ms)
+				end
+				return {
+					rows = EXTENT_ROWS,
+					frames = frames,
+					edits = EDITS,
+					--[[ READ THESE TWO FIRST. Any arm-to-arm delta smaller than the
+						matching spread is noise, and saying so before the deltas is
+						the only thing that stops the next reader quoting one. ]]
+					harnessSpreadScrollMs = spread(a, aPrime, "scrollStepMs"),
+					harnessSpreadGrowMs = spread(a, aPrime, "growEditMs"),
+					uniform = a,
+					uniformRepeat = aPrime,
+					variableFlat = flat,
+					variableRagged = ragged,
+					note = "A/A' = the same uniform arm twice; B (variableFlat) is the prefix-sum index over "
+						.. "IDENTICAL extents, so B-minus-A is the machinery with the benefit subtracted out; "
+						.. "C (variableRagged) is 1..4-line rows, so C-minus-B is raggedness itself. "
+						.. "`growEditMs` appends a row, which misses the index cache on purpose and is therefore "
+						.. "the O(N) build; `sameCountEditMs` hits it and is the extent walk alone. Every arm "
+						.. "asserts its own itemExtentMode and its own window bound. Lune = regression signal, "
+						.. "this lab = real engine, device = the only device claim.",
+				}
+			end)
+		end
+
+		--[[ THE UNIFIED COLLECTION, PRICED: windowing + multi-selection + reordering
+			in ONE container (`newTable{ virtualized = true }`, 2026-08-14).
+
+			`docs/reference/swiftui-parity.md` §13 carried "no container unifying
+			virtualization + reorder + selection" as a durable gap, and closing it
+			created a path nothing in this lab touches: every windowing number here
+			was taken on `newVirtualList`, whose rows carry no columns, no header, no
+			selection SET and no reorder model. A Table row is a different, heavier
+			animal, and 2 000 of them windowed is the shape a leaderboard actually is.
+
+			WHAT IS DELIBERATELY NOT IN THIS WORKLOAD, and it is a verified refusal
+			rather than an omission: **hosted row actions.** `newTable` refuses
+			`virtualized` beside `rowActions` at construction (src/controls/table.luau,
+			v1) — Table wraps each actionable row, which is the one thing a windowed
+			canvas cannot host. So "virtualization + reordering + selection + hosted
+			row actions at once" is not a workload that can be built today; the first
+			three are, and this is them.
+
+			THE VERBS ARE MEASURED SEPARATELY FROM THE SCROLL, because they answer
+			different questions. Scrolling asks "is the window cheap at the margin".
+			Each verb asks "does a MODEL operation still reach a row no window has
+			ever held" — reveal, a range selection spanning ~200 unmounted rows, and a
+			move — and each is timed as well as asserted, because the interesting
+			failure is not that they break but that one of them quietly costs a full
+			re-solve of a 2 000-row model.
+
+			A' BRACKETS THE RUN. `idleMs` and `idleRepeatMs` are the same idle sample
+			taken before and after everything else, and `harnessSpreadMs` is their
+			distance. Nothing below it is a result. ]]
+		local TABLE_ROWS = 2000
+		-- rows chosen so no first window can contain them: the whole claim is that a
+		-- row nobody has mounted is still addressable
+		local TABLE_FAR_ROW = 1500
+		local TABLE_RANGE_FROM, TABLE_RANGE_TO = 900, 1100
+
+		passes.tableUnified = function(payload: string?)
+			return timed("tableUnified", function()
+				local frames, reps = framesAndReps(payload, 60, 12)
+				local U = LuauUI.UI
+				local base = dataset.build({ count = TABLE_ROWS, seed = settings.seed, content = "normal" })
+				-- owned, for the reason `extentArms` records: this pass loops under
+				-- `Profile 1`, so one un-owned signal per lap is an unbounded trend
+				local passScope = labScope:child("table-unified")
+				local tableRows = passScope:own(core:signal(base))
+				local function keyOf(rank: number): string
+					return `r{rank}`
+				end
+
+				local tbl = LuauUI.newTable(LuauUI, core, {
+					id = "UnifiedRows",
+					rows = tableRows,
+					key = function(item: any)
+						return item.id
+					end,
+					-- HEADERLESS for the same reason `table_virtualized.luau` is: a
+					-- header band is a minMax FLOOR, and this lab runs at phone
+					-- viewports where that floor is most of the list.
+					header = false,
+					virtualized = true,
+					selection = "multi",
+					reorderable = true,
+					onReorder = function(keys: { string }, toIndex: number)
+						local moving: { [string]: boolean } = {}
+						for _, k in keys do
+							moving[k] = true
+						end
+						local carried, staying = {}, {}
+						for _, item in tableRows:get() :: { any } do
+							table.insert(if moving[item.id] then carried else staying, item)
+						end
+						local out = {}
+						for i = 1, toIndex do
+							table.insert(out, staying[i])
+						end
+						for _, item in carried do
+							table.insert(out, item)
+						end
+						for i = toIndex + 1, #staying do
+							table.insert(out, staying[i])
+						end
+						tableRows:set(out)
+					end,
+					-- NO rowHeight: the framework derives it per paradigm and per text
+					-- preference, which is exactly why a virtualized Table needs no
+					-- consumer-side extent prediction (docs/plans/variable-item-extents.md)
+					columns = {
+						{
+							id = "name",
+							title = "Entrant",
+							width = { type = "fill", weight = 4 },
+							minWidth = 90,
+							disclose = true,
+							value = function(item: any)
+								return item.name
+							end,
+						},
+						{
+							id = "team",
+							title = "Team",
+							width = { type = "fill", weight = 3 },
+							minWidth = 70,
+							disclose = true,
+							value = function(item: any)
+								return item.team
+							end,
+						},
+						{
+							id = "rank",
+							title = "#",
+							width = { type = "fill", weight = 2 },
+							minWidth = 40,
+							value = function(item: any)
+								return tostring(item.rank)
+							end,
+						},
+					},
+					env = env,
+				})
+
+				-- the selectors, for the reason `extentArms` records: a pass that
+				-- presents with no options makes `select:recycle=off` a no-op
+				local handle = ctx.presenter.present(
+					U.Screen({
+						id = "TableUnified",
+						padding = 0,
+						gap = 0,
+						children = {
+							U.ZStack({
+								id = "Pane",
+								width = { type = "fill", weight = 1 },
+								height = { type = "fill", weight = 1 },
+								children = { tbl.blueprint },
+							}),
+						},
+					}),
+					{
+						recycleInstances = settings.recycle == true,
+						incrementalLayout = settings.incremental == true,
+					}
+				)
+				local unbind: any = nil
+				if tbl.api.bindNativeScroll ~= nil and handle.controller ~= nil then
+					local ok, result = pcall(tbl.api.bindNativeScroll, handle.controller)
+					if ok then
+						unbind = result
+					end
+				end
+
+				local function windowNow(): number
+					local d = tbl.dump()
+					return d.windowRows or -1
+				end
+				local function assertBounded(where: string)
+					local w = windowNow()
+					--[[ A generous bound stated as a RULE. The table derives its own
+						row height from the theme and the text preference, so the lab
+						cannot know the pitch — but "a windowed container mounts a
+						screenful, not a collection" is checkable without it: a phone
+						viewport at the SMALLEST plausible row pitch still cannot hold
+						a tenth of 2 000. What this catches is the failure that
+						matters, a window that grows with the model. ]]
+					assert(
+						w >= 0 and w <= math.max(64, math.ceil(TABLE_ROWS / 10)),
+						`[perf lab] the virtualized Table is NOT bounded at {where}: {w} rows mounted of `
+							.. `{#(tableRows:get() :: { any })} logical`
+					)
+				end
+
+				local function finish()
+					if unbind ~= nil then
+						unbind()
+					end
+					ctx.presenter.dismiss(handle)
+					tbl.dispose()
+					passScope:dispose()
+				end
+
+				local function sampleIdle(n: number): { number }
+					local out = table.create(n)
+					for i = 1, n do
+						local t0 = clock()
+						ctx.presenter.refresh()
+						out[i] = (clock() - t0) * 1000
+						telemetry.step()
+					end
+					return out
+				end
+				--[[ ONE VERB, SAMPLED `reps` TIMES — and the repetition is not a nicety.
+
+					The first cut ran each verb ONCE and reported its ms. Studio,
+					2026-08-14: `revealRow` came back at **14.76 ms**, which read as the
+					pass's headline finding and is n=1 — indistinguishable from a cold
+					path, a GC, or the one frame the OS took the core away. A single
+					sample is the same mistake as a delta with no control, one level
+					down. Each verb now reports a distribution AND the arranges it
+					provoked, because a verb that is fast because it did nothing and a
+					verb that is fast because it is cheap are otherwise identical. ]]
+				local function verb(reps: number, body: (n: number) -> ()): any
+					local arrangeBefore = scopeCount("arrange")
+					local samples = table.create(reps)
+					for i = 1, reps do
+						local t0 = clock()
+						body(i)
+						ctx.presenter.refresh()
+						samples[i] = (clock() - t0) * 1000
+						telemetry.step()
+					end
+					local out = summarize(samples)
+					out.arrangesPerRep = (scopeCount("arrange") - arrangeBefore) / reps
+					return out
+				end
+				-- far rows that no single window holds, walked so consecutive reps are
+				-- genuinely different work rather than a warm repeat of one target
+				local FAR_ROWS = { 1500, 120, 1930, 640, 1777, 310 }
+
+				--[[ WHY RECYCLING IS OR IS NOT DOING ANYTHING — the mechanism, not the
+					inference. Measured in Studio 2026-08-14: on this workload
+					`recycle=on` and `recycle=off` were indistinguishable inside an
+					A/B/A control band, which is the same shape L-27 recorded for a
+					themed surface. A black-box A/B cannot say WHY, and the renderer
+					already counts it: `parked` vs `parkRefused` is the answer, and
+					`recycleArmed` is the check that the selector reached the presenter
+					at all. Zero parks with a non-zero refusal count means every row
+					this container windows is one the pool will not take. ]]
+				local function recycling(): any
+					if handle.controller == nil or handle.controller.stats == nil then
+						return { measured = false }
+					end
+					local s = handle.controller.stats()
+					return {
+						measured = true,
+						armed = s.recycleArmed,
+						parked = s.parked,
+						parkRefused = s.parkRefused,
+						recycled = s.recycled,
+						creates = s.creates,
+						removes = s.removes,
+					}
+				end
+
+				local ok, result = pcall(function()
+					assertBounded("mount")
+					local idleA = sampleIdle(20)
+
+					-- ---- steady scroll, through the engine's own canvas ----------
+					local d0 = tbl.dump()
+					local extent = math.max(1, (d0.contentExtent or 0) - viewportH())
+					local scrollPath = tbl.api.scrollPath()
+					local y = 0
+					local steps = {}
+					for i = 1, frames do
+						y = (y + 40) % extent
+						local t0 = clock()
+						if scrollPath ~= nil and handle.controller ~= nil then
+							handle.controller.scrollTo(scrollPath, { x = 0, y = y })
+						end
+						local writeMs = (clock() - t0) * 1000
+						-- the engine's CanvasPosition echo lands next frame; headless
+						-- the fake target has already echoed
+						telemetry.step()
+						local t1 = clock()
+						ctx.presenter.refresh()
+						table.insert(steps, writeMs + (clock() - t1) * 1000)
+						if i % 20 == 0 then
+							assertBounded(`scroll frame {i}`)
+						end
+					end
+
+					-- ---- the three verbs, each reaching an unmounted row ---------
+					local reveals = 0
+					local reveal = verb(reps, function(n)
+						if tbl.api.revealRow(keyOf(FAR_ROWS[(n - 1) % #FAR_ROWS + 1])) then
+							reveals += 1
+						end
+					end)
+					local range = verb(reps, function(n)
+						-- the span is constant and the WINDOW it lands in is not, so
+						-- every rep selects the same 201 rows from a different scroll
+						-- position — a range that happened to be mounted would be a
+						-- different, cheaper measurement
+						local shift = ((n - 1) % 5) * 100
+						tbl.api.select(keyOf(TABLE_RANGE_FROM + shift), { mode = "replace" })
+						tbl.api.select(keyOf(TABLE_RANGE_TO + shift), { mode = "range" })
+					end)
+					local selected = 0
+					for _, on in tbl.api.selectedKeys:get() do
+						if on then
+							selected += 1
+						end
+					end
+					local moves = 0
+					local move = verb(reps, function(n)
+						if tbl.api.moveRow(keyOf(FAR_ROWS[(n - 1) % #FAR_ROWS + 1]), -1) then
+							moves += 1
+						end
+					end)
+					assertBounded("after the verbs")
+
+					--[[ THE VERBS ACTUALLY LANDED. A range spanning 201 rows of which
+						the window holds a handful is the whole claim — selection is
+						MODEL state and only the mounting is windowed — and a silently
+						no-op `select` would report as a very fast verb. ]]
+					assert(
+						selected == (TABLE_RANGE_TO - TABLE_RANGE_FROM + 1),
+						`[perf lab] the range selection spanning unmounted rows selected {selected}, `
+							.. `expected {TABLE_RANGE_TO - TABLE_RANGE_FROM + 1}`
+					)
+					assert(
+						reveals == reps and moves == reps,
+						`[perf lab] the verbs did not all land: {reveals}/{reps} reveals, {moves}/{reps} moves — `
+							.. "a refused verb reports as a very fast one"
+					)
+
+					local idleB = sampleIdle(20)
+					local final = tbl.dump()
+					local a1, a2 = summarize(idleA), summarize(idleB)
+					return {
+						rows = TABLE_ROWS,
+						frames = frames,
+						reps = reps,
+						-- READ THIS FIRST: nothing below is a result at a smaller size
+						harnessSpreadMs = if a1.measured and a2.measured then math.abs(a1.p50_ms - a2.p50_ms) else 0,
+						idleMs = a1,
+						idleRepeatMs = a2,
+						scrollStepMs = summarize(steps),
+						mountedRows = final.windowRows,
+						contentExtent = final.contentExtent,
+						selectedRows = selected,
+						recycling = recycling(),
+						revealFar = reveal,
+						selectRange = range,
+						moveFar = move,
+						note = "one container doing all three at once: 2 000 rows windowed, a 201-row range "
+							.. "selected across rows no window has held, and a move of row 1500. Hosted row "
+							.. "actions are ABSENT because newTable refuses them beside `virtualized` (v1). "
+							.. "Each verb reports the arranges it provoked, so a verb that is cheap and a verb "
+							.. "that did nothing are distinguishable. Lune = regression signal, this lab = real "
+							.. "engine, device = the only device claim.",
+					}
+				end)
+				finish()
+				if not ok then
+					error(result, 0)
+				end
+				return result
+			end)
+		end
+
 		passes.updateOne = function(payload: string?)
 			return timed("updateOne", function()
 				local count = tonumber(payload or "") or 60
@@ -1660,17 +2402,11 @@ return {
 					pass drives on purpose, and the residual arranges are the
 					structural re-solve the windowed list legitimately owes).
 
-					`scopes.byScope` is nil-safe rather than asserted: a capture taken
-					with `cleanCapture` deliberately turns scopes OFF, and a pass that
-					threw in that configuration would break the one measurement the
-					clean capture exists to take. ]]
-				local function scopeCount(key: string): number
-					local ok, counters = pcall(profile.counters)
-					if not ok or counters == nil or counters.byScope == nil then
-						return 0
-					end
-					return (counters.byScope :: any)[key] or 0
-				end
+					`scopeCount` (declared beside `summarize`, shared with the
+					collection passes) is nil-safe rather than asserted: a capture
+					taken with `cleanCapture` deliberately turns scopes OFF, and a
+					pass that threw in that configuration would break the one
+					measurement the clean capture exists to take. ]]
 				local reactAtStart, arrangeAtStart = scopeCount("react"), scopeCount("arrange")
 
 				for i = 1, steps do

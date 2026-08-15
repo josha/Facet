@@ -438,7 +438,13 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		-- TWELVE since sensory-cascade joined (director ask 2026-08-13): what the
 		-- per-control feedback cascade costs a tree that declares nothing, which is
 		-- the number that decides whether a feature nobody uses charges every screen.
-		expect(#declared.order).toBe(12)
+		-- FOURTEEN since the round-3 collection work got its own rows (2026-08-14):
+		-- `variable-extents` (the running-offset index against the uniform arithmetic
+		-- it replaces) and `table-unified` (`newTable{ virtualized = true }` carrying
+		-- windowing, multi-selection and reordering at once). Both were unmeasurable
+		-- before — every other workload windows by ONE number and none of them touches
+		-- `newTable` at all.
+		expect(#declared.order).toBe(14)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
 				-- `pass` refuses an unknown name, so an unimplemented pass in a

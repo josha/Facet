@@ -2415,3 +2415,229 @@ was checked for a marker committed minutes earlier (`core:settle` present,
 today's code rather than about the built place. `renderer.luau` read 238,180
 against 242,954 on disk — stale, exactly as the >=200,000 write cap predicts, and
 a reminder that the three remaining over-cap modules cannot be measured this way.
+
+---
+
+## L-33 — the lab learns to see round 3's collection work, and what it costs
+
+**Date:** 2026-08-14 · **Evidence tier: 2 — Studio, the real Roblox engine**
+(live `screen_target` adapter painting real Instances, Play session, the lab's own
+bootstrap). No device claim is made anywhere in this entry; the device note at the
+bottom is what turns any of it into tier 3.
+
+Round 3 shipped two things this lab could not see. Every workload above this entry
+windows by ONE number (`index x pitch`) and not one of them touches `newTable` at
+all, so **`src/virtual_extents.luau` and `newTable{ virtualized = true }` shipped
+with no perf row.** Two new workloads close that, and both mount their own surfaces
+— so no existing number moved and nothing was re-based.
+
+`SCENARIO_VERSION` is `perf-scenarios/5`; `dataset.VERSION` and `rows.VERSION` are
+UNCHANGED, which is the statement that every pre-existing capture is still
+comparable.
+
+### `variable-extents` — four arms, and the middle one is the point
+
+| arm | `itemExtent` | what it isolates |
+|---|---|---|
+| A uniform | a number | the pre-feature arithmetic |
+| A' uniform | a number | **the same arm again — the control band** |
+| B variable, FLAT | a function returning the SAME px | the prefix-sum machinery with the feature's benefit subtracted out |
+| C variable, RAGGED | 1..4 text lines per row | the feature |
+
+Every arm asserts `dump().itemExtentMode` before it measures. `itemExtent` accepts
+a number, a `Readable` AND a function and only the third switches arithmetic, so an
+A/B whose four arms silently ran one code path is exactly one typo away.
+
+**The control, before any delta** — 2 000 rows, 40 edits, 60 scroll frames, flat:
+
+| | A | A' | **spread** |
+|---|---:|---:|---:|
+| scroll step p50 | 0.2878 ms | 0.2850 ms | **0.0028 ms (1.0 %)** |
+| grow-edit p50 | 3.589 ms | 3.653 ms | **0.0640 ms (1.8 %)** |
+
+**The first cut of this pass hard-coded n = 8 and its grow-edit control band was
+0.49 ms against a ~2.5 ms number — 20 %, larger than the effect being looked for.**
+Raising n to 40 cut the band 7.7x. Both new passes therefore take `frames/reps`,
+because an operator who cannot raise n cannot get out of that hole and a device is
+noisier than a desktop, not quieter.
+
+**The result:**
+
+| | A/A' mean | B variable-FLAT | delta | vs band |
+|---|---:|---:|---:|---:|
+| scroll step p50 | 0.2864 ms | 0.2800 ms | −0.0064 ms | 2.3x — no cost |
+| same-count edit p50 | 3.043 ms | 3.212 ms | **+0.169 ms (+5.5 %)** | 2.6x |
+| grow edit p50 | 3.621 ms | 3.738 ms | **+0.117 ms (+3.2 %)** | 1.8x |
+| **arranges per grow edit** | **1.00** | **1.00** | **0** | — |
+
+**The running-offset index costs nothing measurable on a scroll frame, ~0.12 ms to
+BUILD over 2 000 rows, ~0.17 ms to WALK on an edit that rebuilds nothing, and it
+adds ZERO extra solves.** The two edit numbers are the two halves the pass separates
+on purpose: `sameCountEditMs` leaves every extent where it was, so the index cache
+hits and only the O(N) extent walk runs; `growEditMs` appends a row, which misses
+the cache by construction and is therefore walk + prefix-sum build.
+
+Arm C is reported but is **not** a like-for-like: ragged rows are taller, so it
+windows 19 rows against 33 and spans 104 040 px of canvas against 48 960. Its
+cheaper scroll step (0.218 ms) is less work, not faster work, and the entry says so
+rather than banking it.
+
+### `table-unified` — virtualization + multi-selection + reordering in one container
+
+2 000 rows, three columns, headerless, `selection = "multi"`, `reorderable = true`,
+25 rows in the tree. **Hosted row actions are absent and that is a verified refusal,
+not an omission:** `newTable` rejects `virtualized` beside `rowActions` at
+construction (v1) because Table WRAPS each actionable row, which is the one thing a
+windowed canvas cannot host. "Virtualization + reordering + selection + hosted row
+actions at once" is not a workload that can be built today.
+
+**The control, before any delta** (A/B/A over `recycle`, three consecutive runs,
+24 reps each):
+
+| | ON #1 | ON #2 | **spread** |
+|---|---:|---:|---:|
+| `revealRow` p50 | 10.838 ms | 10.786 ms | **0.052 ms (0.5 %)** |
+| `moveRow` p50 | 5.560 ms | 5.905 ms | 0.345 ms (6.0 %) |
+| range-select p50 | 0.755 ms | 0.801 ms | 0.046 ms (5.9 %) |
+| scroll step p50 | 0.450 ms | 0.508 ms | 0.058 ms (12.1 %) |
+
+**What the container costs** (recycle ON, the shipped default):
+
+| verb | p50 | p95 | arranges/rep |
+|---|---:|---:|---:|
+| scroll step (steady, 40 px/frame) | 0.450 ms | — | — |
+| **`select` × 2, a 201-row range spanning ~180 unmounted rows** | **0.755 ms** | 1.66 ms | **0.00** |
+| `moveRow` on a row no window holds | 5.560 ms | 10.7 ms | 1.17 |
+| **`revealRow` on a row no window holds** | **10.838 ms** | 13.9 ms | 1.25 |
+
+**A 201-row range selection across the window costs 0.76 ms and provokes ZERO
+solves.** That is the unified container's central claim measured rather than
+asserted: selection is MODEL state and only the mounting is windowed.
+
+### The top cost is a seek, and it is NOT a framework defect — the Table beats the list at it
+
+`revealRow` at 10.8 ms is 24x a scroll frame, so it was the obvious suspect. It is
+a **full window replacement**: revealing row 120 from row 1500 unmounts 25 rows and
+mounts 25 more, which is L-3's seek-versus-steady distinction one control over.
+
+The comparison that settles it, same session, same 2 000 rows, same engine:
+
+| | mounted rows | worst step (frame wait excluded) |
+|---|---:|---:|
+| `newVirtualList` `scrollSeek` (dense-scroll) | 14 | **23.66 ms** |
+| `newTable{ virtualized }` `revealRow` | **25** | **13.10 ms** |
+
+**The virtualized Table replaces a LARGER window, with three columns per row, for
+about half the worst-case cost of the list's equivalent seek.** There is no
+disproportion to fix here.
+
+### Where the frame actually goes — MicroProfiler, via LibMP
+
+Taken programmatically (`LibMP.Control:CaptureToBufferSync` → `Session.OpenFromBuffer`
+→ log iterator with frame-local attribution), 127 frames of one `tableUnified` pass,
+2 333 ms of wall. Shares are of summed per-frame CPU tick span; scopes on several
+threads sum above 100 %, so read the RANK, not the total.
+
+| scope | % frame | n | ticks/occ |
+|---|---:|---:|---:|
+| `LuauUI/present` (inclusive) | 24.04 % | 254 | 48 073 |
+| **`LuauUI/mount`** (structuralSync) | **8.47 %** | 45 | **95 566** |
+| `$newindex` (engine property writes) | **6.74 %** | **79 538** | 43 |
+| `LuauUI/arrange` | 5.99 % | 70 | 43 478 |
+| `LuauUI/react` | 3.92 % | 168 | 11 844 |
+| `LuauUI/measure` | 2.05 % | 70 | 14 855 |
+| `LuauUI/commit` | 1.89 % | 140 | 6 861 |
+| `LuauUI/focusmap` | 1.04 % | 508 | **1 041** |
+
+`Sleep` at 1 138 % across threads says this session is nowhere near CPU-bound, so
+these are shares of a frame with room in it.
+
+Two things to keep:
+
+* **`LuauUI/mount` is the largest LuauUI scope by far per occurrence — 2.2x an
+  `arrange`** — which is the same ranking the lab's own `profile.setHooks`
+  instrument produced independently (4.57 ms/mount against 1.63 ms/arrange, from a
+  reps=1 vs reps=41 differential over the same pass). Two instruments, one answer.
+* **`$newindex` is 79 538 property writes in 127 frames — 626 per frame — and it
+  costs MORE of the frame than `arrange` does.** The framework's own phase scopes
+  cannot see one byte of that; it is exactly the blind spot LibMP was worth
+  reaching for.
+* `focusmap` at 1 041 ticks/occurrence and 1.04 % of frame: L-27's `structureEpoch`
+  cache still holds on a container that restructures constantly.
+
+### Instance recycling eliminates 24 % of creates on this container and buys 1.7 %
+
+Measured directly, with the MECHANISM rather than a black-box A/B — `tableUnified`
+now reports `controller.stats()`'s park/refuse/recycle counters, because a selector
+whose effect is invisible is a selector nobody can trust.
+
+| | recycle ON | recycle OFF |
+|---|---:|---:|
+| `creates` | **5 173** | 6 821 |
+| `recycled` (creates served from the pool) | **1 648 (24 %)** | 0 |
+| `parked` / `parkRefused` | 1 712 / **2 575 (60 % refused)** | 0 / 0 |
+| `revealRow` p50 | 10.786–10.838 ms | 11.011 ms |
+| `moveRow` p50 | 5.560–5.905 ms | 5.681 ms (**inside the band**) |
+| scroll step p50 | 0.450–0.508 ms | 0.485 ms (**inside the band**) |
+
+**Recycling removes a QUARTER of all Instance creates and moves the reveal by
+1.7 %.** Only `revealRow` clears its 0.5 % control band at all; `moveRow`, the range
+select and the scroll step all sit inside theirs.
+
+That is the useful, quotable finding, and it is a caution as much as a result:
+**Instance materialisation is not the lever for a windowed Table.** L-9-through-L-28
+established creation as the dominant cost on a flat `newVirtualList` (recycling is
+worth −32 % there); on a three-column windowed Table it is worth under 2 %, and the
+frame has moved to the solve and to the 626 property writes `$newindex` counts.
+**60 % of park attempts are refused** — a named, mechanism-level lever if anyone
+wants to raise the 24 %, but on this measurement it would be chasing under 2 %.
+
+### Traps and method notes worth keeping
+
+* **`lune run tools/lune/studio_sync` has a `perf` argument and the default is the
+  GALLERY tree.** Running the default and injecting it into the performance place
+  overwrote `ReplicatedStorage.LuauUIScenarios` with the gallery registry and added
+  a second `StarterPlayerScripts` bootstrap, so Play booted the SHOWCASE. The
+  symptom was `LuauUI_PerfLabReady = nil` and a console line reading
+  `[LuauUI Gallery]`. Both trees mount at the same path, which the tool's own header
+  says; the injector cannot detect the mix-up because every write it makes succeeds.
+  **Check the console banner names the place you think you are in** before trusting
+  any number out of it.
+* **A second sync server cannot share the port.** `PORT` is a constant, so a perf
+  inject while a gallery server is already serving 8642 needs a copy with a
+  different port rather than killing the running one out from under whoever started
+  it.
+* **`FetchTimerDesc(...).TimerName`, not `.Name`** — the skill's example says `Name`
+  and the field does not exist, so every scope in the first capture read as `idN`.
+* **LibMP timestamps are raw ticks with no published frequency.** `FetchGeneralInfo`
+  carries none and `FetchUtcTimestampSamples` returned a single sample. Calibrating
+  against wall time is unreliable because the 256-frame ring holds frames older than
+  the window being timed. **Report shares of summed frame span, which are exact and
+  unit-free, and take absolute ms from the pass's own clock.**
+* **The active Studio instance can be re-elected under you.** Mid-session the MCP
+  switched to `LuauUI-Showcase.rbxl`; the giveaway was a `Client datamodel is not
+  available in Edit mode` error followed by another agent's console output.
+  `set_active_studio` before any measurement, not once at the start.
+* **Probe hygiene, verified in the same call:** after both passes,
+  `mountedRows = 0`, PlayerGui holds only `LuauUI_PerfLabOverlay`, `guiObjects = 42`
+  in one ScreenGui, and the core reports 5 scopes / 36 signals / 28 memos after
+  seven pass runs. Both passes tear down inside `pcall` + `finish()` so the error
+  path drops the surface too.
+
+### Taking this to a device
+
+`docs/handoff/2026-08-14-device-capture-collections.md`.
+
+### Residuals
+
+1. **`parkRefused` at 60 %** on a windowed Table. Raising the 24 % recycle rate is a
+   real lever on Instance creates and, on this measurement, worth under 2 % of the
+   verb. Named, not built.
+2. **`$newindex` at 626 property writes per frame** is now larger than `arrange` in
+   the capture and is invisible to every framework scope. Nothing here says how many
+   of those writes are redundant — the property diff (L-18) exists and its coverage
+   on this path has not been measured. That is the next honest question.
+3. **A device capture is owed** before any number in this entry is quoted as a device
+   claim, and specifically before the −32 %-versus-1.7 % recycling contrast is
+   generalised: a handset's Instance-creation cost relative to its solve cost is not
+   this laptop's.
