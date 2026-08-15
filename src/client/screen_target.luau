@@ -46,6 +46,9 @@ local screen_paint = require("./screen_paint")
 -- the presentation channel (ADR-0022 Decision 2) and the clip-host record it
 -- composes against — see that module's header for why the seam is here
 local screen_presentation = require("./screen_presentation")
+-- the pointer seam: the one activate meta, the global capture, the semantic
+-- cursor and the connection census that reports what they hold
+local screen_pointer = require("./screen_pointer")
 local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
 -- the PURE rulings the UI.Stage content seam is made of (camera/lighting shapes,
@@ -679,18 +682,6 @@ function screen_target.new(opts: Opts?)
 		for handle, profile in focusedHandles do
 			adapter.setFocusVisual(handle, true, profile)
 		end
-	end
-
-	-- semantic cursor requests (ADR-0008): the framework names an intent
-	-- ("colResize"); this table maps it to uploaded cursor art. No first-party
-	-- cursor set exists — assets are a rider; an unmapped hint keeps the
-	-- default arrow but the seam (hover + capture persistence) is live.
-	local CURSOR_ART: { [string]: string } = {}
-	local hoverHint: string? = nil
-	local captureHint: string? = nil
-	local function applyCursor()
-		local hint = captureHint or hoverHint
-		UserInputService.MouseIcon = (hint and CURSOR_ART[hint]) or ""
 	end
 
 	local COLOR = {
@@ -1422,9 +1413,9 @@ function screen_target.new(opts: Opts?)
 		carry-the-pointer-kind.md`). Controls read `meta == nil` as "no input facts
 		at all", which is the touch branch — and since parity round 2 that branch
 		OPENS a Table row that declares `onPrimaryAction` rather than selecting it.
-		A real press always carries a full meta now (`pointerActivateMeta` above,
-		for both producers), so passing none here is a deliberately underspecified
-		call and gets the bare-mount answer. Drive the mouse semantics explicitly
+		A real press always carries a full meta now (`pointerActivateMeta`, in
+		`screen_pointer`, for both producers), so passing none here is a
+		deliberately underspecified call and gets the bare-mount answer. Drive the mouse semantics explicitly
 		with `{ source = "pointer", pointer = "mouse" }`.
 	]]
 	function adapter.driveActivate(path: string, meta: any?): boolean
@@ -1808,375 +1799,27 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
-	--[[ THE ONE ACTIVATE META, built in ONE place ─────────────────────────────
-		activate meta: pointer kind + held modifiers, so list semantics
-		(replace/toggle/range vs touch additive) resolve per device (ADR-0008).
-
-		SHARED, since 2026-08-13, with the minimum-target hit expander below, and
-		sharing it IS the fix for a HIGH defect (redteam item 2; the lesson
-		`docs/lessons/a-synthesized-activate-must-carry-the-pointer-kind.md`, which
-		this closes). The expander is a second real `GuiButton` whose `Activated`
-		carries its own `InputObject` — it always knew the pointer kind — but it
-		sent `{ source = "hitExpander" }` and nothing else. A meta that EXISTS but
-		is silent satisfies neither half of a control's `meta == nil or
-		meta.pointer == "touch"` test, so every finger landing in a short row's
-		44px overhang was answered as a MOUSE CLICK: measured on an edit-mode
-		multi-select Table, three taps built a three-row selection and one tap in
-		the overhang REPLACE-selected and discarded it, and two overhang taps
-		inside the double-click window opened the row — handing a phone a
-		double-tap-to-open for a verb the gesture HIG reserves for zoom. The
-		expander is not a different KIND of activation, it is the same control
-		being pressed, so it now owes and sends the identical meta ("an adapter
-		that synthesizes an activate owes the same meta a real one carries").
-		`source = "hitExpander"` is retired rather than kept alongside: `source`
-		is the field controls read to tell a POINTER press from a DEVICE Activate
-		(`meta.source == "action"`), a third value means neither to every one of
-		them, and nothing in the framework or the games ever read it. ]]
-	local function pointerActivateMeta(inputObject: InputObject?): any
-		local userInputType = inputObject and inputObject.UserInputType
-		local pointer = "mouse"
-		if userInputType == Enum.UserInputType.Touch then
-			pointer = "touch"
-		elseif userInputType ~= nil and string.find(tostring(userInputType), "Gamepad") ~= nil then
-			pointer = "gamepad"
-		elseif userInputType == Enum.UserInputType.Keyboard then
-			-- NOT A POINTER AT ALL (roadmap Step 8). The engine fires the
-			-- SELECTED GuiButton's Activated for a keyboard press too, and
-			-- that arrived here classified as a mouse click — so the one
-			-- signal that identifies an engine-selection echo of an IAS
-			-- Activate was indistinguishable from a real click. Naming it
-			-- is what lets the presenter collapse the pair and nothing else
-			-- (see dispatchActivate).
-			pointer = "keyboard"
-		end
-		local function down(keyCode: Enum.KeyCode): boolean
-			return UserInputService:IsKeyDown(keyCode)
-		end
-		-- window-space tap position rides the meta so the presenter can run
-		-- the modal Zone-A geometry (a scrim/catcher tap; modal-dismissal
-		-- spec §3.2). InputObject.Position is inset-subtracted gui space
-		-- (this ScreenGui renders IgnoreGuiInset), so add the inset.
-		local tapPos = inputObject and inputObject.Position
-		local guiInset = GuiService:GetGuiInset()
-		return {
-			source = "pointer",
-			pointer = pointer,
-			x = if tapPos ~= nil then tapPos.X + guiInset.X else nil,
-			y = if tapPos ~= nil then tapPos.Y + guiInset.Y else nil,
-			shift = down(Enum.KeyCode.LeftShift) or down(Enum.KeyCode.RightShift),
-			toggle = down(Enum.KeyCode.LeftControl)
-				or down(Enum.KeyCode.RightControl)
-				or down(Enum.KeyCode.LeftMeta)
-				or down(Enum.KeyCode.RightMeta),
-		}
-	end
-
-	function adapter.setActivateHandler(handle: any, fn: (meta: any?) -> ())
-		local instance = handle.instance
-		-- kept on the handle so the effective-target hit expander (B-BTN3) can
-		-- forward to the SAME activation path rather than becoming a second one
-		handle.activate = fn
-		if instance:IsA("GuiButton") then
-			handle.activatedConn = instance.Activated:Connect(function(inputObject: InputObject)
-				fn(pointerActivateMeta(inputObject))
-			end)
-		end
-	end
-
-	-- pointer capture (ADR-0008): down on the zone captures; global move/up
-	-- route to it until release, and the zone's cursor hint stays applied
-	local activeCapture: any = nil
-	local function endCapture(cancelReason: string?)
-		if activeCapture == nil then
-			return
-		end
-		local captured = activeCapture
-		if cancelReason ~= nil and captured.handle.pointer and captured.handle.pointer.cancel then
-			local keep = captured.handle.pointer.cancel(cancelReason)
-			if keep == true and cancelReason == "removed" then
-				-- a drag-owned LIFT unmounted its own origin row: the capture
-				-- (global UIS connections + closured handlers) stays alive so
-				-- the drag can finish (ADR-0008)
-				return
-			end
-		end
-		for _, connection in captured.connections do
-			connection:Disconnect()
-		end
-		activeCapture = nil
-		captureHint = nil
-		applyCursor()
-	end
-
-	-- Escape opens the Roblox CoreGui menu and CANNOT be intercepted (engine
-	-- truth D1: the key is permanently core-reserved). The next best drag UX
-	-- (director round 2): the moment the menu opens, ANY live pointer capture
-	-- aborts — no stuck drags behind the menu. Adapter-level: every draggable
-	-- gets this, not just tables. Disconnected on destroyRoot.
-	local menuConn = GuiService.MenuOpened:Connect(function()
-		endCapture("interrupted")
-	end)
-
-	-- ENGINE TRUTH (verified live 2026-07-19): InputObject.Position is in the
-	-- inset-subtracted gui space (topbar excluded) while this adapter renders
-	-- with IgnoreGuiInset=true, whose AbsolutePositions are window space — so
-	-- pointer positions must add the gui inset before reaching drag math,
-	-- which compares against solver rects (window space).
-	local function toWindowSpace(
-		position: Vector3,
-		pointerType: string?
-	): { x: number, y: number, pointerType: string? }
-		local inset = GuiService:GetGuiInset()
-		return { x = position.X + inset.X, y = position.Y + inset.Y, pointerType = pointerType }
-	end
-	local function pointerTypeOf(inputObject: InputObject): string
-		return if inputObject.UserInputType == Enum.UserInputType.Touch then "touch" else "mouse"
-	end
-
-	-- ENGINE CONNECTION CENSUS (roadmap Step 4, metric M4). Read-only.
+	-- ===== THE POINTER SEAM (src/client/screen_pointer) ==================
 	--
-	-- The slot list is derived from the REAL assignment sites, not invented: the
-	-- first version of this function counted four names that exist nowhere in
-	-- the repository (they were permanently 0) while missing nine connections
-	-- that do exist — a census that could only ever undercount, reported as if
-	-- it were complete. The platform review caught it; the list below is grepped
-	-- from `handle.<name>Conn* = ...:Connect(` in this file and screen_chrome.
+	-- The one activate meta, the global pointer capture, the semantic cursor and
+	-- the engine connection census. The module carries the whole press story and
+	-- the two rulings behind it (one meta from two producers; one capture body for
+	-- a control and for its minimum-target expander).
 	--
-	-- What it counts: adapter-held RBXScriptConnections reachable from a handle.
-	-- What it does NOT count, and says so: connections held in closures rather
-	-- than on a handle (the pointer-capture list, UIDragDetector handlers, touch
-	-- gesture handlers and the scroll-position observer all return a detach
-	-- function and keep their connections captured), and anything the engine
-	-- allocates internally, which no script can see.
-	local CENSUS_SLOTS = {
-		"activatedConn",
-		"pointerBeganConn",
-		"hitExpanderPointerConn",
-		"hoverEnterConn",
-		"hoverLeaveConn",
-		"hoverStateConn",
-		"discloseEnterConn",
-		"discloseLeaveConn",
-		"discloseTouchConn",
-		"scrollConn",
-		"textChangedConn",
-		"focusedConn",
-		"focusLostConn",
-		"oskReturnConn",
-		"chromeOverrideConn",
-		"barConn",
-		"barWindowConn",
-		-- a LIST of connections rather than one (screen_chrome's text lift)
-		"chromeTextConns",
-	}
-	function adapter.connectionCensus(): any
-		local perSlot: { [string]: number } = {}
-		for _, slot in CENSUS_SLOTS do
-			perSlot[slot] = 0
-		end
-		local nodes = 0
-		for _, handle in handlesByPath do
-			nodes += 1
-			for _, slot in CENSUS_SLOTS do
-				local v = (handle :: any)[slot]
-				if type(v) == "table" then
-					perSlot[slot] += #v
-				elseif v ~= nil then
-					perSlot[slot] += 1
-				end
-			end
-		end
-		local handleTotal = 0
-		for _, n in perSlot do
-			handleTotal += n
-		end
-		-- the adapter's own always-on connection, counted by LIVENESS rather
-		-- than as a constant 1
-		local global = if menuConn ~= nil and menuConn.Connected then 1 else 0
-		local captureHeld = 0
-		if activeCapture ~= nil and activeCapture.connections ~= nil then
-			captureHeld = #activeCapture.connections
-		end
-		return {
-			nodes = nodes,
-			perSlot = perSlot,
-			handleTotal = handleTotal,
-			global = global,
-			captureHeld = captureHeld,
-			total = handleTotal + global + captureHeld,
-			excluded = {
-				"connections captured in closures rather than stored on a handle: UIDragDetector "
-					.. "(setDragDetector), touch gestures (setTouchGestureHandlers) and the CanvasPosition "
-					.. "observer (observeScroll) each return a detach function and hold their connection there",
-				"anything the engine allocates internally, which is not observable from script",
-			},
-			note = "adapter-held RBXScriptConnections reachable from a handle, plus the live global and any "
-				.. "in-flight pointer capture. An undercount by construction, and the exclusions are listed "
-				.. "rather than implied.",
-		}
-	end
-
-	--[[ WHAT A PRESS ON A POINTER ZONE STARTS, IN ONE BODY, FOR BOTH SURFACES THAT
-		CAN RECEIVE IT (director ruling, 2026-08-14; the lesson
-		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`).
-
-		A control whose solved rect is under its contract's `minHitSize` gets a
-		second real `TextButton` from `setHitRect` — the `LuauUIHitExpander`, a
-		sibling at `host.z - 1`. Until now that button was wired to `handle.activate`
-		ALONE, and `activate` is assigned for TAPPABLE classes only (Button, Toggle,
-		TextField). A `Grip` is a POINTER ZONE, not a tappable, so its expander was a
-		GuiButton that SANK `InputBegan` and forwarded nothing — and a GuiButton sinks
-		it for everything underneath too (`docs/lessons/a-button-eats-the-swipe-
-		underneath-it.md`).
-
-		Measured live on the Table's 8x28 resize divider: a click in the 26px band the
-		expander covers did NOTHING, while the same click clear of it cycled the sort.
-		And the floor bought the grip nothing either — the expander sits BEHIND the
-		control, so it never widened the draggable band: the resize target stayed
-		8x28 = 224px^2 against the 1936px^2 a finger needs.
-
-		So the expander runs the host's gesture as well, and it is the SAME body
-		extracted rather than a second copy: the expander's whole contract is "a press
-		here is a press on the host", and two spellings of what a press starts is
-		exactly how the two surfaces come to disagree. The tap half of the repair is
-		the control's — a zone that decides the press was not its gesture forwards it
-		on through `controller.tapAt` (row_actions' ruling 6 machinery, reused). ]]
-	local function beginPointerCapture(handle: any, handlers: any, inputObject: InputObject)
-		if
-			inputObject.UserInputType ~= Enum.UserInputType.MouseButton1
-			and inputObject.UserInputType ~= Enum.UserInputType.Touch
-		then
-			return
-		end
-		-- a live capture OWNS the pointer until it ends: crossing another
-		-- pointer zone mid-drag fires that zone's InputBegan, which used
-		-- to silently kill the capture (no cancel reason -> stuck ghost,
-		-- no drop commit; live-found in the playlist place 2026-07-20)
-		if activeCapture ~= nil then
-			-- REDTEAM FIX (item 14, LOW). `destroyRoot`'s own
-			-- capture-cancel (below) only ever fires for a capture
-			-- belonging to the ROOT being destroyed — correct for a
-			-- whole-root teardown, but a captured node that dies
-			-- through some OTHER path (a single-row removal that
-			-- destroys its own Instance directly, say) leaves
-			-- `activeCapture` pointing at a destroyed instance
-			-- forever: a destroyed instance has no parent chain at
-			-- all, so `IsDescendantOf` is false against EVERY root —
-			-- no `destroyRoot` call, on ANY root, ever reaches it.
-			-- The adapter's single capture slot then blocks every
-			-- future press permanently (the comment above: "a live
-			-- capture OWNS the pointer... never a steal") — a
-			-- genuine adapter-wide input death. A pcall-guarded
-			-- liveness check (per code review) treats a capture
-			-- whose own instance is no longer part of the live tree
-			-- at all as already-ended, cleaning it up here instead
-			-- of leaving it to never end.
-			local ok, stillLive = pcall(function()
-				return (activeCapture.handle.instance :: Instance):IsDescendantOf(game)
-			end)
-			if ok and stillLive then
-				return
-			end
-			endCapture("destroyed")
-		end
-		local connections = {}
-		activeCapture = { handle = handle, connections = connections }
-		captureHint = handle.cursorHint
-		applyCursor()
-		table.insert(
-			connections,
-			UserInputService.InputChanged:Connect(function(moveObject: InputObject)
-				if
-					moveObject.UserInputType == Enum.UserInputType.MouseMovement
-					or moveObject.UserInputType == Enum.UserInputType.Touch
-				then
-					if handlers.move then
-						handlers.move(
-							toWindowSpace(
-								moveObject.Position,
-								if moveObject.UserInputType == Enum.UserInputType.Touch then "touch" else "mouse"
-							)
-						)
-					end
-				end
-			end)
-		)
-		table.insert(
-			connections,
-			UserInputService.InputEnded:Connect(function(endObject: InputObject)
-				if
-					endObject.UserInputType == Enum.UserInputType.MouseButton1
-					or endObject.UserInputType == Enum.UserInputType.Touch
-				then
-					if handlers.up then
-						handlers.up(toWindowSpace(endObject.Position, pointerTypeOf(endObject)))
-					end
-					endCapture()
-				end
-			end)
-		)
-		if handlers.down then
-			local claimed = handlers.down(toWindowSpace(inputObject.Position, pointerTypeOf(inputObject)))
-			-- a zone may DECLINE (return false): dissolve this capture so
-			-- the engine's next InputBegan (another zone under the same
-			-- point, e.g. the edit handle above a row body) can claim it
-			if claimed == false then
-				for _, connection in connections do
-					connection:Disconnect()
-				end
-				activeCapture = nil
-				captureHint = nil
-				applyCursor()
-			end
-		end
-	end
-
-	-- one wiring, used for the control's own instance and for its hit expander
-	local function connectPointerBegan(handle: any, instance: GuiObject, handlers: any): RBXScriptConnection
-		return instance.InputBegan:Connect(function(inputObject: InputObject)
-			beginPointerCapture(handle, handlers, inputObject)
-		end)
-	end
-
-	function adapter.setPointerHandlers(handle: any, handlers: any)
-		local instance = handle.instance
-		if not instance:IsA("GuiObject") then
-			return
-		end
-		handle.pointer = handlers
-		handle.pointerBeganConn = connectPointerBegan(handle, instance, handlers)
-		-- ORDER-INDEPENDENT: `setHitRect` may run before or after this (the renderer
-		-- pushes hit geometry from the solve, handlers from the structural sync), so
-		-- each side wires the expander if the other got there first.
-		if handle.hitExpander ~= nil and handle.hitExpanderPointerConn == nil then
-			handle.hitExpanderPointerConn = connectPointerBegan(handle, handle.hitExpander, handlers)
-		end
-		-- hover: request/clear the zone's semantic cursor
-		if handle.class == "Grip" then
-			handle.hoverEnterConn = instance.MouseEnter:Connect(function()
-				hoverHint = handle.cursorHint
-				applyCursor()
-			end)
-			handle.hoverLeaveConn = instance.MouseLeave:Connect(function()
-				hoverHint = nil
-				applyCursor()
-			end)
-		end
-	end
-
-	-- wheel scrolling (Phase 4 touch-scroll design): hover-wheel input on a
-	-- scroll container routes to the renderer-wired handler
-	function adapter.setScrollHandler(handle: any, fn: (number) -> ())
-		local instance = handle.instance
-		if not instance:IsA("GuiObject") then
-			return
-		end
-		handle.scrollConn = instance.InputChanged:Connect(function(inputObject: InputObject)
-			if inputObject.UserInputType == Enum.UserInputType.MouseWheel then
-				fn(inputObject.Position.Z)
-			end
-		end)
-	end
+	-- REBOUND TO THEIR ORIGINAL NAMES, so not one call site below this line moved.
+	-- The two that are not a rename — `capturedHandle`, `disposeGlobals` — exist
+	-- because `activeCapture` and the cursor hints are MUTABLE UPVALUES and cannot
+	-- be shared by reference the way a record table is.
+	local pointer = screen_pointer.new({ handlesByPath = handlesByPath })
+	adapter.setActivateHandler = pointer.setActivateHandler
+	adapter.setPointerHandlers = pointer.setPointerHandlers
+	adapter.setScrollHandler = pointer.setScrollHandler
+	adapter.connectionCensus = pointer.connectionCensus
+	local pointerActivateMeta = pointer.pointerActivateMeta
+	local connectPointerBegan = pointer.connectPointerBegan
+	local endCapture = pointer.endCapture
+	local capturedHandle = pointer.capturedHandle
+	local disposeGlobalPointerState = pointer.disposeGlobals
 
 	-- ===== THE SCROLL SUBSYSTEM (src/client/screen_scroll_indicators) =====
 	--
@@ -3618,7 +3261,7 @@ function screen_target.new(opts: Opts?)
 		if not parkEligible(handle) then
 			return false
 		end
-		if activeCapture ~= nil and activeCapture.handle == handle then
+		if capturedHandle() == handle then
 			return false
 		end
 		local path = handle.path
@@ -3785,7 +3428,7 @@ function screen_target.new(opts: Opts?)
 			handlesByPath[handle.path] = nil
 			return
 		end
-		if activeCapture ~= nil and activeCapture.handle == handle then
+		if capturedHandle() == handle then
 			-- never leave a global capture pointing at a dead node — unless
 			-- the drag itself removed it (lift) and asks to keep the capture
 			endCapture("removed")
@@ -3882,12 +3525,13 @@ function screen_target.new(opts: Opts?)
 		-- from under it, one frame into its drag). Release any cursor hint
 		-- regardless — a hint from a capture on another root would already
 		-- be stale as of this root's own teardown.
-		if activeCapture ~= nil and (activeCapture.handle.instance :: Instance):IsDescendantOf(rootHandle.gui) then
+		local captured = capturedHandle()
+		if captured ~= nil and (captured.instance :: Instance):IsDescendantOf(rootHandle.gui) then
 			endCapture("destroyed")
 		end
-		menuConn:Disconnect()
-		hoverHint = nil
-		applyCursor()
+		-- the menu connection and any leftover cursor hint are the POINTER seam's,
+		-- and they come down together
+		disposeGlobalPointerState()
 		for path, node in instancesByPath do
 			if node:IsDescendantOf(rootHandle.gui) then
 				instancesByPath[path] = nil

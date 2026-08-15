@@ -313,6 +313,70 @@ columns, a bare `UI.GridRow` still files its diagnostic (so the moved arrange
 branch really executes rather than dying nil inside a protected boundary), and a
 full mount through the presenter paints all three grid layouts with none.
 
+EIGHTH AND NINTH FILES, AND THE TWO SEAMS THE SECOND ROW LEFT ON THE TABLE:
+`src/client/screen_target.luau` a third time, 2026-08-15, 194,759 -> 167,749 in
+two commits. It was 5,241 chars from the cap — one honest comment — and the
+mission that split it last had NAMED both remaining seams and its reason for not
+taking them ("the paint bundle was already 17 ctx entries / 9 callbacks; the next
+one would have been larger for less. A bundle of twenty callbacks is a worse
+module than a big file"). That prediction turned out to be exactly backwards for
+these two, and the mechanised test is what showed it rather than a re-read.
+
+THE PRESENTATION CHANNEL (`src/client/screen_presentation.luau`, 19,088) declares
+five locals that something outside writes, and only TWO are real:
+`presentationCount` and `subtreeCache`. `presentationTransforms` and `clipHosts`
+are never reassigned, only mutated, so they go back to the host AS THEMSELVES and
+its reads are byte-identical; `path`, `expander` and `live` were the false
+positives this header's fourth row warned about. Its ctx is THREE entries and TWO
+callbacks (`handlesByPath`, `refitIconArt`, `ensureScale`), and it needed no
+accessors at all, because nothing in it reads a reassigned host local.
+
+THE POINTER SEAM (`src/client/screen_pointer.luau`, 20,445) is cheaper still: ONE
+ctx entry, `handlesByPath`, and ZERO callbacks. The cursor state
+(`CURSOR_ART`/`hoverHint`/`captureHint`/`applyCursor`) came with it rather than
+staying behind, because `captureHint` is written only from inside the capture and
+`hoverHint` only from the hover wiring — leaving them would have bought two
+accessors for state neither side shares.
+
+TWO EXPORTS PER MODULE ARE NOT A RENAME, and in both cases they are exactly the
+mutable upvalues, which is the shape this whole ratchet keeps arriving at.
+Presentation: `setTransform` (setProp's whole `transform` branch, the one writer
+of the count), `dropPath` (remove/destroyRoot's identical per-path teardown) and
+`invalidateSubtree` (the five structural-change sites). Pointer: `capturedHandle()`
+for the host's three reads of `activeCapture`, and `disposeGlobals()` for
+destroyRoot's menu-connection-plus-cursor teardown. Everything else is rebound to
+a local of its ORIGINAL name, so no call site below either seam moved.
+
+WHERE THIS STOPS, AND THE MEASURE IT STOPS ON. The callback bundle went 17 ctx /
+9 callbacks (paint, the row above) -> 3/2 -> 1/0. The next candidate reverses
+that: the FOCUS-VISUAL PAIR (`setFocusVisual` + `refreshFocusVisuals`, ~19,200,
+the largest remaining coherent block after `setProp` and `create`) READS all three
+of the host locals the theme install reassigns — `focusTreatment`, `activeTheme`
+and the theme snapshot — so it arrives needing screen_paint's three accessors plus
+`focusedHandles`, `chromeState`, `focusArtHost`, `hasUIShadow`, the palette and
+the paint-claim ledger. That is a paint-sized bundle for less code, at 32,251 of
+headroom. `setProp` (24,813) is the adapter's central switchboard and touches
+nearly every local in the closure; `create`/`buildHandle` (16,120) is the
+materializer and is where the class table, the elision rules, the clip-host
+parenting and the skinning handoff all meet. Neither is a seam, and the file is
+now 142 locals with 19 reassigned, most of those forward declarations.
+
+BOTH SPLITS WERE PROVED WITH A LIVE A/B, not a boot check, because the fake target
+never runs this file and a green headless suite proves nothing about it
+(docs/lessons/later-locals-are-not-upvalues.md). Each pre-split source was pushed
+to the open Showcase session by Rojo as a sibling module and loaded into a FRESH
+cloned library tree — require caches by Instance, so a Source write alone is
+invisible — then driven identically. Presentation: 51 rows, 0 differ, covering
+offset accumulation, the walk stopping at a clip host, the size half, Path2D
+control points, the centered pivot and shared UIScale, a node born inside a live
+transform, park/adopt/remove/destroyRoot. Pointer: 21 rows, 0 differ, under REAL
+synthesized input — a capture opening (captureHeld 0 -> 2), `park` refusing the
+captured node, `remove` cancelling with reason "removed", and `destroyRoot` taking
+the global connection 1 -> 0. ONE INSTRUMENT TRAP worth recording: the MCP's
+synthesized pointer arrives as TOUCH and does NOT drive `GuiButton.Activated`, so
+the activate half is proved by the connection census plus `driveActivate` rather
+than by a synthetic click.
+
 THE CEILINGS WERE SNAPSHOT 2026-08-14 during a ten-agent session with features
 still landing, so they are a high-water mark rather than a considered budget.
 Re-snapshot them once the wave lands: a ceiling set mid-churn that nobody

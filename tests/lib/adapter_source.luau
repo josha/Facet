@@ -14,13 +14,13 @@
 	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). screen_target
 	has been split along that pressure: the chrome/decoration materializer left
 	first (`screen_chrome`), then the scroll seam (`screen_scroll_indicators`),
-	the bespoke paint vocabulary (`screen_paint`) and the presentation channel
-	(`screen_presentation`).
+	the bespoke paint vocabulary (`screen_paint`), the presentation channel
+	(`screen_presentation`) and the pointer seam (`screen_pointer`).
 
 	WHAT `live()` IS, AND IS NOT. It is the adapter minus chrome. `screen_chrome`
 	left long enough ago that the specs which pin it read it explicitly by name;
 	folding it in here would silently change what every existing occurrence count
-	means. The three parts below are the ones a pin written against "the adapter"
+	means. The parts listed below are the ones a pin written against "the adapter"
 	expects to be looking at.
 
 	ADD A PART HERE WHENEVER MORE OF THE ADAPTER MOVES OUT — otherwise the pins
@@ -34,6 +34,7 @@ local PARTS = {
 	"src/client/screen_paint.luau",
 	"src/client/screen_scroll_indicators.luau",
 	"src/client/screen_presentation.luau",
+	"src/client/screen_pointer.luau",
 }
 
 local adapter_source = {}

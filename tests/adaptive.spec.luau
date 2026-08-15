@@ -901,7 +901,13 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		rather than a string in each producer, because a second copy of the meta
 		is exactly how this defect comes back. ]]
 	it("both activate producers build their meta through the one shared builder", function()
-		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- THE WHOLE ADAPTER, not one of its files: the builder and producer 1 went to
+		-- `screen_pointer` with the pointer seam when screen_target crossed the
+		-- 200_000-char Source cap, while producer 2 (the hit expander) stayed with
+		-- `setHitRect`. Reading the parts as one text is what makes "exactly one
+		-- builder" mean what it says — a copy in ANY part of the adapter now reddens
+		-- this, where a single-file read could only ever see one file's copies.
+		local source = adapter_source.live()
 		-- the builder exists, exactly once, and it classifies the pointer kind
 		local atBuilder = string.find(source, "local function pointerActivateMeta", 1, true)
 		expect(atBuilder ~= nil).toBe(true)
