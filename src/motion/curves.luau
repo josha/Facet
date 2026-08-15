@@ -8,10 +8,17 @@
 -- cooldown sweep, a bar that must empty as an audio cue lands, or a designer's
 -- "over 400 ms, quad ease-out" cannot be commanded. `clock:timer` and
 -- `clock:glide` already own DURATION — but both are strictly LINEAR, and the
--- shape between the two endpoints is the half that was missing. RascalRally is
--- the proof: `src/shared/CommitBeatModel.luau`'s ramp eases in on `p^1.6`, and
--- the LuauUI port had to FLATTEN it to a linear `clock:timer`
--- (`StoryFlow.luau:586`) because the framework had no curve to name.
+-- shape between the two endpoints is the half that was missing.
+--
+-- (A CLAIM THIS HEADER USED TO MAKE, WITHDRAWN 2026-08-15 by the RascalRally
+-- consumer rider: that the game's `CommitBeatModel` `p^1.6` ramp had been
+-- FLATTENED to a linear `clock:timer` in its LuauUI port for want of a curve.
+-- It had not. That exponent shapes a blink FREQUENCY, is integrated closed-form,
+-- and is called only by the legacy modules; the port's linear timer faithfully
+-- matches the linear plate ramp legacy actually paints, and the blink was removed
+-- by a director ruling rather than lost. No shipped consumer had a curve taken
+-- away from it. The primitive stands on what it makes possible — a duration that
+-- arrives on time — not on a regression that turned out not to exist.)
 --
 -- THE ENGINE OWNS THE CURVE (director ruling 2026-08-15, "use Roblox's animation
 -- system wherever possible"). `TweenService:GetValue(alpha, style, direction)` is

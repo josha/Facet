@@ -19,11 +19,31 @@ asymptotically: `response` is a feel dial and settle time is emergent, so "over
 exactly 400 ms, quad ease-out" is not expressible and a cooldown cannot be
 commanded to arrive on the beat.
 
-The consumer proof was already in the repo. RascalRally's
-`src/shared/CommitBeatModel.luau` ramps on `p^1.6` — an ease-in with a named
-exponent — and the LuauUI port had to **flatten it to a linear `clock:timer`**
-(`StoryFlow.luau:586`) for want of a curve to name. The port lost a curve the
-legacy layer still has.
+~~The consumer proof was already in the repo. RascalRally's
+`src/shared/CommitBeatModel.luau` ramps on `p^1.6` ... the LuauUI port had to
+flatten it to a linear `clock:timer`.~~
+
+**WITHDRAWN 2026-08-15, by the consumer rider this ADR commissioned.** The claim
+does not survive contact with the code, and it was the strongest argument in this
+section, so it is struck rather than quietly softened:
+
+* `TELL_RAMP_POWER = 1.6` shapes a blink **frequency** ramp
+  (`f(p) = SLOW + (FAST-SLOW)*p^1.6`, integrated closed-form), not a value over
+  time. **No curve primitive can express it** — an easing curve is
+  value-at-time.
+* Its only callers are the **legacy** modules. The LuauUI port never calls
+  `tellLit`/`tellPhaseCycles` at all.
+* The blink was removed by a **director ruling** (amendment A24, 2026-07-31 — "the
+  wind-up TELL is a PLATE ramp"), not lost to a missing primitive.
+* Legacy's own visible swell is **linear** in progress, and so is the port's
+  `TableMetrics.tellWash`. So `StoryFlow.luau:586`'s linear `clock:timer` is a
+  faithful match, not a flattening.
+
+**No shipped consumer had a curve taken away from it.** The primitive stands on
+what it makes possible — a duration that arrives on time, which no spring can
+promise — and that argument was always sufficient. Reaching for a regression that
+turned out not to exist made the case weaker, not stronger, and the correction is
+here so the next reader does not cite it.
 
 ## The question the director settled
 
@@ -43,10 +63,25 @@ Roblox's animation system is two separable things, and they answer differently.
 in, a number out, touching no `Instance`. That is the property that lets it drive
 a value LuauUI owns, and it is exactly the piece "time-based easing" means. It is
 therefore the production evaluator, installed onto the clock by
-`motion_driver.bind` — the one binding every Roblox client already makes — so
-**native is the default, not an opt-in a game forgets to wire**. `Enum.EasingStyle`
-defines the vocabulary; a style Roblox adds later is a line of data, not an
-implementation.
+`motion_driver.bind`, so a client that binds gets the engine's own easing with no
+wiring of its own. `Enum.EasingStyle` defines the vocabulary; a style Roblox adds
+later is a line of data, not an implementation.
+
+**AMENDED 2026-08-15.** This decision originally claimed native was "the default,
+not an opt-in a game forgets to wire". The consumer rider measured otherwise:
+**RascalRally requires `motion_driver` nowhere** — all four of its LuauUI surfaces
+hand-roll their own frame source (`LuauUISponsor/init.luau:1029` on `PreRender`;
+`LuauUIRacerListGui:72` and `GaragePilotGui:93` on `Heartbeat`). So on the one
+shipped consumer, a curve evaluates on the **pure twin**, and the claim was true
+of the binding rather than of the clients.
+
+It is benign — the twin is pinned to the engine at max |err| 4.73e-7, so nothing
+looks different — but it is exactly the gap to check first if a curve ever feels
+wrong on device, and "the default" was a claim about a bind that this consumer
+does not perform. Making native genuinely unconditional would mean installing the
+evaluator where the clock is BUILT rather than where it is driven; that is a
+change with its own tradeoff (the presenter is engine-free by contract) and is
+deliberately not made here.
 
 Cost, stated with its control first: A/A spread 3.8% across warm runs (the cold
 first run was 37% and is excluded as warm-up). ABBA over 200,000 calls: **58.6 ns

@@ -750,9 +750,13 @@ evaluated by the engine's own `TweenService:GetValue` and a pure twin, pinned to
 it by a differential oracle, serving the headless suite. Two findings worth
 carrying back into this document's own claims: the gap was never "no duration"
 (`timer` and `glide` both had one) but "no SHAPE" — both were strictly linear;
-and the consumer proof was already in-repo, since RascalRally's `p^1.6` ease-in
-had been flattened to a linear timer in its LuauUI port for want of a curve to
-name. The original reasoning below stands as written.
+and the "consumer proof" this note first claimed — that RascalRally's `p^1.6`
+ease-in had been flattened to a linear timer in its LuauUI port — **was withdrawn
+on the same day** by the consumer rider: that exponent shapes a blink FREQUENCY no
+easing curve can express, only legacy calls it, and the port's linear timer
+faithfully matches the linear ramp legacy actually paints (ADR-0033, "Context").
+No shipped consumer had a curve taken away from it; the primitive stands on the
+duration that arrives on time. The original reasoning below stands as written.
 
 It is the only row in §4 where a Fusion user
 moving to LuauUI loses a capability outright, it is the shape every design
