@@ -299,6 +299,32 @@ correct, it names its reason, and it points at the alternative that works today
 Lifting it is a mission, in this order. Each step is separately shippable and each
 one is worth having on its own:
 
+> **STATUS 2026-08-15.** Step 1 **DONE** (`536c6ca`) — `editing` is in `HOSTED_KEYS`,
+> the minus is one construction shared by both modes
+> (`row_actions_root.buildEditAffordance`), and the host gets `editAffordanceView` +
+> `editGutterPx`. The gutter is a **Readable, not the `onContentOffset` callback
+> sketched below**: the plan was written against an older shape, and the gutter
+> stopped being an offset at the director's 2026-08-12 device round (finding 2). One
+> ceiling is recorded at the seam as `ponytail:` — the view hangs off an ENGINE and
+> the minus is per-row, so a host showing it on every row while editing holds one
+> engine per such row (bounded by the window, paid only in an explicit modal state,
+> and exactly what Table's wrap mode pays unconditionally today).
+> Step 3 **MOSTLY DONE** (`824ab94`) — defects 2 and 3 fixed, defect 1 confirmed real
+> and correctly still deferred; see the sharpened ledger above.
+> Step 2 **NOT STARTED.** Step 4 **NOT STARTED** — and step 4 must not begin before
+> step 2, for the reason step 2 states: the flowing Table is where
+> `reorderable + rowActions` actually ships, on six named cases.
+>
+> **THE HEADROOM MOVED, and it moves step 2's home.** §"The cost, measured" priced
+> `row_actions.luau` implicitly and `table.luau` explicitly. Measured after step 1:
+> `row_actions.luau` **183,738 → 191,063** (+7,325 — the shared `editing` seam, its
+> two refusals and the ceiling note), leaving **8,937** against the 200,000 cap.
+> `table.luau` is unchanged at 184,531 (15,469 left) and `virtual_list.luau` at
+> 176,905 (23,095 left). So step 2's dispatcher-level arbiter should NOT land in
+> `row_actions.luau`: `row_actions_reorder.luau` (8,367) is the file that already
+> owns that policy and is the obvious home, and step 4's hosted Table still needs
+> its own module exactly as this plan said.
+
 1. **`editing` in hosted mode** — extend `buildHosted` to return an edit-affordance
    view the host parents (the `trayViews` shape) and an `onContentOffset` seam for
    the gutter. Removes `editing` from the refused-by-name list. Benefits
