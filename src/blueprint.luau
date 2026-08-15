@@ -466,6 +466,85 @@ local function isReadable(v: any): boolean
 end
 blueprint.isReadable = isReadable
 
+--[[ DETERMINISTIC DICTIONARY ITERATION (fusion-comparison.md §5 gap G-3).
+
+	`UI.ForEach` takes an ARRAY, so a consumer holding a dictionary flattens it
+	first — and the obvious flatten is wrong. Luau's `pairs` order is a function of
+	the table's hash layout, and the hash layout is a function of its CONSTRUCTION
+	HISTORY: measured 2026-08-15, four constructions of the same twelve-key map
+	iterate four different ways. The row order of a leaderboard would then depend
+	on the order the players happened to join. A framework that guarantees
+	deterministic dumps must not hand its consumers a one-liner that breaks
+	determinism inside their own screen, so the flatten ships here, once.
+
+	IT IS PURE, AND THAT IS THE WHOLE DESIGN. The gap note sketched it returning a
+	`Readable`, but building one would force the helper to take a core AND a scope
+	it has no other use for, to duplicate the `core:memo` a consumer already writes
+	for every derived value. Rung 4 of the simplicity ladder: the reactive half is
+	`core:memo(function(use) return UI.sortedEntries(use(scores)) end)`, which is
+	the idiom already in the file.
+
+	`compare` ORDERS KEYS, NOT ENTRIES, and that is a guarantee rather than an
+	omission. Keys are unique, so any strict order over them is a TOTAL order and
+	the result is deterministic whatever comparator arrives. Had it ordered
+	entries, a caller sorting a leaderboard by score would hit ties, `table.sort`
+	is not stable, and the tie order would fall back to the `pairs` order this
+	helper exists to remove — the same defect wearing the helper's name. To rank by
+	value, sort the returned array yourself with an explicit key tiebreak.
+
+	Not a blueprint class: the construction ladder's own question ("does it need
+	layout, paint or input semantics an existing class cannot compose?") says
+	helper. A `UI.ForPairs` would be a second structural region with the first
+	one's semantics. ]]
+-- numbers before strings, because `1 < "a"` is an ERROR in Luau rather than an
+-- order — a default of just `a < b` would throw on a mixed map instead of
+-- ordering it. Any type absent here has no default order and is refused below.
+local KEY_TYPE_RANK: { [string]: number } = { number = 1, string = 2 }
+
+local function defaultKeyOrder(a: any, b: any): boolean
+	local rankA, rankB = KEY_TYPE_RANK[type(a)], KEY_TYPE_RANK[type(b)]
+	if rankA ~= rankB then
+		return rankA < rankB
+	end
+	return a < b
+end
+
+export type Entry<K, V> = { key: K, value: V }
+
+function blueprint.sortedEntries<K, V>(dict: { [K]: V }, compare: ((a: K, b: K) -> boolean)?): { Entry<K, V> }
+	if type(dict) ~= "table" then
+		error(
+			`LuauUI sortedEntries: expected a dictionary table, got '{typeof(dict)}'. It flattens a map into the array UI.ForEach takes.`,
+			0
+		)
+	end
+	if compare ~= nil and type(compare) ~= "function" then
+		error(
+			`LuauUI sortedEntries: 'compare' must be a function (a: key, b: key) -> boolean, got '{typeof(compare)}'.`,
+			0
+		)
+	end
+	local entries: { Entry<K, V> } = {}
+	for key, value in dict do
+		if compare == nil and KEY_TYPE_RANK[type(key)] == nil then
+			-- REFUSED AT CONSTRUCTION, naming the alternative. Ordering these by
+			-- `tostring` would be ordering by ADDRESS, which is exactly the
+			-- run-to-run instability the helper exists to remove — a silent wrong
+			-- answer is worse here than a loud refusal.
+			error(
+				`LuauUI sortedEntries: a key of type '{typeof(key)}' has no default order — pass 'compare', e.g. sortedEntries(dict, function(a, b) return a.id < b.id end). It must be a strict order on KEYS; string and number keys are ordered for you.`,
+				0
+			)
+		end
+		table.insert(entries, { key = key, value = value })
+	end
+	local order = compare or defaultKeyOrder
+	table.sort(entries, function(a: Entry<K, V>, b: Entry<K, V>): boolean
+		return order(a.key, b.key)
+	end)
+	return entries
+end
+
 -- ===== strict construction (Milestone 0, investment 1) =====================
 -- Every public constructor funnels through make(). An unknown, wrongly-typed,
 -- missing-required, or diagnosed-unsupported property fails HERE, naming the

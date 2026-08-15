@@ -558,6 +558,40 @@ clamped to the line — and the solver says so on `controller.diagnostics()`, al
 with the case where you have more lines than the box is tall. Wrapping removes
 the main-axis overflow; it does not remove the need to have room.
 
+### Listing a dictionary: `UI.sortedEntries`
+
+`UI.ForEach` takes an array, so a map — player id → score, a settings table — has
+to be flattened first. Write that flatten by hand and it is three obvious lines
+that are quietly wrong:
+
+```lua
+local rows = {}
+for id, score in scores do            -- DON'T: `pairs` order is not an order
+    table.insert(rows, { key = id, value = score })
+end
+```
+
+Luau's iteration order comes from the table's hash layout, and the hash layout
+comes from **how the table was built** — what was inserted, in what order, and
+what was deleted along the way. Two maps with identical contents iterate
+differently. Your leaderboard ends up sorted by the order the players happened to
+join, and it will look completely stable while you test it, because building the
+same table the same way twice really does iterate the same way twice. The instant
+a player leaves and rejoins, the rows move.
+
+```lua
+local rows = scope:own(core:memo(function(use)
+    return UI.sortedEntries(use(scores))
+end))
+```
+
+That is the same list, in the same order, whatever built the map. Keys sort
+naturally (numbers before strings); pass a second argument to order them yourself
+— `UI.sortedEntries(dict, function(a, b) return RANK[a] < RANK[b] end)` — and note
+that the comparator gets **keys**, not entries, which is what makes the ordering
+deterministic no matter what you pass. To rank by *value*, sort the array it
+returns and break ties on the key.
+
 ### Promising a row's height: `newVirtualList` and `itemExtent`
 
 A long list only builds the rows you can see. To do that it has to know, without

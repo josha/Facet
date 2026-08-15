@@ -159,6 +159,11 @@ require("./spatial.spec")
 -- the five-view device-matrix selection policy, fed a recorded live catalog
 require("./matrix_rows.spec")
 require("./error_boundary.spec")
+-- `UI.sortedEntries` (fusion-comparison.md §5 gap G-3): the deterministic
+-- dictionary flatten `UI.ForEach` needs, and the negative control that proves
+-- Luau's `pairs` order really does move with a table's construction history —
+-- twelve keys, because at six the constructions agree and prove nothing
+require("./sorted_entries.spec")
 require("./styling.spec")
 require("./sheet_model.spec")
 require("./native_style_scenario.spec")

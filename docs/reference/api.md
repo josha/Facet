@@ -1463,6 +1463,46 @@ the item's ownership scope so cells can own item-lifetime resources (async
 handles, per-row memos). `transition` applies per keyed row — see **Structural
 transitions** below.
 
+### `sortedEntries`
+
+`UI.sortedEntries(dict, compare?) -> { { key, value } }` — flattens a dictionary
+into the array `UI.ForEach` takes, in a **deterministic** order. Pure; it reads
+the table and returns a fresh array, mutating nothing.
+
+**Why this exists rather than the three-line flatten.** Luau's `pairs` order is a
+function of the table's hash layout, and the hash layout is a function of the
+table's *construction history*: measured 2026-08-15, four constructions of the
+same twelve-key map iterate four different ways. A leaderboard flattened with
+`pairs` therefore orders itself by the order players happened to join. Repeating
+the flatten does **not** expose this — the hash has no per-process seed, so an
+identical construction iterates identically forever, which is why the naive
+"build it twice and compare" check passes with the bug in place
+(`tests/sorted_entries.spec.luau` keeps that as a named case).
+
+```lua
+local rows = scope:own(core:memo(function(use)
+  return UI.sortedEntries(use(scores))          -- { {key="player_1007", value=150}, … }
+end))
+UI.ForEach({ items = rows, key = function(e) return e.key end, row = function(e) … end })
+```
+
+- **Default order:** numbers before strings, then each type's natural order.
+  (`1 < "a"` is an *error* in Luau rather than an order, so a bare `<` would throw
+  on a mixed map instead of ordering it.)
+- **`compare` orders KEYS, not entries** — `(a, b) -> boolean`. Keys are unique,
+  so any strict order over them is a *total* order and the result stays
+  deterministic whatever comparator arrives. Had it ordered entries, ranking a
+  leaderboard by score would hit ties, `table.sort` is not stable, and the tie
+  order would fall back to the `pairs` order this helper exists to remove. **To
+  rank by value, sort the returned array yourself with an explicit key tiebreak.**
+- **A key type with no natural order is refused at construction**, naming
+  `compare`. Ordering tables by `tostring` would be ordering them by address —
+  a silent wrong answer where a loud refusal belongs.
+- It is deliberately **not** a `UI.ForPairs` class (that would be a second
+  structural region with the first one's semantics) and deliberately **not** a
+  `Readable`: the reactive half is the `core:memo` above, which a consumer
+  already writes for every derived value.
+
 #### Structural transitions
 
 `transition = { enter, exit?, class?, fade? }` on `UI.When`, `UI.ForEach`, a
