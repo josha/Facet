@@ -205,6 +205,8 @@ export type GridSpec = BoxProps & ContainerProps & {
 	columns: Bound<number>?,
 	minColumnWidth: Bound<number | string>?,
 	itemSizing: Bound<string>?,
+	-- "row" (default) | "column" — which way the cells wrap; see the schema
+	flow: Bound<string>?,
 }
 -- A ROW OF A ROW GRID (§2.2). Its own box is the grid's business, so it accepts no
 -- box properties at all — only its identity, its cells and the paint a full-width

@@ -368,6 +368,9 @@ local function toLayoutNode(
 		columns = props.columns,
 		minColumnWidth = props.minColumnWidth,
 		itemSizing = props.itemSizing,
+		-- "row" (default) | "column": which axis the grid's lanes divide. A carried
+		-- name like `itemSizing`, resolved nowhere but the solver's flow-grid plan.
+		flow = props.flow,
 		overflow = props.overflow,
 		axis = props.axis,
 		-- "this container is ONE SLOT of a fixed-pitch windowing list", carried

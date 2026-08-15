@@ -391,14 +391,16 @@ type Ctx = {
 	-- armed the first time a `containerRelative` dimension is measured; a tree with
 	-- none keeps the exact cache key this memo carried before §2.5
 	hasContainerRelative: boolean,
-	-- ROW-GRID COLUMN WIDTHS (§2.2), computed once per grid per box and read by
-	-- both passes — the same discipline `compositions` carries, and for the same
-	-- reason: a grid that measured one set of columns and arranged another is this
-	-- file's documented recurring defect class.
-	gridColumns: { [string]: { key: string, value: any } },
+	-- THE GRID'S PLAN, computed once per grid per box and read by both passes — the
+	-- same discipline `compositions` carries, and for the same reason: a grid that
+	-- measured one set of lanes and arranged another is this file's documented
+	-- recurring defect class. ONE cache for both grid layouts, because a grid is
+	-- either the row grid (`gridColumnPlan`, §2.2) or the flow grid
+	-- (`gridFlowPlan`, either flow direction) and never both at once.
+	gridPlan: { [string]: { key: string, value: any } },
 	-- FLOW-WRAP LINE PARTITIONS (round 3 item A), computed once per wrapping stack
 	-- per box and read by both passes — the same table shape, the same key shape
-	-- and the same reason as `gridColumns` one line up. A wrapping stack that
+	-- and the same reason as `gridPlan` one line up. A wrapping stack that
 	-- measured one partition and arranged another is the identical defect class,
 	-- and this file has fixed it four times already.
 	flowLines: { [string]: { key: string, value: any } },
@@ -555,7 +557,11 @@ local SHRINK_DEPS: shrinkLib.Deps = { mainDimOf = mainDimOf, sides = sides, text
 -- fill children falls back to the one-column default, exactly as an undeclared
 -- minColumnWidth does.
 local INTRINSIC = "intrinsic"
-local function gridColumnMin(ctx: Ctx, node: Node): number?
+-- `isCol` is the flow grid's ONE axis switch (see `gridFlowPlan`): the lane axis is
+-- the width under `flow = "row"` and the height under `flow = "column"`, so the
+-- intrinsic minimum is measured on whichever one the mode chose. The prop keeps the
+-- name `minColumnWidth` in both modes because a grid has one lane minimum, not two.
+local function gridLaneMin(ctx: Ctx, node: Node, isCol: boolean): number?
 	local declared = node.minColumnWidth
 	if type(declared) == "number" then
 		return declared
@@ -565,13 +571,14 @@ local function gridColumnMin(ctx: Ctx, node: Node): number?
 	end
 	local widest = 0
 	for _, child in node.children or {} do
-		if dim(child, "w").type == "fill" then
+		if dim(child, if isCol then "h" else "w").type == "fill" then
 			continue
 		end
-		-- horizontal margins only: this is an intrinsic COLUMN width
-		local _, mr, _, ml = sides(child.margin)
-		local w = measure(ctx, child, math.huge, math.huge)
-		widest = math.max(widest, w + ml + mr)
+		-- LANE-axis margins only: this is an intrinsic LANE extent
+		local mt, mr, mb, ml = sides(child.margin)
+		local w, h = measure(ctx, child, math.huge, math.huge)
+		local own = if isCol then h + mt + mb else w + ml + mr
+		widest = math.max(widest, own)
 	end
 	return if widest > 0 then widest else nil
 end
@@ -601,13 +608,14 @@ end
 -- `rowGap` defaults to `gap`, so every grid in the library, the examples and the
 -- fixtures is byte-unchanged and no baseline moves; a caller that wants air
 -- between rows says so in one word and the column arithmetic never sees it.
--- HOW MANY COLUMNS THIS GRID GETS, decided once (Step 5.5 cleanup ledger C-04).
+-- HOW MANY LANES THIS GRID GETS, decided once (Step 5.5 cleanup ledger C-04).
 -- Measure and arrange both need it and used to derive it separately; a grid whose
 -- two passes disagree is this file's documented recurring defect class, so the
 -- arithmetic gets one owner rather than two copies that happen to match today.
--- An unbounded offer (`math.huge`, only reachable from measure) yields one column:
--- a column count derived from an infinite width is not a number anyone can use.
-local function gridColumnCount(node: Node, inner: number, gap: number, minCol: number?): number
+-- An unbounded offer (`math.huge`, only reachable from measure) yields one lane:
+-- a lane count derived from an infinite extent is not a number anyone can use.
+-- `inner` is the LANE axis's inner extent, which the mode picks (`gridFlowPlan`).
+local function gridLaneCount(node: Node, inner: number, gap: number, minCol: number?): number
 	if node.columns ~= nil then
 		return node.columns :: number
 	end
@@ -626,17 +634,200 @@ local function gridRowGap(node: Node): number
 end
 
 local UNIFORM = "uniform"
-local function gridUniformCell(ctx: Ctx, node: Node, colW: number, innerH: number): (number?, number?)
+-- ...in LANE/FLOW terms too: `laneSize` is the lane the cell will sit in and
+-- `flowLimit` is the free axis, whichever pair of w/h those are in this mode.
+local function gridUniformCell(
+	ctx: Ctx,
+	node: Node,
+	laneSize: number,
+	flowLimit: number,
+	isCol: boolean
+): (number?, number?)
 	if node.itemSizing ~= UNIFORM then
 		return nil, nil
 	end
-	local uw, uh = 0, 0
+	local uLane, uFlow = 0, 0
 	for _, child in node.children or {} do
-		local w, h = measure(ctx, child, colW, innerH)
-		uw = math.max(uw, if colW == math.huge then w else math.min(w, colW))
-		uh = math.max(uh, h)
+		local w, h = measure(ctx, child, if isCol then flowLimit else laneSize, if isCol then laneSize else flowLimit)
+		local ownLane = if isCol then h else w
+		local ownFlow = if isCol then w else h
+		uLane = math.max(uLane, if laneSize == math.huge then ownLane else math.min(ownLane, laneSize))
+		uFlow = math.max(uFlow, ownFlow)
 	end
-	return uw, uh
+	return uLane, uFlow
+end
+
+--[[ ===== THE FLOW GRID'S PLAN — ONE ARITHMETIC, TWO AXES ====================
+
+	A flow grid has exactly two axes and neither of them is "x" or "y":
+
+	  the LANE axis   the one the `columns` lanes are divided across
+	  the FLOW axis   the one the lines advance along
+
+	`flow = "row"` — the default, and every grid that shipped before 2026-08-15 —
+	puts the lanes across the WIDTH and advances DOWN. `flow = "column"` transposes
+	both, and that is the whole of column-major wrapping. Everything here is written
+	once in lane/flow words, and those words are bound to width/height in exactly
+	two places: `innerLane`/`innerFlow` below, and the arrange branch's placement.
+	So a column-major grid is NOT a second column arithmetic beside the row-major
+	one — it is the same one read the other way, which `tests/grid_column_flow.spec`
+	states as an exact transpose (same box turned on its side, same children with
+	their axes exchanged, every rect back with x/y and w/h swapped).
+
+	WHY THAT MATTERS BEYOND TIDINESS. `newVirtualGrid`'s design decision is that the
+	mounted band IS a real `UI.Grid`, so the lane formula EXECUTES rather than being
+	copied into the control where it would agree today and drift tomorrow. Without a
+	column-major mode a `LazyHGrid` had no band to be, which is exactly what that
+	control's `axis = "x"` refusal said (`src/controls/virtual_grid.luau`).
+
+	THE PLAN IS THE ONE THING BOTH PASSES READ. Measure and arrange used to run two
+	similar loops that agreed by sharing three helpers; this file's recurring defect
+	— fixed four separate times — is a container that measured one shape and
+	arranged another, so they now share the answer itself, cached on the context and
+	keyed by the box exactly as the row grid's plan and the flow-wrap partition are.
+
+	It carries two extents per cell because the two passes legitimately want
+	different ones, and that difference is documented rather than duplicated:
+
+	  `lane`   the extent the cell is PAINTED at inside its lane (arrange)
+	  `share`  the extent it contributes to the grid's own report (measure)
+
+	They differ in exactly one case — a naturally-sized, non-`fill` cell, where the
+	report is the LANE (the column is the honest width: `columns = N` means "N equal
+	lanes across what I was given" and a small cell aligns inside its lane) while
+	the paint is the cell. Under `uniform` sizing the report is the CELL, because a
+	uniform grid draws the max measured cell and no wider — the 2026-07-26 director
+	round that found a full-width phone card holding a 130px column of chips.
+]]
+local COLUMN_FLOW = "column"
+local function gridIsColumn(node: Node): boolean
+	return (node :: any).flow == COLUMN_FLOW
+end
+
+local function gridFlowPlan(ctx: Ctx, node: Node, innerW: number, innerH: number, gap: number): any
+	local key = `{innerW}|{innerH}|{gap}`
+	local cached = ctx.gridPlan[node.id]
+	if cached ~= nil and cached.key == key then
+		return cached.value
+	end
+	local isCol = gridIsColumn(node)
+	local innerLane = if isCol then innerH else innerW
+	local innerFlow = if isCol then innerW else innerH
+	local minLane = gridLaneMin(ctx, node, isCol)
+	local lanes = gridLaneCount(node, innerLane, gap, minLane)
+	-- THE LANE EXTENT, FLOORED, AND BOTH PASSES READ THIS ONE NUMBER. The clamp
+	-- keeps a gap/lane combination wider than the container from going negative
+	-- (phase-4 layout fuzz, seed 206612356). Measure used to sum the UNROUNDED
+	-- share while arrange painted the floored one, so a grid offered a width that
+	-- did not divide evenly reported up to `lanes - 1` px more than it drew — the
+	-- same fixed-point failure `grid_measure_arrange.spec` exists for, one rounding
+	-- smaller. Sharing the plan is what makes that class unreachable rather than
+	-- fixed again.
+	local laneSize = if innerLane == math.huge
+		then math.huge
+		else math.max(0, math.floor((innerLane - gap * (lanes - 1)) / lanes))
+	local uLane, uFlow = gridUniformCell(ctx, node, laneSize, innerFlow, isCol)
+	local children = node.children or {}
+	local rowGap = gridRowGap(node)
+	local cells: { any } = {}
+	local lines: { any } = {}
+	local flowTotal, laneMax = 0, 0
+	local first = 1
+	while first <= #children do
+		local last = math.min(first + lanes - 1, #children)
+		local lineFlow = 0
+		local laneUsed = 0
+		for j = first, last do
+			local child = children[j]
+			local w, h =
+				measure(ctx, child, if isCol then innerFlow else laneSize, if isCol then laneSize else innerFlow)
+			local ownLane = if isCol then h else w
+			local ownFlow = if isCol then w else h
+			local isFill = dim(child, if isCol then "h" else "w").type == "fill"
+			local painted = if laneSize == math.huge
+				then ownLane
+				elseif isFill then laneSize
+				elseif uLane ~= nil then math.min(uLane :: number, laneSize)
+				else math.min(ownLane, laneSize)
+			-- see the header: the report follows the CELL under uniform sizing and
+			-- the LANE under natural sizing
+			local share = if laneSize == math.huge
+				then painted
+				elseif uLane ~= nil and not isFill then painted
+				else laneSize
+			cells[j] = { lane = painted, flow = 0, ownFlow = ownFlow }
+			-- gaps go BETWEEN cells: the last cell in a line ends the line whether it
+			-- fills the last lane or not. A trailing gap here is a report the arrange
+			-- never paints, which re-widened the lane on the next measure and grew
+			-- every aspect-sized cell by 2px (the "2px overflow" half of 2026-08-08).
+			laneUsed += share + (if j == last then 0 else gap)
+			lineFlow = math.max(lineFlow, if uFlow ~= nil then uFlow :: number else ownFlow)
+		end
+		-- ...and the cell's FLOW extent, which cannot be known until the line is:
+		-- a `fill` cell takes the line, a uniform one takes the uniform cell, and
+		-- everything else keeps its content extent and ALIGNS inside the line.
+		for j = first, last do
+			local child = children[j]
+			local cell = cells[j]
+			local flowDim = dim(child, if isCol then "w" else "h")
+			local painted = if flowDim.type == "fill"
+				then lineFlow
+				elseif uFlow ~= nil then math.min(uFlow :: number, lineFlow)
+				else math.min(cell.ownFlow, lineFlow)
+			-- ASPECT FOLLOWS THE LANE, which is the axis the grid actually fixed
+			-- (the same reason the stack arrange derives it from the resolved main
+			-- extent: a `fill` sibling has no measure-time size). `ratio` is w/h, so
+			-- the row-flow reading is `h = laneW / ratio` and the column-flow one is
+			-- `w = laneH * ratio` — one statement, both modes.
+			if flowDim.type == "aspect" and cell.lane > 0 then
+				local ratio = flowDim.ratio :: number
+				painted = if isCol then math.floor(cell.lane * ratio + 0.5) else math.floor(cell.lane / ratio + 0.5)
+			end
+			cell.flow = painted
+		end
+		table.insert(lines, { first = first, last = last, flow = lineFlow })
+		flowTotal += lineFlow + (if last == #children then 0 else rowGap)
+		laneMax = math.max(laneMax, laneUsed)
+		first = last + 1
+	end
+	-- THE EXTENT A GRID REPORTS MUST RE-DERIVE ITS OWN LANE COUNT (found 2026-08-08,
+	-- `grid_measure_arrange.spec`). The lane count above comes from the OFFER via
+	-- `minColumnWidth`; `laneMax` is what the CELLS occupy, which under `uniform`
+	-- sizing can be narrower than that minimum. A hug parent then hands the report
+	-- straight back as the arrange offer, and the grid re-lanes against an extent it
+	-- published itself — a 148px minimum with 144px cards measured nine columns /
+	-- one row at a 1400px offer, then arranged three columns / two rows at the 608px
+	-- it had just reported, and the section it sat in overflowed by exactly the extra
+	-- row (200px).
+	--
+	-- So the report is floored at the extent the chosen lanes need. It never exceeds
+	-- the offer (`gridLaneCount` floors `lanes` against exactly this quantity), it is
+	-- the extent a `minColumnWidth` author already declared, and it makes measure a
+	-- FIXED POINT: offering the reported extent back yields the same lane count, the
+	-- same lines and the same cross extent.
+	--
+	-- Only the offer-derived count needs it. An explicit `columns = N` does not
+	-- depend on the offer at all, and natural sizing already reports the lane extent
+	-- itself — both reproduce their own report unchanged.
+	local laneReport = laneMax
+	if node.columns == nil and minLane ~= nil and innerLane ~= math.huge then
+		local used = math.min(lanes, #children)
+		if used > 0 then
+			laneReport = math.max(laneReport, used * (minLane + gap) - gap)
+		end
+	end
+	local value = {
+		isCol = isCol,
+		lanes = lanes,
+		laneSize = laneSize,
+		rowGap = rowGap,
+		lines = lines,
+		cells = cells,
+		laneReport = laneReport,
+		flowTotal = flowTotal,
+	}
+	ctx.gridPlan[node.id] = { key = key, value = value }
+	return value
 end
 
 --[[ ===== THE ROW GRID (docs/plans/swiftui-parity-round2.md §2.2) =============
@@ -710,7 +901,7 @@ end
 -- and arrange must not derive different columns for the same grid.
 local function gridColumnPlan(ctx: Ctx, node: Node, innerW: number, innerH: number, gap: number): any
 	local key = `{innerW}|{innerH}|{gap}`
-	local cached = ctx.gridColumns[node.id]
+	local cached = ctx.gridPlan[node.id]
 	if cached ~= nil and cached.key == key then
 		return cached.value
 	end
@@ -756,7 +947,7 @@ local function gridColumnPlan(ctx: Ctx, node: Node, innerW: number, innerH: numb
 		end
 	end
 	local value = { widths = widths, cols = cols, gap = gap }
-	ctx.gridColumns[node.id] = { key = key, value = value }
+	ctx.gridPlan[node.id] = { key = key, value = value }
 	return value
 end
 
@@ -1633,84 +1824,15 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	end
 
 	if node.kind == "grid" then
-		local children = node.children or {}
-		local rowGap = gridRowGap(node)
-		local minCol = gridColumnMin(ctx, node)
-		local cols = gridColumnCount(node, innerMaxW, gap, minCol)
-		-- clamp: a gap/column combination wider than the container must not
-		-- go negative (phase-4 layout fuzz, seed 206612356)
-		local colW = if innerMaxW == math.huge then math.huge else math.max(0, (innerMaxW - gap * (cols - 1)) / cols)
-		local uniformW, uniformH = gridUniformCell(ctx, node, colW, innerMaxH)
-		local totalH = 0
-		local rowH = 0
-		local rowW = 0
-		local maxRowW = 0
-		for i, child in children do
-			local w, h = measure(ctx, child, colW, innerMaxH)
-			rowH = math.max(rowH, if uniformH ~= nil then uniformH else h)
-			-- A `uniform` GRID MEASURES THE CELL IT WILL ACTUALLY DRAW (director
-			-- round 10, found live 2026-07-26). `itemSizing = "uniform"` makes
-			-- arrange draw every cell at the max MEASURED size and no wider, which
-			-- is exactly the case where the column and the cell come apart — so
-			-- accumulating the COLUMN width here reported "I need the whole offer"
-			-- for a grid that then drew something narrower inside it.
-			--
-			-- Nothing noticed while every grid sat in a `fill` parent, which does
-			-- not consult content. The theme picker's card is `hug` and inherited
-			-- the lie directly: a full-width phone card with a 130px column of
-			-- chips inside it — "the width is too wide".
-			--
-			-- Deliberately NOT extended to the natural-sizing case. There, `columns
-			-- = N` means "N equal columns across what I was given" and a small cell
-			-- ALIGNS inside its column; the column width is the honest answer and
-			-- `layout_vocabulary.spec` pins it. A `fill` cell takes its column in
-			-- both modes.
-			local cellW = if colW == math.huge
-				then w
-				elseif uniformW ~= nil and dim(child, "w").type ~= "fill" then math.min(uniformW :: number, colW)
-				else colW
-			-- gaps go BETWEEN cells: the last cell in a row ends the row whether it
-			-- fills the last column or not. The `(i-1) % cols` test alone missed the
-			-- partial final row and added a trailing gap the arrange never paints,
-			-- so a hug parent was handed a width one gap wider than the paint —
-			-- which re-widened the column on the next measure and grew every
-			-- aspect-sized cell by 2px (the "2px overflow" half of the 2026-08-08
-			-- report; `grid_measure_arrange.spec`).
-			rowW += cellW + (if (i - 1) % cols == cols - 1 or i == #children then 0 else gap)
-			if i % cols == 0 or i == #children then
-				totalH += rowH + (if i == #children then 0 else rowGap)
-				maxRowW = math.max(maxRowW, rowW)
-				rowH = 0
-				rowW = 0
-			end
+		-- THE WHOLE MEASURE IS THE PLAN, in both flow directions: it owns the lane
+		-- count, the lane extent, the line partition and every cell's two extents, so
+		-- there is nothing left here but naming which of its two axes is width and
+		-- which is height. `arrange` names them once more, and nowhere else does.
+		local plan = gridFlowPlan(ctx, node, innerMaxW, innerMaxH, gap)
+		if plan.isCol then
+			return plan.flowTotal + pl + pr, plan.laneReport + pt + pb
 		end
-		-- THE WIDTH A GRID REPORTS MUST RE-DERIVE ITS OWN COLUMN COUNT (found
-		-- 2026-08-08, `grid_measure_arrange.spec`). The column count above comes
-		-- from the OFFER via `minColumnWidth`; `maxRowW` is what the CELLS occupy,
-		-- which under `uniform` sizing can be narrower than that minimum. A hug
-		-- parent then hands the report straight back as the arrange offer, and the
-		-- grid re-columns against a width it published itself — a 148px minimum
-		-- with 144px cards measured nine columns / one row at a 1400px offer, then
-		-- arranged three columns / two rows at the 608px it had just reported, and
-		-- the section it sat in overflowed by exactly the extra row (200px).
-		--
-		-- So the report is floored at the width the chosen columns need. It never
-		-- exceeds the offer (`gridColumnCount` floors `cols` against exactly this
-		-- quantity), it is the width a `minColumnWidth` author already declared,
-		-- and it makes measure a FIXED POINT: offering the reported width back
-		-- yields the same column count, the same rows and the same height.
-		--
-		-- Only the width-derived count needs it. An explicit `columns = N` does not
-		-- depend on the offer at all, and natural sizing already reports the column
-		-- width itself — both reproduce their own report unchanged.
-		local reportedW = maxRowW
-		if node.columns == nil and minCol ~= nil and innerMaxW ~= math.huge then
-			local used = math.min(cols, #children)
-			if used > 0 then
-				reportedW = math.max(reportedW, used * (minCol + gap) - gap)
-			end
-		end
-		return reportedW + pl + pr, totalH + pt + pb
+		return plan.laneReport + pl + pr, plan.flowTotal + pt + pb
 	end
 
 	-- THE WRAPPING STACKS (round 3 item A). Content is the WIDEST LINE by the SUM
@@ -3129,6 +3251,23 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			})
 		end
 		if mode == "row" then
+			if gridIsColumn(node) and ctx.hiddenDepth == 0 then
+				-- A ROW GRID HAS NO FLOW TO CHOOSE, and `flow = "column"` has no
+				-- reading here that is not a guess: `UI.GridRow` declares its cells in a
+				-- row, and column n is a fact about EVERY row at once. Turning that a
+				-- quarter turn would have to decide whether a row becomes a column or
+				-- stays a row and gets re-read, which is two layouts under one word.
+				-- Same rule and same shape as the mixed-children diagnostic above: the
+				-- prop is reported rather than accepted-and-ignored (constitution §4),
+				-- and the row grid stays exactly what it is.
+				table.insert(ctx.diagnostics, {
+					node = node.id,
+					issue = 'flow = "column" is refused on a ROW grid (its children are UI.GridRow rows) and this '
+						.. "grid stays row-major. Column-major wrapping is a property of the FLOW grid, where a "
+						.. "line is just the next `columns` cells; a row grid's columns are derived from every "
+						.. "row at once and have no transposed reading. Drop the rows, or drop the flow",
+				})
+			end
 			local rows = node.children or {}
 			local rowGap = gridRowGap(node)
 			local plan = gridColumnPlan(ctx, node, innerW, innerH, gap)
@@ -3145,59 +3284,35 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			end
 			return
 		end
+		--[[ THE FLOW GRID PLACES WHAT THE PLAN ALREADY DECIDED. Every extent here
+			came out of `gridFlowPlan`, which measure also called and which the ctx
+			cached against this exact box — so the two passes cannot disagree about the
+			lanes, the lines or a single cell. This branch's only remaining job is the
+			second and last binding of LANE/FLOW to x/y: under `flow = "row"` the lane
+			runs across x and the lines advance down y, under `flow = "column"` both
+			turn a quarter turn. `alignH`/`alignV` turn with them, because a cell
+			aligns inside its LANE on one axis and inside its LINE on the other, and
+			which of those is horizontal is the mode's whole content. ]]
 		local children = node.children or {}
-		local rowGap = gridRowGap(node)
-		local cols = gridColumnCount(node, innerW, gap, gridColumnMin(ctx, node))
-		local colW = math.max(0, math.floor((innerW - gap * (cols - 1)) / cols))
-		local uniformW, uniformH = gridUniformCell(ctx, node, colW, innerH)
-		local y = innerY
-		local i = 1
-		while i <= #children do
-			local rowH = 0
-			local rowSizes = {}
-			for c = 0, cols - 1 do
-				local child = children[i + c]
-				if child == nil then
-					break
-				end
-				local w, h = measure(ctx, child, colW, innerH)
-				rowSizes[c + 1] = { w = w, h = h }
-				rowH = math.max(rowH, if uniformH ~= nil then uniformH else h)
-			end
-			for c = 0, cols - 1 do
-				local child = children[i + c]
-				if child == nil then
-					break
-				end
-				local size = rowSizes[c + 1]
-				-- A cell with a FILL dimension occupies its column / row rather
-				-- than collapsing to content (swiftui-parity-next investment 6;
-				-- found live in Studio as a grid of correctly-positioned, 0px-wide
-				-- cells). A non-fill cell keeps content sizing and ALIGNS inside
-				-- the cell, so alignH/alignV stop being accepted-and-ignored here.
-				local cellW = if dim(child, "w").type == "fill"
-					then colW
-					elseif uniformW ~= nil then math.min(uniformW :: number, colW)
-					else math.min(size.w, colW)
-				local cellH = if dim(child, "h").type == "fill"
-					then rowH
-					elseif uniformH ~= nil then math.min(uniformH :: number, rowH)
-					else math.min(size.h, rowH)
-				-- aspect against the resolved column width (same reason as in the
-				-- stack arrange: a fill sibling has no measure-time size)
-				local hDimCell = dim(child, "h")
-				if hDimCell.type == "aspect" and cellW > 0 then
-					cellH = math.floor(cellW / (hDimCell.ratio :: number) + 0.5)
-				end
+		local plan = gridFlowPlan(ctx, node, innerW, innerH, gap)
+		local isCol, laneSize = plan.isCol, plan.laneSize
+		local flowCursor = if isCol then innerX else innerY
+		for _, line in plan.lines do
+			for j = line.first, line.last do
+				local child = children[j]
+				local cell = plan.cells[j]
+				local laneAlign = if isCol then child.alignV else child.alignH
+				local flowAlign = if isCol then child.alignH else child.alignV
+				local lanePos = (j - line.first) * (laneSize + gap) + alignOffset(laneAlign, laneSize, cell.lane)
+				local flowPos = flowCursor + alignOffset(flowAlign, line.flow, cell.flow)
 				arrange(ctx, child, {
-					x = innerX + c * (colW + gap) + alignOffset(child.alignH, colW, cellW),
-					y = y + alignOffset(child.alignV, rowH, cellH),
-					w = cellW,
-					h = cellH,
+					x = if isCol then flowPos else innerX + lanePos,
+					y = if isCol then innerY + lanePos else flowPos,
+					w = if isCol then cell.flow else cell.lane,
+					h = if isCol then cell.lane else cell.flow,
 				}, out)
 			end
-			y += rowH + rowGap
-			i += cols
+			flowCursor += line.flow + plan.rowGap
 		end
 		return
 	end
@@ -3739,7 +3854,7 @@ function solver.solve(
 		containerH = contentRect.h,
 		scopeKey = "0",
 		hasContainerRelative = false,
-		gridColumns = {},
+		gridPlan = {},
 		flowLines = {},
 		gridRowPlan = {},
 		-- per-solve measure memo (see `measure`). Weak keys are unnecessary: the

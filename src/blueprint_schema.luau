@@ -1381,12 +1381,34 @@ class("Grid", {
 			channel = "layout",
 			doc = 'vertical spacing between grid ROWS; a number or a spacing-step name ("xs"…"xl"). Defaults to `gap`',
 		}),
+		flow = p({
+			-- COLUMN-MAJOR WRAPPING (2026-08-15), and it is a MODE of the one flow
+			-- arithmetic rather than a second one: the solver's flow grid is written
+			-- in LANE/FLOW terms and binds those words to width/height in exactly two
+			-- places, so a column-flow grid is the exact transpose of the row-flow
+			-- grid it mirrors (`tests/grid_column_flow.spec.luau`). CSS spells the
+			-- same choice `grid-auto-flow: row | column`.
+			--
+			-- `columns` and `minColumnWidth` keep their names in both modes because
+			-- the grid has ONE lane count and ONE lane minimum, not two — under
+			-- `flow = "column"` they are read against the HEIGHT. Two symmetric
+			-- spellings would double this prop set to describe the same number, and
+			-- `minColumnWidth`'s twin has no honest name.
+			types = { "string" },
+			enum = { "row", "column" },
+			reactive = true,
+			dirty = { "measure" },
+			channel = "layout",
+			doc = "row (default: cells wrap across the width, lines advance down) | column (cells wrap down the "
+				.. "height, lines advance rightward — the mode a horizontal lazy grid's band is built from)",
+		}),
 		columns = p({
 			types = { "number" },
 			reactive = true,
 			dirty = { "measure" },
 			channel = "layout",
-			doc = "fixed column count (mutually exclusive with minColumnWidth)",
+			doc = 'fixed LANE count — columns across under `flow = "row"`, rows down under `flow = "column"` '
+				.. "(mutually exclusive with minColumnWidth)",
 		}),
 		minColumnWidth = p({
 			-- "intrinsic" (director round 9): the widest CHILD's own measured

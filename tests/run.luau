@@ -203,6 +203,12 @@ require("./stack_distribution.spec")
 -- covers several columns and widens none of them), selected by the children — and
 -- the flow grid every existing caller has stays byte-identical, pinned first
 require("./grid_row.spec")
+-- ...and `flow = "column"`, COLUMN-MAJOR wrapping — a MODE of the one flow-grid
+-- arithmetic, not a second one. The solver's flow grid is written in LANE/FLOW
+-- terms and binds those two words to width/height exactly twice, so a column-flow
+-- grid is provably the TRANSPOSE of the row-flow grid it mirrors (this spec's
+-- central case). It is what a `LazyHGrid`'s mounted band can be
+require("./grid_column_flow.spec")
 -- round 3 item A: FLOW-WRAP. `UI.HStack{ wrap = true }` / `UI.VStack{ wrap = true }`
 -- — Roblox's `UIListLayout.Wraps`, which LuauUI had no spelling for. One prop, one
 -- native arrange branch (never a public `Layout` protocol — see the round-3 design

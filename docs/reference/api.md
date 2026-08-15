@@ -850,11 +850,28 @@ exactly the accepted-and-ignored failure the strict-authoring work removed.
 
 ### `Grid`
 
-`UI.Grid{ id?, columns? | minColumnWidth?, itemSizing?, gap?, rowGap?, padding?, surface?, children? }`
-— row-major grid: children fill a fixed `columns` count, or a count derived
-from `minColumnWidth` against the available width. `gap` spaces cells on both
+`UI.Grid{ id?, flow?, columns? | minColumnWidth?, itemSizing?, gap?, rowGap?, padding?, surface?, children? }`
+— a wrapping grid: children fill a fixed `columns` count, or a count derived
+from `minColumnWidth` against the available extent. `gap` spaces cells on both
 axes. Use it for uniform tiled layouts (icon grids, match-3 boards) where a
 stack's single axis is not enough.
+
+`flow` is `"row"` (the default: cells wrap across the WIDTH and the lines advance
+DOWN — what this grid has always done) or `"column"` (cells wrap down the HEIGHT
+and the lines advance RIGHTWARD). It is CSS's `grid-auto-flow`, and it is one
+mode of one arithmetic rather than a second layout: a column-flow grid is the
+exact transpose of the row-flow grid it mirrors — turn the box on its side,
+exchange each child's two axes, and every rect comes back with x/y and w/h
+swapped (`tests/grid_column_flow.spec.luau`). It is also what a horizontal lazy
+grid's mounted band is built from (`newVirtualGrid { axis = "x" }`).
+
+`columns` and `minColumnWidth` keep their names in both directions, because the
+grid has ONE lane count and ONE lane minimum — under `flow = "column"` they are
+read against the HEIGHT (`columns = 3` is three rows; `minColumnWidth = 60` is
+"no lane shorter than 60px"). Two symmetric spellings would double this prop set
+to describe the same two numbers. `flow` is refused on a **row grid** (one whose
+children are `UI.GridRow`) with a diagnostic: there the columns are derived from
+every row at once and have no transposed reading.
 
 `rowGap` overrides the VERTICAL spacing alone and defaults to `gap`, so a grid
 that does not ask for it is unchanged. Reach for it when the two axes are not

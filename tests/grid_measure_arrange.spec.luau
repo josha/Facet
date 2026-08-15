@@ -274,4 +274,117 @@ describe("grid measure/arrange agreement", function()
 	end)
 end)
 
+--[[ THE SAME SENTENCE FOR COLUMN-MAJOR WRAPPING (`flow = "column"`, 2026-08-15).
+
+	The fixed point is not inherited for free by a new mode. It is the property that
+	broke twice above, both times because the extent a grid REPORTS on its lane axis
+	is not the extent it was OFFERED — and under column flow the lane axis is the
+	HEIGHT, so every one of those failures has a transposed twin that no row-flow
+	test can see. The mode is a mode of the one arithmetic (`gridFlowPlan`), which is
+	the reason to expect it holds; that is exactly why it is asserted rather than
+	assumed.
+
+	Stated directly this time: MEASURE IT, ARRANGE IT, MEASURE AGAIN. Render once and
+	read the box the grid chose for itself, then render the identical tree with that
+	box nailed on as a literal — the offer the grid published — and require every
+	cell to land on the same pixel. A grid whose report cannot survive being handed
+	back is the 200px overflow at the top of this file. ]]
+
+local function reoffer(build: (box: any?) -> any, ids: { string }, gridPath: string)
+	-- pass 1: the grid sizes itself inside the viewport and reports a box
+	local first = render(build(nil), 1400, 900)
+	local reported = rectOf(first, gridPath)
+	expect(reported).never().toBe(nil)
+	-- pass 2: that box, offered back as a literal
+	local second =
+		render(build({ w = { type = "fixed", px = reported.w }, h = { type = "fixed", px = reported.h } }), 1400, 900)
+	local again = rectOf(second, gridPath)
+	expect(`{again.w}x{again.h}`).toBe(`{reported.w}x{reported.h}`)
+	for _, id in ids do
+		local a = rectOf(first, gridPath .. "/" .. id)
+		local b = rectOf(second, gridPath .. "/" .. id)
+		expect(a).never().toBe(nil)
+		expect(b).never().toBe(nil)
+		-- relative to the grid's own origin: pass 2 may sit elsewhere on screen
+		expect(`{id} {b.x - again.x},{b.y - again.y},{b.w},{b.h}`).toBe(
+			`{id} {a.x - reported.x},{a.y - reported.y},{a.w},{a.h}`
+		)
+	end
+end
+
+local function tiles(): { any }
+	local out = {}
+	for i = 1, 7 do
+		table.insert(
+			out,
+			UI.Box({
+				id = "t" .. i,
+				width = { type = "fixed", px = 30 + i * 9 },
+				height = { type = "fixed", px = 70 - i * 5 },
+			})
+		)
+	end
+	return out
+end
+
+local function reofferable(flow: string?, itemSizing: string, lane: any): (box: any?) -> any
+	return function(box: any?)
+		local grid: any = {
+			id = "G",
+			itemSizing = itemSizing :: any,
+			gap = 9,
+			rowGap = 13,
+			children = tiles(),
+		}
+		if flow ~= nil then
+			grid.flow = flow
+		end
+		for k, v in lane do
+			grid[k] = v
+		end
+		if box ~= nil then
+			grid.width = box.w
+			grid.height = box.h
+		end
+		-- a HUG stack, so pass 1's grid is measured against the viewport and then
+		-- arranged inside whatever it reported — the substitution that broke twice
+		return UI.Screen({ id = "S", children = { UI.VStack({ id = "Sec", children = { UI.Grid(grid) } }) } })
+	end
+end
+
+local TILE_IDS = { "t1", "t2", "t3", "t4", "t5", "t6", "t7" }
+
+describe("grid measure/arrange agreement — column flow", function()
+	it("a column-flow grid reproduces its own reported box (explicit lanes)", function()
+		reoffer(reofferable("column", "natural", { columns = 3 }), TILE_IDS, "/S/Sec/G")
+	end)
+
+	it("...with uniform cells, where the report is the CELL and not the lane", function()
+		reoffer(reofferable("column", "uniform", { columns = 3 }), TILE_IDS, "/S/Sec/G")
+	end)
+
+	-- the offer-derived lane count is the half that actually broke: the count comes
+	-- from the offer, the report comes from the cells, and re-offering the report has
+	-- to yield the same count. Under column flow the offer in question is the HEIGHT.
+	it("...and with the lane count derived from minColumnWidth against the HEIGHT", function()
+		reoffer(reofferable("column", "uniform", { minColumnWidth = 90 }), TILE_IDS, "/S/Sec/G")
+	end)
+
+	it("...and the row-flow control does the same, on the same corpus", function()
+		reoffer(reofferable(nil, "natural", { columns = 3 }), TILE_IDS, "/S/Sec/G")
+		reoffer(reofferable(nil, "uniform", { columns = 3 }), TILE_IDS, "/S/Sec/G")
+		reoffer(reofferable(nil, "uniform", { minColumnWidth = 90 }), TILE_IDS, "/S/Sec/G")
+	end)
+
+	-- and the diagnostic surface, which is how the original defect was REPORTED
+	-- rather than how it was found: a grid that paints outside the box it measured
+	-- makes its parent complain, in either flow direction
+	it("neither flow direction files an overflow on a hug parent", function()
+		local _, colController = render(reofferable("column", "uniform", { minColumnWidth = 90 })(nil), 1400, 900)
+		expect(issues(colController)).toBe("")
+		local _, rowController = render(reofferable(nil, "uniform", { minColumnWidth = 90 })(nil), 1400, 900)
+		expect(issues(rowController)).toBe("")
+	end)
+end)
+
 return true
