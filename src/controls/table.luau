@@ -3356,9 +3356,16 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		end
 	end
 
-	function api.columnWidthOverrides()
-		return widthOverrides:get()
-	end
+	--[[ THE COMMITTED WIDTHS, AS A READABLE — the same shape `api.selectedColumn`
+		and `api.grabbedKey` already take, and for the same reason. This was a
+		zero-arg getter, which meant a POINTER DRAG was unobservable from outside the
+		control: the drag commits inside `gripFor`'s own `onPointerUp` and fires no
+		consumer callback, so a consumer wanting to show, persist or mirror its column
+		widths had nothing to subscribe to and would have had to poll every frame.
+		SwiftUI's own column width is a binding; a Readable is this framework's
+		spelling of one. `examples/gallery/scenarios/table_columns` is the surface
+		that needed it, and `docs/reference/api.md` §Table carries the contract. ]]
+	api.columnWidthOverrides = widthOverrides
 
 	-- the unbind a skipped subscription still owes its caller
 	local function NOOP() end

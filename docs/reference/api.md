@@ -3559,6 +3559,30 @@ holds focus, so a non-modal screen never shadows gameplay bumper bindings on a
 fixed-width column (UI-PARADIGM-001; affordance-matrix Amendments).
 `opts.onAdjust` still overrides per-opt.
 
+**Reading the widths back.** `api.columnWidthOverrides` is a **Readable** of
+`{ [columnId]: px }` — the map the resize model commits into, empty until
+something resizes. Subscribe to it to show, persist or mirror a player's column
+widths; it moves for a pointer drag, a keyboard step and a gamepad bumper alike.
+It matters that it is a Readable rather than a getter: **a pointer drag commits
+inside the control and calls nothing back**, so a consumer polling was the only
+alternative. (It *was* a zero-arg getter until 2026-08-14; `columnWidthOverrides()`
+is now `columnWidthOverrides:get()`.) SwiftUI spells the same thing as a binding —
+[`TableColumn`](https://developer.apple.com/documentation/swiftui/tablecolumn).
+
+**Two things this reaches on a real device and one it does not**, measured
+2026-08-14 on `LuauUI-Showcase`'s `table_columns` fixture:
+
+- the divider drag and the `,` / `.` Adjust keys both work;
+- **Left/Right do not** — Roblox's own `RbxCameraKeypress` binds them at
+  ContextActionService priority 2000 and sinks them before any LuauUI handler is
+  offered the key. The rows above describe LuauUI's routing, which is correct; the
+  key does not arrive. See
+  [`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md);
+- the divider's 44px hit floor lands **on top of** its own header button and
+  creates a 26px dead band down the trailing edge of every resizable header cell —
+  [`a-forty-four-pixel-floor-under-an-eight-pixel-divider`](../lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md).
+  On touch there is no working resize route at all.
+
 **`rowHeight` is OPTIONAL, and leaving it out is the recommended shape.** Given
 `env`, the table derives the row from the theme's own per-paradigm row
 description (`controls.table.rowLines` / `.rowHeight` / `.rowPadding`, derived in

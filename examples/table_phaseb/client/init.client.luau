@@ -156,7 +156,10 @@ local heartbeat = RunService.Heartbeat:Connect(function()
 	end
 	table.sort(selected)
 	workspace:SetAttribute("LuauUI_TB_Selected", table.concat(selected, ","))
-	local overrides = tbl.api.columnWidthOverrides()
+	-- a Readable since 2026-08-14 (it was a zero-arg getter): a pointer drag
+	-- commits inside the control and fires no consumer callback, so the widths
+	-- had to become subscribable — see src/controls/table.luau's own note
+	local overrides = tbl.api.columnWidthOverrides:get()
 	workspace:SetAttribute("LuauUI_TB_NameOverride", overrides.name or 0)
 	workspace:SetAttribute("LuauUI_TB_Focused", pres.focus.focused:get() or "")
 end)
