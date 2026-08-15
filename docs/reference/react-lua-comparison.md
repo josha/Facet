@@ -1306,17 +1306,30 @@ value, with no second concept and no `getValue`-is-stale-inside-render caveat
 | LuauUI method | **Source only.** `src/core/contract.luau`, `src/core/fusion_adapter.luau`, `src/core/custom.luau`, `src/core/scope_impl.luau`, `src/render/authority.luau`, `src/render/renderer.luau`, `src/render/target_contract.luau`, `src/render/presentation.luau`, `src/client/screen_target.luau`, `src/client/screen_presentation.luau`, `src/mount.luau`, `src/blueprint.luau`, `src/blueprint_schema.luau`, `src/env/environment.luau`, `src/init.luau`, `src/spec_guard.luau`, `src/controls/`, `src/layout/`, `src/present/`, plus `tests/conformance/` and `artifacts/conformance-*.json`. **No claim below was taken from LuauUI's own documentation** — the last two rewrites of the sibling parity document found nine and then several more stale or false claims sourced that way, including a citation to a source comment that existed nowhere in the file or its history |
 | React-Lua method | Raw source and docs fetched from `raw.githubusercontent.com` (not the rendered docs site, which does not resolve — [RL-27]), plus the GitHub, Wally and Roblox toolbox APIs. Every quote in §7 was read from the payload named there on the date given |
 
-**Suite state at the time of writing.** `./run-tests.sh` → **4 failed, 5413
-passed**. The brief's baseline is 5395 passed / 0 failed; the drift is **not from
-this document**, which changes no code and adds no spec. Four other agents are
-working in this tree concurrently, and the four failures name their work
-directly: the registration checker reports `text.lineBox` and `text.facts` as
-undocumented nested public members (the text line-box helper's in-flight
-exports), and two checks report `expected 2 to be 0` on the four-input and
-paradigm proofs (the focus-axis work). `lune run tools/lune/check_docs_cli`
-passes — **9 documents, 81 surface anchors, 137 SwiftUI citations, 64 local
-links** — and this document is not among the nine it reads, so nothing here can
-turn it red.
+**Suite state at the time of writing.** `./run-tests.sh` → **5438 passed, 0
+failed**. This document changes no code and adds no spec, so it moves neither
+number; the count is above the brief's 5395 baseline because four other agents
+were landing work in this tree while it was written. (An earlier run during
+drafting showed 4 failures — `text.lineBox`/`text.facts` undocumented, and two
+`expected 2 to be 0` four-input/paradigm proofs — all of them those agents'
+in-flight state, and all green by the time this was committed.)
+
+The five checkers were run live for this revision:
+
+```bash
+lune run tools/lune/check_docs_cli          # PASS — 9 documents, 81 surface anchors,
+                                            #   137 SwiftUI citations, 64 local links
+lune run tools/lune/check_registration_cli  # PASS — 25 controls, 91 exports documented,
+                                            #   203 specs registered, 16/16 four-input + paradigm
+lune run tools/lune/check_prop_parity_cli   # PASS — 26 classes, 643 properties, 680 typed fields
+lune run tools/lune/check_surface_ledger    # PASS
+lune run tools/lune/check_boundary          # PASS — 122 src files, 398 consumer files
+```
+
+This document is **not** among the nine `check_docs` reads, so no citation here is
+mechanically checked. That is the same limitation `swiftui-parity.md` §15 records
+about its own prose, one level worse: there, table rows are enforced to carry a
+cited URL, quote and date. Here the §7 convention is followed by hand.
 
 **What this document could NOT verify, recorded rather than assumed.**
 
