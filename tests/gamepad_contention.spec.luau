@@ -31,7 +31,11 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		expect(type(mod.traversalKeyContended)).toBe("function")
 	end)
 
-	it("describeContention() returns a string carrying all three §3 truths", function()
+	-- name keeps its "…carrying all three" prefix on purpose: the gate manifest
+	-- greps this transcript line (tools/lune/gate_manifest.luau). The string has
+	-- grown past the original three §3 truths — the arbitration truth (5), the
+	-- arrow probe (6) and the resolution are asserted below the original block.
+	it("describeContention() returns a string carrying all three §3 truths and the resolution", function()
 		local mod = require("../src/client/gamepad_contention")
 		local text = mod.describeContention()
 		expect(type(text)).toBe("string")
