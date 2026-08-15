@@ -213,8 +213,29 @@ one the rules should have named all along.
 **And the ordering that closes the race:** `git commit` with no pathspec commits
 **the index**, so once the index is verified correct a later working-tree write
 cannot contaminate it. `git commit -- <paths>` commits the **working tree** for
-those paths and re-opens the whole exposure window. Prefer the former; the latter
-is what created this incident in the first place.
+those paths and re-opens the whole exposure window.
+
+> **CORRECTED — read the round 5 addendum before acting on the paragraph above.**
+> "Prefer the bare `git commit`" is what this section originally said, and it is
+> **wrong on its own**. A bare commit writes *the whole index*, so against a
+> **stale** index it is precisely the command that silently reverts another
+> agent's landed work — which is the near-miss described at the top of 4b, not a
+> hypothetical. The bare form is only correct **after** every contaminated entry
+> has been republished with `git update-index --cacheinfo`; the two halves are one
+> instruction, not two options.
+>
+> Nor is `git commit -- <pathspec>` the cause. **Any** commit that moves `HEAD`
+> without refreshing the shared index leaves stale entries behind — an ordinary
+> commit, a pathspec commit, or a private-index `commit-tree` + `update-ref`. The
+> mechanism is the stale entry, not the command that created it.
+>
+> **In this repo, do not hand-roll either half: use `tools/commit_isolated.py`,**
+> which republishes the index from `HEAD` (reading no working-tree bytes), filters
+> to your hunks, and prints a `NOTE` when it resets someone else's staging rather
+> than doing it silently. Its remaining hole is named in the script: git merges
+> nearby edits into one hunk, so an agent editing inside your context window rides
+> along on a marker match. `-U1` narrows that from three lines to one and does not
+> close it — two agents editing the same few lines still need a worktree.
 
 ### The pattern under all four rounds
 
