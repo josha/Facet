@@ -7,7 +7,8 @@
     "$className": "DataModel",
     "Workspace": {
       "$properties": {
-        "FilteringEnabled": true
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
       },
       "Baseplate": {
         "$className": "Part",

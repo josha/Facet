@@ -11,7 +11,8 @@
         "LuauUI_NativeStyle": true
       },
       "$properties": {
-        "FilteringEnabled": true
+        "FilteringEnabled": true,
+        "PlayerScriptsUseInputActionSystem": "Enabled"
       },
       "Baseplate": {
         "$className": "Part",

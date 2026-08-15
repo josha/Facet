@@ -128,14 +128,12 @@ end to end.
 > ### ⚠️ One checkbox first: LuauUI requires the Input Action System
 >
 > Before any of the code below, open the **Workspace** in Studio's Explorer and
-> **A REBUILT PLACE LOSES IT, EVERY TIME.** `rojo build` cannot write this
-> property — it is absent from rojo 7.7.0-rc.1's reflection database, and adding
-> it to a `.project.json` fails the build outright with *"Unknown property
-> Workspace.PlayerScriptsUseInputActionSystem"* (measured 2026-08-15; the same
-> gap Rascal Rally's `docs/DEBUG_PLACE.md` records for its Server-Authority
-> prerequisites). So it cannot be checked in, and every freshly built `.rbxl`
-> starts without it. Tick it by hand after each rebuild, or the arrow keys are
-> silently dead in that copy while every screen still renders perfectly.
+> **The shipped example places already carry it** — it is declared in every
+> `examples/*.project.json`, so a `rojo build` bakes it in and a rebuild cannot
+> silently undo it. That needs Rojo **7.7.0 or newer**: 7.7.0-rc.1's reflection
+> database does not know the property and fails the build with *"Unknown
+> property"*. `rokit.toml` pins it; run `rojo` through rokit rather than a
+> `/usr/local/bin` copy.
 >
 > tick **`PlayerScriptsUseInputActionSystem`** in the Properties panel (category
 > *Behavior*). Roblox describes it as controlling "whether the built-in player
