@@ -29,3 +29,60 @@ A Play session **booted on a phone preset** (`samsung_galaxy_a06`, `TouchEnabled
 | 668 | 679 | **621** | `UserInputType.Touch` — hit the button at Gui y 576..644 |
 
 So on a touch-booted emulator session the injected click arrives as **`Touch`, not `MouseButton1`**, and the routed position is `injected − 47` in y (`GetMouseLocation() − 58`), x unchanged. The 47 is preset-dependent — the emulator draws a device frame and fits the emulated screen into the game view — so **discover it, do not assume it**: inject once, read `InputObject.Position` off `InputBegan`, then aim `target + (injected − routed)`. A first click that lands 23px above a 68px-tall button produces *no* event at all and looks exactly like a broken fix.
+
+## Addendum 2026-08-15 — `GetMouseLocation()` FREEZES under an active device simulator, and the readback it is used for is the calibration itself
+
+Driving the showcase (Studio 0.735, place `LuauUI-Showcase.rbxl`) the rule above
+held exactly at the **default** viewport (907x1067): `moveTo (38, 89)` put
+`GetMouseLocation()` at `(38, 147)` — `injected + inset` — and `moveTo (271, 134)`
+aimed at a `Grip`'s own `AbsolutePosition` centre resized the column by exactly
+the 100px dragged. Injected x/y is AbsolutePosition space; nothing new.
+
+With `StudioDeviceSimulatorService` **active** (`samsung_galaxy_a06`, portrait,
+359x718) the same readback stopped moving:
+
+| Injected `moveTo` | `GetMouseLocation()` |
+|---|---|
+| `(280, 281)` | `(150, 293)` |
+| `(100, 100)` | `(150, 293)` — *identical, two calls later* |
+
+Two different aim points, one answer. `GetMouseLocation()` was not merely
+offset (the case the addendum above documents) — it had **stopped tracking
+altogether**, and `(150, 293)` was stale from an earlier gesture.
+
+**Why that is worse than an offset.** The published recipe for the offset is
+"inject once, read the position back, add the delta". If the readback is a
+frozen constant, that calibration returns a *constant* delta, every subsequent
+click is aimed at the same wrong place, and each one produces a plausible
+result: in this session a swipe aimed at mail row `m2` opened row `m1`, which
+reads exactly like an off-by-one-row bug in the row-actions coordinator. It is
+not. The framework was correct; the instrument was frozen.
+
+**The readback that stayed truthful is `PlayerGui:GetGuiObjectsAtPosition(x, y)`,
+which takes the same AbsolutePosition-space numbers you inject.** It is pure
+geometry against the live tree, it has no cursor in it, and it answered
+correctly under simulation when `GetMouseLocation()` did not. Use it — not the
+cursor — to prove where an aim point lands:
+
+```lua
+-- BEFORE clicking: does this coordinate actually sit on the thing I mean?
+for _, h in pg:GetGuiObjectsAtPosition(x, y) do print(h.Name, h.ClassName) end
+```
+
+So the rule for a device-simulator session becomes:
+
+1. **Never calibrate from `GetMouseLocation()` while a device is simulated.**
+   Calibrate from `InputBegan`'s `InputObject.Position` (already the advice
+   above) or not at all.
+2. **Aim-check every coordinate with `GetGuiObjectsAtPosition` first**, and
+   name the instance you expect. One extra read turns "the feature is broken"
+   into "my pointer was 46px high" before the bug report is written.
+3. **When the mapping cannot be established, drop the simulator.** Verifying a
+   *gesture* at the default viewport with a proven identity mapping is better
+   evidence than verifying it on the right form factor through a lying one. The
+   swipe above was re-proved at 907x1067 — pointer landed exactly where
+   requested, `GetGuiObjectsAtPosition` confirmed row `m3`, and `m3` was the row
+   that opened while the previously-open row auto-closed.
+
+Related: [`injected-input-offset-is-per-configuration.md`](injected-input-offset-is-per-configuration.md),
+[`device-emulator-truths.md`](device-emulator-truths.md).
