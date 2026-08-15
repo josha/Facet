@@ -285,6 +285,34 @@ case in the file, which is why the pin is structural and directional: a decoy
 second definition in the solver, an arrange that reads the cache instead of the
 owner, and a mutable module local in `grid.luau` were each confirmed to redden it.
 
+WHAT IS STILL TOO ENTANGLED, and by what — unchanged from the fourth row above,
+because the three forward declarations are what entangle it and the grid took none
+of them. `contentSize` (~830 lines) and `arrange` (~1,320) are the measure/arrange
+core and both READ `measure`, `measureUncached` and `setFitProbe`: the first two
+are mutually recursive through the per-solve memo, and the third is written by
+`chosenCandidate` and read by the shrink call site. Splitting either would
+duplicate the memo or hand three function references down every recursion.
+
+THE NEXT SEAM, if this file ever needs one, is the FLOW-WRAP branch —
+`flowPartition`/`flowPlan` plus its two branches, ~6k, clean by the same test
+(it reads `measure`, `dim`, `sides` and nothing mutable) and structurally the
+grid's twin: one plan, two passes, a cache on the ctx. It would arrive with the
+same `Deps` + call-site-`place` shape this row worked out. It is NOT needed at
+169,436 — 30,564 of headroom, the widest margin any file in `src/` has had — and
+`flowPartition` is a PUBLIC export the game's `luauui_flow_wrap_contract` spec
+calls directly, so moving it costs a re-export the grid did not.
+
+LIVE PROOF, which is the whole point of this check: after the commit the Rojo
+plugin synced both files into the open Showcase session, and the running datamodel
+holds `ReplicatedStorage.LuauUI.layout.solver` at exactly 169,436 chars with this
+mission's `GRID_DEPS` marker in it and a NEW sibling `layout.grid` at 34,447 —
+which also proves the directory-mount claim the game-side rider makes, since no
+project file was edited. Driven live: both flow directions solve to an exact
+transpose with zero diagnostics, the row grid and the `gridrow` branch place their
+columns, a bare `UI.GridRow` still files its diagnostic (so the moved arrange
+branch really executes rather than dying nil inside a protected boundary), and a
+full mount through the presenter paints all three grid layouts with none.
+
 THE CEILINGS WERE SNAPSHOT 2026-08-14 during a ten-agent session with features
 still landing, so they are a high-water mark rather than a considered budget.
 Re-snapshot them once the wave lands: a ceiling set mid-churn that nobody
