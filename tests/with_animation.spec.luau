@@ -487,6 +487,107 @@ describe("withAnimation: interruption carries velocity", function()
 	end)
 end)
 
+--[[ A CURVE CAN DRIVE THE FLIGHT (ADR-0033 Decision 6). `withAnimation` takes a
+	registered motion CURVE name as well as a motion CLASS name — the progress value
+	is the same `Readable<number>` handle with a tween driver behind it, so "over
+	exactly 300 ms, quad ease-out" needs no second mechanism. The three things that
+	could have gone wrong, each asserted rather than reasoned about: the layout must
+	still land exactly and instantly, the flight must actually arrive on the curve's
+	duration, and the interruption carry must NOT try to seed a velocity into a value
+	that raises on `setVelocity`. ]]
+describe("withAnimation: a registered CURVE drives the flight (ADR-0033)", function()
+	local function curveWorld(opts: any?)
+		LuauUI.motion.resetCurves()
+		LuauUI.motion.registerCurve("panel", { duration = 0.3, style = "quad", direction = "out" })
+		return world(opts)
+	end
+
+	it("flies on the curve, lands exactly, and cleans up its records", function()
+		local w = curveWorld()
+		w.pres.withAnimation("panel", function()
+			w.tall:set(true)
+		end)
+		-- the layout is exact and instant, exactly as with a class
+		local node = w.adapter.node("/S/Body")
+		expect(node.rect.y).toBe(200)
+		-- ...and the paint started back at the old place
+		expect(node.presentedPosition.y).toBe(100)
+		expect(w.pres.animationRecordCount() > 0).toBe(true)
+		settle(w.pres)
+		local settled = w.adapter.node("/S/Body")
+		expect(settled.presentedPosition.y).toBe(settled.rect.y)
+		expect(w.pres.animationRecordCount()).toBe(0)
+	end)
+
+	it("ARRIVES ON THE CURVE'S DURATION — the thing a class cannot promise", function()
+		local w = curveWorld()
+		w.pres.withAnimation("panel", function()
+			w.tall:set(true)
+		end)
+		-- 0.3 s at 1/60 is 18 frames. One frame short: still travelling.
+		for _ = 1, 17 do
+			w.pres.tick(FRAME)
+		end
+		expect(w.pres.animationRecordCount() > 0).toBe(true)
+		w.pres.tick(FRAME)
+		-- ...and on the eighteenth the flight is over and the channel is clean. A
+		-- spring is still several hundred milliseconds from here.
+		expect(w.pres.animationRecordCount()).toBe(0)
+		local node = w.adapter.node("/S/Body")
+		expect(node.presentedPosition.y).toBe(node.rect.y)
+	end)
+
+	it("an interruption re-bases without seeding a velocity the curve cannot take", function()
+		local w = curveWorld()
+		w.pres.withAnimation("panel", function()
+			w.tall:set(true)
+		end)
+		for _ = 1, 6 do
+			w.pres.tick(FRAME)
+		end
+		local midFlight = w.adapter.node("/S/Body").presentedPosition.y
+		-- `setVelocity` RAISES on a tween value, so an unguarded carry would throw
+		-- here — inside an armed commit, with `fn` already applied.
+		w.pres.withAnimation("panel", function()
+			w.tall:set(false)
+		end)
+		local afterClaim = w.adapter.node("/S/Body").presentedPosition.y
+		-- re-based from the pixel on screen, not restarted from the old place
+		expect(math.abs(afterClaim - midFlight) < 1).toBe(true)
+		settle(w.pres)
+		local node = w.adapter.node("/S/Body")
+		expect(node.presentedPosition.y).toBe(node.rect.y)
+		expect(w.pres.animationRecordCount()).toBe(0)
+	end)
+
+	it("reduced motion installs nothing for a curve either", function()
+		local w = curveWorld({ reducedMotion = true })
+		w.pres.withAnimation("panel", function()
+			w.tall:set(true)
+		end)
+		expect(w.pres.animationRecordCount()).toBe(0)
+		local node = w.adapter.node("/S/Body")
+		expect(node.rect.y).toBe(200)
+		expect(node.presentedPosition.y).toBe(200)
+	end)
+
+	it("an unknown name is refused, and the message names BOTH vocabularies", function()
+		local w = curveWorld()
+		local ok, err = pcall(function()
+			w.pres.withAnimation("pnael", function()
+				w.tall:set(true)
+			end)
+		end)
+		expect(ok).toBe(false)
+		-- the class registry's own refusal, plus the curve half a class-only
+		-- message would have sent the author hunting for
+		expect(string.find(tostring(err), "unknown motion class", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(tostring(err), "motion CURVE name", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(tostring(err), "panel", 1, true) ~= nil).toBeTruthy()
+		LuauUI.motion.resetCurves()
+	end)
+end)
+
 --[[ SIZE — the round-2 deferral, closed (docs/plans/with-animation-size.md).
 	Round 2 shipped position only and recorded five mechanisms as the reason.
 	Four of them describe what animating a size MEANS (content relayouts inside

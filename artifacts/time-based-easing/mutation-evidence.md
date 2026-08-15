@@ -65,6 +65,23 @@ That is the whole argument for mutation testing on this feature: the interruptio
 behaviour is the part of a tween most likely to be got wrong, and it was the one
 part the suite could not see.
 
+## Round 2 — `withAnimation` with a curve (ADR-0033 Decision 6)
+
+Five cases added to `tests/with_animation.spec.luau`; spec 30 → 35 passed. Three
+mutations, same harness and the same restore-and-verify discipline.
+
+| # | mutation | file | verdict | the case that reddened |
+|---|---|---|---|---|
+| W1 | the interruption carry seeds a velocity unconditionally | `presentation_channel.luau` | **BIT** | an interruption re-bases without seeding a velocity the curve cannot take |
+| W2 | a curve name silently builds a **spring** — the duration is ignored | `presenter.luau` | **BIT** (3 red) | flies on the curve, lands exactly, and cleans up its records |
+| W3 | `carriesVelocity` hard-coded true — W1 from the other side of the seam | `presenter.luau` | **BIT** | an interruption re-bases without seeding a velocity the curve cannot take |
+
+W1/W3 are the pair worth having. `setVelocity` **raises** on a tween value, and
+the carry runs inside an armed commit *after* the caller's `fn` has already been
+applied — so an unguarded carry does not merely animate wrongly, it throws on a
+path where the mutation has landed and the documented advice is *do not retry*.
+Both directions of that seam are now pinned.
+
 ## Not mutated, and why
 
 The clock-entry / leak cases (`a scope owns the clock`,
