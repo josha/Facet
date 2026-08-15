@@ -17,6 +17,7 @@ local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local adaptive = require("../src/layout/adaptive")
 local fake_target = require("../tests/lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
 local function fill(weight: number?)
 	return { type = "fill", weight = weight or 1 }
@@ -949,7 +950,11 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		two would come to disagree. The live drive is in
 		`docs/lessons/a-forty-four-pixel-floor-under-an-eight-pixel-divider.md`. ]]
 	it("the minimum-target expander begins the host's pointer capture, through the one shared body", function()
-		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- THE WHOLE ADAPTER, not one of its files: `dropHitExpander` left for
+		-- `screen_presentation` when screen_target crossed the Source cap, and a pin
+		-- that kept reading a single file would have stopped seeing the teardown it
+		-- names (tests/lib/adapter_source.luau)
+		local source = adapter_source.live()
 		-- ONE body, extracted rather than copied
 		local atBegin = string.find(source, "local function beginPointerCapture", 1, true)
 		expect(atBegin ~= nil).toBe(true)
@@ -998,7 +1003,11 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- The fix is structural: `applyRect` — the one function that re-bases a node
 		-- from its clip host, including when the host's rect arrives late — places the
 		-- expander too, so the two can never disagree about the origin.
-		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- Read as the WHOLE adapter: `applyRect` and `applyHitExpander` are
+		-- `screen_presentation`'s since the Source-cap split, and the invariant is
+		-- that ONE function places both — which is a claim about the adapter, not
+		-- about a file.
+		local source = adapter_source.live()
 		local atApply = string.find(source, "local function applyRect", 1, true)
 		expect(atApply ~= nil).toBe(true)
 		-- (window widened 900→1500 when applyRect grew the centered-pivot branch,

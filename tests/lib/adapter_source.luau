@@ -13,8 +13,9 @@
 	tests the code baked into the place file rather than the edits on disk
 	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md). screen_target
 	has been split along that pressure: the chrome/decoration materializer left
-	first (`screen_chrome`), then the scroll seam (`screen_scroll_indicators`) and
-	the bespoke paint vocabulary (`screen_paint`).
+	first (`screen_chrome`), then the scroll seam (`screen_scroll_indicators`),
+	the bespoke paint vocabulary (`screen_paint`) and the presentation channel
+	(`screen_presentation`).
 
 	WHAT `live()` IS, AND IS NOT. It is the adapter minus chrome. `screen_chrome`
 	left long enough ago that the specs which pin it read it explicitly by name;
@@ -32,6 +33,7 @@ local PARTS = {
 	"src/client/screen_target.luau",
 	"src/client/screen_paint.luau",
 	"src/client/screen_scroll_indicators.luau",
+	"src/client/screen_presentation.luau",
 }
 
 local adapter_source = {}

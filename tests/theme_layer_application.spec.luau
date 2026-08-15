@@ -30,6 +30,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local fs = require("@lune/fs")
+local adapter_source = require("./lib/adapter_source")
 
 local LuauUI = require("../src") :: any
 local UI = require("../src/blueprint")
@@ -45,17 +46,28 @@ local sheet_model = require("../src/tokens/sheet_model")
 local chrome_slots = require("../src/tokens/chrome_slots")
 
 local source = fs.readFile("src/client/screen_target.luau")
--- the chrome/decoration materializer was extracted to a sibling module when
--- screen_target.luau reached Studio's 200_000-byte Source ceiling. Every anchor
--- below is unchanged and every assertion keeps its strength — `section` simply
--- looks in both halves of the adapter for the one that carries the anchor.
-local chromeSource = fs.readFile("src/client/screen_chrome.luau")
+-- the adapter was split into siblings when screen_target.luau reached Studio's
+-- 200_000-byte Source ceiling. Every anchor below is unchanged and every
+-- assertion keeps its strength — `section` simply looks in each part of the
+-- adapter for the one that carries the anchor. The list is `adapter_source`'s,
+-- so a future extraction is registered in ONE place; screen_chrome is appended
+-- because it left before that file existed and is deliberately not in `live()`.
+local PARTS: { string } = { source }
+for _, path in adapter_source.PARTS do
+	if path ~= "src/client/screen_target.luau" then
+		table.insert(PARTS, fs.readFile(path))
+	end
+end
+table.insert(PARTS, fs.readFile("src/client/screen_chrome.luau"))
 
 local function section(fromNeedle: string, toNeedle: string): string
-	local text = source
+	local text = PARTS[1]
 	local from = string.find(text, fromNeedle, 1, true)
-	if from == nil then
-		text = chromeSource
+	for i = 2, #PARTS do
+		if from ~= nil then
+			break
+		end
+		text = PARTS[i]
 		from = string.find(text, fromNeedle, 1, true)
 	end
 	expect(from ~= nil).toBe(true)

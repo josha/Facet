@@ -43,6 +43,9 @@ local screen_scroll_indicators = require("./screen_scroll_indicators")
 -- the bespoke (non-native) paint vocabulary — the sibling of screen_chrome,
 -- extracted for the same ceiling. Also strictly one-way.
 local screen_paint = require("./screen_paint")
+-- the presentation channel (ADR-0022 Decision 2) and the clip-host record it
+-- composes against — see that module's header for why the seam is here
+local screen_presentation = require("./screen_presentation")
 local text_premeasure = require("./text_premeasure")
 local authority = require("../render/authority")
 -- the PURE rulings the UI.Stage content seam is made of (camera/lighting shapes,
@@ -157,36 +160,6 @@ local function markStageDisposed(handle: any)
 	handle.stageWorld = nil
 	handle.stageCamera = nil
 	handle.stageApi = nil
-end
-
--- Path2D control-point application (NS-A7; spike m5-path2d.json): normalized
--- points (unit box, tangents relative to the point) scale into the CURRENT
--- solved rect. Engine truths: max 100 control points; no Transparency
--- property; left tangent = incoming handle, right = outgoing.
-local function applyPathPoints(handle: any)
-	local path2d = handle.path2d
-	local rect = handle.windowRect
-	local points = handle.normPoints
-	if path2d == nil or rect == nil or points == nil then
-		return
-	end
-	-- normalized against the PAINTED box, so a shape inside a node whose size is
-	-- travelling re-scales with it instead of sitting at its destination size
-	-- inside a smaller box (withAnimation size, 2026-08-14)
-	local w = math.max(rect.w + (handle.presentationSizeW or 0), 1)
-	local h = math.max(rect.h + (handle.presentationSizeH or 0), 1)
-	local cps = table.create(#points)
-	for _, p in points do
-		table.insert(
-			cps,
-			Path2DControlPoint.new(
-				UDim2.fromOffset(p.x * w, p.y * h),
-				UDim2.fromOffset(p.inX * w, p.inY * h),
-				UDim2.fromOffset(p.outX * w, p.outY * h)
-			)
-		)
-	end
-	path2d:SetControlPoints(cps)
 end
 
 local function toColor3(c: any): Color3
@@ -962,265 +935,38 @@ function screen_target.new(opts: Opts?)
 		return baseRootGui
 	end
 
-	-- real clipping (touch-scroll design 2026-07-20): a node whose blueprint
-	-- declares clipChildren=true becomes a CLIP HOST — its descendants parent
-	-- under it (engine hierarchy) with positions relative to the host, so
-	-- ClipsDescendants crops partial overflow (scrolled table rows). Window-
-	-- space rects stay the renderer contract; the subtraction happens here.
-	-- `path` joined the entry for the presentation channel (ADR-0022 Decision 2): an
-	-- offset accumulating down a subtree stops at the nearest REAL PARENT, whose own
-	-- move already carries its children, and this is how a child knows where that is.
-	local clipHosts: { [string]: { instance: Instance, rect: any?, children: { any }, path: string } } = {}
-	local function hostFor(path: string): any
-		local best: any = nil
-		local bestLen = -1
-		for hostPath, entry in clipHosts do
-			if #hostPath > bestLen and string.sub(path, 1, #hostPath + 1) == hostPath .. "/" then
-				best = entry
-				bestLen = #hostPath
-			end
-		end
-		return best
-	end
-	-- the effective-target expander (B-BTN3) lives beside its control, so it must be
-	-- re-based from the SAME clip-host origin — and re-based AGAIN whenever that
-	-- origin arrives or moves. RS-A16-D1b (found live 2026-07-26): the renderer pushes
-	-- hit rects BEFORE the commit that writes rects, so on a fresh build a clip host's
-	-- rect is not yet current when the expander is first placed, and the renderer's
-	-- own cache (which stores only the WANTED rect) never asks again. Measured after a
-	-- scenario `reset()`: an expander 74px below the button it belongs to. Placing it
-	-- here, in the one function that re-bases a node, is what makes the two unable to
-	-- disagree.
-	-- ===== THE PRESENTATION CHANNEL (ADR-0022 Decision 2) =================
+	-- ===== THE PRESENTATION CHANNEL (src/client/screen_presentation) ======
 	--
 	-- A presentation transform composes onto the solver's rect at the WRITE, so a
 	-- motion never touches solver geometry and a re-solve never loses the motion:
 	-- `applyRect` is the one place a Position is written, and it adds the offset
-	-- every time.
+	-- every time. The module carries that rule, the flat-tree reasoning behind the
+	-- offset ACCUMULATION, the clip-host (real-parent) record it composes against,
+	-- the subtree index that keeps a 60 Hz leaf motion off the whole tree, the hit
+	-- expander that has to travel with the paint, and the scale/rotation half.
 	--
-	-- THE INSTANCE TREE IS FLAT (docs/lessons/screen-target-tree-is-flat.md), and
-	-- that is the load-bearing fact here. Every node parents under the root gui
-	-- unless a REAL PARENT claimed it (a clip host, or the new canvas group), so
-	-- moving a container's own instance moves nothing but that container — the
-	-- keyboard keep-visible shift on the root node would have moved one transparent
-	-- frame and nothing the player can see. So the offset ACCUMULATES down the
-	-- subtree: a node pays its own transform plus every ancestor's, stopping at its
-	-- real parent, whose own move already carries it. One rule, and the root case
-	-- (the whole surface shifts) falls out of it.
-	local presentationTransforms: { [string]: any } = {}
-	local presentationCount = 0
-	-- path -> the handles a transform on that path composes into (itself first).
-	-- A motion writes EVERY FRAME while it runs, and scanning every handle on the
-	-- target per write would make a leaf's 60 Hz motion cost the whole tree. Built
-	-- once per animated path and dropped wholesale on any structural change, which is
-	-- rare next to a frame.
-	local subtreeCache: { [string]: { any } } = {}
-	local function subtreeOf(path: string): { any }
-		local hit = subtreeCache[path]
-		if hit ~= nil then
-			return hit
-		end
-		local prefix = path .. "/"
-		local out: { any } = {}
-		for otherPath, other in handlesByPath do
-			if otherPath == path or string.sub(otherPath, 1, #prefix) == prefix then
-				table.insert(out, other)
-			end
-		end
-		subtreeCache[path] = out
-		return out
-	end
-
-	-- cached on the handle so `applyRect` — the hot path — adds two numbers instead
-	-- of walking a path. Recomputed for the affected subtree when a transform moves,
-	-- and once at creation for a node born under a live one.
-	local function recomputePresentationOffset(handle: any)
-		local ox, oy = 0, 0
-		if presentationCount > 0 then
-			local own = presentationTransforms[handle.path]
-			if own ~= nil then
-				ox += own.x or 0
-				oy += own.y or 0
-			end
-			-- ancestors, down to (and excluding) the real parent
-			local stop = if handle.clipHost ~= nil then #handle.clipHost.path else 0
-			local path = handle.path
-			local i = #path
-			while i > 1 do
-				if string.sub(path, i, i) == "/" then
-					local ancestor = string.sub(path, 1, i - 1)
-					if #ancestor <= stop then
-						break
-					end
-					local t = presentationTransforms[ancestor]
-					if t ~= nil then
-						ox += t.x or 0
-						oy += t.y or 0
-					end
-				end
-				i -= 1
-			end
-		end
-		handle.presentationOffsetX = ox
-		handle.presentationOffsetY = oy
-		-- THE SIZE HALF, AND IT READS THIS NODE'S OWN TRANSFORM ONLY (withAnimation
-		-- size, 2026-08-14). The loop above accumulates because a container's MOVE
-		-- carries nothing inside it in a flat tree. A container's painted GROWTH
-		-- carries nothing inside it either — and there that same fact means the
-		-- opposite: every child holds an absolute rect, so it must keep its own solved
-		-- size while its parent's box travels. So: no ancestor walk, one lookup.
-		local ownT = presentationTransforms[handle.path]
-		handle.presentationSizeW = if ownT ~= nil and type(ownT.w) == "number" then ownT.w else 0
-		handle.presentationSizeH = if ownT ~= nil and type(ownT.h) == "number" then ownT.h else 0
-	end
-
-	local function applyHitExpander(handle: any)
-		local expander = handle.hitExpander
-		local rect = handle.hitRectWant
-		if expander == nil or rect == nil then
-			return
-		end
-		local ox, oy = 0, 0
-		if handle.clipHost ~= nil and handle.clipHost.rect ~= nil then
-			ox, oy = handle.clipHost.rect.x, handle.clipHost.rect.y
-		end
-		-- the expander is this control's HIT surface, so it travels with the paint:
-		-- a shifted control whose target stayed behind would be a control you can see
-		-- and cannot press
-		expander.Position = UDim2.fromOffset(
-			rect.x - ox + (handle.presentationOffsetX or 0),
-			rect.y - oy + (handle.presentationOffsetY or 0)
-		)
-		expander.Size = UDim2.fromOffset(rect.w, rect.h)
-		expander.ZIndex = handle.instance.ZIndex - 1
-	end
-
-	-- ONE teardown for the expander and everything wired onto it. Destroying the
-	-- instance disconnects its own signals, but the handle slot has to go dead too
-	-- or `setPointerHandlers` would see a stale `hitExpanderPointerConn` and refuse
-	-- to wire the NEXT expander this handle grows (a recycled node's hit rect
-	-- arriving after its handlers — see that function's order note).
-	local function dropHitExpander(handle: any)
-		if handle.hitExpanderPointerConn ~= nil then
-			handle.hitExpanderPointerConn:Disconnect()
-			handle.hitExpanderPointerConn = nil
-		end
-		if handle.hitExpander ~= nil then
-			handle.hitExpander:Destroy()
-			handle.hitExpander = nil
-		end
-	end
-
-	local function applyRect(handle: any)
-		local rect = handle.windowRect
-		if rect == nil then
-			return
-		end
-		local ox, oy = 0, 0
-		if handle.clipHost ~= nil and handle.clipHost.rect ~= nil then
-			ox, oy = handle.clipHost.rect.x, handle.clipHost.rect.y
-		end
-		-- THE PAINTED SIZE (withAnimation size, 2026-08-14): the solved extent plus
-		-- this node's own presentation delta. Zero for every node that is not
-		-- mid-flight, which is every node almost all of the time.
-		local pw = rect.w + (handle.presentationSizeW or 0)
-		local ph = rect.h + (handle.presentationSizeH or 0)
-		if handle.motionAnchorCentered then
-			-- a live motion scale re-anchored this instance to its center so the
-			-- UIScale pivots there (director fix round: pops and the drag ghost grew
-			-- down-right from the top-left) — same rect, written as its center.
-			-- Half the PAINTED extent, so the two branches place the same box: a
-			-- growing node extends down-right from its solved origin either way.
-			handle.instance.Position = UDim2.fromOffset(
-				rect.x - ox + (handle.presentationOffsetX or 0) + pw / 2,
-				rect.y - oy + (handle.presentationOffsetY or 0) + ph / 2
-			)
-		else
-			handle.instance.Position = UDim2.fromOffset(
-				rect.x - ox + (handle.presentationOffsetX or 0),
-				rect.y - oy + (handle.presentationOffsetY or 0)
-			)
-		end
-		handle.instance.Size = UDim2.fromOffset(pw, ph)
-		applyHitExpander(handle)
-		if handle.focusRingFloat ~= nil and handle.focusRingFloat.Parent ~= nil then
-			-- the float ring rides the focused rect (it lives in the clip host,
-			-- so a row that re-arranges must carry its ring along)
-			local t = handle.focusRingFloat:FindFirstChild("FocusRing")
-			local thickness = if t ~= nil and t:IsA("UIStroke") then t.Thickness else 2
-			handle.focusRingFloat.Position = UDim2.fromOffset(
-				rect.x - ox + thickness + (handle.presentationOffsetX or 0),
-				rect.y - oy + thickness + (handle.presentationOffsetY or 0)
-			)
-			-- the ring traces the PAINTED box: a ring left at the solved size while its
-			-- node's box travels would visibly detach from the control it marks
-			handle.focusRingFloat.Size = UDim2.fromOffset(pw - 2 * thickness, ph - 2 * thickness)
-		end
-		-- a semantic icon is clamped to the box this node actually has, so a rect
-		-- that lands after the picture did has to re-fit it (director report
-		-- 2026-07-28). No-op for every node carrying no icon art.
-		refitIconArt(handle)
-		if handle.path2d ~= nil then
-			-- normalized control points re-scale with the solved rect (NS-A7)
-			applyPathPoints(handle)
-		end
-	end
-
-	-- the paint half of a transform: SCALE and ROTATION reach only the node's own
-	-- instance (and whatever is really parented under it), which is why the
-	-- reference points a subtree-scaling caller at a `canvasGroup` node.
-	--
-	-- `UIScale` IS SHARED WITH THE PRESS DIP. The engine honours ONE UIScale per
-	-- object, so a second instance would make the winner unpredictable — a
-	-- pressable control's motion scale therefore writes the dip's own instance, and
-	-- the last writer wins by design rather than by accident.
-	local function applyPresentationPaint(handle: any, t: any)
-		local instance = handle.instance
-		if not instance:IsA("GuiObject") then
-			return
-		end
-		local scale = if type(t) == "table" and type(t.scale) == "number" then t.scale else nil
-		local existing = handle.motionScale or handle.uiScale
-		-- THE PRESS DIP'S RESTING TARGET (ADR-0026 Consequences, fixed 2026-08-14).
-		-- The composed scale this authority is writing IS what a dip must come back
-		-- to, and this is the one moment it is known. Recorded even when the
-		-- instance is shared with the dip — especially then, since that sharing is
-		-- what made an absolute recovery destroy an authored scale. Cleared, not set
-		-- to 1, when nothing is scaling: `screen_paint.restingScale` reads it with
-		-- `or 1`, so an unscaled control never grows a field.
-		handle.restingScale = if scale ~= nil and scale ~= 1 then scale else nil
-		if scale ~= nil and scale ~= 1 then
-			local live = existing
-			if live == nil then
-				live = ensureScale(instance, handle)
-				handle.motionScale = live
-			end
-			live.Scale = scale
-			-- CENTERED PIVOT (director fix round, RR parity): UIScale scales around
-			-- the AnchorPoint, and the flat tree anchors top-left, so every pop and
-			-- the drag ghost's pickup grow crawled down-right. While a motion scale
-			-- is live the instance is re-anchored to its center; applyRect writes
-			-- the same rect as its center point, so nothing else moves.
-			if not handle.motionAnchorCentered then
-				handle.motionAnchorCentered = true
-				instance.AnchorPoint = Vector2.new(0.5, 0.5)
-			end
-		elseif existing ~= nil then
-			existing.Scale = 1
-			if handle.motionScale ~= nil then
-				handle.motionScale:Destroy()
-				handle.motionScale = nil
-			end
-			if handle.motionAnchorCentered then
-				handle.motionAnchorCentered = nil
-				instance.AnchorPoint = Vector2.new(0, 0)
-			end
-		end
-		-- Rotation is paint-only in Roblox (it never moves layout or hit geometry),
-		-- and no rule writes it, so it needs no claim
-		local rotation = if type(t) == "table" and type(t.rotation) == "number" then t.rotation else 0
-		instance.Rotation = rotation
-	end
+	-- REBOUND TO THEIR ORIGINAL NAMES, so not one call site below this line moved.
+	-- The three that are not a rename — `setPresentationTransform`, `dropPath`,
+	-- `invalidateSubtree` — exist because `presentationCount` is a NUMBER and
+	-- `subtreeCache` is REBOUND, and neither can be shared by reference the way
+	-- the two record tables are. One authority for the count, the same shape as
+	-- the paint-claim ledger's one authority per render property.
+	local presentation = screen_presentation.new({
+		handlesByPath = handlesByPath,
+		refitIconArt = refitIconArt,
+		ensureScale = ensureScale,
+	})
+	local clipHosts = presentation.clipHosts
+	local presentationTransforms = presentation.presentationTransforms
+	local hostFor = presentation.hostFor
+	local recomputePresentationOffset = presentation.recomputePresentationOffset
+	local applyHitExpander = presentation.applyHitExpander
+	local dropHitExpander = presentation.dropHitExpander
+	local applyRect = presentation.applyRect
+	local applyPathPoints = presentation.applyPathPoints
+	local setPresentationTransform = presentation.setTransform
+	local dropPresentationRecords = presentation.dropPath
+	local invalidateSubtree = presentation.invalidateSubtree
 
 	-- `decorationHint` (optional 4th argument, ADR-0019 fix round): the pure
 	-- decoration hint the renderer read off the node's INTERNAL meta channel
@@ -1592,7 +1338,7 @@ function screen_target.new(opts: Opts?)
 		handlesByPath[path] = handle
 		-- the subtree index is derived from this map, so it dies with any structural
 		-- change rather than being patched at three sites
-		subtreeCache = {}
+		invalidateSubtree()
 		-- a node born INSIDE a live presentation transform (a row added to a shifted
 		-- surface, a re-entering transition subtree) starts at the composed position:
 		-- its first rect write must already carry the offset, or it appears at rest for
@@ -3517,27 +3263,10 @@ function screen_target.new(opts: Opts?)
 		elseif prop == "transform" then
 			-- THE PRESENTATION TRANSFORM (ADR-0022 Decision 2; fixes SF-M9 — this
 			-- branch simply did not exist, so every keep-visible shift was a headless
-			-- green that never moved a device). Offset composes onto the solver's rect
-			-- for this node AND its subtree (the tree is flat — see
-			-- recomputePresentationOffset); scale and rotation are paint on its own
-			-- instance. `nil` clears.
-			local previous = presentationTransforms[handle.path]
-			if value == nil then
-				if previous ~= nil then
-					presentationCount -= 1
-				end
-				presentationTransforms[handle.path] = nil
-			else
-				if previous == nil then
-					presentationCount += 1
-				end
-				presentationTransforms[handle.path] = value
-			end
-			applyPresentationPaint(handle, value)
-			for _, other in subtreeOf(handle.path) do
-				recomputePresentationOffset(other)
-				applyRect(other)
-			end
+			-- green that never moved a device). The whole body is
+			-- `screen_presentation.setTransform`, because it is the one writer of that
+			-- module's `presentationCount`.
+			setPresentationTransform(handle, value)
 		elseif prop == "dragHeld" then
 			-- THE HELD DRAG SOURCE (director round five). Native: the tag rides
 			-- syncTags and the sheet's `.luau-drag-held` rule empties the label
@@ -3922,7 +3651,7 @@ function screen_target.new(opts: Opts?)
 		-- WITHOUT a chrome reconcile sound.
 		handle.parkedChromeEpoch = chromeState.epoch()
 		handle.path = PARKED_PATH
-		subtreeCache = {}
+		invalidateSubtree()
 		-- OFF THE SCREEN, not merely invisible: a parked instance must cost no
 		-- layout, no paint and no hit test, and must not appear in any census that
 		-- counts what the surface is holding
@@ -4004,7 +3733,7 @@ function screen_target.new(opts: Opts?)
 		for name, child in chromePathChildEntries(handle) do
 			instancesByPath[newPath .. "/" .. name] = child
 		end
-		subtreeCache = {}
+		invalidateSubtree()
 		recomputePresentationOffset(handle)
 		-- NO chrome reconcile here, deliberately: the epoch gate above proves no
 		-- plan-deciding fact moved while the handle was parked, the hint gate
@@ -4063,17 +3792,9 @@ function screen_target.new(opts: Opts?)
 		end
 		instancesByPath[handle.path] = nil
 		instancesByPath[handle.path .. "/" .. chrome_slots.DECORATION_NAME] = nil
-		-- the PRESENTATION record dies with the node, or a re-created path inherits a
-		-- transform nothing is driving any more (and `presentationCount` — the
-		-- zero-cost fast path every rect write consults — would never fall back to 0)
-		if presentationTransforms[handle.path] ~= nil then
-			presentationTransforms[handle.path] = nil
-			presentationCount -= 1
-		end
-		-- ...and so does its REAL-PARENT record. A stale entry keeps re-parenting new
-		-- nodes into a destroyed instance, which is the one way a flat tree can lose a
-		-- whole subtree silently.
-		clipHosts[handle.path] = nil
+		-- the PRESENTATION record and the REAL-PARENT record both die with the node
+		-- (screen_presentation.dropPath, which owns the count)
+		dropPresentationRecords(handle.path)
 		if handle.motionScale ~= nil then
 			handle.motionScale:Destroy()
 			handle.motionScale = nil
@@ -4088,7 +3809,7 @@ function screen_target.new(opts: Opts?)
 			instancesByPath[handle.path .. "/" .. chrome_slots.TOGGLE_PARTS[name]] = nil
 		end
 		handlesByPath[handle.path] = nil
-		subtreeCache = {}
+		invalidateSubtree()
 		-- the LIFTED LABEL is decoration too: without this its connections stayed
 		-- live, `census.textLifts` only ever grew across remounts, and
 		-- `instancesByPath[path .. "/LuauUIChromeText"]` retained a destroyed
@@ -4172,11 +3893,7 @@ function screen_target.new(opts: Opts?)
 				instancesByPath[path] = nil
 				-- the same two per-node records `remove` drops, on the whole-root path:
 				-- a target hosts several roots at once, so this cannot be a blanket reset
-				if presentationTransforms[path] ~= nil then
-					presentationTransforms[path] = nil
-					presentationCount -= 1
-				end
-				clipHosts[path] = nil
+				dropPresentationRecords(path)
 				local handle = handlesByPath[path]
 				if handle ~= nil then
 					-- the stage seam, on the whole-root path (same reason as in `remove`)
@@ -4213,7 +3930,7 @@ function screen_target.new(opts: Opts?)
 					focusedHandles[handle] = nil
 				end
 				handlesByPath[path] = nil
-				subtreeCache = {}
+				invalidateSubtree()
 			end
 		end
 		for index, gui in themeRoots do

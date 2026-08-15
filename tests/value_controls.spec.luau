@@ -18,6 +18,7 @@ local presenterLib = require("../src/present/presenter")
 local actionsLib = require("../src/input/actions")
 local valueModel = require("../src/controls/value_model")
 local fake_target = require("../tests/lib/fake_target")
+local adapter_source = require("./lib/adapter_source")
 
 describe("B-VAL1: the shared value model", function()
 	it("clamps to its bounds", function()
@@ -716,7 +717,11 @@ describe("verifier V11: the hit expander is re-based by its clip host", function
 		-- the expander used to be positioned with the raw window-space rect while
 		-- every other instance is re-based by its clip host, so inside a ScrollView
 		-- the invisible activation surface landed off by the host origin
-		local source = require("@lune/fs").readFile("src/client/screen_target.luau")
+		-- the WHOLE adapter: `applyHitExpander` — the shared placement helper this
+		-- pin's second half anchors on — moved to `screen_presentation` with the
+		-- presentation channel when screen_target crossed the 200_000-char Source
+		-- cap, and the claim is about the adapter rather than about one of its files
+		local source = adapter_source.live()
 		local at = string.find(source, "function adapter.setHitRect", 1, true)
 		expect(at ~= nil).toBe(true)
 		-- (window widened 1800→2400 when the expander's Activated started building

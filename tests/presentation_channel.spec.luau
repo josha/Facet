@@ -412,8 +412,17 @@ describe("screen_target: the presentation channel (source contract)", function()
 		expect(string.find(body, "presentationTransforms[ancestor]", 1, true) ~= nil).toBe(true)
 		-- ...and a REAL PARENT stops the walk, since its own move carries its children
 		expect(string.find(body, "handle.clipHost", 1, true) ~= nil).toBe(true)
-		-- the transform write re-places the whole subtree
-		local write = string.find(adapterSource, 'elseif prop == "transform" then', 1, true)
+		-- the transform write re-places the whole subtree. The write is
+		-- `screen_presentation.setTransform` since the Source-cap split — it is the
+		-- ONE writer of `presentationCount`, which a number cannot share by reference
+		-- — so BOTH halves are pinned: setProp still delegates, and the delegate is
+		-- still what re-places the subtree. A branch that grew its own copy of the
+		-- body, or a delegate that stopped being called, turns this red.
+		local branch = string.find(adapterSource, 'elseif prop == "transform" then', 1, true)
+		expect(branch ~= nil).toBe(true)
+		local branchBody = string.sub(adapterSource, branch :: number, (branch :: number) + 600)
+		expect(string.find(branchBody, "setPresentationTransform(handle, value)", 1, true) ~= nil).toBe(true)
+		local write = string.find(adapterSource, "local function setTransform(handle: any, value: any)", 1, true)
 		expect(write ~= nil).toBe(true)
 		local writeBody = string.sub(adapterSource, write :: number, (write :: number) + 1600)
 		expect(string.find(writeBody, "recomputePresentationOffset(other)", 1, true) ~= nil).toBe(true)
@@ -428,7 +437,7 @@ describe("screen_target: the presentation channel (source contract)", function()
 		expect(from ~= nil).toBe(true)
 		local body = string.sub(adapterSource, from :: number, (from :: number) + 700)
 		expect(string.find(body, "subtreeCache[path]", 1, true) ~= nil).toBe(true)
-		local write = string.find(adapterSource, 'elseif prop == "transform" then', 1, true)
+		local write = string.find(adapterSource, "local function setTransform(handle: any, value: any)", 1, true)
 		local writeBody = string.sub(adapterSource, write :: number, (write :: number) + 1200)
 		expect(string.find(writeBody, "subtreeOf(handle.path)", 1, true) ~= nil).toBe(true)
 		-- FIVE invalidation sites: create, remove, whole-root teardown, and the two
@@ -436,11 +445,24 @@ describe("screen_target: the presentation channel (source contract)", function()
 		-- one back under a new path). Both are structural changes to the flat tree, so
 		-- both must drop the derived subtree index — a recycled node that kept a stale
 		-- entry would re-place some other node's subtree on the next transform write.
+		--
+		-- The five now CALL `invalidateSubtree()` rather than rebinding the cache
+		-- themselves (the cache went to `screen_presentation` with the channel), so
+		-- the count is of call lines — and the definition line, which ends in the same
+		-- five characters, is excluded by matching the whole line.
 		local invalidations = 0
-		for _ in string.gmatch(adapterSource, "subtreeCache = {}") do
-			invalidations += 1
+		for line in string.gmatch(adapterSource, "[^\n]+") do
+			if string.match(line, "^%s*invalidateSubtree%(%)%s*$") ~= nil then
+				invalidations += 1
+			end
 		end
 		expect(invalidations).toBe(5)
+		-- ...and exactly one place that actually drops it
+		local rebinds = 0
+		for _ in string.gmatch(adapterSource, "subtreeCache = {}") do
+			rebinds += 1
+		end
+		expect(rebinds).toBe(1)
 	end)
 
 	it("the hit expander travels with the paint (a shifted control stays pressable)", function()
@@ -515,10 +537,23 @@ describe("screen_target: the presentation channel (source contract)", function()
 		local from = string.find(adapterSource, "function adapter.remove(handle: any)", 1, true)
 		expect(from ~= nil).toBe(true)
 		local body = string.sub(adapterSource, from :: number, (from :: number) + 1600)
-		expect(string.find(body, "presentationTransforms[handle.path] = nil", 1, true) ~= nil).toBe(true)
-		expect(string.find(body, "presentationCount -= 1", 1, true) ~= nil).toBe(true)
-		expect(string.find(body, "clipHosts[handle.path] = nil", 1, true) ~= nil).toBe(true)
+		-- the two channel records leave through the ONE owner of the count
+		-- (`screen_presentation.dropPath`) since the Source-cap split; the instances
+		-- are still the host's own
+		expect(string.find(body, "dropPresentationRecords(handle.path)", 1, true) ~= nil).toBe(true)
 		expect(string.find(body, "handle.motionScale:Destroy()", 1, true) ~= nil).toBe(true)
 		expect(string.find(body, "handle.strokeInstance:Destroy()", 1, true) ~= nil).toBe(true)
+		-- ...and the whole-root path drops the same two, per path, for the same
+		-- reason: a target hosts several roots at once, so neither can be a reset
+		local root = string.find(adapterSource, "function adapter.destroyRoot(rootHandle: any)", 1, true)
+		expect(root ~= nil).toBe(true)
+		expect(string.find(adapterSource, "dropPresentationRecords(path)", root :: number, true) ~= nil).toBe(true)
+		-- what `dropPath` itself does, unchanged: the record, the count, the host
+		local drop = string.find(adapterSource, "local function dropPath(path: string)", 1, true)
+		expect(drop ~= nil).toBe(true)
+		local dropBody = string.sub(adapterSource, drop :: number, (drop :: number) + 400)
+		expect(string.find(dropBody, "presentationTransforms[path] = nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(dropBody, "presentationCount -= 1", 1, true) ~= nil).toBe(true)
+		expect(string.find(dropBody, "clipHosts[path] = nil", 1, true) ~= nil).toBe(true)
 	end)
 end)
