@@ -49,6 +49,11 @@ require("./path.spec")
 -- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus
 -- its renderer-mediated content seam (camera/lighting/content root)
 require("./stage.spec")
+-- UI.Foreign (ADR-0034, react-lua-comparison §5 rank 1): the bounded escape
+-- hatch to a GuiObject class LuauUI does not wrap — one box, one claim
+-- (`Foreign.Parent`, on the reserved `host` authority), everything else the
+-- caller's
+require("./foreign.spec")
 require("./async_image.spec")
 require("./selection_bridge.spec")
 require("./text_calibration.spec")

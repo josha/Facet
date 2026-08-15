@@ -384,6 +384,14 @@ export type StageSpec = BoxProps & {
 	tint: Bound<any>?,
 }
 
+-- the FOREIGN box (ADR-0034): Stage's 2-D sibling. The authored surface is the
+-- box and the plate behind it and NOTHING else — no engine props, deliberately —
+-- and what goes in it rides `controller.foreignHost(path).adopt(instance)`, which
+-- is the only place a caller's Instance is ever mentioned.
+export type ForeignSpec = BoxProps & {
+	surface: Bound<string>?,
+}
+
 export type PathSpec = BoxProps & {
 	points: Bound<{ any }>,
 	thickness: Bound<number>?,
@@ -1115,6 +1123,13 @@ end
 -- Stage: the engine-content box. A leaf like Box (it measures 0x0 without dims);
 -- the adapter materializes it as a ViewportFrame and owns the WorldModel/Camera
 -- behind `controller.stageHost`.
+-- Foreign: the box for a GuiObject LuauUI does not wrap (ADR-0034). A leaf like
+-- Box and Stage (it measures 0x0 without dims); the adapter materializes it as a
+-- CLIPPING Frame and makes exactly one claim on what the caller adopts into it —
+-- `Parent`, on the `host` authority — behind `controller.foreignHost`.
+function blueprint.Foreign(spec: ForeignSpec): Blueprint
+	return make("Foreign", spec)
+end
 function blueprint.Stage(spec: StageSpec): Blueprint
 	return make("Stage", spec)
 end

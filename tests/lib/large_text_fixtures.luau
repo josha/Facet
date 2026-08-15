@@ -450,6 +450,36 @@ local FIXTURES: { Fixture } = {
 			return UI.Image({ id = "Ctl", image = "rbxassetid://1" })
 		end,
 	},
+	--[[ THE FOREIGN BOX (ADR-0034), SWEPT LIKE Box/Path/Image AND FOR ONE MORE
+		REASON THAN THEY ARE. A Foreign draws no text of its own — its face is a
+		caller-owned GuiObject the framework never measures — so the naive reading
+		is that a text-preference sweep has nothing to look at, which is the reason
+		`Stage` is declared UNSWEEPABLE below.
+
+		It is swept anyway, because this class has a property those three share and
+		`Stage` does not exercise here: its box is DECLARED in px and CANNOT reflow,
+		while the caption beside it grows with the preference. That is exactly the
+		shape a preference collision takes, so the fixture pairs the two — a rigid
+		box and a caption that has to find room around it at every offset in
+		{ 0, 4, 10, 14 } and in both reference themes. ]]
+	{
+		id = "Foreign",
+		class = "Foreign",
+		build = function()
+			return UI.VStack({
+				id = "Ctl",
+				children = {
+					UI.Foreign({
+						id = "Pane",
+						width = { type = "fixed", px = 120 },
+						height = { type = "fixed", px = 68 },
+						surface = "raised",
+					}),
+					UI.Text({ id = "Caption", text = PSEUDO }),
+				},
+			})
+		end,
+	},
 	{
 		id = "Box",
 		class = "Box",

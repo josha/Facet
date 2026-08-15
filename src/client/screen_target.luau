@@ -55,6 +55,9 @@ local authority = require("../render/authority")
 -- the dead-handle refusal). Shared with the headless twin so the two adapters
 -- cannot disagree about what the seam accepts.
 local stage_content = require("../render/stage_content")
+-- ...and the FOREIGN content seam's ruling ladder (UI.Foreign, ADR-0034), for
+-- exactly the same reason: one refusal ladder, both adapters
+local foreign_content = require("../render/foreign_content")
 
 --[[ THE ENGINE CHARGES FOR THIS BAR, ALWAYS. A `ScrollingFrame`'s VISIBLE window
 	is narrower than its own frame by this thickness on the cross axis whenever the
@@ -163,6 +166,19 @@ local function markStageDisposed(handle: any)
 	handle.stageWorld = nil
 	handle.stageCamera = nil
 	handle.stageApi = nil
+end
+
+-- ...and the same thing for a FOREIGN box (ADR-0034). There is nothing to tear
+-- down — whatever the caller adopted is a child of the container and dies with
+-- it, exactly as they were told it would — so this is purely the HANDLE going
+-- dead, which is what turns a consumer's stale `adopt` from a write into a
+-- destroyed instance (silent) into a refusal that names the node (loud).
+local function markForeignDisposed(handle: any)
+	if handle == nil or handle.foreignBox == nil then
+		return
+	end
+	handle.foreignDisposed = true
+	handle.foreignApi = nil
 end
 
 local function toColor3(c: any): Color3
@@ -1157,6 +1173,35 @@ function screen_target.new(opts: Opts?)
 			handle.stageWorld = world
 			handle.stageCamera = camera
 		end
+		if class == "Foreign" then
+			--[[ THE FOREIGN BOX (ADR-0034). No engine class of its own: the caller's
+				instance IS the content, so the container is the plainest Frame this
+				adapter makes — which is exactly why it needs no capability probe and
+				no degrade path, unlike a Stage.
+
+				TWO CREATION-TIME FACTS, both structural rather than cosmetic:
+
+				CLIPSDESCENDANTS IS THE CONTRACT. "LuauUI owns the box, you own what is
+				in it" is a promise only while nothing in it can paint outside it. The
+				clip is what makes the solved rect the WHOLE truth about this node —
+				which is also what keeps the cross-surface cover-rect alarm (ADR-0028)
+				honest, since that alarm unions solved rects and would otherwise be
+				blind to a foreign instance spilling past its box. It is written ONCE,
+				here, and never again: `clipChildren` is a CONTAINER_LAYOUT prop and
+				`UI.Foreign` does not offer it, so the renderer can never write this
+				property on this class and there is no second writer.
+
+				NOT A CLIP HOST. `clipHosts[path]` means "LuauUI nodes are re-parented
+				under this instance and re-based against it". A Foreign is a LEAF: no
+				LuauUI node is ever its child, so registering one would add a rect the
+				solver re-places every frame for children that cannot exist.
+
+				`foreignBox` is what the park refusal and the disposal marker key on —
+				a field rather than the class name, mirroring the Stage refusal, so the
+				fake target can carry the same fact without carrying an engine. ]]
+			instance.ClipsDescendants = true
+			handle.foreignBox = true
+		end
 		if class == "Path" then
 			-- stroked-path leaf (NS-A7): engine Path2D strokes inside a
 			-- transparent holder; color comes from the style role hint
@@ -1518,6 +1563,96 @@ function screen_target.new(opts: Opts?)
 			end,
 		})
 		handle.stageApi = api
+		return api
+	end
+
+	--[[ THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034).
+
+		Stage's 2-D sibling, and deliberately SMALLER than it. A `Foreign` reserves a
+		clipping box; what goes in it is one GuiObject the CALLER created, so the
+		seam is a per-node handle with ONE verb and the split of ownership is:
+
+		  LuauUI owns  the container Frame, its rect, its plate, its clip and its
+		               lifecycle — and makes exactly ONE claim on the adopted
+		               instance, its `Parent`, declared in the authority manifest as
+		               `Foreign.Parent = "host"` and gated below;
+		  the CALLER   owns the instance itself: its class, every one of its
+		               properties, its own children, and its lifetime. LuauUI never
+		               enumerates it, never sizes it, never paints it, and keeps no
+		               reference to it — which is why "we write nothing else" is a
+		               structural fact rather than a promise. It DIES WITH THE BOX
+		               (engine Destroy propagation); a caller who needs it to outlive
+		               the node reparents it out on `onDisappear`.
+
+		NO `contentRoot()`, unlike `stageHost` — and that difference is the design.
+		Handing back the container would hand back a framework-owned GuiObject that
+		the renderer writes a rect and a plate onto every solve, which is precisely
+		the writable-handle hole `fusion-comparison.md` §5 defers `Ref` for. Adopting
+		INTO the container hands back nothing at all.
+
+		Cached per node, and DEAD when the node is (`remove`/`destroyRoot` call
+		`markForeignDisposed`), so a stale handle refuses by name instead of parenting
+		into a destroyed instance. Answers nil for anything that is not a live
+		Foreign.
+	]]
+	function adapter.foreignHost(handle: any): any?
+		if handle == nil or handle.class ~= "Foreign" or handle.foreignBox == nil then
+			return nil
+		end
+		if handle.instance == nil or handle.foreignDisposed == true then
+			return nil
+		end
+		if handle.foreignApi ~= nil then
+			return handle.foreignApi
+		end
+		local foreignPath = handle.path
+		local function assertLive()
+			if handle.instance == nil or handle.foreignDisposed == true then
+				error(foreign_content.disposedError(foreignPath), 0)
+			end
+		end
+		local api = table.freeze({
+			adopt = function(instance: any)
+				-- LIVENESS FIRST: a dead node is about the node, not the instance
+				assertLive()
+				--[[ BUILD THE DESCRIPTION THE PURE LADDER JUDGES. Only an engine can
+					answer these, which is the whole reason the ladder takes facts
+					rather than an Instance — the headless twin states the same five
+					and both adapters then refuse identically (the SF-M9 discipline).
+
+					`alive` is the interesting one: Roblox offers no `IsDestroyed`, and
+					a destroyed instance accepts every write except a non-nil Parent
+					("Parent property is locked"). So the probe IS the write, made
+					against the container it is going to end up in anyway — a pcall
+					that either succeeds (in which case the adoption is done) or
+					fails (in which case nothing moved and the ladder says why). That
+					is the same detection the recycling `adopt` above relies on
+					(architecture review F9). ]]
+				local isInstance = typeof(instance) == "Instance"
+				local candidate: foreign_content.Candidate = {
+					present = isInstance,
+					className = if isInstance then (instance :: Instance).ClassName else typeof(instance),
+					isGuiObject = isInstance and (instance :: Instance):IsA("GuiObject"),
+					isLayerCollector = isInstance and (instance :: Instance):IsA("LayerCollector"),
+					-- assume alive; the parent write below is the only real test, and
+					-- the ladder is re-run with the answer if it fails
+					alive = true,
+				}
+				foreign_content.assertAdmissible(foreignPath, candidate)
+				-- THE ONE CLAIM, THROUGH THE ONE GATE. `Foreign.Parent` is the only
+				-- entry in the manifest carrying the `host` authority, so a second
+				-- writer for it anywhere is a loud error rather than a silent win.
+				authority.assertWrite("Foreign", "Parent", "host")
+				local placed = pcall(function()
+					(instance :: Instance).Parent = handle.instance
+				end)
+				if not placed then
+					candidate.alive = false
+					foreign_content.assertAdmissible(foreignPath, candidate)
+				end
+			end,
+		})
+		handle.foreignApi = api
 		return api
 	end
 
@@ -3228,6 +3363,15 @@ function screen_target.new(opts: Opts?)
 		if handle.stageWorld ~= nil then
 			return false
 		end
+		--   a FOREIGN box — same reason as a Stage's, one step stronger: its
+		--     container holds an instance the CALLER created, so recycling one
+		--     would hand a new identity somebody else's content, and unlike a
+		--     Stage there is no degrade case that turns it into an ordinary
+		--     Frame. Refused whether or not anything has been adopted yet,
+		--     because a caller may adopt at any time. Refused on both adapters.
+		if handle.foreignBox ~= nil then
+			return false
+		end
 		if
 			handle.motionScale ~= nil
 			or handle.canvasGroupInstance ~= nil
@@ -3506,6 +3650,8 @@ function screen_target.new(opts: Opts?)
 		-- the HANDLE going dead, or a consumer still holding it would go on aiming a
 		-- camera nothing renders and parenting content into a destroyed world.
 		markStageDisposed(handle)
+		-- ...and the FOREIGN seam, for exactly the same reason (ADR-0034)
+		markForeignDisposed(handle)
 		handle.instance:Destroy()
 	end
 
@@ -3542,6 +3688,7 @@ function screen_target.new(opts: Opts?)
 				if handle ~= nil then
 					-- the stage seam, on the whole-root path (same reason as in `remove`)
 					markStageDisposed(handle)
+					markForeignDisposed(handle)
 					handle.motionScale = nil
 					handle.strokeInstance = nil
 					destroyChromeText(handle)

@@ -2160,6 +2160,41 @@ class("Stage", {
 	}),
 })
 
+--[[ THE FOREIGN BOX (ADR-0034; docs/reference/react-lua-comparison.md §5 rank 1).
+
+	A box reserved for a `GuiObject` LuauUI does not wrap — a `VideoFrame`, an
+	`EditableImage` surface, a vendored widget, a class Roblox ships next month.
+	It is `Stage`'s sibling: the same "the framework owns the box, somebody else
+	owns the content" shape, opening onto a 2-D GuiObject instead of onto a 3-D
+	scene.
+
+	IT IS DELIBERATELY THE SPAREST CLASS IN THE SCHEMA, and the emptiness is the
+	design. It takes the shared box vocabulary and ONE paint prop — `surface`, the
+	plate BEHIND the content, which is a property of the container LuauUI owns —
+	and nothing else. No engine props at all: the closed key set stays closed,
+	because the schema cannot validate props it has never heard of, and the
+	authority manifest cannot own a property on a class it does not know. What
+	goes IN the box rides `controller.foreignHost(path).adopt(instance)`.
+
+	NO INTRINSIC CONTENT, and therefore no intrinsic size: a Foreign measures 0x0
+	exactly as a Box does. This is not a shortcut — an engine instance with
+	`AutomaticSize` measures ITSELF, which the solver cannot see, so a box the
+	framework inferred from foreign content would be a box nobody measured. It is
+	DECLARED (api.md says so) and the container clips to it.
+
+	No `tint`: a tint multiplies the node's own picture, and this node's picture is
+	the caller's instance. See REFUSED_FOREIGN below — the refusal says so where it
+	is reached for. ]]
+class("Foreign", {
+	container = false,
+	structural = false,
+	props = merge(BOX, {
+		-- the plate BEHIND the content: a fallback while the caller's instance
+		-- loads, or a frame around it. It paints the CONTAINER, which LuauUI owns.
+		surface = CONTAINER_LAYOUT.surface,
+	}),
+})
+
 class("Path", {
 	container = false,
 	structural = false,
@@ -2446,6 +2481,52 @@ local REFUSED: { [string]: string } = {
 	canvasGroup = REFUSED_FADE,
 }
 
+--[[ THE UNBOUNDED ESCAPE HATCH, REFUSED WHERE IT IS REACHED FOR (ADR-0034).
+
+	`UI.Foreign{ class = "VideoFrame", props = { Video = "rbxassetid://…" } }` is
+	the shape every author arriving from React-Lua will type first, and it is the
+	one form this class exists NOT to be. Answering it with "unknown property
+	'class'" would send them to a property list that does not contain the answer
+	and never mention the line that works.
+
+	WHY IT IS REFUSED, in one sentence each: the schema cannot validate props it
+	has never heard of (the closed key set, constitution §4); the authority
+	manifest has no entry for a class it does not know, and on this engine a second
+	writer for a property is SILENT (an explicit write defeats a StyleSheet rule and
+	fires no signal, measured 2026-08-15); and an `AutomaticSize` child measures
+	itself, which the solver cannot see. The bounded form gives up all three
+	problems at once by never accepting an engine prop: the caller owns the
+	instance, so LuauUI claims nothing to have to arbitrate.
+
+	CLASS-SCOPED, unlike `REFUSED` above, because these words are only true here:
+	`class` and `props` mean nothing on a `UI.Text`, so there the generic unknown-
+	property message is the right one. ]]
+local REFUSED_FOREIGN = "UI.Foreign takes NO engine properties — that is what makes it safe. "
+	.. "The framework owns exactly one thing about this node (the box its solver reserved) and disclaims "
+	.. "the rest by construction: it never creates your instance and never writes a property on it, so "
+	.. "there is no second writer to arbitrate (on this engine a second writer is SILENT — an explicit "
+	.. "write defeats a style rule and fires no signal). Declare the BOX here, then fill it: "
+	.. "`local host = controller.foreignHost(path); if host then host.adopt(myVideoFrame) end`. "
+	.. "The instance, its properties and its lifetime stay yours. See ADR-0034."
+
+local REFUSED_BY_CLASS: { [string]: { [string]: string } } = {
+	Foreign = {
+		class = REFUSED_FOREIGN,
+		className = REFUSED_FOREIGN,
+		props = REFUSED_FOREIGN,
+		instance = REFUSED_FOREIGN,
+		native = REFUSED_FOREIGN,
+		-- ...and the one paint channel a box-shaped leaf usually carries. A tint
+		-- multiplies the node's own picture; this node's picture is the caller's
+		-- instance, and multiplying it would be the framework painting content it
+		-- has just finished disclaiming.
+		tint = "UI.Foreign has no `tint`: a tint multiplies the node's own picture, and this node's picture "
+			.. "is the instance YOU adopted — painting it would be LuauUI writing the content it exists to "
+			.. "disclaim. `surface` paints the plate BEHIND the content, which the framework does own; "
+			.. "anything on the content itself is yours to set on your own instance. See ADR-0034.",
+	},
+}
+
 --[[ refusal(class, prop) -> why this class does not offer `prop`, when the answer
 	is "the framework refused it" rather than "nobody thought of it". nil otherwise,
 	which is every other property on every class.
@@ -2456,6 +2537,12 @@ local REFUSED: { [string]: string } = {
 	and has no instance to fade. On those five `opacity` is genuinely unknown rather
 	than refused, and the message above would be a wrong answer. ]]
 function schema.refusal(className: string, prop: string): string?
+	-- a CLASS-SCOPED refusal wins outright and needs no scope heuristic: it was
+	-- declared for this class and this prop, so there is nothing to infer
+	local scoped = REFUSED_BY_CLASS[className]
+	if scoped ~= nil and scoped[prop] ~= nil then
+		return scoped[prop]
+	end
 	local why = REFUSED[prop]
 	if why == nil then
 		return nil

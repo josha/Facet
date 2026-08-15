@@ -189,6 +189,19 @@ target_contract.OPTIONAL = {
 	-- plate. `billboard_target` deliberately does not offer it (its canvas story is
 	-- unproven), and neither does an engine without ViewportFrame/WorldModel.
 	"stageHost", -- (handle) -> { setCamera, setLighting, contentRoot } | nil
+	-- THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034). Answers a per-node handle
+	-- for a mounted `Foreign` with ONE verb: `adopt(instance)`, which runs the pure
+	-- refusal ladder (`src/render/foreign_content.luau`) and then makes the single
+	-- claim the framework declares over content it does not own — the instance's
+	-- `Parent`, gated by `authority.assertWrite("Foreign", "Parent", "host")`.
+	-- There is deliberately NO `contentRoot()` here, unlike `stageHost`: handing
+	-- back the container would hand back a framework-owned GuiObject, which is
+	-- exactly the writable-handle hole `fusion-comparison.md` §5's `Ref` defers.
+	-- WITHOUT IT: `controller.foreignHost(path)` answers nil, so a Foreign is an
+	-- empty reserved box — authors gate on the nil and present a fallback plate.
+	-- `billboard_target` deliberately does not offer it (same unproven canvas
+	-- story that keeps `stageHost` off it).
+	"foreignHost", -- (handle) -> { adopt } | nil
 	-- WITHOUT IT: no cross-surface paint order — the presenter's base < scrim <
 	-- modal ordering cannot reach the engine, so a modal may paint under the
 	-- screen it is modal over.

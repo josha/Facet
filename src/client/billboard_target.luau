@@ -112,6 +112,13 @@ function billboard_target.new(opts: Opts)
 	-- box, or the author's own fallback plate) — instead of shipping an unproven
 	-- render. A billboard drive is what would promote it.
 	adapter.stageHost = nil
+	-- ...and the FOREIGN-content seam (UI.Foreign, ADR-0034) is withheld for the
+	-- same unmeasured reason: a caller's own GuiObject inside a camera-projected
+	-- canvas is a composition nobody has looked at, and a `SurfaceGui` has its own
+	-- pixel-space rules. `controller.foreignHost` answers nil — the documented
+	-- degrade (an empty reserved box, or the author's fallback plate). A billboard
+	-- drive is what would promote it, exactly as for the stage.
+	adapter.foreignHost = nil
 	return adapter
 end
 

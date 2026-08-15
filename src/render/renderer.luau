@@ -48,6 +48,15 @@ local schema = require("../blueprint_schema")
 
 local renderer = {}
 
+-- CLASSES WHOSE FACE IS NOT THE FRAMEWORK'S TO PAINT. Both reserve a box for
+-- content something else draws — a `Stage`'s engine-rendered 3-D scene, a
+-- `Foreign`'s caller-owned GuiObject — so a theme package's whole-art recipe
+-- covering the box would cover the content. The create path pins the no-slot
+-- hint from this table (see ensureTree); a theme still reaches either pane
+-- through the authored stroke/corners modifiers, which decorate the box's edge
+-- rather than its face.
+local NO_DECORATION_CLASSES: { [string]: boolean } = { Stage = true, Foreign = true }
+
 -- prop -> adapter prop authority mapping for dynamic writes
 local BINDING_PROPS: { [string]: boolean } = {
 	text = true,
@@ -1063,7 +1072,14 @@ function renderer.attach(
 			-- ever cover the scene; a theme still reaches the pane through the
 			-- authored stroke/corners modifiers, which decorate the box's edge
 			-- rather than its face.
-			if node.class == "Stage" then
+			-- ...AND `UI.Foreign` JOINS IT FOR THE SAME REASON, ONE STEP STRONGER
+			-- (ADR-0034): a Foreign box's face IS somebody else's instance, so a
+			-- package recipe painting a `control` plate over it would cover content
+			-- the framework does not even know the shape of. A second member would
+			-- have made this a chain of string compares on the hot mount path, so it
+			-- became one table lookup (NO_DECORATION_CLASSES, module scope) — the
+			-- off-path node now pays one index instead of one compare.
+			if NO_DECORATION_CLASSES[node.class] then
 				-- UNCONDITIONAL (architecture review F14): "never a decoration
 				-- surface" is a fact about the CLASS, so no channel — not even a
 				-- blueprint-supplied hint — may override it into a covering slot.
@@ -3695,6 +3711,24 @@ function renderer.attach(
 			return nil
 		end
 		return adapter.stageHost(handle)
+	end
+
+	-- THE FOREIGN-CONTENT SEAM (UI.Foreign, ADR-0034). Stage's 2-D sibling and the
+	-- same door in the same place: a `Foreign` reserves a box for a GuiObject class
+	-- LuauUI does not wrap, the caller creates that instance, and `adopt` is the one
+	-- verb that puts it in the box. Optional on BOTH sides for the same reasons —
+	-- an adapter that never grew the seam, a node that is not a live Foreign, or a
+	-- path that is not mounted all answer nil, so an author gates on the nil and
+	-- presents a fallback plate rather than crashing or silently doing nothing.
+	function controller.foreignHost(path: string): any?
+		if adapter.foreignHost == nil then
+			return nil
+		end
+		local handle = handles[path]
+		if handle == nil then
+			return nil
+		end
+		return adapter.foreignHost(handle)
 	end
 
 	-- whole-surface visibility, used by the presenter's no-pop text gate: a

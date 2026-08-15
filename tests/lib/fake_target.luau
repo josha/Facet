@@ -12,6 +12,9 @@ local default_style = require("../../src/tokens/default_style")
 local sheet_model = require("../../src/tokens/sheet_model")
 -- ...and the PURE rulings the stage content seam is made of, for the same reason
 local stage_content = require("../../src/render/stage_content")
+-- ...and the foreign-content seam's ruling ladder (ADR-0034), for the same
+-- reason: the refusals a caller sees are one function, not one per adapter
+local foreign_content = require("../../src/render/foreign_content")
 
 local fake_target = {}
 
@@ -257,6 +260,15 @@ function fake_target.new(opts: Opts?)
 		end
 		if FAKE_ELIDABLE[class] and decorationHint == nil and (createOpts == nil or createOpts.canvasGroup ~= true) then
 			node.elided = true
+		end
+		if class == "Foreign" then
+			-- MIRROR THE LIVE ADAPTER'S TWO CREATION-TIME FACTS (ADR-0034). The box
+			-- CLIPS from birth, because "the framework owns the box" is only a
+			-- contract if nothing the caller adopts can paint outside it; and the
+			-- node is flagged as a foreign box so the park refusal below is keyed on
+			-- a field rather than on a class name, exactly as the Stage refusal is.
+			node.foreignBox = true
+			node.foreignClips = true
 		end
 		nodes[path] = node
 		table.insert(ops, `create {path} ({class})`)
@@ -525,6 +537,13 @@ function fake_target.new(opts: Opts?)
 		-- a plain Frame and IS parkable live, so a class-name refusal here made
 		-- the fake stricter than the adapter it mirrors).
 		if handle.stageApi ~= nil then
+			return false
+		end
+		-- a FOREIGN box is refused for the same reason and one step earlier: it is
+		-- refused whether or not anything has been adopted yet, because the caller
+		-- may adopt at any time and there is no engine-degrade case that turns a
+		-- Foreign into an ordinary Frame (mirrors the live `handle.foreignBox`).
+		if handle.foreignBox ~= nil then
 			return false
 		end
 		-- MIRROR THE LIVE ADAPTER'S REFUSALS. `screen_target.park` refuses a node
@@ -1109,6 +1128,59 @@ function fake_target.new(opts: Opts?)
 		-- the refusal must still be able to name the node that died
 		handle.stagePath = handle.path
 		handle.stageApi = api
+		return api
+	end
+
+	--[[ THE FOREIGN-CONTENT SEAM, MIRRORED (UI.Foreign, ADR-0034).
+
+		The live adapter parents a caller's real GuiObject under a real clipping
+		Frame; there are no Instances here, so this twin RECORDS. What makes the
+		mirror worth having is that the half that DECIDES is pure: the refusal
+		ladder lives in `foreign_content.assertAdmissible` and takes a description
+		of the candidate rather than the candidate, so the fake states one directly
+		(`{ present, className, isGuiObject, isLayerCollector, alive }`) and the live
+		adapter builds the same five facts from `IsA` and a guarded Parent write.
+		Every refusal a caller can hit is therefore provable without Roblox; what is
+		NOT provable here — that the engine draws a VideoFrame inside a Frame — is
+		the live Studio slice and this file does not pretend to it.
+
+		IT RETAINS NOTHING. `adopt` records the CLASS NAME and the property claimed,
+		never the candidate, which mirrors the live adapter's own structural
+		guarantee: the framework cannot write a property of an instance it holds no
+		reference to (tests/foreign.spec.luau walks the handle and proves it).
+	]]
+	function adapter.foreignHost(handle: any): any?
+		if handle == nil or handle.class ~= "Foreign" or handle.alive ~= true then
+			return nil
+		end
+		if handle.foreignApi ~= nil then
+			return handle.foreignApi
+		end
+		local api: any = { calls = {} }
+		local function assertLive()
+			if handle.alive ~= true then
+				error(foreign_content.disposedError(handle.foreignPath or handle.path), 0)
+			end
+		end
+		function api.adopt(instance: any)
+			-- LIVENESS FIRST, then the ladder: a handle whose node has died must say
+			-- so rather than complain about the instance, because the instance is
+			-- fine and the node is the thing that went away.
+			assertLive()
+			local candidate: any = if type(instance) == "table"
+				then instance
+				else { present = false, className = "", isGuiObject = false, isLayerCollector = false, alive = false }
+			foreign_content.assertAdmissible(handle.foreignPath or handle.path, candidate)
+			table.insert(api.calls, {
+				method = "adopt",
+				className = candidate.className,
+				property = foreign_content.CLAIMED_PROPERTY,
+			})
+		end
+		-- the path is captured because `remove` clears the node's own entry, and the
+		-- refusal must still be able to name the node that died
+		handle.foreignPath = handle.path
+		handle.foreignApi = api
 		return api
 	end
 

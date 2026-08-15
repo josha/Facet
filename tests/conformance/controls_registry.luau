@@ -1201,6 +1201,12 @@ local registry: { Entry } = {
 	-- the consumer (a Grip sibling to orbit, a Button overlay to act), so the
 	-- four-input story belongs to those controls, not to the picture.
 	{ name = "Stage", kind = "leaf", inputProofs = false, affordanceProofs = false },
+	-- Foreign (ADR-0034): the 2-D sibling of Stage — a box for a GuiObject LuauUI
+	-- does not wrap. It owns no input surface either, and for a stronger reason:
+	-- the framework has never seen the content, so it could not route input to it
+	-- if it wanted to. The four-input story belongs to the controls composed
+	-- around the box, exactly as it does for a Stage.
+	{ name = "Foreign", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Text", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Image", kind = "leaf", inputProofs = false, affordanceProofs = false },
 	{ name = "Anchor", kind = "leaf", inputProofs = false, affordanceProofs = false },

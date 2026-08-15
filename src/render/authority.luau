@@ -6,13 +6,15 @@
 -- Authorities: layout (rects), style (token paint), binding (data-driven),
 -- presentation (transient transform/opacity), host (a custom control's claims).
 --
--- `host` IS DECLARED BUT UNUSED, deliberately and on the record (architecture
--- verifier ARCH-F8, dispositioned in the Step 5.5 cleanup ledger): no entry in
--- MANIFEST below carries it and no writer passes it, because the custom-control
--- seam it was reserved for (UI-EXT-001) never shipped a blueprint class. It stays
--- in the vocabulary because the theme linter's rejections and ADR-0019 §4 classify
--- engine properties against this same five-name list; it is NOT a fifth live
--- authority, and the guide says so.
+-- `host` WENT LIVE WITH `UI.Foreign` (ADR-0034, 2026-08-15) and owns exactly one
+-- entry: `Foreign.Parent`. It had been declared and unused since phase 3 —
+-- architecture verifier ARCH-F8 confirmed the string appeared once in the whole
+-- repo, its own type-union member — reserved for the custom-control escape hatch
+-- (UI-EXT-001, "mounts raw Instances under explicit contract") that had never
+-- shipped a blueprint class. It has now. The other four authorities answer "which
+-- LuauUI writer owns this property of a LuauUI instance"; `host` answers "what
+-- does the framework claim over an instance it does NOT own", and the whole point
+-- of the bounded escape hatch is that the answer is one property.
 
 local authority = {}
 
@@ -161,6 +163,25 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 	-- LightDirection, CurrentCamera — are not authored at all and are declared in
 	-- SEAM_OWNED below.
 	Stage = { tint = "binding" },
+	--[[ THE FOREIGN BOX, AND THE ONE CLAIM THAT MAKES `host` LIVE (ADR-0034).
+
+		`Parent` is not an authored prop — no `UI.Foreign{ parent = … }` exists and
+		no consumer can ask for this. It is the ONE engine property LuauUI ever
+		writes on an instance IT DOES NOT OWN: the caller creates the GuiObject,
+		`controller.foreignHost(path).adopt(instance)` puts it in the box, and from
+		that write onward the framework touches nothing about it — not its size, not
+		its paint, not its lifetime beyond dying with the container.
+
+		THAT IS WHY THE AUTHORITY IS `host` AND NOT `layout`. The four live
+		authorities all answer "which LuauUI writer owns this property of a LuauUI
+		instance". This one answers a different question — "what does the framework
+		claim over content it has disclaimed" — and the answer is: exactly one
+		thing, declared here by name, so the disclaimer is auditable rather than
+		asserted. `host` has been declared and unused since phase 3, reserved for
+		UI-EXT-001 ("escape hatch: mounts raw Instances under explicit contract")
+		and dispositioned as dead in the Step 5.5 cleanup ledger (ARCH-F8). This is
+		that seam, and the reservation turns out to need exactly one entry. ]]
+	Foreign = { Parent = "host" },
 }
 
 -- authorityFor(class, prop) -> Authority (class table wins over common)
