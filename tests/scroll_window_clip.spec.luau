@@ -44,6 +44,19 @@
 --   2. THE AGREEMENT, measured: under BOTH policies a fill-width child's right
 --      edge lands inside the window. This was a pin on a defect until 2026-08-12;
 --      it is now the pin that keeps the defect closed.
+--
+-- WHAT THIS INSTRUMENT STRUCTURALLY CANNOT SEE (2026-08-14, and worth knowing
+-- before you reach for it). It compares a scroll host's window against its own
+-- DESCENDANTS — the rows above are children of `/S/Host`. A node that has to line
+-- up ACROSS the boundary while living OUTSIDE the subtree is invisible to it at
+-- every viewport and under every theme, because it is never reached by the walk.
+-- That is not a gap in the sweep; it is the shape of the question. The class it
+-- misses is real and shipped for weeks: a Table's header is a SIBLING of its
+-- scrolling body, so the body's rows correctly stopped short of the reserved bar
+-- while the header laid its columns across the full frame and every column
+-- boundary drifted by the reserve (director report 2026-08-14). Its check is a
+-- different sentence — "the header's grid IS the body's grid" — and lives in
+-- tests/table_columns.spec.luau, "the header's column boundaries are the body's".
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
@@ -102,7 +115,7 @@ local function world(caps: any, preferred: string, rows: number, opts: any?): an
 		},
 	}))
 	presenter.refresh()
-	return { core = core, adapter = adapter, presenter = presenter, handle = handle }
+	return { core = core, env = env, adapter = adapter, presenter = presenter, handle = handle }
 end
 
 describe("scroll host: the fake target models the engine's window", function()
@@ -129,6 +142,31 @@ describe("scroll host: the fake target models the engine's window", function()
 		local window = w.adapter.windowRectOf("/S/Host")
 		expect(window.w).toBe(frame.w)
 		expect(w.adapter.node("/S/Host").barInstanceThickness).toBe(0)
+	end)
+
+	it("✓ the window FOLLOWS a host that moved, rather than describing where it used to be", function()
+		--[[ THE INSTRUMENT'S OWN GAP, found 2026-08-14 while chasing the header
+			drift. `windowRect` is a function of the host's rect and its region, and
+			it was computed in `setScrollRegion` ALONE — so a host that was
+			re-positioned or re-sized while its canvas stayed put (a rotation, a
+			sibling growing, a safe-area shift) kept answering with the box it no
+			longer occupied. The engine has no such lag: AbsoluteWindowSize is read
+			off the live frame.
+
+			IT BITES: with the re-derivation removed from `setRect`, this case reads
+			the 360-wide window back at a 900-wide viewport. It fails in the
+			plausible direction — a stale window is usually the right SIZE, so a
+			descendant comparison against it looks fine until the host also moves. ]]
+		local w = world(TOUCH, "Touch", 40)
+		local before = w.adapter.windowRectOf("/S/Host")
+		w.env:set("viewportRect", { x = 40, y = 0, w = 900, h = 400 })
+		w.presenter.refresh()
+		local frame = w.adapter.node("/S/Host").rect
+		local window = w.adapter.windowRectOf("/S/Host")
+		expect(`moved:{before.w ~= frame.w}`).toBe("moved:true")
+		expect(`x:{window.x}`).toBe(`x:{frame.x}`)
+		expect(`w:{window.w}`).toBe(`w:{frame.w - BAR}`)
+		expect(`h:{window.h}`).toBe(`h:{frame.h}`)
 	end)
 
 	it("✓ the published reserve MATCHES the instance thickness under the overlay policy", function()

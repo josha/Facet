@@ -158,3 +158,86 @@ describe("ScrollView measure includes the bar its arrange reserves", function()
 		expect(list.w >= row.w + 8).toBe(true)
 	end)
 end)
+
+--[[ ── THE GUTTER IS PUBLISHED, ON THE SIDE IT WAS TAKEN FROM ──────────────────
+
+	A host's own descendants never need this number — the reservation already
+	narrowed the box they were measured in. The node that needs it is the one
+	OUTSIDE the subtree that must still line up across the boundary: a Table's
+	header is a sibling of its scrolling body and drifted by exactly the reserve
+	until it started paying it too (director report 2026-08-14, and the follow-up
+	correction "the scroll bar issue should apply to both horizontal and vertical
+	ones" — which is why the side is published rather than assumed).
+
+	`newTable` is the only consumer today and its body always scrolls Y, so the X
+	half would ship untested on the strength of a `then/else`. This is the case
+	that measures it: the SAME reserve, the SAME overflow, reported on `bottom`
+	because the shelf scrolls sideways.
+
+	MUTATION-PROVEN 2026-08-14: swapping the solver's two branches (publishing
+	`right` for an X host) fails the shelf case; dropping the `spentReserve > 0`
+	guard fails the "reserves nothing" case. ]]
+describe("the bar gutter a host spent is published for its SIBLINGS to pay", function()
+	it("an X shelf reports it on `bottom` — the side an X scroller reserves from", function()
+		local _, _, _, handle = world(true, chipRow)
+		local inset = handle.controller.scrollBarInsetOf("/S/Col/Shelf")
+		expect(`x:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe("x:0/8")
+	end)
+
+	it("a Y list reports it on `right`", function()
+		local _, _, _, handle = world(true, function(UI: any, _core: any)
+			local rows: { any } = {}
+			for i = 1, 30 do
+				rows[#rows + 1] = UI.Button({ id = "R" .. i, label = "Row " .. i })
+			end
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.ScrollView({
+						id = "List",
+						height = { type = "fill", weight = 1 },
+						gap = "s",
+						children = rows,
+					}),
+				},
+			})
+		end)
+		local inset = handle.controller.scrollBarInsetOf("/S/List")
+		expect(`y:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe("y:8/0")
+	end)
+
+	it("a host whose content FITS reserves nothing, and publishes nothing", function()
+		-- the conditionality is the whole reason this is published rather than
+		-- re-derived from `adapter.scrollBarThickness`: a sibling cannot know
+		-- whether THIS host's content overflowed
+		local _, _, _, handle = world(true, function(UI: any, _core: any)
+			return UI.Screen({
+				id = "S",
+				children = {
+					UI.ScrollView({
+						id = "Shelf",
+						axis = "x",
+						width = { type = "fill", weight = 1 },
+						children = { UI.Button({ id = "C1", label = "One" }) },
+					}),
+				},
+			})
+		end)
+		expect(handle.controller.scrollBarInsetOf("/S/Shelf")).toBeNil()
+	end)
+
+	it("...and a fallback adapter with no bar publishes nothing either", function()
+		local _, _, _, handle = world(false, chipRow)
+		expect(handle.controller.scrollBarInsetOf("/S/Col/Shelf")).toBeNil()
+	end)
+
+	it("an unmounted host stops answering", function()
+		-- `lastBarInsets` is renderer state keyed by path; a path that leaves the
+		-- tree and comes back as something else must not inherit the old gutter
+		local _, _, presenter, handle = world(true, chipRow)
+		expect(handle.controller.scrollBarInsetOf("/S/Col/Shelf")).never().toBeNil()
+		presenter.dismiss(handle)
+		presenter.refresh()
+		expect(handle.controller.scrollBarInsetOf("/S/Col/Shelf")).toBeNil()
+	end)
+end)

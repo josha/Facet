@@ -2561,6 +2561,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- the bar. Same fact the reservation already re-measures for.
 		local restoreW, restoreH, restoreKey = ctx.containerW, ctx.containerH, ctx.scopeKey
 		local reserve = ctx.scrollBarReserve
+		local spentReserve = 0
 		pushContainer(ctx, innerW, innerH)
 		childSizes, contentW, contentH = measureAll(innerW, innerH)
 		if reserve > 0 then
@@ -2571,6 +2572,7 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				else
 					innerW = math.max(0, innerW - reserve)
 				end
+				spentReserve = reserve
 				pushContainer(ctx, innerW, innerH)
 				childSizes, contentW, contentH = measureAll(innerW, innerH)
 			end
@@ -2599,6 +2601,36 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 		-- inside. The renderer used to re-derive it from the authored prop, which
 		-- silently drops whatever a theme's `scrollbar` slot reserved (2026-07-27).
 		out[node.id].padding = { top = pt, right = pr, bottom = pb, left = pl }
+		--[[ ...AND THE BAR GUTTER THIS HOST ACTUALLY SPENT (director report
+			2026-08-14: "the scroll bar always overlaps content", and its follow-up
+			"it should apply to both horizontal and vertical ones").
+
+			The reservation above narrows the host's CONTENT BOX, so everything
+			inside it stops short of the bar — correct, and invisible to anything
+			outside the subtree. A node that has to line up ACROSS that boundary is
+			the case it cannot serve: a Table's header is a SIBLING of its scrolling
+			body, so the body's columns resolved against `innerW` while the header's
+			resolved against the full frame, and every column edge drifted by the
+			reserve (worsening left to right, because a `fill` column's share of the
+			difference accumulates). Measured live at `table-columns`: body window
+			875 against a header laid out to 883, the trailing column 8px under the
+			bar.
+
+			So the number is PUBLISHED rather than left implicit, keyed by the side
+			it was taken from — `right` for a Y scroller, `bottom` for an X one, so
+			a consumer pays it on the correct edge instead of assuming width. Nil
+			when nothing was reserved (a host whose content fits shows no bar and
+			must not be paid for), which is exactly the conditionality a sibling
+			cannot re-derive for itself.
+
+			READ BY: `renderer.controller.scrollBarInsetOf` -> `newTable`'s header
+			padding. `docs/lessons/a-fixed-box-cannot-hold-a-themes-frame.md` closes
+			on the general rule this is the far end of: reserving room is only half
+			of it, something has to SPEND the reservation — and here the node that
+			must spend it lives outside the subtree that made it. ]]
+		out[node.id].barInset = if spentReserve > 0
+			then { right = if isX then 0 else spentReserve, bottom = if isX then spentReserve else 0 }
+			else nil
 		out[node.id].overflow = if (axis == "y" and contentH > innerH) or (axis == "x" and contentW > innerW)
 			then "scroll"
 			else node.overflow

@@ -338,6 +338,18 @@ function fake_target.new(opts: Opts?)
 		-- a rect write RE-APPLIES the stored transform, exactly as the live
 		-- applyRect does: a re-solve must never drop a running motion
 		adapter._composePresentation(handle)
+		-- ...AND RE-DERIVES THE ENGINE WINDOW, because it is a function of this rect
+		-- (2026-08-14). `windowRect` was computed only in `setScrollRegion`, so a
+		-- host that MOVED or RESIZED without its canvas changing — a rotation, a
+		-- sibling growing, a safe-area shift — went on reporting the window of the
+		-- box it used to occupy. The engine has no such lag: AbsoluteWindowSize is
+		-- read off the live frame. A test comparing a descendant against a stale
+		-- window is the "instrument reading an unreal surface" trap ENGINEERING.md
+		-- names, and it fails in the safe-looking direction (the old window is
+		-- usually the right SIZE, so only the position is wrong and only sometimes).
+		if handle.scrollRegion ~= nil then
+			adapter._deriveWindowRect(handle, handle.scrollRegion)
+		end
 	end
 
 	function adapter.setProp(handle: any, prop: string, value: any, _authority: string)
@@ -720,6 +732,32 @@ function fake_target.new(opts: Opts?)
 		table.insert(ops, `indicatorPolicy {adapter.scrollIndicatorPolicy} reduced={tostring(reduced == true)}`)
 	end
 
+	--[[ THE ENGINE WINDOW, DERIVED FROM THE TWO THINGS IT DEPENDS ON — this host's
+		live rect and its declared region. Called from BOTH writers (`setRect` and
+		`setScrollRegion`) because either one can move it, and it used to be
+		computed in only the second: a host that was re-positioned or re-sized
+		without its canvas changing kept answering with the window of the box it no
+		longer occupied. ]]
+	function adapter._deriveWindowRect(handle: any, region: any)
+		local rect = handle.rect
+		if region == nil or rect == nil then
+			handle.windowRect = nil
+			handle.barInstanceThickness = nil
+			return
+		end
+		local bar = if region.indicators == "none" then 0 else fake_target.SCROLL_BAR_THICKNESS
+		handle.barInstanceThickness = bar
+		local isX = region.axis == "x"
+		local overflows = if isX then (region.contentW or 0) > rect.w + 1 else (region.contentH or 0) > rect.h + 1
+		local lost = if overflows then bar else 0
+		handle.windowRect = {
+			x = rect.x,
+			y = rect.y,
+			w = if isX then rect.w else math.max(0, rect.w - lost),
+			h = if isX then math.max(0, rect.h - lost) else rect.h,
+		}
+	end
+
 	function adapter.setScrollRegion(handle: any, region: any)
 		handle.scrollRegion = region
 		handle.indicatorsOff = region ~= nil and region.indicators == "none" or nil
@@ -740,23 +778,7 @@ function fake_target.new(opts: Opts?)
 		-- creates every scroll host with `ScrollBarThickness = SCROLL_BAR_THICKNESS`
 		-- and only zeroes it for a host that declared `indicators = "none"`. Kept in
 		-- lockstep with that file, exactly like `SCALE_MODE_ENGINE_NAME`.
-		local rect = handle.rect
-		if region == nil or rect == nil then
-			handle.windowRect = nil
-			handle.barInstanceThickness = nil
-		else
-			local bar = if region.indicators == "none" then 0 else fake_target.SCROLL_BAR_THICKNESS
-			handle.barInstanceThickness = bar
-			local isX = region.axis == "x"
-			local overflows = if isX then (region.contentW or 0) > rect.w + 1 else (region.contentH or 0) > rect.h + 1
-			local lost = if overflows then bar else 0
-			handle.windowRect = {
-				x = rect.x,
-				y = rect.y,
-				w = if isX then rect.w else math.max(0, rect.w - lost),
-				h = if isX then math.max(0, rect.h - lost) else rect.h,
-			}
-		end
+		adapter._deriveWindowRect(handle, region)
 		table.insert(
 			ops,
 			if region == nil

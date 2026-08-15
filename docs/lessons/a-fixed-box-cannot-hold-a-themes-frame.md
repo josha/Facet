@@ -71,3 +71,7 @@ only half of it — something has to *spend* the reservation.
 
 - [`one-word-two-subsystems.md`](one-word-two-subsystems.md) — the other half of
   the same device round.
+- [`the-node-that-must-spend-it-lives-outside.md`](the-node-that-must-spend-it-lives-outside.md)
+  — the closing line above, taken one step further: the scrollbar reserve whose
+  spender is a *sibling* of the box that made it, so no inset can reach it and
+  the number has to be published.

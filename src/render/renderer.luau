@@ -338,6 +338,12 @@ function renderer.attach(
 	local declaredOrder: number? = nil
 	local handles: { [string]: any } = {} -- path -> adapter handle
 	local lastRects: { [string]: any } = {}
+	-- path -> the scrollbar gutter that scroll host reserved on its last solve,
+	-- `{ right, bottom }`, or nil for anything that reserved none. Read back
+	-- through `controller.scrollBarInsetOf` by a control whose node has to line up
+	-- ACROSS a scroll boundary it does not live inside (see the solver's own
+	-- `barInset` note, and `newTable`'s header padding).
+	local lastBarInsets: { [string]: any } = {}
 	local lastScrollRegions: { [string]: any } = {}
 	-- per-ScrollView autoscroll: the authored declaration, and the live model.
 	-- Declared with the regions because they are written and dropped together.
@@ -2036,6 +2042,11 @@ function renderer.attach(
 			end
 			for path, entry in result.rects do
 				local handle = handles[path]
+				-- the bar gutter a scroll host spent this solve, carried on the same
+				-- walk the rects are (solver: `out[id].barInset`). Nil on every node
+				-- that is not an overflowing scroll host, which is nearly all of them,
+				-- so this is one nil assignment per node rather than a second walk.
+				lastBarInsets[path] = entry.barInset
 				if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
 					authority.assertWrite("common", "size", "layout")
 					adapter.setRect(handle, entry.rect)
@@ -2426,6 +2437,7 @@ function renderer.attach(
 				end
 				handles[path] = nil
 				lastRects[path] = nil
+				lastBarInsets[path] = nil
 				lastScrollRegions[path] = nil
 				scrollAutoscroll[path] = nil
 				if autoscrollModels[path] ~= nil then
@@ -3040,6 +3052,23 @@ function renderer.attach(
 	-- autoscroll bands) must use this one, or it targets the wrong row the moment
 	-- the list is scrolled or the surface is shifted (PLAT-4).
 	controller.screenRectOf = screenRectOf
+
+	--[[ THE SCROLLBAR GUTTER A HOST SPENT, for a node that must align ACROSS it.
+
+		A scroll host reserves the bar off its own cross axis, so its DESCENDANTS
+		stop short of it with nothing to do. The node this exists for is the one
+		outside that subtree: a Table's header is a sibling of its scrolling body,
+		lays its columns across the full frame, and drifts from the rows it names by
+		exactly the reserve (director report 2026-08-14; the solver's `barInset`
+		note carries the measurement).
+
+		`{ right, bottom }` in px, or nil for a host that reserved nothing — which is
+		the half a sibling cannot work out for itself, because it depends on whether
+		the CONTENT overflows. Do not derive it from `adapter.scrollBarThickness`:
+		that is the thickness a bar WOULD take, not the gutter this host took. ]]
+	function controller.scrollBarInsetOf(path: string): any
+		return lastBarInsets[path]
+	end
 
 	-- keep-visible presentation transform (§17 Phase 5 keyboard occlusion): the
 	-- presenter drives a transient upward offset on the SCREEN ROOT so an edited
@@ -3781,6 +3810,10 @@ function renderer.attach(
 		-- would leave it answering out of a table this surface had abandoned.
 		table.clear(handles)
 		table.clear(lastRects)
+		-- ...and the per-host scrollbar gutters beside them: a dismissed surface
+		-- that kept answering `scrollBarInsetOf` would hand a re-presented control
+		-- the geometry of a tree that no longer exists
+		table.clear(lastBarInsets)
 		-- TEARDOWN IS A DISAPPEARANCE, and it is the most common one: a panel closes
 		-- by being dismissed, not by having its rows re-keyed. Queued here, after the
 		-- root is destroyed, so the hooks run with nothing left to reach and an error

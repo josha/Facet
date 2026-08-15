@@ -66,6 +66,13 @@ local function world(opts: any?): World
 	end
 	local system = LuauUI.newActionSystem(core)
 	local adapter = fake_target.new()
+	-- OPT INTO THE LIVE DEFAULT (the fake publishes no bar unless a spec asks —
+	-- "which is WHY no headless sweep ever saw this class", scroll_bar_measure).
+	-- Written before the presenter, because the boot indicator policy captures the
+	-- configured thickness on its first call.
+	if o.reserveBar then
+		(adapter :: any).scrollBarThickness = fake_target.SCROLL_BAR_THICKNESS
+	end
 	local pres = LuauUI.newPresenter(core, env, adapter, system)
 	local built = scenario.build({
 		LuauUI = LuauUI,
@@ -503,6 +510,142 @@ describe("table_columns: the divider forwards a press it did not turn into a dra
 		expect(w.adapter.node(`{ROOT}/ResizeWhen/then/ResizeLine`) ~= nil).toBe(true)
 		w.adapter.pointerUp(x - 30, y)
 		w.pres.refresh()
+		w.built.dispose()
+	end)
+end)
+
+--[[ ── THE INVARIANT: A TABLE'S HEADER BOUNDARIES ARE ITS BODY'S ────────────────
+
+	THE DEFECT (director, 2026-08-14): "on desktop, the scroll bar is persistent
+	(correct) but it always overlaps content" — and, after the first diagnosis came
+	back vertical-only, "the scroll bar issue should apply to both horizontal and
+	vertical ones."
+
+	The header is a SIBLING of the scrolling body. The body's rows correctly stop
+	short of the reserved bar; the header laid its columns across the FULL frame,
+	so every boundary drifted by the reserve, worsening left to right. Measured
+	live at this very fixture, desktop:
+
+	    Body: Abs=883  Win=875   bar occupies 887..895
+	      header 'name': 12..277    ok
+	      header 'team': 277..630   ok
+	      header 'best': 630..895   <-- 8px UNDER THE BAR
+
+	WHY NOTHING CAUGHT IT. `tests/scroll_window_clip.spec.luau` is the instrument
+	for "content laid out past the window the player can see", and it walks a
+	scroll host's DESCENDANTS — a sibling header is structurally invisible to it,
+	whatever the sweep. The class needs its own shape of check, and this is it: not
+	"is the header inside the window" but "is the header's grid the body's grid".
+
+	IT IS AN INVARIANT, NOT A SPOT CHECK: every column, both edges, derived from
+	the control's own column list rather than from three hard-coded ids.
+
+	NON-VACUITY IS ASSERTED, not assumed. A world with no reserve passes this check
+	trivially — the fixture below therefore proves the bar is really there first
+	(the body's engine window is a whole bar narrower than its frame) and only then
+	compares the grids. Without that line the case is the "check that proves
+	nothing" class this repo has already paid for once.
+
+	MUTATION-PROVEN 2026-08-14 by deleting the `gutter.right` term from
+	`newTable`'s `headerPadding`: name/team/best come back 3/6/8px wide of their
+	cells and this case fails on the first column it compares. ]]
+describe("newTable: the header's column boundaries are the body's", function()
+	local COLUMNS = { "name", "team", "best" }
+
+	-- the first row's cell region, found rather than spelled: a committed resize
+	-- bumps `widthsVersion` and that version is interpolated into every ForEach
+	-- key, so a hard-coded `[r1@0]` reads a node that a resize has just replaced
+	local function firstRowCells(w: World): string
+		for _, path in w.adapter.paths() do
+			local cells = string.match(path, `^({ROOT}/Main/Body/Rows/%[r1@%d+%]/Row/Cells)$`)
+			if cells ~= nil then
+				return cells
+			end
+		end
+		error(`table_columns: no mounted first-row cell region under {ROOT}`, 0)
+	end
+
+	local function grids(w: World): (string, string)
+		local cellsRegion = firstRowCells(w)
+		local head, cells = {}, {}
+		for _, id in COLUMNS do
+			local h = w.adapter.node(`{HEADER}/Head-{id}`).rect
+			local c = w.adapter.node(`{cellsRegion}/Cell-{id}`).rect
+			table.insert(head, `{id}:{h.x}..{h.x + h.w}`)
+			table.insert(cells, `{id}:{c.x}..{c.x + c.w}`)
+		end
+		return table.concat(head, " "), table.concat(cells, " ")
+	end
+
+	it("every column's header spans exactly its cells, with the bar reserved", function()
+		local w = world({ reserveBar = true })
+		-- THE BAR IS REALLY THERE, and it is the SOLVER'S OWN VERDICT that says so —
+		-- not the adapter's configured thickness, which is only what a bar would
+		-- take. Without this line the comparison below passes on a world that
+		-- reserved nothing, which is every world this file had before.
+		local inset = w.built.handle.controller.scrollBarInsetOf(`{ROOT}/Main/Body`)
+		expect(`spent:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe(
+			`spent:{fake_target.SCROLL_BAR_THICKNESS}/0`
+		)
+		local head, cells = grids(w)
+		expect(head).toBe(cells)
+		-- ...and the band as a whole now ends inside the ENGINE WINDOW rather than
+		-- under the bar — the trailing edge is the one the drift accumulated onto,
+		-- and the window is the box the live report was measured against
+		-- ("Body: Abs=883 Win=875 ... header 'best': 630..895").
+		local window = w.adapter.windowRectOf(`{ROOT}/Main/Body`)
+		local last = w.adapter.node(`{HEADER}/Head-best`).rect
+		expect(`under:{last.x + last.w > window.x + window.w}`).toBe("under:false")
+		w.built.dispose()
+	end)
+
+	it("...and with no bar to reserve, the same grid, and no gutter paid", function()
+		-- THE OTHER HALF OF THE FIX: the gutter is the reserve the body SPENT, so a
+		-- table whose adapter publishes none pays nothing and its shipped geometry
+		-- is byte-identical to what it was before this change.
+		local w = world()
+		expect(w.built.handle.controller.scrollBarInsetOf(`{ROOT}/Main/Body`)).toBeNil()
+		local head, cells = grids(w)
+		expect(head).toBe(cells)
+		w.built.dispose()
+	end)
+
+	it("converges in one refresh and then holds still", function()
+		--[[ The gutter is a MEASUREMENT fed back through `syncGeometry`, so the one
+			thing that would make it unshippable is a cycle. It cannot have one: the
+			gutter narrows only the header's INNER width, and a `lineLimit = 1` title
+			in a `minMax`-floored band cannot answer that with a taller header — so
+			the body's rect, its overflow verdict and the gutter are all fixed points
+			after the first solve.
+
+			THE COST IS STATED RATHER THAN HIDDEN: a prop write made from
+			`syncGeometry` is drained by the NEXT `controller.refresh()` (the
+			presenter solves, then feeds), so `present`'s own solve lays the header
+			out ungutter'd and the first refresh corrects it. `world()` above is
+			present + one refresh, which is why every other case here reads a settled
+			table. Taking the root path from the node the presenter hands in — rather
+			than from `mountedRoot`, which `buildFocusGroups` only writes during that
+			first refresh — is what took this from two frames to one. Closing it
+			completely is a framework change (the renderer would have to re-drain
+			prop dirties inside the solve's own settle, the way L-31 already does for
+			env writes) and is flagged, not smuggled in here. ]]
+		local w = world({ reserveBar = true })
+		local before = select(1, grids(w))
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(select(1, grids(w))).toBe(before)
+		expect(w.core:lastError()).toBeNil()
+		w.built.dispose()
+	end)
+
+	it("a committed resize keeps the grids together", function()
+		-- a resize re-resolves every column against the header's inner width, so it
+		-- is the operation most likely to reintroduce the drift on one side only
+		local w = world({ reserveBar = true })
+		w.built.table_.api.setColumnWidth("name", 200)
+		w.pres.refresh()
+		local head, cells = grids(w)
+		expect(head).toBe(cells)
 		w.built.dispose()
 	end)
 end)

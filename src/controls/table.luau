@@ -966,6 +966,69 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- own Body but a page it merely sits inside, and that page belongs to the
 	-- consumer's screen (device report 2026-07-29).
 	local renderController: any = nil
+	--[[ ── THE BODY'S SCROLLBAR GUTTER, WHICH THE HEADER HAS TO PAY TOO ──────────
+		(director report 2026-08-14: "on desktop the scroll bar always overlaps
+		content"; and the correction that followed the vertical-only diagnosis, "it
+		should apply to both horizontal and vertical ones".)
+
+		THE DEFECT. The header is a SIBLING of the scrolling body, not a node inside
+		it. The solver reserves the bar off the body's own content box, so the ROWS
+		correctly stop short of it — and the header, outside that subtree, went on
+		laying its columns across the full frame. Every boundary drifted by the
+		reserve, worsening left to right because each `fill` column's share of the
+		difference accumulates. Measured live at `table-columns`, desktop:
+
+		    Body: Abs=883  Win=875   bar occupies 887..895
+		      header 'name': 12..277    ok
+		      header 'team': 277..630   ok
+		      header 'best': 630..895   <-- 8px UNDER THE BAR
+
+		Headless A/B over the swept viewports: reserve 8 -> 8px of worst-case drift,
+		reserve 0 -> 0px. The drift IS the reserve.
+
+		THE FIX IS ONE NUMBER FEEDING BOTH HALVES. The solver publishes the gutter
+		each scroll host actually spent (`out[id].barInset`, keyed by the SIDE it
+		came off — `right` for a Y scroller, `bottom` for an X one); the renderer
+		hands it back through `controller.scrollBarInsetOf`; and the header pays the
+		same number on the same side, so its columns resolve against the body's
+		POST-RESERVE content width. Zero when the body does not overflow, which is
+		the conditionality a sibling cannot re-derive: it depends on the content.
+
+		WHY PADDING AND NOT A TRAILING SPACER CHILD. A `percent` (or `fill`) column
+		resolves against its container's INNER extent, not against what its siblings
+		left — so a spacer would move a `fixed` column's edge and leave a `percent`
+		one exactly where it was. Padding narrows the extent itself, which is the
+		only spelling that moves every dim kind identically. It joins the two
+		gutters this side already carries (`ROW_ART` + `chromeBleed`) as a third
+		term of the same multi-metric side.
+
+		WHY IT IS NOT `adapter.scrollBarThickness` READ DIRECTLY: that is the
+		thickness a bar WOULD take. The gutter is what THIS body took, and the two
+		differ for every table whose rows fit.
+
+		WHY IT DOES NOT CHASE ITSELF. The write is equality-guarded and rides the
+		solve's own settle phase (`presenter`'s L-31 note: a consumer's write joins
+		the flush that produced the rects, so it converges before anything is
+		painted). Convergence is ONE step, and the argument is structural: the
+		gutter narrows only the header's INNER width, and the header's outer height
+		cannot answer to that — a column title is `lineLimit = 1` and the band is a
+		`minMax` FLOOR at `controls.table.headerHeight`, so a narrower title box
+		can never add a line. The body's rect is therefore unchanged, so its
+		overflow verdict is unchanged, so the gutter is unchanged. Pinned by the
+		"a second refresh moves nothing" case in tests/table_columns.spec.luau.
+
+		AXIS-CORRECT, NOT WIDTH-SHAPED. Table's body always scrolls Y, so `bottom`
+		is 0 for every table shipping today — but the side comes from the published
+		inset rather than from an assumption, because a horizontally scrolling
+		region reserves off its BOTTOM and any sibling that must align across THAT
+		boundary drifts identically. ]]
+	local NO_BAR_GUTTER = table.freeze({ right = 0, bottom = 0 })
+	local bodyBarInset = scope:own(core:signal(NO_BAR_GUTTER))
+	-- both halves of the alignment have to exist for the gutter to mean anything:
+	-- a headerless table has nothing to line up, and a `scrolls = false` block
+	-- table has no viewport of its own to grow a bar in (its HOST's page scrolls,
+	-- and the header rides inside that page with the rows)
+	local hasAlignedHeader = spec.header ~= false and spec.scrolls ~= false
 
 	local api = {} :: any
 
@@ -2079,6 +2142,23 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 
 	local children = {}
 	if spec.header ~= false then
+		-- the header band's horizontal gutters: the row card's carved border, the
+		-- viewport's glow bleed, and the body's live scrollbar reserve. The first
+		-- two are theme metrics resolved per solve; the third is a measurement, so
+		-- the whole side is a memo (`padding` is reactive + measure-dirty). See THE
+		-- BODY'S SCROLLBAR GUTTER for why the third term exists and why it is a
+		-- padding rather than a spacer.
+		local headerPadding = scope:own(core:memo(function(use)
+			local gutter = use(bodyBarInset)
+			return {
+				left = { ROW_ART.left, "chromeBleed" },
+				right = { ROW_ART.right, "chromeBleed", gutter.right },
+				-- an X-scrolling body reserves off its BOTTOM; Table's body is
+				-- always Y, so this is 0 today and is written from the published
+				-- side rather than assumed away
+				bottom = gutter.bottom,
+			}
+		end))
 		local headerCells = {}
 		for _, column in columns do
 			-- full-contrast title (the secondary tint was unreadable over
@@ -2225,10 +2305,12 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				-- is what lets one declaration mean "clear the viewport's glow
 				-- gutter AND then the row card's carved border" — two gutters at two
 				-- nesting levels, so they genuinely stack.
-				padding = {
-					left = { ROW_ART.left, "chromeBleed" },
-					right = { ROW_ART.right, "chromeBleed" },
-				},
+				--
+				-- ...AND THE SCROLLBAR GUTTER, the third term and the same argument a
+				-- third time (see THE BODY'S SCROLLBAR GUTTER). It is reactive
+				-- because it is a measurement of the body, not a theme metric: the
+				-- body reserves the bar only while its rows overflow.
+				padding = headerPadding,
 				children = headerCells,
 			})
 		)
@@ -3697,7 +3779,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			end,
 			-- capture solved geometry each refresh so keyboard/gamepad focus moves
 			-- can scroll a clipped row into the body viewport (scrollRowIntoView)
-			syncGeometry = function(rectOf)
+			syncGeometry = function(rectOf, node)
 				lastRectOf = rectOf
 				-- ...and, under `virtualized`, the one number the window is taken
 				-- against (see THE VIEWPORT). The equality guard is load-bearing: a
@@ -3706,6 +3788,29 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 					local bodyRect = rectOf(mountedRoot .. "/Main/Body")
 					if bodyRect ~= nil and bodyRect.h ~= viewportH:get() then
 						viewportH:set(bodyRect.h)
+					end
+				end
+				-- ...and the gutter the body's scrollbar took, which the HEADER has
+				-- to pay on the same side or its columns sit under the bar (see THE
+				-- BODY'S SCROLLBAR GUTTER). Same equality guard, same reason, and it
+				-- only runs for a table that has both a header to align and a
+				-- viewport that can grow a bar.
+				-- IT TAKES THE ROOT FROM THE NODE THE PRESENTER HANDS IN, not from
+				-- `mountedRoot`: that upvalue is written by `buildFocusGroups`, which
+				-- first runs a whole refresh AFTER `present` — so reading it here cost
+				-- an extra frame of drift for no reason. The second argument exists
+				-- for exactly this ("a control that needs the solved rect of one of
+				-- its own descendants would otherwise have to guess the path").
+				local root = (if type(node) == "table" then node.path else nil) or mountedRoot
+				if hasAlignedHeader and root ~= nil and renderController ~= nil then
+					local inset = renderController.scrollBarInsetOf(root .. "/Main/Body")
+					local right = if type(inset) == "table" and type(inset.right) == "number" then inset.right else 0
+					local bottom = if type(inset) == "table" and type(inset.bottom) == "number" then inset.bottom else 0
+					local current = bodyBarInset:get()
+					if current.right ~= right or current.bottom ~= bottom then
+						bodyBarInset:set(
+							if right == 0 and bottom == 0 then NO_BAR_GUTTER else { right = right, bottom = bottom }
+						)
 					end
 				end
 			end,
