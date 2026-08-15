@@ -144,6 +144,22 @@ create scopes by hand for simple screens — the mounting and presentation layer
 create and dispose them for you — but understanding that "a screen owns a scope,
 and closing the screen disposes it" explains why LuauUI does not leak.
 
+**A structural region hands you the scope for the thing it just made.** Both of
+them do, and they are the same idea twice:
+
+```lua
+UI.ForEach{ items = rows, key = …, row = function(item, itemScope) … end }   -- the ROW's lifetime
+UI.When{ condition = isOpen, thenView = function(branchScope) … end }        -- the PANEL's lifetime
+```
+
+Own a panel's timer, motion value or async handle on `branchScope` and it is
+released the moment the panel closes — and every re-opening gets a *fresh* scope,
+so nothing a closed panel held can come back with it. The alternative is to hoist
+it to the enclosing screen scope, where it outlives the panel and has to be reset
+by hand; that is the leak the second argument exists to remove, and it paints
+nothing, so nothing on screen will ever tell you about it. Ignoring the argument
+is still fine — plenty of panels own nothing.
+
 ## 1.4 The client-local runtime
 
 **Everything described so far — the reactive core, the blueprints, layout,

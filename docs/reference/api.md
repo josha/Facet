@@ -1424,10 +1424,35 @@ while the page scrolled left the ghost chip behind by exactly the scroll).
 
 ### `When`
 
-`UI.When{ id?, condition (Signal/Memo), thenView (() -> Blueprint), transition? }` —
+`UI.When{ id?, condition (Signal/Memo), thenView ((branchScope) -> Blueprint), transition? }` —
 structural region: mounts/unmounts its branch when `condition` changes. Only
 structural regions may mount or unmount nodes. `transition` declares how the
 branch comes and goes — see **Structural transitions** below.
+
+`thenView` receives the **branch's ownership scope**, the exact twin of
+`ForEach`'s `itemScope`: it is created when the branch opens and disposed when it
+closes, so a panel can own a `MotionValue`, a timer or an async handle *on the
+panel's own lifetime* instead of hoisting it to the enclosing scope where it
+outlives the panel. Every re-entry gets a **fresh** scope, so nothing a closed
+panel owned can survive into the next opening. Ignoring the argument stays valid —
+a `function() … end` factory is unchanged.
+
+```lua
+UI.When({
+  condition = isOpen,
+  thenView = function(branchScope)
+    local slide = branchScope:own(clock:spring(0, "panel"))  -- dies with the panel
+    return panel(slide)
+  end,
+})
+```
+
+There is deliberately **no `elseView`**. The false case is a second `UI.When` with
+an inverted condition, and that gives each branch its own region and its own
+scope. One `elseView` sharing `thenView`'s scope would carry a resource the false
+branch allocated into the true branch on the next flip — the hoisted-state leak
+in a different costume — and a *sibling* scope is what two `When`s already give
+you, for one more line and no new idiom.
 
 ### `ForEach`
 

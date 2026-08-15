@@ -2218,7 +2218,7 @@ class("When", {
 			reactive = false,
 			required = true,
 			channel = "structural",
-			doc = "() -> Blueprint, run when the condition is true",
+			doc = "(branchScope) -> Blueprint, run when the condition is true",
 		}),
 		transition = TRANSITION,
 	},

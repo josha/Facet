@@ -403,10 +403,18 @@ export type TransitionSpec = {
 	fade: boolean?,
 }
 
+-- `thenView`'s `branchScope` is the BRANCH's ownership scope, disposed when the
+-- branch closes — the symmetric twin of `ForEachSpec.row`'s `itemScope`. Own a
+-- MotionValue, a timer or an async handle on it rather than hoisting it to the
+-- enclosing scope, where it would outlive the panel (react-lua-comparison.md §5
+-- rank 2). Ignoring the argument still typechecks: a zero-parameter
+-- `() -> Blueprint` is assignable to a one-parameter function type in Luau, so
+-- no existing factory changes. There is no `elseView` — src/mount.luau's
+-- `mountWhen` header carries that refusal and its reason.
 export type WhenSpec = {
 	id: string?,
 	condition: Readable<boolean>,
-	thenView: () -> Blueprint,
+	thenView: (branchScope: any) -> Blueprint,
 	transition: TransitionSpec?,
 }
 
