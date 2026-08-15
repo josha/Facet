@@ -61,3 +61,40 @@ In rough order of cost:
 Recording it because the wrong version of this rule was written into roughly ten
 agent briefs in one session, each one confidently — a rule repeated often enough
 to feel proven, while the case it misses was happening.
+
+## Addendum, same day: `git commit -- <pathspec>` does not escape it either
+
+The presenter split hit this a second time, while deliberately trying to avoid
+it. The index had four other agents' files staged in it, so instead of
+`git add` + `git commit` I used the pathspec form:
+
+```
+git commit -F - -- src/present/presenter.luau src/present/text_reveal.luau tools/check_source_size.py
+```
+
+That form correctly ignored everything else in the index — the renderer agent's
+staged `layout_node.luau` and specs were left exactly where they were, which is
+what it is for. But `git commit -- <path>` commits **that path's current
+working-tree content**, which is the same substitution `git add <path>` makes.
+`tools/check_source_size.py` is the shared scoreboard every split agent edits,
+the solver agent had just written its `FOURTH ROW CLEARED` paragraph into it,
+and that paragraph went out under the presenter commit's message.
+
+So the corrected rule above applies to **every** command that names a path, not
+just `git add`. The check is the same one and it is cheap:
+
+```
+git diff --stat <path>   # or: git diff <path> | grep '^[+-]' | grep -v '^[+-][+-]'
+```
+
+immediately before committing — if the hunks are not the ones you wrote,
+someone else is in that file. The presenter agent ran exactly that check before
+its FIRST commit (clean, and it committed cleanly) and skipped it before the
+second, in the ~4 minutes it took to write the message. That gap is the whole
+exposure window.
+
+And the deeper point: the SHARED FILE is the one to watch, not your own. Both
+`src/present/*` paths in that commit were private to one agent and perfectly
+isolated. The file that leaked was the one the mission brief told four agents
+to edit — a scoreboard is a shared mutable, and a scoreboard everyone must
+update at every step is a collision scheduled in advance.
