@@ -178,6 +178,60 @@ have refused the file outright. The running datamodel holds 175,901 chars with
 this mission's own pointer comments in it, and the 20-demo walk, a `withAnimation`
 press, four theme swaps and both motion modes ran with no library error.
 
+NO SIXTH ROW, BECAUSE THE SIXTH FILE WAS SPLIT BEFORE IT NEEDED ONE:
+`src/controls/virtual_list.luau`, 2026-08-15, 195,074 -> 172,552 in two commits.
+`KNOWN_OVER` was already empty and this file was never in it — it was 4,926
+chars UNDER the cap, which is to say one honest comment from crossing it, and
+the mission that had just landed measured extents hit 198,543 on its first draft
+and got to 195,074 by TRIMMING 3.4 KB OF COMMENT. That is the wrong lever and it
+said so: the comments in this file carry several device rounds of reasoning, and
+the file was still one edit from unsyncable afterwards. The right lever was the
+same mechanised test as the four rows above, applied BEFORE the check fails.
+
+It found more than an architecture read would have: `virtual_list.build` is a
+~3,200-line closure with 180 locals, and only ~24 of them are genuinely
+REASSIGNED. (The naive script over-reports: `~=` reads as an assignment, and a
+table constructor's `axis = axis` reads as a write. Both are worth filtering out
+before believing the list — the second one alone inflated the count by half.)
+
+Two blocks came out. The REORDER/DROP/AUTOSCROLL half
+(`src/controls/virtual_reorder.luau`) writes exactly one mutable upvalue,
+`lastIndexByKey`, which it also declares and nothing else reads — so the state
+left with the code — and the three it READS are the reassigned host locals
+(`boundController`/`boundScrollPath`/`mountedScrollPath`), which arrive as the
+two accessors `controller()`/`hostPath()`, the `screen_paint` precedent. The
+WINDOWING half (`src/controls/virtual_window.luau`) — the running-offset index,
+the measurement cache's storage, the keyed window and `scrollTop` — writes two,
+`cachedInputs`/`cachedIndex`, and both are its own memo-input cache.
+
+WHAT WAS JUDGED TOO ENTANGLED, and by what. The HOSTED ROW-ACTIONS SECTION
+(~45,000 chars, the single biggest remaining block) is this file's `buildEngine`:
+nineteen of the reassigned locals are its own — `hostedActiveKey`,
+`hostedPending`, `hostedSlidPath`, `hostedKeysContext`, `hostedOverlayItems`,
+`hostedFocusRow`, `hostedMapWindow`/`hostedMapRoot`, `engagedKey`/`engagedOffset`,
+`hostedCommitKey`/`hostedCommitPx`, `hostedCoordinator` — which would move WITH
+it, but three do not: `suppressActivatePath` is written by the keyboard plumbing
+600 lines away as well as by six sites inside, the six bind-time relays
+(`hostedMotionClock`, `hostedNow`, `hostedActionSystem`, `hostedFocusGraph`,
+`hostedPresentModal`, `hostedDismiss`) are written by the contribution bundle
+below, and `engagedKey`/`engagedOffset` are read by `dump()` and the public list.
+That is a factory with three setters and a shared latch, not a mechanical move,
+and at 27,448 of headroom it is not needed. The KEYBOARD/GAMEPAD PLUMBING
+(~23,000) is the next-cheapest seam if it ever is: it writes `suppressActivatePath`,
+`unwatchRegistry`, `lastIndexOfFocused` and — through `buildFocusGroups` —
+`mountedScrollPath`, four accessors' worth. The FOCUS POLICY (~8,200) writes
+`pinnedKey`/`pinnedSlot`/`lastIndexOfFocused` and is only worth ~8 KB.
+
+LIVE PROOF, run as an A/B rather than as a "it still boots": both sources loaded
+into FRESH cloned library trees in the open Showcase session — so no module cache
+could answer for the old code — and driven through the same script. Uniform,
+variable and measured lists, keep-visible, an engine scroll write, autoscroll, a
+re-sort and `dump()`: 9 compared lines, 0 differ. The measured seam end to end
+(mount, feed `syncGeometry` rects, scroll, feed again, prune): 5 compared lines,
+0 differ, with the cache converging 0 -> 11 -> 24 rows and the epoch bumping once
+per BATCH identically on both. And the 172,552-char `Source` assignment itself
+succeeded — which is the whole point of this file.
+
 AND STOP AT A REAL MARGIN, not at 199,9xx. Landing this file at 198,960 was
 enough to pass and not enough to survive: adding the header comment that tells
 the next agent where the six siblings went put it straight back to 201,227, and
