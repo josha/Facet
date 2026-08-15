@@ -4085,8 +4085,9 @@ pointer-handler funnel this feature rides is its own future task.
 
 `LuauUI.newVirtualGrid(LuauUI, core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
 
-**The lazy grid** — SwiftUI's `LazyVGrid`. A collection laid out in `columns`
-lanes that builds and mounts only the **lines of cells the viewport touches**.
+**The lazy grid** — SwiftUI's `LazyVGrid` and, on `axis = "x"`, its `LazyHGrid`.
+A collection laid out in `columns` lanes that builds and mounts only the
+**lines of cells the viewport touches**.
 `UI.Grid` is the eager half and is unchanged: it measures and arranges every
 cell, which is exactly what SwiftUI's non-lazy `Grid` does and says of itself
 (it "renders all of its child views immediately"); the lazy grids are the ones
@@ -4098,8 +4099,9 @@ local grid = LuauUI.newVirtualGrid(LuauUI, core, {
     id = "Wardrobe",
     items = catalog,                      -- Readable<{T}>
     key = function(item) return item.id end,
+    axis = "y",                           -- "y" (default, LazyVGrid) | "x" (LazyHGrid)
     columns = 4,                          -- integer >= 1, or Readable<integer>
-    itemExtent = 96,                      -- ONE LINE OF CELLS' height
+    itemExtent = 96,                      -- ONE LINE OF CELLS' extent
     viewportExtent = 480,
     gap = 8,                              -- between cells ACROSS a line
     rowGap = 8,                           -- between LINES
@@ -4129,6 +4131,29 @@ so the column width is `floor((innerW − gap × (columns − 1)) / columns)` be
 that is the flow grid's own formula executing — not a copy of it. A short last
 line keeps its column width and stays left-aligned for the same reason.
 
+**`axis` is `"y"` (default) or `"x"`, and it is construction-only** — the same
+rule `ScrollView.axis` follows, because a reactive scroll axis would rebuild the
+engine's native scroll state mid-gesture. On `"y"` the lanes divide the WIDTH and
+the lines advance DOWN; on `"x"` the lanes divide the HEIGHT and the lines advance
+RIGHTWARD. `columns` is the lane count in both directions and needs no
+translation. Everything else in this entry is written in the vertical vocabulary
+and turns a quarter turn:
+
+| | `axis = "y"` | `axis = "x"` |
+|---|---|---|
+| `itemExtent` | one line's HEIGHT | one line's WIDTH |
+| `viewportExtent` | the host's height | the host's width |
+| `width` | the cross-axis Dim | **refused** — there the width IS the scroll axis; the cross axis is the height and it FILLS, so wrap the strip in a box of the height you want |
+| the mounted band | `UI.Grid` | `UI.Grid { flow = "column" }` |
+| the focus group's axis | `horizontal` | `vertical` |
+| a whole-line step | Up/Down | Left/Right |
+
+The band being a real `UI.Grid` on both axes is what made `axis = "x"` possible:
+it used to be refused because `UI.Grid` wrapped row-major only, and hand-rolling
+a column-major band inside this control would have been the second lane
+arithmetic the design exists to avoid. `flow = "column"` is that mode, and it is
+the same arithmetic read the other way rather than a parallel path.
+
 **Scroll position is anchored on the ITEM.** A grid has two ways to move the
 ground under the player — the line extents re-deriving, and the **lane count
 changing**, which moves every item to a different line — and one item-keyed
@@ -4138,8 +4163,14 @@ anchoring to variable extents.
 **Four inputs.** Pointer and touch scroll natively (the engine ScrollingFrame
 owns wheel, pan and momentum; a scroll never activates a cell) and a tap
 activates. Keyboard and gamepad get a windowed focus ring over the cells:
-Left/Right step a cell, **Up/Down step a whole line**, Return / ButtonA
-activate, and a step past the window edge scrolls the next line into view.
+**±1 in the ring is always a step ACROSS a line** — the mounted band's document
+order walks a line's lanes before it moves on — and **the perpendicular key steps
+a WHOLE LINE**, which the focus graph has no group axis for and which therefore
+arrives through the control's `navigateIntercept`. So on `axis = "y"` Left/Right
+step a cell and Up/Down step a line; on `axis = "x"` those swap. (A virtual LIST
+transposes the other way, because its line holds one item and its document order
+IS its scroll axis.) Return / ButtonA activate, and a step past the window edge
+scrolls the next line into view.
 
 **A cell's own state dies when the cell leaves the window** — the same honesty
 `newTable { virtualized = true }` owes. Keep anything that must survive a scroll
@@ -4153,7 +4184,7 @@ its lifecycle *is* the window's.
 
 | | |
 |---|---|
-| `axis = "x"` (`LazyHGrid`) | Refused. `UI.Grid` wraps row-major only, so there is no column-major mode to give a horizontal grid its lanes, and hand-rolling one would be a second column arithmetic. Use `newVirtualList` for a sideways strip of single items |
+| `itemExtent = "measured"` | Not offered, unlike `newVirtualList`. A grid's line extent is a fact about `columns` cells rather than one, so "measure the cell and window at that" has no single cell to measure. A consumer whose cells cannot predict their own extent should say so with the per-line function form, or use a list |
 | `minColumnWidth` | Refused. It needs the cross-axis size in px — a second measured seam beside `viewportExtent`. Bind `columns` to a memo over `LuauUI.adaptive.columnsFor(availableWidth, minColumnWidth, gap)`, which is the flow grid's own arithmetic, already exported |
 | selection / reorder / `rowActions` | Not offered. A cell is the consumer's blueprint and carries its own interaction beyond the hit's Activate |
 

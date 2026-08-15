@@ -83,6 +83,7 @@ local function newGrid(core: any, opts: any)
 		key = function(item: any)
 			return item.id
 		end,
+		axis = opts.axis,
 		columns = opts.columns,
 		itemExtent = opts.itemExtent or 40,
 		rowGap = opts.rowGap,
@@ -177,41 +178,35 @@ describe("VirtualGrid: what the spec accepts", function()
 		expect(string.find(tostring(err), "itemExtent", 1, true) ~= nil).toBe(true)
 		-- all three legal forms build, and the mode is visible in the dump
 		expect(newGrid(core, { items = items, columns = 2, itemExtent = 40 }).dump().itemExtentMode).toBe("uniform")
-		expect(
-			newGrid(core, { items = items, columns = 2, itemExtent = core:signal(40) }).dump().itemExtentMode
-		).toBe("uniform")
-		expect(
-			newGrid(core, {
-				items = items,
-				columns = 2,
-				itemExtent = function()
-					return 40
-				end,
-			}).dump().itemExtentMode
-		).toBe("variable")
+		expect(newGrid(core, { items = items, columns = 2, itemExtent = core:signal(40) }).dump().itemExtentMode).toBe(
+			"uniform"
+		)
+		expect(newGrid(core, {
+			items = items,
+			columns = 2,
+			itemExtent = function()
+				return 40
+			end,
+		}).dump().itemExtentMode).toBe("variable")
 	end)
 
-	it('axis = "x" is refused, and the message names LazyHGrid and the reason', function()
+	--[[ `axis = "x"` USED TO BE REFUSED HERE, and the refusal named its own
+		prerequisite: `UI.Grid` wrapped row-major only, so a horizontal grid had no
+		lane mechanism to inherit. That prerequisite shipped (`flow = "column"`,
+		`tests/grid_column_flow.spec.luau`) and the axis with it —
+		`tests/virtual_hgrid.spec.luau` is the sideways half. What is still refused
+		is an axis that is not an axis, and the message names the legal pair. ]]
+	it('axis = "x" is accepted; an axis that is not an axis is refused', function()
 		local core = LuauUI.newCore()
-		local ok, err = pcall(function()
-			return virtual_grid.build(LuauUI, core, {
-				id = "VG",
-				items = core:signal(makeItems(4)),
-				key = function(i: any)
-					return i.id
-				end,
-				columns = 2,
-				itemExtent = 40,
-				viewportExtent = 200,
-				axis = "x",
-				cell = function()
-					return LuauUI.UI.Text({ id = "L", text = "x" })
-				end,
-			})
-		end)
+		local sideways = newGrid(core, { items = core:signal(makeItems(9)), columns = 3, axis = "x" })
+		expect(sideways.dump().axis).toBe("x")
+		sideways.dispose()
+		local upright = newGrid(core, { items = core:signal(makeItems(9)), columns = 3 })
+		expect(upright.dump().axis).toBe("y") -- the default, unchanged
+		upright.dispose()
+		local ok, err = pcall(newGrid, core, { items = core:signal(makeItems(4)), columns = 2, axis = "z" })
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "LazyHGrid", 1, true) ~= nil).toBe(true)
-		expect(string.find(tostring(err), "row-major", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "axis", 1, true) ~= nil).toBe(true)
 	end)
 
 	it("a per-line itemExtent that returns garbage fails at CONSTRUCTION, naming the line", function()
@@ -478,7 +473,13 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 			VirtualGrid mounts IS a `UI.Grid`, so this is not "the two agree" — it is
 			"there is one of them". A change to the flow grid's column rule moves
 			both sides of this case together, which is the point. ]]
-		local w = world({ items = makeItems(12), columns = 4, gap = 4, itemExtent = 40, width = { type = "fixed", px = 320 } })
+		local w = world({
+			items = makeItems(12),
+			columns = 4,
+			gap = 4,
+			itemExtent = 40,
+			width = { type = "fixed", px = 320 },
+		})
 		-- floor((320 - 4 * 3) / 4) = 77, the flow grid's own formula
 		expect(w.cellRect("i1").w).toBe(77)
 		expect(w.cellRect("i1").x).toBe(0)
@@ -488,7 +489,8 @@ describe("VirtualGrid: the column arithmetic is the shipped one, not a copy", fu
 	end)
 
 	it("a SHORT last line keeps its column width and stays left-aligned", function()
-		local w = world({ items = makeItems(6), columns = 4, gap = 4, itemExtent = 40, width = { type = "fixed", px = 320 } })
+		local w =
+			world({ items = makeItems(6), columns = 4, gap = 4, itemExtent = 40, width = { type = "fixed", px = 320 } })
 		-- line 2 holds two cells; they must be 77 wide at x = 0 and 81, NOT stretched
 		expect(w.cellRect("i5").w).toBe(77)
 		expect(w.cellRect("i5").x).toBe(0)

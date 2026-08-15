@@ -355,6 +355,13 @@ local SCENARIOS = {
 	-- `variable_extents`, which makes the swept cross product the direct test of
 	-- whether one uniform number is genuinely enough for the cell it declares
 	"virtual_grid",
+	-- ...and the same control on the other axis, where the LANE axis is the HEIGHT.
+	-- That is the sharper case for this sweep: on the vertical grid a squeezed lane
+	-- squeezes a cell's WIDTH and text answers by truncating, while here it squeezes
+	-- the HEIGHT and text has no vertical truncation to answer with — so every
+	-- viewport x text-preference cell in the cross product is a direct test of
+	-- whether the lane count this fixture offers survives the smallest box it gets
+	"virtual_hgrid",
 	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
 	-- partition the box at every size", so a swept viewport IS the feature's test
 	-- rather than a check on its packaging — and the surface carries a switch that

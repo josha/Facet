@@ -18,6 +18,7 @@
 	  debugWindow() -> { [key]: true }, dump(), dispose()
 	}
 	spec: { id?, items (Readable {T}), key (T) -> string,
+	  axis? ("y" default = LazyVGrid | "x" = LazyHGrid; construction-only),
 	  columns (integer >= 1, or Readable<integer> — the CROSS-axis lane count),
 	  itemExtent (px number | Readable<number> | (line, use) -> px — ONE LINE OF
 	    CELLS' size along the scroll axis, NOT one cell's),
@@ -27,7 +28,8 @@
 	  overscan? (LINES either side, default 2),
 	  cell (item, ctx: { scope, index, line, lane }) -> Blueprint,
 	  onActivate? ((item, meta) -> ()),
-	  width? (the grid's cross-axis Dim), env? }
+	  width? (the cross-axis Dim — `axis = "y"` ONLY; on `axis = "x"` the width IS
+	    the scroll axis and the cross axis is the height, which fills), env? }
 
 	── THE FOUR-INPUT STORY, AND THE ONE THING THAT FORCED IT ───────────────────
 
@@ -35,14 +37,17 @@
 	elastic); the mirror slides the window and a scroll never activates a cell.
 	A tap on a cell activates through the auto-composed `handleActivate`.
 
-	keyboard/gamepad: the windowed cell hits are ONE contributed focus group,
-	`axis = "horizontal"` in the band's own ROW-MAJOR document order — so ±1 is the
-	cell to the left or right and Left/Right read straight off the axis. **DOWN IS
-	NOT ±1, IT IS ±lanes**, which the focus graph cannot express (an axis there is
-	"vertical" or "horizontal", `focus_graph.luau`), so the second axis arrives
-	through the existing `navigateIntercept` seam rather than by widening the focus
-	graph from inside a control. Emitting the group as `vertical` would have been
-	REACHABLE and wrong in SHAPE — Down walking visually rightward — which is
+	keyboard/gamepad: the windowed cell hits are ONE contributed focus group whose
+	axis is THE LANE AXIS — the band's own document order walks a line's lanes
+	before it moves to the next line, so ±1 is always a step ACROSS a line. On
+	`axis = "y"` that is `horizontal` (row-major: the cell left or right); on
+	`axis = "x"` it is `vertical` (column-major: the cell above or below). **THE
+	PERPENDICULAR STEP IS NOT ±1, IT IS ±lanes** — a whole line — which the focus
+	graph cannot express (an axis there is "vertical" or "horizontal",
+	`focus_graph.luau`), so the second axis arrives through the existing
+	`navigateIntercept` seam rather than by widening the focus graph from inside a
+	control. Emitting the other axis would have been REACHABLE and wrong in SHAPE
+	— the perpendicular key walking one cell instead of one line — which is
 	precisely the difference between the reachability axis and the paradigm axis.
 
 	A cell whose focus target leaves the window is handled the way `newVirtualList`
@@ -103,15 +108,50 @@
 	   shift every following cell into the wrong lane. The wrapper is what makes
 	   "one item, one grid child" true by construction rather than by convention.
 
-	── AXIS: `LazyVGrid` ONLY, AND `axis = "x"` IS REFUSED ──────────────────────
+	── TWO AXES: `LazyVGrid` AND `LazyHGrid`, ON THE SAME ARITHMETIC ────────────
 
-	`newVirtualList` transposes to a horizontal strip because a list's line holds
-	exactly one item, so "row height" and "item width" are the same number wearing
-	two names. A grid's line holds `lanes` cells and the flow grid wraps ROW-MAJOR
-	ONLY: there is no column-major mode to give a `LazyHGrid` its lanes, and
-	hand-rolling one here would be the second column arithmetic this design exists
-	to avoid. So the axis is refused at construction and named as the remaining
-	half rather than half-built. See §4.2.2 of the parity doc.
+	`axis = "y"` (default) is SwiftUI's `LazyVGrid` — lanes across the width, lines
+	advancing down. `axis = "x"` is `LazyHGrid` — lanes down the height, lines
+	advancing rightward.
+
+	THIS USED TO BE A REFUSAL, AND WHAT LIFTED IT WAS NOT IN THIS FILE. The refusal
+	said: a grid's line holds `columns` cells and `UI.Grid` wraps ROW-MAJOR ONLY, so
+	a horizontal grid had no lane mechanism to inherit, and hand-rolling one here
+	would be the second lane arithmetic reuse 2 below exists to avoid. `UI.Grid`
+	now has `flow = "column"` — a MODE of its one flow arithmetic, proven as an
+	exact transpose (`tests/grid_column_flow.spec.luau`) — so the horizontal band is
+	a real `UI.Grid` on exactly the same terms the vertical one is, and the control
+	gained an axis without gaining any arithmetic at all.
+
+	THE INDEX NEEDED NOTHING. `virtual_extents` is a prefix sum over numbers; the
+	word "item" appears nowhere in its interface and neither does "row". It served
+	the vertical grid by making one entry mean one LINE, and it serves this one the
+	same way, with the extents now measured along x.
+
+	Everything above and below is written in the vocabulary of the default vertical
+	axis — "line extent", "the viewport" — and on `axis = "x"` each of those words
+	turns a quarter turn. The axis-neutral names are `itemExtent` and
+	`viewportExtent`; `scrollTop` keeps its name and mirrors CanvasPosition.X.
+
+	    axis = "y" (default)              axis = "x"
+	    lanes across the WIDTH            lanes down the HEIGHT
+	    `width` is the cross dim          `width` is REFUSED (it is the scroll axis;
+	                                      the cross axis is the height and it fills)
+	    band = UI.Grid (row-major)        band = UI.Grid { flow = "column" }
+	    focus group axis "horizontal"     focus group axis "vertical"
+	    intercept: Up/Down = ±lanes       intercept: Left/Right = ±lanes
+
+	THE LAST TWO ROWS ARE THE PART THAT IS NOT A MECHANICAL TRANSPOSE, and it is
+	worth stating rather than deriving twice. A grid's ring is two-dimensional and
+	the focus graph's is not, so one axis is the declared group and the other
+	arrives through `navigateIntercept`. Which is which follows one rule: THE
+	GROUP'S AXIS IS THE LANE AXIS, ALWAYS PERPENDICULAR TO THE SCROLL — because
+	document order walks a line's lanes before it moves to the next line. So a
+	vertical grid declares `horizontal` and a horizontal grid declares `vertical`.
+	`newVirtualList` transposes the OTHER way (`vertical` on y, `horizontal` on x),
+	because a list's line holds one item and its document order IS its scroll axis;
+	copying the list's answer here would be REACHABLE and wrong in SHAPE, with Right
+	stepping one cell down instead of a whole line.
 
 	── WHAT DIES WITH THE WINDOW, AND WHAT DOES NOT ─────────────────────────────
 
@@ -205,14 +245,12 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		Each one names the boundary, the legal shapes, the value it got, and WHY
 		the constraint exists. The two structural refusals run BEFORE the closed-key
 		guard so they explain themselves instead of being reported as unknown keys. ]]
-	if spec ~= nil and spec.axis ~= nil and spec.axis ~= "y" then
+	if spec ~= nil and spec.axis ~= nil and spec.axis ~= "y" and spec.axis ~= "x" then
 		error(
-			`newVirtualGrid: axis = '{tostring(spec.axis)}' is refused — this control is SwiftUI's LazyVGrid and `
-				.. "there is no LazyHGrid here yet. A grid's line holds `columns` cells, and `UI.Grid` wraps "
-				.. "row-major ONLY: there is no column-major mode to give a horizontal grid its lanes, and "
-				.. "hand-rolling one would be a second column arithmetic beside the flow grid's. Use "
-				.. "newVirtualList for a sideways strip of single items, or a UI.ScrollView over a UI.Grid when "
-				.. "the collection is small enough not to need windowing.",
+			`newVirtualGrid: axis = '{tostring(spec.axis)}' is not an axis. It is "y" (SwiftUI's LazyVGrid — lanes `
+				.. 'across the width, lines advancing down; the default) or "x" (LazyHGrid — lanes down the height, '
+				.. "lines advancing rightward). It is CONSTRUCTION-ONLY, exactly as `ScrollView.axis` is: a reactive "
+				.. "scroll axis would rebuild the engine's native scroll state mid-gesture.",
 			0
 		)
 	end
@@ -237,6 +275,54 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 
 	local UI = LuauUI.UI
 	local id = spec.id or "VirtualGrid"
+	local axis: string = spec.axis or "y"
+	local isX = axis == "x"
+	--[[ `width` IS THE CROSS AXIS, AND ONLY A VERTICAL GRID HAS ONE THERE. On
+		`axis = "x"` the width IS the scroll axis — `viewportExtent` declares it — so
+		accepting both would be two answers to one dim, and letting either win
+		silently is the class this file refuses aliases for. The cross axis of a
+		horizontal grid is its HEIGHT and it fills: wrap the strip in a box of the
+		height you want. (`newVirtualList` refuses the identical pair for the
+		identical reason.) ]]
+	if isX then
+		assert(
+			spec.width == nil,
+			'newVirtualGrid.width is an axis="y" field (there, width is the CROSS axis the lanes divide). On '
+				.. 'axis="x" the width IS the scroll axis — declare it as viewportExtent. The cross axis of a '
+				.. "horizontal grid is its height, which fills its container; wrap the grid to fix it."
+		)
+	end
+
+	--[[ ── THE AXIS SEAM ───────────────────────────────────────────────────────
+		Everything above this line is one-dimensional arithmetic that does not care
+		which way the grid runs — offsets, line indices, lane division. These four
+		helpers are the ONLY place the axis turns into a coordinate or a dim name,
+		and every write below goes through one of them, so "which way does this grid
+		scroll" is answered once rather than per call site. Same seam, same four
+		shapes, as `newVirtualList`'s. ]]
+	-- A FRESH `fill` DIM PER NODE, never one shared table: a dim is a VALUE, and one
+	-- shared constant on the canvas, the band and every cell at once is a trap the
+	-- first time anything treats a dim as its own.
+	local function fill(): any
+		return { type = "fill", weight = 1 }
+	end
+	-- the main-axis component of an engine point
+	local function mainOf(point: any): any
+		return if isX then point.x else point.y
+	end
+	-- ...and an {x,y} carrying `value` on the main axis: what `controller.scrollTo`
+	-- takes
+	local function vec(value: number): { x: number, y: number }
+		return if isX then { x = value, y = 0 } else { x = 0, y = value }
+	end
+	-- given the dim that belongs on the SCROLL axis and the dim that belongs ACROSS
+	-- it, which is the `width` and which the `height`
+	local function widthOf(main: any, cross: any): any
+		return if isX then main else cross
+	end
+	local function heightOf(main: any, cross: any): any
+		return if isX then cross else main
+	end
 
 	-- ── the reactive scalars ────────────────────────────────────────────────
 	-- Each is `number | Readable<number>` and resolves through a pair: `xIn(use)`
@@ -501,7 +587,13 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 	-- gutter would scroll a line that is already fully readable.
 	local function keepVisibleTarget(line: number): number?
 		local ix = layoutNow()
-		return solverLib.keepVisibleOffset(ix.offsetOf(line), ix.extentOf(line), clampedTop:get(), viewportNow(), ix.content)
+		return solverLib.keepVisibleOffset(
+			ix.offsetOf(line),
+			ix.extentOf(line),
+			clampedTop:get(),
+			viewportNow(),
+			ix.content
+		)
 	end
 
 	local function lineOf(index: number): number
@@ -525,7 +617,7 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		local ctrl = controller or boundController
 		local path = boundScrollPath or mountedScrollPath
 		if ctrl ~= nil and path ~= nil then
-			ctrl.scrollTo(path, { x = 0, y = math.clamp(offset, 0, maxTop()) })
+			ctrl.scrollTo(path, vec(math.clamp(offset, 0, maxTop())))
 		end
 	end
 
@@ -588,26 +680,32 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		if math.abs(target - clampedTop:get()) < 0.5 then
 			return
 		end
-		boundController.scrollTo(host, { x = 0, y = target })
+		boundController.scrollTo(host, vec(target))
 	end))
 
 	-- ── the blueprint ───────────────────────────────────────────────────────
-	local function fill(): any
-		return { type = "fill", weight = 1 }
-	end
-
 	local band = UI.Grid({
 		id = "Band",
-		--[[ ARRANGE-ONLY PLACEMENT. `anchor` + `offsetY` inside the Canchor let the
-			band slide to a new line without being re-measured, which is the property
-			windowing depends on: the ENGINE translates the canvas via CanvasPosition,
-			so a same-window scroll costs the framework nothing. ]]
+		--[[ ARRANGE-ONLY PLACEMENT. `anchor` + the main-axis offset inside the Canvas
+			let the band slide to a new line without being re-measured, which is the
+			property windowing depends on: the ENGINE translates the canvas via
+			CanvasPosition, so a same-window scroll costs the framework nothing. ]]
 		anchor = "topLeft",
-		offsetY = bandOffset,
+		offsetX = if isX then bandOffset else nil,
+		offsetY = if isX then nil else bandOffset,
+		--[[ AND THIS ONE LINE IS THE WHOLE OF THE HORIZONTAL GRID'S LAYOUT. Under
+			`flow = "column"` the flow grid divides its lanes down the HEIGHT and
+			advances its lines rightward, which is exactly what a `LazyHGrid` band is
+			— so the lane extent is `floor((innerH - gap * (lanes - 1)) / lanes)`
+			because that formula is EXECUTING, not because a copy of it agrees today.
+			`columns` is the lane count in both directions and needs no translation.
+			The band FILLS the cross axis and takes its main extent from its lines. ]]
+		flow = if isX then "column" else nil,
 		columns = lanesDim,
 		gap = gapSpec,
 		rowGap = rowGapSpec,
-		width = fill(),
+		width = widthOf(nil, fill()),
+		height = heightOf(nil, fill()),
 		children = {
 			UI.ForEach({
 				id = "W",
@@ -651,19 +749,23 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 						width = fill(),
 						height = fill(),
 					})
+					local extentDim = itemScope:own(core:memo(function(use)
+						return { type = "fixed", px = use(cellExtent) }
+					end))
 					return UI.ZStack({
 						id = "Cell",
-						width = fill(),
-						height = itemScope:own(core:memo(function(use)
-							return { type = "fixed", px = use(cellExtent) }
-						end)),
+						-- the cell is its LINE's extent along the scroll axis and fills
+						-- its lane across it — which lane, and how wide, is the band
+						-- grid's business
+						width = widthOf(extentDim, fill()),
+						height = heightOf(extentDim, fill()),
 						-- what this cell was PROMISED to be: the solver compares its
 						-- content's own measure against the declaration and names both
 						-- numbers when the promise is not kept
 						virtualSlot = itemScope:own(core:memo(function(use)
 							return {
 								list = id,
-								axis = "y",
+								axis = axis,
 								extent = use(cellExtent),
 								contentFrom = SLOT_CONTENT_FROM,
 							}
@@ -691,9 +793,9 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 
 	local blueprint = UI.ScrollView({
 		id = id,
-		axis = "y",
-		width = spec.width or fill(),
-		height = viewportDim,
+		axis = axis,
+		width = widthOf(viewportDim, spec.width or fill()),
+		height = heightOf(viewportDim, fill()),
 		-- the ScrollView must contribute no layout of its own: the band's offsets
 		-- are absolute canvas offsets and assume the Canvas origin IS the content
 		-- origin
@@ -708,8 +810,8 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 				-- CanvasSize. With the mounted band as a direct ScrollView child the
 				-- engine would get a BAND-sized canvas and the scroll range would be
 				-- the window rather than the collection.
-				width = fill(),
-				height = canvasDim,
+				width = widthOf(canvasDim, fill()),
+				height = heightOf(canvasDim, fill()),
 				children = { band },
 			}),
 		},
@@ -721,16 +823,24 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		keyboard/gamepad: the windowed cell hits are ONE focus group and the ring
 		walks them; Activate fires `onActivate`.
 
-		THE GROUP'S AXIS IS `horizontal`, AND UP/DOWN IS AN INTERCEPT. The group's
-		order is the band's own document order, which is ROW-MAJOR — so ±1 in that
-		order is the cell to the left or right, and Left/Right read correctly
-		straight off the axis. Down is NOT ±1: it is ±`lanes`, and emitting the
-		group as `vertical` would have made Down walk visually RIGHTWARD, which is
-		the exact defect `focus_map`'s layout-aware runs exist to prevent. The focus
-		graph has no two-dimensional group axis (`focus_graph.luau`: an axis is
-		"vertical" or "horizontal"), so the second axis arrives through the
-		`navigateIntercept` seam that already exists, rather than by widening the
-		focus graph from inside a control. ]]
+		THE GROUP'S AXIS IS THE LANE AXIS, AND THE PERPENDICULAR IS AN INTERCEPT. The
+		group's order is the band's own document order, which walks a line's lanes
+		first — so ±1 in that order is always the neighbouring cell ACROSS the line,
+		and the keys along the lane axis read correctly straight off it. The
+		perpendicular key is NOT ±1: it is ±`lanes`. The focus graph has no
+		two-dimensional group axis (`focus_graph.luau`: an axis is "vertical" or
+		"horizontal"), so that second axis arrives through the `navigateIntercept`
+		seam that already exists, rather than by widening the focus graph from
+		inside a control.
+
+		WHICH AXIS IS WHICH FLIPS WITH THE SCROLL, and it flips the OPPOSITE way from
+		`newVirtualList`'s. A vertical grid's lanes run across, so the group is
+		`horizontal` and Up/Down is the intercept; a horizontal grid's lanes run down,
+		so the group is `vertical` and Left/Right is the intercept. A list transposes
+		the other way because its line holds ONE item, which makes its document order
+		its scroll axis. Copying a list's answer here is reachable and wrong in shape:
+		every cell stays focusable while the perpendicular key walks one cell instead
+		of a whole line. ]]
 	local hitPattern = patternEscape(id) .. "/Canvas/Band/W/%[(.-)%]/Cell/Hit$"
 	local focusGroupName = `VirtualGridCells-{id}`
 	local focusGraph: any = nil
@@ -777,13 +887,20 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		return true
 	end
 
-	-- THE SECOND AXIS. Up/Down move by a whole LINE — ±`lanes` in the data — which
-	-- is the move the group's own axis cannot express. The target is inside the
-	-- window whenever it is within `overscan` lines, and one line always is, so the
-	-- cell it aims at is already mounted; when it is not (overscan = 0 at the very
-	-- edge) the intercept declines rather than focusing a node that does not exist.
+	--[[ THE SECOND AXIS. The keys PERPENDICULAR to the lanes move by a whole LINE —
+		±`lanes` in the data — which is the move the group's own axis cannot express.
+		On `axis = "y"` those keys are Up/Down; on `axis = "x"` they are Left/Right,
+		and the pair is derived from the axis rather than listed twice, so the two
+		directions cannot disagree about which one this grid owns.
+
+		The target is inside the window whenever it is within `overscan` lines, and
+		one line always is, so the cell it aims at is already mounted; when it is not
+		(overscan = 0 at the very edge) the intercept declines rather than focusing a
+		node that does not exist. ]]
+	local FORWARD = if isX then "right" else "down"
+	local BACKWARD = if isX then "left" else "up"
 	local function navigateIntercept(direction: string): boolean
-		if direction ~= "up" and direction ~= "down" then
+		if direction ~= FORWARD and direction ~= BACKWARD then
 			return false
 		end
 		if focusGraph == nil then
@@ -809,7 +926,7 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		if index == nil then
 			return false
 		end
-		local target = index + (if direction == "down" then lanesNow() else -lanesNow())
+		local target = index + (if direction == FORWARD then lanesNow() else -lanesNow())
 		if target < 1 or target > #items then
 			return false -- the edge of the collection: let the group's own rules answer
 		end
@@ -829,7 +946,9 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 	end
 
 	--[[ FOCUS GROUPS: the mounted window's cell hits as ONE group, in tree
-		(document, row-major) order, re-derived on every refresh. ALSO the one place
+		(document) order — row-major on `axis = "y"`, column-major on `axis = "x"`,
+		because that is the order the band's own `UI.Grid` mounts them in —
+		re-derived on every refresh. ALSO the one place
 		this control learns its own mounted path — the presenter calls this on every
 		present and refresh, and it is the only seam that hands a control that path,
 		which `bindNativeScroll`, `scrollTo` and the anchor all need. ]]
@@ -852,7 +971,9 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		return {
 			{
 				name = focusGroupName,
-				axis = "horizontal",
+				-- the LANE axis, always perpendicular to the scroll: document order
+				-- walks a line's lanes before it moves to the next line
+				axis = if isX then "vertical" else "horizontal",
 				wrap = false,
 				order = order,
 			},
@@ -877,7 +998,7 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 				.. "captured) or pass it explicitly"
 		)
 		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
-			scrollTop:set(pos.y)
+			scrollTop:set(mainOf(pos))
 		end)
 		boundController = controller
 		boundScrollPath = path
@@ -934,6 +1055,7 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		local ix = layoutNow()
 		return {
 			id = id,
+			axis = axis,
 			lanes = lanesNow(),
 			itemCount = #(spec.items:get() :: { any }),
 			lineCount = ix.count,

@@ -243,6 +243,17 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "virtual_grid",
 	},
+	-- ...and the same control turned a quarter turn onto the x axis (LazyHGrid). The
+	-- picker carries both because the difference is not a value you can read off a
+	-- status line: the lanes run DOWN, the lines advance RIGHTWARD, and the
+	-- keyboard ring steps a cell with Down and a whole line with Right.
+	{
+		id = "virtual-hgrid",
+		title = "Lazy rail",
+		blurb = "The same 5 000 cells sideways — lanes run down, Right steps a whole line",
+		kind = "fixture",
+		module = "virtual_hgrid",
+	},
 	-- the tenth fixture, and the reason is the one every fixture above it gives:
 	-- what it demonstrates is INVISIBLE in a picture. Five buttons painted
 	-- identically report four different verbs and one nothing at all, and one

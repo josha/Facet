@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the seventeen fixtures", function()
+	it("lists every tutorial example plus the eighteen fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(24)
+		expect(#demos).toBe(25)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -64,6 +64,13 @@ describe("showcase catalogue", function()
 		-- `table-virtualized`, whose whole difference from an ordinary Table is a
 		-- COUNT rather than a picture, so the fixture is the only place a player can
 		-- see that two thousand rows are being carried by seventeen.
+		--
+		-- ...and EIGHTEEN since 2026-08-15: `virtual-hgrid`, the same lazy grid on
+		-- the other axis. It is listed separately rather than folded into
+		-- `virtual-grid` as a step, because the two do not differ in a value a status
+		-- line could report — they differ in which axis the LANES divide and which
+		-- way the keyboard RING walks, and the only way to check either is to look at
+		-- one and then the other. The picker is the only route to that comparison.
 		-- ...and FIFTEEN since the header round (2026-08-14): `table-columns`, the
 		-- other half of `newTable` — a header band with resize dividers, shipped in
 		-- Phase B and never once driven on a real adapter because no showcase surface
@@ -76,7 +83,7 @@ describe("showcase catalogue", function()
 		-- count of cells the factory was ever asked for is the only place the
 		-- feature is visible — and the lane chips are the only way to watch a reflow
 		-- move every item to a new line without moving the one under your eye.
-		expect(fixtures).toBe(17)
+		expect(fixtures).toBe(18)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -523,7 +530,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(17)
+		expect(fixtures).toBe(18)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

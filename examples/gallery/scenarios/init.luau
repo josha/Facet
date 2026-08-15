@@ -157,6 +157,13 @@ local ORDER = {
 	-- moving the cell under the player's eye, which is the destabilizer only a
 	-- grid has. Also in `demo_picker.DEMOS`.
 	"virtual_grid",
+	-- ...and the SIDEWAYS half, newVirtualGrid on the x axis (LazyHGrid). It is
+	-- its own fixture rather than a step on the one above because the two axes do
+	-- not differ in a value: they differ in which axis the LANES divide and which
+	-- way the RING walks, and both are things you look at. Down steps a cell here
+	-- and Right steps a whole line — the exact transpose, and the OPPOSITE
+	-- transposition from a virtual list's. Also in `demo_picker.DEMOS`.
+	"virtual_hgrid",
 	-- ...and ADR-0028: the CROSS-SURFACE overlap alarm. One probe surface over
 	-- one screen, four declarations, and the framework's own sentence about each
 	-- — the difference the fixture exists to show is invisible in a screenshot,

@@ -132,6 +132,13 @@ require("./virtual_list_focus_policy.spec")
 require("./virtual_list_slot_guard.spec")
 require("./virtual_grid.spec")
 require("./virtual_grid_input.spec")
+-- ...and the SIDEWAYS half, `newVirtualGrid { axis = "x" }` -- SwiftUI's `LazyHGrid`.
+-- It exists because `UI.Grid` learned to wrap COLUMN-MAJOR (`grid_column_flow.spec`),
+-- so the horizontal band is a real `UI.Grid` with the lane formula EXECUTING, never a
+-- second lane arithmetic inside the control. Its ring transposes the OPPOSITE way from
+-- a list's: a grid's declared group axis is the LANE axis, perpendicular to the scroll,
+-- so Down steps ONE CELL here and Right steps a whole LINE
+require("./virtual_hgrid.spec")
 require("./navigation_groups.spec")
 require("./perf_runner.spec")
 -- evidence-class discipline: the rules that stop a headless number becoming a
