@@ -373,6 +373,38 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		id = "VirtualGrid",
+		class = "VirtualGrid",
+		-- THE SAME CELL SHAPE AS THE VirtualList FIXTURE ABOVE, DELIBERATELY: a
+		-- fixed-extent slot holding one unbroken identity name that declares
+		-- `disclose`. What this fixture adds is the second axis — a grid's slot is
+		-- also NARROWER than a list's row by a factor of its lane count, so the same
+		-- name at the same preference has far less width to wrap into. That is the
+		-- case a list cannot reach, and it is why this is a fixture rather than an
+		-- UNSWEEPABLE row.
+		build = function(core)
+			return LuauUI.newVirtualGrid(LuauUI, core, {
+				id = "Ctl",
+				items = core:signal({
+					{ id = "a", label = PSEUDO },
+					{ id = "b", label = GERMAN },
+					{ id = "c", label = PSEUDO },
+					{ id = "d", label = GERMAN },
+				}),
+				key = function(item: any)
+					return item.id
+				end,
+				columns = 2,
+				itemExtent = 44,
+				viewportExtent = 200,
+				overscan = 1,
+				cell = function(item: any)
+					return UI.Text({ id = "Label", text = item.label, disclose = true })
+				end,
+			}).blueprint
+		end,
+	},
+	{
 		id = "AsyncImage",
 		class = "AsyncImage",
 		build = function(core)

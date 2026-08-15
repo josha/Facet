@@ -348,6 +348,13 @@ local SCENARIOS = {
 	-- with the text preference, which is the case only the swept cross product
 	-- reaches
 	"table_columns",
+	-- ...and the lazy grid. Its cells are the one thing in this corpus whose COUNT
+	-- across a line is decided by a live signal, so every viewport re-divides the
+	-- same offer into a different column width — and a windowed grid's declared
+	-- line extent is read by the same lying-slot guard that filed 372 findings on
+	-- `variable_extents`, which makes the swept cross product the direct test of
+	-- whether one uniform number is genuinely enough for the cell it declares
+	"virtual_grid",
 	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
 	-- partition the box at every size", so a swept viewport IS the feature's test
 	-- rather than a check on its packaging — and the surface carries a switch that

@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the sixteen fixtures", function()
+	it("lists every tutorial example plus the seventeen fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(23)
+		expect(#demos).toBe(24)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -70,7 +70,13 @@ describe("showcase catalogue", function()
 		-- carried one. `table_virtualized` is headerless on purpose (the band is a
 		-- `minMax` floor it could not afford), so this could not be a prop added to a
 		-- fixture that already existed.
-		expect(fixtures).toBe(16)
+		-- ...and SEVENTEEN since `newVirtualGrid` (2026-08-15): `virtual-grid`, the
+		-- lazy grid's own surface. A `LazyVGrid` over five thousand cells and an
+		-- eager grid over five thousand cells paint the same first screen, so the
+		-- count of cells the factory was ever asked for is the only place the
+		-- feature is visible — and the lane chips are the only way to watch a reflow
+		-- move every item to a new line without moving the one under your eye.
+		expect(fixtures).toBe(17)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -517,7 +523,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(16)
+		expect(fixtures).toBe(17)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

@@ -150,6 +150,13 @@ local ORDER = {
 	-- screenshot's exact event can be watched degrading instead of colliding. Also
 	-- in `demo_picker.DEMOS`.
 	"hud",
+	-- ...and `newVirtualGrid`, SwiftUI's `LazyVGrid`: five thousand cells with a
+	-- live count of the ones the `cell` factory was ever asked for. A lazy grid
+	-- and an eager one paint the same first screen, so the demonstration is a
+	-- NUMBER — and the lane chips reflow every item onto a different line without
+	-- moving the cell under the player's eye, which is the destabilizer only a
+	-- grid has. Also in `demo_picker.DEMOS`.
+	"virtual_grid",
 	-- ...and ADR-0028: the CROSS-SURFACE overlap alarm. One probe surface over
 	-- one screen, four declarations, and the framework's own sentence about each
 	-- — the difference the fixture exists to show is invisible in a screenshot,

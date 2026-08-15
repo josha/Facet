@@ -9,6 +9,7 @@ UI : table
   UI.ErrorBoundary : function
   UI.ForEach : function
   UI.Grid : function
+  UI.GridRow : function
   UI.Grip : function
   UI.HStack : function
   UI.Image : function
@@ -29,6 +30,7 @@ UI : table
   UI.alignment : function
   UI.aspectRatio : function
   UI.background : function
+  UI.containerRelativeFrame : function
   UI.corners : function
   UI.cornersData : function
   UI.draggable : function
@@ -41,6 +43,7 @@ UI : table
   UI.overlay : function
   UI.padding : function
   UI.schema : table
+  UI.sensoryFeedback : function
   UI.shadow : function
   UI.shadowData : function
   UI.stroke : function
@@ -60,6 +63,9 @@ adaptive : table
   adaptive.sizeClass : function
 composition : table
   composition.ARRANGEMENTS : table(frozen)
+  composition.HUD : table(frozen)
+  composition.HUD_GROUPS : table(frozen)
+  composition.ZONES : table(frozen)
   composition.arrangementOf : function
   composition.dump : function
   composition.floorPx : function
@@ -110,6 +116,7 @@ newSlider : function
 newStepper : function
 newTable : function
 newTextInput : function
+newVirtualGrid : function
 newVirtualList : function
 pathShapes : table
   pathShapes.MAX_CONTROL_POINTS : number
@@ -163,3 +170,6 @@ DEPRECATIONS:
   UI.Text.font | since=0.5.0 | removeNoEarlierThan=0.6.0 | replacement=UI.Text{ role = … } (fonts are style authority) | note=Text.font reached the text-metrics measure seam but no paint seam, so an authored font silently made measured and painted bounds disagree. FontFace is owned by the style sheet (authority.nativeSheetOwned).
   adaptive.conditions().contentWidth | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=viewportWidth | note=alias; the value never subtracted insets
   newResourceProvider(opts.retryAttempts) | since=0.8.0 | removeNoEarlierThan=0.9.0 | replacement=opts.retry = { count, delaySeconds?, giveUp? } | note=legacy immediate-retry semantics preserved until removal
+  newVirtualList(spec.rowHeight) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=itemExtent | note=axis-neutral rename; alias still accepted and identical on axis = "y"
+  newVirtualList(spec.viewportHeight) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=viewportExtent | note=axis-neutral rename; alias still accepted and identical on axis = "y"
+  screen_target.new(opts.isReducedMotion) | since=0.9.0 | removeNoEarlierThan=0.10.0 | replacement=adapter.setReducedMotion, pushed by the renderer from the environment | note=still accepted, and now OR-ed with the pushed fact: it can force reduced motion on, never off. `billboard_target.new(opts.isReducedMotion)` forwards it and retires with it

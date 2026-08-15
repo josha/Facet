@@ -231,6 +231,18 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "table_columns",
 	},
+	-- ...and the lazy grid, for the reason every fixture here is listed: a
+	-- `LazyVGrid` over five thousand cells and an eager grid over five thousand
+	-- cells paint the same first screen, so the only place the feature exists is
+	-- the count of cells that were ever built — and the lane chips move every item
+	-- to a different line without moving the one under your eye.
+	{
+		id = "virtual-grid",
+		title = "Lazy grid",
+		blurb = "5 000 cells, a few dozen ever built — change the lanes and keep your place",
+		kind = "fixture",
+		module = "virtual_grid",
+	},
 	-- the tenth fixture, and the reason is the one every fixture above it gives:
 	-- what it demonstrates is INVISIBLE in a picture. Five buttons painted
 	-- identically report four different verbs and one nothing at all, and one

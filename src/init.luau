@@ -20,6 +20,7 @@ local tokensLib = require("@self/tokens/tokens")
 local focusLib = require("@self/focus/focus_graph")
 local tableControl = require("@self/controls/table")
 local virtualList = require("@self/controls/virtual_list")
+local virtualGrid = require("@self/controls/virtual_grid")
 local asyncResources = require("@self/async/resources")
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
@@ -169,6 +170,10 @@ local LuauUI = {
 	-- composite controls (ADR-0007; VirtualList §10.5 first release)
 	newTable = tableControl.build,
 	newVirtualList = virtualList.build,
+	-- the LAZY grid (parity §4.2.2): windows by LINE OF CELLS on the same
+	-- running-offset index `newVirtualList` uses, and mounts a real `UI.Grid` as
+	-- its band, so there is one column arithmetic in the framework and not two
+	newVirtualGrid = virtualGrid.build,
 
 	newPopupButton = require("@self/controls/popup_button").build,
 	-- value-control family (swiftui-parity-next investment 4): Stepper and Slider

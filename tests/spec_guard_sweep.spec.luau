@@ -118,6 +118,22 @@ controlRow("newVirtualList", function(core)
 	}
 end)
 
+controlRow("newVirtualGrid", function(core)
+	return {
+		id = "G",
+		items = core:signal({ { id = "a" } }),
+		key = function(item: any)
+			return item.id
+		end,
+		columns = 2,
+		itemExtent = 32,
+		viewportExtent = 200,
+		cell = function(item: any)
+			return LuauUI.UI.Text({ id = "r", text = tostring(item.id) })
+		end,
+	}
+end)
+
 controlRow("newPopupButton", function(core)
 	return {
 		id = "P",
@@ -346,6 +362,7 @@ describe("ARCH-1: every guarded boundary refuses an unknown key", function()
 				"newLabel",
 				"newTable",
 				"newVirtualList",
+				"newVirtualGrid",
 				"newPopupButton",
 				"newStepper",
 				"newSlider",

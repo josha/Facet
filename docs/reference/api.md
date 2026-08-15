@@ -4064,6 +4064,84 @@ pointer-handler funnel this feature rides is its own future task.
 
 ---
 
+### `newVirtualGrid`
+
+`LuauUI.newVirtualGrid(LuauUI, core, spec) -> { blueprint, focusGroupName, scrollTop, pathOf, focusKey, revealItem, bindNativeScroll, scrollTo, scrollPath, debugWindow, dump, dispose }`
+
+**The lazy grid** — SwiftUI's `LazyVGrid`. A collection laid out in `columns`
+lanes that builds and mounts only the **lines of cells the viewport touches**.
+`UI.Grid` is the eager half and is unchanged: it measures and arranges every
+cell, which is exactly what SwiftUI's non-lazy `Grid` does and says of itself
+(it "renders all of its child views immediately"); the lazy grids are the ones
+that "create items only as needed". See
+[`swiftui-parity.md`](swiftui-parity.md) §4.2.2 for the full argument.
+
+```luau
+local grid = LuauUI.newVirtualGrid(LuauUI, core, {
+    id = "Wardrobe",
+    items = catalog,                      -- Readable<{T}>
+    key = function(item) return item.id end,
+    columns = 4,                          -- integer >= 1, or Readable<integer>
+    itemExtent = 96,                      -- ONE LINE OF CELLS' height
+    viewportExtent = 480,
+    gap = 8,                              -- between cells ACROSS a line
+    rowGap = 8,                           -- between LINES
+    cell = function(item, ctx)            -- ctx = { scope, index, line, lane }
+        return LuauUI.UI.Text({ id = "Name", text = item.name })
+    end,
+    onActivate = function(item) open(item) end,
+})
+-- after present(), wire the engine's CanvasPosition mirror:
+grid.bindNativeScroll(handle.controller)
+```
+
+**`itemExtent` is one LINE's size, not one cell's.** It takes a number, a
+`Readable<number>`, or a per-line function `(line, use) -> px`. The function
+form is resolved inside a memo and is handed the memo's own `use`, so an extent
+derived from the accessibility text offset, the theme metrics or the viewport
+re-derives when they move — reading a Readable with `:get()` instead is right
+once and registers no dependency.
+
+**The windowing is `virtual_extents`, unchanged, in line units.** The grid does
+not carry a second windowing arithmetic: it builds the same running-offset index
+`newVirtualList` and `newTable` use, with `count = ceil(#items / columns)`,
+`extents` = the per-line extents and `gap = rowGap`. The cell↔line mapping is
+plain division (`line = floor((index - 1) / columns) + 1`), which is an index
+transform rather than windowing. And the mounted band **is a real `UI.Grid`**,
+so the column width is `floor((innerW − gap × (columns − 1)) / columns)` because
+that is the flow grid's own formula executing — not a copy of it. A short last
+line keeps its column width and stays left-aligned for the same reason.
+
+**Scroll position is anchored on the ITEM.** A grid has two ways to move the
+ground under the player — the line extents re-deriving, and the **lane count
+changing**, which moves every item to a different line — and one item-keyed
+anchor covers both. It is unconditional here, where `newVirtualList` scopes
+anchoring to variable extents.
+
+**Four inputs.** Pointer and touch scroll natively (the engine ScrollingFrame
+owns wheel, pan and momentum; a scroll never activates a cell) and a tap
+activates. Keyboard and gamepad get a windowed focus ring over the cells:
+Left/Right step a cell, **Up/Down step a whole line**, Return / ButtonA
+activate, and a step past the window edge scrolls the next line into view.
+
+**A cell's own state dies when the cell leaves the window** — the same honesty
+`newTable { virtualized = true }` owes. Keep anything that must survive a scroll
+in the consumer's model; async work owned through `ctx.scope` is cancelled on
+window exit, which is the point. Unlike a virtualized `Table`, there is nothing
+to refuse here: Table wraps each actionable row in a composite whose lifecycle
+is pruned by the DATA, while this control's only wrapper is the `Cell` node and
+its lifecycle *is* the window's.
+
+**Named non-deliveries**, each refused at construction with a route:
+
+| | |
+|---|---|
+| `axis = "x"` (`LazyHGrid`) | Refused. `UI.Grid` wraps row-major only, so there is no column-major mode to give a horizontal grid its lanes, and hand-rolling one would be a second column arithmetic. Use `newVirtualList` for a sideways strip of single items |
+| `minColumnWidth` | Refused. It needs the cross-axis size in px — a second measured seam beside `viewportExtent`. Bind `columns` to a memo over `LuauUI.adaptive.columnsFor(availableWidth, minColumnWidth, gap)`, which is the flow grid's own arithmetic, already exported |
+| selection / reorder / `rowActions` | Not offered. A cell is the consumer's blueprint and carries its own interaction beyond the hit's Activate |
+
+---
+
 ## Async resources
 
 ### `newResourceProvider`

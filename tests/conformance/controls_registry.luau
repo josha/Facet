@@ -966,6 +966,64 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		name = "VirtualGrid",
+		kind = "composite",
+		module = "src/controls/virtual_grid.luau",
+		export = "newVirtualGrid",
+		spec = "tests/virtual_grid.spec.luau",
+		conformance = "tests/virtual_grid_input.spec.luau",
+		docsAnchor = "newVirtualGrid",
+		dumpFunction = "function grid.dump",
+		--[[ THE LAZY GRID (SwiftUI's `LazyVGrid`). Its reachability story is a
+			scrolling collection's — the engine ScrollingFrame owns pointer/touch
+			scroll, the contributed group owns the ring — but its PARADIGM story has
+			one claim `newVirtualList` cannot make and this row exists to pin: DOWN
+			MOVES A WHOLE LINE, NOT ONE CELL. The mounted cells are ONE group in
+			row-major document order with `axis = "horizontal"`, so ±1 is a sideways
+			step; the vertical axis arrives through `navigateIntercept` because the
+			focus graph has no two-dimensional group axis. Emitting the group as
+			`vertical` would have been REACHABLE and wrong in SHAPE, which is the
+			whole difference between the two axes below. ]]
+		inputProofs = {
+			pointer = {
+				"VirtualGrid pointer: an engine scroll (driveScroll) slides the window",
+				"VirtualGrid pointer: a cell tap activates through auto handleActivate",
+			},
+			touch = {
+				"VirtualGrid touch: a native pan scroll slides the window and never activates a cell",
+				"VirtualGrid touch: a cell tap activates",
+			},
+			keyboard = {
+				"VirtualGrid keyboard: Left/Right steps cell-by-cell ACROSS a line",
+				"VirtualGrid keyboard: Down moves a whole LINE, not one cell",
+				"VirtualGrid keyboard: Return activates the focused cell",
+			},
+			gamepad = {
+				"VirtualGrid gamepad: DPadRight steps a cell and DPadDown steps a whole line",
+				"VirtualGrid gamepad: ButtonA activates the focused cell",
+			},
+		},
+		-- PARADIGM axis. pointer/touch = the NATIVE ScrollingFrame owns scroll
+		-- (wheel/pan/momentum) and a scroll never activates; the viewport is a real
+		-- clip host so partial lines crop. keyboard/gamepad = a windowed focus ring
+		-- whose SHAPE is two-dimensional, with keep-visible scroll-into-view (a step
+		-- into the overscan band scrolls the window, which materializes the next line
+		-- for the step after it — the ring never has to focus an unmounted node).
+		-- The grid advertises no reorder, no grab and no edit: its only live state is
+		-- the engine-owned scroll offset, pure presentation that inherently survives
+		-- any class flip. No in-flight GESTURE, so hotSwitch = false.
+		affordanceProofs = {
+			pointer = { "VirtualGrid pointer: partial lines crop via the engine clip host" },
+			touch = { "VirtualGrid touch: a native pan scroll slides the window and never activates a cell" },
+			keyboard = {
+				"VirtualGrid keyboard: Down moves a whole LINE, not one cell",
+				"VirtualGrid keyboard: focus past the window edge scrolls the line into view",
+			},
+			gamepad = { "VirtualGrid gamepad: DPadRight steps a cell and DPadDown steps a whole line" },
+			hotSwitch = false,
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

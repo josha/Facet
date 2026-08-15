@@ -263,7 +263,8 @@ only the smallest enclosing subtree it can affect, not the whole tree.
 | `ZStack` | **Covered** | Deterministic paint order, **and a per-child `zIndex` override**. SwiftUI's `zIndex` is the same idea and the same default of `0` ([SW-15]), though Apple documents no *scoping* rule for it, so the next sentence is LuauUI's own. `zIndex` is a shared, non-reactive box prop: siblings sort by `(zIndex or 0, tree order)` and a lifted node's whole subtree travels with it, inside its parent's stacking scope, so lifting can never cross scopes. It is implemented generically for **every** container, not just ZStack. Separately, the overflow diagnostic is per-axis and understands `fill` children, so a child granted its full box is not reported as overflowing a box it cannot leave | `src/blueprint_schema.luau`; `src/render/renderer.luau` (`orderedChildren`, `syncZOrder`); `tests/paint_extensions.spec.luau`; `tests/zstack_fill_diagnostic.spec.luau` |
 | `Grid` — uniform flow grid | **Covered** | Row-major wrap at one shared column width `(innerW − gap × (cols − 1)) / cols`, `minColumnWidth = "intrinsic"`, per-cell `alignH`/`alignV`. The grid's measured size is a proven fixed point of its own arrange report — measure it, arrange it, measure again, same answer | `src/layout/solver.luau`; `tests/layout_vocabulary.spec.luau`; `tests/grid_measure_arrange.spec.luau` |
 | `GridRow` / per-column widths / `gridCellColumns` (spanning) | **Covered** | `UI.GridRow` is a solver primitive, and a `UI.Grid` whose children are all rows switches to **row mode**: column *n* is as wide as the widest natural cell in column *n* across every row (SwiftUI's rule, and Apple states it in those terms: the column matches "the needs of column's widest cell" — [SW-16]), against the flow grid's one shared width. `gridSpan` is SwiftUI's `gridCellColumns` ([SW-18]), and a spanning cell here contributes to no single column's maximum and is fitted to the columns it covers plus the gaps between them — but that sizing rule is **ours**: `gridCellColumns` documents the span and its anchor-alignment consequence and **documents no column-sizing behaviour at all** ([SW-18]). **The mode is selected by the children, never by a prop**; a mix of rows and loose cells files a diagnostic and keeps the flow reading rather than guessing. Naturals that do not fit are reduced proportionally rather than overflowing, because the flow grid cannot overflow and a row grid under the same name must not either. `GridRow`'s prop set is deliberately tiny — `width`, `height`, `padding`, `margin`, `align` and `gap` are construction errors on it (each would be a second authority against the grid that owns the columns), while its paint props (`surface`, `shadow`, `gradient`, `corners`, `stroke`, `zIndex`) are the striped-row case. A Grid with no `GridRow` child is byte-identical to the flow grid, pinned on both sides. Not covered: SwiftUI's per-row `alignment:` ([SW-17]), `gridCellAnchor` ([SW-19]), and `gridCellUnsizedAxes` ([SW-20]) | `src/blueprint_schema.luau`; `src/layout/solver.luau` (column and span rules, `gridMode`, mixed-children diagnostic); `tests/grid_row.spec.luau`; `games/RascalRally/code/tests/luauui_grid_row_contract.spec.luau` |
-| `LazyHGrid` / `LazyVGrid` | **Missing** | No grid mode is lazy: every cell is measured and arranged. SwiftUI's non-lazy `Grid` is the same and says so — it "renders all of its child views immediately" ([SW-16]) — and its lazy grids are the ones that create items only as needed ([SW-21]); LuauUI ships only the eager half. The windowing substrate a lazy grid would need does exist (§4.2), and is consumed by the two collection controls only | — |
+| `LazyVGrid` | **Covered** | Shipped 2026-08-15 as `LuauUI.newVirtualGrid`: a collection in `columns` lanes that builds and mounts only the LINES OF CELLS the viewport touches — SwiftUI's own stated property, "creating items only as needed" ([SW-21]). The previous revision of this row said the windowing substrate existed and no grid consumed it; this is that consumer, and it consumes it **without a second arithmetic of either kind**. Windowing: the same running-offset index `newVirtualList` and `newTable` use (`src/virtual_extents.luau`), with one entry meaning one LINE — `count = ceil(#items / columns)`, `gap = rowGap` — so the index needed no generalisation, only a change of unit; the cell↔line mapping is plain division (`line = floor((index − 1) / columns) + 1`), which is an index transform, not windowing. Columns: the mounted band **is a real `UI.Grid`**, absolutely positioned at the first windowed line's canvas offset, so the column width is `floor((innerW − gap × (columns − 1)) / columns)` because that formula is *executing* — not because a copy of it agrees today. A short last line keeps its column width and stays left-aligned for the same reason. Scroll anchors on the **item**, which is what covers a grid's own destabilizer: the LANE COUNT changing moves every item to a different line, and a line-keyed anchor would faithfully hold a line the player was never looking at. Keyboard/gamepad get a windowed ring whose SHAPE is two-dimensional — Left/Right step a cell, **Down steps a whole line** — the vertical axis arriving through `navigateIntercept` because the focus graph has no 2-D group axis. Measured headless (regression signal, never a device claim): mount is **54.2x** cheaper than the eager `UI.Grid` at 10 000 items against a ≤21.5% A/A control band, and a scroll frame is **flat in N** — 1.50 / 1.47 / 1.50 ms at N = 1 000 / 10 000 / 40 000. Named non-deliveries, each refused at construction *with a route*: `minColumnWidth` (bind `columns` to `adaptive.columnsFor`, the flow grid's own exported arithmetic), and selection / reorder / `rowActions` (a cell is the consumer's blueprint). §4.2.2 has the full argument | `src/controls/virtual_grid.luau`; `tests/virtual_grid.spec.luau` (21 cases incl. the two-sided build counter and both differentials), `tests/virtual_grid_input.spec.luau` (12); `games/RascalRally/code/tests/luauui_virtual_grid_contract.spec.luau` |
+| `LazyHGrid` | **Missing** | The remaining half, refused at construction rather than half-built. `newVirtualList` transposes to a horizontal strip because a list's line holds exactly one item, so "row height" and "item width" are one number under two names. A grid's line holds `columns` cells and `UI.Grid` wraps **row-major only** — there is no column-major mode to give a horizontal grid its lanes, and hand-rolling one is precisely the second column arithmetic the vertical grid was built to avoid. `newVirtualGrid` names this in its `axis = "x"` error | `src/controls/virtual_grid.luau` (the refusal) |
 | `ViewThatFits` | **Covered** | A real solver construct (`kind == "fits"`) that measures candidates against the offered box and picks the first that fits — SwiftUI's own rule, in its own words ([SW-22]). **The choice is made at each candidate's ideal size**: the measure runs with the shrink pass explicitly suppressed (a `fitProbe` flag), so `layoutPriority` and `shrinkWeight` cannot change which candidate wins at any width. The winner is then shrunk normally like any other subtree. The suppression is deliberate and pinned by a full-width sweep, because without it a shrinkable candidate reports a smaller ideal size than it has and wins boxes it should have lost | `src/layout/solver.luau` (`chosenCandidate`, `ctx.fitProbe`); `tests/layout_vocabulary.spec.luau` ("shrinkWeight DOES NOT change which ViewThatFits candidate wins, at ANY width"); [`a-candidate-is-judged-at-its-ideal-size`](../lessons/a-candidate-is-judged-at-its-ideal-size.md) |
 | Reactive-axis stack (no SwiftUI single equivalent; nearest is `AnyLayout`, whose documented point is switching layout type without destroying subview state — [SW-23]) | **Covered** | `UI.AdaptiveStack` — one class whose `axis` is a bound value, `dirty = { "measure" }`. Flipping horizontal↔vertical re-solves in place without remounting the children or re-running the factory | `src/blueprint_schema.luau`; `tests/adaptive.spec.luau` |
 | Whole-screen adaptive composition | **Covered** — exceeds SwiftUI in one respect ([SW-10], [SW-24]) | `UI.Composition` + `UI.Region`: ranked regions with richest→minimum-viable form ladders, legality-tested in rank order. Carries all five reference apps' adaptation (§12) with zero device-name branches, and the same machinery expresses a game HUD (§4.5). The resolver is a pure function, so it is exhaustively testable headlessly | [`ADR-0023`](../adr/ADR-0023-declared-content-composition.md); `src/layout/composition.luau`; `src/blueprint_schema.luau`; `tests/composition.spec.luau` |
@@ -423,6 +424,142 @@ took), their selection cardinality and focus-group shape differ in kind, and
 that CAN be shared already is — `virtual_extents`, `row_capability`,
 `solverLib.keepVisibleOffset`. Full argument:
 [`docs/plans/unified-collection.md`](../plans/unified-collection.md).
+
+#### 4.2.2 `newVirtualGrid` — the lazy grid, shipped 2026-08-15
+
+The gap this closes was stated flatly in the table above, and the previous
+revision of that row ended with the sentence that turned out to be the whole
+brief: *the windowing substrate a lazy grid would need does exist, and is
+consumed by the two collection controls only.* So the question was never "how do
+you window a grid" — it was **whether a grid could be a third consumer of the one
+index without becoming a second implementation of it.** It could, and the two
+reuses below are the entire design.
+
+##### The extent index served AS-IS. It needed a change of UNIT, not a generalisation.
+
+`src/virtual_extents.luau` is a prefix sum over a list of numbers with a gap
+between them. It has **no notion of an "item" anywhere in it** — that word appears
+in its prose, never in its interface — so a grid uses it by deciding that one
+entry means one LINE OF CELLS:
+
+```
+count   = ceil(#items / columns)
+extents = the per-line extents
+gap     = rowGap
+```
+
+`offsetOf`, `extentOf`, `window` and `content` then answer in line units and not
+one line of that module changed. The cell↔line mapping that sits on top —
+
+```
+line          = floor((index - 1) / columns) + 1
+the cells of line L are indices (L-1)*columns + 1 .. min(N, L*columns)
+```
+
+— is an **index transform, not windowing**: it involves no offsets, no search and
+no extents, and it is exact for the same reason integer division is. Two smaller
+facts confirm the fit rather than merely permit it. `slotAt` and `boundaryOffset`
+are the index's *insertion* vocabulary (which slot does a drop land in, where is
+the hairline drawn) and a grid asks neither, because it has no reorder — so the
+interface is used as-is and **under-used**, which is the shape of a primitive that
+was general enough already. And the uniform-vs-variable divergence the index
+documents shows up here unchanged and in the same direction: at a viewport of 200
+over 40px lines the uniform rule names 7 lines and the variable rule names 8,
+because the variable rule asks the exact containing-slot question and is a strict
+superset. That is
+[`variable-item-extents.md`](../plans/variable-item-extents.md)'s recorded trade
+arriving in a second consumer, and `tests/virtual_grid.spec.luau` pins the
+superset *relationship*, not just the number.
+
+##### The mounted band IS a `UI.Grid`. There is no second column arithmetic.
+
+The windowed lines are a contiguous run of items that always **starts on a line
+boundary** — which is exactly what a row-major flow grid wraps. So the control
+mounts **one** `UI.Grid { columns }`, absolutely positioned at
+`index.offsetOf(firstLine)` inside the full-extent canvas, holding the window's
+cells in order:
+
+```
+ScrollView (engine ScrollingFrame; clip host)
+└─ Anchor "Canvas"   height = index.content        ← the FULL virtual extent
+   └─ Grid "Band"    offsetY = offsetOf(firstLine) ← arrange-only; a slide never re-measures
+      └─ ForEach over the windowed cells, keyed by ITEM
+         └─ ZStack "Cell"  height = its LINE's extent
+```
+
+The column width is `floor((innerW − gap × (columns − 1)) / columns)` because the
+flow grid's own formula is executing, not because a copy of it agrees today; a
+change to that rule moves both sides of the differential in
+`tests/virtual_grid.spec.luau` together, which is the point of writing it as a
+differential. The short last line keeps its column width and stays left-aligned
+for free, because the flow grid derives the column from the OFFER and the lane
+count and never from how many cells turned up.
+
+The `Cell` wrapper earns its instance three times over: it pins the cell to its
+line's extent (so the flow grid's per-line natural height *is* the number the
+index already committed to), it carries the `virtualSlot` declaration the solver's
+lying-extent guard reads, and it holds the focusable hit. It also makes a
+structural cell (`UI.When`, `UI.ForEach`) safe — those splice several children
+into their parent, which inside the band would shift every following cell into the
+wrong lane. "One item, one grid child" is true by construction, not by convention.
+
+##### Two things this cost, both found by mutation testing rather than by reading
+
+**A contribution owns its subtree's focus.** The first draft attached an input
+contribution purely to learn its own mounted path and returned no focus groups —
+and `focus_map.autoGroups` does not descend into a contribution, so every
+focusable inside every cell would have been unreachable by Tab *and* by the D-pad.
+A lazy grid that is a focus black hole is worse than no lazy grid. The full-cell
+hit exists to give the control something to name.
+
+**A grid's ring is two-dimensional and the focus graph's is not.** A
+`NavigationGroup` axis is `"vertical"` or `"horizontal"` (`focus_graph.luau`), and
+the band's document order is row-major — so ±1 is a sideways step and the group is
+emitted as `horizontal`, while **Down is ±`columns`** and arrives through the
+existing `navigateIntercept` seam rather than by widening the focus graph from
+inside a control. Emitting the group as `vertical` would have been *reachable* and
+wrong in *shape*: Down walking visually rightward. That is the cleanest example in
+this document of why the paradigm axis is a separate gate from the reachability
+axis — the mutation that flips the group to `vertical` reddens named cases in both
+files.
+
+Mutation testing also deleted code: the control was written with a `focusMoved`
+contribution mirroring `newVirtualList`'s, and withholding it changed the scroll
+behaviour on **no path at all** — the presenter's own keep-visible already reacts
+to a focus move it observes. The intercept's keep-visible is *not* dead, and the
+difference is the mechanism: `navigateIntercept` moves focus programmatically, so
+nothing else brings its ±`columns` target into view. One was removed, the other is
+pinned by a named case.
+
+##### What it refuses, and what it is honest about
+
+| | |
+|---|---|
+| **`axis = "x"` (`LazyHGrid`)** | Refused at construction. `UI.Grid` wraps row-major only, so a horizontal grid has no lane mechanism to inherit, and building one would be the second column arithmetic this design exists to avoid |
+| **`minColumnWidth`** | Refused *with a route*. Deriving lanes from a minimum cell width needs the cross-axis size in px — a second measured seam beside `viewportExtent`. `adaptive.columnsFor(available, minColumnWidth, gap)` is the flow grid's own arithmetic, already exported, so `columns` binds to a memo over it |
+| **selection / reorder / `rowActions`** | Not offered. A cell is the consumer's blueprint and carries its own interaction beyond the hit's Activate |
+| **A cell's state dies with the window** | Stated, not hidden — the same honesty `newTable { virtualized = true }` owes. But **the tension that made Table refuse `rowActions` does not exist here**, and copying that refusal to look consistent would have been a lie about the mechanism: Table WRAPS each actionable row in a composite whose lifecycle is pruned by the DATA, so a row scrolling out strands its engine. This control's only wrapper is the `Cell`, and it lives *inside* the window's `ForEach` — its lifecycle **is** the window's. There is nothing to strand |
+
+##### The numbers
+
+Headless Lune, evidence class **regression signal** — not Studio, not a device.
+The A/A control band is stated first because four missions this week found
+apparent wins inside one: mounting the same lazy grid twice, order-swapped ABBA,
+9 rounds, spreads **21.5%** at N = 1 000 and **2.6%** at N = 10 000.
+
+| | N = 1 000 | N = 10 000 |
+|---|---|---|
+| mount, lazy | 4.08 ms | 7.77 ms |
+| mount, eager `UI.Grid` | 30.69 ms | 421.01 ms |
+| **ratio** | **7.5x** | **54.2x** |
+
+Both are an order of magnitude outside the widest control band. The claim that
+actually matters is the third row, though, and it is the one a ratio cannot make:
+a **scroll frame is flat in N** — 1.498 ms / 1.471 ms / 1.504 ms at N = 1 000 /
+10 000 / 40 000, a 2.2% spread across a 40x range of collection size, i.e. inside
+the control band. That is "creates items only as needed", measured rather than
+asserted. What is **not** claimed: any Studio or device number. A perf-lab arm on
+the real engine is the outstanding measurement.
 
 ### 4.3 Flow-wrap, and the cross-axis rule nobody had written down
 
@@ -1562,7 +1699,7 @@ section that owns it.
 | `matchedGeometryEffect`, `phaseAnimator`, `.scrollTransition`, `.animation(_:value:)` | **Missing** | §8 |
 | Animating a colour — `tint` is written straight to the adapter, so no commit diff can reach it | **Missing** | §8.1 |
 | Alignment guides (`.alignmentGuide` / custom `AlignmentID`) and baseline alignment | **Missing** | §4.4 |
-| Lazy grids (`LazyVGrid` / `LazyHGrid`) — the windowing substrate exists and no grid consumes it | **Missing** | §4 |
+| Lazy grids (`LazyVGrid` / `LazyHGrid`) | **Half closed 2026-08-15.** `LazyVGrid` ships as `newVirtualGrid` — it is the consumer this row said the substrate did not have, and it needed no new windowing and no new column arithmetic (§4.2.2). `LazyHGrid` stays open and is now a *refusal with a stated reason* rather than an absence: `UI.Grid` wraps row-major only | §4.2.2 |
 | Measured (self-sizing) item extents in a virtualized collection — `itemExtent` takes a number or a per-item function, but never "ask the row" | **Missing** — the named next stage, not started | §4.2 |
 | Row actions on a **virtualized** `Table` — `Table` wraps a composite per row, so a windowed row would strand its engine | **Missing** — refused at construction, naming the reason | §4.2.1, §5.1 |
 | Multi-selection on `newVirtualList` — the mirror of the hole `Table` closed | **Missing** | §4.2.1 |

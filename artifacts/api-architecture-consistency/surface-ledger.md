@@ -52,6 +52,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 |---|---|---|---|---|
 | `newTable` | composite | control-build, `api`-nested variant; `onPrimaryAction` joins the spec in parity round 2 §3.4 (a second interactive verb on the same rows, four-input, cited in the registry row) | F-24 (gallery bind), F-25 (dump), F-27 (header align), PKT-1, PKT-9, NOTE (parity round 2 §3.4) | controls |
 | `newVirtualList` | composite | control-build, flat variant (pre-rule) | F-25 (dump proof), DOC-11, PKT-1 | controls |
+| `newVirtualGrid` | composite | control-build, flat variant (matches its `newVirtualList` sibling deliberately — the two share the `virtual_extents` index and are read against each other) | none (clean) | controls |
 | `newPopupButton` | composite | control-build, `api` variant | F-1 (memo guard), DOC-22, PKT-6, PKT-1 (`presentation`) | controls |
 | `newStepper` | composite | control-build, value family — the reference implementation | none (clean) | controls |
 | `newSlider` | composite | control-build, value family | PKT-7 (`onInteractionClassLost`), PKT-1 | controls |

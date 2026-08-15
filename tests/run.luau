@@ -130,6 +130,8 @@ require("./virtual_list_focus_policy.spec")
 -- while the declared extent is the true one, and until this nothing checked the
 -- consumer's prediction against what its own row actually measures
 require("./virtual_list_slot_guard.spec")
+require("./virtual_grid.spec")
+require("./virtual_grid_input.spec")
 require("./navigation_groups.spec")
 require("./perf_runner.spec")
 -- evidence-class discipline: the rules that stop a headless number becoming a
