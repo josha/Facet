@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the thirteen fixtures", function()
+	it("lists every tutorial example plus the fourteen fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(20)
+		expect(#demos).toBe(21)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -60,7 +60,11 @@ describe("showcase catalogue", function()
 		-- ...and THIRTEEN since ADR-0028: `surface-overlap`, whose four states
 		-- paint identical pixels, so the picker entry is the only route a player
 		-- has to the one thing that tells them apart.
-		expect(fixtures).toBe(13)
+		-- ...and FOURTEEN since the unified collection (2026-08-14):
+		-- `table-virtualized`, whose whole difference from an ordinary Table is a
+		-- COUNT rather than a picture, so the fixture is the only place a player can
+		-- see that two thousand rows are being carried by seventeen.
+		expect(fixtures).toBe(14)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -507,7 +511,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(13)
+		expect(fixtures).toBe(14)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

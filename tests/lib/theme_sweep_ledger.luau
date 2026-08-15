@@ -234,6 +234,34 @@ theme_ledger.ROWS = {
 			a short screen — a compact control row, or the title dropping — which is a
 			design change to a demo whose chrome IS its subject, so it is recorded with
 			the measurement rather than tuned away. ]]
+		--[[ THE SAME CLASS AS `/VariableExtents` BELOW, one surface over, and it is
+			here for the same reason: a page that cannot delegate its scrolling has to
+			fit its own chrome above the list, and at the Largest preference on a
+			320x640 phone under a package that carves real chrome, it does not.
+
+			WHAT SEPARATES IT FROM ITS NEIGHBOUR IS THE `since`. `/VariableExtents` is
+			recorded from +0 — it overflows at the DEFAULT preference. This surface is
+			clean at +0, +4 and +10 on every package, and only fails at +14, because
+			four rounds of measured trimming went in before this row was written: the
+			auto Edit/Done toolbar row (owned `editing` took it back), the header
+			band's `minMax` floor (77 findings, all of them that band — the fixture is
+			headerless), a second row of buttons (five long labels made it 96px and put
+			the page 20px over at the DEFAULT preference) and the page title. Each is
+			recorded in the WAIVERS entry's `where`.
+
+			IT IS NOT REPAIRABLE BY GIVING THE LIST LESS ROOM: the list is already at
+			zero on every cell this row covers, and a floor on it would paint over the
+			neighbour instead — the mistake `/VariableExtents` records having made. ]]
+		surface = "table_virtualized",
+		variant = "-",
+		node = "/TableVirtualized",
+		sig = "content overflows this vstack by Npx on the",
+		px = 171,
+		since = 14,
+		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
+		kind = "page-not-scrollable",
+	},
+	{
 		surface = "variable_extents",
 		variant = "-",
 		node = "/VariableExtents",

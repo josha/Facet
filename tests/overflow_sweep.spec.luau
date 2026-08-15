@@ -326,6 +326,13 @@ local SCENARIOS = {
 	"sensory_feedback",
 	"text_degrade",
 	"variable_extents",
+	-- ...and the virtualized Table. It is the one surface in this corpus whose
+	-- page CANNOT delegate its scrolling — a windowed list is defined against a
+	-- viewport, so `scrolls = false` is refused beside `virtualized` — which makes
+	-- the swept cross product the direct test of whether its chrome (a title, a
+	-- WRAPPING four-button row and two status lines) still leaves the list a box at
+	-- every viewport and text preference, rather than a check on the packaging
+	"table_virtualized",
 	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
 	-- partition the box at every size", so a swept viewport IS the feature's test
 	-- rather than a check on its packaging — and the surface carries a switch that
@@ -644,6 +651,16 @@ local WAIVERS: { Waiver } = {
 		since = 10,
 		kind = "page-not-scrollable",
 		where = "640x320 @ +10/+14 and compact-phone-landscape @ +14 — the title, the WRAPPING control row (`UI.Toggle` is a full-width row control, so it takes a wrap line to itself and the four size chips take one or two more) and the two-line status measure 268px of a 200px box at +14, with the list already at ZERO. This surface's two real defects are FIXED rather than waived: the row extents now derive from the live text facts (372 findings) and the window is the solved pane rather than a 210px reserve",
+	},
+	{
+		surface = "table_virtualized",
+		variant = "-",
+		node = "/TableVirtualized",
+		sig = "content overflows this vstack by Npx on the",
+		px = 171,
+		since = 14,
+		kind = "page-not-scrollable",
+		where = "320x640/narrow-portrait and 640x320/narrow-landscape @ +14 ONLY, on every theme package (15 findings, worst 171px). THE PAGE CANNOT DELEGATE ITS SCROLLING and that is the feature, not an oversight: a windowed list is defined against a viewport, so `newTable` refuses `virtualized` beside `scrolls = false` — this surface therefore owns exactly one scroller (the table's own body) and its chrome has to fit above it. FOUR THINGS WERE MEASURED AND FIXED BEFORE THIS WAIVER WAS WRITTEN, not waived: the auto Edit/Done toolbar row (owning `editing` took it back), the header band's `minMax` floor (77 findings, ALL of them that band — the fixture is headerless and the list's `fill` body windows down to nothing), a second row of buttons (five long labels made the row 96px and put the page 20px over its box at the DEFAULT preference; four short ones share one row), and the page title. What is left is the irreducible case: at the Largest preference a 320px phone's wrapped buttons and two status lines need more than the 520px band the showcase leaves, with the list already at ZERO. A floor on the list here would be the `variable_extents` mistake again — a list that insists on 72px in a 0px pane paints those 72px over its neighbour",
 	},
 	{
 		surface = "card_rail",

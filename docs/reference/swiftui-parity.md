@@ -432,7 +432,50 @@ In short:
 | **Left (Stage 2)** | `itemExtent = "measured"` — rows hug, `syncGeometry` learns each row's real extent, the same prefix sum consumes it, and the anchoring already built is what stops it jumping. Not started; nothing is staged for it, and nothing needs to be — the index takes an array of numbers and does not care where they came from. |
 
 `newTable` virtualization was blocked behind this *because* `Table` ships
-`rowHeight(item)`. The substrate it was waiting for now exists.
+`rowHeight(item)`. The substrate it was waiting for now exists — and it was
+cashed in the same day: see §4.2.1.
+
+#### 4.2.1 `newTable{ virtualized = true }` — the unified collection, shipped 2026-08-14
+
+The game director asked whether a container should unify virtualization,
+reordering and selection. §13 said none did. Reading the two controls against
+each other says something more precise, and it is what the decision turned on:
+**`newVirtualList` already virtualizes, reorders and selects** — the hole is that
+the container with **columns, a header and multi/range selection mounted every
+row**.
+
+So Table windows now, on the same `virtual_extents` index, and the three
+hand-rolled O(N) row-geometry loops it carried (a key→cumulative-top memo, a
+`contentHeight()` that re-summed the same numbers, an `insertSlotAt` that walked
+them a third time with its own midpoint rule) became one prefix sum — **for the
+flowing table as well**, so the two paths cannot drift into disagreeing about one
+list. Measured on that shipped flowing path: −95.4% ± 0.1 across three
+order-swapped rounds against a ±3% A/A band, because the old `contentHeight()`
+was O(N) *per call* and `clampScroll` calls it.
+
+**Table is the consumer that never had the lying-`itemExtent` problem**, which is
+why it was the right first virtualization consumer rather than a second one:
+`rowHeightOf` DERIVES a row from the theme metrics, the typography scale, the
+accessibility text offset and the input paradigm, and an authored `rowHeight` is
+floored by one line of its own cell text. Nobody predicts anything.
+
+**A one-collection-substrate refactor was rejected**, and not for its size: the
+two controls' height authority is *inverted*, their row-actions hosting is
+opposite by design (and each one's other capabilities depend on which side it
+took), their selection cardinality and focus-group shape differ in kind, and
+`ENGINEERING.md` forbids folding a broad refactor into feature work. The part
+that CAN be shared already is — `virtual_extents`, `row_capability`,
+`solverLib.keepVisibleOffset`.
+
+| | |
+|---|---|
+| **Built** | `virtualized` (construction-only): only the rows the viewport touches are mounted, plus `OVERSCAN = 2` each side, absolutely positioned on a full-extent Canvas. The viewport is MEASURED through `syncGeometry`, seeded from the screen height so the first frame over-mounts rather than under-mounts. Scroll anchors on the item under the leading edge. `api.revealRow(key)` reaches a row with no path at all. Selection, order, focus and the sort are model state and survive the window. |
+| **Refused** | `scrolls = false` (a block table has no viewport to window against) and `rowActions` (v1: Table WRAPS a composite per row and its lifecycle is pruned by the DATA, not by the window, so a row scrolling out would strand its engine). Both are construction errors that name why. |
+| **Traded** | A cell's own state dies with its row — which is why this is opt-in and a flowing table keeps every byte of its behaviour. Anchoring is virtualized-only. At `rowGap > 0` the insertion-slot rule takes the SLOT's midpoint rather than the ROW's and clamps the last hairline into the canvas; at the default `rowGap = 0`, every shipped table, the two rules are equal everywhere. |
+| **Left (Stage 2)** | Row actions on a virtualized Table, by teaching Table to HOST rather than wrap; multi-selection on `newVirtualList` (the mirror hole); anchoring generalized to the flowing path. |
+
+Full argument, the two defects mutation-testing found, and the ordered Stage 2:
+[`docs/plans/unified-collection.md`](../plans/unified-collection.md).
 
 ### 4.3 Flow-wrap — closed 2026-08-13, and the "undefined rule" was defined
 
@@ -1435,8 +1478,8 @@ section that owns it.
 | Flow-wrap (`UIListLayout.Wraps`) — the one place LuauUI is behind Roblox's own controls | **Missing** — its own mission, scoped | §4.1, §4.3 |
 | Variable item extents in the virtualized collection | **Stage 1 shipped 2026-08-14** — `itemExtent` takes a per-item function over a running-offset index; measured (self-sizing) extents are Stage 2 and not started | §4.2 |
 | `Toggle` cannot compose a `Label` (it is a leaf, not a container) | **Missing** — named non-delivery | §5.3 |
-| No container unifying virtualization + reorder + selection | **Missing** | §4 |
-| Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` / `deleteDisabled(_:)` / `moveDisabled(_:)` family. Blocked behind the container split above: the family would otherwise be built twice | **Missing** — deferred by decision 2026-08-13, evidence in §5 | §5, §4 |
+| No container unifying virtualization + reorder + selection | **Closed 2026-08-14** by `newTable{ virtualized = true }` ([`the plan`](../plans/unified-collection.md)): the rich container now windows, on the same running-offset index `newVirtualList` uses, with columns, a header, single/multi/range selection and every reorder route. This row's own wording was found to be stale when it was cashed in — `newVirtualList` already did all three; the real hole was that the container with columns and multi-selection mounted every row. **What is left**: row actions are refused beside `virtualized` in v1 (Table WRAPS a composite per row and its lifecycle is data-pruned, not window-pruned — teaching it to HOST is Stage 2), and `newVirtualList` selection is still single-only | §4.2 |
+| Per-row capability opt-outs — SwiftUI's `selectionDisabled(_:)` / `deleteDisabled(_:)` / `moveDisabled(_:)` family. Blocked behind the container split above: the family would otherwise be built twice | **Shipped** — `rowSelectable` / `rowMovable` / `rowDeletable` on both controls, with ONE implementation (`src/row_capability.luau`) and two callers. The "built twice" objection was answered by extracting the predicate rather than by unifying the controls | §5, §4 |
 | Cell recycling for `VirtualList` rows | **Missing**, no longer load-bearing after hosted row actions | §10, §5.1 |
 | Authored `opacity`/`scale`/`rotation` — the presentation channel had no authored prop at all, so `withAnimation` had nothing to diff | **Closed 2026-08-14** by [ADR-0026](../adr/ADR-0026-authored-presentation-composition.md): the authored value is a second TERM composed at the one presentation write site, not a second writer, so the authority manifest is unchanged. Opacity and scale multiply, rotation adds; `withAnimation` reaches all three | §6, §8.1 |
 | `.disabled()` as a subtree **cascade**. Per-control `enabled` ships on three leaves and is consistent on each; there is no inherited channel, and the classes with no disabled look (`Box`, `Text`, `Image`) would need a theme vocabulary before one would be honest | **Missing** — examined and deferred 2026-08-13 | §7 |

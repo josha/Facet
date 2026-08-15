@@ -196,6 +196,18 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "variable_extents",
 	},
+	-- ...and the one after it, for the reason every fixture here is listed: the
+	-- difference it demonstrates is a NUMBER, not a picture. A table windowing two
+	-- thousand rows and a table that mounted all two thousand look identical; the
+	-- status line is the only place the windowing exists, and the three buttons all
+	-- act on a row the window has never held.
+	{
+		id = "table-virtualized",
+		title = "Two thousand rows, seventeen real",
+		blurb = "One table windowing 2 000 rows: every verb reaches a row that is not there",
+		kind = "fixture",
+		module = "table_virtualized",
+	},
 	-- the tenth fixture, and the reason is the one every fixture above it gives:
 	-- what it demonstrates is INVISIBLE in a picture. Five buttons painted
 	-- identically report four different verbs and one nothing at all, and one

@@ -54,12 +54,21 @@
 	combination is named and refused rather than resolved by whichever handler
 	got there first.
 
-	VARIABLE ITEM EXTENTS ARE A RECORDED GAP, NOT A HALF-BUILT SEAM. Nothing in
-	this file is staged for them and no field is reserved: the window is
-	`index × pitch`, which is O(1) and exact precisely BECAUSE the pitch is one
-	number. §2.3 states the problem (an item's extent is only known by building
-	it, which is the thing virtualization exists to avoid) and records both
-	candidate designs; it does not sanction starting one. ]]
+	VARIABLE ITEM EXTENTS SHIPPED (Stage 1, 2026-08-14) — THIS PARAGRAPH USED TO SAY
+	THE OPPOSITE. It read "a recorded gap, not a half-built seam … the window is
+	`index × pitch`", which was true until the day `itemExtent` gained its per-item
+	function form and every windowing number in this file moved onto
+	`src/virtual_extents.luau`. It survived the change that falsified it, which is
+	the `docs/lessons/a-header-comment-describes-the-path-it-was-written-for.md`
+	class, in the file that names that lesson.
+
+	WHAT IS TRUE NOW: the window comes from a running-offset INDEX, chosen once at
+	build. `uniform` is the old `index × pitch` formulas verbatim and every list
+	that declares a number still gets exactly them; `variable` is a prefix sum,
+	searched. See THE RUNNING-OFFSET INDEX below, and
+	`docs/plans/variable-item-extents.md` for what Stage 2 (measured extents) still
+	owes. `newTable` windows on the same index since 2026-08-14
+	(`docs/plans/unified-collection.md`). ]]
 --
 -- THE UNIFIED COLLECTION (ADR-0022 Decision 5, rows SF-L1/L2/L3). One construct
 -- windows, selects, reorders and accepts drops at the same time, because the

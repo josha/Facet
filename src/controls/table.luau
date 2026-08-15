@@ -41,6 +41,10 @@ local solverLib = require("../layout/solver")
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
+-- the running-offset index this control and `newVirtualList` now BOTH window and
+-- position by — see THE RUNNING-OFFSET INDEX below for why Table always takes the
+-- `variable` form
+local virtual_extents = require("../virtual_extents")
 local row_actions = require("./row_actions")
 -- the axis-lock constant only (never a decision instance): the row Hit's own
 -- dispatch has to know whether a gesture it forwarded became a SWIPE, and the
@@ -75,6 +79,12 @@ end
 -- duplicating any of them; a never-wrapped table (no `spec.rowActions`)
 -- never has the segment to strip, so this is a no-op for every path in the
 -- common case.
+-- how many rows past each edge of the viewport a virtualized table keeps mounted.
+-- `newVirtualList.overscan`'s own default, and the same job: the row that arrow-
+-- down is about to land on is already in the tree, so keyboard navigation walks
+-- off the window's edge without ever finding nothing there.
+local OVERSCAN = 2
+
 local ROW_ACTIONS_PATH_INFIX = "/RowActions%-[^/]+/Content/"
 local function derowActionsPath(path: string): string
 	return (string.gsub(path, ROW_ACTIONS_PATH_INFIX, "/", 1))
@@ -216,6 +226,24 @@ export type Spec = {
 		trailing: { any }?,
 		fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?,
 	}?)?,
+	--[[ VIRTUALIZATION (2026-08-14, `docs/plans/unified-collection.md`). When true
+		the body mounts only the rows the viewport touches (plus `OVERSCAN` on each
+		side) as absolutely-positioned children of one full-extent Canvas, instead of
+		flowing every row. Everything else about the table is unchanged: the same
+		columns, the same header, the same single/multi selection, the same reorder,
+		the same per-row capability opt-outs.
+
+		IT IS OPT-IN, AND THE REASON IS STATE. A row that leaves the window is
+		UNMOUNTED and its item scope dies with it — which is right for a plate of
+		text and wrong for a cell holding a live `UI.TextInput` mid-edit. Selection,
+		focus, the sort and the order are model state and survive (the specs below
+		pin each); anything a CELL holds is the consumer's to hoist. A flowing table
+		keeps every byte of its old behaviour, so nothing that ships today moves.
+
+		WHAT IT COSTS TO SAY YES: `scrolls = false` and `rowActions` are refused
+		with it — see the two construction refusals in `build`, each of which says
+		why in the message. ]]
+	virtualized: boolean?,
 }
 
 -- CLOSED SPEC (constitution §4; ARCH-1). Exactly the fields this control
@@ -268,6 +296,7 @@ local TABLE_KEYS = specGuard.keySet({
 	"scrolls",
 	"selection",
 	"sortOrder",
+	"virtualized",
 })
 
 function table_control.build(LuauUI: any, core: any, spec: Spec)
@@ -299,6 +328,40 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		"rowActions is absent, so no row carries a destructive action to refuse",
 		"Declare a rowActions callback returning a destructive action, or drop spec.rowDeletable."
 	)
+	--[[ WHAT VIRTUALIZATION IS REFUSED WITH, AND WHY EACH IS A REFUSAL RATHER THAN
+		A SILENT DEGRADE. Constitution §4: an accepted property must do something;
+		a property that quietly stops meaning what it says is worse than one that
+		is rejected at the line that declares it. ]]
+	local virtualized = spec.virtualized == true
+	if virtualized and spec.scrolls == false then
+		error(
+			"LuauUI newTable: spec.virtualized needs a viewport to window against, and scrolls = false gives it none "
+				.. "— a BLOCK table sizes to its rows so its HOST can scroll them, so every row is on screen as far as "
+				.. "this table can tell. Drop one of the two.",
+			2
+		)
+	end
+	if virtualized and spec.rowActions ~= nil then
+		--[[ v1, and the mirror of `newVirtualList`'s own `rowActions + reorderable`
+			refusal — for the same kind of reason, from the other side. Table WRAPS
+			every actionable row in its own `row_actions` composite, and that
+			composite's lifecycle is pruned by the DATA (the `spec.rows` observer
+			below), never by the window: a row scrolling out would unmount its
+			blueprint and leave its engine, its coordinator claim and its in-flight
+			gesture behind. `newVirtualList` is the control that already solved this,
+			by HOSTING the engine instead of wrapping it (one shared dispatcher,
+			lazy per-row engines born at a gesture's axis lock, one tray overlay per
+			list — `docs/plans/row-actions-hosted-mode-design.md`). Teaching Table to
+			host is its own mission, and it is the one named in
+			`docs/plans/unified-collection.md` as Stage 2. ]]
+		error(
+			"LuauUI newTable: spec.virtualized + spec.rowActions is unsupported (v1) — Table WRAPS each actionable row "
+				.. "in its own row_actions composite whose lifecycle is pruned by the data, not by the window, so a row "
+				.. "scrolling out would strand its engine. Use newVirtualList (which HOSTS row actions) for a swipeable "
+				.. "virtualized list, or drop spec.virtualized.",
+			2
+		)
+	end
 	local UI = LuauUI.UI
 	local scope = core:scope(`Table-{spec.id or "table"}`)
 	local tableId = spec.id or "Table"
@@ -533,31 +596,190 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	local boundController: any = nil
 	local boundScrollPath: string? = nil
 	local mountedRoot: string? = nil
-	-- key -> cumulative top (px) in document order, for offsets and culling
-	local rowTops = scope:own(core:memo(function(use)
-		local tops: { [string]: number } = {}
-		local cum = 0
-		-- `use`d, not read: a derived row height moves every top below it, so a
+	--[[ ── THE RUNNING-OFFSET INDEX — ONE ARITHMETIC, SHARED WITH newVirtualList ──
+		Every question this control asks about WHERE a row is — the content extent,
+		the scroll clamp, a row's own top, the reorder insertion slot and its
+		hairline, keep-visible, and (when `virtualized`) which rows the viewport
+		touches — is answered here, by `src/virtual_extents.luau`: the same prefix
+		sum `newVirtualList` windows by.
+
+		WHY IT IS THE SHARED ONE AND NOT THREE LOCAL LOOPS. It was three: a
+		key->cumulative-top memo, a `contentHeight()` that re-summed the same
+		numbers, and an `insertSlotAt` that re-walked them a third time with its own
+		midpoint rule. Three copies of one prefix sum is the "gesture machinery in
+		four implementations" defect (`swiftui-parity.md` §13) being re-committed at
+		a smaller scale, and it is what made `newTable` virtualization impossible to
+		land honestly: windowing has to agree with painting to the pixel, and it
+		cannot agree with three answers.
+
+		THE VARIABLE INDEX, ALWAYS — even for a table whose rows are all the same
+		height. Table's row extent is DERIVED, never declared: `rowHeightOf` reads
+		the theme metrics, the typography scale, the accessibility text offset and
+		the input paradigm, and an authored `rowHeight` is FLOORED by one line of
+		its own cell text. So there is no list-wide pitch to hand `uniform`, and
+		asking for one would re-introduce exactly the consumer-side prediction the
+		variable-extents mission was built to remove (`docs/plans/variable-item-
+		extents.md`). Table is the consumer that never had the lying-`itemExtent`
+		problem, because nobody here predicts anything.
+
+		O(N) ARITHMETIC PER DATA CHANGE, and no more than the memo it replaces did:
+		`rowTops` already built one table entry per row on every rows/theme edit.
+		No item is built and nothing is measured — the line that keeps "measure
+		every row at mount" refused (`virtual_extents.luau`'s own header).
+
+		`slotOf` bridges Table's KEY addressing to the index's INDEX addressing;
+		everything in this file that knows a row knows it by key. ]]
+	local layoutIndex = scope:own(core:memo(function(use)
+		-- `use`d, not read: a derived row height moves every offset below it, so a
 		-- theme swap or an accessibility text change has to re-derive these
 		local box = use(rowBox)
-		for _, item in use(spec.rows) :: { any } do
-			tops[spec.key(item)] = cum
-			cum += rowHeightOf(item, box) + use(rowGapPx)
+		local gap = use(rowGapPx)
+		local items = use(spec.rows) :: { any }
+		local extents = table.create(math.max(#items, 1))
+		local slotOf: { [string]: number } = {}
+		local keys = table.create(math.max(#items, 1))
+		for i, item in items do
+			extents[i] = rowHeightOf(item, box)
+			keys[i] = spec.key(item)
+			slotOf[keys[i]] = i
 		end
-		return tops
+		return { ix = virtual_extents.variable(extents, gap), slotOf = slotOf, keys = keys }
 	end))
+	local function layoutNow(): any
+		return layoutIndex:get() :: any
+	end
 	local function contentHeight(): number
-		local total = 0
-		local n = 0
-		local box = rowBox:get()
-		for _, item in spec.rows:get() :: { any } do
-			total += rowHeightOf(item, box)
-			n += 1
-		end
-		return total + math.max(0, n - 1) * rowGapPx:get()
+		return layoutNow().ix.content
 	end
 	local function clampScroll(value: number, bodyHeight: number): number
 		return math.clamp(value, 0, math.max(0, contentHeight() - bodyHeight))
+	end
+	--[[ ── THE VIEWPORT, AND WHY IT IS MEASURED RATHER THAN DECLARED ──────────────
+		`newVirtualList` makes the consumer hand in `viewportExtent`, because its
+		root IS the scroll host and it has no other way to know. Table's body is a
+		`fill` child of a VStack that also holds a header and possibly a toolbar, so
+		the consumer does not know this number either — and asking for it would be
+		one more thing to predict wrongly, which is the whole family of defect the
+		variable-extents mission was about.
+
+		SO IT COMES FROM THE SOLVE, through `syncGeometry` — the same seam
+		`lastRectOf` already arrives on, called by the presenter after every refresh.
+
+		CONVERGENCE IS ONE STEP, and the argument is the same one Stage 2 of
+		variable extents rests on: the body's height is `fill`, so it is decided by
+		the space the table was GIVEN and not by how many rows are inside it.
+		Measuring cannot change what was measured, so the write below cannot chase
+		itself. The equality guard is what keeps that a fact rather than a hope: a
+		signal written to its own value on every refresh would re-solve the tree
+		forever.
+
+		THE FIRST FRAME IS SEEDED WITH THE SCREEN, AND THE DIRECTION IS THE WHOLE
+		POINT. Seeded with 0, the first frame's window is `1 .. 1 + OVERSCAN` — three
+		rows in a six-hundred-pixel body, and a visible pop on the next frame when
+		the measurement lands. Measured live while building this: the first frame of
+		a 200-row virtualized table mounted THREE rows.
+
+		A body is never taller than the surface that contains it, so the surface's
+		own height is a sound UPPER BOUND, and windowing against an upper bound
+		mounts a strict SUPERSET of what the viewport touches. The first frame is
+		therefore over-filled rather than under-filled — still bounded (by the
+		screen, never by the data), and never wrong on screen. `syncGeometry`
+		narrows it to the real body on the next refresh and it stays there.
+
+		READ ONCE, NOT SUBSCRIBED: this is a seed for the frames before a
+		measurement exists, not a second source of truth. A rotation or a resize
+		re-solves the body and `syncGeometry` reports the new height — going through
+		the screen a second time would be a slower, less accurate route to the same
+		number. Without an `env` (a headless mount) there is no screen to ask and
+		the seed is 0, which is the old behaviour and is what the convergence case
+		below pins. ]]
+	local function screenSeed(): number
+		local env = spec.env
+		if env == nil then
+			return 0
+		end
+		local rect: any = env:get("viewportRect"):get()
+		return if type(rect) == "table" and type(rect.h) == "number" then rect.h else 0
+	end
+	local viewportH = scope:own(core:signal(screenSeed()))
+	local clampedTop = scope:own(core:memo(function(use)
+		local content = (use(layoutIndex) :: any).ix.content
+		return math.clamp(use(scrollTop), 0, math.max(0, content - use(viewportH)))
+	end))
+	--[[ ── SCROLL ANCHORING (virtualized only) ────────────────────────────────────
+		THE DEFECT THIS EXISTS TO PREVENT, in Table's own vocabulary: a row's height
+		here is DERIVED, so it moves under the PLAYER — raise the accessibility text
+		preference two hundred rows into a list and every offset above the viewport
+		grows, which slides the content under the eye by however much the rows above
+		gained. This repo has the jump recorded from exactly this shape, and
+		`newVirtualList` already carries the same guard for the same reason
+		(its variable-extent path, `docs/plans/variable-item-extents.md`).
+
+		THE RULE: remember which item is under the viewport's LEADING EDGE and how
+		far into it the scroll sits; when the offsets re-derive, put that item back
+		where it was. It is deliberately the item and not the pixel — the pixel is
+		what moved.
+
+		WHY THIS DOES NOT FIRE ON A DATA EDIT that leaves the geometry alone: the
+		re-apply is a no-op under half a pixel, and a rename or a live value ticking
+		moves no offsets at all.
+
+		VIRTUALIZED ONLY, and deliberately. A FLOWING table's rows are laid out by
+		the solver from the top, so generalizing this would change what every
+		shipped table does when a row above the viewport grows — a behaviour change
+		no measurement has asked for. Flagged, not smuggled: it is the same
+		follow-up `newVirtualList` already carries for its uniform path. ]]
+	local anchorKey: string? = nil
+	local anchorDelta = 0
+	if virtualized then
+		--[[ THE CAPTURE RIDES `scrollTop`, THE RAW MIRROR — NOT `clampedTop`, and the
+			difference is the whole feature. `clampedTop` is a memo over the index, so
+			an extent change notifies it too: capturing there would re-read the anchor
+			against the NEW offsets before the re-apply below ever ran, and the guard
+			would silently become a no-op that still passes every structural check.
+			`scrollTop` is written by exactly one thing — the engine's CanvasPosition
+			mirror — so it moves when, and only when, the PLAYER moved. ]]
+		scope:own(core:observe(scrollTop, function()
+			local top = clampedTop:get() :: number
+			local layout = layoutNow()
+			if #layout.keys == 0 then
+				anchorKey = nil
+				return
+			end
+			-- `window(top, 0, 0)` asks the index the exact question "which slot holds
+			-- this offset", which is what an anchor is
+			local first = (layout.ix.window(top, 0, 0))
+			first = math.clamp(first, 1, #layout.keys)
+			anchorKey = layout.keys[first]
+			anchorDelta = top - layout.ix.offsetOf(first)
+		end))
+		scope:own(core:observe(layoutIndex, function(layout: any)
+			local key = anchorKey
+			if key == nil or boundController == nil then
+				return
+			end
+			local slot = layout.slotOf[key]
+			if slot == nil then
+				-- the anchored row left the data; there is nothing to hold still
+				anchorKey = nil
+				return
+			end
+			local target =
+				math.clamp(layout.ix.offsetOf(slot) + anchorDelta, 0, math.max(0, layout.ix.content - viewportH:get()))
+			--[[ AGAINST THE RAW MIRROR, NOT THE CLAMPED MEMO, and it is not a
+				nicety. `clampedTop` is what the FRAMEWORK believes; `scrollTop` is
+				where the ENGINE actually is, and this observer's whole job is to move
+				the engine. Compared against the clamped value, a list scrolled hard
+				against its end whose rows then SHRANK looks already-correct — the memo
+				clamps to the new maximum while the real `CanvasPosition` is still a
+				thousand pixels past the last row, so nothing is written and the player
+				is left staring at blank space. Measured: 400 rows shrinking 43px -> 40px
+				at the end of the list left the engine 1200px out of range. ]]
+			if math.abs(target - scrollTop:get()) < 0.5 then
+				return
+			end
+			boundController.scrollTo(boundScrollPath or ((mountedRoot or "") .. "/Main/Body"), { x = 0, y = target })
+		end))
 	end
 	--[[ THE AUTO EDIT/DONE TOGGLE, AND THE PRINCIPLE BEHIND IT ===================
 
@@ -748,6 +970,12 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	local api = {} :: any
 
 	local tableIdPattern = patternEscape(tableId)
+	-- the mounted region the row ForEach lives in. A virtualized table interposes
+	-- one absolutely-positioned `Canvas` between the Body and the rows (see THE
+	-- CANVAS, at the body blueprint); NOTHING else about the path grammar moves, so
+	-- every pattern that names the region is written against this one string and a
+	-- flowing table's ~250 shipped path assertions are untouched by construction.
+	local ROWS_REGION = if virtualized then "Main/Body/Canvas/Rows" else "Main/Body/Rows"
 
 	-- width sugar -> Dim (see Column.width); columns are normalized into
 	-- shallow clones so the caller's tables are never mutated
@@ -933,6 +1161,41 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		end
 		return out
 	end))
+	--[[ ── THE WINDOW ─────────────────────────────────────────────────────────────
+		What the body actually mounts. A flowing table hands the ForEach every row
+		and this memo is never built at all — `virtualized` is construction-only, so
+		a table that does not ask for windowing pays nothing for the feature
+		existing, not even one subscription.
+
+		THE EQUALITY IS THE POINT, not an optimization. A scroll of one pixel
+		re-derives `clampedTop` and re-runs this body, and without an `eq` the memo
+		would notify on every one of those — re-reconciling the ForEach, and with it
+		every row's identity — while the mounted set had not changed at all. Comparing
+		the KEY SEQUENCE means the ForEach hears only about real window changes, so a
+		same-window scroll is what it is on `newVirtualList`: zero framework writes.
+		(`virtual_list.luau`'s `sameWindow`, same reason, same shape.) ]]
+	local function sameWindow(a: { any }?, b: { any }?): boolean
+		if a == nil or b == nil or #a ~= #b then
+			return false
+		end
+		for i = 1, #a do
+			if a[i].tableKey ~= b[i].tableKey then
+				return false
+			end
+		end
+		return true
+	end
+	local windowedItems = if not virtualized
+		then keyedItems
+		else scope:own(core:memo(function(use)
+			local all = use(keyedItems) :: { any }
+			local first, last = (use(layoutIndex) :: any).ix.window(use(clampedTop), use(viewportH), OVERSCAN)
+			local out = {}
+			for i = first, math.min(last, #all) do
+				table.insert(out, all[i])
+			end
+			return out
+		end, sameWindow))
 
 	local rowKeyForPath: { [string]: string } = {}
 
@@ -951,20 +1214,27 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- dragged row stays in place): the count of rows whose midpoint sits
 	-- above it; the drop converts to the post-removal contract. The returned
 	-- boundary centers the indicator in the row gap.
+	--[[ ONE RULE, ASKED OF THE INDEX (2026-08-14). This walked the rows itself and
+		counted the midpoints it had passed; `virtual_extents` answers the identical
+		question by binary search, and asking it there is what keeps the slot the
+		drag reports and the offset the row is PAINTED at derived from one table.
+
+		TWO PLACES THE ANSWERS DIFFER, AND ONLY WHEN `rowGap > 0` (at the default
+		gap of 0 they are equal everywhere, which is every table that ships today):
+
+		  * the midpoint is the SLOT's, not the ROW's — `starts[i] + (extent+gap)/2`
+		    rather than `top + extent/2`. The index's is the rule `newVirtualList`
+		    has always used, and the gutter belongs to neither neighbour, so
+		    splitting it is the answer that makes "which side of the boundary am I
+		    on" symmetric.
+		  * the LAST boundary is clamped into the canvas. The old form returned
+		    `content + gap/2` for the trailing slot — half a gutter PAST the end of
+		    the content, i.e. outside the host that clips it, so the hairline for
+		    "drop at the very bottom" was drawn where it could not be seen. ]]
 	local function insertSlotAt(relY: number): (number, number)
-		local cum = 0
-		local slot = 0
-		for _, item in spec.rows:get() do
-			local height = rowHeightOf(item)
-			if relY > cum + height / 2 then
-				slot += 1
-				cum += height + rowGapNow()
-			else
-				break
-			end
-		end
-		local boundary = if slot == 0 then 0 else cum - rowGapNow() / 2
-		return slot, boundary
+		local ix = layoutNow().ix
+		local slot = ix.slotAt(relY)
+		return slot, ix.boundaryOffset(slot)
 	end
 
 	-- retract the drag announcement (see `renderController` above). EVERY exit
@@ -1568,8 +1838,28 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				})
 			)
 		end
+		--[[ THE ROW'S CANVAS OFFSET (virtualized only). A memo on the ROW's own
+			scope, for the same reason `heightDim` above is one: the offset moves
+			when the data reorders and when the derived height changes under a theme
+			swap or a text-preference change, and both must RE-SOLVE this row in
+			place — a rebuild would drop selection, focus and any live in-cell
+			control. `offsetY` is arrange-only (`blueprint_schema.luau` BOX.offsetY),
+			so a write here re-arranges ONE node and re-measures nothing.
+
+			A ROW MID-UNMOUNT READS 0 rather than erroring: the ForEach can still
+			pull this memo for a key the data has already dropped, and `slotOf` will
+			not have it. It is about to leave the tree, so where it sits is moot. ]]
+		local slotOffset = if not virtualized
+			then nil
+			else itemScope:own(core:memo(function(use)
+				local layout = use(layoutIndex) :: any
+				local slot = layout.slotOf[rowKey]
+				return if slot == nil then 0 else layout.ix.offsetOf(slot)
+			end))
 		local rowBp = UI.ZStack({
 			id = "Row",
+			anchor = if virtualized then "topLeft" else nil,
+			offsetY = slotOffset,
 			width = { type = "fill", weight = 1 },
 			height = heightDim,
 			children = rowChildren,
@@ -1890,25 +2180,55 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- partial rows crop. No hand-rolled wheel handler (native §4).
 		bodySpec.clipChildren = true
 	end
+	local rowsForEach = UI.ForEach({
+		id = "Rows",
+		items = windowedItems,
+		key = function(entry)
+			return entry.tableKey
+		end,
+		row = rowBlueprint,
+	})
+	--[[ ── THE CANVAS (virtualized only) — the same shape newVirtualList uses ─────
+		A native ScrollingFrame's CanvasSize is the solver's content sum, so a body
+		holding fifteen windowed rows would report a fifteen-row canvas and the
+		player could not scroll past it. FIX (native-substrate NS-A2, and
+		`virtual_list.luau`'s own CANVAS DESIGN note): the body holds exactly ONE
+		child, a full-extent `Anchor`, and the windowed rows are absolutely
+		positioned inside it at their canvas offsets.
+
+		A ROW OFFSET IS A CANVAS OFFSET, so it is engine-independent: scrolling
+		re-derives WHICH rows are mounted, never WHERE a mounted one sits. The
+		ENGINE translates the canvas by `CanvasPosition`, so a same-window scroll
+		delta costs the framework nothing at all.
+
+		THE GAP LIVES IN THE OFFSETS HERE, not in a stack's `gap` — the index
+		already spent it (`starts[i+1] = starts[i] + extent + gap`), so the Canvas
+		must not add it a second time. That is why `gap` is dropped below rather
+		than passed through. ]]
+	local canvasHeight = if not virtualized
+		then nil
+		else scope:own(core:memo(function(use)
+			return { type = "fixed", px = (use(layoutIndex) :: any).ix.content }
+		end))
 	table.insert(
 		children,
 		(if spec.scrolls == false then UI.VStack else UI.ScrollView)({
 			id = bodySpec.id,
 			width = bodySpec.width,
 			height = bodySpec.height,
-			gap = bodySpec.gap,
+			gap = if virtualized then nil else bodySpec.gap,
 			axis = bodySpec.axis,
 			clipChildren = bodySpec.clipChildren,
-			children = {
-				UI.ForEach({
-					id = "Rows",
-					items = keyedItems,
-					key = function(entry)
-						return entry.tableKey
-					end,
-					row = rowBlueprint,
-				}),
-			},
+			children = if not virtualized
+				then { rowsForEach }
+				else {
+					UI.Anchor({
+						id = "Canvas",
+						width = { type = "fill", weight = 1 },
+						height = canvasHeight,
+						children = { rowsForEach },
+					}),
+				},
 		})
 	)
 
@@ -2424,7 +2744,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- unambiguously, so forward straight into that row's own
 			-- dispatch via the `_handleActivate` seam it exposes for exactly
 			-- this.
-			local wrappedKey = string.match(path, `/{tableIdPattern}/Main/Body/Rows/%[.-@%d+%]/RowActions%-(.-)/`)
+			local wrappedKey = string.match(path, `/{tableIdPattern}/{ROWS_REGION}/%[.-@%d+%]/RowActions%-(.-)/`)
 			if wrappedKey ~= nil then
 				local rowActionsInstance = rowActionsByKey[wrappedKey]
 				if rowActionsInstance ~= nil then
@@ -2770,8 +3090,8 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- Task 10: strip a wrapped row's `RowActions/Content/` infix first —
 		-- see `derowActionsPath`'s own comment.
 		local clean = derowActionsPath(path)
-		local encoded = string.match(clean, `/{tableIdPattern}/Main/Body/Rows/%[(.-)%]/Row/Hit$`)
-			or string.match(clean, `/{tableIdPattern}/Main/Body/Rows/%[(.-)%]/Row/EditWhen/then/HandleZone/Handle$`)
+		local encoded = string.match(clean, `/{tableIdPattern}/{ROWS_REGION}/%[(.-)%]/Row/Hit$`)
+			or string.match(clean, `/{tableIdPattern}/{ROWS_REGION}/%[(.-)%]/Row/EditWhen/then/HandleZone/Handle$`)
 		if encoded == nil then
 			return nil
 		end
@@ -2858,33 +3178,24 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- row tops + the current scroll (offset-independent, so it is correct even
 	-- across un-refreshed multi-step nav); only the body HEIGHT comes from the
 	-- last solved geometry. Minimal scroll, both directions.
-	local function scrollRowIntoView(path: string, rowKey: string)
+	local function keepVisible(root: string, rowKey: string): boolean
 		if lastRectOf == nil then
-			return
-		end
-		local root = string.match(path, "^(.*)/Main/Body/")
-		if root == nil then
-			return
+			return false
 		end
 		local bodyRect = (lastRectOf :: any)(root .. "/Main/Body")
 		if bodyRect == nil then
-			return
+			return false
 		end
-		local rowTop = rowTops:get()[rowKey]
-		if rowTop == nil then
-			return
+		-- THE SPAN COMES FROM THE MODEL, NOT FROM A RECT, and that is what makes
+		-- this work at all under `virtualized`: a row outside the window has no
+		-- solved rect for anything to read, and revealing it is the whole point.
+		local layout = layoutNow()
+		local slot = layout.slotOf[rowKey]
+		if slot == nil then
+			return false
 		end
-		local item
-		for _, candidate in spec.rows:get() do
-			if spec.key(candidate) == rowKey then
-				item = candidate
-				break
-			end
-		end
-		if item == nil then
-			return
-		end
-		local rowHeight = rowHeightOf(item)
+		local rowTop = layout.ix.offsetOf(slot)
+		local rowHeight = layout.ix.extentOf(slot)
 		local offset = scrollTop:get()
 		-- ONE implementation of the minimum-distance rule (A-SV2). The SPAN comes
 		-- from the model (a culled row has no solved rect for the renderer's shared
@@ -2901,6 +3212,31 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				boundController.scrollTo(scrollPath, { x = 0, y = target })
 			end
 		end
+		return true
+	end
+	-- the path-shaped caller (a focus move always arrives with one)
+	local function scrollRowIntoView(path: string, rowKey: string)
+		local root = string.match(path, "^(.*)/Main/Body/")
+		if root ~= nil then
+			keepVisible(root, rowKey)
+		end
+	end
+	--[[ REVEAL A ROW BY KEY — the verb virtualization makes necessary.
+		A flowing table needs no such thing: every row is mounted, so a consumer can
+		reach one by path and every existing route into `keepVisible` arrives that
+		way. Under `virtualized` the row a screen wants to show ("scroll to the
+		player's own racer", "reveal the search hit") may have no path at all, and a
+		verb that only works for rows you can already see is not a verb.
+
+		`newVirtualList.focusKey` is the same idea one control over; this is the
+		half Table needs, without the focus move (Table's focus already follows
+		selection through `handleFocusMoved`). Returns false when the key is not in
+		the data, or when nothing has been mounted/bound yet to scroll. ]]
+	function api.revealRow(rowKey: string): boolean
+		if mountedRoot == nil then
+			return false
+		end
+		return keepVisible(mountedRoot :: string, rowKey)
 	end
 
 	-- Cancel (B / Escape) releases a selected column. Routed through the
@@ -2931,7 +3267,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- stars — not just the row hit (director 2026-07-20: focusing a star
 		-- and stepping to the next row must move the selection too)
 		releaseColumnOnFocusLeave(path)
-		local rowKey = api.rowKeyForPath(path) or string.match(path, `/{tableIdPattern}/Main/Body/Rows/%[(.-)@%d+%]/`)
+		local rowKey = api.rowKeyForPath(path) or string.match(path, `/{tableIdPattern}/{ROWS_REGION}/%[(.-)@%d+%]/`)
 		if rowKey == nil then
 			return false
 		end
@@ -3141,6 +3477,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			dragging = dragging:get(),
 			reorderable = spec.reorderable == true,
 			rootPath = mountedRoot,
+			--[[ ONLY UNDER `virtualized`, so every dump this project has ever
+				recorded is byte-identical (a nil field is an ABSENT key, and
+				`table.spec`'s determinism case compares the serialized dump). What a
+				bug report needs from a windowed list is the two numbers that say
+				whether the window is doing its job: how many rows exist and how many
+				are actually in the tree. `newVirtualList.debugWindow()` is the same
+				information one control over. ]]
+			windowRows = if virtualized then #(windowedItems:get() :: { any }) else nil,
+			contentExtent = if virtualized then contentHeight() else nil,
 		}
 	end
 
@@ -3221,6 +3566,15 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- can scroll a clipped row into the body viewport (scrollRowIntoView)
 			syncGeometry = function(rectOf)
 				lastRectOf = rectOf
+				-- ...and, under `virtualized`, the one number the window is taken
+				-- against (see THE VIEWPORT). The equality guard is load-bearing: a
+				-- signal written on every refresh would re-solve the tree forever.
+				if virtualized and mountedRoot ~= nil then
+					local bodyRect = rectOf(mountedRoot .. "/Main/Body")
+					if bodyRect ~= nil and bodyRect.h ~= viewportH:get() then
+						viewportH:set(bodyRect.h)
+					end
+				end
 			end,
 			-- the render controller: edge autoscroll has to steer a scroll host the
 			-- table may not own (a block table's page), and only the controller can

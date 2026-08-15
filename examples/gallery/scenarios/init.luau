@@ -111,6 +111,14 @@ local ORDER = {
 	-- the whole list without moving the post under the top edge. Also in
 	-- `demo_picker.DEMOS`.
 	"variable_extents",
+	-- ...and the container §13 said did not exist: `newTable{ virtualized = true }`,
+	-- which windows, multi-selects and reorders at the same time on the running-
+	-- offset index variable extents shipped. Two thousand rows and a status line
+	-- reporting how many are actually in the tree — the only place the feature is
+	-- visible, since a windowed table and a fully-mounted one are the same picture.
+	-- The three buttons each act on row 1500, which no window has ever held. Also in
+	-- `demo_picker.DEMOS`.
+	"table_virtualized",
 	-- ...and the director's per-control sensory request (2026-08-13): five
 	-- identical-looking buttons that report four different verbs and one nothing
 	-- at all, plus one declaration on a panel that all three controls inside it
