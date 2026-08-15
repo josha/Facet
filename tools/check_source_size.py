@@ -64,8 +64,8 @@ proposed extractions (presentation ~575 lines, pointer ~310) were NOT taken —
 10,330 chars of headroom is a real margin, and the paragraph above is the reason
 to keep the seams for when they are needed rather than spending them now.
 
-THIRD ROW CLEARED: `src/present/presenter.luau`, 2026-08-14, 207,852 -> 192,454
-in one commit, and the seam was found by MECHANISING the same test rather than
+THIRD ROW CLEARED: `src/present/presenter.luau`, 2026-08-14, 207,852 -> 179,055
+in two commits, and the seam was found by MECHANISING the same test rather than
 by reading for "things that look separable". A script listed every local
 declared at `presenter.new`'s scope, then every later assignment to one, which
 splits the closure's 95 locals into ~68 that are only ever READ (a by-reference
@@ -76,7 +76,68 @@ because they scored ZERO on it: the only mutable upvalues they touch (`scrim`,
 `popupCatcher`) are ones they also declare and nothing else in the file reads,
 so the state left with the code. Everything else they need is `stack`, the
 presenter instance and `metricsNow()`, none of which is ever reassigned.
-See `src/present/catchers.luau`.
+See `src/present/catchers.luau`. The second commit took the AUTO REVEAL
+marquee (`src/present/text_reveal.luau`) on the same score — `revealState` and
+`revealScan` are its own, and its one collaborator from the disclosure block,
+`plateShows`, is a `local function` that is never reassigned and so goes by
+value. Its ONE reader outside itself (`dismiss`'s "retire the strip if this
+surface owns it") became `retireRevealFor(owner)`, so the predicate moved in
+with the state rather than leaving a hole in it.
+
+STOPPING AT 179,055 — 20,945 of headroom — was deliberate, and the second
+commit is why: 192,454 passes this check and is NOT a margin (see the
+`screen_target` paragraph below, which learned that at 198,960). What was
+judged TOO ENTANGLED and left alone: `makeHandle` (~1,690 lines, ~79k chars),
+which is to this file what `buildEngine` is to `row_actions` — it reads and
+writes `displayLayer`, `activateEcho`, `handleByPath`, `dismissDisclosure`,
+`syncDisclosureFocus` and `motionClock`, and every surface's whole lifetime
+closes over them; and `withAnimation`, whose animation records and
+`inWithAnimation` re-entrancy flag are read by the commit path. Neither is a
+mechanical move, and neither is needed now.
+
+FOURTH ROW CLEARED: `src/layout/solver.luau`, 2026-08-14, 213,731 -> 184,574 in
+two commits. NO SEAM HAD BEEN PROPOSED for this one, so finding it was the work,
+and the mechanised test found it in one pass: the solver is not a closure at all
+— every function is module-scope and takes `ctx` as an argument — so the script
+that lists `local` declarations against later assignments returns exactly FOUR
+mutable module-level locals, all forward declarations (`measure`,
+`measureUncached`, `setFitProbe`, `shrinkStack`). Everything else in the file is
+immutable, which is what made a file this carefully ordered tractable.
+
+Two blocks came out. The PLACEMENT-PROP READ TABLE
+(`src/layout/placement_audit.luau`) scores zero on the test in the strongest
+sense available: it reads no `ctx`, no forward declaration and no other module
+local, so it moved verbatim and is re-exported as `solver.auditPlacement`. The
+MAIN-AXIS SHRINK PASS and its degrade cascade (`src/layout/shrink.luau`) is the
+more interesting one — it WROTE one of the four, and lifting it out is what
+makes that upvalue go away: `shrinkStack` was forward-declared near the top and
+assigned ~2,300 lines below because both passes call it, exactly the shape
+`docs/lessons/later-locals-are-not-upvalues.md` records. It is now a require,
+bound before anything can call it, and the solver is down to three. The three
+helpers it reads (`mainDimOf`, `sides`, `textTypography`) are immutable
+module-level functions, so they are threaded as an explicit `Deps` argument
+rather than captured — the module holds no state.
+
+WHAT WAS JUDGED TOO ENTANGLED, and by what: `contentSize` (~830 lines) and
+`arrange` (~1,320) are the measure/arrange core, and both READ `measure` /
+`measureUncached` / `setFitProbe`, the three forward declarations that remain.
+`measure` and `measureUncached` are mutually recursive through the per-solve
+memo, and `setFitProbe` is written by `chosenCandidate` and read by the shrink
+call site; splitting either of the two big functions would either duplicate the
+memo or hand three function references down every recursion. The flow-wrap
+branch and the grid arithmetic are both clean by the same test (they read
+`measure`, `dim`, `sides` and nothing mutable), so they are the NEXT seams if
+this file ever needs them — worth ~6k and ~10k. It does not need them at
+184,574, and the recurring defect class here ("a container that measured one
+shape and arranged another", fixed four separate times) is a reason to spend a
+seam only when the cap forces it.
+
+THE SPLIT'S REAL HAZARD IS A SOURCE PIN, and this one proved it: a structural
+test in `tests/stack_distribution.spec.luau` reads the solver as text and
+asserts that the shrink pass applies `and weight > 0`. That line moved, and the
+pin went red rather than silently passing forever — which is the good outcome,
+and it is why `check_prop_parity` now reads the solver as a PARTS LIST the way
+it already reads the renderer.
 
 AND STOP AT A REAL MARGIN, not at 199,9xx. Landing this file at 198,960 was
 enough to pass and not enough to survive: adding the header comment that tells
@@ -137,17 +198,6 @@ KNOWN_OVER = {
         "what makes this seam cheap where `row_actions`'s and `presenter`'s are "
         "not. It is a scoped refactor mission (STUDIO.md: flag refactors, do not "
         "smuggle them into feature work) and is worth ~200 lines.",
-    ),
-    "src/layout/solver.luau": (
-        196_747,
-        "found BY THIS CHECK on the day it was written — nobody knew it was over. "
-        "213,731 -> 196,747 by lifting the placement-prop read table out to "
-        "`src/layout/placement_audit.luau`: the one block in the measure/arrange "
-        "core that reads NO solve state at all (no ctx, no measure, no arrange "
-        "local, no forward declaration), so it left without taking an argument "
-        "with it. Under the cap but NOT at a real margin yet — 3,253 chars is one "
-        "honest comment, which is the mistake `screen_target` made at 198,960. The "
-        "shrink cascade goes next.",
     ),
 }
 
