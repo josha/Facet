@@ -652,13 +652,13 @@ user can see the size of what they will be writing themselves, not as a score.
 
 | Capability | Fusion | LuauUI |
 |---|---|---|
-| Controls catalog | none ([FU-13]); the cookbook has a button *recipe* | 51 registered rows; 25 composites; 16 interactive, all with automated four-input proofs |
+| Controls catalog | none ([FU-13]); the cookbook has a button *recipe* ([FU-01]) | 51 registered rows; 25 composites; 16 interactive, all with automated four-input proofs |
 | Focus / keyboard / gamepad navigation | none | `newFocusGraph`: flat and grouped scopes, per-group axis/wrap/entry/exit, directional navigation, document-order Tab traversal, focus traps and restore |
-| Theming | none; the cookbook has a light/dark *recipe* built from a `Computed` | Theme packages owning typography, metrics, radii, strokes, solver-visible insets and 17 art decoration slots; dark/light on native StyleSheets with no remount |
+| Theming | none; the cookbook has a light/dark *recipe* ([FU-01]) | Theme packages owning typography, metrics, radii, strokes, solver-visible insets and 17 art decoration slots; dark/light on native StyleSheets with no remount |
 | The player's text-size preference | none | First-class layout input, with measured per-preference pixel offsets; changing it re-solves in place preserving identity, focus, scroll and state |
 | Safe areas / platform chrome | none | Four-edge insets as environment facts, plus a `platformChrome` band that models Roblox's own controls as an L rather than an edge |
 | Modals, toasts, popovers | none | A presenter with focus traps, priority bands, typed dismissal reasons, display-order layering, and cross-surface overlap detection |
-| Drag and drop | a cookbook recipe | `UI.draggable` / `UI.dropTarget` with a typed payload and three acquisition paths funnelling into one session lifecycle, including a non-pointer arm→navigate→commit flow |
+| Drag and drop | a cookbook recipe ([FU-01]) | `UI.draggable` / `UI.dropTarget` with a typed payload and three acquisition paths funnelling into one session lifecycle, including a non-pointer arm→navigate→commit flow |
 | Adaptive layout | none | `Composition`/`Region` ranked degradation; five clean-room reference apps carry all their adaptation with **zero device-name branches** |
 | Assistive technology | none | **none** — this row is a tie and it is the largest hole in either framework |
 | Right-to-left / bidirectional | none | **none** — likewise |
@@ -1066,7 +1066,7 @@ the assertion is sourced to §8.2 instead and says so.
 
 | id | version | page | quoted verbatim | read |
 |---|---|---|---|---|
-| **FU-01** | 0.2 | `https://elttob.uk/Fusion/0.2/` | "Fusion is a UI, state management and animation library for Roblox." | 2026-08-15 |
+| **FU-01** | 0.2 | `https://elttob.uk/Fusion/0.2/` | "Fusion is a UI, state management and animation library for Roblox." — also the site navigation, whose Cookbook section lists exactly seven recipes: Player List, Animated Computed, Fetch Data From Server, Light & Dark Theme, Button Component, Loading Spinner, Drag & Drop. Rows above that say "the cookbook has a *recipe*" for a capability rest on this listing, not on having read that recipe | 2026-08-15 |
 | **FU-02** | 0.2 | `.../api-reference/state/value/` | "Replaces the currently stored value, updating any other state objects that depend on this value object." · "If the new value is the same as the old value, other state objects won't be updated." · "Updates are always sent out when setting a table value" | 2026-08-15 |
 | **FU-03** | 0.2 | `.../api-reference/state/computed/` | "Calculates a single value based on the returned values from other state objects." · "Computed objects automatically detect dependencies used inside their callback each time their callback runs." · "When a dependency changes value, the computed object will re-run its callback to generate and cache the current value internally." · "the dependencies will be updated to reduce unnecessary updates" | 2026-08-15 |
 | **FU-04** | 0.2 | `.../tutorials/fundamentals/computeds/` | "Fusion can detect any time you call `:get()` on a state object inside the callback. If any of them change value, the callback will be re-run." · "you must return the value immediately" · "For this reason, yielding in computed callbacks is disallowed." | 2026-08-15 |
