@@ -98,3 +98,130 @@ And the deeper point: the SHARED FILE is the one to watch, not your own. Both
 isolated. The file that leaked was the one the mission brief told four agents
 to edit — a scoreboard is a shared mutable, and a scoreboard everyone must
 update at every step is a collision scheduled in advance.
+
+## Third occurrence, 2026-08-15: the check is necessary and STILL not sufficient
+
+The focus-graph agent did everything this file asks. Before committing it ran
+
+```
+git diff --cached --stat
+```
+
+and read back **only its own 11 files**. Then it committed — and `4ba1a6d`
+came out carrying `src/mount.luau`, `tests/mount.spec.luau` and
+`tests/transitions.spec.luau`, which belonged to the `UI.When` agent. Nothing
+was lost and HEAD was green, but a second agent again found its work already
+in history under someone else's message and rationale.
+
+The check did not fail. **The window moved.** Every version of the rule in this
+file — including the corrected one — implicitly assumes the dangerous interval
+is *edit → stage*. It is not. With N agents sharing one index the interval that
+matters is:
+
+> **check → commit**
+
+and that gap is filled by exactly the things a careful agent does between them:
+composing a commit message, re-reading a diff, writing a report. The more
+conscientious the agent, the wider its own exposure window. That is the part
+that makes this failure keep recurring despite everyone knowing the rule.
+
+**The rule, corrected again:**
+
+> Stage and commit as **one uninterrupted step**. Write the commit message
+> *first*, then check, then commit immediately — `git commit -F <file> -- <paths>`
+> in a single call. Never review, go away and compose prose, and come back to
+> commit.
+
+And the structural note, since three occurrences in one week is a design signal
+rather than three lapses: **a shared index is shared mutable state, and the
+staging rules are a lock protocol implemented in etiquette.** Etiquette does not
+hold under concurrency. When work is genuinely independent, the fix is not a
+better rule — it is `isolation: "worktree"`, which costs setup and a merge and
+buys an index nobody else can write. The three incidents this week were all in
+concurrent agents that could have been given one.
+
+---
+
+## Round 4 (2026-08-15): two more ways to hit this, neither of them staging
+
+The time-based-easing agent hit the same class twice more, and neither instance
+was a `git add`. Recorded here rather than in a new file because it is the same
+root cause — a shared working tree treated as private — wearing different hats.
+
+### 4a. Editing by PATTERN is the same failure, before git is involved at all
+
+Renaming my own ADR number, I ran:
+
+```
+grep -rln "ADR-0031" src/ tests/ | xargs sed -i '' 's/ADR-0031/ADR-0033/g'
+```
+
+That is a whole-*repo* edit wearing the costume of a whole-*file* edit. **Thirteen
+files belonging to three other agents** carried `ADR-0031` for their own reasons
+(the `UI.Foreign` work legitimately owns that number), and every one of them was
+silently rewritten. No git command had run yet. The staging rules cannot help
+here, because the damage is in the working tree before anything is staged.
+
+It was caught only because the harness echoed the file list. Had I piped
+`grep -l` straight into `xargs` without looking, the corruption would have gone
+into someone else's commit an hour later, in a file I never opened.
+
+**The rule:** a `sed`/`xargs` across a path glob is an edit to every file it
+matches, and in a shared tree you own none of them. Enumerate the files you own
+**explicitly** and loop over that list — never over a search result. If the search
+is what tells you which files to touch, you have just discovered that you do not
+know what you own.
+
+### 4b. A stale index entry makes `git diff --cached` lie about *their* work
+
+Another agent committed with `git commit -- <paths>`. That is a partial commit:
+it commits from the working tree and **leaves the index entry for those paths
+untouched**, still pointing at the pre-commit blob. HEAD moved; the index did not.
+
+The next agent to run `git diff --cached` — me — saw this:
+
+```
+examples/gallery/scenarios/branch_scope.luau   | 288 ----------
+examples/gallery/scenarios/sorted_entries.luau | 310 ----------
+tests/sorted_entries.spec.luau                 | 326 ----------
+```
+
+**Phantom deletions of work that had just landed.** Committing at that moment
+would have reverted three files of another agent's completed feature, in a commit
+whose message was about easing. The staged diff is the last line of defence and
+it was showing a change I had not made and did not want — so "read the staged
+diff before committing" caught it only because the deletions were too large to
+miss. A one-line phantom revert would have sailed through.
+
+Worse, the obvious repair is a trap. `git add <those paths>` makes the index match
+the working tree — but the working tree is *live*, and in the seconds between my
+`git diff HEAD` (which showed them clean) and my `git add`, two concurrent agents
+wrote to four of those files. The `add` swept their in-flight, half-finished work
+into my index.
+
+**The repair that is actually safe**, because it never reads the working tree:
+
+```
+info=$(git ls-tree HEAD -- "$p" | awk '{print $1","$3}')
+git update-index --cacheinfo "$info,$p"
+```
+
+That resets *the index entry* for one path to its HEAD blob and leaves the file on
+disk alone — the surgical form of the `git reset <path>` the rules forbid, and the
+one the rules should have named all along.
+
+**And the ordering that closes the race:** `git commit` with no pathspec commits
+**the index**, so once the index is verified correct a later working-tree write
+cannot contaminate it. `git commit -- <paths>` commits the **working tree** for
+those paths and re-opens the whole exposure window. Prefer the former; the latter
+is what created this incident in the first place.
+
+### The pattern under all four rounds
+
+Every round has been a different mechanism and the same mistaken belief: **that
+naming a thing (a file, a pattern, a path) scopes the operation to my work.** It
+scopes it to a *location*. In a shared tree, location and ownership are unrelated,
+and every tool git gives you — `add`, `commit -- <path>`, `diff --cached` — reports
+on the location. The only operations that are genuinely scoped to your changes are
+hunk-level ones (`git apply --cached` with a filtered patch) and the only thing
+that makes location and ownership coincide again is a worktree of your own.
