@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the eighteen fixtures", function()
+	it("lists every tutorial example plus the twenty fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(25)
+		expect(#demos).toBe(27)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -83,7 +83,15 @@ describe("showcase catalogue", function()
 		-- count of cells the factory was ever asked for is the only place the
 		-- feature is visible — and the lane chips are the only way to watch a reflow
 		-- move every item to a new line without moving the one under your eye.
-		expect(fixtures).toBe(18)
+		-- ...and TWENTY since 2026-08-15: `branch-scope` and `sorted-entries`, the
+		-- showcase halves of the two §5 BUILD NOWs. Both are here for the reason
+		-- `surface-overlap` is: what they demonstrate is not in any single frame.
+		-- A leak paints nothing at all — the branch-scope fixture's two panels are
+		-- pixel-identical while open and differ only in the framework's own scope
+		-- counter — and a dictionary's iteration order is only wrong compared with
+		-- the frame BEFORE it, which is why that fixture ships a picker that
+		-- rebuilds the same twelve pairs a different way.
+		expect(fixtures).toBe(20)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -530,7 +538,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(18)
+		expect(fixtures).toBe(20)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

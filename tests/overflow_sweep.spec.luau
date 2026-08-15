@@ -374,6 +374,17 @@ local SCENARIOS = {
 	-- package, and the class is one edit away from reddening this file (which is
 	-- how it was proved to be visible at all)
 	"surface_overlap",
+	-- ...and the branch-scope fixture. Two `surface = "control"` panels stacked
+	-- under a five-line readout whose longest line is a whole sentence — a
+	-- Largest-preference package is where a readout that has outgrown its page
+	-- shows up, and neither panel declares a height, so the sweep is the direct
+	-- test of that
+	"branch_scope",
+	-- ...and the `sortedEntries` fixture: TWO twelve-row columns in one wrapping
+	-- HStack. The wrap is what keeps the pair readable at 320px, and a package
+	-- whose rows outgrow the fold turns the side-by-side into a stack — which is
+	-- fine, and which only a swept viewport confirms actually happens
+	"sorted_entries",
 }
 
 local EXAMPLES = {

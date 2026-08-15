@@ -288,6 +288,25 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "surface_overlap",
 	},
+	-- ...and two more of the same kind, both landed 2026-08-15. Each shows a
+	-- defect that IS NOT IN A FRAME: a leak paints nothing at all, and a
+	-- dictionary's iteration order is only wrong compared with the frame before
+	-- it. Neither is reachable from a screenshot, which is exactly the test this
+	-- catalogue exists to apply.
+	{
+		id = "branch-scope",
+		title = "When branch scope",
+		blurb = "Two identical panels. One releases what it opened; the other keeps it",
+		kind = "fixture",
+		module = "branch_scope",
+	},
+	{
+		id = "sorted-entries",
+		title = "Deterministic dictionaries",
+		blurb = "The same twelve scores built three ways: one column reshuffles, one holds",
+		kind = "fixture",
+		module = "sorted_entries",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",
