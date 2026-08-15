@@ -268,7 +268,6 @@
 -- the raw-handler funnel is its own task (Table does it with
 -- `row_actions.composeWithReorder`, over a hit it owns outright).
 
-local autoscrollLib = require("../input/autoscroll")
 local contribution = require("../input/contribution")
 local row_actions = require("./row_actions")
 local row_actions_state = require("../input/row_actions_state")
@@ -276,6 +275,7 @@ local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
 local virtual_extents = require("../virtual_extents")
+local virtual_reorder = require("./virtual_reorder")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -1493,345 +1493,67 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end))
 	end
 
-	-- window-space pointer -> canvas offset. The solver arranges rows in the host's
-	-- own space and the engine shifts them by CanvasPosition, so the drop slot is
-	-- only correct if the live scroll offset is added back (the same correction
-	-- Table's reorder makes).
-	-- the host's rect in WINDOW space. A pointer always arrives in window space,
-	-- and a list nested inside another scrolled panel solves in ITS host's space,
-	-- so anything comparing the two has to ask for the shifted rect.
-	local function hostScreenRect(): any
-		local ctrl = boundController
-		local path = boundScrollPath or mountedScrollPath
-		if ctrl == nil or path == nil then
-			return nil
-		end
-		local read = if type(ctrl.screenRectOf) == "function" then ctrl.screenRectOf else ctrl.rectOf
-		if type(read) ~= "function" then
-			return nil
-		end
-		return read(path)
-	end
+	--[[ ===== REORDER, DROP TARGETS AND AUTOSCROLL LIVE IN `./virtual_reorder.luau`
+		(2026-08-15, the 200,000-char Source-write cap — tools/check_source_size.py).
 
-	-- a pointer point (window space) -> the CANVAS offset along the scroll axis.
-	-- `pointerMain` is the pointer's component on that axis: its y on a vertical
-	-- list, its x on a horizontal one — the caller reads it through `mainOf`, so
-	-- the two never disagree about which coordinate the rect is being compared to.
-	local function canvasOffsetFor(pointerMain: number): number?
-		local rect = hostScreenRect()
-		if type(rect) ~= "table" then
-			return nil
-		end
-		return pointerMain - mainOf(rect) + clampedTop:get()
-	end
+		~340 lines moved out VERBATIM: `hostScreenRect`/`canvasOffsetFor`/
+		`slotBoundary`/`insertSlotAt`, the drop hairline's presentation write, the
+		reorder commits, the slide-to-new-slot motion, the per-row drop-target
+		contract and the edge-autoscroll wiring. That block writes no mutable upvalue
+		of this closure — the one it did write (`lastIndexByKey`) is its own and
+		nothing here reads it — so it took its state with it and the only entangled
+		reads, the reassigned host locals, arrive as the two accessors below.
 
-	-- the canvas offset the insertion LINE is drawn at for a 0-based slot: the
-	-- middle of the gutter above it, so the hairline reads as "between these two
-	-- rows" rather than as a lid on the lower one. Clamped into the content extent
-	-- so the first and last boundaries stay inside the canvas the host clips to.
-	-- At rowGap 0 this is `slot * itemExtent`, clamped exactly as before.
-	local function slotBoundary(slot: number): number
-		return layoutNow().boundaryOffset(slot)
-	end
+		IT IS CONSTRUCTED EXACTLY WHERE THE BLOCK STOOD, so the `indexByKey` observer
+		it registers under `reorderable` still lands after the cache/selection
+		observer above and before the hosted section below — observer order is
+		behaviour here, not an implementation detail.
 
-	-- the insertion slot for a canvas offset: the number of whole SLOTS before it,
-	-- using each slot's MIDPOINT so the line snaps to the nearer boundary. Returns
-	-- the 0-based insertion slot and its canvas boundary offset.
-	local function insertSlotAt(canvasY: number): (number, number)
-		local slot = layoutNow().slotAt(canvasY)
-		return slot, slotBoundary(slot)
-	end
-
-	-- the drop line rides the PRESENTATION channel, not layout: it is mounted
-	-- once at canvas offset 0 and translated along the scroll axis, so a 60 Hz
-	-- drag costs one presentation write per move instead of a re-solve per move.
-	-- Parked far BEFORE the canvas origin when idle (the scroll host clips it)
-	-- rather than unmounted, so there is no structural churn on every pickup.
-	local DROP_LINE_PARK = -10000
-	local function writeDropLine(y: number?)
-		local ctrl = boundController
-		local host = boundScrollPath or mountedScrollPath
-		if ctrl == nil or host == nil or type(ctrl.setPresentationTransform) ~= "function" then
-			return
-		end
-		ctrl.setPresentationTransform(host .. "/Canvas/DropLine", vec(if y ~= nil then y else DROP_LINE_PARK))
-	end
-
-	-- ===== reorder ===========================================================
-	local function indexOfKey(key: string): number?
-		return (indexByKey:get() :: { [string]: number })[key]
-	end
-
-	--[[ HOISTED (parity round 3): this used to sit ~110 lines further down, and
-		the per-row capability gates in `commitReorderAt` and `toggleGrab` need
-		it. A local declared LATER in the file is NOT an upvalue — it binds a nil
-		global and calls it, which is exactly
-		`docs/lessons/later-locals-are-not-upvalues.md`, a trap this repo has now
-		been bitten by five times. It depends only on `indexOfKey` and `spec`,
-		both already in scope here. ]]
-	local function itemForKey(key: string): any?
-		local index = indexOfKey(key)
-		if index == nil then
-			return nil
-		end
-		return (spec.rows:get() :: { any })[index]
-	end
-
-	-- move `key` so it occupies 1-based index `to` in the resulting order. A
-	-- no-op is SUPPRESSED: a drop that reproduces the current order must not emit
-	-- a mutation nobody asked for (the mutation lifecycle applies — a reorder is
-	-- a request, and pending never means success).
-	local function commitReorderAt(key: string, to: number?)
-		if spec.onReorder == nil or to == nil then
-			return
-		end
-		-- THE FUNNEL. Every drop — pointer, gamepad grab, cross-container —
-		-- lands here, so a pinned row is refused once rather than at each
-		-- gesture's own entry point.
-		if not rowCapability.allows(spec.rowMovable, itemForKey(key)) then
-			return
-		end
-		local from = indexOfKey(key)
-		if from == nil then
-			return
-		end
-		local count = #(spec.rows:get() :: { any })
-		local index = math.clamp(to, 1, math.max(1, count))
-		if index == from then
-			return
-		end
-		spec.onReorder(key, index)
-	end
-
-	-- POINTER commit: the insertion LINE decides, so the LEADING half of a row
-	-- (its top on a vertical list, its left on a horizontal one) means "before it"
-	-- and the trailing half means "after it". Removing the dragged row first
-	-- shifts every later slot up by one, which is the whole of the
-	-- full-list-slot → resulting-index conversion.
-	local function commitReorderFromPointer(key: string, pointerMain: number)
-		local canvasY = canvasOffsetFor(pointerMain)
-		if canvasY == nil then
-			return
-		end
-		local slot = (insertSlotAt(canvasY))
-		local from = indexOfKey(key)
-		if from == nil then
-			return
-		end
-		commitReorderAt(key, slot - (if from <= slot then 1 else 0) + 1)
-	end
-
-	-- ===== reorder motion (finding F6) =======================================
-	-- Rows SLIDE to their new slots; they never cross-fade. The layout offset
-	-- jumps to the new slot immediately (the data is the truth), and the visual
-	-- catch-up is a presentation transform springing from the old delta to zero —
-	-- so the animation never re-solves and never fights the windowing math. The
-	-- spring per row is RETARGETED, never recreated, so a re-sort landing on a
-	-- row that is still sliding reverses smoothly.
-	local slideValues: { [string]: any } = {}
-	local slideUnsubs: { [string]: () -> () } = {}
-	local lastIndexByKey: { [string]: number } = {}
-	local function disposeSlide(key: string)
-		local unsub = slideUnsubs[key]
-		if unsub ~= nil then
-			unsub()
-			slideUnsubs[key] = nil
-		end
-		local value = slideValues[key]
-		if value ~= nil then
-			value:dispose()
-			slideValues[key] = nil
-		end
-	end
-	local function slideRow(key: string, fromDelta: number)
-		if motionClock == nil or reorderMotion == "instant" or fromDelta == 0 then
-			return
-		end
-		local value = slideValues[key]
-		if value == nil then
-			value = motionClock:spring(fromDelta, reorderMotion)
-			slideValues[key] = value
-			slideUnsubs[key] = core:observe(value, function()
-				local ctrl = boundController
-				local path = mountedRowPath(key)
-				if ctrl == nil or path == nil or type(ctrl.setPresentationTransform) ~= "function" then
-					return
-				end
-				ctrl.setPresentationTransform(path, vec(value:get()))
-			end)
-		else
-			-- keep the value where it is and re-aim: interruptibility is the whole
-			-- point of a persistent spring
-			value:setVelocity(value:getVelocity())
-		end
-		value:setTarget(0)
-	end
-	if reorderable then
-		listScope:own(core:observe(indexByKey, function(map: { [string]: number })
-			-- the slide is the distance between the two SLOTS, gutter included. On a
-			-- uniform list that is `(previous - index) * pitch` exactly as it was; on a
-			-- variable one the slots are different sizes, so it is the difference of
-			-- their offsets — the one place a pitch multiply would have been silently
-			-- wrong rather than merely approximate.
-			local ix = layoutNow()
-			for key, index in map do
-				local previous = lastIndexByKey[key]
-				if previous ~= nil and previous ~= index then
-					slideRow(key, ix.offsetOf(previous) - ix.offsetOf(index))
-				end
-			end
-			for key in lastIndexByKey do
-				if map[key] == nil then
-					disposeSlide(key)
-				end
-			end
-			lastIndexByKey = table.clone(map)
-		end))
-	end
-
-	-- ===== drop targets ======================================================
-	local function rowTargetOpts(key: string): any
-		local item = itemForKey(key)
-		if item == nil or spec.rowDropTarget == nil then
-			return nil
-		end
-		return spec.rowDropTarget(item)
-	end
-
-	local function rowAccepts(key: string): (payload: any) -> (boolean, string?)
-		return function(payload: any): (boolean, string?)
-			-- an internal row move is legal on any row of THIS list (every slot is
-			-- a legal insertion point); a foreign list's move is not
-			if type(payload) == "table" and payload.kind == REORDER_KIND then
-				return payload.list == id and spec.onReorder ~= nil, "FOREIGN_LIST"
-			end
-			local opts = rowTargetOpts(key)
-			if opts ~= nil and type(opts.accepts) == "function" then
-				return opts.accepts(payload)
-			end
-			return spec.dropSurface == true, "NOT_A_DROP_SURFACE"
-		end
-	end
-
-	local function rowOnDrop(key: string): (payload: any, info: any) -> ()
-		return function(payload: any, info: any)
-			if type(payload) == "table" and payload.kind == REORDER_KIND and payload.list == id then
-				-- POINTER: the release point decides the insertion line (a target
-				-- id alone cannot say "which half of the row").
-				-- ARMED: the target row IS the answer — the lifted row takes its
-				-- place, which is what "commit on this row" means with no pointer
-				-- to read a half from.
-				-- the release point's component on THIS list's scroll axis: the
-				-- registry publishes both (`pointerX`/`pointerY`), so a horizontal
-				-- list reads the one its slots are measured along.
-				local releaseMain = if info ~= nil then (if isX then info.pointerX else info.pointerY) else nil
-				if info ~= nil and info.mode == "pointer" and releaseMain ~= nil then
-					commitReorderFromPointer(payload.key, releaseMain)
-				else
-					commitReorderAt(payload.key, indexOfKey(key))
-				end
-				return
-			end
-			local opts = rowTargetOpts(key)
-			if opts ~= nil and type(opts.onDrop) == "function" then
-				local item = itemForKey(key)
-				opts.onDrop(payload, {
-					key = key,
-					item = item,
-					index = indexOfKey(key),
-					targetId = info and info.targetId,
-					source = info and info.source,
-					mode = info and info.mode,
-				})
-			end
-		end
-	end
-
-	-- ===== autoscroll (SF-L2) ================================================
-	local autoscrollEnabled = if spec.autoscroll ~= nil then spec.autoscroll ~= false else rowsAreTargets
-	local autoscrollModel = if autoscrollEnabled
-		then autoscrollLib.new(if type(spec.autoscroll) == "table" then spec.autoscroll else nil)
-		else nil
-
-	--[[ THE MODEL IS 1-D AND STAYS 1-D. `input/autoscroll.luau` owns the
-		band/dwell/ramp/clamp policy along ONE axis and answers a signed delta; it
-		is not axis-aware and deliberately is not made so. A horizontal host feeds
-		it TRANSPOSED numbers instead — the identical move the renderer's own
-		scroll-chain autoscroll makes for an `axis = "x"` host
-		(`render/renderer.luau`, "the model is written for the scroll axis as a 1-D
-		problem"). One policy, two wirings, no second dwell machine.
-
-		The BAND NAME is translated on the way out for exactly the reason this
-		whole change exists: the model answers "top"/"bottom" because that is the
-		vocabulary it was written in, and a horizontal list publishing "top" on
-		`list.autoscroll` would be a lying name in a Signal a consumer paints a
-		chevron from. "left"/"right" is the spelling the renderer already accepts
-		for a horizontal host, so the two agree. ]]
-	local function autoscrollPoint(point: any): any
-		if point == nil or not isX then
-			return point
-		end
-		return { x = point.y, y = point.x }
-	end
-	local function autoscrollRect(rect: any): any
-		if rect == nil or not isX then
-			return rect
-		end
-		return { x = rect.y, y = rect.x, w = rect.h, h = rect.w }
-	end
-	local function autoscrollBand(): string?
-		local band = autoscrollModel :: any
-		band = if band ~= nil then band:band() else nil
-		if band == nil or not isX then
-			return band
-		end
-		return if band == "top" then "left" else "right"
-	end
-
-	-- Drive this once per frame while the surface is alive (the client's
-	-- PreRender shim, alongside `clock:step`). Returns the step, or nil when the
-	-- list is not autoscrolling.
-	local function stepAutoscroll(now: number): any
-		if autoscrollModel == nil then
-			return nil
-		end
-		local reg = registry()
-		local host = boundScrollPath or mountedScrollPath
-		local ctrl = boundController
-		-- NON-POINTER SCHEMES HAVE NO AUTOSCROLL PATH: focus-follows-navigation
-		-- already scrolls the host, and a second dwell/band mechanism aimed at a
-		-- focus ring would answer the same question twice.
-		if reg == nil or ctrl == nil or host == nil or not reg.isActive() or reg.mode() ~= "pointer" then
-			autoscrollModel:reset()
-			if autoscrollState:get().state ~= "idle" then
-				autoscrollState:set({ state = "idle", band = nil })
-			end
-			return nil
-		end
-		local hostRect = hostScreenRect()
-		local step = autoscrollModel:step({
-			now = now,
-			pointerPos = autoscrollPoint(reg.pointerPosition()),
-			hostRect = autoscrollRect(hostRect),
-			canvasPos = clampedTop:get(),
-			maxScroll = maxTop(),
-		})
-		if step.delta ~= 0 then
-			ctrl.scrollTo(host, vec(clampedTop:get() + step.delta))
-			-- THE FRAME-ACCURATE RE-RESOLVE (SF-L2's correctness core): the rects
-			-- the session hit-tests against are the solver's, shifted by the LIVE
-			-- scroll offset — so re-running the hover immediately after the write,
-			-- in this same frame, is enough. A tick-based re-resolve lags about two
-			-- rows at the top speed.
-			reg.refreshTargets()
-		end
-		local current = autoscrollState:get()
-		local band = autoscrollBand()
-		if current.state ~= step.state or current.band ~= band then
-			autoscrollState:set({ state = step.state, band = band })
-		end
-		return step
-	end
+		EVERY EXPORT IS REBOUND TO A LOCAL OF ITS ORIGINAL NAME, so no call site in
+		this file changed. ]]
+	local reorderBlock = virtual_reorder.new({
+		core = core,
+		listScope = listScope,
+		spec = spec,
+		id = id,
+		isX = isX,
+		reorderKind = REORDER_KIND,
+		mainOf = mainOf,
+		vec = vec,
+		-- the two REASSIGNED host locals, read late rather than captured: the
+		-- native-scroll seam writes `boundController`/`boundScrollPath` and the
+		-- focus-group derivation writes `mountedScrollPath`, all of them long after
+		-- this call
+		controller = function(): any
+			return boundController
+		end,
+		hostPath = function(): string?
+			return boundScrollPath or mountedScrollPath
+		end,
+		clampedTop = clampedTop,
+		indexByKey = indexByKey,
+		layoutNow = layoutNow,
+		mountedRowPath = mountedRowPath,
+		registry = registry,
+		maxTop = maxTop,
+		autoscrollState = autoscrollState,
+		motionClock = motionClock,
+		reorderMotion = reorderMotion,
+		reorderable = reorderable,
+		rowsAreTargets = rowsAreTargets,
+	})
+	local DROP_LINE_PARK = reorderBlock.DROP_LINE_PARK
+	local canvasOffsetFor = reorderBlock.canvasOffsetFor
+	local disposeSlide = reorderBlock.disposeSlide
+	local indexOfKey = reorderBlock.indexOfKey
+	local insertSlotAt = reorderBlock.insertSlotAt
+	local itemForKey = reorderBlock.itemForKey
+	local rowAccepts = reorderBlock.rowAccepts
+	local rowOnDrop = reorderBlock.rowOnDrop
+	local slideValues = reorderBlock.slideValues
+	local slotBoundary = reorderBlock.slotBoundary
+	local stepAutoscroll = reorderBlock.stepAutoscroll
+	local writeDropLine = reorderBlock.writeDropLine
 
 	-- ===== hosted row actions (design doc; see the header) ====================
 	-- Everything in this section is inert on a list without `spec.rowActions`:

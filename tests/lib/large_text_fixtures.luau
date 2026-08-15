@@ -770,6 +770,12 @@ local UNSWEEPABLE: { [string]: string } = {
 		.. "mounts, so it is swept there — at every preference, in both reference themes — rather than twice",
 	RowActionsRoot = "the NODE half of RowActions: it returns the row blueprint the RowActions fixture itself "
 		.. "mounts, so it is swept there — at every preference, in both reference themes — rather than twice",
+	-- the reorder/drop/autoscroll half of src/controls/virtual_list.luau, lifted
+	-- out on 2026-08-15 so that file could get back under the same cap. Not a
+	-- control; the VirtualList row itself is swept and is the thing that mounts it.
+	VirtualReorder = "the DRAG half of VirtualList: canvas-offset arithmetic, reorder commits, slide springs and "
+		.. "the edge-autoscroll model — no blueprint, nothing to mount or measure. The rows it moves are swept "
+		.. "through the VirtualList fixture, at every preference",
 	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
 		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
 		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "

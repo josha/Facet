@@ -279,6 +279,35 @@ local registry: { Entry } = {
 		},
 	},
 	{
+		-- VirtualList's REORDER / DROP-TARGET / AUTOSCROLL block (2026-08-15). NOT a
+		-- control: it mounts nothing and has no blueprint — it is the drag half of
+		-- VirtualList, the window-space→canvas arithmetic every drop question is
+		-- answered in, the reorder commits, the slide-to-new-slot motion, the
+		-- per-row `UI.draggable`/`UI.dropTarget` wiring and the edge-autoscroll
+		-- model. Lifted out of src/controls/virtual_list.luau verbatim because it
+		-- writes no mutable upvalue of that closure, which is what took that file
+		-- back under the 200,000-char `Script.Source` WRITE cap
+		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md) and
+		-- restored its live sync into an open Studio session.
+		--
+		-- Its four-input story IS the VirtualList row's above: these are the very
+		-- gestures every one of those cited reorder/drop cases drives.
+		name = "VirtualReorder",
+		kind = "composite",
+		module = "src/controls/virtual_reorder.luau",
+		export = "newVirtualList",
+		spec = "tests/virtualization.spec.luau",
+		conformance = "tests/virtualization.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- NO INSTANCE AND NO SEPARATE STATE: every number it holds is already in
+		-- VirtualList's own dump() (`dropIndex`, `autoscroll`, the window), which is
+		-- where a drag report reads them; the slide springs are presentation-only.
+		dump = false,
+		reason = "the drag half of VirtualList: its live state (dropIndex, autoscroll band, the window) is already reported by list.dump(), and a second copy here would be the same numbers twice",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "PopupButton",
 		kind = "composite",
 		module = "src/controls/popup_button.luau",
