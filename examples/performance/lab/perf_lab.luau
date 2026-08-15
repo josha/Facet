@@ -39,15 +39,25 @@
 -- rowHeight follows the same decision, so a phone no longer paints rows over each
 -- other. The layout audit is now enforced at mount and after every pass.
 --
--- /5 (2026-08-14): TWO WORKLOADS FOR WHAT ROUND 3 SHIPPED. Every pass above this
--- date windows by ONE number (`index x pitch`) and no pass anywhere touched
--- `newTable`, so the two things the collection round actually built — the
--- running-offset index behind variable item extents (`src/virtual_extents.luau`)
--- and `newTable{ virtualized = true }` — were unmeasured by construction.
--- `variable-extents` and `table-unified` are those two. Both mount their own
--- surfaces, so no existing workload's numbers move: the additions are new rows in
--- the table, not a re-basing of the old ones.
-local SCENARIO_VERSION = "perf-scenarios/5"
+-- 2026-08-14: TWO WORKLOADS ADDED FOR WHAT ROUND 3 SHIPPED, AND THE VERSION DOES
+-- NOT MOVE. Every pass above this date windows by ONE number (`index x pitch`)
+-- and no pass anywhere touched `newTable`, so the two things the collection round
+-- actually built — the running-offset index behind variable item extents
+-- (`src/virtual_extents.luau`) and `newTable{ virtualized = true }` — were
+-- unmeasured by construction. `variable-extents` and `table-unified` are those
+-- two, and both mount their own surfaces.
+--
+-- THE VERSION IS THE WORKLOAD'S IDENTITY, AND NO EXISTING WORKLOAD'S IDENTITY
+-- CHANGED. The rule at the top of this block is "bump when a workload's STEPS
+-- change", and adding a workload changes no other workload's steps: `dense-scroll`
+-- runs the same passes over the same dataset and the same rows as it did this
+-- morning. Bumping it was tried and is wrong — `tools/check_perf_captures.py`
+-- immediately (and correctly) declared all six admissible PL-9 captures to
+-- "describe a workload that no longer exists", which would have thrown away real
+-- measurements of unchanged work to record an addition. A capture row already
+-- carries the workload id, so a reader can always tell whether a given capture
+-- predates these two.
+local SCENARIO_VERSION = "perf-scenarios/4"
 
 -- ---- the declared workloads ----------------------------------------------
 -- Each isolates ONE cost so a profile has an interpretable cause. The plan is

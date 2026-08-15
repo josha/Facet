@@ -2431,9 +2431,14 @@ all, so **`src/virtual_extents.luau` and `newTable{ virtualized = true }` shippe
 with no perf row.** Two new workloads close that, and both mount their own surfaces
 — so no existing number moved and nothing was re-based.
 
-`SCENARIO_VERSION` is `perf-scenarios/5`; `dataset.VERSION` and `rows.VERSION` are
-UNCHANGED, which is the statement that every pre-existing capture is still
-comparable.
+**`SCENARIO_VERSION` deliberately does NOT move**, and neither do `dataset.VERSION`
+or `rows.VERSION`. The rule is "bump when a workload's STEPS change", and adding a
+workload changes no other workload's steps. Bumping it was tried:
+`tools/check_perf_captures.py` immediately declared all six admissible PL-9 rows to
+"describe a workload that no longer exists", which would have discarded real
+measurements of unchanged work in order to record an addition. The check was right
+and the bump was wrong. A capture row already carries its workload id, so nothing is
+ambiguous.
 
 ### `variable-extents` — four arms, and the middle one is the point
 
