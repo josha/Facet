@@ -85,7 +85,19 @@ CAP = 200_000
 # path -> (ceiling, why it is over and what the plan is)
 KNOWN_OVER = {
     "src/render/renderer.luau": (
-        242_943,
+        200_109,
+        "SPLIT IN PROGRESS, 2026-08-14: 242,943 -> 200,109 with the MEASURE SEAM "
+        "out (`src/render/layout_node.luau`, 46,476) — `toLayoutNode` plus the "
+        "button-text grammar it shares with the paint seam and the declared hit "
+        "floor. It entangles NOTHING: it was already a module-scope function whose "
+        "every input arrives as an argument, so the split is a move plus two "
+        "re-exports (`renderer.compactForm`/`renderer.drawnButtonText` did not "
+        "budge). The pins that read 'the renderer' as text now read it through "
+        "`tests/lib/renderer_source.all()`, the same instrument "
+        "`tests/lib/adapter_source` already is for the adapter, and "
+        "`check_prop_parity`/`check_theme_drift` scan both files — a source pin "
+        "that silently stops seeing the code it names is this split's real hazard. "
+        "NEXT: the presentation channel, below. Original entry follows. "
         "RAISED TWICE on 2026-08-14 — by ADR-0026 (authored opacity/scale/rotation) "
         "and again +4,763 by ADR-0028 (cross-surface overlap's alarm). THAT IS THE "
         "TREND WORTH READING: the two files still over the cap are the two where the "
@@ -113,10 +125,15 @@ KNOWN_OVER = {
         "smuggle them into feature work) and is worth ~200 lines.",
     ),
     "src/layout/solver.luau": (
-        213_731,
+        196_747,
         "found BY THIS CHECK on the day it was written — nobody knew it was over. "
-        "No seam proposed yet; it is the measure/arrange core and the most "
-        "carefully-ordered file in the library.",
+        "213,731 -> 196,747 by lifting the placement-prop read table out to "
+        "`src/layout/placement_audit.luau`: the one block in the measure/arrange "
+        "core that reads NO solve state at all (no ctx, no measure, no arrange "
+        "local, no forward declaration), so it left without taking an argument "
+        "with it. Under the cap but NOT at a real margin yet — 3,253 chars is one "
+        "honest comment, which is the mistake `screen_target` made at 198,960. The "
+        "shrink cascade goes next.",
     ),
     "src/present/presenter.luau": (
         207_852,
