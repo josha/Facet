@@ -150,6 +150,14 @@ local COPY = {
 	-- point is that they are ONE call: a reader who sees only "fades" will not
 	-- look for the turn.
 	effectsLabel = "The badge fades, shrinks and turns — same spring",
+	-- (5b) THE WRAP. A leaf cannot take an `opacity` — it would have to write a
+	-- transparency the theme's stylesheet owns, and one such write makes the
+	-- sheet's value unreadable for good (ADR-0029). The spelling that works is one
+	-- fade group around the subtree, and this row is it, on the same spring.
+	-- Player-facing, so it wraps rather than truncates at ~1.4x.
+	wrapLabel = "A label cannot fade itself — wrap it, and the group fades",
+	wrapText = "Faded",
+	wrapButton = "Locked",
 }
 
 return {
@@ -171,6 +179,14 @@ return {
 		local detailOpen = scope:own(core:signal(false)) -- (3) the thing that APPEARS
 		local chipOrder = scope:own(core:signal(CHIPS)) -- (4) the thing that RE-ORDERS
 		local runs = scope:own(core:signal(0))
+		-- (5) THE PAINT, shared by the badge and the wrapped row below it. ONE memo
+		-- rather than two identical ones, because the two rows arriving at the same
+		-- alpha on the same frame is the thing they are together to show: the badge
+		-- is a node that CAN carry an opacity, the row is a subtree that cannot and
+		-- is wrapped instead, and both are the same authored term on the same spring.
+		local paintOpacity = scope:own(core:memo(function(use)
+			return if use(laneRight) then 0.3 else 1
+		end))
 
 		-- THE INFORMATIONAL HALF. A glide rather than a spring, because what it
 		-- models is a job with a duration — and `kind = "informational"` is the
@@ -402,15 +418,81 @@ return {
 							anchor = "center",
 							width = { type = "fixed", px = 40 },
 							height = { type = "fixed", px = 40 },
-							opacity = scope:own(core:memo(function(use)
-								return if use(laneRight) then 0.3 else 1
-							end)),
+							opacity = paintOpacity,
 							scale = scope:own(core:memo(function(use)
 								return if use(laneRight) then 0.6 else 1
 							end)),
 							rotation = scope:own(core:memo(function(use)
 								return if use(laneRight) then 45 else 0
 							end)),
+						}),
+					},
+				}),
+				--[[ (5b) THE WRAP — the spelling for everything the badge is not
+					(ADR-0029, director round 2026-08-15).
+
+					`opacity` is offered on `Box` and `ZStack` and REFUSED by name
+					everywhere else, and the badge above is a Box, so it gets to
+					declare its own. The row here is a label and a control, and
+					neither can: a leaf fade would have to write `TextTransparency`
+					or `BackgroundTransparency`, which the theme's native stylesheet
+					owns. That is not a lost frame — measured in Studio, one explicit
+					write makes `GetStyled` return the write instead of the rule's
+					value from then on, so the sheet's own number stops being
+					readable and the disabled dimming dies with it.
+
+					SO THE FADE MOVES UP ONE NODE and the leaves stay untouched. The
+					`ZStack` is a real `CanvasGroup`, its `GroupTransparency` is the
+					one alpha property no rule owns, and everything inside it is
+					composited at that alpha by the engine — which is also SwiftUI's
+					answer, and why `compositingGroup()` exists there.
+
+					THE LOCKED BUTTON IS THE POINT, not decoration. It is disabled,
+					so the sheet's `:NonInteractable` rule is painting its dimming —
+					and it goes on doing that underneath the group fade, because
+					nothing here ever wrote its transparency. Measured live on this
+					same framework build: with the group at `GroupTransparency` 0.5,
+					the button's `GetStyled("TextTransparency")` still moved 0.4 ->
+					0 -> 0.4 as it was disabled, enabled and disabled again, with its
+					raw property at 0 the whole time.
+
+					It rides `paintOpacity`, the badge's own memo, so the two rows
+					reach the same alpha on the same frame — one authored term, one
+					spring, two nodes that had to spell it differently. ]]
+				UI.Text({
+					id = "WrapCaption",
+					text = COPY.wrapLabel,
+					textSize = 12,
+					role = "secondary",
+				}),
+				--[[ IT HUGS AND IT WRAPS, and the sweep is why (2026-08-15). The first
+					draft copied the badge's shape — a fixed 60px `UI.Anchor` lane with
+					a centred, content-sized group inside it — and
+					`tests/overflow_sweep.spec.luau` filed 16 findings at once: at
+					320x640 with the +14 text preference, a `control`-chrome package
+					(classic-desktop, compact-pointer, fantasy-ornate, glossy-touch)
+					needs 570-620px for a label beside a button, and nothing clips a
+					ZStack, so the row painted over its neighbours. The badge can hold
+					a fixed lane because a 40px square is 40px in every package; a row
+					of TEXT is not. So this one fills the column, wraps to a second
+					line when it must, and takes its height from its content. ]]
+				UI.ZStack({
+					id = "Wrapped",
+					surface = "control",
+					padding = 8,
+					width = { type = "fill", weight = 1 },
+					opacity = paintOpacity,
+					children = {
+						UI.HStack({
+							id = "Row",
+							gap = 8,
+							align = "center",
+							wrap = true,
+							width = { type = "fill", weight = 1 },
+							children = {
+								UI.Text({ id = "Label", text = COPY.wrapText, textSize = 13 }),
+								UI.Button({ id = "Locked", label = COPY.wrapButton, enabled = false }),
+							},
 						}),
 					},
 				}),

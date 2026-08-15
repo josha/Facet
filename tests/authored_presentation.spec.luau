@@ -583,6 +583,39 @@ describe("authored presentation D — off-path cost, and one write site", functi
 		expect(wrote).toBe(false)
 	end)
 
+	--[[ THE REFUSAL COSTS A VALID SURFACE NOTHING, and it is GATED rather than
+		asserted (ADR-0026 Decision 9's shape, ADR-0029). There is no runtime path to
+		measure here at all, and that is the claim: `schema.refusal` is reached from
+		exactly one place, and that place — `unknownPropError` — only runs once a
+		property is already absent from the class, i.e. on a construction that is
+		about to throw. A valid `UI.Text{ text = … }` never enters it.
+
+		Measured anyway, ABBA-interleaved (2026-08-15, 12 runs): with the branch,
+		construct median 117.8 ms / mount median 79.0 ms; without it, 118.9 / 79.4 —
+		the "with" arm is faster than the "without" arm by less than its own spread
+		(construct 114.6-119.3, mount 77.6-83.1). A plain A-then-B ordering had
+		reported mount +3.1% before the interleave erased it. ]]
+	it("the refusal is on the ERROR PATH ONLY — one caller, and it is the failing constructor", function()
+		local fs = require("@lune/fs")
+		local bp = fs.readFile("src/blueprint.luau")
+		local calls = 0
+		for line in string.gmatch(bp .. "\n" .. fs.readFile("src/blueprint_schema.luau"), "[^\n]+") do
+			-- `function schema.refusal(` is the DEFINITION, not a call
+			if string.find(line, "schema.refusal(", 1, true) and not string.find(line, "function ", 1, true) then
+				calls += 1
+			end
+		end
+		expect(`callers of schema.refusal: {calls}`).toBe("callers of schema.refusal: 1")
+		-- ...and that one caller is inside `unknownPropError`, which by construction
+		-- only runs for a key the class does not have
+		local from = string.find(bp, "local function unknownPropError(", 1, true)
+		expect(from ~= nil).toBe(true)
+		local body = string.sub(bp, from :: number, (from :: number) + 900)
+		expect(`inside unknownPropError: {string.find(body, "schema.refusal(", 1, true) ~= nil}`).toBe(
+			"inside unknownPropError: true"
+		)
+	end)
+
 	it("ONE SITE writes each presentation engine property — the manifest's promise, in the source", function()
 		-- the renderer as ONE text: three files since the 200k `Source` write-cap
 		-- split, and the count is only a promise about the whole family. The write
