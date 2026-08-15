@@ -10,6 +10,248 @@ LuauUI can find out in one read whether the thing they need exists, exists with
 caveats, or does not exist at all — and, where LuauUI and SwiftUI genuinely
 differ, why.
 
+The rest of the document is row-by-row detail. This first section is not: it is
+the shape of the thing, in plain language, before any table.
+
+---
+
+## Two frameworks, in plain language
+
+**Read this if you have never used either.** It answers one question — *what kind
+of thing is LuauUI, and how does its thinking differ from SwiftUI's?* — without
+assuming you know what a view modifier or a solver is. If you already write
+SwiftUI, this is the part that tells you which of your instincts will not
+transfer.
+
+### What both frameworks are
+
+You do not build the screen. You **describe** it — "a column holding a title and
+three buttons, and the third one is disabled right now" — and the framework works
+out what to create, move, repaint, and delete so the real screen matches the
+description. When your data changes you change the description, never the screen.
+That is what "declarative" means, and both frameworks are that.
+
+Everything below is a difference *inside* that shared idea, and most of the
+differences trace back to one fact about the platform: **LuauUI does not own the
+screen it draws on.** It drives real Roblox `GuiObject`s, and those objects are
+written to by other authors at the same time.
+
+### One writer per property, because the engine will not police it
+
+A Roblox screen object is written to by more than one author: Roblox's own
+StyleSheets, the player's CoreGui, engine defaults, and any game code that
+happens to reach in. Two writers on one property is not a disagreement to be
+resolved with a precedence rule — it is a bug that leaves no trace. Measured in
+Studio: **an explicit property write silently defeats a StyleSheet rule and fires
+no signal.** Nothing tells you it happened, and the rule never comes back.
+
+So LuauUI keeps a manifest — `src/render/authority.luau` — that names, for every
+engine property of every class, the **one** part of the framework allowed to
+write it. Rects are written by layout. Token paint is written by style. A
+data-driven colour is written by binding. A transient fade or slide is written by
+presentation. Every write in the framework goes through one site, and that site
+checks the manifest.
+
+That constraint sounds bureaucratic until you watch it decide an API. `opacity`,
+`scale` and `rotation` are all authorable — things you would expect any UI
+framework to let you set — and none of them is a second writer, because the
+framework is often already animating the same property. The authored value is a
+second **term** inside the one writer's arithmetic instead: the engine gets
+`compose(what the framework is doing, what you asked for)`, resolved at a single
+write site, and **nothing writes an engine property called "opacity" at all**
+([`ADR-0026`](../adr/ADR-0026-authored-presentation-composition.md)). The manifest
+asks how many *functions* may write a property. It never asks how many *facts*
+that one function may read.
+
+The same rule is why `UI.Text{ opacity = 0.4 }` is a construction error. To
+compose you need a base term — the value the style rule would otherwise have
+produced — and the only way to read one is `Instance:GetStyled(prop)`, which
+**returns your own last write** from the first composition onward. Measured
+2026-08-15: a leaf recomposing on each state change multiplied its own output
+back in and faded to invisible after four disable/enable cycles. So the act of
+composing destroys the input the composition needs, and the fade is refused with
+the one line that does work —
+`UI.ZStack{ opacity = 0.4, children = { … } }`
+([`ADR-0029`](../adr/ADR-0029-leaf-opacity-refusal.md)). That happens to be
+SwiftUI's answer too: without a compositing group, ancestor opacity applies per
+descendant, which is exactly what `compositingGroup()` exists for ([SW-133]).
+
+### A refusal, where another framework would guess
+
+The second habit follows from the first. **Where a value could plausibly mean two
+things, LuauUI raises at construction and names the alternative, instead of
+picking the reasonable one.** The stated reason is that a silent reinterpretation
+is a defect the author cannot see: the screen looks nearly right, and nothing
+anywhere says which of the two meanings was chosen.
+
+Five shipped examples, each a real error message rather than a policy:
+
+- `presentation = "spinner"` **with a `height`** — `height` is the *bar's* track
+  thickness. On a spinner it would have to silently become the dot's size, which
+  is a theme metric, so it is refused instead (§5).
+- **`virtualized` beside `rowActions` on a `Table`** — Table wraps each swipeable
+  row in its own composite whose lifetime is pruned by the data, so a row
+  scrolling out of the window would strand a live gesture engine. The message
+  names the control that does support the combination (§4.2.1).
+- **`align = "stretch"` on a wrapping stack** — it would mean "each child fills
+  its line" and "the block of lines fills the box" at once, and there is no
+  honest way to pick (§4.3).
+- **An inline spring literal** at a call site — springs must come from one of four
+  registered motion classes, or a design system drifts one call site at a time
+  (§8).
+- **`UI.Text{ opacity }`**, above — and note the shape of that message. It does
+  not say "unknown property". It says which engine property carries a fade, which
+  two classes can be one, what breaks if you force it, and the one-line wrap.
+
+The cost is real and worth knowing before you start: **you cannot try something
+and see what happens.** Passing a property that the framework has thought about
+and declined gets you an error with a route, not a silent no-op. Passing one it
+has never heard of gets you *"unknown property 'lable'. Did you mean 'label'?"*
+plus the full legal set. There is very little middle ground where a screen
+quietly does the wrong thing — which is the trade this framework makes on
+purpose, and it is a different trade from a framework that optimizes for the
+first five minutes.
+
+### The engine is a fact to be measured, not a fact to be assumed
+
+A large part of this framework's design is the residue of *asking the engine*
+where its documentation is silent — and Roblox's is silent, or wrong by
+omission, in several of the places that matter most here. Four measured readings,
+each of which changed an API:
+
+- **Roblox has no overlay scrollbar.** The engine shrinks the scrollable window
+  by the bar's thickness whatever the bar paints. A policy that treats a
+  fading touch indicator as free therefore lays every scroller's content out into
+  a box 8 px wider than the one the player can see: measured live,
+  `AbsoluteSize` 703×203 against `AbsoluteWindowSize` 695×203, nine nodes painted
+  past an invisible edge, a value reading "0.35" clipped to "0.3". So the reserve
+  is always taken, on every platform, whatever the bar looks like (§4).
+- **Input goes to the topmost interactive object, and only that one.** The
+  plausible assumption is the opposite — that every Active object under the point
+  receives the event independently of paint order — and it is false. A
+  `GuiButton` sinks the input and a hit surface behind it receives nothing, which
+  is why a row whose content holds a button cannot be swiped where that button
+  covers it.
+- **A `Path2D` is not a `GuiObject`.** No stylesheet rule can select one, no
+  image layer can follow a partial arc, and clipping does not crop it. That is
+  why the circular progress ring takes a colour and two metrics from a theme and
+  no art at all, and why a ring scrolled out of a clipping host still paints
+  (§6.1).
+- **Reading a styled property returns your own last write** — the fact under the
+  leaf-fade refusal above.
+
+The rule that produces those readings is a standing one: check the platform's
+*current* documentation first, and where the documentation does not answer,
+measure the running engine rather than reason from the code. Each reading is
+written down at the place in the source that depends on it, with its date and its
+numbers, so the next author can re-run it instead of re-deriving it.
+
+### Layout is decided before anything is drawn
+
+SwiftUI's layout vocabulary is a negotiation described in terms of *proposals* —
+`ViewThatFits` "selects the first child whose ideal size on the constrained axes
+fits within the **proposed** size" ([SW-22]) — and its extension point is a
+`Layout` protocol, "a type that defines the geometry of a collection of views"
+([SW-24]).
+
+LuauUI splits the same job into two pieces that never touch each other:
+
+| | |
+|---|---|
+| **The solver** | Measures the description, then arranges it into plain rectangles. No engine object is involved, so the whole of layout runs headlessly in a terminal. |
+| **The adapter** | Takes those rectangles and paints them onto real Roblox instances. It is a swappable seam with a written contract, which is why the solver can be tested with no Roblox running at all. |
+
+Three consequences a reader should carry into the tables:
+
+- **The instance tree is deliberately flat.** Objects are not parented to their
+  container unless something (clipping, a fade group) requires it. Every node is
+  positioned by an absolute rectangle the solver computed. That is why a
+  container moving carries nothing inside it — and it is why animating a *move*
+  has to accumulate offsets down the subtree while animating a *size* must not
+  (§8.1).
+- **Changing the theme is a re-solve, not a rebuild.** Nothing is torn down, so
+  mount identity, focus, scroll position, selection and half-typed text all
+  survive a theme swap (§6).
+- **And a re-solve does not repaint** — the hazard that sits directly under that
+  feature. A theme commit re-derives everything the *solver* reads and nothing
+  the *adapter* paints, because a colour is not a layout. Most paint survives
+  anyway because a stylesheet rule owns it and the sheet is swapped wholesale.
+  The exceptions are exactly the paints **no rule can express**: a focus ring is
+  a bespoke child, a rule cannot see a *value*, and a `Path2D` cannot be selected
+  at all. Each of those needs an explicit repaint sweep of its own, and when one
+  is missing nothing complains — the node simply keeps the outgoing theme's
+  colour, and a person has to notice.
+
+### What LuauUI deliberately is not
+
+The document's credibility rests on this part, so it is up front rather than at
+the end. Some of these are decisions and some are simply holes, and the
+difference is stated in each case:
+
+- **There is no assistive-technology bridge of any kind.** Nothing talks to a
+  screen reader. A blind player cannot use a LuauUI interface. That is a hole,
+  not a decision (§7).
+- **There is no right-to-left or bidirectional support** anywhere in layout or
+  text (§7).
+- **There is no screen-to-screen navigation model** — no push, no pop, no back
+  button, no titles. Surfaces stack; screens do not (§9).
+- **There is no way to swap what a control renders as while keeping its
+  behaviour** — no `ButtonStyle`-shaped protocol. *This one is a decision*:
+  native Roblox StyleSheets and theme packages own paint, and a parallel
+  rendering-substitution protocol would be a second authority over the same
+  pixels — the thing the first part of this section is about. §6.1 carries the
+  mapping a SwiftUI author needs instead, including the residue it costs.
+- **Nothing here has ever run on a physical device.** Every claim in this
+  document is a headless test run or a scripted drive of Roblox Studio's
+  emulator (§14).
+
+### Where it goes further than SwiftUI
+
+Three places, and in each the reason is the platform rather than ambition.
+
+**A screen declares its content once, and the framework arranges it.** Instead of
+writing "if the screen is short, drop the header", an author declares *ranked
+regions*, each carrying an ordered ladder of forms from richest to
+minimum-viable; the framework tests arrangements and steps a region down its
+ladder — or drops it entirely, lowest rank first — until everything fits. That is
+closer to a `Layout` protocol ([SW-24]) plus `layoutPriority` ([SW-13]) combined
+than SwiftUI ships in any single construct, and the practical result is that none
+of the five reference apps (§12) contains a device-name branch anywhere.
+
+**A property that is accepted has to do something.** Nine placement properties are
+legal on every node but only read by particular parents. Rather than let one sit
+inert, the solver audits every (parent, property) pair the parent will never read
+and files a complaint you can query at runtime. The same diagnostics channel
+reports overflow, unbounded percentages, mixed grid children, HUD zone collisions
+and two surfaces painting over each other. LuauUI's answer to "this looks nearly
+right" is a machine-readable complaint rather than a screenshot review, and
+neither SwiftUI nor Roblox ships an equivalent inert-property audit ([SW-10]).
+
+**It is built to be maintained by agents as well as by people.** Unknown
+properties are refused with a did-you-mean and the full legal set; the public
+constructor surface is typed; and a family of checkers reconciles independent
+views of the same truth so that documentation, the export table, property
+authority, and the tests cannot drift apart without something going red (§11).
+The honest limit of that machinery is stated in the same place: **it catches a
+missing symbol, never a false paragraph.**
+
+### If you are arriving from somewhere else
+
+**From SwiftUI**, the four things most likely to surprise you: state is tracked
+per *value* rather than per view, so there is no one-annotation-per-model-class
+shape like `@Observable`'s ([SW-03], §3); there is no navigation stack (§9);
+there is no `*Style` protocol, and theming is the answer instead (§6.1); and a
+property the framework has considered and declined raises an error naming the
+route rather than doing something reasonable.
+
+**From ordinary Roblox UI code**, the four that matter: you never mutate an
+instance, you change a description; declaration order is the only order, because
+there is no `LayoutOrder` analogue (§4); the framework's layout vocabulary is a
+strict superset of `UIListLayout` + `UIFlexItem` in every respect but that one
+(§4.1); and anything the engine will not let the framework prove — haptics
+playback, physical-device performance, the arrow keys under a live camera — is
+labelled as unproven here rather than rounded up.
+
 ---
 
 ## 1. What this document is, and how to read it
@@ -173,7 +415,7 @@ caveat is that none of it has ever run on a physical device.** Where a verdict
 here is generous, the caveat is in the same section, not buried.
 
 **Verdict counts across §§3–11**, so the shape of the answer is visible before
-the detail: **174 capability rows — 108 Covered, 34 Partial, 4 Composable, 27
+the detail: **175 capability rows — 110 Covered, 34 Partial, 4 Composable, 26
 Missing**, plus one scored as having no host equivalent by design. Twenty-one of
 those rows are additionally marked as having *no equivalent on the other side* —
 Roblox-specific or LuauUI-specific capabilities the comparison cannot score in
@@ -688,9 +930,9 @@ are two encodings of the same rectangle and must be intersected, never summed.
 ---
 ## 5. Controls catalog
 
-LuauUI's conformance registry holds **48 rows: 22 composite classes and 26
-non-interactive leaves**. Fifteen of those rows are interactive, and **all
-fifteen carry an automated four-input proof and also prove the device-idiom
+LuauUI's conformance registry holds **51 rows: 25 composite classes and 26
+non-interactive leaves**. Sixteen of those rows are interactive, and **all
+sixteen carry an automated four-input proof and also prove the device-idiom
 axis.** That is far short of SwiftUI's catalog in breadth and ahead of it in
 per-control rigour.
 
@@ -974,7 +1216,7 @@ input model has a **platform prerequisite** the framework cannot enforce — §7
 |---|---|---|---|
 | Assistive-technology bridge (VoiceOver / TalkBack) | **Missing** | Nothing. Confirmed by whole-repository search. The bar this is measured against is SwiftUI's accessibility surface, whose own framing is to try the app "with accessibility features like VoiceOver, Voice Control, and Switch Control" ([SW-81]) | — |
 | Focus system (`@FocusState` ([SW-85]), `.focusSection` ([SW-86]), Tab order) | **Covered** — and wider than the model it copies: Apple ships `focusSection()` on **macOS and tvOS only** ([SW-86]), while LuauUI's grouped scopes are the same everywhere | `LuauUI.newFocusGraph`: flat and grouped scopes, per-group axis/wrap/entry/exit, directional navigation, and Tab/Shift+Tab traversal in true document order — which is deliberately a different order from the concatenated group arrays | `src/focus/focus_graph.luau`; `src/init.luau` |
-| Four-input + device-idiom conformance proof | **Covered** | **15 of 15** interactive controls prove reachability on mouse, touch, keyboard, and gamepad *and* prove the device-idiom axis, across 48 registered rows | `tests/conformance/controls_registry.luau`; `tools/lune/check_registration_cli` |
+| Four-input + device-idiom conformance proof | **Covered** | **16 of 16** interactive controls prove reachability on mouse, touch, keyboard, and gamepad *and* prove the device-idiom axis, across 51 registered rows | `tests/conformance/controls_registry.luau`; `tools/lune/check_registration_cli` |
 | `.sensoryFeedback` — feedback tied to state changes ([SW-70]) | **Covered**, plus a per-control form Apple has no equivalent of | The change form: when the `trigger` Readable changes, `{ type = event, path }` is emitted on the presenter's feedback bus. The control form: `{ activation = verb }` names what THIS control's press means and replaces the `activate` the presenter would otherwise emit — cascading down the mounted tree, nearest declaration winning, so it reaches every composite control with no per-control plumbing. The taxonomy is **closed** for both, so an unregistered name is an authoring error listing the twelve valid ones plus `none`. **LuauUI itself still plays nothing** — but the declaration now reaches the engine, and the engine does. Detail in §7.1 | `src/blueprint.luau`; `src/present/feedback.luau`; `src/mount.luau`; `src/present/presenter.luau`; `tests/sensory_feedback.spec.luau`; `tests/control_feedback.spec.luau` |
 | Haptics playback | **Partial** — opt-in, **default off**, three device rows unprovable here | `src/client/haptics.luau`, an opt-in client adapter over `HapticEffect`. It plays a control's DECLARED verb through that button's own press-effect property, so a Buy button and a Cancel button feel different — and LuauUI still never calls `Play()` for a press. §7.1 | `src/client/haptics.luau`; `tests/haptics.spec.luau`; `tests/control_feedback.spec.luau` |
 | Gesture value type (normalized `Gesture`) | **Partial** — real primitive, zero consumers | Kind, state, positions, translation, velocity, scale, rotation; all six gesture kinds connected; publicly exported. No control calls it | `src/input/touch_gestures.luau`; `src/init.luau` |
@@ -1800,10 +2042,10 @@ Every check below was run live for this revision:
 cd GameStudio/ui/LuauUI
 lune run tools/lune/check_docs_cli            # PASS — 9 documents, 81 surface anchors,
                                               #   137 SwiftUI citations, 64 local links
-lune run tools/lune/check_prop_parity_cli     # PASS — 26 classes, 642 properties, 679 typed fields
-lune run tools/lune/check_registration_cli    # PASS — 22 controls, 90 exports documented,
-                                              #   196 specs registered, 15/15 four-input + paradigm
-lune run tools/lune/check_boundary            # PASS — 116 src files, 394 consumer files
+lune run tools/lune/check_prop_parity_cli     # PASS — 26 classes, 643 properties, 680 typed fields
+lune run tools/lune/check_registration_cli    # PASS — 25 controls, 91 exports documented,
+                                              #   201 specs registered, 16/16 four-input + paradigm
+lune run tools/lune/check_boundary            # PASS — 122 src files, 398 consumer files
 lune run tools/lune/check_surface_ledger      # PASS — every public export and nested member classified
 python3 tools/check_manifest_integrity.py     # exit 0 — 846 suite greps, all anchored to the pass marker
 ```
