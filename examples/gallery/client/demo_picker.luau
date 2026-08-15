@@ -208,6 +208,17 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "table_virtualized",
 	},
+	-- ...and its sibling, for the reason every fixture here is listed: what it shows
+	-- is a CHANGE. A table whose first column is 218px wide and one whose first
+	-- column was always 218px are the same screenshot, so the committed width of
+	-- every column is on screen and the divider is the only way to move it.
+	{
+		id = "table-columns",
+		title = "Columns you can resize",
+		blurb = "A header with dividers: drag one, or Tab to a heading and press Return",
+		kind = "fixture",
+		module = "table_columns",
+	},
 	-- the tenth fixture, and the reason is the one every fixture above it gives:
 	-- what it demonstrates is INVISIBLE in a picture. Five buttons painted
 	-- identically report four different verbs and one nothing at all, and one

@@ -333,6 +333,14 @@ local SCENARIOS = {
 	-- WRAPPING four-button row and two status lines) still leaves the list a box at
 	-- every viewport and text preference, rather than a check on the packaging
 	"table_virtualized",
+	-- ...and its headered sibling. A HEADER BAND IS A `minMax` FLOOR
+	-- (`controls.table.headerHeight`) and it is the exact thing `table_virtualized`
+	-- had to give up to fit — 77 findings, every one of them that band — so a
+	-- fixture whose entire subject is the header has to prove at every viewport and
+	-- every text preference that its own chrome leaves room for one. The floor grows
+	-- with the text preference, which is the case only the swept cross product
+	-- reaches
+	"table_columns",
 	-- ...and ADR-0025: the screen-anchored HUD. Its whole contract is "the zones
 	-- partition the box at every size", so a swept viewport IS the feature's test
 	-- rather than a check on its packaging — and the surface carries a switch that

@@ -119,6 +119,15 @@ local ORDER = {
 	-- The three buttons each act on row 1500, which no window has ever held. Also in
 	-- `demo_picker.DEMOS`.
 	"table_virtualized",
+	-- ...and the half of `newTable` that shipped in Phase B and had never once been
+	-- driven on a real adapter: THE HEADER AND ITS RESIZE DIVIDERS. The model, the
+	-- pointer drag and the keyboard/gamepad step were all proved headlessly against
+	-- a fake target that dispatches a pointer event to the path it is handed —
+	-- which is exactly the thing the engine's topmost-only `InputBegan` rule makes
+	-- untrue of an 8px divider painted over a full-cell header button. It cannot
+	-- live in `table_virtualized` (headerless, deliberately and for a measured
+	-- reason) so it is its own surface. Also in `demo_picker.DEMOS`.
+	"table_columns",
 	-- ...and the director's per-control sensory request (2026-08-13): five
 	-- identical-looking buttons that report four different verbs and one nothing
 	-- at all, plus one declaration on a panel that all three controls inside it

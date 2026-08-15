@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the fourteen fixtures", function()
+	it("lists every tutorial example plus the fifteen fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(21)
+		expect(#demos).toBe(22)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -64,7 +64,13 @@ describe("showcase catalogue", function()
 		-- `table-virtualized`, whose whole difference from an ordinary Table is a
 		-- COUNT rather than a picture, so the fixture is the only place a player can
 		-- see that two thousand rows are being carried by seventeen.
-		expect(fixtures).toBe(14)
+		-- ...and FIFTEEN since the header round (2026-08-14): `table-columns`, the
+		-- other half of `newTable` — a header band with resize dividers, shipped in
+		-- Phase B and never once driven on a real adapter because no showcase surface
+		-- carried one. `table_virtualized` is headerless on purpose (the band is a
+		-- `minMax` floor it could not afford), so this could not be a prop added to a
+		-- fixture that already existed.
+		expect(fixtures).toBe(15)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -511,7 +517,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(14)
+		expect(fixtures).toBe(15)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
