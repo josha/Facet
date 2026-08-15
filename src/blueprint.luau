@@ -489,6 +489,15 @@ end
 -- UI.* modifier passes its own name. A DIRECT constructor error passes nil and
 -- is byte-identical to what it always was.
 local function unknownPropError(class: string, key: string, modifier: string?): string
+	-- A REFUSED CAPABILITY, NAMED AS ONE (ADR-0029). `opacity`/`canvasGroup` are
+	-- absent from this class because the framework declined them, not because the
+	-- schema forgot: the suggester and the valid list are the wrong answer, and
+	-- the right one is a spelling. Everything else falls through unchanged.
+	local refusal = schema.refusal(class, key)
+	if refusal ~= nil then
+		local head = if modifier == nil then `LuauUI UI.{class}:` else `LuauUI UI.{modifier} on UI.{class}:`
+		return `{head} '{key}' is REFUSED on UI.{class}, not missing. {refusal}`
+	end
 	local suggestions = schema.suggest(class, key)
 	local msg = if modifier == nil
 		then `LuauUI UI.{class}: unknown property '{key}'.`

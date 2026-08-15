@@ -29,6 +29,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local LuauUI = require("../src") :: any
+local schema = require("../src/blueprint_schema") :: any
 local fake_target = require("./lib/fake_target")
 
 local FRAME = 1 / 60
@@ -160,6 +161,140 @@ describe("authored presentation A — the props, and the refusals", function()
 		expect(string.find(tostring(err), "opacity", 1, true) ~= nil).toBe(true)
 	end)
 
+	--[[ THE REFUSAL IS LEGIBLE (ADR-0029, director round 2026-08-15). ADR-0026
+		refused the leaf and left the message to the generic unknown-property
+		path: *"unknown property 'opacity'. Valid properties: …"* — which reads
+		as an oversight in the schema, sends the author to a list that does not
+		contain the answer, and never mentions the one-line spelling that works.
+		A capability that is refused has to say so at the point of use. ]]
+	it("THE DISABLED-DIMMING CASE: the refusal names the defeat it exists to prevent", function()
+		local UI = LuauUI.UI
+		local ok, err = pcall(function()
+			return UI.Text({ text = "hi", opacity = 0.5 })
+		end)
+		expect(ok).toBe(false)
+		local msg = tostring(err)
+		-- it is REFUSED, not missing — the word that separates a decision from a gap
+		expect(`refused:{string.find(msg, "REFUSED", 1, true) ~= nil}`).toBe("refused:true")
+		-- ...and it names the measured consequence (probe L1/L4, 2026-08-15): the
+		-- disabled dimming dies from the first faded frame
+		expect(`dimming:{string.find(msg, "stop dimming when disabled", 1, true) ~= nil}`).toBe("dimming:true")
+		-- ...and the fact underneath it: the sheet's value stops being READABLE,
+		-- so the composition loses its base term rather than merely losing a race
+		expect(`unreadable:{string.find(msg, "GetStyled", 1, true) ~= nil}`).toBe("unreadable:true")
+	end)
+
+	it("...and it names the WORKAROUND, spelled out, not a doc reference", function()
+		local UI = LuauUI.UI
+		local _, err = pcall(function()
+			return UI.Text({ text = "hi", opacity = 0.5 })
+		end)
+		local msg = tostring(err)
+		expect(`wrap:{string.find(msg, "UI.ZStack{ opacity = 0.4, children = ", 1, true) ~= nil}`).toBe("wrap:true")
+	end)
+
+	it("`canvasGroup` on a leaf is refused with the SAME message — one fact, both spellings", function()
+		local UI = LuauUI.UI
+		local _, err = pcall(function()
+			return UI.Text({ text = "hi", canvasGroup = true })
+		end)
+		local msg = tostring(err)
+		expect(`refused:{string.find(msg, "REFUSED", 1, true) ~= nil}`).toBe("refused:true")
+		expect(`wrap:{string.find(msg, "UI.ZStack{ opacity = 0.4, children = ", 1, true) ~= nil}`).toBe("wrap:true")
+	end)
+
+	it("a genuinely unknown property is UNCHANGED — the refusal did not swallow the suggester", function()
+		local UI = LuauUI.UI
+		local _, err = pcall(function()
+			return UI.Text({ text = "hi", opactiy = 0.5 })
+		end)
+		local msg = tostring(err)
+		expect(`unknown:{string.find(msg, "unknown property 'opactiy'", 1, true) ~= nil}`).toBe("unknown:true")
+		expect(`valid list:{string.find(msg, "Valid properties:", 1, true) ~= nil}`).toBe("valid list:true")
+	end)
+
+	--[[ THE ASYMMETRY, AS AN INVARIANT RATHER THAN A SPOT CHECK (ADR-0029).
+		`scale` and `rotation` shipped on every rendered class and `opacity` on
+		two, and until now nothing said why. One rule decides all three: a term is
+		offerable on a class when ONE engine property that no style rule owns
+		expresses it for that class's whole painted output. `UIScale.Scale` and
+		`GuiObject.Rotation` are that property on every GuiObject; the only such
+		property for alpha is `CanvasGroup.GroupTransparency`, and only a node whose
+		engine instance can BE a CanvasGroup has one. ]]
+	it("THE ASYMMETRY: `opacity` is on exactly two classes and every other one refuses it BY NAME", function()
+		local offered: { string } = {}
+		local refused = 0
+		for _, className in schema.classNames() do
+			local spec = schema.forClass(className)
+			-- `scale` marks the classes that paint an engine instance — exactly the
+			-- set where "why not opacity too?" is a real question
+			if spec.props.scale == nil then
+				continue
+			end
+			if spec.props.opacity ~= nil then
+				table.insert(offered, className)
+			else
+				refused += 1
+				expect(`{className} refuses by name:{schema.refusal(className, "opacity") ~= nil}`).toBe(
+					`{className} refuses by name:true`
+				)
+			end
+		end
+		table.sort(offered)
+		expect(table.concat(offered, ",")).toBe("Box,ZStack")
+		expect(`refused count > 15:{refused > 15}`).toBe("refused count > 15:true")
+		-- ...and the two that HAVE it refuse nothing: a class that offers the prop
+		-- must never also claim to have declined it
+		expect(`Box:{schema.refusal("Box", "opacity")}`).toBe("Box:nil")
+		expect(`ZStack:{schema.refusal("ZStack", "opacity")}`).toBe("ZStack:nil")
+		expect(`Box canvasGroup:{schema.refusal("Box", "canvasGroup")}`).toBe("Box canvasGroup:nil")
+	end)
+
+	--[[ A STRUCTURAL REGION IS NOT REFUSED A FADE — it has no engine instance to
+		fade in the first place, so the fade message would be a wrong answer to a
+		real question. `UI.When{ opacity = … }` stays a plain unknown property, and
+		the honest fix there is to put the prop on the branch's own root. ]]
+	it("a STRUCTURAL class is not given the fade refusal — it has no instance to fade", function()
+		for _, className in { "When", "ForEach", "Region", "GridRow", "ErrorBoundary" } do
+			expect(`{className}:{schema.refusal(className, "opacity")}`).toBe(`{className}:nil`)
+			expect(`{className} cg:{schema.refusal(className, "canvasGroup")}`).toBe(`{className} cg:nil`)
+		end
+		local UI = LuauUI.UI
+		local _, err = pcall(function()
+			return UI.When({
+				condition = true,
+				opacity = 0.5,
+				thenView = function()
+					return UI.Text({ text = "x" })
+				end,
+			})
+		end)
+		expect(`plain unknown:{string.find(tostring(err), "unknown property 'opacity'", 1, true) ~= nil}`).toBe(
+			"plain unknown:true"
+		)
+	end)
+
+	it("...and `scale`/`rotation` are offered on EVERY rendered class and refused on none", function()
+		local missing: { string } = {}
+		for _, className in schema.classNames() do
+			local spec = schema.forClass(className)
+			if spec.props.scale == nil then
+				continue
+			end
+			if spec.props.rotation == nil then
+				table.insert(missing, className)
+			end
+			-- never refused: there is nothing to refuse, so the table must not name them
+			expect(`{className}.scale refusal:{schema.refusal(className, "scale")}`).toBe(
+				`{className}.scale refusal:nil`
+			)
+			expect(`{className}.rotation refusal:{schema.refusal(className, "rotation")}`).toBe(
+				`{className}.rotation refusal:nil`
+			)
+		end
+		expect(table.concat(missing, ",")).toBe("")
+	end)
+
 	it("`scale` and `rotation` ARE offered on a leaf — neither touches a sheet-owned property", function()
 		local UI = LuauUI.UI
 		expect(function()
@@ -167,6 +302,50 @@ describe("authored presentation A — the props, and the refusals", function()
 			end)
 			.never()
 			.toThrow()
+	end)
+
+	--[[ THE WRAP THE REFUSAL NAMES, ACTUALLY WORKING. The refusal is only honest
+		if the spelling it offers does the job, so this is the positive half: the
+		wrap fades the group through the ONE property no rule owns, and writes
+		NOTHING on the control inside it — which is what leaves the sheet's
+		disabled dimming alive underneath. (That the sheet then still dims is an
+		engine fact headless cannot see; it is measured live — probe W1, and
+		artifacts/leaf-opacity/live-probes.md.) ]]
+	it("the wrap fades the GROUP and writes nothing at all on the control inside it", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local UI = LuauUI.UI
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Wrap",
+					opacity = 0.4,
+					children = { UI.Button({ id = "Btn", label = "Buy", enabled = false }) },
+				}),
+			},
+		}))
+		pres.refresh()
+		-- the group carries the whole fade, in engine units
+		local group = adapter.node("/S/Wrap")
+		expect(group.canvasGroupInstance ~= nil).toBe(true)
+		expect(group.canvasGroupInstance.groupTransparency).toBeCloseTo(0.6)
+		-- ...and the control inside it was never told about any of it: no fade group
+		-- of its own, and not one transparency write on its path. THAT is what keeps
+		-- the sheet's `:NonInteractable` rule the only writer of its TextTransparency.
+		expect(adapter.node("/S/Wrap/Btn").canvasGroupInstance).toBeNil()
+		local childFades: { string } = {}
+		for _, op in adapter.takeOps() do
+			if string.find(op, "/S/Wrap/Btn", 1, true) and string.find(op, "transparency", 1, true) then
+				table.insert(childFades, op)
+			end
+		end
+		expect(table.concat(childFades, " | ")).toBe("")
 	end)
 
 	it("the authored domain is refused rather than clamped: opacity outside 0..1, scale <= 0", function()

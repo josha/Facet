@@ -2405,6 +2405,69 @@ local function distance(a: string, b: string): number
 	return prev[lb + 1]
 end
 
+--[[ A REFUSED CAPABILITY SAYS SO AT THE POINT OF USE (ADR-0029, director round
+	2026-08-15).
+
+	`opacity` and `canvasGroup` live on `Box` and `ZStack` and nowhere else, and
+	until this round every other class answered `UI.Text{ opacity = 0.4 }` through
+	the generic unknown-property path: *"unknown property 'opacity'. Valid
+	properties: …"*. That reads as a gap in the schema rather than a decision, it
+	sends the author to a list that does not contain the answer, and it never
+	mentions the one line that works. The director's ruling: a capability that is
+	refused should say so where it is reached for.
+
+	WHY IT IS REFUSED, measured rather than reasoned (live probes L1/L4,
+	2026-08-15, artifacts/leaf-opacity/live-probes.md). A per-node fade would have
+	to write `TextTransparency`/`BackgroundTransparency`, which the native sheet
+	owns. The cost is not that the rule loses this frame — it is that
+	`GetStyled(prop)` returns THE EXPLICIT WRITE from then on, so the sheet's own
+	value stops being readable at all. A composition needs a base term, and the act
+	of composing destroys the only way to read it: measured, a leaf at
+	`opacity = 0.5` recomposing on `GetStyledPropertyChangedSignal` multiplied its
+	own output back in on every state transition and reached T = 0.998 — invisible
+	— after four disable/enable cycles.
+
+	ONE MESSAGE FOR BOTH SPELLINGS, and it is deliberately not class-shaped: the
+	reason is the same for a leaf and for a `VStack`, because the fact is about
+	which engine INSTANCE can carry the one alpha property no rule owns, not about
+	having children. ]]
+local REFUSED_FADE = "A fade in LuauUI is one engine property no style rule owns — "
+	.. "CanvasGroup.GroupTransparency — and only a node materialized as a CanvasGroup has one. "
+	.. "UI.Box and UI.ZStack are the two classes that can BE one. Anywhere else the fade would have to "
+	.. "write TextTransparency/BackgroundTransparency, which the native stylesheet owns, and one explicit "
+	.. "write does not lose a frame: it makes the sheet's value unreadable for good (GetStyled returns the "
+	.. "write from then on), so a control under it would stop dimming when disabled, forever. "
+	.. "The spelling is one wrap: UI.ZStack{ opacity = 0.4, children = { … } }. "
+	.. "`scale` and `rotation` need no wrap and are offered on every rendered class, because each of them "
+	.. "IS one engine property no rule owns (UIScale.Scale, GuiObject.Rotation). See ADR-0029."
+
+local REFUSED: { [string]: string } = {
+	opacity = REFUSED_FADE,
+	canvasGroup = REFUSED_FADE,
+}
+
+--[[ refusal(class, prop) -> why this class does not offer `prop`, when the answer
+	is "the framework refused it" rather than "nobody thought of it". nil otherwise,
+	which is every other property on every class.
+
+	SCOPED TO THE CLASSES THAT PAINT AN ENGINE INSTANCE, and `scale` is the marker
+	for that set — a rendered class carries the shared box props, a structural one
+	(`When`, `ForEach`, `Region`, `GridRow`, `ErrorBoundary`) carries none of them
+	and has no instance to fade. On those five `opacity` is genuinely unknown rather
+	than refused, and the message above would be a wrong answer. ]]
+function schema.refusal(className: string, prop: string): string?
+	local why = REFUSED[prop]
+	if why == nil then
+		return nil
+	end
+	local spec = CLASSES[className]
+	-- the class HAS it (Box, ZStack), or does not paint at all: nothing was refused
+	if spec == nil or spec.props[prop] ~= nil or spec.props.scale == nil then
+		return nil
+	end
+	return why
+end
+
 -- suggest(class, badProp) -> "did you mean 'x' or 'y'?" style list (may be empty)
 --
 -- THE TWO RESERVED KEYS ARE CANDIDATES TOO (BP-F14). `id` and `children` live
