@@ -125,6 +125,17 @@ local WORKLOADS = {
 		implementation = "luauui",
 		question = "Are decoding, resource lifecycle and UI updates separated and bounded?",
 		passes = { "imagesCold", "imagesWarm", "imagesFail", "imagesReuse" },
+		--[[ THE PASS `Profile 1` LOOPS, WHICH IS NOT `passes[1]` HERE.
+
+			`imagesCold`, `imagesWarm` and `imagesFail` are one-shot STATE CHANGES —
+			set the resource state, refresh once — and the declared order cold → warm
+			→ fail → reuse is what `steps.run()` should execute. Looped, each of them
+			re-sets a flag that is already set: measured at 1 arrange and 0 mounts per
+			lap, headless and on the device alike. `imagesReuse` is the only one that
+			churns the window, so it is the only one a profiling capture can contain.
+			Device capture `asyncImage.html`, 2026-08-15, is twenty-nine byte-identical
+			frames of `imagesCold`; see device-capture-2026-08-15.md. ]]
+		profilePass = "imagesReuse",
 	},
 	{
 		-- `implementation = "none"` on purpose: the pass mounts its own surface, so
@@ -162,6 +173,66 @@ local WORKLOADS = {
 		implementation = "none",
 		question = "What do virtualization, multi-selection and reordering cost in ONE container, and does each verb still reach a row no window has held?",
 		passes = { "tableUnified" },
+	},
+	--[[ THE TWO NAMED LEVERS (2026-08-15), declared here and IMPLEMENTED in
+		`examples/performance/lab/levers.luau`.
+
+		`device-capture-2026-08-15.md` §7 ranks two levers and records that neither
+		has a workload aimed at it: `arrange` itself (top cost in all four device
+		captures, 9.1-10.6 ms/occurrence, worst 298.87 ms) and incremental layout on
+		a COLLECTION EDIT (L-27 measured it inert on a resize, which is the case
+		where every constraint changes; a collection edit is the opposite case and
+		has never been measured). These are those two.
+
+		AN ARM IS A PASS, which is the whole point of the shape. `extentArms` runs
+		five arms inside one pass — 540 frames per lap — so a 60-frame MicroProfiler
+		aggregate could never contain the comparison it was built for, and nothing in
+		the dump named which arm the window landed in (L-35 D3). Here one lap is one
+		arm, and `profileWindow` already stamps `LuauUI_ProfilingPass` into a
+		`workspace` attribute, so the arm identity is in the session for free.
+
+		WHY THE PASS NAMES ARE WRITTEN OUT HERE. This table is the one answer to
+		"what workloads exist" — the picker, the sweep, the capture rows and
+		`steps.workloads` all read it — and this module must stay `script`-free to
+		run under Lune, so it cannot `require` the file that implements them. The
+		duplication is closed at the bottom of `build`: every declared pass is
+		asserted to have been installed, and the spec asserts these lists are exactly
+		`levers.SHAPE_ARMS` / `levers.EDIT_ARMS`.
+
+		ADDING THEM DOES NOT MOVE `SCENARIO_VERSION` — no existing workload's steps
+		change, and a bump would declare all 18 admissible capture rows to describe a
+		workload that no longer exists. Same ruling as the 2026-08-14 pair and L-33. ]]
+	{
+		id = "arrange-shapes",
+		implementation = "none",
+		question = "WHICH tree shape makes `arrange` expensive — and is the cost per NODE flat, "
+			.. "or does one of arrange's per-kind phases dominate?",
+		passes = { "flat", "flatRepeat", "deep", "deepScroll", "fill", "zstack", "wrap", "scroll", "text" },
+		--[[ THE DEFAULT DUMP IS THE CONTROL, deliberately. An operator gets one dump
+			before they have any calibration at all, and `flat` is the arm every other
+			number is quoted against: the shortest path through arrange's stack branch,
+			so its ms-per-arranged-node is the floor. A dump of `fill` alone says
+			"expensive"; `flat` then `fill` says what the distribution phase costs. ]]
+		profilePass = "flat",
+	},
+	{
+		id = "edit-locality",
+		implementation = "none",
+		question = "Does a data edit that changes nothing visible still re-solve what did not move — "
+			.. "and does incremental layout bite on a collection edit, where L-27 found it inert on a resize?",
+		passes = {
+			"editOffWindow",
+			"editOffWindowRepeat",
+			"editOffWindowIncremental",
+			"editInWindow",
+			"editInWindowIncremental",
+		},
+		--[[ THE DEFAULT DUMP IS THE ARM NOBODY HAS EVER CAPTURED. The incremental-OFF
+			case is already tier-3 priced — `collectionChurn.html` is 26 solves per
+			frame at 9.384 ms each, and (see levers.luau) the lab's own default meant
+			the reuse path was DISABLED for it. The ON case has no capture at any tier,
+			on the one edit shape where the reuse path has a reason to work. ]]
+		profilePass = "editOffWindowIncremental",
 	},
 	{
 		id = "lifecycle-soak",
@@ -220,13 +291,17 @@ return {
 		-- supplied by the lab client in Studio and by the test harness in Lune.
 		local lab = ctx.lab
 		assert(
-			type(lab) == "table" and lab.dataset ~= nil and lab.rows ~= nil and lab.capture ~= nil,
-			"[perf lab] ctx.lab must carry { dataset, rows, capture, overlay } — see examples/performance/client/init.client.luau"
+			type(lab) == "table" and lab.dataset ~= nil and lab.rows ~= nil and lab.capture ~= nil and lab.levers ~= nil,
+			"[perf lab] ctx.lab must carry { dataset, rows, capture, overlay, levers } — see examples/performance/client/init.client.luau"
 		)
 		local dataset = lab.dataset
 		local rows = lab.rows
 		local capture = lab.capture
 		local overlayLib = lab.overlay
+		-- the two named levers (arrange by tree shape, incremental layout on a
+		-- collection edit). Its passes are installed into `passes` below, once the
+		-- helpers they share with this file exist.
+		local leversLib = lab.levers
 		-- profiler wrapper: the framework's own, handed in by the lab client so
 		-- driver scopes and framework scopes come from ONE implementation and can
 		-- never disagree about naming or balance. Absent headlessly -> a no-op span
@@ -371,6 +446,23 @@ return {
 			"stop looping" — and one variable answering both is what let a pass
 			overrule the operator. ]]
 		local profileStopRequested = false
+		--[[ WHICH ARM `Profile 1` WILL LOOP, per workload.
+
+			The two lever workloads declare their ARMS as passes (see levers.luau), and an
+			arm comparison needs one dump per arm — so the operator has to be able to pick
+			one. On a phone that means a BUTTON, and it means the button cannot be the one
+			that starts the loop: `Profile 1` runs until Stop, so a control that both
+			advanced the arm and started a run would either race the running loop or need
+			two presses to do one thing. So `Arm >` only MOVES the pointer and says where
+			it landed; `Profile 1` reads it. Two buttons, one job each, no concurrency.
+
+			Per workload rather than global: cycling away to check something and back
+			should not silently re-aim a capture session at arm 1.
+
+			Nil means "whatever `profileWindow` would default to" (`profilePass`, else
+			`passes[1]`), so an untouched lab behaves exactly as it did before this
+			existed and every recorded capture stays valid. ]]
+		local profileArm: { [string]: number } = {}
 		local rampIndex = 0
 		local lastCapture: any = nil
 
@@ -384,6 +476,8 @@ return {
 		-- below it (they need the step table). A plain later `local` would be nil at
 		-- call time — which is exactly how the first version failed.
 		local raiseOverlay: () -> boolean
+		-- forward, for the same reason: the action row is built above the arm helpers
+		local selectedArmPayload: () -> string?
 
 		local function clock(): number
 			return telemetry.clock()
@@ -1615,6 +1709,32 @@ return {
 			local reps = math.clamp(math.floor(tonumber(r or "") or defaultReps), 1, 200)
 			return frames, reps
 		end
+
+		--[[ THE TWO NAMED LEVERS' PASSES, installed here because this is the first
+			point at which every helper they share with this file exists.
+
+			They are handed the SAME `timed`, `summarize`, `scopeCount`, `framesAndReps`
+			and `viewportH` this file uses, rather than re-deriving any of them, so an
+			arm in `levers.luau` and a pass here can never disagree about what a
+			millisecond, a percentile or a scope count is. See that file's header for why
+			it is a separate module (the 200,000-char live-sync cap) and for what each
+			arm isolates. ]]
+		leversLib.install({
+			LuauUI = LuauUI,
+			core = core,
+			ctx = ctx,
+			labScope = labScope,
+			dataset = dataset,
+			rows = rows,
+			settings = settings,
+			telemetry = telemetry,
+			timed = timed,
+			summarize = summarize,
+			scopeCount = scopeCount,
+			framesAndReps = framesAndReps,
+			viewportH = viewportH,
+			passes = passes,
+		})
 
 		passes.extentArms = function(payload: string?)
 			return timed("extentArms", function()
@@ -3851,8 +3971,15 @@ return {
 				moved down one level instead of going away.
 
 				So the loop is over ONE pass, named, defaulting to the workload's first.
-				A capture then contains that pass and nothing else. ]]
-			local passName = wantPass or w.passes[1]
+				A capture then contains that pass and nothing else.
+
+				...AND THE DEFAULT IS `profilePass` WHEN THE WORKLOAD DECLARES ONE.
+				`passes[1]` is the first step of the workload's declared SEQUENCE,
+				which is not always a step that survives being looped — see
+				`async-image-churn`, whose first three passes are one-shot state
+				changes and whose device capture is twenty-nine identical frames as a
+				result. An explicit `wantPass` still wins over both. ]]
+			local passName = wantPass or w.profilePass or w.passes[1]
 			if passes[passName] == nil then
 				error(
 					`[LuauUI PerfLab] profileWindow: '{id}' declares no pass '{tostring(passName)}'. `
@@ -3912,16 +4039,65 @@ return {
 						return `{math.floor(v.w)}x{math.floor(v.h)}`
 					end)()}`
 			)
+			--[[ WHAT ONE LAP PROVOKED, ON THE PHONE, BEFORE THE DUMP IS TAKEN.
+
+				Three device captures have now been lost to aiming, and each one was
+				invisible until a binary MicroProfiler dump had been parsed on a
+				laptop: two sampled a workload with no framework in it, and
+				`asyncImage.html` (2026-08-15) sampled `imagesCold`, a pass whose lap
+				is one solve and no structural work — twenty-nine byte-identical
+				frames. `profilePass` above aims the default; this is the guard for
+				every future version of the same mistake, including one in a pass
+				nobody has written yet.
+
+				A READOUT, NOT A REFUSAL, and deliberately so: `idle-baseline` is a
+				legitimate zero, and a threshold separating "inert" from "cheap" would
+				be a number invented here rather than measured. The operator holding
+				the phone can read `mount=0 arrange=1` and not bother dumping.
+
+				`measured` is the honesty field. `cleanCapture` turns phase scopes OFF
+				(`scopeCount` is nil-safe and returns 0 either way), so a bare zero
+				would accuse a healthy pass of exactly the defect this exists to
+				catch. Zero never stands in for "not counted". ]]
+			local LAP_SCOPES = { "arrange", "measure", "mount", "react", "commit", "resource", "reset" }
+			local function lapCounts(): { [string]: number }
+				local out: { [string]: number } = {}
+				for _, key in LAP_SCOPES do
+					out[key] = scopeCount(key)
+				end
+				return out
+			end
+			local lapWork: any = { measured = false }
 			local laps = 0
 			while not profileStopRequested and (maxLaps <= 0 or laps < maxLaps) do
 				laps += 1
 				statusLine:set(`PROFILING {id}/{passName} · lap {laps} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`)
+				local before = lapCounts()
 				local ok, err = pcall(function()
 					passes[passName]()
 				end)
 				if not ok then
 					statusLine:set(`PROFILING {id}/{passName} FAILED on lap {laps}: {tostring(err)}`)
 					break
+				end
+				local after = lapCounts()
+				local moved = false
+				local work: any = {}
+				for _, key in LAP_SCOPES do
+					work[key] = after[key] - before[key]
+					if after[key] > 0 then
+						moved = true
+					end
+				end
+				-- ONE scope having ever fired is what says the instrument is on; a lap
+				-- whose own deltas are all zero is the finding, not the failure.
+				work.measured = moved
+				lapWork = work
+				if moved then
+					statusLine:set(
+						`PROFILING {id}/{passName} · lap {laps} · arrange={work.arrange} mount={work.mount} `
+							.. `react={work.react} resource={work.resource} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`
+					)
 				end
 				--[[ YIELD BETWEEN LAPS, UNCONDITIONALLY — the loop must not depend
 					on the pass to do it.
@@ -3951,6 +4127,9 @@ return {
 				laps = laps,
 				maxLaps = maxLaps,
 				stopped = emergencyStopped,
+				-- the scope deltas of the LAST lap; `measured = false` means phase
+				-- scopes were off, never that the lap did nothing
+				lapWork = lapWork,
 				note = "ONE pass on a loop, so a ~1s MicroProfiler window cannot miss it and cannot "
 					.. "drift into a later pass. Press Stop to end. Dump: Ctrl+F6 (Cmd+F6 on macOS), "
 					.. "Ctrl+P to pause, then Dump -> Dump in binary format.",
@@ -3959,6 +4138,51 @@ return {
 
 		steps.workloads = function()
 			return { order = WORKLOAD_ORDER, workloads = WORKLOADS, scenarioVersion = SCENARIO_VERSION }
+		end
+
+		--[[ THE ARM POINTER'S TWO OPERATIONS, defined once and reachable from a test.
+
+			A control only a person can press is a control only a person can catch when it
+			breaks — the same reason `overlayControls` exposes the scenario cycler. Both
+			are exported there. ]]
+		local function armIndexOf(w: any): number
+			local current = profileArm[w.id]
+			if current ~= nil then
+				return math.clamp(current, 1, math.max(1, #w.passes))
+			end
+			-- not yet touched: start from the arm `profileWindow` would pick on its own,
+			-- so the FIRST press advances off the default rather than landing back on it
+			local want = w.profilePass or w.passes[1]
+			for i, name in w.passes do
+				if name == want then
+					return i
+				end
+			end
+			return 1
+		end
+		local function advanceArm(): string?
+			local w = WORKLOAD_BY_ID[settings.scenario]
+			if w == nil or #w.passes == 0 then
+				-- `idle-baseline` declares no passes at all, and a button that silently
+				-- does nothing is worse than one that says why
+				statusLine:set(`'{tostring(settings.scenario)}' declares no passes — nothing to arm`)
+				return nil
+			end
+			local nextIndex = armIndexOf(w) % #w.passes + 1
+			profileArm[w.id] = nextIndex
+			local name = w.passes[nextIndex]
+			statusLine:set(`arm {nextIndex}/{#w.passes}: {name} — press Profile 1`)
+			return name
+		end
+		-- the payload `Profile 1` hands `profileWindow`: nil until the arm button has
+		-- been pressed for this workload, so an untouched lab is unchanged
+		function selectedArmPayload(): string?
+			local id = settings.scenario
+			local w = WORKLOAD_BY_ID[id]
+			if w == nil or profileArm[id] == nil or #w.passes == 0 then
+				return nil
+			end
+			return `{id}:{w.passes[math.clamp(profileArm[id], 1, #w.passes)]}`
 		end
 
 		-- the overlay's action row, wired now that the steps exist
@@ -3981,8 +4205,18 @@ return {
 				-- ~1s capture window cannot miss what it is aimed at
 				run = function()
 					task.spawn(function()
-						steps.profileWindow(nil, nil)
+						-- ...at the arm `Arm >` last landed on, if it was ever pressed. An
+						-- explicit payload still wins over both, as it always did.
+						steps.profileWindow(nil, selectedArmPayload())
 					end)
+				end,
+			},
+			{
+				id = "Arm",
+				-- NEXT ARM, not "run the next arm": see `profileArm`
+				label = "Arm >",
+				run = function()
+					advanceArm()
 				end,
 			},
 			{
@@ -4137,6 +4371,21 @@ return {
 				end,
 				scenarioPosition = function(): string
 					return overlayModel.scenarioPosition:get()
+				end,
+				-- THE ARM SELECTOR, for the same reason the cycler is here: an arm
+				-- comparison needs one dump per arm, the operator is holding a phone,
+				-- and a control only a person can press is a control only a person can
+				-- catch when it breaks.
+				advanceArm = function(): string?
+					return advanceArm()
+				end,
+				-- the payload `Profile 1` will hand `profileWindow`; nil until `Arm >`
+				-- has been pressed for this workload
+				selectedArm = function(): string?
+					return selectedArmPayload()
+				end,
+				status = function(): string
+					return statusLine:get()
 				end,
 			},
 			report = function()

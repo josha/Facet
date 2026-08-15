@@ -24,6 +24,7 @@ local dataset = require("../examples/performance/lab/dataset")
 local rowsLib = require("../examples/performance/lab/rows")
 local captureLib = require("../examples/performance/lab/capture")
 local overlayLib = require("../examples/performance/lab/overlay")
+local leversLib = require("../examples/performance/lab/levers")
 local perf_lab = require("../examples/performance/lab/perf_lab")
 -- the pass-level round-trip readout is only populated while phase scopes are
 -- recording, and scopes ship OFF (src/core/profile.luau) — so one case here
@@ -42,6 +43,7 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 	local system = LuauUI.newActionSystem(core)
 	local pres = LuauUI.newPresenter(core, env, adapter, system)
 	local clock = 0
+	local steps = 0
 	local host: any = {
 		facts = function()
 			return {
@@ -74,7 +76,7 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 		presenter = pres,
 		actionSystem = system,
 		host = host,
-		lab = { dataset = dataset, rows = rowsLib, capture = captureLib, overlay = overlayLib },
+		lab = { dataset = dataset, rows = rowsLib, capture = captureLib, overlay = overlayLib, levers = leversLib },
 		labOptions = labOpts,
 		telemetry = {
 			clock = function()
@@ -82,6 +84,10 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 				return clock
 			end,
 			step = function()
+				-- COUNTED, so "one lap fits a 60-frame MicroProfiler window" is a
+				-- checkable claim rather than a design intention. `telemetry.step` is
+				-- the lab's frame-yield seam: one call is one frame on the engine.
+				steps += 1
 				return 0
 			end,
 			instances = function()
@@ -111,6 +117,12 @@ local function newHarness(hostOverrides: any?, viewport: { w: number, h: number 
 		},
 	}
 	local built = perf_lab.build(ctx)
+	-- the yield count, exposed beside the scenario's own surface. Not part of
+	-- perf_lab's contract — this harness owns the seam, so this harness reports it.
+	local anyBuilt = built :: any
+	anyBuilt.framesYielded = function(): number
+		return steps
+	end
 	return built, ctx, core
 end
 
@@ -444,7 +456,13 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		-- windowing, multi-selection and reordering at once). Both were unmeasurable
 		-- before — every other workload windows by ONE number and none of them touches
 		-- `newTable` at all.
-		expect(#declared.order).toBe(14)
+		-- SIXTEEN since the two named levers joined (device-capture-2026-08-15 §7):
+		-- `arrange-shapes` (arrange is the top cost in all four device captures and no
+		-- workload was aimed at it) and `edit-locality` (incremental layout on a
+		-- COLLECTION edit, the opposite case to the resize L-27 measured it inert on).
+		-- Their passes live in `examples/performance/lab/levers.luau`, so this loop is
+		-- also what proves that file's installation reached the declaration.
+		expect(#declared.order).toBe(16)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
 				-- `pass` refuses an unknown name, so an unimplemented pass in a
@@ -1339,6 +1357,332 @@ describe("perf lab: profileWindow cannot be aimed at nothing (device captures 1 
 		expect(out.laps).toBe(2)
 		-- steps.run would have executed all seven passes; profileWindow must not use it
 		expect(#ran).toBe(0)
+		built.dispose()
+	end)
+end)
+
+--[[ DEVICE CAPTURE 5, 2026-08-15: THE THIRD AIMING FAILURE — a pass that runs.
+
+	`asyncImage.html` (SM-A102U1, tier 3) holds twenty-nine BYTE-IDENTICAL frames:
+	2 arranges, 2 measures, 0 mounts, 0 `LuauUI/resource`, every frame. The
+	workload was `async-image-churn` and the looped pass was `w.passes[1]` =
+	`imagesCold`, whose whole body is `settings.resourceState = "cold"` plus one
+	`presenter.refresh()`. Reproduced headless to the unit
+	(`tools/lune/_probe_profile_aim`): one lap = 1 arrange, 0 mounts, 0 resources.
+
+	This is NOT the `dense-scroll-native` failure above (a workload with no
+	framework in it) and NOT the `steps.run` failure (a window that cannot escape
+	pass #1). It is a pass that is legitimate INSIDE the workload's declared
+	sequence — cold, warm, fail, reuse is a meaningful order — and meaningless on a
+	loop, because looping it re-sets a flag that is already set. Only `imagesReuse`
+	churns the window, so only `imagesReuse` is profilable.
+
+	Two guards, because they fail differently: `profilePass` aims the default, and
+	`lapWork` makes ANY future version of this mistake visible ON THE PHONE instead
+	of after a binary dump has been parsed. ]]
+describe("perf lab: profileWindow cannot be aimed at a pass that does nothing (device capture 5)", function()
+	it("loops the workload's declared PROFILE pass, not blindly its first one", function()
+		local built = newHarness()
+		local out = built.steps.profileWindow(nil, "async-image-churn::1")
+		-- `imagesCold` is passes[1] and is the pass the device capture wasted
+		expect(out.pass).toBe("imagesReuse")
+		expect(out.scenario).toBe("async-image-churn")
+		built.dispose()
+	end)
+
+	it("...and an explicitly named pass still overrides it", function()
+		local built = newHarness()
+		local out = built.steps.profileWindow(nil, "async-image-churn:imagesCold:1")
+		expect(out.pass).toBe("imagesCold")
+		built.dispose()
+	end)
+
+	it("reports what ONE lap provoked, so an empty capture is visible before it is taken", function()
+		-- the REAL profile module, for the reason the resizeStorm case records: a
+		-- stub's `byScope` is always empty and a check reading zeros from it proves
+		-- nothing
+		local built = newHarness({ profile = profile })
+		profile.resetCounters()
+		profile.setEnabled(true)
+		profile.setHooks(function() end, function() end)
+		local ok, result = pcall(function()
+			local churn = built.steps.profileWindow(nil, "async-image-churn:imagesReuse:1")
+			local inert = built.steps.profileWindow(nil, "async-image-churn:imagesCold:1")
+			return { churn = churn, inert = inert }
+		end)
+		profile.setHooks(nil, nil)
+		profile.setEnabled(false)
+		profile.resetCounters()
+		if not ok then
+			error(result, 0)
+		end
+		local churn = (result :: any).churn
+		local inert = (result :: any).inert
+		-- the instrument is live at all: without this the assertions below are vacuous
+		expect(churn.lapWork.measured).toBe(true)
+		expect(inert.lapWork.measured).toBe(true)
+		-- THE DIFFERENCE THE DEVICE CAPTURE COULD NOT BE TOLD WITHOUT A BINARY DUMP.
+		-- A churning lap restructures the window; the inert lap mounts nothing, which
+		-- is exactly the shape of the twenty-nine identical frames.
+		expect(churn.lapWork.mount > 0).toBe(true)
+		expect(inert.lapWork.mount).toBe(0)
+		expect(churn.lapWork.arrange > inert.lapWork.arrange).toBe(true)
+		built.dispose()
+	end)
+
+	it("says the readout is UNMEASURED rather than zero when the profiler is off", function()
+		-- `cleanCapture` turns scopes off on purpose, and a lap readout that printed
+		-- `mount=0` in that configuration would accuse a healthy pass of the defect
+		-- this case exists to catch. Zero must never stand in for "not counted".
+		local built = newHarness()
+		local out = built.steps.profileWindow(nil, "async-image-churn:imagesReuse:1")
+		expect(out.lapWork.measured).toBe(false)
+		built.dispose()
+	end)
+end)
+
+--[[ THE TWO NAMED LEVERS (device-capture-2026-08-15 §7).
+
+	`arrange-shapes` and `edit-locality` exist because that capture ranked two levers
+	and recorded that neither had a workload aimed at it. Their arms live in
+	`examples/performance/lab/levers.luau`; the cases below are the ones that decide
+	whether an arm MEASURES what it claims to, because every failure mode here
+	produces a tidy number rather than an error:
+
+	  * nine arms that are secretly nine copies of `flat`
+	  * an A/B whose two halves carry the same configuration
+	  * a lap too long for the 60-frame window it was built for
+	  * a pass that runs its whole ladder inside one frame
+
+	Each was a real defect in this lab's history, in a different pass.
+]]
+describe("perf lab: the two named levers measure what they claim (device capture 6)", function()
+	it("the declared arms ARE the installed arms — the two files cannot drift apart", function()
+		-- `perf_lab.WORKLOADS` names the passes as strings and `levers.luau` installs
+		-- them, because perf_lab must stay `script`-free and so cannot require it.
+		-- This is what makes that duplication checkable.
+		local built = newHarness()
+		local declared = built.steps.workloads()
+		local byId: any = {}
+		for _, w in declared.workloads do
+			byId[w.id] = w
+		end
+		expect(table.concat(byId["arrange-shapes"].passes, ",")).toBe(table.concat(leversLib.SHAPE_ARMS, ","))
+		expect(table.concat(byId["edit-locality"].passes, ",")).toBe(table.concat(leversLib.EDIT_ARMS, ","))
+		-- ...and the default a `Profile 1` press aims at is one of them
+		expect(byId["arrange-shapes"].profilePass).toBe("flat")
+		expect(byId["edit-locality"].profilePass).toBe("editOffWindowIncremental")
+		built.dispose()
+	end)
+
+	it("the nine shape arms are NINE TREES, not nine copies of the control", function()
+		--[[ THE "CHECK THAT PROVES NOTHING" GUARD FOR THIS WORKLOAD. One typo in the
+			`kind` chain and every arm builds `flat`; the arms then agree with each
+			other beautifully and the workload reports that tree shape does not matter.
+			The oracle is the SOLVER's own per-solve counts, not anything the pass
+			computes about itself. ]]
+		local built = newHarness()
+		local out: any = {}
+		for _, arm in leversLib.SHAPE_ARMS do
+			out[arm] = built.steps.pass(nil, `{arm}=10/4`).detail
+		end
+		-- every arm arranges at least its leaves, so none of them silently built nothing
+		for _, arm in leversLib.SHAPE_ARMS do
+			expect(out[arm].arrangedNodes >= leversLib.SHAPE_LEAVES).toBe(true)
+		end
+		-- depth: 30 nested containers instead of 1
+		expect(out.deep.arrangedNodes > out.flat.arrangedNodes).toBe(true)
+		-- the fill distribution's SECOND MEASURE, and the zstack's double measure:
+		-- both measure strictly more than the control at the same node count
+		expect(out.fill.measuredNodes > out.flat.measuredNodes).toBe(true)
+		expect(out.zstack.measuredNodes > out.flat.measuredNodes).toBe(true)
+		-- the flow planner caches its lines, so wrap measures FEWER
+		expect(out.wrap.measuredNodes < out.flat.measuredNodes).toBe(true)
+		-- and the headline: the measure fan-out from arrange is what depth costs
+		expect(out.deep.measuresPerArrangedNode > 4 * out.flat.measuresPerArrangedNode).toBe(true)
+		built.dispose()
+	end)
+
+	it("every rep provokes exactly ONE full solve — a rep that dirties nothing measures nothing", function()
+		--[[ THE `imagesCold` DEFECT CLASS, in the shape it would take here. These
+			arms provoke a solve by writing the root container's padding; a write of the
+			value it already holds is not a dirty, so a loop that stopped alternating
+			would time an idle refresh and report a beautiful, meaningless number. One
+			solve per rep is what makes `usPerArrangedNode` a per-solve cost at all.
+
+			NOT `partialSolves == 0`: that was tried and is vacuous. The reuse path
+			needs a byte-identical rect to skip anything and this provocation moves
+			every rect, so the arms measure a full arrange whether the flag is on or
+			off — flipping it to `true` reddens nothing. Measured, not assumed. ]]
+
+		-- THE REAL PROFILE MODULE, or every number below is zero and the check
+		-- passes on a mutation it was written to catch. `scopeCount` is nil-safe by
+		-- design (clean-capture mode turns scopes off), so the harness's default
+		-- no-op profiler makes `arrangePerRep` read 0.00 for a healthy arm — which is
+		-- exactly what this case was doing before it was run against unmutated source.
+		local built = newHarness({ profile = profile })
+		profile.resetCounters()
+		profile.setEnabled(true)
+		profile.setHooks(function() end, function() end)
+		local ok, details = pcall(function()
+			local out: any = {}
+			for _, arm in leversLib.SHAPE_ARMS do
+				out[arm] = built.steps.pass(nil, `{arm}=10/4`).detail
+			end
+			return out
+		end)
+		profile.setHooks(nil, nil)
+		profile.setEnabled(false)
+		profile.resetCounters()
+		if not ok then
+			error(details, 0)
+		end
+		for _, arm in leversLib.SHAPE_ARMS do
+			local detail = (details :: any)[arm]
+			expect(`{arm}:{detail.arrangePerRep}`).toBe(`{arm}:1`)
+			expect(`{arm}:{detail.measurePerRep}`).toBe(`{arm}:1`)
+		end
+		built.dispose()
+	end)
+
+	it("the incremental A/B is TWO configurations: one skips nothing, the other skips almost everything", function()
+		--[[ THE LEVER-2 MEASUREMENT ITSELF, as an invariant. Two arms that both read
+			`settings.incremental` would be one configuration measured twice, which is
+			the shape `extentArms` guards against with its `itemExtentMode` assertion.
+			Here the oracle is the renderer's own `partialSolves` / `lastSkipped`. ]]
+		local built = newHarness()
+		local off = built.steps.pass(nil, "editOffWindow=10/6").detail
+		local on = built.steps.pass(nil, "editOffWindowIncremental=10/6").detail
+		expect(off.incremental).toBe(false)
+		expect(on.incremental).toBe(true)
+		expect(off.partialSolvesPerEdit).toBe(0)
+		expect(off.lastSkipped).toBe(0)
+		-- L-27 found the reuse path INERT on a resize. On a collection edit it bites:
+		-- it serves a partial solve for every edit and skips most of the tree.
+		expect(on.partialSolvesPerEdit).toBe(1)
+		expect(on.lastSkipped > 0).toBe(true)
+		expect(on.arrangedNodes < off.arrangedNodes // 2).toBe(true)
+		built.dispose()
+	end)
+
+	it("an off-window edit provokes ONE solve and NO structural sync", function()
+		-- the half of L-35's finding that was healthy: 25 inserts ~475 rows outside
+		-- the mounted window provoked zero `LuauUI/mount` on the device. This holds
+		-- it, and pins the other half — one full solve per edit — as the cost.
+		local built = newHarness({ profile = profile })
+		profile.resetCounters()
+		profile.setEnabled(true)
+		profile.setHooks(function() end, function() end)
+		local ok, detail = pcall(function()
+			return built.steps.pass(nil, "editOffWindow=10/8").detail
+		end)
+		profile.setHooks(nil, nil)
+		profile.setEnabled(false)
+		profile.resetCounters()
+		if not ok then
+			error(detail, 0)
+		end
+		expect((detail :: any).arrangePerEdit).toBe(1)
+		expect((detail :: any).mountPerEdit).toBe(0)
+		-- and the premise: the edit landed where nothing is mounted
+		expect((detail :: any).mountedRows < (detail :: any).logicalRows // 4).toBe(true)
+		built.dispose()
+	end)
+
+	it("ONE LAP FITS A 60-FRAME WINDOW, and every rep yields a frame", function()
+		--[[ THE RULE `variable-extents` BROKE. One `extentArms` lap is 5 arms x 108
+			reps = 540 frames; a MicroProfiler aggregate window is 60 and its event ring
+			is 30, so that dump could never contain the comparison it was built for. And
+			`collection-churn/insert` runs 25 edits with no yield between them, so one
+			lap is ONE 557 ms frame — unmeasurable from the other direction.
+
+			Both are checked here at the DEFAULT reps, because the default is what
+			`Profile 1` uses and nobody types a payload on a phone. ]]
+		for _, arm in leversLib.SHAPE_ARMS do
+			local built = newHarness()
+			local before = (built :: any).framesYielded()
+			built.steps.pass(nil, arm)
+			local lapFrames = (built :: any).framesYielded() - before
+			expect(lapFrames > 0).toBe(true)
+			expect(lapFrames <= 60).toBe(true)
+			built.dispose()
+		end
+		for _, arm in leversLib.EDIT_ARMS do
+			local built = newHarness()
+			local before = (built :: any).framesYielded()
+			built.steps.pass(nil, arm)
+			local lapFrames = (built :: any).framesYielded() - before
+			expect(lapFrames > 0).toBe(true)
+			expect(lapFrames <= 60).toBe(true)
+			built.dispose()
+		end
+	end)
+end)
+
+--[[ THE ARM SELECTOR (device-capture-2026-08-15 §6, D3).
+
+	An arm comparison needs one dump per arm, and the operator is holding a phone —
+	so the arm has to be pickable without typing a payload. The overlay's action row
+	gained `Arm >`, which only MOVES a per-workload pointer; `Profile 1` reads it.
+	Two buttons rather than one because `Profile 1` loops until Stop: a control that
+	both advanced the arm and started a run would race the loop it just started.
+
+	Exposed through `overlayControls` for the reason the scenario cycler is: a
+	control only a person can press is a control only a person can catch when it
+	breaks.
+]]
+describe("perf lab overlay: the arm selector aims Profile 1 without a payload", function()
+	it("advances through the declared arms, wraps, and starts from what Profile would pick", function()
+		local built = newHarness()
+		built.overlayControls.selectScenario("edit-locality")
+		-- untouched: `Profile 1` aims at the declared profilePass
+		expect(built.overlayControls.selectedArm()).toBe(nil)
+		-- ...so the FIRST press advances OFF that default rather than landing on it
+		expect(built.overlayControls.advanceArm()).toBe("editInWindow")
+		expect(built.overlayControls.advanceArm()).toBe("editInWindowIncremental")
+		-- and it wraps rather than stopping at the end
+		expect(built.overlayControls.advanceArm()).toBe("editOffWindow")
+		built.dispose()
+	end)
+
+	it("the pointer is PER WORKLOAD — cycling away and back does not re-aim the session", function()
+		local built = newHarness()
+		built.overlayControls.selectScenario("edit-locality")
+		built.overlayControls.advanceArm()
+		expect(built.overlayControls.selectedArm()).toBe("edit-locality:editInWindow")
+		built.overlayControls.selectScenario("arrange-shapes")
+		expect(built.overlayControls.selectedArm()).toBe(nil)
+		expect(built.overlayControls.advanceArm()).toBe("flatRepeat")
+		built.overlayControls.selectScenario("edit-locality")
+		expect(built.overlayControls.selectedArm()).toBe("edit-locality:editInWindow")
+		built.dispose()
+	end)
+
+	it("Profile 1 actually loops the arm the pointer names", function()
+		local built = newHarness()
+		built.overlayControls.selectScenario("arrange-shapes")
+		--[[ BOUNDED TO ONE LAP HERE, and only here. `Profile 1` presses this with no
+			lap cap on purpose — a profiling session runs until Stop — but this harness
+			is synchronous and Lune has no `task`, so an unbounded loop is an infinite
+			one that ends in `table overflow` rather than a failed expectation. The
+			`::1` / `:<pass>:1` suffix is the same shape the aiming cases above use. ]]
+		local function loopOnce(payload: string?): string
+			return built.steps.profileWindow(nil, `{payload or "arrange-shapes:"}:1`).pass
+		end
+		-- untouched -> the declared default
+		expect(loopOnce(built.overlayControls.selectedArm())).toBe("flat")
+		built.overlayControls.advanceArm()
+		built.overlayControls.advanceArm()
+		expect(built.overlayControls.advanceArm()).toBe("deepScroll")
+		expect(loopOnce(built.overlayControls.selectedArm())).toBe("deepScroll")
+		built.dispose()
+	end)
+
+	it("a workload that declares no passes says so instead of doing nothing", function()
+		local built = newHarness()
+		built.overlayControls.selectScenario("idle-baseline")
+		expect(built.overlayControls.advanceArm()).toBe(nil)
+		expect(string.find(built.overlayControls.status(), "no passes") ~= nil).toBe(true)
 		built.dispose()
 	end)
 end)

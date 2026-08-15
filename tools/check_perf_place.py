@@ -52,6 +52,11 @@ REQUIRED = [
     ("ReplicatedStorage/LuauUIScenarios/rows", "ModuleScript"),
     ("ReplicatedStorage/LuauUIScenarios/capture", "ModuleScript"),
     ("ReplicatedStorage/LuauUIScenarios/overlay", "ModuleScript"),
+    # the two named levers of device-capture-2026-08-15 §7 (`arrange-shapes`,
+    # `edit-locality`). NOT optional: `perf_lab` asserts `ctx.lab.levers` at build,
+    # so a place that dropped this module cannot mount ANY workload — which is the
+    # failure this list exists to catch at the gate instead of at the phone.
+    ("ReplicatedStorage/LuauUIScenarios/levers", "ModuleScript"),
     # the ornate reference package the flat-vs-ornate comparison needs
     ("ReplicatedStorage/LuauUIThemes/fantasy_ornate", "ModuleScript"),
     # the bootstrap and the matched raw-Roblox reference
