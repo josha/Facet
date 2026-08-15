@@ -308,6 +308,34 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- VirtualList's WINDOWING ARITHMETIC (2026-08-15). NOT a control: it mounts
+		-- nothing — it is the running-offset index over src/virtual_extents.luau,
+		-- the measurement cache's storage, the row->index map, the canvas Dim, the
+		-- clamped scroll offset, the keyed window and the row-path spelling. Lifted
+		-- out of src/controls/virtual_list.luau verbatim because the only mutable
+		-- upvalues it writes are its own memo-input cache, which is what took that
+		-- file back under the 200,000-char `Script.Source` WRITE cap
+		-- (docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md).
+		--
+		-- Its four-input story IS the VirtualList row's above: every windowing case
+		-- cited there is this arithmetic answering.
+		name = "VirtualWindow",
+		kind = "composite",
+		module = "src/controls/virtual_window.luau",
+		export = "newVirtualList",
+		spec = "tests/virtualization.spec.luau",
+		conformance = "tests/virtualization.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- NO INSTANCE: it returns a bag of reactive nodes VirtualList closes over,
+		-- and every number in them is already in list.dump() (contentExtent,
+		-- scrollTop, window, measuredRows/measureEpoch) — a second copy here would
+		-- be the same numbers twice.
+		dump = false,
+		reason = "returns the reactive index VirtualList closes over; its live values (contentExtent, scrollTop, the window, the measurement epoch) are already reported by list.dump()",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "PopupButton",
 		kind = "composite",
 		module = "src/controls/popup_button.luau",

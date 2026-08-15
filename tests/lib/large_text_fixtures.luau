@@ -776,6 +776,9 @@ local UNSWEEPABLE: { [string]: string } = {
 	VirtualReorder = "the DRAG half of VirtualList: canvas-offset arithmetic, reorder commits, slide springs and "
 		.. "the edge-autoscroll model — no blueprint, nothing to mount or measure. The rows it moves are swept "
 		.. "through the VirtualList fixture, at every preference",
+	VirtualWindow = "the WINDOWING arithmetic of VirtualList: a running-offset index and the memos over it — no "
+		.. "blueprint, nothing to mount or measure. The rows it windows are swept through the VirtualList "
+		.. "fixture, at every preference, and the measured-extent form is what that sweep re-measures",
 	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
 		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
 		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "

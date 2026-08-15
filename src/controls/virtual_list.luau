@@ -274,8 +274,8 @@ local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
-local virtual_extents = require("../virtual_extents")
 local virtual_reorder = require("./virtual_reorder")
+local virtual_window = require("./virtual_window")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
 -- have to be escaped first. Module scope, not per-instance: it is a pure
@@ -891,206 +891,66 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 
 	local listScope = core:scope(`virtual-list-{id}`)
-	--[[ ── THE RUNNING-OFFSET INDEX (variable item extents, 2026-08-14) ───────────
-		ONE PLACE ANSWERS "where is slot i, and which slots does this viewport
-		touch". Everything that used to multiply by the pitch — the canvas extent,
-		the scroll clamp, window membership, each row's canvas offset and box, the
-		keep-visible target, the insertion slot and its hairline — reads it, so the
-		two arithmetics can never disagree about the same list.
+	--[[ ===== THE WINDOWING ARITHMETIC LIVES IN `./virtual_window.luau`
+		(2026-08-15, the 200,000-char Source-write cap — tools/check_source_size.py).
 
-		WHICH ARITHMETIC IS CHOSEN ONCE, AT BUILD, on `itemExtentIsVariable`:
+		~300 lines moved out VERBATIM: the running-offset index and its input cache,
+		the measurement cache's storage, the per-row extents, the row->index map,
+		the declared slot, the canvas Dim, the clamped scroll offset, the keyed
+		window, and the row-path spelling. `scrollTop`, the engine CanvasPosition
+		mirror, went with them because the clamp is its only consumer here and the
+		index is what it feeds.
 
-		  · UNIFORM (`virtual_extents.uniform`) is the pre-feature formulas verbatim.
-		    It allocates nothing, answers in O(1), and every shipped list keeps the
-		    numbers and the window it always had. Where a memo body would have gained
-		    a dependency it did not have — a row's own extent, a row's own offset —
-		    the branch below keeps the OLD body instead of routing through here, so a
-		    uniform list's per-row reactivity is unchanged too.
+		IT WRITES NO MUTABLE UPVALUE OF THIS CLOSURE — the two it did write
+		(`cachedInputs`/`cachedIndex`) are its own memo-input cache and nothing else
+		read them, so they left with the code. Everything it needs from here is a
+		construction-time constant or a never-reassigned `local function`, so it is
+		threaded as an explicit dependency table rather than captured.
 
-		  · VARIABLE (`virtual_extents.variable`) builds a prefix sum: O(N)
-		    ARITHMETIC once per data change — no item built, nothing measured — and
-		    O(log N) per query. That distinction IS the design. Virtualization's
-		    promise is not to build or measure what you cannot see, and adding up N
-		    numbers breaks neither; the rejected alternative ("measure every item at
-		    mount") breaks both, which is why `virtual_list_variable_extents.spec`
-		    counts cell builds rather than timing anything.
+		WHAT STAYED: `measuredCount` (a plain number cannot be shared by reference),
+		the prune/selection observer below, and `measureWindow` — the `syncGeometry`
+		seam that FILLS the cache. `measured`/`lastRowExtent`/`measuredEpoch` come
+		back BY REFERENCE and those two sites keep mutating them in place.
 
-		The extents are resolved INSIDE the memo, so a function that reads live facts
-		through its `use` argument makes the whole table re-derive when they move. ]]
-	--[[ ── THE MEASUREMENT CACHE (measured extents, Stage 2) ──────────────────────
-		key -> the px this row's cell last MEASURED on the scroll axis. Written by
-		`measureWindow` (the `syncGeometry` seam, far below), read by `extentsFor`,
-		pruned with the data by the `indexByKey` observer.
-
-		KEYED, NOT INDEXED, and that is load-bearing: a re-sort moves every index and
-		moves no row's height, so an index-keyed cache would discard every
-		measurement on a sort and re-converge from the estimate — a visible re-flow
-		for a change that moved no geometry.
-
-		THE EPOCH IS THE REACTIVE HANDLE, since a plain table is not a Readable.
-		Bumped once per BATCH of changed measurements, never per row and never when
-		nothing changed; `sameLayoutInputs` then compares the extents element-wise, so
-		an epoch bump producing the same numbers rebuilds no index either. ]]
-	local measured: { [string]: number } = {}
+		EVERY EXPORT IS REBOUND TO A LOCAL OF ITS ORIGINAL NAME, so no call site in
+		this file changed. ]]
+	local window = virtual_window.new({
+		core = core,
+		listScope = listScope,
+		spec = spec,
+		id = id,
+		axis = axis,
+		overscan = overscan,
+		itemExtentSpec = itemExtentSpec,
+		itemExtentIsVariable = itemExtentIsVariable,
+		itemExtentIsMeasured = itemExtentIsMeasured,
+		itemExtentIsPerItem = itemExtentIsPerItem,
+		itemExtentIn = itemExtentIn,
+		estimateIn = estimateIn,
+		rowGapIn = rowGapIn,
+		viewportIn = viewportIn,
+	})
+	local SLOT_CONTENT_FROM = window.SLOT_CONTENT_FROM
+	local canvasDim = window.canvasDim
+	local clampedTop = window.clampedTop
+	local extentsFor = window.extentsFor
+	local indexByKey = window.indexByKey
+	local lastRowExtent = window.lastRowExtent
+	local layoutIndex = window.layoutIndex
+	local layoutNow = window.layoutNow
+	local measured = window.measured
+	local measuredEpoch = window.measuredEpoch
+	local pathOf = window.pathOf
+	local rowExtentIn = window.rowExtentIn
+	local rowPathUnder = window.rowPathUnder
+	local scrollTop = window.scrollTop
+	local slotDeclaration = window.slotDeclaration
+	local windowItems = window.windowItems
+	-- HOW CONVERGED A MEASURED LIST IS, reported by `dump()`. Kept here rather
+	-- than in the index because it is a plain NUMBER: `measureWindow` below and
+	-- the prune observer both write it, and a number cannot be shared by
+	-- reference the way `measured` itself is.
 	local measuredCount = 0
-	local measuredEpoch = listScope:own(core:signal(0))
-	local function extentsFor(use: any): { number }
-		local items = use(spec.rows) :: { any }
-		local out = table.create(math.max(#items, 1))
-		if itemExtentIsMeasured then
-			-- the dependency on the measurements, declared once for the whole table
-			use(measuredEpoch)
-			local estimate = estimateIn(use)
-			for i = 1, #items do
-				out[i] = measured[spec.key(items[i])] or estimate
-			end
-			return out
-		end
-		for i = 1, #items do
-			local px = (itemExtentSpec :: any)(items[i], i, use)
-			if type(px) ~= "number" or px ~= px or px <= 0 then
-				-- NAME THE ROW. On a 10,000-item list "itemExtent returned nil" without
-				-- the key is a scavenger hunt, and the key is what the consumer's own
-				-- data is addressed by.
-				error(
-					`newVirtualList '{id}': spec.itemExtent(item, {i}) returned {tostring(px)} for row `
-						.. `'{tostring(spec.key(items[i]))}' — a per-item extent must be a positive number of px `
-						.. "(the item's size along the list's own axis).",
-					0
-				)
-			end
-			out[i] = px
-		end
-		return out
-	end
-	--[[ THE INDEX IS CACHED ON ITS INPUTS, and the reason is worth writing down
-		because the obvious spelling does not work.
-
-		An index is six closures and a table. Building one is cheap; building one on
-		every DATA EDIT is a tax every shipped list pays, and a list is edited far
-		more often than its geometry moves (a rename, a live value ticking, a re-sort
-		of equal-height rows). The obvious fix — hand `core:memo` an equality — does
-		NOT do this: a memo's `eq` is OBSERVER-facing only (`src/core/custom.luau`,
-		`notify`); `markMemosStale` invalidates the whole downstream subtree
-		unconditionally and `pull` overwrites `node.value` without comparing. So the
-		cache is inside the body, keyed on the numbers that actually decide the
-		geometry, and it returns the SAME index object when none of them moved.
-
-		THE JUSTIFICATION IS THE MECHANISM, NOT A NUMBER. The headless perf runner
-		cannot resolve one allocation per edit: an A/A control on the list scenes
-		measured a ±5%..±28% noise band, so no honest before/after exists at tier 1
-		(device is authoritative — §14.3). What IS observable is the construction
-		count, and `virtual_list_variable_extents.spec` counts it directly. ]]
-	local function sameLayoutInputs(a: any, b: any): boolean
-		if a == nil or b == nil or a.gap ~= b.gap then
-			return false
-		end
-		if not itemExtentIsVariable then
-			return a.count == b.count and a.extent == b.extent
-		end
-		local x, y = a.extents, b.extents
-		if #x ~= #y then
-			return false
-		end
-		for i = 1, #x do
-			if x[i] ~= y[i] then
-				return false
-			end
-		end
-		return true
-	end
-	local cachedInputs: any = nil
-	local cachedIndex: any = nil
-	local layoutIndex = listScope:own(core:memo(function(use)
-		local inputs: any = if itemExtentIsVariable
-			then { extents = extentsFor(use), gap = rowGapIn(use) }
-			else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
-		if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
-			return cachedIndex
-		end
-		cachedInputs = inputs
-		cachedIndex = if itemExtentIsVariable
-			then virtual_extents.variable(inputs.extents, inputs.gap)
-			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
-		return cachedIndex
-	end))
-	local function layoutNow(): any
-		return layoutIndex:get() :: any
-	end
-	--[[ VALIDATE THE CURRENT DATA AT THE CALL SITE. A throwing memo body is
-		QUARANTINED by the core (`src/core/custom.luau`'s `fail`) — it records the
-		message and the memo reads `nil`, which downstream turns into "attempt to
-		iterate over a nil value" three frames away from the mistake. That is the
-		wrong channel for an authoring error, so the extents are resolved once here,
-		outside any memo, where the error unwinds out of `build()` naming the row.
-
-		THE COST IS ONE EXTRA PASS OVER THE DATA AT CONSTRUCTION and nothing after:
-		the memo's own first pull would have made that pass regardless. Data that
-		arrives LATER and is invalid still lands on the quarantine channel — the
-		construction check is what makes the common case (a function that was always
-		wrong) fail where it was written. ]]
-	if itemExtentIsPerItem then
-		extentsFor(function(readable: any): any
-			return readable:get()
-		end)
-	end
-	--[[ ── THE DECLARED SLOT, HANDED TO THE SOLVER (2026-08-13) ────────────────────
-		This control makes the CONSUMER responsible for predicting its own row's
-		extent — `index × itemExtent` is O(1) and exact only because that extent is
-		one declared number — and for the whole life of the control nothing checked
-		the prediction. The perf lab's own `rows.heightFor` is the case study: it
-		learned the viewport width, then the type scale, then the theme insets, each
-		one AFTER a device pass caught rows painting over each other, and never
-		learned the accessibility text preference at all (at `preferredTextOffset`
-		4/10/14 every row overflowed its 56px slot by 11/39/59px).
-
-		SO THE ROW CARRIES ITS OWN DECLARATION DOWN TO THE ONE PLACE THAT KNOWS THE
-		TRUTH. The extent is not knowable here — it is a function of the viewport,
-		the typography scale, the theme metrics and the text preference, and the
-		first two are not decided until a solve — so this is not a construction
-		refusal but a fact the solver checks per solve and reports through
-		`controller.diagnostics()` (the channel `tests/overflow_sweep.spec.luau`
-		already fails the suite on).
-
-		ONE TABLE FOR THE WHOLE LIST ON THE UNIFORM PATH, not one per row: every
-		field is a property of the LIST, and the row's own identity is already its
-		node path (`…/W/[key]/Row/…`), which is what the finding is filed under. A
-		row's marginal cost is one prop assignment. It is a memo only because
-		`itemExtent` may be a Readable; a plain number resolves it once and never
-		again.
-
-		UNDER VARIABLE EXTENTS THE DECLARATION IS PER ROW, because that is what it
-		now is — see `rowSlotDeclaration`. The guard does not go away with this
-		feature and must not: a declared per-item extent is still a PREDICTION, so a
-		row can still exceed it, and now the finding names that row's own number
-		instead of one list-wide one.
-
-		IT PUBLISHES THE DECLARED EXTENT, NEVER THE ROW'S CURRENT BOX — a hosted
-		row-actions commit collapse drives one row's box down its own height ladder
-		on purpose, and comparing against the box would make that animation shout. ]]
-	-- child 1 is the control's own full-row hit Button; the consumer's cell is
-	-- everything from 2 on (a cell that is a `UI.When`/`UI.ForEach` splices
-	-- several children in, and they all sit after the hit)
-	local SLOT_CONTENT_FROM = 2
-	local slotDeclaration = if itemExtentIsVariable
-		then nil
-		else listScope:own(core:memo(function(use)
-			return {
-				list = id,
-				axis = axis,
-				extent = itemExtentIn(use),
-				contentFrom = SLOT_CONTENT_FROM,
-			}
-		end))
-	--[[ scrollTop: the engine CanvasPosition MIRROR (native-substrate NS-A2). Fed
-		by bindNativeScroll (engine observer) or a test; NEVER a hand-rolled offset.
-
-		IT IS THE OFFSET ON THE LIST'S OWN AXIS — `CanvasPosition.Y` on
-		`axis = "y"`, `CanvasPosition.X` on `axis = "x"`. The NAME is vertical and
-		is kept anyway, deliberately: it is public API that consumers and tests
-		read by name, and renaming it would be a breaking change this field does
-		not need. Read it as "the offset from the start of the canvas". ]]
-	local scrollTop = listScope:own(core:signal(0))
 	local focusedKey = listScope:own(core:signal(nil))
 	local selectedKey = listScope:own(core:signal(nil :: string?))
 	local armedKey = listScope:own(core:signal(nil :: string?))
@@ -1099,104 +959,6 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local dropIndex = listScope:own(core:signal(nil :: number?))
 	local autoscrollState = listScope:own(core:signal({ state = "idle", band = nil :: string? }))
 
-	-- key -> 1-based index in the CURRENT data
-	local indexByKey = listScope:own(core:memo(function(use)
-		local map: { [string]: number } = {}
-		for i, item in use(spec.rows) :: { any } do
-			map[spec.key(item)] = i
-		end
-		return map
-	end))
-
-	--[[ ONE ROW'S DECLARED EXTENT, BY KEY — what the row's box is sized to and
-		what its slot declaration promises the solver.
-
-		UNIFORM: the list's one number, read WITHOUT touching `layoutIndex`, so a
-		constant extent still resolves once and never recomputes.
-
-		VARIABLE: that row's own entry in the running-offset index.
-
-		THE LAST-KNOWN CACHE EXISTS FOR ONE FRAME OF ONE CASE: a row whose key has
-		already left the data but whose node has not yet unmounted. Its index is nil,
-		and answering 0 there would collapse the row's box on its way out and make
-		the slot guard shout at a corpse. It keeps the extent it last had instead.
-		Entries are written only by MOUNTED rows and pruned with the data below, so
-		the cache is window-sized, not list-sized. ]]
-	local lastRowExtent: { [string]: number } = {}
-	local function rowExtentIn(use: any, key: string): number
-		if not itemExtentIsVariable then
-			return itemExtentIn(use)
-		end
-		local index = (use(indexByKey) :: { [string]: number })[key]
-		if index == nil then
-			return lastRowExtent[key] or 0
-		end
-		local px = (use(layoutIndex) :: any).extentOf(index)
-		lastRowExtent[key] = px
-		return px
-	end
-
-	-- the full virtual extent as a live fixed Dim: the ScrollView's single Canvas
-	-- child is this big ALONG THE SCROLL AXIS, so the solver's scroll-axis sum ==
-	-- the full virtual extent and the renderer pushes it as CanvasSize (native §6).
-	-- Rows mount only in the window, but the canvas always spans the whole list.
-	local canvasDim = listScope:own(core:memo(function(use)
-		return { type = "fixed", px = use(layoutIndex).content }
-	end))
-
-	-- scroll clamped into the content band, so garbage/overshoot mirror values
-	-- cannot mount phantom windows
-	local clampedTop = listScope:own(core:memo(function(use)
-		local maxTopPx = math.max(0, use(layoutIndex).content - viewportIn(use))
-		local raw = use(scrollTop)
-		if type(raw) ~= "number" or raw ~= raw then
-			return 0
-		end
-		return math.clamp(raw, 0, maxTopPx)
-	end))
-
-	-- the window: visible rows + overscan, keyed. Equality compares the KEY
-	-- SEQUENCE, so a same-window scroll delta never fires the ForEach.
-	local function sameWindow(a: { any }, b: { any }): boolean
-		if type(a) ~= "table" or type(b) ~= "table" or #a ~= #b then
-			return false
-		end
-		for i, entry in a do
-			if entry.key ~= b[i].key then
-				return false
-			end
-		end
-		return true
-	end
-	local windowItems = listScope:own(core:memo(function(use)
-		local items = use(spec.rows) :: { any }
-		local top = use(clampedTop)
-		-- SLOTS, not rows, and the index owns which arithmetic that is: division
-		-- on a uniform list, a binary search over the prefix sums on a variable one
-		local first, last = use(layoutIndex).window(top, viewportIn(use), overscan)
-		local window = {}
-		for i = first, last do
-			table.insert(window, { key = spec.key(items[i]), item = items[i] })
-		end
-		return window
-	end, sameWindow))
-
-	-- ONE definition of a row's path shape under a given root (`{root}` is the
-	-- standalone `/{id}` for the public form and the mounted ScrollView path for
-	-- the screen-rooted one). Every caller that needs a row or hit path goes
-	-- through here, so the ForEach's `W/[{key}]` convention (src/mount.luau) is
-	-- written down exactly once.
-	local function rowPathUnder(root: string, key: string): string
-		return `{root}/Canvas/W/[{key}]/Row`
-	end
-	local function pathOf(key: string): string?
-		for _, entry in windowItems:get() :: { any } do
-			if entry.key == key then
-				return rowPathUnder(`/{id}`, key)
-			end
-		end
-		return nil
-	end
 	-- the MOUNTED row-hit path (screen-prefixed), which is what the renderer's
 	-- registry and the focus graph key on. `pathOf` is deliberately
 	-- standalone-rooted for the public API, so the two must not be confused: a
