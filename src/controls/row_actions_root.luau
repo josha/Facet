@@ -8,9 +8,19 @@
 	and the edit-mode leading minus painted over the lot.
 
 	HOSTED MODE BUILDS NONE OF THIS. A closed hosted row must cost its host
-	nothing at all, so `buildEngine` simply does not call this — the seams the
+	nothing at all, so `buildEngine` simply does not call `build` — the seams the
 	nodes used to answer for (paths, paint, the presenter handoffs) are
 	`pathsOf`/`applySlide`/`contributionFields` instead.
+
+	ONE EXCEPTION, AND IT IS DELIBERATE: `buildEditAffordance` (2026-08-15, stage 1
+	of `docs/plans/table-hosted-row-actions-stage2.md`'s order). The edit-mode minus
+	is the one node BOTH modes want, for the same reason the trays are
+	(`row_actions_trays.luau`): a hosted host parents it under its own overlay
+	instead of this file's row root, and a parent is not a reason to have two
+	constructions of one button that can drift apart. So it is a SECOND exported
+	function rather than an inline block, `buildEngine` calls it whenever
+	`hasEditAffordance`, and `build` below merely receives the result. Table is the
+	only surface that has an edit mode at all, and it cannot host without this.
 
 	IT SHARES NOTHING MUTABLE WITH THE ENGINE. Every input is a build-time fact or
 	a reactive node `buildEngine` creates once and never reassigns: `offset`,
@@ -21,7 +31,9 @@
 	(docs/lessons/the-200k-source-cap-is-on-writing-not-loading.md,
 	tools/check_source_size.py).
 
-	PUBLIC INTERFACE: `build(p) -> any` (the root blueprint).
+	PUBLIC INTERFACE: `build(p) -> any` (the root blueprint) and
+	`buildEditAffordance(p) -> any` (the edit-mode minus `UI.When`, used by BOTH
+	modes — see above).
 
 	DEPENDS ON: `./row_actions_metrics` for the `EDIT_AFFORDANCE` theme key alone.
 
@@ -57,34 +69,35 @@ export type Params = {
 	-- caller drives them from its own hit surface (`externalGesture`)
 	pointerHandlers: any,
 	externalGesture: boolean,
-	-- Task 9, all nil/false unless this row can ever show the edit-mode minus
+	-- Task 9, all nil/false unless this row can ever show the edit-mode minus.
+	-- `editAffordanceView` is built by `buildEditAffordance` below, in
+	-- `buildEngine` (both modes) — nil when `hasEditAffordance` is false.
 	hasEditAffordance: boolean,
 	editAffordanceShown: any,
 	editGutterPx: any,
-	firstDestructiveEntry: () -> any,
+	editAffordanceView: any,
 }
 
-function row_actions_root.build(p: Params): any
-	local UI = p.UI
-	local core = p.core
-	local scope = p.scope
-	local id = p.id
-	local width = p.width
-	local content = p.content
-	local trayViews = p.trayViews
-	local offset = p.offset
-	local rowHeightOverride = p.rowHeightOverride
-	local pointerHandlers = p.pointerHandlers
-	local externalGesture = p.externalGesture
-	local hasEditAffordance = p.hasEditAffordance
-	local editAffordanceShown = p.editAffordanceShown
-	local editGutterPx = p.editGutterPx
-	local firstDestructiveEntry = p.firstDestructiveEntry
+export type EditAffordanceParams = {
+	UI: any,
+	-- `editAffordanceShown` — the live "is this row editing" memo
+	-- (row_actions_metrics); the `UI.When` mounts nothing while it is false
+	editAffordanceShown: any,
+	-- the destructive action this minus stands for, for its accessible label
+	-- (nil is legal — the fallback name below is used)
+	destructiveEntry: any,
+}
 
-	-- the trays (`row_actions_trays`, built once for both modes) come FIRST, in
-	-- declared order: array order is paint order, and Content — inserted
-	-- last, below — slides over them.
-	local children = table.clone(trayViews)
+--[[ THE EDIT-MODE MINUS, BUILT ONCE FOR BOTH MODES (2026-08-15, stage 1 of the
+	Table-hosting order). Standalone/Table parents it in `build` below, last, so a
+	trailing swipe passes under it; a HOST parents it in its own per-list overlay
+	beside the shared trays, at the path it declared as `spec.paths.editAffordance`.
+	Same node ids in both — `EditAffordanceWhen/then/EditAffordance` — because the
+	engine's Activate route matches on that suffix under whichever root applies. ]]
+function row_actions_root.buildEditAffordance(p: EditAffordanceParams): any
+	local UI = p.UI
+	local editAffordanceShown = p.editAffordanceShown
+	local destructiveEntry = p.destructiveEntry
 
 	-- ===== Task 9: the edit-mode leading minus =============================
 	-- iOS pattern: while editing AND a destructive action exists somewhere,
@@ -143,35 +156,55 @@ function row_actions_root.build(p: Params): any
 	-- mapping instead: a solid danger-filled disc with an onDanger minus,
 	-- visually consistent with the trailing tray's own destructive button
 	-- one tap away — the closer real-iOS match besides.
-	local editAffordanceView: any = nil
-	if hasEditAffordance then
-		local destructiveEntry = firstDestructiveEntry()
-		editAffordanceView = UI.When({
-			id = "EditAffordanceWhen",
-			condition = editAffordanceShown,
-			thenView = function()
-				return UI.Button({
-					id = "EditAffordance",
-					anchor = "left",
-					shape = "circle",
-					role = "destructive",
-					icon = "decrement", -- the framework's own minus glyph (standard_icons)
-					-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
-					-- unfocusable, non-activating; this IS a Button, so it
-					-- needs one). `Button.label` is the framework's own
-					-- "required even when the button renders custom content...
-					-- stays the semantic name and is not drawn" seam
-					-- (blueprint_schema.luau) — the SAME icon-only-control
-					-- precedent `shape = "circle"` exists for. Reuses the
-					-- destructive action's own label (typically "Delete") so
-					-- the announced name matches exactly what a second tap
-					-- reaches.
-					label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
-					width = { type = "fixed", px = EDIT_AFFORDANCE },
-				})
-			end,
-		})
-	end
+	return UI.When({
+		id = "EditAffordanceWhen",
+		condition = editAffordanceShown,
+		thenView = function()
+			return UI.Button({
+				id = "EditAffordance",
+				anchor = "left",
+				shape = "circle",
+				role = "destructive",
+				icon = "decrement", -- the framework's own minus glyph (standard_icons)
+				-- ACCESSIBLE LABEL (the reorder Grip carries none — it is
+				-- unfocusable, non-activating; this IS a Button, so it
+				-- needs one). `Button.label` is the framework's own
+				-- "required even when the button renders custom content...
+				-- stays the semantic name and is not drawn" seam
+				-- (blueprint_schema.luau) — the SAME icon-only-control
+				-- precedent `shape = "circle"` exists for. Reuses the
+				-- destructive action's own label (typically "Delete") so
+				-- the announced name matches exactly what a second tap
+				-- reaches.
+				label = if destructiveEntry ~= nil then destructiveEntry.action.label else "Delete",
+				width = { type = "fixed", px = EDIT_AFFORDANCE },
+			})
+		end,
+	})
+end
+
+function row_actions_root.build(p: Params): any
+	local UI = p.UI
+	local core = p.core
+	local scope = p.scope
+	local id = p.id
+	local width = p.width
+	local content = p.content
+	local trayViews = p.trayViews
+	local offset = p.offset
+	local rowHeightOverride = p.rowHeightOverride
+	local pointerHandlers = p.pointerHandlers
+	local externalGesture = p.externalGesture
+	local hasEditAffordance = p.hasEditAffordance
+	local editGutterPx = p.editGutterPx
+	-- built by `buildEditAffordance` above, in `buildEngine`, so hosted mode gets
+	-- the identical node — nil exactly when `hasEditAffordance` is false
+	local editAffordanceView = p.editAffordanceView
+
+	-- the trays (`row_actions_trays`, built once for both modes) come FIRST, in
+	-- declared order: array order is paint order, and Content — inserted
+	-- last, below — slides over them.
+	local children = table.clone(trayViews)
 
 	-- THE EDIT GUTTER IS A PADDING, NOT AN OFFSET (director device round
 	-- 2026-08-12, finding 2 — this replaces the branch that shipped).

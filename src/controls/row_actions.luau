@@ -313,6 +313,10 @@ export type HostedPaths = {
 	content: string, -- the host's own row node: the row's live rect/screen rect
 	trayLeading: string?, -- the shared overlay's leading tray container
 	trayTrailing: string?,
+	-- where the host mounts `api.editAffordanceView` (stage 1, 2026-08-15).
+	-- Required exactly when that view exists — an unreachable minus that
+	-- ANNOUNCES itself as "Delete" is refused at build time, not shipped.
+	editAffordance: string?,
 }
 
 export type HostedSpec = {
@@ -322,6 +326,8 @@ export type HostedSpec = {
 	fullSwipe: (boolean | { leading: boolean?, trailing: boolean? })?,
 	coordinator: any?,
 	env: any?,
+	-- `Readable<boolean>?`, same contract as `Spec.editing` — see `HOSTED_KEYS`
+	editing: any?,
 	paths: HostedPaths,
 	onSlide: (px: number) -> (),
 	onCommitHeight: ((px: number?) -> ())?,
@@ -378,6 +384,14 @@ export type HostedEngine = {
 	-- the tray `UI.When` blueprints — the SAME ones standalone mode parents under
 	-- its row root, for the host to parent under its shared overlay (Task 4)
 	trayViews: { any },
+	-- ...and the edit-mode minus, same deal (stage 1). BOTH are nil unless this
+	-- row can ever show it: `spec.editing` wired AND a destructive action
+	-- somewhere. `editGutterPx` is a `Readable<number>` the host declares as its
+	-- own row content's left PADDING — not a callback, because the gutter stopped
+	-- being an offset at the director's 2026-08-12 device round (finding 2) and a
+	-- padding is a declaration, not an event.
+	editAffordanceView: any,
+	editGutterPx: any,
 	syncGeometry: ((rectOf: ((string) -> any)?, rootNode: any?) -> ())?,
 	bindMotion: (clock: any, now: (() -> number)?) -> (),
 	bindController: (controller: any) -> (),
@@ -405,10 +419,20 @@ local ROW_ACTIONS_KEYS = specGuard.keySet({
 	"width",
 })
 -- The hosted spec is NOT the standalone spec plus three keys: `content`,
--- `width`, `editing` and `externalGesture` are all statements about a
--- blueprint this mode never builds (`externalGesture` is implied — there is
--- no internal Hit Grip to suppress), so each is refused by name rather than
--- silently ignored.
+-- `width` and `externalGesture` are all statements about a blueprint this mode
+-- never builds (`externalGesture` is implied — there is no internal Hit Grip to
+-- suppress), so each is refused by name rather than silently ignored.
+--
+-- `editing` USED TO BE ON THAT LIST AND NO LONGER IS (2026-08-15, stage 1 of the
+-- order in `docs/plans/table-hosted-row-actions-stage2.md`). The refusal was
+-- filed under the same sentence as the other three and was not true of it: the
+-- minus is ONE `UI.When` view — exactly the shape `trayViews` already hands a
+-- host to parent — and the gutter is ONE Readable the host declares as its own
+-- row content's left padding. Nothing about either is a statement about a
+-- blueprint. It was a prerequisite, not a property: Table is the only surface
+-- with an edit mode, it ships, and it is gamepad-reachable through the
+-- `padMinusTable` showcase case *because* VirtualList cannot do it — so a Table
+-- that hosted without this would have had to delete that case.
 local HOSTED_KEYS = specGuard.keySet({
 	"id",
 	"leading",
@@ -417,11 +441,16 @@ local HOSTED_KEYS = specGuard.keySet({
 	"coordinator",
 	"env",
 	"deletable",
+	"editing",
 	"paths",
 	"onSlide",
 	"onCommitHeight",
 })
-local HOSTED_PATH_KEYS = specGuard.keySet({ "content", "trayLeading", "trayTrailing" })
+-- `editAffordance` is the path the host mounts `api.editAffordanceView` at —
+-- `{itsOwnParent}/EditAffordanceWhen/then/EditAffordance`, the node ids the view
+-- itself declares — because that is the path an Activate on the minus arrives
+-- on. Required exactly when the minus can ever appear (see `buildEngine`).
+local HOSTED_PATH_KEYS = specGuard.keySet({ "content", "trayLeading", "trayTrailing", "editAffordance" })
 -- ACTION_KEYS / FULL_SWIPE_KEYS live in `row_actions_spec.luau` beside the only
 -- two functions that read them (`buildActionSpec`, `normalizeFullSwipe`).
 
@@ -677,6 +706,29 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- identical to Tasks 3-8 (measured: Task 9 report §Instance Count).
 	local editingReadable = spec.editing
 	local hasEditAffordance = hasDestructive and editingReadable ~= nil
+
+	--[[ THE HOSTED MINUS NEEDS A PATH, for the same reason a hosted tray does
+		(fix round 1, finding 1 — see `buildHosted`'s own tray-path refusals). This
+		engine mounts nothing, so an Activate on the minus can only get home by
+		matching the path the HOST mounted it at. Without one, `handleActivate`
+		below has no pattern, returns `false` for every press, and the host forwards
+		it nowhere — a button that borrows the destructive action's own accessible
+		label and therefore ANNOUNCES itself as "Delete" would do nothing at all.
+		The same class of silent degradation the tray-path refusal exists for.
+
+		CHECKED HERE, NOT IN `buildHosted`: `hasEditAffordance` is the honest
+		condition ("can this row EVER show the minus"), and it needs the validated
+		action lists, which is work `buildHosted` would have to duplicate. ]]
+	local hostedEditPath: string? = if hosted ~= nil then (hosted.paths :: any).editAffordance else nil
+	if isHosted and hasEditAffordance and (type(hostedEditPath) ~= "string" or hostedEditPath == "") then
+		error(
+			`LuauUI {label}('{id}'): \`editing\` on a row with a destructive action requires `
+				.. "`paths.editAffordance` (where the host mounts `editAffordanceView`) — without it the "
+				.. "minus is mounted but unreachable: every Activate on it falls through, and a button "
+				.. 'that announces itself as "Delete" does nothing',
+			0
+		)
+	end
 
 	-- Task 8: every action, leading-then-trailing, DOCUMENT ORDER — the
 	-- action menu's own row order (brief: "listing EVERY action (leading
@@ -2749,6 +2801,21 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		REVEAL_EPS = REVEAL_EPS,
 	})
 
+	--[[ ...AND THE EDIT-MODE MINUS, ON THE SAME TERMS (stage 1, 2026-08-15).
+		One `UI.When`, built here for BOTH modes exactly as `trayViews` above is,
+		because the only difference between the modes is who PARENTS it: this
+		composite's own row root in standalone/Table (`row_actions_root.build`
+		receives it), the host's shared overlay in hosted mode (`api.editAffordanceView`
+		hands it over). `nil` unless this row can ever show it, so an uninvolved
+		caller pays nothing — the guarantee `hasEditAffordance`'s own comment makes. ]]
+	local editAffordanceView: any = if hasEditAffordance
+		then rowActionsRoot.buildEditAffordance({
+			UI = UI,
+			editAffordanceShown = editAffordanceShown,
+			destructiveEntry = firstDestructiveEntry(),
+		})
+		else nil
+
 	local blueprint: any
 	-- the contribution field bundle (see its own comment where it is built)
 	local contributionFields: any = nil
@@ -2792,7 +2859,7 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 				hasEditAffordance = hasEditAffordance,
 				editAffordanceShown = editAffordanceShown,
 				editGutterPx = editGutterPx,
-				firstDestructiveEntry = firstDestructiveEntry,
+				editAffordanceView = editAffordanceView,
 			})
 		end
 
@@ -2817,7 +2884,18 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 		end
 		-- Task 9: a single fixed node (no per-action index needed, unlike the
 		-- tray's own `Action:<id>` list).
-		local editAffordancePattern = `/{idPattern}/EditAffordanceWhen/then/EditAffordance$`
+		--
+		-- Stage 1 (hosted): the SAME split `actionIdFromPath` just above makes, for
+		-- the same reason — standalone keys on this composite's own node ids under
+		-- its learned root, hosted on the ONE path the host declared. Hosted is an
+		-- EXACT match (`^…$`), not a suffix: every row in a hosted list mounts its
+		-- minus with the identical two node ids under a per-list overlay, so a
+		-- suffix match would let row 2's minus delete row 1. Standalone keeps its
+		-- suffix form — `idPattern` is this row's own unique id, which is what makes
+		-- the suffix unambiguous there.
+		local editAffordancePattern = if hostedPaths ~= nil
+			then (if hostedEditPath ~= nil then `^{patternEscape(hostedEditPath)}$` else nil)
+			else `/{idPattern}/EditAffordanceWhen/then/EditAffordance$`
 
 		-- REDTEAM FIX (item 3, MAJOR): a direct tap/Activate on a REVEALED tray
 		-- button (this composite's own `handleActivate` below — distinct from
@@ -2894,7 +2972,11 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			-- which is what makes a second press during a commit's flight do
 			-- nothing (`tests/row_actions_input.spec.luau`, "a re-swipe the
 			-- instant a commit clears...").
-			if hasEditAffordance and string.match(path, editAffordancePattern) ~= nil then
+			if
+				hasEditAffordance
+				and editAffordancePattern ~= nil
+				and string.match(path, editAffordancePattern) ~= nil
+			then
 				commitDestructive()
 				return true
 			end
@@ -3389,6 +3471,44 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			(each `{trayRoot}/{Tray*}When/then/{Tray*}`, this file's own convention
 			in both modes), because that is where `deriveNaturals` measures. ]]
 		api.trayViews = trayViews
+		--[[ THE EDIT-MODE MINUS AND ITS GUTTER (stage 1, 2026-08-15). Both nil
+			unless this row can ever show the minus, so a host wires nothing extra for
+			a list with no edit mode — and a hosted row that never wires `editing`
+			stays byte-identical to what shipped.
+
+			The host parents `editAffordanceView` at the path it named in
+			`spec.paths.editAffordance` (refused at build time if it named none), and
+			declares `editGutterPx` as the LEFT PADDING of its own row content. A
+			padding, not an offset: the director's 2026-08-12 device round (finding 2)
+			established that a gutter spent as an offset steps by the whole gutter at
+			`offset == 0` and lets a trailing swipe slide the row over its own minus,
+			where a padding is spent before `offsetFill` runs and is therefore
+			continuous on both signs. `row_actions_root.build`'s own big comment
+			carries the arithmetic; the host applies the identical number. ]]
+		--[[ ponytail: THE VIEW HANGS OFF AN ENGINE, AND THE MINUS IS PER-ROW.
+			Ceiling: a host that shows the minus on every row while editing must hold
+			one ENGINE per such row, because that is where the view (and the
+			`commitDestructive` its Activate routes into) comes from. The tray overlay
+			does not have this problem — the coordinator's one-open policy means at
+			most one row is ever engaged — but edit mode is on ALL of them at once, so
+			"a closed row mounts NOTHING" degrades to "a closed row mounts nothing
+			unless the list is editing" for the windowed case.
+
+			This is bounded and it is the shape the order asked for
+			(`docs/plans/table-hosted-row-actions-stage2.md`, item 1: "an
+			edit-affordance view the host parents (the `trayViews` shape)"): bounded by
+			the window, paid only in an explicit modal state, and exactly what Table's
+			WRAP mode already pays unconditionally today. Upgrade path if a hosted
+			VirtualList ever wants a per-row minus at zero closed-row cost: the view
+			needs only `editingShown` and the destructive action's LABEL, neither of
+			which is engine state — so `row_actions_root.buildEditAffordance` can be
+			called by a host directly from `spec.rowActions(item)`, with the Activate
+			routed through the same build-an-engine-at-press-time path
+			`hostedEnsureKeysContext` already uses for keyboard Delete. Not built here:
+			no consumer, and stage 4's consumer (Table) holds an engine per actionable
+			row already. ]]
+		api.editAffordanceView = editAffordanceView
+		api.editGutterPx = editGutterPx
 		api.syncGeometry = contributionFields.syncGeometry
 		api.bindMotion = contributionFields.bindMotion
 		api.bindController = contributionFields.bindController

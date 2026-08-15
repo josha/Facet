@@ -41,6 +41,12 @@ local ROW = "/S/List/Canvas/Row-1"
 local HIT = ROW .. "/Hit"
 local TRAY_TRAILING = "/S/List/Canvas/RowActionsTray/TrayTrailing"
 local TRAY_LEADING = "/S/List/Canvas/RowActionsTray/TrayLeading"
+-- ...and the edit-mode minus the host parents when it wires `editing` (stage 1
+-- of the Table-hosting order — see the describe block at the bottom of this
+-- file). Same convention as the tray paths: the host names the node the engine's
+-- own `UI.When` view actually mounts at, `{parent}/EditAffordanceWhen/then/
+-- EditAffordance`, because that is the path an Activate arrives on.
+local EDIT_AFFORDANCE = "/S/List/Canvas/RowActionsEdit/EditAffordanceWhen/then/EditAffordance"
 
 local LOCK = row_actions_state.AXIS_LOCK_PX
 local FRAME = 1 / 60
@@ -157,13 +163,36 @@ local function hostedWorld(overrides: any?): World
 	-- merge, sidesteps the footgun rather than relying on a value Lua cannot
 	-- represent.
 	local unset: { string }? = if overrides ~= nil then (overrides :: any).__unset else nil
+	--[[ THE TWO EDIT-MODE KNOBS (stage 1). Both are `__`-prefixed for the same
+		reason `__unset` is: they are instructions to this builder, not spec keys,
+		and the merge loop below skips every one of them. They exist so an edit-mode
+		case reuses the base spec's OWN action — the one already wired into this
+		world's `fired` — rather than declaring a second copy whose callback would
+		have to be threaded back in by hand.
+
+		`__destructive` promotes that action to `role = "destructive"`, which is one
+		of the two halves the minus needs; `__editing` wires the other half (a live
+		signal, exposed as `w.editing`) and names the path the host mounts the minus
+		at, unless the case declared its own `paths`. ]]
+	local wantsEditing = if overrides ~= nil then (overrides :: any).__editing == true else false
+	if overrides ~= nil and (overrides :: any).__destructive == true then
+		spec.trailing[1].role = "destructive"
+	end
 	for key, value in overrides or {} do
-		if key ~= "__unset" then
+		if key ~= "__unset" and key ~= "__editing" and key ~= "__destructive" then
 			spec[key] = value
 		end
 	end
 	for _, key in unset or {} do
 		spec[key] = nil
+	end
+	local editing: any = nil
+	if wantsEditing then
+		editing = core:signal(false)
+		spec.editing = editing
+		if spec.paths.editAffordance == nil then
+			spec.paths.editAffordance = EDIT_AFFORDANCE
+		end
 	end
 
 	local engine = row_actions.buildHosted(LuauUI, core, spec)
@@ -189,6 +218,7 @@ local function hostedWorld(overrides: any?): World
 	local w: any = {
 		core = core,
 		engine = engine,
+		editing = editing, -- nil unless the case asked for `__editing`
 		fired = fired,
 		slides = slides,
 		heights = heights,
@@ -579,5 +609,183 @@ describe("RowActions hosted mode (Task 2): buildHosted — the engine with no bl
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+	end)
+end)
+
+--[[ ===== STAGE 1 of the Table-hosting order: `editing` IN HOSTED MODE ========
+	`docs/plans/table-hosted-row-actions-stage2.md` §"the order that would lift
+	it", item 1. `editing` was refused from `HOSTED_KEYS` **by name** — "a
+	statement about a blueprint this mode never builds" — which was true of
+	`content`/`width`/`externalGesture` and NOT true of this one: the minus is
+	one `UI.When` view, exactly the shape `trayViews` already hands a host to
+	parent, and the gutter is one Readable the host declares as its own row
+	content's left padding.
+
+	Conflict 1 of that plan is the reason it has to exist before Table can host:
+	Table is the only surface with an edit-mode minus, it ships, and it is
+	gamepad-reachable through the `padMinusTable` showcase case *because* the
+	VirtualList surface cannot do it. A hosted Table without this stage would
+	delete that case.
+
+	THE TWO SEAMS, and why they are the shapes they are:
+	  * `editAffordanceView` — a blueprint, not a callback, mirroring
+	    `trayViews`: one construction shared by both modes
+	    (`row_actions_root.buildEditAffordance`), so the two cannot drift.
+	  * `editGutterPx` — a Readable, not the `onContentOffset` CALLBACK the plan
+	    sketched. The plan was written against an older shape: the gutter stopped
+	    being an offset at the director's 2026-08-12 device round (finding 2) and
+	    became Content's own left PADDING, which a host declares reactively on its
+	    own node. A callback would fire on every theme swap with nothing for the
+	    host to do but write a signal it was already handed. ]]
+describe("RowActions hosted mode: `editing` (Table-hosting order, stage 1)", function()
+	it("accepts `editing` — it is no longer refused from the hosted spec by name", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = core:signal(false),
+				paths = { content = ROW, trayTrailing = TRAY_TRAILING, editAffordance = EDIT_AFFORDANCE },
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(true)
+		expect(err).toBeNil()
+	end)
+
+	it(
+		"hands the host an edit-affordance VIEW and a gutter Readable, and nothing to a row without both halves",
+		function()
+			-- (a) `editing` never wired: byte-identical to every shipped hosted row —
+			-- no view, no gutter node at all. This is the cost guarantee, not a
+			-- convenience: the whole hosted design is "a closed row mounts NOTHING".
+			local w = hostedWorld({ __destructive = true })
+			expect(w.engine.editAffordanceView).toBeNil()
+			expect(w.engine.editGutterPx).toBeNil()
+
+			-- (b) `editing` wired, but no destructive action anywhere: still nothing.
+			local wNoDestructive = hostedWorld({ __editing = true })
+			expect(wNoDestructive.engine.editAffordanceView).toBeNil()
+			expect(wNoDestructive.engine.editGutterPx).toBeNil()
+
+			-- (c) both halves: the view exists, and it is a blueprint the host can
+			-- parent — the SAME `trayViews` shape, not a callback.
+			local w2 = hostedWorld({ __destructive = true, __editing = true })
+			expect(w2.engine.editAffordanceView).never().toBeNil()
+			expect(w2.engine.editGutterPx).never().toBeNil()
+			-- the gutter is LIVE: zero while not editing, a real reserve while editing
+			expect(w2.engine.editGutterPx:get()).toBe(0)
+			w2.editing:set(true)
+			expect(w2.engine.editGutterPx:get()).toBeGreaterThan(0)
+			w2.editing:set(false)
+			expect(w2.engine.editGutterPx:get()).toBe(0)
+		end
+	)
+
+	--[[ THE ROUTE THE `padMinusTable` SHOWCASE CASE TAKES, on a hosted engine.
+		A hosted engine has no node of its own for a presenter's contribution walk
+		to find, so an Activate on the minus arrives at the HOST's contribution and
+		is handed back through `_handleActivate` — exactly how a hosted tray button's
+		Activate already gets home. It must reach the SAME funnel standalone reaches
+		(`commitDestructive`), so the slide-off + height-collapse sequence and the
+		C8a "nothing stands painted once the row is carried clear" fix cannot
+		diverge by host. ]]
+	it("routes an Activate on the host's declared minus path into commitDestructive", function()
+		local w = hostedWorld({ __destructive = true, __editing = true })
+		w.editing:set(true)
+		w.tick(FRAME)
+		expect(w.engine._handleActivate(EDIT_AFFORDANCE)).toBe(true)
+		w.settle()
+		expect(w.fired).toEqual({ "delete" })
+		expect(w.engine._isOpen()).toBe(false)
+		expect(w.engine.dump().phase).toBe("closed")
+	end)
+
+	it("does not answer an Activate on some OTHER path that merely ends in the same node ids", function()
+		local w = hostedWorld({ __destructive = true, __editing = true })
+		w.editing:set(true)
+		w.tick(FRAME)
+		-- a DIFFERENT row's minus in the same list: the host declared THIS row's
+		-- path, and an engine that answered for a sibling would delete the wrong
+		-- row. Anchored match, not a suffix.
+		expect(w.engine._handleActivate("/S/List/Canvas/Row-2/EditAffordanceWhen/then/EditAffordance")).toBe(false)
+		expect(w.fired).toEqual({})
+	end)
+
+	--[[ THE SAME REFUSAL SHAPE `paths.trayLeading`/`trayTrailing` ALREADY HAVE
+		(fix round 1, finding 1). Without the path the minus mounts under the host
+		and is then unreachable: every Activate on it falls through `_handleActivate`
+		to `false`, the host forwards it nowhere, and a button that ANNOUNCES itself
+		as "Delete" (it borrows the destructive action's own accessible label) does
+		nothing at all. Refused by name, at build time, instead. ]]
+	it("refuses a hosted row that can show the minus but named no path for it", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = core:signal(false),
+				paths = { content = ROW, trayTrailing = TRAY_TRAILING },
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+		expect(string.find(err, "paths.editAffordance", 1, true)).never().toBeNil()
+	end)
+
+	it("still refuses `editing` that is not a Readable, with the hosted label", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			row_actions.buildHosted(LuauUI, core, {
+				id = "Row-1",
+				trailing = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+				editing = true :: any,
+				paths = { content = ROW, trayTrailing = TRAY_TRAILING, editAffordance = EDIT_AFFORDANCE },
+				onSlide = function() end,
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(err, "newRowActionsHosted", 1, true)).never().toBeNil()
+		-- DISCRIMINATING, not just "the word editing appears": the closed-spec
+		-- refusal this replaces ALSO said `unknown spec key 'editing'`, so a check
+		-- on the word alone would have passed against the very code this stage
+		-- removes. The type error names `Readable<boolean>`; the key refusal never
+		-- did.
+		expect(string.find(err, "Readable<boolean>", 1, true)).never().toBeNil()
+		expect(string.find(err, "unknown spec key", 1, true)).toBeNil()
+	end)
+
+	--[[ THE GUTTER THE HOST IS HANDED IS THE ONE THE ROW ACTUALLY NEEDS, measured
+		against the theme rather than against this control's own arithmetic. It is
+		`editAffordance + rowGutter` — the disc's diameter PLUS the same row-facing
+		negative space the tray band spends (device bug round 2026-08-12, finding
+		A2: a strip exactly one diameter wide leaves the disc touching the row it is
+		meant to sit outside of).
+
+		This is the check that makes the seam load-bearing rather than merely
+		present. A host that reserved the bare diameter, or handed the tray's own
+		`rowGutter` twice, would still expose a non-nil Readable and a positive
+		number — and every other case in this block would still pass. It also
+		covers the LEADING edge, where `row_actions_trays.buildTray` offsets the
+		band by this same signal so it sits outside the minus rather than under it:
+		the tray views a host parents are the very same array standalone puts in its
+		row root, so one number is right for both. ]]
+	it("the gutter it hands the host is the theme's own editAffordance + rowGutter, on the leading edge too", function()
+		local metrics = themeSnapshot.neutral()
+		local expected = (themeSnapshot.resolveNumber(metrics, "controls.rowActions.editAffordance") or 0)
+			+ (themeSnapshot.resolveNumber(metrics, "controls.rowActions.rowGutter") or 0)
+		expect(expected).toBeGreaterThan(0) -- the oracle itself has to be real
+
+		local w = hostedWorld({
+			__unset = { "trailing" },
+			leading = { { id = "delete", label = "Delete", role = "destructive", onAction = function() end } },
+			paths = { content = ROW, trayLeading = TRAY_LEADING, editAffordance = EDIT_AFFORDANCE },
+			__editing = true,
+		})
+		expect(#w.engine.trayViews).toBe(1)
+		expect(w.engine.editGutterPx:get()).toBe(0)
+		w.editing:set(true)
+		expect(w.engine.editGutterPx:get()).toBe(expected)
 	end)
 end)
