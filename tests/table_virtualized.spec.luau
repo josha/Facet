@@ -507,19 +507,70 @@ describe("Table virtualized: the scroll does not jump when the extents move", fu
 	end)
 end)
 
+--[[ ── THE FACT THE STAGE-2 HOSTING DECISION RESTS ON ──────────────────────────
+
+	`docs/plans/table-hosted-row-actions-stage2.md` records one objection to
+	teaching Table to HOST row actions that does NOT hold: "Table's rows are
+	content-sized, so VirtualList's commit-height collapse seam
+	(`hostedItemExtentIn`) cannot port". It does not hold because a Table row's
+	extent is DERIVED, never declared — `rowHeightOf` reads the theme metrics, the
+	typography scale, the text preference and the input paradigm, and the row's
+	`height` is a `{ type = "fixed", px = n }` memo built from it (table.luau's
+	`heightDim`), in the FLOWING mode as well as the windowed one.
+
+	That is a factual claim in a plan, and a plan cannot notice when it rots. This
+	is the check that does: a row whose cell text is enormous must land at exactly
+	the same height as a row whose cell text is one word, in both modes. Make the
+	row size to its content and the seam stops porting and this case reddens on the
+	same line the plan is wrong on.
+
+	NON-VACUITY: the long string is asserted to be one a content-sized row could
+	not have fitted on a line — the short row's own width would not hold it — so
+	"they match" cannot pass by the text being too small to matter. ]]
+describe("Table virtualized: a row's height is DERIVED, not content-sized (both modes)", function()
+	local LONG = string.rep("a very long racer name that would wrap several times ", 12)
+
+	local function heightsOf(virtualized: boolean): (number, number)
+		local w = world({
+			virtualized = virtualized,
+			rows = { { id = "short", name = "Bo" }, { id = "long", name = LONG } },
+			columns = { { id = "name", title = "Racer", width = { type = "fill", weight = 1 } } },
+		})
+		local prefix = if virtualized then "/S/Racers/Main/Body/Canvas/Rows" else "/S/Racers/Main/Body/Rows"
+		local short = w.adapter.node(`{prefix}/[short@0]/Row`)
+		local long = w.adapter.node(`{prefix}/[long@0]/Row`)
+		expect(`mounted:{short ~= nil and long ~= nil}`).toBe("mounted:true")
+		-- the long string really is long enough to have grown a content-sized row
+		expect(`wraps:{#LONG * 6 > short.rect.w}`).toBe("wraps:true")
+		return short.rect.h, long.rect.h
+	end
+
+	it("the WINDOWED mode: both rows are the authored 40, whatever their cells say", function()
+		local short, long = heightsOf(true)
+		expect(`short:{short} long:{long}`).toBe(`short:{ROW_H} long:{ROW_H}`)
+	end)
+
+	it("...and the FLOWING mode agrees, which is what makes the seam port to BOTH", function()
+		local short, long = heightsOf(false)
+		expect(`short:{short} long:{long}`).toBe(`short:{ROW_H} long:{ROW_H}`)
+	end)
+end)
+
 describe("Table virtualized: what is refused, and why", function()
 	local function refusal(opts: any): string
 		local core = LuauUI.newCore()
 		local ok, err = pcall(function()
 			table_control.build(LuauUI, core, {
 				id = "T",
-				columns = { {
-					id = "a",
-					title = "A",
-					value = function()
-						return "x"
-					end,
-				} },
+				columns = {
+					{
+						id = "a",
+						title = "A",
+						value = function()
+							return "x"
+						end,
+					},
+				},
 				rows = core:signal(racers(3)),
 				key = function(item: any)
 					return item.id

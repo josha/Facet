@@ -159,6 +159,25 @@ Both were found by mutation-testing the checks, not by reading the code.
    two controls' row-actions strategies converge — which is the only credible
    path to option 2, and it should be attempted from this end rather than by
    extracting a substrate first.
+
+   **SCOPED 2026-08-15 → `docs/plans/table-hosted-row-actions-stage2.md`, verdict
+   "not yet", with the order that lifts it.** Both hosting models were read in
+   full. One expected objection does not hold (the commit-height seam ports
+   unchanged — a Table row's extent is a derived `fixed` dim in both modes), and
+   the ones that do hold are: `editing` is refused from `HOSTED_KEYS` **by name**
+   and Table is the only surface that has an edit-mode ⊖; `reorderable +
+   rowActions` is the capability VirtualList *gave up* in order to host and Table
+   ships it on six cases; and Table's per-row HORIZONTAL cell group makes the
+   tray's focus group a harder composition than the one that cost VirtualList a
+   review round. The measurement: the VirtualList hosted mission was +67,484
+   chars and 90 cases, against 16,162 chars of headroom in `table.luau` and an
+   84-line wrap integration. The argument that decides it: **hosting the windowed
+   path alone leaves three row-actions integrations in the library instead of
+   converging two** — the same cost that rejected option 3 above — and hosting
+   both paths must first pay the two extensions VirtualList declined to build.
+   So the order is: `editing` in `buildHosted` → the reorder composition in the
+   host dispatcher (which also unblocks VirtualList's own refusal) → the three
+   carried hosted-mode defects → then Table hosts BOTH paths in one go.
 2. **Multi-selection on `newVirtualList`**, the mirror hole: it is single-only.
    Table's `api.select` modes are the reference.
 3. **Generalize scroll anchoring to the flowing table** (and to VirtualList's

@@ -353,7 +353,18 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			lazy per-row engines born at a gesture's axis lock, one tray overlay per
 			list — `docs/plans/row-actions-hosted-mode-design.md`). Teaching Table to
 			host is its own mission, and it is the one named in
-			`docs/plans/unified-collection.md` as Stage 2. ]]
+			`docs/plans/unified-collection.md` as Stage 2.
+
+			SCOPED AND DEFERRED WITH REASONS, 2026-08-15 —
+			`docs/plans/table-hosted-row-actions-stage2.md`. Read it before starting:
+			it records the objection that does NOT hold (the commit-height seam ports
+			unchanged, because `heightDim` below makes a Table row's extent a derived
+			`fixed` dim in BOTH modes), the measured cost (+67,484 chars and 90 cases
+			bought VirtualList its host; Table's whole wrap integration is 84 lines),
+			the two things `buildHosted` must grow first (`editing`, and the reorder
+			composition), and the shape argument that decides it — hosting the
+			windowed path alone leaves THREE row-actions integrations in the library
+			rather than converging two. ]]
 		error(
 			"LuauUI newTable: spec.virtualized + spec.rowActions is unsupported (v1) — Table WRAPS each actionable row "
 				.. "in its own row_actions composite whose lifecycle is pruned by the data, not by the window, so a row "
