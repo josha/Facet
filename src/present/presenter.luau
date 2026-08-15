@@ -2504,7 +2504,19 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 				table.insert(
 					navigation,
-					table.freeze({ name = group.name, axis = group.axis, order = table.freeze(order) })
+					table.freeze({
+						name = group.name,
+						axis = group.axis,
+						-- present only on a TWO-DIMENSIONAL group (ADR-0030), where it is
+						-- the lane count: `axis` names the direction ±1 walks and `columns`
+						-- says where the lines break, so the perpendicular key moves a whole
+						-- line. Nothing in the order shows this — a 4-lane grid and a
+						-- 16-button row are the same sixteen paths — which is exactly the
+						-- kind of question this dump exists to answer without pressing Tab
+						-- sixteen times.
+						columns = group.columns,
+						order = table.freeze(order),
+					})
 				)
 			end
 			return table.freeze({

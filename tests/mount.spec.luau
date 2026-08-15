@@ -106,6 +106,123 @@ describe("mount: When region", function()
 	end)
 end)
 
+--[[ THE BRANCH SCOPE (react-lua-comparison.md §5 rank 2). `ForEach` hands each
+	row `(item, itemScope)`; `When.thenView` was handed NOTHING, even though
+	`mountWhen` builds a `branchScope` on the line above the factory call and
+	disposes it on branch exit. The consequence was not theoretical: a panel that
+	wants a MotionValue, a timer or an async handle had to hoist it to the
+	enclosing scope, where it OUTLIVES the panel — the exact leak shape the item
+	scope exists to prevent.
+
+	AND THE FLIP-FLOP IS THE CASE THAT DECIDES THE SHAPE. Every entry gets a
+	FRESH scope (`scope:child(branchPath)`), so a resource the panel owned last
+	time cannot survive into this time. That is also the answer to "should an
+	`elseView` share this scope" — it must not, and the framework does not have
+	an `elseView` to share it with; see the ruling in src/mount.luau. ]]
+describe("mount: When hands its branch the branch scope", function()
+	-- a When whose factory records every scope it is handed and owns a signal on it
+	local function branchFixture(initial: boolean)
+		local core = customFactory.new()
+		local on = core:signal(initial)
+		local handed: { any } = {}
+		local released = 0
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.Text({ id = "Always", text = "hi" }),
+				UI.When({
+					id = "Panel",
+					condition = on,
+					thenView = function(branchScope)
+						table.insert(handed, branchScope)
+						-- the whole point: an owned, releasable, branch-lifetime resource
+						branchScope:own(function()
+							released += 1
+						end)
+						return UI.Text({ id = "Body", text = "body" })
+					end,
+				}),
+			},
+		})
+		return core, on, mountLib.mount(core, bp), handed, function()
+			return released
+		end
+	end
+
+	it("thenView is handed the BRANCH scope — labelled with the branch path", function()
+		local _core, on, root, handed = branchFixture(false)
+		expect(#handed).toBe(0)
+		on:set(true)
+		expect(#handed).toBe(1)
+		-- the label is what makes this the BRANCH's scope rather than the screen's:
+		-- an enclosing scope handed over by mistake would read "/S" or nil
+		expect(handed[1].label).toBe("/S/Panel/then")
+		expect(handed[1]:isDisposed()).toBe(false)
+		root.dispose()
+	end)
+
+	it("the initial-true mount hands the same scope the later flip does", function()
+		-- mountWhen has TWO factory call sites (the observer and the initial read);
+		-- a fix applied to one of them passes the case above and fails here
+		local _core, _on, root, handed = branchFixture(true)
+		expect(#handed).toBe(1)
+		expect(handed[1].label).toBe("/S/Panel/then")
+		root.dispose()
+	end)
+
+	it("a resource owned on the handed scope is released when the branch closes", function()
+		local core, on, root, handed, released = branchFixture(false)
+		local baseline = core:counters().scopes
+		on:set(true)
+		expect(released()).toBe(0)
+		on:set(false)
+		expect(released()).toBe(1) -- released WITH the branch, not at root disposal
+		expect(handed[1]:isDisposed()).toBe(true)
+		expect(core:counters().scopes).toBe(baseline)
+		root.dispose()
+		expect(released()).toBe(1) -- and not a second time
+		expect(core:lastError()).toBeNil()
+	end)
+
+	it("a flip back gets a FRESH scope: nothing from the previous entry survives", function()
+		--[[ This is the elseView argument as a test. If two entries (or two
+			branches) shared one scope, a resource from the closed panel would still
+			be alive and owned when the panel re-opened — the leak in a new costume,
+			and harder to see than the hoisted-signal one because the counters look
+			balanced. ]]
+		local core, on, root, handed, released = branchFixture(false)
+		local baseline = core:counters().scopes
+		on:set(true)
+		on:set(false)
+		on:set(true)
+		expect(#handed).toBe(2)
+		expect(handed[2]).never().toBe(handed[1])
+		expect(handed[1]:isDisposed()).toBe(true)
+		expect(handed[2]:isDisposed()).toBe(false)
+		expect(released()).toBe(1) -- entry 1's resource is gone; entry 2's is live
+		-- exactly ONE branch scope is live, not two: the first entry's was not
+		-- carried forward, it was replaced
+		expect(core:counters().scopes).toBe(baseline + 1)
+		root.dispose()
+		expect(released()).toBe(2)
+		expect(core:lastError()).toBeNil()
+	end)
+
+	it("fifty open/close cycles leave no scope and no cleanup behind", function()
+		local core, on, root, handed, released = branchFixture(false)
+		local baseline = core:counters().scopes
+		for _ = 1, 50 do
+			on:set(true)
+			on:set(false)
+		end
+		expect(#handed).toBe(50)
+		expect(released()).toBe(50)
+		expect(core:counters().scopes).toBe(baseline)
+		root.dispose()
+		expect(core:lastError()).toBeNil()
+	end)
+end)
+
 describe("mount: ForEach region", function()
 	local function cardList(core: any, initial: { { id: string, name: string } })
 		local cards = core:signal(initial)

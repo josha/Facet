@@ -14,6 +14,15 @@
 -- Structural changes keep focus when it survives, else the nearest surviving
 -- neighbor, preferring the following item.
 --
+-- TWO-DIMENSIONAL GROUPS (ADR-0030). A group may also declare `columns`, which
+-- makes it a RECTANGLE rather than a ring: its order is LINES of `columns`
+-- LANES in row-major document order, `axis` names the LANE direction, and the
+-- direction PERPENDICULAR to it moves a whole line (±columns) instead of
+-- falling straight out through `exitFrom`. `columns` is the only new field and
+-- every path below is gated on it, so a group that does not declare one walks
+-- byte-identically to a graph that never heard of the second axis
+-- (tests/focus_grid_axis.spec.luau, "NULL HYPOTHESIS").
+--
 -- FOCUS-SKIP (ADR-0022 Decision 5, row SF-L3). An order entry may be written as
 -- `{ id = path, focusable = () -> boolean }` instead of a bare path string.
 -- The predicate is evaluated AT NAVIGATION TIME, never cached, so a row that
@@ -42,12 +51,29 @@ export type OrderEntry = string | { id: string, focusable: (() -> boolean)? }
 
 export type NavigationGroup = {
 	name: string,
-	axis: string, -- "vertical" | "horizontal"
+	axis: string, -- "vertical" | "horizontal" — the LANE axis when `columns` is set
 	order: { any }, -- { OrderEntry }: bare paths, or { id, focusable }
 	wrap: boolean?,
 	containment: boolean?,
 	entry: string?, -- "first" (default) | "restore" | "nearest"
 	exit: { [string]: string }?, -- direction -> target group name
+	--[[ THE SECOND AXIS (ADR-0030). An integer >= 1 declaring that this group's
+		`order` is LINES of `columns` LANES, row-major, in document order — which is
+		exactly what a lazy grid's mounted band already is. `axis` then names the
+		LANE direction (a LazyVGrid's lanes run across, so it declares "horizontal";
+		a LazyHGrid's run down, so it declares "vertical"), and the perpendicular
+		direction moves ±`columns`: one whole line, keeping the lane.
+
+		THE INVARIANT: the order is a COMPLETE rectangle and only the LAST line may
+		be short. Every line-arithmetic answer below is derived from that, so a
+		mechanism that SPLICES the order out of shape (`remove`) drops `columns`
+		rather than navigating a rectangle that is no longer there; a 2-D emitter
+		replaces its order wholesale on refresh, which re-declares the field. Use
+		focus-skip predicates, never a hole, to make one cell unreachable — that is
+		what makes them navigation-only.
+
+		Anything that is not an integer >= 1 is ignored and the group stays 1-D. ]]
+	columns: number?,
 }
 
 export type FocusScope = {
@@ -93,8 +119,27 @@ local AXIS_DELTA: { [string]: { [string]: number } } = {
 	vertical = { down = 1, up = -1 },
 	horizontal = { right = 1, left = -1 },
 }
--- direction -> group-array fallthrough delta (implicit exits)
+-- direction -> group-array fallthrough delta (implicit exits). It doubles as the
+-- SIGN of a 2-D group's perpendicular step, which is correct by construction:
+-- the perpendicular pair is exactly the pair AXIS_DELTA has no entry for.
 local FALLTHROUGH_DELTA: { [string]: number } = { down = 1, right = 1, up = -1, left = -1 }
+
+-- the group's lane count if it declared a usable one, else nil (it is 1-D).
+-- Refusing a fraction, a zero and a non-number here is what keeps a malformed
+-- declaration on the OLD reading instead of on arithmetic nobody can predict.
+local function laneCount(group: any): number?
+	local columns = group.columns
+	if type(columns) ~= "number" or columns < 1 or columns % 1 ~= 0 then
+		return nil
+	end
+	return columns
+end
+
+-- which lane (1..columns) an index sits in. The ordinal a 2-D group hands to a
+-- neighbouring group on exit, so "nearest" means the same thing on both sides.
+local function laneOf(index: number, columns: number): number
+	return ((index - 1) % columns) + 1
+end
 
 function focus_graph.new(core: any)
 	local self = {}
@@ -401,6 +446,63 @@ function focus_graph.new(core: any)
 		return nil
 	end
 
+	--[[ THE PERPENDICULAR STEP OF A 2-D GROUP (ADR-0030): one whole LINE, keeping
+		the lane. Returns whether it landed; `false` means the move leaves the
+		rectangle and the caller exits the group as it always did.
+
+		It skips ineligible cells the same way the lane axis does — by continuing in
+		the SAME direction — which for this axis means continuing DOWN THE LANE, so a
+		blocked cell never sidesteps the ring into another column.
+
+		THE RAGGED LAST LINE IS THE ONE ASYMMETRY, and it belongs to the forward
+		direction alone because only the last line can be short. Stepping forward off
+		the end of the rectangle asks a real question: is there a line below at all?
+		If there is, the lane simply does not reach it, and the move clamps to the
+		last cell that exists rather than falling out of a grid whose bottom row the
+		player can plainly see. If there is not — the ring is already in the last
+		line — nothing is below and the move exits. Backward needs no such case: every
+		line above a given one is full by construction. ]]
+	local function lineStep(scope: any, group: NavigationGroup, i: number, columns: number, direction: string): boolean
+		local delta = FALLTHROUGH_DELTA[direction]
+		if delta == nil then
+			return false
+		end
+		local order = group.order
+		local n = #order
+		local lastLineStart = math.floor((n - 1) / columns) * columns + 1
+		local step = delta * columns
+		local j = i + step
+		-- BOUNDED BY THE LINE COUNT, not by the exit conditions inside it. The walk
+		-- visits each line at most once, so this bound is never the thing that stops
+		-- it in correct operation — it is here because the clamp below assigns to `j`,
+		-- and a loop whose termination depends on a conditional assignment is one
+		-- edit away from spinning. Mutation M3 (dropping the clamp's own guard) hung
+		-- the suite rather than reddening a case, which is how this was found.
+		for _ = 1, math.ceil(n / columns) + 1 do
+			if j > n and delta > 0 then
+				-- THE CLAMP IS TESTED ON EVERY STEP, NOT ONLY THE FIRST (found by the
+				-- differential oracle, seed 2977402678). Skipping ineligible cells down a
+				-- lane can reach the ragged line from ABOVE the line before it, and a
+				-- clamp that only fired on the opening step let those walks fall out of a
+				-- grid whose last row was right there. The question is the same one every
+				-- time: was the cell we just left above the last line?
+				if j - step >= lastLineStart then
+					return false -- that WAS the last line; nothing is below it
+				end
+				j = n
+			end
+			if j < 1 or j > n then
+				return false
+			end
+			if isFocusable(scope, order[j]) then
+				setFocus(order[j])
+				return true
+			end
+			j += step
+		end
+		return false
+	end
+
 	-- enter a group per its entry policy; fromIndex feeds "nearest". Returns
 	-- whether it landed: a group with NO eligible entries is skipped whole, and
 	-- the caller falls through to the next group in the direction of travel
@@ -417,15 +519,50 @@ function focus_graph.new(core: any)
 		-- 3, which read as random. Perpendicular entry (a grid's up/down between
 		-- rows) keeps ordinal nearest, which is what preserves the column.
 		local axisDelta = if direction ~= nil then AXIS_DELTA[group.axis or "vertical"][direction :: string] else nil
-		if axisDelta ~= nil then
-			target = nearestEligible(scope, group.order, if axisDelta > 0 then 1 else #group.order)
-		elseif entry == "restore" then
-			local remembered = scope._lastFocus and scope._lastFocus[group.name]
-			if remembered ~= nil and indexOf(group.order, remembered) ~= nil and isFocusable(scope, remembered) then
-				target = remembered
+		--[[ PERPENDICULAR ENTRY INTO A RECTANGLE IS THE NEAR LINE, AT THE ORDINAL LANE
+			(ADR-0030). The near-end rule above and the ordinal-nearest rule below are
+			the same rule read along and across an axis; a 2-D group is the one shape
+			that needs both at once. Entering downward means the FIRST line, entering
+			upward means the LAST — and within it, the incoming ordinal is the lane, so
+			the column survives the crossing exactly as it does between the stacked row
+			groups `focus_map.emitGridGroups` builds for an eager `UI.Grid`.
+
+			Without this, entry fell through to the policy branches and every
+			perpendicular entry landed on index 1 — a grid's TOP-LEFT cell — so a pad
+			pressing Up from beneath a grid jumped over the whole grid to reach its
+			first cell.
+
+			IT OUTRANKS `entry`, on the precedent directly above it: entry along an
+			axis already wins over `restore` and `nearest`, because a DIRECTION is a
+			more specific fact than a policy. A rectangle simply has a second
+			direction, so it has a second case of the same precedence. ]]
+		local columns = if axisDelta == nil and direction ~= nil then laneCount(group) else nil
+		if columns ~= nil then
+			local n = #group.order
+			local perpendicular = FALLTHROUGH_DELTA[direction :: string]
+			if perpendicular ~= nil then
+				local lineStart = if perpendicular > 0 then 1 else math.floor((n - 1) / columns) * columns + 1
+				local lane = if fromIndex ~= nil then math.clamp(fromIndex, 1, columns) else 1
+				-- A SHORT LAST LINE HAS NO SUCH LANE, and `nearestEligible` is what
+				-- answers that: it clamps its own start into the order before it searches.
+				-- The draft clamped here as well, and the mutation battery recorded the
+				-- honest verdict — M8 removed that clamp and reddened NOTHING, because it
+				-- was the same clamp twice. Deleted rather than covered with a test that
+				-- would only have been proving `nearestEligible`'s behaviour a second time.
+				target = nearestEligible(scope, group.order, lineStart + lane - 1)
 			end
-		elseif entry == "nearest" and fromIndex ~= nil then
-			target = nearestEligible(scope, group.order, fromIndex)
+		end
+		if target == nil then
+			if axisDelta ~= nil then
+				target = nearestEligible(scope, group.order, if axisDelta > 0 then 1 else #group.order)
+			elseif entry == "restore" then
+				local remembered = scope._lastFocus and scope._lastFocus[group.name]
+				if remembered ~= nil and indexOf(group.order, remembered) ~= nil and isFocusable(scope, remembered) then
+					target = remembered
+				end
+			elseif entry == "nearest" and fromIndex ~= nil then
+				target = nearestEligible(scope, group.order, fromIndex)
+			end
 		end
 		if target == nil then
 			target = nearestEligible(scope, group.order, 1)
@@ -582,8 +719,17 @@ function focus_graph.new(core: any)
 		local i = indexOf((group :: NavigationGroup).order, focused:get()) :: number
 		local axisDelta = AXIS_DELTA[(group :: NavigationGroup).axis or "vertical"][direction]
 		if axisDelta == nil then
-			-- orthogonal to the group's axis: only an exit can move focus
-			exitFrom(scope, group :: NavigationGroup, groupIndex :: number, direction, i)
+			-- orthogonal to the group's axis: a RECTANGLE answers it by a whole line
+			-- (ADR-0030); a ring has no answer and only an exit can move focus.
+			local columns = laneCount(group)
+			if columns ~= nil and lineStep(scope, group :: NavigationGroup, i, columns, direction) then
+				return
+			end
+			-- THE ORDINAL THAT CROSSES is the LANE, not the flat index: cell 7 of a
+			-- four-lane grid is lane 3, and handing 7 to a neighbour reading "nearest"
+			-- would land the ring seven controls along the row below.
+			local ordinal = if columns ~= nil then laneOf(i, columns) else i
+			exitFrom(scope, group :: NavigationGroup, groupIndex :: number, direction, ordinal)
 			return
 		end
 		local order = (group :: NavigationGroup).order
@@ -623,7 +769,16 @@ function focus_graph.new(core: any)
 		if scope.groups ~= nil then
 			local group = groupOf(scope, focused:get())
 			local axis = if group ~= nil then (group :: NavigationGroup).axis else "vertical"
-			local direction = if axis == "horizontal"
+			--[[ THE AXIS MAPPING IS A GUESS THAT A RECTANGLE MAKES UNNECESSARY. It
+				exists because a 1-D group has ONE navigable axis and this verb carries no
+				direction, so ±1 is pointed at whichever axis can answer it. The presenter
+				drives this from the VERTICAL arrow (`navigate(dir)`, the path a scope
+				takes when its groups arrived after the push — DB-4's flat-to-grouped
+				upgrade), which is why a LazyVGrid's `horizontal` group would have sent a
+				DOWN press rightward. A 2-D group answers all four directions, so there is
+				nothing left to guess and the verb keeps its own reading: down/up. ]]
+			local twoDimensional = group ~= nil and laneCount(group) ~= nil
+			local direction = if axis == "horizontal" and not twoDimensional
 				then (if delta >= 0 then "right" else "left")
 				else (if delta >= 0 then "down" else "up")
 			self.navigateDirection(direction)
@@ -797,7 +952,14 @@ function focus_graph.new(core: any)
 
 	-- replace ONE group's order after structural change (§9.3): keeps focus
 	-- when it survives, else the nearest survivor (prefers the following item)
-	function self.setGroupOrder(scopeName: string, groupName: string, order: { any })
+	--
+	-- `columns` rides along with the order for exactly the reason `rank` rides
+	-- along in `replaceGroups`: the lane count describes THIS order, so it has to
+	-- come from the same derivation that produced it or the two drift and the
+	-- perpendicular arrow starts stepping a rectangle that no longer exists.
+	-- Omitting it clears the group's second axis rather than leaving a stale one
+	-- (ADR-0030, "the rectangle invariant") — a 1-D caller is therefore unchanged.
+	function self.setGroupOrder(scopeName: string, groupName: string, order: { any }, columns: number?)
 		for i = #scopes, 1, -1 do
 			local scope = scopes[i]
 			if scope.name == scopeName and scope.groups ~= nil then
@@ -810,7 +972,8 @@ function focus_graph.new(core: any)
 				local sink: { [string]: () -> boolean } = {}
 				local normalized = normalizeOrder(order, sink);
 				(group :: NavigationGroup).order = normalized;
-				(group :: any)._focusable = sink
+				(group :: any)._focusable = sink;
+				(group :: any).columns = columns
 				if scope._lastFocus and scope._lastFocus[groupName] ~= nil then
 					if indexOf(normalized, scope._lastFocus[groupName]) == nil then
 						scope._lastFocus[groupName] = nil
@@ -847,7 +1010,13 @@ function focus_graph.new(core: any)
 			end
 			local order = (group :: NavigationGroup).order
 			local i = indexOf(order, id) :: number
-			table.remove(order, i)
+			table.remove(order, i);
+			-- A SPLICE BREAKS THE RECTANGLE `columns` DESCRIBES: every following cell
+			-- shifts a lane, so the line arithmetic would be confidently wrong from
+			-- here on. The group falls back to its 1-D reading — merely old — until a
+			-- whole-order replacement re-declares the field, which is what every 2-D
+			-- emitter does on refresh (ADR-0030).
+			(group :: any).columns = nil
 			if (group :: any)._focusable ~= nil then
 				(group :: any)._focusable[id] = nil
 			end
@@ -931,6 +1100,10 @@ function focus_graph.new(core: any)
 			table.insert(navigation, {
 				name = group.name,
 				axis = group.axis,
+				-- present only on a 2-D group, and it is the difference between "the
+				-- ring runs across" and "the ring runs across AND down" — the one thing
+				-- a reader of this dump cannot infer from the order alone (ADR-0030)
+				columns = laneCount(group),
 				order = order,
 			})
 		end

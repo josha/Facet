@@ -2426,9 +2426,17 @@ and deterministic — two calls with nothing changed in between return equal dat
   navigation = {           -- the DIRECTIONAL (arrow) reading
     { name = "auto-v-1", axis = "vertical", order = { "/S/Name" } },
     { name = "auto-grips", axis = "vertical", order = { "/S/Volume/TrackHost/Track" } },
+    -- a TWO-DIMENSIONAL group carries its lane count as well (ADR-0030)
+    { name = "VirtualGridCells-VG", axis = "horizontal", columns = 4, order = { --[[ 16 cells ]] } },
   },
 }
 ```
+
+**`columns` is present only on a two-dimensional group**, and it is the one thing
+the order cannot tell you: a 4-lane grid and a 16-button row are the same sixteen
+paths. `axis` names the direction ±1 walks (the grid's **lane** axis); `columns`
+says where the lines break, so the perpendicular arrow moves a whole line rather
+than falling straight out of the group. A group without it is a plain ring.
 
 **The two lists are meant to differ, and meant to cover the same set.** A focusable
 `Grip` — a Slider's track, a Rating's strip — traverses in its
@@ -3542,16 +3550,48 @@ modal scopes trap and restore the previous focus on pop.
 - `graph.pushScope{ name, trap, groups }` — GROUPED scope: each
   NavigationGroup declares `name`, `axis` ("vertical"/"horizontal"),
   `order`, `wrap?`, `containment?`, `entry?` ("first" | "restore" |
-  "nearest"), and `exit?` (`{ up/down/left/right = targetGroupName }`).
+  "nearest"), `exit?` (`{ up/down/left/right = targetGroupName }`), and
+  `columns?` (below).
 - `graph.navigateDirection("up"|"down"|"left"|"right")` — axis-aware
   movement: within the active group along its axis; at edges wraps (if
   `wrap`), follows a declared `exit`, or (uncontained) falls through to the
   neighboring group in array order; orthogonal directions only move via
-  declared exits. `containment = true` blocks implicit exits.
+  declared exits — **unless the group declared `columns`** (below).
+  `containment = true` blocks implicit exits.
 - `graph.focusOn(path)`, `graph.setOrder(name, order)`,
-  `graph.setGroupOrder(scopeName, groupName, order)`, `graph.remove(id)` —
-  structural updates keep focus when it survives, else the nearest surviving
-  neighbor (preferring the following item).
+  `graph.setGroupOrder(scopeName, groupName, order, columns?)`,
+  `graph.remove(id)` — structural updates keep focus when it survives, else
+  the nearest surviving neighbor (preferring the following item).
+
+**A group can be a RECTANGLE: `columns`** (ADR-0030). An integer ≥ 1 declaring
+that this group's `order` is **LINES of `columns` LANES**, row-major, in document
+order — which is exactly what a lazy grid's mounted band is. `axis` then names the
+**lane** direction (a `LazyVGrid`'s lanes run across, so it declares
+`"horizontal"`; a `LazyHGrid`'s run down, so `"vertical"`), and the direction
+perpendicular to it moves **±`columns`** — one whole line, keeping the lane —
+instead of falling straight out of the group. Anything that is not an integer ≥ 1
+is ignored and the group stays one-dimensional.
+
+- **Document order is unaffected.** `columns` adds no ordering opinion; it only
+  says where the lines break in the one order the group already has. Tab still
+  walks lanes then lines.
+- **Perpendicular ENTRY** is the near LINE at the ordinal lane: entering downward
+  lands in the first line, upward in the last, and the incoming ordinal is the
+  lane, so a column survives the crossing. Entry along the lane axis is the near
+  END, unchanged.
+- **A ragged last line** clamps forward (the lane does not reach it, so the move
+  lands on the last cell that exists) and needs no case backward, since only the
+  last line may be short. Clamping is not wrapping: from the last line itself the
+  move exits.
+- **`wrap` still governs the declared axis only.** The bottom of a column is an
+  exit, which is what lets a grid hand focus to whatever sits under it.
+- **The order must stay a complete rectangle.** Make a cell unreachable with a
+  focus-skip predicate, never with a hole. Anything that *splices* an order —
+  `graph.remove`, and the framework's own hidden-subtree filter — drops `columns`
+  and falls back to the 1-D reading rather than navigating a rectangle that is no
+  longer there; `setGroupOrder` takes the lane count alongside the order it
+  describes (omitting it clears the field), and `replaceGroups` re-declares it with
+  the group.
 - `graph.popScope()`, `graph.removeScope(name)` (used by
   `presenter.dismiss` so dismissing a covered screen removes ITS scope, not
   the top one), `graph.activeScopeName()`, `graph.focused` (Readable).

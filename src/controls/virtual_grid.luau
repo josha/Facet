@@ -37,25 +37,29 @@
 	elastic); the mirror slides the window and a scroll never activates a cell.
 	A tap on a cell activates through the auto-composed `handleActivate`.
 
-	keyboard/gamepad: the windowed cell hits are ONE contributed focus group whose
-	axis is THE LANE AXIS — the band's own document order walks a line's lanes
-	before it moves to the next line, so ±1 is always a step ACROSS a line. On
-	`axis = "y"` that is `horizontal` (row-major: the cell left or right); on
-	`axis = "x"` it is `vertical` (column-major: the cell above or below). **THE
-	PERPENDICULAR STEP IS NOT ±1, IT IS ±lanes** — a whole line — which the focus
-	graph cannot express (an axis there is "vertical" or "horizontal",
-	`focus_graph.luau`), so the second axis arrives through the existing
-	`navigateIntercept` seam rather than by widening the focus graph from inside a
-	control. Emitting the other axis would have been REACHABLE and wrong in SHAPE
-	— the perpendicular key walking one cell instead of one line — which is
-	precisely the difference between the reachability axis and the paradigm axis.
+	keyboard/gamepad: the windowed cell hits are ONE contributed focus group that
+	declares BOTH of the things a grid's ring needs — its LANE AXIS and its LANE
+	COUNT. The band's own document order walks a line's lanes before it moves to
+	the next line, so ±1 is always a step ACROSS a line: on `axis = "y"` the group
+	is `horizontal` (row-major: the cell left or right), on `axis = "x"` it is
+	`vertical` (column-major: the cell above or below). **THE PERPENDICULAR STEP IS
+	NOT ±1, IT IS ±lanes** — a whole line — and since ADR-0030 the focus graph
+	expresses that directly: `NavigationGroup.columns` tells it the order is LINES
+	of `lanes` LANES, and `focus_graph.navigateDirection` answers the perpendicular
+	direction itself. Emitting the other axis instead would have been REACHABLE and
+	wrong in SHAPE — the perpendicular key walking one cell instead of one line —
+	which is precisely the difference between the reachability axis and the
+	paradigm axis.
+
+	This control used to catch that key with a `navigateIntercept` and do the
+	±lanes arithmetic itself. It no longer contributes one at all; the block above
+	`bundle` records what went with it and why nothing replaced it.
 
 	A cell whose focus target leaves the window is handled the way `newVirtualList`
 	handles it, and the reason is worth keeping: the ring never has to focus an
 	unmounted node, because a step into the OVERSCAN band scrolls the window, which
 	materializes the next line for the step after it. The control contributes NO
-	`focusMoved` for this — see the block above `handleActivate`, where mutation
-	testing proved that seam dead and the intercept's own keep-visible load-bearing.
+	`focusMoved` for this — see the block above `handleActivate`.
 
 	THE FULL-CELL FOCUSABLE HIT IS NOT DECORATION. `focus_map.autoGroups` emits a
 	contribution's groups and does NOT descend into it, so a focusable this control
@@ -139,19 +143,21 @@
 	                                      the cross axis is the height and it fills)
 	    band = UI.Grid (row-major)        band = UI.Grid { flow = "column" }
 	    focus group axis "horizontal"     focus group axis "vertical"
-	    intercept: Up/Down = ±lanes       intercept: Left/Right = ±lanes
+	    graph answers Up/Down = ±lanes    graph answers Left/Right = ±lanes
 
 	THE LAST TWO ROWS ARE THE PART THAT IS NOT A MECHANICAL TRANSPOSE, and it is
-	worth stating rather than deriving twice. A grid's ring is two-dimensional and
-	the focus graph's is not, so one axis is the declared group and the other
-	arrives through `navigateIntercept`. Which is which follows one rule: THE
-	GROUP'S AXIS IS THE LANE AXIS, ALWAYS PERPENDICULAR TO THE SCROLL — because
-	document order walks a line's lanes before it moves to the next line. So a
-	vertical grid declares `horizontal` and a horizontal grid declares `vertical`.
-	`newVirtualList` transposes the OTHER way (`vertical` on y, `horizontal` on x),
-	because a list's line holds one item and its document order IS its scroll axis;
-	copying the list's answer here would be REACHABLE and wrong in SHAPE, with Right
-	stepping one cell down instead of a whole line.
+	worth stating rather than deriving twice. A grid's ring is two-dimensional, and
+	the group says so: it declares its LANE AXIS and its LANE COUNT, and the graph
+	derives the perpendicular from the pair (ADR-0030). Which axis is which follows
+	one rule: THE GROUP'S AXIS IS THE LANE AXIS, ALWAYS PERPENDICULAR TO THE SCROLL
+	— because document order walks a line's lanes before it moves to the next line.
+	So a vertical grid declares `horizontal` and a horizontal grid declares
+	`vertical`. `newVirtualList` transposes the OTHER way (`vertical` on y,
+	`horizontal` on x), because a list's line holds one item and its document order
+	IS its scroll axis; copying the list's answer here would be REACHABLE and wrong
+	in SHAPE, with Right stepping one cell down instead of a whole line. A list
+	declares no `columns` at all, which is what keeps the two transposes from ever
+	being the same statement.
 
 	── WHAT DIES WITH THE WINDOW, AND WHAT DOES NOT ─────────────────────────────
 
@@ -823,27 +829,25 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		keyboard/gamepad: the windowed cell hits are ONE focus group and the ring
 		walks them; Activate fires `onActivate`.
 
-		THE GROUP'S AXIS IS THE LANE AXIS, AND THE PERPENDICULAR IS AN INTERCEPT. The
+		THE GROUP'S AXIS IS THE LANE AXIS, AND `columns` IS THE PERPENDICULAR. The
 		group's order is the band's own document order, which walks a line's lanes
 		first — so ±1 in that order is always the neighbouring cell ACROSS the line,
 		and the keys along the lane axis read correctly straight off it. The
-		perpendicular key is NOT ±1: it is ±`lanes`. The focus graph has no
-		two-dimensional group axis (`focus_graph.luau`: an axis is "vertical" or
-		"horizontal"), so that second axis arrives through the `navigateIntercept`
-		seam that already exists, rather than by widening the focus graph from
-		inside a control.
+		perpendicular key is NOT ±1: it is ±`lanes`, and the group says so by
+		declaring `columns` (ADR-0030). The graph does the line arithmetic; this
+		control does none.
 
 		WHICH AXIS IS WHICH FLIPS WITH THE SCROLL, and it flips the OPPOSITE way from
 		`newVirtualList`'s. A vertical grid's lanes run across, so the group is
-		`horizontal` and Up/Down is the intercept; a horizontal grid's lanes run down,
-		so the group is `vertical` and Left/Right is the intercept. A list transposes
-		the other way because its line holds ONE item, which makes its document order
-		its scroll axis. Copying a list's answer here is reachable and wrong in shape:
-		every cell stays focusable while the perpendicular key walks one cell instead
-		of a whole line. ]]
+		`horizontal` and the graph answers Up/Down by a line; a horizontal grid's
+		lanes run down, so the group is `vertical` and the line pair is Left/Right. A
+		list transposes the other way because its line holds ONE item, which makes its
+		document order its scroll axis — and it declares no `columns`, so its ring
+		stays one-dimensional. Copying a list's answer here is reachable and wrong in
+		shape: every cell stays focusable while the perpendicular key walks one cell
+		instead of a whole line. ]]
 	local hitPattern = patternEscape(id) .. "/Canvas/Band/W/%[(.-)%]/Cell/Hit$"
 	local focusGroupName = `VirtualGridCells-{id}`
-	local focusGraph: any = nil
 
 	local function keyOfHit(path: string): string?
 		return string.match(path, hitPattern)
@@ -865,13 +869,14 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		withholding it changed the scroll behaviour on no path at all, because the
 		presenter's own keep-visible already reacts to a focus move it observes.
 
-		THE INTERCEPT'S KEEP-VISIBLE IS NOT DEAD, and the difference is the whole
-		mechanism. `navigateIntercept` moves focus PROGRAMMATICALLY, and it has to
-		scroll BEFORE it lands the ring — the presenter never sees a move it did not
-		route, so nothing else brings the ±lanes target into view. Removing that one
-		reddens `VirtualGrid keyboard: focus past the window edge scrolls the line
-		into view`; removing this one reddened nothing, which is why it is gone
-		rather than kept "for symmetry". ]]
+		THE OTHER HALF OF THAT FINDING HAS SINCE GONE THE SAME WAY. While the
+		perpendicular key was a `navigateIntercept`, the intercept had to scroll for
+		itself: `focusOn` is a move the presenter never routed, so nothing else
+		brought the ±lanes target into view, and neutering the presenter's
+		keep-visible reddened only the Left/Right case. Now that the GRAPH makes that
+		move, both axes are routed moves and both are kept visible by the one shared
+		substrate — which is why deleting the intercept deleted a keep-visible too,
+		and added none. ]]
 	local function handleActivate(path: string, meta: any?): boolean
 		local key = keyOfHit(path)
 		if key == nil then
@@ -884,64 +889,6 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		if spec.onActivate ~= nil then
 			(spec.onActivate :: any)(item, meta)
 		end
-		return true
-	end
-
-	--[[ THE SECOND AXIS. The keys PERPENDICULAR to the lanes move by a whole LINE —
-		±`lanes` in the data — which is the move the group's own axis cannot express.
-		On `axis = "y"` those keys are Up/Down; on `axis = "x"` they are Left/Right,
-		and the pair is derived from the axis rather than listed twice, so the two
-		directions cannot disagree about which one this grid owns.
-
-		The target is inside the window whenever it is within `overscan` lines, and
-		one line always is, so the cell it aims at is already mounted; when it is not
-		(overscan = 0 at the very edge) the intercept declines rather than focusing a
-		node that does not exist. ]]
-	local FORWARD = if isX then "right" else "down"
-	local BACKWARD = if isX then "left" else "up"
-	local function navigateIntercept(direction: string): boolean
-		if direction ~= FORWARD and direction ~= BACKWARD then
-			return false
-		end
-		if focusGraph == nil then
-			return false
-		end
-		--[[ THE FOCUSED PATH IS THE ONLY THING ASKED, and deliberately so. The first
-			draft also required a path this control had SEEN move (`focusMoved`), which
-			read as a safety check and was a bug: the presenter's AUTO-FOCUS lands on
-			the first cell without ever moving, so the very first Down a player pressed
-			was silently declined. Matching the focused path against this grid's own hit
-			pattern already proves the press is ours; a second piece of remembered state
-			could only ever disagree with it. ]]
-		local focused = focusGraph.focused:get()
-		if type(focused) ~= "string" then
-			return false
-		end
-		local key = keyOfHit(focused)
-		if key == nil then
-			return false -- the ring is somewhere else entirely; not our press
-		end
-		local items = spec.items:get() :: { any }
-		local index = (indexByKey:get() :: { [string]: number })[key]
-		if index == nil then
-			return false
-		end
-		local target = index + (if direction == FORWARD then lanesNow() else -lanesNow())
-		if target < 1 or target > #items then
-			return false -- the edge of the collection: let the group's own rules answer
-		end
-		local targetKey = spec.key(items[target])
-		-- scroll first, so a target in the overscan band is brought into view before
-		-- the ring lands on it rather than after
-		local scrollTarget = keepVisibleTarget(lineOf(target))
-		if scrollTarget ~= nil then
-			scrollTo(nil, scrollTarget)
-		end
-		local hit = hitPathOf(targetKey)
-		if hit == nil then
-			return false
-		end
-		focusGraph.focusOn(hit)
 		return true
 	end
 
@@ -974,19 +921,48 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 				-- the LANE axis, always perpendicular to the scroll: document order
 				-- walks a line's lanes before it moves to the next line
 				axis = if isX then "vertical" else "horizontal",
+				--[[ ...AND THE LANE COUNT, WHICH IS THE OTHER HALF OF THE SAME SENTENCE
+					(ADR-0030). With `columns` declared, the graph reads this order as LINES
+					of `lanes` LANES and answers the perpendicular direction itself, by a
+					whole line. That is what a `navigateIntercept` used to do here by hand.
+
+					`lanesNow()` is read at DERIVATION time, beside the order it describes,
+					which is what keeps the two from disagreeing: a lane-count change relays
+					every item onto a different line, so the mounted key sequence changes,
+					so the band re-mounts and this function runs again. The rectangle
+					invariant holds because the window is a contiguous run of items starting
+					on a LINE BOUNDARY — only its last line can be short, and only when it
+					is the collection's own last line. ]]
+				columns = lanesNow(),
 				wrap = false,
 				order = order,
 			},
 		}
 	end
 
+	--[[ THERE IS NO `navigateIntercept` HERE ANY MORE, AND ITS DELETION IS THE POINT
+		(ADR-0030). Both grids used to declare a 1-D group along the lanes and then
+		catch the perpendicular key — Up/Down on `axis = "y"`, Left/Right on
+		`axis = "x"` — converting it to ±`lanes` and calling `focusGraph.focusOn`.
+		Two intercepts differing only in a direction pair is the shape a general
+		mechanism is owed, and `columns` above is that mechanism.
+
+		WHAT WENT WITH IT, AND WHY NOTHING REPLACED IT. The intercept had to scroll
+		before it landed the ring, because `focusOn` is a move the presenter never
+		routed and therefore never keeps visible. A move the GRAPH makes is routed:
+		`navigateDirection` is followed by `handle.focusMoved`, whose first act is the
+		shared `controller.scrollToVisible` — the same substrate that has always
+		brought a Right-off-the-end-of-a-line into view (`tests/virtual_grid_input`,
+		"Right off the END of a line"). So the keep-visible did not move into this
+		file, it stopped being this file's problem.
+
+		It also stopped being possible to aim at an unmounted cell. The intercept
+		computed its target in the WHOLE collection and then asked whether that cell
+		happened to be mounted; the graph can only reach what is in the order, which
+		is the mounted window and nothing else. ]]
 	local bundle: any = {
 		focusGroups = buildFocusGroups,
 		handleActivate = handleActivate,
-		navigateIntercept = navigateIntercept,
-		bindFocusGraph = function(graph: any)
-			focusGraph = graph
-		end,
 	}
 	blueprint = contribution.attach(blueprint, bundle)
 

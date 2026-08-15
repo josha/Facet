@@ -219,6 +219,32 @@ describe("VirtualGrid keyboard input (no consumer wiring)", function()
 		expect(lineTop + 40 <= top + 400).toBe(true)
 	end)
 
+	it("VirtualGrid keyboard: the focus dump REPORTS the second axis (ADR-0030)", function()
+		--[[ The whole chain in one assertion: the control declares `columns` beside
+			the order it describes, `focus_map.autoGroups` splices the group in whole,
+			the graph reads it as a rectangle, and `handle.focusOrder()` reports it.
+			It is in the dump because the order cannot show it — these sixteen paths
+			are the same sixteen paths whether they are a 4-lane grid or one very long
+			row, and "which one is this" is exactly the question the dump exists to
+			answer without pressing a key sixteen times. ]]
+		local w = world()
+		local group
+		for _, g in w.handle.focusOrder().navigation do
+			if string.find(g.name, "VirtualGridCells", 1, true) ~= nil then
+				group = g
+			end
+		end
+		expect(group ~= nil).toBe(true)
+		expect(group.axis).toBe("horizontal") -- the LANE axis
+		expect(group.columns).toBe(4) -- ...and where its lines break
+		-- the null half: an ordinary group in the same dump claims no second axis
+		for _, g in w.handle.focusOrder().navigation do
+			if string.find(g.name, "VirtualGridCells", 1, true) == nil then
+				expect(g.columns).toBe(nil)
+			end
+		end
+	end)
+
 	it("VirtualGrid keyboard: Return activates the focused cell", function()
 		local w = world()
 		w.system.deviceKey("Down", true)

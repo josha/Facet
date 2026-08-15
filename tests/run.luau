@@ -145,6 +145,10 @@ require("./virtual_grid_input.spec")
 -- so Down steps ONE CELL here and Right steps a whole LINE
 require("./virtual_hgrid.spec")
 require("./navigation_groups.spec")
+-- ...and the mechanism BOTH grids stand on since ADR-0030: a NavigationGroup may
+-- declare `columns`, and the focus graph then answers the direction perpendicular
+-- to the lanes itself, by a whole line. This is what deleted the two intercepts
+require("./focus_grid_axis.spec")
 require("./perf_runner.spec")
 -- evidence-class discipline: the rules that stop a headless number becoming a
 -- device claim (roadmap Step 4, UI-PERF-002)

@@ -121,7 +121,29 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		return false, nil
 	end
 
-	-- structural region: When
+	--[[ structural region: When
+
+		THE BRANCH SCOPE IS HANDED TO THE FACTORY — `thenView(branchScope)`, the
+		symmetric twin of `ForEach`'s `row(item, itemScope)` below
+		(react-lua-comparison.md §5 rank 2, built 2026-08-15). The lifetime already
+		existed and was simply not passed: `branchScope` is created one line above
+		each factory call and disposed on branch exit, so a panel that owns a
+		MotionValue, a timer or an async handle can own it HERE instead of hoisting
+		it to the enclosing scope, where it outlives the panel. Ignoring the
+		argument stays valid — every `thenView() -> Blueprint` written before this
+		is unchanged.
+
+		AND WHY THERE IS NO `elseView` TO HAND A SECOND SCOPE TO. The false case is
+		a second `UI.When` with an inverted condition, which is its OWN region with
+		its OWN `scope:child(path .. "/then")`; the two branches therefore cannot
+		share a lifetime even by accident. An `elseView` prop would have to answer
+		"same scope or sibling", and the only safe answer is SIBLING — one shared
+		scope would carry a resource the false branch allocated into the true
+		branch on the next flip, which is the hoisted-state leak this change closes
+		wearing a different costume. A sibling scope is exactly what two `When`s
+		already give you, for one more line and no new idiom, so the prop buys
+		nothing and adds a way to get the lifetime wrong. Refused deliberately; see
+		`tests/mount.spec.luau`, "a flip back gets a FRESH scope". ]]
 	local function mountWhen(bp: Blueprint, path: string, scope: any, boundary: any, activation: string?): any
 		local node: any = {
 			class = "When",
@@ -216,7 +238,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 				local branchScope = scope:child(branchPath)
 				node.branchScope = branchScope
 				local ok, mounted = guarded(boundary, function()
-					return mountNode(bp.props.thenView(), branchPath, branchScope, 1, boundary, activation)
+					return mountNode(bp.props.thenView(branchScope), branchPath, branchScope, 1, boundary, activation)
 				end)
 				if not ok then
 					return -- the boundary swapped to its fallback
@@ -237,7 +259,7 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 		if initial then
 			local branchScope = scope:child(branchPath)
 			node.branchScope = branchScope
-			local mounted = mountNode(bp.props.thenView(), branchPath, branchScope, 1, boundary, activation)
+			local mounted = mountNode(bp.props.thenView(branchScope), branchPath, branchScope, 1, boundary, activation)
 			node.children = { mounted }
 			if declared ~= nil then
 				mounted.transition = declared

@@ -199,6 +199,62 @@ describe("mount retire model: When", function()
 		root.dispose()
 	end)
 
+	it("the scope handed to thenView survives the RETIRE and dies at done, once", function()
+		--[[ react-lua-comparison.md §5 rank 2. The branch scope is now the factory's
+			second argument, so a panel's MotionValue lives on it — and a panel with a
+			motion value is precisely the panel that has an exit transition. The
+			retire path moves the scope onto `retiring` and disposes it at `done`, so
+			the resource must still be ALIVE for the whole exit (an exit animation
+			reading a released handle is the defect) and released exactly once after.
+			The re-entry case above proves the factory does not re-run; this one
+			proves the thing it was handed is still usable while it does not. ]]
+		local core = customFactory.new()
+		local script = scripted()
+		local on = core:signal(true)
+		local handed: { any } = {}
+		local released = 0
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.When({
+						id = "Gate",
+						condition = on,
+						transition = FADE,
+						thenView = function(branchScope)
+							table.insert(handed, branchScope)
+							branchScope:own(function()
+								released += 1
+							end)
+							return UI.Box({ id = "Leaf" })
+						end,
+					}),
+				},
+			}),
+			{ transitions = script.coordinator }
+		)
+		expect(#handed).toBe(1)
+		expect(handed[1].label).toBe("/S/Gate/then")
+
+		on:set(false) -- retiring: the exit is playing and the scope must still be live
+		expect(handed[1]:isDisposed()).toBe(false)
+		expect(released).toBe(0)
+
+		on:set(true) -- reversed mid-exit: SAME scope comes back, factory did not re-run
+		expect(#handed).toBe(1)
+		expect(handed[1]:isDisposed()).toBe(false)
+		expect(released).toBe(0)
+
+		on:set(false)
+		script.finish("/S/Gate/then/Leaf")
+		expect(handed[1]:isDisposed()).toBe(true)
+		expect(released).toBe(1)
+		root.dispose()
+		expect(released).toBe(1) -- and the region's disposal does not release it twice
+		expect(core:lastError()).toBeNil()
+	end)
+
 	it("without a transition the removal path is byte-identical to before", function()
 		local core = customFactory.new()
 		local script = scripted()

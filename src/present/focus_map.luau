@@ -127,6 +127,13 @@ local function filterGroupsHidden(groups: { any }, hidden: { [string]: boolean }
 			if #filtered ~= #group.order then
 				local copy = table.clone(group)
 				copy.order = filtered
+				-- THIS FILTER PUNCHES A HOLE, and a 2-D group's `columns` describes a
+				-- RECTANGLE it no longer has: every entry after a removed one shifts a
+				-- lane, so the perpendicular arrow would land confidently wrong.
+				-- `focus_graph.remove` drops the field for the same reason and this is
+				-- the same splice, one layer up — the group falls back to its 1-D
+				-- reading, which is merely old (ADR-0030, "the rectangle invariant").
+				copy.columns = nil
 				table.insert(out, copy)
 				continue
 			end
