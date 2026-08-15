@@ -462,7 +462,17 @@ function presentation_channel.new(deps: {
 			dRo: number
 		)
 			if set == nil then
-				set = { spring = session.newSpring(), paths = {}, done = false }
+				-- `carriesVelocity = false` marks a CURVE-driven session (ADR-0033):
+				-- a curve's speed is its shape, so there is no velocity to seed and
+				-- the carry below must not try — `setVelocity` raises on a tween
+				-- value, and raising here would abort an armed commit mid-install.
+				-- Absent (an older session shape) means a spring, which carries.
+				set = {
+					spring = session.newSpring(),
+					paths = {},
+					done = false,
+					carriesVelocity = session.carriesVelocity ~= false,
+				}
 				-- the write rides the VALUE, not the clock step, exactly as a
 				-- transition's does, so an instantly-placed value lands the same way
 				set.unobserve = core:observe(set.spring, function()
@@ -630,7 +640,7 @@ function presentation_channel.new(deps: {
 		if set ~= nil then
 			set.spring:setTarget(0)
 			-- after the aim, so the seed is what integrates from here
-			if carryMagOld > 0 and carryMagNew > 0 then
+			if set.carriesVelocity and carryMagOld > 0 and carryMagNew > 0 then
 				set.spring:setVelocity(carryVelocity * (carryMagOld / carryMagNew))
 			end
 		end

@@ -50,6 +50,7 @@
 
 local springLib = require("./spring")
 local classes = require("./classes")
+local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
 
 local motion = {}
@@ -92,6 +93,12 @@ export type Internals = {
 	-- report a quarantined consumer-callback error onto the clock's lastError
 	-- channel (settle fan-out runs outside the step pcall on the placeNow path)
 	noteError: (message: string) -> (),
+	-- the EASING EVALUATOR, injected exactly the way `now` is (ADR-0033). On
+	-- Roblox this is `TweenService:GetValue`, installed by
+	-- `src/client/motion_driver.luau`; headless it is `curves.evaluate`, the pure
+	-- twin pinned to the engine by a differential oracle. Same signature either
+	-- way: `(alpha, style, direction) -> eased alpha`.
+	easing: (alpha: number, style: string, direction: string) -> number,
 }
 
 export type ValueOpts = {
@@ -657,6 +664,133 @@ function motion.newGlide(internals: Internals, initial: number, spec: GlideSpec)
 		kind = spec.kind or "informational",
 		quantum = spec.quantum,
 		reducedMotion = spec.reducedMotion,
+	}
+	return newValue(internals, initial, options, driver, false)
+end
+
+-- CLOSED OPTS for `clock:tween` (constitution §4). A misspelled `kind` or
+-- `reducedMotion` silently drops an accessibility declaration, which is the same
+-- reason `GLIDE_SPEC_KEYS` is closed.
+local TWEEN_OPTS_KEYS = specGuard.keySet({ "eps", "kind", "quantum", "reducedMotion" })
+
+-- clock:tween(initial, curveName, opts?) — DURATION AND A CURVE: the value that
+-- arrives ON TIME, in a shape a designer named.
+--
+-- WHY IT IS NOT A SPRING (and why springs are still the default). A spring
+-- approaches asymptotically — `response` is a feel dial and settle time is
+-- emergent — so "over exactly 400 ms" is not expressible and a cooldown cannot be
+-- commanded to land on the beat. `clock:spring` stays the right reach for
+-- anything a finger interrupts, because a re-targeted tween hard-cuts velocity to
+-- zero where a spring inherits it (spring.luau's header). Reach for a tween when
+-- the DURATION is the requirement: a designer's spec in milliseconds, a beat that
+-- must land with an audio cue, a fixed-length cutscene frame.
+--
+-- WHY IT IS NOT A GLIDE OR A TIMER. Both already own duration; both are strictly
+-- LINEAR. A tween is the same ramp with the curve between the endpoints made
+-- authorable — which is precisely the half RascalRally lost when its `p^1.6`
+-- ease-in ramp (`src/shared/CommitBeatModel.luau`) had to be flattened to a
+-- linear `clock:timer` in the LuauUI port, for want of a curve to name.
+--
+-- THE CONTRACT. `setTarget(v)` restarts a FULL-duration flight from wherever the
+-- value currently IS to `v` — it never moves the value, so a re-aim mid-flight
+-- redirects without a jump (the interruptibility invariant springs also owe),
+-- but the velocity DOES restart from the curve's opening slope. That kink is what
+-- a tween is; it is why the class registry, not this, is the default vocabulary.
+-- `setVelocity` raises: a curve's speed is its shape times its duration, and
+-- accepting a seed would silently do nothing.
+--
+-- REDUCED MOTION is inherited from the value layer with nothing re-decided:
+-- `kind` defaults to `"decorative"`, exactly as `clock:spring` does, so RM places
+-- the terminal value instantly and fires the SAME settle event. The rule the
+-- authority actually follows — and this is the first place it is written down —
+-- is that the default follows what the value MEANS: only the primitives whose
+-- content is inherently elapsed time (`timer`) or a resampled stream (`glide`)
+-- default to `"informational"`. A tween's meaning is the caller's, so a cooldown
+-- sweep must declare `kind = "informational"` and then keeps running to the same
+-- terminus on the quantized tick — a frozen cooldown and a hung game look
+-- identical, which is the same reasoning the indeterminate spinner ships.
+function motion.newTween(internals: Internals, initial: number, curve: any, opts: ValueOpts?): MotionValue
+	specGuard.assertKnownKeys("clock:tween", opts, TWEEN_OPTS_KEYS, "opts")
+	if not isFinite(initial) then
+		error("LuauUI motion: clock:tween needs a finite initial value", 0)
+	end
+	local spec = curvesLib.resolve(curve)
+	local options: ValueOpts = opts or {}
+	local duration, style, direction = spec.duration, spec.style, spec.direction
+	local evaluate = internals.easing
+
+	-- `elapsed >= duration` IS the rest state, so a fresh tween starts settled and
+	-- costs the clock nothing until something aims it (glide's shape exactly).
+	local from, target, current = initial, initial, initial
+	local elapsed = duration
+
+	local function progress(at: number): number
+		if duration <= 0 then
+			return 1
+		end
+		return evaluate(at / duration, style, direction)
+	end
+
+	local driver: Driver = {
+		advance = function(dt: number): boolean
+			if elapsed >= duration then
+				current = target
+				return true
+			end
+			-- RAW dt, not the spring's clamped frame: a tween owes a WALL-CLOCK
+			-- terminus, so a frame spike must not stretch the duration it promised
+			-- (`clock:timer` advances the same way, and for the same reason).
+			elapsed += dt
+			if elapsed >= duration then
+				elapsed = duration
+				current = target
+				return true
+			end
+			current = from + (target - from) * progress(elapsed)
+			return false
+		end,
+		place = function(v: number)
+			from, target, current = v, v, v
+			elapsed = duration
+		end,
+		value = function(): number
+			return current
+		end,
+		terminus = function(): number
+			return target
+		end,
+		settled = function(): boolean
+			return elapsed >= duration
+		end,
+		aim = function(v: number)
+			-- from WHERE IT IS, not from the last target: an aim during flight must
+			-- neither teleport nor inherit a stale origin
+			from = current
+			target = v
+			elapsed = 0
+			if duration <= 0 then
+				current = v
+			end
+		end,
+		-- a curve has no velocity to seed: its speed is (target - from) times the
+		-- curve's own slope, by construction
+		seed = nil,
+		velocity = function(): number
+			if duration <= 0 or elapsed >= duration then
+				return 0
+			end
+			-- the curve's INSTANTANEOUS slope, central-differenced. A constant
+			-- (target-from)/duration would be the average, and reporting an average
+			-- as a velocity is how a gesture hand-off inherits the wrong speed —
+			-- `getVelocity` exists to be read at a specific instant.
+			local h = math.min(1e-3, duration / 1000)
+			local lo = math.max(0, elapsed - h)
+			local hi = math.min(duration, elapsed + h)
+			if hi <= lo then
+				return 0
+			end
+			return (target - from) * (progress(hi) - progress(lo)) / (hi - lo)
+		end,
 	}
 	return newValue(internals, initial, options, driver, false)
 end

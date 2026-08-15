@@ -6212,6 +6212,56 @@ built-in name is the sanctioned ±30 % tuning dial. `motion.resolveClass(name)`,
 `motion.classNames()`, `motion.isRegisteredClass(name)` and `motion.resetClasses()`
 round out the registry.
 
+#### `motion.registerCurve(name, spec)` and the curve vocabulary
+
+The **other** motion vocabulary, and the one a design handoff arrives in (ADR-0033).
+A **motion curve** is a named `{ duration, style, direction? }` — a duration in
+seconds and an easing shape — where a class is physics with no authorable
+duration. Reach for a curve when the duration *is* the requirement: a spec in
+milliseconds, a UI beat that must land with an audio cue, a cooldown that has to
+arrive **on time** (a spring approaches its target asymptotically and cannot).
+Reach for a class for anything a finger interrupts, because a re-targeted tween
+hard-cuts velocity to zero where a spring inherits it.
+
+`style` is **Roblox's own `Enum.EasingStyle` vocabulary**, spelled lower-camel:
+`linear`, `sine`, `back`, `quad`, `quart`, `quint`, `bounce`, `elastic`,
+`exponential`, `circular`, `cubic`. `direction` is `"in"`, `"out"` (the default —
+the overwhelmingly common UI shape) or `"inOut"`. `duration` is validated to
+`[0, 2]` seconds; `0` is legal and means "arrive on the frame this is stepped",
+which is how a data-driven table says *instant*.
+
+**The registry ships EMPTY, deliberately.** There is no defensible built-in
+duration: 400 ms is a decision about one specific surface, where a class's two
+physics numbers generalize. Registering a curve *is* the act of choosing, once,
+with a name. As with classes, an inline `{ duration = 0.4, style = "quad" }` at a
+call site is **refused** with an error pointing at `registerCurve`, and an unknown
+name is an error with a did-you-mean and the registered list — never a silent
+fallback to linear, which is the worst outcome available because it looks like it
+worked.
+
+```lua
+LuauUI.motion.registerCurve("banner", { duration = 0.4, style = "quad", direction = "out" })
+local reveal = clock:tween(0, "banner")
+reveal:setTarget(1)
+```
+
+**The engine evaluates the curve.** On Roblox the easing math is
+`TweenService:GetValue`, installed onto the clock by `motion_driver.bind` — the
+one binding every client already makes — so a game gets the engine's own curves
+with no wiring of its own, and a style Roblox adds later needs one line here
+rather than a new implementation. `TweenService:Create` is *not* used and cannot
+be: it targets an `Instance`, so driving a `MotionValue` through it would need a
+proxy instance per animated value and a flight `clock:step(dt)` could not advance,
+which would put the shipped path outside the headless suite. Lune has no
+`TweenService`, so `src/motion/curves.luau` carries a pure twin for the suite,
+pinned to the engine by a differential oracle over 33,033 samples (max
+|twin − engine| = 4.73e-7). See `clock:setEasing` and ADR-0033.
+
+`motion.resolveCurve(name)`, `motion.curveNames()`,
+`motion.isRegisteredCurve(name)` and `motion.resetCurves()` round out the
+registry — deliberately one-for-one with the class registry above, so an author
+who knows one knows the other and neither needs a lookup.
+
 #### `clock:spring(initial, className, opts?) -> MotionValue`
 
 The returned value **is** a `Readable<number>` (the backing core signal itself,
@@ -6301,6 +6351,50 @@ a non-finite `initial` or a negative `duration` errors at the call.
   aims it. `newProgressView`'s indeterminate shapes are the framework's own
   caller, at `kind = "informational"`.
 
+#### `clock:tween(initial, curveName, opts?) -> MotionValue`
+
+`opts` is `{ eps?, kind?, quantum?, reducedMotion? }` and the key set is closed.
+The **duration-and-curve** value: `setTarget(v)` crosses to `v` over the named
+curve's exact duration and is **at** the terminus on the frame that duration
+elapses — not approaching it. That is the whole primitive, and it is the one thing
+no spring can do.
+
+- **It is not a spring**, because a spring's settle time is emergent — `response`
+  is a feel dial, not a duration — so "over exactly 400 ms" is not expressible and
+  a cooldown built on one is late by an amount nobody can state.
+- **It is not a `clock:timer`**, because a timer is fire-and-forget (`setTarget`
+  raises on it) and strictly linear. A tween is re-aimable and carries a shape.
+- **It is not a `clock:glide`**, because a glide is the *linear* re-aimable ramp
+  built for a fixed resample cadence. A tween is that ramp with the curve between
+  the endpoints made authorable — the half RascalRally lost when its `p^1.6`
+  ease-in had to be flattened to a linear timer for want of a curve to name.
+- **`setTarget(v)`** restarts a **full-duration** flight from wherever the value
+  currently is. It never moves the value, so a re-aim mid-flight redirects with no
+  jump — but the velocity restarts from the curve's opening slope. That kink is
+  what a tween *is*, and it is why classes remain the default vocabulary.
+- **`setVelocity` raises.** A curve's speed is its shape times its duration;
+  accepting a seed would silently do nothing. `getVelocity()` still answers, and
+  answers the curve's **instantaneous** slope rather than its average.
+- It advances by **raw `dt`** (like `clock:timer`, unlike a spring's clamped
+  frame): a tween owes a wall-clock terminus, so a frame spike must not stretch
+  the duration it promised.
+- A fresh tween starts **settled** and costs the clock nothing until it is aimed.
+- `kind` defaults to **`"decorative"`**, exactly as `clock:spring` does. The rule
+  the authority follows is that the default follows what the value *means*: only
+  the primitives whose content is inherently elapsed time (`timer`) or a resampled
+  stream (`glide`) default to `"informational"`. A cooldown sweep is
+  informational and must say so.
+
+#### `clock:setEasing(evaluate)`
+
+Installs the easing evaluator — `(alpha, style, direction) -> eased alpha`, the
+exact signature of `TweenService:GetValue`. **A game does not normally call this**:
+`motion_driver.bind(presenter)` installs the engine's own evaluator, so native is
+the default on Roblox rather than an opt-in someone forgets. It defaults to the
+pure twin in `src/motion/curves.luau`, which is what makes the headless suite
+possible at all, and it is read **per evaluation** rather than captured per value,
+so a bind also upgrades values built before it.
+
 #### `clock:chase(opts) -> handle`
 
 `{ x, y, target, arriveRadius?, onArrive? }`, where `target` is
@@ -6344,6 +6438,7 @@ modes** — that is an invariant of the authority, not a caller's courtesy.
 | decorative value (`clock:spring` default) | `setTarget` places the value at the terminal value **instantly** and fires the same settle event on the same frame. The write lands immediately, not on the next step, so parity never depends on a driver being attached. A velocity seed is inert (there is no flight to smooth). |
 | informational value or timer (`kind = "informational"`) | **Keeps running** to the same wall-clock terminus; its writes quantize to `quantum` (250 ms) ticks — the stepped policy. Decorative motion snaps; informational motion steps. |
 | `clock:counter` | The **final count** is placed instantly and the same settle event fires — the information is the number, not the counting. |
+| `clock:tween` (decorative default) | Inherited from the decorative value rule above, with nothing re-decided: the terminus is placed instantly and the same settle event fires. Declare `kind = "informational"` for a cooldown or a charge sweep and it **keeps running** to the same terminus on the quantized tick instead — a frozen cooldown and a hung game look identical. |
 | `clock:chase` | Placement is instant and `onArrive` fires on the same frame, with the same `how` / `targetLost` context. |
 | `clock:timeline` | Every beat fires immediately, in order, durations zeroed (`run` then `terminal` per beat), and `onDone("reduced")` fires once. No beat is ever dropped. |
 | `reducedMotion = "fade"` | A caller **declaration** that the consumer pairs the instant placement with a transparency fade at the destination. The value itself still snaps; motion never paints. |

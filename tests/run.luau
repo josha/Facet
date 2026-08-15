@@ -360,6 +360,11 @@ require("./theme_docs.spec")
 require("./motion_spring.spec")
 require("./motion_clock.spec")
 require("./motion_chase.spec")
+-- ...and G-1, the one capability a Fusion user lost outright (ADR-0033): a
+-- DURATION with a CURVE, evaluated by the engine's own `TweenService:GetValue`
+-- in production and by a pure twin — pinned to the engine by a differential
+-- oracle — under Lune
+require("./motion_tween.spec")
 require("./motion_timeline.spec")
 -- ...and the ACCESSIBILITY half of motion: the player's reduced-motion setting
 -- reaching the render target with no consumer wiring (C1, 2026-08-12)

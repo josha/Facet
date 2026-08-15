@@ -38,6 +38,7 @@
 local motionValues = require("./motion")
 local chaseLib = require("./chase")
 local timelineLib = require("./timeline")
+local curvesLib = require("./curves")
 local specGuard = require("../spec_guard")
 
 local clock = {}
@@ -81,6 +82,8 @@ export type Clock = {
 	counter: (self: Clock, initial: number, class: any, opts: motionValues.ValueOpts?) -> motionValues.MotionValue,
 	timer: (self: Clock, spec: motionValues.TimerSpec) -> motionValues.MotionValue,
 	glide: (self: Clock, initial: number, spec: motionValues.GlideSpec) -> motionValues.MotionValue,
+	tween: (self: Clock, initial: number, curveName: any, opts: motionValues.ValueOpts?) -> motionValues.MotionValue,
+	setEasing: (self: Clock, evaluate: (number, string, string) -> number) -> (),
 	chase: (self: Clock, opts: chaseLib.Opts) -> chaseLib.Chase,
 	timeline: (self: Clock, spec: timelineLib.Spec) -> timelineLib.Timeline,
 	isReduced: (self: Clock) -> boolean,
@@ -107,6 +110,13 @@ function clock.new(core: any, opts: Opts?): Clock
 	local lastStepError: string? = nil
 	local needsCompact = false
 	local disposed = false
+	-- THE EASING EVALUATOR (ADR-0033). Defaults to the pure twin so a clock is
+	-- usable the moment it exists — including in Lune, which has no TweenService —
+	-- and `setEasing` swaps in the engine's own `TweenService:GetValue` at the one
+	-- bind every Roblox client already makes. It is read PER EVALUATION rather
+	-- than captured per value, so installing it at bind time also upgrades values
+	-- built before the bind.
+	local easing: (number, string, string) -> number = curvesLib.evaluate
 	local steps, writes, transactions = 0, 0, 0
 
 	local function compact()
@@ -156,6 +166,9 @@ function clock.new(core: any, opts: Opts?): Clock
 		end,
 		noteError = function(message: string)
 			lastStepError = message
+		end,
+		easing = function(alpha: number, style: string, direction: string): number
+			return easing(alpha, style, direction)
 		end,
 	}
 
@@ -288,6 +301,33 @@ function clock.new(core: any, opts: Opts?): Clock
 	function self.glide(_: any, initial: number, spec: motionValues.GlideSpec)
 		assert(not disposed, "LuauUI motion: cannot build a glide on a disposed clock")
 		return motionValues.newGlide(internals, initial, spec)
+	end
+
+	-- DURATION AND A CURVE: the value that arrives ON TIME, in a shape a designer
+	-- named. Reach for it when the duration IS the requirement (a spec in
+	-- milliseconds, a beat that lands with an audio cue); reach for `spring` for
+	-- anything a finger interrupts. The curve is a NAME —
+	-- `motion.registerCurve("banner", { duration = 0.4, style = "quad" })` — and an
+	-- inline spec table at the call site is refused, exactly as an inline spring
+	-- params table is.
+	function self.tween(_: any, initial: number, curveName: any, valueOpts: motionValues.ValueOpts?)
+		assert(not disposed, "LuauUI motion: cannot build a tween on a disposed clock")
+		return motionValues.newTween(internals, initial, curveName, valueOpts)
+	end
+
+	-- Install the easing evaluator. THE ENGINE OWNS THE CURVE (ADR-0033, director
+	-- ruling 2026-08-15): on Roblox `src/client/motion_driver.luau` passes
+	-- `TweenService:GetValue`, so a game gets the engine's own easing with no
+	-- wiring of its own. Until then the pure twin serves, which is what makes the
+	-- headless suite possible at all — and the twin is not a second opinion, it is
+	-- pinned to the engine by a differential oracle over 33,033 samples
+	-- (artifacts/time-based-easing/engine-oracle.md, max |err| 4.73e-7).
+	function self.setEasing(_: any, evaluate: (number, string, string) -> number)
+		assert(
+			type(evaluate) == "function",
+			"LuauUI motion: clock:setEasing needs a function (alpha, style, direction)"
+		)
+		easing = evaluate
 	end
 
 	function self.chase(_: any, chaseOpts: chaseLib.Opts)

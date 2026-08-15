@@ -25,6 +25,7 @@ local motionClockLib = require("../motion/clock")
 -- the motion-class registry, read by `withAnimation` so an unknown name and an
 -- inline params table are refused by the one dial the whole framework uses
 local motionClasses = require("../motion/classes")
+local motionCurves = require("../motion/curves")
 local profile = require("../core/profile")
 -- the metric authority (ADR-0019 §2). The modal-dismissal spec pins the
 -- forgiveness ring to space.l and the target ring to the effective hit floor;
@@ -3441,10 +3442,35 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				0
 			)
 		end
-		-- ONE DIAL: an unknown name AND an inline params table are both refused by
-		-- the class registry, with its did-you-mean and its registered list. A motion
-		-- class is a NAME here exactly as it is everywhere else in the framework.
-		motionClasses.resolve(class)
+		--[[ ONE DIAL, TWO VOCABULARIES (ADR-0033). An unknown name AND an inline
+			params table are both refused by the registries, with their did-you-mean and
+			their registered lists. A motion class is a NAME here exactly as it is
+			everywhere else in the framework — and so is a motion CURVE.
+
+			WHY A CURVE IS ALLOWED TO DRIVE THIS, decided rather than defaulted. The
+			flight is one progress value from 1 (the old place) to 0 (the solved place),
+			read through `Readable<number>`; a tween value is that same handle with a
+			different driver behind it, so "over exactly 300 ms, quad ease-out" — the
+			shape every design handoff actually arrives in — needs no second mechanism.
+			The one real difference is the interruption carry: a spring hands its
+			velocity to the call that interrupts it, and a curve has no velocity to
+			hand (its speed IS its shape), so `carriesVelocity` below turns that seam
+			off rather than raising inside a commit. A curve-driven interruption still
+			re-bases from the offset on screen, so it redirects without a jump; only the
+			speed kinks, which is what a tween is. Refusing curves here would have left
+			the framework's headline animation verb unable to speak the vocabulary the
+			registry exists to hold — the asymmetry that becomes a defect later. ]]
+		local isCurve = type(class) == "string" and motionCurves.isRegistered(class)
+		if not isCurve then
+			local resolved, err = pcall(motionClasses.resolve, class)
+			if not resolved then
+				local known = motionCurves.names()
+				local also = if #known > 0
+					then ` withAnimation also takes a registered motion CURVE name: {table.concat(known, ", ")}.`
+					else ` withAnimation also takes a registered motion CURVE name (none registered yet — see motion.registerCurve).`
+				error(tostring(err) .. also, 0)
+			end
+		end
 		if type(fn) ~= "function" then
 			error(`LuauUI presenter.withAnimation(class, fn): fn must be a function, got {typeof(fn)}`, 0)
 		end
@@ -3466,8 +3492,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- finds a root, so a call that moves nothing costs no motion value.
 			local session = {
 				newSpring = function()
-					return motionClock:spring(1, class)
+					return if isCurve then motionClock:tween(1, class) else motionClock:spring(1, class)
 				end,
+				-- see the vocabulary note above: a curve has no velocity to seed, so
+				-- the interruption carry is skipped rather than attempted
+				carriesVelocity = not isCurve,
 			}
 			-- presenter-wide, because `refresh` carries no surface — safe precisely
 			-- BECAUSE of the pre-drain: with the queue already empty, another surface

@@ -25,6 +25,7 @@ local asyncResources = require("@self/async/resources")
 local themesPackage = require("@self/themes/package")
 local themesSnapshot = require("@self/themes/snapshot")
 local motionClasses = require("@self/motion/classes")
+local motionCurves = require("@self/motion/curves")
 
 -- THE CORE CONTRACT TYPES, REACHABLE (F-28). `src/core/contract.luau` is pure
 -- types and no code, and until now nothing re-exported it from the public entry
@@ -255,6 +256,23 @@ local LuauUI = {
 		classNames = motionClasses.names,
 		isRegisteredClass = motionClasses.isRegistered,
 		resetClasses = motionClasses.reset,
+		--[[ ...and the CURVE vocabulary (ADR-0033), the other half of the dial.
+			A class is physics with no authorable duration; a curve is
+			`{ duration, style, direction? }` — the shape every design handoff arrives
+			in, and the only way to command "over exactly 400 ms" or to make a cooldown
+			land ON TIME (a spring approaches its target asymptotically and cannot).
+			The registry ships EMPTY on purpose: 400 ms is a decision about one
+			surface where a spring's two numbers generalize, so registering a curve IS
+			the act of choosing it, once, with a name — and an inline spec table at a
+			call site is refused exactly as an inline spring literal is.
+			`style` is Roblox's own `Enum.EasingStyle` vocabulary spelled lower-camel,
+			and on Roblox the engine's `TweenService:GetValue` IS the evaluator,
+			installed by `motion_driver.bind`. ]]
+		registerCurve = motionCurves.registerCurve,
+		resolveCurve = motionCurves.resolve,
+		curveNames = motionCurves.names,
+		isRegisteredCurve = motionCurves.isRegistered,
+		resetCurves = motionCurves.reset,
 		--[[ "Hold a number at what it WAS, then move it to what it IS, on cue, and
 			land the truth whatever happens" (2026-08-02). A consumer grew this state
 			machine twice in one file and every reported bug across two review rounds
