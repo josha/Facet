@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the fifteen fixtures", function()
+	it("lists every tutorial example plus the sixteen fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(22)
+		expect(#demos).toBe(23)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -70,7 +70,7 @@ describe("showcase catalogue", function()
 		-- carried one. `table_virtualized` is headerless on purpose (the band is a
 		-- `minMax` floor it could not afford), so this could not be a prop added to a
 		-- fixture that already existed.
-		expect(fixtures).toBe(15)
+		expect(fixtures).toBe(16)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -517,7 +517,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(15)
+		expect(fixtures).toBe(16)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

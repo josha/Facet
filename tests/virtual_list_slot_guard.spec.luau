@@ -39,6 +39,7 @@ local describe, it, expect = t.describe, t.it, t.expect
 
 local LuauUI = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local virtual_list = require("../src/controls/virtual_list")
 
 local UI = LuauUI.UI
 
@@ -361,6 +362,75 @@ describe("newVirtualList: a lying itemExtent is named, with both numbers", funct
 		end)
 		expect(ok).toBe(false)
 		expect(string.find(tostring(err), "extent", 1, true) ~= nil).toBe(true)
+	end)
+
+	it("A FIXED ROW STOPS BEING REPORTED — the finding does not outlive the defect", function()
+		--[[ FOUND BY A SURVIVING MUTATION, 2026-08-15, and it is worth the whole
+			paragraph because a stale finding is the one failure mode this instrument
+			cannot survive: `tests/overflow_sweep.spec.luau` fails the suite on this
+			channel, so a finding that outlives its defect reports a bug that is
+			already fixed and sends the next agent to repair working code.
+
+			THE MECHANISM. Incremental layout skips a subtree it can prove did not
+			change and REPLAYS that subtree's findings, gated on "was the node that
+			FILED this finding skipped?" (`solver.solve`'s replay loop). This finding is
+			filed by the row ZSTACK and names its CHILD — the exact `filedBy` split
+			`inertPlacement` was stamped for — so the gate was asking about the wrong
+			node: the row was walked and filed nothing, its content child landed on the
+			rect it already had and was skipped, and the old "declares itemExtent = 20"
+			was copied forward on every solve forever.
+
+			THE CASE IS THE ONE THAT MATTERS IN PRACTICE: a per-item extent that
+			re-derives correctly after the text preference moves. Under the bug, the
+			list that had just been FIXED went on shouting the old number. ]]
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local rows = core:signal({ { id = "a" }, { id = "b" }, { id = "c" } })
+		local declared = core:signal(20)
+		local list = virtual_list.build(LuauUI, core, {
+			id = "VL",
+			rows = rows,
+			key = function(item: any)
+				return item.id
+			end,
+			-- a PER-ITEM extent that reads its live fact through `use`, which is the
+			-- shape the feature exists for — and the shape that gets it right on the
+			-- second try
+			itemExtent = function(_item: any, _index: number, use: any)
+				return use(declared)
+			end,
+			viewportExtent = 600,
+			cell = function()
+				return LuauUI.UI.Box({
+					id = "Plate",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 60 },
+				})
+			end,
+		})
+		local handle = pres.present(LuauUI.UI.Screen({ id = "S", children = { list.blueprint } }))
+		local function slotCount(): number
+			local n = 0
+			for _, d in handle.controller.diagnostics() do
+				if string.find(d.issue, "declares itemExtent", 1, true) ~= nil then
+					n += 1
+				end
+			end
+			return n
+		end
+		-- 20 declared against a 60px plate: every row is a finding, which is the
+		-- guard doing its job and is what makes the silence below mean something
+		expect(slotCount() > 0).toBe(true)
+		-- ...the consumer fixes the declaration, exactly as the accessibility case
+		-- would fix it live
+		declared:set(60)
+		pres.refresh()
+		pres.refresh()
+		expect(slotCount()).toBe(0)
+		list.dispose()
 	end)
 
 	it("speaks the AXIS: a horizontal strip's item is too WIDE for its itemExtent", function()

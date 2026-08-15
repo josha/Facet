@@ -326,6 +326,13 @@ local SCENARIOS = {
 	"sensory_feedback",
 	"text_degrade",
 	"variable_extents",
+	-- ...and the measured-extent fixture. It is the surface with the strongest claim
+	-- in this corpus — "no row can overflow its slot, because the slot IS the
+	-- measurement" — so a swept cross product is the direct test of that claim
+	-- rather than a check on the packaging around it: 8 viewports x 4 text
+	-- preferences of rows that WRAP with no `lineLimit`, i.e. rows whose line count
+	-- nobody could have declared
+	"measured_extents",
 	-- ...and the virtualized Table. It is the one surface in this corpus whose
 	-- page CANNOT delegate its scrolling — a windowed list is defined against a
 	-- viewport, so `scrolls = false` is refused beside `virtualized` — which makes

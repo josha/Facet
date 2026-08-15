@@ -117,6 +117,12 @@ require("./virtual_extents.spec")
 -- scroll when the extents re-derive, and the differential against the uniform
 -- list it must contain
 require("./virtual_list_variable_extents.spec")
+-- ...and STAGE 2 on the same index: MEASURED extents (`itemExtent = "measured"`).
+-- The row is windowed at what its cell measures rather than at what its consumer
+-- predicted, so the prediction — and the whole lying-extent class — goes away.
+-- Laziness and the anchored scroll are re-proved on the measured path, because a
+-- design that measured every row would look identical in a screenshot
+require("./virtual_list_measured_extents.spec")
 require("./virtual_list_row_gap.spec")
 require("./virtual_list_axis.spec")
 require("./virtual_list_focus_policy.spec")

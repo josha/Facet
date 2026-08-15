@@ -65,10 +65,21 @@
 	WHAT IS TRUE NOW: the window comes from a running-offset INDEX, chosen once at
 	build. `uniform` is the old `index × pitch` formulas verbatim and every list
 	that declares a number still gets exactly them; `variable` is a prefix sum,
-	searched. See THE RUNNING-OFFSET INDEX below, and
-	`docs/plans/variable-item-extents.md` for what Stage 2 (measured extents) still
-	owes. `newTable` windows on the same index since 2026-08-14
-	(`docs/plans/unified-collection.md`). ]]
+	searched. See THE RUNNING-OFFSET INDEX below. `newTable` windows on the same
+	index since 2026-08-14 (`docs/plans/unified-collection.md`).
+
+	MEASURED EXTENTS SHIPPED TOO (Stage 2, 2026-08-15) — `itemExtent = "measured"`.
+	The three declared forms are all PREDICTIONS; this one is not. Each row's cell
+	rides one control-owned `Content` wrapper whose arranged rect IS the cell's own
+	measure, the measurement arrives on `bundle.syncGeometry`, and only WINDOWED
+	rows are ever measured (everything else is `estimatedItemExtent`). The seams are
+	commented where they are: `extentsFor`, `measureWindow`, and the row build.
+
+	IT IS AN OPT-IN FOURTH FORM AND NOT THE DEFAULT, on measured evidence: roughly
+	+30% per scroll frame steady-state and about +100% while a region converges,
+	against a declared list painting the identical rows
+	(`artifacts/variable-item-extents/perf.md`). A consumer who really can predict a
+	row's height should keep doing it. ]]
 --
 -- THE UNIFIED COLLECTION (ADR-0022 Decision 5, rows SF-L1/L2/L3). One construct
 -- windows, selects, reorders and accepts drops at the same time, because the
@@ -187,9 +198,15 @@
 -- }
 -- spec: { id?, rows (Readable {T}), key (T)->string,
 --   axis? ("y" | "x", default "y" — construction-only; see TWO AXES above),
---   itemExtent (px number or Readable<number> — one item's MAIN-AXIS size,
---     uniform per list; DEPRECATED ALIAS: rowHeight, still accepted, and
---     passing both is refused),
+--   itemExtent (one item's MAIN-AXIS size, in one of FOUR forms — a px number or
+--     a Readable<number> (UNIFORM, windowed by index x pitch); a function
+--     (item, index, use) -> px (a DECLARED per-item extent, windowed by a
+--     running-offset index); or the word "measured" (the row is windowed at what
+--     its own cell MEASURES — see MEASURED EXTENTS below). DEPRECATED ALIAS:
+--     rowHeight, still accepted, and passing both is refused),
+--   estimatedItemExtent (px number or Readable<number> — REQUIRED with
+--     itemExtent = "measured" and REFUSED on every other form: the size an unseen
+--     row is windowed at until it has been on screen once),
 --   rowGap? (px number or Readable<number>, default 0 — the
 --   gutter between item SLOTS; the pitch is itemExtent + rowGap and the item's
 --   own node stays itemExtent along the axis),
@@ -273,6 +290,17 @@ local virtual_list = {}
 -- the internal reorder payload kind. Namespaced with the list id so two lists on
 -- one surface can never accept each other's row moves by accident.
 local REORDER_KIND = "__luauui_reorder"
+
+--[[ THE MEASURED CELL'S WRAPPER, AND THEREFORE THE MEASUREMENT'S PATH (measured
+	extents, Stage 2). Built ONLY under `itemExtent = "measured"`; a uniform or
+	per-item list parents its cell straight under the Row exactly as it always did
+	and mounts nothing extra.
+
+	    {scrollRoot}/Canvas/W/[{key}]/Row/Content
+
+	One spelling, so the node this control builds and the path `syncGeometry` reads
+	it back on cannot drift — the class of bug a hand-written path string is. ]]
+local MEASURED_CONTENT_ID = "Content"
 
 --[[ THE HOSTED TRAY OVERLAY'S OWN PATHS — the contract between this control and
 	the shared overlay (Task 4 mounts it; Task 3 named it, because a hosted engine
@@ -358,6 +386,10 @@ local VIRTUAL_LIST_KEYS = specGuard.keySet({
 	"cell",
 	"dropSurface",
 	"env",
+	-- the seed a MEASURED list windows unmeasured rows at (`itemExtent =
+	-- "measured"`). Required there and refused everywhere else — a list that
+	-- predicts its own extents has nothing to estimate.
+	"estimatedItemExtent",
 	"focusPolicy",
 	"grabOnActivate",
 	"id",
@@ -516,15 +548,63 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		feature exists to end. ]]
 	local itemExtentIsLive = type(itemExtentSpec) == "table" and type(itemExtentSpec.get) == "function"
 	local itemExtentIsPerItem = type(itemExtentSpec) == "function"
+	--[[ ...AND A FOURTH FORM: `"measured"` (Stage 2, 2026-08-15).
+
+		THE THREE ABOVE ARE ALL PREDICTIONS — even the per-item function is a promise
+		the CONSUMER makes about a number only the solver knows, and the receipt is
+		that the fixture written to demonstrate that form filed 372 findings against
+		its own rows, while three other `itemExtent` consumers carry a waiver for the
+		identical mistake. When four independent authors reproduce the solver's text
+		arithmetic and four get it wrong, the answer is to stop asking.
+
+		`"measured"` windows each row at what its CELL MEASURES; `estimatedItemExtent`
+		covers rows nobody has seen yet. See THE MEASUREMENT SEAM below. ]]
+	local itemExtentIsMeasured = itemExtentSpec == "measured"
+	--[[ BOTH NON-UNIFORM FORMS RUN THE SAME ARITHMETIC — `virtual_extents.variable`,
+		Stage 1's prefix sum. That is why Stage 2 is small: the index takes an array
+		of numbers and does not care who computed them. Every windowing branch below
+		asks THIS question; only the extents' SOURCE asks which of the two it is. ]]
+	local itemExtentIsVariable = itemExtentIsPerItem or itemExtentIsMeasured
 	assert(
-		itemExtentIsPerItem or itemExtentIsLive or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
+		itemExtentIsPerItem
+			or itemExtentIsMeasured
+			or itemExtentIsLive
+			or (type(itemExtentSpec) == "number" and itemExtentSpec > 0),
 		"VirtualList.itemExtent (deprecated alias: rowHeight — both are accepted, one at a time) must be a positive "
-			.. "number, a Readable<number>, or a function (item, index, use) -> px: ONE item's size along the list's "
-			.. 'own axis (its height on axis="y", its width on axis="x"). A number or Readable is UNIFORM and windows '
-			.. "by index × pitch; a function is a PER-ITEM extent and windows by a running-offset index. Read live "
-			.. "facts (the preferred-text offset, the theme metrics) through the function's third argument `use`, or "
-			.. "the extents will not re-derive when they move."
+			.. 'number, a Readable<number>, a function (item, index, use) -> px, or the word "measured": ONE item\'s '
+			.. 'size along the list\'s own axis (its height on axis="y", its width on axis="x"). A number or Readable '
+			.. "is UNIFORM and windows by index × pitch; a function is a PER-ITEM extent and windows by a "
+			.. 'running-offset index; "measured" windows each row at what its cell MEASURES and takes an '
+			.. "estimatedItemExtent for the rows nobody has seen yet. Read live facts (the preferred-text offset, "
+			.. "the theme metrics) through the function's third argument `use`, or the extents will not re-derive "
+			.. "when they move."
 	)
+	--[[ THE SEED, REQUIRED RATHER THAN DEFAULTED. A measured list windows rows it
+		has never built, so something stands in for them — and a framework default
+		would put a LuauUI constant into the scroll extent of every measured list.
+		Requiring it costs one field and is refused loudly rather than guessed. ]]
+	local estimateSpec: any = spec.estimatedItemExtent
+	local estimateIsLive = type(estimateSpec) == "table" and type(estimateSpec.get) == "function"
+	if itemExtentIsMeasured then
+		assert(
+			estimateIsLive or (type(estimateSpec) == "number" and estimateSpec > 0),
+			'VirtualList.estimatedItemExtent is required with itemExtent = "measured" and must be a positive number '
+				.. "or a Readable<number>: the size an UNSEEN row is windowed at until it has been on screen once. "
+				.. "A measured list windows rows it has never built, so something has to stand in for them, and a "
+				.. "framework default would silently own the scroll extent of your list."
+		)
+	else
+		--[[ ...AND REFUSED ON EVERY OTHER FORM: a number, a Readable and a per-item
+			function all answer for every row in the data, so there is nothing to
+			estimate. An accepted property that drives nothing is constitution §4's
+			exact prohibition (`rowCapability.assertNarrowsSomething`, one screen up). ]]
+		assert(
+			estimateSpec == nil,
+			'VirtualList.estimatedItemExtent only means something with itemExtent = "measured" — every other form '
+				.. "answers for every row in the data, so there is nothing left to estimate and this field would be "
+				.. 'accepted and then ignored. Declare itemExtent = "measured", or drop estimatedItemExtent.'
+		)
+	end
 	--[[ THE GUTTER BETWEEN ROW SLOTS, one number for the whole list for exactly
 		the reason the row height is one number: the windowing arithmetic is
 		index x pitch. `newTable` has always had this field
@@ -734,7 +814,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return if isX then cross else main
 	end
 
-	-- THE UNIFORM EXTENT — read ONLY on the uniform path (`itemExtentIsPerItem`
+	-- THE UNIFORM EXTENT — read ONLY on the uniform path (`itemExtentIsVariable`
 	-- false). Every variable-mode number comes off the running-offset index
 	-- instead; see `layoutIndex` below.
 	local function itemExtentNow(): number
@@ -742,6 +822,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	end
 	local function itemExtentIn(use: any): number
 		return if itemExtentIsLive then use(itemExtentSpec) else itemExtentSpec
+	end
+	-- ...and the MEASURED path's stand-in for a row nobody has seen. Live for the
+	-- same reason the uniform extent may be: an estimate derived from the theme
+	-- metrics re-derives on a theme swap without rebuilding the list.
+	local function estimateIn(use: any): number
+		return if estimateIsLive then use(estimateSpec) else estimateSpec
+	end
+	local function estimateNow(): number
+		return if estimateIsLive then (estimateSpec :: any):get() else estimateSpec
 	end
 	local function rowGapNow(): number
 		return if rowGapIsLive then (rowGapSpec :: any):get() else rowGapSpec
@@ -809,7 +898,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		keep-visible target, the insertion slot and its hairline — reads it, so the
 		two arithmetics can never disagree about the same list.
 
-		WHICH ARITHMETIC IS CHOSEN ONCE, AT BUILD, on `itemExtentIsPerItem`:
+		WHICH ARITHMETIC IS CHOSEN ONCE, AT BUILD, on `itemExtentIsVariable`:
 
 		  · UNIFORM (`virtual_extents.uniform`) is the pre-feature formulas verbatim.
 		    It allocates nothing, answers in O(1), and every shipped list keeps the
@@ -828,9 +917,35 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 
 		The extents are resolved INSIDE the memo, so a function that reads live facts
 		through its `use` argument makes the whole table re-derive when they move. ]]
+	--[[ ── THE MEASUREMENT CACHE (measured extents, Stage 2) ──────────────────────
+		key -> the px this row's cell last MEASURED on the scroll axis. Written by
+		`measureWindow` (the `syncGeometry` seam, far below), read by `extentsFor`,
+		pruned with the data by the `indexByKey` observer.
+
+		KEYED, NOT INDEXED, and that is load-bearing: a re-sort moves every index and
+		moves no row's height, so an index-keyed cache would discard every
+		measurement on a sort and re-converge from the estimate — a visible re-flow
+		for a change that moved no geometry.
+
+		THE EPOCH IS THE REACTIVE HANDLE, since a plain table is not a Readable.
+		Bumped once per BATCH of changed measurements, never per row and never when
+		nothing changed; `sameLayoutInputs` then compares the extents element-wise, so
+		an epoch bump producing the same numbers rebuilds no index either. ]]
+	local measured: { [string]: number } = {}
+	local measuredCount = 0
+	local measuredEpoch = listScope:own(core:signal(0))
 	local function extentsFor(use: any): { number }
 		local items = use(spec.rows) :: { any }
 		local out = table.create(math.max(#items, 1))
+		if itemExtentIsMeasured then
+			-- the dependency on the measurements, declared once for the whole table
+			use(measuredEpoch)
+			local estimate = estimateIn(use)
+			for i = 1, #items do
+				out[i] = measured[spec.key(items[i])] or estimate
+			end
+			return out
+		end
 		for i = 1, #items do
 			local px = (itemExtentSpec :: any)(items[i], i, use)
 			if type(px) ~= "number" or px ~= px or px <= 0 then
@@ -870,7 +985,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		if a == nil or b == nil or a.gap ~= b.gap then
 			return false
 		end
-		if not itemExtentIsPerItem then
+		if not itemExtentIsVariable then
 			return a.count == b.count and a.extent == b.extent
 		end
 		local x, y = a.extents, b.extents
@@ -887,14 +1002,14 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	local cachedInputs: any = nil
 	local cachedIndex: any = nil
 	local layoutIndex = listScope:own(core:memo(function(use)
-		local inputs: any = if itemExtentIsPerItem
+		local inputs: any = if itemExtentIsVariable
 			then { extents = extentsFor(use), gap = rowGapIn(use) }
 			else { count = #(use(spec.rows) :: { any }), extent = itemExtentIn(use), gap = rowGapIn(use) }
 		if cachedIndex ~= nil and sameLayoutInputs(cachedInputs, inputs) then
 			return cachedIndex
 		end
 		cachedInputs = inputs
-		cachedIndex = if itemExtentIsPerItem
+		cachedIndex = if itemExtentIsVariable
 			then virtual_extents.variable(inputs.extents, inputs.gap)
 			else virtual_extents.uniform(inputs.count, inputs.extent, inputs.gap)
 		return cachedIndex
@@ -957,7 +1072,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- everything from 2 on (a cell that is a `UI.When`/`UI.ForEach` splices
 	-- several children in, and they all sit after the hit)
 	local SLOT_CONTENT_FROM = 2
-	local slotDeclaration = if itemExtentIsPerItem
+	local slotDeclaration = if itemExtentIsVariable
 		then nil
 		else listScope:own(core:memo(function(use)
 			return {
@@ -1009,7 +1124,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		the cache is window-sized, not list-sized. ]]
 	local lastRowExtent: { [string]: number } = {}
 	local function rowExtentIn(use: any, key: string): number
-		if not itemExtentIsPerItem then
+		if not itemExtentIsVariable then
 			return itemExtentIn(use)
 		end
 		local index = (use(indexByKey) :: { [string]: number })[key]
@@ -1113,6 +1228,18 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				lastRowExtent[key] = nil
 			end
 		end
+		--[[ ...AND SO DOES THE MEASUREMENT CACHE, for a stronger reason than
+			housekeeping: a measurement for a row that has left the data is a number
+			NOTHING CAN EVER CORRECT, so a returning key would be windowed at a stale
+			px forever. Unbounded growth is only the second reason. ]]
+		if itemExtentIsMeasured then
+			for key in measured do
+				if map[key] == nil then
+					measured[key] = nil
+					measuredCount -= 1
+				end
+			end
+		end
 		-- SELECTION PRUNES WITH THE DATA: a removed row must never linger as a
 		-- phantom selection, nor pre-select a key that comes back later.
 		local selected = selectedKey:get()
@@ -1170,7 +1297,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		correction is skipped rather than faked into the mirror. ]]
 	local anchorKey: string? = nil
 	local anchorDelta = 0
-	if itemExtentIsPerItem then
+	if itemExtentIsVariable then
 		listScope:own(core:observe(scrollTop, function()
 			local items = spec.rows:get() :: { any }
 			if #items == 0 then
@@ -3289,7 +3416,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- uniform item extent), not the scroll: a same-window scroll
 				-- delta is zero writes. Owned by the item scope, so it dies
 				-- with its row.
-				local slotOffset = itemScope:own(core:memo(if itemExtentIsPerItem
+				local slotOffset = itemScope:own(core:memo(if itemExtentIsVariable
 					then function(use)
 						local index = (use(indexByKey) :: { [string]: number })[entry.key]
 						if index == nil then
@@ -3319,7 +3446,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					then function(use)
 						return { type = "fixed", px = hostedItemExtentIn(use, entry.key) }
 					end
-					elseif itemExtentIsPerItem then function(use)
+					elseif itemExtentIsVariable then function(use)
 						return { type = "fixed", px = rowExtentIn(use, entry.key) }
 					end
 					else function(use)
@@ -3331,6 +3458,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					declaration is too. The guard it feeds is NOT retired by this
 					feature — a declared per-item extent is still a prediction, and a
 					row can still exceed it — it just names the right number now. ]]
+				--[[ ...AND A MEASURED LIST DECLARES NOTHING, which is the point of Stage 2
+					rather than an omission. The guard catches a PREDICTION that turned out
+					wrong; measured mode has none, so the only thing it could report is the
+					convergence step — in the vocabulary of a declaration ("you declared 40")
+					the author never made. The generic zstack-overflow finding covers that
+					step, says something true, and clears on the next solve. ]]
 				local rowSlot = if itemExtentIsPerItem
 					then itemScope:own(core:memo(function(use)
 						return {
@@ -3417,6 +3550,55 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				-- two dims the axis puts it on (the other takes `rowExtentDim`), so a
 				-- row allocates exactly the one dim table it always did
 				local rowCross = fill()
+				--[[ ── THE CELL, AND WHERE ITS MEASUREMENT COMES FROM ────────────────
+					A DECLARED list parents the cell straight under the Row, byte-identical
+					to what it always did. A MEASURED list wraps it in ONE control-owned
+					`Content` node, which is the whole measurement seam:
+
+					  · A PATH THIS CONTROL OWNS. The cell's own id belongs to the consumer
+					    (and a `When`/`ForEach` cell has no single node at all), so
+					    `syncGeometry` would otherwise guess at somebody else's naming.
+					  · `content` ON THE SCROLL AXIS, `fill` ACROSS IT, which makes its
+					    arranged rect the cell's own measure — checked live: in a Row fixed
+					    at 40px a 140px cell's wrapper still reports 140, and in a Row fixed
+					    at 90 a 12px cell still reports 12. It CANNOT SEE the slot, which is
+					    exactly why converging is one step.
+					  · A ZStack, NOT a VStack, so a cell that splices several children in
+					    keeps the LAYERING the Row gave it.
+
+					The row's own box stays the INDEX's number in both modes, so the canvas
+					offsets and the painted rects can never disagree. ]]
+				local cellNode = spec.cell(entry.item, { scope = itemScope })
+				if itemExtentIsMeasured then
+					--[[ A `fill` MAIN AXIS IS REFUSED, on a measurement rather than a
+						theory: a `fill` child inside a content-sized wrapper measures ZERO on
+						this solver (checked live), so the row would collapse and no number in
+						any dump would say why. It is circular anyway — a measured row is
+						exactly as tall as its cell. Named at the row, because on a 10,000-row
+						list "some cell fills" is a scavenger hunt.
+
+						THE LITERAL CASE ONLY: a dim may be a Readable, and a value only a
+						solve can know is not visible here. A bound `fill` still collapses,
+						just without this sentence. ]]
+					local mainDim: any = if isX then cellNode.props.width else cellNode.props.height
+					if type(mainDim) == "table" and mainDim.type == "fill" then
+						error(
+							`newVirtualList '{id}': the cell for row '{entry.key}' declares `
+								.. `{if isX then "width" else "height"} = fill on the list's own scroll axis, and `
+								.. 'itemExtent = "measured" cannot resolve that — a measured row is exactly as '
+								.. `{if isX then "wide" else "tall"} as its cell, so a cell that asks to fill its row `
+								.. "is asking to fill itself, and it measures 0. Give the cell a content size (drop "
+								.. "the dim, or declare a fixed one), or declare a per-item itemExtent function.",
+							0
+						)
+					end
+					cellNode = UI.ZStack({
+						id = MEASURED_CONTENT_ID,
+						width = widthOf({ type = "content" }, fill()),
+						height = heightOf({ type = "content" }, fill()),
+						children = { cellNode },
+					})
+				end
 				--[[ THE ROW NODE. `anchor = "topLeft"` and the offset prop the
 						axis chooses: `offsetY` places a row down a vertical canvas,
 						`offsetX` places an item across a horizontal one. Both are
@@ -3437,7 +3619,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 					offsetX = if isX then slotOffset else nil,
 					width = widthOf(rowExtentDim, rowCross),
 					height = heightOf(rowExtentDim, rowCross),
-					children = { hit, spec.cell(entry.item, { scope = itemScope }) },
+					children = { hit, cellNode },
 				})
 			end,
 		}),
@@ -3477,7 +3659,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 						-- the engaged row's own canvas offset — the SAME slot
 						-- arithmetic the row itself uses, read from the same memo,
 						-- so the tray cannot drift from the row by a gap
-						offsetY = itemScope:own(core:memo(if itemExtentIsPerItem
+						offsetY = itemScope:own(core:memo(if itemExtentIsVariable
 							then function(use)
 								local index = (use(indexByKey) :: { [string]: number })[entry.key]
 								if index == nil then
@@ -3578,6 +3760,65 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 	-- list contributes neither, so a bare screen never shadows a navigation key.
 	-- No wheel/pan bundle entry: the engine ScrollingFrame scrolls, and its
 	-- CanvasPosition flows back through the bindNativeScroll mirror.
+	--[[ ── THE MEASUREMENT SEAM (measured extents, Stage 2) ───────────────────────
+		WHERE THE TRUTH ARRIVES. The presenter broadcasts every solve's rects to every
+		contribution's `syncGeometry`, and since L-31 it does so FROM the solve, inside
+		the core's settle phase — so a write made here joins the flush that caused it.
+		`table.luau` measures its own viewport on this seam for the same reason; a
+		per-consumer wiring step would be the silent, one-caller-at-a-time failure this
+		feature exists to end.
+
+		WHAT IS READ: the WINDOWED rows' `Content` wrappers, and nothing else. A row
+		outside the window is not mounted, has no rect and keeps its estimate — the
+		laziness the design is refused without, and why this loop is over
+		`windowItems` rather than over the data.
+
+		EQUALITY-GUARDED, WHICH IS WHAT MAKES IT IDEMPOTENT: the presenter feeds
+		geometry twice by construction, and a signal written to its own value every
+		refresh re-solves the tree forever.
+
+		ROUNDED TO WHOLE PX, the same round-to-nearest the slot guard and the anchor
+		use: chasing sub-pixel measure noise would be an invalidation per frame. ]]
+	local function measureWindow(rectOf: ((string) -> any)?, rootNode: any?)
+		if not itemExtentIsMeasured or rectOf == nil then
+			return
+		end
+		-- the contribution's own node IS this list's ScrollView root, so it is the
+		-- authoritative prefix even on the first refresh — `mountedScrollPath` is
+		-- captured by the focus-group derivation and may not exist yet
+		local root: string? = if rootNode ~= nil and type(rootNode.path) == "string"
+			then rootNode.path
+			else mountedScrollPath
+		if root == nil then
+			return
+		end
+		local changed = false
+		for _, entry in windowItems:get() :: { any } do
+			local rect = rectOf(`{rowPathUnder(root, entry.key)}/{MEASURED_CONTENT_ID}`)
+			if type(rect) ~= "table" then
+				continue
+			end
+			local raw = if isX then rect.w else rect.h
+			if type(raw) ~= "number" or raw ~= raw then
+				continue
+			end
+			-- a zero-extent row is not a legal slot (the index's binary search needs
+			-- positive extents to stay monotone), and a cell that measured 0 is a cell
+			-- that has not painted yet — keep what we had rather than collapse it
+			local px = math.max(1, math.floor(raw + 0.5))
+			if measured[entry.key] ~= px then
+				if measured[entry.key] == nil then
+					measuredCount += 1
+				end
+				measured[entry.key] = px
+				changed = true
+			end
+		end
+		if changed then
+			measuredEpoch:set(measuredEpoch:get() + 1)
+		end
+	end
+
 	local bundle: any = {
 		focusGroups = buildFocusGroups,
 		handleActivate = handleActivate,
@@ -3657,13 +3898,17 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		-- the per-frame geometry pass a hosted engine needs to measure its tray
 		-- naturals and the live row rect. Broadcast, idempotent, and cheap: the
 		-- engines that exist are the rows a player has actually touched.
-		bundle.syncGeometry = function()
+		bundle.syncGeometry = function(rectOf: ((string) -> any)?, rootNode: any?)
 			for _, engine in hostedEngines do
 				engine.syncGeometry()
 			end
 			-- ...and re-assert the slide, which is how it survives a row that
 			-- unmounted and came back (see `hostedWriteSlide`'s own comment)
 			hostedWriteSlide()
+			-- ONE seam, both features: a hosted list may also be a measured one, and
+			-- two `syncGeometry` assignments would leave whichever ran second holding
+			-- the field. Measured mode is a no-op on a declared list.
+			measureWindow(rectOf, rootNode)
 		end
 		--[[ OUTSIDE-TAP CLOSES THE OPEN ROW — the OUT-of-list half. The presenter
 			compares the tapped path against this CONTRIBUTION's path (Zone A over
@@ -3689,6 +3934,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			end,
 			consume = false,
 		}
+	end
+	if itemExtentIsMeasured and bundle.syncGeometry == nil then
+		-- a MEASURED list with no hosted row actions: the seam exists for the
+		-- measurement alone. (With `rowActions` the hosted branch above already owns
+		-- the field and calls `measureWindow` itself — one seam, never two writers.)
+		bundle.syncGeometry = measureWindow
 	end
 	if reorderable then
 		bundle.navigateIntercept = navigateIntercept
@@ -3759,8 +4010,21 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				question the list cannot answer is worse than one that does not. The
 				total the canvas spans is reported on both paths, because "how long is
 				this list" is the question a windowing bug report always needs. ]]
-			itemExtentMode = if itemExtentIsPerItem then "variable" else "uniform",
-			itemExtent = if itemExtentIsPerItem then nil else itemExtentNow(),
+			itemExtentMode = if itemExtentIsMeasured
+				then "measured"
+				elseif itemExtentIsPerItem then "variable"
+				else "uniform",
+			itemExtent = if itemExtentIsVariable then nil else itemExtentNow(),
+			--[[ THE THREE FACTS A MEASURED LIST'S BUG REPORT NEEDS, nil on every other
+				form so a uniform list can never be mistaken for a converged one.
+				`measuredRows` against `totalRows` is HOW CONVERGED THIS IS — the honest
+				statement of the residual cost: the total canvas is an estimate until
+				every row has been seen, so a thumb that moves is this number still
+				climbing, not a bug. `measureEpoch` counts how often the measurements
+				CHANGED: a converged list's stops moving, a tail-chasing one's does not. ]]
+			estimatedItemExtent = if itemExtentIsMeasured then estimateNow() else nil,
+			measuredRows = if itemExtentIsMeasured then measuredCount else nil,
+			measureEpoch = if itemExtentIsMeasured then measuredEpoch:get() else nil,
 			contentExtent = layoutNow().content,
 			viewportExtent = viewportNow(),
 			rowGap = rowGapNow(),

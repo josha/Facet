@@ -2910,6 +2910,21 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 					if over > 0 and not absorbsOverflow(child, axisIsX) then
 						table.insert(ctx.diagnostics, {
 							node = child.id,
+							--[[ THE FILER, NOT THE NAMED NODE (2026-08-15; the same defect
+								`inertPlacement` was stamped for — RED-TEAM Milestone 1 HIGH 2,
+								whose rule is written out at the replay loop in `solve`).
+
+								THIS FINDING IS FILED BY THE ZSTACK AND NAMES ITS CHILD, so the
+								incremental replay gate — "was the node that FILES this finding
+								skipped?" — was asking about the wrong node. Measured live on a
+								`newVirtualList` whose extents re-derived correctly: the row was
+								walked and filed nothing, its content child landed on the rect it
+								already had and was skipped, and the replay copied the OLD
+								"declares itemExtent = 40" forward on every solve FOREVER, while
+								its siblings cleared. A stale finding in `controller.diagnostics()`
+								is worse than none — the overflow sweep fails the suite on that
+								channel, so it reports a defect that has already been fixed. ]]
+							filedBy = node.id,
 							issue = string.format(
 								"newVirtualList '%s' declares itemExtent = %s, but this row's content measures "
 									.. "%spx on the list's %s axis — %dpx %s than the slot it is windowed into, so it "
@@ -2938,6 +2953,9 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 				if overW > 0 or overH > 0 then
 					table.insert(ctx.diagnostics, {
 						node = child.id,
+						-- filed by the STACK, names the child — the same replay-gate stamp
+						-- its sibling finding above carries, and for the same reason
+						filedBy = node.id,
 						issue = string.format(
 							"this child overflows its %s by %dx%dpx and nothing clips a %s, so it paints "
 								.. "over whatever sits beside it (give the box room — a `minMax` FLOOR "

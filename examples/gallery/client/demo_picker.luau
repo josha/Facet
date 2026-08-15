@@ -196,6 +196,18 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "variable_extents",
 	},
+	-- ...and its Stage 2 sibling, listed separately because the difference between
+	-- the two FIXTURES is the demonstration. The one above declares each post's
+	-- height correctly and shows what that costs to author; this one declares
+	-- nothing, wraps its bodies with no `lineLimit`, and its status line reports how
+	-- much of the canvas is measurement and how much is still the estimate.
+	{
+		id = "measured-extents",
+		title = "Rows that measure themselves",
+		blurb = "400 posts and no height arithmetic anywhere: the list learns what it painted",
+		kind = "fixture",
+		module = "measured_extents",
+	},
 	-- ...and the one after it, for the reason every fixture here is listed: the
 	-- difference it demonstrates is a NUMBER, not a picture. A table windowing two
 	-- thousand rows and a table that mounted all two thousand look identical; the

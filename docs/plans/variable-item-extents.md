@@ -192,9 +192,76 @@ The design, in the shape this codebase already supports:
    has been seen, so the scroll THUMB's proportion moves even though the content
    under the eye does not.
 
-Stage 2 is not started. Nothing in Stage 1 is staged for it and no field is
-reserved — the index takes an array of numbers and does not care where they came
-from, which is the only seam it needs.
+**Stage 2 built 2026-08-15.** The design above survived contact almost intact;
+what changed, and what it cost, is below.
+
+### What Stage 2 shipped
+
+| piece | where |
+|---|---|
+| `itemExtent = "measured"` + `estimatedItemExtent`, both refused in the wrong company | `src/controls/virtual_list.luau` |
+| the per-key measurement cache, its epoch, and the pruning that ties it to the data | same |
+| the `Content` wrapper — one control-owned node per MEASURED row, `content` on the scroll axis and `fill` across it | same |
+| the measurement seam on `bundle.syncGeometry`, equality-guarded and composed with hosted row actions | same |
+| the `fill`-main-axis refusal, naming the row | same |
+| `filedBy` on the lying-extent and zstack-overflow findings — a replay-gate fix, found by a surviving mutation | `src/layout/solver.luau` |
+| the control's spec (25 cases: geometry, laziness by build counter, the anchored scroll, the fill refusal, the closed lying-extent class, the differential against uniform) | `tests/virtual_list_measured_extents.spec.luau` |
+| the stale-finding witness on the DECLARED path | `tests/virtual_list_slot_guard.spec.luau` |
+| the showcase: 400 posts, no height arithmetic anywhere, bodies that wrap with no `lineLimit` | `examples/gallery/scenarios/measured_extents.luau` (ORDER, `demo_picker.DEMOS`, the overflow sweep) |
+| the perf lab's fifth arm (D, measured, against arm C's identical picture) | `examples/performance/lab/perf_lab.luau` |
+| the consumer proof: Rascal Rally's racer list is still uniform AND mounts no wrapper | `games/RascalRally/code/tests/luauui_closed_key_contract.spec.luau` |
+
+### The one design change, and why
+
+The plan said "the row's main-axis dim becomes `content`, so its ARRANGED rect
+*is* its measured extent". **Built the other way round**: the ROW keeps a fixed
+box (the index's number) and the CELL rides a `content`-sized wrapper whose rect
+is the measurement. Two reasons, both measured on this solver rather than
+reasoned:
+
+1. A content-sized ROW takes the max of its children, and one of its children is
+   the control's own hit Button — which measures 24px with an empty label. Every
+   measured row would have carried a silent 24px floor sourced from the button's
+   theme metrics, which is precisely the hidden-number class this feature exists
+   to end.
+2. With the row fixed at the index's number, the canvas offsets and the painted
+   rects can never disagree. Only the *content* is ever momentarily out of step,
+   and only for the convergence step.
+
+The wrapper costs one node per **measured** row. Uniform and declared-variable
+rows are byte-identical to what they were.
+
+### What the `fill` refusal actually is
+
+The plan predicted "a fill would take whatever the slot is and the loop would
+have no fixed point". Measured: a `fill` child inside a content-sized wrapper
+measures **0**, so the row silently collapses rather than looping. The refusal
+stands — the reason on the error message is the measured one.
+
+### What Stage 2 traded
+
+- **It is not the default, and that is a perf decision.** Against a declared list
+  painting the identical rows, arm D costs about **+30% per scroll frame** in
+  steady state and about **+100%** while a region is converging (tier 1, headless;
+  A/A control spread 1.6%). A row a consumer really can predict should still be
+  declared. `artifacts/variable-item-extents/perf.md`.
+- **The total canvas is an estimate until every row has been seen**, exactly as
+  candidate 1 always said. The content under the eye is exact (the anchor holds
+  it); the scroll thumb's proportion is not. `dump().measuredRows` makes it a
+  number instead of a mystery.
+- **No `virtualSlot` is declared in measured mode**, so the lying-extent guard
+  files nothing there — there is no prediction to check. The generic
+  zstack-overflow finding still covers the convergence step and clears after it.
+- **A bound `fill` dim is not caught.** The refusal reads the literal dim at row
+  build; a Readable resolving to `fill` still collapses, just without the sentence.
+
+### Follow-ups flagged, not taken
+
+- **`measureWindow` walks the whole window every solve.** Once a region is
+  converged that walk finds nothing and is pure cost — it is most of the +30%
+  steady-state number. Gating it on a per-row dirty signal is a real optimization
+  and is its own change with its own before/after.
+- **The `LuauUI.text` line-box helper did NOT land with Stage 2** — see below.
 
 ## What the showcase proved about Stage 1, the hard way (2026-08-14)
 
@@ -231,6 +298,39 @@ Flagged rather than smuggled: a `LuauUI.text` helper for "the height of N lines 
 this size, against these live facts" would close all three waivers and remove the
 whole class from Stage-1 authoring. It is an API addition and belongs to whoever
 takes Stage 2 — the two are the same problem, once from each side.
+
+**RULED 2026-08-15, WITH STAGE 2, AND THE ANSWER IS NOT YET.** The helper is still
+the right thing and it is still not built. The reasoning, so the next agent does
+not have to redo it:
+
+* **Stage 2 is the stronger answer for the class the helper was proposed for.** The
+  helper makes a prediction *easier to get right*; measured mode removes the
+  prediction. `row_actions` is the waiver that lies at the DEFAULT preference (84
+  declared, 88 measured), and its cell is exactly the shape — wrapped text at a live
+  size — that should stop declaring. Adding a public API so three consumers can keep
+  predicting, on the same day the framework learned not to, is addition where
+  deletion was available.
+* **But it is not a complete answer.** `perf_capture` declares a uniform extent *on
+  purpose* — it is the baseline the perf harness measures the uniform arithmetic
+  against — so moving it to measured mode would change what it measures. That one
+  genuinely wants a correct declaration, and today the only correct copy of the
+  arithmetic in the repo is private to `examples/gallery/scenarios/variable_extents.luau`.
+  A survey run for this mission found **seven** near-duplicates of the line-box
+  formula and exactly one of them right; the public `LuauUI.composition.floorPx` is
+  wrong in three ways (no `ceil`, no scale, no text offset).
+* **It is a bigger change than it looks.** The correct spelling needs the env facts
+  read through `use` — `max(typographyScale, typographyPaintScale)` is the part every
+  consumer gets wrong — so it is two members (a facts reader and the line box), plus
+  a surface-ledger row, an `api.md` entry, a registered spec and a regenerated
+  public-surface artifact. Landing it badly is worse than not landing it.
+
+**The recommended shape, for whoever takes it:** `text.facts({ env, use })` →
+`{ scale, offset, metrics }` and `text.lineBox({ facts, size, lines, role? })` → px,
+with `ceil` applied ONCE to the whole product (several existing copies ceil per line
+and drift by up to `lines-1` px). Adopt it in `variable_extents.luau` first — deleting
+that fixture's private copy is the proof the shape is right — then close the
+`perf_capture` and `virtual_list_native` waivers with it, and close `row_actions` by
+moving it to `itemExtent = "measured"` instead.
 
 ## Follow-ups flagged, not taken
 

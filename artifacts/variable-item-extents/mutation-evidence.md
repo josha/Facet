@@ -127,3 +127,69 @@ another agent has open (`row_actions.luau`, `solver.luau`, `renderer.luau`,
 Baselines at the start of this work were 4856 (LuauUI) and 3160 (Rascal Rally),
 both green; the tree gained ~190 and ~5 cases from concurrent agents while this
 ran, which is why neither total is comparable to its baseline by subtraction.
+
+---
+
+# Stage 2 — measured extents (2026-08-15)
+
+Sixteen mutations, run in an isolated `git worktree` at HEAD carrying only this
+mission's files, so a mutation could never touch the shared working tree four
+other agents are live in. Runner `_m` = the measured spec + the variable spec +
+the slot guard + `collection_list` (90 cases green). Runner `_mg` = the overflow
+sweep + `examples_gallery` + `gallery_demo_picker` (217 green).
+
+**TWO MUTATIONS SURVIVED THE FIRST ROUND, AND BOTH FOUND HOLES RATHER THAN
+CONFIRMING TESTS.** They are M-11 and M-13 below; both are listed with the round
+they were caught in and the check that was written for them.
+
+| # | mutation | result |
+|---|---|---|
+| M-01 | `estimatedItemExtent` assert → `true` (never required) | 1 failed ✔ |
+| M-02 | the "refused on every other form" assert → `true` | 1 failed ✔ |
+| M-03 | the `"measured"` sentinel compares against `"MEASURED"` | 16 failed ✔ |
+| M-04 | `extentsFor` ignores the cache: `out[i] = estimate` always | 10 failed ✔ |
+| M-05 | `measureWindow` walks the whole DATA instead of the window | 12 failed ✔ |
+| M-06 | scroll anchoring re-gated to the declared path only | 1 failed ✔ |
+| M-07 | the epoch is bumped whether or not anything changed | 1 failed ✔ |
+| M-08 | the measurement cache is never pruned with the data | 1 failed ✔ |
+| M-09 | the `fill`-main-axis refusal is bypassed | 1 failed ✔ |
+| M-10 | `measureWindow` reads a wrong `Content` path | 10 failed ✔ |
+| M-11 | `filedBy` removed from the lying-extent finding | **round 1: SURVIVED** → round 2: 1 failed ✔ |
+| M-12 | the axis is ignored: always read `rect.h` | 1 failed ✔ |
+| M-13 | no rounding at all: `px = raw` | **round 1: SURVIVED** → round 2: 1 failed ✔ |
+| M-14 | rounding kept, the `math.max(1, …)` zero floor removed | 1 failed ✔ |
+| M-15 | `measured_extents` removed from the overflow sweep's surfaces | 2 failed ✔ |
+| M-16 | `measured_extents` removed from `scenarios/init.luau` ORDER | 3 failed ✔ |
+| M-17 | the picker entry removed from `demo_picker.DEMOS` | 2 failed ✔ |
+
+## M-11 — the hole that mattered
+
+Stripping `filedBy` from the lying-`itemExtent` finding changed nothing, because
+by then measured mode had stopped declaring a `virtualSlot` at all and the only
+witness was reaching the *generic* zstack finding instead. So the solver fix this
+mission made had **no test on the path it was made for** — the DECLARED one.
+
+That fix is real and was found by measurement, not by reading: with incremental
+layout on (the default), a `newVirtualList` whose per-item extent re-derived
+**correctly** went on reporting the OLD number forever, because the finding is
+filed by the row ZStack and names its content child, and the replay gate asks
+whether the node that FILED it was skipped. The row was walked and filed nothing;
+the child landed on the rect it already had and was skipped; the stale finding was
+copied forward every solve. With `incrementalLayout = false` it cleared on the next
+solve — which is how it was attributed.
+
+A stale finding is the worst possible failure of this channel: `overflow_sweep`
+fails the suite on it, so it reports a defect that is already fixed. The witness
+now lives on the declared path, where the defect lives:
+`tests/virtual_list_slot_guard.spec.luau`, "A FIXED ROW STOPS BEING REPORTED".
+
+## M-13 — the check with no witness
+
+The measurement is rounded to whole px and floored at 1, and neither half had a
+test. Both are load-bearing: whole px because sub-pixel measure noise would
+otherwise write, invalidate the index and re-solve every frame forever; the floor
+because the running-offset index searches a strictly-increasing prefix sum and a
+run of zero-extent rows makes several slots share one offset. `tests/
+virtual_list_measured_extents.spec.luau`, "a fractional measure is rounded to whole
+px, and a zero one is floored to 1", now covers both — M-13 and M-14 are the two
+halves, mutated separately.

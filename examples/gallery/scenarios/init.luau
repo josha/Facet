@@ -111,6 +111,15 @@ local ORDER = {
 	-- the whole list without moving the post under the top edge. Also in
 	-- `demo_picker.DEMOS`.
 	"variable_extents",
+	-- ...and STAGE 2 of the same ruling: MEASURED item extents. Read it beside the
+	-- one above — that fixture spends thirty lines reproducing the solver's text
+	-- arithmetic to declare a correct height (and got it wrong on its first cut,
+	-- 372 findings on its own rows); this one contains no height arithmetic at all
+	-- and its posts wrap without a `lineLimit`, which is the case a declaration
+	-- cannot express. The status line carries the convergence — how much of the
+	-- canvas is measurement and how much is still the estimate. Also in
+	-- `demo_picker.DEMOS`.
+	"measured_extents",
 	-- ...and the container §13 said did not exist: `newTable{ virtualized = true }`,
 	-- which windows, multi-selects and reorders at the same time on the running-
 	-- offset index variable extents shipped. Two thousand rows and a status line

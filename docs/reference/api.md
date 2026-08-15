@@ -3753,7 +3753,8 @@ by `tests/row_actions_scenario.spec.luau`'s four release-Activate cases and
 virtualization: only visible rows plus a bounded overscan mount;
 same-window scrolls are rect-writes-only; window slides add/remove only the
 entering/leaving keys. Spec: `{ id?, rows (Readable array), key (item) ->
-string, axis? ("y" default | "x"), itemExtent (px, Readable<number>, or (item, index, use) -> px), rowGap? (px or
+string, axis? ("y" default | "x"), itemExtent (px, Readable<number>, (item, index, use) -> px, or "measured"),
+estimatedItemExtent? (px or Readable<number> — required with "measured", refused otherwise), rowGap? (px or
 Readable<number>), viewportExtent (px or Readable<number>), overscan?, cell (item, ctx {
 scope }) -> Blueprint, width?, focusPolicy? ("key" | "index"),
 onActivate? ((item, meta) -> ()) }` — plus the collection fields tabled below.
@@ -3813,6 +3814,47 @@ that pixel would land on a different item. The list holds the item under the
 viewport's leading edge, and the offset into it, and re-applies it through the
 bound controller whenever the extents change. (Uniform lists keep today's
 behaviour; see `docs/plans/variable-item-extents.md`.)
+
+<a id="measured-item-extents"></a>
+**...or stop declaring it: `itemExtent = "measured"`.** All three forms above are
+*predictions* — you promise a number only the solver knows. The fourth form makes
+the row's extent **what its own cell measured**:
+
+```luau
+itemExtent = "measured",
+estimatedItemExtent = 76,   -- REQUIRED here, refused on every other form
+```
+
+* The cell rides one control-owned `Content` wrapper — `content` on the scroll
+  axis, `fill` across it — so its arranged rect *is* the cell's own measure. It
+  cannot see the slot it decides, which is why converging is **one step** rather
+  than a loop.
+* The measurement arrives on the presenter's per-solve geometry broadcast, so
+  there is **nothing to wire**. It is equality-guarded: feeding the same rects
+  moves nothing.
+* **Only windowed rows are measured.** Everything else is
+  `estimatedItemExtent` — which is what keeps the list lazy, and is also the one
+  cost: the *total* canvas is an estimate until every row has been on screen once,
+  so the scroll **thumb's** proportion moves even though the content under the eye
+  does not. `dump().measuredRows` reports how converged the list is.
+* **`estimatedItemExtent` should over-reserve slightly.** It never decides how tall
+  a row is *painted*, only how long the canvas claims to be before a row has been
+  seen — but the first solve of a newly windowed row is the one frame where the box
+  is still the estimate, so an estimate that is too small lets a row paint over its
+  neighbour for that frame.
+* **A cell declaring `fill` on the SCROLL axis is refused**, naming the row: a fill
+  child inside a content wrapper measures 0, and the intent is circular anyway — a
+  measured row is exactly as tall as its cell.
+* There is **no lying-`itemExtent` finding** on a measured list, because there is no
+  declaration left to lie. The class is structurally closed rather than checked.
+
+**It is not the default, and the reason is measured.** A measured row mounts one
+extra node and every solve walks the window reading rects back; the perf lab's fifth
+arm prices that at roughly **+30% per scroll frame** in steady state and about
+**+100%** while a region is still converging, against a declared list painting the
+identical rows (`artifacts/variable-item-extents/perf.md`, tier 1). Reach for it when
+the row's height genuinely cannot be predicted — text that wraps with no `lineLimit`,
+user content, a localization you do not control — and keep declaring the ones you can.
 
 Why this exists, which candidate design was refused and what remains:
 [`docs/plans/variable-item-extents.md`](../plans/variable-item-extents.md).
@@ -3884,7 +3926,8 @@ and the same terminals.
 
 | Spec field | Meaning |
 |---|---|
-| `itemExtent` | a number, a **`Readable<number>`**, or a **function `(item, index, use) -> px`**: one item's size along the list's own axis. The first two are UNIFORM (windowed by index×pitch); the function is a PER-ITEM extent (windowed by a running-offset prefix sum) and must read live facts through its `use` argument. See [variable item extents](#variable-item-extents) above. (`rowHeight` is its deprecated alias, above — and it reaches the same three forms.) |
+| `itemExtent` | a number, a **`Readable<number>`**, a **function `(item, index, use) -> px`**, or the word **`"measured"`**: one item's size along the list's own axis. The first two are UNIFORM (windowed by index×pitch); the function is a DECLARED per-item extent (windowed by a running-offset prefix sum) and must read live facts through its `use` argument; `"measured"` declares nothing and windows each row at what its own cell measured. See [variable item extents](#variable-item-extents) and [measured item extents](#measured-item-extents) above. (`rowHeight` is its deprecated alias, above — and it reaches the same four forms.) |
+| `estimatedItemExtent` | a number or a **`Readable<number>`** — the size an UNSEEN row is windowed at until it has been on screen once. **Required** with `itemExtent = "measured"` and **refused** on every other form, where every row in the data already has an answer and this field would be accepted and then ignored. Over-reserve slightly; see [measured item extents](#measured-item-extents). |
 | `rowGap` | the gutter **between item slots**, a non-negative number **or a `Readable<number>`**, default `0` (the name is not axis-specific on purpose: a gap is a gap on either axis). The **pitch** is `itemExtent + rowGap` and every windowing number rides it — canvas extent, the scroll clamp, window membership, keep-visible, the insertion slot, the reorder slide. The item's own node stays **`itemExtent`** along the axis, so the gutter is **dead space**: a pointer in it hits neither neighbour. The content extent carries no trailing gutter — N rows span `N*itemExtent + (N-1)*rowGap`, exactly like a `UIListLayout.Padding`. Uniform per list — unlike `itemExtent`, the gutter has no per-item form, because a gap that differs per row is a property of the ROWS and belongs in their extents. Do **not** reach for the old workaround (hand in the pitch as the extent and inset the cell): that inflates the row's hit into the gutter, so a press between two plates activates one of them. |
 | `viewportExtent` | a number **or a `Readable<number>`** — a list that fills a container, or one derived from the viewport rect, hands in a memo and BOTH consumers track it: the painted host box and the windowing arithmetic. A build-time pixel goes stale the moment the device rotates. (`viewportHeight` is its deprecated alias, above.) |
 | `selection` | `"none"` (default) or `"single"`. Activate selects the row from **every** paradigm (tap / Return / ButtonA). `selectedKey` is a Signal; `list.select(key)` / `list.clearSelection()` drive it; `onSelect(item, key)` reports it. Selection **prunes with the data** and survives a re-sort that keeps the row. The selected row also carries the **native `selected` state** on its own hit node (Table parity), so the theme paints it (`controlSelected`) and a cell never has to spend an elevation role saying "chosen". |

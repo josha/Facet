@@ -1626,7 +1626,18 @@ return {
 					the presenter, the sequence — is held identical, because a
 					difference that is not the only difference is not a measurement. ]]
 				local function arm(mode: string): any
-					local ragged = mode == "ragged"
+					--[[ ...AND THE FIFTH ARM, D, MEASURED (Stage 2, 2026-08-15). It builds
+						the SAME ragged rows arm C does — same cell, same line counts, same
+						picture — and declares nothing about their heights; the list reads
+						each row's own solved rect back through `syncGeometry` and windows on
+						it. D-minus-C is therefore the price of NOT PREDICTING: identical
+						geometry, one arithmetic, and the difference is the measurement seam
+						plus the one `Content` wrapper node a measured row mounts. It is the
+						only honest comparison for it — measuring D against A or B would be
+						comparing two different pictures, which is what arm C's own note
+						below already warns about. ]]
+					local measured = mode == "measured"
+					local ragged = mode == "ragged" or measured
 					local variable = mode ~= "uniform"
 					local base = dataset.build({
 						count = EXTENT_ROWS,
@@ -1649,11 +1660,18 @@ return {
 							return item.id
 						end,
 						-- THE ONLY LINE THAT DIFFERS BETWEEN THE ARMS
-						itemExtent = if variable
-							then function(item: any)
+						itemExtent = if measured
+							then "measured"
+							elseif variable then function(item: any)
 								return extentFor(linesOf(item))
 							end
 							else EXTENT_UNIFORM_PX,
+						-- ...and the one field only arm D takes. The estimate is the
+						-- SHORTEST row on purpose: it is the pessimal seed (every row it is
+						-- wrong about is wrong in the direction that needs correcting), so
+						-- this arm pays the maximum convergence work rather than a flattering
+						-- amount of it.
+						estimatedItemExtent = if measured then EXTENT_UNIFORM_PX else nil,
 						rowGap = 0,
 						viewportHeight = listHeight,
 						overscan = rows.OVERSCAN,
@@ -1720,13 +1738,24 @@ return {
 						--[[ THE ARM TOOK THE PATH IT SAYS IT DID. One typo in the
 							`itemExtent` branch above turns this whole pass into four
 							copies of arm A that agree with each other beautifully. ]]
+						local wantMode = if measured then "measured" elseif variable then "variable" else "uniform"
 						assert(
-							d0.itemExtentMode == (if variable then "variable" else "uniform"),
-							`[perf lab] extent arm '{mode}' wanted itemExtentMode='{if variable
-								then "variable"
-								else "uniform"}' and the list reports '{tostring(d0.itemExtentMode)}' — `
-								.. "the A/B is measuring one arithmetic twice"
+							d0.itemExtentMode == wantMode,
+							`[perf lab] extent arm '{mode}' wanted itemExtentMode='{wantMode}' and the list `
+								.. `reports '{tostring(d0.itemExtentMode)}' — the A/B is measuring one arithmetic twice`
 						)
+						--[[ ...AND ARM D HAS TO HAVE ACTUALLY CONVERGED, or its numbers are
+							a measurement of the estimate. A measured list whose `syncGeometry`
+							never landed reports `measuredRows = 0` and looks like a fast, tidy
+							uniform list — the "check that proves nothing" shape, in the arm
+							whose entire subject is the measuring. ]]
+						if measured then
+							assert(
+								(d0.measuredRows or 0) > 0,
+								`[perf lab] extent arm 'measured' has measured NO rows — the geometry seam never `
+									.. "landed, so this arm is timing the estimate rather than the feature"
+							)
+						end
 
 						-- ---- the data-change halves ----------------------------
 						-- SAME COUNT: every extent lands where it was, so the index
@@ -1845,6 +1874,7 @@ return {
 				local aPrime = arm("uniform")
 				local flat = arm("flat")
 				local ragged = arm("ragged")
+				local measuredArm = arm("measured")
 				local function spread(x: any, y: any, key: string): number
 					if not x[key].measured or not y[key].measured then
 						return 0
@@ -1864,9 +1894,12 @@ return {
 					uniformRepeat = aPrime,
 					variableFlat = flat,
 					variableRagged = ragged,
+					measuredRagged = measuredArm,
 					note = "A/A' = the same uniform arm twice; B (variableFlat) is the prefix-sum index over "
 						.. "IDENTICAL extents, so B-minus-A is the machinery with the benefit subtracted out; "
-						.. "C (variableRagged) is 1..4-line rows, so C-minus-B is raggedness itself. "
+						.. "C (variableRagged) is 1..4-line rows, so C-minus-B is raggedness itself; "
+						.. "D (measuredRagged) is arm C's picture with NOTHING declared — same rows, same "
+						.. "heights, learned from the solve — so D-minus-C is the price of not predicting. "
 						.. "`growEditMs` appends a row, which misses the index cache on purpose and is therefore "
 						.. "the O(N) build; `sameCountEditMs` hits it and is the extent walk alone. Every arm "
 						.. "asserts its own itemExtentMode and its own window bound. Lune = regression signal, "
