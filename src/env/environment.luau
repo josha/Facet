@@ -126,16 +126,15 @@ function environment.new(core: any): Env
 	-- Derived values CLAMP garbage platform facts into their legal domain —
 	-- a broken adapter fact must never leak a negative text scale or a
 	-- non-policy value downstream (phase-4 fault injection: accessibility).
+	-- THE POLICY ITSELF LIVES IN `themes/snapshot` (the text-scale policy block),
+	-- as pure functions of these two facts. These memos only supply the facts.
+	-- The reason it moved there rather than staying here: `composition.floorPx`
+	-- and the public `LuauUI.text.facts` must derive the SAME two scales from a
+	-- theme snapshot, which carries the facts but has no env — and a second copy
+	-- that agrees today is the defect the line-box helper exists to end
+	-- (docs/plans/variable-item-extents.md).
 	derived.typographyScale = core:memo(function(use)
-		local raw = use(signals.preferredTextSize)
-		local base = if type(raw) ~= "number" or raw ~= raw then 1 else math.clamp(raw, 0.5, 3)
-		-- ten-foot type-scale floor (input-paradigms expansion, matrix D.1): body
-		-- text must clear ~29pt at 3m, so a Large display class composes a 1.5x
-		-- multiplier ON TOP of the accessibility preference (kept in its legal
-		-- domain first). A near display leaves the preference untouched, so the
-		-- corpus invariant typographyScale == preferredTextSize still holds.
-		local floor = if use(signals.displaySize) == "Large" then 1.5 else 1
-		return base * floor
+		return themeSnapshot.typographyScale(use(signals.displaySize), use(signals.preferredTextSize))
 	end)
 	-- PAINT-seam scale (NS-A9; MODEL CORRECTED by Step 8.5, LTN-1): the engine
 	-- applies the player's PreferredTextSize as an ADDITIVE px offset at draw
@@ -146,7 +145,7 @@ function environment.new(core: any): Env
 	-- through `preferredTextOffset` at the measure seam; a dev/test profile
 	-- that raises the multiplier widens measurement only (over-reserve, safe).
 	derived.typographyPaintScale = core:memo(function(use)
-		return if use(signals.displaySize) == "Large" then 1.5 else 1
+		return themeSnapshot.typographyPaintScale(use(signals.displaySize))
 	end)
 	derived.effectiveTransparency = core:memo(function(use)
 		local raw = use(signals.preferredTransparency)

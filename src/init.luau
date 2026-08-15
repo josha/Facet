@@ -278,10 +278,24 @@ local LuauUI = {
 		glyph width: "what size makes THIS string fit THIS box?". It was internal to
 		the solver, so a presenter had no way to ask, and three private
 		approximations of the same 0.62 fallback constant had grown in one game. ]]
+	--[[ ...and `facts`/`lineBox`, the answer to "how tall is N lines of this text
+		going to be?" (ruled 2026-08-15, docs/plans/variable-item-extents.md).
+		Declaring a correct `itemExtent` or a composition floor used to mean
+		hand-reproducing the solver's text arithmetic — the `max(typographyScale,
+		typographyPaintScale)`, the ADDITIVE `preferredTextOffset`, and the live
+		theme's line height for the role. A survey found seven near-duplicates of
+		that formula in-repo and exactly one correct. These two are the one
+		implementation, and they spend the solver's own seams
+		(`text_metrics.reservedSize` / `.lineBoxPx`) rather than a copy of them.
+		Reach for `newVirtualList { itemExtent = "measured" }` instead whenever the
+		row can measure itself — that removes the prediction rather than making it
+		easier. ]]
 	text = {
 		measure = require("@self/layout/text_metrics").measure,
 		fit = require("@self/layout/text_fit").fit,
 		size = require("@self/layout/text_fit").size,
+		facts = require("@self/layout/text_fit").facts,
+		lineBox = require("@self/layout/text_fit").lineBox,
 	},
 
 	-- DECLARED-CONTENT ADAPTIVE COMPOSITION (ADR-0023): the PURE half of the

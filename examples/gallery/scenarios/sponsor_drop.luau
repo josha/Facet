@@ -192,14 +192,18 @@ return {
 
 		-- ===== the list =====================================================
 		local rowHeight = scope:own(core:memo(function(use)
-			local metrics: any = use(env:get("themeMetrics"))
-			local scale = use(env:get("typographyScale"))
-			local offset = use(env:get("preferredTextOffset"))
+			--[[ THE LINE BOX COMES FROM THE FRAMEWORK (`LuauUI.text.facts` /
+				`LuauUI.text.lineBox`, adopted 2026-08-15). The copy that was here read
+				`typographyScale` alone; the measure seam reserves at
+				`max(typographyScale, typographyPaintScale)`, so at a sub-1 accessibility
+				preference this reserved less than the engine drew.
+				docs/plans/variable-item-extents.md. ]]
+			local facts = LuauUI.text.facts({ env = env, use = use })
+			local metrics: any = facts.metrics
 			if type(metrics) ~= "table" or type(metrics.type) ~= "table" then
 				return 56
 			end
-			local body: any = metrics.type.body
-			local lineBox = math.ceil(((body.size or 14) * (scale or 1) + (offset or 0)) * (body.lineHeight or 1.2))
+			local lineBox = LuauUI.text.lineBox({ facts = facts, size = "body", lines = 1 })
 			return math.max(metrics.targetSizes.minimum or 44, lineBox + 2 * (metrics.space.s or 8))
 		end))
 

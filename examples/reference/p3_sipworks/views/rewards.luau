@@ -30,11 +30,25 @@ function rewardsView.card(app: any, opts: any): any
 		if app.env == nil then
 			return metrics.fixed(sealSize)
 		end
-		local offset = math.max(0, use(app.env:get("preferredTextOffset")) or 0)
-		-- ...and the ten-foot type scale, for the same reason: the mark is drawn
-		-- text and the box has to hold it at whatever scale the seat distance asks
-		local scale = math.max(1, use(app.env:get("typographyScale")) or 1)
-		return metrics.fixed(math.ceil((sealSize + offset) * scale))
+		--[[ ...and the ten-foot type scale, for the same reason: the mark is drawn
+			text and the box has to hold it at whatever scale the seat distance asks.
+
+			THE SCALE COMES FROM `LuauUI.text.facts` (adopted 2026-08-15). This read
+			`math.max(1, typographyScale)`, and on a ten-foot display at a SUB-1
+			accessibility preference that is 1 where the measure seam reserves at 1.5 —
+			the under-reservation `max(typographyScale, typographyPaintScale)` exists to
+			prevent (docs/plans/variable-item-extents.md).
+
+			IT IS DELIBERATELY NOT `text.lineBox`, and the survey that found this call
+			site recorded why: a seal is a round TOKEN whose diameter must clear its
+			mark, not a line box — a line box would multiply by the role's line-height
+			factor and grow every seal on this page by 20% at the default preference,
+			which is a visual change with no defect behind it. `(size + offset) * scale`
+			also stays as it is: it over-reserves relative to the measure seam's
+			`size * scale + offset`, and for a token that must not clip its glyph, over
+			is the safe side. ]]
+		local facts = app.LuauUI.text.facts({ env = app.env, use = use })
+		return metrics.fixed(math.ceil((sealSize + facts.offset) * facts.scale))
 	end))
 
 	local cells: { any } = {}

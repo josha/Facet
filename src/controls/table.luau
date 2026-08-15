@@ -38,6 +38,7 @@
 local contribution = require("../input/contribution")
 local interactionTokens = require("../input/interaction_tokens")
 local solverLib = require("../layout/solver")
+local textFit = require("../layout/text_fit")
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
 local rowCapability = require("../row_capability")
@@ -443,10 +444,21 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		local bottom = if type(art.bottom) == "number" then art.bottom else 0
 		return top + bottom
 	end
-	local function rowBoxFor(metrics: any, classes: any, textScale: number, textOffset: number): any
+	--[[ `facts` is a `LuauUI.text.facts` record ({ scale, offset, metrics }) — the
+		live text facts, so a cell's line box here is the one the solver will measure
+		rather than a hand copy of it. This used to read `typographyScale` alone and
+		multiply it out in place, which under-reserved at any sub-1 accessibility
+		preference: the measure seam takes `max(typographyScale, typographyPaintScale)`
+		precisely because the paint seam carries no preference factor
+		(docs/plans/variable-item-extents.md, adopted 2026-08-15). ]]
+	local function rowBoxFor(classes: any, facts: any): any
+		local metrics: any = facts.metrics
 		local family: any = metrics.controls.table
-		local cellSize = family.cellTextSize * textScale + textOffset
-		local lineBox = math.ceil(cellSize * metrics.type.body.lineHeight)
+		--[[ ONE line of a cell. PER LINE and not ceiled once over the whole row on
+			purpose, unlike every other caller of `text.lineBox`: `capFor` below DIVIDES
+			a box by this number to answer "how many lines fit", so the per-line box is
+			the load-bearing quantity here and the N-line total is derived from it. ]]
+		local lineBox = textFit.lineBox({ facts = facts, size = family.cellTextSize, lines = 1 })
 		local padV = family.rowPadding
 		local artV = selectionArtV(metrics)
 		local touch = if type(classes) == "table" and classes.touch == true then true else false
@@ -478,22 +490,23 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			and type(raw.type.body) == "table"
 		return if ok then raw else themeSnapshot.neutral()
 	end
-	local function finite(raw: any, fallback: number): number
-		return if type(raw) == "number" and raw == raw and raw ~= math.huge then raw else fallback
-	end
 	local rowBox = scope:own(core:memo(function(use)
 		local env = spec.env
 		if env == nil then
 			-- headless / no-environment consumers: the neutral package at authored
 			-- size and a pointer paradigm, which is what the suite has always solved
-			return rowBoxFor(themeSnapshot.neutral(), nil, 1, 0)
+			return rowBoxFor(nil, textFit.facts({ metrics = themeSnapshot.neutral() }))
 		end
-		return rowBoxFor(
-			metricsOr(use(env:get("themeMetrics"))),
-			use(env:get("interactionClasses")),
-			finite(use(env:get("typographyScale")), 1),
-			finite(use(env:get("preferredTextOffset")), 0)
-		)
+		--[[ the facts come from the LIVE env keys (so a preference change re-derives
+			this memo) but the SNAPSHOT is sanitized first — `metricsOr` is the §8.2
+			guard that stops a garbage `themeMetrics` fact leaking past the seam that
+			read it, and `text.facts` deliberately does not do that for its caller. ]]
+		local facts = textFit.facts({ env = env, use = use })
+		return rowBoxFor(use(env:get("interactionClasses")), {
+			scale = facts.scale,
+			offset = facts.offset,
+			metrics = metricsOr(facts.metrics),
+		})
 	end))
 	-- THE one row-gap answer, in pixels, live. A metric NAME resolves against the
 	-- current snapshot on every read, so a theme swap moves the gutter without a

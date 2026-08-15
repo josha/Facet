@@ -582,16 +582,6 @@ type Waiver = {
 
 local WAIVERS: { Waiver } = {
 	{
-		surface = "row_actions",
-		variant = "vlist",
-		node = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[*]/Row/RowBody",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 249,
-		since = 0,
-		kind = "lying-itemExtent",
-		where = "every view @ +0/+4/+10/+14 (six rows, one template) — `ROW_HEIGHT = 84` is a constant against a three-line cell that wraps: 88px already at +0 on both portrait phones, 99px at ten-foot, 249px at +14 on 320x640",
-	},
-	{
 		surface = "composition",
 		variant = "-",
 		node = "/CompositionScreen/Body/OfferBar",
@@ -732,16 +722,6 @@ local WAIVERS: { Waiver } = {
 		where = "320x640/compact-portrait @ +10/+14 (four sections, one template)",
 	},
 	{
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 50,
-		since = 10,
-		kind = "lying-itemExtent",
-		where = "console-ten-foot @ +10/+14 — declares itemExtent = 44, the row measures 50. Pre-existing and already named in docs/plans/swiftui-parity-round3.md",
-	},
-	{
 		surface = "drag_session",
 		variant = "-",
 		node = "/DragLab",
@@ -750,16 +730,6 @@ local WAIVERS: { Waiver } = {
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
-		surface = "virtual_list_native",
-		variant = "-",
-		node = "/VLNative/VL/Canvas/W/[*]/Row/Label",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 46,
-		since = 10,
-		kind = "lying-itemExtent",
-		where = "console-ten-foot @ +10/+14 — declares itemExtent = 36, the row measures 46: the ten-foot type scale is part of the geometry",
 	},
 	{
 		surface = "authoring",
@@ -1666,10 +1636,17 @@ describe("overflow sweep: the accessibility waiver list", function()
 		-- this file could never see). Every addition is a decision somebody has to
 		-- make on purpose.
 		expect(#WAIVERS <= 51).toBe(true)
-		-- ...and rule 1's own guard: seven of the 51 admit a defect at the DEFAULT
-		-- preference, every one of them in a class this file was blind to. A new one
-		-- means a +0 contract was surrendered, which is never a number to nudge.
-		expect(DEFAULT_WAIVERS).toBe(7)
+		--[[ ...and rule 1's own guard: SIX of the 48 admit a defect at the DEFAULT
+			preference, every one of them in a class this file was blind to. A new one
+			means a +0 contract was surrendered, which is never a number to nudge.
+
+			IT WENT 7 -> 6 ON 2026-08-15, downward, which is the only direction that
+			needs no argument. The one that left was `row_actions`' `ROW_HEIGHT = 84`
+			against a wrapping three-line cell measuring 88 at +0 — the worst of the
+			three lying extents, and the only one that lied at the default preference.
+			It is not waived any more because the row does not predict any more:
+			`itemExtent = "measured"` (docs/plans/variable-item-extents.md). ]]
+		expect(DEFAULT_WAIVERS).toBe(6)
 	end)
 end)
 

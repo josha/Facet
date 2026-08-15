@@ -34,6 +34,7 @@
 ]]
 
 local text_metrics = require("./text_metrics")
+local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
 
 local text_fit = {}
@@ -172,6 +173,185 @@ end
 -- The convenience every caller wanted: just the size.
 function text_fit.size(spec: FitSpec): number
 	return text_fit.fit(spec).size
+end
+
+--[[ ===== THE LINE BOX ========================================================
+
+	"How tall is `lines` lines of this text going to be?" — the question every
+	consumer that must PREDICT a text box asks, and the one nothing public
+	answered.
+
+	WHY IT EXISTS (docs/plans/variable-item-extents.md, ruled 2026-08-15). A
+	survey found SEVEN near-duplicates of this arithmetic in this repo and exactly
+	one correct, and that one was private to a gallery fixture; the public
+	`composition.floorPx` was wrong three ways. Three independent `itemExtent`
+	consumers got it wrong THE SAME WAY, each carrying a waiver in the overflow
+	sweep. When three consumers make an identical mistake the API is wrong, not
+	the consumers.
+
+	The arithmetic is the solver's own, not a copy of it:
+
+	    px = ceil(lines * (authoredSize * measureScale + preferredTextOffset)
+	              * theRole'sLineHeight)
+
+	  · `text_metrics.reservedSize` is the scale-then-add half — the same call
+	    `render/layout_node.textOf` makes on every solve;
+	  · `text_metrics.lineBoxPx` is the ceil half — the same call `measureAt`
+	    makes to report `Metrics.height`.
+	Change either seam and this moves with it, which is the whole point.
+
+	WHEN NOT TO REACH FOR IT. If the row can measure itself, let it:
+	`newVirtualList { itemExtent = "measured" }` removes the prediction instead of
+	making it easier, and a cell that is wrapped text at a live size should stop
+	declaring. This is for the consumer that genuinely must predict — a perf
+	harness baseline, a composition floor, a list whose windowing has to be O(1) —
+	and for those it is the only correct spelling. ]]
+
+export type TextFacts = {
+	-- max(typographyScale, typographyPaintScale): what a measure reserves at
+	scale: number,
+	-- the ADDITIVE engine offset (the player's PreferredTextSize), in px
+	offset: number,
+	-- the live ThemeSnapshot, so a role's size and line height come from the
+	-- theme that is actually installed
+	metrics: any,
+}
+
+export type FactsSpec = {
+	-- the live environment (`ctx.env` / the presenter's env). Requires `use`.
+	env: any?,
+	--[[ THE MEMO'S OWN `use`, and it is REQUIRED with `env` — not optional.
+
+		Reading a live fact with `:get()` is right once and registers no
+		dependency, so the answer goes silently stale the moment the player raises
+		their text size, swaps the theme or the screen lands on a ten-foot display.
+		That silent staleness is the failure mode this whole feature exists to end,
+		so the correct spelling is the only spelling the signature offers. A caller
+		that genuinely wants a one-shot read writes it out —
+		`use = function(r) return r:get() end` — and is thereby saying so. ]]
+	use: any?,
+	-- ...or a ThemeSnapshot on its own, for a caller with no env. The snapshot
+	-- carries the three facts it was resolved from (`preferredText`, `density`),
+	-- so the same two scales and the same offset come back out.
+	metrics: any?,
+}
+
+local FACTS_SPEC_KEYS = specGuard.keySet({ "env", "use", "metrics" })
+
+function text_fit.facts(spec: FactsSpec): TextFacts
+	specGuard.assertKnownKeys("text.facts", spec, FACTS_SPEC_KEYS, "spec")
+	local hasEnv = spec.env ~= nil
+	local hasMetrics = spec.metrics ~= nil
+	assert(
+		hasEnv ~= hasMetrics,
+		"text.facts: pass EITHER { env, use } (the live environment, read reactively) OR { metrics } (a ThemeSnapshot), never both and never neither"
+	)
+	if hasMetrics then
+		local metrics = spec.metrics
+		local carried = if type(metrics) == "table" then (metrics :: any).preferredText else nil
+		local multiplier = if type(carried) == "table" then (carried :: any).multiplier else nil
+		local rawOffset = if type(carried) == "table" then (carried :: any).offset else nil
+		-- `density` is the snapshot's record of the display class it was resolved
+		-- against ("ten-foot" | "near"), which is what the type-scale floor keys off
+		local density = if type(metrics) == "table" then (metrics :: any).density else nil
+		local displaySize = if density == "ten-foot" then "Large" else "Medium"
+		return {
+			scale = themeSnapshot.measureScale(displaySize, multiplier),
+			offset = themeSnapshot.textOffset(rawOffset),
+			metrics = metrics,
+		}
+	end
+	local use = spec.use
+	assert(
+		type(use) == "function",
+		"text.facts: { env } requires `use` — the enclosing memo's reader. An extent that reads a live fact with `:get()` is right once and then goes silently stale; pass `use = function(r) return r:get() end` if you really mean a one-shot read"
+	)
+	local env = spec.env
+	-- the two DERIVED keys, not the raw facts: a fault profile or a device
+	-- emulation that overrides either one must move a predicted box exactly as it
+	-- moves the solver's, and `reserveScale` is the renderer measure seam's own max
+	local scale = themeSnapshot.reserveScale(use(env:get("typographyScale")), use(env:get("typographyPaintScale")))
+	return {
+		scale = scale,
+		offset = themeSnapshot.textOffset(use(env:get("preferredTextOffset"))),
+		metrics = use(env:get("themeMetrics")),
+	}
+end
+
+export type LineBoxSpec = {
+	facts: TextFacts,
+	--[[ the AUTHORED size: a number, or the name of a typography role in the live
+		theme (`"body"`, `"title"`, …), whose `size` is then used. Either way it is
+		scaled — an authored size reaches paint, so both seams scale it. ]]
+	size: number | string,
+	lines: number?, -- default 1
+	--[[ the typography role whose LINE HEIGHT applies. Default: `size` when it
+		names a role, else `"body"` — which is the solver's own answer, because
+		`snapshot.effectiveTypeRole` resolves a literal px size on a `UI.Text` to
+		the class's intrinsic role, and that role is `body`. ]]
+	role: string?,
+}
+
+local LINE_BOX_SPEC_KEYS = specGuard.keySet({ "facts", "size", "lines", "role" })
+
+local function roleEntry(metrics: any, name: string): any
+	local roles = if type(metrics) == "table" then (metrics :: any).type else nil
+	return if type(roles) == "table" then (roles :: any)[name] else nil
+end
+
+function text_fit.lineBox(spec: LineBoxSpec): number
+	specGuard.assertKnownKeys("text.lineBox", spec, LINE_BOX_SPEC_KEYS, "spec")
+	local facts = spec.facts
+	assert(
+		type(facts) == "table" and type((facts :: any).scale) == "number" and type((facts :: any).offset) == "number",
+		"text.lineBox: spec.facts must come from text.facts({ env, use }) or text.facts({ metrics })"
+	)
+	local lines = if spec.lines == nil then 1 else spec.lines
+	assert(
+		type(lines) == "number" and lines == lines and lines >= 1 and lines ~= math.huge,
+		`text.lineBox: spec.lines must be a finite count >= 1 (got {tostring(spec.lines)})`
+	)
+
+	-- 1. the AUTHORED size, and the role behind it
+	local rawSize = spec.size
+	local authored: number
+	local sizeRole: string? = nil
+	if type(rawSize) == "number" then
+		assert(rawSize == rawSize and rawSize > 0, `text.lineBox: spec.size must be a positive px size (got {rawSize})`)
+		authored = rawSize
+	elseif type(rawSize) == "string" then
+		local entry = roleEntry(facts.metrics, rawSize)
+		assert(
+			type(entry) == "table" and type((entry :: any).size) == "number",
+			`text.lineBox: spec.size named the typography role "{rawSize}", which this theme does not carry`
+		)
+		authored = (entry :: any).size
+		sizeRole = rawSize
+	else
+		error(`text.lineBox: spec.size must be a px number or a typography role name (got {type(rawSize)})`, 0)
+	end
+
+	-- 2. the LINE HEIGHT. A named `role` must exist — an accepted-and-ignored role
+	-- is exactly the silent class this helper replaces. An UNNAMED one falls back
+	-- to `body`, and if the theme carries no `body` either, to the measurer's own
+	-- historic factor, which is what `text_metrics.measureAt` does with no role.
+	local lineHeight: number? = nil
+	if spec.role ~= nil then
+		local entry = roleEntry(facts.metrics, spec.role)
+		assert(
+			type(entry) == "table" and type((entry :: any).lineHeight) == "number",
+			`text.lineBox: spec.role named the typography role "{spec.role}", which this theme does not carry`
+		)
+		lineHeight = (entry :: any).lineHeight
+	else
+		local entry = roleEntry(facts.metrics, sizeRole or "body")
+		lineHeight = if type(entry) == "table" and type((entry :: any).lineHeight) == "number"
+			then (entry :: any).lineHeight
+			else nil
+	end
+
+	-- 3. the solver's two calls, in the solver's order
+	return text_metrics.lineBoxPx(text_metrics.reservedSize(authored, facts.scale, facts.offset), lines, lineHeight)
 end
 
 return text_fit

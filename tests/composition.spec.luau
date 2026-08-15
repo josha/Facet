@@ -314,10 +314,16 @@ end)
 -- ===== floors ==============================================================
 
 describe("ADR-0023: floors are content, and absolute", function()
-	it("a `lines` floor resolves through the live theme's type role", function()
+	it("a `lines` floor resolves through the live theme's type role, CEILED as the solve is", function()
+		--[[ These read `math.ceil(...)` since 2026-08-15, and that is defect 1 of the
+			three `floorPx` carried: it computed the raw product, so a one-line floor was
+			19.2 against a box the solver measures at 20. The other two defects (no
+			scale, no text offset) and their isolating cases live in
+			tests/text_line_box.spec.luau §3, which is also where `floorPx` is proved to
+			spend the same arithmetic the solver does. ]]
 		local role = NEUTRAL.type.body
-		expect(composition.floorPx({ lines = 1 }, NEUTRAL)).toBe(role.size * role.lineHeight)
-		expect(composition.floorPx({ lines = 2 }, NEUTRAL)).toBe(2 * role.size * role.lineHeight)
+		expect(composition.floorPx({ lines = 1 }, NEUTRAL)).toBe(math.ceil(role.size * role.lineHeight))
+		expect(composition.floorPx({ lines = 2 }, NEUTRAL)).toBe(math.ceil(2 * role.size * role.lineHeight))
 	end)
 
 	it("a `targets` floor resolves through the theme's minimum touch target", function()

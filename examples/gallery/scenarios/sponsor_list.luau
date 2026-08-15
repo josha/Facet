@@ -110,16 +110,20 @@ return {
 
 		-- ===== the derived row height =======================================
 		local rowHeight = scope:own(core:memo(function(use)
-			local metrics: any = use(env:get("themeMetrics"))
-			local scale = use(env:get("typographyScale"))
-			local offset = use(env:get("preferredTextOffset"))
+			--[[ THE LINE BOXES COME FROM THE FRAMEWORK (`LuauUI.text.facts` /
+				`LuauUI.text.lineBox`, adopted 2026-08-15). This memo used to carry its own
+				copy of the arithmetic, and the copy was wrong in the way six of the seven
+				in-repo copies were: it read `typographyScale` alone, while the measure seam
+				reserves at `max(typographyScale, typographyPaintScale)` — so at any sub-1
+				accessibility preference it reserved less than the engine drew.
+				docs/plans/variable-item-extents.md. ]]
+			local facts = LuauUI.text.facts({ env = env, use = use })
+			local metrics: any = facts.metrics
 			if type(metrics) ~= "table" or type(metrics.type) ~= "table" then
 				return 56
 			end
-			local function lineBox(role: any): number
-				local size = (if type(role) == "table" then role.size else 14) or 14
-				local lineHeight = (if type(role) == "table" then role.lineHeight else 1.2) or 1.2
-				return math.ceil((size * (scale or 1) + (offset or 0)) * lineHeight)
+			local function lineBox(role: string, lines: number): number
+				return LuauUI.text.lineBox({ facts = facts, size = role, lines = lines })
 			end
 			-- THE ARRANGEMENT AND THE HEIGHT ARE ONE DECISION (the row-height lesson,
 			-- restated here because this row is exactly its worked example). Every
@@ -136,7 +140,11 @@ return {
 			--     ZStack `Row` wrapper hands `Card` its box MINUS this margin, so it is
 			--     room the row's content never gets either, exactly like the padding.
 			local labelGap = metrics.space.xs or 4
-			local content = lineBox(metrics.type.body) + labelGap + 2 * lineBox(metrics.type.caption)
+			--[[ the two caption lines are ONE `lineBox` call, not two summed: the ceil
+				lands once on the whole two-line product, which is what the solver's own
+				measure does (several of the copies this replaced ceiled per line and
+				over-reserved by up to `lines - 1` px). ]]
+			local content = lineBox("body", 1) + labelGap + lineBox("caption", 2)
 			local padV = 2 * (metrics.space.s or 8)
 			local marginV = 2 * (metrics.space.xs or 4)
 			return math.max(metrics.targetSizes.minimum or 44, content + padV + marginV)

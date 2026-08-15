@@ -23,6 +23,61 @@ local text_metrics = {}
 local AVG_GLYPH_FRACTION = 0.62
 -- default line-height factor; a typography role may carry its own (ADR-0019 §6)
 local LINE_HEIGHT_FACTOR = 1.2
+text_metrics.LINE_HEIGHT_FACTOR = LINE_HEIGHT_FACTOR
+
+-- ===== THE TWO PIECES OF TEXT-BOX ARITHMETIC, EXPORTED ======================
+-- Both of these used to exist only INSIDE their one caller, so anything that had
+-- to predict a text box — a virtual list's `itemExtent`, a composition floor, a
+-- fixture's row height — reproduced them by hand. A survey run 2026-08-15 found
+-- SEVEN near-duplicates in this repo and exactly one of them correct, and the
+-- public `composition.floorPx` was wrong three ways. When three consumers make
+-- the same mistake the API is wrong, not the consumers
+-- (docs/plans/variable-item-extents.md, "the recommended shape").
+--
+-- They live HERE, in the module that already owns the height a measure reports,
+-- and their real callers are `measureAt` (below) and `layout_node.textOf` — so a
+-- predicting caller spends the SAME arithmetic the solver will, rather than a
+-- parallel copy that agrees today. `text_fit.facts`/`text_fit.lineBox` are the
+-- public face; these are the primitives both faces share.
+
+--[[ reservedSize(authoredSize, measureScale, offset) -> px
+
+	THE SIZE THE MEASURE SEAM ASKS FOR. `measureScale` multiplies (an authored
+	size also reaches paint, so both seams scale it) and `offset` is ADDITIVE and
+	applied AFTER — the engine paints every text node at `TextSize + offset(the
+	player's PreferredTextSize)` at draw time (LTN-1), so folding the preference
+	into the scale is the double-application defect. Order matters and this is the
+	order: scale, then add.
+
+	`measureScale` is `max(typographyScale, typographyPaintScale)` on the live
+	path — see `themes/snapshot.measureScale`, which is where that max is derived
+	once for everybody. ]]
+function text_metrics.reservedSize(authoredSize: number, measureScale: number, offset: number): number
+	return authoredSize * measureScale + offset
+end
+
+--[[ lineBoxPx(fontSize, lines, lineHeight?) -> px
+
+	THE HEIGHT `measureAt` REPORTS for `lines` lines painted at `fontSize`. Pulled
+	out of the two `measureAt` returns below, which now call it, so the number a
+	caller PREDICTS and the number the solver MEASURES cannot drift.
+
+	`fontSize` is the RESERVED size (i.e. already through `reservedSize`), not the
+	authored one.
+
+	THE CEIL LANDS ONCE, ON THE WHOLE PRODUCT. Several of the hand copies ceiled
+	per line and summed, which over-reserves by up to `lines - 1` px — safe in
+	direction, wrong as an answer, and enough to make a differential against the
+	solver fail. `math.ceil(lines * fontSize * factor)` is the arithmetic; nothing
+	else is. ]]
+function text_metrics.lineBoxPx(fontSize: number, lines: number, lineHeight: number?): number
+	local factor = if type(lineHeight) == "number"
+			and lineHeight == lineHeight
+			and lineHeight > 0
+		then lineHeight
+		else LINE_HEIGHT_FACTOR
+	return math.ceil(lines * fontSize * factor)
+end
 
 -- ===== canonical font keys (ADR-0019 §6) ===================================
 -- Every store in this module keys on the EFFECTIVE font descriptor
@@ -498,11 +553,6 @@ local function measureAt(
 			exact = true,
 		} :: Metrics
 	end
-	local factor = if type(lineHeight) == "number"
-			and lineHeight == lineHeight
-			and lineHeight > 0
-		then lineHeight
-		else LINE_HEIGHT_FACTOR
 	local key = canonicalFont(font)
 	if not KNOWN_FONTS[key] then
 		-- pending: conservative full-em fallback so layout over-reserves;
@@ -514,7 +564,7 @@ local function measureAt(
 		local lines = clampLines(natural, maxLines)
 		return {
 			width = math.ceil(widest),
-			height = math.ceil(lines * fontSize * factor),
+			height = text_metrics.lineBoxPx(fontSize, lines, lineHeight),
 			lines = lines,
 			naturalLines = natural,
 			truncated = natural > lines,
@@ -527,7 +577,7 @@ local function measureAt(
 	local lines = clampLines(natural, maxLines)
 	return {
 		width = math.ceil(widest),
-		height = math.ceil(lines * fontSize * factor),
+		height = text_metrics.lineBoxPx(fontSize, lines, lineHeight),
 		lines = lines,
 		naturalLines = natural,
 		truncated = natural > lines,

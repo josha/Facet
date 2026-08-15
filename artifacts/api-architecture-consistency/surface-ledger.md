@@ -44,6 +44,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `UI.draggable` `UI.dropTarget` | modifiers (meta channel) | typed specs; one legality path | F-18 (class gate) | blueprints |
 | `UI.sensoryFeedback` | modifier (meta channel) | typed spec; closed-taxonomy verb + Readable trigger; composes (list, not last-wins) | F-18 (structural class gate, same ruling as the drag pair); plays nothing — the emission is one bus event | blueprints |
 | `UI.schema` (11 members) `UI.isReadable` `UI.PROP_DIRTY` | tooling accessors | dot module; frozen after F-6/F-34 | F-6, F-34, DOC-9 | blueprints |
+| `UI.sortedEntries` | pure authoring helper | value-first pure fn `(dict, compare?) -> {{key,value}}`; refuses an unorderable key type at construction | fusion-comparison.md §5 G-3 (2026-08-15): deliberately NOT a `UI.ForPairs` class and deliberately NOT a `Readable` — the reactive half is the caller's own `core:memo`, and `compare` orders KEYS so the determinism guarantee holds for any comparator | blueprints |
 | Shared vocabularies: transitions, `tint`, dims/sides, metric names | closed grammars | one validator, many readers | DOC-10; BP-F25 timing NOTE | blueprints |
 
 ## Composite controls
@@ -82,7 +83,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `motion` · `motion.newClock` · `motion.registerClass` · `motion.resolveClass` · `motion.classNames` · `motion.isRegisteredClass` · `motion.resetClasses` · `motion.newValueReveal` | namespace | colon side of E-7; `newValueReveal` matches pure-model shape (verified) | DOC-3, DOC-15; registry process-global NOTE | services |
 | `adaptive` · `adaptive.sizeClass` · `adaptive.heightClass` · `adaptive.navPlacement` · `adaptive.orientationFor` · `adaptive.axisFor` · `adaptive.columnsFor` · `adaptive.conditions` · `adaptive.BREAKPOINTS` · `adaptive.HEIGHT_BREAKPOINTS` · `adaptive.DEFAULT_STACK_ABOVE` | pure decision module + reactive half | value-first pure fns; `opts.scope` ownership | F-28/F-29 (Readable typing, scope in type), DEP (`contentWidth`) | services |
 | `composition` · `composition.resolve` · `composition.normalize` · `composition.dump` · `composition.floorPx` · `composition.arrangementOf` · `composition.ARRANGEMENTS` · `composition.HUD` · `composition.HUD_GROUPS` · `composition.ZONES` | pure decision module | strictest validator; E-12 | F-29 (types) | services |
-| `text` · `text.measure` · `text.fit` · `text.size` | pure decision module (module-global caches noted) | spec-table canonical; E-15 (positional measure) | F-31, F-32, DOC-2 | services |
+| `text` · `text.measure` · `text.fit` · `text.size` · `text.facts` · `text.lineBox` | pure decision module (module-global caches noted) | spec-table canonical; E-15 (positional measure) | F-31, F-32, DOC-2 | services |
 
 ## Input mechanics
 

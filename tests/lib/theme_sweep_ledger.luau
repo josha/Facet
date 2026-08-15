@@ -58,16 +58,6 @@ export type Row = {
 
 theme_ledger.ROWS = {
 	{
-		surface = "row_actions",
-		variant = "vlist",
-		node = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[*]/Row/RowBody",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 395,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "lying-itemExtent",
-	},
-	{
 		surface = "composition",
 		variant = "-",
 		node = "/CompositionScreen/Body/OfferBar",
@@ -852,16 +842,6 @@ theme_ledger.ROWS = {
 		kind = "theme-inset-yield",
 	},
 	{
-		surface = "virtual_list_native",
-		variant = "-",
-		node = "/VLNative/VL/Canvas/W/[*]/Row/Label",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 44,
-		since = 14,
-		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "lying-itemExtent",
-	},
-	{
 		surface = "card_rail",
 		variant = "-",
 		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
@@ -1134,7 +1114,11 @@ theme_ledger.ROWS = {
 	{
 		surface = "row_actions",
 		variant = "vlist",
-		node = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[*]/Row/RowBody/DotWhen/then/Dot",
+		-- `Row/Content/...`: the row moved to `itemExtent = "measured"` on 2026-08-15,
+		-- and measured mode mounts ONE control-owned `Content` wrapper per row (the node
+		-- whose rect IS the measurement). The finding is the same one at the same place
+		-- in the cell; only the path gained a level.
+		node = "/MailActions/VListWhen/then/VListPane/VList/Canvas/W/[*]/Row/Content/RowBody/DotWhen/then/Dot",
 		sig = "the 'X' chrome contentInsets could not be",
 		px = 32,
 		since = 0,

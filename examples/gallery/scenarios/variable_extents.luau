@@ -76,42 +76,6 @@ local UNIFORM_EXTENT = 84
 -- blueprint id and the lookup cannot drift.
 local LIST_PANE = "/VariableExtents/ListPane"
 
---[[ THE HEIGHT OF `lines` LINES, DERIVED FROM THE FACTS THE CELL REALLY PAINTS
-	WITH rather than from a ratio written here.
-
-	THIS IS THE DEFECT THE OVERFLOW SWEEP FOUND ON THIS FIXTURE (2026-08-14, 372
-	findings on one node), and it is the same one the feature exists to end. The
-	first cut multiplied `(size + <the fixture's own chip offset>)` by a literal
-	1.25 and stopped — so the extents were right on Studio Neutral at the default
-	preference and wrong everywhere else, by 8px at `preferredTextOffset` 4 and 54px
-	at 14, and by 15px at the DEFAULT preference on a ten-foot display, whose Large
-	class multiplies the whole type ladder by 1.5. Every one of those rows painted
-	over its neighbour. The fixture was preaching a discipline it did not practise.
-
-	The solver's own arithmetic for an AUTHORED numeric text size is three facts
-	and one theme number, and this reproduces it exactly (`renderer.toLayoutNode`
-	`textOf`, `text_metrics.measure`):
-
-	    px = ceil(lines * (authoredSize * measureScale + preferredTextOffset) * lineFactor)
-
-	  · `measureScale` is `max(typographyScale, typographyPaintScale)` — the same
-	    max the measure seam takes, because a sub-1 accessibility preference makes
-	    the paint seam the larger of the two and under-reserving is never safe;
-	  · `preferredTextOffset` is ADDITIVE and applied by the engine at draw time
-	    (LTN-1), so it is added after the scale, never through it;
-	  · `lineFactor` is the typography role's own line height from the live theme
-	    snapshot. Both texts in the cell declare a numeric size, so both resolve to
-	    the class's intrinsic role — `body` for `UI.Text`.
-
-	EVERY ONE OF THOSE IS READ THROUGH `use`, which is the whole contract of the
-	per-item form: an extent that reads a live fact with `:get()` is right once and
-	then goes silently stale. ]]
-local NEUTRAL_LINE_FACTOR = 1.2
-
-local function lineBox(facts: any, size: number, lines: number): number
-	return math.ceil(lines * (size * facts.scale + facts.offset) * facts.lineFactor)
-end
-
 -- how many body lines post `i` has: deterministic, 1..4, so the fixture is the
 -- same list on every run and on every device
 local function linesFor(index: number): number
@@ -125,22 +89,48 @@ end
 	and the extents would then go stale the moment the player changed the text size,
 	the theme or the display class. That silent-staleness is the failure mode the
 	whole feature exists to end, so the fixture models the correct spelling —
-	`textFacts` below is where the four live facts are read, once per re-derive
-	rather than once per row. ]]
-local function rowExtent(item: any, index: number, use: any, textFacts: any, chipSignal: any, modeSignal: any): number
+	`textFacts` below is where the live facts are read, once per re-derive rather
+	than once per row.
+
+	THIS FIXTURE USED TO CARRY THE ARITHMETIC ITSELF, and it is worth recording why
+	it does not any more.
+
+	The overflow sweep filed 372 lying-extent findings on this one node (2026-08-14)
+	because the first cut multiplied `(size + <the fixture's own chip offset>)` by a
+	literal 1.25 and stopped: right on Studio Neutral at the default preference and
+	wrong everywhere else — 8px short at `preferredTextOffset` 4, 54px at 14, and 15px
+	short at the DEFAULT preference on a ten-foot display, whose Large class multiplies
+	the whole type ladder by 1.5. Every one of those rows painted over its neighbour.
+
+	The second cut reproduced the solver's arithmetic correctly, in this file, and was
+	then the ONLY correct copy of it in the repo — while `row_actions`, `perf_capture`
+	and `virtual_list_native` each carried a lying-extent waiver for getting the same
+	sum wrong the same way. That is an API defect, not three careless consumers, and
+	`LuauUI.text.facts` / `LuauUI.text.lineBox` are the fix (ruled 2026-08-15,
+	docs/plans/variable-item-extents.md). Deleting this fixture's private copy is the
+	proof the public shape is the right one: the demo is unchanged, the numbers are
+	unchanged, and the arithmetic now comes from the same two seams the solver spends. ]]
+local function rowExtent(
+	item: any,
+	index: number,
+	use: any,
+	LuauUI: any,
+	textFacts: any,
+	chipSignal: any,
+	modeSignal: any
+): number
 	if use(modeSignal) == "uniform" then
 		return UNIFORM_EXTENT
 	end
 	local facts = use(textFacts)
 	-- the fixture's OWN size picker, on top of the authored sizes: it is an
-	-- authored size like any other, so it is scaled by `measureScale` with them
+	-- authored size like any other, so `text.lineBox` scales it with them
 	local chip = use(chipSignal)
-	local lines = linesFor(index)
 	local _ = item
 	return METRICS.padding * 2
-		+ lineBox(facts, METRICS.titleSize + chip, 1)
+		+ LuauUI.text.lineBox({ facts = facts, size = METRICS.titleSize + chip, lines = 1 })
 		+ METRICS.gap
-		+ lineBox(facts, METRICS.bodySize + chip, lines)
+		+ LuauUI.text.lineBox({ facts = facts, size = METRICS.bodySize + chip, lines = linesFor(index) })
 end
 
 return {
@@ -173,31 +163,18 @@ return {
 		end))
 		local textOffset = scope:own(core:signal(0))
 
-		--[[ THE FOUR LIVE TEXT FACTS, IN ONE MEMO. Read here rather than inside
-			`itemExtent` so 400 extents cost four `use` calls and not sixteen hundred —
-			the per-item function is evaluated O(N) per data change and is meant to stay
-			arithmetic (docs/plans/variable-item-extents.md, "what was traded"). The memo
-			is also what makes the dependency edges exist at all: the whole offset index
-			re-derives when the player raises their text size, swaps the theme, or the
-			screen lands on a ten-foot display. ]]
+		--[[ THE LIVE TEXT FACTS, IN ONE MEMO. Read here rather than inside `itemExtent`
+			so 400 extents cost four `use` calls and not sixteen hundred — the per-item
+			function is evaluated O(N) per data change and is meant to stay arithmetic
+			(docs/plans/variable-item-extents.md, "what was traded"). The memo is also what
+			makes the dependency edges exist at all: the whole offset index re-derives when
+			the player raises their text size, swaps the theme, or the screen lands on a
+			ten-foot display.
+
+			`text.facts` takes the memo's own `use` for exactly that reason — it is the
+			caller's derivation the edges have to land in. ]]
 		local textFacts = scope:own(core:memo(function(use)
-			local scale: any = use(ctx.env:get("typographyScale"))
-			local paint: any = use(ctx.env:get("typographyPaintScale"))
-			local offset: any = use(ctx.env:get("preferredTextOffset"))
-			local metrics: any = use(ctx.env:get("themeMetrics"))
-			local body: any = if type(metrics) == "table" and type(metrics.type) == "table"
-				then (metrics.type :: any).body
-				else nil
-			return {
-				scale = math.max(
-					if type(scale) == "number" then scale else 1,
-					if type(paint) == "number" then paint else 1
-				),
-				offset = if type(offset) == "number" then offset else 0,
-				lineFactor = if type(body) == "table" and type(body.lineHeight) == "number"
-					then body.lineHeight
-					else NEUTRAL_LINE_FACTOR,
-			}
+			return ctx.LuauUI.text.facts({ env = ctx.env, use = use })
 		end))
 
 		--[[ THE LIST'S WINDOW IS THE PANE THE SOLVER GAVE IT, fed back through
@@ -243,7 +220,7 @@ return {
 				return item.id
 			end,
 			itemExtent = function(item: any, index: number, use: any): number
-				return rowExtent(item, index, use, textFacts, textOffset, mode)
+				return rowExtent(item, index, use, ctx.LuauUI, textFacts, textOffset, mode)
 			end,
 			viewportExtent = viewportExtent,
 			overscan = 2,

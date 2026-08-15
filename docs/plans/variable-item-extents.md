@@ -332,6 +332,91 @@ that fixture's private copy is the proof the shape is right — then close the
 `perf_capture` and `virtual_list_native` waivers with it, and close `row_actions` by
 moving it to `itemExtent = "measured"` instead.
 
+## Stage 3 — the line box, BUILT 2026-08-15
+
+The helper landed in the recommended shape, and the recommended adoption order held
+without amendment. Evidence: `artifacts/text-line-box/mutation-evidence.md`.
+
+### What shipped
+
+| piece | where |
+|---|---|
+| the arithmetic itself, exported from the module that already owned it: `reservedSize` (scale, then the additive offset) and `lineBoxPx` (the ceil, once) — and `measureAt` now CALLS `lineBoxPx`, so the prediction and the measurement cannot drift | `src/layout/text_metrics.luau` |
+| the measure seam calls `reservedSize` too, and its two branches now say out loud that an INTRINSIC size is reserved at scale 1 | `src/render/layout_node.luau` |
+| the text-scale POLICY as pure functions of the three platform facts (`typographyScale` / `typographyPaintScale` / `reserveScale` / `measureScale` / `textOffset`) — one implementation, called by the env memos, by the renderer's measure seam, and by `text.facts` | `src/themes/snapshot.luau`, `src/env/environment.luau`, `src/render/renderer.luau` |
+| the public face: `LuauUI.text.facts` (two forms — `{ env, use }` and `{ metrics }`) and `LuauUI.text.lineBox` | `src/layout/text_fit.luau`, `src/init.luau` |
+| `composition.floorPx` spending `text.lineBox`, which is all three fixes at once | `src/layout/composition.luau` |
+| 20 cases: the two facts forms and that they agree, the ceil-once and additive-after-scale properties, the refusals, one case per `floorPx` defect, and a DIFFERENTIAL oracle — nine themes x both display classes x sub-1..3x preferences x the four measured offsets x numeric and role-named sizes x 1..6 lines, each row mounted through the real presenter and compared to the arranged rect AND to the reserved size the solve recorded | `tests/text_line_box.spec.luau` |
+| the consumer rider: the new surface, the three `floorPx` fixes seen from the game side, and this package's own line-factor mirrors held to the claim their comments make | `games/RascalRally/code/tests/luauui_line_box_contract.spec.luau` |
+
+### The three `composition.floorPx` defects, each with its own case
+
+It computed `lines * role.size * role.lineHeight`. Neutral body is 16 at a 1.2
+factor, so a one-line floor was **19.2 at every configuration in existence**:
+
+1. **No `ceil`.** The solver's box is `ceil(19.2) = 20`. A region could "legally"
+   hold a line in a box 0.8px shorter than the line, every line.
+2. **No scale.** `role.size` is the AUTHORED size. The doc comment promised "a
+   bigger type scale raises every floor by itself" and that only ever happened when
+   the THEME's numbers moved, never when the PLAYER's preference did. Measured
+   live: a one-line floor is 29 on a ten-foot display and 58 at preference 2.
+3. **No text offset.** At the four offsets this project binds itself to, a one-line
+   floor is 20 / 24 / 32 / 36 and a four-line floor 77 / 96 / 125 / 144. It returned
+   19.2 for all of them.
+
+Mutations M10/M11/M12 revert one fix each; M11 and M12 redden **only** their own
+case.
+
+### Which consumers took the helper, and which was sent to `"measured"`
+
+| consumer | disposition | why |
+|---|---|---|
+| `examples/gallery/scenarios/variable_extents.luau` | **helper**; its private copy DELETED | It was the one correct copy in the repo. Deleting it is the proof the public shape is right: the demo, the numbers and the sweep result are unchanged and the thirty-line arithmetic block is gone |
+| `examples/gallery/scenarios/perf_capture.luau` | **helper**, as `max(designFloor, lineBox…)` | The case the ruling named: it is the perf harness's capture surface and needs a CORRECT uniform declaration, not self-measurement. The `max` keeps the row byte-identical at every configuration where 44 was already honest, so an accessibility fix does not silently move a perf baseline |
+| `examples/gallery/scenarios/virtual_list_native.luau` | **helper** | A single-line row at a known authored size — genuinely predictable. And its whole subject (NS-A4) is the ENGINE scrollbar being proportional to the full 2,000-row canvas, which measured mode turns into an estimate |
+| `examples/gallery/scenarios/row_actions.luau` | **`itemExtent = "measured"`** | The worst of the three, and the only one that lied at the DEFAULT preference (84 declared, 88 measured; 249 at +14 on a 320x640 phone). Three wrapping texts at three sizes with a conditional flag glyph inside — a height no declaration stays right about. `ROW_HEIGHT` survives as the window's floor and the `estimatedItemExtent` |
+| `src/controls/table.luau` (`rowBoxFor`) | **helper**, per-line | Framework code, and genuinely wrong: it read `typographyScale` alone, so it under-reserved at any sub-1 preference. Its ceil stays PER LINE because `capFor` divides by it to answer "how many lines fit" — the per-line box is the load-bearing quantity there, which is now said in the code |
+| `examples/gallery/scenarios/sponsor_list.luau`, `sponsor_drop.luau` | **helper** | Two more copies with the same missing `max`. `sponsor_list`'s two caption lines became one `lineBox` call instead of two summed, which is the ceil-once trap in its wild form |
+| `examples/reference/p3_sipworks/views/rewards.luau` | **`text.facts` only, deliberately NOT `lineBox`** | Surveyed and reasoned about rather than adopted mechanically: a seal is a round TOKEN whose diameter must clear its mark, not a line box, and a line box would grow every seal 20% at the default preference for no defect. Its real bug was the scale (`max(1, typographyScale)` is 1 where the measure seam reserves 1.5 on a ten-foot display at a sub-1 preference), and that is what `text.facts` fixed |
+| `src/themes/snapshot.luau`'s build-time row floor | **left alone** | Already documented as deliberate: it is the floor at the theme's AUTHORED size, which the snapshot cannot scale because it cannot see the live facts — and `table.luau` above is the live re-derivation it promises |
+
+### What the sweep says now
+
+All three `lying-itemExtent` waivers are **deleted**, in `tests/overflow_sweep.spec`
+and in `tests/lib/theme_sweep_ledger`. `DEFAULT_WAIVERS` went **7 → 6**: the one
+that left is `row_actions`', the only lying extent that lied at +0.
+
+One waiver path moved rather than left: measured mode mounts one control-owned
+`Content` wrapper per row, so the row's `theme-inset-yield` finding is now at
+`…/Row/Content/RowBody/DotWhen/then/Dot`. Same finding, same place in the cell, one
+more level of path.
+
+### The two things worth carrying forward
+
+- **A differential against the solver cannot test a primitive the helper CALLS.**
+  M1–M4 mutate shared code and §4 stays green, because the prediction and the
+  measurement move together. That is identity, which is stronger than agreement —
+  but it means the differential's coverage is the COMPOSITION (which scale, which
+  offset, which role), not the arithmetic. The concrete-number cases are what hold
+  the arithmetic.
+- **Every shipped theme package gives every role the same `lineHeight`.** So "which
+  role's line height did you take?" is unobservable across all nine reference
+  configurations, and two mutations survived the whole file until a ragged-factor
+  snapshot existed. A corpus that is uniform along an axis cannot test that axis.
+
+### Flagged, not taken
+
+- **`ResultsParts`' private `lineBox(size) = ceil(size * 1.25)`** in Rascal Rally
+  sits in the same file as `ResultsParts.LINE_HEIGHT = 1.2`, which the framework's
+  factor is. It over-reserves by ~4% — the safe direction for a results band whose
+  numerals must not clip, and every call site adds it to a human-tuned fixed height.
+  Lowering it would shrink shipped results geometry, which is a product change.
+  Pinned with its measured margin in the rider so it is a decision, not an accident.
+- **The framework reserves 20% more than the engine draws.** Measured live: real
+  `TextService` draws BuilderSans at 1.0 em per line while `LINE_HEIGHT_FACTOR` is
+  1.2. Pre-existing, unchanged by this work, and safe — but it is the number to
+  start from if anyone ever asks whether the line box can be tightened.
+
 ## Follow-ups flagged, not taken
 
 - **Tighten the uniform `window()` rule** to the exact containing-slot question,

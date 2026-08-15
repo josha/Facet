@@ -20,6 +20,14 @@
 -- Engine-free: every engine fact arrives through the runner's ctx seams
 -- (ctx.telemetry, ctx.geometry, ctx.themePackages).
 
+-- THE ROSTER ROW, in one place: the design floor, its padding, and the two text
+-- sizes its cell paints. The declared extent below is derived from exactly these,
+-- so the row and the slot it is windowed into cannot drift apart.
+local ROSTER_ROW_FLOOR = 44
+local ROSTER_ROW_PADDING = 4
+local ROSTER_NAME_SIZE = 14
+local ROSTER_DETAIL_SIZE = 12
+
 return {
 	title = "Production-shaped performance capture",
 	ledgerRows = { "XP-B2", "XP-B3", "XP-B4", "XP-B5", "XP-B6", "XP-C1", "XP-C2" },
@@ -69,23 +77,56 @@ return {
 
 		local progress = LuauUI.newProgressView(LuauUI, core, { id = "Lap", value = lap, label = "Lap" })
 
+		--[[ THE ROSTER ROW'S HEIGHT — a design FLOOR that grows with the text
+			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
+
+			WHAT IT WAS: `rowHeight = 44`, flat. 44 is a comfortable rhythm for a 14px
+			name beside a 12px detail with 4px of padding, and it is generous at the
+			default preference — which is why the lie only surfaced at the far end of
+			the sweep: on a console-class display at `preferredTextOffset` +10 the row
+			MEASURES 50 in a 44px slot (the ten-foot floor takes the 14px name to 21,
+			and the engine adds 10 on top of that). The overflow sweep carried a
+			lying-extent waiver for it.
+
+			WHY IT STAYS DECLARED, and uniformly. This scenario is the perf harness's
+			capture surface: it exists so a run measures the UNIFORM windowing
+			arithmetic, and `itemExtent = "measured"` would change what it measures
+			(and cost a wrapper node per row). It genuinely needs a CORRECT declaration
+			rather than self-measurement — this is the case the ruling named when it
+			said measured mode is not a complete answer.
+
+			WHY IT IS A `max` AND NOT JUST THE LINE BOX. Dropping to the bare content
+			height would be 25px at the default preference — a different-looking screen
+			and a different mounted-row count, i.e. a silent perf-baseline change made
+			while fixing an accessibility defect. The floor keeps the row byte-identical
+			everywhere it was already honest, and the line box takes over exactly where
+			it stopped being. ]]
+		local rowHeight = core:memo(function(use)
+			local facts = LuauUI.text.facts({ env = ctx.env, use = use })
+			local content = math.max(
+				LuauUI.text.lineBox({ facts = facts, size = ROSTER_NAME_SIZE, lines = 1 }),
+				LuauUI.text.lineBox({ facts = facts, size = ROSTER_DETAIL_SIZE, lines = 1 })
+			)
+			return math.max(ROSTER_ROW_FLOOR, content + 2 * ROSTER_ROW_PADDING)
+		end)
+
 		local list = LuauUI.newVirtualList(LuauUI, core, {
 			id = "Roster",
 			rows = roster,
 			key = function(item)
 				return item.id
 			end,
-			rowHeight = 44,
+			rowHeight = rowHeight,
 			viewportHeight = 220,
 			cell = function(item)
 				return UI.HStack({
 					id = "Row",
 					gap = 8,
-					padding = 4,
+					padding = ROSTER_ROW_PADDING,
 					children = {
-						UI.Text({ id = "Name", text = item.name, textSize = 14 }),
+						UI.Text({ id = "Name", text = item.name, textSize = ROSTER_NAME_SIZE }),
 						UI.Spacer({ id = "Gap" }),
-						UI.Text({ id = "Detail", text = item.detail, textSize = 12 }),
+						UI.Text({ id = "Detail", text = item.detail, textSize = ROSTER_DETAIL_SIZE }),
 					},
 				})
 			end,

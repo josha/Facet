@@ -93,6 +93,14 @@
 -- and form indices, so an arrangement change is an arrange pass. Every form of
 -- every region stays mounted (ViewThatFits' bargain, at composition scale) and
 -- the losers are hidden, which is what takes them out of focus order.
+--
+-- THE ONE DEPENDENCY, and why it does not cost the purity claim above: `floorPx`
+-- resolves a CONTENT floor ("one line") to pixels, and that is text arithmetic
+-- the solver already owns. `text_fit` is pure (no engine, no reactive core, no
+-- theme of its own — it reads the snapshot it is handed), so a device matrix
+-- here is still a headless sweep.
+
+local textFit = require("./text_fit")
 
 local composition = {}
 
@@ -337,21 +345,57 @@ composition.HUD = table.freeze({
 
 -- ===== floors ==============================================================
 
--- floorPx(floor, metrics) -> number? — the CONTENT-expressed floor in pixels,
--- resolved against the live theme snapshot so a bigger type scale raises every
--- floor by itself. Returns nil when nothing was declared: the caller then falls
--- back to the minimum-viable form's own measure.
+--[[ floorPx(floor, metrics) -> number? — the CONTENT-expressed floor in pixels,
+	resolved against the live theme snapshot so a bigger type scale raises every
+	floor by itself. Returns nil when nothing was declared: the caller then falls
+	back to the minimum-viable form's own measure.
+
+	THIS FUNCTION WAS WRONG THREE WAYS UNTIL 2026-08-15, and it is public, so
+	every caller trusted it. It computed `lines * role.size * role.lineHeight`:
+
+	  1. NO `ceil`. The solver's box is `ceil(...)`; a floor of 16.8 against a
+	     measured 17 lets a region hold one line "legally" in a box that cannot
+	     draw it.
+	  2. NO SCALE. `role.size` is the AUTHORED size. The measure seam reserves at
+	     `max(typographyScale, typographyPaintScale)`, so on a ten-foot display
+	     (whose Large class multiplies the whole ladder by 1.5) and at any raised
+	     accessibility preference the floor was short by up to 3x — the "bigger
+	     type scale raises every floor by itself" the comment promised only ever
+	     happened when the THEME's authored numbers moved, never when the PLAYER's
+	     preference did.
+	  3. NO TEXT OFFSET. `preferredTextOffset` is additive px the engine adds to
+	     every painted line, and the four measured offsets this project binds
+	     itself to are {0, 4, 10, 14}: at +14 a one-line floor was short by 16.8px
+	     and a four-line floor by 67.2px.
+
+	It now spends `text.lineBox`, so it is the same arithmetic as the solve that
+	measures the region — see docs/plans/variable-item-extents.md. The FACTS come
+	from the snapshot itself (`text.facts { metrics = ... }`), which carries the
+	three platform facts it was resolved from; this module still touches no env
+	and stays headlessly sweepable. ]]
 function composition.floorPx(floor: Floor?, metrics: any): number?
 	if floor == nil then
 		return nil
 	end
 	local px: number? = nil
 	if type(floor.lines) == "number" then
+		-- the role is resolved HERE rather than by `lineBox`'s strict lookup: a
+		-- `floor.role` naming something this theme does not carry has always fallen
+		-- back to `body`, and tightening that is a separate decision from fixing the
+		-- arithmetic. `nil` = neither role exists, and `lineBox` then reserves at the
+		-- measurer's own default factor, exactly as this used to.
 		local roles = (if type(metrics) == "table" then metrics.type else nil) or {}
-		local role = roles[floor.role or "body"] or roles.body
-		local size = (if type(role) == "table" then role.size else nil) or 14
-		local lh = (if type(role) == "table" then role.lineHeight else nil) or 1.2
-		px = (floor.lines :: number) * size * lh
+		local named = floor.role or "body"
+		local role: string? = if roles[named] ~= nil then named elseif roles.body ~= nil then "body" else nil
+		local facts = textFit.facts({ metrics = metrics })
+		px = textFit.lineBox({
+			facts = facts,
+			-- 14px is the neutral `body` size, and the fallback this has always used
+			-- when the snapshot carries no typography at all
+			size = role or 14,
+			lines = floor.lines :: number,
+			role = role,
+		})
 	end
 	if type(floor.targets) == "number" then
 		local targets = (if type(metrics) == "table" then metrics.targetSizes else nil) or {}

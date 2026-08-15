@@ -9,6 +9,11 @@
 -- it always fits under the Title on any viewport including a short landscape
 -- phone.
 
+-- the cell's authored text size, in ONE place: the row's declared extent and the
+-- text it has to hold are the same number by construction, which is the half of
+-- the lying-extent class a helper cannot fix on its own
+local ROW_TEXT_SIZE = 16
+
 return {
 	title = "VirtualList on the native canvas (NS-A4)",
 	ledgerRows = { "NS-A4", "NS-A3" },
@@ -49,17 +54,43 @@ return {
 			return math.clamp(math.floor(h - top - bottom - chrome), 72, 600)
 		end))
 
+		--[[ THE ROW HEIGHT IS THE LINE BOX ITS CELL WILL MEASURE, not a constant
+			(adopted 2026-08-15, docs/plans/variable-item-extents.md).
+
+			WHAT IT WAS: `rowHeight = 36`. The cell is one `UI.Text` at textSize 16, and
+			36 is right for exactly one configuration — Studio Neutral, near display,
+			default preference. The overflow sweep carried a lying-extent waiver for it:
+			on a console-class display at `preferredTextOffset` +14 the row MEASURES 46,
+			because the ten-foot type floor multiplies the authored 16 by 1.5 and the
+			engine then adds 14px on top. Ten rows of a windowed list, each painting 10px
+			into its neighbour.
+
+			IT STAYS A DECLARATION rather than moving to `itemExtent = "measured"`,
+			deliberately: this scenario's whole subject is the ENGINE scrollbar being
+			proportional to the full 2,000-row canvas (NS-A4), and measured mode makes
+			the total canvas an estimate until every row has been seen — the one residual
+			cost Stage 2 could not remove. A single-line row at a known authored size is
+			also exactly the case a consumer really can predict. So it predicts, with the
+			framework's own arithmetic instead of a hand copy of it. ]]
+		local rowHeight = scope:own(core:memo(function(use)
+			return ctx.LuauUI.text.lineBox({
+				facts = ctx.LuauUI.text.facts({ env = ctx.env, use = use }),
+				size = ROW_TEXT_SIZE,
+				lines = 1,
+			})
+		end))
+
 		local list = ctx.LuauUI.newVirtualList(ctx.LuauUI, core, {
 			id = "VL",
 			rows = rows,
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = 36,
+			rowHeight = rowHeight,
 			viewportHeight = viewportHeight,
 			overscan = 2,
 			cell = function(item: any)
-				return UI.Text({ id = "Label", text = item.label, textSize = 16 })
+				return UI.Text({ id = "Label", text = item.label, textSize = ROW_TEXT_SIZE })
 			end,
 		})
 

@@ -1854,28 +1854,19 @@ function renderer.attach(
 				}
 			end
 		end
-		local textScale = env:get("typographyScale"):get()
-		if type(textScale) ~= "number" or textScale ~= textScale then
-			textScale = 1
-		end
 		-- split text-scale seams (NS-A9): MEASURE reserves the engine-scaled
 		-- bounds (typographyScale includes the player preference); PAINT writes
 		-- only authored scale — the engine applies the preference itself at
-		-- draw time (double-application fix, corrections §9).
+		-- draw time (double-application fix, corrections §9). The RESERVATION
+		-- FLOOR (measure >= paint, preferred-text sweep 2026-07-24) and its
+		-- garbage-fact guards live once, in `themes/snapshot.reserveScale`, which
+		-- the public `LuauUI.text.facts` calls on the same two keys — so a
+		-- consumer PREDICTING a text box reserves at exactly this scale.
 		local paintScale = env:get("typographyPaintScale"):get()
 		if type(paintScale) ~= "number" or paintScale ~= paintScale then
 			paintScale = 1
 		end
-		-- RESERVATION FLOOR (preferred-text sweep, 2026-07-24): the two seams are
-		-- only safe while measure >= paint. typographyScale's legal domain starts
-		-- at 0.5 (a dev/test profile may set preferredTextSize below 1) while the
-		-- paint seam carries no preference factor at all — so a sub-1 preference
-		-- reserved HALF the box the engine then drew into, and every explicit-size
-		-- text node clipped. Proven live at preferredTextSize=0.5: 10 nodes
-		-- reported TextFits == false on both the phone and desktop profiles.
-		-- Over-reserving is always safe; under-reserving is never. Measure
-		-- therefore takes the larger of the two scales.
-		local measureScale = math.max(textScale, paintScale)
+		local measureScale = themeSnapshot.reserveScale(env:get("typographyScale"):get(), paintScale)
 		-- ten-foot presentation (input-paradigms expansion): TVs clip edges,
 		-- so overscan margins compose ON TOP of the CoreGui safe insets while
 		-- the display class is Large; a near display keeps the full canvas
@@ -1890,11 +1881,9 @@ function renderer.attach(
 				}
 			end
 		end
-		local prefOffset = env:get("preferredTextOffset"):get()
-		if type(prefOffset) ~= "number" or prefOffset ~= prefOffset then
-			prefOffset = 0
-		end
-		prefOffset = math.clamp(prefOffset, 0, 32)
+		-- the legal domain lives with the policy (`themes/snapshot.textOffset`), so
+		-- the public `LuauUI.text.facts` clamps the offset exactly as this seam does
+		local prefOffset = themeSnapshot.textOffset(env:get("preferredTextOffset"):get())
 		-- the adapter owns the scrollbar thickness (it is engine-specific); the
 		-- solver reserves it off a scrolling region's cross axis so content is
 		-- never laid out underneath the bar

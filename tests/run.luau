@@ -54,6 +54,11 @@ require("./selection_bridge.spec")
 require("./text_calibration.spec")
 require("./text_degrade_cascade.spec")
 require("./text_fit.spec")
+-- the LINE BOX (ruled 2026-08-15): `text.facts`/`text.lineBox`, the three defects
+-- they fixed in the public `composition.floorPx`, and the differential oracle that
+-- proves the helper equals what the solver arranges across every shipped theme x
+-- both display classes x sub-1..3x preferences x the four measured text offsets
+require("./text_line_box.spec")
 require("./value_reveal.spec")
 require("./text_premeasure.spec")
 -- large-text accessibility (LTN-4): the solve's per-text truncation facts, the

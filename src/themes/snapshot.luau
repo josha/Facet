@@ -20,6 +20,10 @@
 --   snapshot.roleOf(snap, value)         the typography role entry, when named
 --   snapshot.isTypeRole / isSpaceStep / isMetricPath   (schema validation)
 --   snapshot.fontKey(font)               canonical "family#weight#style"
+--   snapshot.typographyScale / typographyPaintScale / measureScale / textOffset
+--                                        the TEXT-SCALE POLICY, as pure
+--                                        functions of the three platform facts
+--                                        (see "the text-scale policy" below)
 --
 -- Depends on: src/themes/package (the compiler + the closed vocabulary),
 -- src/tokens/default_style (the SINGLE source of the neutral numbers).
@@ -241,6 +245,86 @@ export type Facts = {
 	preferredTextSize: number?, -- the multiplicative reservation seam
 	preferredTextOffset: number?, -- the ADDITIVE engine offset, in px
 }
+
+-- ===== the text-scale policy ===============================================
+-- THE ONE DERIVATION of the two text scales and the additive offset, as pure
+-- functions of the three platform facts above. `environment`'s
+-- `typographyScale`/`typographyPaintScale` memos call these, and so does
+-- `text_fit.facts` when it is handed a SNAPSHOT rather than a live env — which
+-- is what lets `composition.floorPx` reserve the same box the solver measures
+-- without an env of its own. Two implementations that agree today is the exact
+-- defect this feature exists to end (docs/plans/variable-item-extents.md), so
+-- there is one and both seams call it.
+
+-- the ten-foot TYPE FLOOR (input-paradigms expansion, matrix D.1): body text
+-- must clear ~29pt at 3m, so a Large display class multiplies the whole type
+-- ladder. A near display leaves it alone.
+local function tenFootFloor(displaySize: any): number
+	return if displaySize == "Large" then 1.5 else 1
+end
+
+--[[ typographyScale(displaySize, preferredTextSize) -> the MEASURE-seam scale.
+	The player's accessibility preference (clamped into its legal domain: a broken
+	platform fact must never leak a negative or absurd scale downstream) composed
+	with the ten-foot floor. On a near display this is exactly the preference, so
+	the corpus invariant `typographyScale == preferredTextSize` still holds. ]]
+function snapshot.typographyScale(displaySize: any, preferredTextSize: any): number
+	local base = if type(preferredTextSize) ~= "number" or preferredTextSize ~= preferredTextSize
+		then 1
+		else math.clamp(preferredTextSize, 0.5, 3)
+	return base * tenFootFloor(displaySize)
+end
+
+--[[ typographyPaintScale(displaySize) -> the PAINT-seam scale (NS-A9, LTN-1).
+	The engine applies the player's PreferredTextSize itself, as an ADDITIVE px
+	offset at draw time, so paint must carry ONLY authored scale — folding the
+	preference in here is the double-application defect. ]]
+function snapshot.typographyPaintScale(displaySize: any): number
+	return tenFootFloor(displaySize)
+end
+
+--[[ reserveScale(typographyScale, typographyPaintScale) -> what a MEASURE
+	reserves at, given the two SCALES (rather than the facts behind them).
+
+	THE RESERVATION FLOOR (preferred-text sweep, 2026-07-24): the two seams above
+	are only safe while measure >= paint. `typographyScale`'s legal domain starts
+	at 0.5 while the paint seam carries no preference factor at all — so a sub-1
+	preference reserved HALF the box the engine then drew into and every
+	explicit-size text node clipped (proven live at preferredTextSize = 0.5: 10
+	nodes reported TextFits == false). Over-reserving is always safe;
+	under-reserving is never. Hence the max, and hence `max(typographyScale,
+	typographyPaintScale)` is the thing every predicting consumer got wrong.
+
+	THE ONE `math.max` IN THE FRAMEWORK: the renderer's measure seam and
+	`text_fit.facts` both call this, on the two DERIVED env keys, so a fault
+	profile that overrides either key is honoured identically by both. ]]
+function snapshot.reserveScale(typographyScale: any, typographyPaintScale: any): number
+	local measure = if type(typographyScale) == "number" and typographyScale == typographyScale
+		then typographyScale
+		else 1
+	local paint = if type(typographyPaintScale) == "number" and typographyPaintScale == typographyPaintScale
+		then typographyPaintScale
+		else 1
+	return math.max(measure, paint)
+end
+
+-- measureScale(displaySize, preferredTextSize) -> the same number, derived from
+-- the FACTS. This is the form a caller holding only a theme snapshot needs.
+function snapshot.measureScale(displaySize: any, preferredTextSize: any): number
+	return snapshot.reserveScale(
+		snapshot.typographyScale(displaySize, preferredTextSize),
+		snapshot.typographyPaintScale(displaySize)
+	)
+end
+
+-- the ADDITIVE engine offset, in the legal domain the renderer's measure seam
+-- clamps it to. Absent/garbage = 0.
+function snapshot.textOffset(preferredTextOffset: any): number
+	if type(preferredTextOffset) ~= "number" or preferredTextOffset ~= preferredTextOffset then
+		return 0
+	end
+	return math.clamp(preferredTextOffset, 0, 32)
+end
 
 local function frozenClone(t: any): any
 	local out: any = {}

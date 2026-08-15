@@ -35,6 +35,7 @@
 ]]
 
 local solver = require("../layout/solver")
+local text_metrics = require("../layout/text_metrics")
 local themeSnapshot = require("../themes/snapshot")
 local themePackage = require("../themes/package")
 local chrome_slots = require("../tokens/chrome_slots")
@@ -216,10 +217,16 @@ local function toLayoutNode(
 		-- disagreed with it. One resolver for both seams, so it cannot.
 		local _, role = themeSnapshot.effectiveTypeRole(metrics, class, raw)
 		local size = themeSnapshot.resolveSize(metrics, raw)
+		-- ONE SPELLING OF "scale, then add the engine's additive offset"
+		-- (`text_metrics.reservedSize`), shared with the PUBLIC `LuauUI.text.lineBox`
+		-- so a consumer predicting a text box spends the seam's own arithmetic
+		-- instead of a hand copy. The scale asymmetry is the whole reason the two
+		-- branches differ and is now explicit: an INTRINSIC size never reaches paint
+		-- scaled, so it is reserved at scale 1.
 		if size == nil then
-			return metrics.type[fallbackRole].size + prefOffset, role
+			return text_metrics.reservedSize(metrics.type[fallbackRole].size, 1, prefOffset), role
 		end
-		return size * textScale + prefOffset, role
+		return text_metrics.reservedSize(size, textScale, prefOffset), role
 	end
 	local kind: string
 	-- set by the Button branch below; spent once `layoutNode` exists

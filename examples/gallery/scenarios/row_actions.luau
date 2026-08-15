@@ -542,9 +542,30 @@ return {
 			})
 		end
 
-		-- the hosted list's window, published from its own solved pane (see
-		-- `viewportHeight` below). 336 is the boot value only — the first solve
-		-- replaces it with the height this device really has.
+		--[[ THE MAIL ROW MEASURES ITSELF (adopted 2026-08-15,
+			docs/plans/variable-item-extents.md).
+
+			WHAT IT WAS: `rowHeight = ROW_HEIGHT` with `ROW_HEIGHT = 84`, and it was the
+			worst of the three lying extents in this repo — the only one that lied at the
+			DEFAULT preference. The overflow sweep measured this row at 88px in its 84px
+			slot at +0 on both portrait phones, 99 at ten-foot, and 249 in the same 84px
+			slot at +14 on a 320x640 phone. Six rows, one template; every one of them
+			painted over its neighbour.
+
+			WHY THE HELPER IS NOT THE FIX HERE, even though the helper now exists. This
+			cell is a three-line stack of WRAPPING text at three different sizes, with a
+			conditional flag glyph inside it (`FlagWhen`) that changes the first line's
+			content. Its height is a function of the live width, the live type scale, the
+			live preference AND which branch the `When` took — a number no declaration can
+			be right about for long, and this file has already been wrong about it twice.
+			`itemExtent = "measured"` removes the prediction rather than making it easier,
+			which is the stronger answer whenever the row can measure itself. The helper is
+			for the consumers that genuinely must predict (a perf-harness baseline, a
+			composition floor); this is not one of them.
+
+			`ROW_HEIGHT` survives as what it always really was — the window's own floor
+			below, i.e. "the list is never shorter than one row" — and as the estimate an
+			unmeasured row starts at. ]]
 		local ROW_HEIGHT = 84
 		local VLIST_GAP = 8 -- VListPane's own "s" gap, between the hint and the list
 		local VLIST_PANE = "/MailActions/VListWhen/then/VListPane"
@@ -556,7 +577,8 @@ return {
 			key = function(item: any)
 				return item.id
 			end,
-			rowHeight = ROW_HEIGHT,
+			itemExtent = "measured",
+			estimatedItemExtent = ROW_HEIGHT,
 			-- THE WINDOW IS THE PANE THE SOLVER GAVE IT (device report 2026-08-12,
 			-- IMG_3689's sibling defect). This was a literal `336 -- 4 rows visible`,
 			-- measured once on a desktop: on a landscape phone the list painted

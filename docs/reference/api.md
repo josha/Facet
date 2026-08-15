@@ -3382,6 +3382,8 @@ fallback* for a font it has never seen.
 | `text.measure(spec) -> Metrics` | how big is this string, at this size, in this box |
 | `text.fit(spec) -> Fit` | what size makes it fit, and does it |
 | `text.size(spec) -> number` | the same answer, when all you want is the size |
+| `text.facts(spec) -> TextFacts` | the live text facts a prediction needs, read once |
+| `text.lineBox(spec) -> number` | how tall `lines` lines of this text will be |
 
 **`text.measure`** takes a spec table — the canonical form, and the one that
 matches its two siblings:
@@ -3457,6 +3459,73 @@ that is solving one.
 Measurement state is process-wide: the calibration table and the measured-word
 store belong to the module, not to a core or a scope, and there is nothing to
 own or dispose.
+
+### `text.facts` and `text.lineBox` — the line box
+
+**Reach for `newVirtualList { itemExtent = "measured" }` first.** If the row can
+measure itself, let it: that removes the prediction instead of making it easier,
+and it is the right answer for any cell that is wrapping text at a live size.
+These two are for the consumer that genuinely *must* predict — a perf-harness
+baseline whose whole point is a uniform declared extent, a `Composition` region's
+content floor, a list whose O(1) windowing depends on one declared number.
+
+For those, "how tall is `lines` lines going to be?" has exactly one correct
+answer and it is not obvious:
+
+```
+px = ceil(lines * (authoredSize * max(typographyScale, typographyPaintScale)
+                   + preferredTextOffset) * theRole'sLineHeight)
+```
+
+Three live env facts, one theme number, one `max` that exists only because a
+sub-1 accessibility preference makes the *paint* seam the larger of the two, and
+a `ceil` that lands **once on the whole product** (ceiling per line
+over-reserves by up to `lines - 1` px). A survey run in 2026-08 found seven
+near-duplicates of that formula in this repository and exactly one of them
+correct. `text.lineBox` is that one implementation, and it spends the solver's
+own two seams rather than a copy of them, so it moves when they move.
+
+```lua
+local extent = core:memo(function(use)
+    local facts = LuauUI.text.facts({ env = env, use = use })
+    return PADDING * 2
+        + LuauUI.text.lineBox({ facts = facts, size = "title", lines = 1 })
+        + GAP
+        + LuauUI.text.lineBox({ facts = facts, size = 13, lines = 3 })
+end)
+```
+
+**`text.facts(spec) -> TextFacts`** reads the facts once for a whole extent pass.
+`TextFacts` is `{ scale, offset, metrics }`: `scale` is
+`max(typographyScale, typographyPaintScale)`, `offset` is `preferredTextOffset`
+clamped to the same legal domain the renderer's measure seam clamps it to, and
+`metrics` is the live `ThemeSnapshot`. Pass **either**:
+
+- `{ env, use }` — the live environment plus **the enclosing memo's own `use`**.
+  `use` is required, not optional: a fact read with `:get()` is right once and
+  registers no dependency, so the extent goes silently stale the moment the
+  player raises their text size, swaps the theme, or the screen lands on a
+  ten-foot display. If you really want a one-shot read, write it out
+  (`use = function(r) return r:get() end`) and be seen to mean it.
+- `{ metrics }` — a `ThemeSnapshot` on its own, for a caller with no env. The
+  snapshot carries the three platform facts it was resolved from, so the same
+  numbers come back out. This is the form `composition.floorPx` uses.
+
+**`text.lineBox(spec) -> number`** takes
+`{ facts, size, lines?, role? }`. `size` is the AUTHORED size — a number, or the
+name of a typography role whose `size` is then used; either way it is scaled,
+because an authored size reaches paint and both seams scale it. `lines` defaults
+to 1. `role` names the typography role whose LINE HEIGHT applies; it defaults to
+`size` when `size` names a role, else `body` — which is the solver's own answer,
+since a literal px size on a `UI.Text` resolves to the class's intrinsic role.
+A `size` or `role` naming a role the live theme does not carry is refused; so is
+a `lines` below 1 and an unknown key.
+
+The number it returns is the box a **wrapping** text node of that many lines
+occupies. It does not include padding, gaps or any sibling — a row's extent is
+its own arithmetic over one or more line boxes, and keeping those separate is
+what lets a cell with a title above a body ceil each of them once rather than
+ceiling their sum.
 
 ---
 
