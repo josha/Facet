@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty fixtures", function()
+	it("lists every tutorial example plus the twenty-two fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(27)
+		expect(#demos).toBe(29)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -91,7 +91,17 @@ describe("showcase catalogue", function()
 		-- counter — and a dictionary's iteration order is only wrong compared with
 		-- the frame BEFORE it, which is why that fixture ships a picker that
 		-- rebuilds the same twelve pairs a different way.
-		expect(fixtures).toBe(20)
+		-- ...and TWENTY-ONE since ADR-0033 (2026-08-15): `time-curves`, the
+		-- time-based-easing surface. It is here for the same reason: what it shows
+		-- is a stopwatch reading, not a frame — an informational tween landing at
+		-- 0.52 s beside a spring given the same number that does not settle until
+		-- 1.05 s, and a reduced-motion pass where the decorative halves place
+		-- instantly while that cooldown keeps stepping.
+		-- ...and the UI.Foreign surface (ADR-0034), which is in the catalogue for a
+		-- reason none of the others are: its three panes are not drawn by LuauUI at
+		-- all, so it is the only demo where "does the framework render this" is the
+		-- wrong question and "does the box hold it" is the right one.
+		expect(fixtures).toBe(22)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -538,7 +548,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(20)
+		expect(fixtures).toBe(22)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)

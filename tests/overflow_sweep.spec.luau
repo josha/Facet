@@ -385,6 +385,13 @@ local SCENARIOS = {
 	-- whose rows outgrow the fold turns the side-by-side into a stack — which is
 	-- fine, and which only a swept viewport confirms actually happens
 	"sorted_entries",
+	-- ...and the time-curve fixture. Three stacked demonstrations under one page
+	-- scroller — two progress bars, four labelled lanes, a growing card and three
+	-- status lines whose longest is a whole sentence — which makes the swept cross
+	-- product the direct test of whether the page still fits the box it is given
+	-- at every viewport and preference. Its motion values are all at rest at
+	-- mount, so what is swept is the surface a player first sees
+	"time_curves",
 }
 
 local EXAMPLES = {

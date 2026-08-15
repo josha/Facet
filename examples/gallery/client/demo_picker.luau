@@ -307,6 +307,30 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "sorted_entries",
 	},
+	-- ...and the time-curve fixture (ADR-0033), here for the reason every fixture
+	-- above it is: the difference between a duration and a spring's asymptote is
+	-- not in any single frame. It is a stopwatch reading 0.52 against 1.05, four
+	-- pucks that land together by different routes, and a reduced-motion pass
+	-- where the decorative halves place instantly while the cooldown keeps
+	-- stepping — none of which a screenshot can hold.
+	{
+		id = "time-curves",
+		title = "Time curves",
+		blurb = "A cooldown that lands on time, four curves, one 400 ms trip",
+		kind = "fixture",
+		module = "time_curves",
+	},
+	-- ...and the one demo whose content LuauUI does not draw at all (ADR-0034):
+	-- RichText spans, an engine-measured list, and a 2x-oversize frame the box
+	-- crops — three capabilities the framework declines by design, plus a button
+	-- that adopts a `Part` and shows the refusal verbatim.
+	{
+		id = "foreign-content",
+		title = "Foreign instances",
+		blurb = "A box for an instance LuauUI does not own: RichText, an engine list, and the clip",
+		kind = "fixture",
+		module = "foreign_content",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

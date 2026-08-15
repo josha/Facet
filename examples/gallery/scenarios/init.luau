@@ -182,6 +182,25 @@ local ORDER = {
 	-- leaderboard cannot show a bug that only exists BETWEEN two frames. Also in
 	-- `demo_picker.DEMOS`.
 	"sorted_entries",
+	-- ...and ADR-0033: TIME-BASED EASING. The only surface where the thing a
+	-- spring cannot do is on screen next to a spring doing it — an informational
+	-- `clock:tween` and a `clock:spring` given the same half-second number, racing
+	-- with a stopwatch stamping each arrival (the tween at 0.52 s, the spring at
+	-- 1.05 s). Beside it, one 400 ms trip under four registered curves that land
+	-- on the same frame by travelling differently, and `withAnimation` driven by a
+	-- CURVE name rather than a class. The curve registry ships EMPTY, so this
+	-- fixture registers its own six curves defensively at build. Also in
+	-- `demo_picker.DEMOS`.
+	"time_curves",
+	-- ...and react-lua-comparison.md §5 rank 1 / ADR-0034: UI.FOREIGN. The one
+	-- fixture in this list whose panes are NOT drawn by LuauUI — RichText spans in
+	-- one label, an engine-measured UIListLayout with AutomaticCanvasSize, and a
+	-- deliberately 2x-oversize Frame that proves the box clips. Each is a
+	-- capability the framework declines by design, which is the only way to
+	-- demonstrate an escape hatch: a pane LuauUI could have drawn would show
+	-- nothing. A fourth button adopts a `Part` and puts the framework's own
+	-- refusal on screen verbatim. Also in `demo_picker.DEMOS`.
+	"foreign_content",
 }
 
 local scenarios = {}
