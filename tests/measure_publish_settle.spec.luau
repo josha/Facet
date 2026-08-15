@@ -397,3 +397,245 @@ describe("a measure→publish cycle settles inside one flush", function()
 		expect(string.find(tostring(err), "iteration cap") ~= nil).toBe(true)
 	end)
 end)
+
+--[[ ── THE OTHER HALF OF THE ROUND TRIP: A PROP, NOT AN ENV FACT ───────────────
+
+	L-31 closed the cycle whose publication is an ENVIRONMENT write: the dock
+	above measures itself and writes `coreSafeInsets`, an env signal the
+	renderer's own geometry memo depends on, so the renderer's settle callback
+	re-solves and the whole thing lands in one flush.
+
+	A consumer that publishes into one of its OWN NODE'S PROPS took a different
+	road and still paid a frame. `mount.luau` binds a reactive prop through
+	`core:observe`, which writes `node.props` and pushes a dirty entry — and that
+	queue is drained by `controller.refresh()`, on the host's NEXT frame. So the
+	solve that produced the measurement laid the tree out against the OLD prop,
+	and the correction arrived a frame later. Shipped instance:
+	`docs/lessons/the-node-that-must-spend-it-lives-outside.md` — a Table's header
+	pays the scrollbar gutter its body spent, and `present`'s own solve laid the
+	header out un-guttered.
+
+	THE CHECK IS THE GENERAL SHAPE, not the Table: any surface whose `onGeometry`
+	publishes a measured number into a layout prop. `tests/table_columns.spec.luau`
+	carries the product case.
+
+	NON-VACUITY IS ASSERTED. A `roundTrip = false` arm is built in the same
+	process and asserted to leave the probe at its authored height, so a scene
+	that stopped publishing altogether cannot pass. ]]
+type PropScene = {
+	core: any,
+	env: any,
+	pres: any,
+	handle: any,
+	margin: any,
+	published: () -> number,
+	probeH: () -> number,
+	barW: () -> number,
+	solves: () -> number,
+}
+
+local function propScene(roundTrip: boolean, diverge: boolean?): PropScene
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = 900, h = 700 })
+	local system = LuauUI.newActionSystem(core)
+	local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
+
+	-- the published number, bound to the probe's HEIGHT — a `measure`-class
+	-- reactive prop (src/blueprint_schema.luau BOX.height), which is exactly the
+	-- channel a Table's header padding uses
+	local published = core:signal(0)
+	local probeHeight = core:memo(function(use)
+		return { type = "fixed", px = use(published) }
+	end)
+	-- an ordinary reactive `measure` prop that moves the MEASURED node without
+	-- touching the environment: the only way to drive this cycle through
+	-- `controller.refresh`'s incremental-layout path (`dirtyContains`)
+	local margin = core:signal(0)
+	local barMargin = core:memo(function(use)
+		local m = use(margin)
+		return { top = 0, bottom = 0, left = m, right = m }
+	end)
+
+	local screen = LuauUI.UI.Screen({
+		id = "P",
+		children = {
+			--[[ TWO SIBLING SUBTREES, deliberately — the Table's own shape, where the
+				header that must PAY the gutter is a sibling of the body that spent
+				it. It is what makes `refresh`'s incremental set discriminating: dirt
+				under `Measured` closes over `Measured`/`Col`/`P` and never mentions
+				`Published`, so a re-solve that reused that set would skip the very
+				subtree the publication moved. A probe parented under the dirty node's
+				own parent is re-measured for free and proves nothing. ]]
+			LuauUI.UI.VStack({
+				id = "Col",
+				width = { type = "fill", weight = 1 },
+				children = {
+					LuauUI.UI.Anchor({
+						id = "Measured",
+						width = { type = "fill", weight = 1 },
+						-- the margin rides the WRAPPER, because the VStack is the node
+						-- that consumes a child's margin; an Anchor places its children
+						-- inside its own box and would swallow it
+						margin = barMargin,
+						children = {
+							-- the MEASURED node. Its width is the viewport's, and nothing
+							-- the probe does can move it — which is what makes the cycle
+							-- converge in one step (the same structural argument the
+							-- Table's gutter makes about a `lineLimit = 1` title in a
+							-- `minMax`-floored band).
+							LuauUI.UI.Anchor({
+								id = "Bar",
+								width = { type = "fill", weight = 1 },
+								height = { type = "fixed", px = 40 },
+							}),
+						},
+					}),
+					--[[ ...AND ITS OWN OUTER RECT DOES NOT MOVE when the publication does
+						— a FIXED band holding a probe whose height is the published
+						number. That is the Table's header exactly: a `minMax`-floored
+						band whose outer box is the frame's, whose INNER padding is what
+						the gutter changes. It is also what makes the incremental skip
+						able to strand this subtree: `arrange`'s skip fires when a
+						subtree lands on the rect it already had, so a wrapper that
+						grows with its content re-walks for free and proves nothing. ]]
+					LuauUI.UI.VStack({
+						id = "Published",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fixed", px = 200 },
+						children = {
+							LuauUI.UI.Anchor({
+								id = "Probe",
+								width = { type = "fill", weight = 1 },
+								height = probeHeight,
+							}),
+						},
+					}),
+				},
+			}),
+		},
+	})
+
+	local handle = pres.present(screen, {
+		onGeometry = if roundTrip
+			then function(rectOf: (string) -> any)
+				local source = if diverge then rectOf("/P/Col/Published/Probe") else rectOf("/P/Col/Measured/Bar")
+				if type(source) ~= "table" then
+					return
+				end
+				-- DIVERGENT ARM: the publication is derived from the rect the
+				-- publication itself moves, so every solve produces a new number.
+				local want = if diverge then (source.h :: number) + 4 else math.floor((source.w :: number) / 10)
+				if published:get() ~= want then
+					published:set(want)
+				end
+			end
+			else nil,
+	})
+
+	return {
+		core = core,
+		env = env,
+		pres = pres,
+		handle = handle,
+		margin = margin,
+		published = function()
+			return published:get()
+		end,
+		probeH = function()
+			local r = handle.controller.rectOf("/P/Col/Published/Probe")
+			return if type(r) == "table" then (r :: any).h else -1
+		end,
+		barW = function()
+			local r = handle.controller.rectOf("/P/Col/Measured/Bar")
+			return if type(r) == "table" then (r :: any).w else -1
+		end,
+		solves = function()
+			return (handle.controller.stats() :: any).solves :: number
+		end,
+	}
+end
+
+describe("a measure→publish cycle whose publication is a PROP settles in the same solve", function()
+	it("the probe is already at the published height when `present` returns — no refresh", function()
+		local s = propScene(true)
+		-- NON-VACUITY FIRST: the publication really happened and is not zero
+		local want = math.floor(s.barW() / 10)
+		expect(`want>0:{want > 0}`).toBe("want>0:true")
+		expect(`published:{s.published()}`).toBe(`published:{want}`)
+		-- ...and the SOLVED tree already carries it. Before this change the probe
+		-- read 0 here and only the first `pres.refresh()` corrected it.
+		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
+		expect(s.core:lastError()).toBeNil()
+	end)
+
+	it("...and the control publishes nothing, so the check cannot pass on an empty scene", function()
+		local s = propScene(false)
+		expect(`published:{s.published()}`).toBe("published:0")
+		expect(`probe:{s.probeH()}`).toBe("probe:0")
+		expect(s.core:lastError()).toBeNil()
+	end)
+
+	it("it converges: two more refreshes move nothing and cost no extra solve", function()
+		local s = propScene(true)
+		local settled = s.probeH()
+		local after = s.solves()
+		s.pres.refresh()
+		s.pres.refresh()
+		expect(`probe:{s.probeH()}`).toBe(`probe:{settled}`)
+		-- an idle refresh after convergence solves at most the one the pending
+		-- prop dirty asks for, and never grows without bound
+		expect(`solves<=+2:{s.solves() - after <= 2}`).toBe("solves<=+2:true")
+		expect(s.core:lastError()).toBeNil()
+	end)
+
+	it("the feedback solve is COUNTED, and the control counts none", function()
+		-- the cost is stated rather than hidden: one extra solve on the frame a
+		-- consumer publishes, which is the solve the NEXT frame used to pay
+		local loop = propScene(true)
+		local plain = propScene(false)
+		expect(`loop:{(loop.handle.controller.stats() :: any).feedbackSolves}`).toBe("loop:1")
+		expect(`plain:{(plain.handle.controller.stats() :: any).feedbackSolves}`).toBe("plain:0")
+	end)
+
+	it("an ENV change publishes and lands in the same write — the settle-pass arrival", function()
+		--[[ THE OTHER ARRIVAL TIME. Here the solve runs from the renderer's own
+			settle callback, so a listener's write joins `writeSet` and the dirt does
+			not exist until the core ends that pass and restarts it. The mark has to
+			survive that one pass boundary — `feedbackArmed` — or this cycle keeps
+			the frame the `present` cases just gave up. No refresh after the write. ]]
+		local s = propScene(true)
+		s.env:set("viewportRect", { x = 0, y = 0, w = 500, h = 700 })
+		local want = math.floor(s.barW() / 10)
+		expect(`want:{want}`).toBe("want:50")
+		expect(`published:{s.published()}`).toBe(`published:{want}`)
+		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
+		expect(s.core:lastError()).toBeNil()
+	end)
+
+	it("...and so does an ordinary reactive prop change, through refresh's incremental set", function()
+		--[[ THE INCREMENTAL-LAYOUT HALF. `controller.refresh` hands the solver the
+			ancestor closure of the dirt it took, and the node a listener publishes
+			into is BY CONSTRUCTION not in that set — it was clean when the set was
+			built. A re-solve that reused it would skip the probe and report the old
+			height with a straight face. ]]
+		local s = propScene(true)
+		s.margin:set(50)
+		s.pres.refresh()
+		local want = math.floor(s.barW() / 10)
+		expect(`want:{want}`).toBe("want:80")
+		expect(`published:{s.published()}`).toBe(`published:{want}`)
+		expect(`probe:{s.probeH()}`).toBe(`probe:{want}`)
+		expect(s.core:lastError()).toBeNil()
+	end)
+
+	it("a prop round trip that will not converge is a LOUD error, not a hang", function()
+		--[[ The renderer's own bound, mirroring FEEDBACK_ROUND_CAP: a publication
+			derived from the rect it moves produces a new number every solve. It must
+			terminate, it must name itself, and it must not spin. ]]
+		local ok, err = pcall(propScene, true, true)
+		expect(`threw:{not ok}`).toBe("threw:true")
+		expect(string.find(tostring(err), "feedback") ~= nil).toBe(true)
+		expect(string.find(tostring(err), "round cap") ~= nil).toBe(true)
+	end)
+end)

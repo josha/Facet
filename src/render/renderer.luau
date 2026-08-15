@@ -697,6 +697,11 @@ function renderer.attach(
 		-- nodes the MOST RECENT solve arranged / measured
 		lastArranged = 0,
 		lastMeasured = 0,
+		-- re-solves earned by a consumer publishing a layout prop back from this
+		-- surface's own geometry (see THE SOLVE'S OWN FEEDBACK). The stated cost of
+		-- closing that frame: one extra solve on the frame the number moves, which
+		-- is the solve the NEXT frame used to pay.
+		feedbackSolves = 0,
 		-- solves served by re-solving one absorbing box instead of the whole tree
 		partialSolves = 0,
 		elided = 0,
@@ -1766,6 +1771,55 @@ function renderer.attach(
 	local solvedListeners: { () -> () } = {}
 	local notifyingSolved = false
 
+	--[[ ── THE SOLVE'S OWN FEEDBACK, DRAINED BY THAT SOLVE ─────────────────────
+		L-31 gave the measure→publish cycle its settle phase, and closed it for a
+		publication that is an ENVIRONMENT write: `geometryFacts` depends on the env
+		signal, so the settle callback below re-solves and the cycle lands in one
+		flush. A publication that is a NODE PROP took a different road. `mount.luau`
+		binds a reactive prop through `core:observe`, which writes `node.props` and
+		pushes a dirty entry — and that queue is drained by `controller.refresh()`,
+		on the host's NEXT frame. So the solve that produced the measurement laid the
+		tree out against the OLD prop and the correction arrived a frame later
+		(`docs/lessons/the-node-that-must-spend-it-lives-outside.md`: a Table's header
+		pays the gutter its body spent, and `present`'s own solve paid it late).
+
+		THE MARK IS THE MECHANISM, and it is what keeps this from becoming "solve on
+		every write". `feedbackMark` is the tree's dirty sequence as the notification
+		BEGAN, so the only dirt this ever acts on is dirt a `solvedListener` caused.
+		Two arrival times, one rule:
+
+		  * the solve came from `refresh`/`initialRender` (no flush open), so the
+		    listener's `:set` flushes synchronously and the dirt is on the tree by
+		    the time the notify loop returns — drained inline, right there;
+		  * the solve came from the settle callback below (a flush IS open), so the
+		    write joins `writeSet`, the core ends the pass, drains propagation and
+		    RESTARTS the pass from the first callback (`core/contract.luau`) — which
+		    is the first moment the dirt exists. `feedbackArmed` carries the mark
+		    across that one pass boundary.
+
+		NO NEW CYCLE. The re-solve is bounded by `SOLVE_FEEDBACK_ROUND_CAP` and a
+		publication that will not converge is the same loud error the core's
+		`FEEDBACK_ROUND_CAP` already produces — quarantined into `lastError` when it
+		fires from the settle phase, propagated from `refresh` exactly as a throwing
+		`solvedListener` already is (see the notify block). It is not a second
+		scheduler: it runs inside the solve it belongs to, publishes nothing, and
+		touches no observer, so glitch-freedom and observer creation order are
+		untouched by construction.
+
+		WHAT IT DELIBERATELY DOES NOT DO: consume the dirty queue. `refresh` still
+		sees those entries and still commits the paint half of the prop — this
+		closes the LAYOUT frame, not the property-write cadence, and leaving the
+		queue alone is what keeps `onAppear`/`onDisappear` ordering and the
+		structural sync byte-identical. The cost is `stats.feedbackSolves`: one
+		extra solve on the frame a consumer publishes, which is the solve the next
+		frame used to pay. ]]
+	local SOLVE_FEEDBACK_ROUND_CAP = 8
+	local feedbackMark = 0
+	local feedbackArmed = false
+	local feedbackDepth = 0
+	local solvingFromSettle = false
+	local resolveForFeedback: () -> ()
+
 	local function solveAndApply()
 		stats.solves += 1
 		local vp = env:get("viewportRect"):get()
@@ -2252,6 +2306,10 @@ function renderer.attach(
 			solve, with the final geometry. ]]
 		if not notifyingSolved then
 			notifyingSolved = true
+			-- the tree's dirty sequence BEFORE anyone is told: everything past this
+			-- mark is, by definition, something a listener published (see the
+			-- solve-feedback block above)
+			feedbackMark = root.dirtySeq()
 			-- deliberately NOT pcall'd: `feedGeometry` runs unguarded from
 			-- `refreshBody` today and a throwing consumer must keep behaving the
 			-- same way. When this fires from the settle phase the core quarantines
@@ -2266,6 +2324,40 @@ function renderer.attach(
 			if not ok then
 				error(err, 0)
 			end
+			if root.dirtySeq() > feedbackMark then
+				-- the write flushed synchronously (no flush was open): the dirt is
+				-- already on the tree, so close the cycle here
+				resolveForFeedback()
+			elseif solvingFromSettle then
+				-- a flush IS open, so the write is still in `writeSet`. The core ends
+				-- this pass, drains it and restarts from the first settle callback —
+				-- which is where the mark gets read again.
+				feedbackArmed = true
+			end
+		end
+	end
+
+	--[[ The re-solve a published prop earns, bounded. `dirtyContains` is cleared
+		first and deliberately: the incremental set was closed over the dirt the
+		CURRENT refresh took, and the node a listener just published into is not in
+		it — reusing it would skip the very subtree this exists to fix. ]]
+	resolveForFeedback = function()
+		feedbackArmed = false
+		if feedbackDepth >= SOLVE_FEEDBACK_ROUND_CAP then
+			feedbackDepth = 0
+			error(
+				`LuauUI renderer: a solve's geometry feedback did not converge in {SOLVE_FEEDBACK_ROUND_CAP} rounds `
+					.. `(a consumer publishing a layout prop derived from the rect that prop moves?); solve-feedback round cap`,
+				0
+			)
+		end
+		feedbackDepth += 1
+		stats.feedbackSolves += 1
+		dirtyContains = nil
+		local ok, err = pcall(solveAndApply)
+		feedbackDepth -= 1
+		if not ok then
+			error(err, 0)
 		end
 	end
 
@@ -2671,6 +2763,18 @@ function renderer.attach(
 		geometryPending = true
 	end))
 	attachScope:own(core:settle(function()
+		--[[ FIRST, because a pass restarts from the FIRST callback: when the branch
+			below solved and a consumer published a PROP, this is the pass the core
+			restarted for, and this is the first moment that dirt exists on the tree
+			(see THE SOLVE'S OWN FEEDBACK). The arm is one-shot — it is consumed
+			whether or not there turned out to be anything to drain, so a solve
+			nobody fed back from cannot leave this callback watching later flushes. ]]
+		if feedbackArmed then
+			feedbackArmed = false
+			if initialized and root.dirtySeq() > feedbackMark then
+				resolveForFeedback()
+			end
+		end
 		if not geometryPending then
 			return
 		end
@@ -2679,7 +2783,14 @@ function renderer.attach(
 		-- the inline observer dropped it, and this must drop it identically
 		geometryPending = false
 		if initialized then
-			solveAndApply()
+			-- ...and the solve knows it is running inside an open flush, which is
+			-- what decides where its own feedback can be observed
+			solvingFromSettle = true
+			local ok, err = pcall(solveAndApply)
+			solvingFromSettle = false
+			if not ok then
+				error(err, 0)
+			end
 		end
 	end))
 
@@ -3032,6 +3143,19 @@ function renderer.attach(
 
 		It fires at the tail of the OUTERMOST solve only (a text-measurement
 		re-solve nests), so a listener always sees final geometry. ]]
+	--[[ ...AND THE SAME DRAIN, ASKED FOR BY HAND (see THE SOLVE'S OWN FEEDBACK).
+		`initialRender` solves before the presenter has discovered its contributions
+		— a contribution cannot be bound to a controller that has not rendered — so
+		the FIRST `syncGeometry` is a direct call, not an `onSolved` notification,
+		and nothing in the solve is there to notice what it published. The presenter
+		calls this immediately after that one hand-made feed. A no-op unless
+		something really dirtied the tree since the last solve was announced. ]]
+	function controller.settleFeedback()
+		if initialized and root.dirtySeq() > feedbackMark then
+			resolveForFeedback()
+		end
+	end
+
 	function controller.onSolved(fn: () -> ()): () -> ()
 		table.insert(solvedListeners, fn)
 		return function()

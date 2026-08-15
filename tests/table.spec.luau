@@ -2218,6 +2218,12 @@ describe("Table: row actions (Task 10)", function()
 				if fired ~= nil then
 					table.insert(fired, "fired")
 				end
+				-- an optional probe run AT the fire, for the one case that has to
+				-- ask what the row looked like at that instant rather than at the
+				-- end of the tick that contained it
+				if opts.onFire ~= nil then
+					opts.onFire()
+				end
 			end,
 		}
 	end
@@ -2755,17 +2761,39 @@ describe("Table: row actions (Task 10)", function()
 		"a committed delete shrinks the row's own box and moves following rows up, THEN fires onAction and lets the owner remove it via keyed diff",
 		function()
 			local fired: { string } = {}
+			--[[ THE HEIGHT AT THE FIRE, READ AT THE FIRE (2026-08-15). This used to
+				sample the rect after the tick that fired, which stopped being the
+				same question once the renderer began draining a solve's own
+				`syncGeometry` writes inside that solve: `drainPostCommitRestore` runs
+				from the very sync this frame's solve announces, so the collapsed box
+				and the restored one now both happen inside one tick and the later
+				sample sees the restore. Reading it from INSIDE `onAction` asks the
+				invariant where it lives — the adapter still holds the solved,
+				collapsed rect, and the restore is still two statements away
+				(`finishCommit` -> the next `syncGeometry`). Strictly stronger than
+				the end-of-tick sample it replaces. ]]
+			local heightAtFire: number? = nil
+			local wRef: any = nil
+			local razzHit = wrappedRowHitPath(0, "razz")
+			local razzOuter = rowActionsRoot(0, "razz")
 			local w = raWorld({
 				header = false,
 				rowActions = function(item)
 					if item.id == "razz" then
-						return { trailing = { deleteAction(fired) } }
+						return {
+							trailing = {
+								deleteAction(fired, {
+									onFire = function()
+										heightAtFire = wRef.adapter.node(razzOuter).rect.h
+									end,
+								}),
+							},
+						}
 					end
 					return nil
 				end,
 			})
-			local razzHit = wrappedRowHitPath(0, "razz")
-			local razzOuter = rowActionsRoot(0, "razz")
+			wRef = w
 			local boltYBefore = w.adapter.node(rowHitPath(0, "bolt")).rect.y
 			local razzHeightBefore = w.adapter.node(razzOuter).rect.h
 			expect(razzHeightBefore > 0).toBe(true)
@@ -2802,9 +2830,12 @@ describe("Table: row actions (Task 10)", function()
 				w.tick(1 / 60)
 				local h = w.adapter.node(razzOuter).rect.h
 				if #fired > 0 then
-					-- NEVER EARLY: at the fire the row is already carried away
-					expect(`fired at frame {i} with the row {h}px tall`).toBe(
-						`fired at frame {i} with the row 0px tall`
+					-- NEVER EARLY: at the fire the row is already carried away. The
+					-- collapse settles NUMERICALLY (motion.luau's settle epsilon), so
+					-- the height at the fire is sub-pixel rather than bit-identical
+					-- zero — measured 0.000064px here, against ~40 for an early fire.
+					expect(`frame {i}: row height at fire < 1px: {(heightAtFire or math.huge) < 1}`).toBe(
+						`frame {i}: row height at fire < 1px: true`
 					)
 					fireFrame = i
 					break

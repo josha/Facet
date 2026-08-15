@@ -81,11 +81,11 @@ Three things this deliberately is **not**:
   its own case in `tests/scroll_bar_measure.spec.luau` rather than shipping on
   the strength of a `then`/`else` nobody ran.
 
-## The cost, stated
+## The cost, stated — and then paid off (2026-08-15)
 
 The gutter is a **measurement**, so it arrives through `syncGeometry` and a prop
-write made there is drained by the next `controller.refresh()`. `present`'s own
-solve therefore lays the header out un-guttered and the first refresh corrects
+write made there was drained by the next `controller.refresh()`. `present`'s own
+solve therefore laid the header out un-guttered and the first refresh corrected
 it. Taking the root path from the node the presenter hands `syncGeometry` —
 rather than from `mountedRoot`, which `buildFocusGroups` only writes *during*
 that first refresh — is what took this from two frames to one.
@@ -96,9 +96,14 @@ narrows only the header's **inner** width, and a `lineLimit = 1` title in a
 rect, its overflow verdict and the gutter are all fixed points after the first
 solve. Pinned by "converges in one refresh and then holds still".
 
-Closing the last frame is a framework change (the renderer would have to
-re-drain prop dirties inside the solve's own settle, the way L-31 already does
-for env writes). It is flagged, not smuggled into a bug fix.
+**The last frame is closed.** It was flagged here rather than smuggled into a bug
+fix, and it was then done as its own change: the renderer now re-drains the prop
+dirties a solve's own consumers published, inside that solve — the same settle
+phase L-31 gave env writes (optimization log **L-34**). `present` returns with
+the grids already together, pinned by *"PRESENT ALONE lands the grids together —
+the gutter costs no frame at all"* in `tests/table_columns.spec.luau`, and the
+general shape by *"a measure→publish cycle whose publication is a PROP settles in
+the same solve"* in `tests/measure_publish_settle.spec.luau`.
 
 ## The rule
 

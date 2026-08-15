@@ -7,6 +7,7 @@
 -- Public: mount(core, blueprint, opts?) -> MountedRoot
 --   root.node          the mounted tree
 --   root.takeDirty()   drain the dirty queue [{path, class}] in order
+--   root.dirtySeq()    monotonic count of dirties ever pushed (survives takeDirty)
 --   root.counters()    { mounted, factoryRuns } live totals
 --   root.dump()        deterministic tree (id/path/class/dirty/factoryRuns)
 --   root.dispose()
@@ -88,8 +89,16 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 	end
 	local counters = { mounted = 0, factoryRuns = 0 }
 	local dirtyQueue: { { path: string, class: string, prop: string? } } = {}
+	--[[ A MONOTONIC COUNT OF EVERY DIRTY EVER PUSHED, never reset by `takeDirty`.
+		`#dirtyQueue` answers "how much is pending", which is not the question the
+		renderer's solve-feedback check asks — it asks "did anything dirty the tree
+		since the moment I marked", and a `takeDirty` between the mark and the check
+		makes a length comparison silently answer no. Read through `root.dirtySeq()`.
+	]]
+	local dirtySeq = 0
 
 	local function pushDirty(path: string, class: string, prop: string?)
+		dirtySeq += 1
 		table.insert(dirtyQueue, { path = path, class = class, prop = prop })
 	end
 
@@ -666,6 +675,10 @@ function mountLib.mount(core: any, rootBlueprint: Blueprint, opts: MountOpts?)
 			local taken = dirtyQueue
 			dirtyQueue = {}
 			return taken
+		end,
+		-- see `dirtySeq` above: monotonic, survives `takeDirty`
+		dirtySeq = function(): number
+			return dirtySeq
 		end,
 		counters = function()
 			return table.clone(counters)

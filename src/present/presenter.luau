@@ -1752,8 +1752,6 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end
 		end
-		feedGeometry(controller.rectOf) -- feed the first solved geometry
-
 		--[[ ...AND FEED IT AGAIN THE INSTANT THIS SURFACE RE-SOLVES (L-31,
 			2026-08-14), not on the next frame.
 
@@ -1775,10 +1773,29 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			`feedGeometry` is idempotent by construction (every syncGeometry in the
 			framework is equality-guarded, and that is stated above); feeding the
 			same rects twice moves nothing. ]]
+		--[[ REGISTERED BEFORE THE FIRST FEED BELOW, deliberately: `settleFeedback`'s
+			re-solve announces itself through this listener, so a publication that
+			needs a second step (one measurement moving another) converges here
+			instead of waiting for a frame. Registration is free until a solve
+			happens, and the first solve — `initialRender` above — is already
+			over. ]]
 		if controller.onSolved ~= nil then
 			scope:own(controller.onSolved(function()
 				feedGeometry(controller.rectOf)
 			end))
+		end
+
+		feedGeometry(controller.rectOf) -- feed the first solved geometry
+		--[[ ...AND CLOSE THE LOOP THAT FEED MAY HAVE OPENED. This one call is
+			outside a solve — `initialRender` runs above, before any contribution is
+			discovered, so it cannot be an `onSolved` notification — and the
+			renderer's own solve-feedback drain therefore never sees what a
+			`syncGeometry` publishes here. A Table's header gutter is the shipped
+			case: published from this very call, and laid out un-guttered until the
+			first refresh. Every LATER feed rides the listener above and needs
+			nothing. ]]
+		if controller.settleFeedback ~= nil then
+			controller.settleFeedback()
 		end
 
 		-- navigation groups: an explicit array/function wins; `false` forces the

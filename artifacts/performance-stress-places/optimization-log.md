@@ -2646,3 +2646,108 @@ wants to raise the 24 %, but on this measurement it would be chasing under 2 %.
    claim, and specifically before the −32 %-versus-1.7 % recycling contrast is
    generalised: a handset's Instance-creation cost relative to its solve cost is not
    this laptop's.
+
+---
+
+## L-34 — the OTHER half of the round trip: a publication that is a PROP
+
+**Date:** 2026-08-15. **Files:** `src/render/renderer.luau`, `src/mount.luau`,
+`src/present/presenter.luau`. **Follows:** L-31 (which closed the same cycle for
+a publication that is an *environment* write) and
+`docs/lessons/the-node-that-must-spend-it-lives-outside.md`, which flagged this
+one rather than smuggling it into a bug fix.
+
+### The shape
+
+A consumer measures this surface's geometry from `onGeometry` / a contribution's
+`syncGeometry` and publishes a number derived from it. L-31 made that write join
+the flush that produced the rects — but only the *environment* half converged in
+that flush, because `geometryFacts` is a memo over env signals and the renderer's
+settle callback re-solves on it.
+
+A publication that lands in one of the surface's **own node props** took a
+different road. `mount.luau` binds a reactive prop through `core:observe`, which
+writes `node.props` and pushes a dirty entry, and that queue is drained by
+`controller.refresh()` — the host's **next frame**. So the solve that produced the
+measurement laid the tree out against the old prop.
+
+Shipped instance: a Table's header pays the scrollbar gutter its body spent, and
+`present`'s own solve paid it late. **One frame**, already down from two.
+
+### The fix
+
+`feedbackMark` is the mounted tree's dirty sequence as the solved-listener
+notification *begins* (`root.dirtySeq()`, new — monotonic, so it survives a
+`takeDirty` between mark and check). Everything past that mark is, by definition,
+something a listener published. Two arrival times, one rule:
+
+* solve from `refresh`/`initialRender` (no flush open) — the listener's `:set`
+  flushes synchronously, so the dirt is on the tree when the notify loop returns
+  and the re-solve happens inline;
+* solve from the renderer's settle callback (a flush **is** open) — the write joins
+  `writeSet`, the core ends the pass, drains propagation and **restarts from the
+  first callback**; `feedbackArmed` carries the mark across that one pass boundary,
+  and the feedback branch is placed first in the callback for exactly that reason.
+
+The presenter's very first `feedGeometry` happens outside any solve (`initialRender`
+runs before contributions are discovered), so it asks for the same drain by hand
+through `controller.settleFeedback()`, with the `onSolved` listener now registered
+*before* it so a two-step publication converges there too.
+
+### Termination
+
+`SOLVE_FEEDBACK_ROUND_CAP = 8`, mirroring the core's `FEEDBACK_ROUND_CAP`: a
+publication derived from the rect it moves produces a new number every solve, and
+that is a loud error — quarantined into `lastError` when it fires from the settle
+phase, propagated from `refresh` exactly as a throwing `solvedListener` already is.
+Named case: *"a prop round trip that will not converge is a LOUD error, not a hang"*.
+
+Nothing about glitch-freedom or observer creation order moves: the drain publishes
+nothing, touches no observer, and runs inside the solve it belongs to. No new core
+guarantee was needed — the two properties it stands on (a settle pass restarts from
+the first callback after any write; the write is drained before it does) are already
+stated in `src/core/contract.luau`.
+
+### The numbers — exact counters, not timings
+
+Deterministic counters from the new fixtures, so there is no A/A question to answer:
+nothing here is a wall-clock measurement, and no timing claim is made.
+
+| | before | after |
+|---|---:|---:|
+| frames before a Table's header grid equals its body's, from `present` | 1 | **0** |
+| `stats.feedbackSolves` on the frame a consumer publishes a layout prop | n/a | **1** |
+| `stats.feedbackSolves` for the identical scene with the publication removed | n/a | **0** |
+| L-31's own resize scene, solves per step (control / round trip) | 2 / 3 | 2 / 3 (unchanged) |
+
+**The cost, stated:** one extra solve on the frame a consumer publishes — which is
+the solve the *next* frame used to pay. The drain deliberately does **not** consume
+the dirty queue, so `refresh` still commits the paint half and `onAppear`/
+`onDisappear` ordering and the structural sync stay byte-identical; this closes the
+layout frame, not the property-write cadence.
+
+### One behavioural consequence, found by the suite
+
+`row_actions`' post-commit paint restore is deferred to "the next `syncGeometry`",
+and that sync's write now lands in the solve that announced it rather than the one
+after. C8a's actual guarantee is untouched — an owner that removes the row inside
+`onAction` disposes it before that sync runs — but a *phantom* row (an owner that
+does not remove it) comes back one frame sooner. `tests/table.spec.luau`'s
+"committed delete" case had been reading the row's height at the end of the tick
+that fired; it now reads it **at the fire**, from inside `onAction`, which is where
+the invariant actually lives and is strictly stronger than the sample it replaces.
+Measured at the fire: 0.000064px (the spring's numeric settle epsilon) against ~40px
+for an early fire.
+
+### Residual
+
+`dirtyContains = nil` before the feedback re-solve is a **conservative guard with no
+biting case**: it enforces the rule `controller.refresh` already states in its own
+comment ("a re-entrant solve must not reuse it, and gets a full solve instead"),
+because the incremental set is closed over the dirt the refresh took and the node a
+listener publishes into is by construction absent from it. Several fixture shapes
+were built to make removing it redden a case — sibling subtrees, a fixed outer band
+holding a moving inner probe — and `arrange`'s skip declined to fire on any of them
+(it also requires the subtree to land on the rect it already had). It is kept
+because a feedback solve is rare and a full solve is always correct; the honest
+status is *unproven guard*, not *mutation-proven check*.

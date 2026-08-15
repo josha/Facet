@@ -83,7 +83,11 @@ local function world(opts: any?): World
 		adapter = adapter,
 	})
 	built.handle = pres.present(built.screen, built.present)
-	pres.refresh()
+	-- `presentOnly` skips the settling refresh, which is the ONLY way to ask "how
+	-- many frames does the gutter cost" — see the frame-count case below
+	if not o.presentOnly then
+		pres.refresh()
+	end
 	return { core = core, env = env, system = system, adapter = adapter, pres = pres, built = built }
 end
 
@@ -607,6 +611,30 @@ describe("newTable: the header's column boundaries are the body's", function()
 		expect(w.built.handle.controller.scrollBarInsetOf(`{ROOT}/Main/Body`)).toBeNil()
 		local head, cells = grids(w)
 		expect(head).toBe(cells)
+		w.built.dispose()
+	end)
+
+	it("PRESENT ALONE lands the grids together — the gutter costs no frame at all", function()
+		--[[ THE FRAME COUNT, asked the only way it can be asked: with no refresh.
+			The gutter is a MEASUREMENT fed back through `syncGeometry`, and a prop
+			write made there used to be drained by the NEXT `controller.refresh()` —
+			so `present`'s own solve laid the header out un-guttered and the first
+			refresh corrected it. ONE frame, already down from two.
+
+			The renderer now re-drains the prop dirty a solve's own consumers
+			published, inside that solve (the same settle phase L-31 gave env
+			writes), so the count is ZERO: `present` returns final.
+
+			NON-VACUITY: the bar is proven spent first, exactly as the case above —
+			without that line a world that reserved nothing passes trivially. ]]
+		local w = world({ reserveBar = true, presentOnly = true })
+		local inset = w.built.handle.controller.scrollBarInsetOf(`{ROOT}/Main/Body`)
+		expect(`spent:{inset ~= nil and `{inset.right}/{inset.bottom}` or "nil"}`).toBe(
+			`spent:{fake_target.SCROLL_BAR_THICKNESS}/0`
+		)
+		local head, cells = grids(w)
+		expect(head).toBe(cells)
+		expect(w.core:lastError()).toBeNil()
 		w.built.dispose()
 	end)
 
