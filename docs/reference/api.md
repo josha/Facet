@@ -2194,12 +2194,28 @@ true` with the binding up and `false` after
 `ContextActionService:UnbindAction("RbxCameraKeypress")`, after which focus stepped
 across a row and `Down`/`Left` moved as designed.
 
-This is not something LuauUI can fix from inside — the binding belongs to the
-player scripts, and silently unbinding a consumer's camera would be worse than the
-symptom. A keyboard-first place should release the action (or ship its own camera);
-a place that keeps the default camera should not rely on Left/Right for UI. Note
-that disabling the PlayerModule's **controls** module does *not* free the key — the
-camera module is a separate binding.
+**The fix is `Workspace.PlayerScriptsUseInputActionSystem`, and it is a stated
+requirement — see [Input](#input) below.** With that property enabled, Roblox's
+player scripts (camera included) run on the Input Action System, so the camera's
+keys become an `InputContext` that ordinary priority arbitration can outrank, and
+Left/Right reach the UI like every other key.
+
+There is no in-framework alternative, and specifically **no priority number**.
+Measured 2026-08-14: a sinking `ContextActionService` binding consumes a key
+before *any* `InputContext` is offered it, at any priority — a CAS sink at
+priority **100** beat a LuauUI `InputContext` at **10000** with `Sink = true`. CAS
+priority and `InputContext.Priority` are not one arbitration space, so a claim
+built at 10000 was measured inert and removed rather than shipped
+([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
+LuauUI does not reach into `ContextActionService` at all (`ADR-0004`), and
+silently unbinding a consumer's camera would be worse than the symptom. Note that
+disabling the PlayerModule's **controls** module does *not* free the key either —
+the camera module is a separate binding, and measured live 2026-08-15 the arrows
+were still held in a session where the controls module had already been disabled.
+
+Until the property is on, a place that keeps the default camera should not rely on
+Left/Right for UI; `client.gamepad_contention.cameraKeysContended()` answers
+whether any CAS binding is holding an arrow on this client right now.
 
 **Session lifetime, stated.** A presenter is built **once per client session**
 and has **no `dispose()`**. It owns a feedback bus, a focus graph, a motion clock
@@ -2994,6 +3010,66 @@ player's first touch.
 
 ## Input
 
+### Requirement: `Workspace.PlayerScriptsUseInputActionSystem`
+
+**LuauUI's input layer is the Input Action System and nothing else.** The client
+adapter (`src/client/roblox_input.luau`) drives `InputContext` / `InputAction` /
+`InputBinding` and deliberately never touches `ContextActionService` — arbitration
+is the engine's job, and a UI framework that outbid a consumer's own bindings
+would be a worse problem than the one it solved (`ADR-0004`).
+
+**An experience embedding LuauUI must therefore enable
+`Workspace.PlayerScriptsUseInputActionSystem`.** Roblox documents it as
+controlling "whether the built-in player scripts are updated to use the Input
+Action System"
+([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
+With it off, Roblox's own scripts hold keys through `ContextActionService`, where
+no `InputContext` can reach them, and any LuauUI surface that binds those keys
+silently does nothing:
+
+| what holds it | keys | what goes dead in LuauUI |
+|---|---|---|
+| `RbxCameraKeypress` (default camera, CAS priority 2000, sinks) | `Left` `Right` `I` `O` | horizontal focus navigation; a Table's selected-column resize |
+| `jumpAction` (legacy control scripts, CAS priority 2000, sinks) | gamepad `ButtonA` | gamepad Activate on every control (D-pad still works, masking it) |
+
+**A higher priority does not work, and this is the part worth reading twice.** CAS
+priority and `InputContext.Priority` are **not one arbitration space**: a sinking
+CAS binding consumes the key before any `InputContext` is offered it, at any
+priority. Measured live 2026-08-14, four readings in one session — a CAS sink at
+priority **100** beat a LuauUI `InputContext` at **10000** with `Sink = true`; a
+claim built at 10000 was measured inert and removed rather than shipped
+([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
+Enabling the property is what moves those bindings *into* the space where priority
+means something.
+
+**It is a human checkbox — Studio's Properties panel, Workspace, category
+Behavior, once per place.** The property is present in the engine's reflection
+database but is **not scriptable** (re-probed on `0.734.0.7340915`, 2026-08-15:
+a plain read answers "is not a valid member", `GetPropertyChangedSignal` answers
+"is not a **scriptable** property", and a made-up name answers "is not a valid
+property **name**" — three distinguishable sentences). It is also not
+Rojo-syncable. So no LuauUI version on any build can read it, set it, or verify
+it, and every diagnostic below is necessarily *behavioural* — it observes the
+symptom, never the setting.
+
+**The three probes** on `client.gamepad_contention`, all guarded (they return
+`false` headless, off the live client, and never throw):
+
+- `cameraKeysContended()` — is any CAS binding holding `Left`/`Right`/`Up`/`Down`?
+- `legacyStackActive()` — is `jumpAction` bound (gamepad `ButtonA` contended)?
+- `traversalKeyContended()` — is the CoreGui players list holding `Tab`?
+
+The first two read **different bindings and neither substitutes for the other**:
+measured 2026-08-15, the camera held the arrows in a session where `jumpAction`
+was not bound at all, so `legacyStackActive()` answered `false` while horizontal
+navigation was dead.
+
+**None of them warns on its own.** They are asked, never announced. In any place
+that has not enabled the property all three are true — today that is every default
+Studio session — and a warning that always fires is noise. Call them from a doctor
+check or when something looks dead; `describeContention()` returns the whole engine
+truth set as one string for a log line.
+
 ### `newActionSystem`
 
 `LuauUI.newActionSystem(core) -> ActionSystem` — the headless semantic-action
@@ -3573,10 +3649,14 @@ is now `columnWidthOverrides:get()`.) SwiftUI spells the same thing as a binding
 2026-08-14 on `LuauUI-Showcase`'s `table_columns` fixture:
 
 - the divider drag and the `,` / `.` Adjust keys both work;
-- **Left/Right do not** — Roblox's own `RbxCameraKeypress` binds them at
-  ContextActionService priority 2000 and sinks them before any LuauUI handler is
-  offered the key. The rows above describe LuauUI's routing, which is correct; the
-  key does not arrive. See
+- **Left/Right do not, in a place that has not enabled
+  `Workspace.PlayerScriptsUseInputActionSystem`** — Roblox's own
+  `RbxCameraKeypress` binds them at ContextActionService priority 2000 and sinks
+  them before any LuauUI handler is offered the key. The rows above describe
+  LuauUI's routing, which is correct; the key does not arrive. Enabling the
+  property puts the camera on IAS and the arrows resolve by ordinary priority —
+  it is a stated requirement, see [Input](#input); no priority number is an
+  alternative. See
   [`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md);
 - the divider's 44px hit floor lands **on top of** its own header button and
   creates a 26px dead band down the trailing edge of every resizable header cell —

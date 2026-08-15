@@ -125,6 +125,27 @@ end to end.
 
 ## 3.4 Wiring inside Roblox Studio
 
+> ### ⚠️ One checkbox first: LuauUI requires the Input Action System
+>
+> Before any of the code below, open the **Workspace** in Studio's Explorer and
+> tick **`PlayerScriptsUseInputActionSystem`** in the Properties panel (category
+> *Behavior*). Roblox describes it as controlling "whether the built-in player
+> scripts are updated to use the Input Action System"
+> ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
+>
+> LuauUI's input layer is built entirely on the Input Action System and never
+> reaches into `ContextActionService`. Roblox's *own* scripts do, and with this
+> box unticked they hold keys outside IAS where no LuauUI binding can reach
+> them: the default camera keeps `Left`/`Right` (bound as `RbxCameraKeypress` at
+> priority 2000, sinking), and the legacy control scripts keep gamepad
+> `ButtonA`. Screens built on this page still *render* perfectly — the input
+> just silently never arrives, which is the hard part to diagnose later.
+>
+> Do it once per place. It is not scriptable and not Rojo-syncable, so no code
+> here — LuauUI's included — can set it or check it for you; it is genuinely a
+> human checkbox. The whole story, including why a higher priority number is not
+> an alternative, is [chapter 7](07-input.md).
+
 The Studio path swaps the fake adapter for the real one and adds the two other
 client-only adapters (real device facts, real input). The complete, working
 reference is `examples/gallery/client/init.client.luau`; here is its shape.

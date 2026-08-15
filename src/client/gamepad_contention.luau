@@ -23,10 +23,29 @@
 -- therefore disable the control module (fallback: unbind `jumpAction`). A real
 -- game keeps its controls and relies on IAS arbitration (Truth 2), NOT on this.
 --
--- ENGINE TRUTH 2 — that flag is Properties-panel-only. `PlayerScriptsUse-
--- InputActionSystem` is NOT script- or rojo-reflectable (re-verified 2026-07-20);
+-- ENGINE TRUTH 2 — that flag is Properties-panel-only, and it is NOT MISSING.
+-- `Workspace.PlayerScriptsUseInputActionSystem` is NOT script- or rojo-reflectable;
 -- code can neither read nor set it. This module cannot detect or toggle it — the
 -- human must set it in Studio's Properties panel. Surfaced in docs, not here.
+--
+-- Re-probed live 2026-08-15 on 0.734.0.7340915, and the exact failure mode
+-- matters because it has been misread before. A plain read
+-- (`workspace.PlayerScriptsUseInputActionSystem`) errors with "is not a valid
+-- member of Workspace", which reads like "this build does not have the property".
+-- It is not. `workspace:GetPropertyChangedSignal(...)` answers **"is not a
+-- scriptable property"** — and against a negative control
+-- (`GetPropertyChangedSignal("TotallyMadeUpPropertyXyzzy")` → "is not a valid
+-- PROPERTY NAME") those two error texts are provably different sentences. So the
+-- property IS in this build's reflection database; its scriptability is off.
+-- `StarterPlayer.CreateDefaultPlayerModule`, `Workspace.NextGenerationReplication`
+-- and `Workspace.SignalBehavior` all answer identically — the same capability-gated
+-- class (`GameStudio/specialists/ROBLOX.md`, Server Authority setup).
+--
+-- The consequence for design: this is NOT a rollout gap that a newer Studio build
+-- will close. Scriptability is a reflection-level flag, so **no LuauUI version on
+-- any build can read this property**, and every detector here is necessarily
+-- BEHAVIOURAL — it observes the symptom, never the setting. Docs must therefore
+-- tell an integrator to tick it; they can never assert that it was ticked.
 --
 -- ENGINE TRUTH 5 — CAS PRIORITY AND InputContext.Priority ARE NOT ONE
 -- ARBITRATION SPACE (measured live in the showcase 2026-08-14, four readings in
@@ -39,13 +58,18 @@
 -- The consequence is the one that matters for design: THERE IS NO NUMBER a
 -- framework can put on an `InputContext` that takes a key back from a legacy
 -- CoreScript CAS binding. `RbxCameraKeypress` (Left/Right/I/O, priority 2000,
--- Sink) is therefore un-outrankable from IAS, and a control that wants those
--- arrows must either accept losing them or claim them IN CAS
--- (`BindActionAtPriority` above 2000, unbound again on release — measured to
--- work, and to hand the key straight back). That second option is a framework
--- architecture decision, not a patch: `src/client/roblox_input.luau` deliberately
--- never re-implements or reaches into arbitration. Recorded here so the next
--- agent does not spend a round discovering that a bigger number does nothing.
+-- Sink) is therefore un-outrankable from IAS. A claim built at priority 10000 was
+-- measured inert and REMOVED rather than shipped (`3eb97fb`).
+--
+-- THE RESOLUTION IS TRUTH 2, NOT A NUMBER (director's ruling 2026-08-15). LuauUI
+-- does not reach into ContextActionService — `src/client/roblox_input.luau`
+-- deliberately never re-implements or reaches into arbitration (ADR-0004). The
+-- Input Action System is the whole story, and the property is what puts Roblox's
+-- own player scripts on it: with `Workspace.PlayerScriptsUseInputActionSystem`
+-- enabled the camera's keys are an `InputContext` like everyone else's, so
+-- ordinary priority arbitration decides them and truth 5 stops biting. Truth 5
+-- stays written down because it is exactly WHY the property is a requirement
+-- rather than a nicety: with the flag off there is no in-framework remedy at all.
 -- Full story: docs/lessons/the-camera-still-owns-the-arrow-keys.md.
 --
 -- ENGINE TRUTH 3 — CoreGuiNavigationEnabled fights back. `GuiService.
@@ -74,10 +98,16 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "'jumpAction'). A real game must NOT disable avatar input — it puts "
 		.. "avatar input on IAS (truth 2) and lets InputContext priority+Sink "
 		.. "arbitrate (focus-aware first-responder model, ADR-0014 in progress).",
-	"2. Workspace.PlayerScriptsUseInputActionSystem (which puts avatar input "
-		.. "onto IAS so it joins arbitration) is a Properties-panel-only flag: "
-		.. "NOT readable or settable from code or Rojo. A human must toggle it in "
-		.. "Studio. legacyStackActive() is only a behavioral probe of the symptom.",
+	"2. Workspace.PlayerScriptsUseInputActionSystem (which puts Roblox's own "
+		.. "player scripts — camera included — onto IAS so they join normal "
+		.. "priority arbitration) is REQUIRED by LuauUI and is a "
+		.. "Properties-panel-only flag: present in the reflection database but NOT "
+		.. "scriptable, so it is not readable or settable from code or Rojo, on any "
+		.. "build (re-probed 0.734.0.7340915, 2026-08-15: a plain read says 'not a "
+		.. "valid member', GetPropertyChangedSignal says 'not a scriptable "
+		.. "property', and a made-up name says 'not a valid property name' — three "
+		.. "different sentences). A human must tick it in Studio. Every probe here "
+		.. "is therefore behavioral: it observes the symptom, never the setting.",
 	"3. GuiService.CoreGuiNavigationEnabled re-enables itself if scripted off "
 		.. "(CoreScripts fight back) and is not the eater anyway; do not rely on "
 		.. "scripting it off.",
@@ -87,10 +117,19 @@ local CONTENTION_DESCRIPTION = table.concat({
 		.. "10000 with Sink=true never fired, and unbinding the CAS action let the "
 		.. "identical presses through at once. So no number outranks a legacy "
 		.. "CoreScript binding from IAS — RbxCameraKeypress (Left/Right/I/O, prio "
-		.. "2000, Sink) is un-outrankable that way. The only measured lever is a "
-		.. "BindActionAtPriority claim of our OWN action above it, unbound on release "
-		.. "(the camera receives the very next press) — a framework architecture "
-		.. "decision, since roblox_input.luau never reaches into arbitration.",
+		.. "2000, Sink) is un-outrankable that way. THE FIX IS TRUTH 2, NOT A "
+		.. "NUMBER: enable PlayerScriptsUseInputActionSystem and the camera's keys "
+		.. "become an InputContext that ordinary arbitration can outrank. (A "
+		.. "BindActionAtPriority claim of our OWN action above 2000, unbound on "
+		.. "release, was also measured to work and to hand the key straight back — "
+		.. "but LuauUI does not reach into ContextActionService, so it is not the "
+		.. "route; roblox_input.luau never re-implements arbitration, ADR-0004.)",
+	"6. cameraKeysContended() reports whether ANY ContextActionService binding "
+		.. "currently holds an arrow key. Measured live 2026-08-15 in a default "
+		.. "place: RbxCameraKeypress holds Left/Right/I/O at priority 2000 while "
+		.. "jumpAction was NOT bound at all — so legacyStackActive() answered false "
+		.. "in the same session the arrows were owned. The two probes read "
+		.. "different bindings and neither substitutes for the other.",
 	"4. Tab is the CoreGui PLAYERS LIST shortcut, and while that CoreGuiType is "
 		.. "enabled (the default) the platform documents it as reserved — so "
 		.. "LuauUI's Tab/Shift+Tab focus traversal will not receive it. Roblox "
@@ -123,6 +162,63 @@ function gamepad_contention.legacyStackActive(): boolean
 		return bound["jumpAction"] ~= nil
 	end)
 	return ok and active == true
+end
+
+-- The four codes LuauUI's focus navigation reads off the keyboard. Compared as
+-- STRINGS (`tostring(Enum.KeyCode.Left)` == "Enum.KeyCode.Left") so the matching
+-- rule below runs headless, where the `Enum` global does not exist at all.
+local ARROW_CODES: { [string]: true } = {
+	["Enum.KeyCode.Left"] = true,
+	["Enum.KeyCode.Right"] = true,
+	["Enum.KeyCode.Up"] = true,
+	["Enum.KeyCode.Down"] = true,
+}
+
+-- Is ANY ContextActionService binding currently holding an arrow key?
+--
+-- WHY THIS IS NOT ANSWERED BY legacyStackActive(). Measured live 2026-08-15 in
+-- the showcase: `RbxCameraKeypress` held Left/Right/I/O at CAS priority 2000
+-- while `jumpAction` was not bound at all (a UI-only place had already called
+-- disableLegacyControls). So `legacyStackActive()` returned false in the very
+-- session the arrows were owned. Jump and camera are separate bindings from
+-- separate CoreScripts; a probe for one says nothing about the other.
+--
+-- SAME SHAPE AS THE OTHER TWO PROBES, AND THE SAME CONTRACT: it is something a
+-- game or a doctor check ASKS, never something LuauUI announces. It is
+-- deliberately not wired to a boot-time warning, because in every place that has
+-- not ticked `Workspace.PlayerScriptsUseInputActionSystem` it is true — which is
+-- currently every default Studio session — and a warning that fires always is
+-- noise that trains people to ignore it. Ask it when arrows look dead.
+--
+-- It reads the binding directly rather than inferring, so a `true` is a fact
+-- about this client right now. A `false` is narrower than it looks: CAS exposes
+-- no sink flag through `GetAllBoundActionInfo`, and a key can also be lost to
+-- CoreGui (Tab — see `traversalKeyContended`), so `false` means "no CAS action
+-- claims an arrow", not "arrows are guaranteed to arrive".
+--
+-- `boundActionInfo` (optional) is a `GetAllBoundActionInfo()`-shaped table —
+-- the same injection seam `disableLegacyControls` offers, so the matching rule
+-- can be tested against a recorded live reading. Returns false headless / off the
+-- live client, where there is no ContextActionService to ask.
+function gamepad_contention.cameraKeysContended(boundActionInfo: any?): boolean
+	local bound = boundActionInfo
+	if bound == nil then
+		local ok, live = pcall(function()
+			return game:GetService("ContextActionService"):GetAllBoundActionInfo()
+		end)
+		if not ok then
+			return false
+		end
+		bound = live
+	end
+	for _, info in pairs(bound :: any) do
+		for _, code in ipairs(info.inputTypes or {}) do
+			if ARROW_CODES[tostring(code)] then
+				return true
+			end
+		end
+	end
+	return false
 end
 
 -- Is the Tab focus-traversal key contended by CoreGui right now? (roadmap Step 8)

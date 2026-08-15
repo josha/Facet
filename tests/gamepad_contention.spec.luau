@@ -27,6 +27,8 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		expect(type(mod.disableLegacyControls)).toBe("function")
 		expect(type(mod.describeContention)).toBe("function")
 		expect(type(mod.legacyStackActive)).toBe("function")
+		expect(type(mod.cameraKeysContended)).toBe("function")
+		expect(type(mod.traversalKeyContended)).toBe("function")
 	end)
 
 	it("describeContention() returns a string carrying all three §3 truths", function()
@@ -55,6 +57,17 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		expect(string.find(text, "arbitration space", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(text, "RbxCameraKeypress", 1, true) ~= nil).toBeTruthy()
 		expect(string.find(text, "BindActionAtPriority", 1, true) ~= nil).toBeTruthy()
+		--[[ …and the resolution, which is the property and not a bigger number
+			(director's ruling 2026-08-15). Truth 5 explains WHY the property is a
+			requirement rather than a nicety: with the flag off there is no
+			in-framework remedy at all, because no InputContext priority outranks a
+			CAS binding. Pinned so the ruling cannot quietly fall back out of the
+			one string a doctor check prints. ]]
+		expect(string.find(text, "THE FIX IS TRUTH 2, NOT A NUMBER", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "REQUIRED by LuauUI", 1, true) ~= nil).toBeTruthy()
+		expect(string.find(text, "NOT scriptable", 1, true) ~= nil).toBeTruthy()
+		-- truth 6: the arrow probe, and that it is not the same reading as truth 1's
+		expect(string.find(text, "cameraKeysContended", 1, true) ~= nil).toBeTruthy()
 	end)
 
 	it("disableLegacyControls() is guarded: headless it returns false, never throws", function()
@@ -78,6 +91,87 @@ describe("gamepad_contention (client module, headless structural spec)", functio
 		end)
 		expect(ok).toBeTruthy()
 		expect(result).toBe(false)
+	end)
+
+	--[[ cameraKeysContended: the arrow-key half of the same story.
+
+		The fixtures below are a VERBATIM transcription of one live reading —
+		`ContextActionService:GetAllBoundActionInfo()` in a Play session of
+		LuauUI-Showcase on 0.734.0.7340915, 2026-08-15 — because the point of this
+		probe is that it matches what the engine actually hands back. Six actions
+		were bound; exactly one of them held an arrow.
+
+		The second fixture is the same reading with `RbxCameraKeypress` removed,
+		which is what a place running `Workspace.PlayerScriptsUseInputActionSystem`
+		gets: the camera's keys move onto an `InputContext` and leave CAS entirely.
+		It is also the mutation guard — a probe that answered "contended" off any
+		binding at all, or off the PageUp/PageDown/Home/End action sitting right
+		next to the camera's, would pass the first case and fail this one. ]]
+	local LIVE_BOUND_ACTIONS = {
+		RbxCameraKeypress = {
+			priorityLevel = 2000,
+			inputTypes = {
+				"Enum.KeyCode.Left",
+				"Enum.KeyCode.Right",
+				"Enum.KeyCode.I",
+				"Enum.KeyCode.O",
+			},
+		},
+		RbxCameraGamepadZoom = { priorityLevel = 2000, inputTypes = { "Enum.KeyCode.ButtonR3" } },
+		ScrollSelectedElement = {
+			priorityLevel = 2000,
+			inputTypes = {
+				"Enum.KeyCode.PageUp",
+				"Enum.KeyCode.PageDown",
+				"Enum.KeyCode.Home",
+				"Enum.KeyCode.End",
+			},
+		},
+		FreecamToggle = { priorityLevel = 1000, inputTypes = { "Enum.KeyCode.P" } },
+		RbxCameraThumbstick = { priorityLevel = 2000, inputTypes = { "Enum.KeyCode.Thumbstick2" } },
+		EnableKeyboardUINavigation = { priorityLevel = 2000, inputTypes = { "Enum.KeyCode.BackSlash" } },
+	}
+
+	it("cameraKeysContended() sees the camera holding the arrows in a live reading", function()
+		local mod = require("../src/client/gamepad_contention")
+		expect(mod.cameraKeysContended(LIVE_BOUND_ACTIONS)).toBe(true)
+	end)
+
+	it("cameraKeysContended() is false once the camera's binding leaves CAS", function()
+		local mod = require("../src/client/gamepad_contention")
+		local withoutCamera = {}
+		for name, info in pairs(LIVE_BOUND_ACTIONS) do
+			if name ~= "RbxCameraKeypress" then
+				withoutCamera[name] = info
+			end
+		end
+		-- five actions still bound, including one on PageUp/PageDown/Home/End
+		expect(mod.cameraKeysContended(withoutCamera)).toBe(false)
+	end)
+
+	it("cameraKeysContended() answers each of the four arrows, not just Left/Right", function()
+		local mod = require("../src/client/gamepad_contention")
+		-- the camera binds Left/Right/I/O, but focus navigation reads all four, so
+		-- a game's own CAS binding on Up or Down is the same defect
+		for _, code in { "Enum.KeyCode.Up", "Enum.KeyCode.Down", "Enum.KeyCode.Left", "Enum.KeyCode.Right" } do
+			expect(mod.cameraKeysContended({ Whatever = { inputTypes = { code } } })).toBe(true)
+		end
+		expect(mod.cameraKeysContended({ Whatever = { inputTypes = { "Enum.KeyCode.W" } } })).toBe(false)
+	end)
+
+	it("cameraKeysContended() is a guarded probe: headless it returns false, never throws", function()
+		local mod = require("../src/client/gamepad_contention")
+		-- no ContextActionService here; the pcall must catch that and report false
+		local ok, result = pcall(function()
+			return mod.cameraKeysContended()
+		end)
+		expect(ok).toBeTruthy()
+		expect(result).toBe(false)
+	end)
+
+	it("cameraKeysContended() tolerates a bound action with no inputTypes", function()
+		local mod = require("../src/client/gamepad_contention")
+		expect(mod.cameraKeysContended({ Bare = {} })).toBe(false)
 	end)
 
 	it("disableLegacyControls(injectedParent) also stays guarded headless", function()

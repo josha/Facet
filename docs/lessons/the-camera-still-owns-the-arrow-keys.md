@@ -142,7 +142,95 @@ it is reported rather than switched to.
 header holds focus. The fixture's hint line names them, and that is still the only
 honest sentence it can print.
 
-## The open question as it was posed
+## The resolution (director, 2026-08-15): it is a property, not a number
+
+The open question below was answered, and the answer is not on the list — because
+every option on that list assumed the framework had to win the key. It does not.
+
+> LuauUI must **not** reach into ContextActionService. The Input Action System is
+> the whole story, and there is a workspace property that makes Roblox's own
+> player scripts use IAS. We can note in our docs we use IAS and this is required.
+
+**`Workspace.PlayerScriptsUseInputActionSystem`.** Roblox documents it as
+controlling "whether the built-in player scripts are updated to use the Input
+Action System"
+([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace),
+`RolloutState`, ReadWrite). With it enabled, the camera is not on
+ContextActionService at all — its keys are an `InputContext` like everyone
+else's, and the arbitration this whole page is about becomes ordinary priority
+arbitration, which LuauUI already participates in correctly.
+
+So the ruling above was withdrawn for the right reason and the fix was in the
+wrong layer. The claim at priority 10000 was inert because **no number can work**;
+the repair is to change what the camera is bound *through*, and only the
+experience can do that.
+
+**Everything measured on this page stays true, and is now load-bearing for a
+different purpose.** The engine truth — CAS priority and `InputContext.Priority`
+are not one arbitration space — is exactly *why* the property is a hard
+requirement rather than a nicety. If a bigger number worked, an integrator who
+forgot the checkbox would merely have degraded input; because no number works,
+they have **silently dead input with no in-framework remedy**. That is the
+sentence the docs now carry.
+
+### What the property is, precisely — and the misreading to avoid
+
+Re-probed live 2026-08-15 on `0.734.0.7340915`. A plain read errors with
+**"PlayerScriptsUseInputActionSystem is not a valid member of Workspace"**, which
+reads like *this build does not have the property*. It is not that:
+
+| probe | answer |
+|---|---|
+| `workspace.PlayerScriptsUseInputActionSystem` | `is not a valid member of Workspace` |
+| `workspace:GetPropertyChangedSignal("PlayerScriptsUseInputActionSystem")` | **`is not a scriptable property`** |
+| `workspace:GetPropertyChangedSignal("TotallyMadeUpPropertyXyzzy")` (control) | **`is not a valid property name`** |
+
+Rows 2 and 3 are different sentences, and that is the whole finding: the property
+**is** in this build's reflection database, with its scriptability off.
+`StarterPlayer.CreateDefaultPlayerModule`, `Workspace.NextGenerationReplication`
+and `Workspace.SignalBehavior` all answer identically — the capability-gated
+Server-Authority setup class (`GameStudio/specialists/ROBLOX.md`).
+
+The consequence is durable rather than a rollout window: scriptability is a
+reflection-level flag, so **no LuauUI version on any Studio build will be able to
+read this property**, and a newer build will not change that. Waiting for it is
+not a plan. Every detector is behavioural, and the docs can tell an integrator to
+tick it but can never assert that they did.
+
+### The probe that was added, and the one that could not answer this
+
+`gamepad_contention.cameraKeysContended()` — does any CAS binding currently hold
+`Left`/`Right`/`Up`/`Down`? It reads `GetAllBoundActionInfo()` directly, so a
+`true` is a fact rather than an inference.
+
+It is a **separate** probe from `legacyStackActive()` on purpose, and one live
+reading is why. In a Play session of the showcase, 2026-08-15:
+
+```
+CAS bound (6): RbxCameraKeypress(prio=2000, [Left Right I O]) | RbxCameraGamepadZoom(2000,
+[ButtonR3]) | ScrollSelectedElement(2000, [PageUp PageDown Home End]) |
+FreecamToggle(1000, [P]) | RbxCameraThumbstick(2000, [Thumbstick2]) |
+EnableKeyboardUINavigation(2000, [BackSlash])
+```
+
+`jumpAction` **is not in that list** — the showcase is a UI-only place and had
+already called `disableLegacyControls()`. So `legacyStackActive()` answered
+`false` in the very session the arrows were owned. Jump and camera are separate
+bindings from separate CoreScripts; a probe for one says nothing about the other,
+and the older module comment claiming the controls-module disable does not free
+the camera key now has a measurement under it.
+
+**It does not warn on its own.** In every place that has not ticked the property
+it is true, which today is every default Studio session, so a boot-time warning
+would fire always and teach people to ignore it. It is asked, not announced —
+the same contract `traversalKeyContended()` already had.
+
+## The open question as it was posed — closed by the section above
+
+Kept as it stood, because the shape of the miss is the useful part: all three
+options below argue about *how the framework should take the key*, and none of
+them asks whether the key had to be contended at all. The answer was the
+experience's property, one layer up.
 
 Whether a UI framework may unbind the platform's camera keys is a design call,
 not a patch:
@@ -160,7 +248,10 @@ not a patch:
 
 The third option — move the model off the arrows entirely, since Adjust already
 reaches every resize with no contention and no selection step — is the one the
-measurement above makes most attractive, and it is still open.
+measurement above made most attractive while the question stood. It is now a
+plain design question about the column model rather than a workaround for a key
+that cannot arrive: with the property enabled the arrows *do* arrive, so keeping
+them costs nothing.
 
 What must not happen again is a demo whose on-screen instructions name a key that
 the platform eats. And now also: a ruling about arbitration that is proved against

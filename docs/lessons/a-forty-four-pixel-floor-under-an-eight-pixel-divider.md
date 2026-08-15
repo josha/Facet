@@ -12,6 +12,18 @@ centred on an 8×28 grip** (`layout_node.luau:182-186` → `renderer.luau:1978-2
 `screen_target.luau:2461-2500` realizes that as a real `LuauUIHitExpander`
 `TextButton`, parented **beside** the grip at `ZIndex = grip.ZIndex - 1`.
 
+> **Sibling defect, same fixture, same session.** This page is about the
+> **pointer** route to a resize. The **keyboard** route was broken in the same
+> hour and for an unrelated reason — Roblox's default camera holds `Left`/`Right`
+> through ContextActionService and sinks them, so the selected-column arrow
+> resize never receives a keypress
+> ([`the-camera-still-owns-the-arrow-keys`](the-camera-still-owns-the-arrow-keys.md)).
+> That one is **not** a LuauUI defect and has no LuauUI fix: it is closed by the
+> embedding experience enabling `Workspace.PlayerScriptsUseInputActionSystem`,
+> which puts the camera on the Input Action System where priority arbitration
+> works. Read the two together before concluding anything about which resize
+> routes exist — the route inventory in point 3 below is the *pointer* one.
+
 ## What that actually builds, measured on the live instance tree
 
 Header cell `Head-name` spans x ∈ [12, 277]; the header band is y ∈ [120, 148].

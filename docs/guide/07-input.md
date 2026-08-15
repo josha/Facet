@@ -3,19 +3,42 @@
 > ## ⚠️ LuauUI requires the Input Action System
 >
 > LuauUI's input layer is built on Roblox's **Input Action System** (IAS:
-> `InputContext` / `InputAction` / `InputBinding`). For a game with an avatar,
-> that includes the player scripts: **you must tick
-> `Workspace.PlayerScriptsUseInputActionSystem` in Studio's Properties
-> panel, by hand.** The flag is not scriptable and not Rojo-syncable — no code
-> (including LuauUI) can read it, set it, or verify it for you. It is a
-> one-time, human checkbox, and it is the single thing LuauUI cannot do on your
-> behalf.
+> `InputContext` / `InputAction` / `InputBinding`), and nothing else. It never
+> reaches into `ContextActionService`. That is a deliberate architecture choice
+> ([`ADR-0004`](../adr/ADR-0004-input-verification-scope.md)) — arbitration is the engine's
+> job, and a UI framework that quietly outbid a game's own bindings would be
+> worse than the symptom it fixed.
 >
-> Why it matters: with the flag off, Roblox's *legacy* control scripts grab
-> gamepad `ButtonA` outside IAS, and your UI's gamepad Activate goes silently
-> dead. With the flag on, avatar input joins the same arbitration as every
-> LuauUI action, and everything in this chapter simply works. If A-presses ever
-> feel dead, start at [§7.4 Troubleshooting](#74-troubleshooting-and-hard-limits).
+> **So the experience has to put Roblox's own player scripts on IAS too: tick
+> `Workspace.PlayerScriptsUseInputActionSystem` in Studio's Properties panel, by
+> hand, once per place.** Roblox describes it as controlling "whether the
+> built-in player scripts are updated to use the Input Action System"
+> ([`Workspace` API reference](https://create.roblox.com/docs/reference/engine/classes/Workspace)).
+> The flag is not scriptable and not Rojo-syncable — no code (including LuauUI)
+> can read it, set it, or verify it for you. It is the single thing LuauUI
+> cannot do on your behalf.
+>
+> **Why it matters — two measured symptoms, one cause.** With the flag off,
+> Roblox's own scripts hold keys through `ContextActionService`, *outside* IAS:
+>
+> - **Gamepad `ButtonA` is eaten** by the legacy control scripts' `jumpAction`,
+>   so your UI's gamepad Activate goes silently dead (D-pad still works, which
+>   is what makes it confusing).
+> - **The arrow keys `Left` and `Right` never arrive**, because the default
+>   camera binds them as `RbxCameraKeypress` at CAS priority 2000 and sinks
+>   them. Any LuauUI surface that navigates or adjusts on the horizontal arrows
+>   simply does nothing.
+>
+> And there is **no priority number that fixes either one**: a sinking CAS
+> binding consumes a key before any `InputContext` is offered it, at any
+> priority — measured, a CAS sink at priority **100** beat an `InputContext` at
+> **10000** ([`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)).
+> CAS priority and `InputContext.Priority` are not one arbitration space. The
+> property is the fix, because it is what moves those bindings *into* the space
+> where priority means something. With the flag on, player input joins the same
+> arbitration as every LuauUI action and everything in this chapter simply
+> works. If A-presses or arrows ever feel dead, start at
+> [§7.4 Troubleshooting](#74-troubleshooting-and-hard-limits).
 
 Roblox players arrive on four kinds of input: a **mouse**, a **touchscreen**, a
 **keyboard**, and a **gamepad**. LuauUI's position (the studio's standing
@@ -427,6 +450,40 @@ if gamepad_contention.legacyStackActive() then
         gamepad_contention.describeContention())
 end
 ```
+
+**Left and Right arrow do nothing.** Same cause, different binding: Roblox's
+default camera holds `Left`/`Right`/`I`/`O` as `RbxCameraKeypress` through
+ContextActionService at priority 2000 and sinks them, so horizontal focus
+navigation and a Table's selected-column resize never see a keypress. Fix: the
+same tick of `Workspace.PlayerScriptsUseInputActionSystem`. There is no
+alternative involving a bigger priority number — see the warning at the top of
+this chapter for the measurement, and
+[`the-camera-still-owns-the-arrow-keys`](../lessons/the-camera-still-owns-the-arrow-keys.md)
+for the full session.
+
+The probe for this one is separate from the gamepad probe, and it has to be —
+measured live 2026-08-15, `RbxCameraKeypress` held the arrows in a session where
+`jumpAction` was not bound at all, so `legacyStackActive()` answered `false`
+while the arrows were owned:
+
+```lua
+local gamepad_contention = require(ReplicatedStorage.LuauUI.client.gamepad_contention)
+if gamepad_contention.cameraKeysContended() then
+    warn("an arrow key is held by a ContextActionService binding; LuauUI will "
+        .. "not receive it: ", gamepad_contention.describeContention())
+end
+```
+
+It reads the binding table directly, so `true` is a fact about this client right
+now. `false` is narrower than it looks: CAS exposes no sink flag through
+`GetAllBoundActionInfo`, so it means "no CAS action claims an arrow", not
+"arrows are guaranteed to arrive".
+
+**Ask these probes; LuauUI does not announce them.** None of the three is wired
+to a boot-time warning. In any place that has not ticked the property they are
+all true — which today is every default Studio session — and a warning that
+fires always is noise that teaches people to skip it. They exist so that when
+something *is* dead you get an answer in one line instead of a session.
 
 **UI-only places (no avatar at all)** — a menu shell, a lobby, LuauUI's own
 gallery — may instead just disable the legacy control scripts:
