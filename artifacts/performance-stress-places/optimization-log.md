@@ -3186,3 +3186,191 @@ green before trusting that a mutation reddened it.**
 3. **`text` has no honest tier-1 or tier-2 number**, only a device one it has not
    been given yet.
 4. L-35 residuals 1–4 are unchanged.
+
+---
+
+## L-37 — the depth lever, paid: the cache key carried an offer the answer never read
+
+**Date:** 2026-08-15 · **Evidence tier: 1 (headless Lune) + 2 (Studio, real engine
+Luau VM).** No device claim is made here. L-36 routed this as evidence; this entry
+is the confirmation, the fix and the before/after.
+
+L-36 found that **depth**, not size, is what makes `arrange` expensive — the same
+240 leaves cost 8.7× more per arranged node under 30 nested stacks than under one,
+and the mechanism was re-measuring (16.4 measures per arranged node against 2.0),
+not placing. It also refuted the obvious fix: putting the deep tree inside a
+ScrollView (`deepScroll`) arms the measure memo and produced **zero hits**. It named
+a candidate mechanism read from the source and explicitly **not measured**: the
+memo's key carries the offered height, and a nested chain offers a different one at
+every level.
+
+### 1. The candidate SURVIVED, and here is the measurement rather than the story
+
+An instrumented build recorded, per node, every key `solver.measure` computed and
+counted the distinct values of each key TERM. On the 30-deep arm (271 nodes, 4 696
+measure calls, 17.3 per node):
+
+| key term | distinct values per node |
+|---|---:|
+| `maxW` | **1.00** |
+| `scopeKey` (hidden depth · container · fit probe) | **1.00** |
+| `maxH` | **16.33** |
+| the whole key | 16.33 |
+
+**The key varied by the offered height and by nothing else** — on a tree of
+`fixed`-height boxes whose measured size cannot depend on it. Same run with `maxH`
+removed from the key: **271 distinct keys, one per node.** The candidate was right,
+and it is the same defect L-9 fixed for a text leaf, one scale up: *the one field
+that made every key unique was the one field the computation ignored.*
+
+`deepScroll`'s zero hits are the same fact seen from the other side. The memo was
+armed there; every lookup missed because every level asked a different question
+about the same answer.
+
+### 2. What shipped — three rules, each an answer to "what does this measure READ?"
+
+`solver.memoPlan` classifies each node once per solve.
+
+**`PLAN_HEIGHT_FREE` — cache it, leave `maxH` out of the key.** L-9's rule, no
+longer restricted to text leaves. A node qualifies when its height type is `fixed`,
+`content` or `minMax` (the three `resolveAxis` answers without reading its limit),
+neither axis is `aspect`, its kind's content does not read `innerMaxH`
+(`HEIGHT_COUPLED_KINDS` = `scroll`, `fits`, `composition`, `grid`, `gridrow`,
+`vwrap` — `hwrap` is NOT one: `flowPlan` breaks it on the width), and every child
+qualifies, with no `fill`-main or `shrinkWeight` child on a vertical main axis
+(PASS 2 and PASS 1.5 read `mainLimit`, which is `innerMaxH` there).
+
+**`PLAN_SKIP` — do not cache a constant.** Both dimensions `fixed` means
+`resolveAxis` returns two literals, `content()` is never called and nothing is
+published: the key string and the entry table cost more than the measure they save.
+
+**The memo arms on NESTING as well as on a ScrollView.** `hasScroll` was a proxy
+for "this tree re-measures"; nesting is the other producer, and a scroll-free deep
+tree could never reach the cache at all. `ctx.deepNesting` latches when the measure
+recursion first reaches `MEMO_ARM_DEPTH = 4`, on the way down.
+
+Plus one allocation cut: a cache entry for a node that publishes no verdicts (every
+kind but `text` and `composition`) is the array `{w, h}`, read back in two indexes
+instead of four replay assignments.
+
+### 3. Where the constant 4 comes from — swept, not chosen
+
+Tier 1, same 240 leaves, only the nesting depth varying, interleaved ABBA against a
+**2.9 % A/A control**:
+
+| nested containers | 1 | 2 | 3 | 4 | 6 | 10 | 20 | 30 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| delta | +0.0 % | +2.1 % | −12.4 % | −20.8 % | −34.5 % | −49.9 % | −69.1 % | −77.2 % |
+
+A measure recursion of 4 is a root, two containers and a leaf — the shallowest tree
+the memo is measurably worth arming for. **L-6's ruling stays intact:** the shape
+arms that pay nothing (`flat`, `zstack`, `wrap`) never arm, and unconditionally the
+memo ran them **+8 % to +20 %** against a 1.5 % control.
+
+### 4. Before/after on the `arrange-shapes` arms — control stated first
+
+**Tier 2 (Studio, real engine, ABBA-interleaved, n = 40×24 per arm). A/A control:
+worst arm 1.74 %. Nothing below that is a result.**
+
+| arm | HEAD | shipped | delta | HEAD uncached measures | shipped |
+|---|---:|---:|---:|---:|---:|
+| `flat` (control) | 1.1237 ms | 1.1289 ms | +0.5 % | 723 | 723 |
+| `zstack` | 1.1842 | 1.1978 | +1.2 % | 963 | 963 |
+| `wrap` | 0.8752 | 0.8758 | +0.1 % | 483 | 483 |
+| `fill` | 2.2771 | 2.2529 | −1.1 % | 963 | 963 |
+| `scroll` | 1.5512 | 1.3439 | **−13.4 %** | 725 | 725 |
+| `deep` | 7.1384 | **1.2489** | **−82.5 %** | 4 696 | **529** |
+| `deepScroll` | 9.3295 | **1.6638** | **−82.2 %** | 4 698 | **783** |
+
+**Tier 1 (headless Lune, regression signal only), same instrument shape. A/A
+control 1.2 %:** `flat` +0.3 %, `fill` +0.2 %, `zstack` +0.6 %, `wrap` +0.0 %,
+`text` +0.2 %, **`scroll` −31.7 %, `deep` −77.2 %, `deepScroll` −83.1 %.**
+
+`scroll` improves with its uncached count **unchanged**, which is `PLAN_SKIP` alone:
+the memo had been spending more on filing constant-size leaves than the leaves cost
+to measure. That is a defect L-9 shipped and nobody had priced.
+
+**Through the lab's own arms** (tier 1, `tools/lune/_probe_levers`, forward sweep so
+absolute levels drift between processes — normalised to each run's own `flat`
+control, A/A 2.4 % before and 2.7 % after):
+
+| arm | measures per arranged node | ×`flat` cost |
+|---|---|---|
+| `deep` | **17.33 → 1.95** | 3.12× → **1.38×** |
+| `deepScroll` | **16.28 → 1.89** | 4.53× → **1.38×** |
+
+The fan-out was quadratic in depth (4.30 / 8.32 / 17.33 measures per arranged node
+at 4 / 12 / 30 levels). It is now flat (2.35 / 2.05 / 1.95).
+
+### 5. Correctness — a differential oracle, and the gap L-9 recorded is now closed
+
+800 seeded trees over the whole vocabulary (`fits`, `hwrap`/`vwrap`, `gridrow`,
+`shrinkWeight`, `compactText`, `lineLimit`, `hug`, degenerate viewports), solved by
+a HEAD build and the shipped one, comparing x/y/w/h **and** `compact`, `textState`
+and `textFacts` per node: **25 961 node comparisons, ZERO differences**, and the
+diagnostic SET identical on every tree (only duplicate counts differ, which is the
+memo doing what it already did for scroll trees).
+
+**L-9 could not build a case where an over-broad rule bites** and shipped its
+exclusions on a line-by-line reading, recording that honestly as a known gap. The
+richer oracle bites immediately: the fully over-broad rule diverges on **2 933 of
+25 961** node comparisons, first at seed 1. Each exclusion was then mutated
+separately and auto-shrunk, and all three reproductions are transcribed into
+`tests/measure_memo.spec.luau`:
+
+| exclusion removed | node comparisons that diverge | shrunk case |
+|---|---:|---|
+| the height-TYPE test (accept `fill`/`percent`/`hug`) | 2 303 | a `hug` anchor in a scroller: n15 74 → 258 |
+| `HEIGHT_COUPLED_KINDS` emptied | 14 | a `vwrap` in a scroller: n5 215×169 → 115×175 |
+| the `fill`-main / `shrinkWeight` child test | 25 | a squeezed `vstack`: n56 245 → 36 |
+
+### 6. Mutation evidence
+
+| mutation | reddened |
+|---|---|
+| M1 — the height-type test dropped | *"a `hug` height READS the offer"* (only) |
+| M2 — `HEIGHT_COUPLED_KINDS` emptied | *"a `vwrap` breaks its lines ON the offered height"* (only) |
+| M3 — the `fill`/`shrinkWeight` child test dropped | *"a child that can be SQUEEZED…"* (only) |
+| M4 — `maxH` put back in the key | both fan-out checks + the perf-lab L-37 pin + *"NINE TREES"* |
+| M5 — the nesting arm closed (`MEMO_ARM_DEPTH` huge) | the same four |
+| M6 — the `PLAN_SKIP` branch deleted | **nothing** — see below |
+| M7 — `levers.shapeTree` ignores `kind` | *"NINE TREES"* |
+
+**M6 is the one worth keeping.** Declining to cache is never *wrong*, only slower
+or faster, so no correctness test can pin `PLAN_SKIP`; its whole evidence is the
+interleaved A/B. The solver says so at the rule rather than letting a future agent
+assume a green suite covers it.
+
+### 7. The bench, and the instrument trap inside it
+
+`tools/bench.sh`, interleaved ABBA, **both builds on the same filesystem** (the
+first attempt ran HEAD from `/private/tmp` and the shipped build from the Dropbox
+working tree, which is not a comparison): whole-run p50 **−3.0 %**, total heap
+43 763 → 34 214 KB. Layout-bearing scenes: `billboard-nameplate-storm` −7.5 %,
+`table-mutation` −5.7 %, `table-resize-drag` −3.5 %, `mounted-slice-update-storm`
+−0.3 %, `textinput-typing-storm` +0.7 %. No scenario newly flags.
+
+**And a warning for the next person to read this bench.** `settings-churn-custom`
+read **+52.8 %** and reproduced across eight interleaved runs with no overlap — a
+convincing regression, except that **the scenario never calls the solver**: it is
+signals, a memo, an observe and a dispose. Its sibling `settings-churn-fusion` read
+−23.0 % in the same pair. What moves is `heapDeltaKb`, which flips sign between
+builds: the collector lands in a different 5-microsecond scenario each run and that
+scenario is billed for it. On these sub-10-microsecond core scenes the bench is
+measuring GC attribution, not the change. The p50 SUM over the whole run is the
+number that survived scrutiny.
+
+### 8. Residuals
+
+1. **L-36 residual 1 is closed.** The fan-out at depth no longer rises with depth;
+   `tests/measure_memo.spec.luau` pins that it cannot start rising again.
+2. **`MEMO_ARM_DEPTH` is a threshold, and thresholds rot.** The swept break-even is
+   real but it was measured on one tree family on one laptop. A device dump of the
+   `arrange-shapes` arms is what would confirm it on ARM.
+3. **The lab's `incremental = false` default** (L-36 residual 2) is unchanged.
+4. **`text` still has no honest tier-1 or tier-2 number** (L-36 residual 3).
+5. **The memo still allocates a table per cached node per solve.** On a small tree
+   with few repeats that is the whole of its cost. A one-slot inline entry with
+   promotion on the second distinct key would remove it; not built, because no
+   measurement has yet shown it is worth the code.
+6. L-35 residuals 1–4 are unchanged.

@@ -1498,8 +1498,49 @@ describe("perf lab: the two named levers measure what they claim (device capture
 		expect(out.zstack.measuredNodes > out.flat.measuredNodes).toBe(true)
 		-- the flow planner caches its lines, so wrap measures FEWER
 		expect(out.wrap.measuredNodes < out.flat.measuredNodes).toBe(true)
-		-- and the headline: the measure fan-out from arrange is what depth costs
-		expect(out.deep.measuresPerArrangedNode > 4 * out.flat.measuresPerArrangedNode).toBe(true)
+		--[[ ...and the headline, WHICH MOVED WITH THE MEASUREMENT THAT LICENSED IT
+			(L-37). This clause used to read `deep.measuresPerArrangedNode > 4 *
+			flat`'s — the 16.4-against-2.0 fan-out L-36 found. That fan-out was the
+			DEFECT: a nested chain offered a different height at every level and the
+			measure memo's key carried it, so no two levels shared a key and the memo
+			could not hit. With the offer out of the key for a node whose answer cannot
+			read it, the deep arm's fan-out collapses BELOW the flat control's — a
+			30-deep tree now measures each arranged node LESS than a flat one, because
+			the flat one's own repeat measures are not cached at all (its recursion
+			never reaches `MEMO_ARM_DEPTH`).
+
+			It still discriminates, which is the only reason this clause exists: if the
+			`kind` chain regressed and every arm built `flat`, both sides would be the
+			same number and this fails. ]]
+		expect(out.deep.measuresPerArrangedNode < 0.8 * out.flat.measuresPerArrangedNode).toBe(true)
+		built.dispose()
+	end)
+
+	it("the measure memo serves the fan-out at depth — the L-37 regression pin", function()
+		--[[ THE NUMBER THIS FIX EXISTS FOR, pinned where a future edit to the memo
+			would move it. `LuauUI/arrange` was the largest scope in all four device
+			captures, and L-36 found the mechanism: a leaf under 30 nested stacks was
+			measured 16.4 times per solve against 2.0 under one stack, and the memo
+			produced ZERO hits on that shape because its cache key carried the offered
+			height — which a nested chain varies at every level and which a fixed-height
+			leaf's answer never reads (instrumented: 16.33 distinct `maxH` per node
+			against 1.00 distinct `maxW` and 1.00 distinct `scopeKey`).
+
+			Three ways to break it again, all caught here: putting the offer back in the
+			key, closing the arm so a scroll-free deep tree never reaches the cache, or
+			widening `HEIGHT_COUPLED_KINDS` until a plain stack lands in it. Any of them
+			returns this number to ~16. ]]
+		local built = newHarness()
+		local deep = built.steps.pass(nil, "deep=10/4").detail
+		local deepScroll = built.steps.pass(nil, "deepScroll=10/4").detail
+		-- pre-fix: 17.33 and 16.28. The threshold is deliberately far from both, so
+		-- this pins the MECHANISM rather than a laptop's exact arithmetic.
+		expect(deep.measuresPerArrangedNode < 4).toBe(true)
+		expect(deepScroll.measuresPerArrangedNode < 4).toBe(true)
+		-- ...and the scroller no longer costs MORE than the bare chain: L-36 measured
+		-- `deepScroll` 45% slower than `deep` because its own second sweep re-measured
+		-- everything the first had, at a key that could never match
+		expect(deepScroll.measuredNodes < 2 * deep.measuredNodes).toBe(true)
 		built.dispose()
 	end)
 

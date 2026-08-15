@@ -1,5 +1,21 @@
 # Device capture — the two levers, now that they have workloads (2026-08-16)
 
+> **UPDATE 2026-08-15 — LEVER 1 IS FIXED; THIS PAGE'S `deep` NUMBERS ARE THE
+> "BEFORE".** The candidate mechanism named at the bottom of this page was
+> confirmed by instrumenting the cache key (16.33 distinct offered heights per
+> node against 1.00 distinct width and 1.00 distinct scope) and repaired. Tier 2,
+> Studio, ABBA, A/A control 1.74 %: **`deep` −82.5 %, `deepScroll` −82.2 %,
+> `scroll` −13.4 %**, every other arm inside the control band; the measure
+> fan-out at depth 30 goes **17.33 → 1.95** per arranged node and no longer rises
+> with depth at all. Full method, differential-oracle proof and mutation table:
+> `artifacts/performance-stress-places/optimization-log.md` **L-37**.
+>
+> **The capture is still worth taking**, and its question has changed: the shape
+> to look for is now `deep ≈ flat` rather than `deep ≫ fill`, and the open
+> question is whether `MEMO_ARM_DEPTH = 4` — a break-even swept on this laptop —
+> is the right threshold on ARM. Lever 2 (`edit-locality`) is untouched by any of
+> this and its section below stands as written.
+
 You asked: *"Do we have a perf test for incremental layout and to gather info on
 how to optimize arrange?"* The answer was **no, for both**. It is now yes, for
 both. This is how to run them.
@@ -101,12 +117,15 @@ distribution arithmetic and the `table.sort` in it, not the re-measuring), or if
 `text` — which this laptop cannot price honestly, because headless text metrics
 are a stub — turns out to dominate everything.
 
-**`deepScroll` is a refuted hypothesis, kept on purpose.** The measure cache in
-the solver only arms itself when the tree contains a ScrollView, so I expected
-putting the deep tree inside one to collapse that 16× fan-out. It does not: the
-uncached-measure count goes 4 425 → 4 426, i.e. **the cache produces zero hits**,
-and the scroller's own double measurement makes the arm 45 % *slower*. That is a
-real finding and it is where an optimisation would start.
+**`deepScroll` was a refuted hypothesis, kept on purpose — and it is where the fix
+started.** The measure cache in the solver only armed itself when the tree
+contained a ScrollView, so putting the deep tree inside one was expected to
+collapse that 16× fan-out. It did not: the uncached-measure count went 4 425 →
+4 426, i.e. **the cache produced zero hits**, and the scroller's own double
+measurement made the arm 45 % *slower*. Instrumenting the key showed why — it
+carried the offered height, which a nested chain varies at every level and which
+those nodes' answers never read. Fixed 2026-08-15 (L-37): both arms now sit within
+1.4× of the `flat` control.
 
 ### `edit-locality` — does incremental layout help on a collection edit?
 
@@ -151,12 +170,13 @@ the defaults.)
 
 ## The two questions this capture is actually asking
 
-1. **Is the 16× measure fan-out at depth the real arrange lever on ARM?** If it
-   is, the fix is in `src/layout/solver.luau` and it is the measure cache, not
-   the arrange walk: the cache key includes the offered height, and a nested
-   chain offers a different height at every level, so it misses every time. That
-   file is currently being edited by another task, so this is **routed
-   evidence, not a change**.
+1. ~~**Is the 16× measure fan-out at depth the real arrange lever on ARM?**~~
+   **ANSWERED AND FIXED (L-37, 2026-08-15).** The cache key did include the
+   offered height and did miss every time — confirmed by counting distinct key
+   terms per node, not by reading the code. The remaining ARM question is
+   narrower: the memo now arms on nesting at `MEMO_ARM_DEPTH = 4`, a break-even
+   swept on this laptop, and a device dump of these same arms is what would
+   confirm the threshold on the hardware that matters.
 2. **Should incremental layout be on by default in the lab — and is it already
    earning its keep in the game?** It is ON in production and OFF in every
    measurement we have taken, which means the log's collection numbers describe

@@ -189,6 +189,205 @@ describe("the measure memo replays the verdicts it cached", function()
 	end)
 end)
 
+--[[ THE OFFERED HEIGHT LEAVES THE KEY WHEN THE ANSWER CANNOT READ IT (L-37).
+
+	WHY THIS BLOCK EXISTS. `LuauUI/arrange` was the largest scope in all four of the
+	director's device captures (9.1-10.6 ms per occurrence, worst single occurrence
+	298.87 ms), and L-36 found the mechanism by workload rather than by reading: the
+	same 240 leaves cost 8.7x more per arranged node under 30 nested stacks than
+	under one, and the cost was not the placing — it was RE-MEASURING, 16.4 measures
+	per arranged node against 2.0. The memo that exists to stop exactly that produced
+	ZERO hits on the shape.
+
+	The cause, then instrumented rather than assumed: the cache key carried the
+	OFFERED HEIGHT, and a nested chain offers a different one at every level. Counted
+	per node on the 30-deep tree — 16.33 distinct `maxH`, 1.00 distinct `maxW`, 1.00
+	distinct `scopeKey`. The key varied by the one input those nodes' answers never
+	read, which is L-9's defect one scale up: L-9 took `maxH` out of the key for a
+	TEXT leaf; this takes it out for any node whose height type and whose content
+	provably cannot consult the offer (`solver.memoPlan` carries the enumeration).
+
+	THE THREE EXCLUSIONS BELOW ARE EACH MUTATION-PROVED, and that closes the gap L-9
+	recorded honestly and could not close: it tried an over-broad rule, saw identical
+	output on 400 fuzzed trees, and shipped the exclusions on a line-by-line reading
+	of `resolveAxis` rather than on a test that had been watched to fail. A richer
+	differential oracle (800 seeded trees over the whole vocabulary — `fits`,
+	`hwrap`/`vwrap`, `gridrow`, `shrinkWeight`, `compactText`, `lineLimit` — two
+	builds, comparing geometry AND `compact`/`textState`/`textFacts`) says otherwise:
+	the fully over-broad rule diverges on 2 933 of 25 961 node comparisons. The three
+	trees below are that oracle's auto-shrunk reproductions, one per exclusion, each
+	pinned by the rect the mutation moves.
+]]
+describe("the measure memo's key carries the offer only where the offer is read", function()
+	it("a `hug` height READS the offer, so it keeps `maxH` in the key", function()
+		-- Mutation: drop the height-type test in `memoPlan` (accept `fill`/`percent`/
+		-- `hug` alongside `fixed`/`content`/`minMax`). The scroller's `hug` anchor then
+		-- replays the answer it gave at the first offer it saw, and everything under it
+		-- inherits the wrong extent: n15 goes 74 -> 258.
+		local box = node("n16", "box", {
+			padding = 12,
+			width = { type = "minMax", min = 34, max = 182 },
+			height = { type = "percent", fraction = 0.66 },
+		})
+		local grid = node("n15", "grid", { gap = 8, columns = 2, width = { type = "fixed", px = 89 } })
+		grid.children = { box }
+		local anchor = node("n11", "anchor", { padding = 4, shrinkWeight = 1, height = { type = "hug" } })
+		anchor.children = { grid }
+		local scroll = node("n10", "scroll", {
+			axis = "x",
+			width = { type = "fixed", px = 1 },
+			height = { type = "fill", weight = 3 },
+		})
+		scroll.children = { anchor }
+		local row = node("n3", "gridrow", { gap = 0, columns = 1, width = { type = "hug" } })
+		row.children = { scroll }
+		local root = node("n1", "hwrap", { gap = 6, margin = 1, wrap = true, width = { type = "fill", weight = 2 } })
+		root.children = { row }
+
+		local result = solver.solve(root, { w = 360, h = 600 }, { scrollBarReserve = 0 })
+		expect(result.rects["n15"].rect.h).toBe(74)
+		expect(result.rects["n11"].rect.h).toBe(120)
+		expect(result.rects["n10"].rect.h).toBe(178)
+	end)
+
+	it("a `vwrap` breaks its lines ON the offered height, so it is never height-free", function()
+		-- Mutation: empty `HEIGHT_COUPLED_KINDS`. `vwrap` partitions on `innerMaxH`, so
+		-- a replayed answer re-uses a partition computed for a different height and the
+		-- wrap collapses to one column: n5 goes 215x169 -> 115x175.
+		local a = node("n7", "text", {
+			text = "Continue",
+			textSize = 23,
+			compactText = "Go",
+			height = { type = "fixed", px = 169 },
+		})
+		local b = node("n8", "text", {
+			text = "Supercalifragilistic",
+			textSize = 37,
+			singleLine = true,
+			width = { type = "minMax", min = 39, max = 91 },
+			height = { type = "fixed", px = 74 },
+		})
+		local col = node("n5", "vwrap", { gap = 9, wrap = true, width = { type = "percent", fraction = 0.78 } })
+		col.children = { a, b }
+		local scroll = node("n4", "scroll", {
+			axis = "x",
+			padding = 10,
+			width = { type = "hug" },
+			height = { type = "minMax", min = 21, max = 195 },
+		})
+		scroll.children = { col }
+		local root = node("n1", "hwrap", {
+			gap = 0,
+			margin = 4,
+			shrinkWeight = 1,
+			wrap = true,
+			width = { type = "percent", fraction = 0.11, max = 93 },
+		})
+		root.children = { scroll }
+
+		local result = solver.solve(root, { w = 720, h = 600 }, { scrollBarReserve = 0 })
+		expect(result.rects["n5"].rect.w).toBe(215)
+		expect(result.rects["n5"].rect.h).toBe(169)
+		expect(result.rects["n4"].rect.h).toBe(189)
+	end)
+
+	it("a child that can be SQUEEZED makes its vertical stack read the offer too", function()
+		-- Mutation: drop the `fill`-main / `shrinkWeight` child test in `memoPlan`. PASS
+		-- 1.5's squeeze reads `mainLimit`, which on a vertical stack IS the offered
+		-- height, so the stack's answer depends on an offer the key would have dropped:
+		-- n56 goes 245 -> 36 and its only child collapses to zero.
+		local box = node("n58", "box", {
+			padding = 5,
+			margin = 18,
+			shrinkWeight = 2,
+			width = { type = "percent", fraction = 0.61 },
+			height = { type = "fixed", px = 225 },
+		})
+		local col = node("n56", "vstack", { gap = 12, width = { type = "fixed", px = 159 } })
+		col.children = { box }
+		local fits = node("n60", "fits", {
+			padding = 2,
+			margin = 5,
+			width = { type = "hug" },
+			height = { type = "fixed", px = 235 },
+		})
+		local row =
+			node("n52", "hstack", { gap = 2, margin = 12, width = { type = "percent", fraction = 0.68, max = 139 } })
+		row.children = { col, fits }
+		local grid = node("n45", "grid", { gap = 3, padding = 11, columns = 4, height = { type = "hug" } })
+		grid.children = { row }
+		local root = node("n1", "gridrow", {
+			gap = 2,
+			padding = 13,
+			margin = 7,
+			minColumnWidth = 53,
+			width = { type = "minMax", min = 31, max = 80 },
+			height = { type = "fixed", px = 35 },
+		})
+		root.children = { grid }
+
+		local result = solver.solve(root, { w = 360, h = 360 }, { scrollBarReserve = 8 })
+		expect(result.rects["n56"].rect.h).toBe(245)
+		expect(result.rects["n58"].rect.h).toBe(209)
+	end)
+end)
+
+describe("the measure fan-out no longer grows with nesting depth", function()
+	-- THE COST THIS FIX EXISTS TO REMOVE, read off the PUBLIC result. `work.measured`
+	-- counts uncached measures, so it is the same number L-36 reported as 4 425 for
+	-- the 30-deep shape arm and the same one a device dump's `LuauUI/arrange` is made
+	-- of. Before: 4.30 measures per arranged node at 4 levels, 8.32 at 12, 17.33 at 30
+	-- — quadratic in depth, because every enclosing level re-measured the whole
+	-- subtree. After: 2.35 / 2.05 / 1.95.
+	local function chain(levels: number): any
+		local inner: any = nil
+		for level = levels, 1, -1 do
+			local children = {}
+			for j = 1, 8 do
+				table.insert(
+					children,
+					node(`L{level}_{j}`, "box", {
+						width = { type = "fixed", px = 24 },
+						height = { type = "fixed", px = 10 },
+					})
+				)
+			end
+			if inner ~= nil then
+				table.insert(children, inner)
+			end
+			local stack = node(`D{level}`, "vstack", { gap = 0, width = { type = "fill", weight = 1 } })
+			stack.children = children
+			inner = stack
+		end
+		local root = node("Root", "vstack", {
+			gap = 0,
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+		})
+		root.children = { inner }
+		return root
+	end
+
+	local function fanOut(levels: number): number
+		local result = solver.solve(chain(levels), { w = 400, h = 600 }, { scrollBarReserve = 8 })
+		return result.work.measured / result.work.arranged
+	end
+
+	it("a 30-deep chain measures each node about twice, not sixteen times", function()
+		-- 1.95 here; 17.33 before the key was fixed. The threshold sits far from both so
+		-- this pins the MECHANISM rather than a particular laptop's arithmetic.
+		expect(fanOut(30) < 3).toBe(true)
+	end)
+
+	it("...and the fan-out does not RISE with depth, which is the whole defect", function()
+		-- 4.30 -> 8.32 -> 17.33 before; 2.35 -> 2.05 -> 1.95 after. Any regression that
+		-- re-couples the key to the offered height, closes the nesting arm, or widens
+		-- `HEIGHT_COUPLED_KINDS` to cover a plain stack puts the slope back.
+		expect(fanOut(30) <= fanOut(4)).toBe(true)
+		expect(fanOut(12) <= fanOut(4)).toBe(true)
+	end)
+end)
+
 describe("the memo is scoped to trees that can benefit from it", function()
 	it("gating the memo on a scroll node changes no geometry on a scroll-free tree", function()
 		-- The scoping exists because the unconditional memo crossed the bench's 1.5x

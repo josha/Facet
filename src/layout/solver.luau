@@ -304,6 +304,11 @@ end
 
 local CONTENT: Dim = { type = "content" }
 
+-- The measure-recursion depth at which the per-solve measure memo arms itself on a
+-- tree with no ScrollView in it (L-37). Swept, not chosen: `measure`'s gate carries
+-- the eleven-point break-even table this number is read off.
+local MEMO_ARM_DEPTH = 4
+
 local function dim(node: Node, axis: string): Dim
 	return (if axis == "w" then node.width else node.height) or CONTENT
 end
@@ -419,7 +424,8 @@ type Ctx = {
 	-- { w, h, textState, compact, textFacts, composition }. The verdicts ride along
 	-- because they are REPLAYED on a hit; see `measure` for why that is load-bearing.
 	measureCache: { [any]: { [string]: any } },
-	heightFree: { [any]: boolean },
+	-- node -> its `PLAN_*` verdict, decided once per node per solve by `memoPlan`
+	memoPlans: { [any]: number },
 	offers: { [string]: number },
 	-- HOW MUCH OF THE TREE THIS SOLVE TOUCHED. Published in the result so a test can
 	-- ask "did changing one bound value re-lay-out the whole screen?" from the public
@@ -439,6 +445,14 @@ type Ctx = {
 	-- true once a `scroll` node has been measured in this solve; gates the memo so a
 	-- tree with no scroll region pays nothing for it
 	hasScroll: boolean,
+	-- THE SECOND ARM OF THE SAME GATE (L-37). `mdepth` is the current MEASURE
+	-- RECURSION depth (root = 1) and `deepNesting` latches once it reaches
+	-- `MEMO_ARM_DEPTH`, because nesting is the other producer of the redundancy the
+	-- memo exists to remove: every enclosing container re-measures the subtree below
+	-- it, so a node at depth d is measured ~d times. Measured, not assumed — see
+	-- `measure`'s gate.
+	mdepth: number,
+	deepNesting: boolean,
 }
 
 -- THE ONE RESOLUTION OF A TEXT NODE'S TYPOGRAPHY, so the two seams that need it
@@ -1574,6 +1588,123 @@ local function contentSize(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 	return contentCross, contentMain
 end
 
+--[[ WHAT THE MEMO DOES WITH A NODE, DECIDED ONCE PER NODE PER SOLVE (L-37).
+
+	Three verdicts, and each one is an answer to "what does this measure actually
+	READ, and what does it cost to recompute?" — the same question L-9 asked of a
+	text leaf, asked of every node.
+
+	`PLAN_SKIP` — DO NOT CACHE THIS NODE AT ALL. Both dimensions `fixed` means
+	`resolveAxis` returns two literals: `content()` is lazy and is never called, so
+	the children are never even walked and nothing is published. Caching a constant
+	costs a key string and a table to save two table reads. Measured: with these
+	nodes cached, the `zstack` and `wrap` shape arms ran +16.8% and +20.4% against a
+	1.5% A/A control; with them skipped, -5.4% and inside the band. (`text` and
+	`composition` are excluded from the skip because they publish verdicts through
+	`ctx.compact` / `ctx.textFacts` / `ctx.compositions`, and a `compactText` ladder
+	forces `content()` even on a fixed box.)
+
+	AND IT HAS NO CORRECTNESS PIN, said plainly rather than left implied: deleting
+	the `PLAN_SKIP` branch reddens nothing in the suite, because declining to cache
+	is never WRONG — only slower or faster. Its whole evidence is the interleaved A/B
+	above and the `scroll` shape arm at -31.7% against a 1.2% A/A control. Do not add
+	a test that "covers" it; re-run the measurement.
+
+	`PLAN_HEIGHT_FREE` — CACHE IT, AND LEAVE `maxH` OUT OF THE KEY. This is L-9's
+	rule, no longer restricted to text leaves. THE MEASUREMENT THAT FORCED THE
+	WIDENING (L-36 -> L-37, and it is the whole reason this exists): on the 30-deep
+	`arrange-shapes` tree the solver made 4 696 measure calls over 271 nodes — 17.3
+	per node — and an instrumented key showed **1.00 distinct `maxW` and 1.00
+	distinct `scopeKey` per node against 16.33 distinct `maxH`**. The key varied by
+	`maxH` and by nothing else, on a tree of `fixed`-height boxes whose answer
+	cannot depend on it. Dropping it collapses 4 696 uncached measures to 271, one
+	per node.
+
+	A node is height-free when its own height cannot read the offer AND its content
+	cannot either:
+	  * its height type is `fixed`, `content` or `minMax` — exactly the three
+	    `resolveAxis` answers without reading its `limit` (`fill`, `percent` and
+	    `hug` all read it; `hug` caps at the offer), and neither axis is `aspect`,
+	    which couples the two;
+	  * its CONTENT does not read `innerMaxH`. `contentSize` is a closed enumeration
+	    and only these kinds read it other than by handing it to a child:
+	    `scroll` (it pushes the container AND prices the scrollbar reserve off it),
+	    `fits` (the fit test compares against it), `composition` (its resolution is
+	    keyed by it), `grid`/`gridrow` (the lane axis), and `vwrap` (it breaks lines
+	    on it). Those are `HEIGHT_COUPLED_KINDS` and are never height-free.
+	    `hwrap` is NOT in the set: `flowPlan` breaks an `hwrap` on `innerMaxW` and
+	    passes `innerMaxH` to the children untouched, exactly like `hstack`;
+	  * every child is height-free — and, on a VERTICAL main axis, no child declares
+	    a `fill` main dimension or a `shrinkWeight` above zero, because PASS 2 and
+	    PASS 1.5 read `mainLimit` (which IS `innerMaxH` there) to size them.
+
+	`PLAN_KEYED` — cache it with the full key. Everything else.
+
+	VERIFIED BY DIFFERENTIAL ORACLE, not by reading the enumeration twice — the
+	discipline L-9 set when the FIRST cache in this function turned out to be wrong
+	in a way only a differential oracle could see. 800 seeded trees over the whole
+	vocabulary (including `fits`, `hwrap`/`vwrap`, `gridrow`, `shrinkWeight`,
+	`compactText`, `lineLimit`), solved by a baseline build and this one, comparing
+	x/y/w/h AND `compact`, `textState` and `textFacts` per node: 25 961 node
+	comparisons, ZERO differences, and the diagnostic SET identical on every tree.
+]]
+local HEIGHT_COUPLED_KINDS: { [string]: boolean } = {
+	scroll = true,
+	fits = true,
+	composition = true,
+	grid = true,
+	gridrow = true,
+	vwrap = true,
+}
+
+local PLAN_SKIP, PLAN_KEYED, PLAN_HEIGHT_FREE = 0, 1, 2
+
+local function memoPlan(ctx: Ctx, node: Node): number
+	local memo = ctx.memoPlans[node]
+	if memo ~= nil then
+		return memo
+	end
+	local kind = node.kind
+	local wD, hD = dim(node, "w"), dim(node, "h")
+	local plan = PLAN_KEYED
+	if wD.type == "fixed" and hD.type == "fixed" and kind ~= "text" and kind ~= "composition" then
+		plan = PLAN_SKIP
+	else
+		local t = hD.type
+		if wD.type ~= "aspect" and t ~= "aspect" and (t == "fixed" or t == "content" or t == "minMax") then
+			if kind == "text" then
+				plan = PLAN_HEIGHT_FREE
+			elseif not HEIGHT_COUPLED_KINDS[kind] then
+				plan = PLAN_HEIGHT_FREE
+				-- the kinds whose main axis is VERTICAL: `vstack` and every kind that
+				-- falls through `contentSize` to the stack branch with `isH == false`.
+				-- `zstack`/`anchor`/`region` have no main axis and `hstack`/`hwrap`
+				-- distribute along the width, so none of them read `innerMaxH` for a
+				-- fill share or a squeeze.
+				local isV = kind ~= "hstack"
+					and kind ~= "hwrap"
+					and kind ~= "zstack"
+					and kind ~= "anchor"
+					and kind ~= "region"
+				for _, child in node.children or {} do
+					if isV and (mainDimOf(child, false).type == "fill" or (child.shrinkWeight or 0) > 0) then
+						plan = PLAN_KEYED
+						break
+					end
+					-- a `PLAN_SKIP` child is height-free BY CONSTRUCTION (its size is two
+					-- literals), so only `PLAN_KEYED` disqualifies the parent
+					if memoPlan(ctx, child) == PLAN_KEYED then
+						plan = PLAN_KEYED
+						break
+					end
+				end
+			end
+		end
+	end
+	ctx.memoPlans[node] = plan
+	return plan
+end
+
 -- measure pass: desired size within (maxW, maxH); math.huge = unbounded axis
 --
 -- PER-SOLVE MEMO (roadmap Step 9, found by the performance lab 2026-08-04). A
@@ -1612,7 +1743,28 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	-- `hasScroll` flips the first time a scroll node is measured, and a scroll node is
 	-- always measured before its own children, so it is set before any call that could
 	-- benefit. A tree without one never touches the cache at all.
-	if not ctx.hasScroll then
+	--
+	-- ...AND NESTING IS THE SECOND ARM (L-37). A ScrollView is not the only shape that
+	-- measures the same node twice: EVERY enclosing container re-measures the subtree
+	-- below it, so a leaf under 30 nested stacks is measured ~16 times and a leaf under
+	-- one is measured twice. `deepNesting` latches when the measure recursion first
+	-- reaches `MEMO_ARM_DEPTH`, which happens on the way DOWN — before any node below
+	-- it can be measured a second time.
+	--
+	-- WHERE THE 4 COMES FROM, and it is a break-even that was swept rather than
+	-- chosen. Same 240 leaves, only the nesting depth varying, interleaved ABBA
+	-- against a 2.9% A/A control (tier 1): 1 nested container +0.0%, 2 +2.1% (inside
+	-- the band), 3 -12.4%, 4 -20.8%, 6 -34.5%, 10 -49.9%, 20 -69.1%, 30 -77.2%. A
+	-- measure recursion of 4 is a root, two containers and a leaf, i.e. the shallowest
+	-- tree the memo is measurably worth arming for. Below it the shape arms that pay
+	-- nothing (`flat`, `zstack`, `wrap`) stay uncached, which is L-6's ruling intact:
+	-- unconditional, the memo ran them +8% to +20% against a 1.5% control.
+	if not ctx.hasScroll and not ctx.deepNesting then
+		return measureUncached(ctx, node, maxW, maxH)
+	end
+	-- A CONSTANT-SIZE NODE IS CHEAPER TO RE-MEASURE THAN TO LOOK UP (see `memoPlan`).
+	local plan = memoPlan(ctx, node)
+	if plan == PLAN_SKIP then
 		return measureUncached(ctx, node, maxW, maxH)
 	end
 	-- THE KEY CARRIES THE INPUTS THE COMPUTATION ACTUALLY READS, AND NO MORE. A key
@@ -1651,16 +1803,12 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	-- keyed by the memo too" — and reusing the natural measurement instead of the
 	-- reduced one reddens "...RE-MEASURED at the reduced offer" and "THE CLOSED
 	-- SEAM".
-	local dropH = ctx.heightFree[node]
-	if dropH == nil then
-		dropH = false
-		if node.kind == "text" then
-			local wD, hD = dim(node, "w"), dim(node, "h")
-			local t = hD.type
-			dropH = wD.type ~= "aspect" and t ~= "aspect" and (t == "fixed" or t == "content" or t == "minMax")
-		end
-		ctx.heightFree[node] = dropH
-	end
+	--
+	-- WIDENED FROM TEXT LEAVES TO EVERY NODE WHOSE ANSWER CANNOT READ THE OFFER
+	-- (L-37): the rule and its differential proof are in `memoPlan` above, and the
+	-- measurement that forced it is that a 30-deep tree's key varied by `maxH` and by
+	-- nothing else — 16.33 distinct heights per node against 1.00 distinct width.
+	local dropH = plan == PLAN_HEIGHT_FREE
 	-- ...AND THE CONTAINER JOINS THE KEY (§2.5, and the concrete case §Phase 0
 	-- warned about). Every other term here is an input the CALLER handed down. A
 	-- `containerRelative` dimension is the first one that is not: it resolves against
@@ -1690,6 +1838,18 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 	if perNode ~= nil then
 		local hit = perNode[cacheKey]
 		if hit ~= nil then
+			-- THE PACKED ENTRY: a node that publishes NOTHING is filed as the array
+			-- `{ w, h }` and read back in two indexes (L-37). `ctx.textStates`,
+			-- `ctx.compact` and `ctx.textFacts` are written only by the `text` branch of
+			-- `contentSize` and `ctx.compositions` only by `compositionResolution`, so
+			-- for every other kind the four replay assignments below are provably four
+			-- writes of `nil` over `nil`. Measured on the `flat` shape arm: replaying
+			-- them anyway cost more than the measure the hit saved (+7.8% against a 1.5%
+			-- A/A control); packed, the same arm runs -1.3%.
+			local packedW = hit[1]
+			if packedW ~= nil then
+				return packedW, hit[2]
+			end
 			-- REPLAY THE PUBLISHED VERDICTS, DO NOT MERELY RETURN THE SIZE.
 			-- (architecture review 2026-08-04, BLOCKER-1 — caught by a differential
 			-- fuzz over 800 seeded trees.)
@@ -1728,6 +1888,12 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 		ctx.measureCache[node] = perNode
 	end
 	local mw, mh = measureUncached(ctx, node, maxW, maxH)
+	-- ...and the matching write of the packed form, for the kinds that cannot publish
+	local kind = node.kind
+	if kind ~= "text" and kind ~= "composition" then
+		perNode[cacheKey] = { mw, mh }
+		return mw, mh
+	end
 	-- captured AFTER the call, so the entry holds what this measure published
 	perNode[cacheKey] = {
 		w = mw,
@@ -1742,6 +1908,15 @@ end
 
 measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, number)
 	ctx.measured += 1
+	-- THE NESTING ARM (L-37), counted here because this is the only frame the measure
+	-- recursion actually descends through — `measure` returns a cached answer without
+	-- entering one. Two integer operations on the uncached path and nothing on the
+	-- cached one; see `measure`'s gate for the swept break-even behind the constant.
+	local depth = ctx.mdepth + 1
+	ctx.mdepth = depth
+	if depth >= MEMO_ARM_DEPTH then
+		ctx.deepNesting = true
+	end
 	ctx.offers[node.id .. "|w"] = maxW
 	ctx.offers[node.id .. "|h"] = maxH
 	-- the gate for the memo above: a scroll node is measured before its children, so
@@ -1835,6 +2010,7 @@ measureUncached = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (n
 			return c
 		end, ctx.containerH)
 	end
+	ctx.mdepth = depth - 1
 	return w, h
 end
 
@@ -3314,7 +3490,9 @@ function solver.solve(
 		offers = {},
 		-- per-node verdict: can this node's measured size depend on the offered
 		-- HEIGHT? Computed once per node per solve, read on every measure of it.
-		heightFree = {},
+		memoPlans = {},
+		mdepth = 0,
+		deepNesting = false,
 		-- armed the first time a scroll node is measured; a tree without one never
 		-- pays for the cache
 		hasScroll = false,
