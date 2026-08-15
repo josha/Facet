@@ -225,3 +225,34 @@ and every tool git gives you — `add`, `commit -- <path>`, `diff --cached` — 
 on the location. The only operations that are genuinely scoped to your changes are
 hunk-level ones (`git apply --cached` with a filtered patch) and the only thing
 that makes location and ownership coincide again is a worktree of your own.
+
+### 4c. The root cause of 4a was not the `sed` — it was an identifier assigned from stale knowledge
+
+Worth separating, because fixing the wrong one of these fixes nothing.
+
+The `sed` in 4a existed only because I had to *renumber an ADR mid-mission*. The
+orchestrator assigned ADR numbers in three separate messages — 0031, then 0032,
+then 0033 — while ADR files were landing concurrently from other agents. Every
+instruction was **already stale when it arrived**: by the time "take 0031" reached
+me, 0031 had been claimed on disk by the `UI.Foreign` work. The final numbering
+settled at 0030 focus / 0032 nested-instance-tree / 0033 easing / 0034 foreign,
+and no agent's original assignment survived.
+
+So the sequence was: a number is assigned out of band → it is stale on arrival →
+the agent must rename its own citations → the rename is a cross-cutting text edit
+→ the cross-cutting text edit hits files the agent does not own. **The dangerous
+operation was manufactured by the coordination protocol, not chosen.**
+
+**The rule:** an identifier drawn from a shared namespace — an ADR number, a
+migration number, a port, a table name — must be **claimed by creating the artifact
+on disk**, not by being told a value. Create `docs/adr/ADR-00NN-<slug>.md` as an
+empty stub in your first minutes, `ls docs/adr/` immediately before you commit, and
+if the stub collided, renumber then — while the only citations are your own and
+still in one file. An agent told a number is holding a value that was true when it
+was sent; an agent holding a file is holding the namespace.
+
+And the corollary for whoever is orchestrating: **do not hand out identifiers from
+a namespace concurrent agents are writing into.** Telling three agents three
+numbers across three messages does not serialise them; it just moves the collision
+to whichever one reads last, and hands each of them a rename to perform in a shared
+tree.
