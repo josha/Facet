@@ -212,6 +212,7 @@
 ]]
 
 local contribution = require("../input/contribution")
+local nativeScrollBinding = require("./native_scroll_binding")
 local solverLib = require("../layout/solver")
 local specGuard = require("../spec_guard")
 local virtual_extents = require("../virtual_extents")
@@ -960,19 +961,19 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 		computed its target in the WHOLE collection and then asked whether that cell
 		happened to be mounted; the graph can only reach what is in the order, which
 		is the mounted window and nothing else. ]]
-	local bundle: any = {
-		focusGroups = buildFocusGroups,
-		handleActivate = handleActivate,
-	}
-	blueprint = contribution.attach(blueprint, bundle)
+	--[[ THE ENGINE CanvasPosition MIRROR — installed by the FRAMEWORK, overridable
+		by the consumer (O-31). This control had NO `bindController` and no
+		`syncGeometry` before, which is why its demos were among the five the census
+		found windowing their first lines forever: nothing but a consumer's own
+		post-`present` call could ever have wired it. Both seams are added below and
+		the arbitration is the shared one — `native_scroll_binding.luau`'s header
+		carries the measurement, the mount-identity rule and the opt-out reasoning.
 
-	local function bindNativeScroll(controller: any, scrollPath: string?): () -> ()
-		local path = scrollPath or mountedScrollPath
-		assert(
-			path ~= nil,
-			"VirtualGrid.bindNativeScroll: scroll path unknown — present the control (so its mounted path is "
-				.. "captured) or pass it explicitly"
-		)
+		`mainOf(pos)` is what makes ONE mirror serve BOTH axes: a `LazyHGrid`
+		(`axis = "x"`) reads the canvas x where a `LazyVGrid` reads the y, so an
+		auto-bind that hard-coded `pos.y` would have shipped a horizontal grid that
+		still never moved. ]]
+	local mirror = nativeScrollBinding.new(function(controller: any, path: string): () -> ()
 		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
 			scrollTop:set(mainOf(pos))
 		end)
@@ -985,6 +986,33 @@ function virtual_grid.build(LuauUI: any, core: any, spec: any)
 				boundScrollPath = nil
 			end
 		end
+	end)
+
+	local bundle: any = {
+		focusGroups = buildFocusGroups,
+		handleActivate = handleActivate,
+		bindController = function(controller: any)
+			mirror.noticeController(controller)
+		end,
+		-- the grid's root IS its ScrollView, so the mounted node's own path is the
+		-- path to observe. Re-asserted only when the MOUNT changes, never per frame.
+		syncGeometry = function(_rectOf: (string) -> any, node: any?)
+			if type(node) == "table" and node.path ~= nil then
+				mountedScrollPath = node.path
+				mirror.noticeMount(node, node.path)
+			end
+		end,
+	}
+	blueprint = contribution.attach(blueprint, bundle)
+
+	local function bindNativeScroll(controller: any, scrollPath: string?): () -> ()
+		local path = scrollPath or mountedScrollPath
+		assert(
+			path ~= nil,
+			"VirtualGrid.bindNativeScroll: scroll path unknown — present the control (so its mounted path is "
+				.. "captured) or pass it explicitly"
+		)
+		return mirror.bind(controller, path)
 	end
 
 	local grid = {}

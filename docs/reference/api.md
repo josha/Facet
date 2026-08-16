@@ -4242,14 +4242,37 @@ by a plain read-only list. See **The unified collection** below.
 
 Native canvas (native-substrate NS-A4): the list rides a `ScrollingFrame`
 whose `CanvasSize` is the FULL virtual height while only the window mounts.
-After presenting, the CONSUMER wires the engine mirror once:
-`local unbind = list.bindNativeScroll(presentedHandle.controller)` — engine
-`CanvasPosition` then drives `scrollTop` (wheel/touch/momentum/bars are
+Engine `CanvasPosition` drives `scrollTop` (wheel/touch/momentum/bars are
 native), and `focusKey`/keep-visible compute a canvas target written through
-`controller.scrollTo`. Unbound (or on a scroll-less adapter) the list is
-clip-only and programmatic scrolls no-op. VirtualList publishes the seam **flat**
-on its returned table; `newTable` publishes the same seam as
-`api.bindNativeScroll`. The gallery client auto-binds either spelling.
+`controller.scrollTo`.
+
+**You do not wire the mirror. The framework does** (O-31, 2026-08-15). A
+presented `newVirtualList`, `newVirtualGrid` (either axis) or `newTable` binds
+its own `CanvasPosition` mirror through the contribution seams every presented
+control already gets, so the collection follows the player's finger with **no
+post-`present` call at all**. This was a required call until 2026-08-15, and a
+consumer who omitted it got a control that mounted, painted, took taps, and
+windowed its first rows forever with nothing to see — five of nine callers
+outside the framework's tests had omitted it.
+
+`bindNativeScroll(controller, scrollPath?)` is still public and still returns an
+unbind, for the two cases that need it: a **standalone mount** that never runs a
+presenter (there is no contribution walk, so nothing auto-binds, and the call
+refuses by name if you pass no path), and **turning the mirror off** — the unbind
+sticks for the life of that mount rather than being re-asserted next frame. It is
+now idempotent: calling it for the (controller, path) already mirroring hands
+back the same unbind instead of opening a second engine observer, so an existing
+consumer that still calls it is unchanged and un-doubled. VirtualList publishes
+the seam **flat** on its returned table; `newTable` publishes the same seam as
+`api.bindNativeScroll`.
+
+There is **no opt-out key**, because there is only one collection whose scrolling
+is genuinely owned elsewhere and it already publishes that fact: a
+`newTable{ scrolls = false }` block table owns no `ScrollingFrame`, so
+`api.scrollPath()` is `nil`, and the automatic path reads the same answer — it
+mirrors nothing and still binds the row-actions tray-close to the real scrolling
+ancestor. A `newVirtualList`/`newVirtualGrid` always mounts its own `ScrollView`
+and has no such state to be in.
 
 **The unified collection** (ADR-0022 Decision 5, rows SF-L1/L2/L3). One
 construct windows, **selects**, **reorders** and **accepts drops** at the same
@@ -4429,8 +4452,9 @@ local grid = LuauUI.newVirtualGrid(LuauUI, core, {
     end,
     onActivate = function(item) open(item) end,
 })
--- after present(), wire the engine's CanvasPosition mirror:
-grid.bindNativeScroll(handle.controller)
+-- nothing to wire: a presented grid binds its own CanvasPosition mirror
+-- (O-31). `grid.bindNativeScroll(controller)` remains public for a standalone
+-- mount and for switching the mirror off; see newVirtualList's Native canvas.
 ```
 
 **`itemExtent` is one LINE's size, not one cell's.** It takes a number, a

@@ -336,6 +336,33 @@ local registry: { Entry } = {
 		affordanceProofs = false,
 	},
 	{
+		-- THE ENGINE SCROLL MIRROR'S ARBITRATION, shared by VirtualList,
+		-- VirtualGrid (both axes) and Table (O-31, 2026-08-15). NOT a control: it
+		-- mounts nothing, holds no reactive node and knows nothing about scrolling
+		-- — it decides WHEN a mirror is (re)installed and hands every caller the
+		-- same stop function, so that the framework's own auto-bind and a
+		-- consumer's explicit `bindNativeScroll` can never each hold half of the
+		-- teardown. The mirror itself is the `install` callback each control
+		-- passes in, which is the only part that differs between them.
+		--
+		-- Its four-input story IS the three host rows': every pointer/touch scroll
+		-- case they cite is a mirror this module decided to install.
+		name = "NativeScrollBinding",
+		kind = "composite",
+		module = "src/controls/native_scroll_binding.luau",
+		export = "newVirtualList",
+		spec = "tests/native_scroll_autobind.spec.luau",
+		conformance = "tests/native_scroll_autobind.spec.luau",
+		docsAnchor = "newVirtualList",
+		-- NO INSTANCE AND NO STATE WORTH REPORTING: the one fact it holds is which
+		-- (controller, path) is currently mirroring, and each host already reports
+		-- the consequence — `scrollTop` and the window — through its own dump().
+		dump = false,
+		reason = "arbitration only: it holds which (controller, path) is currently mirroring, and every consequence of that is already reported by the host control's own dump() (scrollTop, the window)",
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
 		name = "PopupButton",
 		kind = "composite",
 		module = "src/controls/popup_button.luau",

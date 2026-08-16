@@ -41,6 +41,10 @@ require("./perf_principles.spec")
 require("./layout_v1.spec")
 require("./renderer.spec")
 require("./native_scroll.spec")
+-- O-31: a virtualised collection mirrors its engine CanvasPosition with NO
+-- post-`present` consumer call, on the two contribution seams that reach every
+-- presenter configuration (`bindController` + `syncGeometry`)
+require("./native_scroll_autobind.spec")
 -- desktop keyboard focus chain (roadmap Step 8): Tab/Shift+Tab traversal,
 -- Space-as-Activate, focused-value arrow Adjust
 require("./keyboard_navigation.spec")

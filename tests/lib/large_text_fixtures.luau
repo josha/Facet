@@ -809,6 +809,10 @@ local UNSWEEPABLE: { [string]: string } = {
 	VirtualWindow = "the WINDOWING arithmetic of VirtualList: a running-offset index and the memos over it — no "
 		.. "blueprint, nothing to mount or measure. The rows it windows are swept through the VirtualList "
 		.. "fixture, at every preference, and the measured-extent form is what that sweep re-measures",
+	NativeScrollBinding = "the engine scroll mirror's arbitration (O-31, 2026-08-15): it decides WHEN a mirror "
+		.. "is installed and hands every caller one stop function — no blueprint, no text, nothing to mount or "
+		.. "measure. The collections whose scroll it arbitrates are swept through the VirtualList, VirtualGrid "
+		.. "and Table fixtures, at every preference",
 	Stage = "the engine-content box draws no text and holds no control: it is a rectangle whose contents are a "
 		.. "3D scene the ENGINE renders, so there is nothing for a text-preference sweep to overlap, clip or "
 		.. "push under a hit floor. Text ABOUT a stage (a caption, a label) is an ordinary UI.Text beside it "

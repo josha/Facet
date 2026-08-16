@@ -711,6 +711,19 @@ local function hostMountFixture(w: any, module: string, bind: boolean): any
 end
 
 describe("showcase host: the fixture branch binds the native-scroll mirror", function()
+	--[[ REWRITTEN FOR O-31 (2026-08-15), AND THE CLAIM GOT STRONGER RATHER THAN
+		WEAKER. As written this case mounted a fixture, THEN installed the spy, THEN
+		called the host's binder and asserted a registration appeared — which was the
+		right instrument while the mirror could only ever come from that call. The
+		framework installs it itself now (`src/controls/native_scroll_binding.luau`),
+		so the spy has to be in place BEFORE the mount to see the registration at
+		all, and the host's later call correctly adds NOTHING.
+
+		Both halves are asserted here, because either alone is weak: that every
+		rider's mirror exists (the original claim, now met without the host), and
+		that the host's redundant call opens no SECOND engine observer (the
+		regression this fix could plausibly have caused on every catalogue fixture
+		and on RascalRally at once). ]]
 	it("every catalogue fixture that rides the engine canvas gets its mirror bound", function()
 		local riders: { string } = {}
 		local bound = 0
@@ -720,16 +733,18 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 			end
 			local w = pickerWorld({ x = 0, y = 0, w = 400, h = 700 })
 			-- SPY ON THE SEAM the bind uses, not on a re-implementation of it:
-			-- `bindNativeScroll` registers `controller.observeScroll(path, cb)`, so a
-			-- registration IS the mirror existing
+			-- `bindNativeScroll` registers `observeScroll(path, cb)` on the adapter,
+			-- so a registration IS the mirror existing. On the ADAPTER, and before
+			-- the mount, because the framework's own bind lands during `present`.
+			local observed: { string } = {}
+			local realObserve = w.adapter.observeScroll
+			w.adapter.observeScroll = function(handle: any, cb: any)
+				table.insert(observed, tostring(handle and handle.path or "?"))
+				return realObserve(handle, cb)
+			end
 			local built = hostMountFixture(w, demo.module, false)
 			local controller = built.handle.controller
-			local realObserve = controller.observeScroll
-			local observed: { string } = {}
-			controller.observeScroll = function(path: string, cb: any)
-				table.insert(observed, path)
-				return realObserve(path, cb)
-			end
+			local atMount = #observed
 
 			local hasRider = false
 			for _, value in built :: any do
@@ -741,8 +756,12 @@ describe("showcase host: the fixture branch binds the native-scroll mirror", fun
 			end
 			if hasRider then
 				table.insert(riders, demo.module)
-				expect(`{demo.id}: observeScroll registrations {#observed > 0}`).toBe(
+				expect(`{demo.id}: observeScroll registrations {atMount > 0}`).toBe(
 					`{demo.id}: observeScroll registrations true`
+				)
+				-- ...and the host's own call is now a no-op on the same seam
+				expect(`{demo.id}: registrations added by the host bind {#observed - atMount}`).toBe(
+					`{demo.id}: registrations added by the host bind 0`
 				)
 				bound += 1
 			end

@@ -269,6 +269,7 @@
 -- `row_actions.composeWithReorder`, over a hit it owns outright).
 
 local contribution = require("../input/contribution")
+local nativeScrollBinding = require("./native_scroll_binding")
 local row_actions = require("./row_actions")
 local row_actions_state = require("../input/row_actions_state")
 local solverLib = require("../layout/solver")
@@ -2895,16 +2896,25 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		return { rowGroup, trayGroup }
 	end
 
-	-- wire the engine CanvasPosition mirror. `scrollPath` defaults to the mounted
-	-- ScrollView root (captured in buildFocusGroups after present); pass it
-	-- explicitly for a standalone mount that never runs the presenter. Returns an
-	-- unbind that stops the mirror and clears the keep-visible controller.
-	local function bindNativeScroll(controller: any, scrollPath: string?): () -> ()
-		local path = scrollPath or mountedScrollPath
-		assert(
-			path ~= nil,
-			"VirtualList.bindNativeScroll: scroll path unknown — present the control (so its mounted path is captured) or pass it explicitly"
-		)
+	--[[ THE ENGINE CanvasPosition MIRROR — installed by the FRAMEWORK, overridable
+		by the consumer (O-31).
+
+		This used to be a post-`present` obligation, and a consumer who forgot it got
+		a list that windowed its first rows forever with nothing to see. The
+		presenter now installs it through the contribution seams
+		(`bindController` + `syncGeometry`, see the bundle below); `mirror` is the
+		shared arbitration in `native_scroll_binding.luau` and its header carries the
+		measurement and the reasoning.
+
+		`bindNativeScroll` stays PUBLIC and unchanged in shape — a standalone mount
+		that never runs a presenter still needs it, and every existing caller
+		(RascalRally's Sponsor HUD among them) keeps working — but it is now
+		IDEMPOTENT: a bind that lands on the (controller, path) already mirroring
+		hands back the same stop function rather than opening a second engine
+		observer on the node. `scrollPath` still defaults to the mounted ScrollView
+		root; the refusal when neither is known is unchanged, because a bare mount
+		outside a presenter genuinely cannot answer it. ]]
+	local mirror = nativeScrollBinding.new(function(controller: any, path: string): () -> ()
 		local unsub = controller.observeScroll(path, function(pos: { x: number, y: number })
 			scrollTop:set(mainOf(pos))
 		end)
@@ -2929,6 +2939,15 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				boundScrollPath = nil
 			end
 		end
+	end)
+
+	local function bindNativeScroll(controller: any, scrollPath: string?): () -> ()
+		local path = scrollPath or mountedScrollPath
+		assert(
+			path ~= nil,
+			"VirtualList.bindNativeScroll: scroll path unknown — present the control (so its mounted path is captured) or pass it explicitly"
+		)
+		return mirror.bind(controller, path)
 	end
 
 	-- public programmatic scroll: clamp into the band and write CanvasPosition
@@ -3375,6 +3394,28 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 		end
 	end
 
+	--[[ THE ONE `syncGeometry` SEAM THIS CONTROL HAS, and it is one on purpose: the
+		hosted branch below already records that "two `syncGeometry` assignments would
+		leave whichever ran second holding the field", so everything that wants the
+		per-refresh geometry pass comes through here.
+
+		THE MOUNTED NODE IS O-31'S HALF. The list's root IS its ScrollView, so the
+		node's own path is the path the `CanvasPosition` mirror observes.
+		`buildFocusGroups` also writes `mountedScrollPath`, and still does for
+		everything else that reads it, but it CANNOT carry the mirror: the presenter
+		calls `focusGroups` only when the consumer left `navigationGroups` absent,
+		while this seam is fed in every configuration (measured —
+		`native_scroll_binding.luau`'s header). `noticeMount` re-asserts only when the
+		MOUNT changes, so the per-frame cost is one table comparison. ]]
+	local function syncGeometry(rectOf: ((string) -> any)?, rootNode: any?)
+		if type(rootNode) == "table" and rootNode.path ~= nil then
+			mountedScrollPath = rootNode.path
+			mirror.noticeMount(rootNode, rootNode.path)
+		end
+		-- a no-op on a declared list; the measurement's own seam on a measured one
+		measureWindow(rectOf, rootNode)
+	end
+
 	local bundle: any = {
 		focusGroups = buildFocusGroups,
 		handleActivate = handleActivate,
@@ -3384,6 +3425,10 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			if boundController == nil then
 				boundController = controller
 			end
+			-- ...and the scroll mirror's half of the same delivery (O-31): this is
+			-- the controller it will observe with, held until `syncGeometry` names
+			-- the mounted node to observe ON.
+			mirror.noticeController(controller)
 			if rowsAreTargets then
 				local reg = registry()
 				if reg ~= nil then
@@ -3399,6 +3444,7 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 				hostedWriteSlide()
 			end
 		end,
+		syncGeometry = syncGeometry,
 	}
 	if focusPolicy == "index" or hostedEnabled then
 		-- the index policy is the one flow here that MOVES focus instead of
@@ -3461,10 +3507,12 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			-- ...and re-assert the slide, which is how it survives a row that
 			-- unmounted and came back (see `hostedWriteSlide`'s own comment)
 			hostedWriteSlide()
-			-- ONE seam, both features: a hosted list may also be a measured one, and
+			-- ONE seam, every feature: a hosted list may also be a measured one, and
 			-- two `syncGeometry` assignments would leave whichever ran second holding
-			-- the field. Measured mode is a no-op on a declared list.
-			measureWindow(rectOf, rootNode)
+			-- the field. The base seam carries the measurement (a no-op on a declared
+			-- list) and O-31's scroll-mirror mount notice, so this branch DECORATES it
+			-- rather than replacing it.
+			syncGeometry(rectOf, rootNode)
 		end
 		--[[ OUTSIDE-TAP CLOSES THE OPEN ROW — the OUT-of-list half. The presenter
 			compares the tapped path against this CONTRIBUTION's path (Zone A over
@@ -3491,12 +3539,9 @@ function virtual_list.build(LuauUI: any, core: any, spec: any)
 			consume = false,
 		}
 	end
-	if itemExtentIsMeasured and bundle.syncGeometry == nil then
-		-- a MEASURED list with no hosted row actions: the seam exists for the
-		-- measurement alone. (With `rowActions` the hosted branch above already owns
-		-- the field and calls `measureWindow` itself — one seam, never two writers.)
-		bundle.syncGeometry = measureWindow
-	end
+	-- (the measured list needs no branch of its own any more: the base
+	-- `syncGeometry` above always calls `measureWindow`, which is a no-op on a
+	-- declared list — one seam, never two writers.)
 	if reorderable then
 		bundle.navigateIntercept = navigateIntercept
 	end

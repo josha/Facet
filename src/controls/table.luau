@@ -36,6 +36,7 @@
 -- tests/table.spec.luau (windowing/selection/reorder decisions stay pure).
 
 local contribution = require("../input/contribution")
+local nativeScrollBinding = require("./native_scroll_binding")
 local interactionTokens = require("../input/interaction_tokens")
 local solverLib = require("../layout/solver")
 local textFit = require("../layout/text_fit")
@@ -3677,13 +3678,21 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- shape), so the tray-close binds to the real scrolling ancestor. Before this,
 	-- both were bound to `<root>/Main/Body` — a plain VStack the renderer elides —
 	-- and a page scroll left the tray open, which is the reported symptom.
-	function api.bindNativeScroll(controller: any, scrollPath: string?): () -> ()
-		assert(
-			scrollPath ~= nil or mountedRoot ~= nil,
-			"Table.bindNativeScroll: scroll path unknown — present the table (so its mounted path is captured) or pass it explicitly"
-		)
+	--[[ ...AND IT IS THE FRAMEWORK THAT CALLS IT NOW (O-31). The mirror is installed
+		from the contribution's `bindController` + `syncGeometry` below, so a table
+		whose consumer never made this call still follows its own engine scroll.
+		`api.bindNativeScroll` stays public and unchanged in shape — RascalRally's
+		Sponsor HUD calls it from its own `onGeometry` and holds the unbind — but is
+		now IDEMPOTENT through the shared arbitration in
+		`native_scroll_binding.luau`: a bind onto the (controller, path) already
+		mirroring hands back the same stop function instead of opening a second (and,
+		with `rowActions`, a fourth) engine observer on the body.
+
+		THE BLOCK TABLE IS WHY THE AUTO-BIND NEEDS NO OPT-OUT KEY. Everything the
+		next paragraph says about `api.scrollPath()` being nil under
+		`scrolls = false` is what the automatic path reads too. ]]
+	local mirror = nativeScrollBinding.new(function(controller: any, path: string?): () -> ()
 		-- THIS table's own canvas: nil for a block table, which has none.
-		local path = scrollPath or api.scrollPath()
 		local unsub = if path ~= nil
 			then controller.observeScroll(path, function(pos: { x: number, y: number })
 				scrollTop:set(pos.y)
@@ -3710,6 +3719,14 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				boundScrollPath = nil
 			end
 		end
+	end)
+
+	function api.bindNativeScroll(controller: any, scrollPath: string?): () -> ()
+		assert(
+			scrollPath ~= nil or mountedRoot ~= nil,
+			"Table.bindNativeScroll: scroll path unknown — present the table (so its mounted path is captured) or pass it explicitly"
+		)
+		return mirror.bind(controller, scrollPath or api.scrollPath())
 	end
 	-- the mounted native-scroll host path (nil until first presented/refreshed,
 	-- and nil FOREVER for a block table — see `bindNativeScroll` above: under
@@ -3870,6 +3887,22 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				-- for exactly this ("a control that needs the solved rect of one of
 				-- its own descendants would otherwise have to guess the path").
 				local root = (if type(node) == "table" then node.path else nil) or mountedRoot
+				--[[ ...AND THE SAME NODE IS WHERE THE SCROLL MIRROR COMES FROM (O-31).
+					`mountedRoot` is adopted here rather than waited for, for the reason
+					the paragraph above already gives — this seam runs a whole refresh
+					EARLIER than `buildFocusGroups`, and it runs in every presenter
+					configuration where `buildFocusGroups` runs in only one. Setting it
+					from the same node it would have been set from is not a new authority,
+					only an earlier one, and it is what lets `api.scrollPath()` answer
+					before a consumer's first `onGeometry`.
+
+					`noticeMount` re-asserts only when the MOUNT changes, so this costs one
+					table comparison per refresh, and a block table's nil path binds no
+					mirror while still wiring its tray-close. ]]
+				if root ~= nil then
+					mountedRoot = root
+					mirror.noticeMount(node, api.scrollPath())
+				end
 				if hasAlignedHeader and root ~= nil and renderController ~= nil then
 					local inset = renderController.scrollBarInsetOf(root .. "/Main/Body")
 					local right = if type(inset) == "table" and type(inset.right) == "number" then inset.right else 0
@@ -3887,6 +3920,10 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- name it. Re-called on every structural sync; assignment is idempotent.
 			bindController = function(controller)
 				renderController = controller
+				-- ...and the scroll mirror's half of the same delivery (O-31): the
+				-- controller it will observe with, held until `syncGeometry` above
+				-- names the mounted body to observe ON.
+				mirror.noticeController(controller)
 			end,
 			-- the focus graph, for the RELEASE of a selected column: the presenter only
 			-- routes `focusMoved` to contributions that prefix the newly focused path,
