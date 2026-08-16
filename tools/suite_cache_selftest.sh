@@ -102,10 +102,21 @@ else
 	no "a new file under tests/ changes the fingerprint — INVALIDATION DOES NOT BITE"
 fi
 
-if [ "$(tools/test.sh --status)" = "miss" ]; then
-	ok "a changed tree reports a cache MISS (the sweep re-runs)"
+# AGAINST AN ISOLATED CACHE HOLDING THE PREVIOUS TREE STATE, not the real one.
+# Asking the real cache "is the probe's fingerprint a miss?" is a check that can
+# POISON ITSELF: a concurrent sweep running while the probe exists computes the
+# probe's fingerprint, misses, runs the suite and caches an entry under it — and
+# from then on this assertion is unpassable until that entry ages out. Observed
+# 2026-08-16 by the D5 lane, and it is the same "a test that damages its own
+# environment" family as docs/lessons/a-probe-file-under-src-can-kill-a-live-rojo.md.
+# Seeding a private cache with the ORIGINAL fingerprint also tests something
+# strictly stronger: a POPULATED but stale cache must miss, not merely an empty one.
+seeded="$TMP/seeded-previous-state"
+synth "$seeded" "$before" "$GREEN_BODY" 0 5618 0
+if [ "$(LUAUUI_SUITE_CACHE_DIR="$seeded" tools/test.sh --status)" = "miss" ]; then
+	ok "a cache holding the PREVIOUS tree state reports a MISS for the new one"
 else
-	no "a changed tree reports a cache MISS — a stale transcript would be served"
+	no "a cache holding the PREVIOUS tree state reports a MISS — a stale transcript would be served"
 fi
 
 printf -- '-- suite cache selftest probe CHANGED\nreturn {}\n' >tests/.suite_cache_selftest_probe.luau
@@ -117,6 +128,15 @@ else
 fi
 
 rm -f tests/.suite_cache_selftest_probe.luau
+# Sweep up after ourselves in the REAL cache. A concurrent run that happened to
+# fire while the probe existed may have cached an entry keyed to a tree state
+# that will never exist again; left behind it is dead weight at best, and it is
+# what made this check unpassable once already. Only the two fingerprints this
+# script created are touched — never another agent's entry.
+for junk in "$dirty" "$edited"; do
+	[ -n "$junk" ] && rm -f "${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}/$junk.txt" \
+		"${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}/$junk.meta"
+done
 restored="$(tools/test.sh --fingerprint)"
 if [ "$restored" = "$before" ]; then
 	ok "removing the edit restores the original fingerprint"
