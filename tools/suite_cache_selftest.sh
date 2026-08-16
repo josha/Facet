@@ -25,20 +25,23 @@ ok() { printf '  \xe2\x9c\x93 %s\n' "$1"; pass=$((pass + 1)); }
 no() { printf '  \xe2\x9c\x97 %s\n' "$1"; fail=$((fail + 1)); }
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"; rm -f tests/.suite_cache_selftest_probe.luau src/.suite_cache_selftest_probe.luau' EXIT
+trap 'rm -rf "$TMP"; rm -f tests/.suite_cache_selftest_probe.luau' EXIT
 
 # --- Build a synthetic cache in $1 whose meta claims fingerprint $2 -----------
 # Body/exit/pass/fail are the axes each refusal case bends.
 synth() {
 	local dir="$1" fp="$2" body="$3" code="$4" passed="$5" failed="$6"
 	mkdir -p "$dir"
-	printf '%s\n' "$body" >"$dir/transcript.txt"
+	# Entries are keyed by fingerprint, exactly as tools/test.sh writes them —
+	# a synthetic cache that used a different layout would prove nothing about
+	# the real one.
+	printf '%s\n' "$body" >"$dir/$fp.txt"
 	{
 		echo "fingerprint=$fp"
 		echo "exit_code=$code"
 		echo "passed=$passed"
 		echo "failed=$failed"
-	} >"$dir/meta"
+	} >"$dir/$fp.meta"
 }
 
 GREEN_BODY=$'\xe2\x9c\x93 a case that passed\n5618 passed\n0 failed'
@@ -132,7 +135,7 @@ else
 fi
 
 synth "$TMP/nometa" "$before" "$GREEN_BODY" 0 5618 0
-rm -f "$TMP/nometa/meta"
+rm -f "$TMP/nometa/$before.meta"
 if [ "$(LUAUUI_SUITE_CACHE_DIR="$TMP/nometa" tools/test.sh --status)" = "miss" ]; then
 	ok "a transcript with no meta reports MISS"
 else
@@ -161,8 +164,9 @@ refuses "an EMPTY transcript is refused" "" 0 5618 0
 # A transcript mutated on disk after caching still has to redden the checks that
 # read it. Deleting the summary line is the cheapest real corruption.
 mutated="$TMP/mutated"
-synth "$mutated" "$(tools/test.sh --fingerprint)" "$GREEN_BODY" 0 5618 0
-printf '%s\n' $'\xe2\x9c\x93 a case that passed' >"$mutated/transcript.txt"
+mutated_fp="$(tools/test.sh --fingerprint)"
+synth "$mutated" "$mutated_fp" "$GREEN_BODY" 0 5618 0
+printf '%s\n' $'\xe2\x9c\x93 a case that passed' >"$mutated/$mutated_fp.txt"
 out="$(LUAUUI_SUITE_CACHE_DIR="$mutated" tools/suite_transcript.sh 2>/dev/null)"
 if [ $? -ne 0 ] && [ -z "$out" ]; then
 	ok "a transcript mutated on disk after caching is refused"
@@ -190,13 +194,16 @@ if ! tools/test.sh --ensure-cache; then
 	no "tools/test.sh --ensure-cache leaves a valid cache (suite is red?)"
 else
 	ok "tools/test.sh --ensure-cache leaves a valid cache"
-	stamp_before="$(shasum -a 256 artifacts/suite_cache/transcript.txt | cut -d' ' -f1)"
-	mtime_before="$(stat -f %m artifacts/suite_cache/transcript.txt 2>/dev/null || stat -c %Y artifacts/suite_cache/transcript.txt)"
+	# --ensure-cache reports the entry it validated; the filename is keyed by
+	# fingerprint, so there is no fixed path to stat.
+	entry="$(tools/test.sh --ensure-cache)"
+	stamp_before="$(shasum -a 256 "$entry" | cut -d' ' -f1)"
+	mtime_before="$(stat -f %m "$entry" 2>/dev/null || stat -c %Y "$entry")"
 	start=$SECONDS
 	tools/suite_transcript.sh >/dev/null
 	elapsed=$((SECONDS - start))
-	mtime_after="$(stat -f %m artifacts/suite_cache/transcript.txt 2>/dev/null || stat -c %Y artifacts/suite_cache/transcript.txt)"
-	stamp_after="$(shasum -a 256 artifacts/suite_cache/transcript.txt | cut -d' ' -f1)"
+	mtime_after="$(stat -f %m "$entry" 2>/dev/null || stat -c %Y "$entry")"
+	stamp_after="$(shasum -a 256 "$entry" | cut -d' ' -f1)"
 	if [ "$mtime_before" = "$mtime_after" ] && [ "$stamp_before" = "$stamp_after" ]; then
 		ok "a warm call re-runs nothing (transcript untouched, ${elapsed}s)"
 	else
@@ -234,21 +241,46 @@ else
 	no "RascalRally: --fingerprint prints a content hash — got ${rr_before:0:70}"
 fi
 
-printf -- '-- suite cache selftest probe\nreturn {}\n' >src/.suite_cache_selftest_probe.luau
+# THE PROBE GOES IN tests/, NEVER src/ — and that is not cosmetic.
+# `examples/showcase.project.json` mounts `../src`, so a Rojo server running the
+# dev loop watches it. Creating a file there and deleting it moments later RACES
+# Rojo's change processor, which canonicalizes the path after the event and
+# panics when it has already gone:
+#     called `Result::unwrap()` on an `Err` value: Custom { kind: NotFound, …
+#     path: ".../src/.suite_cache_selftest_probe.luau" } in change_processor.rs
+# It killed a live server once and then survived the same sequence twice on
+# retry, which is worse than a reliable failure: this is a gate check, so a
+# sweep would kill the dev loop at random. `tests/` is mounted by no project
+# file, and it is inside RascalRally's fingerprint for the same reason `src/` is
+# — its specs require LuauUI's tests/lib directly.
+printf -- '-- suite cache selftest probe\nreturn {}\n' >tests/.suite_cache_selftest_probe.luau
 rr_dirty="$(rr_fp)"
-rm -f src/.suite_cache_selftest_probe.luau
+rm -f tests/.suite_cache_selftest_probe.luau
 if [ "$rr_dirty" != "$rr_before" ]; then
-	ok "RascalRally: a LuauUI src/ edit changes the RascalRally fingerprint"
+	ok "RascalRally: a LuauUI-side edit changes the RascalRally fingerprint"
 else
-	no "RascalRally: a LuauUI src/ edit changes the RascalRally fingerprint — the consumer would serve a stale green"
+	no "RascalRally: a LuauUI-side edit changes the RascalRally fingerprint — the consumer would serve a stale green"
+fi
+
+# The probe above proves the fingerprint is content-sensitive to a LuauUI edit.
+# It cannot prove WHICH LuauUI roots are covered, and `src/` is the one that
+# matters most — a game suite that missed it would serve a stale green over a
+# framework change. Asserted as a declaration, and labelled as one.
+rr_roots="$(cd "$RR" && tools/suite_transcript.sh --roots)"
+if printf '%s\n' "$rr_roots" | grep -q '/LuauUI/src$'; then
+	ok "RascalRally: LuauUI src/ is a declared fingerprint root"
+else
+	no "RascalRally: LuauUI src/ is a declared fingerprint root — got: $(printf '%s' "$rr_roots" | tr '\n' ' ')"
 fi
 
 rr_refuses() {
 	local label="$1" body="$2" code="$3"
 	local dir="$TMP/rr-$RANDOM"
+	local fp
+	fp="$(rr_fp)"
 	mkdir -p "$dir"
-	printf '%s\n' "$body" >"$dir/transcript.txt"
-	{ echo "fingerprint=$(rr_fp)"; echo "exit_code=$code"; } >"$dir/meta"
+	printf '%s\n' "$body" >"$dir/$fp.txt"
+	{ echo "fingerprint=$fp"; echo "exit_code=$code"; } >"$dir/$fp.meta"
 	# $dir is absolute (mktemp -d), so it survives the cd into the other repo.
 	local out rc
 	out="$(cd "$RR" && RR_SUITE_CACHE_DIR="$dir" tools/suite_transcript.sh 2>/dev/null)"

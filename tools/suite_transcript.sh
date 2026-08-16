@@ -21,11 +21,16 @@ set -uo pipefail
 cd "$(dirname "$0")/.."
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-CACHE_DIR="${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}"
-
-if ! tools/test.sh --ensure-cache >/dev/null; then
+# tools/test.sh --ensure-cache validates the entry and prints its path, so the
+# fingerprint is computed exactly once per call and the path cannot drift
+# between deciding it is trustworthy and reading it.
+if ! entry="$(tools/test.sh --ensure-cache)"; then
 	echo "suite_transcript: no trustworthy transcript to serve (see the line above)" >&2
 	exit 1
 fi
+if [ -z "$entry" ] || [ ! -f "$entry" ]; then
+	echo "suite_transcript: the cache reported PASS but named no readable transcript" >&2
+	exit 1
+fi
 
-cat "$CACHE_DIR/transcript.txt"
+cat "$entry"

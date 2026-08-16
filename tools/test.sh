@@ -43,6 +43,14 @@
 #      through once already (mutation M9, 2026-08-13).
 #   4. HIT-OR-RUN, NEVER TRUST-THE-FILE. A miss runs the suite. `tools/gate.sh
 #      <one-gate>` outside a sweep stays exactly as honest as it was.
+#   5. TWO SWEEPS MAY RUN AT ONCE. Cache entries are named by fingerprint and a
+#      live entry is never deleted, so a second agent cannot pull the file out
+#      from under a reader mid-check. Deleting the metadata before rewriting it
+#      — the obvious way to make a partial write un-hittable — made a concurrent
+#      gate row go transiently red instead (observed 2026-08-16 during D2).
+#      Transcript first, then metadata, both by atomic rename; the metadata's
+#      existence is what makes an entry hittable, so a half-written entry is a
+#      miss rather than a lie.
 #
 # PASS/FAIL COUNTS ARE RE-DERIVED FROM THE TRANSCRIPT, never read back from the
 # cached metadata, so a transcript mutated on disk after caching cannot hide
@@ -59,8 +67,14 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
 CACHE_DIR="${LUAUUI_SUITE_CACHE_DIR:-artifacts/suite_cache}"
-TRANSCRIPT="$CACHE_DIR/transcript.txt"
-META="$CACHE_DIR/meta"
+# Entries are keyed by fingerprint so two agents on two tree states never
+# contend for one filename. Set once the fingerprint is known.
+TRANSCRIPT=""
+META=""
+set_entry() {
+	TRANSCRIPT="$CACHE_DIR/$1.txt"
+	META="$CACHE_DIR/$1.meta"
+}
 
 # The tree the suite actually reads. examples/ is in here because the example
 # drift and reference-app specs require those modules; vendor/ because the
@@ -80,6 +94,9 @@ meta_get() {
 }
 
 cache_status() {
+	set_entry "$1"
+	# The metadata is written LAST, so its presence means the transcript beside
+	# it is complete. A half-written entry is a miss, never a lie.
 	if [ ! -f "$TRANSCRIPT" ] || [ ! -f "$META" ]; then
 		echo miss
 		return
@@ -123,6 +140,9 @@ esac
 mkdir -p artifacts
 
 fingerprint="$(suite_fingerprint)"
+# set_entry in the PARENT shell. cache_status also calls it, but it runs inside
+# `$( )` — a subshell — so the paths it sets there are discarded on the way out.
+set_entry "$fingerprint"
 cached=0
 if [ "$(cache_status "$fingerprint")" = "hit" ]; then
 	plain="$(cat "$TRANSCRIPT")"
@@ -142,18 +162,22 @@ passed="$(printf '%s' "$plain" | grep -Eo '^[0-9]+ passed' | grep -Eo '^[0-9]+' 
 failed="$(printf '%s' "$plain" | grep -Eo '^[0-9]+ failed' | grep -Eo '^[0-9]+' | tail -1)"
 
 if [ "$cached" -eq 0 ]; then
-	# Meta goes away FIRST and comes back LAST, so a crash mid-write leaves no
-	# fingerprint to hit and the next call re-runs. The opposite order can pair
-	# an old fingerprint with a new transcript.
+	# Transcript first, metadata last, each by atomic rename into the same
+	# directory. Nothing live is ever removed, so a concurrent reader on this
+	# same fingerprint sees either the previous complete entry or the new one.
+	# Temp names carry $$ so two writers cannot collide on the staging file.
 	mkdir -p "$CACHE_DIR"
-	rm -f "$META"
-	printf '%s\n' "$plain" >"$CACHE_DIR/.transcript.tmp" && mv -f "$CACHE_DIR/.transcript.tmp" "$TRANSCRIPT"
+	printf '%s\n' "$plain" >"$CACHE_DIR/.$$.transcript" && mv -f "$CACHE_DIR/.$$.transcript" "$TRANSCRIPT"
 	{
 		echo "fingerprint=$fingerprint"
 		echo "exit_code=$code"
 		echo "passed=${passed:-}"
 		echo "failed=${failed:-}"
-	} >"$CACHE_DIR/.meta.tmp" && mv -f "$CACHE_DIR/.meta.tmp" "$META"
+	} >"$CACHE_DIR/.$$.meta" && mv -f "$CACHE_DIR/.$$.meta" "$META"
+	# Bounded, and deliberately not "keep the newest N": another agent may be
+	# reading an entry for a tree state this one knows nothing about. A day is
+	# far longer than any sweep.
+	find "$CACHE_DIR" -maxdepth 1 -type f -mtime +1 -delete 2>/dev/null || true
 fi
 
 status=FAIL
@@ -184,6 +208,10 @@ fi
 
 if [ "$ensure_only" -eq 1 ]; then
 	if [ "$status" = "PASS" ]; then
+		# Print the entry's path: the caller needs it, and recomputing the
+		# fingerprint to re-derive it would both cost a second hash and open a
+		# window in which the answer changed between the two calls.
+		echo "$TRANSCRIPT"
 		exit 0
 	fi
 	echo "tools/test.sh --ensure-cache: refusing this transcript - $reason" >&2
