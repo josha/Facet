@@ -144,6 +144,17 @@ local function controlVocabulary(core: any, _deps: any): any
 		label = "Quality",
 		options = { { label = "Low", value = "low" }, { label = "High", value = "high" } },
 		selected = core:signal("low"),
+		-- `indicator = "none"` DELIBERATELY, and it is the one caller in the repo
+		-- that is right to pin it (navigation-and-menus D6, which flipped the
+		-- segmented default to the sliding pill). This fixture is not a screen: it
+		-- is the frozen input `check_flat_baseline` regenerates and compares
+		-- node-for-node against the stored 0.6.0 `control-vocabulary` render, and
+		-- that comparison IS the flat-theme byte-compatibility claim (ADR-0020 R9).
+		-- Letting the new default in here would re-pin the framework claim to make
+		-- a paint change quiet — which is the exact failure `check_flat_baseline`'s
+		-- own header warns about. The new default is swept where it belongs: the
+		-- `Picker-indicator` large-text fixture and `tests/picker_segments.spec`.
+		indicator = "none",
 	})
 	local disclosure = LuauUI.newDisclosureGroup(LuauUI, core, {
 		id = "More",

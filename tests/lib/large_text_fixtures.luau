@@ -295,6 +295,12 @@ local FIXTURES: { Fixture } = {
 					{ value = "a", label = lt.PSEUDO_ACTION },
 					{ value = "b", label = lt.PSEUDO_SECONDARY },
 				},
+				-- THE ESCAPE HATCH, declared (navigation-and-menus D6). A two-option
+				-- picker resolves segmented, and the segmented presentation now
+				-- carries the sliding indicator by DEFAULT — so the unindicated
+				-- shape, which this fixture exists to sweep, has to ask for itself.
+				-- The `Picker-indicator` fixture below sweeps the shipped default.
+				indicator = "none",
 			}).blueprint
 		end,
 		allowClipped = { "/S/Ctl/Options" },

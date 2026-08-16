@@ -5359,8 +5359,15 @@ content) when it must be pressable, which keeps one activation surface.
 
 `LuauUI.newPicker(LuauUI, core, spec) -> { blueprint, presentation, dump, dispose }`
 — single selection from a small option set. `spec = { id?, label?, options ({ value,
-label }[]), selected (Signal), presentation? ("automatic" | "segmented" | "inline"),
-sizeClass?, enabled?, onChange? }`.
+label, icon? }[]), selected (Signal), presentation? ("automatic" | "segmented" |
+"inline"), indicator? ("automatic" | "none" | "underline" | "pill"), axis? ("x" |
+"y"), iconOnly? (boolean), sizeClass?, env?, enabled?, onChange? }`.
+
+**A segmented picker used as a tab bar IS a `TabView`.** If the strip switches
+between *screens* rather than choosing a *value*, reach for `TabView`, which owns the
+content subtree and its lifecycle, the placement that restructures the screen, and
+nesting. It composes this control for its own strip — the two are the same row, and
+that is deliberate. A picker chooses a value; a tab view chooses a page.
 
 **The presentation is adaptive, not a platform branch.** `"automatic"` (the default)
 picks from the option count and the space class you pass in — typically
@@ -5383,14 +5390,49 @@ state. Selection rides the `selected` binding (a style tag), never a bespoke fil
 every option row meets the enforced 44 px floor. For a popup presentation use
 `newPopupButton`, which owns the transient-surface machinery.
 
+#### Icons on an option — `icon` and `iconOnly`
+
+`Option.icon` is a **semantic icon name** (`"close"`, `"chevron.trailing"`, a
+namespaced `"ns:name"`), never an asset id — the same currency `newLabel` and the
+row-action menus spend, so a theme package that ships art for that name paints it and
+one that does not draws the framework's ASCII-safe glyph.
+
+|  |  |
+|---|---|
+| `iconOnly = false` (default) | the segment **keeps its word** and wears the glyph only when the word does not fit. Authoring an icon beside a label is authoring a ladder, not a second slot |
+| `iconOnly = true` | the glyph is what **every** segment wears at every width — `f1`'s top pill and left rail. `label` stays the semantic name: it is what `dump().semanticText` announces and what an assistive reader gets |
+
+Two rules are enforced at construction rather than left to be noticed on a screen:
+
+- **`label` is required and non-empty on every option**, whatever is drawn. An icon
+  with no name is unreadable to every non-visual consumer.
+- **Provide icons for all options in a group, or none of them** (HIG: Menus). A
+  half-iconned group looks fine at the one width it was authored at and wrong
+  everywhere else, so it is an authoring error. `iconOnly` with no icons is refused
+  for the same reason — there would be nothing to draw.
+
+A permanent icon-*beside*-title pair is `newLabel` inside a `Button`, which is a
+different construct and already owns that layout.
+
 #### The sliding selection indicator — `indicator` and `axis`
 
-`indicator = "none"` (default) `| "underline" | "pill"`. When it is on, the
-selection chip or bar **animates from the previously selected option's rect to the
+`indicator = "automatic"` (default) `| "none" | "underline" | "pill"`. When it is on,
+the selection chip or bar **animates from the previously selected option's rect to the
 new one** instead of the fill cross-fading — LuauUI's answer to SwiftUI's
 `matchedGeometryEffect` for the selection case. The mechanism is internal
 (`src/controls/selection_indicator.luau`); this property is the whole public
-surface, and D5's `TabView` will carry the same one.
+surface, and `TabView` carries the same one.
+
+**`"automatic"` is the pill**, unless you declared `presentation = "inline"` — the
+stacked row list never wore a chip, so it resolves to `"none"` and its painting is
+unchanged. Everything else, including the `"automatic"` presentation most callers
+write, gets the pill: a segmented control with a sliding chip is what every reference
+product draws, and a mechanism nobody consumes by default is a mechanism nobody has
+proved. An adaptive picker that flips into its stacked form **carries its chip with
+it** — one selection paint re-solved, rather than two paintings swapping.
+
+`indicator = "none"` is the escape hatch back to the static `selected` style tag, and
+it leaves the pre-indicator control byte-identical.
 
 ```lua
 LuauUI.newPicker(LuauUI, core, {
@@ -5398,7 +5440,7 @@ LuauUI.newPicker(LuauUI, core, {
     selected = view,
     options = { { value = "grid", label = "Grid" }, { value = "list", label = "List" } },
     presentation = "segmented",
-    indicator = "pill",     -- the chip SLIDES between the two segments
+    indicator = "pill",     -- the DEFAULT for segmented; spell it out or leave it off
     axis = "y",             -- ...and this makes it a VERTICAL pill (f1's left rail)
     env = env,              -- optional: the bar's metrics then follow a live theme
 })
@@ -5408,7 +5450,22 @@ LuauUI.newPicker(LuauUI, core, {
 |---|---|
 | `"underline"` | a bar on the far edge of the strip's axis — the bottom of a horizontal segment, the leading edge of a vertical one. Its depth is `thickness`, a theme metric (`"space.xs"` by default), and it spans the segment's full cross extent |
 | `"pill"` | the whole segment box, inset on all four sides (`"space.xs"`), rounded with the theme's `pill` radius — r3's chip |
-| `axis` | `"x"` (default) or `"y"`, and it applies to the **segmented** presentation. `"y"` is a real vertical *pill*; the stacked row list is `presentation = "inline"`, a different shape, and this does not overload it. Under `inline` the axis is a column by definition and `axis` is inert |
+| `axis` | `"x"` (default) or `"y"`, and it applies to the **segmented** presentation. `"y"` is a real vertical *pill* — see below. Under `inline` the axis is a column by definition and `axis` is inert |
+
+#### The vertical pill is not the inline row list
+
+Both stack their options along y, and both report `axis = "y"`. What tells them apart
+is the **container**, and it is the thing to look at when a picker is the wrong width:
+
+|  | container | segments |
+|---|---|---|
+| `presentation = "segmented"`, `axis = "y"` | a **rail**: content-sized, floored at the 44 px target, as wide as its widest segment and no wider — so it sits at the edge of a screen the way `f1`'s left rail does | cross-axis `fill`, so every segment shares that one width |
+| `presentation = "inline"` | a **full-width column**: every row spans the offer, which is what makes it a list of rows rather than a control | full width |
+
+`dump().verticalPill` is the boolean that says which one is on screen. The floor is
+load-bearing rather than defensive: an icon-only rail has nothing wide in it and
+solves to 36 px without it, which is under the tap target on both axes.
+
 
 **Turning the indicator on changes what the options paint**, deliberately:
 they stop carrying the `selected` style tag and are declared `surface = "plain"`.
@@ -5444,9 +5501,14 @@ picker wraps its options: the mounted options move from `…/Options/OptN` to
 Activation is unaffected (the control dispatches on the leaf segment), and
 `indicator = "none"` leaves the original paths untouched.
 
-`dump()` gains `axis` and `indicator` — the latter being the seam's live state
-(`skin`, `axis`, the resolved rect, how many placements and how many slides, how
-many times the fed geometry actually moved), or the string `"none"`.
+`dump()` carries `axis`, `verticalPill`, `requestedIndicator`, `indicator`,
+`iconOnly`, `iconCount`, `selectedLabel` and `selectedIcon` beside the fields it
+always had. `indicator` is the seam's live state (`skin`, `axis`, the resolved rect,
+how many placements and how many slides, how many times the fed geometry actually
+moved), or the string `"none"`. The schema string is still
+`"luauui-picker-dump/1"`: every field that shipped keeps its name, type and meaning,
+so nothing written against `/1` breaks — a schema string warns about an incompatible
+shape, and adding fields is not one.
 
 ### `newDisclosureGroup`
 

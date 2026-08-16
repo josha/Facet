@@ -317,7 +317,9 @@ describe("showcase chrome (1): a keyboard alone can change demo and change theme
 			if
 				focused ~= nil
 				and w.chrome.kind:get() == "demos"
-				and string.find(focused, "/Section/Options/Opt2", 1, true) ~= nil
+				-- one level deeper since D6: the section switch is segmented, so it
+				-- carries the sliding indicator by default
+				and string.find(focused, "/Section/Indicator/Options/Opt2", 1, true) ~= nil
 			then
 				reached = true
 				break
@@ -433,13 +435,16 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 				continue
 			end
 			-- the section switch first (its second option is Settings)...
-			if w.chrome.kind:get() == "demos" and string.find(focused, "/Section/Options/Opt2", 1, true) ~= nil then
+			if
+				w.chrome.kind:get() == "demos"
+				and string.find(focused, "/Section/Indicator/Options/Opt2", 1, true) ~= nil
+			then
 				press(w.system, "ButtonA")
 				w.settle()
 				continue
 			end
 			-- ...then the motion picker's second option, which is Reduced
-			if string.find(focused, "/MotionMode/Options/Opt2", 1, true) ~= nil then
+			if string.find(focused, "/MotionMode/Indicator/Options/Opt2", 1, true) ~= nil then
 				press(w.system, "ButtonA")
 				w.settle()
 				ok = true

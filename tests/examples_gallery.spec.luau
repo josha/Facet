@@ -2341,8 +2341,11 @@ describe("examples/gallery fixture: withAnimation + reduced motion", function()
 	local PANEL = STAGE .. "/Detail/then/Panel"
 	local CARD = STAGE .. "/Card"
 	local CARD_PIP = CARD .. "/Pip"
-	local FULL_OPTION = PAGE .. "/MotionMode/Options/Opt1"
-	local REDUCED_OPTION = PAGE .. "/MotionMode/Options/Opt2"
+	-- ONE LEVEL DEEPER since navigation-and-menus D6: this picker is declared
+	-- `segmented`, and the segmented presentation now paints the sliding indicator
+	-- by default, which shares a parent with the option stack.
+	local FULL_OPTION = PAGE .. "/MotionMode/Indicator/Options/Opt1"
+	local REDUCED_OPTION = PAGE .. "/MotionMode/Indicator/Options/Opt2"
 	local FRAME = 1 / 60
 
 	local function chipPath(name: string): string

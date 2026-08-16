@@ -554,10 +554,14 @@ describe("migrated controls: byte-parity under Studio Neutral", function()
 				selected = core:signal("low"),
 			}).blueprint
 		end)
-		expect(picker.node("/S/Q/Options/Opt1").rect.h).toBe(46)
-		-- a two-option picker is segmented, so the `xs` step separates them across
-		local opt1 = picker.node("/S/Q/Options/Opt1").rect
-		expect(picker.node("/S/Q/Options/Opt2").rect.x - (opt1.x + opt1.w)).toBe(defaultStyle.space.xs)
+		-- ONE LEVEL DEEPER since navigation-and-menus D6: a two-option picker is
+		-- segmented, and the segmented presentation now carries the sliding
+		-- indicator by default, which shares a parent with the option stack. The
+		-- theme numbers this case is about are unchanged.
+		expect(picker.node("/S/Q/Indicator/Options/Opt1").rect.h).toBe(46)
+		-- ...and the `xs` step still separates the two segments across
+		local opt1 = picker.node("/S/Q/Indicator/Options/Opt1").rect
+		expect(picker.node("/S/Q/Indicator/Options/Opt2").rect.x - (opt1.x + opt1.w)).toBe(defaultStyle.space.xs)
 		expect(picker.node("/S/Q/Label").props.textSize).toBe(14)
 	end)
 

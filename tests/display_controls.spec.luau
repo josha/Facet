@@ -228,13 +228,22 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		return core, env, adapter, system, pres, selected, control
 	end
 
+	-- WHERE AN OPTION LIVES depends on whether an indicator is on: the decoration
+	-- layer and the option stack have to share one parent, so an indicated
+	-- picker's options sit one level deeper. Since navigation-and-menus D6 the
+	-- SEGMENTED presentation carries one by default, so this is resolved from the
+	-- control's own dump rather than written out — a case must never hard-code the
+	-- answer it is testing. `tests/picker_segments.spec.luau` owns the D6 rules.
+	local function optPath(control: any, n: number): string
+		local base = if control.dump().indicator == "none" then "/S/Mode/Options" else "/S/Mode/Indicator/Options"
+		return `{base}/Opt{n}`
+	end
+
 	it("segmented lays options along x; inline stacks them along y", function()
-		local _, _, segAdapter = mountPicker({ presentation = "segmented" })
-		expect(segAdapter.node("/S/Mode/Options/Opt1").rect.y).toBe(segAdapter.node("/S/Mode/Options/Opt2").rect.y)
-		local _, _, inlineAdapter = mountPicker({ presentation = "inline" })
-		expect(inlineAdapter.node("/S/Mode/Options/Opt1").rect.x).toBe(
-			inlineAdapter.node("/S/Mode/Options/Opt2").rect.x
-		)
+		local _, _, segAdapter, _, _, _, seg = mountPicker({ presentation = "segmented" })
+		expect(segAdapter.node(optPath(seg, 1)).rect.y).toBe(segAdapter.node(optPath(seg, 2)).rect.y)
+		local _, _, inlineAdapter, _, _, _, inline = mountPicker({ presentation = "inline" })
+		expect(inlineAdapter.node(optPath(inline, 1)).rect.x).toBe(inlineAdapter.node(optPath(inline, 2)).rect.x)
 	end)
 
 	it("a live size-class change flips the presentation WITHOUT remounting the options", function()
@@ -266,12 +275,12 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 
 	it("pointer: tapping an option selects it and reports through onChange", function()
 		local changed: any = nil
-		local _, _, adapter, _, pres, selected = mountPicker({
+		local _, _, adapter, _, pres, selected, control = mountPicker({
 			onChange = function(v: any)
 				changed = v
 			end,
 		})
-		adapter.tap("/S/Mode/Options/Opt3")
+		adapter.tap(optPath(control, 3))
 		pres.refresh()
 		expect(selected:get()).toBe("c")
 		expect(changed).toBe("c")
@@ -294,24 +303,32 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 	end)
 
 	it("touch: a finger tap selects identically, and every row meets the floor", function()
-		local _, _, adapter, _, pres, selected = mountPicker()
-		adapter.tap("/S/Mode/Options/Opt1", { pointer = "touch" })
+		local _, _, adapter, _, pres, selected, control = mountPicker()
+		adapter.tap(optPath(control, 1), { pointer = "touch" })
 		pres.refresh()
 		expect(selected:get()).toBe("a")
 		for i = 1, 3 do
-			expect(adapter.node(`/S/Mode/Options/Opt{i}`).rect.h >= 44).toBe(true)
+			expect(adapter.node(optPath(control, i)).rect.h >= 44).toBe(true)
 		end
 	end)
 
 	it("selection rides the `selected` style binding, never a bespoke fill", function()
-		local _, _, adapter, _, pres = mountPicker()
-		expect(adapter.node("/S/Mode/Options/Opt2").props.selected).toBe(true)
-		expect(adapter.node("/S/Mode/Options/Opt1").props.selected).toBe(false)
+		-- `indicator = "none"` is the escape hatch back to this painting, and it is
+		-- what this rule is about: when the picker paints selection ITSELF it does
+		-- it with a style tag, never a bespoke fill. Since D6 the segmented default
+		-- hands that job to the sliding chip instead, which is asserted right below
+		-- so the two paintings can never both be believed at once.
+		local _, _, adapter, _, _, _, tagged = mountPicker({ indicator = "none" })
+		expect(adapter.node(optPath(tagged, 2)).props.selected).toBe(true)
+		expect(adapter.node(optPath(tagged, 1)).props.selected).toBe(false)
+		local _, _, chipAdapter, _, _, _, chipped = mountPicker()
+		expect(chipAdapter.node(optPath(chipped, 2)).props.selected).toBeNil()
+		expect(chipAdapter.node(optPath(chipped, 2)).props.surface).toBe("plain")
 	end)
 
 	it("a disabled Picker refuses selection", function()
-		local _, _, adapter, _, pres, selected = mountPicker({ enabled = false })
-		adapter.tap("/S/Mode/Options/Opt3")
+		local _, _, adapter, _, pres, selected, control = mountPicker({ enabled = false })
+		adapter.tap(optPath(control, 3))
 		pres.refresh()
 		expect(selected:get()).toBe("b")
 	end)

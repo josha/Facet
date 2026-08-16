@@ -649,8 +649,13 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		return `{base}/Opt{n}`
 	end
 
-	it("indicator defaults to none: the pre-D4 control is byte-identical", function()
-		local w = pickerWorld()
+	it('indicator = "none" is byte-identical to the pre-D4 control', function()
+		-- D4 shipped this as the DEFAULT so that nothing already on screen moved.
+		-- D6 flipped the default to the pill (an unconsumed mechanism is an
+		-- unproven one) and kept `"none"` as the documented escape hatch — so what
+		-- this case guards is unchanged, and it now has to ask for it.
+		-- `tests/picker_segments.spec.luau` owns the new default.
+		local w = pickerWorld({ indicator = "none" })
 		expect(w.adapter.node(PBAR)).toBeNil()
 		-- ...and selection is still the style tag it always was
 		expect(w.adapter.node(optPath(w, 1)).props.selected).toBe(true)
@@ -742,7 +747,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		end
 		local ok, err = pcall(build, { indicator = "glow" })
 		expect(ok).toBe(false)
-		expect(string.find(tostring(err), "none | underline | pill", 1, true) ~= nil).toBe(true)
+		expect(string.find(tostring(err), "automatic | none | underline | pill", 1, true) ~= nil).toBe(true)
 		local ok2, err2 = pcall(build, { axis = "z" })
 		expect(ok2).toBe(false)
 		expect(string.find(tostring(err2), "x | y", 1, true) ~= nil).toBe(true)
@@ -754,7 +759,7 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		-- and solves to ZERO. The wrapper therefore inherits the option stack's own
 		-- dimension, and this compares the indicated control against the plain one
 		-- rather than against a number somebody chose.
-		local plain = pickerWorld()
+		local plain = pickerWorld({ indicator = "none" })
 		local lit = pickerWorld({ indicator = "pill" })
 		local plainWidth = plain.adapter.node(optPath(plain, 1)).rect.w
 		expect(plainWidth > 0).toBe(true)

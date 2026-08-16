@@ -95,9 +95,11 @@ Statuses: `PASS_AUTOMATED` · `PASS_PHYSICAL` · `PASS_HUMAN` · `FAIL_PRODUCT` 
 
 | ID | User-visible behaviour | Risk | Evidence | Driver | Artifact | Status |
 |---|---|---|---|---|---|---|
-| **NM-6.1** | `Option` gains `icon`; icon-only and icon+label both render | An icon-only segment with no semantic label is unreadable to the dump and to assistive tech | E1 | spec + `dump()` semanticText | TBD | PENDING |
-| **NM-6.2** | A real **vertical pill**, distinct from today's `axis = "y"` inline row list | Overloading `axis="y"` silently changes every existing caller | E1 | spec asserting both shapes coexist | TBD | PENDING |
-| **NM-6.3** | Selection is D4's sliding indicator, not a static style tag | — | E1 | spec | TBD | PENDING |
+| **NM-6.1** | `Option` gains `icon`; icon-only and icon+label both render | An icon-only segment with no semantic label is unreadable to the dump and to assistive tech | E1 | `tests/picker_segments.spec.luau` — the glyph drawn at 200px and the word at 480px; `dump().semanticText` naming the option under `iconOnly`; three construction refusals (nameless option, half-iconned group, `iconOnly` with no icons) | `d6-segmented-picker.md` §3 | **PASS_AUTOMATED** |
+| **NM-6.2** | A real **vertical pill**, distinct from today's `axis = "y"` inline row list | Overloading `axis="y"` silently changes every existing caller | E1 | same spec — the rail hugs (44px floor on BOTH axes) while the row list spans the offer, both report `axis = "y"`, and `dump().verticalPill` separates them; a live size-class flip gives the offer back | `d6-segmented-picker.md` §4 | **PASS_AUTOMATED** |
+| **NM-6.3** | Selection is D4's sliding indicator, not a static style tag | Flipping a shipped control's default paint moves every existing caller at once | E1 | same spec — `indicator = "automatic"` resolves to the pill on segmented and on an ADAPTIVE picker; the options drop the `selected` tag; `"none"` is the escape hatch; 15-caller survey, 1 deliberately pinned (`_theme_baseline`, the frozen byte-compatibility fixture) | `d6-segmented-picker.md` §1-§2 | **PASS_AUTOMATED** |
+| **NM-6.4** | "Segmented used as a tab bar" is documented as `TabView`, and no second tab construct is built | Two segmented rows in one framework is how the icon-first ruling gets silently lost | E0 | `api.md` → `newPicker`, `swiftui-parity.md` → `Picker` and `PickerStyle`, and the source header D5 will read | `d6-segmented-picker.md` §5 | **PASS_AUTOMATED** |
+| **NM-6.5** | The upgraded strip reads correctly on a device: an icon-only 44px rail under a thumb, the chip's contrast in a themed package, the degrade-to-glyph boundary | Headless geometry cannot judge any of the three | E3 + E5 | a Studio device-matrix pass on a fixture that uses icons and the rail — neither ships in an example yet | — | **PENDING_HUMAN** |
 
 ## D7 — elision must disclose, not delete
 
