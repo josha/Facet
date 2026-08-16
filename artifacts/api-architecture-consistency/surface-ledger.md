@@ -60,7 +60,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newRating` | composite | control-build; one-Grip strip | F-25 (dump/dispose proof), PKT-7 | controls |
 | `newProgressView` | composite | control-build, non-interactive; `value` is OPTIONAL since parity round 2 §3.1 (`value = nil` = indeterminate), and `presentation` / `motionClock` join the spec — still no input contribution, so the registry row stays `inputProofs = false` | DOC-12, NOTE (parity round 2 §3.1, postdates the Step 7 F-n audit round) | controls |
 | `newLabel` | composite | control-build, non-interactive | F-23 (`semanticText` Readable) | controls |
-| `newPicker` | composite | control-build; adaptive presentation | DOC-22, PKT-6 | controls |
+| `newPicker` | composite | control-build; adaptive presentation. Gained `indicator` / `axis` / `env` in navigation-and-menus D4 — the sliding selection indicator is a PROPERTY here, not a construct: `src/controls/selection_indicator.luau` is INTERNAL (no export, no dump schema of its own; its state rides `picker.dump().indicator`), and its registry row names this export | DOC-22, PKT-6, NOTE (D4, postdates the Step 7 F-n audit round) | controls |
 | `newDisclosureGroup` | composite | control-build; focus-restore | NOTE (dual bindFocus path — constitution names contribution as canonical) | controls |
 | `newTextInput` | composite | control-build, `api` variant; commented dispose deviation (endEditing-first, deliberate) | F-26 (env guard), DOC-13, PKT-1 (`disabled`) | controls |
 | `newChip` | composite | control-build, minimal — the template shape | F-2 (validation) | controls |

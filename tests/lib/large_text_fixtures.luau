@@ -269,6 +269,38 @@ local FIXTURES: { Fixture } = {
 		why = LT_GAPS.G4,
 	},
 	{
+		--[[ The D4 seam is a DECORATION over the option strip, so the thing a
+			preference can break here is the relationship between the two: the chip
+			is derived from the SOLVED rect of the selected option, so a preference
+			that grows the label has to grow the chip with it. A hand-computed width
+			would drift at exactly one of the four offsets and nowhere else.
+
+			A second Picker fixture rather than a change to the first, because the
+			`indicator` property changes what the control PAINTS (the options go
+			plain and drop the selected tag) and the unindicated shape has to keep
+			being swept as well. ]]
+		id = "Picker-indicator",
+		class = "Picker",
+		build = function(core)
+			return LuauUI.newPicker(LuauUI, core, {
+				id = "Ctl",
+				selected = core:signal("a"),
+				presentation = "segmented",
+				indicator = "pill",
+				options = {
+					{ value = "a", label = lt.PSEUDO_ACTION },
+					{ value = "b", label = lt.PSEUDO_SECONDARY },
+				},
+			}).blueprint
+		end,
+		-- LT-G4, the SAME open gap the unindicated Picker fixture declares: an
+		-- option label has no `disclose` pass-through, so under Fantasy Parchment
+		-- at Larger it ellipsizes with no route to the whole string. The indicator
+		-- neither causes nor cures it — it decorates the box the label is in.
+		allowClipped = { "/S/Ctl/Indicator/Options" },
+		why = LT_GAPS.G4,
+	},
+	{
 		id = "DisclosureGroup",
 		class = "DisclosureGroup",
 		build = function(core)
@@ -781,6 +813,9 @@ local FIXTURES: { Fixture } = {
 -- registry rows that CANNOT be a fixture, each with the reason. Silence here
 -- would be the same silent-zero the extension checker exists to prevent.
 local UNSWEEPABLE: { [string]: string } = {
+	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "
+		.. "the layer Picker mounts, so it is swept through the `Picker-indicator` fixture — at every preference, in "
+		.. "both reference themes — rather than twice",
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on

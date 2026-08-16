@@ -103,6 +103,53 @@ local AFFORDANCE_GAPS: { [string]: { [string]: string } } = {}
 -- is about FOCUSABLE surfaces; ScrollView is deliberately non-interactive here.
 local INTERACTIVE_ACTION_EXCEPT: { [string]: boolean } = { ScrollView = true }
 
+--[[ COMPOSITES WHOSE CONTRIBUTION CARRIES NO VERB (2026-08-16).
+
+	"Attaches an input contribution" is the proxy this checker uses for "a
+	composite is interactive", and it was exactly right for every control that
+	had ever attached one. But the bundle also carries two seams that are pure
+	INTAKE — `syncGeometry` (the surface's solved rects, broadcast on the arrange
+	cadence) and `bindMotion` (the presenter's own motion clock) — and a
+	composite that declares only those advertises no verb on any input class and
+	mounts nothing focusable. The four-input bar then has nothing to be about:
+	there is no pointer story, no Return, no ButtonA, because there is no
+	surface to press.
+
+	Same shape as INTERACTIVE_ACTION_EXCEPT above and as check_theme_drift's
+	ALLOWLIST: an explicit, reviewable row carrying its reason, never a silent
+	weakening. And the exemption is GUARDED — a listed module whose source
+	mentions any verb-bearing bundle field loses it immediately (see
+	VERB_BEARING_FIELDS below), so a control that later grows a handler cannot
+	keep an exemption it has stopped deserving. ]]
+local CONTRIBUTION_INTAKE_ONLY: { [string]: string } = {
+	SelectionIndicator = "its bundle is syncGeometry + bindMotion only. It mounts an Anchor holding a Box, "
+		.. "neither of which is in focus_map.FOCUSABLE, and it is declared FIRST inside its ZStack so it paints "
+		.. "BEHIND the strip it decorates and can never take a tap from it. What it owes instead of four input "
+		.. "proofs is a proof that it stays out of the way, which tests/selection_indicator.spec.luau carries: "
+		.. "'the indicator is never a focus stop: wrapping a strip leaves its document order identical'",
+}
+
+-- every input-contribution field that makes a control INTERACTIVE. The two
+-- deliberately absent (`syncGeometry`, `bindMotion`) are the intake seams above.
+local VERB_BEARING_FIELDS = {
+	"focusGroups",
+	"handleActivate",
+	"navigateIntercept",
+	"focusMoved",
+	"keepVisibleOffset",
+	"bindActionSystem",
+	"bindController",
+	"bindFocusGraph",
+	"bindPresent",
+	"adjustTargets",
+	"handleAdjust",
+	"adjustAxis",
+	"handleTraverse",
+	"handleCancel",
+	"outsideDismiss",
+	"transientScope",
+}
+
 type Opts = {
 	extraControlFiles: { string }?,
 	extraExports: { string }?,
@@ -433,10 +480,30 @@ function check_registration.check(opts: Opts?)
 		local isInteractive: boolean
 		if entry.kind == "leaf" then
 			isInteractive = leafInteractive(entry.name)
-		else -- composite: interactive iff it attaches an input contribution
+		else -- composite: interactive iff it attaches an input contribution...
 			isInteractive = false
 			if entry.module ~= nil and fs.isFile(entry.module) then
-				isInteractive = string.find(fs.readFile(entry.module), "contribution.attach", 1, true) ~= nil
+				local source = fs.readFile(entry.module)
+				isInteractive = string.find(source, "contribution.attach", 1, true) ~= nil
+				-- ...unless that contribution is pure INTAKE (see
+				-- CONTRIBUTION_INTAKE_ONLY). The exemption is refused the moment the
+				-- module mentions a verb-bearing field, so it cannot outlive the
+				-- reason it was granted.
+				if isInteractive and CONTRIBUTION_INTAKE_ONLY[entry.name] ~= nil then
+					local carriesVerb = false
+					for _, field in VERB_BEARING_FIELDS do
+						if string.find(source, field, 1, true) ~= nil then
+							carriesVerb = true
+							problem(
+								`control {entry.name} is listed in CONTRIBUTION_INTAKE_ONLY but its module mentions `
+									.. `'{field}' — a bundle that carries a verb is INTERACTIVE and must prove all four `
+									.. "input classes (ui_todo §0). Remove the exemption or remove the field."
+							)
+							break
+						end
+					end
+					isInteractive = carriesVerb
+				end
 			end
 		end
 		table.insert(proofRows, {

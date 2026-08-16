@@ -5203,6 +5203,71 @@ state. Selection rides the `selected` binding (a style tag), never a bespoke fil
 every option row meets the enforced 44 px floor. For a popup presentation use
 `newPopupButton`, which owns the transient-surface machinery.
 
+#### The sliding selection indicator — `indicator` and `axis`
+
+`indicator = "none"` (default) `| "underline" | "pill"`. When it is on, the
+selection chip or bar **animates from the previously selected option's rect to the
+new one** instead of the fill cross-fading — LuauUI's answer to SwiftUI's
+`matchedGeometryEffect` for the selection case. The mechanism is internal
+(`src/controls/selection_indicator.luau`); this property is the whole public
+surface, and D5's `TabView` will carry the same one.
+
+```lua
+LuauUI.newPicker(LuauUI, core, {
+    id = "View",
+    selected = view,
+    options = { { value = "grid", label = "Grid" }, { value = "list", label = "List" } },
+    presentation = "segmented",
+    indicator = "pill",     -- the chip SLIDES between the two segments
+    axis = "y",             -- ...and this makes it a VERTICAL pill (f1's left rail)
+    env = env,              -- optional: the bar's metrics then follow a live theme
+})
+```
+
+| | |
+|---|---|
+| `"underline"` | a bar on the far edge of the strip's axis — the bottom of a horizontal segment, the leading edge of a vertical one. Its depth is `thickness`, a theme metric (`"space.xs"` by default), and it spans the segment's full cross extent |
+| `"pill"` | the whole segment box, inset on all four sides (`"space.xs"`), rounded with the theme's `pill` radius — r3's chip |
+| `axis` | `"x"` (default) or `"y"`, and it applies to the **segmented** presentation. `"y"` is a real vertical *pill*; the stacked row list is `presentation = "inline"`, a different shape, and this does not overload it. Under `inline` the axis is a column by definition and `axis` is inert |
+
+**Turning the indicator on changes what the options paint**, deliberately:
+they stop carrying the `selected` style tag and are declared `surface = "plain"`.
+A tag *and* a chip is the same statement twice, and an opaque button would paint
+over the chip meant to sit behind its label. Selection is still fully reported by
+`dump()`. `indicator = "none"` leaves the pre-existing control byte-identical.
+
+**Invariants worth knowing:**
+
+- **The transition is between two rects, never two indices.** Segments stop being
+  equal-width the moment their labels differ, and again under a 1.4x
+  pseudo-localization; four scalar springs carry x, y, w and h. Because the bar is
+  derived from the *solved* rect, a wider label widens the bar with it and it can
+  never be painted at a size nobody measured.
+- **First paint places.** The initial selection is where the indicator *is*; it
+  does not slide in from the origin.
+- **A re-solve is not a transition.** A rotation, a theme swap or a
+  preferred-text change moves every segment under an unchanged selection — the
+  indicator re-places rather than flying, so it never swims across the strip.
+- **Reduced motion snaps.** Nothing branches on it: the indicator's motion values
+  are decorative, and the motion authority already places a decorative value at
+  its terminus instantly under reduced motion. One write, no intermediate frames.
+- **It is never a focus stop.** The two classes it mounts (`Anchor`, `Box`) are
+  outside the focusable set, so an indicator adds nothing to the Tab order.
+- **No presenter is a supported degradation.** With no motion clock bound (a bare
+  `mount` + `renderer.attach` in a unit test) every retarget is an instant
+  placement.
+
+**One structural consequence to know before you reference a path.** The
+decoration layer and the option stack must share one parent, so an indicated
+picker wraps its options: the mounted options move from `…/Options/OptN` to
+`…/Indicator/Options/OptN`, and the bar itself is `…/Indicator/Layer/Bar`.
+Activation is unaffected (the control dispatches on the leaf segment), and
+`indicator = "none"` leaves the original paths untouched.
+
+`dump()` gains `axis` and `indicator` — the latter being the seam's live state
+(`skin`, `axis`, the resolved rect, how many placements and how many slides, how
+many times the fed geometry actually moved), or the string `"none"`.
+
 ### `newDisclosureGroup`
 
 `LuauUI.newDisclosureGroup(LuauUI, core, spec) -> { blueprint, bindFocus, dump, dispose }`

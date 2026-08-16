@@ -501,6 +501,7 @@ require("./reference/wardrobe_spec")
 -- from THIS file's require list, every exclusion must name a spec this file
 -- really runs, and the inner-loop runner has to keep announcing itself
 require("./tier.spec")
+require("./selection_indicator.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

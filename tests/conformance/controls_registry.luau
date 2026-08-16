@@ -1108,6 +1108,36 @@ local registry: { Entry } = {
 			hotSwitch = false,
 		},
 	},
+	{
+		-- The D4 sliding-selection seam. NOT a public construct (director ruling
+		-- 2026-08-16): the authoring surface is the `indicator` PROPERTY on the
+		-- controls that consume it, so this row names `newPicker` — the same shape
+		-- `VirtualWindow`/`RowActionsTrays` already use for a module that returns
+		-- what its control mounts.
+		name = "SelectionIndicator",
+		kind = "composite",
+		module = "src/controls/selection_indicator.luau",
+		export = "newPicker",
+		spec = "tests/selection_indicator.spec.luau",
+		conformance = "tests/selection_indicator.spec.luau",
+		docsAnchor = "newPicker",
+		-- NO DUMP OF ITS OWN: an internal seam with a second schema string is a
+		-- schema a bug report has to be taught to look for. Its live state
+		-- (`state()`) is reported inside `picker.dump().indicator`.
+		dump = false,
+		reason = "the DECORATION half of Picker's `indicator` property: its live state (skin, axis, the resolved segment rect, placements vs slides, geometry updates) is reported by picker.dump().indicator, and a second copy here would be the same numbers twice",
+		-- NON-INTERACTIVE, and structurally so rather than by policy: this seam
+		-- mounts an `Anchor` holding a `Box`, and neither class is in focus_map's
+		-- FOCUSABLE set — so it takes no verb on any input class, and there is no
+		-- four-input story to prove. What it owes instead is a proof that it STAYS
+		-- OUT OF THE WAY, because a decoration that became a Tab stop would sit
+		-- between every pair of tabs it decorates: "the indicator is never a focus
+		-- stop: wrapping a strip leaves its document order identical". Its own
+		-- geometry, motion and reduced-motion behaviour are proved through the
+		-- presenter in the same spec.
+		inputProofs = false,
+		affordanceProofs = false,
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========
