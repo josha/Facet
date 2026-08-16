@@ -223,7 +223,13 @@ return {
 		local ICON: any = { type = "fixed", px = "iconSizes.medium" }
 		-- the affordance glyph is the SMALL icon role (§4.5); the row's verdict slot
 		-- stays medium so this lab's row and the collection lab's measure the same
-		local CHEV_ICON: any = { type = "fixed", px = "iconSizes.small" }
+		-- A FLOOR, NOT A CAP (O-21, 2026-08-15). This plate holds a TEXT glyph, and
+		-- a `fixed` box against a line height that grows with the player's text
+		-- preference is the fixed-px-vs-text class: at +10/+14 the caption line box
+		-- is 27/32px in a 16px plate, so the glyph overflowed its own zstack by 23px
+		-- and the solver reported it CUT. `minMax` keeps the affordance at icon size
+		-- wherever it fits and lets it grow with the one thing inside it.
+		local CHEV_ICON: any = { type = "minMax", min = "iconSizes.small" }
 
 		local function cell(item: any, cellCtx: any): any
 			local itemScope = cellCtx.scope

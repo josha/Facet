@@ -483,8 +483,16 @@ local function build(LuauUI: any, core: any, deps: any)
 				children = {
 					UI.Text({ id = "Title", text = "LuauUI Match-3", textSize = "title" }),
 					UI.Text({ id = "Hint", text = hint, textSize = "body", role = "secondary" }),
+					-- ...AND THE SCORE ROW WRAPS, for the same reason the artwork
+					-- controls below do. `numeral` + `label` at the Largest text
+					-- preference measure 256+122 = 378px of a 328px phone row, and a
+					-- row that cannot wrap paints `0 swaps` off the right screen edge
+					-- (measured 2026-08-15: off x by 43px at +14, 82px at 320x640).
+					-- Neither figure is decoration — the move count is the thing the
+					-- player is playing against.
 					UI.HStack({
 						id = "Stats",
+						wrap = true,
 						gap = "m",
 						align = "center",
 						children = {

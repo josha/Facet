@@ -119,6 +119,19 @@ return {
 			rowHeight = rowHeight,
 			viewportHeight = 220,
 			cell = function(item)
+				--[[ THE DETAIL SHRINKS AND DISCLOSES (O-21, 2026-08-15), and it may
+					not WRAP. Name + detail at the Largest text preference measure past
+					a 320px phone's roster column, and with a Spacer between them and
+					nothing shrinkable the row painted `Lap 2 · P1` — the half that
+					carries the standing — up to 16px off the right screen edge.
+
+					A wrap is the usual repair and is wrong HERE: this list declares a
+					uniform `rowHeight` on purpose (see the block above), so a second
+					line would turn one honest number into a lying extent — measured
+					2026-08-15, the wrap traded the layer-overlap finding for a
+					`newVirtualList declares itemExtent` one. Shrinking keeps the row one
+					line, and `disclose` is the way back to the whole string, which is
+					what makes a cut label a degrade rather than lost copy. ]]
 				return UI.HStack({
 					id = "Row",
 					gap = 8,
@@ -126,7 +139,14 @@ return {
 					children = {
 						UI.Text({ id = "Name", text = item.name, textSize = ROSTER_NAME_SIZE }),
 						UI.Spacer({ id = "Gap" }),
-						UI.Text({ id = "Detail", text = item.detail, textSize = ROSTER_DETAIL_SIZE }),
+						UI.Text({
+							id = "Detail",
+							text = item.detail,
+							textSize = ROSTER_DETAIL_SIZE,
+							lineLimit = 1,
+							disclose = true,
+							shrinkWeight = 1,
+						}),
 					},
 				})
 			end,

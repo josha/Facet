@@ -424,8 +424,12 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 
 	-- ── section (grid or shelf) ────────────────────────────────────────────
 	local function sectionView(section: any, itemScope: any)
+		-- THE HEADER WRAPS (O-21, 2026-08-15): a heading and its trailing chevron
+		-- have nothing shrinkable between them, and at +10/+14 on a 320px phone the
+		-- `See all` target went 5px off the right screen edge on all four sections.
 		local header = UI.HStack({
 			id = "Header",
+			wrap = true,
 			gap = "s",
 			-- `distribute` (parity round 2), not the `UI.Spacer({})` that used to sit
 			-- between these two: title leading, action trailing is a property OF THE
@@ -685,8 +689,13 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		align = "stretch",
 		height = { type = "fill", weight = 1 },
 		children = {
+			-- THE TAB ROW WRAPS (O-21, 2026-08-15): two tab targets at the Largest
+			-- text preference need more than a 320px phone gives them, and the row
+			-- put `Charts` — the tab's own label, on the tab's own target — 27px off
+			-- the right screen edge rather than taking a second line.
 			UI.HStack({
 				id = "TabRow",
+				wrap = true,
 				gap = "l",
 				padding = { left = "m", right = "m" },
 				children = { tabButton("forYou", "tab.forYou"), tabButton("charts", "tab.charts") },

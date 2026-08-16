@@ -400,6 +400,13 @@ local SCENARIOS = {
 	-- at every viewport and preference. Its motion values are all at rest at
 	-- mount, so what is swept is the surface a player first sees
 	"time_curves",
+	-- ...and the fade-group fixture (round-3 O-30). Two 132px plate stacks side by
+	-- side where there is room and stacked where there is not, under a chip row
+	-- that wraps and above the framework's own refusal sentence — a paragraph of
+	-- prose the surface does not choose the length of, and which grows with every
+	-- text preference. That combination (rigid plates, an AdaptiveStack that flips
+	-- axis, and a growing block of copy) is what the swept cross product is for
+	"canvas_group",
 }
 
 local EXAMPLES = {
@@ -608,16 +615,6 @@ type Waiver = {
 
 local WAIVERS: { Waiver } = {
 	{
-		surface = "composition",
-		variant = "-",
-		node = "/CompositionScreen/Body/OfferBar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 198,
-		since = 4,
-		kind = "row-cannot-shrink",
-		where = "320x640/compact-portrait @ +4/+10/+14",
-	},
-	{
 		surface = "virtual_list_native",
 		variant = "-",
 		node = "/VLNative",
@@ -636,46 +633,6 @@ local WAIVERS: { Waiver } = {
 		since = 4,
 		kind = "fixed-px-vs-text",
 		where = "320x640/640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
-		surface = "sponsor_list",
-		variant = "-",
-		node = "/ListLab/Body/Controls",
-		sig = "content overflows this hstack by Npx on the",
-		px = 95,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/compact-portrait @ +10/+14",
-	},
-	{
-		surface = "adaptive_controls",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Legend",
-		sig = "content overflows this hstack by Npx on the",
-		px = 92,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/640x320/compact-portrait/compact-landscape @ +10/+14",
-	},
-	{
-		surface = "theme_authoring",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Legend",
-		sig = "content overflows this hstack by Npx on the",
-		px = 92,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "the same Hud fixture as adaptive_controls, under the theme package",
-	},
-	{
-		surface = "07_match3",
-		variant = "-",
-		node = "/Match3/Page/Stats",
-		sig = "content overflows this hstack by Npx on the",
-		px = 82,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/compact-portrait @ +10/+14 — the device-bug round's own ViewThatFits ladder runs out of rungs at +10",
 	},
 	{
 		surface = "sponsor_drop",
@@ -738,16 +695,6 @@ local WAIVERS: { Waiver } = {
 		where = "640x320/compact-landscape @ +0/+4/+10/+14 — the stage's beneath layer outgrows the stage",
 	},
 	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage/Sections/[*]/Body/Header",
-		sig = "content overflows this hstack by Npx on the",
-		px = 52,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/compact-portrait @ +10/+14 (four sections, one template)",
-	},
-	{
 		surface = "drag_session",
 		variant = "-",
 		node = "/DragLab",
@@ -766,16 +713,6 @@ local WAIVERS: { Waiver } = {
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/TabRow",
-		sig = "content overflows this hstack by Npx on the",
-		px = 43,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/compact-portrait @ +10/+14",
 	},
 	{
 		surface = "row_actions",
@@ -827,16 +764,12 @@ local WAIVERS: { Waiver } = {
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +10/+14",
 	},
-	{
-		surface = "async_images",
-		variant = "-",
-		node = "/AsyncImages",
-		sig = "content overflows this vstack by Npx on the",
-		px = 25,
-		since = 10,
-		kind = "page-not-scrollable",
-		where = "640x320/compact-landscape @ +10/+14",
-	},
+	-- `async_images` had a `page-not-scrollable` waiver here (/AsyncImages, 25px at
+	-- 640x320/compact-landscape, since = 10) and a themed ledger row at 143px. BOTH
+	-- ARE DELETED, not re-recorded: the fixture entered the demo picker (round-3
+	-- O-30) and a surface a player can select does not get to overflow, so its page
+	-- is a ScrollView now. A waiver that stops firing is a fixed defect and the line
+	-- goes — which is exactly what the stale-waiver case at the bottom is for.
 	{
 		surface = "row_actions",
 		variant = "table",
@@ -916,36 +849,6 @@ local WAIVERS: { Waiver } = {
 		since = 10,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +10/+14",
-	},
-	{
-		surface = "sponsor_drop",
-		variant = "-",
-		node = "/DropLab/Main/ListZone/Chevrons/ChevBottom/Glyph",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 23,
-		since = 0,
-		kind = "layer-overlap",
-		where = "every view @ +0/+4/+10/+14 — a fixed chevron plate holding a glyph whose box is not fixed",
-	},
-	{
-		surface = "sponsor_drop",
-		variant = "-",
-		node = "/DropLab/Main/ListZone/Chevrons/ChevTop/Glyph",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 23,
-		since = 0,
-		kind = "layer-overlap",
-		where = "every view @ +0/+4/+10/+14 — the twin of ChevBottom, same plate",
-	},
-	{
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 20,
-		since = 14,
-		kind = "layer-overlap",
-		where = "320x640 @ +14 — 20px on the CROSS axis, which is the axis the slot guard deliberately leaves to this finding",
 	},
 	-- CLOSED 2026-08-14 by director ruling 1 (the degrade cascade). This entry
 	-- recorded `/ProgressRing/Page/Dots` overflowing 20px at +14 on 320x640, kind
@@ -1662,17 +1565,20 @@ describe("overflow sweep: the accessibility waiver list", function()
 		-- this file could never see). Every addition is a decision somebody has to
 		-- make on purpose.
 		expect(#WAIVERS <= 51).toBe(true)
-		--[[ ...and rule 1's own guard: SIX of the 48 admit a defect at the DEFAULT
+		--[[ ...and rule 1's own guard: the waivers that admit a defect at the DEFAULT
 			preference, every one of them in a class this file was blind to. A new one
 			means a +0 contract was surrendered, which is never a number to nudge.
 
-			IT WENT 7 -> 6 ON 2026-08-15, downward, which is the only direction that
-			needs no argument. The one that left was `row_actions`' `ROW_HEIGHT = 84`
-			against a wrapping three-line cell measuring 88 at +0 — the worst of the
-			three lying extents, and the only one that lied at the default preference.
-			It is not waived any more because the row does not predict any more:
-			`itemExtent = "measured"` (docs/plans/variable-item-extents.md). ]]
-		expect(DEFAULT_WAIVERS).toBe(6)
+			IT WENT 7 -> 6 -> 4 ON 2026-08-15, downward twice, which is the only
+			direction that needs no argument. The first to leave was `row_actions`'
+			`ROW_HEIGHT = 84` against a wrapping three-line cell measuring 88 at +0 —
+			the worst of the three lying extents, and the only one that lied at the
+			default preference; the row does not predict any more (`itemExtent =
+			"measured"`, docs/plans/variable-item-extents.md). The other two were
+			`sponsor_drop`'s twin chevron plates, `fixed` boxes holding a text glyph:
+			the plate is a `minMax` FLOOR now, so it grows with the glyph instead of
+			cutting it. ]]
+		expect(DEFAULT_WAIVERS).toBe(4)
 	end)
 end)
 

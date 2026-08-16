@@ -358,8 +358,16 @@ return {
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
+						-- THE BAR WRAPS (O-21, 2026-08-15). Label + the resolved offer
+						-- name + `visits N` measure past a 320px phone row from +4
+						-- upward, and with nothing shrinkable in it the row painted
+						-- `visits 0` 93px off the right screen edge at +10 and 159px at
+						-- +14 — the readout this whole fixture is about. A wrap keeps
+						-- every one of the three readable; the Spacer still pushes the
+						-- count to the end of whatever line it lands on.
 						UI.HStack({
 							id = "OfferBar",
+							wrap = true,
 							gap = 8,
 							width = { type = "fill", weight = 1 },
 							children = {

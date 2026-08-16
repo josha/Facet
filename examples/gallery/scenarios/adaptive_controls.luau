@@ -347,9 +347,17 @@ return {
 		local function marker(id: string, text: string)
 			return UI.Text({ id = id, text = text, textSize = 12, role = "secondary" })
 		end
+		-- ...AND IT WRAPS (O-21, 2026-08-15). `spaceBetween` distributes the
+		-- leftover; it has nothing to say when there IS no leftover, and at +10/+14
+		-- these three markers measure past a phone's HUD column — `Essential` was
+		-- painting up to 92px off the right screen edge, which is a label naming a
+		-- tier that a player cannot read. Wrapping costs the demonstration nothing:
+		-- the row still distributes at every width where the three fit, which is
+		-- every viewport at the default preference.
 		local vocabLegend = UI.HStack({
 			id = "Legend",
 			distribute = "spaceBetween",
+			wrap = true,
 			width = { type = "fill", weight = 1 },
 			children = {
 				marker("LegendLow", "Optional"),

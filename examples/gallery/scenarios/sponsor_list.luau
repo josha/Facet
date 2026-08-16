@@ -441,8 +441,14 @@ return {
 					height = { type = "fill", weight = 1 },
 					children = {
 						UI.Text({ id = "Title", text = "Collection lab", textSize = "heading" }),
+						-- THE CONTROL ROW WRAPS (O-21, 2026-08-15). The buttons carry
+						-- their own labels and nothing in the row is shrinkable, so on a
+						-- 320px phone from +10 up it painted `Eligibility` 15px off the
+						-- right screen edge — a control whose label cannot be read and
+						-- whose target cannot be reached.
 						UI.HStack({
 							id = "Controls",
+							wrap = true,
 							gap = "s",
 							width = { type = "fill", weight = 1 },
 							children = {

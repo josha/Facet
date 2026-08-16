@@ -58,36 +58,6 @@ export type Row = {
 
 theme_ledger.ROWS = {
 	{
-		surface = "composition",
-		variant = "-",
-		node = "/CompositionScreen/Body/OfferBar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 388,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "adaptive_controls",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Legend",
-		sig = "content overflows this hstack by Npx on the",
-		px = 364,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "theme_authoring",
-		variant = "-",
-		node = "/AdaptiveScreen/BodyScroll/Body/Hud/Legend",
-		sig = "content overflows this hstack by Npx on the",
-		px = 364,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
 		surface = "row_actions",
 		variant = "vlist",
 		node = "/MailActions/VListWhen/then/VListPane",
@@ -96,46 +66,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
-	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/TabRow",
-		sig = "content overflows this hstack by Npx on the",
-		px = 238,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "sponsor_list",
-		variant = "-",
-		node = "/ListLab/Body/Controls",
-		sig = "content overflows this hstack by Npx on the",
-		px = 214,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "07_match3",
-		variant = "-",
-		node = "/Match3/Page/Stats",
-		sig = "content overflows this hstack by Npx on the",
-		px = 203,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 192,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "layer-overlap",
 	},
 	{
 		surface = "scroll_host",
@@ -271,16 +201,11 @@ theme_ledger.ROWS = {
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "row-cannot-shrink",
 	},
-	{
-		surface = "async_images",
-		variant = "-",
-		node = "/AsyncImages",
-		sig = "content overflows this vstack by Npx on the",
-		px = 143,
-		since = 14,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
-	},
+	-- `async_images` held a `page-not-scrollable` row here (/AsyncImages, 143px,
+	-- since = 14, every package). DELETED with its neutral waiver when the fixture
+	-- entered the demo picker (round-3 O-30) and its page became a ScrollView: a row
+	-- that no longer fires is a fixed defect, and deleting the line is the point of
+	-- the ledger.
 	{
 		surface = "adaptive_controls",
 		variant = "-",
@@ -452,16 +377,6 @@ theme_ledger.ROWS = {
 		kind = "page-not-scrollable",
 	},
 	{
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
-		sig = "newVirtualList 'X' declares itemExtent = N,",
-		px = 84,
-		since = 14,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,scifi-hud",
-		kind = "lying-itemExtent",
-	},
-	{
 		surface = "flow_wrap",
 		variant = "-",
 		node = "/FlowWrap/Page/AlignBox",
@@ -480,16 +395,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
-	},
-	{
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
-		sig = "content overflows this hstack by Npx on the",
-		px = 78,
-		since = 14,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,scifi-hud",
-		kind = "row-cannot-shrink",
 	},
 	{
 		surface = "sponsor_motion",
@@ -600,16 +505,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "layer-overlap",
-	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage/Sections/[*]/Body/Header",
-		sig = "content overflows this hstack by Npx on the",
-		px = 53,
-		since = 0,
-		packages = "classic-desktop,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
 	},
 	{
 		surface = "sponsor_celebration",
@@ -1354,26 +1249,6 @@ theme_ledger.ROWS = {
 		kind = "layer-overlap",
 	},
 	{
-		surface = "sponsor_drop",
-		variant = "-",
-		node = "/DropLab/Main/ListZone/Chevrons/ChevBottom/Glyph",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 21,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "layer-overlap",
-	},
-	{
-		surface = "sponsor_drop",
-		variant = "-",
-		node = "/DropLab/Main/ListZone/Chevrons/ChevTop/Glyph",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 21,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "layer-overlap",
-	},
-	{
 		surface = "p2_cartwheel",
 		variant = "-",
 		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/Recent/RecentBrews/OpenBrews",
@@ -1452,6 +1327,23 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "compact-pointer,scifi-hud",
 		kind = "collapsed-box",
+	},
+	{
+		--[[ RE-RECORDED DOWNWARD, 2026-08-15 (O-21). This row read 192px from +0
+			across all eight packages, and the roster row's repair — the detail label
+			shrinks to its floor and DISCLOSES rather than painting past the row —
+			took it to one package, one preference and 6px on the CROSS axis. What is
+			left is scifi-hud's own row rhythm against a 320px phone at +14, with the
+			label already at its floor; the ceiling is now 6, so a regression cannot
+			hide under the old number. ]]
+		surface = "perf_capture",
+		variant = "-",
+		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 6,
+		since = 14,
+		packages = "scifi-hud",
+		kind = "layer-overlap",
 	},
 	{
 		surface = "sponsor_celebration",
