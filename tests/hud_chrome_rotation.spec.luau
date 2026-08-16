@@ -377,3 +377,316 @@ describe("director item 5: the URL bar is a box you can see, and the HUD re-flow
 		end
 	)
 end)
+
+--[[ ── ROUND 3: THE LADDER MAY NOT SPEND THE APP'S CHROME ──────────────────────
+	The last residual of the round above, measured 2026-08-15 at 749x380 with the
+	pseudo URL bar open and the showcase's chip row declared:
+
+	  the left lane is offered 78px and needs 62 (the chrome reservation) + 36
+	  (the round-button strip) = 98.
+
+	The ladder did exactly what it is specified to do — stepped and dropped every
+	other zone in that lane, descending rank — and then took the one lever it had
+	left and dropped the RESERVATION, buying 62px and landing both round buttons
+	inside the chip row, 36x36 each. The outcome was a HUD painting on the app's
+	own chrome while every rule held.
+
+	TWO REMEDIES WERE PROPOSED AND BOTH LOSE, measured rather than argued:
+
+	  * "a shorter round-button form" cannot close a 20px deficit. The strip is
+	    already at `controlSizes.compact.height` (36px, itself under the 44px touch
+	    minimum), so the only form short enough to fit the 16px that is left is not
+	    a control a thumb can hit. A content answer that produces an untappable
+	    button is worse than the overlap it removes.
+	  * "a chrome row that yields first" inverts ownership — the composition would
+	    have to push back on the HOST's chrome — and buys the defect the director
+	    already refused one round earlier: chrome that moves under pressure is a
+	    player's own controls jumping around.
+
+	THE CAUSE IS NEITHER. Rule 3's own principle is that a candidate must BUY A
+	PIXEL: never degrade something that cannot help the failure it is asked to fix.
+	Dropping an EXCLUSION buys pixels that are not the composition's to spend —
+	they are occupied by somebody else's chrome — so it is a FALSE PURCHASE, that
+	same principle one level out. The fix is that a reservation is not low-ranked
+	content and leaves the drop currency (`mayDrop` is gone from the three chrome
+	regions in the fixture).
+
+	AND THE RUNG THE LADDER WAS SUSPECTED OF LACKING IS ALREADY THERE — a NULL
+	RESULT, recorded so it is not re-hypothesized. `solveArrangement`'s loop takes
+	ANY beneficial step-down, at any rank, before ANY drop; the case at the bottom
+	of this file drives that directly. The round-button strip could not use it
+	because its second form is NARROWER AND TALLER (three discs stacked, for a
+	320px column), and a taller form buys a height failure nothing — which is the
+	ladder refusing to degrade a zone for no pixel, correctly. ]]
+describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome", function()
+	-- the chip row as the live session measures it, and the viewports the report
+	-- named plus the two the matrix already models
+	local CHIPS = { { x = 0, y = PLATFORM_TOP, w = 290, h = CHIP_STRIP } }
+	local VIEWS: { View } = {
+		{ w = 749, h = 380 }, -- the reported case
+		{ w = 749, h = 300 },
+		{ w = 749, h = 240 },
+		--[[ THE ONE THAT MAKES THIS MATRIX NON-VACUOUS. Measured 2026-08-15: with
+			the URL bar's own floor counting the chip row (below), every viewport
+			above this one has room for the reservation AND the buttons, so a matrix
+			that stopped there passed with `mayDrop = true` restored — the check
+			would have proved nothing about the fix it was written for. 749x180 is
+			the tallest swept viewport where the ladder genuinely runs out of levers,
+			and it is where the defect lands both buttons inside the chip row, 36x36
+			each. Mutation-proved in both directions. ]]
+		{ w = 749, h = 180 },
+		{ w = 401, h = 777 },
+		{ w = 320, h = 640 },
+	}
+	-- the zones of the column the chip row covers: the ones the reservation exists
+	-- to protect. (The centre and right columns are NOT covered — that is the whole
+	-- point of the per-column rule — so they have nothing to clear here.)
+	local LEFT_ZONES = { "Rounds", "Tasks", "Health", "Feed" }
+
+	local function overlap(a: any, b: any): (number, number)
+		if a == nil or b == nil then
+			return 0, 0
+		end
+		local dx = math.min(a.x + a.w, b.x + b.w) - math.max(a.x, b.x)
+		local dy = math.min(a.y + a.h, b.y + b.h) - math.max(a.y, b.y)
+		if dx > 0.5 and dy > 0.5 then
+			return dx, dy
+		end
+		return 0, 0
+	end
+
+	-- every node the adapter would actually PAINT under the left column's zones,
+	-- against the rect the app declared. A hidden node paints nothing (a dropped
+	-- region keeps its mount and its subtree keeps fixed boxes), which is the hole
+	-- the ADR-0027 checks closed one round earlier and this reuses.
+	local function assertLeftColumnClearsChips(w: any, where: string): number
+		local checked = 0
+		for _, path in w.adapter.paths() do
+			local zone: string? = nil
+			for _, id in LEFT_ZONES do
+				if string.find(path, `/HudScreen/Hud/{id}`, 1, true) == 1 then
+					zone = id
+				end
+			end
+			if zone == nil then
+				continue
+			end
+			local node = w.adapter.node(path)
+			local rect = if node ~= nil then node.rect else nil
+			if rect == nil or node.elided == true or rect.w <= 0 or rect.h <= 0 then
+				continue
+			end
+			if w.adapter.visibleOf(path) == false then
+				continue
+			end
+			checked += 1
+			local dx, dy = overlap(rect, CHIPS[1])
+			if dx > 0 then
+				error(
+					`{where}: '{path}' [{rect.w}x{rect.h} at {rect.x},{rect.y}] paints {dx}x{dy}px into the app's `
+						.. `own chrome [{CHIPS[1].w}x{CHIPS[1].h} at {CHIPS[1].x},{CHIPS[1].y}]`,
+					0
+				)
+			end
+		end
+		return checked
+	end
+
+	for _, view in VIEWS do
+		it(`{view.w}x{view.h}: the left column never paints into the app's chrome, bar closed or open`, function()
+			local w = world(view, CHIPS)
+			--[[ THE CHECK HAS SOMETHING TO CATCH, asserted before it is trusted. The
+				chip row has to actually lie across the left lane's band, or every
+				assertion below passes on a geometry where nothing could ever overlap —
+				the "check that proves nothing" class this repo keeps meeting. ]]
+			local lane = w.built.report()
+			expect(`report is live: {type(lane.collisions)}`).toBe("report is live: number")
+			local band = rectOf(w, "/HudScreen/Hud/Rounds")
+			expect(band ~= nil).toBe(true)
+			local laneBox = { x = 0, y = PLATFORM_TOP, w = 244, h = 100 }
+			local dx = math.min(laneBox.x + laneBox.w, CHIPS[1].x + CHIPS[1].w) - math.max(laneBox.x, CHIPS[1].x)
+			expect(`the chip row crosses the left lane: {dx > 0}`).toBe("the chip row crosses the left lane: true")
+
+			local checked = assertLeftColumnClearsChips(w, `{view.w}x{view.h} (bar closed)`)
+			expect(`{view.w}x{view.h} closed: painted nodes checked {checked > 0}`).toBe(
+				`{view.w}x{view.h} closed: painted nodes checked true`
+			)
+
+			w.built.steps.openUrlBar()
+			settle(w)
+			local checkedOpen = assertLeftColumnClearsChips(w, `{view.w}x{view.h} (bar open)`)
+			expect(`{view.w}x{view.h} open: painted nodes checked {checkedOpen > 0}`).toBe(
+				`{view.w}x{view.h} open: painted nodes checked true`
+			)
+		end)
+	end
+
+	it(
+		"the reservation is never DROPPED while the chrome is declared — and the ladder was under real pressure",
+		function()
+			--[[ BOTH THE REPORTED VIEWPORT AND THE ONE WHERE THE LADDER RUNS OUT.
+				749x380 is the case the report named; 749x180 is where the levers are
+				gone and the drop is the only move left, so it is the state that can
+				tell a held reservation from one that was simply never asked for. A
+				case that drove 380 alone stayed GREEN with `mayDrop` restored
+				(measured 2026-08-15) — the same vacuity the matrix above records. ]]
+			for _, state in { { h = 380, open = true }, { h = 180, open = false } } do
+				local w = world({ w = 749, h = state.h }, CHIPS)
+				if state.open then
+					w.built.steps.openUrlBar()
+					settle(w)
+				end
+				local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+				local reserve: any = nil
+				for _, r in dump.regions do
+					if r.id == "/HudScreen/Hud/ChromeLeft" then
+						reserve = r
+					end
+				end
+				expect(reserve ~= nil).toBe(true)
+				expect(`749x{state.h} the reservation is mounted: {reserve.mounted}`).toBe(
+					`749x{state.h} the reservation is mounted: true`
+				)
+				expect(`749x{state.h} the reservation was dropped: {reserve.dropped}`).toBe(
+					`749x{state.h} the reservation was dropped: false`
+				)
+				expect(`749x{state.h} it is holding a real box: {reserve.rect.h > 0}`).toBe(
+					`749x{state.h} it is holding a real box: true`
+				)
+			end
+			local w = world({ w = 749, h = 380 }, CHIPS)
+			w.built.steps.openUrlBar()
+			settle(w)
+			--[[ THE NON-VACUOUS CONTROL. A reservation that survives because the ladder
+			never ran is no evidence at all: this same case passed on a HUD with room
+			to spare. So the ladder has to have been WORKING — something dropped and
+			something stepped down — or the assertions above prove nothing. ]]
+			local report = w.built.report()
+			expect(`the ladder dropped something: {#report.dropped > 0}`).toBe("the ladder dropped something: true")
+			local stepped = false
+			for _, form in report.forms do
+				if form > 1 then
+					stepped = true
+				end
+			end
+			expect(`the ladder stepped something down: {stepped}`).toBe("the ladder stepped something down: true")
+		end
+	)
+
+	--[[ THE DEFINED FLOOR: WHAT HAPPENS WHEN NOTHING FITS.
+		Overlapping the app's chrome is never it, and neither is a blank screen. The
+		floor is stated here and it is the composition's own rule 8 applied to an
+		inviolable box: the exclusion HOLDS, every droppable zone in the lane is
+		gone, the top-ranked zone that is left is placed BELOW the exclusion, and
+		the resolution reports `fallback = true` so the overflow is a finding rather
+		than a surprise. Measured: 749x180 is the tallest swept viewport where the
+		left lane cannot be made legal at all. ]]
+	it("when NOTHING fits: the exclusion holds, the tail is gone, and what is left sits BELOW it", function()
+		local w = world({ w = 749, h = 180 }, CHIPS)
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		expect(`this viewport really is infeasible: {dump.fallback}`).toBe("this viewport really is infeasible: true")
+		local byId: { [string]: any } = {}
+		for _, r in dump.regions do
+			byId[r.id] = r
+		end
+		local reserve = byId["/HudScreen/Hud/ChromeLeft"]
+		local rounds = byId["/HudScreen/Hud/Rounds"]
+		expect(`the exclusion held: {reserve.mounted and not reserve.dropped}`).toBe("the exclusion held: true")
+		-- the tail of the ladder is gone: every droppable zone in the left column
+		for _, id in { "Tasks", "Health", "Feed" } do
+			expect(`{id} dropped: {byId[`/HudScreen/Hud/{id}`].dropped}`).toBe(`{id} dropped: true`)
+		end
+		-- ...and the rank-1 zone that survives is BELOW the exclusion, never in it
+		expect(`the buttons start below the exclusion: {rounds.rect.y >= reserve.rect.y + reserve.rect.h - 0.01}`).toBe(
+			"the buttons start below the exclusion: true"
+		)
+		expect(`...and clear of the chip row: {assertLeftColumnClearsChips(w, "749x180") > 0}`).toBe(
+			"...and clear of the chip row: true"
+		)
+	end)
+
+	--[[ THE SIMULATED BAR MAY NOT EAT THE RESERVATION. `HUD_FLOOR_PX` is a sum of
+		what the screen owes before the bar may take anything, and `appChromeRects`
+		added a term to it after it was written. Without this the demo stopped being
+		a demo at 749x380: the bar took its full 200px, the left lane was left 78 and
+		needed 98, and the fixture was showing an impossible screen rather than the
+		ladder it exists to show. ]]
+	it(
+		"the pseudo URL bar leaves the app's chrome its room — and takes the old height where there is none",
+		function()
+			local declared = world({ w = 749, h = 380 }, CHIPS)
+			local withChrome = declared.built.steps.openUrlBar()
+			settle(declared)
+			expect(`the bar yielded to the reservation: {withChrome.lostPx < 200}`).toBe(
+				"the bar yielded to the reservation: true"
+			)
+			-- 380 (the viewport) - 160 (HUD_FLOOR_PX) - 62 (the chip row) = 158, against
+			-- the 200 it took before the chrome became a term of that sum
+			expect(`the bar takes {withChrome.lostPx}px`).toBe(`the bar takes {380 - 160 - CHIP_STRIP}px`)
+
+			--[[ THE BYTE-FOR-BYTE CONTROL: a host that reserves nothing above the
+			platform's own band reserves 0 in every column, and the bar takes exactly
+			what it always did. Without this the case above would pass on a change
+			that simply made the bar smaller everywhere. ]]
+			local bare = world({ w = 749, h = 380 })
+			bare.env:batch(function()
+				bare.env:set("coreSafeInsets", { top = PLATFORM_TOP, bottom = 0, left = 0, right = 0 })
+			end)
+			settle(bare)
+			local noChrome = bare.built.steps.openUrlBar()
+			settle(bare)
+			expect(`no chrome, the full bar: {noChrome.lostPx}`).toBe("no chrome, the full bar: 200")
+		end
+	)
+
+	--[[ THE NULL RESULT, DRIVEN. The hypothesis handed to this round was that the
+		ladder lacks a rung — "an item should be able to offer a compact form before
+		anything is dropped". It has that rung, and this is the proof rather than a
+		reading of the source: a rank-1 region with a shorter second form steps down
+		while a rank-9 DROPPABLE region beside it stays on screen. Step-before-drop
+		is global and it does not consult rank to choose between the two. ]]
+	it("NULL RESULT: the ladder already steps a rank-1 region down before it drops a rank-9 one", function()
+		local composition = require("../src/layout/composition")
+		local SIZES: { [string]: { { w: number, h: number } } } = {
+			Important = { { w = 100, h = 80 }, { w = 100, h = 30 } },
+			Expendable = { { w = 100, h = 40 } },
+		}
+		local function measure(id: string, form: number, _w: number, _h: number): (number, number)
+			local s = SIZES[id][math.min(form, #SIZES[id])]
+			return s.w, s.h
+		end
+		local decl = {
+			groups = { { id = "g", lane = "main", sizing = "fill" } },
+			arrangements = { { name = "one", lanes = { { "main" } } } },
+			regions = {
+				{ id = "Important", group = "g", rank = 1, forms = 2 },
+				{ id = "Expendable", group = "g", rank = 9, forms = 1, mayDrop = true },
+			},
+		}
+		-- 120 holds both at their richest; 100 cannot, and the rank-1 region is the
+		-- one that moves
+		local roomy = composition.resolve(decl, { w = 200, h = 120 }, { measure = measure })
+		expect(`roomy: Important form {roomy.regionById.Important.form}`).toBe("roomy: Important form 1")
+		local tight = composition.resolve(decl, { w = 200, h = 100 }, { measure = measure })
+		expect(`tight: Important form {tight.regionById.Important.form}`).toBe("tight: Important form 2")
+		expect(`tight: Expendable dropped {tight.regionById.Expendable.dropped}`).toBe(
+			"tight: Expendable dropped false"
+		)
+		-- ...and the round-button SHAPE, which is why the strip could not use it: a
+		-- next form that is narrower but TALLER buys a height failure nothing, so the
+		-- ladder correctly refuses to step and goes to the drop instead
+		local TALLER: { [string]: { { w: number, h: number } } } = {
+			Important = { { w = 100, h = 40 }, { w = 40, h = 120 } },
+			Expendable = { { w = 100, h = 60 } },
+		}
+		local function measureTaller(id: string, form: number, _w: number, _h: number): (number, number)
+			local s = TALLER[id][math.min(form, #TALLER[id])]
+			return s.w, s.h
+		end
+		local squeezed = composition.resolve(decl, { w = 200, h = 80 }, { measure = measureTaller })
+		expect(`taller-form: Important form {squeezed.regionById.Important.form}`).toBe("taller-form: Important form 1")
+		expect(`taller-form: Expendable dropped {squeezed.regionById.Expendable.dropped}`).toBe(
+			"taller-form: Expendable dropped true"
+		)
+	end)
+end)

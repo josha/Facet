@@ -221,12 +221,6 @@ return {
 		-- fact, and the fact alone. Riding the band spends the top down to where the
 		-- band starts; not riding spends the whole band, which is exactly what
 		-- `deviceSafeContent` used to apply here.
-		local function urlBarPx(use: any): number
-			if not use(urlBar) then
-				return 0
-			end
-			return math.min(URL_BAR_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX))
-		end
 		local margin = scope:own(core:memo(function(use)
 			local chrome = use(chromeFact) :: any
 			local insets = if use(riding) then chrome.bandInsets else chrome.insets
@@ -395,6 +389,36 @@ return {
 		local reserveLeft = columnReserve(1, "start")
 		local reserveCentre = columnReserve(2, "center")
 		local reserveRight = columnReserve(3, "end")
+		--[[ ...AND THE FLOOR THE SIMULATED BAR MAY NEVER EAT THROUGH — WHICH THE
+			APP'S OWN CHROME IS A TERM OF (measured 2026-08-15).
+		
+			`HUD_FLOOR_PX` is a SUM, and its own note names the terms: the platform's
+			reserved row (58), one target-sized zone per lane (44), this fixture's own
+			driver row (44), and the Screen's gaps. `appChromeRects` added a term to
+			that sum after it was written — a column the app's chrome covers has that
+			much less room before its first zone can start — and the constant did not
+			know. Measured at 749x380 with the showcase's 62px chip row declared: the
+			bar took its full 200px, the left lane was left 78px and needed 98, and
+			the demo was showing an IMPOSSIBLE screen instead of the ladder. An
+			instrument that eats the thing it measures is what this floor exists to
+			stop, and it was doing it again with one term missing.
+		
+			It takes the WORST column's reservation: the lane band is a rectangle, so
+			the column the chrome covers is the one that runs out first. A host that
+			reserves nothing above the platform's own band reserves 0 in every
+			column, and this is then `HUD_FLOOR_PX` exactly — byte for byte what
+			such a host has always had (the control is in
+			tests/hud_chrome_rotation.spec.luau). ]]
+		local function urlBarPx(use: any): number
+			if not use(urlBar) then
+				return 0
+			end
+			local reserved = 0
+			for _, r in { reserveLeft, reserveCentre, reserveRight } do
+				reserved = math.max(reserved, (use(r) :: any).px or 0)
+			end
+			return math.min(URL_BAR_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX - reserved))
+		end
 		-- ...and the platform's own cluster is held open as SPACE inside that row —
 		-- a leading spacer as wide as the distance from the HUD's own left edge to
 		-- where the free band begins, and a trailing one for the platforms that put
@@ -731,29 +755,47 @@ return {
 					the demo/settings chips while the clock and the weapon rail rise to
 					sit LEVEL with them.
 
-					RANK 1 AND DROPPABLE, which is not a contradiction: rank 1 means it
-					is the LAST thing to give way, and `mayDrop` means that on a screen
-					where the ladder has run out of everything else, a reservation is
-					still worth less than the controls it was protecting. ]]
+					NOT DROPPABLE, AND THAT IS A RULE RATHER THAN A PREFERENCE (measured
+					2026-08-15). It WAS `mayDrop = true`, on the reasoning that "a
+					reservation is worth less than the controls it was protecting" — and
+					that reasoning is the defect. Measured at 749x380 with the pseudo URL
+					bar open and the showcase's chip row declared: the left lane is offered
+					78px and needs 62 (this reservation) + 36 (the round strip) = 98. The
+					ladder stepped and dropped everything else in that lane — correctly —
+					then took the only lever it had left and dropped the reservation,
+					buying 62px and landing both round buttons INSIDE the chip row, 36x36
+					each.
+					
+					IT IS THE ONE PURCHASE THE LADDER MUST NOT MAKE. Rule 3's own principle
+					is that a candidate has to BUY A PIXEL — never degrade something that
+					cannot help the failure it is being asked to fix. Dropping an EXCLUSION
+					buys pixels that are not the composition's to spend: they are occupied
+					by somebody else's chrome. It is a false purchase, which is that same
+					principle one level out. A reservation is not low-ranked content; it is
+					the shape of the box, and the ladder's currency is content.
+					
+					WHAT HAPPENS INSTEAD when the lane still cannot fit is the DEFINED
+					FLOOR, pinned in tests/hud_chrome_rotation.spec.luau: the exclusion
+					holds, every droppable zone in the lane is gone, and the top-ranked
+					zone that is left is placed BELOW the exclusion and runs past the
+					composition's own bottom edge — with `fallback = true` on the
+					resolution saying so. Content over the app's own chrome is never it. ]]
 				UI.Region({
 					id = "ChromeLeft",
 					group = "topLeft",
 					rank = 1,
-					mayDrop = true,
 					children = { UI.Spacer({ id = "ChromeLeftGap", height = reserveLeft }) },
 				}),
 				UI.Region({
 					id = "ChromeTop",
 					group = "top",
 					rank = 1,
-					mayDrop = true,
 					children = { UI.Spacer({ id = "ChromeTopGap", height = reserveCentre }) },
 				}),
 				UI.Region({
 					id = "ChromeRight",
 					group = "topRight",
 					rank = 1,
-					mayDrop = true,
 					children = { UI.Spacer({ id = "ChromeRightGap", height = reserveRight }) },
 				}),
 				-- UPPER LEFT — the round-button strip. One form: this is the thing
