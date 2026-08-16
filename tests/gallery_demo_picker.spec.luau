@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty-two fixtures", function()
+	it("lists every tutorial example plus the twenty-three fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(29)
+		expect(#demos).toBe(30)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -548,7 +548,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(22)
+		expect(fixtures).toBe(23)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
