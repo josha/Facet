@@ -471,9 +471,7 @@ describe("min-content width: whitespace is not the only legal break", function()
 		-- every CJK line would report that it cannot wrap at all and be ellipsized.
 		local whole = text_metrics.measure(CJK, "BuilderSans", 16, math.huge).width
 		local minimum = text_metrics.minWidth(CJK, "BuilderSans", 16)
-		expect(`min {minimum} << whole {whole}: {minimum <= whole / 8}`).toBe(
-			`min {minimum} << whole {whole}: true`
-		)
+		expect(`min {minimum} << whole {whole}: {minimum <= whole / 8}`).toBe(`min {minimum} << whole {whole}: true`)
 	end)
 
 	it("...and a CJK line therefore still WRAPS rather than ellipsizing", function()
