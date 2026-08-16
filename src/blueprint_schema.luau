@@ -1644,6 +1644,23 @@ class("Region", {
 			channel = "layout",
 			doc = "this region may be removed entirely when stepping down is not enough (default false)",
 		}),
+		--[[ D7.1. A CLOSED SPEC, REQUIRED WHERE IT MEANS SOMETHING. The rank ladder
+			steps a region down and then drops it exactly as told; what it never had was
+			any notion of where the content the reduced form stopped showing WENT, so
+			"step down" and "delete" were one operation from the player's side. This is
+			the answer, and `composition.normalize` requires it on every region with
+			more than one form and refuses it on every region with one. ]]
+		recover = p({
+			types = { "string" },
+			reactive = false,
+			enum = { "none", "self", "overflow" },
+			channel = "layout",
+			doc = "where the content a reduced form stops showing went. REQUIRED with more than one form, "
+				.. 'refused with one. "none" = every form still shows everything (state it: silence is not '
+				.. 'consent) | "self" = the reduced form IS the route, so its last form must contain '
+				.. 'something focusable | "overflow" = the screen\'s overflow surface is the route, and it '
+				.. "reads `resolution.unshown`",
+		}),
 		-- THE ONE REACTIVE PROP ON A REGION, and it is reactive for a reason the
 		-- rest of the declaration is not. Every other field answers "what is this
 		-- region" — a fact about the screen, which is why re-deriving it from state

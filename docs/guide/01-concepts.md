@@ -315,13 +315,14 @@ UI.Composition{
     },
     children = {
         UI.Region{ id = "Headline", group = "ceremony", rank = 3, floor = { lines = 1 },
-                   children = { bigPlate, oneLineChip } },        -- forms: richest first
+                   recover = "none",                              -- forms: richest first
+                   children = { bigPlate, oneLineChip } },
         UI.Region{ id = "List", group = "facts", rank = 2, sizing = "fill",
                    mayScroll = true, floor = { lines = 2 }, children = { theList } },
         UI.Region{ id = "Actions", group = "next", rank = 1, floor = { targets = 2 },
-                   children = { buttonRow, buttonColumn } },
+                   recover = "none", children = { buttonRow, buttonColumn } },
         UI.Region{ id = "Tease", group = "next", rank = 9, mayDrop = true,
-                   children = { twoLines, oneLine } },
+                   recover = "overflow", children = { twoLines, oneLine } },
     },
 }
 ```
@@ -394,13 +395,16 @@ UI.Composition{
     groups = LuauUI.composition.HUD_GROUPS,     -- the twelve groups, frozen
     arrangements = { LuauUI.composition.HUD },  -- one arrangement: three columns
     children = {
-        UI.Region{ id = "Rounds", group = "topLeft", rank = 1, children = { strip, column } },
-        UI.Region{ id = "Tasks",  group = "left",   rank = 8, mayDrop = true,
+        UI.Region{ id = "Rounds", group = "topLeft", rank = 1, children = { wrappedStrip } },
+        UI.Region{ id = "Tasks",  group = "left",   rank = 7, mayDrop = true,
+                   recover = "self",     -- every reduced form is a Button that opens the rest
                    children = { panel, oneTask, chip } },
-        UI.Region{ id = "Clock",  group = "top",     rank = 2, children = { clockAndScore, clock } },
+        UI.Region{ id = "Clock",  group = "top",     rank = 2, recover = "overflow",
+                   children = { clockAndScore, clock } },   -- the scores go to the sink
         UI.Region{ id = "Rail",   group = "topRight", rank = 4, mayDrop = true,
-                   children = { tallRail, onePill } },
-        UI.Region{ id = "Actions", group = "bottomRight", rank = 3, children = { column, oneButton } },
+                   recover = "overflow", children = { tallRail, onePill } },
+        UI.Region{ id = "Actions", group = "bottomRight", rank = 3, recover = "overflow",
+                   children = { column, oneButton } },
     },
 }
 ```
@@ -415,9 +419,18 @@ worth knowing:
   opposite of "a lane with nothing in it is not there", and a HUD wants the
   opposite, because its lane positions *are* its coordinate system.)
 - **Losing height degrades, it does not collapse.** A browser URL bar opening
-  takes ~200px off the box; the ladder above runs, in descending rank, and the
-  least important zone in the column that ran out gives up its richest form and
-  then leaves. Nothing lands on anything.
+  takes ~67px off the box (measured against Chrome 151: a location-bar row is
+  `outerHeight - innerHeight` on a popup window); the ladder above runs, in
+  descending rank, and the least important zone in the column that ran out gives
+  up its richest form and then leaves. Nothing lands on anything.
+- **...and what it gave up is still reachable.** Every multi-form region states
+  `recover`: `"none"` (the poorer form still shows everything), `"self"` (the
+  poorer form is a control that opens the rest) or `"overflow"` (the screen's own
+  disclosure surface carries it, reading `resolution.unshown`). It is **required**
+  where it means something, because a ladder with no notion of where the content
+  went makes "step down" and "delete" the same operation. Adaptation may change
+  how much is shown and what it costs to reach; it may not change whether it can
+  be reached at all.
 - **A cluster your column cannot hold is reported.** `align` on those groups
   means each zone takes *its own* measured width inside its column, so a row of
   controls that cannot shrink to a third of a phone is visible rather than

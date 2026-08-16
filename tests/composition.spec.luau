@@ -73,12 +73,20 @@ local function baseDecl(overrides: { [string]: any }?): any
 			{ id = "next", lane = "trail", sizing = "hug", place = 0.66, gap = 4 },
 		},
 		regions = {
-			{ id = "Countdown", group = "masthead", rank = 2, forms = 2, floor = { lines = 1 } },
-			{ id = "BankChip", group = "masthead", rank = 5, forms = 2, mayDrop = true },
-			{ id = "Hero", group = "ceremony", rank = 3, forms = 2, floor = { lines = 1 } },
-			{ id = "Slot", group = "ceremony", rank = 4, forms = 2, reserved = true, floor = { targets = 2 } },
-			{ id = "Bogey", group = "ceremony", rank = 7, forms = 2, mayDrop = true },
-			{ id = "FieldHead", group = "field", rank = 4, forms = 2, floor = { lines = 1 } },
+			{ id = "Countdown", group = "masthead", rank = 2, forms = 2, recover = "none", floor = { lines = 1 } },
+			{ id = "BankChip", group = "masthead", rank = 5, forms = 2, recover = "overflow", mayDrop = true },
+			{ id = "Hero", group = "ceremony", rank = 3, forms = 2, recover = "none", floor = { lines = 1 } },
+			{
+				id = "Slot",
+				group = "ceremony",
+				rank = 4,
+				forms = 2,
+				recover = "none",
+				reserved = true,
+				floor = { targets = 2 },
+			},
+			{ id = "Bogey", group = "ceremony", rank = 7, forms = 2, recover = "overflow", mayDrop = true },
+			{ id = "FieldHead", group = "field", rank = 4, forms = 2, recover = "none", floor = { lines = 1 } },
 			{
 				id = "Field",
 				group = "field",
@@ -88,10 +96,10 @@ local function baseDecl(overrides: { [string]: any }?): any
 				mayScroll = true,
 				floor = { lines = 1 },
 			},
-			{ id = "Sponsors", group = "next", rank = 6, forms = 2, mayDrop = true },
-			{ id = "Bait", group = "next", rank = 8, forms = 2, mayDrop = true },
-			{ id = "Tease", group = "next", rank = 9, forms = 2, mayDrop = true },
-			{ id = "Ctas", group = "next", rank = 1, forms = 2, floor = { targets = 2 } },
+			{ id = "Sponsors", group = "next", rank = 6, forms = 2, recover = "overflow", mayDrop = true },
+			{ id = "Bait", group = "next", rank = 8, forms = 2, recover = "overflow", mayDrop = true },
+			{ id = "Tease", group = "next", rank = 9, forms = 2, recover = "overflow", mayDrop = true },
+			{ id = "Ctas", group = "next", rank = 1, forms = 2, recover = "none", floor = { targets = 2 } },
 		},
 	}
 	for k, v in overrides or {} do
@@ -244,8 +252,8 @@ describe("ADR-0023: step down before dropping, both in descending rank", functio
 			arrangements = { ARRANGEMENTS[3] },
 			regions = {
 				{ id = "Ctas", group = "next", rank = 1, forms = 1, floor = { targets = 1 } },
-				{ id = "Bait", group = "next", rank = 5, forms = 2 },
-				{ id = "Tease", group = "next", rank = 5, forms = 2 },
+				{ id = "Bait", group = "next", rank = 5, forms = 2, recover = "none" },
+				{ id = "Tease", group = "next", rank = 5, forms = 2, recover = "none" },
 			},
 			groups = { { id = "next", lane = "trail", sizing = "hug", gap = 4 } },
 		})
@@ -691,7 +699,12 @@ local function spanDecl(overrides: { [string]: any }?): any
 	local groups = table.clone(decl.groups)
 	table.insert(groups, 1, { id = "caption", span = "above", gap = 4 })
 	local regions = table.clone(decl.regions)
-	table.insert(regions, { id = "Recap", group = "caption", rank = 5, forms = 2, floor = { lines = 1 } })
+	-- "overflow" rather than "none": one of the cases below overrides this row with
+	-- `mayDrop`, and a droppable region can never claim that nothing is lost
+	table.insert(
+		regions,
+		{ id = "Recap", group = "caption", rank = 5, forms = 2, recover = "overflow", floor = { lines = 1 } }
+	)
 	decl.groups = groups
 	decl.regions = regions
 	return decl
@@ -805,8 +818,8 @@ describe("ADR-0023 (2026-07-31): a group may SPAN the composition as its own row
 			arrangements = { { name = "one", lanes = { { "main" } } } },
 			groups = { { id = "caption", span = "above", gap = 4 }, { id = "body", lane = "main", sizing = "hug" } },
 			regions = {
-				{ id = "Recap", group = "caption", rank = 5, forms = 2, floor = { lines = 1 } },
-				{ id = "Bogey", group = "body", rank = 7, forms = 2 },
+				{ id = "Recap", group = "caption", rank = 5, forms = 2, recover = "none", floor = { lines = 1 } },
+				{ id = "Bogey", group = "body", rank = 7, forms = 2, recover = "none" },
 			},
 		}
 		local res = composition.resolve(hug, { w = 4000, h = 900 }, ctx(SPAN_SIZES))
@@ -1093,6 +1106,8 @@ local function screenWith(core: any, tallForm: boolean?)
 						id = "Hero",
 						group = "ceremony",
 						rank = 3,
+						-- the chip is the same headline on a smaller plate
+						recover = "none",
 						children = { box("HeroFull", 200, 96), box("HeroChip", 120, 26) },
 					}),
 					UI.Region({
@@ -1108,6 +1123,8 @@ local function screenWith(core: any, tallForm: boolean?)
 						id = "Ctas",
 						group = "next",
 						rank = 1,
+						-- a row of two buttons becomes a column of the same two
+						recover = "none",
 						floor = { targets = 2 },
 						children = { box("CtaRow", 300, 52), box("CtaCol", 150, 110) },
 					}),

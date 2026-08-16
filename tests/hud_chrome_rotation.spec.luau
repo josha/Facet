@@ -554,13 +554,19 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 					`749x{state.h} it is holding a real box: true`
 				)
 			end
-			local w = world({ w = 749, h = 380 }, CHIPS)
-			w.built.steps.openUrlBar()
+			local w = world({ w = 749, h = 180 }, CHIPS)
 			settle(w)
 			--[[ THE NON-VACUOUS CONTROL. A reservation that survives because the ladder
 			never ran is no evidence at all: this same case passed on a HUD with room
 			to spare. So the ladder has to have been WORKING — something dropped and
 			something stepped down — or the assertions above prove nothing. ]]
+			--[[ ...AT 749x180 RATHER THAN 380, and the viewport moved for a measured
+				reason (D7.5): the URL bar's steal was re-measured against a real browser
+				and fell from 200 to 67, so 380-with-the-bar-open is no longer a screen
+				under pressure — nothing drops there any more, which is the repair
+				working rather than the control failing. 180 is where the levers really
+				do run out, and it is the same viewport the matrix above calls
+				non-vacuous. ]]
 			local report = w.built.report()
 			expect(`the ladder dropped something: {#report.dropped > 0}`).toBe("the ladder dropped something: true")
 			local stepped = false
@@ -614,28 +620,36 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 	it(
 		"the pseudo URL bar leaves the app's chrome its room — and takes the old height where there is none",
 		function()
-			local declared = world({ w = 749, h = 380 }, CHIPS)
+			--[[ 749x240, AND THE VIEWPORT MOVED FOR A MEASURED REASON (D7.5). The
+				steal was re-measured against a real browser and fell from 200 to 67
+				(Chrome 151: a popup window's location-bar row is `outerHeight -
+				innerHeight` = 486 - 419), so at 380 the floor no longer bites at all —
+				`min(67, 380 - 160 - 62 = 158)` is just 67, and a case that cannot reach
+				its own cap proves nothing about it. 240 is the tallest swept viewport
+				where the sum still runs out: `240 - 160 - 62 = 18` against a 67px bar. ]]
+			local declared = world({ w = 749, h = 240 }, CHIPS)
 			local withChrome = declared.built.steps.openUrlBar()
 			settle(declared)
-			expect(`the bar yielded to the reservation: {withChrome.lostPx < 200}`).toBe(
+			expect(`the bar yielded to the reservation: {withChrome.lostPx < 67}`).toBe(
 				"the bar yielded to the reservation: true"
 			)
-			-- 380 (the viewport) - 160 (HUD_FLOOR_PX) - 62 (the chip row) = 158, against
-			-- the 200 it took before the chrome became a term of that sum
-			expect(`the bar takes {withChrome.lostPx}px`).toBe(`the bar takes {380 - 160 - CHIP_STRIP}px`)
+			-- 240 (the viewport) - 160 (HUD_FLOOR_PX) - 62 (the chip row) = 18
+			expect(`the bar takes {withChrome.lostPx}px`).toBe(`the bar takes {240 - 160 - CHIP_STRIP}px`)
 
 			--[[ THE BYTE-FOR-BYTE CONTROL: a host that reserves nothing above the
 			platform's own band reserves 0 in every column, and the bar takes exactly
 			what it always did. Without this the case above would pass on a change
 			that simply made the bar smaller everywhere. ]]
-			local bare = world({ w = 749, h = 380 })
+			local bare = world({ w = 749, h = 240 })
 			bare.env:batch(function()
 				bare.env:set("coreSafeInsets", { top = PLATFORM_TOP, bottom = 0, left = 0, right = 0 })
 			end)
 			settle(bare)
 			local noChrome = bare.built.steps.openUrlBar()
 			settle(bare)
-			expect(`no chrome, the full bar: {noChrome.lostPx}`).toBe("no chrome, the full bar: 200")
+			-- 240 - 160 - 0 = 80, so the cap does not bite and the bar takes the whole
+			-- measured steal: the SAME number a roomy screen gets
+			expect(`no chrome, the full bar: {noChrome.lostPx}`).toBe("no chrome, the full bar: 67")
 		end
 	)
 
@@ -659,7 +673,7 @@ describe("director 2026-08-15 round 3: the ladder may not buy the app's chrome",
 			groups = { { id = "g", lane = "main", sizing = "fill" } },
 			arrangements = { { name = "one", lanes = { { "main" } } } },
 			regions = {
-				{ id = "Important", group = "g", rank = 1, forms = 2 },
+				{ id = "Important", group = "g", rank = 1, forms = 2, recover = "none" },
 				{ id = "Expendable", group = "g", rank = 9, forms = 1, mayDrop = true },
 			},
 		}

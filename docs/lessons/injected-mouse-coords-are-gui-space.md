@@ -84,5 +84,44 @@ So the rule for a device-simulator session becomes:
    requested, `GetGuiObjectsAtPosition` confirmed row `m3`, and `m3` was the row
    that opened while the previously-open row auto-closed.
 
+## Addendum 2026-08-16 — the same offset READ BACK looks like a layout defect
+
+The rule above is about the numbers you *inject*. It is also about the numbers you
+*read*, and read the wrong way round it manufactures a defect that is not there.
+
+Inspecting the HUD showcase live (Studio 0.734, 749x380, `GetGuiInset() = (0,58)`)
+produced this, and it was written up as a fourth failure class — a node painted
+entirely above the top of the viewport, worse-behaved than elision because nothing
+knew it had happened:
+
+```
+Round 3 · Capture    @(416,-37) 81x15      vis=true   -- y + h = -22
+```
+
+It is not painted above the viewport. A LuauUI ScreenGui renders
+`IgnoreGuiInset = true`, and **`AbsolutePosition` on such a tree is reported in the
+inset-subtracted space**: the top of the window reads back as `-GetGuiInset().Y`.
+The headless twin, driven at the same size with the same chrome facts, puts the
+same node at window **y 21, h 15** — inside the platform's 0..58 band, which is
+exactly where ADR-0027 requires it. `21 - 58 = -37`.
+
+**Two checks that settle it without a second Studio session**, both from the same
+capture:
+
+1. **Compare an axis the inset does not touch.** Live `x=416 w=81` centres at
+   456.5; the headless twin's `x=393 w=127` centres at 456.5; the free band
+   (`x 164..749`) centres at **456.5**. Identical on x, off by exactly the inset on
+   y, is an offset — not a layout.
+2. **Look for the origin.** The same capture reported three HIDDEN nodes at
+   `y = -58` (they are parked at the composition's origin, i.e. window y 0). A
+   capture in which window-space 0 reads back as `-58` has a `-58` offset in it.
+
+**Rule: before diagnosing a negative `AbsolutePosition.Y`, add `GetGuiInset().Y`.**
+A LuauUI node whose reported y is `-inset` is at the top of the window; one whose
+reported y is `0` is `inset` px down. The pinned regression is
+`tests/elision_recovery.spec.luau` ("the objective chip is inside the platform's
+band at 749x380, not above the screen"), which asserts the invariant in window
+space at the very viewport this report was taken at.
+
 Related: [`injected-input-offset-is-per-configuration.md`](injected-input-offset-is-per-configuration.md),
 [`device-emulator-truths.md`](device-emulator-truths.md).

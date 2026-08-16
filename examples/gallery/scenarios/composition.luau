@@ -147,6 +147,9 @@ return {
 					-- it steps down and drops by rank exactly like a lane region: the
 					-- span is about WHERE the row is, not about what it is worth
 					rank = 5,
+					-- the short form keeps the drama score and drops the lead changes and the
+					-- recoveries, so two facts leave the screen with it
+					recover = "overflow",
 					floor = { lines = 1 },
 					children = {
 						UI.When({
@@ -169,6 +172,8 @@ return {
 					id = "Countdown",
 					group = "masthead",
 					rank = 2,
+					-- "Next round in 12" -> "12": fewer words, the same fact
+					recover = "none",
 					floor = { lines = 1 },
 					children = { line("CountdownFull", "Next round in 12", 18), line("CountdownShort", "12", 18) },
 				}),
@@ -176,6 +181,8 @@ return {
 					id = "BankChip",
 					group = "masthead",
 					rank = 5,
+					-- the short form drops the "+80" delta, and a dropped chip drops the balance
+					recover = "overflow",
 					mayDrop = true,
 					children = { line("BankFull", "Balance 1,240  +80", 14), line("BankShort", "1,240", 14) },
 				}),
@@ -183,6 +190,8 @@ return {
 					id = "Headline",
 					group = "ceremony",
 					rank = 3,
+					-- the same word on a smaller plate
+					recover = "none",
 					floor = { lines = 1 },
 					children = { plate("HeadlinePlate", 96, "SECOND", 30), line("HeadlineChip", "SECOND", 16) },
 				}),
@@ -190,6 +199,8 @@ return {
 					id = "Celebration",
 					group = "ceremony",
 					rank = 4,
+					-- "+320 points" either way — a plate becomes a line
+					recover = "none",
 					-- the FLOOR is the reserved box: it holds when the transient rests,
 					-- so nothing under a thumb moves when the piece finishes
 					reserved = true,
@@ -215,6 +226,8 @@ return {
 					id = "Callout",
 					group = "ceremony",
 					rank = 7,
+					-- "by four tenths" is the margin, and the short form does not carry it
+					recover = "overflow",
 					mayDrop = true,
 					children = {
 						UI.When({
@@ -237,6 +250,8 @@ return {
 					id = "FieldHead",
 					group = "field",
 					rank = 4,
+					-- "Final order — 14 entries" -> "Order": the entry count goes
+					recover = "overflow",
 					floor = { lines = 1 },
 					children = {
 						line("FieldHeadFull", "Final order — 14 entries", 16),
@@ -258,6 +273,8 @@ return {
 					id = "Sponsors",
 					group = "next",
 					rank = 6,
+					-- "3 backers" names none of them
+					recover = "overflow",
 					mayDrop = true,
 					children = {
 						UI.VStack({
@@ -275,6 +292,8 @@ return {
 					id = "Bait",
 					group = "next",
 					rank = 8,
+					-- the short form drops what the win unlocks
+					recover = "overflow",
 					mayDrop = true,
 					children = {
 						line("BaitTwoLine", "Unlock the next tier with one more win", 14),
@@ -285,6 +304,8 @@ return {
 					id = "Tease",
 					group = "next",
 					rank = 9,
+					-- a droppable region can never claim "none" — dropping shows nothing
+					recover = "overflow",
 					mayDrop = true,
 					children = {
 						line("TeaseTwoLine", "Coming next: the night circuit", 14),
@@ -302,6 +323,8 @@ return {
 					id = "Actions",
 					group = "next",
 					rank = 1,
+					-- the same two buttons, in a column instead of a row
+					recover = "none",
 					floor = { targets = 2 },
 					children = {
 						UI.HStack({

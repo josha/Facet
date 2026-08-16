@@ -497,6 +497,12 @@ require("./surface_overlap.spec")
 -- mounts fresh per viewport, so none of them could see a rotation defect), the
 -- app's own chrome declared through `appChromeRects`, and the drawn URL bar
 require("./hud_chrome_rotation.spec")
+--[[ D7 — ELISION MUST DISCLOSE, NOT DELETE. The `recover` contract on UI.Region,
+	`elided` + `Resolution.unshown` (the seam an overflow surface reads), the
+	authoring error for a `self` route whose reduced form holds nothing focusable,
+	and the device-matrix sweep that asserts every region the HUD has stopped
+	showing has a LIVE route at every viewport in both URL-bar states. ]]
+require("./elision_recovery.spec")
 require("./reference/glade_spec")
 require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")

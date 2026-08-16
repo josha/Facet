@@ -714,15 +714,15 @@ UI.Composition{
     },
     children = {
         UI.Region{ id = "Recap", group = "caption", rank = 5, floor = { lines = 1 },
-                   children = { twoLineTally, oneLineTally } },
+                   recover = "overflow", children = { twoLineTally, oneLineTally } },
         UI.Region{ id = "Hero",  group = "ceremony", rank = 3, floor = { lines = 1 },
-                   children = { fullPlate, oneLineChip } },
+                   recover = "none", children = { fullPlate, oneLineChip } },
         UI.Region{ id = "Field", group = "field", rank = 2, sizing = "fill",
                    mayScroll = true, floor = { lines = 1 }, children = { theList } },
         UI.Region{ id = "Ctas",  group = "next", rank = 1, floor = { targets = 2 },
-                   children = { ctaRow, ctaColumn } },
+                   recover = "none", children = { ctaRow, ctaColumn } },
         UI.Region{ id = "Tease", group = "next", rank = 9, mayDrop = true,
-                   children = { twoLine, oneLine } },
+                   recover = "overflow", children = { twoLine, oneLine } },
     },
 }
 ```
@@ -809,7 +809,7 @@ where a region id is simply whatever the caller passed.
 
 ### `Region`
 
-`UI.Region{ id (required), group (required), rank (required), floor?, sizing?, weight?, mayScroll?, mayDrop?, reserved?, children (required) }`
+`UI.Region{ id (required), group (required), rank (required), recover (required with 2+ forms), floor?, sizing?, weight?, mayScroll?, mayDrop?, reserved?, children (required) }`
 — one ranked thing a `Composition` has to say. **Its children are its forms**,
 richest first; the last is its minimum-viable form. Exactly one is shown.
 
@@ -822,6 +822,7 @@ richest first; the last is its minimum-viable form. Exactly one is shown.
 | `weight` | share of that slack when several regions in a group fill (default 1) |
 | `mayScroll` | this is *the* scroll region. **At most one per composition**; a second is refused at construction |
 | `mayDrop` | it may be removed entirely when stepping down is not enough (default `false`) |
+| `recover` | **where the content a reduced form stops showing went.** `"none"` (every form below the richest still shows everything — a poorer *layout*, not less content) \| `"self"` (the reduced form **is** the route: the player taps what is left to get the rest) \| `"overflow"` (the screen's overflow surface is the route, and it reads `resolution.unshown`). **Required** with more than one form and **refused** with one: a one-form region can only stop showing content by being *dropped*, and a dropped region has no form left to be its own route, so the sink is the only possible answer — `mayDrop` is already that declaration. `"none"` together with `mayDrop` is refused for the same reason: dropping shows nothing |
 | `reserved` | hold its box while its content rests **between pieces**, so a finishing transient never moves its neighbours. `true` reserves for the surface's whole life; **a `Readable<boolean>`** — the only reactive prop on a `Region` — reserves only while it reads true ("this schedule can still produce a piece") and releases the box, and with it the lane (rule 9), when it reads false. Mutually exclusive with `mayDrop` |
 
 A region whose chosen form measures nothing is **not mounted** and costs no gap —
@@ -836,8 +837,20 @@ region is*, a fact about the screen the solver would otherwise have two sources
 for. `reserved` answers *is its schedule still running* — a fact about time that
 only the caller holds — which is why it is the one exception.
 
+**Adaptation may change how much of something is shown, and what it costs to
+reach it. It may not change whether it can be reached at all.** That is what
+`recover` exists for, and why silence is not consent: the rank ladder steps a
+region down and then drops it exactly as told, and before this contract it had no
+notion of where the content went — so "step down" and "delete" were the same
+operation from the player's side. A `recover = "self"` route is checked at
+construction against **every** form below the richest (the ladder can stop at any
+rung): a form with nothing focusable in it is an authoring error, because a route
+nobody can reach is the defect wearing the fix's clothes.
+
 Declaration errors are refused at **construction**: an unknown field, a second
-`mayScroll`, `reserved` with `mayDrop`, a rank that is not a positive integer, a
+`mayScroll`, `reserved` with `mayDrop`, a missing or refused `recover`, a
+`"self"` route whose reduced form holds nothing focusable, a rank that is not a
+positive integer, a
 region with no forms, a duplicate id, a group with no home in some arrangement, an
 unknown arrangement name, a `floor` that states neither `lines` nor `targets`.
 
@@ -3683,7 +3696,7 @@ makes a whole device matrix a headless sweep rather than a screenshot review.
 | `composition.ZONES` | the ten zone ids in that table, in order. Nine are the same nine words the `anchor` box prop uses; the tenth, `topbar`, is not an anchor at all — it is the `span = "above"` row LEVEL WITH the platform's own controls, so the lanes start below it. It is inert until a region declares it: a HUD that never mentions `topbar` resolves and dumps byte-identically. Its geometry comes from the `platformChrome` env fact — see **Placing a surface in the platform's TOPBAR band** |
 
 A declaration is `{ id?, groups, regions, arrangements, laneGap?, groupGap?, maxMeasure? }`,
-where each region carries `{ id, group, rank, forms = <count>, sizing?, weight?, floor?, mayScroll?, mayDrop?, reserved? }`.
+where each region carries `{ id, group, rank, forms = <count>, recover, sizing?, weight?, floor?, mayScroll?, mayDrop?, reserved? }`.
 Note `forms` here is a **count** — the pure decision never sees a view, only how
 many representations a region has and what each one measures.
 
@@ -3711,11 +3724,31 @@ UI.Composition{
   groups = LuauUI.composition.HUD_GROUPS,
   arrangements = { LuauUI.composition.HUD },
   children = {
-    UI.Region{ id = "Rail", group = "topRight", rank = 3, children = { rich, compact } },
-    UI.Region{ id = "Tasks", group = "left", rank = 8, mayDrop = true, children = { panel, chip } },
+    UI.Region{ id = "Rail", group = "topRight", rank = 3, recover = "overflow",
+               children = { rich, compact } },
+    UI.Region{ id = "Tasks", group = "left", rank = 7, mayDrop = true, recover = "self",
+               children = { panel, tappableChip } },
   },
 }
 ```
+
+**...and it says where the degraded content went.** `RegionResolution.elided` sits
+beside `dropped` — a form below the richest was chosen — and the resolution
+carries `unshown`, one entry per thing the screen has stopped showing, in
+declaration order:
+
+```lua
+resolution.unshown --> { { id = "Clock", reason = "elided",  route = "overflow" },
+                   --     { id = "Feed",  reason = "dropped", route = "overflow" } }
+```
+
+That list is the **seam** an overflow surface is populated from. Without it every
+consumer re-derives elision by hand out of `dropped` and `form`, and gets it
+subtly wrong three ways: a dropped region is not `form > 1`; a region whose every
+form is lossless (`recover = "none"`) is not missing anything; and a one-form
+region can only be missing by being dropped. A DROPPED region's route is always
+`"overflow"` whatever its `recover` said — there is no standing form left to be
+its own route, which is the half `mayDrop` has always implied and now states.
 
 `resolution.collisions` is the alarm for the one failure a partition cannot
 remove: a region whose chosen form **measures** bigger than the box it was

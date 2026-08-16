@@ -459,6 +459,8 @@ local function compositionScreen(): any
 						id = "Standing",
 						group = "masthead",
 						rank = 2,
+						-- the chip drops the status line, so the screen owes it a route
+						recover = "overflow",
 						floor = { lines = 1 },
 						children = {
 							UI.VStack({
@@ -492,6 +494,8 @@ local function compositionScreen(): any
 					}),
 					UI.Region({
 						id = "Cta",
+						-- the stacked form holds the same two buttons as the row
+						recover = "none",
 						group = "next",
 						rank = 3,
 						floor = { targets = 1 },

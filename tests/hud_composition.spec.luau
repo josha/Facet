@@ -69,12 +69,12 @@ end
 
 local FULL = {
 	{ id = "Chrome", group = "topLeft", rank = 1, forms = 1 },
-	{ id = "RoundBtns", group = "topLeft", rank = 5, forms = 2 },
-	{ id = "Tasks", group = "left", rank = 8, forms = 2, mayDrop = true },
+	{ id = "RoundBtns", group = "topLeft", rank = 5, forms = 2, recover = "none" },
+	{ id = "Tasks", group = "left", rank = 8, forms = 2, recover = "overflow", mayDrop = true },
 	{ id = "Timer", group = "top", rank = 2, forms = 1 },
-	{ id = "Rail", group = "topRight", rank = 3, forms = 2 },
+	{ id = "Rail", group = "topRight", rank = 3, forms = 2, recover = "none" },
 	{ id = "Readout", group = "topRight", rank = 7, forms = 1, mayDrop = true },
-	{ id = "Actions", group = "bottomRight", rank = 4, forms = 2 },
+	{ id = "Actions", group = "bottomRight", rank = 4, forms = 2, recover = "none" },
 }
 
 local function intersects(a: any, b: any): (number, number)
@@ -163,7 +163,7 @@ end)
 describe("ADR-0025 Decision 2: holdsLane pins a column that has nothing in it", function()
 	local SPARSE = {
 		{ id = "Chrome", group = "topLeft", rank = 1, forms = 1 },
-		{ id = "Rail", group = "topRight", rank = 3, forms = 2 },
+		{ id = "Rail", group = "topRight", rank = 3, forms = 2, recover = "none" },
 	}
 
 	it("an empty centre column keeps its third and the right cluster does not move", function()
@@ -341,7 +341,7 @@ describe("ADR-0025: a height shrink DEGRADES, in rank order", function()
 			end,
 		}
 		local ZONES = {
-			{ id = "Rail", group = "topRight", rank = 3, forms = 2 },
+			{ id = "Rail", group = "topRight", rank = 3, forms = 2, recover = "none" },
 			{ id = "Timer", group = "top", rank = 2, forms = 1 },
 		}
 		local roomy = composition.resolve(hud(ZONES), { w = 900, h = 500 }, ctx)
@@ -468,6 +468,7 @@ local function hudScreen(): any
 						group = "left",
 						rank = 8,
 						mayDrop = true,
+						recover = "overflow",
 						children = { box("TasksA", 220, 180), box("TasksB", 220, 90) },
 					}),
 					UI.Region({ id = "Timer", group = "top", rank = 2, children = { box("TimerA", 120, 48) } }),
@@ -475,12 +476,14 @@ local function hudScreen(): any
 						id = "Rail",
 						group = "topRight",
 						rank = 3,
+						recover = "overflow",
 						children = { box("RailA", 160, 200), box("RailB", 160, 96) },
 					}),
 					UI.Region({
 						id = "Actions",
 						group = "bottomRight",
 						rank = 4,
+						recover = "overflow",
 						children = { box("ActionsA", 140, 160), box("ActionsB", 140, 80) },
 					}),
 				},

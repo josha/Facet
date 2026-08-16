@@ -186,8 +186,70 @@ orientations, at all four accessibility text sizes, on every `./run-tests.sh`, w
 to run it. That was checked rather than assumed: the new class was introduced deliberately into the
 showcase HUD and the sweep reddened.
 
+## Decision 4 — elision must DISCLOSE, not delete: `recover`, `elided`, `unshown` (2026-08-16, D7)
+
+**Adaptation may change how much of something is shown, and what it costs to reach it. It may not
+change whether it can be reached at all.**
+
+Decisions 1–3 gave a HUD a ladder that steps a region down and then drops it, in descending rank,
+and the mechanism does exactly that. What it had no vocabulary for was **where the content the
+reduced form stopped showing went** — so from the player's side "step down" and "delete" were the
+same operation. Measured on this ADR's own showcase fixture before the repair
+(`artifacts/navigation-and-menus/d7-hud-baseline.md`, and the sweep in
+`artifacts/navigation-and-menus/d7-elision-discloses.md`): **39 elided-or-dropped occurrences across
+nine viewports and two URL-bar states, every one a dead end** — including the `…` button that might
+have hosted a recovery, which lived in a FORM the ladder never chose and was therefore
+`Visible = false` at every viewport the fixture had ever been swept at.
+
+So a region with more than one form must now state one of three things, and it is a closed spec:
+
+| `recover` | meaning |
+|---|---|
+| `"none"` | every form below the richest still shows everything — a poorer *layout*, not less content |
+| `"self"` | the reduced form **is** the route; the player taps what is left to get the rest |
+| `"overflow"` | the screen's overflow surface is the route, and it reads `Resolution.unshown` |
+
+**Required where it means something, refused where it does not.** Required on a region with more
+than one form (`composition.normalize`); refused on a region with one (`blueprint.Region`) — such a
+region can only stop showing content by being *dropped*, and a dropped region has no form left to be
+its own route, so the sink is the only possible answer and `mayDrop` is already that declaration.
+`"none"` together with `mayDrop` is refused for the same reason: dropping shows nothing.
+
+The two halves are enforced in **different modules**, and that is a measurement rather than a
+preference: `forms` reaching the solver is the count of MOUNTED forms, and a form behind a `UI.When`
+is absent while its condition reads false, so the pure normalizer would reject a good declaration on
+the frame a condition flipped (measured: three regions of `scenarios/composition`). `UI.Region` sees
+the DECLARED count, which is what the "refused" rule is about.
+
+**A `"self"` route is checked against every form BELOW the richest, not only the last.** The ladder
+can stop at any rung, so checking only the terminal form leaves a dead end on exactly the
+middle-sized devices nobody fixtures. A form with nothing focusable in it is an authoring error at
+construction: a route nobody can reach is the defect wearing the fix's clothes.
+
+**The seam is the list, not the flag.** `RegionResolution.elided` sits beside `dropped`, and
+`Resolution.unshown` carries one entry per thing the screen has stopped showing, in declaration
+order, with the route already resolved. Without it every consumer re-derives elision by hand and gets
+it wrong three ways — a dropped region is not `form > 1`; a `recover = "none"` region is missing
+nothing; a one-form region can only be missing by being dropped. A dropped region's route is
+**always** `"overflow"`, whatever its `recover` said, which is the half `mayDrop` has always implied
+and now states.
+
+**What this ADR does NOT decide.** The framework supplies the list; the screen supplies the surface.
+A `recover = "overflow"` declaration says the screen owes a route, and nothing here proves one
+exists — that is a per-surface sweep (`tests/elision_recovery.spec.luau` does it for the HUD
+showcase, asserting the sink is `visibleOf` true rather than merely present). Extending that sweep to
+the whole showcase corpus is the natural follow-on and is deliberately not smuggled in here.
+
 ## Consequences
 
+- **Public surface added (D7, 2026-08-16):** the `recover` field on `UI.Region` — **required** on a
+  region with more than one form, which is a **breaking change to every multi-form Region author**
+  (51 declarations migrated: 18 in the showcase and reference apps, 15 in the framework suite, 18 in
+  RascalRally). `elided` on `RegionResolution` and `unshown` on `Resolution`, both additive and both
+  on `luauui-composition-dump/1` — empty/`false` on every declaration that resolved cleanly before
+  this shipped. Required-rather-than-defaulted is the deliberate call: a default would mean every
+  existing declaration silently claimed a route nobody had thought about, which is the
+  accepted-and-ignored class this boundary exists to remove.
 - **Public surface added:** the `holdsLane` group field; `composition.ZONES`, `composition.HUD_GROUPS`
   and `composition.HUD` (frozen presets); `collisions` on the resolution and on
   `luauui-composition-dump/1`. MINOR bump; additive in both directions — a declaration with no

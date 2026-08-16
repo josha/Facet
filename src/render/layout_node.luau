@@ -427,6 +427,11 @@ local function toLayoutNode(
 			mayScroll = props.mayScroll,
 			mayDrop = props.mayDrop,
 			reserved = props.reserved,
+			-- D7.1: construction-only, no geometry of its own. It rides here so the
+			-- solve can report WHERE an elided region's content went beside the fact
+			-- that it was elided — the two are one answer and a consumer that has to
+			-- join them by hand is the seam this exists to remove.
+			recover = props.recover,
 		}
 	end
 	if class == "Text" then

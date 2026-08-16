@@ -367,6 +367,9 @@ function shell.new(app: any): any
 						id = "Sidebar",
 						group = "nav",
 						rank = 2,
+						-- the icon rail carries every destination the full list does — a poorer
+						-- LAYOUT of the same content, which is exactly what "none" states
+						recover = "none",
 						floor = { targets = 3 },
 						children = {
 							-- RICHEST FIRST: the full list, then the icon rail. Each

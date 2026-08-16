@@ -152,6 +152,11 @@ export type RegionDecl = {
 	mayScroll: boolean?,
 	mayDrop: boolean?,
 	reserved: boolean?,
+	--[[ WHERE THE CONTENT A REDUCED FORM STOPS SHOWING WENT (D7, 2026-08-16).
+		Required on a region with more than one form, refused on a region with one:
+		see RECOVERS below for the three routes and why the one-form case has no
+		choice to make. `nil` here is only ever the one-form case. ]]
+	recover: string?,
 }
 
 export type Arrangement = {
@@ -197,8 +202,25 @@ export type RegionResolution = {
 	form: number, -- 1-based index into the region's forms
 	mounted: boolean,
 	dropped: boolean,
+	--[[ A FORM BELOW THE RICHEST WAS CHOSEN (D7.1). Derivable from `form > 1` and
+		reported anyway, beside `dropped`, because the two are the SAME event to a
+		player — content this screen has stopped showing — and a consumer that has
+		to remember one is a boolean and the other is arithmetic gets it subtly
+		wrong. A dropped region is `elided = false`: it is not showing a poorer
+		form, it is showing nothing. ]]
+	elided: boolean,
 	floor: number,
 	rect: Rect?,
+}
+
+--[[ ONE ENTRY PER THING THE SCREEN HAS STOPPED SHOWING (D7.1) — the seam.
+	`reason` is which of the two events happened; `route` is where the content
+	went, resolved from the region's `recover` and its drop state rather than
+	re-derived by the consumer. ]]
+export type Unshown = {
+	id: string,
+	reason: string, -- "dropped" | "elided"
+	route: string, -- "overflow" | "self"
 }
 
 export type Resolution = {
@@ -228,6 +250,20 @@ export type Resolution = {
 	-- outside it, and if a neighbour is there it is painting on that neighbour.
 	-- Every unordered pair, sorted by id, with the overlap extent in px.
 	collisions: { { a: string, b: string, dx: number, dy: number } },
+	--[[ WHAT THIS SCREEN IS NOT SHOWING RIGHT NOW (D7.1), in DECLARATION order —
+		the same order `regions` is in, so the two read together.
+
+		This is the list an overflow surface is populated FROM. Without it every
+		consumer re-derives elision by hand out of `dropped` and `form`, and gets it
+		subtly wrong: a dropped region is not `form > 1`, a region whose every form
+		is lossless (`recover = "none"`) is not missing anything, and a one-form
+		region can only ever be missing by being dropped. Three rules, re-implemented
+		per consumer, is how "adaptation deleted the player's information" ships.
+
+		A region appears here when it is DROPPED, or when it is elided and its
+		`recover` is not "none". It does not appear when `recover = "none"`: the
+		author has stated, explicitly, that the reduced form still shows everything. ]]
+	unshown: { Unshown },
 }
 
 -- ===== the built-in arrangement presets ====================================
@@ -437,7 +473,41 @@ local REGION_KEYS: { [string]: boolean } = {
 	mayScroll = true,
 	mayDrop = true,
 	reserved = true,
+	recover = true,
 }
+--[[ ── THE RECOVERY CONTRACT (D7.1) ───────────────────────────────────────────
+	ADAPTATION MAY CHANGE HOW MUCH OF SOMETHING IS SHOWN, AND WHAT IT COSTS TO
+	REACH IT. IT MAY NOT CHANGE WHETHER IT CAN BE REACHED AT ALL.
+
+	The rank ladder above is not missing and is not broken — it steps a region down
+	and then drops it, exactly as declared. What it never had is any notion of where
+	the content the reduced form stopped showing WENT, so "step down" and "delete"
+	were the same operation from the player's side. Measured on this repo's own HUD
+	showcase (artifacts/navigation-and-menus/d7-hud-baseline.md): 39 elided-or-
+	dropped occurrences across nine viewports, every one of them a dead end.
+
+	So a region with more than one form must say which of three things is true:
+
+	  "none"      every form below the richest still shows everything that matters.
+	              A poorer LAYOUT of the same content, not less content. It has to
+	              be written: silence is not consent, and a declaration that says
+	              nothing is exactly the state this contract exists to remove.
+	  "self"      the reduced form IS the route — the player taps what is left to
+	              get the rest. The blueprint boundary checks that the last form
+	              actually contains something focusable, because a route nobody can
+	              reach is the defect wearing the fix's clothes (D7.2).
+	  "overflow"  the reduced form carries no route of its own, so the screen's
+	              overflow surface is the route. It reads `Resolution.unshown`.
+
+	WHY A ONE-FORM REGION MAY NOT DECLARE IT. Such a region can only ever stop
+	showing content by being DROPPED, and a dropped region has no form left to be
+	its own route — the sink is the only possible answer, so there is nothing here
+	for the author to choose and a key with one legal value is ceremony. `mayDrop`
+	is already that declaration.
+
+	WHY "none" AND `mayDrop` CANNOT BOTH BE TRUE. Dropping shows nothing at all, so
+	"nothing is lost" is not a claim the author can make about it. ]]
+local RECOVERS: { [string]: boolean } = { none = true, self = true, overflow = true }
 local SIZINGS: { [string]: boolean } = { hug = true, fill = true }
 local PLACES: { [string]: boolean } = { start = true, center = true, ["end"] = true }
 local ALIGNS: { [string]: boolean } = { start = true, center = true, ["end"] = true }
@@ -747,6 +817,42 @@ function composition.normalize(decl: any): Declaration
 					.. `nothing jumps under a thumb, which is precisely what dropping it would do`
 			)
 		end
+		--[[ THE RECOVERY CONTRACT, ENFORCED WHERE EVERY OTHER CLOSED SPEC IS (D7.1).
+			Required where it means something, refused where it does not — see RECOVERS
+			above for all three rulings and the reasoning behind each. ]]
+		if r.recover ~= nil and not (type(r.recover) == "string" and RECOVERS[r.recover]) then
+			fail(
+				`region '{r.id}' recover must be "none" | "self" | "overflow", got '{tostring(r.recover)}' — `
+					.. '"none" = every form still shows everything, "self" = the reduced form is the route '
+					.. '(its last form must contain something focusable), "overflow" = the screen\'s overflow '
+					.. "surface is the route (it reads resolution.unshown)"
+			)
+		end
+		if r.forms > 1 and r.recover == nil then
+			fail(
+				`region '{r.id}' declares {r.forms} forms but no 'recover' — a form below the richest shows `
+					.. 'LESS, and this declaration does not say where the rest went. State recover = "none" '
+					.. '(every form shows everything), "self" (the reduced form is the route) or "overflow" '
+					.. "(the screen's overflow surface is). Adaptation may change how much is shown and what "
+					.. "it costs to reach; it may not change whether it can be reached at all"
+			)
+		end
+		--[[ THE MIRROR RULE — "refused on a one-form region" — IS THE BLUEPRINT
+			BOUNDARY'S, not this function's, and the reason is a measurement.
+			`forms` reaching the solver is the count of MOUNTED forms, and a form
+			gated behind a `UI.When` contributes nothing while its condition reads
+			false: the composition showcase declares two `When` forms per region and
+			solves with ONE of them for most of its states. Refusing `recover` here
+			would therefore reject a perfectly good declaration on the frame a
+			condition flipped. `UI.Region` knows the DECLARED count and refuses it
+			there, once, where the author is standing. ]]
+		if r.recover == "none" and r.mayDrop == true then
+			fail(
+				`region '{r.id}' declares recover = "none" and mayDrop — dropping shows NOTHING, so "every `
+					.. "form still shows everything\" cannot be true of it. A droppable region's reduced form "
+					.. 'is either its own route ("self") or the overflow surface\'s ("overflow")'
+			)
+		end
 		if r.mayScroll == true then
 			if scroller ~= nil then
 				fail(
@@ -768,6 +874,9 @@ function composition.normalize(decl: any): Declaration
 			mayScroll = r.mayScroll == true,
 			mayDrop = r.mayDrop == true,
 			reserved = r.reserved == true,
+			-- NIL on a one-form region and a string on every other, which is exactly
+			-- what the two rules above have already guaranteed
+			recover = r.recover,
 		})
 	end
 
@@ -1637,6 +1746,9 @@ local function solveArrangement(
 			form = forms[r.id],
 			mounted = false,
 			dropped = dropped[r.id] == true,
+			-- D7.1: a form below the richest was chosen. A dropped region is showing
+			-- nothing rather than showing less, so the two are never both true.
+			elided = dropped[r.id] ~= true and forms[r.id] > 1,
 			floor = p.floor[r.id] or 0,
 			rect = nil,
 		}
@@ -1991,6 +2103,29 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 		scroller = nil
 	end
 
+	--[[ THE UNSHOWN LIST (D7.1). Built from the DECLARATION, in declaration order,
+		so the seam a consumer reads is the same order as `regions` and cannot depend
+		on hash iteration.
+
+		The route is resolved here, once, rather than left for the consumer:
+		  * DROPPED — there is no form standing, so whatever `recover` says about a
+		    reduced form is moot and the overflow surface is the only route there can
+		    be. This is the half `mayDrop` has always implied and never stated.
+		  * ELIDED with recover "none" — nothing is missing; it does not appear.
+		  * ELIDED otherwise — the author's declared route, verbatim. ]]
+	local unshown: { Unshown } = {}
+	for _, r in d.regions do
+		local res = byId[r.id]
+		if res == nil then
+			continue
+		end
+		if res.dropped then
+			table.insert(unshown, { id = r.id, reason = "dropped", route = "overflow" })
+		elseif res.elided and r.recover ~= nil and r.recover ~= "none" then
+			table.insert(unshown, { id = r.id, reason = "elided", route = r.recover :: string })
+		end
+	end
+
 	return {
 		arrangement = chosenArr.name,
 		legal = not fallback,
@@ -2009,6 +2144,10 @@ function composition.resolve(decl: any, offer: Offer, ctx: ResolveCtx): Resoluti
 			PAINTED boxes intersect. Empty on every declaration that resolved cleanly
 			before this shipped, which is what makes it additive. ]]
 		collisions = attempt.collisions or {},
+		--[[ ADDITIVE (D7.1, 2026-08-16): what this screen has stopped showing, and
+			where the rest is. Empty on every declaration whose regions all fit at
+			their richest form, which is what makes it additive. ]]
+		unshown = unshown,
 		--[[ AUTHORING DIAGNOSTICS. Sorted region ids whose chosen form measured the
 			WHOLE offer inside a HUG lane — the signature of a form authored
 			`width = FILL` where the lane's whole contract is "as wide as my
@@ -2073,6 +2212,9 @@ function composition.dump(resolution: Resolution): any
 			form = r.form,
 			mounted = r.mounted,
 			dropped = r.dropped,
+			-- ADDITIVE (D7.1): `false` on every region that used to be dumped without
+			-- it, so a reader that never heard of elision reads what it always did
+			elided = r.elided == true,
 			floor = math.floor(r.floor + 0.5),
 			rect = roundRect(r.rect),
 		})
@@ -2084,6 +2226,10 @@ function composition.dump(resolution: Resolution): any
 	local collisions = {}
 	for _, c in resolution.collisions or {} do
 		table.insert(collisions, { a = c.a, b = c.b, dx = c.dx, dy = c.dy })
+	end
+	local unshown = {}
+	for _, u in resolution.unshown or {} do
+		table.insert(unshown, { id = u.id, reason = u.reason, route = u.route })
 	end
 	return {
 		schema = "luauui-composition-dump/1",
@@ -2106,6 +2252,11 @@ function composition.dump(resolution: Resolution): any
 		-- ADDITIVE (ADR-0025, 2026-08-14): who is painting on top of whom. Already
 		-- sorted by (a, b) on the resolution, so two calls are equal.
 		collisions = collisions,
+		--[[ ADDITIVE (D7.1, 2026-08-16): what this screen has stopped showing and
+			where the rest is, in declaration order. This is the row a reviewer reads to
+			answer "did adaptation delete anything" without re-deriving it from `form`
+			and `dropped` — and the row the D7.6 device sweep asserts a route for. ]]
+		unshown = unshown,
 	}
 end
 

@@ -264,6 +264,9 @@ export type RegionSpec = {
 	mayScroll: boolean?,
 	mayDrop: boolean?,
 	reserved: boolean?,
+	-- "none" | "self" | "overflow": where the content a reduced form stops showing
+	-- went (D7.1). Required with more than one form, refused with one
+	recover: string?,
 	children: { Blueprint },
 }
 export type DividerSpec = BoxProps & {
@@ -832,6 +835,33 @@ function blueprint.ViewThatFits(spec: ViewThatFitsSpec): Blueprint
 	end
 	return bp
 end
+--[[ THE ONE SET THAT MEANS "A PLAYER CAN REACH THIS" — `focus_map.FOCUSABLE` plus
+	the Grip's opt-in, which is the same rule the presenter walks to build focus
+	order. Two consumers: `UI.Button` refuses one INSIDE its content (a second focus
+	site on one activation surface), and `UI.Region` requires one in the last form of
+	a `recover = "self"` region (D7.2). Same set, opposite polarity, one definition —
+	the day a fourth control becomes focusable both rules learn it together. ]]
+local CONTENT_FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
+
+local function isFocusable(node: Blueprint): boolean
+	if CONTENT_FOCUSABLE[node.class] and node.props.focusable ~= false then
+		return true
+	end
+	return node.class == "Grip" and node.props.focusable == true
+end
+
+local function containsFocusable(node: Blueprint): boolean
+	if isFocusable(node) then
+		return true
+	end
+	for _, child in node.children or {} do
+		if containsFocusable(child) then
+			return true
+		end
+	end
+	return false
+end
+
 -- Region (ADR-0023): ONE ranked thing a composition has to say. Its children are
 -- its FORMS, richest first, and the last one is its minimum-viable form — the
 -- smallest thing the author is willing to show. Declared in READING order; the
@@ -851,6 +881,57 @@ function blueprint.Region(spec: RegionSpec): Blueprint
 				.. `representations of this region, richest first)`,
 			0
 		)
+	end
+	--[[ D7.2 — A TERMINAL FORM ON A "SELF" ROUTE MUST BE ACTIONABLE.
+		`recover = "self"` says "the reduced form IS the route: the player taps what is
+		left to get the rest". If the last form holds nothing focusable then there is
+		nothing to tap, and the declaration has promised a route that does not exist —
+		which is strictly worse than "overflow", because it also tells the overflow
+		surface not to list this region. Measured on the HUD showcase: `TasksChip` was
+		a glass pill wrapping two `UI.Text`, so three tasks and their rewards were
+		gone and the thing left behind could not be touched.
+
+		THE WALK IS OF THE DECLARED TREE. Content a `UI.When` or `UI.ForEach` produces
+		lazily is not visible here (their views are functions), so a `self` route must
+		declare its control rather than manufacture it — which is the right constraint
+		anyway: a route that exists only in some states is not a route. ]]
+	--[[ `recover` IS REFUSED ON A ONE-FORM REGION, and this is the only place that
+		can say so: the count reaching the solver is the count of MOUNTED forms, and a
+		form behind a `UI.When` is absent while its condition reads false — so the
+		pure normalizer would reject a good declaration on the frame a condition
+		flipped. Here the count is the DECLARED one, which is what the rule is about.
+		(The other half, "required with more than one form", is the normalizer's: it
+		has to hold for a declaration driven straight from a test as well.) ]]
+	if spec.recover ~= nil and #bp.children == 1 then
+		error(
+			`LuauUI UI.Region '{bp.id}' declares one form, so 'recover' has nothing to describe — a `
+				.. "single-form region can only stop showing content by being DROPPED, and a dropped region "
+				.. "has no form left to be its own route, so the screen's overflow surface is the only "
+				.. "possible answer. `mayDrop` is already that declaration",
+			0
+		)
+	end
+	--[[ EVERY REDUCED FORM, NOT ONLY THE LAST ONE. The ladder can stop at ANY rung
+		— a three-form region resolves to form 2 on plenty of screens — so checking
+		only the terminal form leaves a dead end on exactly the middle-sized devices
+		nobody fixtures. Form 1 is the richest and is exempt by definition: it is not
+		showing less than anything. ]]
+	if spec.recover == "self" then
+		for i = 2, #bp.children do
+			local form = bp.children[i]
+			if not containsFocusable(form) then
+				error(
+					`LuauUI UI.Region '{bp.id}' declares recover = "self", so every form below the richest is `
+						.. `the route to what that form stopped showing — but form {i} of {#bp.children} (a `
+						.. `UI.{form.class}) contains nothing focusable, so there is nothing for a player to `
+						.. "activate while it is the one on screen. Put a UI.Button (or Toggle/TextField, or a "
+						.. 'focusable Grip) in it, or declare recover = "overflow" and let the screen\'s '
+						.. "overflow surface carry it. A route nobody can reach is the defect wearing the "
+						.. "fix's clothes",
+					0
+				)
+			end
+		end
 	end
 	return bp
 end
@@ -884,6 +965,7 @@ function blueprint.Composition(spec: CompositionSpec): Blueprint
 			floor = child.props.floor,
 			mayScroll = child.props.mayScroll,
 			mayDrop = child.props.mayDrop,
+			recover = child.props.recover,
 			-- A LIVE `reserved` IS STILL A RESERVATION AT CONSTRUCTION. The read
 			-- answers WHEN the box is held, never WHETHER this region is the kind that
 			-- holds one — so the floor requirement and the mayDrop exclusivity below
@@ -962,8 +1044,11 @@ end
 -- handler and then to the longest-prefix contribution), so it is rejected here —
 -- at the boundary, with the offending node named — rather than producing a screen
 -- that misbehaves only under keyboard or gamepad navigation.
-local CONTENT_FOCUSABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
-
+--
+-- The SET is `CONTENT_FOCUSABLE` above (shared with UI.Region's D7.2 rule); this
+-- refusal reads it directly rather than through `isFocusable`, because a
+-- `focusable = false` Button is still a second activation surface inside a Button
+-- even though it is out of focus order.
 local function assertNoFocusableContent(children: { Blueprint }?)
 	if children == nil then
 		return

@@ -250,6 +250,7 @@ export type Node = {
 		mayScroll: boolean?,
 		mayDrop: boolean?,
 		reserved: boolean?,
+		recover: string?,
 	}?,
 	children: { Node }?,
 }
@@ -819,6 +820,7 @@ local function compositionResolution(ctx: Ctx, node: Node, innerW: number, inner
 			mayScroll = r.mayScroll,
 			mayDrop = r.mayDrop,
 			reserved = r.reserved,
+			recover = r.recover,
 		})
 	end
 

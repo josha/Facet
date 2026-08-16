@@ -67,17 +67,41 @@
 -- THE ZONES, and the RANK LADDER the fixture exists to show (rank 1 is the last
 -- thing to give way; 9 is the first). The ladder is on screen, under the HUD, so
 -- a viewer watching a zone step down can see WHY that zone was the one chosen:
---   1 topLeft      the round-button strip (the platform's chrome sits above it)
+--   1 topLeft      the round-button strip — and the THIRD disc in it is the
+--                  overflow sink (D7.3), so the one affordance that recovers
+--                  everything else lives in the one zone that never gives way
 --   2 top          the round timer and the two team scores
 --   3 bottomRight  the action buttons
 --   4 topRight     the weapon rail
 --   5 bottomLeft   the health bar
 --   6 bottomRight  the weapon name (droppable)
---   7 topRight     the fps/ping readout (droppable)
---   8 left         "Beginner tasks" — three forms: full / one task / chip
---   9 bottomLeft   the kill feed (droppable)
+--   7 left         "Beginner tasks" — three forms: full / one task / chip
+--   8 bottomLeft   the kill feed (droppable)
+--   9 topRight     the fps/ping readout (droppable)
 --   + topbar       the objective chip, in the free strip beside Roblox's own
 --                  buttons — RESERVED while riding, never dropped
+--
+-- ===== AND WHAT HAPPENS TO WHAT A ZONE STOPS SHOWING (D7) ===================
+-- The ladder above was never broken: it steps a zone down and then drops it,
+-- exactly as declared. What it had no vocabulary for was WHERE the content went,
+-- so "step down" and "delete" were the same operation from the player's side.
+-- Measured on this very fixture before the repair
+-- (artifacts/navigation-and-menus/d7-hud-baseline.md): 39 elided-or-dropped
+-- occurrences across nine viewports and two states, every one a dead end.
+--
+-- Every multi-form zone here now states its route, and the framework refuses a
+-- declaration that does not (`recover`, src/layout/composition.luau):
+--   Rounds   "none"      — one form, wrapped: every disc is on screen at every
+--                          width, so nothing is ever lost. Stated, not assumed
+--   Tasks    "self"      — the chip it steps down to is a BUTTON that opens the
+--                          full task list, so what is left can be tapped
+--   Clock,   "overflow"  — the scores, the ammo counts and the two spare action
+--   Rail,                  discs go to the ··· sink, which reads the framework's
+--   Actions,               own `resolution.unshown` list rather than re-deriving
+--   Health                 elision by hand
+-- ...and every DROPPED zone (Feed, Readout, Weapon, and Tasks/Health/Rail when
+-- the ladder runs out of steps) is in that same list by construction: `mayDrop`
+-- now means "moves to the sink", never "is deleted".
 
 -- EVERY PLAYER-VISIBLE STRING, in one table and exported, so the localization
 -- case can expand all of them ~1.4x. All of it must fit and wrap, never clip.
@@ -111,7 +135,15 @@ local COPY = {
 	action3 = "Menu",
 	round1 = "Menu",
 	round2 = "Report",
-	round3 = "Loadout",
+	-- THE OVERFLOW SINK'S OWN NAME (D7.3). It is the third disc in the round
+	-- strip, and it is what "dropping stops meaning deleting" is made of.
+	round3 = "Show what's hidden",
+	overflowTitle = "Hidden right now",
+	-- the half the ladder line has no room for: the ladder decides WHICH zone gives
+	-- way, and this says what happens to what it gave up
+	overflowNote = "Nothing is deleted. A zone that gives way is listed here.",
+	overflowEmpty = "Nothing is hidden — every zone is showing everything it has.",
+	overflowClose = "Close",
 	feed = "Ravi eliminated Mo",
 	urlBarOn = "URL bar",
 	-- the pseudo browser chrome the switch now DRAWS (director 2026-08-15, item 5)
@@ -119,14 +151,58 @@ local COPY = {
 	rideOn = "Topbar strip",
 	objective = "Round 3 · Capture",
 	objectiveShort = "R3",
-	-- the mechanism, in one line, on the screen that demonstrates it
-	ladder = "Rank ladder, first to give way last: feed, tasks, fps, weapon, health, rail, actions, clock, buttons.",
+	--[[ THE MECHANISM, IN TWO LINES, ON THE SCREEN THAT DEMONSTRATES IT.
+		The ladder moved (D7.4). It used to read "feed, tasks, fps, ..." — the fps
+		readout surviving longer than the kill feed and the task panel, which is a
+		developer's telemetry outliving two pieces of player information. Measured on
+		the live screen (artifacts/navigation-and-menus/d7-hud-baseline.md): with the
+		URL bar open, `60 FPS · 42 ms` was still on screen while all three tasks,
+		their rewards and the feed were gone.
+
+		AND THE SCORES ARE A RE-RANK THAT COULD NOT WORK, which is why the second
+		line exists. `12` and `9` are lost when the Clock steps down, and the Clock is
+		in the CENTRE lane while the fps readout is in the RIGHT one — rule 3 only
+		ever spends the currency of the lane that does not fit, so no rank on earth
+		makes the right lane pay for the centre lane's deficit. The scoreboard's
+		recovery is the DISCLOSURE route, not the ladder: `recover = "overflow"`. ]]
+	--[[ ONE LINE, AND IT MAY NOT GROW. The disclosure half arrived as a SECOND
+		caption line and the always-on sweep refused it the same day: at 320x640 with
+		`preferredTextOffset = +14` the Screen's own column went over by 5px under
+		classic-desktop and by up to 268px under the ornate packages — the caption was
+		already at its limit and a second sentence had nowhere to go. So both facts
+		ride ONE line, and this one is SHORTER than the ladder line it replaces (98
+		characters against 100). The fuller sentence lives on the panel the ··· opens,
+		which is the one place on this screen that has room for it. ]]
+	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. ··· has the rest.",
 }
 
--- the browser chrome the commissioning screenshot opened, in pixels. A landscape
--- phone losing this much height is the exact case; it is a constant here because
--- it is a fact about the SCREENSHOT, not a layout number the theme owns.
-local URL_BAR_PX = 200
+--[[ ── THE URL BAR IS TWO FACTS, AND IT USED TO BE ONE NUMBER (D7.5) ──────────
+	`URL_BAR_PX = 200` was commented as *"a fact about the SCREENSHOT"* — which is
+	to say it was never measured — and it did two jobs at once: the height the
+	browser chrome STEALS from the page, and the height this fixture DRAWS its
+	pseudo bar at. One number for two facts means an over-stated steal also paints
+	an absurd box: measured at 749x380 the bar came out 733x158, 42% of the
+	viewport, a near-empty slab with one line of grey text adrift in it.
+
+	RE-MEASURED AGAINST A REAL BROWSER, 2026-08-16 — Chrome 151.0.0.0 on macOS
+	(this machine), a local page reporting its own `outerHeight - innerHeight`:
+
+	  | window                                    | outer | inner | chrome |
+	  | normal window (tab strip + toolbar)       |  1274 |  1131 | 143 px |
+	  | popup window (location bar, NO tab strip) |   486 |   419 |  67 px |
+
+	THE FIXTURE MODELS THE 67, and that choice is the point: a tab strip does not
+	APPEAR — it is always there. What appears and disappears, which is the whole
+	event this toggle exists to model, is the location-bar row. 200 was three times
+	it.
+
+	AND THE SECOND JOB IS NOW A THEME METRIC, NOT A CONSTANT. The bar is still
+	drawn at exactly the height it takes (director 2026-08-15, item 5: the picture
+	and the geometry are one number and cannot drift), but the FIELD inside it is a
+	control, so its box comes from the control-size ladder — which is what stops an
+	over-stated band from ever painting an empty slab again, whatever the band's
+	height turns out to be. ]]
+local URL_BAR_STEAL_PX = 67
 
 -- ...and the same kind of constant for the OTHER commissioning fact: the width of
 -- Roblox's own control cluster, measured live at 735x413 on 2026-08-14. It is used
@@ -417,7 +493,7 @@ return {
 			for _, r in { reserveLeft, reserveCentre, reserveRight } do
 				reserved = math.max(reserved, (use(r) :: any).px or 0)
 			end
-			return math.min(URL_BAR_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX - reserved))
+			return math.min(URL_BAR_STEAL_PX, math.max(0, (use(viewportFact) :: any).h - HUD_FLOOR_PX - reserved))
 		end
 		-- ...and the platform's own cluster is held open as SPACE inside that row —
 		-- a leading spacer as wide as the distance from the HUD's own left edge to
@@ -528,7 +604,7 @@ return {
 		-- `size` is a theme metric NAME, never a number: the bottom-right cluster is
 		-- the thumb-sized one and the top-left strip is the compact one, and both
 		-- follow whatever the installed package thinks those two sizes are.
-		local function roundButton(id: string, label: string, icon: string, size: string): any
+		local function roundButton(id: string, label: string, icon: string, size: string, onActivate: any?): any
 			return UI.Button({
 				id = id,
 				label = label,
@@ -537,6 +613,9 @@ return {
 				surface = "chip",
 				-- a circle takes at most ONE of width/height, and the other follows
 				height = { type = "fixed", px = size },
+				-- THE SINK'S TRIGGER RIDES THIS (D7.3). Optional, so the two clusters
+				-- that are pure decoration stay exactly what they were.
+				onActivate = onActivate,
 			})
 		end
 
@@ -674,6 +753,216 @@ return {
 			)
 		end
 
+		--[[ ── THE OVERFLOW SINK (D7.3) ─────────────────────────────────────────
+			DROPPING STOPS MEANING DELETING. Every zone that is not showing everything
+			it has is listed here, and the list is the FRAMEWORK's
+			(`resolution.unshown`, D7.1) rather than this fixture's own re-derivation
+			of it — which is the whole point of the seam: three rules (a dropped region
+			is not `form > 1`; a `recover = "none"` region is not missing anything; a
+			one-form region can only be missing by being dropped) re-implemented per
+			consumer is how "adaptation deleted the player's information" ships.
+
+			IT IS A CONTENT PANEL, NOT A MENU OF VERBS, and that is D2's own ruling
+			read the right way round: a menu item RUNS something, and "the score is
+			12-9" runs nothing. So the recovery is D1's `presentAnchored` — the
+			content is simply THERE the moment the panel opens, with no second
+			navigation step that could itself be adapted away.
+
+			THE HOST IS THE THIRD DISC IN THE ROUND STRIP, and that is the repair to
+			the defect the baseline found: the `...` affordance used to live in
+			`RoundColumn`, a FORM the ladder never chose, so it measured 36x36 and was
+			`Visible = false` at every viewport this fixture has ever been swept at —
+			the one control that recovers everything else was the one control nobody
+			could reach. It now lives in a rank-1 region with ONE form, so there is no
+			losing form for it to sit in and no rank below it to be dropped for. ]]
+		local RECOVERED: { [string]: () -> { string } } = {
+			Tasks = function()
+				return {
+					COPY.tasksTitle,
+					`{COPY.task1}  {COPY.reward1}`,
+					`{COPY.task2}  {COPY.reward2}`,
+					`{COPY.task3}  {COPY.reward3}`,
+				}
+			end,
+			Health = function()
+				return { `{COPY.healthLabel}  {COPY.health}` }
+			end,
+			-- the SCORES, which is the case no re-rank could have fixed: the Clock is
+			-- in the centre lane and the readout it is compared against is in the
+			-- right one, and rule 3 only ever spends the currency of the lane that
+			-- does not fit
+			Clock = function()
+				return { `{COPY.scoreHome} - {COPY.scoreAway}` }
+			end,
+			Rail = function()
+				return {
+					`{COPY.weapon1}  {COPY.ammo1}`,
+					`{COPY.weapon2}  {COPY.ammo2}`,
+					`{COPY.weapon3}  {COPY.ammo3}`,
+				}
+			end,
+			Actions = function()
+				return { COPY.action1, COPY.action2, COPY.action3 }
+			end,
+			Feed = function()
+				return { COPY.feed }
+			end,
+			Readout = function()
+				return { COPY.readout }
+			end,
+			Weapon = function()
+				return { COPY.weaponName }
+			end,
+		}
+
+		-- the last solve's resolution, through the runner's own accessor (the same
+		-- one `composition` uses) — nil before anything has solved
+		local function state(): any
+			return if ctx.composition ~= nil then ctx.composition("/HudScreen/Hud") else nil
+		end
+
+		--[[ WHAT IS HIDDEN, FROM THE FRAMEWORK'S OWN LIST. The ids on a resolution
+			are NODE PATHS (`/HudScreen/Hud/Tasks`), because that is what addresses a
+			rect, a form and a focus ring; the leaf is what this fixture named its
+			zones. Splitting it here rather than storing paths in `RECOVERED` keeps
+			the recovery table readable and independent of where the HUD is mounted. ]]
+		local function hiddenNow(): { { id: string, reason: string, route: string } }
+			local dump = state()
+			local out = {}
+			for _, entry in (if dump ~= nil then dump.unshown else nil) or {} do
+				local leaf = string.match(entry.id, "([^/]+)$") or entry.id
+				table.insert(out, { id = leaf, reason = entry.reason, route = entry.route })
+			end
+			return out
+		end
+
+		local overflowHandle: any = nil
+		local overflowOpen = scope:own(core:signal(false))
+
+		local function closeOverflow()
+			if overflowHandle ~= nil and ctx.presenter ~= nil and ctx.presenter.dismiss ~= nil then
+				ctx.presenter.dismiss(overflowHandle)
+			end
+			overflowHandle = nil
+			overflowOpen:set(false)
+		end
+
+		local function overflowPanel(): any
+			local rows: { any } = {
+				UI.Text({ id = "OverflowTitle", text = COPY.overflowTitle, textSize = "label" }),
+				UI.Text({
+					id = "OverflowNote",
+					text = COPY.overflowNote,
+					textSize = "caption",
+					role = "secondary",
+				}),
+			}
+			local hidden = hiddenNow()
+			if #hidden == 0 then
+				-- ...AND THE EMPTY STATE IS NOT AN EMPTY PANEL. A sink that opens onto
+				-- nothing reads as broken; a sink that says "nothing is hidden" is the
+				-- demonstration finishing its own sentence.
+				table.insert(
+					rows,
+					UI.Text({
+						id = "OverflowEmpty",
+						text = COPY.overflowEmpty,
+						textSize = "caption",
+						role = "secondary",
+					})
+				)
+			end
+			for _, entry in hidden do
+				local build = RECOVERED[entry.id]
+				if build == nil then
+					continue
+				end
+				for i, line in build() do
+					table.insert(
+						rows,
+						UI.Text({
+							id = `Recovered{entry.id}{i}`,
+							text = line,
+							textSize = "caption",
+							-- NO `lineLimit`: this panel is the last place a string is
+							-- shown, so it wraps at 1.4x rather than cutting. Everything the
+							-- HUD itself truncates reads whole here
+							role = if i == 1 then "content" else "secondary",
+						})
+					)
+				end
+			end
+			table.insert(
+				rows,
+				UI.Button({
+					id = "OverflowClose",
+					label = COPY.overflowClose,
+					surface = "chip",
+					onActivate = function()
+						closeOverflow()
+					end,
+				})
+			)
+			--[[ A TAP AWAY CLOSES IT, through the shipped contribution seam rather than
+				a presenter option: `outsideDismiss.dismiss` is THIS fixture's own
+				`closeOverflow`, so the handle, the signal and the screen can never
+				disagree about whether the sink is open. `consume = false` is the
+				row-actions mode — the tap still reaches whatever it landed on — because
+				a HUD's own controls stay live while a disclosure plate is up. ]]
+			return LuauUI.contribution.attach(
+				glass(
+					"OverflowPanel",
+					"panel",
+					UI.VStack({
+						id = "OverflowBody",
+						padding = 12,
+						gap = 6,
+						width = { type = "fill", weight = 1 },
+						children = rows,
+					}),
+					-- a fixed panel width is an APP-level decision (a plate a thumb can
+					-- read without covering the screen), which is the kind of literal an
+					-- app is allowed and a framework control is not — and it is what gives
+					-- every line above something to wrap inside
+					{ type = "fixed", px = 240 }
+				),
+				{
+					outsideDismiss = {
+						active = scope:own(core:memo(function(use)
+							return use(overflowOpen) == true
+						end)),
+						dismiss = function()
+							closeOverflow()
+						end,
+						consume = false,
+					},
+				}
+			)
+		end
+
+		local function openOverflow()
+			if overflowHandle ~= nil then
+				closeOverflow()
+				return
+			end
+			if ctx.presenter == nil or ctx.presenter.presentAnchored == nil then
+				return
+			end
+			overflowHandle = ctx.presenter.presentAnchored(overflowPanel(), {
+				id = "HudOverflow",
+				anchor = {
+					source = { path = "/HudScreen/Hud/Rounds/RoundStrip/R3" },
+					edge = "bottom",
+					align = "start",
+					gap = "s",
+					tail = true,
+				},
+				-- EDGE TO EDGE because an anchored surface is placed in WINDOW space and
+				-- anything else is refused; the placement honours the safe area itself
+				rootPolicy = "edgeToEdge",
+			})
+			overflowOpen:set(true)
+		end
 		-- ---- the HUD -----------------------------------------------------
 		local hud = UI.Composition({
 			id = "Hud",
@@ -798,37 +1087,51 @@ return {
 					rank = 1,
 					children = { UI.Spacer({ id = "ChromeRightGap", height = reserveRight }) },
 				}),
-				-- UPPER LEFT — the round-button strip. One form: this is the thing
-				-- the player reaches for, and a HUD that hides its own buttons on a
-				-- short screen has solved the wrong problem.
+				--[[ UPPER LEFT — the round-button strip, AND THE SINK THAT LIVES IN IT.
+					ONE FORM, and that is the D7 repair rather than a simplification.
+
+					It used to be two: a two-across `RoundStrip` and a three-down
+					`RoundColumn`. Two things were wrong with that, and the first one had
+					shipped invisibly since the fixture was written:
+
+					  * THE COLUMN FORM WAS NEVER CHOSEN. Measured across nine viewports
+					    x two states before this change: `Rounds` resolved to form 1 at
+					    every single one. So the third disc — `R3c`, the `...` — was
+					    `Visible = false` everywhere, and the round strip had been
+					    silently showing two of its three buttons for the fixture's whole
+					    life. A form below the richest that holds MORE content than the
+					    richest is a ladder pointing the wrong way.
+					  * A REGION WITH TWO FORMS CAN ELIDE, and the overflow sink may not
+					    live anywhere that can. `recover` is refused on a one-form region
+					    precisely because such a region cannot elide — which is the
+					    structural guarantee this zone now carries.
+
+					`wrap = true` is what makes one form enough, and it is the framework's
+					own answer to the measurement the old comment recorded (three compact
+					discs plus their gaps are 120px in a 119px lane on a 359px phone): the
+					row wraps to two lines where the lane is narrow and stays one line
+					where it is not, at every width, with no ladder and no device branch.
+					Height is what it spends, and height is what a narrow portrait phone
+					has. ]]
 				UI.Region({
 					id = "Rounds",
 					group = "topLeft",
 					rank = 1,
 					children = {
-						-- TWO ACROSS, THREE DOWN, and the sweep chose the number: a HUD
-						-- lane is a third of the screen, so on a 359px phone this zone is
-						-- 119px and three compact discs plus their gaps are 120. One pixel
-						-- is still a finding, and the answer is not a smaller disc (the
-						-- theme owns that) but a row that fits the lane it lives in.
 						UI.HStack({
 							id = "RoundStrip",
 							gap = 6,
+							wrap = true,
 							children = {
 								roundButton("R1", COPY.round1, "menu", "controlSizes.compact.height"),
 								roundButton("R2", COPY.round2, "flag", "controlSizes.compact.height"),
-							},
-						}),
-						-- ...and the same three buttons stacked, for the column a 320px
-						-- phone actually has. Rank 1: it is the last thing to give way,
-						-- but it still has somewhere to go
-						UI.VStack({
-							id = "RoundColumn",
-							gap = 6,
-							children = {
-								roundButton("R1c", COPY.round1, "menu", "controlSizes.compact.height"),
-								roundButton("R2c", COPY.round2, "flag", "controlSizes.compact.height"),
-								roundButton("R3c", COPY.round3, "more", "controlSizes.compact.height"),
+								-- THE SINK'S HOST. Rank 1, one form, never dropped, wrapped
+								-- rather than elided — the four things that make "a host always
+								-- exists" true in code instead of true in a comment. Its 36px
+								-- disc still delivers a 44px hit rect: `Button` carries a
+								-- `minHitSize` clamped up to `targetSizes.minimum`, which is the
+								-- three-axes floor this affordance owes on touch.
+								roundButton("R3", COPY.round3, "more", "controlSizes.compact.height", openOverflow),
 							},
 						}),
 					},
@@ -838,8 +1141,21 @@ return {
 				UI.Region({
 					id = "Tasks",
 					group = "left",
-					rank = 8,
+					-- RE-RANKED 8 -> 7 (D7.4): the fps readout below used to survive
+					-- longer than three tasks and their rewards, which is a developer's
+					-- telemetry outliving the player's progression
+					rank = 7,
 					mayDrop = true,
+					--[[ "SELF" — THE CHIP IT STEPS DOWN TO IS THE ROUTE (D7.2). While this
+						zone is standing in a reduced form, the reduced form is what the player
+						is looking at, and the thing left behind has to be reachable FROM
+						there: an overflow sink is for when a zone is GONE, not an excuse for a
+						dead end that is on screen. The framework refuses the declaration
+						unless the last form really does contain something focusable, which is
+						what turned `TasksChip` from a glass pill of two `UI.Text` into a
+						Button. When the ladder runs out of steps and drops this zone entirely,
+						the sink carries it — `mayDrop` now means "moves to the sink". ]]
+					recover = "self",
 					floor = { lines = 1 },
 					children = {
 						glass(
@@ -880,42 +1196,72 @@ return {
 							What survives is the control's own row, whose label shrinks by
 							construction (O-23). The rich row is what the FULL form is for,
 							and the full form is what a screen with room gets. ]]
+						--[[ ...AND IT IS ALSO A ROUTE, because a MIDDLE rung is a rung
+							(D7.2). `recover = "self"` is checked against every form below the
+							richest, not only the last one: this form is what a mid-sized screen is
+							left with, and two tasks plus their rewards are missing from it exactly
+							as they are from the chip below. A dead end on the device nobody
+							fixtures is the whole defect class.
+
+							`surface = "plain"` is what lets the Button be the ROUTE without being a
+							second plate: the glass is already painted behind it, and a chip surface
+							here would put a control frame inside a panel frame. ]]
 						glass(
 							"TasksOne",
 							"panel",
-							UI.VStack({
+							--[[ THE ROW IS THE BUTTON'S OWN ROW, and that is not a
+								simplification — it is the same measurement the comment below
+								records, met a second time. A Button lays its children out as ONE
+								row and measures THAT row, so an inner `fill` HStack between them
+								contributes nothing to the Button's own measure: the plate hugged
+								to 16px and the solver said so ("content box collapses to 0px on x:
+								padding 8 + 8 on a 16px width", measured pseudo-localized at
+								320x640). The children go straight on the Button. ]]
+							UI.Button({
 								id = "TasksOneBody",
+								label = COPY.tasksTitle,
+								surface = "plain",
+								onActivate = openOverflow,
 								padding = 8,
-								gap = 6,
+								gap = 8,
+								align = "center",
 								width = { type = "fill", weight = 1 },
 								children = {
-									UI.HStack({
-										id = "TasksOneRow",
-										gap = 8,
-										align = "center",
-										width = { type = "fill", weight = 1 },
-										children = {
-											-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With
-											-- the row alone the plate hugged to 16px — a bar is
-											-- `fill`, so it measures as nothing and there was
-											-- nothing else in here to measure ("content box
-											-- collapses to 0px on x: padding 8 + 8 on a 16px
-											-- width"). One non-fill child is what a hugging panel
-											-- needs, and the task's name is the one worth having.
-											UI.Text({
-												id = "TasksOneName",
-												text = COPY.task1,
-												textSize = "caption",
-												lineLimit = 1,
-												shrinkWeight = 1,
-											}),
-											taskBars[1].blueprint,
-										},
+									-- THE NAME IS ALSO WHAT GIVES THIS PANEL A WIDTH. With the row
+									-- alone the plate hugged to 16px — a bar is `fill`, so it
+									-- measures as nothing and there was nothing else in here to
+									-- measure. One non-fill child is what a hugging panel needs,
+									-- and the task's name is the one worth having.
+									UI.Text({
+										id = "TasksOneName",
+										text = COPY.task1,
+										textSize = "caption",
+										lineLimit = 1,
+										shrinkWeight = 1,
 									}),
+									taskBars[1].blueprint,
 								},
 							})
 						),
-						pill("TasksChip", COPY.tasksChip, "caption"),
+						--[[ THE TERMINAL FORM, AND IT IS A BUTTON (D7.2). It was `pill(...)`
+							— `glass` wrapping an HStack of `UI.Text` — so the ladder's last rung
+							for this zone was three tasks and their rewards replaced by an
+							untappable label reading "Tasks 1/3". That is the dead end
+							`recover = "self"` exists to refuse, and the framework now refuses it
+							at construction: a `self` route whose last form holds nothing
+							focusable is an authoring error, named at the call site.
+
+							It opens the same panel the ··· sink does, which is deliberate: the
+							recovery for "this zone is reduced" and the recovery for "this zone
+							is gone" are the same content, and two panels would be two things to
+							keep in step. ]]
+						UI.Button({
+							id = "TasksChip",
+							label = COPY.tasksChip,
+							surface = "chip",
+							textSize = "caption",
+							onActivate = openOverflow,
+						}),
 					},
 				}),
 				-- LOWER LEFT — the health bar, and under it the kill feed.
@@ -923,6 +1269,9 @@ return {
 					id = "Health",
 					group = "bottomLeft",
 					rank = 5,
+					-- ITS REDUCED FORM LOSES THE BAR, and a pill with a figure on it is not
+					-- something to tap, so the sink is the honest route rather than "self"
+					recover = "overflow",
 					-- DROPPABLE, and the measurement is why. The left lane's irreducible
 					-- floor is the round-button strip (rank 1, never dropped) plus
 					-- whatever else in that lane cannot leave; with the health pod pinned
@@ -980,7 +1329,9 @@ return {
 				UI.Region({
 					id = "Feed",
 					group = "bottomLeft",
-					rank = 9,
+					-- RE-RANKED 9 -> 8 (D7.4): a kill feed is thin, but it is something that
+					-- happened in the match, and the fps readout is not
+					rank = 8,
 					mayDrop = true,
 					children = { UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" }) },
 				}),
@@ -989,6 +1340,15 @@ return {
 					id = "Clock",
 					group = "top",
 					rank = 2,
+					--[[ THE SCORES ARE THE CASE NO RE-RANK COULD HAVE FIXED (D7.4). This
+						zone's second form is deliberately "the clock and the ring, WITHOUT the
+						scores", so `12` and `9` cease to exist the moment the centre lane runs
+						short — while the fps readout, a whole region, is still standing in the
+						RIGHT lane. Rule 3 spends only the currency of the lane that does not
+						fit, so no ranking makes the right lane pay the centre lane's deficit.
+						The scoreboard's recovery is the disclosure route, which is exactly
+						what "tap for detail" is for. ]]
+					recover = "overflow",
 					children = {
 						UI.HStack({
 							id = "ClockStack",
@@ -1051,6 +1411,9 @@ return {
 					id = "Rail",
 					group = "topRight",
 					rank = 4,
+					-- the compact form is ONE weapon name with no ammo count, so two
+					-- weapons and three counts are what it stops showing
+					recover = "overflow",
 					-- DROPPABLE, and the Studio canary is why. On a 735x413 window with
 					-- the URL bar open the right column has 61px and holds a 31px rail
 					-- over a 46px button: neither could give any more, so the whole
@@ -1080,7 +1443,12 @@ return {
 				UI.Region({
 					id = "Readout",
 					group = "topRight",
-					rank = 7,
+					--[[ RE-RANKED 7 -> 9, THE FIRST THING TO GIVE WAY (D7.4). Measured live
+						with the URL bar open at 749x380: `60 FPS · 42 ms` was on screen while
+						all three tasks, their rewards, the health figure and the kill feed were
+						gone. A frame counter is what the developer wants and what the player
+						never asked for; it goes first. ]]
+					rank = 9,
 					mayDrop = true,
 					children = { UI.Text({ id = "ReadoutText", text = COPY.readout, textSize = "caption" }) },
 				}),
@@ -1090,6 +1458,9 @@ return {
 					id = "Actions",
 					group = "bottomRight",
 					rank = 3,
+					-- its compact form is ONE disc where the full form is three, so two
+					-- actions are what it stops showing
+					recover = "overflow",
 					children = {
 						UI.VStack({
 							id = "ActionsCol",
@@ -1186,6 +1557,16 @@ return {
 							screen it is explaining. The field carries `lineLimit = 1` and
 							`shrinkWeight` for the same reason every other row in this
 							fixture does: it gives up pixels, then characters, never lines. ]]
+						--[[ THE BAND IS THE BROWSER'S FACT; THE FIELD IS THE THEME'S (D7.5).
+							The band still spans exactly the height the HUD lost — one memo, so
+							the picture and the geometry cannot drift (2026-08-15, item 5) — but
+							the FIELD inside it is a control, so its box is the control-size
+							ladder's, centred in whatever the band turned out to be. That is the
+							half that was doing a second job as a pixel constant: with the two
+							welded together, an over-stated steal painted a near-empty slab
+							(measured 733x158 at 749x380, 42% of the viewport). Now the slab
+							cannot happen at any band height, because the field never grows to
+							fill one. ]]
 						return glass(
 							"UrlBarChrome",
 							"control",
@@ -1196,14 +1577,29 @@ return {
 								padding = { top = 4, right = 10, bottom = 4, left = 10 },
 								align = "center",
 								children = {
-									UI.Text({
-										id = "UrlBarField",
-										text = COPY.urlBarField,
-										textSize = "caption",
-										role = "secondary",
-										lineLimit = 1,
-										shrinkWeight = 1,
-									}),
+									glass(
+										"UrlBarFieldPlate",
+										"control",
+										UI.HStack({
+											id = "UrlBarFieldRow",
+											width = { type = "fill", weight = 1 },
+											height = { type = "fill", weight = 1 },
+											padding = { top = 2, right = 8, bottom = 2, left = 8 },
+											align = "center",
+											children = {
+												UI.Text({
+													id = "UrlBarField",
+													text = COPY.urlBarField,
+													textSize = "caption",
+													role = "secondary",
+													lineLimit = 1,
+													shrinkWeight = 1,
+												}),
+											},
+										}),
+										{ type = "fill", weight = 1 },
+										{ type = "fixed", px = "controlSizes.compact.height" }
+									),
 								},
 							}),
 							{ type = "fill", weight = 1 },
@@ -1215,22 +1611,23 @@ return {
 					id = "LadderWhen",
 					condition = roomForCaption,
 					thenView = function()
-						return UI.Text({
-							id = "Ladder",
-							text = COPY.ladder,
-							textSize = "caption",
-							role = "secondary",
+						return UI.VStack({
+							id = "LadderLines",
+							gap = 2,
+							width = { type = "fill", weight = 1 },
+							children = {
+								UI.Text({
+									id = "Ladder",
+									text = COPY.ladder,
+									textSize = "caption",
+									role = "secondary",
+								}),
+							},
 						})
 					end,
 				}),
 			},
 		})
-
-		-- the last solve's resolution, through the runner's own accessor (the same
-		-- one `composition` uses) — nil before anything has solved
-		local function state(): any
-			return if ctx.composition ~= nil then ctx.composition("/HudScreen/Hud") else nil
-		end
 
 		return {
 			screen = screen,
@@ -1244,7 +1641,7 @@ return {
 				openUrlBar = function()
 					urlBar:set(true)
 					-- the EFFECTIVE loss, not the constant: on a screen shorter than
-					-- `URL_BAR_PX + HUD_FLOOR_PX` the simulated bar is capped, and a
+					-- `URL_BAR_STEAL_PX + HUD_FLOOR_PX` the simulated bar is capped, and a
 					-- driver reading this number has to be told what actually happened
 					return { urlBar = true, lostPx = urlBarPx(function(r)
 						return r:get()
@@ -1273,6 +1670,19 @@ return {
 					roundLeft:set(math.max(0, roundLeft:get() - 0.2))
 					return { roundLeft = roundLeft:get(), fraction = timerRing.dump().fraction }
 				end,
+				-- THE RECOVERY ROUTE, DRIVEN (D7.3). A driver opens the sink and reads
+				-- back exactly what it is disclosing, so "the content is reachable" is
+				-- an observation rather than a claim about a button existing.
+				openOverflow = function()
+					if overflowHandle == nil then
+						openOverflow()
+					end
+					return { open = overflowOpen:get(), hidden = hiddenNow() }
+				end,
+				closeOverflow = function()
+					closeOverflow()
+					return { open = overflowOpen:get() }
+				end,
 			},
 			report = function()
 				local dump = state()
@@ -1286,6 +1696,14 @@ return {
 						end
 					end
 				end
+				local elided: { string } = {}
+				if dump ~= nil then
+					for _, r in dump.regions do
+						if r.elided then
+							table.insert(elided, r.id)
+						end
+					end
+				end
 				local chrome = chromeFact:get() :: any
 				return {
 					urlBar = urlBar:get(),
@@ -1296,6 +1714,14 @@ return {
 					collisions = if dump ~= nil then #dump.collisions else nil,
 					forms = forms,
 					dropped = dropped,
+					--[[ AND THE D7 HALF: what this screen has stopped showing, and where
+						the rest is. `unshown` is the FRAMEWORK's list, verbatim — a driver
+						that re-derived it from `forms` and `dropped` would be re-implementing
+						the three rules the seam exists to hold in one place. `elided` beside
+						`dropped` is the other half of the same fact. ]]
+					elided = elided,
+					unshown = if dump ~= nil then dump.unshown else nil,
+					overflowOpen = overflowOpen:get(),
 					-- ...and the OTHER whole point, in three: what the platform kept,
 					-- what it left free, and whether this HUD is using it. The rects
 					-- nothing may touch are `chromeRects`; the regression check that
@@ -1310,6 +1736,10 @@ return {
 				}
 			end,
 			dispose = function()
+				-- the sink is a SURFACE of this fixture's own, so teardown retires it
+				-- before the scope goes: a live anchored panel outliving the screen it
+				-- discloses is the leak class this fixture would otherwise ship
+				closeOverflow()
 				for _, view in taskBars do
 					view.dispose()
 				end

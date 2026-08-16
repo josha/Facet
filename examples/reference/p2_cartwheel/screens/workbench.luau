@@ -478,6 +478,9 @@ function workbench.new(app: any): any
 						id = "Preview",
 						group = "preview",
 						rank = 2,
+						-- the compact preview drops the attribute read-out, and a dropped one
+						-- drops the potion entirely — the screen owes both a route
+						recover = "overflow",
 						floor = { lines = 2 },
 						mayDrop = true,
 						children = { preview, previewCompact },
