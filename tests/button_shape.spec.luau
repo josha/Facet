@@ -334,6 +334,81 @@ describe("circle Button geometry: a true 1:1 box from the control metric", funct
 		expect(rectOf(adapter, "/S/H").h).toBe(28)
 	end)
 
+	--[[ THE DISC IS A FLOOR, NOT A CEILING, WHEN IT HAS A PICTURE IN IT
+		(director report 2026-08-15, item 3: *"this control seems cut off in each
+		view"* — a crop of a round icon button whose circle reads as sliced at the
+		left and right edges).
+
+		A circle's diameter and its icon's box are TWO INDEPENDENT theme metrics —
+		`controls.button.height` (or whatever control metric the author named) and
+		`iconSizes[role]` — and nothing made them agree. Measured live in the
+		showcase HUD on 2026-08-15, iPhone 16 Pro landscape, every shipped package:
+
+		  classic-desktop  22px disc / 20px picture  (91%)
+		  compact-pointer  22px disc
+		  fantasy-ornate   38px disc / 32px picture  (84%, plus six ring plates)
+		  studio-neutral   36px disc / 20px picture  (56%, fine)
+
+		At 84-91% the glyph runs to the rim and past it — `ClipsDescendants` is
+		false on the flat target, so the picture simply paints over the edge of the
+		disc, and what a viewer sees is a circle cut off where the glyph crosses it.
+
+		The general rule already exists one screen down in `layout_node`: a node
+		that paints a picture reserves the picture's box (`minMax`). It was skipped
+		here because an authored dimension is an instruction that wins outright —
+		right for a rectangle, wrong for a `shape = "circle"`, whose whole contract
+		is a TRUE disc the author never computes. So the authored diameter becomes
+		the floor's floor. Same repair as the `sponsor_drop` chevron plate. ]]
+	it("a circle's authored diameter FLOORS at the picture it has to hold", function()
+		local metrics = snapshot.resolve(packageWith({ iconSizes = { medium = 32 } }), nil, {})
+		expect(metrics.iconSizes.medium).toBe(32)
+		expect(metrics.iconArt.menu).toBe(true)
+		local adapter = render(
+			UI.Screen({
+				id = "S",
+				children = {
+					-- the showcase HUD's own round button, authored exactly as it is
+					-- there: a control metric for the diameter, a semantic icon name
+					UI.Button({
+						id = "R",
+						label = "Menu",
+						icon = "menu",
+						shape = "circle",
+						height = { type = "fixed", px = 22 },
+					}),
+				},
+			}),
+			metrics
+		)
+		local rect = rectOf(adapter, "/S/R")
+		expect(rect.h).toBe(32)
+		-- ...and it is STILL a disc: the floor raises the authored axis, and the
+		-- `aspect` pairing carries the other one with it
+		expect(rect.w).toBe(rect.h)
+	end)
+
+	it("...and a disc roomier than its picture keeps the diameter the author asked for", function()
+		-- the negative control: the floor may never GROW a disc that already fits
+		local metrics = snapshot.resolve(packageWith({ iconSizes = { medium = 16 } }), nil, {})
+		local adapter = render(
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.Button({
+						id = "R",
+						label = "Menu",
+						icon = "menu",
+						shape = "circle",
+						height = { type = "fixed", px = 36 },
+					}),
+				},
+			}),
+			metrics
+		)
+		expect(rectOf(adapter, "/S/R").h).toBe(36)
+		expect(rectOf(adapter, "/S/R").w).toBe(36)
+	end)
+
 	it("a FILL width still squares: the paired axis takes the extent the parent offered", function()
 		-- the `aspect` + `fill` pairing, which measured 0x0 until it was fixed live
 		-- on 2026-07-24. The circle rides that vocabulary, so it inherits the fix.

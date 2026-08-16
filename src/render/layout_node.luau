@@ -790,6 +790,37 @@ local function toLayoutNode(
 			if layoutNode.height == nil then
 				layoutNode.height = { type = "minMax", min = px + pt + pb }
 			end
+			--[[ ...AND A DISC'S AUTHORED DIAMETER IS A FLOOR, NOT A CEILING
+				(director report 2026-08-15, item 3: "this control seems cut off in
+				each view", a crop of a round icon button whose circle reads as sliced
+				at the left and right edges).
+
+				The two branches above decline to touch an AUTHORED dimension, which is
+				right for a rectangle — an authored width is an instruction, and the
+				paint seam clamps the drawn picture to the box it was actually given.
+				It is wrong for `shape = "circle"`, whose entire contract is a TRUE disc
+				the author never computes: the diameter and the picture come from two
+				INDEPENDENT theme metrics (a control metric and `iconSizes`) and nothing
+				made them agree. Measured live in the showcase HUD, 2026-08-15, iPhone
+				16 Pro landscape, across all nine shipped packages: classic-desktop is a
+				22px disc holding a 20px picture (91%) and fantasy-ornate a 38px disc
+				holding a 32px one (84%) — at which point the glyph runs to the rim and
+				over it, and what a viewer sees is a circle cut off where the glyph
+				crosses it. Studio Neutral (36/20) is why the default theme looked fine.
+
+				So the authored axis is RAISED to hold its own picture, and the `aspect`
+				pairing set a few dozen lines above carries the other axis with it — the
+				disc stays a disc. Same repair as the `sponsor_drop` chevron plate: a
+				floor, never a bigger constant. ]]
+			if props.shape == "circle" then
+				local need = px + math.max(pl + pr, pt + pb)
+				for _, axis in { "width", "height" } do
+					local dim = (layoutNode :: any)[axis]
+					if type(dim) == "table" and dim.type == "fixed" and type(dim.px) == "number" and dim.px < need then
+						(layoutNode :: any)[axis] = { type = "fixed", px = need }
+					end
+				end
+			end
 		end
 	end
 	if #node.children > 0 then
