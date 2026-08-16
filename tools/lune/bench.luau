@@ -1,6 +1,7 @@
 --!strict
 -- LuauUI bench (design §16.1, §14.3): runs named scenarios from
--- bench/scenarios.luau, records p50/p95/p99 wall time and heap delta, writes
+-- bench/scenarios.luau, records p50/p95/p99 wall time plus a heap net and the
+-- collector SWING around it (never a retention figure — see `measure`), writes
 -- artifacts/bench.json, compares against bench/baseline.json when present.
 -- Headless Lune numbers are trend screening only — device measurements stay
 -- authoritative (§14.3). Exits nonzero on empty registry, error, or regression.
@@ -13,7 +14,31 @@ local artifact = require("./artifact")
 local scenarios = require("../../bench/scenarios")
 
 local WARMUP = 50
-local SAMPLES = 300
+--[[ 1500, NOT 300 (measured 2026-08-16).
+
+	The gated value is a p95 — an ORDER STATISTIC — and at 300 samples it was not
+	a stable one. On an allocation-heavy scene a collector pause is a discrete
+	event that either does or does not land inside the top 5% of a given run, so
+	the same source produced a bimodal p95: `textinput-typing-storm` read
+	0.518 0.529 0.544 0.560 0.561 | 0.640 0.842 0.948 1.072 normalized over nine
+	runs at FIXED source, while its p50 never left 0.108-0.114ms. That is an A/A
+	control spread of 2.07x against a REGRESSION_FACTOR of 1.5 — the gate could
+	not distinguish a real 1.5x regression from its own noise, which is why this
+	scene has been carried on prior-gate allow-lists as an "instrument" failure.
+
+	Raising the sample count fixes it at the root, because it lets the pause rate
+	be SAMPLED rather than caught or missed. Measured A/A over the scenes that
+	are actually gate-eligible (median p95 above REGRESSION_FLOOR_MS):
+
+	    worst spread @300  = 2.07x  (textinput-typing-storm)  -> un-adjudicable
+	    worst spread @1500 = 1.22x  (billboard-nameplate-storm)
+
+	Taking the median of several 300-sample runs does NOT substitute: measured
+	median-of-3 = 1.79x and median-of-5 = 1.55x, both still above the factor.
+	Cost is 2.5s -> 10.4s for the whole bench, which a gate can afford.
+	Changing this REQUIRES re-freezing bench/baseline.json — p95 rises when the
+	tail is properly represented rather than intermittently missed. ]]
+local SAMPLES = 1500
 local REGRESSION_FACTOR = 1.5 -- normalized p95 vs baseline
 -- below this, p95 differences are OS-scheduler jitter, not regressions:
 -- a 1.5x factor on a ~2 microsecond scenario flip-flops run to run
@@ -61,13 +86,41 @@ local function measure(scenario: any): any?
 			scenario.run(state)
 		end
 		local samples = table.create(SAMPLES, 0)
-		local heapBefore = gcinfo()
+		--[[ HEAP: SAMPLED, AND PUBLISHED WITH ITS SWING (measured 2026-08-16).
+
+			This used to be one `gcinfo()` at each end, reported as `heapDeltaKb`.
+			Lune's `collectgarbage` accepts only "count" — there is NO forced
+			collection on this host — so that difference could never be retention.
+			It is where the collector happened to be at two instants, and it reads
+			like retention, which is exactly how it got read: a +2659KB reading on
+			billboard-nameplate-storm was investigated as 2.6MB of retained memory.
+
+			What that scene actually does, measured: thirty consecutive identical
+			300-sample windows read +1281, +678, -2050, +2163, -2397, +1942 ... KB
+			— sign flipping, swinging ±3.7MB — while the mean was 144KB/window
+			(151KB on the repeat) and the adapter's node count never moved off 3.
+			The single-window number overstated the truth ~17x and its SIGN was
+			noise. The same source read +2714KB in one checkout and -580KB in
+			another, differing only by directory path.
+
+			So the net is still published, but never alone: `heapSwingKb` is the
+			peak-to-trough excursion across the checkpoints, and when it dwarfs the
+			net (the note below) the net is inside the collector's cycle and means
+			nothing on its own. Compare NETS ACROSS RUNS; never read one sign. ]]
+		local CHECKPOINTS = 10
+		local every = SAMPLES // CHECKPOINTS
+		local heapFirst = gcinfo()
+		local heapLast, heapMin, heapMax = heapFirst, heapFirst, heapFirst
 		for i = 1, SAMPLES do
 			local t0 = os.clock()
 			scenario.run(state)
 			samples[i] = (os.clock() - t0) * 1000
+			if i % every == 0 then
+				heapLast = gcinfo()
+				heapMin = math.min(heapMin, heapLast)
+				heapMax = math.max(heapMax, heapLast)
+			end
 		end
-		local heapAfter = gcinfo()
 		if scenario.teardown then
 			scenario.teardown(state)
 		end
@@ -80,7 +133,8 @@ local function measure(scenario: any): any?
 			p50_ms = percentile(samples, 0.50),
 			p95_ms = percentile(samples, 0.95),
 			p99_ms = percentile(samples, 0.99),
-			heapDeltaKb = heapAfter - heapBefore,
+			heapNetKb = heapLast - heapFirst,
+			heapSwingKb = heapMax - heapMin,
 			regression = false,
 		}
 	end)
@@ -169,8 +223,22 @@ for _, entry in results do
 		`  {entry.name}: p50={string.format("%.4f", entry.p50_ms)}ms p95={string.format("%.4f", entry.p95_ms)}ms`
 			.. ` norm={string.format("%.3f", entry.p95_norm)}`
 			.. (if entry.ratio ~= nil then ` vs-base={string.format("%.2f", entry.ratio)}x` else "")
-			.. ` heapΔ={entry.heapDeltaKb}KB{entry.regression and "  REGRESSION" or ""}`
+			.. ` heapNet={entry.heapNetKb}KB(swing {entry.heapSwingKb}KB){entry.regression and "  REGRESSION" or ""}`
 	)
+end
+
+-- A heap net smaller than the collector's own excursion is not a measurement of
+-- the scene. Said here, in the output, because the output is where it was misread.
+local phaseDominated = 0
+for _, entry in results do
+	if entry.heapSwingKb ~= nil and entry.heapSwingKb > math.abs(entry.heapNetKb) then
+		phaseDominated += 1
+	end
+end
+if phaseDominated > 0 then
+	print(`  NOTE: on {phaseDominated}/{#results} scenes the heap SWING exceeds the heap NET. This host`)
+	print("        cannot force a collection, so a heap number is allocation churn plus")
+	print("        collector phase — not retention. Compare nets across runs; never read one sign.")
 end
 
 -- the yardstick is reported so a reader can see the machine, but it is never a
