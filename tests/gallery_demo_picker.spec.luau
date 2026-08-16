@@ -929,3 +929,240 @@ describe("showcase fixture: one fade group, or three (canvas_group)", function()
 		expect(built.report().refusalNamesTheClass).toBe(true)
 	end)
 end)
+
+-- ===== THE ADVANCE SWEEP =====================================================
+--
+--[[ THE TEST WHOSE ABSENCE IS WHY THIS SHIPPED.
+
+	On 2026-08-15 the showcase was unusable as a live instrument, and the way it
+	failed is the reason this file gained a sweep rather than one more case:
+	`LuauUIShowcaseAPI.showNext` answered with the id it had ADVANCED TO while the
+	demo behind it had not mounted at all. A 32-demo sweep taken through that
+	answer scanned a leftover surface twenty-one times and reported a clean bill of
+	health for demos it never looked at
+	(artifacts/hit-expander-overhang/corpus-measurement.md, "Instrument trap").
+	It was caught only because a known-positive defect failed to appear in a sweep
+	that had just found it by direct scan — that is, by luck.
+
+	Everything the picker already had was asserted about its MODEL: `next()` wraps,
+	`choose()` refuses an unknown id, the catalogue has 32 unique entries. All of it
+	stayed green through the defect, because none of it ever asked the one question
+	a caller actually asks — *is the demo you named on the screen?*
+
+	SO THE ASSERTION IS ABOUT THE DEMO'S OWN CONTENT, NEVER ABOUT THE RETURNED ID.
+	After each advance the tree must hold that demo's own root screen and NOT any
+	other catalogue demo's — which is one invariant covering all three ways the
+	instrument lied: nothing mounted, the wrong demo mounted, and (the live shape)
+	the previous surface still standing while the answer had moved on.
+
+	THE HOST LOOP IS THE SHIPPED ONE. `init.client.luau` is a LocalScript, so its
+	`mountDemo` is re-expressed here by the same fork it takes — the scenario
+	contract for a fixture, the tutorial contract for an example — against the same
+	real modules Studio loads. The case below it is the negative control: the same
+	drive with one demo's build made to throw, which is the live defect exactly. ]]
+
+-- EACH DEMO'S OWN ROOT SCREEN, which is the thing an assertion has to be about.
+-- Measured off the live showcase place on 2026-08-15 (PlayerGui `LuauUI_<root>`
+-- after each advance) and not derived from any module's first `UI.Screen` — four
+-- of these surfaces declare a modal or a probe screen BEFORE their root, so a
+-- grep of the source names the wrong node for `preferred-transparency`,
+-- `surface-overlap`, `ex04` and `ex05`.
+local DEMO_ROOT: { [string]: string } = {
+	["all-controls"] = "AdaptiveScreen",
+	["row-actions"] = "MailActions",
+	["card-rail"] = "CardRail",
+	["with-animation"] = "MotionDemo",
+	["preferred-transparency"] = "PreferredTransparency",
+	["progress-ring"] = "ProgressRing",
+	["flow-wrap"] = "FlowWrap",
+	["lifecycle-hidden"] = "LifecycleHidden",
+	["row-capabilities"] = "RowCapabilities",
+	["text-degrade"] = "TextDegrade",
+	["variable-extents"] = "VariableExtents",
+	["measured-extents"] = "MeasuredExtents",
+	["table-virtualized"] = "TableVirtualized",
+	["table-columns"] = "TableColumns",
+	["virtual-grid"] = "VirtualGrid",
+	["virtual-hgrid"] = "VirtualHGrid",
+	["sensory-feedback"] = "SensoryFeedback",
+	["hud"] = "HudScreen",
+	["surface-overlap"] = "SurfaceOverlap",
+	["branch-scope"] = "BranchScope",
+	["sorted-entries"] = "SortedEntries",
+	["time-curves"] = "TimeCurves",
+	["foreign-content"] = "ForeignContent",
+	["async-images"] = "AsyncImages",
+	["canvas-group"] = "CanvasGroup",
+	["ex01"] = "TempConverter",
+	["ex02"] = "Playlist",
+	["ex03"] = "Settings",
+	["ex04"] = "DangerScreen",
+	["ex05"] = "Wordle",
+	["ex06"] = "TileGame",
+	["ex07"] = "Match3",
+}
+
+-- the shipped host's `mountDemo` (init.client.luau), by the same fork: a fixture
+-- takes one ctx and hands back a screen to present, a tutorial example takes
+-- (LuauUI, core, opts) and may present itself
+local function hostMountDemo(w: any, demo: any): any
+	if demo.kind == "fixture" then
+		return hostMountFixture(w, demo.module, true)
+	end
+	local module = require(`../examples/gallery/examples/{demo.module}`) :: any
+	local built = module.build(LuauUI, w.core, {
+		env = w.env,
+		actionSystem = w.system,
+		presenter = w.presenter,
+		adapter = w.adapter,
+	})
+	if built.handle == nil and built.screen ~= nil then
+		built.handle = w.presenter.present(built.screen, built.present)
+	end
+	return built
+end
+
+-- which catalogue demos have a root screen standing in the tree right now. The
+-- answer must always be exactly one, and it must be the one that was asked for.
+local function mountedRoots(w: any): { string }
+	local live: { string } = {}
+	for id, root in DEMO_ROOT do
+		if w.adapter.node(`/{root}`) ~= nil then
+			table.insert(live, id)
+		end
+	end
+	table.sort(live)
+	return live
+end
+
+local function sweepPicker(w: any, mountDemo: (any) -> any): any
+	return demo_picker.mount({
+		LuauUI = LuauUI,
+		core = w.core,
+		env = w.env,
+		presenter = w.presenter,
+		composed = true,
+		mountDemo = mountDemo,
+		warn = function() end,
+	})
+end
+
+describe("showcase host: advancing the picker actually mounts the demo it names", function()
+	it("every catalogue demo names a root screen this sweep knows to look for", function()
+		local unnamed: { string } = {}
+		for _, demo in demo_picker.list() do
+			if DEMO_ROOT[demo.id] == nil then
+				table.insert(unnamed, demo.id)
+			end
+		end
+		table.sort(unnamed)
+		-- a demo added to the catalogue without a root here would be advanced
+		-- through and never actually looked at, which is the defect one level up
+		expect(`demos with no root pinned: {table.concat(unnamed, ",")}`).toBe("demos with no root pinned: ")
+		local stale: { string } = {}
+		for id in DEMO_ROOT do
+			if demo_picker.find(id) == nil then
+				table.insert(stale, id)
+			end
+		end
+		table.sort(stale)
+		expect(`roots pinned for demos that are gone: {table.concat(stale, ",")}`).toBe(
+			"roots pinned for demos that are gone: "
+		)
+		local roots = 0
+		for _ in DEMO_ROOT do
+			roots += 1
+		end
+		expect(roots).toBe(#demo_picker.list())
+	end)
+
+	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 32", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
+		local picker = sweepPicker(w, function(demo)
+			return hostMountDemo(w, demo)
+		end)
+		-- the shipped host mounts the first demo itself once its chrome is up
+		picker.show(picker.current())
+		local visited: { string } = {}
+		for _ = 1, #demo_picker.list() do
+			local id = picker.current()
+			table.insert(visited, id)
+			w.presenter.refresh()
+			-- (1) THE DEMO'S OWN CONTENT — and nothing else's. One assertion for
+			-- "nothing mounted", "the wrong demo mounted" and "the last demo is
+			-- still standing", which is the shape the live instrument failed in.
+			expect(`{id}: mounted roots {table.concat(mountedRoots(w), ",")}`).toBe(`{id}: mounted roots {id}`)
+			-- (2) ...and the API's own answer agrees with the tree. This is the
+			-- half that was missing: `current()` alone could never disagree with
+			-- itself, so it could never report the mount that did not happen.
+			expect(`{id}: picker reports mounted {tostring(picker.mounted())}`).toBe(
+				`{id}: picker reports mounted {id}`
+			)
+			expect(w.core:lastError()).toBeNil()
+			picker.showNext(1)
+		end
+		-- the drive really walked the whole catalogue in ORDER and wrapped
+		local order: { string } = {}
+		for _, demo in demo_picker.list() do
+			table.insert(order, demo.id)
+		end
+		expect(table.concat(visited, ",")).toBe(table.concat(order, ","))
+		expect(picker.current()).toBe(order[1])
+		picker.dispose()
+		-- disposal takes the last demo down with it: nothing survives the picker
+		w.presenter.refresh()
+		expect(table.concat(mountedRoots(w), ",")).toBe("")
+	end)
+
+	--[[ THE NEGATIVE CONTROL, AND IT IS THE LIVE DEFECT VERBATIM.
+
+		Measured in the showcase place on 2026-08-15 by renaming
+		`ReplicatedStorage.LuauUIScenarios.measured_extents` out from under the host
+		and advancing into it: `showNext` returned `{"current":"measured-extents"}`,
+		`current` agreed, and PlayerGui held only the backdrop and the chrome.
+		`mountDemo` runs under a pcall, so the failure was a client-console `warn`
+		that no scripted caller can see. ]]
+	it("NEGATIVE CONTROL: a demo that cannot build is NOT reported as mounted", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
+		local BROKEN = "measured-extents"
+		local picker = sweepPicker(w, function(demo)
+			if demo.id == BROKEN then
+				-- what a missing ModuleScript does to `require` in the shipped host
+				error(`Unable to require: {demo.module} is not a valid member of LuauUIScenarios`)
+			end
+			return hostMountDemo(w, demo)
+		end)
+		picker.show(picker.current())
+		while picker.current() ~= BROKEN do
+			picker.showNext(1)
+		end
+		w.presenter.refresh()
+		-- the SELECTION advanced, exactly as it did live...
+		expect(picker.current()).toBe(BROKEN)
+		-- ...and the answer a caller reads no longer agrees with it
+		expect(picker.mounted()).toBeNil()
+		-- the tree is the independent witness: nothing at all is up, so a sweep
+		-- that trusted the id would have measured whatever else was on screen
+		expect(table.concat(mountedRoots(w), ",")).toBe("")
+		-- and the picker recovers rather than latching the failure
+		picker.showNext(1)
+		w.presenter.refresh()
+		expect(picker.mounted()).toBe(picker.current())
+		expect(table.concat(mountedRoots(w), ",")).toBe(picker.current())
+		picker.dispose()
+	end)
+
+	-- the source is the contract for the half a headless world cannot mount
+	-- (init.client.luau reaches engine globals at load)
+	it("the shipped scriptable API answers with what it DELIVERED, not what it was asked for", function()
+		local source = fs.readFile("examples/gallery/client/init.client.luau")
+		-- BOTH scriptable answers go through one state function, so `current` and
+		-- `showNext` cannot drift into disagreeing about the same fact
+		local _, answers = string.gsub(source, "HttpService:JSONEncode%(demoState%(%)%)", "")
+		expect(answers).toBe(2)
+		expect(string.find(source, "mounted = delivered or false", 1, true) ~= nil).toBe(true)
+		expect(string.find(source, "ok = delivered == demos.current()", 1, true) ~= nil).toBe(true)
+		-- the shape that lied must not come back
+		expect(string.find(source, "JSONEncode({ current = demos.current() })", 1, true)).toBeNil()
+	end)
+end)

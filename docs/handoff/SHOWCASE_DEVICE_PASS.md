@@ -105,12 +105,20 @@ but the DataModel does):
 
 ```lua
 local api = workspace.LuauUIShowcaseAPI
-api.showNext:Invoke("1")            -- next demo
-api.current:Invoke()                 -- {"current":"ex03"}
+api.showNext:Invoke("1")            -- {"current":"ex03","mounted":"ex03","ok":true}
+api.current:Invoke()                 -- the same three fields
 api.toggleThemes:Invoke()            -- open/close the theme panel
 api.themes:Invoke()                  -- {"entries":[...],"current":{...}}
 api.pickTheme:Invoke("fantasy-parchment")
 ```
+
+**`current` is what was ASKED for; `mounted` is what is on the screen.** They
+differ whenever a demo's build throws — `mountDemo` runs under a `pcall`, so the
+failure is a client-console `warn` no scripted caller sees. `mounted` is `false`
+then and `ok` is `false`, and a sweep that reads only `current` measures whatever
+surface is still standing (measured 2026-08-15: a sweep took a leftover surface
+for the demo it had asked for, 21 times, and reported it clean). **Never take the
+id on faith, and destroy anything you mount yourself in the same call.**
 
 **Caveat that matters:** `pickTheme` routes through `theme_picker.dispatch`,
 which is *not* the path a tap takes any more (§4.1). Driving it proves the theme

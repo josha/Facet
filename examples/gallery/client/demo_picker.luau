@@ -502,6 +502,11 @@ function demo_picker.mount(opts: MountOpts): any
 	local selection = scope:own(core:signal(demo_picker.initialSelection()))
 	local open = scope:own(core:signal(false))
 	local mounted: any = nil
+	-- WHAT IS ACTUALLY ON SCREEN, which is a different fact from `selection`.
+	-- `selection` is what the player (or a script) ASKED for; this is what they
+	-- GOT, and it is nil whenever `mountDemo` threw. See `show` below for the
+	-- measurement that made the distinction load-bearing.
+	local mountedId: string? = nil
 	-- FORWARD-DECLARED. `show` calls `raise`, and `raise` needs the screen, which
 	-- needs the rows, which need `show`. A local declared later is not an upvalue
 	-- of a function defined earlier — it compiles as a global read and is nil at
@@ -510,6 +515,7 @@ function demo_picker.mount(opts: MountOpts): any
 	local raise: () -> ()
 
 	local function disposeMounted()
+		mountedId = nil
 		if mounted == nil then
 			return
 		end
@@ -522,10 +528,29 @@ function demo_picker.mount(opts: MountOpts): any
 		mounted = nil
 	end
 
-	local function show(id: string)
+	--[[ show(id) -> DID IT ACTUALLY MOUNT?
+
+		THE RETURN VALUE IS THE POINT, and it is new. `mountDemo` runs under a
+		`pcall`, so a fixture module that is not replicated, or a build that
+		errors, used to end as a `warn` on a console no scripted caller reads —
+		while `selection` had already advanced and `current()` answered the id of a
+		demo that is not on screen.
+
+		THAT IS NOT HYPOTHETICAL. Measured live in the showcase place on
+		2026-08-15: with one scenario module renamed out from under it,
+		`LuauUIShowcaseAPI.showNext` answered `{"current":"measured-extents"}` and
+		`current` agreed — over an EMPTY screen. A caller that takes the id on
+		faith then measures whatever surface is still standing (a leftover probe,
+		the chrome, nothing at all) and reports a clean bill of health for a demo
+		it never looked at; one 32-demo sweep scanned a leftover `hud` surface 21
+		times exactly that way (artifacts/hit-expander-overhang/corpus-measurement.md).
+
+		So the answer travels with the request: this returns false, `mountedId`
+		stays nil, and `mounted()` below is what the API reports beside `current`. ]]
+	local function show(id: string): boolean
 		local demo = demo_picker.find(id)
 		if demo == nil then
-			return
+			return false
 		end
 		disposeMounted()
 		local ok, built = pcall(opts.mountDemo, demo)
@@ -536,10 +561,18 @@ function demo_picker.mount(opts: MountOpts): any
 			-- presented BELOW the demo in z-order, and only `raise` puts them back
 			-- on top. A failed demo must not take the chrome down with it.
 			raise()
-			return
+			return false
 		end
 		mounted = built
+		mountedId = id
 		raise()
+		return true
+	end
+
+	-- the id of the demo actually on screen, or nil when the last mount failed.
+	-- Published on both return shapes below, beside `current`.
+	local function mountedDemo(): string?
+		return mountedId
 	end
 
 	--[[ THE CHIP'S LABEL, AND WHERE THE CHARACTER CLIP DID AND DID NOT SURVIVE.
@@ -708,10 +741,11 @@ function demo_picker.mount(opts: MountOpts): any
 			current = function()
 				return selection:get()
 			end,
-			showNext = function(step: number)
+			mounted = mountedDemo,
+			showNext = function(step: number): boolean
 				local id = demo_picker.next(selection:get(), step)
 				selection:set(id)
-				show(id)
+				return show(id)
 			end,
 			dispose = function()
 				disposeMounted()
@@ -787,10 +821,11 @@ function demo_picker.mount(opts: MountOpts): any
 		current = function()
 			return selection:get()
 		end,
-		showNext = function(step: number)
+		mounted = mountedDemo,
+		showNext = function(step: number): boolean
 			local id = demo_picker.next(selection:get(), step)
 			selection:set(id)
-			show(id)
+			return show(id)
 		end,
 		dispose = function()
 			disposeMounted()

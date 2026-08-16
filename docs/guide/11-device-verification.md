@@ -245,6 +245,13 @@ BindableFunctions, the same shape the scenario runner uses and for the same
 reason: the Studio MCP's `execute_luau` runs in a different Luau VM than the
 client LocalScript, so `_G` does not cross but the DataModel does.
 
+`current` and `showNext` both answer `{ current, mounted, ok }`: `current` is the
+demo that was *asked* for, `mounted` is the one actually on screen (`false` when
+the build threw — it runs under a `pcall`, so the failure never leaves the
+client console), and `ok` is whether they agree. Read `mounted`, not `current` —
+a sweep taken on the id alone measured a leftover surface 21 times on 2026-08-15
+and called it clean.
+
 The place is evidence of the `studio-emulated` and `desktop-retail` kind at
 best; publishing it and holding it is what produces the `phone-physical` and
 `console-physical` rows this stage leaves pending.

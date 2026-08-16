@@ -650,10 +650,37 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 	_G.LuauUIShowcase = {
 		list = demo_picker.list,
 		current = demos.current,
+		mounted = demos.mounted,
 		showNext = demos.showNext,
 		chrome = chrome,
 		settings = settings,
 	}
+	--[[ WHAT THIS API OWES A CALLER: THE ID IT DELIVERED, NOT THE ID IT WAS ASKED
+		FOR.
+
+		`showNext` used to answer `{ current = <the id it advanced to> }` and nothing
+		else — a claim about the SELECTION, written in the grammar of a claim about
+		the screen. The two come apart whenever `mountDemo` throws: `demo_picker.show`
+		pcalls it, so a fixture module that is not replicated ends as a client-console
+		`warn` no MCP caller ever sees, while this handle answers with the demo's id
+		as though it were up.
+
+		MEASURED, 2026-08-15, showcase place: with `LuauUIScenarios.measured_extents`
+		renamed out from under it, `showNext` returned `{"current":"measured-extents"}`,
+		`current` agreed, and PlayerGui held only the backdrop and the chrome. That
+		answer is worse than an error, because it AGREES with whoever is driving — a
+		sweep taken through it scanned a leftover surface 21 times and reported a
+		clean bill of health for 21 demos it never looked at
+		(artifacts/hit-expander-overhang/corpus-measurement.md).
+
+		So every answer carries all three facts: what is SELECTED, what is MOUNTED
+		(`false` when the last mount failed), and whether they agree. `ok` is
+		derivable from the other two on purpose — a caller that reads only one field
+		should land on the honest one. ]]
+	local function demoState(): { [string]: any }
+		local delivered = demos.mounted()
+		return { current = demos.current(), mounted = delivered or false, ok = delivered == demos.current() }
+	end
 	local showcaseApi = Instance.new("Folder")
 	showcaseApi.Name = "LuauUIShowcaseAPI"
 	for fnName, impl in
@@ -662,11 +689,11 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				return HttpService:JSONEncode(demo_picker.list())
 			end,
 			current = function(_arg: string?)
-				return HttpService:JSONEncode({ current = demos.current() })
+				return HttpService:JSONEncode(demoState())
 			end,
 			showNext = function(arg: string?)
 				demos.showNext(tonumber(arg) or 1)
-				return HttpService:JSONEncode({ current = demos.current() })
+				return HttpService:JSONEncode(demoState())
 			end,
 			-- the theme half of the same handle, for the same reason: with no
 			-- scriptable pointer (XP-B3) this is how a themed view gets driven

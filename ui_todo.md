@@ -294,3 +294,27 @@ snaps the picker back to the HUD fixture. A demo sweep run against that state
 silently scans `hud` 21 times instead of the corpus and reports a clean bill of
 health for demos it never looked at. Confirm the picker actually advances before
 trusting any sweep over it.
+
+> **RESOLVED 2026-08-15 — and the picker was never the thing that snapped back.**
+> Driven live in the showcase place, `showNext` advances correctly through all 32
+> catalogue demos, each one proved by its own `ScreenGui` and not by the returned
+> id. Two separate things were being read as one:
+>
+> 1. **`LuauUI_HudScreen` was a directly-mounted probe, not a picker mount.** It
+>    was watched appearing in `PlayerGui` *between two picker advances that never
+>    visited `hud`*, carrying `LuauUIHitExpander` children — i.e. this very
+>    measurement's own scan, mounting scenarios off `LuauUIScenarios` as its own
+>    advice recommends and leaving them parented. A sweep that identifies "the
+>    demo on screen" by scanning `PlayerGui` reads the leftover, not the picker's
+>    mount, and `GetChildren()` order puts the older leftover first. That is the
+>    21 scans. **Destroy what you mount and verify it absent in the same call.**
+> 2. **The API really did answer with an id it had not delivered.** `mountDemo`
+>    runs under a `pcall`, so a mount that throws was a client-console `warn` no
+>    scripted caller can see while `showNext`/`current` reported the demo as if it
+>    were up — reproduced live by renaming one scenario module out from under the
+>    host: `{"current":"measured-extents"}` over an empty screen. Fixed: both
+>    answers now carry `mounted` (`false` when the last mount failed) and `ok`
+>    beside `current`, and the same drive now answers
+>    `{"mounted":false,"current":"row-actions","ok":false}`. The all-demos
+>    acceptance drive is `tests/gallery_demo_picker.spec.luau`, "showcase host:
+>    advancing the picker actually mounts the demo it names".
