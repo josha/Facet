@@ -191,6 +191,96 @@ that listing remains an ordered owner action immediately after repository visibi
 and public-CI verification. The release packet must contain the private Package asset
 ID, listing draft, exact activation step, and rollback/unlist consequences.
 
+## Test and gate simplification
+
+The current verification system is too expensive for the size of the library. At the
+2026-08-16 planning baseline, `gate_manifest.luau` names `./run-tests.sh` about 230
+times and `prior_gates.sh` about 50 times across 29 registered phases. Many checks run
+the same complete suite, then search its human transcript for one case name. A later
+gate replays many earlier gates, which replay the same producers again. Preserve the
+coverage and negative controls; remove the repeated work and fragile transcript
+coupling.
+
+Measure before redesigning. On a documented quiet machine, record wall/CPU time,
+invocation count, input/output identity, artifact writes, and the slowest specs for:
+the fast and full suites, every unique gate producer, a representative late gate, and
+the complete prior-gate sweep. Build a machine-readable graph:
+
+`requirement -> canonical evidence producer -> result IDs -> gate consumers -> inputs`.
+
+Classify duplicate execution, duplicate assertions, whole-tree scans repeated per
+case, cross-product fixtures that rebuild identical setup, historical gates that only
+restate living requirements, and commands that must remain isolated because they
+measure performance, Studio, hardware, networking, or mutable external state.
+
+Replace repeated shell transcript searches with structured test results. Each spec and
+case needs a stable result ID, status, duration, requirement IDs, source identity, and
+diagnostic. The complete deterministic suite runs once for an exact source identity.
+Gate rows query those structured results and verify that the producer completed; they
+do not start the suite again or depend on a sentence in its human output. Human names
+may improve without silently breaking a gate.
+
+Create one release-run coordinator that treats verification as a directed acyclic
+graph. It executes each unique producer at most once, then evaluates every applicable
+gate from that run's structured results. A standalone gate may ask the coordinator for
+missing dependencies, but it must reuse a current in-run result instead of recursively
+restarting earlier gates. Replace `prior_gates.sh` replay with reevaluation of every
+earlier requirement against the same current run. A checked-in old PASS is never
+evidence for changed source.
+
+Result reuse requires an exact key that includes normalized relevant source and asset
+hashes, test/manifest code, pinned toolchain, command/options, required environment
+class, and declared fixture inputs. Reject a stale, truncated, partial, failed,
+manually edited, wrong-toolchain, or wrong-environment result. Performance, Studio,
+physical-device, moderation, and network results keep their existing evidence classes
+and cannot be upgraded by a headless cache. Default to rerun when dependency ownership
+is uncertain.
+
+Keep clear commands for four purposes:
+
+- **affected** — the smallest safe local set from an explicit dependency map; unknown
+  files fall back to the broader tier;
+- **fast** — the current deterministic inner-loop spine;
+- **full** — every deterministic spec exactly once; and
+- **release** — the full suite plus each unique scanner, build, fault/soak,
+  performance, Studio, package, documentation, and Rascal Rally producer required by
+  the release graph.
+
+Show which tier ran, why each producer was selected, the slowest work, reused results,
+invalidation reasons, and the exact smallest rerun command. Do not let affected/fast
+output masquerade as full/release evidence. The Rascal Rally suite and each package or
+Studio canary also run at most once per matching source identity in one release run.
+
+Parallelize only independent processes with isolated temporary/artifact paths and a
+deterministic merge. Serialize performance measurements, Studio sessions, package
+mutation, and any producer that shares external state. Cap concurrency from measured
+machine capacity so faster scheduling does not create flaky timing results. Where a
+source scanner or large fixture dominates, scan/build once and evaluate its independent
+assertions in memory; keep distinct result IDs and useful failures.
+
+Do not remove a test only because it is slow or overlaps another title. For every
+deleted or merged check, map its requirement, failure direction, fixture, and negative
+control to a canonical surviving producer. Use a frozen pass/fail corpus and targeted
+mutations to prove the old and new systems return the same verdict for real defects.
+Add mutations for cache invalidation, missing registration, truncated suite, changed
+test ID, stale toolchain, bad artifact, and a failed producer. The new coordinator and
+query layer must prove they can fail before any old path is retired.
+
+Set final budgets from the measured baseline, but require these structural outcomes:
+the full deterministic suite runs once, every other unique expensive producer runs at
+most once, and prior-gate evaluation adds only cheap result validation. Record cold and
+warm timings and percentage reduction. If the automated headless release run remains
+longer than 20 minutes on the documented machine, keep profiling and simplifying or
+record the irreducible producers with owner, evidence class, cost, and optimization
+trigger. Studio, physical-device, moderation, and network waiting are reported
+separately rather than hidden inside the headless number.
+
+Update contributor and agent guidance so an ordinary change uses the affected/fast
+loop, a pre-merge change uses full verification, and a release uses the one coordinator.
+Archive historical gate prose after its living requirements and evidence links move
+to the current ledger. Keep concise, human-readable diagnostics; the gate manifest
+must not remain an implementation diary.
+
 ## Agent onboarding kit
 
 Create root `AGENTS.md` as the portable baseline for agents that build with or change
@@ -207,7 +297,9 @@ LuauUI. Keep it concise and link to public sources of truth. It must tell an age
   LuauUI;
 - the build, test, documentation, Studio, and Rascal Rally consumer-lockstep workflow,
   including local package build/status for relevant changes and cloud publish only for
-  an approved release; and
+  an approved release;
+- when to use affected, fast, full, or release verification; how to understand a
+  selected/reused producer; and how to run the smallest trustworthy failure rerun; and
 - forbidden shortcuts: internal imports, raw GUI substitutes, screen-local input,
   focus, or layout systems, device-name branches, and game-local workarounds for a
   framework promise.
@@ -223,7 +315,9 @@ second manual. `AGENTS.md` must work when skill discovery is unavailable.
 Register `distribution-readiness` before implementation. Add checks for the public
 allowlist, secrets and private data, third-party notices, required root files, stale
 links, documented public-surface drift, agent-link drift, generated-file policy, and
-repository size. Prove each important guard rejects a temporary violation.
+repository size. Add the test-graph, single-execution, structured-result, invalidation,
+coverage-map, and time-budget checks above. Prove each important guard rejects a
+temporary violation.
 
 Create a local candidate commit without changing the remote. Produce the public tree
 twice and compare manifests and checksums except documented nondeterminism. Test a
@@ -258,7 +352,8 @@ Produce one short packet with:
 
 - candidate commit, manifest, checksums, repository-size summary, gate result, license
   and provenance results, Package asset ID/revision/receipt, and all remaining
-  decisions;
+  decisions, plus old/new verification invocation counts, timings, requirement parity,
+  and the slowest remaining producers;
 - the audited branch, tag, history, Actions, release, issue, wiki, and Pages state;
 - the exact copyright-holder line for confirmation if it was not already recorded;
 - repository description, topics, default branch, protection/ruleset, security, and
@@ -294,8 +389,11 @@ public branch tip, MIT and third-party notices are accurate, a fresh clone works
 public and agent documentation succeeds without private context, the full-history and
 remote-surface audits have no unresolved must-purge item, prior gates stay green,
 Rascal Rally remains synchronized, the private Package has a stable recorded asset ID
-and a proved guarded update path, and the owner packet is complete. The repository and
-Creator Store listing remain private. Pushing Git, changing visibility, enabling the
-listing, publishing a GitHub release, deleting remote data, or rewriting remote
-history are outside this gate. Creating and updating the one private Package is in
-scope only after the explicit owner checkpoint.
+and a proved guarded update path, every living requirement maps to one current
+producer, the full suite/unique release producers run once per identity, old/new
+mutation verdicts agree, the headless budget is met or every irreducible excess is
+owned, and the owner packet is complete. The repository and Creator Store listing
+remain private. Pushing Git, changing visibility, enabling the listing, publishing a
+GitHub release, deleting remote data, or rewriting remote history are outside this
+gate. Creating and updating the one private Package is in scope only after the
+explicit owner checkpoint.

@@ -1,6 +1,7 @@
 # LuauUI release-candidate review and remediation
 
 **Date:** 2026-08-13  
+**Updated:** 2026-08-16
 **Status:** Planned after the functional proof stages.
 
 ## Purpose
@@ -8,7 +9,9 @@
 Run a fresh-context, whole-framework review before preparing a public distribution.
 This is not a confirmation pass. The reviewer tries to find correctness, lifecycle,
 architecture, platform, API, documentation, and performance defects that the staged
-acceptance gates may have missed.
+acceptance gates may have missed. It also prepares the code for future maintainers:
+a person or agent should be able to find the correct owner, add a feature through the
+established pattern, and prove the result without reconstructing project history.
 
 ## Review method
 
@@ -65,6 +68,100 @@ small local test setup when sharing it would make the behavior under test harder
 read. Add focused structural guards for each important consolidated seam so a second
 production path cannot return silently. Do not use a raw duplication percentage or
 line-count target as a substitute for design review.
+
+## Maintainability and safe expansion
+
+Review the repository from the viewpoint of the next maintainer, not only the current
+implementation. A future change should have one obvious owner, one established API
+shape, one extension path, and one proof path. Refactor internal code when that makes
+these answers simpler and more reliable. Public behavior, identity, cleanup, failure
+semantics, and measured hot-path performance must remain stable unless a confirmed
+defect requires a documented compatible correction.
+
+Create or refresh one human-readable maintainer guide. It must map each production
+area to its responsibility, public seam, internal owner, allowed dependency direction,
+tests, Studio scenario, gate, and extension playbook or scaffold. It must answer common
+questions directly: where a control, layout, modifier, engine property, render target,
+input behavior, theme feature, example, or test helper belongs. Generate inventories
+from code where practical; do not create a second hand-maintained API catalog.
+
+For each subsystem, look for these maintenance failures:
+
+- one module owns unrelated jobs or changes for unrelated reasons;
+- a feature requires edits to several parallel registries or switch statements that
+  can drift;
+- callers reach internal modules because the documented seam is incomplete;
+- construction, ownership, teardown, errors, or performance limits are implicit;
+- names, paths, types, and tests do not make the responsibility discoverable;
+- an extension playbook, scaffold, registration rule, or example produces a shape
+  different from current production code;
+- tests depend on hidden order, time, global state, or unexplained fixtures; or
+- a safe local change requires repository history, an old plan, or conversation
+  context to understand.
+
+Fix confirmed failures rather than only documenting them. Split a mixed-responsibility
+module at a stable boundary; collapse parallel registries into one source of truth;
+make dependencies explicit; improve public types and diagnostics; add a narrow helper
+or scaffold only when it has a current caller; and delete obsolete compatibility or
+test machinery when policy allows. Avoid tiny forwarding files, speculative layers,
+or abstraction whose main result is more navigation. Record any large module kept
+whole with a concrete cohesion, lifecycle, performance, or readability reason.
+
+Update the extension playbooks and scaffold output to match the cleaned code. Add
+structural checks for the important boundaries: forbidden dependency direction,
+unregistered public surface, parallel registries, internal consumer imports, missing
+teardown proof, and docs/scaffold drift. A check must have an intentional failing case;
+do not add a heuristic score that cannot explain how to fix a result.
+
+Run two disposable fresh-context exercises using only the maintained repository and
+its public contributor guidance:
+
+1. A fresh agent adds one small representative extension through the documented
+   scaffold/API path, with tests, registration, docs, Studio fixture, and cleanup.
+2. A different fresh agent diagnoses and repairs a seeded bounded defect, identifies
+   the correct owner, adds the smallest regression test, and runs the right gates.
+
+Do not merge the artificial extension or seeded defect. Keep only improvements to the
+real code, tools, tests, and guidance that the exercises reveal. Record wrong turns,
+missing context, duplicated edits, internal imports, and unnecessary retries as
+maintainability findings. Fix them and rerun both exercises until each agent succeeds
+without conversation history or private hints.
+
+## Plain source comments
+
+Audit maintained production code, tests, examples, and tools for comments that a
+human Roblox developer cannot understand on first reading. Write conceptually simple
+explanations. “ELI5” means explain the idea and reason in ordinary language; it does
+not mean remove exact API names, mathematical terms, or necessary platform detail.
+Define a necessary technical term once, then use it consistently.
+
+Prefer code that explains *what* through names and types. Use comments for *why*: the
+responsibility, invariant, lifecycle rule, engine limitation, non-obvious algorithm,
+failure behavior, or measured tradeoff. A module header should briefly state what the
+module owns, what it receives and returns, and what must clean it up. A difficult
+algorithm may use a small example or diagram when that is clearer than prose.
+
+Remove or rewrite comments that contain:
+
+- agent-only shorthand, prompt language, verifier instructions, or assumed private
+  reasoning;
+- unexplained gate IDs, finding codes, phase labels, evidence-row names, or acronyms;
+- implementation diaries, dated bug stories, blame, or long accounts of how the code
+  reached its current state;
+- jokes, metaphors, dramatic warnings, vague pronouns, or terms that exist only in an
+  old plan; or
+- line-by-line narration that repeats simple code without explaining a constraint.
+
+Move durable historical decisions into a neutral ADR or lesson when history is needed
+to prevent a regression. Link it from one short source comment. Keep precise measured
+facts when they still govern behavior, but state the condition and consequence in
+plain language. Update or delete a comment whenever the code makes it false.
+
+Use review and targeted scans to find likely shorthand and stale references. Do not
+enforce a comment-count target, reject technical vocabulary blindly, or require a
+comment on every function. Include source comments in the fresh human-reader and
+agent exercises; if either reader cannot explain the rule and make the safe change,
+fix the code structure or comment instead of teaching repository folklore.
 
 ## Input architecture
 
@@ -217,10 +314,10 @@ public-contract findings cannot be waved through as notes.
 
 Register `release-candidate-review`. Run focused and full suites, fuzz/fault/soak and
 performance checks, registration/docs/boundary checks, reuse and input-authority
-guards, affected prior gates, Rascal Rally consumer checks, and representative
-real-adapter Studio scenarios. Give independent architecture, reactive-runtime,
-Roblox-platform, and phase-gate reviewers the raw baseline, ledger, diff, and
-artifacts.
+guards, maintainer/scaffold/comment checks, the disposable exercise reports, affected
+prior gates, Rascal Rally consumer checks, and representative real-adapter Studio
+scenarios. Give independent architecture, reactive-runtime, Roblox-platform, and
+phase-gate reviewers the raw baseline, ledger, diff, and artifacts.
 
 The gate passes when there are no unresolved confirmed blocker/high defects, every
 other finding has an explicit disposition, all fixes have regression evidence, the
@@ -228,6 +325,8 @@ categorized guide catalog and exhaustive API reference match the public surface 
 their drift checks pass, the platform-language scan and intentional-failure proof
 pass, every two-or-more similarity finding is consolidated or has a concrete recorded
 reason, Input Action System owns semantic commands with only proved/allowlisted legacy
-service exceptions, fresh readers can use the clear documentation, affected Studio
-behavior is proven, and prior behavior and performance remain intact. Do not publish
-or package a release in this stage.
+service exceptions, the maintainer map/playbooks/scaffolds match the cleaned code,
+plain source comments contain no unexplained agent or project shorthand, both
+fresh-context maintenance exercises pass, fresh readers can use the clear
+documentation, affected Studio behavior is proven, and prior behavior and performance
+remain intact. Do not publish or package a release in this stage.

@@ -1,136 +1,52 @@
 # settle: max=45s threshold=2 (1-min load average)
-FAIL phase-0-foundation (exit 1) [load at start: 3.90]
-      FAIL_RECOVERABLE  test-suite
-FAIL phase-1-minimal-screen (exit 1) [load at start: 3.50]
-      FAIL_RECOVERABLE  test-suite
+PASS phase-0-foundation
+FAIL phase-1-minimal-screen (exit 1) [load at start: 5.31]
       FAIL_RECOVERABLE  bench-reproducible
-FAIL phase-2-settings-parity (exit 1) [load at start: 4.60]
-      FAIL_RECOVERABLE  game-suite-green
-      FAIL_RECOVERABLE  library-suite-green
+FAIL phase-2-settings-parity (exit 1) [load at start: 3.74]
       FAIL_RECOVERABLE  ui-cost-budget
-FAIL phase-3-pilot (exit 1) [load at start: 5.05]
-      FAIL_RECOVERABLE  game-suite-green
-      FAIL_RECOVERABLE  framework-defects-fixed-in-framework
-FAIL part-2-director (exit 1) [load at start: 5.87]
-      FAIL_RECOVERABLE  ws1-table-phase-b-suite
-      FAIL_RECOVERABLE  ws1-pointer-seam-minimal-writes
+PASS phase-3-pilot
+FAIL part-2-director (exit 1) [load at start: 3.71]
       FAIL_RECOVERABLE  ws1-adr-and-bench
-      FAIL_RECOVERABLE  ws2-edit-preview-harness
-      FAIL_RECOVERABLE  ws3-billboard-target
-      FAIL_RECOVERABLE  ws4-game-table-surface
-FAIL phase-4-hardening (exit 1) [load at start: 5.96]
-      FAIL_RECOVERABLE  library-suite-green
-      FAIL_RECOVERABLE  virtualization-hardening
-      FAIL_RECOVERABLE  navigation-groups
-      FAIL_RECOVERABLE  semver-and-deprecation
-      FAIL_RECOVERABLE  error-boundaries
-      FAIL_RECOVERABLE  engine-styling-shadows-corners
-      FAIL_RECOVERABLE  maintainability-playbooks-and-checker
-      FAIL_RECOVERABLE  popup-button-dry-run
-      FAIL_RECOVERABLE  documentation-and-examples
+PASS phase-4-hardening
       FAIL_ENVIRONMENT  physical-device-confirmation
-FAIL input-adaptation-audit (exit 1) [load at start: 7.83]
-      FAIL_RECOVERABLE  engine-truths-encoded
-      FAIL_RECOVERABLE  first-responder-model
+PASS input-adaptation-audit
       FAIL_ENVIRONMENT  physical-device-confirmation
-FAIL expansion-textinput (exit 1) [load at start: 5.55]
-      FAIL_RECOVERABLE  game-suite-green
-      FAIL_RECOVERABLE  textinput-per-input-interaction
-      FAIL_RECOVERABLE  textinput-handshake-and-cancel
-      FAIL_RECOVERABLE  expansion-adr-bench-rollback
+PASS expansion-textinput
       FAIL_ENVIRONMENT  physical-device-confirmation
 PASS input-paradigms
       FAIL_ENVIRONMENT  physical-device-confirmation
-FAIL native-substrate (exit 1) [load at start: 4.03]
-      FAIL_RECOVERABLE  safe-area-adoption
+PASS native-substrate
       FAIL_ENVIRONMENT  physical-device-confirmation
 PASS native-stylesheets
       FAIL_ENVIRONMENT  designer-and-device-confirmation
-FAIL authoring-adaptive-ui (exit 1) [load at start: 5.16]
-      FAIL_RECOVERABLE  complete-registration
-      FAIL_RECOVERABLE  grid-fill-and-spacer
-      FAIL_RECOVERABLE  scrollview-axes-and-keep-visible-headless
-      FAIL_RECOVERABLE  adaptive-layout
-      FAIL_RECOVERABLE  layout-modifiers-and-divider
-      FAIL_RECOVERABLE  button-complete
-      FAIL_RECOVERABLE  value-controls
-      FAIL_RECOVERABLE  display-and-selection-controls
-      FAIL_RECOVERABLE  headless-suite-preserved
-      FAIL_RECOVERABLE  live-studio-matrix
-      FAIL_RECOVERABLE  remaining-milestone-a-b-scope
-      FAIL_RECOVERABLE  adaptive-fixture-fits-one-screen
-      FAIL_RECOVERABLE  fresh-context-verification
-FAIL theme-packages-and-skinning (exit 1) [load at start: 8.78]
-      FAIL_RECOVERABLE  metric-snapshot-single-source
+PASS authoring-adaptive-ui
+FAIL theme-packages-and-skinning (exit 1) [load at start: 3.05]
       FAIL_RECOVERABLE  style-editor-sync
-      FAIL_RECOVERABLE  library-suite-green
       FAIL_ENVIRONMENT  physical-and-human-rows
-FAIL rich-skinning-v2 (exit 1) [load at start: 6.84]
-      FAIL_RECOVERABLE  layered-slots-and-posture
-      FAIL_RECOVERABLE  state-variant-assets
-      FAIL_RECOVERABLE  image-value-displays
-      FAIL_RECOVERABLE  circle-button
+PASS rich-skinning-v2
       FAIL_ENVIRONMENT  physical-and-human-rows
-FAIL cross-platform-proof (exit 1) [load at start: 7.71]
-      FAIL_RECOVERABLE  no-vr-claim
-      FAIL_RECOVERABLE  library-suite-green
-      FAIL_RECOVERABLE  docs-and-registration
+PASS cross-platform-proof
       FAIL_ENVIRONMENT  physical-and-human-rows
-FAIL sponsor-framework-gaps (exit 1) [load at start: 7.49]
-      FAIL_RECOVERABLE  motion-authority
-      FAIL_RECOVERABLE  choreography-and-transitions
-      FAIL_RECOVERABLE  reduced-motion-parity
-      FAIL_RECOVERABLE  unified-collection
-      FAIL_RECOVERABLE  edge-autoscroll
-      FAIL_RECOVERABLE  drag-public-contract
-      FAIL_RECOVERABLE  velocity-and-promotion
-      FAIL_RECOVERABLE  paint-extensions
-      FAIL_RECOVERABLE  toast-presentation
-      FAIL_RECOVERABLE  async-avatars
-      FAIL_RECOVERABLE  billboard-fixture
-      FAIL_RECOVERABLE  semantic-feedback
-      FAIL_RECOVERABLE  sponsor-gallery-registered
-      FAIL_RECOVERABLE  lifecycle-churn
-      FAIL_RECOVERABLE  preferred-text-axis
-      FAIL_RECOVERABLE  perf-scene
-      FAIL_RECOVERABLE  library-suite-green
+PASS sponsor-framework-gaps
       FAIL_ENVIRONMENT  physical-and-human-rows
-FAIL code-simplicity-cleanup (exit 1) [load at start: 8.00]
-      FAIL_RECOVERABLE  carry-over-pins
-      FAIL_RECOVERABLE  registration-and-drift
+FAIL code-simplicity-cleanup (exit 1) [load at start: 2.94]
       FAIL_RECOVERABLE  performance-unregressed
-FAIL api-architecture-consistency (exit 1) [load at start: 7.89]
-      FAIL_RECOVERABLE  library-suite-green
-      FAIL_RECOVERABLE  registration-and-drift
+FAIL api-architecture-consistency (exit 1) [load at start: 3.19]
       FAIL_RECOVERABLE  performance-unregressed
-      FAIL_RECOVERABLE  studio-evidence
       FAIL_ENVIRONMENT  physical-rows
-FAIL desktop-keyboard-navigation (exit 1) [load at start: 5.45]
-      FAIL_RECOVERABLE  traversal-pure
-      FAIL_RECOVERABLE  action-system-behavior
-      FAIL_RECOVERABLE  keep-visible-on-traverse
-      FAIL_RECOVERABLE  no-screen-key-bindings
-      FAIL_RECOVERABLE  registration-and-docs
-      FAIL_RECOVERABLE  library-suite-green
+PASS desktop-keyboard-navigation
       FAIL_ENVIRONMENT  physical-and-contended-rows
-FAIL traversal-document-order (exit 1) [load at start: 5.82]
-      FAIL_RECOVERABLE  document-order-traversal
-      FAIL_RECOVERABLE  slider-focus-affordance
-      FAIL_RECOVERABLE  engage-and-resign
-      FAIL_RECOVERABLE  registration-and-docs
-      FAIL_RECOVERABLE  step8-debt-cleared
-FAIL large-text-accessibility (exit 1) [load at start: 3.48]
+PASS traversal-document-order
+FAIL large-text-accessibility (exit 1) [load at start: 4.46]
       FAIL_RECOVERABLE  overflow-policy
-      FAIL_RECOVERABLE  registration-and-docs
-FAIL performance-stress-places (exit 1) [load at start: 4.58]
-      FAIL_RECOVERABLE  microprofiler-scopes
-      FAIL_RECOVERABLE  registration-and-docs
-FAIL example-quality-pass (exit 1) [load at start: 5.38]
+PASS performance-stress-places
+FAIL example-quality-pass (exit 1) [load at start: 3.40]
       FAIL_RECOVERABLE  rascalrally-consumer
       PENDING  physical-and-human-rows
 PASS swiftui-reference-app-validation
 PASS row-actions
-FAIL swiftui-parity-round2 (exit 1) [load at start: 4.25]
-      FAIL_RECOVERABLE  checker-battery
-PASS declarative-3d-architecture
+PASS swiftui-parity-round2
+FAIL declarative-3d-architecture (exit 1) [load at start: 3.11]
+      FAIL_RECOVERABLE  spike-headless-green
+      FAIL_RECOVERABLE  spike-isolated
 DONE

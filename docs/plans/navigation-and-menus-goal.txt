@@ -1,0 +1,66 @@
+/goal Build LuauUI's missing navigation and transient-menu constructs and fix two
+showcases, per the binding brief at
+GameStudio/ui/LuauUI/docs/plans/navigation-and-menus-brief.md. Read it in full, then the
+media at docs/plans/reference-media/2026-08-16-roblox-app-navigation/: f1/r1-r3 are the
+director's captures of the shipping Roblox app (stills, then the .movs — motion is the
+point); hud-a/b/c are our own HUD failing. Trust §1's today-state at 37e9dad rather than
+re-auditing it: the five constructs are MISSING, while popup_button and navPlacement are
+partials to extend, never rebuild.
+
+TEN DELIVERABLES. D0 FIRST, then D1-D7 in order, each the substrate for the next; D8 is
+independent. Brief §2 is the spec; these are the decisions:
+  D0 One suite run per sweep, not 161. MEASURED: the suite is 83.4s, and 161 gate checks
+     each re-run it to grep the identical transcript — ~3h44m per sweep, plus 39 more in
+     Rascal Rally. Cache it in tools/test.sh (which already judges transcript validity)
+     behind a CONTENT fingerprint, add tools/suite_transcript.sh, repoint the checks.
+     Brief §2 D0 lists five correctness guards — the exit code MUST ride with the cache
+     (FORM A silently passes over a red suite otherwise) and the invalidation must be
+     seen to BITE. First, because every stage below runs gates.
+  D1 anchored-surface seam — present against a source view's SCREEN RECT; safe-area edge
+     flip/shift; optional arrow tail. Reuse syncPopupCatcher, focus_graph scopes and modal
+     zones.
+  D2 Menu — freestanding ACTION menu (verbs + icons + dividers) attachable to any view;
+     right-click / long-press / gamepad / keyboard triggers. SUBMENUS SHIP, structurally
+     UNBOUNDED with a diagnostic at depth >= 2 (SwiftUI caps nothing; HIG advises one),
+     never hard-capped. Add `icon` to popup_button.Option.
+  D3a help — pointer hover-dwell and gamepad/keyboard focus only. NOTHING on touch;
+     MUST NOT bind long-press (D2 owns it).
+  D3b Callout — the f1 plate: an APP-PUSHED coach mark; eligibility rules, arrow tail, one
+     at a time, non-blocking. Persistence is the caller's, not a LuauUI save layer.
+  D4 sliding indicator — animates between the selected children's rects. Underline and
+     pill skins, one mechanism; reduced motion snaps.
+  D5 TabView — selection Signal, placement from navPlacement, NESTABLE (test two levels),
+     overflowing strip autoscrolls the selection into view, content lazy and EVICTED on
+     switch (real disposal; needs a memory-neutrality spec, never evict the strip). MIGRATE
+     a reference app's hand-built bar onto it.
+  D6 Picker segmented — icons, a real VERTICAL pill (today axis="y" is the inline row
+     list), plus D4's indicator. "Segmented as a tab bar" IS TabView, indicator="pill".
+  D7 HUD repair (see hud-a/b/c) — ELISION MUST DISCLOSE, NOT DELETE. The rank ladder the
+     director remembers DID ship (UI.Region rank/forms/mayDrop, ADR-0025) and works — it
+     just has no notion of where elided content went. Brief §2 D7 lists six fixes, each
+     traced to source. Runs last: builds on D1+D2.
+  D8 Playlist table: sort + resize, then retire `table_columns`. BOTH ALREADY SHIP;
+     no framework change. Name resizable with an EXPLICIT minWidth; Rating
+     stays LOCKED (144 is measured). But the playlist has only TWO columns, and resizing
+     the sole `fill` one pins it to fixed with nothing left to absorb the remainder — so
+     add a THIRD `fill` resizable column (table_columns runs 3 fill, 2 resizable + 1
+     locked; copy that) and re-measure at 320x640 in edit mode, where a fixed third column
+     once left Name 6px. Keep the width readout — a resize is a change, not a picture.
+     RE-POINT its ~700-line spec + hit_expander_overhang FIRST.
+
+DIRECTOR RULINGS 2026-08-16 (brief §6) — DECIDED, NOT OPEN: submenu depth; the
+help/Callout split (Apple's tooltip is pointer-hover only, invisible on touch; the f1 plate
+is a TipKit coach mark pushed from rules); tab eviction, replayed cost ACCEPTED; and D8
+overruling a prior round's refusal to merge those examples. Don't relitigate.
+
+STANDING CONSTRAINT, the director on the dropdown — "this doesn't have to literally work
+this way — the key thing is a pop-up menu that works across platforms." Copy the
+capability, not the iOS chrome: presentation resolves from size/height class and live
+input classes, never a device name. Every action reachable on keyboard, gamepad AND touch.
+
+STAGE IT so each ships green: tests red first, then the change, then brief §5's
+verification block verbatim — §5 is binding, never run from memory. RASCAL RALLY rides
+along (root CLAUDE.md): it consumes src directly, so survey callers, add a contract test,
+run a Studio canary, change no behavior or flags, and update the parity docs (§3).
+
+Opus orchestrates, sonnet/opus workers, haiku reads.

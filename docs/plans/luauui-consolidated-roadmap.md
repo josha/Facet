@@ -1,7 +1,7 @@
 # LuauUI consolidated roadmap — Roblox-native, SwiftUI-shaped, device-profiled, Sponsor-proven
 
 **Date:** 2026-08-13
-**Updated:** 2026-08-15
+**Updated:** 2026-08-16
 
 This is the entry point for LuauUI work. Running the prompts in order is intended to
 produce these outcomes:
@@ -37,15 +37,17 @@ produce these outcomes:
    a sibling system without forcing world objects into the 2D UI solver;
 15. a fresh Fable release review finds and remediates whole-framework defects, makes
    the guide/API catalogs complete and plain, consolidates repeated mechanisms, makes
-   the Input Action System authoritative, and removes vendor-framework language
-   outside the two explicit comparison areas;
+   the Input Action System authoritative, refactors for predictable human/agent
+   maintenance, rewrites source comments in plain human language, and removes
+   vendor-framework language outside the two explicit comparison areas;
 16. the three tutorial games become clear, complete play loops; LuauUI gains a proved
    world-surface render target and walk-up terminal; and a curated set of showcase
    concepts ships as reusable, themeable, reduced-motion-aware standalone places with
    obsolete examples removed safely;
 17. the existing `josha/LuauUI` repository becomes an MIT-licensed, public-ready
    source distribution with a clean branch tip, audited history, tested human/agent
-   onboarding, and one stable, reproducibly updated Roblox Package asset; and
+   onboarding, one stable Roblox Package asset, and a requirement-complete test/gate
+   graph that avoids repeating hours of identical work; and
 18. every LuauUI change keeps Rascal Rally's directly mounted consumer code, contract
    tests, build mappings, and affected Studio behavior synchronized in the same stage.
 
@@ -136,7 +138,8 @@ These documents govern the work:
     curated standalone example places.
 20. [`distribution-readiness.md`](distribution-readiness.md) — existing-repository
     structure, MIT/provenance, complete-history privacy audit, agent onboarding,
-    reproducible Roblox Package updates, and public-release verification.
+    reproducible Roblox Package updates, single-execution test/gate simplification,
+    and public-release verification.
 21. [`studio-device-verification.md`](studio-device-verification.md) — the
     scriptable five-view Studio matrix, VirtualInput rules, multiplayer-test use,
     and evidence that still requires physical hardware.
@@ -203,9 +206,9 @@ Key corrections to the earlier roadmap:
 | 10 | Tutorial gallery quality pass | All seven examples are played, styled, understandable, and governed by a canonical gate |
 | 11 | SwiftUI-scale reference validation | Three clean-room proof experiences run; all official-sample features are honestly classified |
 | 12 | Declarative 3D architecture decision | A sibling-versus-extension decision is proved by an isolated topology/lifecycle spike |
-| 13 | Fresh release-candidate and engineering review | Findings resolved; repeated mechanisms consolidated; IAS authoritative; clear catalogs and language boundaries proven |
+| 13 | Fresh release-candidate and maintainability review | Findings resolved; future-agent exercises pass; code/comments are maintainable; reuse, IAS, catalogs, and language boundaries are proven |
 | 13.5 | Game, world-surface, and standalone polish | Three game loops and the walk-up terminal pass; curated standalones share source, theme/motion controls, builds, and Studio proof |
-| 14 | Public repository, Package, and agent onboarding | Existing repo is MIT/public-ready; private Package creation/update and fresh clone/agents pass; history and release surfaces are safe |
+| 14 | Public repo, Package, tests, and agent onboarding | Existing repo and Package are release-ready; each unique check runs once; fresh clone/agents pass; history/release surfaces are safe |
 
 ### Milestone 1 — SwiftUI parity round 2 (in flight; NOT a numbered step)
 
@@ -1459,7 +1462,9 @@ publish/deploy or silently begin the follow-on build.
 This is the whole-framework adversarial pass requested before distribution. It first
 reviews from a frozen baseline without editing, then diagnoses and remediates confirmed
 defects. It also makes every human document clear and makes LuauUI describe itself in
-Roblox and LuauUI terms. It consolidates repeated implementation and audits every
+Roblox and LuauUI terms. It refactors code where needed so future humans and agents can
+extend it through obvious, tested paths, and it makes source comments understandable
+without internal shorthand. It consolidates repeated implementation and audits every
 legacy input-service call against the Input Action System. Missing wishlist features
 do not become bugs.
 
@@ -1468,59 +1473,59 @@ do not become bugs.
 ```text
 /goal Run a fresh-context LuauUI release-candidate review. Fix confirmed defects,
 consolidate unjustified repeated mechanisms, make the Roblox Input Action System the
-semantic input authority, clarify all human docs, and remove Apple/SwiftUI references
-outside the two permitted comparison locations.
+semantic input authority, make the code easy for future humans/agents to extend,
+clarify source comments and human docs, and enforce the permitted comparison boundary.
 
-Run in a new task with Fable 5 at highest practical effort; the lead must not have
-implemented Steps 7–12. Fable owns diagnosis, disposition, integration, and reruns.
-Send an Opus 5 `xhigh` fix only after cause, contract, test, and result are clear.
+Use a fresh Fable 5 lead at highest effort; it owns diagnosis/integration and sends
+Opus 5 `xhigh` only fixes with decided cause, contract, test, and result.
 
-Read `GameStudio/ENGINEERING.md`, `GameStudio/specialists/CODE_REVIEWER.md`, the
-current guide/API, and these LuauUI plans: `release-candidate-review.md`,
-`api-architecture-consistency.md`, and `agent-execution-contract.md`.
+Read repository instructions, engineering/code-review guidance, current guide/API,
+and the release-review, API-consistency, and execution-contract plans.
 
-Treat the release plan as the full brief. Freeze source/API identity, gates,
-lifecycle/perf baselines, and Studio scenarios. Register `release-candidate-review`
-and create its finding ledger before edits. Record severity, confidence, failure,
-callers, evidence, and smallest proof. A missing feature is a defect only if promised.
+The release plan binds. Freeze source/API, gates, lifecycle/perf, and Studio baselines;
+register its gate/ledger before edits. Record severity, confidence, evidence, callers,
+and smallest proof. Missing is a defect only when promised.
 
-Review the full production/docs surface per plan. Check architecture, ownership,
-errors, teardown, dead code, test seams, generated boundaries, and hot-path cost.
-Reproduce live defects.
+Review the full surface per plan: architecture, ownership, errors, teardown, dead code,
+test seams, generated boundaries, comments, and hot-path cost. Reproduce live defects.
 
-Every two-or-more similar code chunks create a ledger row. Consolidate by default:
-reuse the existing owner or extract one narrow typed mechanism, migrate all callers,
-and delete duplicates. Separate only for a recorded semantic, lifecycle, dependency,
-clarity, or measured-cost reason; never for imagined future divergence. Prove behavior,
-identity, cleanup, diagnostics, and performance; guard important shared seams.
+Ledger every repeated implementation. Reuse its owner or extract one narrow typed
+mechanism, migrate callers, and delete duplicates. Separation needs a concrete
+semantic/lifecycle/dependency/clarity/cost reason. Prove and guard shared seams.
+
+Make future changes have one obvious owner, extension path, and proof path. Create the
+plan's human maintainer map. Refactor mixed-responsibility modules, parallel registries,
+implicit lifecycle/dependencies, incomplete public seams, brittle fixtures, and stale
+scaffolds/playbooks when evidence shows friction; avoid speculative or navigation-only
+layers. Drift-check important boundaries and update RascalRally when affected.
 
 Inventory all `ContextActionService`, `UserInputService`, raw-event, and parallel
-command paths in LuauUI and affected RascalRally code. Exact
-`InputContext`/`InputAction`/`InputBinding` APIs own semantic routing, binding, priority,
-sinking, and lifetime; enable `PlayerScriptsUseInputActionSystem`. Re-prove rather than
-grandfather contention/PlayerScripts workarounds. A legacy call needs current official
-or Studio proof IAS cannot provide the fact, one allowlisted adapter/diagnostic,
-injected facts, tests/teardown, and a removal trigger. Ban direct screen/example use
-and drift-check it. Prove contexts and all inputs yield one action without stealing
-text/gameplay input or double firing. Synchronize RascalRally tests/Studio evidence.
+command paths. `InputContext`/`InputAction`/`InputBinding` own semantic routing,
+priority, sinking, and lifetime; enable `PlayerScriptsUseInputActionSystem`. A legacy
+call needs current proof IAS lacks the mechanism, one allowlisted adapter/diagnostic,
+injected fact, tests/teardown, and removal trigger. Ban direct consumer use. Prove all
+inputs yield one action without stealing text/gameplay input or double firing.
 
 Rebuild the guide/API catalogs from current source and drift-check them. Execute the
-plan's exact product-language exceptions and scan; repair consumers and prove a bad
-reference fails. Rewrite human docs with its ASD-STE100-inspired rules while keeping
-exact API/Roblox names, paths, commands, and code. Do not claim certification or
-rename a stable generic API for sharing a word. Fresh author/agent docs tasks must pass.
+plan's language scan and failing control. Rewrite docs/comments in plain ELI5-style
+concepts while keeping exact API/Roblox/math terms. Comments explain responsibility,
+invariants, lifecycle, engine limits, or reasons—not agent shorthand or history.
+Move needed history to neutral ADRs/lessons; do not rename stable generic APIs.
 
-Fix every blocker/high. Fix safe medium/low issues or record owner, risk, reason, and
-trigger. Contract failures cannot be waived. Evidence-backed reuse and IAS migrations
-may cross callers; no speculative redesign, parity feature, packaging, or polish.
+Run the plan's two disposable fresh-agent exercises: one adds a representative
+extension; another fixes a seeded defect. They use maintained guidance only. Do not
+merge artificial work. Fix every navigation, ownership, scaffold, test, comment, or
+verification failure they reveal and rerun until both succeed without private hints.
 
-Run focused/full, fault/soak/perf, docs/boundary, legacy-input/reuse, renamed-path,
-prior-gate, RascalRally, and real-adapter checks. Give reviewers raw evidence and fix
-requirement findings. Complete only with gate exit 0/artifact; all findings
-dispositioned; no confirmed blocker/high; every similarity row consolidated or
-concretely justified; IAS owns semantic commands with only proved exceptions; docs,
-catalogs, scans, reader tasks, affected Studio evidence, behavior, and performance are
-green. Report artifacts/pendings. Do not publish or package.
+Fix every blocker/high and safe maintenance issue; disposition the rest with owner,
+risk, reason, and trigger. Contracts cannot be waived. No parity feature, packaging,
+or unrelated polish.
+
+Run the plan's full test/gate/Studio/RascalRally matrix and independent reviews; fix
+requirement findings. Complete only with gate exit 0/artifact, all findings disposed,
+no blocker/high, reuse/IAS met, maintainer paths current, plain comments and both fresh
+agent tasks passing, and docs/behavior/performance green. Report evidence/pendings. Do
+not publish/package.
 ```
 
 ## Step 13.5 — Polish game tutorials and curated standalone examples
@@ -1599,66 +1604,72 @@ and exact physical pendings. Report results/artifacts/deletions. Do not publish/
 `josha/LuauUI` is the distribution repository. This stage gives its public branch a
 clean product/contributor structure, MIT licensing, provenance, and agent onboarding;
 it also creates one private, stable-ID Roblox Package with a guarded update workflow.
-The Git repository remains canonical. The owner makes the repository and free Creator
-Store listing public only after reviewing the release packet.
+It simplifies the hours-long gate system without losing requirements or negative
+controls. The Git repository remains canonical. The owner makes the repository and
+free Creator Store listing public only after reviewing the release packet.
 
 ### Fable 5 goal prompt
 
 ```text
 /goal Prepare `josha/LuauUI` as the canonical MIT public-source distribution and
-create one verified private Roblox Package with a stable asset ID and safe repeatable
-update path. Do not make the Git repo or Creator Store listing public.
+create one verified private Roblox Package with a stable reusable ID. Keep the Git
+repo and Creator Store listing private.
 
-Run Fable 5 at highest effort; it owns release judgments and sends only decided work
-to Opus 5 at `xhigh`. Read repository instructions, engineering/guide/API, and the
-distribution, release-review, example-standalone, and execution-contract plans. The
-distribution plan binds. Register its gate pending; inspect remote/history/status;
-preserve user work, Step 13 guards, and Step 13.5's manifest.
+Run Fable 5 at highest effort; it owns judgments and delegates decided work to Opus 5
+at `xhigh`. Read repository instructions and the distribution plan first, then its
+named supporting plans; distribution binds. Register its gate pending; inspect
+remote/history/status; preserve user work and prior guards.
 
-Git is canonical; the Package is derived. Use this repo and MIT with owner-approved
-copyright. Preserve third-party licenses/notices and audit rights. Replace incompatible
-material when safe; otherwise block. Never infer ownership or silently relicense.
+Git is canonical; the Package is derived. Use MIT with owner-approved copyright.
+Preserve third-party notices/rights; replace incompatible material safely or block.
+Never infer ownership or silently relicense.
 
-Restructure by public allowlist with required root/community/agent files, runtime,
-licensed dependencies, public examples/docs, useful tests/builds, package tooling, and
-thin skill. Checksummed-archive internal/private material outside Git before removal.
+Restructure by public allowlist: required root/community/agent files, runtime, licensed
+dependencies, examples/docs, useful tests/builds, package tooling, and thin skill.
+Archive private material with checksums outside Git before removal. Audit Git objects
+and GitHub surfaces for secrets, game/private material, unclear rights, and bulk. If a
+purge is needed, build/test a clean candidate and owner migration/rollback packet only.
 
-Audit all Git objects and GitHub surfaces for secrets, private/game material, unclear
-rights, and bulk; classify every match. If purge is needed, build/test a clean
-candidate and owner migration/rollback packet only; do not mutate remote state.
-
-Root `AGENTS.md` and the thin skill route public API/theme/input/Studio/extension,
-package release, and RascalRally lockstep; forbid internal/raw-GUI/local substitutes.
-Prove fresh agents can build and diagnose from public material alone.
+Root `AGENTS.md` and the skill route API/theme/input/Studio/extension, package release,
+and RascalRally lockstep; forbid local substitutes. Prove fresh agents can build and
+diagnose using public material alone.
 
 Extend existing `tools/build_model.sh`; never create another model source. The Package
-contains its `LuauUI` runtime plus non-executable license/source metadata. Add commit/
-hash/VERSION/schema, semantic manifest, non-secret asset config, and receipt. One interface provides
-offline build/status/verify and guarded create/same-ID publish/rollback. Relevant
+contains runtime plus non-executable license/source metadata. Add commit/hash/VERSION,
+semantic manifest, non-secret asset config, and receipt. One interface provides
+offline build/status/verify and guarded create/same-ID publish/rollback; relevant
 changes rebuild and drift-check locally and in PRs.
 
-Default to dry-run. Before first cloud mutation, batch one owner checkpoint for the
-immutable creator, metadata, private creation/free-listing intent, and credential.
-Refuse duplicate creation. Mutation requires confirmation, exact clean commit,
-matching version/hash/owner/asset, green gates, and scoped environment/CI secret.
-Never expose secrets, use cookies/forks, or create a replacement ID.
+Default to dry-run. Before cloud mutation, batch one owner checkpoint for creator,
+metadata, private/free-listing intent, and credential. Refuse duplicate creation.
+Mutation requires confirmation, exact clean commit, matching version/hash/owner/asset,
+green gates, and scoped environment/CI secret. Never expose secrets, use cookies/forks,
+or create a replacement ID.
 
 Use Open Cloud Model create/update only after official-doc research and a Studio spike
-prove this generated `.rbxm` becomes a real Package. Otherwise use the plan's canonical
-Studio fallback with the same seam. Record the private ID. In a clean place prove
-`PackageLink`, tree/version/hash, runtime behavior, teardown, and that an update reaches
-the same ID/clean AutoUpdate copy without overwriting a modified copy.
+prove this `.rbxm` becomes a real Package; otherwise use the plan's Studio fallback.
+Record the private ID. Prove in a clean place: `PackageLink`, tree/version/hash, runtime,
+teardown, same-ID update, clean AutoUpdate, and protection of a modified copy.
 
-Add a protected manual package-release command/workflow: build an immutable commit,
-rerun gates, update the configured ID, poll/read back, Studio-verify, retain receipt.
+Add a protected manual release command: build an immutable commit, rerun gates, update
+the configured ID, poll/read back, Studio-verify, and retain its receipt.
 Never publish every commit. Document no-Rojo install, Get Latest/version/AutoUpdate,
-asset ID, and the free listing enabled only after Git is public.
+asset ID, and enabling the free listing only after Git is public.
+
+Profile and simplify tests/gates per plan. Map every living requirement to one
+producer. Replace full-suite transcript greps and recursive prior-gate replay with
+structured results and a run graph that executes each unique producer once per exact
+source/tool/environment identity; reject stale/partial evidence. Keep affected/fast/
+full/release tiers; isolate perf/Studio/external work. Preserve coverage and negative
+controls. Prove old/new verdict parity with mutations, single-execution/invalidation
+guards, timings, and the plan's headless budget. Run RascalRally once per matching
+release identity, not once per historical gate.
 
 Mutation-test guards; verify reproducible manifests, fresh clone/consumers, examples,
-suites/docs/adapters/prior gates, and RascalRally sync. Complete only with gate exit 0,
-no must-purge item, private Package ID/update proof, fresh-agent success, and owner
-visibility/listing/security/rollback packet. Do not push Git, change visibility,
-enable listing, publish a GitHub release, or rewrite/delete remote data.
+suites/docs/adapters/prior requirements, and RascalRally sync. Complete only with gate
+exit 0, no must-purge item, private Package ID/update proof, fresh-agent success, and
+the owner visibility/listing/security/rollback packet. Do not push Git, change
+visibility, enable listing, publish a GitHub release, or rewrite/delete remote data.
 ```
 
 ## Completion checklist for the whole roadmap
@@ -1731,6 +1742,12 @@ The roadmap has achieved its goals only when all of these are true:
   no spike or spatial-event contract is presented as production 3D/VR support;
 - the fresh release-candidate review has no unresolved confirmed blocker/high defect,
   and every remaining finding has an explicit evidence-backed disposition;
+- the maintainer guide, extension playbooks, scaffolds, ownership boundaries, tests,
+  and gates agree on where each kind of change belongs; disposable fresh agents can
+  add a representative extension and repair a seeded defect without private context;
+- maintained source comments explain responsibilities, invariants, lifecycle, engine
+  constraints, and difficult logic in plain human language, with no unexplained
+  agent-only shorthand, prompt/gate codes, or implementation diaries;
 - every pair or larger set of similar implementation chunks was consolidated into its
   existing owner or one narrow reusable mechanism, unless the ledger records a
   concrete semantic, lifecycle, dependency, clarity, or measured-cost reason;
@@ -1757,6 +1774,10 @@ The roadmap has achieved its goals only when all of these are true:
   owner checklist;
 - its root `AGENTS.md` and thin `skills/use-luauui/SKILL.md` route agents to current
   public guidance without duplication, and fresh-agent build/extension tasks pass;
+- one living requirement graph drives structured results; the complete deterministic
+  suite and every other expensive producer run once per exact release identity, stale
+  or incomplete evidence fails, mutation parity preserves old defect detection, and
+  the headless release run meets the documented budget or owns each irreducible cost;
 - the remaining human and hardware work was presented as one instrumented review
   build and one ordered checklist rather than repeated ad hoc testing requests;
 - every LuauUI source/contract/default/behavior/asset/distribution change has a
