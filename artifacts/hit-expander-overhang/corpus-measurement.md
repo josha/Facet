@@ -97,3 +97,46 @@ that had just found it on a direct scan.
 `ReplicatedStorage.LuauUIScenarios.modules[name]` (they are ModuleScripts, so
 `require` them) — it removes a whole subsystem from between the measurement and
 the thing measured, and it is what produced every number above.
+
+## Outcome — the rule shipped the same day (2026-08-15)
+
+`src/render/hit_lift.luau` (its own module because `renderer.luau` is at the
+200k `Script.Source` cap), applied by the renderer's z walk. Three clauses:
+
+1. **it lifts** — a host whose expander overhangs is walked, with its expander,
+   after the sibling BRANCHES that expander reaches into (resolved at the two
+   nodes' nearest common parent, so whole subtrees travel and a `zIndex` scope
+   stays intact);
+2. **it stops at the host** — a target the host's own PAINTED rect already
+   overlaps is not "past its host". Without this clause the header cell's own
+   28px floor lifts the cell OVER the 8px divider inside it and buries the thing
+   the rule exists to make reachable. It is also what makes the zero-overlap
+   property above true by construction going forward;
+3. **the qualifier** — only a real input-sinking rect creates a lift; another
+   expander's invisible rect never does.
+
+Two facts the corpus did not surface, both found by building it:
+
+- **`hostZ - 1` collided.** The expander's z is the z of whatever node the walk
+  visited immediately before its host — a tie the engine breaks by insertion
+  order. The walk now reserves that counter. Without the reservation a host
+  lifted one position past a LEAF sibling lands its expander level with it, and
+  level is not above (`keyboard_navigation`: Row1 z 37 over Row2 z 36).
+- **A tiled list reverses.** Where every row is sub-floor and the rows tile,
+  each row's floor reaches into the next and the constraint chain reverses the
+  whole list's paint order. It is a TRANSFER, not a gain: each row delivered its
+  own extent minus one overhang either way — before the rule the overhang went
+  to the row below, after it the row above. Painted rects do not overlap, so the
+  reorder is invisible; whether either direction is noticeable to a finger is a
+  device question, still owed.
+
+**Delivered band, re-measured live per pixel** (`table_columns`, showcase place,
+parallel real-engine mount, native stylesheets): x `EXP 18 + Grip 8 + EXP 18` =
+**44 of 44** (was 26); y `EXP 8 + Grip 28 + EXP 8` = **44 of 44** (was 38). An
+outer-half drag resizes; an outer-half tap sorts nothing; a clean header tap still
+sorts.
+
+**Rascal Rally is in the population and says so** (`code/tests/
+luauui_hit_expander_overhang_contract.spec.luau`): its racer rows paint 28px at a
+30px pitch under a 44px floor, so this screen's rows genuinely reordered. The
+shipped Sponsor surface grows no expander at all.

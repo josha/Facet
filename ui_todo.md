@@ -207,11 +207,27 @@ mirror and the tray-close bind to the node that actually moves.
 
 ---
 
-## 6. OWED, WITH A NUMBER: the resize divider's touch band is 27px, not 44px (2026-08-15)
+## 6. OWED, WITH A NUMBER: the resize divider's touch band was 27px, now 44px (2026-08-15)
 
-**Status: diagnosed and measured on desktop Studio; the fix is ruled (option 1,
-the shared adapter z rule) and NOT yet built. The device pass has a specific
-thing to check, which is the point of writing it down with the number.**
+**Status: THE FIX SHIPPED the same day — `src/render/hit_lift.luau`, the overhang
+lift. The band below is history; the device row is still owed and its question
+CHANGED, which is why the old numbers stay on the page.**
+
+**Re-measured live after the fix** (showcase place, parallel real-engine mount of
+`table_columns`, native stylesheets on, a per-pixel scan of who owns each column
+of the divider's band):
+
+| axis | before | after |
+|---|---|---|
+| x | `EXP 18px + Grip 8px` = **26px** of 44, outer 18px to `Head-team/Column` | `EXP 18 + Grip 8 + EXP 18` = **44px of 44** |
+| y | `EXP 8 + Grip 28 + EXP 2` = **38px** of 44, bottom 6px to row 1's `Hit` | `EXP 8 + Grip 28 + EXP 8` = **44px of 44** |
+
+...and the three gestures that failed below now pass, driven with injected input
+against the same positive control (a clean header tap moving `team` `""` → `"▲"`):
+an outer-half drag at x = 130 (10px past the divider, over the neighbour's painted
+header) resized `Entrant` 108px → **158px**; the outer-half tap sorted **nothing**;
+the inner-half tap still forwards to its own cell and sorts. The desktop figure the
+row was written against is closed. **The device row below is what remains.**
 
 `contract.luau` gives `Grip` `minHitSize = 44`, and the renderer materialises a
 44px `LuauUIHitExpander` centred on the Table's 8-10px resize divider. Measured
@@ -245,12 +261,16 @@ miss does not merely fail — it **sorts the wrong column**, which is a destruct
 outcome for a gesture the player did not make. The device pass should measure the
 miss rate on a real phone, not ask whether it "feels" reachable.
 
-**And it changes what the device pass is testing.** If the ruled fix lands, the
-band becomes the full 44px `[291..335]`, straddling the divider. The device
-question then stops being *"is this broken"* and becomes *"is 44px actually
-enough with a real finger on a divider between two tap targets that both do
-something"* — which is a genuinely open question this framework has never
-measured, and worth an explicit answer either way.
+**And it changed what the device pass is testing.** The band IS the full 44px
+now, straddling the divider (measured above). The device question is therefore no
+longer *"is this broken"* but *"is 44px actually enough with a real finger on a
+divider between two tap targets that both do something"* — a genuinely open
+question this framework has never measured, and worth an explicit answer either
+way. **Touch reachability remains unmeasured: nothing here was driven by a
+finger.** The device pass should also spend one gesture on the transfer the rule
+makes deliberately — a tiled list gives each row's overhang to the row ABOVE now
+rather than to the row below (same 8px, opposite direction), and only a finger can
+say whether either is noticeable.
 
 **IT IS NOT A TABLE BUG — measured 2026-08-15 across 48 shipped scenarios on a
 real `screen_target` (`artifacts/hit-expander-overhang/corpus-measurement.md`).**

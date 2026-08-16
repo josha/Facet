@@ -177,3 +177,33 @@ divider, or there would be no press to promote into a drag.
   already works.
 
 The measurement was the deliverable; the ruling followed the same day.
+
+## The other half, ruled and fixed 2026-08-15: the band the fix could not reach
+
+The 2026-08-14 repair made the expander a real drag target. It did **not** make
+the whole 44px band reach the expander, because the OUTER half of that band lies
+over the *neighbouring* header cell, whose button is walked later and therefore
+paints higher — and Roblox delivers input to the topmost interactive object only.
+Re-measured live, per pixel: `EXP 18px + Grip 8px` and then **18px belonging to
+`Head-team/Column`**. 26 delivered of 44 across, 38 of 44 down (the bottom 6px
+went to row 1's `Hit`).
+
+That is not a Table defect at all — 48 scenarios on a real engine found 86 hit
+expanders and 82 such relations (`artifacts/hit-expander-overhang/
+corpus-measurement.md`), with `virtual_list_native` and `keyboard_navigation`
+carrying it silently. The fix is a paint-order rule, `src/render/hit_lift.luau`:
+a host whose expander overhangs is walked, with its expander, **after** the
+branches that expander reaches PAST it into. Measured after: **44 of 44 on both
+axes**, an outer-half drag resizes, and an outer-half tap sorts nothing.
+
+Two things this lesson got right and one it did not:
+
+- "Raise the expander" is unsatisfiable, and this page's own table shows why: the
+  expander needs `< hostZ` (hover lives on the host) and `> neighbourZ`, while
+  `neighbourZ > hostZ`. The HOST is what has to move.
+- The `grip.z - 1 > column.z` pin is still exactly right, and it now also pins the
+  clause that keeps the rule from inverting it: a target the host's own painted
+  rect already overlaps is not "past its host" and is never lifted over.
+- What no one had noticed: `hostZ - 1` **collides** with whatever node the walk
+  visited immediately before the host. A tie, broken by insertion order. The z
+  walk now reserves that counter for the expander.

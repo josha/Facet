@@ -34,6 +34,9 @@ local surface_overlap = require("./surface_overlap")
 local themeSnapshot = require("../themes/snapshot")
 -- the measure seam and the button-text grammar (see the pointer below)
 local layout_node = require("./layout_node")
+-- the hit-expander overhang lift: the paint order a touch floor needs to be
+-- deliverable (its own file for the same 200k reason `layout_node` is)
+local hit_lift = require("./hit_lift")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop (ADR-0022 D5): the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
@@ -257,6 +260,15 @@ local function rectsEqual(a: any, b: any): boolean
 end
 
 local TAPPABLE: { [string]: boolean } = { Button = true, Toggle = true, TextField = true }
+-- WHAT CAN TAKE A PRESS AWAY FROM AN OVERHANGING HIT EXPANDER (the overhang
+-- lift, `src/render/hit_lift.luau`): the classes the adapter realises as a real input
+-- SINKER — the tappables (GuiButton/TextBox) plus a `Grip`, the non-button
+-- Active pointer zone (`screen_target.luau`, `class == "Grip"`). Everything else
+-- is a Frame or a Label the engine routes straight through, so it cannot steal a
+-- band whatever its z, and lifting a host over one would be paint churn for
+-- nothing. A node that declares `active` joins them, because that prop is the
+-- author asking the adapter for exactly this sinking.
+local INPUT_SINKING: { [string]: boolean } = { Button = true, Toggle = true, TextField = true, Grip = true }
 -- nodes that get the pointer HOVER layer (UI-PARADIGM-001): activatable chrome
 -- the renderer draws (Table rows/headers render as Button). TextField is not a
 -- hover surface (its affordance is the caret/edit handshake, not a hover lift).
@@ -394,6 +406,28 @@ function renderer.attach(
 	-- re-cull never contradicts it (a path inside a losing ViewThatFits candidate
 	-- stays hidden however its rect lands)
 	local solverHidden: { [string]: boolean } = {}
+	-- ===== THE HIT-EXPANDER OVERHANG LIFT (2026-08-15) =====================
+	-- A control under the touch floor gets an invisible hit expander at
+	-- `hostZ - 1`, and the engine delivers input to the TOPMOST interactive object
+	-- only — so a sibling walked later outranks it and the band it advertises past
+	-- its host is undeliverable. The answer is a PAINT ORDER: the host's whole
+	-- branch is walked after the branches its expander reaches into. The rule, its
+	-- qualifier ("non-expander siblings only"), the clause that stops it at the
+	-- host, and the corpus measurement that makes the reorder safe all live in
+	-- `src/render/hit_lift.luau`; this file supplies the three facts it resolves
+	-- against and applies the order it returns.
+	--
+	-- the parent NODE of each live path, so a constraint between two nodes resolves
+	-- to the two SIBLING branches that carry them (the lift moves whole subtrees,
+	-- which is what keeps a `zIndex` scope intact), and the census of what can
+	-- actually SINK a press
+	local parentNodeOf: { [string]: any } = {}
+	local inputSinks: { [string]: boolean } = {}
+	local hitLift = hit_lift.new()
+	-- assigned below, where the z walk is defined: the solve re-runs it when the
+	-- lift changes, because the lift is GEOMETRY and structural sync runs before
+	-- the solve that produces it
+	local syncZOrder: () -> ()
 	local pathClipObservers: { [string]: () -> () } = {}
 	local function scrollShift(path: string): (number, number)
 		local dx, dy = 0, 0
@@ -1494,6 +1528,13 @@ function renderer.attach(
 			pathNodes[node.path] = true
 			pathNodeCount += 1
 		end
+		-- ...and the census the overhang lift resolves against (`hit_lift`):
+		-- which paths can actually SINK a press. Collected on this walk for the same
+		-- reason the two above are — it is free here, and a whole-tree search per
+		-- expander otherwise.
+		if INPUT_SINKING[node.class] or (node.props ~= nil and node.props.active == true) then
+			inputSinks[node.path] = true
+		end
 		local nextHost = if node.class == "ScrollView" then node.path else host
 		-- a ScrollView is a clip host by construction (the adapter mounts a real
 		-- scrolling host); any container may declare itself one
@@ -1502,6 +1543,7 @@ function renderer.attach(
 			then node.path
 			else clip
 		for _, child in node.children do
+			parentNodeOf[child.path] = node
 			livePaths(child, set, nextHost, nextClip)
 		end
 	end
@@ -2122,6 +2164,14 @@ function renderer.attach(
 					end
 				end
 				pushHitRects(root.node, false)
+				-- ...and the paint order those expanders need in order to be REACHABLE
+				-- (the overhang lift, `src/render/hit_lift.luau`). It runs HERE
+				-- because the lift is geometry: structural sync assigns z before the
+				-- solve that produces the rects, so the z walk re-runs from here, and
+				-- only when the lift itself changed.
+				if hitLift.refresh(result.rects, lastHitRects, inputSinks, parentNodeOf, solverHidden) then
+					syncZOrder()
+				end
 			end
 			-- `withAnimation`, and ONLY on the armed commit it forces for itself
 			-- (design §"Blocker 1"). It must sit HERE: root classification is
@@ -2422,11 +2472,15 @@ function renderer.attach(
 	-- Luau's sort is NOT stable, so ties between two zero-index siblings would
 	-- otherwise be free to swap between solves — and z-order churn is exactly the
 	-- non-determinism the explicit z walk exists to remove.
+	-- ...and the SECOND KEY, only when something asked for it: a branch whose hit
+	-- expander overhangs into a later sibling is walked AFTER that sibling
+	-- (`src/render/hit_lift.luau` owns the rule and the ordering).
 	local function orderedChildren(node: any): { any }
 		local children = node.children
 		if children == nil or #children < 2 then
 			return children or {}
 		end
+		local lifted = hitLift.touches(children)
 		local anyLift = false
 		for _, child in children do
 			if child.props ~= nil and type(child.props.zIndex) == "number" and child.props.zIndex ~= 0 then
@@ -2435,7 +2489,8 @@ function renderer.attach(
 			end
 		end
 		if not anyLift then
-			return children -- the overwhelmingly common case allocates nothing
+			-- the overwhelmingly common case allocates nothing
+			return if lifted then hitLift.order(children) else children
 		end
 		local indexed: { { node: any, index: number, z: number } } = table.create(#children)
 		for index, child in children do
@@ -2452,14 +2507,26 @@ function renderer.attach(
 		for _, entry in indexed do
 			table.insert(out, entry.node)
 		end
-		return out
+		return if lifted then hitLift.order(out) else out
 	end
-	local function syncZOrder()
+	function syncZOrder()
 		if adapter.setZOrder == nil then
 			return
 		end
 		local z = 0
 		local function walkZ(node: any)
+			-- A HOST WITH A HIT EXPANDER OWNS THE COUNTER BELOW IT TOO. The adapter
+			-- paints the expander at `hostZ - 1`, and without this reservation that
+			-- number belongs to whatever node happened to be walked immediately
+			-- before — a TIE, which the engine breaks by insertion order, i.e. by
+			-- exactly the non-determinism this explicit walk exists to remove. It is
+			-- also what makes the overhang lift land: a host lifted one position past
+			-- a leaf sibling would otherwise put its expander level with it, and
+			-- level is not above (measured on `keyboard_navigation`, whose rows are
+			-- leaves: Row1 at z 37 over Row2 at z 36 left the expander at 36).
+			if lastHitRects[node.path] ~= nil then
+				z += 1
+			end
 			z += 1
 			if handles[node.path] ~= nil and lastZ[node.path] ~= z then
 				authority.assertWrite("common", "zIndex", "layout")
@@ -2515,6 +2582,11 @@ function renderer.attach(
 		table.clear(scrollHostOf)
 		table.clear(clipHostOf)
 		table.clear(pathNodes)
+		-- the two the overhang lift rebuilds on the same walk; a path is REUSED
+		-- across a remount, so a stale parent link would resolve a constraint to a
+		-- branch that no longer exists
+		table.clear(parentNodeOf)
+		table.clear(inputSinks)
 		pathNodeCount = 0
 		local _t2 = os.clock()
 		livePaths(root.node, alive, nil, nil)
@@ -4072,6 +4144,11 @@ function renderer.attach(
 		-- would leave it answering out of a table this surface had abandoned.
 		table.clear(handles)
 		table.clear(lastRects)
+		-- ...and the overhang lift, which is a fact about a tree that no longer
+		-- exists: a re-presented surface recomputes it from its own first solve
+		table.clear(parentNodeOf)
+		table.clear(inputSinks)
+		hitLift.clear()
 		-- ...and the per-host scrollbar gutters beside them: a dismissed surface
 		-- that kept answering `scrollBarInsetOf` would hand a re-presented control
 		-- the geometry of a tree that no longer exists

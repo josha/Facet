@@ -100,6 +100,10 @@ require("./focus_structural.spec")
 require("./table.spec")
 require("./table_virtualized.spec")
 require("./table_columns.spec")
+-- the hit-expander overhang lift (2026-08-15): the z rule that makes a sub-floor
+-- control's advertised touch band DELIVERABLE, proved on the table divider that
+-- reported it and on a non-table expander that carried it silently
+require("./hit_expander_overhang.spec")
 -- the header band across all eight shipped packages: the axis every other Table
 -- spec is uniform along, and therefore the one that let the sort mark ship
 -- outside its themed plate (director, Studio 2026-08-14)
