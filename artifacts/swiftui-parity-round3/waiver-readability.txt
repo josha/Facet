@@ -1,0 +1,134 @@
+neutral|03_settings_sync|-|/Settings/Page/State|content overflows this vstack by Npx on the
+   cells=1 textNodes=4 
+neutral|authoring|-|/AuthoringScreen|content overflows this vstack by Npx on the
+   cells=5 textNodes=2 LEAF-UNREACHABLE(Box)=9
+     [LEAF-UNREACHABLE(Box)] compact-phone-landscape@+14: /AuthoringScreen/ValidGrid/g1 [Box 91x40 at 16,307] "" — off y by 9px
+neutral|card_rail|-|/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card|content box collapses to Npx on y: padding N
+   cells=7 textNodes=2 TEXT-TRUNCATED=8 TEXT-UNREACHABLE=14
+     [TEXT-TRUNCATED] narrow-landscape@+14: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Name [105x34] "Livery 001" — truncated, no disclose
+     [TEXT-UNREACHABLE] narrow-landscape@+14: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Badge [Text 81x32 at 20,290] "Rally" — off y by 61px
+neutral|card_rail|-|/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card|content overflows this vstack by Npx on the
+   cells=28 textNodes=2 TEXT-TRUNCATED=32 TEXT-UNREACHABLE=49
+     [TEXT-TRUNCATED] compact-phone-landscape@+10: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Name [90x29] "Livery 001" — truncated, no disclose
+     [TEXT-UNREACHABLE] compact-phone-landscape@+10: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Badge [Text 69x27 at 20,270] "Rally" — off y by 13px
+neutral|drag_session|-|/DragLab|content overflows this vstack by Npx on the
+   cells=5 textNodes=3 LEAF-UNREACHABLE(Box)=12
+     [LEAF-UNREACHABLE(Box)] compact-phone-landscape@+14: /DragLab/Board/Card [Box 110x70 at 16,272] "" — off y by 4px
+neutral|p4_foyer|-|/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage|content box collapses to Npx on y: padding N
+   cells=4 textNodes=63 
+neutral|p4_foyer|-|/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody|content overflows this vstack by Npx on the
+   cells=3 textNodes=63 
+neutral|p4_foyer|-|/Foyer/Root/TopBar|content overflows this hstack by Npx on the
+   cells=1 textNodes=2 LEAF-UNREACHABLE(Button)=1 TEXT-COVERED=1 TEXT-UNREACHABLE=1
+     [LEAF-UNREACHABLE(Button)] narrow-portrait@+14: /Foyer/Root/TopBar/BellZ/Bell [Button 44x44 at 278,128] "B" — off x by 2px
+     [TEXT-COVERED] narrow-portrait@+14: /Foyer/Root/TopBar/BellZ/BadgeWhen/then/BadgeBubble/Count "5" — covered by /Foyer/Root/TopBar/BellZ/Bell [Button]
+     [TEXT-UNREACHABLE] narrow-portrait@+14: /Foyer/Root/TopBar/BellZ/BadgeWhen/then/BadgeBubble/Count [Text 20x20 at 302,128] "5" — off x by 2px
+neutral|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta|content overflows this hstack by Npx on the
+   cells=7 textNodes=1 LEAF-UNREACHABLE(Image)=2
+     [LEAF-UNREACHABLE(Image)] narrow-portrait@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[skiff-sneaks]/skiff-sneaks/Col/Meta/Verified/Icon [Image 20x20 at 305,743.4545454545455] "" — off x by 13px
+neutral|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*|content overflows this hstack by Npx on the
+   cells=27 textNodes=3 LEAF-UNREACHABLE(Box)=5 LEAF-UNREACHABLE(Image)=10 TEXT-UNREACHABLE=5
+     [LEAF-UNREACHABLE(Box)] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[dusk-plaza]/dusk-plaza/Col/Thumb/Placeholder/then/Fill [Box 153x148 at 507,331] "" — off x by 4px
+     [LEAF-UNREACHABLE(Image)] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[dusk-plaza]/dusk-plaza/Col/Meta/Verified/Icon [Image 20x20 at 640,527] "" — off x by 4px
+     [TEXT-UNREACHABLE] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[dusk-plaza]/dusk-plaza/Col/Name [Text 153x34 at 507,483] "Dusk Plaza" — off x by 4px
+neutral|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta|content overflows this hstack by Npx on the
+   cells=24 textNodes=1 LEAF-UNREACHABLE(Image)=1
+     [LEAF-UNREACHABLE(Image)] narrow-portrait@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[fen-trousers]/fen-trousers/Col/Meta/Verified/Icon [Image 20x20 at 305,3176.4545454545455] "" — off x by 13px
+neutral|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*|content overflows this hstack by Npx on the
+   cells=102 textNodes=3 LEAF-UNREACHABLE(Box)=5 LEAF-UNREACHABLE(Image)=10 TEXT-UNREACHABLE=5
+     [LEAF-UNREACHABLE(Box)] narrow-portrait@+4: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Thumb/Placeholder/then/Fill [Box 144x148 at 172,1339.909090909091] "" — off x by 4px
+     [LEAF-UNREACHABLE(Image)] narrow-portrait@+4: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Meta/Verified/Icon [Image 20x20 at 296,1517.909090909091] "" — off x by 4px
+     [TEXT-UNREACHABLE] narrow-portrait@+4: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Name [Text 144x22 at 172,1491.909090909091] "Brook Braid" — off x by 4px
+neutral|perf_capture|-|/PerfCapture|content overflows this vstack by Npx on the
+   cells=3 textNodes=24 LEAF-UNREACHABLE(Button)=2
+     [LEAF-UNREACHABLE(Button)] narrow-landscape@+14: /PerfCapture/Actions/Boost [Button 124x63 at 12,268] "Boost" — off y by 11px
+neutral|row_actions|table|/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-from/Value|this child overflows its zstack by NxNpx and
+   cells=78 textNodes=1 
+neutral|row_actions|table|/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value|this child overflows its zstack by NxNpx and
+   cells=36 textNodes=1 
+neutral|row_actions|table|/MailActions/TableWhen/then/TablePane/MailTable/Main|content overflows this vstack by Npx on the
+   cells=3 textNodes=14 TEXT-TRUNCATED=4 TEXT-UNREACHABLE=6
+     [TEXT-TRUNCATED] compact-phone-landscape@+14: /MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m4@0]/RowActions-m4/Content/Row/Cells/Cell-from/Value [134x34] "Wardrobe Co" — truncated, no disclose
+     [TEXT-UNREACHABLE] compact-phone-landscape@+14: /MailActions/TableWhen/then/TablePane/MailTable/Main/Header/Head-from/Title [Text 134x34 at 16,337] "From" — off y by 33px
+neutral|row_actions|table|/MailActions/TableWhen/then/TablePane|content overflows this vstack by Npx on the
+   cells=3 textNodes=14 LEAF-UNREACHABLE(Button)=1 TEXT-TRUNCATED=4 TEXT-UNREACHABLE=6
+     [LEAF-UNREACHABLE(Button)] narrow-landscape@+14: /MailActions/TableWhen/then/TablePane/TableToolbar/EditToggle [Button 104x63 at 8,266] "Edit" — off y by 9px
+     [TEXT-TRUNCATED] compact-phone-landscape@+14: /MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[m4@0]/RowActions-m4/Content/Row/Cells/Cell-from/Value [134x34] "Wardrobe Co" — truncated, no disclose
+     [TEXT-UNREACHABLE] compact-phone-landscape@+14: /MailActions/TableWhen/then/TablePane/MailTable/Main/Header/Head-from/Title [Text 134x34 at 16,337] "From" — off y by 33px
+neutral|row_actions|vlist|/MailActions/VListWhen/then/VListPane|content overflows this vstack by Npx on the
+   cells=6 textNodes=11 TEXT-UNREACHABLE=1
+     [TEXT-UNREACHABLE] narrow-landscape@+14: /MailActions/VListWhen/then/VListPane/VListHint [Text 565x63 at 8,266] "Swipe a row (real touch/mouse — no scripted step reaches this surface)" — off y by 9px
+neutral|scroll_host|-|/ScrollHost/List|content box collapses to Npx on y: padding N
+   cells=2 textNodes=20 
+neutral|scroll_host|-|/ScrollHost|content overflows this vstack by Npx on the
+   cells=3 textNodes=24 TEXT-COVERED=3 TEXT-UNREACHABLE=1
+     [TEXT-COVERED] compact-phone-landscape@+14: /ScrollHost/Below "BELOW-LIST MARKER (must never move)" — covered by /ScrollHost/FocusList/Focus1 [Button]
+     [TEXT-UNREACHABLE] narrow-landscape@+14: /ScrollHost/Below [Text 608x34 at 16,296] "BELOW-LIST MARKER (must never move)" — off y by 10px
+neutral|sponsor_avatars|-|/AvatarLab|content overflows this vstack by Npx on the
+   cells=2 textNodes=9 TEXT-COVERED=16
+     [TEXT-COVERED] narrow-landscape@+10: /AvatarLab/Avatars/Set/[av-01#0]/Avatar/InitialRegion/then/Initial "" — covered by /AvatarLab/Avatars/Set/[av-01#0]/Avatar/Rim [Box]
+neutral|sponsor_billboard|-|/BillboardLab|content overflows this vstack by Npx on the
+   cells=5 textNodes=3 LEAF-UNREACHABLE(Button)=16
+     [LEAF-UNREACHABLE(Button)] compact-phone-landscape@+10: /BillboardLab/Controls/BtnDeplete [Button 105x58 at 129,290] "Deplete" — off y by 10px
+neutral|sponsor_drop|-|/DropLab/Main/ListZone/Rows|this child overflows its zstack by NxNpx and
+   cells=8 textNodes=12 
+neutral|sponsor_drop|-|/DropLab/Main|content overflows this vstack by Npx on the
+   cells=1 textNodes=20 
+neutral|sponsor_list|-|/ListLab/Body/Rows/Canvas/W/[*]/Row/Card/Labels|content overflows this vstack by Npx on the
+   cells=18 textNodes=2 TEXT-TRUNCATED=18
+     [TEXT-TRUNCATED] compact-phone-portrait@+14: /ListLab/Body/Rows/Canvas/W/[row-01]/Row/Card/Labels/Detail [101x32] "Secondary line, long enough to wrap at the largest text offset" — truncated, no disclose
+neutral|sponsor_motion|-|/MotionLab/Main/StageColumn/WashRow/WashLabel|this child overflows its zstack by NxNpx and
+   cells=12 textNodes=1 
+neutral|sponsor_toast|-|/ToastLab/Stage/Beneath|this child overflows its zstack by NxNpx and
+   cells=7 textNodes=0 LEAF-UNREACHABLE(Button)=4
+     [LEAF-UNREACHABLE(Button)] compact-phone-landscape@+10: /ToastLab/Stage/Beneath [Button 163x58 at 271,115] "Press me" — off y by 5px
+neutral|sponsor_toast|-|/ToastLab|content overflows this vstack by Npx on the
+   cells=2 textNodes=2 LEAF-UNREACHABLE(Button)=2
+     [LEAF-UNREACHABLE(Button)] narrow-landscape@+10: /ToastLab/Stage/Beneath [Button 163x58 at 238,107] "Press me" — off y by 13px
+neutral|table_virtualized|-|/TableVirtualized|content overflows this vstack by Npx on the
+   cells=1 textNodes=11 
+neutral|variable_extents|-|/VariableExtents|content overflows this vstack by Npx on the
+   cells=3 textNodes=8 TEXT-TRUNCATED=1 TEXT-UNREACHABLE=3
+     [TEXT-TRUNCATED] narrow-landscape@+14: /VariableExtents/Status [613x63] "each post declares its own height — mounted 4 of 400, canvas 32600px, text +0" — truncated, no disclose
+     [TEXT-UNREACHABLE] compact-phone-landscape@+14: /VariableExtents/Status [Text 661x63 at 8,311] "each post declares its own height — mounted 4 of 400, canvas 32600px, text +0" — off y by 36px
+neutral|virtual_list_native|-|/VLNative|content overflows this vstack by Npx on the
+   cells=11 textNodes=24 
+xa|card_rail|-|/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card|content overflows this vstack by Npx on the
+   cells=28 textNodes=2 TEXT-TRUNCATED=32 TEXT-UNREACHABLE=56
+     [TEXT-TRUNCATED] compact-phone-landscape@+10: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Name [90x29] "Livery 001" — truncated, no disclose
+     [TEXT-UNREACHABLE] compact-phone-landscape@+10: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Badge [Text 69x27 at 20,304] "Rally" — off y by 66px
+xa|card_rail|-|/CardRail|content overflows this vstack by Npx on the
+   cells=4 textNodes=17 TEXT-TRUNCATED=32 TEXT-UNREACHABLE=59
+     [TEXT-TRUNCATED] compact-phone-landscape@+10: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Name [90x29] "Livery 001" — truncated, no disclose
+     [TEXT-UNREACHABLE] compact-phone-landscape@+10: /CardRail/RailPane/Rail/Canvas/W/[c1]/Row/Card/Badge [Text 69x27 at 20,304] "Rally" — off y by 66px
+xa|p4_foyer|-|/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage|content box collapses to Npx on y: padding N
+   cells=2 textNodes=63 
+xa|p4_foyer|-|/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody|content overflows this vstack by Npx on the
+   cells=5 textNodes=63 LEAF-UNREACHABLE(Box)=5 LEAF-UNREACHABLE(Button)=5
+     [LEAF-UNREACHABLE(Box)] compact-phone-landscape@+10: /Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/TabRow/Tab_charts/Underline [Box 389x3 at 16,347] "" — off y by 12px
+     [LEAF-UNREACHABLE(Button)] compact-phone-landscape@+10: /Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/TabRow/Tab_charts/B [Button 389x58 at 16,285] "[Ćħáŕţš áɳď ŕáɳķíɳǧš]" — off y by 5px
+xa|p4_foyer|-|/Foyer/Root/TopBar|content overflows this hstack by Npx on the
+   cells=12 textNodes=2 LEAF-UNREACHABLE(Button)=14 TEXT-COVERED=12 TEXT-UNREACHABLE=11
+     [LEAF-UNREACHABLE(Button)] compact-phone-portrait@+4: /Foyer/Root/TopBar/BellZ/Bell [Button 44x44 at 334,128] "B" — off x by 19px
+     [TEXT-COVERED] compact-phone-portrait@+0: /Foyer/Root/TopBar/BellZ/BadgeWhen/then/BadgeBubble/Count "5" — covered by /Foyer/Root/TopBar/BellZ/Bell [Button]
+     [TEXT-UNREACHABLE] compact-phone-portrait@+4: /Foyer/Root/TopBar/BellZ/BadgeWhen/then/BadgeBubble/Count [Text 20x20 at 358,128] "5" — off x by 19px
+xa|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta|content overflows this hstack by Npx on the
+   cells=6 textNodes=1 LEAF-UNREACHABLE(Image)=2
+     [LEAF-UNREACHABLE(Image)] narrow-portrait@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[skiff-sneaks]/skiff-sneaks/Col/Meta/Verified/Icon [Image 20x20 at 305,784.4545454545455] "" — off x by 13px
+xa|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*|content overflows this hstack by Npx on the
+   cells=27 textNodes=3 LEAF-UNREACHABLE(Box)=5 LEAF-UNREACHABLE(Image)=10 TEXT-UNREACHABLE=5
+     [LEAF-UNREACHABLE(Box)] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[dusk-plaza]/dusk-plaza/Col/Thumb/Placeholder/then/Fill [Box 153x148 at 507,331] "" — off x by 4px
+     [LEAF-UNREACHABLE(Image)] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[dusk-plaza]/dusk-plaza/Col/Meta/Verified/Icon [Image 20x20 at 640,527] "" — off x by 4px
+     [TEXT-UNREACHABLE] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[dusk-plaza]/dusk-plaza/Col/Name [Text 153x34 at 507,483] "Dusk Plaza" — off x by 4px
+xa|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta|content overflows this hstack by Npx on the
+   cells=24 textNodes=1 LEAF-UNREACHABLE(Image)=1
+     [LEAF-UNREACHABLE(Image)] narrow-portrait@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[fen-trousers]/fen-trousers/Col/Meta/Verified/Icon [Image 20x20 at 305,3258.4545454545455] "" — off x by 13px
+xa|p5_wardrobe|-|/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*|content overflows this hstack by Npx on the
+   cells=102 textNodes=3 LEAF-UNREACHABLE(Box)=5 LEAF-UNREACHABLE(Image)=10 TEXT-TRUNCATED=24 TEXT-UNREACHABLE=6
+     [LEAF-UNREACHABLE(Box)] narrow-portrait@+4: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Thumb/Placeholder/then/Fill [Box 144x148 at 172,1397.909090909091] "" — off x by 4px
+     [LEAF-UNREACHABLE(Image)] narrow-portrait@+4: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Meta/Verified/Icon [Image 20x20 at 296,1575.909090909091] "" — off x by 4px
+     [TEXT-TRUNCATED] desktop-standard@+14: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Status/Owned/then/Chip [137x32] "[Øẃɳéď~~]" — truncated, no disclose
+     [TEXT-UNREACHABLE] narrow-portrait@+4: /Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[brook-braid]/brook-braid/Col/Name [Text 144x22 at 172,1549.909090909091] "Brook Braid" — off x by 4px
+xa|table_virtualized|-|/TableVirtualized|content overflows this vstack by Npx on the
+   cells=4 textNodes=11 TEXT-UNREACHABLE=5
+     [TEXT-UNREACHABLE] compact-phone-landscape@+10: /TableVirtualized/Last [Text 614x27 at 12,321] "Éáçĥ ƀúţţóñ áçţş óñ á ŕóŵ ñó ŵíñðóŵ ĥáş ĥéļð. ················" — off y by 10px

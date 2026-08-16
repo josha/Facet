@@ -33,8 +33,10 @@
 -- ...at the five canonical device-matrix viewports (the ones
 -- `tests/theme_matrix_audit.spec.luau` recorded live, so the headless twin and
 -- the Studio drive talk about the same geometry) PLUS the narrowest supported
--- viewport in BOTH orientations. Landscape is not optional: B5 was landscape-only
--- and portrait-clean, which is exactly how it survived a portrait capture set.
+-- viewport in BOTH orientations, PLUS the 390x844 modern phone (O-19, added
+-- 2026-08-15 — the row the locale defect below was measured on). Landscape is not
+-- optional: B5 was landscape-only and portrait-clean, which is exactly how it
+-- survived a portrait capture set.
 --
 -- ...at EVERY ACCESSIBILITY TEXT SIZE a player can choose (2026-08-13, below).
 --
@@ -68,7 +70,11 @@
 -- from `tests/lib/large_text.PREFERENCES` rather than written here, so the day a
 -- fifth preference is measured this sweep picks it up without an edit.
 --
--- WHY THE FULL CROSS PRODUCT, AND WHAT IT COSTS. 42 surfaces x 8 viewports x 4
+-- WHY THE FULL CROSS PRODUCT, AND WHAT IT COSTS. (The shape below is the one
+-- measured when the preference axis landed; today it is 46 surfaces x 9 viewports
+-- x 4 preferences, plus the themed and locale tiers, and what the whole file costs
+-- is measured in `tests/lib/tiers.luau` rather than restated here.) 42 surfaces x
+-- 8 viewports x 4
 -- preferences is a 4x multiplier on an always-on check, so the shape was measured
 -- before it was chosen (`docs/plans/swiftui-parity-round3.md`, the accessibility
 -- section):
@@ -174,10 +180,10 @@
 -- narrower than the frame by the bar thickness even where the layout reserved
 -- nothing, which is a second, independent way for content to be clipped on the
 -- right — measured and pinned separately in tests/scroll_window_clip.spec.luau. It
--- sweeps ONE LOCALE (the surfaces' own default copy): the 1.4x pseudo-locale is a
--- second, independent expansion axis, and p4_foyer's TopBar overflows by 33/58px
--- at 390x844 under `xa` where it is clean in English — measured 2026-08-13 and
--- logged as NOT covered here rather than left to be assumed. It is the part of
+-- sweeps TWO LOCALES since 2026-08-15 (O-19, "THE LOCALE AXIS" below) but only on
+-- the 21 surfaces that HAVE a second form: a fixture with no `copy` export and no
+-- locale fact builds byte-identical text, and the coverage case names every one of
+-- them rather than counting them as swept. It is the part of
 -- "does this fit on a phone" that a machine can answer every time, and the floor
 -- under the Studio device matrix rather than a replacement for it.
 
@@ -564,6 +570,69 @@ end
 	     derived signature above). `perf_capture`'s Roster row and `card_rail`'s
 	     card each carry TWO different defects at one path; one line covering both
 	     would have been a ceiling measured on the wrong one.
+
+	── THE DIRECTOR'S RULING, 2026-08-15: "fix the ones that hide text; waive the
+	rest" (O-21) ──────────────────────────────────────────────────────────────
+
+	Answered by measurement rather than by re-reading these rows, because "does it
+	paint outside its box" and "can a player still read it" are different
+	questions and this list only ever recorded the first. The instrument is
+	`tools/lune/triage_overflow_waivers` (run it; it names its three verdicts and
+	what it refuses to count), and its output is
+	`artifacts/swiftui-parity-round3/waiver-readability.txt`.
+
+	THE SPLIT OF THE 42: TEN FIXED and deleted from this list — every one of them
+	a row that put copy or a labelled control off the screen, and every one
+	repaired in the fixture (see the commit for the per-surface measurements).
+	SIXTEEN still hide something and are STILL OWED: they keep their ceilings here
+	because a permanently red always-on check is worse than none, not because they
+	are pardoned. FIFTEEN are cosmetic, and each says why below — the probe found
+	no character and no control outside the band a player can reach, nothing cut
+	without a `disclose` to open it, and nothing opaque painted over copy.
+
+	THE SIXTEEN THAT ARE OWED, with what a player loses (the fix is the fixture's,
+	not this file's): card_rail's card plate x2 (`Rally` 61px off the fold, `Name`
+	cut with no disclose), p4_foyer's TopBar (the notice count off-screen — and
+	128px at +0 under `xa`, see LOCALE_WAIVERS), p5_wardrobe's two item grids
+	(`Dusk Plaza` 4px off), row_actions' table pane x2 (the `From` HEADER 33px
+	below the fold) and its vlist pane (the swipe hint 9px below it), scroll_host's
+	`BELOW-LIST MARKER` (10px below the fold, and covered), sponsor_avatars'
+	initials (16 covered), sponsor_list's row detail (18 cut, no disclose),
+	variable_extents' status line (36px below the fold and cut), and four whose
+	loss is a labelled CONTROL rather than a word: perf_capture's `Boost`,
+	sponsor_billboard's four buttons, sponsor_toast's `Press me` x2.
+
+	WHY THE FIFTEEN ARE COSMETIC, one line each, all measured 2026-08-15:
+	  03_settings_sync /Settings/Page/State  24px below a panel edge at +4 only;
+	    all four labels stay on screen, uncut and uncovered
+	  authoring /AuthoringScreen             the last row of validation PLATES
+	    runs 9px past the fold; every label on the page is inside the band
+	  drag_session /DragLab                  the draggable CARD is 4px past the
+	    fold; no copy leaves the band and the card is still grabbable
+	  p4_foyer .../FeedPage                  the feed page's content box collapses
+	    on a short landscape, and all 63 of its text nodes still paint inside the
+	    band; every cut string carries `disclose`
+	  p4_foyer .../HomeBody                  the same page, the same measurement,
+	    one node up
+	  p5_wardrobe .../Picked/.../Col/Meta    the VERIFIED icon is 13px past the
+	    edge; the creator line beside it truncates WITH `disclose`
+	  p5_wardrobe .../Rest/.../Col/Meta      the twin of the row above
+	  row_actions .../Cell-from/Value        the cell's own text is taller than
+	    the cell it is layered in; it stays in the band and nothing opaque covers it
+	  row_actions .../Cell-subject/Value     the twin of the row above, one
+	    preference later
+	  scroll_host /ScrollHost/List           the list's content box collapses on y
+	    inside a page whose 20 labels all still paint in the band
+	  sponsor_drop .../ListZone/Rows         the list zone outgrows the layer it
+	    sits in; what it paints over is the chevron affordance, which is not copy
+	  sponsor_drop /DropLab/Main             8px at +14 on one view, with no copy
+	    and no control outside the band
+	  sponsor_motion .../WashLabel           a label layered in the wash zstack:
+	    nothing leaves the band and nothing is painted over it
+	  table_virtualized /TableVirtualized    the page runs past the fold at +14 on
+	    two views; every line still reads, and the cut status line discloses
+	  virtual_list_native /VLNative          the page overruns and all 24 labels
+	    stay in the band — the list's own window scrolls to them
 
 	`kind` is the triage class (docs/plans/swiftui-parity-round3.md carries the
 	full list with the per-view/per-preference detail):
@@ -1118,6 +1187,232 @@ local function describeFinding(w: any, view: any, offset: number, finding: any):
 	return `  {view.id} ({view.w}x{view.h}) @ preferredTextOffset +{offset}: {finding.node}{rect}\n      {finding.issue}`
 end
 
+--[[ ── THE LOCALE AXIS (O-19, 2026-08-15) ────────────────────────────────────
+
+	The header above used to end its "WHAT IT IS NOT" paragraph with an admission:
+	this file sweeps ONE LOCALE, and `p4_foyer`'s TopBar overflows by 33/58px at
+	390x844 under the shipping 1.4x `xa` pseudo-locale where it is clean in
+	English. That is now an axis rather than a sentence, and 390x844 is a swept
+	viewport (tests/lib/device_views.luau).
+
+	EXPANSION IS NOT THE PREFERENCE AXIS AGAIN. `preferredTextOffset` adds px to a
+	line box — every string on the screen gets TALLER by the same amount. A locale
+	makes each string LONGER by a factor, and only where there is copy: a row of
+	four labels grows four times, a row of four icons not at all. The two axes move
+	different geometry, and the corpus proves it — the first run of this pass found
+	`p4_foyer`'s bell 19px off the right screen edge at +4, three preference steps
+	EARLIER than the English defect it already carried.
+
+	THE TWO MECHANISMS, and there are only two because the corpus only has two:
+	  * a fixture that exports a flat `copy` table (17 scenarios today) gets it
+	    put through the SHIPPING pseudo-localizer — the same seam and the same
+	    function `tests/examples_gallery.spec` uses, so the expansion this sweeps is
+	    the expansion that file asserts;
+	  * a reference proof takes its locale as a fact — `deps.locale = "xa"` at
+	    build, plus its own `steps.locale` where it has one.
+	A surface with neither is NOT covered, and is not quietly counted as covered
+	either: the coverage case at the bottom of this file DERIVES which surfaces the
+	pass actually moved (an English text digest against the expanded one) and
+	prints every surface it did not.
+
+	WHY IT IS A SECOND MOUNT. A fixture reads its copy when it BUILDS. The
+	preference and the package are `env:set`s on a live tree — measured equivalent
+	to a fresh mount — and this one cannot be, so it is the only axis here that
+	costs a mount per cell. That is what the tier below is for.
+
+	THE TIER: every viewport at the DEFAULT preference and at the LARGEST, and no
+	theme. Both ends, because expansion and preference compound (the O-19 row is at
+	+10/+14) and because +0 is where a regression is a plain regression; every
+	viewport, because a locale changes the TREE — a longer string flips a
+	ViewThatFits rung and moves a wrap point. The two middle preferences are the
+	declared hole, and the preference axis is NOT monotone (this file's own header
+	proves it on the neutral pass), so that hole is a known one rather than a claim
+	that +14 dominates.
+]]
+local l10n = require("./fixtures/a11y_l10n_fixtures")
+
+local LOCALE = "xa"
+local LOCALE_OFFSETS: { number } = { 0, LARGEST }
+
+--[[ THE LOCALE LEDGER. Same four rules as the waiver list above — a ceiling, a
+	smallest preference, a line that fires nowhere fails, keyed by class as well as
+	node — kept separate for the theme ledger's reason: an English ceiling was
+	measured on English copy. Every row is what the first run of this axis found,
+	on 2026-08-15, and every one of them is a to-do with a measurement on it. ]]
+local LOCALE_WAIVERS: { Waiver } = {
+	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/TopBar",
+		sig = "content overflows this hstack by Npx on the",
+		px = 128,
+		since = 0,
+		kind = "row-cannot-shrink",
+		where = "5 cells, worst compact-phone-portrait@+0",
+	},
+	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody",
+		sig = "content overflows this vstack by Npx on the",
+		px = 110,
+		since = 14,
+		kind = "fixed-px-vs-text",
+		where = "compact-phone-landscape@+14, narrow-landscape@+14",
+	},
+	{
+		surface = "card_rail",
+		variant = "-",
+		node = "/CardRail",
+		sig = "content overflows this vstack by Npx on the",
+		px = 78,
+		since = 14,
+		kind = "page-not-scrollable",
+		where = "compact-phone-landscape@+14, narrow-landscape@+14",
+	},
+	{
+		surface = "table_virtualized",
+		variant = "-",
+		node = "/TableVirtualized",
+		sig = "content overflows this vstack by Npx on the",
+		px = 73,
+		since = 14,
+		kind = "page-not-scrollable",
+		where = "compact-phone-landscape@+14, narrow-landscape@+14",
+	},
+	{
+		surface = "card_rail",
+		variant = "-",
+		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
+		sig = "content overflows this vstack by Npx on the",
+		px = 68,
+		since = 14,
+		kind = "fixed-px-vs-text",
+		where = "compact-phone-landscape@+14, narrow-landscape@+14",
+	},
+	{
+		surface = "p2_cartwheel",
+		variant = "-",
+		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/RackSlot/Rack/OpenPotions",
+		sig = "content overflows this hstack by Npx on the",
+		px = 31,
+		since = 14,
+		kind = "row-cannot-shrink",
+		where = "compact-phone-landscape@+14",
+	},
+	{
+		surface = "p2_cartwheel",
+		variant = "-",
+		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/Recent/RecentBrews/HeroTiles/Tiles/TileGrid/TileRows/[*]/*/Body",
+		sig = "this child overflows its zstack by NxNpx and",
+		px = 27,
+		since = 14,
+		kind = "layer-overlap",
+		where = "desktop-studio-1320@+14, narrow-landscape@+14",
+	},
+	{
+		surface = "p5_wardrobe",
+		variant = "-",
+		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*",
+		sig = "content overflows this hstack by Npx on the",
+		px = 24,
+		since = 14,
+		kind = "row-cannot-shrink",
+		where = "6 cells, worst compact-phone-portrait@+14",
+	},
+	{
+		surface = "p5_wardrobe",
+		variant = "-",
+		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*",
+		sig = "content overflows this hstack by Npx on the",
+		px = 24,
+		since = 14,
+		kind = "row-cannot-shrink",
+		where = "6 cells, worst compact-phone-portrait@+14",
+	},
+	{
+		surface = "p5_wardrobe",
+		variant = "-",
+		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta",
+		sig = "content overflows this hstack by Npx on the",
+		px = 24,
+		since = 14,
+		kind = "row-cannot-shrink",
+		where = "console-ten-foot@+14, narrow-portrait@+14",
+	},
+	{
+		surface = "p5_wardrobe",
+		variant = "-",
+		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta",
+		sig = "content overflows this hstack by Npx on the",
+		px = 19,
+		since = 14,
+		kind = "row-cannot-shrink",
+		where = "console-ten-foot@+14, narrow-portrait@+14",
+	},
+	{
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage",
+		sig = "content box collapses to Npx on y: padding N",
+		px = 3,
+		since = 0,
+		kind = "collapsed-box",
+		where = "narrow-landscape@+0",
+	},
+}
+
+local LOCALE_BY_KEY: { [string]: Waiver } = {}
+local LOCALE_MATCHED: { [string]: boolean } = {}
+for _, row in LOCALE_WAIVERS do
+	local key = waiverKey(row.surface, row.variant, row.node, row.sig)
+	assert(LOCALE_BY_KEY[key] == nil, `duplicate locale waiver for {key}`)
+	LOCALE_BY_KEY[key] = row
+end
+
+-- Every player-visible string a fixture exports, expanded in place. The module
+-- table is shared, so this is the real surface rather than a parallel one — and
+-- it is restored on every path including a throw (`withPseudoCopy`).
+local function withPseudoCopy(module: any, body: () -> any): any
+	if type(module.copy) ~= "table" then
+		return body()
+	end
+	local original: { [string]: string } = {}
+	for key, value in module.copy do
+		if type(value) == "string" then
+			original[key] = value
+			module.copy[key] = l10n.pseudoLocalize(value)
+		end
+	end
+	local ok, result = pcall(body)
+	for key, value in original do
+		module.copy[key] = value
+	end
+	if not ok then
+		error(result, 0)
+	end
+	return result
+end
+
+-- THE DIGEST THAT PROVES THE PASS REACHED THE COPY. Length and codepoint sum of
+-- every painted string, which an expansion always moves and a re-mount of the
+-- same locale never does. It is what makes "this surface has no locale form" a
+-- measurement instead of a list somebody maintains.
+local function textDigest(built: any): number
+	local total = 0
+	for path, facts in built.handle.controller.textAt() do
+		local text = facts.text
+		if type(text) == "string" then
+			total += #text + #path
+		end
+	end
+	return total
+end
+
+-- which surfaces the locale pass actually MOVED, keyed by surface name; read by
+-- the coverage case at the bottom of this file
+local localeReached: { [string]: boolean } = {}
+
 -- A SWEEP ONLY COVERS THE CONFIGURATIONS ITS FIXTURE ACTUALLY BUILDS
 -- (`the-solver-already-told-you.md` §13.1 — an LT-8 sweep mounted a Table without
 -- `reorderable`, so the toolbar the header collided with did not exist in a single
@@ -1133,7 +1428,7 @@ local VARIANTS: { [string]: { step: string, values: { string } } } = {
 -- instead of stopping at the first, because the set of views a screen fails at is
 -- what tells an author whether it is a width problem or a height problem — and the
 -- set of PREFERENCES tells them whether it is a text problem at all.
-local function sweep(kind: string, name: string, mount: (any) -> any)
+local function sweep(kind: string, name: string, mount: (any) -> any, localeMount: ((any) -> any)?)
 	local label = `{kind} '{name}'`
 	it(`{label}: the solver reports NOTHING at any swept viewport, at any text size`, function()
 		local variant = VARIANTS[name]
@@ -1142,13 +1437,25 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			local w = world(view)
 			local built = mount(w)
 			settle(w.presenter)
+			local englishDigest = textDigest(built)
 			-- `package` is nil on the neutral pass and the package's id on a themed
 			-- one, and it selects WHICH list the finding is matched against — see
 			-- "THE THEME LEDGER" above for why a neutral ceiling may not pardon a
 			-- themed finding.
-			local function collect(offset: number, variantValue: string, suffix: string, package: string?)
+			local function collect(
+				w: any,
+				built: any,
+				offset: number,
+				variantValue: string,
+				suffix: string,
+				package: string?,
+				locale: string?
+			)
 				if package ~= nil then
 					suffix ..= `\n      [theme package = {package}]`
+				end
+				if locale ~= nil then
+					suffix ..= `\n      [locale = {locale}]`
 				end
 				for _, finding in built.handle.controller.diagnostics() do
 					-- A FINDING THE FRAMEWORK MARKS AS DESIGNED IS NOT A DEFECT AND IS
@@ -1210,6 +1517,39 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 						end
 						continue
 					end
+					if locale ~= nil then
+						-- ── THE LOCALE PASS ─────────────────────────────────────────
+						-- Its own list, for the theme ledger's reason: an English ceiling
+						-- was measured on English copy, and letting it pardon a 1.4x
+						-- string would be a ceiling nobody measured.
+						local row = LOCALE_BY_KEY[key]
+						if row ~= nil and offset == 0 and row.since > 0 then
+							row = nil
+						end
+						if row == nil then
+							table.insert(problems, describeFinding(w, view, offset, finding) .. suffix)
+							continue
+						end
+						local localePx = findingPx(finding.issue)
+						if localePx > row.px then
+							table.insert(
+								problems,
+								describeFinding(w, view, offset, finding)
+									.. suffix
+									.. `\n      ^ WORSE than the recorded locale waiver: {localePx}px against a {row.px}px ceiling`
+							)
+						elseif offset < row.since then
+							table.insert(
+								problems,
+								describeFinding(w, view, offset, finding)
+									.. suffix
+									.. `\n      ^ EARLIER than the recorded locale waiver: reported at +{offset}, recorded from +{row.since}`
+							)
+						else
+							LOCALE_MATCHED[key] = true
+						end
+						continue
+					end
 					local waiver = WAIVER_BY_KEY[key]
 					-- RULE 1: a waiver recorded from +4 or later does not apply at the
 					-- default preference. Only a waiver that ADMITS the defect is there at
@@ -1246,21 +1586,21 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			-- through. Offset 0 is the first pass, so the pre-axis contract — "this
 			-- surface is clean at the default preference, mounted fresh" — is
 			-- evaluated on exactly the tree it was evaluated on before.
-			local function atOffset(offset: number, package: string?)
+			local function atOffset(w: any, built: any, offset: number, package: string?, locale: string?)
 				w.env:set("preferredTextOffset", offset)
 				settle(w.presenter)
 				if variant == nil then
-					collect(offset, "-", "", package)
+					collect(w, built, offset, "-", "", package, locale)
 				else
 					for _, value in variant.values do
 						built.steps[variant.step](built, value)
 						settle(w.presenter)
-						collect(offset, value, `\n      [{variant.step} = {value}]`, package)
+						collect(w, built, offset, value, `\n      [{variant.step} = {value}]`, package, locale)
 					end
 				end
 			end
 			for _, offset in OFFSETS do
-				atOffset(offset, nil)
+				atOffset(w, built, offset, nil, nil)
 			end
 			-- ...AND THE PACKAGE IS SWUNG THE SAME WAY (see the header's theme-axis
 			-- section). `themeMetrics` is the metric half of ADR-0019 §7's one
@@ -1272,7 +1612,22 @@ local function sweep(kind: string, name: string, mount: (any) -> any)
 			for _, package in PACKAGES do
 				w.env:set("themeMetrics", package.snapshot)
 				for _, offset in themedOffsets(view) do
-					atOffset(offset, package.id)
+					atOffset(w, built, offset, package.id, nil)
+				end
+			end
+			-- ...AND THE LOCALE PASS, which is the one axis that CANNOT be swung on
+			-- this tree: a fixture reads its copy when it builds, so the expanded form
+			-- is a second mount rather than an `env:set`. It is therefore the axis with
+			-- a real per-cell cost, and the tier is chosen accordingly (LOCALE_OFFSETS).
+			if localeMount == nil then
+				localeReached[name] = false
+			else
+				local lw = world(view)
+				local lbuilt = localeMount(lw)
+				settle(lw.presenter)
+				localeReached[name] = textDigest(lbuilt) ~= englishDigest
+				for _, offset in LOCALE_OFFSETS do
+					atOffset(lw, lbuilt, offset, nil, LOCALE)
 				end
 			end
 		end
@@ -1330,9 +1685,27 @@ end
 describe("overflow sweep: gallery scenarios", function()
 	for _, name in SCENARIOS do
 		local module = require(`../examples/gallery/scenarios/{name}`) :: any
-		sweep("scenario", name, function(w)
-			return present(w, module.build(scenarioCtx(w)))
-		end)
+		-- A SURFACE WITH NO `copy` TABLE HAS NO LOCALE FORM, and mounting it a
+		-- second time to prove that costs nine mounts to learn nothing. The pass is
+		-- not offered at all for those; the coverage case still names them.
+		local expandable = type(module.copy) == "table"
+		sweep(
+			"scenario",
+			name,
+			function(w)
+				return present(w, module.build(scenarioCtx(w)))
+			end,
+			if not expandable
+				then nil
+				else function(w)
+					-- the expansion is live only while the fixture BUILDS: the copy goes
+					-- back before the mount is swept, so nothing else can read an expanded
+					-- string out of a shared module table
+					return withPseudoCopy(module, function()
+						return present(w, module.build(scenarioCtx(w)))
+					end)
+				end
+		)
 	end
 end)
 
@@ -1364,6 +1737,24 @@ describe("overflow sweep: reference proofs", function()
 					{ env = w.env, actionSystem = w.system, presenter = w.presenter, adapter = w.adapter }
 				)
 			)
+		end, function(w)
+			-- a proof takes its locale as a BUILD FACT, and drives its own step too
+			-- where it has one (p3/p4/p5); p2 reads the fact alone. p1 has neither,
+			-- which the coverage case reports rather than assumes.
+			local built = present(
+				w,
+				module.build(LuauUI, w.core, {
+					env = w.env,
+					actionSystem = w.system,
+					presenter = w.presenter,
+					adapter = w.adapter,
+					locale = LOCALE,
+				})
+			)
+			if built.steps ~= nil and built.steps.locale ~= nil then
+				built.steps.locale(built, LOCALE)
+			end
+			return built
 		end)
 	end
 end)
@@ -1583,6 +1974,92 @@ describe("overflow sweep: the accessibility waiver list", function()
 			the plate is a `minMax` FLOOR now, so it grows with the glyph instead of
 			cutting it. ]]
 		expect(DEFAULT_WAIVERS).toBe(4)
+	end)
+end)
+
+--[[ ── THE LOCALE LEDGER IS A TO-DO LIST, AND ITS REACH IS DERIVED ────────────
+
+	The same two cases the theme axis is under, for the same two ways a ledger
+	rots, plus the one this axis needs.
+
+	A row that fires NOWHERE is a defect somebody fixed (or a node that moved), so
+	the ledger can only shrink. And REACH is not assumed: a fixture with no `copy`
+	table and no locale fact builds byte-identical copy under this pass, and a
+	pass that mounted it again would be pure cost claiming coverage it does not
+	have. `localeReached` is the measured answer — the expanded text digest against
+	the English one, taken on the same view — so "this surface has no locale form"
+	is a MEASUREMENT printed on every run rather than a list nobody re-checks.
+]]
+describe("overflow sweep: the locale ledger", function()
+	it("every locale row still fires — a stale row is a fixed defect, delete the line", function()
+		local stale: { string } = {}
+		for _, row in LOCALE_WAIVERS do
+			local key = waiverKey(row.surface, row.variant, row.node, row.sig)
+			if LOCALE_MATCHED[key] ~= true then
+				table.insert(
+					stale,
+					`  {row.surface} [{row.variant}] {row.node}\n`
+						.. `      "{row.sig}"\n`
+						.. `      recorded {row.px}px from +{row.since} ({row.kind}; {row.where})`
+				)
+			end
+		end
+		if #stale > 0 then
+			error(
+				`{#stale} locale row(s) no longer fire anywhere in the `
+					.. `{LOCALE} passes. If the surface was fixed, delete the entry (that is the point of the `
+					.. `ledger); if the node moved or the solver reworded the finding, re-record it:\n`
+					.. `{table.concat(stale, "\n")}`,
+				0
+			)
+		end
+		--[[ ...and the ledger may not quietly grow either. 12 is what turning the axis
+			on found on 2026-08-15, over 9 viewports x 2 preferences on the 21 surfaces
+			that HAVE a locale form. Every addition is a decision somebody makes.
+
+			IT WAS 31 FOR ONE RUN, and the 19 that left are worth recording: they came
+			from surfaces the pass MOUNTED but could not move — no `copy` export, no
+			locale fact — so every one of them was an English finding wearing a locale
+			label. The pass is not offered to those surfaces now, and the rows went
+			with it. A ledger that records a defect the axis cannot actually see is the
+			"check that proves nothing" class one level up. ]]
+		expect(#LOCALE_WAIVERS <= 12).toBe(true)
+	end)
+
+	it("REACH: the pass moved the copy it claims to, and names every surface it did not", function()
+		local reached: { string } = {}
+		local inert: { string } = {}
+		for name, moved in localeReached do
+			if moved then
+				table.insert(reached, name)
+			else
+				table.insert(inert, name)
+			end
+		end
+		table.sort(reached)
+		table.sort(inert)
+		-- THE MEASUREMENT, not a list: a surface counts as covered only where the
+		-- expanded mount really produced different text from the English one.
+		print(
+			`\n  [locale axis] {#reached} of {#reached + #inert} swept surfaces have a locale form this pass `
+				.. `could move under '{LOCALE}' — {#LOCALE_OFFSETS} preferences x {#VIEWS} viewports each, no `
+				.. `theme package.`
+		)
+		print(
+			`  [locale axis] NOT COVERED — {#inert} surface(s): no \`copy\` export and no locale fact, so an `
+				.. `expanded mount would build byte-identical text`
+		)
+		for _, name in inert do
+			print(`      {name}`)
+		end
+		print(
+			"  [locale axis] NOT COVERED — the tutorial examples (no `copy` export and no locale fact), "
+				.. "the two middle text preferences, and the theme packages: expansion x package is a "
+				.. "cross product this file does not pay for, and neither axis is monotone."
+		)
+		-- the pass has to reach SOMETHING, or an empty ledger would look like a
+		-- clean corpus rather than an inert instrument
+		expect(#reached >= 20).toBe(true)
 	end)
 end)
 

@@ -781,7 +781,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/TileGame/Page/rack/rt*",
 		sig = "content box collapses to Npx on x: padding N",
-		px = 37,
+		px = 39, -- re-recorded 2026-08-15 (O-19): 390x844 measures 39, 2px past the old ceiling
 		since = 0,
 		packages = "fantasy-ornate,glossy-touch",
 		kind = "collapsed-box",
@@ -1125,7 +1125,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Wordle/page/col/kb/kbrow1/key_*",
 		sig = "content box collapses to Npx on x: padding N",
-		px = 29,
+		px = 32, -- re-recorded 2026-08-15 (O-19): 390x844 is 3px worse than the widest cell the tier had
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "collapsed-box",
@@ -1135,7 +1135,7 @@ theme_ledger.ROWS = {
 		variant = "-",
 		node = "/Wordle/page/col/kb/kbrow3/key_*",
 		sig = "content box collapses to Npx on x: padding N",
-		px = 29,
+		px = 32, -- re-recorded 2026-08-15 (O-19): 390x844 is 3px worse than the widest cell the tier had
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "collapsed-box",
@@ -1344,6 +1344,35 @@ theme_ledger.ROWS = {
 		since = 14,
 		packages = "scifi-hud",
 		kind = "layer-overlap",
+	},
+	{
+		--[[ FOUND BY THE 390x844 VIEWPORT (O-19, 2026-08-15), and it is the mildest
+			row in this file: Pixel Quest's `barTrack` carves 8+8 of inset, and at this
+			width the demo's own progress value leaves the FILL 2px wide, so the track
+			reports that nothing inside it can draw. There is no copy inside a progress
+			fill and nothing beside it moves — a 2px sliver of a bar not painting its
+			inner plate is a bleed, not a lost word. Recorded rather than filtered
+			because the same sentence on a node that DID carry copy would be real. ]]
+		surface = "time_curves",
+		variant = "-",
+		node = "/TimeCurves/Page/CooldownBar/Bar",
+		sig = "content box collapses to Npx on x: padding N",
+		px = 2,
+		since = 0,
+		packages = "pixel-quest",
+		kind = "collapsed-box",
+	},
+	{
+		-- the twin of the row above, one bar down: the same `barTrack` inset against
+		-- the spring demo's own fill width at 390x844.
+		surface = "time_curves",
+		variant = "-",
+		node = "/TimeCurves/Page/SpringBar/Bar",
+		sig = "content box collapses to Npx on x: padding N",
+		px = 2,
+		since = 0,
+		packages = "pixel-quest",
+		kind = "collapsed-box",
 	},
 	{
 		surface = "sponsor_celebration",

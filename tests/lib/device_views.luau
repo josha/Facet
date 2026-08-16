@@ -35,6 +35,16 @@ local VIEWS: { View } = {
 	-- 320px" — a sweep that only runs compact sizes teaches the wrong lesson about
 	-- what overflow is.
 	{ id = "desktop-studio-1320", w = 1320, h = 742, displaySize = "Medium", input = "KeyboardAndMouse" },
+	--[[ THE MODERN PHONE (O-19, added 2026-08-15). 390x844 is the iPhone-class
+		portrait the round-3 ledger measured `p4_foyer`'s TopBar at: clean in English
+		at every preference, 33px over at +10 and 58px at +14 under the shipping 1.4x
+		`xa` locale. It is NOT redundant with the two narrow rows above — 320x640 is
+		the narrowest supported box and 359x718 the matrix's compact row, and this one
+		is TALLER than both while barely wider, which is the shape that keeps a page
+		fitting vertically while a chrome row keeps running off the right edge. A
+		viewport nobody sweeps is a viewport where both of this file's questions go
+		unasked, so it lands here rather than in one sweep's own list. ]]
+	{ id = "phone-390x844", w = 390, h = 844, displaySize = "Small", input = "Touch" },
 }
 
 local CAPABILITIES: { [string]: any } = {
