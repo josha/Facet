@@ -420,6 +420,13 @@ local SCENARIOS = {
 	-- setting chips that wrap, plus a fixed 300px dialog card — the two shapes a
 	-- 320px phone with the +14 text preference squeezes hardest
 	"preferred_transparency",
+	-- navigation-and-menus D3: the coach-mark fixture. It is the only surface in
+	-- this corpus that presents an ANCHORED plate at build time, so the swept
+	-- assertion is that a plate hung off a top-right 44px button — the placement
+	-- that has to SHIFT its body left to stay on screen — stays inside the box at
+	-- every viewport and preference, beside a page of readouts whose longest line
+	-- is a whole paragraph the surface does not choose the length of
+	"callout",
 }
 
 local EXAMPLES = {

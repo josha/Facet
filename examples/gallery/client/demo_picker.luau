@@ -358,6 +358,17 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "canvas_group",
 	},
+	-- ...and the two plates a still frame cannot tell apart (D3): one the player
+	-- pulls and one the app pushes. The press counter under the coach mark is the
+	-- non-blocking claim, and the save readout is the persistence boundary — the
+	-- framework reports, this fixture writes.
+	{
+		id = "callout",
+		title = "Coach marks and help",
+		blurb = "One plate the player pulls, one the app pushes — and the + still counts",
+		kind = "fixture",
+		module = "callout",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

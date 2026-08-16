@@ -276,6 +276,35 @@ local FIXTURES: { Fixture } = {
 			})
 		end,
 	},
+	--[[ THE COACH MARK'S PLATE (navigation-and-menus D3b). It is swept through
+		`callout.plate` — the exported builder the control itself mounts — because
+		a Callout's blueprint is the caller's ANCHOR node and the plate does not
+		exist until something presents it, so mounting the control here would sweep
+		a button and never the surface. Two lines of player copy over a full-width
+		dismiss row is exactly the shape a text preference squeezes. ]]
+	{
+		id = "Callout-plate",
+		class = "Callout",
+		build = function()
+			local calloutLib = require("../../src/controls/callout")
+			return calloutLib.plate(UI, {
+				content = UI.VStack({
+					id = "Content",
+					gap = "xs",
+					children = {
+						UI.Text({ id = "Title", text = lt.PSEUDO_ACTION, textSize = "body" }),
+						-- WRAPS rather than truncating, which is what player copy in a
+						-- coach mark has to do: the German compound below is one
+						-- unbreakable word and clipped at Large(+4) the first time this
+						-- fixture ran, which is exactly the finding the sweep exists to
+						-- make. A caption is a phrase, so it is a phrase here.
+						UI.Text({ id = "Sub", text = lt.PSEUDO_SECONDARY, textSize = "caption", role = "secondary" }),
+					},
+				}),
+				dismissLabel = PSEUDO,
+			})
+		end,
+	},
 	{
 		id = "Rating",
 		class = "Rating",

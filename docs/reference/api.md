@@ -956,7 +956,7 @@ grid without `GridRow` children keeps inferring its rows from `columns`.)
 
 ### `Text`
 
-`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, disclose?, reveal?, role?, surface?, tint?, width?, height? }`
+`UI.Text{ id?, text (required), textSize?, textAlign?, lineLimit?, disclose?, reveal?, help?, role?, surface?, tint?, width?, height? }`
 — text label. `text`/`textSize` changes invalidate measurement; text metrics come
 from a non-yielding provider with conservative fallbacks for unknown
 fonts/scripts. `textSize` takes a px number or a typography role name, which
@@ -1000,6 +1000,18 @@ keyboard/gamepad, long-press on touch — through the presenter's static plate (
 so declaring it costs nothing; **omitting** it on text that truncates is what the
 text audit reports as a clipped-essential finding. Binding a Readable here is
 refused with the rebuild idiom, exactly like `traversalPriority`.
+
+**`help`** (string, construction-only; SwiftUI's `.help(_:)`) is one sentence
+about what this view DOES, **pulled by the player**: a pointer resting on it for
+a dwell, or the keyboard/gamepad ring landing on it. See **Help** under
+`newPresenter` for the whole contract — including the part that is easy to get
+wrong. **On touch, nothing appears, and that is the specification.** Apple binds
+no gesture to help on any platform, and neither does LuauUI: touch long-press
+belongs to the full-value disclosure plate, which is the only touch route to a
+truncated label's own value. The consequence is a rule — `help` is never the only
+route to something a player needs — and `text_audit.helpRoutes` is the check that
+enforces it. For an app-pushed plate with an arrow tail that DOES appear on every
+input class, see [`newCallout`](#newcallout).
 
 **`reveal`** (`"auto"`, construction-only; director ruling 2026-08-04, superseding
 LTN-2's "no marquee" for surfaces that declare it) makes a truncated **one-line**
@@ -1073,8 +1085,12 @@ treatment composes with it rather than fighting it.
 ### `Button`
 
 `UI.Button{ id?, label (required), compactLabel?, enabled?, selected?, role?,
-shape?, icon?, gap?, align?, children?, onPointerDown?, onPointerMove?,
+shape?, icon?, gap?, align?, help?, children?, onPointerDown?, onPointerMove?,
 onPointerUp?, onPointerCancel? }` — activatable control.
+
+**`help`** (string, construction-only) is the one sentence a pointer hover or a
+focus ring gets about what this button does; it shows **nothing on touch** by
+specification. See `Text`'s `help` above and **Help** under `newPresenter`.
 
 **Custom content.** A Button takes `children`, which render inside the ONE
 activation surface. `label` stays **required** even for an icon-only button — it is
@@ -1244,7 +1260,7 @@ one.
 
 ### `Toggle`
 
-`UI.Toggle{ id?, label (required), value?, enabled?, disclose?, onActivate? }` —
+`UI.Toggle{ id?, label (required), value?, enabled?, disclose?, help?, onActivate? }` —
 boolean control. When `value` is a settable Signal the presenter AUTO-FLIPS it on
 Activate (tap / Return / ButtonA) with no consumer wiring (contract "Activate
 flips value"; ADR-0013). Supply `onActivate(path, meta)` to take over the effect,
@@ -1254,17 +1270,21 @@ plus the press-scale affordance produced mid-word breaks — director finding 13
 so `disclose` (construction-only, Step 8.5) is the label's full-value path: where
 a compact width truncates it, engaging the toggle (hover dwell / focus /
 long-press) presents the full label through the presenter's static disclosure
-plate, exactly as a `Text` with `disclose` does.
+plate, exactly as a `Text` with `disclose` does. **`help`** (construction-only)
+is the separate, player-pulled sentence about what the toggle DOES — pointer
+hover and focus only, nothing on touch (see `Text`'s `help`).
 
 ### `TextField`
 
 `UI.TextField{ id?, text?, placeholder?, editing?, enabled?, focusable?,
-maxLength?, keyboardType?, onTextChanged?, onFocusGained?, onFocusLost? }` —
+maxLength?, keyboardType?, help?, onTextChanged?, onFocusGained?, onFocusLost? }` —
 the text-entry leaf primitive the renderer maps to an engine `TextBox`. All of
 `text`/`placeholder`/`editing`/`enabled`/`maxLength`/`keyboardType` ride the
 binding authority (the engine adapter maps `editing` to CaptureFocus/
 ReleaseFocus, `text`/`placeholder` to `.Text`/`.PlaceholderText`); layout/style
-props inherit `common`. The three handler props are functions the adapter wires
+props inherit `common`. **`help`** (construction-only) is the player-pulled
+sentence about what this field is for — pointer hover and focus only, nothing on
+touch (see `Text`'s `help`). The three handler props are functions the adapter wires
 through the optional `setTextInputHandlers(handle, handlers)` seam
 (`handlers = { onTextChanged(text), onFocusGained(path), onFocusLost(reason) }`,
 `reason ∈ "enter" | "focusLost" | "cancel"`; `path` is the focused node's full
@@ -2464,6 +2484,20 @@ Methods:
   live anchored surface with its resolved edge, whether it flipped, how far it
   shifted along that edge and what became of its tail (schema
   `luauui-anchored-dump/1`). Deterministic; the shape a bug report needs.
+- `presenter.help() -> { schema, present, sourcePath, source, helpText, declarations, text }`
+  — the player-pulled help plate's state (schema `luauui-help-dump/1`). See
+  **Help** below.
+- `presenter.helpDeclarations() -> { [path] = { text, hover, focus } }` — every
+  live `help` declaration and the routes that actually reach it, read off the
+  mounted tree and the LIVE interaction classes. The input
+  `text_audit.helpRoutes` is written against.
+- `presenter.presentCallout(spec) -> id` / `presenter.releaseCallout(id, reason?)`
+  — a turn on screen for an app-pushed coach mark. At most one is ever visible; a
+  second request waits. Callers reach this through
+  [`newCallout`](#newcallout) rather than directly.
+- `presenter.callouts() -> { schema, showing, visible, queued, waiting, text }` —
+  what is on screen and what is waiting (schema
+  `luauui-callout-queue-dump/1`).
 - `presenter.presentCritical(blueprintFactory, opts) -> handle` — runs the
   factory and presentation under protection; on error presents
   `opts.fallbackScreen(err)` instead (critical-screen fallback). **The fallback
@@ -2858,6 +2892,8 @@ opts = {
     tail?     = false,     -- true, or { size?, surface?, cornerInset? }
     overflow? = "clamp",   -- "clamp" | "keep" — see below
   },
+  chrome? = false, -- true = a LAYER, not a surface: no stack, no focus scope,
+                   -- no input context (see below). Refused with `modal`.
   -- ...plus every `PresentOpts` key, which all work unchanged
 }
 ```
@@ -2910,7 +2946,57 @@ behind it (document order becomes z order), so the overlapping half is covered
 and the protruding half is the arrow. It wears the panel's own `surface` role, so
 a theme swap moves both together.
 
+**`chrome = true` makes it a LAYER instead of a surface.** A presented surface
+pushes a focus scope even when it holds nothing focusable, and a scope with no
+members is still the *top* one — so an ordinary anchored plate that is pure
+decoration silently took the next arrow press away from the control it was
+annotating (measured, 2026-08-16). A chrome layer hand-mounts its own controller
+the way the disclosure plate and the toast strip already do: no stack, no focus
+scope, no input context, no catcher — and the same solver, the same tail, the
+same safe box and the same moving-source cadence. It is what `help` presents
+through, and `chrome` and `modal` are refused together because they are
+opposites. `presenter.dismiss(handle)` retires either shape.
+
 `presenter.anchoredSurfaces()` reports every live one for inspection and tests.
+
+#### Help
+
+`UI.Button{ help = "…" }` (also legal on `Text`, `Toggle` and `TextField`) is one
+sentence about what a view DOES, and the player pulls it:
+
+| Input class | Show | Hide |
+|---|---|---|
+| mouse / pointer | hover, after a 0.45 s dwell | the pointer leaves, or the view is activated |
+| keyboard / gamepad | on focus, immediately | on blur |
+| **touch** | **nothing** | — |
+
+**Nothing on touch is the specification, not a gap.** Apple's `.help(_:)`
+"configures the view's accessibility hint and its help tag (also called a
+tooltip)" on the desktop platforms that have one, and the UIKit interaction
+"makes it possible to show a tooltip when hovering a pointer over a view or
+control". There is no long-press binding anywhere in Apple's API — and there is
+none here either, because touch long-press is the disclosure plate's, and that
+plate is the only touch route to a truncated label's own value. Two constructs
+competing for one gesture on the only class where neither has an alternative is
+the defect this restraint avoids.
+
+The consequence is a **rule**: `help` is never the only route to something a
+player needs. `text_audit.helpRoutes(presenter.helpDeclarations(), rects, opts?)`
+enforces it, and it asks two separate questions:
+
+- **`helpNoRoute`** — nothing engages this help on any live input class. **No
+  waiver applies**: a declaration cannot answer whether a gesture exists, which
+  is precisely the gap `clippedEssential` has (it accepts `disclose = true` and
+  never asks whether the plate is still reachable).
+- **`helpOnlyRoute`** — the screen paints this sentence nowhere else, so a player
+  who never hovers cannot read it. `opts.convenience` (path prefixes or a
+  predicate) waives this one, and only this one.
+
+The plate is **chrome, not a surface**: it takes no focus, adds no focus stop and
+binds no key. A truncated `disclose` label on the same engagement **outranks** it
+— a player who cannot read the label needs the value before the convenience — and
+the two are never on screen together. For an app-pushed plate with an arrow tail
+that appears on **every** input class, see [`newCallout`](#newcallout).
 
 #### Toasts
 
@@ -5109,6 +5195,96 @@ pres.present(LuauUI.UI.Screen({ id = "S", children = { avatarMenu.blueprint } })
 	sinkNavigation = true,
 })
 ```
+
+### `newCallout`
+
+`LuauUI.newCallout(LuauUI, core, spec) -> { blueprint, api, dump, dispose }`
+— the **app-pushed coach mark**: a styled plate with an arrow tail that the
+application raises from its own rules, pointing at the control it is about.
+SwiftUI's TipKit `popoverTip(_:arrowEdge:action:)`, not a tooltip.
+
+**It is not `help`, and the difference is the whole construct.** `help` is a prop,
+is PULLED by the player (a pointer dwell, a focus ring), and shows **nothing** on
+touch. A Callout is PUSHED by the app, appears on **every** input class, and
+carries a tail. Reach for `help` to answer "what does this do"; reach for a
+Callout to say "there is something here you have not found".
+
+> Apple's warning about the mechanism, and it is the design constraint rather
+> than a footnote — quoted verbatim, on one line, because
+> `tests/callout.spec.luau` holds this document to it:
+>
+> *"Use tips sparingly… Don't use tips to guide people through your app, or for advertising and promotion purposes."*
+
+Spec: `{ id?, anchor: Blueprint, content: Blueprint, dismissLabel: string?,
+edge: string?, align: string?, tail: boolean?, priority: number?,
+seen: Readable?, sessions: Readable?, afterSessions: number?,
+featureUsed: Readable?, onRetire: (reason) -> (), onShow: (() -> ())?,
+onHide: ((reason) -> ())? }`.
+
+`anchor` is a node you authored; the control returns **that same node** carrying
+an input contribution, so nothing is wrapped and no layout moves — the `newMenu`
+shape. `content` is a **blueprint**, not a string: the reference plate is styled
+and holds more than one line, and a string-only tip could not express it.
+
+`api = { eligible() -> boolean, present() -> boolean, dismiss(reason?),
+invalidate(reason?), state() -> "waiting" | "queued" | "showing" | "retired",
+isShowing: Signal, retired: Signal }`.
+
+**Eligibility** is TipKit's actual contribution, and every rule is a READ of
+something the caller owns: `seen` (show once per player), `sessions` +
+`afterSessions` (only after N sessions), `featureUsed` (only until the feature is
+used). **Invalidation** is permanent: the tip dies when its feature is used, when
+the player dismisses it, or on an explicit `invalidate()`, and a retired callout
+cannot be presented again in that session.
+
+**Persistence is the CALLER'S, never the framework's.** LuauUI has no save layer
+and does not grow one here. The construct reads your Readables and reports —
+exactly once, through the **required** `onRetire(reason)` — that this tip should
+never be shown again. Whether anything is written, and where, happens entirely
+outside the framework. A callout declared without `onRetire` is an authoring
+error, because a coach mark nobody can persist is one that comes back every
+session.
+
+**It never blocks.** It is presented, not modalled: no focus trap, no scrim, and
+the tap-away catcher runs in the presenter's **non-consuming** mode, so a tap
+outside the plate retires the coach mark *and* reaches whatever was underneath —
+including the control the arrow points at. Presenting one does not move the focus
+ring; one arrow press reaches the plate's own `Dismiss` row, and the ring goes
+back afterwards.
+
+**At most one is ever on screen.** A second request WAITS: `presenter.presentCallout`
+is a driver over the shipped toast scheduler (`maxVisible = 1`), so priority
+ordering, the queue cap and the read floor priority may never truncate are the
+same rules toasts already follow. `presenter.callouts()` reports what is showing
+and what is waiting.
+
+```lua
+local tip = LuauUI.newCallout(LuauUI, core, {
+	id = "PostAvatar",
+	anchor = LuauUI.UI.Button({ id = "Plus", label = "+", shape = "circle", icon = "add" }),
+	content = LuauUI.UI.VStack({
+		id = "Body",
+		gap = "xs",
+		children = {
+			LuauUI.UI.Text({ id = "Title", text = "Post Avatars to Marketplace", textSize = "body" }),
+			LuauUI.UI.Text({ id = "Sub", text = "Anyone can wear it", textSize = "caption", role = "secondary" }),
+		},
+	}),
+	-- the CALLER'S state, read and never written
+	seen = save.postAvatarTipSeen,
+	featureUsed = save.hasPostedAnAvatar,
+	onRetire = function(reason)
+		-- ...and the caller is the one that persists it
+		save.postAvatarTipSeen:set(true)
+		analytics.tipRetired("PostAvatar", reason)
+	end,
+})
+pres.present(LuauUI.UI.Screen({ id = "S", children = { tip.blueprint } }))
+if tip.api.eligible() then
+	tip.api.present()
+end
+```
+
 ### `newStepper`
 
 `LuauUI.newStepper(LuauUI, core, spec) -> { blueprint, model, semanticText, dump, dispose }`
@@ -5509,6 +5685,90 @@ moved), or the string `"none"`. The schema string is still
 `"luauui-picker-dump/1"`: every field that shipped keeps its name, type and meaning,
 so nothing written against `/1` breaks — a schema string warns about an incompatible
 shape, and adding fields is not one.
+
+### `newTabView`
+
+`LuauUI.newTabView(LuauUI, core, spec) -> { blueprint, strip placement, dump, dispose }`
+— a tab bar and the pages behind it. `spec = { id?, selection (Signal), tabs ({ id,
+label?, icon?, badge?, content }[]), placement? ("automatic" | "bottomBar" |
+"bottomBarCompact" | "topBar" | "sidebar"), indicator? ("automatic" | "underline" |
+"pill" | "none"), sizing? ("automatic" | "fill" | "hug"), iconOnly?, conditions?, env?,
+enabled?, onChange? }`.
+
+```lua
+local tabs = LuauUI.newTabView(LuauUI, core, {
+    id = "App",
+    selection = section,             -- YOUR Signal, holding a tab id
+    conditions = LuauUI.adaptive.conditions(core, env, { scope = scope }),
+    tabs = {
+        { id = "home",  label = "Home",  icon = "app:home",
+          content = function(tabScope) return homeScreen(tabScope) end },
+        { id = "inbox", label = "Inbox", icon = "app:inbox", badge = unreadCount,
+          content = function(tabScope) return inbox(tabScope) end },
+    },
+})
+```
+
+**The strip is `newPicker`.** Same option row, same icons, same 44 px floor, same
+sliding indicator, same authoring lints — a tab is a segment. What makes this a
+construct rather than another picker property is the three things a picker never owns:
+the content subtree's lifecycle, the placement that restructures the screen, and
+nesting. `dump().strip` is the picker's own dump, nested rather than paraphrased.
+
+**Placement is a policy, not a device branch.** `"automatic"` reads
+`adaptive.navPlacement` — a compact width takes the thumb-zone `bottomBar`, a short
+height its centered `bottomBarCompact`, a pointer-primary desktop the `sidebar`, a
+tablet or a ten-foot screen the `topBar`. Pass `conditions` (the table
+`LuauUI.adaptive.conditions(core, env)` returns) so its thirteen memos are not built
+twice, or `env` and the control builds and owns them. A **declared** `placement` never
+consults the policy at all. The resolved answer is published as `api.placement`, so a
+screen with its own chrome to place — a search field that rides the bar, a wordmark
+that only belongs in the rail — reads one answer instead of re-deriving the rule.
+
+**Nesting: an inner TabView never claims the app-level placement.** A page's own top
+tab bar can live inside a screen that is itself a tab of the app's bar. Because
+`content` is a factory this control invokes, a TabView built inside one *is* inner, and
+it resolves to `topBar` instead of asking the policy — otherwise a phone would answer
+`bottomBar` for both and draw two bars in the thumb zone. `dump().placementSource` says
+which authority answered: `"policy"`, `"declared"` or `"nested"`. Neither level pushes a
+focus scope, traps focus, or touches `back()`: a TabView is a layout construct, not a
+presentation, so two levels simply nest.
+
+**Content is lazy, and switching EVICTS it.** Only the selected tab's subtree exists.
+Switching disposes the previous one for real — scopes disposed, effects stopped,
+Instances pooled — through `UI.When`'s own branch scope, which is the `tabScope` your
+factory receives. The accepted cost, so nobody reports it as a bug: **returning to a tab
+replays its entry cost.** A spinner comes back, a scroll position returns to the top, an
+in-progress text entry is lost.
+
+> **The escape hatch is ownership, not a flag.** Own it on `tabScope` and it dies with
+> the tab; own it on your screen's scope, in a Signal *outside* the TabView, and it
+> outlives every switch — exactly as `selection` already does. There is deliberately no
+> `retain` flag.
+
+**The strip is never evicted.** Only tab *content* is torn down; every tab's label, icon
+and `badge` stay live whether or not that tab is selected, because a badge on an
+unselected tab is the whole point of a badge.
+
+**Overflow scrolls.** A `fill` strip divides its offer among the tabs and therefore
+cannot overflow, so `sizing = "automatic"` fills only the thumb-zone band and hugs
+everywhere else; a hugging strip sits in a horizontal `ScrollView` and a selection change
+brings the chosen tab into view through `controller.scrollToVisible`, the one
+keep-visible substrate. A keyboard or gamepad move onto a tab is already revealed by the
+presenter, which calls the same substrate on every focus move.
+
+**Reachability.** Every tab is a focusable Button at the 44 px floor, read in document
+order — the strip reads where it is *painted*, so a leading rail comes before the content
+and a bottom bar after it. The gamepad **shoulders** (L1/R1) page between tabs and clamp
+rather than wrapping; they are bound only while focus sits on a tab, so a screen carrying
+a TabView never shadows gameplay bumpers. An icon-only tab still carries `label` as its
+semantic name.
+
+**A segmented picker used as a tab bar IS this**, with `indicator = "pill"`. A picker
+chooses a value; a tab view chooses a page.
+
+Ownership: the control's scope owns the strip and its indicator; each tab's `tabScope`
+owns whatever that tab's factory put on it. `selection` is yours.
 
 ### `newDisclosureGroup`
 

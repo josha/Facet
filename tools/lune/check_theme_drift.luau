@@ -40,6 +40,11 @@ local SCANNED_FILES = {
 	-- NOT here: it is pure arithmetic that takes every distance as an argument, so
 	-- it owns no metric to drift.)
 	"src/present/anchored.luau",
+	-- ...and its two D3 consumers, for the same reason: the help plate resolves
+	-- the spacing step it wraps inside, and the callout queue is the only other
+	-- file outside `src/controls` that builds a presented plate.
+	"src/present/help_plate.luau",
+	"src/present/callout_queue.luau",
 }
 local SCANNED_DIRS = { "src/controls" }
 

@@ -218,6 +218,16 @@ local ORDER = {
 	-- screenshot CAN hold: the same three plates and the same value, faded as one
 	-- picture beside faded one plate at a time. Also in `demo_picker.DEMOS`.
 	"canvas_group",
+	-- ...and navigation-and-menus D3: the two plates that look alike in a still
+	-- frame and are opposites everywhere else. `help` is PULLED by the player and
+	-- shows nothing on touch (so the same sentences are printed on the screen —
+	-- the rule `text_audit.helpRoutes` enforces); `newCallout` is PUSHED by the
+	-- app, carries the arrow tail, and retires permanently. It reproduces the
+	-- reference `f1` plate under a top-right `+`, and the press counter under it
+	-- is the NON-BLOCKING claim on screen rather than in a document. The
+	-- persistence boundary is a fixture readout: what the framework reported, and
+	-- what this app then chose to save. Also in `demo_picker.DEMOS`.
+	"callout",
 }
 
 local scenarios = {}

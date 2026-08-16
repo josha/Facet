@@ -513,6 +513,13 @@ require("./picker_segments.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close `.contextMenu`
 require("./menu.spec")
+-- D3a: `help` — pointer hover-dwell and keyboard/gamepad focus, NOTHING on
+-- touch, and a reachability check that no declaration can waive
+require("./help.spec")
+-- D3b: `Callout` — the app-pushed coach mark, its eligibility/invalidation
+-- contract, the caller-owned persistence boundary, and the non-blocking proof
+require("./callout.spec")
+require("./tab_view.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

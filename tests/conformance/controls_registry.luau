@@ -1228,6 +1228,112 @@ local registry: { Entry } = {
 			},
 		},
 	},
+	{
+		-- The APP-PUSHED coach mark (navigation-and-menus D3b) — TipKit's
+		-- `popoverTip`, not a tooltip. A tooltip is player-PULLED, pointer-only and
+		-- invisible on touch, and it is a PROP (`help`) rather than a control; this
+		-- is the other mechanism, raised by the app from eligibility rules, shown on
+		-- every input class, carrying D1's arrow tail. It is a control rather than a
+		-- property because it owns state a property cannot: an eligibility rule, a
+		-- permanent invalidation, and a turn in a one-at-a-time queue.
+		name = "Callout",
+		kind = "composite",
+		module = "src/controls/callout.luau",
+		export = "newCallout",
+		spec = "tests/callout.spec.luau",
+		conformance = "tests/callout.spec.luau",
+		docsAnchor = "newCallout",
+		dumpFunction = "function dump",
+		--[[ FOUR-INPUT PROOFS (ui_todo §0). The verb a Callout owns is DISMISS —
+			it presents nothing else to press — and a coach mark a player cannot
+			retire is a modal wearing an arrow, so all four classes prove exactly
+			that. Pointer and touch tap the plate's own `Dismiss` row (which also
+			meets the 44px floor); keyboard and gamepad reach that row with the ring
+			and press Return / ButtonA. ]]
+		inputProofs = {
+			pointer = {
+				"pointer: a click on the dismiss affordance retires it",
+				"a tap in empty space retires it through the presenter's own non-consuming catcher",
+			},
+			touch = {
+				"touch: a tap on the dismiss affordance retires it, and it meets the 44px floor",
+			},
+			keyboard = {
+				"keyboard: Return on the focused dismiss affordance retires it",
+			},
+			gamepad = {
+				"gamepad: ButtonA on the focused dismiss affordance retires it",
+			},
+		},
+		--[[ PARADIGM axis. The structural idiom this construct has to get right is
+			NOT-BLOCKING, and it reads differently per class: a pointer or a finger
+			expects tap-away to work AND to reach what was underneath (the
+			non-consuming catcher, driven by counting the activation on the very
+			control the arrow points at); a keyboard or a pad expects the ring to
+			stay where the player left it and the plate to be ONE arrow press away,
+			not a trap it has to escape.
+
+			hotSwitch: `false`. A callout holds no in-flight gesture state — it is
+			either waiting, queued, showing or retired, and every one of those
+			survives a live class flip unchanged, because none of them is a
+			half-finished interaction. ]]
+		affordanceProofs = {
+			pointer = {
+				"THE CONTROL IT POINTS AT STAYS OPERABLE: a tap on it still activates it",
+				"a tap in empty space retires it through the presenter's own non-consuming catcher",
+			},
+			touch = {
+				"touch: a tap on the dismiss affordance retires it, and it meets the 44px floor",
+			},
+			keyboard = {
+				"presenting one does not move the focus ring",
+				"it is NOT a modal: the screen underneath keeps its own focus scope",
+			},
+			gamepad = {
+				"...and one arrow press reaches it, so a pad player is never stuck with a plate",
+			},
+			hotSwitch = false,
+		},
+	},
+	{
+		name = "TabView",
+		kind = "composite",
+		module = "src/controls/tab_view.luau",
+		export = "newTabView",
+		spec = "tests/tab_view.spec.luau",
+		conformance = "tests/tab_view.spec.luau",
+		docsAnchor = "newTabView",
+		dumpFunction = "function api.dump",
+		-- Four-input proofs (ui_todo §0). A tab is a `newPicker` segment — the
+		-- strip IS that control (navigation-and-menus D5) — so the four verbs come
+		-- from the primitive, and what these prove is that COMPOSING it left them
+		-- reachable in every home the placement policy can put the strip in.
+		inputProofs = {
+			pointer = { "TabView pointer: a tap activates through the presenter (device-true)" },
+			touch = { "TabView touch: a touch tap/pan drives the control (device-true)" },
+			keyboard = { "TabView keyboard: focus + Return drives the control" },
+			gamepad = { "TabView gamepad: focus + ButtonA drives the control" },
+		},
+		-- PARADIGM: the strip's own idioms are the picker's (a tab is a focusable
+		-- Button with a 44px floor); what is TabView-specific is that the strip is
+		-- a SCROLL HOST, so the pointer reaches an overflowing strip through the
+		-- engine's own wheel/drag channel and a touch NAKED PAN scrolls it with no
+		-- grip, while the gamepad SHOULDERS page — bound dynamically, only while
+		-- focus sits on a tab, so a screen carrying a TabView never shadows
+		-- gameplay bumpers (ADR-0013). hotSwitch = false: there is no drag, no grab
+		-- and no open edit, and a tab switch is a single Signal write, so a live
+		-- class flip mid-anything has nothing to carry or cancel — the same answer
+		-- Picker gives, for the same reason.
+		affordanceProofs = {
+			pointer = { "TabView pointer affordance: the pointer structural idiom (hover/direct-drag/wheel)" },
+			touch = { "TabView touch affordance: the touch structural idiom (44px/naked-pan-scroll/edit-grip)" },
+			keyboard = {
+				"TabView keyboard affordance: the keyboard structural idiom (focus ring/Navigate/Activate/Adjust)",
+			},
+			gamepad = { "TabView gamepad affordance: the gamepad structural idiom (focus/grab/A-B/ten-foot)" },
+			hotSwitch = false,
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

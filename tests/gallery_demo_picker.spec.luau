@@ -14,11 +14,13 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty-four fixtures", function()
+	it("lists every tutorial example plus the twenty-five fixtures", function()
 		local demos = demo_picker.list()
 		-- 32 until 2026-08-16: `table-columns` was retired (navigation-and-menus D8)
-		-- when the playlist tutorial gained the resizable header it existed to hold
-		expect(#demos).toBe(31)
+		-- when the playlist tutorial gained the resizable header it existed to hold,
+		-- and back to 32 the same day when D3 added `callout` — the two plates a
+		-- still frame cannot tell apart
+		expect(#demos).toBe(32)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -111,8 +113,9 @@ describe("showcase catalogue", function()
 		-- player could not select either capability at all. `async_images` already
 		-- existed and only ever ran under a sweep; `canvas_group` is new, because the
 		-- fade group had no fixture whose SUBJECT it was.
-		-- 25 until `table-columns` was retired on 2026-08-16 (D8)
-		expect(fixtures).toBe(24)
+		-- 25 until `table-columns` was retired on 2026-08-16 (D8), and 25 again the
+		-- same day when D3 added `callout`
+		expect(fixtures).toBe(25)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -565,8 +568,9 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		-- 25 until `table-columns` was retired on 2026-08-16 (D8)
-		expect(fixtures).toBe(24)
+		-- 25 until `table-columns` was retired on 2026-08-16 (D8), and 25 again the
+		-- same day when D3 added `callout`
+		expect(fixtures).toBe(25)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1016,6 +1020,8 @@ local DEMO_ROOT: { [string]: string } = {
 	["foreign-content"] = "ForeignContent",
 	["async-images"] = "AsyncImages",
 	["canvas-group"] = "CanvasGroup",
+	-- D3: the coach mark and the help tag
+	["callout"] = "CalloutDemo",
 	["ex01"] = "TempConverter",
 	["ex02"] = "Playlist",
 	["ex03"] = "Settings",
@@ -1099,7 +1105,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		expect(roots).toBe(#demo_picker.list())
 	end)
 
-	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 31", function()
+	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 32", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
 		local picker = sweepPicker(w, function(demo)
 			return hostMountDemo(w, demo)
