@@ -247,9 +247,45 @@ return {
 		-- everything the HUD is NOT allowed to reach, on the other three edges. The
 		-- top is the HUD's own margin above, because the top is the edge with a hole
 		-- in it.
+		--[[ ...AND CONTENT NEVER TOUCHES THE PHYSICAL EDGE (director 2026-08-15,
+			round 2: *"the circular controls are still getting cut off"*).
+
+			This used to be the safe-area inset alone, which on this platform is ZERO
+			laterally — the engine pre-excludes the notch from the camera rather than
+			reporting it as an in-canvas inset (docs/lessons/device-emulator-truths).
+			So every right-anchored zone was laid out flush against the camera's own
+			edge. Measured live through a parallel real-engine mount, iPhone 16 Pro
+			portrait: every right-anchored node's right edge is 401.0 against a 401px
+			canvas — over by 0.0px, nothing overflowing, zero collisions — and a
+			rounded control whose rim ends exactly on the boundary reads as one that
+			was cut there. With `ClipToDeviceSafeArea` on, a theme that paints a rim
+			or a shadow OUTSIDE the box really does lose it.
+
+			IT IS ALSO WHY THE TWO ORIENTATIONS LOOKED LIKE OPPOSITE DEFECTS. The
+			platform's exclusion is wildly asymmetric on this device: portrait leaves
+			1px of glass beyond the 401px camera, landscape leaves 125px beyond the
+			749px one. One rule — "anchor to the camera's edge" — therefore reads as
+			"over the edge" in portrait and "pulled inward" in landscape. There was
+			never a wrong width; there was no gutter.
+
+			So the padding is the per-edge MAX of what the platform says must be
+			cleared and what the theme calls a gap. The step is the theme's own
+			`space.s` — the same one a compact control uses to clear its own frame —
+			so a themed package that breathes more moves this with it and this
+			fixture learns no number. The TOP stays the HUD's own margin's business:
+			the topbar row has to sit level with the platform's buttons, and a gutter
+			there would be the one thing ADR-0027 exists to prevent. ]]
 		local screenPadding = scope:own(core:memo(function(use)
 			local insets = (use(chromeFact) :: any).insets
-			return { top = 0, right = insets.right, bottom = insets.bottom, left = insets.left }
+			local metrics = use(env:get("themeMetrics"))
+			local space = (if type(metrics) == "table" then (metrics :: any).space else nil) or {}
+			local gutter = if type(space.s) == "number" then space.s else 8
+			return {
+				top = 0,
+				right = math.max(insets.right, gutter),
+				bottom = math.max(insets.bottom, gutter),
+				left = math.max(insets.left, gutter),
+			}
 		end))
 		-- the topbar row: as tall as the band the platform left free, and inset to
 		-- START where that band starts — so the chip is level with Roblox's own
@@ -332,9 +368,15 @@ return {
 				if type(declared) ~= "table" or #(declared :: any) == 0 then
 					return { type = "fixed", px = math.max(0, insets.top - spent) }
 				end
-				local W = math.max(0, vp.w - insets.left - insets.right)
-				local x0 = insets.left + (index - 1) * W / 3
-				local x1 = insets.left + index * W / 3
+				-- the columns are thirds of the box the composition ACTUALLY gets, which
+				-- is the viewport less the Screen's own padding — not less the raw
+				-- insets. Since the gutter joined that padding the two differ by 8px a
+				-- side, and a reservation computed against the wrong box is the
+				-- "measured one box, painted another" family this repo keeps meeting.
+				local pad = use(screenPadding) :: any
+				local W = math.max(0, vp.w - pad.left - pad.right)
+				local x0 = pad.left + (index - 1) * W / 3
+				local x1 = pad.left + index * W / 3
 				local span = math.max(1, x1 - x0)
 				local bottom = spent
 				for _, r in declared :: any do
