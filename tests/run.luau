@@ -474,6 +474,11 @@ require("./preferred_transparency.spec")
 -- ADR-0028: the CROSS-SURFACE overlap alarm — two independently mounted
 -- surfaces covering each other with neither declaring that it means to
 require("./surface_overlap.spec")
+-- director report 2026-08-15: the shipped HUD fixture on the three axes nothing
+-- else sweeps — a viewport that changes UNDER a mounted tree (every other sweep
+-- mounts fresh per viewport, so none of them could see a rotation defect), the
+-- app's own chrome declared through `appChromeRects`, and the drawn URL bar
+require("./hud_chrome_rotation.spec")
 require("./reference/glade_spec")
 require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")
