@@ -104,6 +104,12 @@
 -- What DID change is that a rule with no value was too weak: see the `value`
 -- paragraph on ALLOWED_ADDED_PROPS.
 --
+-- The two findings that round turned up — a red check cannot report the next
+-- defect, and a count that does not decompose IS one — are in
+-- docs/lessons/a-red-check-cannot-report-the-next-defect.md; the full
+-- decomposition and the mutation transcripts are in
+-- artifacts/swiftui-parity-round3/flat-baseline-characterization.md.
+--
 -- DISAPPEARANCE IS STILL THE ONE THING WITH NO WAIVER AT ALL (outside a declared
 -- RESHAPED_SUBTREES), and it earned that this round: it was the only instrument in
 -- the repo that noticed the tile game's two readouts had left their published
