@@ -204,3 +204,59 @@ What is NOT fixed, and is the real design question:
 The likely shape of the fix is that a `scrolls = false` table either reports no
 scroll path at all, or is told which ancestor scroller owns it, so both the
 mirror and the tray-close bind to the node that actually moves.
+
+---
+
+## 6. OWED, WITH A NUMBER: the resize divider's touch band is 27px, not 44px (2026-08-15)
+
+**Status: diagnosed and measured on desktop Studio; the fix is ruled (option 1,
+the shared adapter z rule) and NOT yet built. The device pass has a specific
+thing to check, which is the point of writing it down with the number.**
+
+`contract.luau` gives `Grip` `minHitSize = 44`, and the renderer materialises a
+44px `LuauUIHitExpander` centred on the Table's 8-10px resize divider. Measured
+live in the showcase (`table_columns`, glossy-touch), the z-order is:
+
+| node | z | x band |
+|---|---|---|
+| `Head-name/Column` | 10 | `[39..318]` |
+| `Head-name/Grip` expander | **12** | `[291..335]` |
+| `Head-team/Column` | **14/15** | `[318..537]` |
+
+The neighbouring column's header button comes later in the tree walk and
+therefore paints higher, and Roblox delivers input to the topmost interactive
+object only. So the advertised 44px band is **27px delivered** (`[291..318]`),
+and the outer 17px belongs to the next column's header. Confirmed by four
+gestures against an established positive control (an injected tap on the header
+moving `name` from `""` to `"▲"`, so "no sort fired" is evidence rather than a
+null that agrees with itself):
+
+| gesture | engine x | result |
+|---|---|---|
+| tap, header body | 58 | sorts ✓ |
+| drag, inner half | 225 → 305 | `auto` → **279px**, no sort ✓ |
+| drag, outer half | 246 → 326 | **nothing at all** ✗ |
+| tap, outer half | 326 | **sorts the NEIGHBOUR column** ✗ |
+
+**What is owed, precisely.** 27px is a *derivation* of a desktop z-order
+measurement, not a device measurement. Against the 44px finger floor this
+framework itself declares, a 27px band should be measurably harder to hit, and a
+miss does not merely fail — it **sorts the wrong column**, which is a destructive
+outcome for a gesture the player did not make. The device pass should measure the
+miss rate on a real phone, not ask whether it "feels" reachable.
+
+**And it changes what the device pass is testing.** If the ruled fix lands, the
+band becomes the full 44px `[291..335]`, straddling the divider. The device
+question then stops being *"is this broken"* and becomes *"is 44px actually
+enough with a real finger on a divider between two tap targets that both do
+something"* — which is a genuinely open question this framework has never
+measured, and worth an explicit answer either way.
+
+**Instrument note for whoever picks this up.** The showcase was unusable as a
+live instrument on 2026-08-15: `LuauUIShowcaseAPI.showNext` *returns* the
+advanced demo id (`surface-overlap`, `sorted-entries`) while a subsequent
+`current` read answers `hud` and `LuauUI_HudScreen` stays mounted — something
+snaps the picker back to the HUD fixture. A demo sweep run against that state
+silently scans `hud` 21 times instead of the corpus and reports a clean bill of
+health for demos it never looked at. Confirm the picker actually advances before
+trusting any sweep over it.
