@@ -114,6 +114,8 @@ local COPY = {
 	round3 = "Loadout",
 	feed = "Ravi eliminated Mo",
 	urlBarOn = "URL bar",
+	-- the pseudo browser chrome the switch now DRAWS (director 2026-08-15, item 5)
+	urlBarField = "example.com/play",
 	rideOn = "Topbar strip",
 	objective = "Round 3 · Capture",
 	objectiveShort = "R3",
@@ -230,8 +232,15 @@ return {
 			local insets = if use(riding) then chrome.bandInsets else chrome.insets
 			return {
 				top = insets.top,
+				-- THE SIMULATED BAR IS A THING ON THE SCREEN NOW, not a margin
+				-- (director 2026-08-15, item 5). It is the LAST child of the Screen
+				-- below, so the height it takes is taken by a box a viewer can see —
+				-- and the HUD, which is `fill`, is left with exactly what a real
+				-- browser bar would leave it. A margin took the same pixels and drew
+				-- nothing in them, which is why "turn the URL bar on" read as
+				-- "controls disappear for no reason".
 				right = 0,
-				bottom = urlBarPx(use),
+				bottom = 0,
 				left = 0,
 			}
 		end))
@@ -245,13 +254,105 @@ return {
 		-- the topbar row: as tall as the band the platform left free, and inset to
 		-- START where that band starts — so the chip is level with Roblox's own
 		-- buttons and cannot be over them.
+		--[[ THE ROW IS THE PLATFORM'S OWN BAND, NOT EVERYTHING RESERVED ABOVE THE HUD
+			(director 2026-08-15, item 4, and the measured cause of the rotation
+			report). This used to be `insets.top - bandInsets.top` — the whole top
+			reservation — and in the showcase that reservation is the platform's 58px
+			row PLUS the demo picker's own 62px chip strip. One full-width 120px row
+			is 32% of a 380px landscape phone, so the top-centre cluster landed a third
+			of the way down the screen and the "upper right" cluster with it. Measured
+			live 2026-08-15, iPhone 16 Pro landscape (749x380): clock at y=120, i.e.
+			32% down, identical whether the tree was mounted there or rotated into it.
+
+			The row is now the band the PLATFORM actually owns, and the app's own
+			chrome is reserved PER COLUMN below (`columnReserve`) — so a column the
+			chrome does not cover starts level with it instead of below it, which is
+			exactly what the director asked for. ]]
 		local stripHeight = scope:own(core:memo(function(use)
 			local chrome = use(chromeFact) :: any
 			if not use(riding) then
 				return { type = "fixed", px = 0 }
 			end
-			return { type = "fixed", px = math.max(0, chrome.insets.top - chrome.bandInsets.top) }
+			local band = chrome.band
+			local bottom = if band ~= nil then band.y + band.h else chrome.insets.top
+			return { type = "fixed", px = math.max(0, bottom - chrome.bandInsets.top) }
 		end))
+
+		--[[ ...AND THE APP'S OWN CHROME, RESERVED IN THE COLUMNS IT ACTUALLY COVERS.
+
+			`appChromeRects` is the general mechanism (src/env/environment.luau): a
+			surface that draws a persistent chrome row DECLARES the rect it occupies,
+			the same way the platform's own cluster is declared, and `platformChrome`
+			merges both into `rects`. The showcase host publishes its demo/settings
+			chip row through it (examples/gallery/client/init.client.luau).
+
+			A composition's lane band is a RECTANGLE — every lane starts at the same
+			y — so the framework itself cannot yet make the band's top edge an L. The
+			author can, with the vocabulary that already exists: a reserve REGION at
+			the head of the column, which is SPACE rather than an offset (the same
+			idiom `stripLead` uses for the platform's cluster one row up). Making the
+			solver take a per-lane top inset is the general fix and is FLAGGED, not
+			smuggled in here (ENGINEERING.md, "flag refactors; don't smuggle them").
+
+			NOTHING DECLARED = TODAY'S ANSWER, BYTE FOR BYTE. A host that reserves its
+			chrome the old way (a bigger `coreSafeInsets.top` and no declaration) has
+			told us only a bounding box, so every column reserves the whole of it —
+			which is what this fixture has always spent. ]]
+		--[[ A COLUMN RESERVES WHEN THE CHROME COVERS MOST OF IT, not when it clips
+			the far end.
+
+			Measured live 2026-08-15, iPhone 16 Pro landscape (749x380): the
+			showcase's two chips run x 8..267 and the HUD's columns are 250px each, so
+			the row covers 97% of the left column and 7% of the centre one. A rule
+			that reserved on ANY overlap would push the centre column down for 17px
+			the centred clock (x 294..453) never comes near — which is precisely the
+			thing the director asked to stop happening. A rule that probed only the
+			column's anchored EDGE was tried first and is worse: the chips start at
+			x=8 because the chrome pads itself, so the left column's x=0 anchor is not
+			covered and the round buttons landed UNDER the chips (measured, same
+			session).
+
+			Majority coverage is a judgement and it is stated as one. It is safe to
+			make because it is not the last line of defence: a zone whose content
+			reaches into the chrome anyway is a region painting outside its own box,
+			and `resolution.collisions` is the alarm that already names that
+			(ADR-0025 Decision 3). ]]
+		local appChromeFact = env:get("appChromeRects")
+		local function columnReserve(index: number, _anchor: string): any
+			return scope:own(core:memo(function(use)
+				local chrome = use(chromeFact) :: any
+				local vp = use(viewportFact) :: any
+				local insets = chrome.insets
+				-- what the HUD has already spent at the top: the band row when it is
+				-- riding, the whole inset when it is not
+				local spent = if use(riding)
+					then (if chrome.band ~= nil then chrome.band.y + chrome.band.h else insets.top)
+					else insets.top
+				local declared = use(appChromeFact)
+				if type(declared) ~= "table" or #(declared :: any) == 0 then
+					return { type = "fixed", px = math.max(0, insets.top - spent) }
+				end
+				local W = math.max(0, vp.w - insets.left - insets.right)
+				local x0 = insets.left + (index - 1) * W / 3
+				local x1 = insets.left + index * W / 3
+				local span = math.max(1, x1 - x0)
+				local bottom = spent
+				for _, r in declared :: any do
+					if type(r) ~= "table" then
+						continue
+					end
+					local covered = math.max(0, math.min(r.x + r.w, x1) - math.max(r.x, x0))
+					if covered / span > 0.5 then
+						bottom = math.max(bottom, r.y + r.h)
+					end
+				end
+				return { type = "fixed", px = math.max(0, bottom - spent) }
+			end))
+		end
+		-- the same three alignments `composition.HUD_GROUPS` gives the three columns
+		local reserveLeft = columnReserve(1, "start")
+		local reserveCentre = columnReserve(2, "center")
+		local reserveRight = columnReserve(3, "end")
 		-- ...and the platform's own cluster is held open as SPACE inside that row —
 		-- a leading spacer as wide as the distance from the HUD's own left edge to
 		-- where the free band begins, and a trailing one for the platforms that put
@@ -274,6 +375,11 @@ return {
 		-- guess about screen size.
 		local roomForCaption = scope:own(core:memo(function(use)
 			return ((use(viewportFact) :: any).h - urlBarPx(use)) >= CAPTION_FLOOR
+		end))
+		-- the DRAWN bar's box, and it is the same number the HUD lost — one memo,
+		-- so the picture and the geometry cannot disagree (item 5)
+		local barHeight = scope:own(core:memo(function(use)
+			return { type = "fixed", px = urlBarPx(use) }
 		end))
 
 		local stripLead = edgeSpacer(function(chrome, _vp)
@@ -305,10 +411,15 @@ return {
 		-- something (the health bar's lane) cannot hug, and a ZStack that hugs would
 		-- measure a `fill` child as nothing and collapse it. Everything else about
 		-- the construction is fixed here on purpose.
-		local function glass(id: string, radius: string, content: any, width: any?): any
+		-- `height` joins `width` for the one caller that has to STATE a box rather
+		-- than hug one: the pseudo URL bar is as tall as the height it is taking,
+		-- and a hugging stack is capped by what the parent had left over — which
+		-- drew a 171px bar for a 200px loss (measured 2026-08-15).
+		local function glass(id: string, radius: string, content: any, width: any?, height: any?): any
 			return UI.ZStack({
 				id = id,
 				width = width,
+				height = height,
 				children = {
 					UI.corners(
 						UI.Box({
@@ -567,6 +678,41 @@ return {
 							},
 						}),
 					},
+				}),
+				--[[ THE APP CHROME'S OWN SPACE, one region per column, declared FIRST
+					in its group so it sits above the zone it protects.
+
+					`columnReserve` is 0px in every column the chrome does not cover, and
+					a 0px region is not mounted at all — it takes no space, no gap and no
+					place in the output. So this costs nothing to a host with no chrome
+					of its own, and in the showcase it keeps the round buttons clear of
+					the demo/settings chips while the clock and the weapon rail rise to
+					sit LEVEL with them.
+
+					RANK 1 AND DROPPABLE, which is not a contradiction: rank 1 means it
+					is the LAST thing to give way, and `mayDrop` means that on a screen
+					where the ladder has run out of everything else, a reservation is
+					still worth less than the controls it was protecting. ]]
+				UI.Region({
+					id = "ChromeLeft",
+					group = "topLeft",
+					rank = 1,
+					mayDrop = true,
+					children = { UI.Spacer({ id = "ChromeLeftGap", height = reserveLeft }) },
+				}),
+				UI.Region({
+					id = "ChromeTop",
+					group = "top",
+					rank = 1,
+					mayDrop = true,
+					children = { UI.Spacer({ id = "ChromeTopGap", height = reserveCentre }) },
+				}),
+				UI.Region({
+					id = "ChromeRight",
+					group = "topRight",
+					rank = 1,
+					mayDrop = true,
+					children = { UI.Spacer({ id = "ChromeRightGap", height = reserveRight }) },
 				}),
 				-- UPPER LEFT — the round-button strip. One form: this is the thing
 				-- the player reaches for, and a HUD that hides its own buttons on a
@@ -928,6 +1074,59 @@ return {
 					declared fallback painted a weapon chip into Roblox's own button
 					cluster. An instrument that eats the thing it measures is exactly
 					what the comment above this Screen warns about, one level up. ]]
+				--[[ THE URL BAR, DRAWN (director 2026-08-15, item 5: *"when we enable
+					url bar, we should show a pseudo url bar"*).
+
+					It used to be a `margin.bottom` on the HUD: the height went away and
+					nothing appeared in its place, so the only visible effect of the
+					switch was content vanishing — which is precisely why the switch read
+					as a bug rather than as the demonstration it is. Now the bar is a real
+					box at the bottom of the screen, exactly as tall as the height it
+					takes, so the cause of the adaptation is on screen beside its effect.
+
+					Its height is the SAME `urlBarPx` memo the caption floor reads, so the
+					drawn bar and the room the HUD lost are one number and cannot drift —
+					including the short-screen cap (a simulated bar may not eat more than
+					the screen has, see HUD_FLOOR_PX). ]]
+				UI.When({
+					id = "UrlBarWhen",
+					condition = scope:own(core:memo(function(use)
+						return use(urlBar) == true
+					end)),
+					thenView = function()
+						--[[ ONE LINE THAT SHRINKS, and the sweep is why it is not two.
+							The bar's height is capped on a short window (HUD_FLOOR_PX), so
+							at 735x213 with the switch on it is 53px — and a field over a
+							caption, pseudo-localized at 1.4x, needed 7px more than that.
+							A demo's own chrome may not be the thing that overflows the
+							screen it is explaining. The field carries `lineLimit = 1` and
+							`shrinkWeight` for the same reason every other row in this
+							fixture does: it gives up pixels, then characters, never lines. ]]
+						return glass(
+							"UrlBarChrome",
+							"control",
+							UI.HStack({
+								id = "UrlBarBody",
+								width = { type = "fill", weight = 1 },
+								height = { type = "fill", weight = 1 },
+								padding = { top = 4, right = 10, bottom = 4, left = 10 },
+								align = "center",
+								children = {
+									UI.Text({
+										id = "UrlBarField",
+										text = COPY.urlBarField,
+										textSize = "caption",
+										role = "secondary",
+										lineLimit = 1,
+										shrinkWeight = 1,
+									}),
+								},
+							}),
+							{ type = "fill", weight = 1 },
+							barHeight
+						)
+					end,
+				}),
 				UI.When({
 					id = "LadderWhen",
 					condition = roomForCaption,
