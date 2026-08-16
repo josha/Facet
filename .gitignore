@@ -34,3 +34,6 @@ sourcemap.json
 
 # Studio holds an open place open with a .lock beside it — never a repo artifact
 *.rbxl.lock
+
+# Python bytecode from tools/*.py — never an artifact
+__pycache__/
