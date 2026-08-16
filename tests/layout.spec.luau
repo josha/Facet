@@ -981,15 +981,131 @@ describe("layout: a fill ZStack child pays for its own MARGIN", function()
 			},
 		}
 		local r = solver.solve(root, { w = 200, h = 200 }, { rootPolicy = "edgeToEdge" }).rects.chip.rect
-		-- centred in the FULL box, then displaced: (200-20)/2 + 2 = 92. The
-		-- table control's ghost chip stack is exactly this shape and its 2 px
-		-- stagger has to stay 2 px.
-		expect(`{r.x},{r.y}`).toBe("92,92")
+		--[[ RE-AIMED 2026-08-15, and this is not a weakened pin — it is a pin whose
+			stated reason was never true.
+
+			It asserted 92: centred in the FULL box, then displaced by the margin.
+			The justification given was "the table control's ghost chip stack is
+			exactly this shape and its 2 px stagger has to stay 2 px", and the ghost
+			stack is NOT this shape — `DragGhost` sets no `alignH`/`alignV`, so its
+			chips were placed `start` on X and stepped a clean 2 px there all along.
+			(The vertical axis WAS centred, by a different route: each chip carried
+			`alignV = "center"` meaning "center my label", which its parent read as
+			placement — `docs/lessons/one-word-two-subsystems.md`. That is fixed at
+			the chip, and `tests/table.spec.luau`'s drag-ghost spec now asserts the
+			2 px step on BOTH axes, so the consumer claim above is finally a checked
+			one rather than a sentence.)
+
+			What the number becomes: the child is offered 198 (200 minus its 2 px
+			left margin), centres in THAT, and sits at 2 + (198-20)/2 = 91. The
+			`no silent re-flow` promise in the title survives where it was aimed —
+			an unmargined child does not move at all — so that is what the second
+			assertion is for. ]]
+		expect(`{r.x},{r.y}`).toBe("91,91")
+		local plain: solver.Node = {
+			kind = "zstack",
+			id = "plain",
+			width = fixed(200),
+			height = fixed(200),
+			alignH = "center",
+			alignV = "center",
+			children = { { kind = "box", id = "chip", width = fixed(20), height = fixed(20) } },
+		}
+		local p = solver.solve(plain, { w = 200, h = 200 }, { rootPolicy = "edgeToEdge" }).rects.chip.rect
+		expect(`{p.x},{p.y}`).toBe("90,90")
 	end)
 
 	it("margins wider than the stack clamp to zero rather than going negative", function()
 		local r = stacked({ left = 150, right = 150 })
 		expect(r.w).toBe(0)
+	end)
+end)
+
+--[[ =============================================================== 2026-08-15
+	A HUGGING ZStack CHILD PAYS FOR ITS OWN MARGIN TOO — the other half of the
+	2026-07-31 fix above, and the half that was left undone.
+
+	That round taught `arrange` to shrink a FILL child by its margins so it stops
+	hanging off the far edge. A child that sizes ITSELF (a glyph, a chip, a badge)
+	got the deficit subtracted from its offer — `availW = innerW - ml - mr`, right
+	there in the same loop — and was then placed with `alignOffset(align, innerW,
+	w)`: aligned inside the box it was NOT given. For `start` that is harmless
+	(x = ml either way), which is why it survived. For `end` and `center` it is a
+	silent lie:
+
+	  · `end`   x = ml + innerW - w, so the child's FAR edge lands on the stack's
+	            inner edge and `margin.right` buys nothing at all — a reserve the
+	            author declared, that the solver simply drops;
+	  · `center` the child centres in the full box and is then displaced by `ml`,
+	            so an asymmetric margin moves it by the wrong amount.
+
+	FOUND LIVE (director, Studio, 2026-08-14, showcase `table_columns` under Pixel
+	Quest and Glossy Touch): "the triangle table header sort indicator appears
+	outside when themed". The Table's sort mark is exactly this shape — a hugging
+	`alignH = "end"` Text carrying `margin = { right = controls.table.sortMarkMargin }`,
+	the theme's own written reserve "keeps the ▲/▼ clear" — and every package
+	solved it flush against the column boundary, 0 px of the 14-16 it asked for.
+	Under a flat package that boundary is invisible; under a package that paints a
+	nine-slice plate on the header cell it is the plate's carved border, so the
+	glyph sat outside the box. Default theme fine, five of eight packages wrong:
+	the same "painted at a size nobody measured" family, with the measurement
+	itself correct and the PLACEMENT spending a box that was never granted.
+
+	`docs/lessons/a-far-margin-must-buy-something.md`. ]]
+describe("layout: a HUGGING ZStack child pays for its own margin too", function()
+	local function hugged(margin: any, alignH: string?, alignV: string?): any
+		local root: solver.Node = {
+			kind = "zstack",
+			id = "stack",
+			width = fixed(200),
+			height = fixed(200),
+			children = {
+				{
+					kind = "box",
+					id = "mark",
+					margin = margin,
+					alignH = alignH,
+					alignV = alignV,
+					width = fixed(20),
+					height = fixed(20),
+				},
+			},
+		}
+		return solver.solve(root, { w = 200, h = 200 }, { rootPolicy = "edgeToEdge" }).rects.mark.rect
+	end
+
+	it("an END-aligned child stops a FAR margin short of the edge", function()
+		local r = hugged({ right = 14 }, "end")
+		-- the whole defect in one number: the far edge is 14 px inside the stack,
+		-- not on it. Before the fix this was 200.
+		expect(r.x + r.w).toBe(186)
+		expect(r.x).toBe(166)
+	end)
+
+	it("...on the vertical axis too", function()
+		local r = hugged({ bottom = 14 }, nil, "end")
+		expect(r.y + r.h).toBe(186)
+	end)
+
+	it("a NEAR margin still pushes an end-aligned child AWAY from its own edge", function()
+		-- `margin.left` on an end-aligned child is room the child does not get, so
+		-- it cannot push the child THROUGH the far edge: it shrinks the box the
+		-- alignment runs in, and a hugging child is already at that box's end.
+		expect(hugged({ left = 20 }, "end").x + 20).toBe(200)
+	end)
+
+	it("a CENTRED child centres in the box it was GIVEN, not the box it was denied", function()
+		-- (200 - 10 - 30 - 20) / 2 = 70, plus the 10 left margin = 80. The old
+		-- arithmetic answered 100: centred in the full box, then displaced by ml.
+		expect(hugged({ left = 10, right = 30 }, "center").x).toBe(80)
+		-- a symmetric margin is the case that cannot tell the two apart, so it
+		-- pins that the fix did not move it
+		expect(hugged({ left = 10, right = 10 }, "center").x).toBe(90)
+	end)
+
+	it("a START-aligned child is unmoved — it always sat at its near margin", function()
+		expect(hugged({ left = 12, right = 40 }, "start").x).toBe(12)
+		expect(hugged({ left = 12, right = 40 }, nil).x).toBe(12)
 	end)
 end)
 

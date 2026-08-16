@@ -100,6 +100,10 @@ require("./focus_structural.spec")
 require("./table.spec")
 require("./table_virtualized.spec")
 require("./table_columns.spec")
+-- the header band across all eight shipped packages: the axis every other Table
+-- spec is uniform along, and therefore the one that let the sort mark ship
+-- outside its themed plate (director, Studio 2026-08-14)
+require("./table_themed_header.spec")
 require("./pointer.spec")
 require("./preview.spec")
 require("./render_target_contract.spec")

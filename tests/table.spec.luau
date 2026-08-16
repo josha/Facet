@@ -440,8 +440,16 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		expect(nameTitle.props.textAlign).toBe("start")
 	end)
 
-	-- the sort mark lives at the trailing edge of the same header ZStack, so a
-	-- trailing title is the one that can collide with it. It must not.
+	--[[ The sort mark lives at the trailing edge of the same header ZStack, so
+		EVERY title can collide with it — a trailing one immediately, a leading one
+		as soon as its text reaches that edge. It must not, either way.
+
+		RE-AIMED 2026-08-15 (director, Studio: "the triangle sort indicator appears
+		outside when themed"). Two numbers moved, both because the mark itself
+		finally lands where it was declared to: the reserve is now
+		`sortMarkMargin + sortMarkTextSize` (clearance + the glyph's own column, not
+		clearance alone), and it is paid by a LEADING title too. The leading half is
+		asserted below, since it was the case with no coverage at all. ]]
 	it("a trailing title on a SORTABLE column clears the sort mark", function()
 		local core = LuauUI.newCore()
 		local sortOrder = core:signal({ column = "laps", ascending = true })
@@ -463,11 +471,18 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		local title = adapter.node("/S/Racers/Main/Header/Head-laps/Title").rect
 		local mark = adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").rect
 		expect(adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").props.text).toBe("▲")
-		-- the trailing inset is the THEME's mark reserve (controls.table.
-		-- sortMarkMargin = 14), not the 8px cell inset — the cell inset left the
-		-- two 1px apart under Studio Neutral's 11px mark
-		expect((head.x + head.w) - (title.x + title.w)).toBe(14)
-		expect(title.x + title.w < mark.x).toBe(true)
+		-- the trailing inset is the THEME's mark reserve, and it is BOTH terms:
+		-- controls.table.sortMarkMargin (14, the mark's own clearance from the
+		-- column boundary it shares with the resize grip) + sortMarkTextSize (11,
+		-- the glyph's own column). Inset by the clearance alone, a title ended
+		-- exactly where the mark ends and ran its whole width.
+		expect((head.x + head.w) - (title.x + title.w)).toBe(25)
+		expect(title.x + title.w <= mark.x).toBe(true)
+		-- ...and the mark itself stops the clearance short of the boundary rather
+		-- than sitting ON it. This is the director's defect in one number: it read
+		-- 0 for every package, so under a nine-slice header plate the glyph painted
+		-- on the carved border outside the box.
+		expect((head.x + head.w) - (mark.x + mark.w)).toBe(14)
 		-- and a NON-sortable trailing column keeps the plain cell inset, so the
 		-- reserve is paid only where there is something to clear
 		local _, adapter2 = world({
@@ -479,6 +494,33 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		local head2 = adapter2.node("/S/Racers/Main/Header/Head-laps").rect
 		local title2 = adapter2.node("/S/Racers/Main/Header/Head-laps/Title").rect
 		expect((head2.x + head2.w) - (title2.x + title2.w)).toBe(8)
+	end)
+
+	-- THE HALF THAT HAD NO COVERAGE, and the one the shipped `table_columns`
+	-- fixture is made of: every column there is LEADING and sortable. A leading
+	-- title fills the cell, so under the old one-sided rule its ellipsis landed
+	-- under the triangle the moment the heading outgrew its column — the 1.4x
+	-- localization case, which this asserts by measuring the box rather than by
+	-- hoping the corpus contains a long enough word.
+	it("a LEADING title on a sortable column reserves the mark's room too", function()
+		local core = LuauUI.newCore()
+		local sortOrder = core:signal({ column = "laps", ascending = true })
+		local _, adapter = world({
+			core = core,
+			sortOrder = sortOrder,
+			columns = {
+				{ id = "name", title = "Racer", width = { type = "fill", weight = 1 } },
+				{ id = "laps", title = "A very long heading indeed", width = 120, sortable = true },
+			},
+		})
+		local head = adapter.node("/S/Racers/Main/Header/Head-laps").rect
+		local title = adapter.node("/S/Racers/Main/Header/Head-laps/Title").rect
+		local mark = adapter.node("/S/Racers/Main/Header/Head-laps/SortMark").rect
+		expect(adapter.node("/S/Racers/Main/Header/Head-laps/Title").props.textAlign).toBe("start")
+		expect((head.x + head.w) - (title.x + title.w)).toBe(25)
+		expect(title.x + title.w <= mark.x).toBe(true)
+		-- the leading edge is untouched: the reserve is spent at the far side only
+		expect(title.x - head.x).toBe(8)
 	end)
 
 	it("a centered column centers its header title too", function()
@@ -777,10 +819,22 @@ describe("Table: row drag-and-drop (Phase B)", function()
 		expect(chip1.props.surface).toBe("chip")
 		expect(chip3.props.surface).toBe("chip")
 		expect(adapter.node("/S/Racers/GhostWhen/then/DragGhost/Chip1/Label").props.text).toBe("Three")
+		-- THE SAME 2 px STEP ON BOTH AXES (2026-08-15). X always stepped 2; Y only
+		-- appeared to, because each chip's `alignV = "center"` — written to center
+		-- its LABEL — was read by the DragGhost stack as the chip's own placement,
+		-- and centring-in-the-full-box-then-displacing happened to land on 2 as
+		-- well. Once `arrange` started spending margins honestly that route stepped
+		-- 1 and the deck read as a smear; the word now lives on the Label, where it
+		-- means one thing. `docs/lessons/one-word-two-subsystems.md`.
 		expect(chip2.rect.x).toBe(chip1.rect.x + 2)
 		expect(chip2.rect.y).toBe(chip1.rect.y + 2)
 		expect(chip3.rect.x).toBe(chip1.rect.x + 4)
 		expect(chip3.rect.y).toBe(chip1.rect.y + 4)
+		-- and the label is still centred in the chip that carries it
+		local label = adapter.node("/S/Racers/GhostWhen/then/DragGhost/Chip1/Label").rect
+		expect(math.abs((label.y - chip1.rect.y) - ((chip1.rect.y + chip1.rect.h) - (label.y + label.h))) <= 1).toBe(
+			true
+		)
 		-- the FRONT chip paints on top (deterministic z: later walk = higher z)
 		expect(chip1.z > chip2.z and chip2.z > chip3.z).toBe(true)
 		adapter.pointerUp(100, 70)

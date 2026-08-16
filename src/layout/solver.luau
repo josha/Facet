@@ -2858,14 +2858,34 @@ local function arrange(ctx: Ctx, node: Node, rect: Rect, out: { [string]: any })
 			if fillH then
 				h = availH
 			end
-			-- children may inherit the stack's default alignment (a cell that
-			-- centers its content vertically without touching consumer nodes)
+			--[[ ...AND SO DOES A HUGGING ONE — the alignment runs in `availW`/`availH`,
+				the box the child was GIVEN, never `innerW`/`innerH`, the box it was
+				denied (2026-08-15). The 2026-07-31 round above subtracted the margins
+				from the offer and then aligned in the full box, which for `start` is
+				the same answer (x = ml either way) and for the other two is not:
+				`end` put the child's far edge ON the stack's inner edge, so a
+				`margin.right` bought nothing and a `margin.left` shoved the child
+				clean THROUGH that edge by its own width; `center` centred in the full
+				box and then displaced by `ml`, so an asymmetric margin moved it by
+				half the wrong amount.
+
+				FOUND LIVE (director, Studio 2026-08-14): the Table's header sort mark
+				is a hugging `alignH = "end"` glyph carrying the theme's own
+				`controls.table.sortMarkMargin` reserve — "keeps the ▲/▼ clear" — and
+				every package solved it flush against the column boundary, which under
+				a nine-slice header plate is the plate's carved border. See the
+				`layout: a HUGGING ZStack child pays for its own margin too` block in
+				`tests/layout.spec.luau` and `docs/lessons/a-far-margin-must-buy-
+				something.md`.
+
+				Children may inherit the stack's default alignment (a cell that centers
+				its content vertically without touching consumer nodes). ]]
 			local x = innerX
 				+ ml
-				+ (if fillW then 0 else alignOffset(child.alignH or node.alignH or "start", innerW, w))
+				+ (if fillW then 0 else alignOffset(child.alignH or node.alignH or "start", availW, w))
 			local y = innerY
 				+ mt
-				+ (if fillH then 0 else alignOffset(child.alignV or node.alignV or "start", innerH, h))
+				+ (if fillH then 0 else alignOffset(child.alignV or node.alignV or "start", availH, h))
 			arrange(ctx, child, { x = x, y = y, w = w, h = h }, out)
 		end
 		return

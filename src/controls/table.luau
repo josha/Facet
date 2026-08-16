@@ -2210,9 +2210,32 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			-- inset — measured, not by luck: at 8px the two were 1px apart under
 			-- Studio Neutral's 11px mark, which is a collision in any package whose
 			-- mark is wider.
+			--[[ ...AND THE RESERVE IS SPENT FOR EVERY SORTABLE TITLE, NOT ONLY A
+				TRAILING ONE, AND IT IS TWO TERMS RATHER THAN ONE (2026-08-15). The
+				solver fix that finally put the mark where it was always declared to go
+				(`alignH = "end"` + `margin.right`, arranged in the box it was GIVEN —
+				see the zstack branch of `arrange`) is what made both halves visible:
+
+				· ONE TERM RESERVES THE GAP, NOT THE GLYPH. `sortMarkMargin` is the
+				  mark's clearance from the column boundary, which it shares with the
+				  resize grip — so a title inset by it alone ends exactly where the mark
+				  ENDS, and overlaps the mark's whole width. The reserve is the sum:
+				  clearance + the glyph's own column. `sortMarkTextSize` is the measured
+				  upper bound on a one-character ▲/▼ (7 px drawn at 11 under Studio
+				  Neutral, 12 at 12 under Pixel Quest).
+				· THE ALIGNMENT DOES NOT DECIDE WHERE THE MARK IS. It always sits at the
+				  cell's trailing edge, so a LEADING title collides with it too — as soon
+				  as its text is long enough to reach that edge, which is the 1.4x
+				  localization case on every sortable column in the corpus. The old
+				  `alignment.h == "trailing"` gate only ever described which title was
+				  long enough to have been noticed.
+
+				It is spent whether or not THIS column is the sorted one, exactly as the
+				trailing case always was: a reserve that came and went with the mark
+				would re-flow every heading in the band on every sort. ]]
 			local headAlignment = column.alignment or {}
-			local titleTrailingInset = if headAlignment.h == "trailing" and isSortable(column)
-				then "controls.table.sortMarkMargin"
+			local titleTrailingInset = if isSortable(column)
+				then { "controls.table.sortMarkMargin", "controls.table.sortMarkTextSize" }
 				else cellPadding
 			local title = UI.Text({
 				id = "Title",
@@ -2563,10 +2586,31 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 								width = { type = "fixed", px = "controls.table.ghostWidth" },
 								height = { type = "fixed", px = "controls.table.ghostHeight" },
 								padding = { left = "s" },
-								alignV = "center",
 								surface = "chip",
+								--[[ THE LABEL CARRIES ITS OWN CENTERING, not this chip
+									(2026-08-15, `docs/lessons/one-word-two-subsystems.md`).
+									`alignV` is BOTH a container prop ("center my children") and a
+									placement prop ("center ME in my parent"), and this chip was
+									using it for the first while the DragGhost stack above read it
+									as the second — so each chip was placed by centering its 26 px
+									in the stack's 32 AND THEN displaced by its own stagger margin.
+									That only produced an even 2 px diagonal while the solver was
+									aligning in a box it had not granted; once `arrange` started
+									spending the margin honestly the vertical stagger halved to
+									1 px and the stack read as a smear rather than a deck.
+
+									On the Label the word means exactly one thing, and the chip's
+									placement becomes the same `start` its horizontal stagger has
+									always used — so both axes now step by the same 2 px. ]]
 								children = if i == 1
-									then { UI.Text({ id = "Label", text = ghostText, textSize = "label" }) }
+									then {
+										UI.Text({
+											id = "Label",
+											text = ghostText,
+											textSize = "label",
+											alignV = "center",
+										}),
+									}
 									else {},
 							})
 						)
