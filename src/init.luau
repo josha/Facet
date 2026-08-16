@@ -200,6 +200,9 @@ local LuauUI = {
 	newProgressView = require("@self/controls/progress_view").build,
 	newLabel = require("@self/controls/label").build,
 	newPicker = require("@self/controls/picker").build,
+	-- ...and the construct that COMPOSES that strip: a tab bar plus the pages
+	-- behind it, placed by `adaptive.navPlacement` (navigation-and-menus D5)
+	newTabView = require("@self/controls/tab_view").build,
 	newDisclosureGroup = require("@self/controls/disclosure_group").build,
 	valueModel = require("@self/controls/value_model"),
 	newTextInput = require("@self/controls/text_input").build,

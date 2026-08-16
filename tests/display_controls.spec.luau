@@ -293,8 +293,13 @@ describe("B-DSP2: Picker presentation adapts from space, not device names", func
 		system.deviceKey("Return", false)
 		pres.refresh()
 		expect(selected:get()).toBe("a")
-		system.deviceKey("DPadDown", true)
-		system.deviceKey("DPadDown", false)
+		-- DPadRIGHT, not Down. The segmented option stack is an `AdaptiveStack` on
+		-- the x axis, and `focus_map` derives a HORIZONTAL group from it — which it
+		-- did not before navigation-and-menus D5 found that the rule matched
+		-- `HStack` alone, so a segmented picker answered Up/Down on a pad while
+		-- Right walked out of the control entirely.
+		system.deviceKey("DPadRight", true)
+		system.deviceKey("DPadRight", false)
 		pres.refresh()
 		system.deviceKey("ButtonA", true)
 		system.deviceKey("ButtonA", false)

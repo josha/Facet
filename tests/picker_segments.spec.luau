@@ -27,6 +27,7 @@ local serde = require("@lune/serde")
 
 local LuauUI = require("../src") :: any
 local fake_target = require("./lib/fake_target")
+local focus_map = require("../src/present/focus_map")
 
 local UI = LuauUI.UI
 
@@ -53,15 +54,23 @@ local function world(spec: any?)
 		},
 		env = env,
 	}
-	for _, key in { "presentation", "indicator", "axis", "iconOnly", "label", "sizeClass" } do
+	for _, key in { "presentation", "indicator", "axis", "iconOnly", "label", "sizeClass", "sizing" } do
 		if (options :: any)[key] ~= nil then
 			built[key] = (options :: any)[key]
 		end
 	end
 	local p = LuauUI.newPicker(LuauUI, core, built)
-	pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+	local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
 	pres.refresh()
-	return { core = core, env = env, adapter = adapter, pres = pres, picker = p, selected = selected }
+	return {
+		core = core,
+		env = env,
+		adapter = adapter,
+		pres = pres,
+		picker = p,
+		selected = selected,
+		handle = handle,
+	}
 end
 
 -- the options sit one level deeper whenever an indicator is on (the decoration
@@ -429,5 +438,319 @@ describe("D6: the dump keeps schema /1 and stays deterministic", function()
 		p.dispose()
 		expect(core:counters().scopes).toBe(baseline.scopes)
 		expect(core:counters().observers).toBe(baseline.observers)
+	end)
+end)
+
+-- ===== the four seams D5's TabView composes ==============================
+-- The director's call (`artifacts/navigation-and-menus/additive-vs-net-new.md`
+-- §6) is that TabView builds its strip out of THIS control rather than
+-- reimplementing the row, and this control's own header answers what that costs:
+-- "anything a strip needs is a property". These are those properties, proved
+-- HERE — on the picker, through the public surface — rather than only through
+-- the construct that needed them, because a segmented control in a toolbar wants
+-- to hug, and a segmented control over a message list wants a count.
+
+describe("D5 seam: `sizing` is what makes a strip able to OVERFLOW", function()
+	it('`sizing = "hug"` gives the band its natural width and its segments theirs', function()
+		-- the band's `fill` divides the offer, so five tabs at a 320px viewport are
+		-- 64px each and NOTHING ever overflows — which is exactly why an
+		-- overflowing tab strip cannot be built out of the default sizing
+		local w = world({ presentation = "segmented", sizing = "hug", viewport = 320 })
+		local hugged = w.adapter.node("/S/View").rect.w
+		local filled = world({ presentation = "segmented", viewport = 320 }).adapter.node("/S/View").rect.w
+		expect(filled).toBe(320)
+		expect(hugged < filled).toBe(true)
+		expect(w.picker.dump().sizing).toBe("hug")
+	end)
+
+	it("...and the segments stop being equal-width, so a long label really is longer", function()
+		local w = world({
+			presentation = "segmented",
+			sizing = "hug",
+			viewport = 320,
+			options = {
+				{ value = "grid", label = "Hi" },
+				{ value = "list", label = "A considerably longer name" },
+			},
+		})
+		local first = w.adapter.node(optPath(w, 1)).rect.w
+		local second = w.adapter.node(optPath(w, 2)).rect.w
+		expect(second > first).toBe(true)
+	end)
+
+	it("`sizing` is REACTIVE, because a tab bar's home changes under a live rotation", function()
+		local sizing = nil
+		local w = nil
+		do
+			local core = LuauUI.newCore()
+			local env = LuauUI.newEnvironment(core)
+			env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+			env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+			local adapter = fake_target.new()
+			local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+			sizing = core:signal("fill")
+			local p = LuauUI.newPicker(LuauUI, core, {
+				id = "View",
+				options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+				selected = core:signal("grid"),
+				presentation = "segmented",
+				sizing = sizing,
+				env = env,
+			})
+			pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+			pres.refresh()
+			w = { adapter = adapter, pres = pres, picker = p }
+		end
+		expect(w.adapter.node("/S/View").rect.w).toBe(480)
+		local before = w.adapter.node("/S/View/Indicator/Options/Opt1").id
+		sizing:set("hug")
+		w.pres.refresh()
+		expect(w.adapter.node("/S/View").rect.w < 480).toBe(true)
+		expect(w.picker.dump().sizing).toBe("hug")
+		-- A RE-SOLVE, NOT A REBUILD (the A-AL2 rule): the option that was there is
+		-- still there, at the same path, with the same identity
+		expect(w.adapter.node("/S/View/Indicator/Options/Opt1").id).toBe(before)
+		w.picker.dispose()
+	end)
+
+	it("an unknown `sizing` is an authoring error, not a silent fill", function()
+		local core = LuauUI.newCore()
+		local ok, err = pcall(function()
+			LuauUI.newPicker(LuauUI, core, {
+				id = "X",
+				options = { { value = "a", label = "A" } },
+				selected = core:signal("a"),
+				sizing = "shrinkwrap",
+			})
+		end)
+		expect(ok).toBe(false)
+		expect(string.find(tostring(err), "sizing", 1, true) ~= nil).toBe(true)
+	end)
+end)
+
+describe("D5 seam: `axis` is REACTIVE, because a placement flip is a re-solve", function()
+	it("a live axis flip turns the band into a rail without rebuilding an option", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local axis = core:signal("x")
+		local p = LuauUI.newPicker(LuauUI, core, {
+			id = "View",
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+			selected = core:signal("grid"),
+			presentation = "segmented",
+			axis = axis,
+			env = env,
+		})
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(p.dump().axis).toBe("x")
+		expect(p.dump().verticalPill).toBe(false)
+		expect(adapter.node("/S/View").rect.w).toBe(480)
+		axis:set("y")
+		pres.refresh()
+		expect(p.dump().axis).toBe("y")
+		expect(p.dump().verticalPill).toBe(true)
+		-- the rail hugs, and the option that was there never left
+		expect(adapter.node("/S/View").rect.w < 480).toBe(true)
+		expect(adapter.node("/S/View/Indicator/Options/Opt1") ~= nil).toBe(true)
+		p.dispose()
+	end)
+end)
+
+describe("D5 seam: a badge is a count that lives on an UNSELECTED option", function()
+	local BADGED = {
+		{ value = "grid", label = "Grid" },
+		{ value = "list", label = "Listing", badge = "3" },
+	}
+	-- A BADGED SEGMENT GAINS ONE WRAPPER, and only a badged one: the seal is an
+	-- overlay SIBLING of the Button (a Button with children draws no text at all,
+	-- `renderer.luau:913`), so it needs a cell to overlay it in. The Button keeps
+	-- its own id inside that cell, which is why activation and the indicator are
+	-- untouched — and this helper spells the difference out rather than hiding it.
+	local function cellPath(w: any, n: number): string
+		local base = if w.picker.dump().indicator == "none" then "/S/View/Options" else "/S/View/Indicator/Options"
+		return `{base}/Opt{n}Cell`
+	end
+
+	it('a badged option wears a `surface = "badge"` plate; an unbadged one wears nothing', function()
+		local w = world({ presentation = "segmented", options = BADGED })
+		local plate = w.adapter.node(cellPath(w, 2) .. "/Badge/Count")
+		expect(plate ~= nil).toBe(true)
+		expect(plate.props.surface).toBe("badge")
+		expect(plate.props.text).toBe("3")
+		-- the UNBADGED option gained no cell and no plate at all
+		expect(w.adapter.node(cellPath(w, 1))).toBeNil()
+		expect(w.adapter.node(optPath(w, 1)) ~= nil).toBe(true)
+		expect(w.picker.dump().badgeCount).toBe(1)
+	end)
+
+	it("the badge is on the UNSELECTED option and stays live — that is the point of a badge", function()
+		local w = world({ presentation = "segmented", options = BADGED, initial = "grid" })
+		expect(w.selected:get()).toBe("grid")
+		expect(w.adapter.node(cellPath(w, 2) .. "/Badge/Count").props.text).toBe("3")
+	end)
+
+	it("the seal is a DECORATION: no focus stop, no second activation site", function()
+		-- focus_map.collectFocusables appends Button / Toggle / TextField, and that
+		-- flat order IS the document order Tab walks. A ZStack holding a Text is
+		-- neither, so a badged strip's focus order is byte-identical to a plain
+		-- one's — and a non-interactive overlay is also what leaves the engine
+		-- delivering the press to the Button underneath it
+		local badged = world({ presentation = "segmented", options = BADGED })
+		local plain = world({ presentation = "segmented" })
+		expect(badged.adapter.node(cellPath(badged, 2)).class).toBe("ZStack")
+		expect(badged.adapter.node(cellPath(badged, 2) .. "/Badge").class).toBe("ZStack")
+		expect(badged.adapter.node(cellPath(badged, 2) .. "/Badge/Count").class).toBe("Text")
+		local badgedFocus: { string } = {}
+		local plainFocus: { string } = {}
+		focus_map.collectFocusables(badged.handle.root.node, badgedFocus)
+		focus_map.collectFocusables(plain.handle.root.node, plainFocus)
+		expect(#badgedFocus).toBe(#plainFocus)
+		expect(badgedFocus[2]).toBe(cellPath(badged, 2) .. "/Opt2")
+	end)
+
+	it("a badge VALUE is reactive, and an empty one hides the plate rather than painting a bubble", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local count = core:signal("")
+		local p = LuauUI.newPicker(LuauUI, core, {
+			id = "View",
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing", badge = count } },
+			selected = core:signal("grid"),
+			presentation = "segmented",
+			env = env,
+		})
+		pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Badge/Count")).toBe(false)
+		count:set("12")
+		pres.refresh()
+		expect(adapter.visibleOf("/S/View/Indicator/Options/Opt2Cell/Badge/Count")).toBe(true)
+		expect(adapter.node("/S/View/Indicator/Options/Opt2Cell/Badge/Count").props.text).toBe("12")
+		p.dispose()
+	end)
+
+	it("the plate does NOT eat the tap: a badged segment still selects", function()
+		-- the engine delivers a press to the TOPMOST interactive object only, so a
+		-- decoration painted OVER a Button has to be non-interactive or the segment
+		-- goes dead (docs/lessons/a-button-eats-the-swipe-underneath-it.md)
+		local w = world({ presentation = "segmented", options = BADGED, initial = "grid" })
+		w.adapter.tap(cellPath(w, 2) .. "/Opt2")
+		w.pres.refresh()
+		expect(w.selected:get()).toBe("list")
+	end)
+
+	it("a picker with NO badges mounts no badge node at all — the paths are unchanged", function()
+		local w = world({ presentation = "segmented" })
+		expect(w.adapter.node(cellPath(w, 1))).toBeNil()
+		expect(w.adapter.node(optPath(w, 1)) ~= nil).toBe(true)
+		expect(w.picker.dump().badgeCount).toBe(0)
+	end)
+end)
+
+describe("D5 seam: an option LABEL may be a Readable, and `api.segments` names the row", function()
+	it("a bound label satisfies the non-empty lint and is what dump() announces", function()
+		local core = LuauUI.newCore()
+		local name = core:signal("Listing")
+		local p = LuauUI.newPicker(LuauUI, core, {
+			id = "View",
+			label = "View",
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = name } },
+			selected = core:signal("list"),
+			presentation = "segmented",
+		})
+		expect(p.dump().selectedLabel).toBe("Listing")
+		expect(p.dump().semanticText).toBe("View: Listing")
+		name:set("Rows")
+		expect(p.dump().selectedLabel).toBe("Rows")
+		expect(p.dump().semanticText).toBe("View: Rows")
+		p.dispose()
+	end)
+
+	it("a bound label that is EMPTY right now is still the authoring error it would be as a string", function()
+		local core = LuauUI.newCore()
+		local ok = pcall(function()
+			LuauUI.newPicker(LuauUI, core, {
+				id = "X",
+				options = { { value = "a", label = core:signal("") } },
+				selected = core:signal("a"),
+			})
+		end)
+		expect(ok).toBe(false)
+	end)
+
+	it("`api.segments` publishes the id this strip gave each option", function()
+		-- a decoration or a scroller has to be able to find the mounted node for a
+		-- selection value, and string arithmetic on "Opt1" is exactly the assumption
+		-- that breaks silently when this control's internals move
+		local w = world({ presentation = "segmented" })
+		local segments = w.picker.segments
+		expect(#segments).toBe(2)
+		expect(segments[1].value).toBe("grid")
+		expect(w.adapter.node(`/S/View/Indicator/Options/{segments[1].id}`) ~= nil).toBe(true)
+		expect(w.adapter.node(`/S/View/Indicator/Options/{segments[2].id}`) ~= nil).toBe(true)
+	end)
+end)
+
+describe("D5 found: a segmented strip navigates ACROSS on a pad, not down", function()
+	it("the option stack is one HORIZONTAL group, so Right moves to the next segment", function()
+		--[[ A SHIPPED DEFECT, not a new one. `focus_map.autoGroups` derived a
+			horizontal run from an `HStack` alone, and this control's option stack is
+			an `AdaptiveStack` — it has to be, because a presentation flip is a
+			re-solve rather than a remount (A-AL2). So every segmented picker in the
+			framework answered Up/Down on a pad and Right walked straight out of the
+			control into whatever was painted after it. Found by D5, whose tab strip
+			is this same stack in a band a player is expected to cross. ]]
+		local w = world({ presentation = "segmented", options = { ICONS[1], ICONS[2] } })
+		local paths: { string } = {}
+		focus_map.collectFocusables(w.handle.root.node, paths)
+		expect(#paths).toBe(2)
+		local groups = focus_map.autoGroups(w.handle.root.node)
+		expect(#groups).toBe(1)
+		expect(groups[1].axis).toBe("horizontal")
+		expect(groups[1].order[1]).toBe(optPath(w, 1))
+		expect(groups[1].order[2]).toBe(optPath(w, 2))
+	end)
+
+	it("...and the VERTICAL rail stays a vertical group, because its axis says so", function()
+		-- the axis is read LIVE from the bound prop, so the same stack answers
+		-- differently in the two shapes rather than being pinned at build time
+		local rail = world({ presentation = "segmented", axis = "y", options = { ICONS[1], ICONS[2] } })
+		local groups = focus_map.autoGroups(rail.handle.root.node)
+		expect(#groups).toBe(1)
+		expect(groups[1].axis).toBe("vertical")
+	end)
+
+	it("a LIVE axis flip re-derives the group with it", function()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 480, h = 640 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local axis = core:signal("x")
+		local p = LuauUI.newPicker(LuauUI, core, {
+			id = "View",
+			options = { { value = "grid", label = "Grid" }, { value = "list", label = "Listing" } },
+			selected = core:signal("grid"),
+			presentation = "segmented",
+			axis = axis,
+			env = env,
+		})
+		local handle = pres.present(UI.Screen({ id = "S", children = { p.blueprint } }))
+		pres.refresh()
+		expect(focus_map.autoGroups(handle.root.node)[1].axis).toBe("horizontal")
+		axis:set("y")
+		pres.refresh()
+		expect(focus_map.autoGroups(handle.root.node)[1].axis).toBe("vertical")
+		p.dispose()
 	end)
 end)

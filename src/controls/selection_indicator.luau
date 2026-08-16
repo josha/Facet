@@ -425,9 +425,26 @@ function selection_indicator.build(LuauUI: any, core: any, spec: Spec)
 		return not use(shown)
 	end))
 
+	--[[ A CHIP IS A SURFACE; A RULE IS A STROKE OF COLOUR (found by D5's theme
+		sweep, and it is a real defect the pill skin could never show). The bar was
+		declared `surface = "accent"` for both skins. That is right for the PILL —
+		a ~40px chip has room for a themed control chrome's borders and insets —
+		and wrong for the UNDERLINE, which is `space.xs` deep: every themed package
+		in the sweep filed "the 'control' chrome contentInsets could not be spent
+		on y: 20px of border on a 4px height", eighty-odd times across the matrix,
+		because a 4px box cannot wear a control's chrome.
+
+		`tint` is what a thin themed rule is painted with — a continuous colour
+		blended between two theme roles, no chrome, still fully themable — and it
+		is the idiom `p4_foyer`'s own hand-rolled 3px active bar already used
+		before this seam replaced it. `spec.surface` still overrides, on either
+		skin, for a caller that wants the plate. ]]
+	local UNDERLINE_TINT = table.freeze({ role = "accent", blend = 1 })
+	local barSurface = if spec.surface ~= nil then spec.surface elseif skin == "pill" then "accent" else nil
 	local bar = UI.Box({
 		id = "Bar",
-		surface = spec.surface or "accent",
+		surface = barSurface,
+		tint = if barSurface == nil then UNDERLINE_TINT else nil,
 		anchor = "topLeft",
 		offsetX = offX,
 		offsetY = offY,
@@ -462,6 +479,16 @@ function selection_indicator.build(LuauUI: any, core: any, spec: Spec)
 	local segmentPaths: { [number]: string } = {}
 	local layerPath: string? = nil
 	local resolvedCount = 0
+	-- WHERE THE WRAPPER WAS MOUNTED LAST TIME (found by D5). The paths below are
+	-- learned by walking the mounted tree, and a consumer may RE-HOME the wrapper:
+	-- D5's TabView moves its strip between four `When`-gated homes as
+	-- `adaptive.navPlacement` changes, and every reference shell does the same by
+	-- hand. Learning them exactly once left `rectOf` answering nil for a path that
+	-- no longer exists, `syncGeometry` returning early, and the bar frozen at the
+	-- rect it held before the rotation — a chip painted where nobody measured.
+	-- Comparing the ROOT's path is the cheap, exact test for "this is a different
+	-- mount", and it costs one string compare per solve on the unchanged path.
+	local mountedRootPath: string? = nil
 	-- flat numeric table: 1..4 = the layer's rect, then 4 per segment in
 	-- declaration order. FLAT on purpose — `sameGeometry` refuses nested tables,
 	-- and a flat shape makes that refusal free rather than an obstacle.
@@ -597,6 +624,15 @@ function selection_indicator.build(LuauUI: any, core: any, spec: Spec)
 		-- refresh, and states that every syncGeometry in the framework must be
 		-- both) — the `fed` signal's by-value equality is what makes it so.
 		syncGeometry = function(rectOf: (string) -> any, rootNode: any?)
+			if rootNode ~= nil and rootNode.path ~= mountedRootPath then
+				-- a DIFFERENT mount: forget everything learned about the old one
+				-- rather than keeping half of it, which is how a re-home would
+				-- otherwise leave the layer resolved and the segments dangling
+				mountedRootPath = rootNode.path
+				layerPath = nil
+				segmentPaths = {}
+				resolvedCount = 0
+			end
 			if rootNode ~= nil and layerPath == nil then
 				-- resolve by IDENTITY, walking the mounted tree, never by string
 				-- arithmetic: the mounted path depends on where the consumer placed

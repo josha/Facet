@@ -426,12 +426,26 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 		expect(w.env:get("reducedMotion"):get() == true).toBe(false)
 		press(w.system, showcase_chrome.TOGGLE_GAMEPAD)
 		w.settle()
-		-- section switch -> Settings, then onto the motion picker's Reduced option
+		-- section switch -> Settings, then onto the motion picker's Reduced option.
+		--
+		-- THE WALK USES BOTH AXES, and it has to since navigation-and-menus D5:
+		-- `focus_map` now derives a HORIZONTAL group from an `AdaptiveStack`
+		-- running along x, which is what every segmented picker's option stack is,
+		-- so a segment's neighbour is to its RIGHT rather than below it. Right
+		-- first, falling back to Down when it does not move, is the honest "a pad
+		-- alone can reach this" walk either way.
+		local function step()
+			local before = w.pres.focus.focused:get()
+			press(w.system, "DPadRight")
+			if w.pres.focus.focused:get() == before then
+				press(w.system, "DPadDown")
+			end
+		end
 		local ok = false
 		for _ = 1, 60 do
 			local focused = w.pres.focus.focused:get()
 			if focused == nil then
-				press(w.system, "DPadDown")
+				step()
 				continue
 			end
 			-- the section switch first (its second option is Settings)...
@@ -450,7 +464,7 @@ describe("showcase chrome (2): a gamepad alone can change demo and change theme"
 				ok = true
 				break
 			end
-			press(w.system, "DPadDown")
+			step()
 		end
 		expect(`the pad reached and pressed Reduced: {ok}`).toBe("the pad reached and pressed Reduced: true")
 		expect(w.env:get("reducedMotion"):get()).toBe(true)

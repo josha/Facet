@@ -368,6 +368,49 @@ local FIXTURES: { Fixture } = {
 		why = LT_GAPS.G4,
 	},
 	{
+		--[[ THE TAB STRIP IS THE TIGHTEST TEXT BOX THE FRAMEWORK SHIPS
+			(navigation-and-menus D5). A thumb-zone bar divides one compact width
+			among every tab, so a preference that grows the type has the least room
+			here of anywhere — which is exactly why the reference shells all carry a
+			terse second string for this home, and why the sweep has to see it.
+
+			`placement` is DECLARED rather than left automatic: the fixture harness
+			builds from a bare core with no environment, and pinning the home is
+			also what makes the row a text sweep rather than a placement one. ]]
+		id = "TabView",
+		class = "TabView",
+		build = function(core)
+			return LuauUI.newTabView(LuauUI, core, {
+				id = "Ctl",
+				selection = core:signal("a"),
+				placement = "bottomBar",
+				tabs = {
+					{
+						id = "a",
+						label = lt.PSEUDO_ACTION,
+						content = function()
+							return UI.Text({ id = "Body", text = PSEUDO })
+						end,
+					},
+					{
+						id = "b",
+						label = lt.PSEUDO_SECONDARY,
+						content = function()
+							return UI.Text({ id = "Body", text = PSEUDO })
+						end,
+					},
+				},
+			}).blueprint
+		end,
+		-- LT-G4, inherited whole from the strip this control composes: a tab label
+		-- is a picker option label, which has no `disclose` pass-through, so at the
+		-- expansion locale and the largest preference it ellipsizes with no route
+		-- to the whole string. Composing the picker inherits its open gaps as well
+		-- as its floors, and saying so is the point of citing the same one.
+		allowClipped = { "/S/Ctl/BottomHome/then/BottomBand/Strip/Indicator/Options" },
+		why = LT_GAPS.G4,
+	},
+	{
 		id = "DisclosureGroup",
 		class = "DisclosureGroup",
 		build = function(core)

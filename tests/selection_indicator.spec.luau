@@ -847,3 +847,127 @@ describe("D4 through the public property: newPicker's `indicator` and `axis`", f
 		end
 	end)
 end)
+
+-- ===== the seam survives being RE-HOMED (found by D5) =====================
+-- D5's TabView moves its strip between four `When`-gated homes as
+-- `adaptive.navPlacement` changes — a leading rail on a desktop, a trailing band
+-- on a phone. That REMOUNTS the wrapped strip at a different path, and the first
+-- shipped version of this module learned the layer's path and every segment's
+-- path EXACTLY ONCE (`if rootNode ~= nil and layerPath == nil`). After a
+-- re-home, `rectOf(layerPath)` answered nil for a path that no longer exists,
+-- `syncGeometry` returned early, and the bar froze at the rect it had before the
+-- rotation — a chip painted in a place nobody measured, which is the defect
+-- family this repo already has a name for.
+--
+-- It is a real latent bug for ANY consumer that mounts an indicated strip inside
+-- a `When` that toggles, not a TabView special case, so the fix belongs here.
+describe("D5 found: the paths are RE-RESOLVED when the strip is re-homed", function()
+	local function homedWorld()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, LuauUI.newActionSystem(core))
+		local selected = core:signal("a")
+		local kids = {}
+		for i, label in { "A", "B" } do
+			table.insert(
+				kids,
+				UI.Button({
+					id = label,
+					label = label,
+					width = { type = "fixed", px = if i == 1 then 120 else 80 },
+					height = { type = "fixed", px = 48 },
+				})
+			)
+		end
+		local indicator = selection_indicator.build(LuauUI, core, {
+			id = "Tabs",
+			content = UI.HStack({ id = "Strip", gap = 0, children = kids }),
+			segments = { { value = "a", id = "A" }, { value = "b", id = "B" } },
+			selected = selected,
+			skin = "pill",
+			env = env,
+		})
+		-- the SAME wrapper blueprint declared in two mutually-exclusive homes, one
+		-- leading and one trailing: exactly the shape the reference shells use for
+		-- a nav bar, and exactly the shape TabView now owns
+		local atTop = core:signal(true)
+		local bottom = core:memo(function(use)
+			return not use(atTop)
+		end)
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Page",
+					gap = 0,
+					children = {
+						UI.When({
+							id = "Top",
+							condition = atTop,
+							thenView = function()
+								return indicator.blueprint
+							end,
+						}),
+						UI.Box({ id = "Body", height = { type = "fixed", px = 100 } }),
+						UI.When({
+							id = "Bottom",
+							condition = bottom,
+							thenView = function()
+								return indicator.blueprint
+							end,
+						}),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		return { core = core, adapter = adapter, pres = pres, indicator = indicator, selected = selected, atTop = atTop }
+	end
+
+	it("re-homing the strip re-resolves the layer and every segment, and the bar follows", function()
+		local w = homedWorld()
+		expect(w.adapter.node("/S/Page/Top/then/Tabs/Layer/Bar") ~= nil).toBe(true)
+		local before = w.indicator.state()
+		expect(before.resolved).toBe(2)
+		expect(#before.unresolved).toBe(0)
+		local topRect = w.adapter.node("/S/Page/Top/then/Tabs/Layer/Bar").rect
+		w.atTop:set(false)
+		w.pres.refresh()
+		-- the bar exists in its new home, still resolving both segments...
+		local after = w.indicator.state()
+		expect(after.resolved).toBe(2)
+		expect(#after.unresolved).toBe(0)
+		-- ...AND THE GEOMETRY REALLY ARRIVED. This is the assertion that fails when
+		-- the paths are learned once: a stale `layerPath` makes `rectOf` answer nil
+		-- and `syncGeometry` return early, so the seam goes silently deaf while
+		-- every count it reports still looks right.
+		expect(after.geometryUpdates > before.geometryUpdates).toBe(true)
+		local moved = w.adapter.node("/S/Page/Bottom/then/Tabs/Layer/Bar")
+		expect(moved ~= nil).toBe(true)
+		expect(w.adapter.node("/S/Page/Top/then/Tabs/Layer/Bar")).toBeNil()
+		-- ...and it is over the FIRST segment in the new home, not frozen at the
+		-- rect it held in the old one
+		local segment = w.adapter.node("/S/Page/Bottom/then/Tabs/Strip/A").rect
+		expect(math.abs(moved.rect.x - (segment.x + 4)) < 0.001).toBe(true)
+		expect(moved.rect.y ~= topRect.y).toBe(true)
+	end)
+
+	it("...and a selection change in the NEW home still moves the bar", function()
+		local w = homedWorld()
+		w.atTop:set(false)
+		w.pres.refresh()
+		local a = w.adapter.node("/S/Page/Bottom/then/Tabs/Strip/A").rect
+		local b = w.adapter.node("/S/Page/Bottom/then/Tabs/Strip/B").rect
+		expect(b.x > a.x).toBe(true)
+		w.selected:set("b")
+		for _ = 1, 200 do
+			w.pres.tick(1 / 60)
+			w.pres.refresh()
+		end
+		expect(math.abs(w.adapter.node("/S/Page/Bottom/then/Tabs/Layer/Bar").rect.x - (b.x + 4)) < 0.001).toBe(true)
+		w.indicator.dispose()
+	end)
+end)

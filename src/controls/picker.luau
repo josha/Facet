@@ -111,6 +111,49 @@
 -- call, `artifacts/navigation-and-menus/additive-vs-net-new.md` §6). Keep the
 -- option row reusable: no tab-specific knowledge belongs in here, and anything
 -- a strip needs (icons, the axis, the indicator) is a property.
+--
+-- D5 took that literally. It needed four things and every one of them landed
+-- HERE, as a property or a widening, rather than as a second option row:
+--
+--   sizing = "fill" | "hug"   `fill` (the default, and what every pre-D5 caller
+--                             gets) divides the offer among the segments, which
+--                             is why a `fill` strip CAN NEVER OVERFLOW: five
+--                             tabs at 320px are 64px each. An overflowing tab
+--                             strip — f1's `Avatars / Body / Clothing /
+--                             Accessories / Backg…` — is a `hug` one, whose
+--                             segments take their natural widths and whose band
+--                             takes theirs, so it can be wider than the offer and
+--                             a scroll host has something to scroll.
+--   axis   as a Readable      a tab bar's HOME moves under a live rotation
+--                             (`adaptive.navPlacement`: sidebar -> a vertical
+--                             rail, bottom bar -> a horizontal band), and the
+--                             A-AL2 rule says an arrangement change is a
+--                             RE-SOLVE, not a rebuild. A build-time axis would
+--                             have forced two strips under two `When`s, which
+--                             is exactly the hand-assembly D5 exists to delete.
+--                             `sizing` is a Readable for the same reason.
+--   Option.badge              the count seal. Not tab-specific at all: a
+--                             segmented control over a message list wants one
+--                             too, and `surface = "badge"` is a shipped Text
+--                             token, so this adds no primitive.
+--   Option.label as Readable  the reference shells carry a SECOND localized
+--                             string for the thumb zone ("nav.menu.short") and
+--                             flip between them live, which a build-time string
+--                             cannot follow. `compactLabel` is deliberately not
+--                             reactive (a compact form is what a control HAS),
+--                             so the binding has to be the label itself.
+--
+-- A BADGED OPTION GAINS ONE WRAPPER NODE, and only a badged one. The badge is a
+-- decoration ON the segment, so it cannot be a Button CHILD: a Button with
+-- children draws no text at all (`renderer.luau:913` — "a content button's label
+-- is SEMANTICS, not paint"), which would take the word away from every segment
+-- that carries a count and throw out the compactLabel degrade ladder with it. It
+-- is therefore an overlay SIBLING inside a per-segment `ZStack` — the shape
+-- `p4_foyer`'s `badgeBubble` already ships over its friend tiles — and the
+-- Button keeps its own id, so activation (which dispatches on the LEAF id) and
+-- the indicator (which resolves the SEGMENT by id) are both untouched. An
+-- unbadged picker mounts no wrapper and no badge node, so every path that
+-- shipped before D5 is byte-identical.
 
 local controlContract = require("./contract")
 local contribution = require("../input/contribution")
@@ -120,8 +163,12 @@ local specGuard = require("../spec_guard")
 local picker = {}
 
 -- `icon` is a SEMANTIC NAME ("close", "chevron.trailing", a namespaced
--- "ns:name"), never an asset id. `label` is required whatever is drawn.
-export type Option = { value: any, label: string, icon: string? }
+-- "ns:name"), never an asset id. `label` is required whatever is drawn, and may
+-- be a string or a Readable of one (D5: the reference shells flip between a full
+-- and a terse localized name live). `badge` is the count seal — a string, a
+-- number, or a Readable of either; an empty one hides the plate rather than
+-- painting an empty bubble.
+export type Option = { value: any, label: any, icon: string?, badge: any? }
 
 export type Spec = {
 	id: string?,
@@ -133,11 +180,19 @@ export type Spec = {
 	-- selection indicator. "automatic" is the PILL unless `presentation =
 	-- "inline"` was declared, in which case it is "none" (see the header).
 	indicator: string?,
-	-- "x" (default) | "y" — the SEGMENTED presentation's axis. "y" is a vertical
-	-- PILL (f1's left rail), which is a different shape from the `inline` row list
-	-- and deliberately does not overload it. Inert under `inline`, which is a
-	-- column by definition.
-	axis: string?,
+	-- "x" (default) | "y" — the SEGMENTED presentation's axis, or a Readable of
+	-- either. "y" is a vertical PILL (f1's left rail), which is a different shape
+	-- from the `inline` row list and deliberately does not overload it. Inert
+	-- under `inline`, which is a column by definition. REACTIVE because a tab
+	-- bar's home moves under a live rotation and an arrangement change is a
+	-- re-solve, not a rebuild (A-AL2).
+	axis: any?,
+	-- "fill" (default) | "hug", or a Readable of either. `fill` divides the offer
+	-- among the segments — the shape every pre-D5 caller has; `hug` gives the band
+	-- and every segment its natural width, which is what lets a strip be WIDER
+	-- than its offer and therefore scroll (f1's overflowing tab strip). Inert on
+	-- the vertical rail, which is content-sized by definition.
+	sizing: any?,
 	-- true makes the option ICON what every segment wears at every width, with
 	-- `label` staying the semantic name (f1's icon-only pill and rail). Default
 	-- false: the segment keeps its word and degrades to the glyph. A GROUP
@@ -152,8 +207,9 @@ export type Spec = {
 local PRESENTATIONS: { [string]: boolean } = { automatic = true, segmented = true, inline = true }
 local INDICATORS: { [string]: boolean } = { automatic = true, none = true, underline = true, pill = true }
 local AXES: { [string]: boolean } = { x = true, y = true }
+local SIZINGS: { [string]: boolean } = { fill = true, hug = true }
 
--- THE TWO CONTAINER SHAPES, hoisted so the memo below returns a STABLE table
+-- THE THREE CONTAINER SHAPES, hoisted so the memos below return a STABLE table
 -- rather than a fresh one per evaluation (a dimension compared by identity would
 -- otherwise re-solve on every read).
 --
@@ -162,8 +218,29 @@ local AXES: { [string]: boolean } = { x = true, y = true }
 --   rail  the VERTICAL pill: as wide as its widest segment and no wider (f1's
 --         left rail), floored at the tap target because an icon-only rail's
 --         natural width is a glyph — measured at 36px, which is under it.
+--   hug   `sizing = "hug"` (D5): the band takes its NATURAL width, uncapped, so
+--         it can be wider than the offer and a scroll host has something to
+--         scroll. `content`, never `hug`-the-solver-word: a capped width can
+--         never report that it did not fit (the reference shells' own
+--         ViewThatFits finding), and an overflowing strip is precisely the case
+--         that has to.
 local BAND_WIDTH = table.freeze({ type = "fill", weight = 1 })
 local RAIL_WIDTH = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
+local NATURAL_WIDTH = table.freeze({ type = "content" })
+-- ...and the two SEGMENT shapes. `fill` is what makes every segment the same
+-- size — it divides the band and stretches each segment to the rail's resolved
+-- width — while a hugging strip's segments take their own words' widths, which
+-- is what makes "For you" wider than "Charts" and what the D4 indicator was
+-- built to travel between (two rects, never two indices).
+local SEGMENT_FILL = table.freeze({ type = "fill", weight = 1 })
+local SEGMENT_NATURAL = table.freeze({ type = "content" })
+local SEGMENT_HEIGHT = table.freeze({ type = "minMax", min = "targetSizes.minimum" })
+local OVERLAY_FILL = table.freeze({ type = "fill", weight = 1 })
+-- the count seal's own box. Both numbers are theme SPACING steps, so a package
+-- published before this existed answers them and a theme that retunes its
+-- spacing retunes the badge with it (the `selection_indicator` precedent).
+local BADGE_BOX = table.freeze({ type = "minMax", min = "l" })
+local BADGE_PAD = table.freeze({ left = "xs", right = "xs" })
 
 -- the adaptive rule, pure and exported so a caller can predict it
 function picker.resolvePresentation(optionCount: number, sizeClass: string?, longestLabel: number): string
@@ -193,7 +270,20 @@ local PICKER_KEYS = specGuard.keySet({
 	"presentation",
 	"selected",
 	"sizeClass",
+	"sizing",
 })
+
+-- read a Readable-or-plain value, subscribing when a `use` is in hand. BOTH
+-- reactive kinds, exactly as `selection_indicator.readValue` does and for the
+-- same reason: `axis`/`sizing` arrive as a Signal from a test and as a MEMO from
+-- a TabView whose placement is derived, and reading only one kind hands the
+-- caller back the node itself.
+local function readValue(source: any, use: any?): any
+	if type(source) == "table" and ((source :: any).kind == "signal" or (source :: any).kind == "memo") then
+		return if use ~= nil then use(source) else (source :: any):get()
+	end
+	return source
+end
 
 function picker.build(LuauUI: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newPicker", spec, PICKER_KEYS, "spec")
@@ -228,11 +318,33 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 		then indicatorRequest
 		elseif requested == "inline" then "none"
 		else "pill"
-	local segmentedAxis = spec.axis or "x"
-	if not AXES[segmentedAxis] then
+	-- `axis` and `sizing` may each be a plain string or a Readable (see the Spec
+	-- comments). The CURRENT value of a Readable is validated here too, so a typo
+	-- is still an authoring error rather than a wrong edge — but a later unknown
+	-- value degrades to the default rather than throwing from inside a memo,
+	-- which is `selection_indicator.axisNow`'s own tolerance for a reactive enum.
+	local axisSource = if spec.axis == nil then "x" else spec.axis
+	local function axisNow(use: any?): string
+		local value = readValue(axisSource, use)
+		return if AXES[value] then value else "x"
+	end
+	if not AXES[readValue(axisSource)] then
 		error(
-			`LuauUI newPicker('{id}'): unknown axis '{tostring(segmentedAxis)}'. One of x | y. `
+			`LuauUI newPicker('{id}'): unknown axis '{tostring(readValue(axisSource))}'. One of x | y. `
 				.. '`axis = "y"` is the VERTICAL segmented pill; the stacked row list is `presentation = "inline"`.',
+			0
+		)
+	end
+	local sizingSource = if spec.sizing == nil then "fill" else spec.sizing
+	local function sizingNow(use: any?): string
+		local value = readValue(sizingSource, use)
+		return if SIZINGS[value] then value else "fill"
+	end
+	if not SIZINGS[readValue(sizingSource)] then
+		error(
+			`LuauUI newPicker('{id}'): unknown sizing '{tostring(readValue(sizingSource))}'. One of fill | hug. `
+				.. "`fill` divides the offer among the segments (and therefore can never overflow); `hug` gives "
+				.. "the band and every segment its natural width, which is what an overflowing tab strip is.",
 			0
 		)
 	end
@@ -243,17 +355,41 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	-- `iconOnly` needs something to draw.
 	local longest = 0
 	local iconCount = 0
+	local badgeCount = 0
+	-- LABEL SNAPSHOT. A bound label is validated and MEASURED at its current
+	-- value: `resolvePresentation` takes a longest-label number, which is a
+	-- build-time fact by contract (it decides the presentation, and a presentation
+	-- that re-derived itself from every keystroke of a locale flip would be a
+	-- second adaptive authority beside `sizeClass`). The DRAWN label stays fully
+	-- bound; only this measurement is a snapshot, and that is said out loud here
+	-- rather than discovered.
+	local function labelNow(option: any): any
+		return readValue(option.label)
+	end
 	for index, option in spec.options do
 		if type(option) ~= "table" then
 			error(`LuauUI newPicker('{id}'): option {index} must be a table of value / label / optional icon`, 0)
 		end
-		if type(option.label) ~= "string" or option.label == "" then
+		local labelText = labelNow(option)
+		if type(labelText) ~= "string" or labelText == "" then
 			error(
 				`LuauUI newPicker('{id}'): option {index} needs a non-empty \`label\`. It is the SEMANTIC name — `
 					.. "what `dump().semanticText` announces and what an icon-only segment has instead of "
 					.. "readable text. An icon with no name is unreadable to every non-visual consumer.",
 				0
 			)
+		end
+		if option.badge ~= nil then
+			local badgeText = readValue(option.badge)
+			if type(badgeText) ~= "string" and type(badgeText) ~= "number" then
+				error(
+					`LuauUI newPicker('{id}'): option {index}'s \`badge\` must be a string or a number (or a `
+						.. "Readable of one) — the COUNT the seal shows. An empty one hides the plate rather "
+						.. "than painting an empty bubble.",
+					0
+				)
+			end
+			badgeCount += 1
 		end
 		if option.icon ~= nil then
 			if type(option.icon) ~= "string" or option.icon == "" then
@@ -265,7 +401,7 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 			end
 			iconCount += 1
 		end
-		longest = math.max(longest, #option.label)
+		longest = math.max(longest, #labelText)
 	end
 	if iconCount > 0 and iconCount < #spec.options then
 		error(
@@ -305,6 +441,48 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 		return picker.resolvePresentation(#spec.options, readSizeClass(use), longest)
 	end))
 
+	-- ONE class with a reactive axis, so a presentation flip is a re-solve and the
+	-- option buttons keep their identity, focus and state (the A-AL2 rule).
+	-- `axis = "y"` on the SEGMENTED presentation is the vertical PILL; `inline` is
+	-- a column by definition and ignores it.
+	local axis = scope:own(core:memo(function(use)
+		return if use(presentation) == "segmented" then axisNow(use) else "y"
+	end))
+
+	-- ...and the fact `axis` alone CANNOT express, because the vertical pill and
+	-- the inline row list both answer "y". Two names for two facts is the whole
+	-- guard against confusing them; it also drives the container shape below and
+	-- is reported by `dump()`.
+	local verticalPill = scope:own(core:memo(function(use)
+		return use(presentation) == "segmented" and axisNow(use) == "y"
+	end))
+
+	-- the RAIL hugs (floored at the tap target); a HUGGING band takes its natural
+	-- width; the filling band and the row list take the offer. Reactive because
+	-- all three inputs are: an adaptive picker that flips out of segmented must
+	-- give the offer back, and a tab bar that moves from a bottom band to a
+	-- centered cluster must stop filling — a build-time width would leave a 44px
+	-- column standing where a full-width row list belongs.
+	local groupWidth = scope:own(core:memo(function(use)
+		if use(verticalPill) then
+			return RAIL_WIDTH
+		end
+		return if sizingNow(use) == "hug" then NATURAL_WIDTH else BAND_WIDTH
+	end))
+
+	-- the SEGMENT's own width, and it is a different question from the group's.
+	-- On the rail this is the CROSS axis, where `fill` is what makes every segment
+	-- share the rail's one resolved width; in a filling band it is the main axis,
+	-- where `fill` divides the offer equally. Only a HUGGING band lets a segment
+	-- take its own word's width — which is what makes "For you" wider than
+	-- "Charts", and what a strip has to do before it can overflow at all.
+	local segmentWidth = scope:own(core:memo(function(use)
+		if use(verticalPill) then
+			return SEGMENT_FILL
+		end
+		return if sizingNow(use) == "hug" then SEGMENT_NATURAL else SEGMENT_FILL
+	end))
+
 	-- the contract's one reading of `enabled` (a one-shot read: never subscribes)
 	local function isEnabled(): boolean
 		return controlContract.enabledNow(spec.enabled)
@@ -332,60 +510,87 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 		local optionId = "Opt" .. i
 		byId[optionId] = option.value
 		table.insert(segments, { value = option.value, id = optionId })
-		table.insert(
-			rows,
-			UI.Button({
-				id = optionId,
-				-- ALWAYS the semantic name, whatever gets drawn (the row_actions
-				-- ruling): `dump().semanticText` reads it, and the renderer's own
-				-- icon branch keeps it as the announced name when the glyph wins.
-				label = option.label,
-				-- `prefer = true` INVERTS which representation is the default —
-				-- the tray reading; without it the glyph is only the degrade, the
-				-- menu-row reading. See the header for why this is a group call.
-				compactLabel = if option.icon == nil
-					then nil
-					elseif iconOnly then { icon = option.icon, prefer = true }
-					else { icon = option.icon },
-				enabled = spec.enabled,
-				surface = if slides then "plain" else nil,
-				selected = if slides
-					then nil
-					else scope:own(core:memo(function(use)
-						return use(selected) == option.value
-					end)),
-				-- CROSS-AXIS ON THE RAIL, main-axis in the band. Either way `fill`
-				-- is what makes every segment the same size: it divides the band,
-				-- and it stretches each segment to the rail's resolved width.
-				width = { type = "fill", weight = 1 },
-				height = { type = "minMax", min = "targetSizes.minimum" },
-			})
-		)
+		local badged = option.badge ~= nil
+		local button = UI.Button({
+			id = optionId,
+			-- ALWAYS the semantic name, whatever gets drawn (the row_actions
+			-- ruling): `dump().semanticText` reads it, and the renderer's own
+			-- icon branch keeps it as the announced name when the glyph wins.
+			label = option.label,
+			-- `prefer = true` INVERTS which representation is the default —
+			-- the tray reading; without it the glyph is only the degrade, the
+			-- menu-row reading. See the header for why this is a group call.
+			compactLabel = if option.icon == nil
+				then nil
+				elseif iconOnly then { icon = option.icon, prefer = true }
+				else { icon = option.icon },
+			enabled = spec.enabled,
+			surface = if slides then "plain" else nil,
+			selected = if slides
+				then nil
+				else scope:own(core:memo(function(use)
+					return use(selected) == option.value
+				end)),
+			-- inside a badge wrapper the Button FILLS the cell, so the cell's own
+			-- width (the reactive one) is the single place the segment's size is
+			-- decided and the two can never disagree
+			width = if badged then SEGMENT_FILL else segmentWidth,
+			height = if badged then OVERLAY_FILL else SEGMENT_HEIGHT,
+		})
+		if not badged then
+			table.insert(rows, button)
+		else
+			-- THE COUNT SEAL. A DECORATION, never a second activation site: a Text
+			-- and a ZStack are neither focusable (focus_map.FOCUSABLE is Button /
+			-- Toggle / TextField) nor interactive, so the engine still delivers the
+			-- press to the Button underneath — the `p4_foyer` badgeBubble shape,
+			-- and the reason it is a sibling rather than a Button child.
+			local badgeText = scope:own(core:memo(function(use)
+				local raw = readValue(option.badge, use)
+				return if raw == nil then "" else tostring(raw)
+			end))
+			local badgeEmpty = scope:own(core:memo(function(use)
+				return use(badgeText) == ""
+			end))
+			table.insert(
+				rows,
+				UI.ZStack({
+					id = optionId .. "Cell",
+					width = segmentWidth,
+					height = SEGMENT_HEIGHT,
+					children = {
+						button,
+						UI.ZStack({
+							id = "Badge",
+							alignH = "end",
+							alignV = "start",
+							width = OVERLAY_FILL,
+							height = OVERLAY_FILL,
+							children = {
+								UI.Text({
+									id = "Count",
+									surface = "badge",
+									text = badgeText,
+									-- an EMPTY count hides the plate rather than
+									-- painting an empty bubble; `hidden` is a bound
+									-- prop, so a count that arrives later simply
+									-- appears without a structural change
+									hidden = badgeEmpty,
+									textSize = "caption",
+									textAlign = "center",
+									lineLimit = 1,
+									width = BADGE_BOX,
+									height = BADGE_BOX,
+									padding = BADGE_PAD,
+									corners = UI.cornersData("pill"),
+								}),
+							},
+						}),
+					},
+				})
+			)
+		end
 	end
-
-	-- ONE class with a reactive axis, so a presentation flip is a re-solve and the
-	-- option buttons keep their identity, focus and state (the A-AL2 rule).
-	-- `axis = "y"` on the SEGMENTED presentation is the vertical PILL; `inline` is
-	-- a column by definition and ignores it.
-	local axis = scope:own(core:memo(function(use)
-		return if use(presentation) == "segmented" then segmentedAxis else "y"
-	end))
-
-	-- ...and the fact `axis` alone CANNOT express, because the vertical pill and
-	-- the inline row list both answer "y". Two names for two facts is the whole
-	-- guard against confusing them; it also drives the container shape below and
-	-- is reported by `dump()`.
-	local verticalPill = scope:own(core:memo(function(use)
-		return use(presentation) == "segmented" and segmentedAxis == "y"
-	end))
-
-	-- the RAIL hugs (floored at the tap target); the band and the row list fill.
-	-- Reactive because `verticalPill` is: an adaptive picker that flips out of
-	-- segmented must give the offer back, and a build-time width would leave a
-	-- 44px column standing where a full-width row list belongs.
-	local groupWidth = scope:own(core:memo(function(use)
-		return if use(verticalPill) then RAIL_WIDTH else BAND_WIDTH
-	end))
 
 	local group = UI.AdaptiveStack({
 		id = "Options",
@@ -448,6 +653,15 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 	local api = {}
 	api.blueprint = built
 	api.presentation = presentation
+	--[[ THE ID THIS STRIP GAVE EACH OPTION, as `{ value, id }` pairs — the exact
+		table the D4 indicator is handed, published because D5's TabView needs the
+		same answer for a different job: `controller.scrollToVisible` takes a mounted
+		PATH, and finding the node for a selection value means walking the mounted
+		tree for that id. String arithmetic on "Opt1" is the assumption that breaks
+		silently the day this control's internals move, so the id is published
+		rather than guessed. Frozen: it describes what was built, and a caller that
+		edited it would be editing what the indicator resolves against. ]]
+	api.segments = table.freeze(segments)
 
 	-- STILL SCHEMA /1 AFTER D6, deliberately. D6 only ADDS fields: every field
 	-- that shipped keeps its name, its type and its meaning, so every reader
@@ -461,7 +675,11 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 		local chosenIcon: string? = nil
 		for _, option in spec.options do
 			if option.value == current then
-				chosenLabel = option.label
+				-- READ LIVE, never the build-time snapshot: a bound label is what
+				-- the reference shells use to carry a terse thumb-zone name, and a
+				-- dump that announced the name it was born with would report the
+				-- wrong word for the whole second half of the session
+				chosenLabel = labelNow(option)
 				chosenIcon = option.icon
 			end
 		end
@@ -485,6 +703,12 @@ function picker.build(LuauUI: any, core: any, spec: Spec)
 			indicator = if indicatorApi ~= nil then indicatorApi.state() else "none",
 			iconOnly = iconOnly,
 			iconCount = iconCount,
+			-- D5: what the band is doing with its offer, and how many segments
+			-- carry a count. `sizing` is the field a report of "the tab strip does
+			-- not scroll" wants first — a `fill` strip cannot overflow, so it can
+			-- never have anything to scroll.
+			sizing = sizingNow(),
+			badgeCount = badgeCount,
 			selectedLabel = chosenLabel,
 			selectedIcon = chosenIcon,
 			-- ALWAYS the label, never the glyph: an icon-only segment's whole

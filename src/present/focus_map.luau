@@ -607,6 +607,69 @@ local function linkGridBoundaries(groups: { any })
 	end
 end
 
+--[[ IS THIS NODE A HORIZONTAL RUN OF FOCUSABLES? One predicate, because the
+	answer is asked in THREE places — the contribution-aware `autoGroups`, the
+	layout-only `layoutGroups`, and the `hasHorizontalStructure` gate that decides
+	whether the second one engages at all — and it was written three times as
+	`node.class == "HStack"`.
+
+	AN `AdaptiveStack` CURRENTLY RUNNING ALONG X IS ONE TOO (found by
+	navigation-and-menus D5, and it was a SHIPPED defect rather than a new one).
+	`AdaptiveStack` exists so a row/column flip is a re-solve and not a remount,
+	which is exactly why every adaptive row of controls the framework builds is
+	one — `newPicker`'s segmented option strip, and therefore `newTabView`'s tab
+	strip, are both `AdaptiveStack`s. Matching on `HStack` alone left every one of
+	them navigating VERTICALLY on a pad: the wings of a tab bar answered Up/Down,
+	and Right walked straight out of the band into the page underneath it.
+
+	THE AXIS IS READ LIVE, because it is a bound prop by construction; a
+	build-time read would pin the group to whichever shape the first frame
+	happened to be. A stack on "y" is deliberately NOT a horizontal run — the flat
+	vertical ring is already the right answer for it, and many tests depend on
+	that ring being byte-identical.
+
+	ONE HONEST LIMIT, measured rather than assumed. The presenter caches the whole
+	derivation against the renderer's STRUCTURE EPOCH (`presenter.luau`'s
+	`focusDerivation`), so an axis flip with no other consequence does not
+	re-derive until the next structural change. Both shipped flips DO change
+	structure and were checked live: a Picker resolving `segmented -> inline`
+	re-derives (horizontal -> vertical), and a TabView re-homing from `bottomBar`
+	to `sidebar` re-derives (horizontal -> vertical), because both move mounted
+	nodes. A caller that binds `axis` to a bare signal and changes nothing else
+	keeps the previous group for one structural beat. ]]
+local function isHorizontalRun(node: any): boolean
+	if node.class == "HStack" then
+		return true -- byte-identical to the rule that shipped
+	end
+	if node.class ~= "AdaptiveStack" then
+		return false
+	end
+	local axis = node.props and node.props.axis
+	if type(axis) == "table" and (axis.kind == "signal" or axis.kind == "memo") then
+		axis = (axis :: any):get()
+	end
+	if axis ~= "x" then
+		return false
+	end
+	--[[ …AND IT MUST ACTUALLY BE A RUN, which is where the `HStack` rule got away
+		with not asking. An adaptive stack is ALSO how a construct flips a whole
+		SCREEN between arrangements — `newTabView`'s root is one, holding a tab
+		strip on one side of a content region — and calling that a horizontal group
+		would put the bar's wings and the page's controls in one left/right ring
+		with nothing left for up/down.
+
+		A RUN IS A NODE NO CHILD OF WHICH HOLDS MORE THAN ONE FOCUSABLE. It is
+		exact rather than a heuristic: a strip of segments has one focusable per
+		child however each is wrapped (a badged tab wears a cell around its
+		Button), and a container of REGIONS has a child holding several. ]]
+	for _, child in node.children or {} do
+		if focusableCount(child) > 1 then
+			return false
+		end
+	end
+	return true
+end
+
 local function autoGroups(rootNode: any): { any }
 	local groups: { any } = {}
 	local pending: { string } = {}
@@ -646,7 +709,7 @@ local function autoGroups(rootNode: any): { any }
 			emitGridGroups(node, groups)
 			return
 		end
-		if node.class == "HStack" and focusableCount(node) >= 2 and not subtreeHasFocusGroups(node) then
+		if isHorizontalRun(node) and focusableCount(node) >= 2 and not subtreeHasFocusGroups(node) then
 			flush()
 			local cells: { string } = {}
 			collectFocusables(node, cells)
@@ -688,7 +751,7 @@ end
 -- does the tree contain an HStack or Grid holding >=2 focusables? (the engage
 -- gate: only then do we derive groups; else the flat ring is preserved exactly)
 local function hasHorizontalStructure(node: any): boolean
-	if (node.class == "HStack" or node.class == "Grid") and focusableCount(node) >= 2 then
+	if (isHorizontalRun(node) or node.class == "Grid") and focusableCount(node) >= 2 then
 		return true
 	end
 	for _, child in node.children or {} do
@@ -731,7 +794,7 @@ local function layoutGroups(rootNode: any): { any }
 			emitGridGroups(node, groups)
 			return -- focusables consumed by the grid block
 		end
-		if node.class == "HStack" and focusableCount(node) >= 2 then
+		if isHorizontalRun(node) and focusableCount(node) >= 2 then
 			flushVertical()
 			local cells: { string } = {}
 			collectFocusables(node, cells)
