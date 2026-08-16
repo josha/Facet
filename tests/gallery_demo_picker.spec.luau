@@ -14,9 +14,9 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty-three fixtures", function()
+	it("lists every tutorial example plus the twenty-five fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(30)
+		expect(#demos).toBe(32)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -101,7 +101,14 @@ describe("showcase catalogue", function()
 		-- reason none of the others are: its three panes are not drawn by LuauUI at
 		-- all, so it is the only demo where "does the framework render this" is the
 		-- wrong question and "does the box hold it" is the right one.
-		expect(fixtures).toBe(22)
+		-- ...and TWENTY-FOUR since round 3's O-30 (2026-08-15): `async-images` and
+		-- `canvas-group`. Both are the `lifecycle-hidden` defect one round later —
+		-- `newAsyncImage` and `canvasGroup` were exercised by fixtures and reference
+		-- proofs and reachable from this list by nothing, so in the shipped place a
+		-- player could not select either capability at all. `async_images` already
+		-- existed and only ever ran under a sweep; `canvas_group` is new, because the
+		-- fade group had no fixture whose SUBJECT it was.
+		expect(fixtures).toBe(25)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -525,6 +532,12 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 				env = w.env,
 				actionSystem = w.system,
 				presenter = w.presenter,
+				-- the one engine seam the minimal ctx carries, because a fixture in
+				-- this catalogue calls it at BUILD (`async_images`, round-3 O-30);
+				-- the shipped host binds the real ContentProvider transport here
+				bindResourceTransport = function()
+					return function() end
+				end,
 			})
 			-- SPY ON THE SEAM, not on a re-implementation of it: whatever the host
 			-- loop below hands `present` is what the presenter receives
@@ -548,7 +561,7 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(23)
+		expect(fixtures).toBe(25)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -628,5 +641,291 @@ describe("showcase host: the delivered opts CHANGE the surface (row_actions)", f
 		-- and it is not the literal by accident: this pane is far shorter than 336
 		expect(pane.rect.h < LITERAL).toBe(true)
 		expect(w.core:lastError()).toBeNil()
+	end)
+end)
+
+-- ===== THE HOST LOOP, PART TWO: a fixture's NATIVE-SCROLL MIRROR must be bound
+-- (found live in Studio 2026-08-15) ==========================================
+--
+-- The same failure family as the `present`-opts defect above, one branch later.
+-- A virtualized collection cannot reach the render controller at build time, so
+-- the CONSUMER wires `bindNativeScroll(handle.controller)` after `present` — and
+-- the loop that does it lived in the tutorial branch and the single-demo path
+-- and NOT in the fixture branch. Without it `scrollTop` is written by nothing:
+-- the engine moves its canvas and the control never hears, so the mounted window
+-- stays pinned on its first line while the player flings a list that does not
+-- move. Measured in the showcase place: an engine scroll to y=2000 left
+-- `virtual_grid`'s window still showing `c1..c16`.
+--
+-- FIVE picker demos were dead on that path — `virtual_grid`, `virtual_hgrid`,
+-- `variable_extents`, `measured_extents`, `table_virtualized`. The four that
+-- worked bind themselves from `presenter.onTick`, which is why every device pass
+-- so far drove a fixture that happened to be in the working half.
+--
+-- Three cases, because each alone is how the omission survived: the BINDING is
+-- checked generically over the whole catalogue, the CONSEQUENCE is measured on
+-- the two spellings of the seam (flat on a grid, under `api` on a Table), and
+-- the SHIPPED SOURCE is audited for the loop in all three of its demo branches.
+
+-- THE SHIPPED FIXTURE BRANCH, transcribed (init.client.luau `mountDemo`): build
+-- with the minimal ctx, present with the fixture's own opts, then bind every
+-- published control that rides the engine canvas. `foreign` is the host's other
+-- post-present pass and is irrelevant here, so it is not modelled.
+local function nativeScrollBinderOf(value: any): ((controller: any) -> any)?
+	if type(value) ~= "table" then
+		return nil
+	end
+	if type(value.bindNativeScroll) == "function" then
+		return value.bindNativeScroll
+	end
+	if type(value.api) == "table" and type(value.api.bindNativeScroll) == "function" then
+		return value.api.bindNativeScroll
+	end
+	return nil
+end
+
+local function hostMountFixture(w: any, module: string, bind: boolean): any
+	local scenario = require(`../examples/gallery/scenarios/{module}`) :: any
+	local built = scenario.build({
+		LuauUI = LuauUI,
+		core = w.core,
+		env = w.env,
+		actionSystem = w.system,
+		presenter = w.presenter,
+		-- the one runner-owned seam a catalogue fixture calls at BUILD
+		-- (`async_images`); the sweep's rig hands it the same stub
+		bindResourceTransport = function()
+			return function() end
+		end,
+	})
+	built.handle = w.presenter.present(built.screen, built.present)
+	if bind then
+		for _, value in built :: any do
+			local binder = nativeScrollBinderOf(value)
+			if binder ~= nil then
+				binder(built.handle.controller)
+			end
+		end
+	end
+	return built
+end
+
+describe("showcase host: the fixture branch binds the native-scroll mirror", function()
+	it("every catalogue fixture that rides the engine canvas gets its mirror bound", function()
+		local riders: { string } = {}
+		local bound = 0
+		for _, demo in demo_picker.list() do
+			if demo.kind ~= "fixture" then
+				continue
+			end
+			local w = pickerWorld({ x = 0, y = 0, w = 400, h = 700 })
+			-- SPY ON THE SEAM the bind uses, not on a re-implementation of it:
+			-- `bindNativeScroll` registers `controller.observeScroll(path, cb)`, so a
+			-- registration IS the mirror existing
+			local built = hostMountFixture(w, demo.module, false)
+			local controller = built.handle.controller
+			local realObserve = controller.observeScroll
+			local observed: { string } = {}
+			controller.observeScroll = function(path: string, cb: any)
+				table.insert(observed, path)
+				return realObserve(path, cb)
+			end
+
+			local hasRider = false
+			for _, value in built :: any do
+				local binder = nativeScrollBinderOf(value)
+				if binder ~= nil then
+					hasRider = true
+					binder(controller)
+				end
+			end
+			if hasRider then
+				table.insert(riders, demo.module)
+				expect(`{demo.id}: observeScroll registrations {#observed > 0}`).toBe(
+					`{demo.id}: observeScroll registrations true`
+				)
+				bound += 1
+			end
+			expect(w.core:lastError()).toBeNil()
+		end
+		-- a count, so that a catalogue whose controls all stopped publishing
+		-- themselves cannot make this case pass by testing nothing
+		expect(`{bound} riders: {table.concat(riders, ",")}`).toBe(`{bound} riders: {table.concat(riders, ",")}`)
+		expect(bound >= 5).toBe(true)
+	end)
+
+	it("the lazy grid's window follows an engine scroll — the live defect, headless", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 400, h = 700 })
+		local built = hostMountFixture(w, "virtual_grid", true)
+		w.presenter.refresh()
+		local first = built.grid.dump().window[1]
+		expect(first).toBe("c1")
+		local path = built.grid.scrollPath()
+		expect(path).never().toBeNil()
+		-- THE ENGINE MOVES ITS CANVAS. Without the host's bind nothing observes it
+		-- and the window below stays on `c1` — which is exactly what the showcase
+		-- place did at y=2000.
+		w.adapter.driveScroll(path, { x = 0, y = 2000 })
+		w.presenter.refresh()
+		local after = built.grid.dump()
+		if after.window[1] == first then
+			error(
+				`the engine scrolled to y=2000 and the mounted window still starts at '{first}' `
+					.. "— the native-scroll mirror is not bound (examples/gallery/client/init.client.luau, "
+					.. "fixture branch)",
+				0
+			)
+		end
+		expect(after.scrollTop).toBe(2000)
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	it("...and the virtualized Table's, which publishes the seam under `api`", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 400, h = 700 })
+		local built = hostMountFixture(w, "table_virtualized", true)
+		w.presenter.refresh()
+		local path = built.table_.api.scrollPath()
+		expect(path).never().toBeNil()
+		w.adapter.driveScroll(path, { x = 0, y = 1200 })
+		w.presenter.refresh()
+		-- `dump` is flat on a Table while `bindNativeScroll` is under `api` — the
+		-- two spellings the host's binder probe exists for
+		expect(built.table_.dump().scrollTop).toBe(1200)
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	--[[ THE MINIMAL CTX IS A CONTRACT, and this is the half a headless world
+		cannot mount: every rig here hands fixtures a STUB `bindResourceTransport`,
+		so a host that stopped passing the real one would be invisible to all of
+		them and would take the pcall in `show()` on the device instead —
+		`async_images` calls that seam at BUILD, not in a step. Read from the source
+		because `init.client.luau` reaches engine globals at load. ]]
+	it("the shipped host's minimal ctx carries the seam a catalogue fixture calls at build", function()
+		local source = fs.readFile("examples/gallery/client/init.client.luau")
+		expect(string.find(source, "bindResourceTransport = function", 1, true) ~= nil).toBe(true)
+		-- ...and it is the REAL transport, not a stub the host quietly kept
+		expect(string.find(source, "client.roblox_resources", 1, true) ~= nil).toBe(true)
+		-- the claim above is only true while a fixture in the catalogue reads it
+		local callers = 0
+		for _, demo in demo_picker.list() do
+			if demo.kind == "fixture" then
+				local text = fs.readFile(`examples/gallery/scenarios/{demo.module}.luau`)
+				if string.find(text, "ctx.bindResourceTransport", 1, true) ~= nil then
+					callers += 1
+				end
+			end
+		end
+		expect(`catalogue fixtures reading ctx.bindResourceTransport: {callers >= 1}`).toBe(
+			"catalogue fixtures reading ctx.bindResourceTransport: true"
+		)
+	end)
+
+	-- the source is the contract for the half a headless world cannot mount
+	it("the shipped host runs the auto-bind loop in every demo branch", function()
+		local source = fs.readFile("examples/gallery/client/init.client.luau")
+		local _, calls = string.gsub(source, "nativeScrollBinderOf%(value%)", "")
+		-- three branches mount a demo and three must bind: the picker's FIXTURE
+		-- branch (this section's defect), the picker's tutorial branch, and the
+		-- single-example path further down the file
+		expect(calls).toBe(3)
+	end)
+end)
+
+-- ===== THE FADE GROUP FIXTURE (round-3 O-30) ================================
+--
+-- `canvas_group` is the only surface in the catalogue whose subject is
+-- `canvasGroup`/`opacity`, and its whole demonstration is a DIFFERENCE between
+-- two declarations that read almost identically. So the cases below assert the
+-- difference at the seam the engine actually has: how many CanvasGroups the
+-- adapter was asked to create, and what transparency each carries.
+--
+-- The fixture also captures the framework's REFUSAL at build rather than quoting
+-- it, which is a live read of `blueprint_schema`'s message — if that message
+-- changes, this reddens, and that is correct: the panel would be showing the old
+-- sentence to a player.
+
+describe("showcase fixture: one fade group, or three (canvas_group)", function()
+	local FIXTURE = "canvas_group"
+
+	local function groupsOf(w: any): { [string]: number }
+		local out: { [string]: number } = {}
+		for _, path in w.adapter.paths() do
+			local node = w.adapter.node(path)
+			if node ~= nil and node.canvasGroupInstance ~= nil then
+				out[path] = node.canvasGroupInstance.groupTransparency
+			end
+		end
+		return out
+	end
+
+	it("the left panel is ONE engine CanvasGroup and the right panel is three", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
+		local built = hostMountFixture(w, FIXTURE, true)
+		w.presenter.refresh()
+		local groups = groupsOf(w)
+		-- the fade is on the STACK on the left: one buffer over three plates
+		expect(groups["/CanvasGroup/Page/Panels/One/OneGroup"]).never().toBeNil()
+		-- ...and on each PLATE on the right: three buffers, and the stack that
+		-- holds them is NOT one, which is what makes the overlaps compose twice
+		expect(groups["/CanvasGroup/Page/Panels/Many/ThreeGroups"]).toBeNil()
+		local perPlate = 0
+		for path in groups do
+			if string.find(path, "/ThreeGroups/", 1, true) ~= nil then
+				perPlate += 1
+			end
+		end
+		expect(`per-plate fade groups: {perPlate}`).toBe("per-plate fade groups: 3")
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	it("...and every one of them carries the opacity the chips set", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
+		local built = hostMountFixture(w, FIXTURE, true)
+		w.presenter.refresh()
+		-- the fixture opens on the third stop (0.4), so transparency is 0.6
+		expect(groupsOf(w)["/CanvasGroup/Page/Panels/One/OneGroup"]).toBe(0.6)
+		built.opacity:set(1)
+		w.presenter.refresh()
+		local opaque = groupsOf(w)
+		for path, transparency in opaque do
+			expect(`{path} at opacity 1 -> {transparency}`).toBe(`{path} at opacity 1 -> 0`)
+		end
+		built.opacity:set(0.15)
+		w.presenter.refresh()
+		local faded = groupsOf(w)["/CanvasGroup/Page/Panels/Many/ThreeGroups/FrontGroup"]
+		expect(math.abs((faded :: number) - 0.85) < 0.0001).toBe(true)
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	it("the transition panel declares the group and writes no opacity of its own", function()
+		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
+		local built = hostMountFixture(w, FIXTURE, true)
+		w.presenter.refresh()
+		built.showFading:set(true)
+		w.presenter.refresh()
+		local path = "/CanvasGroup/Page/Transition/FadingGate/then/FadingPanel"
+		expect(w.adapter.node(path)).never().toBeNil()
+		-- it IS a CanvasGroup — a fading form needs the arriving node to already be
+		-- one — and the transition owns the alpha, so the fixture never writes it
+		expect(groupsOf(w)[path]).never().toBeNil()
+		expect(w.core:lastError()).toBeNil()
+	end)
+
+	it("the refusal on screen is the framework's own sentence, captured at build", function()
+		local scenario = require(`../examples/gallery/scenarios/{FIXTURE}`) :: any
+		local w = pickerWorld({ x = 0, y = 0, w = 900, h = 800 })
+		local built = scenario.build({
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			actionSystem = w.system,
+			presenter = w.presenter,
+		})
+		-- it names the class it was reached for, says the prop is refused rather
+		-- than missing, and names the one line that works (ADR-0029)
+		expect(string.find(built.refusal, "'opacity' is REFUSED on UI.Text", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.refusal, "not missing", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.refusal, "UI.ZStack{ opacity = 0.4", 1, true) ~= nil).toBe(true)
+		expect(built.report().refusalNamesTheClass).toBe(true)
 	end)
 end)

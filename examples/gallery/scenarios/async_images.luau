@@ -47,12 +47,30 @@ return {
 			padding = 16,
 			gap = 12,
 			children = {
-				UI.Text({ id = "Title", text = "Async images (PreloadAsync transport)", textSize = 22 }),
-				UI.Text({ id = "Status", text = statusLine, textSize = 14 }),
-				UI.HStack({
-					id = "Row",
+				-- THE PAGE SCROLLS, and it did not until this fixture entered the demo
+				-- picker (round-3 O-30). A title at 22pt, a status line and a row of
+				-- thumbnails came to 25px more than a 640x320 landscape phone has, and
+				-- 143px more under the largest text preference — a recorded, waived
+				-- overflow for as long as the only thing that mounted this was a sweep.
+				-- A surface a player can select does not get to overflow, so the waiver
+				-- and its themed ledger row are deleted rather than re-recorded.
+				UI.ScrollView({
+					id = "Page",
+					axis = "y",
 					gap = 12,
-					children = { imgs[1].blueprint, imgs[2].blueprint, imgs[3].blueprint },
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.Text({ id = "Title", text = "Async images (PreloadAsync transport)", textSize = 22 }),
+						UI.Text({ id = "Status", text = statusLine, textSize = 14 }),
+						UI.HStack({
+							id = "Row",
+							gap = 12,
+							wrap = true,
+							width = { type = "fill", weight = 1 },
+							children = { imgs[1].blueprint, imgs[2].blueprint, imgs[3].blueprint },
+						}),
+					},
 				}),
 			},
 		})

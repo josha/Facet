@@ -211,6 +211,14 @@ local ORDER = {
 	-- nothing. A fourth button adopts a `Part` and puts the framework's own
 	-- refusal on screen verbatim. Also in `demo_picker.DEMOS`.
 	"foreign_content",
+	-- ...and the FADE GROUP (ADR-0026/ADR-0029, round-3 O-30). `canvasGroup` and
+	-- its reactive twin `opacity` were exercised by six `sponsor_*` fixtures and
+	-- `p2_cartwheel` and demonstrated by none of them — nothing in the picker
+	-- reached the prop at all, so in the shipped place the capability existed only
+	-- behind a workspace attribute. It is the one demonstration here a still
+	-- screenshot CAN hold: the same three plates and the same value, faded as one
+	-- picture beside faded one plate at a time. Also in `demo_picker.DEMOS`.
+	"canvas_group",
 }
 
 local scenarios = {}

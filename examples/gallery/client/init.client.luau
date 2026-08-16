@@ -372,6 +372,21 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 						return foreignInstances.adopt(demoHandle.controller, nodePath, content)
 					end,
 				},
+				--[[ THE RESOURCE TRANSPORT, the runner's other engine-owned seam
+					(NS-A13, `scenarios/runner.luau`). A scenario stays engine-free, so
+					the host is what hands it `ContentProvider:PreloadAsync` — and
+					`async_images` calls this at BUILD, not in a step, which is why the
+					seam has to be in the minimal ctx rather than deferred.
+
+					It is here because `async-images` joined the picker (round-3 O-30):
+					`newAsyncImage` was demonstrated by a fixture no player could select.
+					Without this the demo would take the pcall in `show()` and warn.
+					`sponsor_avatars` reads the same seam and degrades honestly when it is
+					absent, which is what a headless run still exercises. ]]
+				bindResourceTransport = function(provider: any): () -> ()
+					local transport = require(ReplicatedStorage.LuauUI.client.roblox_resources) :: any
+					return transport.bind(provider)
+				end,
 			})
 			--[[ A FIXTURE'S `present` OPTS ARE PART OF THE FIXTURE (C2, 2026-08-12).
 				This dropped the second argument, so every `present` table a fixture
@@ -391,6 +406,46 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				what `present(screen)` meant before. ]]
 			built.handle = pres.present(built.screen, built.present)
 			demoHandle = built.handle
+			--[[ THE NATIVE-SCROLL MIRROR, WHICH THIS BRANCH NEVER BOUND (measured live
+				in Studio 2026-08-15, showcase place, `virtual_grid`: an engine scroll to
+				`CanvasPosition.Y = 2000` left the mounted window still showing `c1..c16`).
+
+				THE SAME OMISSION, A THIRD TIME. A virtualized collection cannot reach the
+				render controller at build, so the CONSUMER wires `bindNativeScroll` after
+				`present` — and the loop that does it existed in the tutorial branch below
+				and in the single-demo path, and nowhere here. Without it `scrollTop` is
+				written by nothing: the engine moves its canvas, the control never hears,
+				and the window stays pinned on its first line while the player flings a
+				list that visibly does not move.
+
+				FIVE PICKER DEMOS WERE DEAD ON THIS PATH, not one — `virtual_grid`,
+				`virtual_hgrid`, `variable_extents`, `measured_extents` and
+				`table_virtualized` all publish their control flat (or under `api`) and
+				bind nowhere else. The four that worked (`card_rail`, `row_actions`,
+				`sponsor_list`, `sponsor_drop`) bind themselves from `presenter.onTick`,
+				which is why the defect was invisible in the fixtures a device pass drove.
+				`scenarios/virtual_grid.luau:318-321` publishes `grid` in as many words
+				"for the showcase host's native-scroll auto-bind" — against a loop that
+				did not exist for fixtures.
+
+				It is the same shape as the `present`-opts defect eleven lines above (C2)
+				and the `foreign` seam below it: the fixture branch keeps arriving at a
+				capability the runner, the sweep and the tutorial branch already have. The
+				general fix — making the omission impossible or loud in the CONTROL — is
+				booked as a framework defect (`ui_todo.md`, "the bind you can forget"),
+				because it belongs in the presenter's contribution seam and not in a
+				showcase host.
+
+				A DOUBLE BIND IS HARMLESS AND A MISSING ONE IS NOT: a fixture that also
+				binds itself ends with two `observeScroll` callbacks writing the same
+				position into the same signal. The unbind is owned by the demo's scope, so
+				it is released when the player picks the next demo. ]]
+			for _, value in built :: any do
+				local bind = nativeScrollBinderOf(value)
+				if bind ~= nil then
+					demoScope:own(bind(built.handle.controller))
+				end
+			end
 			-- ...and the DECLARED half, the exact parallel of the runner's
 			-- post-present pass (ADR-0034): whatever `built.foreignContent` names is
 			-- adopted now, and the per-node status is kept so a fixture can report it

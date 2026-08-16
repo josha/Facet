@@ -342,6 +342,27 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "foreign_content",
 	},
+	-- ...and the two the round-3 owed ledger's O-30 named: a piece of public API is
+	-- not shipped because a fixture somewhere calls it, it is shipped when a player
+	-- can reach it. `newAsyncImage` was exercised by the `async_images` scenario
+	-- and five reference/sponsor surfaces and `canvasGroup` by six `sponsor_*`
+	-- fixtures and `p2_cartwheel` — and NO entry in this list reached either, so in
+	-- the shipped place both were selectable by workspace attribute and by nothing
+	-- a player can do. That is the same defect `lifecycle-hidden` above records.
+	{
+		id = "async-images",
+		title = "Async images",
+		blurb = "Three thumbnails over the real transport: placeholder, ready, and one that fails",
+		kind = "fixture",
+		module = "async_images",
+	},
+	{
+		id = "canvas-group",
+		title = "One fade, or three",
+		blurb = "Three plates, one opacity: faded as a single picture, then one plate at a time",
+		kind = "fixture",
+		module = "canvas_group",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",
