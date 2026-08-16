@@ -252,6 +252,20 @@ enough with a real finger on a divider between two tap targets that both do
 something"* — which is a genuinely open question this framework has never
 measured, and worth an explicit answer either way.
 
+**IT IS NOT A TABLE BUG — measured 2026-08-15 across 48 shipped scenarios on a
+real `screen_target` (`artifacts/hit-expander-overhang/corpus-measurement.md`).**
+86 hit expanders, **82 overhang relations**, and the same defect is live and
+unreported in two more fixtures: `virtual_list_native` (row `Hit` 20px tall,
+±12px of its 44px floor belongs to the adjacent row) and `keyboard_navigation`
+(`Row1..Row12`, ±4px). Nobody noticed because a miss there lands on a plausible
+neighbour; in the Table a miss sorts a column the player never touched.
+
+**The paint-reorder worry is dead: 0 of those 82 lift-relations have painted
+rects that intersect.** The rule ships unqualified across all four `minHitSize`
+classes, with one qualifier that IS required — outrank non-expander siblings
+only, leaving expander-vs-expander to host z order (two 44px floors overlap each
+other; measured on `hud` host `R1`, 5%).
+
 **Instrument note for whoever picks this up.** The showcase was unusable as a
 live instrument on 2026-08-15: `LuauUIShowcaseAPI.showNext` *returns* the
 advanced demo id (`surface-overlap`, `sorted-entries`) while a subsequent
