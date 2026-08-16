@@ -407,6 +407,10 @@ local SCENARIOS = {
 	-- text preference. That combination (rigid plates, an AdaptiveStack that flips
 	-- axis, and a growing block of copy) is what the swept cross product is for
 	"canvas_group",
+	-- ADR-0035: the Background Transparency fixture. Three swatches and five
+	-- setting chips that wrap, plus a fixed 300px dialog card — the two shapes a
+	-- 320px phone with the +14 text preference squeezes hardest
+	"preferred_transparency",
 }
 
 local EXAMPLES = {
