@@ -1,0 +1,49 @@
+/goal Execute the nested instance tree migration for LuauUI, per the binding brief at
+GameStudio/ui/LuauUI/docs/plans/nested-instance-tree-brief.md. Read it in full first, then
+docs/adr/ADR-0032-nested-instance-tree.md — the ADR is the authority for the decision, the
+measurements, the staged order and the implementation sketch.
+
+DECIDED, NOT OPEN: the user ruled on 2026-08-15 that nesting ships before first release.
+Execute it; do not re-litigate it.
+
+PERFORMANCE PROFILING BELONGS TO THIS ROUND, and is not a prerequisite for starting.
+Nesting changes the profile, so do NOT profile the flat tree first — those captures
+describe code this round deletes. The ADR's arrange win (flat O(N): 0.0145 / 0.0625 /
+0.2556 ms at N=50/200/800; nested O(1): 0.00022 ms at every N) is LUAU-SIDE ONLY — the
+engine still walks descendants in C++ and the frame instrument saturated at 66.7 ms in
+every arm. A real end-to-end frame number, ideally on device, is a DELIVERABLE. When a
+stage is ready to measure, hand the user a note naming the exact workload, which button,
+and what the status line must read before they spend the dump.
+
+TESTS TO RUN at the end of every stage — all green before moving on:
+  cd GameStudio/ui/LuauUI
+  lune run tests/run                            # expect 5530+ passed / 0 failed
+  python3 tools/check_source_size.py            # PASS, KNOWN_OVER empty
+  lune run tools/lune/check_registration_cli    # PASS
+  lune run tools/lune/check_surface_ledger      # PASS
+  lune run tools/lune/check_prop_parity_cli
+  lune run tools/lune/check_docs
+  lune run tools/lune/check_theme_drift
+  lune run tools/lune/check_example_drift_cli
+  stylua --check src tests examples
+  cd ../../../games/RascalRally/code && lune run tests/run   # expect 3262+ / 0
+Plus the GuiObject count against the 43%-elided baseline at every stage — a silent elision
+regression is the likeliest way this round does net harm.
+
+COMMIT with tools/commit_isolated.py, never a bare `git commit`: a stale shared index
+silently reverts other agents' work (measured). Never git reset / checkout / stash / add -A.
+
+Work in stages that each ship green: tests red first, then the change, then the suites,
+then a commit. No big-bang renderer rewrite.
+
+RASCAL RALLY needs no source changes — surveyed, zero raw-tree access and zero
+parenting-dependent tests — but owes a contract test and a Studio canary. It is its own git
+repo at games/RascalRally/code.
+
+Report tiered: headless is a regression signal only, Studio is the real engine, a physical
+device is the only device claim. State the A/A control spread before any delta. Flag
+anything gesture-related for a physical-device pass — Studio's simulator cannot test touch.
+
+Run with Opus orchestrating, sonnet/opus work subagents, haiku for read-only exploration.
+Expect the core migration to be one agent working in stages; parallelise only the demos,
+the docs, the Rascal Rally rider and the measurement harness.
