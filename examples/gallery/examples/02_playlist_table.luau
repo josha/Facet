@@ -314,7 +314,23 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- slot at all and reads the same whatever is on screen.
 	-- ...and it BAKES, for the reason `bakeManualOrder` states: a "put this first"
 	-- that a live sort undoes in the same frame is a button that lies.
+	--
+	-- CHECK BEFORE YOU BAKE. The guard below used to sit AFTER the loop, which was
+	-- correct when the loop only read — but baking WRITES, so a call naming a track
+	-- that is not in the playlist would have dropped the player's sort on the way to
+	-- doing nothing. "A manual reorder clears the sort" has to mean a reorder that
+	-- actually happens.
 	local function moveToTop(id: string)
+		local present = false
+		for _, track in baseRows:get() :: { any } do
+			if track.id == id then
+				present = true
+				break
+			end
+		end
+		if not present then
+			return
+		end
 		local moved, rest = nil, {}
 		for _, track in bakeManualOrder() do
 			if track.id == id then
@@ -322,9 +338,6 @@ function example.build(LuauUI: any, core: any, deps: any)
 			else
 				table.insert(rest, track)
 			end
-		end
-		if moved == nil then
-			return
 		end
 		table.insert(rest, 1, moved)
 		baseRows:set(rest)
@@ -336,6 +349,12 @@ function example.build(LuauUI: any, core: any, deps: any)
 	local function reorder(keys: { string }, toIndex: number)
 		if filterText:get() ~= "" then
 			return -- a filter is active: moves are disabled, and the sort stays
+		end
+		if #keys == 0 then
+			-- ...and a drop carrying nothing is not a reorder either, so it does not
+			-- get to clear the sort on its way to rewriting the same array (same
+			-- reason as `moveToTop`'s presence check above)
+			return
 		end
 		local moving, staying = {}, {}
 		local movingSet: { [string]: boolean } = {}

@@ -79,6 +79,13 @@ commands — `reorder` (the Table's `onReorder`) and `moveToTop` (the leading sw
 action). `removeTrack` deliberately does **not** bake: deleting a row from a sorted
 list leaves a sorted list.
 
+**The guard runs before the bake**, and that is a defect this stage found in its own
+first draft rather than a design note. Baking *writes*, so a `moveToTop` naming a
+track already removed — or a drop carrying no keys — would have dropped the player's
+sort on the way to doing nothing at all. "A manual reorder clears the sort" has to
+mean a reorder that actually happens. One case covers both shapes, and **both
+mutations** (deleting either guard) redden it by name.
+
 The composition it rests on is the derivation order: **sort is a derivation over
 the source, filter is a derivation over the sorted view.** Filtering first would
 leave the full ordered list existing nowhere, and both "move to top" and the bake
@@ -97,7 +104,7 @@ two tracks share the artist "Nine Volt" precisely so that is observable.
 
 | Was | Now |
 |---|---|
-| `tests/table_columns.spec.luau` (19 cases, 6 `describe` blocks) | `tests/playlist_columns.spec.luau` (**37 cases**, 11 blocks), registered in `tests/run.luau` |
+| `tests/table_columns.spec.luau` (19 cases, 6 `describe` blocks) | `tests/playlist_columns.spec.luau` (**38 cases**, 11 blocks), registered in `tests/run.luau` |
 | `tests/hit_expander_overhang.spec.luau:43` **required the scenario module** | requires `examples/gallery/examples/02_playlist_table`; header root `/TableColumns/TablePane/Entrants/Main/Header` → `/Playlist/Page/Tracks/Main/Header`; neighbour column `team` → `artist`; a second `mountExample` helper carries the example's different build signature |
 | `tests/scroll_window_clip.spec.luau:59` cited it by name | re-pointed with the rename recorded |
 | `tests/measure_publish_settle.spec.luau:419` cited it by name | re-pointed with the rename recorded |
@@ -151,7 +158,7 @@ a sort a pad cannot perform.
 | Command | Result |
 |---|---|
 | `lune run tests/run` (LuauUI) | **5685 passed**, 4 failed — all four are another agent's in-flight `SelectionIndicator` (D4); zero D8 failures |
-| `lune run tests/run_one playlist_columns` | **37 passed / 0 failed** |
+| `lune run tests/run_one playlist_columns` | **38 passed / 0 failed** |
 | `lune run tests/run_one examples_gallery` | 135 passed / 0 failed |
 | `lune run tests/run_one hit_expander_overhang` | 5 passed / 0 failed |
 | `lune run tests/run_one gallery_demo_picker` | 37 passed / 0 failed |

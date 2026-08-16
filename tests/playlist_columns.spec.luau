@@ -524,6 +524,30 @@ describe("playlist sort: a manual reorder wins, and takes the sort with it", fun
 		w.built.dispose()
 	end)
 
+	it("a reorder that does not happen does not clear the sort either", function()
+		--[[ THE ORDER OF THE GUARD AND THE BAKE. Baking WRITES, so a command that
+			checks its own preconditions after baking would drop the player's sort on
+			its way to doing nothing at all. Two shapes: a Top naming a track that has
+			already been removed, and a drop carrying no keys. Neither is a reorder,
+			so neither gets to clear the sort. ]]
+		local w = world()
+		w.built.table_.api.handleActivate(`{HEADER}/Head-name/Column`, { source = "pointer" })
+		w.pres.refresh()
+		local before = ids(w, w.built.baseRows)
+		w.built.moveToTop("a-track-that-is-not-in-the-playlist")
+		w.built.reorder({}, 3)
+		w.pres.refresh()
+		expect(w.built.sortOrder:get().column).toBe("name")
+		expect(ids(w, w.built.baseRows)).toBe(before)
+		-- THE POSITIVE CONTROL: the same two commands, given real arguments in the
+		-- same session, DO bake — otherwise "nothing happened" is equally explained
+		-- by a bake that stopped working
+		w.built.moveToTop("turbo")
+		w.pres.refresh()
+		expect(w.built.sortOrder:get()).toBeNil()
+		w.built.dispose()
+	end)
+
 	it("reordering is still REFUSED under a filter, sort or no sort", function()
 		-- the shipped rule (a drop's meaning against the HIDDEN rows is ambiguous,
 		-- so we refuse rather than guess) is unchanged by the sort, and the sort is
