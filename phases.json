@@ -1,246 +1,254 @@
 {
- "schema": "luauui-phases/1",
- "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md#17",
- "gateStates": [
-  "PASS",
-  "FAIL_RECOVERABLE",
-  "FAIL_OPTIONAL",
-  "FAIL_ENVIRONMENT",
-  "BLOCKED_CRITICAL"
- ],
- "artifactRoot": "artifacts",
- "phases": [
-  {
-   "gate": "phase-0-foundation",
-   "title": "Contracts, tooling, and feasibility",
-   "specSection": "17 Phase 0",
-   "artifactDir": "artifacts/phase-0",
-   "gateArtifact": "artifacts/phase-0/gate.json",
-   "next": "phase-1-minimal-screen"
-  },
-  {
-   "gate": "phase-1-minimal-screen",
-   "title": "Minimal production-shaped screen slice",
-   "specSection": "17 Phase 1",
-   "artifactDir": "artifacts/phase-1",
-   "gateArtifact": "artifacts/phase-1/gate.json",
-   "next": "phase-2-settings-parity"
-  },
-  {
-   "gate": "phase-2-settings-parity",
-   "title": "Settings parity port behind runtime flag (old Settings stays default; never deleted by the autonomous build)",
-   "specSection": "17 Phase 2",
-   "artifactDir": "artifacts/phase-2",
-   "gateArtifact": "artifacts/phase-2/gate.json",
-   "next": "phase-3-pilot"
-  },
-  {
-   "gate": "phase-3-pilot",
-   "title": "First production pilot (card management vs garage, selected by rubric)",
-   "specSection": "17 Phase 3",
-   "artifactDir": "artifacts/phase-3",
-   "gateArtifact": "artifacts/phase-3/gate.json",
-   "next": "part-2-director"
-  },
-  {
-   "gate": "part-2-director",
-   "title": "Director Part-2 workstreams: Table Phase B, Edit-mode preview harness, BillboardTarget, first game Table surface",
-   "specSection": "director direction 2026-07-19 (ADR-0007 B, ADR-0008)",
-   "artifactDir": "artifacts/part-2",
-   "gateArtifact": "artifacts/part-2/gate.json",
-   "next": "phase-4-hardening"
-  },
-  {
-   "gate": "phase-4-hardening",
-   "title": "Hardening: fuzzing, fault injection, virtualization/navigation/a11y-l10n, perf runner, semver, error boundaries, engine styling, agentic maintainability, documentation",
-   "specSection": "17 Phase 4",
-   "artifactDir": "artifacts/phase-4",
-   "gateArtifact": "artifacts/phase-4/gate.json",
-   "next": null
-  },
-  {
-   "gate": "input-adaptation-audit",
-   "title": "Input auto-adaptation audit + closure: every control ships focus/navigation, Activate, and input-appropriate affordances for pointer, touch, keyboard, and gamepad with no consumer wiring (ui_todo \u00a70 held automatically; \u00a73 engine truths encoded)",
-   "specSection": "ui_todo.md \u00a70/\u00a73 (director 2026-07-20) + design \u00a79",
-   "artifactDir": "artifacts/input-adaptation-audit",
-   "gateArtifact": "artifacts/input-adaptation-audit/gate.json",
-   "next": null
-  },
-  {
-   "gate": "expansion-textinput",
-   "title": "Phase-5 expansion: UI.TextInput \u2014 signal-backed value model + engine TextBox adapter with capability detection, text-entry-mode handshake, occlusion keep-visible; examples 01/02 upgraded",
-   "specSection": "17 Phase 5 expansion rules + ui_todo.md \u00a70/\u00a71 (director 2026-07-20)",
-   "artifactDir": "artifacts/expansion-textinput",
-   "gateArtifact": "artifacts/expansion-textinput/gate.json",
-   "next": "input-paradigms"
-  },
-  {
-   "gate": "input-paradigms",
-   "title": "Interaction-paradigm expansion: three adaptation axes (UI/input/paradigm), hybrid + hot-switch, console 10-foot",
-   "specSection": "prompt.md 'Expansion: input paradigms' (2026-07-21)",
-   "artifactDir": "artifacts/input-paradigms",
-   "gateArtifact": "artifacts/input-paradigms/gate.json",
-   "next": "native-substrate"
-  },
-  {
-   "gate": "native-substrate",
-   "title": "Roblox-native substrate adoption (roadmap Step 1): corrected native capability matrix with evidence; ScrollingFrame scroll/clip host, UIDragDetector, native touch events, Path2D, UIPageLayout decision, four-edge safe areas, single-application preferred text, modal-only selection bridge, PreloadAsync transport \u2014 deterministic decisions stay headless",
-   "specSection": "docs/plans/luauui-consolidated-roadmap.md Step 1 + docs/plans/roblox-native-audit-corrections.md",
-   "artifactDir": "artifacts/native-substrate",
-   "gateArtifact": "artifacts/native-substrate/gate.json",
-   "next": "native-stylesheets"
-  },
-  {
-   "gate": "native-stylesheets",
-   "title": "Roblox-native StyleSheets as the runtime styling source of truth (roadmap Step 2): DataModel sheet + Style Editor own every proven styleable paint property, semantic role, native interaction state, app-state tag, theme, and transition; state-as-tags, one authority per property with explicit-write fallback as a separate target mode; layout solver inputs stay headless Luau",
-   "specSection": "docs/plans/roblox-native-stylesheets.md (Rev 2) + docs/plans/roblox-native-audit-corrections.md \u00a75-\u00a79 + docs/plans/fable-execution-contract.md \u00a79 stage 2",
-   "artifactDir": "artifacts/native-stylesheets",
-   "gateArtifact": "artifacts/native-stylesheets/gate.json",
-   "next": null
-  },
-  {
-   "gate": "authoring-adaptive-ui",
-   "title": "Trustworthy authoring, then adaptive layout and the common controls (roadmap Step 3)",
-   "specSection": "docs/plans/swiftui-parity-next.md Milestones 0, A, B",
-   "artifactDir": "artifacts/authoring-adaptive-ui",
-   "gateArtifact": "artifacts/authoring-adaptive-ui/gate.json",
-   "next": null
-  },
-  {
-   "gate": "theme-packages-and-skinning",
-   "title": "Public versioned theme packages, metric-aware swapping, and bounded rich skinning (roadmap Step 3.5): one ThemePackage contract around native StyleSheets, one frozen metric snapshot shared by solver and adapter, font-aware measurement, an honest Style Editor sync workflow, bounded chrome recipes/decoration slots, and Fantasy Parchment as the public-API proof theme",
-   "specSection": "docs/plans/theme-packages-and-skinning.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/theme-packages-and-skinning",
-   "gateArtifact": "artifacts/theme-packages-and-skinning/gate.json",
-   "next": null
-  },
-  {
-   "gate": "rich-skinning-v2",
-   "title": "Rich skinning v2 \u2014 fully image-driven UI (director direction from the Step 3.5 TP-P3 review): image-is-the-element posture, layered decoration slots, per-state asset variants at both customization rungs, image value-displays, semantic icons, pixel-art mode, Content adoption, profile-conditional selectBy package selection, the tile decision, toggle slots, and the SwiftUI customization ladder \u2014 consuming the ADR-0019 contract, never reopening it",
-   "specSection": "docs/plans/rich-skinning-v2.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/rich-skinning-v2",
-   "gateArtifact": "artifacts/rich-skinning-v2/gate.json",
-   "next": "cross-platform-proof"
-  },
-  {
-   "gate": "cross-platform-proof",
-   "title": "Cross-platform performance proof and the future spatial seam: production-shaped scenes, evidence-class separation, the reusable Studio five-view driver, and spatial contracts with no VR claim",
-   "specSection": "roadmap Step 4 (docs/plans/luauui-consolidated-roadmap.md); swiftui-parity-next.md investment 10",
-   "artifactDir": "artifacts/cross-platform-proof",
-   "gateArtifact": "artifacts/cross-platform-proof/gate.json",
-   "next": "sponsor-framework-gaps"
-  },
-  {
-   "gate": "sponsor-framework-gaps",
-   "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture \u2014 proven in a Sponsor-shaped gallery with no game policy in LuauUI",
-   "specSection": "roadmap Step 5 (docs/plans/luauui-consolidated-roadmap.md); docs/reference/sponsor-view-parity.md re-audited 2026-07-27",
-   "artifactDir": "artifacts/sponsor-framework-gaps",
-   "gateArtifact": "artifacts/sponsor-framework-gaps/gate.json",
-   "next": "code-simplicity-cleanup"
-  },
-  {
-   "gate": "code-simplicity-cleanup",
-   "title": "Fresh-context simplicity cleanup (roadmap Step 5.5): a behaviour-preserving audit that deletes proved waste, consolidates duplicated decisions at one owner, and dispositions every Step 5 carry-over \u2014 with unchanged public API, deprecations, property authority, theme/Sponsor mechanisms, Studio behaviour, lifecycle/resource counts, and headless performance",
-   "specSection": "docs/plans/code-simplicity-cleanup.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/code-simplicity-cleanup",
-   "gateArtifact": "artifacts/code-simplicity-cleanup/gate.json",
-   "next": "api-architecture-consistency"
-  },
-  {
-   "gate": "api-architecture-consistency",
-   "title": "API and architecture constitution (roadmap Step 7): one example-backed rule set governing the whole public surface; complete surface ledger with every public item classified as a named pattern or justified exception; compatible fixes and ADR-0011 deprecations only; agent-friendly enforcement checks and a fresh-author exercise through the canonical extension path",
-   "specSection": "docs/plans/api-architecture-consistency.md + docs/plans/agent-execution-contract.md",
-   "artifactDir": "artifacts/api-architecture-consistency",
-   "gateArtifact": "artifacts/api-architecture-consistency/gate.json",
-   "next": "desktop-keyboard-navigation"
-  },
-  {
-   "gate": "desktop-keyboard-navigation",
-   "title": "Desktop keyboard focus-chain behavior (roadmap Step 8): Tab/Shift+Tab traversal of the existing focus graph, Space alongside Return as Activate, and focused-value-control arrow Adjust \u2014 bound through the Input Action System only while an interactive responder owns UI input and keyboard capability is live, with passive HUD and gameplay input untouched",
-   "specSection": "docs/plans/desktop-keyboard-navigation.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/desktop-keyboard-navigation",
-   "gateArtifact": "artifacts/desktop-keyboard-navigation/gate.json",
-   "next": "traversal-document-order"
-  },
-  {
-   "gate": "traversal-document-order",
-   "title": "Tab traverses in document order, and the focus chain is inspectable (roadmap Step 8 follow-up): a focusable Grip stops being deferred to the end of the LINEAR order while the directional arrows keep the deferral unchanged; one focus map read two ways via a presenter-supplied rank; a new public `traversalPriority` sort tier and a `handle.focusOrder()` inspection dump",
-   "specSection": "docs/plans/traversal-document-order.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/traversal-document-order",
-   "gateArtifact": "artifacts/traversal-document-order/gate.json",
-   "next": "large-text-accessibility"
-  },
-  {
-   "gate": "large-text-accessibility",
-   "title": "The player's PreferredTextSize as a first-class layout input (roadmap Step 8.5): measured per-preference offsets applied exactly once and live-updating without remount; the reflow -> scroll -> bounded-truncation-with-full-value-access overflow order across the public surface; text/overlap/hit-floor/focus-visibility diagnostics; the Rascal Rally Sponsor View proved at all four values on compact mobile portrait and landscape",
-   "specSection": "docs/plans/large-text-accessibility.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/large-text-accessibility",
-   "gateArtifact": "artifacts/large-text-accessibility/gate.json",
-   "next": "performance-stress-places"
-  },
-  {
-   "gate": "performance-stress-places",
-   "title": "Publish-ready LuauUI performance stress place and repeatable profiling loop (roadmap Step 9): a self-contained examples/places/LuauUI-PerformanceLab.rbxl that opens without Rojo, a deterministic scenario registry centred on a dense interactive virtualized list with a matched raw-Roblox reference, flat-versus-ornate theme cost, large-text/long-content reflow, bounded virtualization, low-cardinality MicroProfiler phase scopes, safe ramp/emergency stop, clean-capture mode and idle teardown \u2014 with Lune, Studio, emulator and physical Android evidence kept separately labelled",
-   "specSection": "docs/plans/performance-stress-places.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/performance-stress-places",
-   "gateArtifact": "artifacts/performance-stress-places/gate.json",
-   "next": "example-quality-pass"
-  },
-  {
-   "gate": "example-quality-pass",
-   "title": "Tutorial gallery quality pass (roadmap Step 10): all seven tutorial examples understandable and playable in Studio WITHOUT reading their source \u2014 one designed LuauUI product sharing the native-StyleSheet property authority, adapting across the canonical five views and the supported input paradigms, with deterministic reset paths, a complete Wordle-like word game, a visibly taught optimistic-sync lesson, played-and-corrected tile and match-3 games, an ownership ledger proving examples hold domain/content plus declarative composition while reusable fixes live behind public LuauUI APIs, and standalone places that rebuild",
-   "specSection": "docs/plans/example-quality-pass.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
-   "artifactDir": "artifacts/example-quality-pass",
-   "gateArtifact": "artifacts/example-quality-pass/gate.json",
-   "next": "swiftui-reference-app-validation"
-  },
-  {
-   "gate": "swiftui-reference-app-validation",
-   "title": "Clean-room reference-app proofs (Apple Backyard Birds / Food Truck / Fruta + Roblox app home & avatar editor) with honest feature ledgers",
-   "specSection": "docs/plans/swiftui-reference-app-validation.md",
-   "artifactDir": "artifacts/swiftui-reference-app-validation",
-   "gateArtifact": "artifacts/swiftui-reference-app-validation/gate.json",
-   "next": "row-actions"
-  },
-  {
-   "gate": "row-actions",
-   "title": "SwiftUI-parity row swipe actions: newRowActions/newRowActionsCoordinator + Table rowActions, full cross-input coverage (touch/mouse/keyboard/gamepad/edit-mode), with the perf gate re-baselined to Task 11b's measured mount-dominated numbers (director ruling 2026-08-11) and the closure path tracked as a follow-up mission",
-   "specSection": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
-   "artifactDir": "artifacts/row-actions",
-   "gateArtifact": "artifacts/row-actions/gate.json",
-   "next": "swiftui-parity-round2"
-  },
-  {
-   "gate": "swiftui-parity-round2",
-   "title": "SwiftUI parity round 2: presenter.withAnimation at the presentation layer, the everyday layout vocabulary (distribute, layoutPriority x shrinkWeight, lineAlign, GridRow + gridSpan, containerRelativeFrame, VirtualList axis), indeterminate indicators + Spinner, UI.sensoryFeedback over the semantic bus with a default-off haptics adapter, Table onPrimaryAction across four inputs, every round-2 API reachable in a gallery scenario the suite executes headlessly, the parity doc rewritten as one cited falsifiable draft, and a fast test tier - registered AFTER the mission closed, which is itself the finding: M1/M2/M3 all ran with no stage for tools/gate.sh to run",
-   "specSection": "docs/plans/swiftui-parity-round2-brief.md (binding scope) + docs/plans/swiftui-parity-round2.md (per-phase design)",
-   "artifactDir": "artifacts/swiftui-parity-round2",
-   "gateArtifact": "artifacts/swiftui-parity-round2/gate.json",
-   "next": "declarative-3d-architecture"
-  },
-  {
-   "gate": "declarative-3d-architecture",
-   "title": "Declarative 3D architecture decision: whether and how the studio builds a declarative fine-grained-reactive system for Roblox Parts/Models - a reviewed plain-language ADR (LuauUI extension vs sibling-with-shared-kernel vs independent system vs no build) backed by an isolated disproof spike with topology, lifecycle, and cost evidence. PASS means the decision is proved, not that LuauUI supports 3D; the stage merges nothing into LuauUI, extracts no core, and starts no production package",
-   "specSection": "docs/plans/declarative-3d-architecture.md",
-   "artifactDir": "artifacts/declarative-3d-architecture",
-   "gateArtifact": "artifacts/declarative-3d-architecture/gate.json",
-   "next": "swiftui-parity-round3"
-  },
-  {
-   "gate": "swiftui-parity-round3",
-   "title": "SwiftUI parity round 3: flow-wrap as a native arrange branch (`wrap` on HStack/VStack, the hwrap/vwrap solver kinds, the first cross-axis overflow diagnostic in the repo); the custom `Layout` protocol evaluated and recorded as a conditional refusal with a named trigger; per-row capability opt-outs (rowSelectable/rowMovable/rowDeletable) gated at the funnel across Table and newVirtualList; circular progress in BOTH forms on Path2D; the five clean-room reference apps re-proved against the new vocabulary; the completeness audit's ranked gaps (onAppear/onDisappear/hidden) plus the four capabilities that already shipped and were never rowed; the showcase chrome restructured so keyboard and gamepad reach it AND the demo, with the reduced-motion settings surface it unblocked; an accessibility-text-size axis on the always-on sweeps; the lying-itemExtent guard; and one viewport change coalesced from five solves to one - registered after the fact, as round 2 was, and with every device claim carried as an explicit PENDING row rather than asserted",
-   "specSection": "docs/plans/swiftui-parity-round3-brief.md (binding scope) + docs/plans/swiftui-parity-round3.md (the per-phase record of what shipped)",
-   "artifactDir": "artifacts/swiftui-parity-round3",
-   "gateArtifact": "artifacts/swiftui-parity-round3/gate.json",
-   "next": "swiftui-parity-round4"
-  },
-  {
-   "gate": "swiftui-parity-round4",
-   "title": "SwiftUI parity round 4: two-dimensional focus (ADR-0030), time-based easing (ADR-0033), the foreign-instance seam (ADR-0034), preferred transparency (ADR-0035), the hit-expander z rule, UI.When's branch scope, UI.sortedEntries, the tint-fill tag, the zstack hugging-margin fix, the native-scroll auto-bind, appChromeRects and the screen gutter, and the two framework comparison documents",
-   "specSection": "docs/adr/ADR-0030, ADR-0033, ADR-0034, ADR-0035; registered after the fact 2026-08-16",
-   "artifactDir": "artifacts/swiftui-parity-round4",
-   "gateArtifact": "artifacts/swiftui-parity-round4/gate.json",
-   "next": null
-  }
- ]
+  "schema": "luauui-phases/1",
+  "source": "docs/superpowers/specs/2026-07-19-luauui-crossplatform-ui-design.md#17",
+  "gateStates": [
+    "PASS",
+    "FAIL_RECOVERABLE",
+    "FAIL_OPTIONAL",
+    "FAIL_ENVIRONMENT",
+    "BLOCKED_CRITICAL"
+  ],
+  "artifactRoot": "artifacts",
+  "phases": [
+    {
+      "gate": "phase-0-foundation",
+      "title": "Contracts, tooling, and feasibility",
+      "specSection": "17 Phase 0",
+      "artifactDir": "artifacts/phase-0",
+      "gateArtifact": "artifacts/phase-0/gate.json",
+      "next": "phase-1-minimal-screen"
+    },
+    {
+      "gate": "phase-1-minimal-screen",
+      "title": "Minimal production-shaped screen slice",
+      "specSection": "17 Phase 1",
+      "artifactDir": "artifacts/phase-1",
+      "gateArtifact": "artifacts/phase-1/gate.json",
+      "next": "phase-2-settings-parity"
+    },
+    {
+      "gate": "phase-2-settings-parity",
+      "title": "Settings parity port behind runtime flag (old Settings stays default; never deleted by the autonomous build)",
+      "specSection": "17 Phase 2",
+      "artifactDir": "artifacts/phase-2",
+      "gateArtifact": "artifacts/phase-2/gate.json",
+      "next": "phase-3-pilot"
+    },
+    {
+      "gate": "phase-3-pilot",
+      "title": "First production pilot (card management vs garage, selected by rubric)",
+      "specSection": "17 Phase 3",
+      "artifactDir": "artifacts/phase-3",
+      "gateArtifact": "artifacts/phase-3/gate.json",
+      "next": "part-2-director"
+    },
+    {
+      "gate": "part-2-director",
+      "title": "Director Part-2 workstreams: Table Phase B, Edit-mode preview harness, BillboardTarget, first game Table surface",
+      "specSection": "director direction 2026-07-19 (ADR-0007 B, ADR-0008)",
+      "artifactDir": "artifacts/part-2",
+      "gateArtifact": "artifacts/part-2/gate.json",
+      "next": "phase-4-hardening"
+    },
+    {
+      "gate": "phase-4-hardening",
+      "title": "Hardening: fuzzing, fault injection, virtualization/navigation/a11y-l10n, perf runner, semver, error boundaries, engine styling, agentic maintainability, documentation",
+      "specSection": "17 Phase 4",
+      "artifactDir": "artifacts/phase-4",
+      "gateArtifact": "artifacts/phase-4/gate.json",
+      "next": null
+    },
+    {
+      "gate": "input-adaptation-audit",
+      "title": "Input auto-adaptation audit + closure: every control ships focus/navigation, Activate, and input-appropriate affordances for pointer, touch, keyboard, and gamepad with no consumer wiring (ui_todo \u00a70 held automatically; \u00a73 engine truths encoded)",
+      "specSection": "ui_todo.md \u00a70/\u00a73 (director 2026-07-20) + design \u00a79",
+      "artifactDir": "artifacts/input-adaptation-audit",
+      "gateArtifact": "artifacts/input-adaptation-audit/gate.json",
+      "next": null
+    },
+    {
+      "gate": "expansion-textinput",
+      "title": "Phase-5 expansion: UI.TextInput \u2014 signal-backed value model + engine TextBox adapter with capability detection, text-entry-mode handshake, occlusion keep-visible; examples 01/02 upgraded",
+      "specSection": "17 Phase 5 expansion rules + ui_todo.md \u00a70/\u00a71 (director 2026-07-20)",
+      "artifactDir": "artifacts/expansion-textinput",
+      "gateArtifact": "artifacts/expansion-textinput/gate.json",
+      "next": "input-paradigms"
+    },
+    {
+      "gate": "input-paradigms",
+      "title": "Interaction-paradigm expansion: three adaptation axes (UI/input/paradigm), hybrid + hot-switch, console 10-foot",
+      "specSection": "prompt.md 'Expansion: input paradigms' (2026-07-21)",
+      "artifactDir": "artifacts/input-paradigms",
+      "gateArtifact": "artifacts/input-paradigms/gate.json",
+      "next": "native-substrate"
+    },
+    {
+      "gate": "native-substrate",
+      "title": "Roblox-native substrate adoption (roadmap Step 1): corrected native capability matrix with evidence; ScrollingFrame scroll/clip host, UIDragDetector, native touch events, Path2D, UIPageLayout decision, four-edge safe areas, single-application preferred text, modal-only selection bridge, PreloadAsync transport \u2014 deterministic decisions stay headless",
+      "specSection": "docs/plans/luauui-consolidated-roadmap.md Step 1 + docs/plans/roblox-native-audit-corrections.md",
+      "artifactDir": "artifacts/native-substrate",
+      "gateArtifact": "artifacts/native-substrate/gate.json",
+      "next": "native-stylesheets"
+    },
+    {
+      "gate": "native-stylesheets",
+      "title": "Roblox-native StyleSheets as the runtime styling source of truth (roadmap Step 2): DataModel sheet + Style Editor own every proven styleable paint property, semantic role, native interaction state, app-state tag, theme, and transition; state-as-tags, one authority per property with explicit-write fallback as a separate target mode; layout solver inputs stay headless Luau",
+      "specSection": "docs/plans/roblox-native-stylesheets.md (Rev 2) + docs/plans/roblox-native-audit-corrections.md \u00a75-\u00a79 + docs/plans/fable-execution-contract.md \u00a79 stage 2",
+      "artifactDir": "artifacts/native-stylesheets",
+      "gateArtifact": "artifacts/native-stylesheets/gate.json",
+      "next": null
+    },
+    {
+      "gate": "authoring-adaptive-ui",
+      "title": "Trustworthy authoring, then adaptive layout and the common controls (roadmap Step 3)",
+      "specSection": "docs/plans/swiftui-parity-next.md Milestones 0, A, B",
+      "artifactDir": "artifacts/authoring-adaptive-ui",
+      "gateArtifact": "artifacts/authoring-adaptive-ui/gate.json",
+      "next": null
+    },
+    {
+      "gate": "theme-packages-and-skinning",
+      "title": "Public versioned theme packages, metric-aware swapping, and bounded rich skinning (roadmap Step 3.5): one ThemePackage contract around native StyleSheets, one frozen metric snapshot shared by solver and adapter, font-aware measurement, an honest Style Editor sync workflow, bounded chrome recipes/decoration slots, and Fantasy Parchment as the public-API proof theme",
+      "specSection": "docs/plans/theme-packages-and-skinning.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/theme-packages-and-skinning",
+      "gateArtifact": "artifacts/theme-packages-and-skinning/gate.json",
+      "next": null
+    },
+    {
+      "gate": "rich-skinning-v2",
+      "title": "Rich skinning v2 \u2014 fully image-driven UI (director direction from the Step 3.5 TP-P3 review): image-is-the-element posture, layered decoration slots, per-state asset variants at both customization rungs, image value-displays, semantic icons, pixel-art mode, Content adoption, profile-conditional selectBy package selection, the tile decision, toggle slots, and the SwiftUI customization ladder \u2014 consuming the ADR-0019 contract, never reopening it",
+      "specSection": "docs/plans/rich-skinning-v2.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/rich-skinning-v2",
+      "gateArtifact": "artifacts/rich-skinning-v2/gate.json",
+      "next": "cross-platform-proof"
+    },
+    {
+      "gate": "cross-platform-proof",
+      "title": "Cross-platform performance proof and the future spatial seam: production-shaped scenes, evidence-class separation, the reusable Studio five-view driver, and spatial contracts with no VR claim",
+      "specSection": "roadmap Step 4 (docs/plans/luauui-consolidated-roadmap.md); swiftui-parity-next.md investment 10",
+      "artifactDir": "artifacts/cross-platform-proof",
+      "gateArtifact": "artifacts/cross-platform-proof/gate.json",
+      "next": "sponsor-framework-gaps"
+    },
+    {
+      "gate": "sponsor-framework-gaps",
+      "title": "Sponsor-required framework capability: interruptible motion authority, structural transitions, toast presentation, unified virtualized collection, public drag/drop with edge autoscroll, paint/layer/marker extensions, semantic feedback events, async-avatar completeness, billboard fixture \u2014 proven in a Sponsor-shaped gallery with no game policy in LuauUI",
+      "specSection": "roadmap Step 5 (docs/plans/luauui-consolidated-roadmap.md); docs/reference/sponsor-view-parity.md re-audited 2026-07-27",
+      "artifactDir": "artifacts/sponsor-framework-gaps",
+      "gateArtifact": "artifacts/sponsor-framework-gaps/gate.json",
+      "next": "code-simplicity-cleanup"
+    },
+    {
+      "gate": "code-simplicity-cleanup",
+      "title": "Fresh-context simplicity cleanup (roadmap Step 5.5): a behaviour-preserving audit that deletes proved waste, consolidates duplicated decisions at one owner, and dispositions every Step 5 carry-over \u2014 with unchanged public API, deprecations, property authority, theme/Sponsor mechanisms, Studio behaviour, lifecycle/resource counts, and headless performance",
+      "specSection": "docs/plans/code-simplicity-cleanup.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/code-simplicity-cleanup",
+      "gateArtifact": "artifacts/code-simplicity-cleanup/gate.json",
+      "next": "api-architecture-consistency"
+    },
+    {
+      "gate": "api-architecture-consistency",
+      "title": "API and architecture constitution (roadmap Step 7): one example-backed rule set governing the whole public surface; complete surface ledger with every public item classified as a named pattern or justified exception; compatible fixes and ADR-0011 deprecations only; agent-friendly enforcement checks and a fresh-author exercise through the canonical extension path",
+      "specSection": "docs/plans/api-architecture-consistency.md + docs/plans/agent-execution-contract.md",
+      "artifactDir": "artifacts/api-architecture-consistency",
+      "gateArtifact": "artifacts/api-architecture-consistency/gate.json",
+      "next": "desktop-keyboard-navigation"
+    },
+    {
+      "gate": "desktop-keyboard-navigation",
+      "title": "Desktop keyboard focus-chain behavior (roadmap Step 8): Tab/Shift+Tab traversal of the existing focus graph, Space alongside Return as Activate, and focused-value-control arrow Adjust \u2014 bound through the Input Action System only while an interactive responder owns UI input and keyboard capability is live, with passive HUD and gameplay input untouched",
+      "specSection": "docs/plans/desktop-keyboard-navigation.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/desktop-keyboard-navigation",
+      "gateArtifact": "artifacts/desktop-keyboard-navigation/gate.json",
+      "next": "traversal-document-order"
+    },
+    {
+      "gate": "traversal-document-order",
+      "title": "Tab traverses in document order, and the focus chain is inspectable (roadmap Step 8 follow-up): a focusable Grip stops being deferred to the end of the LINEAR order while the directional arrows keep the deferral unchanged; one focus map read two ways via a presenter-supplied rank; a new public `traversalPriority` sort tier and a `handle.focusOrder()` inspection dump",
+      "specSection": "docs/plans/traversal-document-order.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/traversal-document-order",
+      "gateArtifact": "artifacts/traversal-document-order/gate.json",
+      "next": "large-text-accessibility"
+    },
+    {
+      "gate": "large-text-accessibility",
+      "title": "The player's PreferredTextSize as a first-class layout input (roadmap Step 8.5): measured per-preference offsets applied exactly once and live-updating without remount; the reflow -> scroll -> bounded-truncation-with-full-value-access overflow order across the public surface; text/overlap/hit-floor/focus-visibility diagnostics; the Rascal Rally Sponsor View proved at all four values on compact mobile portrait and landscape",
+      "specSection": "docs/plans/large-text-accessibility.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/large-text-accessibility",
+      "gateArtifact": "artifacts/large-text-accessibility/gate.json",
+      "next": "performance-stress-places"
+    },
+    {
+      "gate": "performance-stress-places",
+      "title": "Publish-ready LuauUI performance stress place and repeatable profiling loop (roadmap Step 9): a self-contained examples/places/LuauUI-PerformanceLab.rbxl that opens without Rojo, a deterministic scenario registry centred on a dense interactive virtualized list with a matched raw-Roblox reference, flat-versus-ornate theme cost, large-text/long-content reflow, bounded virtualization, low-cardinality MicroProfiler phase scopes, safe ramp/emergency stop, clean-capture mode and idle teardown \u2014 with Lune, Studio, emulator and physical Android evidence kept separately labelled",
+      "specSection": "docs/plans/performance-stress-places.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/performance-stress-places",
+      "gateArtifact": "artifacts/performance-stress-places/gate.json",
+      "next": "example-quality-pass"
+    },
+    {
+      "gate": "example-quality-pass",
+      "title": "Tutorial gallery quality pass (roadmap Step 10): all seven tutorial examples understandable and playable in Studio WITHOUT reading their source \u2014 one designed LuauUI product sharing the native-StyleSheet property authority, adapting across the canonical five views and the supported input paradigms, with deterministic reset paths, a complete Wordle-like word game, a visibly taught optimistic-sync lesson, played-and-corrected tile and match-3 games, an ownership ledger proving examples hold domain/content plus declarative composition while reusable fixes live behind public LuauUI APIs, and standalone places that rebuild",
+      "specSection": "docs/plans/example-quality-pass.md + docs/plans/agent-execution-contract.md + docs/plans/studio-device-verification.md",
+      "artifactDir": "artifacts/example-quality-pass",
+      "gateArtifact": "artifacts/example-quality-pass/gate.json",
+      "next": "swiftui-reference-app-validation"
+    },
+    {
+      "gate": "swiftui-reference-app-validation",
+      "title": "Clean-room reference-app proofs (Apple Backyard Birds / Food Truck / Fruta + Roblox app home & avatar editor) with honest feature ledgers",
+      "specSection": "docs/plans/swiftui-reference-app-validation.md",
+      "artifactDir": "artifacts/swiftui-reference-app-validation",
+      "gateArtifact": "artifacts/swiftui-reference-app-validation/gate.json",
+      "next": "row-actions"
+    },
+    {
+      "gate": "row-actions",
+      "title": "SwiftUI-parity row swipe actions: newRowActions/newRowActionsCoordinator + Table rowActions, full cross-input coverage (touch/mouse/keyboard/gamepad/edit-mode), with the perf gate re-baselined to Task 11b's measured mount-dominated numbers (director ruling 2026-08-11) and the closure path tracked as a follow-up mission",
+      "specSection": "docs/plans/row-actions.md + docs/plans/row-actions-implementation.md",
+      "artifactDir": "artifacts/row-actions",
+      "gateArtifact": "artifacts/row-actions/gate.json",
+      "next": "swiftui-parity-round2"
+    },
+    {
+      "gate": "swiftui-parity-round2",
+      "title": "SwiftUI parity round 2: presenter.withAnimation at the presentation layer, the everyday layout vocabulary (distribute, layoutPriority x shrinkWeight, lineAlign, GridRow + gridSpan, containerRelativeFrame, VirtualList axis), indeterminate indicators + Spinner, UI.sensoryFeedback over the semantic bus with a default-off haptics adapter, Table onPrimaryAction across four inputs, every round-2 API reachable in a gallery scenario the suite executes headlessly, the parity doc rewritten as one cited falsifiable draft, and a fast test tier - registered AFTER the mission closed, which is itself the finding: M1/M2/M3 all ran with no stage for tools/gate.sh to run",
+      "specSection": "docs/plans/swiftui-parity-round2-brief.md (binding scope) + docs/plans/swiftui-parity-round2.md (per-phase design)",
+      "artifactDir": "artifacts/swiftui-parity-round2",
+      "gateArtifact": "artifacts/swiftui-parity-round2/gate.json",
+      "next": "declarative-3d-architecture"
+    },
+    {
+      "gate": "declarative-3d-architecture",
+      "title": "Declarative 3D architecture decision: whether and how the studio builds a declarative fine-grained-reactive system for Roblox Parts/Models - a reviewed plain-language ADR (LuauUI extension vs sibling-with-shared-kernel vs independent system vs no build) backed by an isolated disproof spike with topology, lifecycle, and cost evidence. PASS means the decision is proved, not that LuauUI supports 3D; the stage merges nothing into LuauUI, extracts no core, and starts no production package",
+      "specSection": "docs/plans/declarative-3d-architecture.md",
+      "artifactDir": "artifacts/declarative-3d-architecture",
+      "gateArtifact": "artifacts/declarative-3d-architecture/gate.json",
+      "next": "swiftui-parity-round3"
+    },
+    {
+      "gate": "swiftui-parity-round3",
+      "title": "SwiftUI parity round 3: flow-wrap as a native arrange branch (`wrap` on HStack/VStack, the hwrap/vwrap solver kinds, the first cross-axis overflow diagnostic in the repo); the custom `Layout` protocol evaluated and recorded as a conditional refusal with a named trigger; per-row capability opt-outs (rowSelectable/rowMovable/rowDeletable) gated at the funnel across Table and newVirtualList; circular progress in BOTH forms on Path2D; the five clean-room reference apps re-proved against the new vocabulary; the completeness audit's ranked gaps (onAppear/onDisappear/hidden) plus the four capabilities that already shipped and were never rowed; the showcase chrome restructured so keyboard and gamepad reach it AND the demo, with the reduced-motion settings surface it unblocked; an accessibility-text-size axis on the always-on sweeps; the lying-itemExtent guard; and one viewport change coalesced from five solves to one - registered after the fact, as round 2 was, and with every device claim carried as an explicit PENDING row rather than asserted",
+      "specSection": "docs/plans/swiftui-parity-round3-brief.md (binding scope) + docs/plans/swiftui-parity-round3.md (the per-phase record of what shipped)",
+      "artifactDir": "artifacts/swiftui-parity-round3",
+      "gateArtifact": "artifacts/swiftui-parity-round3/gate.json",
+      "next": "swiftui-parity-round4"
+    },
+    {
+      "gate": "swiftui-parity-round4",
+      "title": "SwiftUI parity round 4: two-dimensional focus (ADR-0030), time-based easing (ADR-0033), the foreign-instance seam (ADR-0034), preferred transparency (ADR-0035), the hit-expander z rule, UI.When's branch scope, UI.sortedEntries, the tint-fill tag, the zstack hugging-margin fix, the native-scroll auto-bind, appChromeRects and the screen gutter, and the two framework comparison documents",
+      "specSection": "docs/adr/ADR-0030, ADR-0033, ADR-0034, ADR-0035; registered after the fact 2026-08-16",
+      "artifactDir": "artifacts/swiftui-parity-round4",
+      "gateArtifact": "artifacts/swiftui-parity-round4/gate.json",
+      "next": "navigation-and-menus"
+    },
+    {
+      "gate": "navigation-and-menus",
+      "title": "Navigation & transient menus: the sweep economy (one suite run per sweep instead of 234, plus a checker that replays every manifest grep against a live transcript), the anchored-surface seam, the Menu construct with submenus, help and Callout as two constructs rather than one, the sliding selection indicator, TabView (nestable, lazy, evicted), segmented-picker icons and a real vertical pill, the HUD repair where elision must DISCLOSE rather than delete, and the playlist table's sort + resize retiring the standalone table_columns scenario",
+      "specSection": "docs/plans/navigation-and-menus-brief.md (binding brief 2026-08-16)",
+      "artifactDir": "artifacts/navigation-and-menus",
+      "gateArtifact": "artifacts/navigation-and-menus/gate.json",
+      "next": null
+    }
+  ]
 }
