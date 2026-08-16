@@ -232,6 +232,62 @@ and the sink's own disc plus the URL field's plate are what came back. **The sin
 adds nothing while closed** — it is a transient anchored surface with its own
 controller.
 
+## The Studio canary — real engine, 2026-08-16
+
+**Preflight.** Studio instance `LuauUI-Showcase.rbxl`, Play (client DataModel),
+viewport **749 × 380** — the baseline's own size. The place was **stale** (it still
+held `pill("TasksChip", …)`) and the Rojo plugin was not connected, so the six
+changed modules were pushed into the datamodel over a local HTTP fetch, the same
+technique ADR-0025's own canary used, and each write was verified by byte count:
+`hud 79365 · composition 90454 · blueprint 82034 · blueprint_schema 112046 ·
+layout_node 49296 · solver 179858`. Source-state confirmed after the push
+(`URL_BAR_STEAL_PX` present in the datamodel's copy). Fixture reached with
+`LuauUIShowcaseAPI.showNext` until `{"mounted":"hud","current":"hud","ok":true}` —
+**`mounted`**, not `current`. `HttpService.HttpEnabled` was restored to `false`
+afterwards.
+
+**Confirmed live, on the real engine:**
+
+| | |
+|---|---|
+| the sink's disc | `…/Rounds/RoundStrip/R3` `[TextButton] 36×36` **`vis=true`** — with the URL bar **closed AND open**, which is exactly the state where the pre-D7 `…` was `vis=false` |
+| its touch floor | three `LuauUIHitExpander` `[TextButton] 44×44` under the strip, one per disc — the three-axes floor, measured rather than argued |
+| the dead form | `RoundColumn` and `R3c` are **absent from the tree**: the form the ladder never chose is gone, not hidden |
+| the task chip | `…/Tasks/TasksChip` is a **`TextButton`** (it was a ZStack pill) |
+| the URL bar | plate **733×67** — was 733×158 — with the field's own plate **713×36** inside it, the control-size ladder's box rather than a slab |
+| Activate | one calibrated tap on `R3` routed to `Touch @110,72` (its own centre) and fired the engine's `Activated` **exactly once** — no double-dispatch between the host and its expander |
+
+**...and the "fourth failure class" refutation, confirmed on the engine itself.**
+`/HudScreen/UrlBarWhen` is a zero-size structural node at the Screen's own origin
+— window y **0** — and it reports `AbsolutePosition = (0, **-58**)`. That is the
+inset-subtracted space, live, with nothing to do with layout.
+
+**Not closed: the panel's live mount.** No input class in this session reached
+LuauUI's own Activate dispatch. The engine received the tap (routed `Touch` at the
+button's own coordinates, `TextButton.Activated` fired once) and `Tab` produced no
+focus ring at all — this is a touch-booted device-emulator session, whose injected
+coordinates needed a **measured −62px x calibration** (`injected (300,200) → routed
+(238,200)`, discovered rather than assumed, per
+`docs/lessons/injected-mouse-coords-are-gui-space.md`). No anchored surface
+appeared anywhere in the client DataModel, and the console carried no error.
+
+The panel itself is proved headlessly through the real adapter — `the sink OPENS
+and lists the content the screen is not showing` asserts the mounted panel carries
+the task list and the kill-feed line, and the pseudo-localized case mounts it with
+zero solver findings. **What remains open is one row: an anchored surface mounting
+under a real engine tap.** It is booked rather than claimed, and it is not
+attributed to the instrument: the evidence is equally consistent with the
+emulator's input classification and with a defect on the live activation path, and
+this session could not tell them apart.
+
+**Procedure to close it:** connect the Rojo plugin (`rojo serve` is already
+running on the showcase project) so the place is not stale, run Play on a
+**desktop-booted** session rather than a device-emulator preset — where an injected
+click arrives as `MouseButton1` and needs no offset — reach the `hud` fixture with
+`showNext`, tap the third round disc, and assert a `LuauUI_HudOverflow` ScreenGui
+appears carrying the `Hidden right now` title and one row per entry of
+`resolution.unshown`.
+
 ## Mutation ledger — 14 run, 14 bite
 
 Two of them did **not** bite on the first pass, and both were real holes in the
