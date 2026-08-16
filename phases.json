@@ -232,6 +232,14 @@
    "specSection": "docs/plans/swiftui-parity-round3-brief.md (binding scope) + docs/plans/swiftui-parity-round3.md (the per-phase record of what shipped)",
    "artifactDir": "artifacts/swiftui-parity-round3",
    "gateArtifact": "artifacts/swiftui-parity-round3/gate.json",
+   "next": "swiftui-parity-round4"
+  },
+  {
+   "gate": "swiftui-parity-round4",
+   "title": "SwiftUI parity round 4: two-dimensional focus (ADR-0030), time-based easing (ADR-0033), the foreign-instance seam (ADR-0034), preferred transparency (ADR-0035), the hit-expander z rule, UI.When's branch scope, UI.sortedEntries, the tint-fill tag, the zstack hugging-margin fix, the native-scroll auto-bind, appChromeRects and the screen gutter, and the two framework comparison documents",
+   "specSection": "docs/adr/ADR-0030, ADR-0033, ADR-0034, ADR-0035; registered after the fact 2026-08-16",
+   "artifactDir": "artifacts/swiftui-parity-round4",
+   "gateArtifact": "artifacts/swiftui-parity-round4/gate.json",
    "next": null
   }
  ]

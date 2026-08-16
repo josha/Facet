@@ -640,7 +640,7 @@ The one area where Fusion has something LuauUI genuinely lacks.
 | `Spring(goal, speed, damping)` — a value that follows another as if on a damped spring ([FU-09]) | **Covered**, with a different vocabulary | `MotionValue` springs declared as `{ dampingRatio, response }`. Fusion's damping is the same idea in the same words — "`0` represents no friction, and `1` is just enough friction to reach the goal without overshooting" ([FU-09]). LuauUI's `response` is a time constant where Fusion's `speed` "does not directly correlate to a duration" ([FU-09]) | `src/motion/motion.luau`, `src/motion/spring.luau` |
 | An inline spring at a call site ([FU-09]) | **Missing, by decision** | Refused with a hard error naming `motion.registerClass`. Four named classes ship, and re-registering one is the sanctioned way to tune it. The reason is drift: a library with forty slightly different feels got there one call site at a time | `src/motion/classes.luau` |
 | `Spring:setVelocity` / `addVelocity` / `setPosition` ([FU-09]) | **Covered**, and deeper | `setTarget` never touches value or velocity, so an interrupted spring continues instead of jumping — pinned by a differential test against a velocity-cut twin. A 100 ms rolling-window velocity tracker feeds gesture→animation hand-off | `src/motion/motion.luau`; `src/input/drag_velocity.luau` |
-| **`Tween(goal, tweenInfo)` — time-based easing ([FU-10])** | **Covered** (built 2026-08-15, ADR-0033) | `clock:tween(initial, curveName)` and the `motion.registerCurve` registry. Before that mission: nothing in `src/motion/` took a duration and a curve. `Enum.EasingStyle`, `TweenInfo` and the word `easing` appear nowhere in `src/`. The engine's own `TweenService:GetValue` evaluates the curve in production (a PURE evaluator, so it can drive a value LuauUI owns where `TweenService:Create` cannot); a twin pinned to it by a 33,033-sample differential oracle serves Lune. Fusion takes a plain `TweenInfo` at the call site; LuauUI refuses that and takes a registered curve NAME, which is the same drift rule the spring classes already carry | `src/motion/curves.luau`; ADR-0033; `artifacts/time-based-easing/` |
+| **`Tween(goal, tweenInfo)` — time-based easing ([FU-10])** | **Covered** (built 2026-08-15, ADR-0033) | `clock:tween(initial, curveName)` and the `motion.registerCurve` registry. Before that mission: nothing in `src/motion/` took a duration and a curve, and `Enum.EasingStyle`, `TweenInfo` and the word `easing` appeared nowhere in `src/` (all three are there now). The engine's own `TweenService:GetValue` evaluates the curve in production (a PURE evaluator, so it can drive a value LuauUI owns where `TweenService:Create` cannot); a twin pinned to it by a 33,033-sample differential oracle serves Lune. Fusion takes a plain `TweenInfo` at the call site; LuauUI refuses that and takes a registered curve NAME, which is the same drift rule the spring classes already carry | `src/motion/curves.luau`; ADR-0033; `artifacts/time-based-easing/` |
 | — | **No Fusion equivalent** | **Reduce Motion that preserves information.** Decorative motion snaps but still fires its completion callback; *informational* motion (a count-up whose number is the message) keeps running to the same terminus but quantizes its writes to a 250 ms step | `src/motion/motion.luau` |
 | — | **No Fusion equivalent** | **`withAnimation`** — wrap a state write and every node whose box changed is painted travelling, on one shared progress spring, plus the three authored paint values | `src/present/presenter.luau` |
 | — | **No Fusion equivalent** | **Arrival at a live target** (`chase`), **choreography** (`timeline` with `interrupt`/`skip`), and structural **enter/exit transitions** shared by `ForEach` and `When` | `src/motion/`; `src/render/transitions.luau` |
@@ -703,7 +703,7 @@ built on 2026-08-15 (ADR-0033) and G-3 alongside it** — the rest stand as writ
 |---|---|---|
 | **G-1** | Time-based easing (`Tween` / `TweenInfo`) | ~~BUILD NOW~~ — **BUILT 2026-08-15**, ADR-0033 |
 | **G-2** | An instance escape hatch (`Ref` / `Out`) | **DEFER** — trigger named |
-| **G-3** | Reactive iteration over a dictionary (`ForKeys` / `ForPairs`) | **BUILD NOW** (a helper, not a class) |
+| **G-3** | Reactive iteration over a dictionary (`ForKeys` / `ForPairs`) | ~~BUILD NOW~~ — **BUILT 2026-08-15**, `UI.sortedEntries` (a helper, not a class) |
 | **G-4** | Consumer-defined environment values (`Contextual`) | **DEFER** — trigger named |
 | **G-5** | A derivation that owns per-value resources | **DEFER** — trigger named |
 | **G-6** | Cross-scope lifetime checking | **DEFER** — trigger named |
@@ -721,9 +721,12 @@ another state object, by tweening towards it", where `tweenInfo` is "The style o
 tween to use when moving to the goal" ([FU-10]) — a plain Roblox `TweenInfo`, so
 easing style, direction, duration, delay, repeat count and reverse all come free.
 
-**What LuauUI has instead.** Springs, a beat-sequenced `timeline`, a 2-D `chase`,
-a `counter` and a `timer`. Verified: `Enum.EasingStyle`, `TweenInfo` and the
-string `easing` appear nowhere in `src/`. A spring's duration is not authorable —
+**What LuauUI has instead**, as of the survey and BEFORE ADR-0033 shipped.
+Springs, a beat-sequenced `timeline`, a 2-D `chase`, a `counter` and a `timer`.
+Verified AT THAT TIME: `Enum.EasingStyle`, `TweenInfo` and the string `easing`
+appeared nowhere in `src/`. All three are there now — `src/motion/curves.luau`
+carries the registry and the engine's evaluator — so read this paragraph as the
+before picture, not as a live claim. A spring's duration is not authorable —
 `response` is a feel dial, and the four registered classes are 0.18 s to 0.5 s.
 
 **Why a game author misses it.** Three concrete cases the framework cannot
@@ -791,7 +794,7 @@ wrap.* The right shape when that arrives is almost certainly not `Ref`; it is a
 narrow, named seam for that one API, the way the selection bridge already is.
 Booking it as "add `Ref`" would ship the authority hole with it.
 
-#### G-3 — Reactive iteration over a dictionary. **BUILD NOW** (a helper).
+#### G-3 — Reactive iteration over a dictionary. ~~BUILD NOW~~ — **BUILT 2026-08-15** (a helper).
 
 **What it is.** Fusion's `ForKeys` and `ForPairs` map over a table with arbitrary
 keys, "leaving unchanged values alone" ([FU-11]).
@@ -814,7 +817,9 @@ order twice. The construction ladder's own test (does it need its own layout,
 paint or input semantics an existing class cannot compose?) says helper, not
 class.
 
-**Recommendation: build now**, at helper scope only. Refuse the temptation to add
+**Recommendation: build now**, at helper scope only. — **DONE, 2026-08-15
+(`UI.sortedEntries`).** It orders KEYS rather than entries, which is what makes
+the determinism unconditional. Refuse the temptation to add
 a `UI.ForPairs` blueprint class; that would be a second structural region with
 the same semantics as the first.
 

@@ -968,8 +968,10 @@ cite source files, which is where they were read from.
 ## 5. Ranked gap analysis — what to take from React before first release
 
 The director's question: *are there features in React we should implement before
-our first release?* This section answers it. **Nothing here is implemented; this
-is the list.**
+our first release?* This section answers it. **Nothing here was implemented when this
+list was written. Ranks 1 and 2 were both built on 2026-08-15 — `UI.Foreign`
+(ADR-0034) and the `UI.When` branch scope — and are marked BUILT below; the rest
+stand as written.**
 
 The ranking is by **what a real game author would miss**, not by effort and not
 by architectural interest. Each row gives what it is, what it would cost, whether
@@ -1002,7 +1004,7 @@ propose. Nothing here asks for `Ref`.
 
 ---
 
-### Rank 1 — A bounded escape hatch to a foreign Roblox Instance · **BUILD NOW**
+### Rank 1 — A bounded escape hatch to a foreign Roblox Instance · ~~BUILD NOW~~ — **BUILT 2026-08-15**, ADR-0034
 
 **What it is.** React-Lua's entire element model is
 `createElement("<AnyRobloxClassName>", props)` → `Instance.new(type_)` ([RL-15]),
@@ -1042,7 +1044,7 @@ The bounded version costs much less and keeps all three. A leaf class — call i
   the foreign instance's properties and lifetime and property authority is not
   claimed at all — the framework declares one authority (`layout`, for the
   container's rect) and disclaims the rest by construction. The `host` authority
-  name has been sitting reserved and unused in `src/render/authority.luau` for
+  name had been sitting reserved and unused in `src/render/authority.luau` for
   exactly this seam.
 
 That is one blueprint class, one render-target optional method (with a named
@@ -1058,13 +1060,17 @@ This is the 2-D case: a `GuiObject` class the solver has to lay out. And it is n
 created, which is why the authority argument that defers `Ref` does not defer
 this. See §5's preamble table.
 
-**Recommendation: BUILD NOW.** Bounded form only. The refusal of the unbounded
+**Recommendation: BUILD NOW.** — **DONE, 2026-08-15 (ADR-0034, `UI.Foreign`).**
+Bounded form only. The refusal of the unbounded
 form should ship with it, as a construction error naming the reason — the same
-way `opacity` on a leaf is refused with an argument rather than a shrug.
+way `opacity` on a leaf is refused with an argument rather than a shrug. Both
+shipped: the unbounded form is refused by name, and the seam INVERTED on the way
+in — `controller.foreignHost(path)` takes the caller's instance rather than
+handing a LuauUI-owned one out, which is why `Ref` stays deferred.
 
 ---
 
-### Rank 2 — A branch scope for `UI.When` · **BUILD NOW**
+### Rank 2 — A branch scope for `UI.When` · ~~BUILD NOW~~ — **BUILT 2026-08-15**
 
 **What it is.** In React, a conditionally-rendered component owns state that
 appears and disappears with it: `useState` inside it, done. In LuauUI, a
@@ -1082,8 +1088,10 @@ in a test but nothing flags in a game.
 The scope already exists and is already disposed correctly on branch exit and on
 re-entry mid-transition. This is the cheapest item on the list by a wide margin.
 
-**Recommendation: BUILD NOW.** It is an asymmetry, not a design decision — the
-sibling structural region already does it.
+**Recommendation: BUILD NOW.** — **DONE, 2026-08-15.** It is an asymmetry, not a
+design decision — the sibling structural region already does it. `thenView` is
+handed the branch scope; there is deliberately no `elseView` to hand a second one
+to (`src/mount.luau`, and `api.md`'s `UI.When` section carry the refusal).
 
 ---
 
@@ -1281,8 +1289,8 @@ value, with no second concept and no `getValue`-is-stale-inside-render caveat
 
 | # | Candidate | Recommendation | Trigger, if deferred |
 |---|---|---|---|
-| 1 | Bounded foreign-Instance escape hatch (`UI.Foreign`) | **BUILD NOW** | — |
-| 2 | Branch scope for `UI.When` | **BUILD NOW** | — |
+| 1 | Bounded foreign-Instance escape hatch (`UI.Foreign`) | ~~BUILD NOW~~ — **BUILT 2026-08-15**, ADR-0034 | — |
+| 2 | Branch scope for `UI.When` | ~~BUILD NOW~~ — **BUILT 2026-08-15** | — |
 | 3 | Surface rooted in a caller-supplied container | DEFER | First adopter or Rascal Rally screen that must live inside existing GUI |
 | 4 | Live tree inspector | DEFER | First release with external users |
 | 5 | Hot reload / interactive preview | DEFER | Follows #4; shares the Studio-side host |
