@@ -337,13 +337,37 @@ theme_ledger.ROWS = {
 		kind = "layer-overlap",
 	},
 	{
+		-- RE-RECORDED 2026-08-16 (navigation-and-menus D5): the section nav became
+		-- one `newTabView`, so this node moved out of a hand-built `ContentHost`
+		-- and the ceiling moved 86 -> 96px with it. Same defect, same cell — a
+		-- 320px-tall landscape at the largest preference under a heavy package.
+		-- `compact-pointer` joins the list because the construct's band is the
+		-- tap-target floor on every package rather than whatever an icon-only row
+		-- happened to measure.
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
-		px = 86,
+		px = 96,
 		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
+		packages = "compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
+		kind = "page-not-scrollable",
+	},
+	{
+		--[[ NEW 2026-08-16 (D5): the TabView ROOT itself, on the three heaviest
+			packages at the one cell where a 320px-tall landscape has nothing left to
+			give. The construct's own arithmetic is a band at the tap-target floor
+			plus a content region that fills the rest; under a package whose chrome
+			inflates the band there is no rest, and the root reports the 3-4px it is
+			short. It is the same page-not-scrollable family as the row above and it
+			resolves the same way — that page needs a ScrollView at this canvas. ]]
+		surface = "p4_foyer",
+		variant = "-",
+		node = "/Foyer/Root/Nav",
+		sig = "content overflows this vstack by Npx on the",
+		px = 4,
+		since = 14,
+		packages = "glossy-mobile,glossy-touch,scifi-hud",
 		kind = "page-not-scrollable",
 	},
 	{
@@ -1020,16 +1044,13 @@ theme_ledger.ROWS = {
 		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "layer-overlap",
 	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/BottomFullWhen/then/BottomBar/Nav_*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 30,
-		since = 0,
-		packages = "fantasy-ornate,glossy-mobile,glossy-touch,pixel-quest",
-		kind = "row-cannot-shrink",
-	},
+	-- CLOSED 2026-08-16 by the D5 migration. This row recorded the bottom bar's
+	-- hand-built wings overflowing their own HStack by 30px under four packages —
+	-- a `row-cannot-shrink`, because an icon-only wing had no rung left to step
+	-- down to. The wings are `newPicker` segments now, and `Option.icon` rides
+	-- `compactLabel`, so the row degrades the word to the glyph at exactly the
+	-- width that needs it and the finding fires nowhere in the sweep. Deleted
+	-- rather than re-pointed, which is what this list exists to make possible.
 	{
 		surface = "probe",
 		variant = "-",
@@ -1218,16 +1239,11 @@ theme_ledger.ROWS = {
 		packages = "compact-pointer",
 		kind = "page-not-scrollable",
 	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage",
-		sig = "content box collapses to Npx on y: padding N",
-		px = 8,
-		since = 0,
-		packages = "compact-pointer,scifi-hud",
-		kind = "collapsed-box",
-	},
+	-- CLOSED 2026-08-16 by the D5 migration. The feed page's scroll box collapsed
+	-- to nothing under `compact-pointer` and `scifi-hud` because the shell above it
+	-- had spent every pixel; the construct's bands declare no padding of their own
+	-- (a container that adds no spacing is a structural statement, not a style
+	-- value), which handed those pixels back and the finding fires nowhere.
 	{
 		--[[ FOUND BY THE 390x844 VIEWPORT (O-19, 2026-08-15), and it is the mildest
 			row in this file: Pixel Quest's `barTrack` carves 8+8 of inset, and at this

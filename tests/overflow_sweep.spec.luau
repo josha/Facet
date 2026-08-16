@@ -854,11 +854,20 @@ local WAIVERS: { Waiver } = {
 	-- descends to the ellipsis rung, the row fits, and the finding no longer fires
 	-- anywhere in the sweep — which is what this list exists to notice.
 	{
+		--[[ RE-RECORDED 2026-08-16 (navigation-and-menus D5). The node MOVED —
+			the section nav is one `newTabView` now, so the home body lives in the
+			construct's content region rather than in a hand-built `ContentHost` —
+			and the ceiling moved 16 -> 19px with it. The defect is the same one:
+			a 320px-tall landscape at the largest text preference cannot fit this
+			page, and the page does not scroll. The three extra pixels are the
+			construct's own band being 46px where the hand-built icon-only row was
+			43, which is the tap-target floor the strip inherits from `newPicker`
+			and is not free to give back. ]]
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
-		px = 16,
+		px = 19,
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320 ONLY @ +4/+10/+14",
@@ -866,7 +875,7 @@ local WAIVERS: { Waiver } = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage",
 		sig = "content box collapses to Npx on y: padding N",
 		px = 16,
 		since = 0,
@@ -1119,7 +1128,7 @@ local LOCALE_WAIVERS: { Waiver } = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
 		px = 110,
 		since = 14,
@@ -1147,11 +1156,15 @@ local LOCALE_WAIVERS: { Waiver } = {
 		where = "desktop-studio-1320@+14, narrow-landscape@+14",
 	},
 	{
+		-- RE-RECORDED 2026-08-16 with the D5 migration: the node moved into the
+		-- TabView's content region and the collapse got SMALLER in absolute terms
+		-- (a 9px box rather than a 3px one), which the ledger reads as a worse
+		-- ceiling because the number it records is the box that could not draw.
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody/FeedPage",
+		node = "/Foyer/Root/Nav/Content/Tab-home/then/HomeBody/FeedPage",
 		sig = "content box collapses to Npx on y: padding N",
-		px = 3,
+		px = 9,
 		since = 0,
 		kind = "collapsed-box",
 		where = "narrow-landscape@+0",

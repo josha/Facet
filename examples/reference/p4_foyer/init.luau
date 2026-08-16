@@ -24,7 +24,8 @@ local DEST_ICON: { [string]: string } =
 local TILE_MIN = 220
 local SHELF_TILE = 96
 local PORTRAIT = 56
-local RAIL_W = 144
+-- (the nav rail's own width used to live here; `newTabView` sizes its rail from
+-- the theme's tap-target floor and its widest wing — navigation-and-menus D5)
 local DETAIL_W = 560
 local SEARCH_W = 320
 -- the count-bubble floor and pill cap (director review 2026-08-09): the floor
@@ -812,161 +813,42 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		},
 	})
 
-	-- ── nav chrome (spec §6.2) ─────────────────────────────────────────────
+	-- ── nav chrome (spec §6.2) — ONE `LuauUI.newTabView`, built below ──────
 	--
-	-- THE FOUR NAV HOMES (adaptive.navPlacement, director ruling 2026-08-09):
-	--   sidebar          desktop shape — the vertical rail, title and icon
-	--   topBar           tablet / ten-foot shape — a CENTERED cluster that hugs
-	--                    its wings, stepping down title+icon → icon-only by fit
-	--   bottomBar        phone portrait — the full-width thumb-zone band
-	--   bottomBarCompact phone landscape — the same band as a centered cluster
+	-- THE FOUR NAV HOMES ARE NO LONGER THIS FILE'S BUSINESS (navigation-and-menus
+	-- D5). `adaptive.navPlacement` shipped 2026-08-09 and every reference app
+	-- then wrote the same four `When`-gated presentations by hand; D5 turned that
+	-- into a construct and this proof is its first consumer. What used to stand
+	-- here — four placement memos, four hand-built bars, three copies of the wing
+	-- list, a hand-rolled 3px active bar and a `ViewThatFits` ladder per home — is
+	-- now a `tabs` array handed to `newTabView` beside the screen, using the
+	-- `conditions` this file already builds.
 	--
-	-- Both bottom homes are ICON-ONLY, which is the compact representation this
-	-- proof already had and the reason no bottom wing can ever ellipsize
-	-- (director refinement: "consider when to use the compact representation — I
-	-- see a lot of cutoff text"). Only the SECTION NAV moves between homes: the
-	-- top chrome bar, and the search that lives in it, is its own band and stays
-	-- where it is on every placement.
-	local function navItem(dest: string, presentation: string, width: any?)
-		-- newLabel title is a plain string by contract: nav wing names are
-		-- resolved at build locale (scenario reset re-resolves; body copy stays
-		-- fully reactive through L() memos)
-		local label = LuauUI.newLabel(LuauUI, core, {
-			id = "L",
-			title = Lnow("nav." .. dest),
-			icon = DEST_ICON[dest],
-			presentation = presentation,
-		})
-		if label.dispose ~= nil then
-			scope:own(label.dispose)
-		end
-		return UI.Button({
-			id = "Nav_" .. dest .. "_" .. presentation,
-			label = Lnow("nav." .. dest),
-			width = width,
-			selected = core:memo(function(use)
-				return use(destination) == dest
-			end),
-			onActivate = function()
-				destination:set(dest)
-			end,
-			children = {
-				UI.HStack({
-					id = "Row",
-					gap = "s",
-					children = {
-						UI.Box({
-							id = "ActiveBar",
-							width = { type = "fixed", px = 3 },
-							height = { type = "fill", weight = 1 },
-							tint = core:memo(function(use)
-								return { role = "accent", blend = if use(destination) == dest then 1 else 0 }
-							end),
-						}),
-						label.blueprint,
-					},
-				}),
-			},
-		})
-	end
-
-	-- Every home's wings are built ONCE, here, rather than inside a `When`'s
-	-- factory: a wing carries a composite label with a disposer, and rebuilding
-	-- the list on every mount would hand the screen scope a fresh set on every
-	-- rotation. The homes below are mutually exclusive and declare no
-	-- transitions, so no list is ever mounted in two places at the same time.
-	local function navItems(presentation: string, width: any?): { any }
-		local out: { any } = {}
-		for _, dest in DESTINATIONS do
-			out[#out + 1] = navItem(dest, presentation, width)
-		end
-		return out
-	end
-
-	local FILL = { type = "fill", weight = 1 }
-	local NATURAL = { type = "content" }
-
-	local placement = conditions.navPlacement
-	local navSidebar = scope:own(core:memo(function(use)
-		return use(placement) == "sidebar"
-	end))
-	local navTop = scope:own(core:memo(function(use)
-		return use(placement) == "topBar"
-	end))
-	local navBottomFull = scope:own(core:memo(function(use)
-		return use(placement) == "bottomBar"
-	end))
-	local navBottomCompact = scope:own(core:memo(function(use)
-		return use(placement) == "bottomBarCompact"
-	end))
-
-	-- CONTENT, not hug, on the MEASURED candidates: `hug` caps at the offer, so a
-	-- hug row can never tell a ViewThatFits that it does not fit — the ladder
-	-- silently pins its first candidate and the wings truncate. `content` is the
-	-- uncapped natural width, which is what a fit CHOICE needs; the chosen row is
-	-- then centered by its `fill` wrapper and never stretched.
-	local navTopBar = UI.VStack({
-		id = "NavTopBar",
-		align = "center",
-		width = FILL,
-		children = {
-			UI.ViewThatFits({
-				id = "NavTopFit",
-				children = {
-					UI.HStack({
-						id = "NavTopFull",
-						gap = "s",
-						padding = { left = "s", right = "s" },
-						-- NO `align` on a natural-width row: a container's own `align`
-						-- is ALSO read by its PARENT as cross-axis alignment, so a
-						-- "stretch" here would defeat the centering wrapper
-						width = NATURAL,
-						children = navItems("titleAndIcon"),
-					}),
-					UI.HStack({
-						id = "NavTopIcons",
-						gap = "s",
-						padding = { left = "s", right = "s" },
-						width = NATURAL,
-						children = navItems("iconOnly"),
-					}),
-				},
-			}),
-		},
-	})
-
-	local navRail = UI.ScrollView({
-		id = "NavRail",
-		gap = "s",
-		padding = "s",
-		-- hugs its widest label within bounds so raised preferred text
-		-- widens the rail instead of clipping it (large-text axis)
-		width = { type = "minMax", min = RAIL_W, max = RAIL_W + 64 },
-		height = { type = "fill", weight = 1 },
-		children = navItems("titleAndIcon"),
-	})
-
-	local bottomBarFull = UI.HStack({
-		id = "BottomBar",
-		gap = "s",
-		align = "stretch",
-		width = FILL,
-		children = navItems("iconOnly", FILL),
-	})
-
-	local bottomBarCompact = UI.VStack({
-		id = "BottomCompactCenter",
-		align = "center",
-		width = FILL,
-		children = {
-			UI.HStack({
-				id = "BottomCompact",
-				gap = "s",
-				width = NATURAL,
-				children = navItems("iconOnly"),
-			}),
-		},
-	})
+	-- Only the SECTION NAV ever moved between homes: the top chrome bar, and the
+	-- search that lives in it, is its own band and stays where it is on every
+	-- placement. That is why this proof could adopt the construct whole rather
+	-- than borrowing pieces of it.
+	--
+	-- FOUR VISIBLE CHANGES, each a deliberate trade rather than an oversight:
+	--
+	--  1. THE ACTIVE BAR IS THE FRAMEWORK'S SLIDING INDICATOR. The 3px rule this
+	--     file painted inside every wing is exactly D4's `underline`, and the
+	--     framework's one SLIDES between wings instead of cross-fading two fills.
+	--  2. ICON-ONLY IS A FIT DECISION NOW, NOT A PER-HOME ONE. The bottom homes
+	--     hard-coded it so no wing could ellipsize; `Option.icon` rides
+	--     `compactLabel`, so the framework degrades word -> glyph at the width
+	--     that actually needs it and never ellipsizes either. Same guarantee, one
+	--     fewer rule, and the rail and top band keep their words for free.
+	--  3. THE WING NAMES NOW FOLLOW A LIVE LOCALE FLIP. `newLabel`'s title is a
+	--     plain string by contract, so the old wings resolved at BUILD locale and
+	--     this proof's own loop could not move them; a picker option label may be
+	--     a Readable, so they are `L(...)` memos and they do.
+	--  4. THE TOP AND COMPACT BANDS LEAD RATHER THAN CENTRE. A tab bar that can
+	--     OVERFLOW is a scroll host, and a scroll host cannot centre content
+	--     narrower than its band — measured, not assumed: a `fill` child inside a
+	--     horizontal ScrollView resolves to the CONTENT width, so there is no band
+	--     width to centre within. Five wings that scroll beat five wings that
+	--     centre and truncate.
 
 	-- ── stub destinations (spec §6.6) ──────────────────────────────────────
 	local function stubPlate()
@@ -1126,6 +1008,40 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		},
 	})
 
+	-- ── the nav, as ONE construct (navigation-and-menus D5) ────────────────
+	--
+	-- Five destinations, five tab bodies, and the placement policy. `homeBody` is
+	-- still built ONCE above and merely CAPTURED by its factory — the wings'
+	-- disposer lesson has not changed, and a tab factory that rebuilt a composite
+	-- on every visit would hand the screen scope a fresh set each time. The stubs
+	-- own nothing, so they are rebuilt, which is exactly what the construct's
+	-- eviction contract promises: coming back replays the entry cost.
+	local navTabs: { any } = {}
+	for _, dest in DESTINATIONS do
+		table.insert(navTabs, {
+			id = dest,
+			label = L("nav." .. dest),
+			icon = DEST_ICON[dest],
+			content = if dest == "home"
+				then function()
+					return homeBody
+				end
+				else function()
+					return stubPlate()
+				end,
+		})
+	end
+	local nav = owned(LuauUI.newTabView(LuauUI, core, {
+		id = "Nav",
+		selection = destination,
+		-- the conditions this screen already builds, passed in rather than rebuilt:
+		-- `adaptive.conditions` creates thirteen memos and two copies would be two
+		-- answers to one question
+		conditions = conditions,
+		env = env,
+		tabs = navTabs,
+	}))
+
 	-- ── screen ─────────────────────────────────────────────────────────────
 	local screen = UI.Screen({
 		id = "Foyer",
@@ -1137,68 +1053,11 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 				align = "stretch",
 				height = { type = "fill", weight = 1 },
 				children = {
+					-- the chrome band, which never moves…
 					topBar,
-					UI.When({
-						id = "NavTopWhen",
-						condition = navTop,
-						thenView = function()
-							return navTopBar
-						end,
-					}),
-					UI.HStack({
-						id = "Middle",
-						gap = "m",
-						width = { type = "fill", weight = 1 },
-						height = { type = "fill", weight = 1 },
-						children = {
-							UI.When({
-								id = "SideRailWhen",
-								condition = navSidebar,
-								thenView = function()
-									return navRail
-								end,
-							}),
-							UI.VStack({
-								id = "ContentHost",
-								gap = "m",
-								align = "stretch",
-								width = { type = "fill", weight = 1 },
-								height = { type = "fill", weight = 1 },
-								children = {
-									UI.When({
-										id = "HomeWhen",
-										condition = core:memo(function(use)
-											return use(destination) == "home"
-										end),
-										thenView = function()
-											return homeBody
-										end,
-									}),
-									UI.When({
-										id = "StubWhen",
-										condition = core:memo(function(use)
-											return use(destination) ~= "home"
-										end),
-										thenView = stubPlate,
-									}),
-								},
-							}),
-						},
-					}),
-					UI.When({
-						id = "BottomFullWhen",
-						condition = navBottomFull,
-						thenView = function()
-							return bottomBarFull
-						end,
-					}),
-					UI.When({
-						id = "BottomCompactWhen",
-						condition = navBottomCompact,
-						thenView = function()
-							return bottomBarCompact
-						end,
-					}),
+					-- …and everything the placement policy DOES move, which is now
+					-- one node instead of four `When`s around three copies of a list
+					nav.blueprint,
 				},
 			}),
 		},

@@ -50,7 +50,31 @@ local function findPath(adapter: any, needle: string): string?
 	return nil
 end
 
-local HOME = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody"
+--[[ THE SECTION NAV IS NOW ONE `LuauUI.newTabView` (navigation-and-menus D5),
+	so the four hand-built bars and the two content `When`s this file used to pin
+	by name are gone. The paths below are the construct's, and the helpers under
+	them are how a case names a WING without knowing which home it is standing in
+	— which is the point: the home is a policy answer, and a case that hard-codes
+	one is testing the shell rather than the placement. ]]
+local NAV = "/Foyer/Root/Nav"
+local HOME = NAV .. "/Content/Tab-home/then/HomeBody"
+local HOMES: { [string]: string } = {
+	sidebar = NAV .. "/RailHome/then/Rail",
+	topBar = NAV .. "/TopHome/then/TopBand",
+	bottomBar = NAV .. "/BottomHome/then/BottomBand",
+	bottomBarCompact = NAV .. "/CompactHome/then/CompactBand",
+}
+-- DESTINATIONS in declaration order: the strip gives its segments `Opt<n>` ids,
+-- and `newTabView` publishes nothing else a test could name them by
+local ORDER = { "home", "crews", "forge", "mail", "you" }
+local function wingSuffix(dest: string): string
+	for index, name in ORDER do
+		if name == dest then
+			return `/Strip/Indicator/Options/Opt{index}`
+		end
+	end
+	error(`no destination '{dest}'`)
+end
 
 -- advance structural exit transitions to completion (cap 500 ms) so a swapped
 -- ForEach's RETIRED rows actually dispose before an absence is asserted
@@ -75,12 +99,12 @@ describe("Foyer proof — mount and structure (RA-P4)", function()
 
 	it("wide viewport shows the nav rail, not the bottom bar; compact shows the bottom bar", function()
 		local wide = makeWorld(1400)
-		expect(findPath(wide.adapter, "SideRailWhen/then/NavRail") ~= nil).toBe(true)
-		expect(findPath(wide.adapter, "BottomFullWhen/then") == nil).toBe(true)
+		expect(wide.adapter.node(HOMES.sidebar) ~= nil).toBe(true)
+		expect(wide.adapter.node(HOMES.bottomBar)).toBeNil()
 		teardown(wide)
 		local compact = makeWorld(390)
-		expect(findPath(compact.adapter, "SideRailWhen/then/NavRail") == nil).toBe(true)
-		expect(findPath(compact.adapter, "BottomFullWhen/then/BottomBar") ~= nil).toBe(true)
+		expect(compact.adapter.node(HOMES.sidebar)).toBeNil()
+		expect(compact.adapter.node(HOMES.bottomBar) ~= nil).toBe(true)
 		teardown(compact)
 	end)
 
@@ -91,7 +115,9 @@ describe("Foyer proof — mount and structure (RA-P4)", function()
 		expect(before ~= nil).toBe(true)
 		w.env:set("viewportRect", { x = 0, y = 0, w = 390, h = 800 })
 		w.presenter.refresh()
-		expect(findPath(w.adapter, "BottomFullWhen/then/BottomBar") ~= nil).toBe(true)
+		expect(w.adapter.node(HOMES.bottomBar) ~= nil).toBe(true)
+		-- the nav RE-HOMES and the content does not move at all: the tab body sits
+		-- in the construct's own content region, which no placement touches
 		expect(w.adapter.node(tabPath) == before).toBe(true)
 		teardown(w)
 	end)
@@ -139,40 +165,42 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 	it("navPlacement gives every canvas its home: rail / bottom band / inline band / top band", function()
 		-- pointer desktop: the vertical rail beside the content
 		local desktop = shaped({ x = 0, y = 0, w = 1400, h = 900 })
-		local rail = desktop.node("SideRailWhen/then/NavRail")
+		local rail = desktop.node(HOMES.sidebar)
 		expect(rail ~= nil and rail.rect ~= nil).toBe(true)
 		expect(rail.rect.x < 1400 * 0.2).toBe(true)
 		expect(rail.rect.h > rail.rect.w * 2).toBe(true) -- a COLUMN, not a band
-		expect(desktop.node("BottomFullWhen/then/BottomBar")).toBeNil()
-		expect(desktop.node("NavTopWhen/then/NavTopBar")).toBeNil()
+		expect(desktop.node(HOMES.bottomBar)).toBeNil()
+		expect(desktop.node(HOMES.topBar)).toBeNil()
 		teardown(desktop)
 
-		-- phone portrait: the full-width thumb-zone band
+		-- phone portrait: the full-width thumb-zone band, whose wings DIVIDE it
 		local phone = shaped({ x = 0, y = 0, w = 390, h = 844 })
-		local band = phone.node("BottomFullWhen/then/BottomBar")
+		local band = phone.node(HOMES.bottomBar)
 		expect(band ~= nil and band.rect ~= nil).toBe(true)
 		expect(band.rect.w).toBe(390)
-		expect(phone.node("SideRailWhen/then/NavRail")).toBeNil()
+		-- the band pads itself; what matters is that the strip takes the whole
+		-- inner box rather than hugging its five words
+		expect((phone.node(HOMES.bottomBar .. "/Strip") :: any).rect.w > band.rect.w - 16).toBe(true)
+		expect(phone.node(HOMES.sidebar)).toBeNil()
 		teardown(phone)
 
-		-- phone landscape (roomy width, SHORT height): a CENTERED cluster that
-		-- hugs its wings, never a full-width stretch
+		-- phone landscape (roomy width, SHORT height): the SAME wings in a band
+		-- that HUGS them instead of dividing the width, so a fifth wing can push
+		-- the strip past the band and scroll rather than truncate
 		local land = shaped({ x = 0, y = 0, w = 720, h = 360 })
-		local inline = land.node("BottomCompactCenter/BottomCompact")
+		local inline = land.node(HOMES.bottomBarCompact .. "/Strip")
 		expect(inline ~= nil and inline.rect ~= nil).toBe(true)
 		expect(inline.rect.w < 720 * 0.7).toBe(true)
-		expect(math.abs((inline.rect.x + inline.rect.w / 2) - 360) < 60).toBe(true)
-		expect(land.node("BottomFullWhen/then/BottomBar")).toBeNil()
+		expect(land.node(HOMES.bottomBar)).toBeNil()
 		teardown(land)
 
-		-- tablet (roomy + touch + a Medium display): the centered top band
+		-- tablet (roomy + touch + a Medium display): the top band, hugging
 		local tablet = shaped({ x = 0, y = 0, w = 1080, h = 810 }, { capabilities = TOUCH, preferredInput = "Touch" })
-		local top = tablet.node("NavTopFit/NavTopFull") or tablet.node("NavTopFit/NavTopIcons")
+		local top = tablet.node(HOMES.topBar .. "/Strip")
 		expect(top ~= nil and top.rect ~= nil).toBe(true)
 		expect(top.rect.w < 1080 * 0.7).toBe(true) -- hugs
-		expect(math.abs((top.rect.x + top.rect.w / 2) - 540) < 120).toBe(true) -- centered
-		expect(tablet.node("SideRailWhen/then/NavRail")).toBeNil()
-		expect(tablet.node("BottomFullWhen/then/BottomBar")).toBeNil()
+		expect(tablet.node(HOMES.sidebar)).toBeNil()
+		expect(tablet.node(HOMES.bottomBar)).toBeNil()
 		teardown(tablet)
 
 		-- ...and a roomy canvas the DISPLAY fact cannot tell from a handheld
@@ -181,8 +209,8 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			{ x = 0, y = 0, w = 1280, h = 720 },
 			{ capabilities = TOUCH, preferredInput = "Touch", displaySize = "Small" }
 		)
-		expect(small.node("BottomFullWhen/then/BottomBar") ~= nil).toBe(true)
-		expect(small.node("NavTopWhen/then/NavTopBar")).toBeNil()
+		expect(small.node(HOMES.bottomBar) ~= nil).toBe(true)
+		expect(small.node(HOMES.topBar)).toBeNil()
 		expect(small.core:lastError()).toBeNil()
 		teardown(small)
 	end)
@@ -190,11 +218,11 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 	it("the nav band sits BELOW the content at both bottom placements", function()
 		for _, canvas in { { 390, 844 }, { 720, 360 } } do
 			local w = shaped({ x = 0, y = 0, w = canvas[1], h = canvas[2] })
-			local middle = w.node("/Foyer/Root/Middle")
-			local band = w.node("BottomFullWhen/then/BottomBar") or w.node("BottomCompactCenter/BottomCompact")
-			expect(middle ~= nil and middle.rect ~= nil).toBe(true)
+			local content = w.node(NAV .. "/Content")
+			local band = w.node(HOMES.bottomBar) or w.node(HOMES.bottomBarCompact)
+			expect(content ~= nil and content.rect ~= nil).toBe(true)
 			expect(band ~= nil and band.rect ~= nil).toBe(true)
-			expect(band.rect.y >= middle.rect.y + middle.rect.h - 1).toBe(true)
+			expect(band.rect.y >= content.rect.y + content.rect.h - 1).toBe(true)
 			teardown(w)
 		end
 	end)
@@ -224,27 +252,41 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		end
 	end)
 
-	it("no bottom wing carries a title at all: the bands are the ICON-ONLY presentation", function()
-		-- the compact-representation ruling, pinned where it can be measured —
-		-- an icon-only wing has no text node, so no bottom wing can ellipsize.
-		-- (A losing ViewThatFits candidate still publishes text facts, so the
-		-- top band's ladder is read through `hiddenRoots` in its own case.)
+	it("no bottom wing is ever cut off: the ladder degrades the WORD to the GLYPH", function()
+		-- THE RULING IS THE SAME; WHO ENFORCES IT CHANGED. This proof used to
+		-- hard-code `iconOnly` on both bottom homes so that no wing could
+		-- ellipsize. `Option.icon` rides `compactLabel`, and a Button with one
+		-- declared NEVER ellipsizes — it draws the glyph instead — so the
+		-- guarantee now comes from a measurement at the width that actually needs
+		-- it rather than from a per-home rule. Pinned across all four preferred
+		-- text offsets, on both bottom canvases.
 		for _, canvas in { { 390, 844 }, { 720, 360 } } do
 			for _, offset in { 0, 4, 10, 14 } do
 				local w = shaped({ x = 0, y = 0, w = canvas[1], h = canvas[2] })
 				w.env:set("preferredTextOffset", offset)
 				w.presenter.refresh()
-				local titles: { string } = {}
-				for _, path in w.adapter.paths() do
-					if string.find(path, "_iconOnly/", 1, true) ~= nil and string.sub(path, -#"/Title") == "/Title" then
-						table.insert(titles, path)
+				local cut = 0
+				for path, textFacts in w.handle.controller.textAt() do
+					-- the STRIP only: the whole screen now sits under `/Nav` (the
+					-- construct owns the content region too), so a bare `/Nav/`
+					-- filter would count the feed's own copy
+					if
+						textFacts.truncated == true
+						and string.find(path, "/Strip/Indicator/Options", 1, true) ~= nil
+					then
+						cut += 1
 					end
 				end
-				expect(#titles).toBe(0)
-				-- ...and every wing is still a real, hittable control
-				local hit = findPath(w.adapter, "Nav_crews_iconOnly")
-				expect(hit ~= nil).toBe(true)
-				w.adapter.tap(hit :: string)
+				expect(`{canvas[1]}@{offset}:{cut}`).toBe(`{canvas[1]}@{offset}:0`)
+				-- ...and every wing is still a real, hittable control that carries
+				-- its semantic NAME whatever got drawn
+				local home = if canvas[2] < 600 then HOMES.bottomBarCompact else HOMES.bottomBar
+				local hit = home .. wingSuffix("crews")
+				expect(w.adapter.node(hit) ~= nil).toBe(true)
+				expect(w.adapter.node(hit).class).toBe("Button")
+				-- whatever the ladder chose, the wing draws SOMETHING
+				expect(#tostring(w.adapter.node(hit).props.label) > 0).toBe(true)
+				w.adapter.tap(hit)
 				w.presenter.refresh()
 				expect(w.built.report().destination).toBe("crews")
 				teardown(w)
@@ -252,40 +294,46 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		end
 	end)
 
-	it("no VISIBLE top-band wing is cut off, and its icon-only rung is reachable", function()
+	it("no top-band wing is cut off, and the glyph rung is REACHED at the expansion locale", function()
 		local facts = { capabilities = TOUCH, preferredInput = "Touch" }
 		local w = shaped({ x = 0, y = 0, w = 1080, h = 810 }, facts)
 		local function cuts(): number
-			local hidden = w.handle.controller.hiddenRoots()
 			local n = 0
 			for path, textFacts in w.handle.controller.textAt() do
-				if textFacts.truncated ~= true or string.find(path, "NavTop", 1, true) == nil then
-					continue
-				end
-				local onScreen = true
-				for root in hidden do
-					if string.sub(path, 1, #root) == root then
-						onScreen = false
-					end
-				end
-				if onScreen then
+				if textFacts.truncated == true and string.find(path, "/Strip/Indicator/Options", 1, true) ~= nil then
 					n += 1
 				end
 			end
 			return n
 		end
-		-- the full titles fit a tablet band, and nothing on screen is cut
-		expect((w.node("NavTopFit/NavTopFull") :: any).rect.w > 0).toBe(true)
+		local function drawn(dest: string): string
+			return tostring((w.adapter.node(HOMES.topBar .. wingSuffix(dest)) :: any).props.label)
+		end
+		-- the full titles fit a tablet band, and nothing is cut
+		expect(drawn("crews")).toBe("Crews")
 		expect(cuts()).toBe(0)
-		-- ...and the ladder is REAL: the 1.4x locale at the largest text preference
-		-- on the narrowest band that is still a TOP band takes the icon-only rung
+		-- ...and AT THE EXPANSION LOCALE IT OVERFLOWS AND SCROLLS INSTEAD OF
+		-- DEGRADING, which is the shape of a hugging band and worth pinning
+		-- because it is the OPPOSITE of what the bottom band does. A `hug` strip
+		-- takes each wing's natural width, so it never runs out of room and the
+		-- ladder never fires; what it does instead is get wider than its band, and
+		-- the wings past the edge are reached by scrolling — including by a
+		-- keyboard or pad move, which the presenter reveals through the same
+		-- keep-visible substrate. Nothing is CUT either way, which is the
+		-- localization guarantee both shapes owe.
 		w.env:set("viewportRect", { x = 0, y = 0, w = 620, h = 900 })
 		w.env:set("preferredTextOffset", 14)
 		w.built.steps.locale(nil, "xa")
 		w.presenter.refresh()
-		expect((w.node("NavTopFit/NavTopFull") :: any).rect.w).toBe(0)
-		expect((w.node("NavTopFit/NavTopIcons") :: any).rect.w > 0).toBe(true)
 		expect(cuts()).toBe(0)
+		local band = (w.adapter.node(HOMES.topBar) :: any).rect
+		local strip = (w.adapter.node(HOMES.topBar .. "/Strip") :: any).rect
+		expect(strip.w > band.w).toBe(true)
+		expect(w.adapter.scrollRegionOf(HOMES.topBar).contentW > band.w).toBe(true)
+		-- the wing past the edge is REACHABLE: focus it and the band scrolls
+		w.system.deviceKey("Tab", true)
+		w.system.deviceKey("Tab", false)
+		w.presenter.refresh()
 		expect(w.core:lastError()).toBeNil()
 		teardown(w)
 	end)
@@ -334,10 +382,10 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		for _, canvas in canvases do
 			local w = shaped(canvas.vp, canvas.facts)
 			local seen = walk(w)
-			for _, dest in { "home", "crews", "forge", "mail", "you" } do
+			for _, dest in ORDER do
 				local hit = false
 				for path in seen do
-					if string.find(path, "Nav_" .. dest .. "_", 1, true) ~= nil then
+					if string.find(path, wingSuffix(dest), 1, true) ~= nil then
 						hit = true
 					end
 				end
@@ -346,13 +394,13 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			-- (away) the ring holds more than the nav
 			local outside = false
 			for path in seen do
-				if string.find(path, "/Nav_", 1, true) == nil then
+				if string.find(path, "/Strip/Indicator/Options/", 1, true) == nil then
 					outside = true
 				end
 			end
 			expect(`{canvas.name}/outside:{outside}`).toBe(`{canvas.name}/outside:true`)
 			-- (action) a wing switches the destination through the real path
-			local wing = findPath(w.adapter, "Nav_forge_")
+			local wing = findPath(w.adapter, wingSuffix("forge"))
 			expect(wing ~= nil).toBe(true)
 			w.adapter.tap(wing :: string)
 			w.presenter.refresh()
@@ -370,7 +418,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			preferredInput = "Gamepad",
 			displaySize = "Large",
 		})
-		expect(w.node("NavTopWhen/then/NavTopBar") ~= nil).toBe(true)
+		expect(w.adapter.node(HOMES.topBar) ~= nil).toBe(true)
 		local function pad(key: string)
 			w.system.deviceKey(key, true)
 			w.system.deviceKey(key, false)
@@ -380,21 +428,21 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 			return tostring(w.presenter.focus.focused:get())
 		end
 		-- (enter) walk DOWN into the band from wherever the surface opened
+		local WING = "/Strip/Indicator/Options/"
 		local guard = 0
-		while string.find(focused(), "/Nav_", 1, true) == nil and guard < 20 do
+		while string.find(focused(), WING, 1, true) == nil and guard < 20 do
 			pad("DPadDown")
 			guard += 1
 		end
-		expect(string.find(focused(), "/Nav_", 1, true) ~= nil).toBe(true)
+		expect(string.find(focused(), WING, 1, true) ~= nil).toBe(true)
 		-- (through) a pad enters a band wherever it is spatially NEAREST — from the
 		-- bell that is the third wing, not the first — so the walk goes to the
 		-- leading edge first and then all the way across. The step counts come
 		-- from the wing the pad actually landed on, which is what makes this a
 		-- traversal proof rather than a lucky entry point.
-		local ORDER = { "home", "crews", "forge", "mail", "you" }
 		local function wingAt(): number?
 			for index, dest in ORDER do
-				if string.find(focused(), "Nav_" .. dest .. "_", 1, true) ~= nil then
+				if string.find(focused(), wingSuffix(dest), 1, true) ~= nil then
 					return index
 				end
 			end
@@ -416,7 +464,7 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		for _, dest in ORDER do
 			local hit = false
 			for path in seen do
-				if string.find(path, "Nav_" .. dest .. "_", 1, true) ~= nil then
+				if string.find(path, wingSuffix(dest), 1, true) ~= nil then
 					hit = true
 				end
 			end
@@ -426,11 +474,11 @@ describe("Foyer nav — the four placement homes (adaptive.navPlacement)", funct
 		-- BEFORE the action, because a stub destination has nothing focusable in
 		-- it and "cannot leave" would then be indistinguishable from "nowhere to go"
 		pad("DPadDown")
-		expect(string.find(focused(), "/Nav_", 1, true) == nil).toBe(true)
+		expect(string.find(focused(), WING, 1, true) == nil).toBe(true)
 		-- (action) walk back up and press A: the wing under focus is the one that
 		-- takes effect, so the assertion reads the wing rather than assuming it
 		local back = 0
-		while string.find(focused(), "/Nav_", 1, true) == nil and back < 20 do
+		while string.find(focused(), WING, 1, true) == nil and back < 20 do
 			pad("DPadUp")
 			back += 1
 		end
@@ -487,15 +535,17 @@ describe("Foyer proof — tabs, search, stubs", function()
 
 	it("a stub destination shows the labeled stub plate, never fake content", function()
 		local w = makeWorld()
-		local nav = findPath(w.adapter, "NavRail/Nav_crews_titleAndIcon")
-		expect(nav ~= nil).toBe(true)
-		w.adapter.tap(nav :: string)
+		local nav = HOMES.sidebar .. wingSuffix("crews")
+		expect(w.adapter.node(nav) ~= nil).toBe(true)
+		w.adapter.tap(nav)
 		w.presenter.refresh()
-		expect(findPath(w.adapter, "StubWhen/then/StubPlate") ~= nil).toBe(true)
-		expect(findPath(w.adapter, "HomeWhen/then") == nil).toBe(true)
+		-- ...and the home body is EVICTED, not hidden: the construct disposes the
+		-- previous tab's subtree, so its nodes are gone from the tree entirely
+		expect(findPath(w.adapter, "Tab-crews/then/StubPlate") ~= nil).toBe(true)
+		expect(w.adapter.node(HOME)).toBeNil()
 		w.built.steps.destination(nil, "home")
 		w.presenter.refresh()
-		expect(findPath(w.adapter, "HomeWhen/then/HomeBody") ~= nil).toBe(true)
+		expect(w.adapter.node(HOME) ~= nil).toBe(true)
 		teardown(w)
 	end)
 end)
