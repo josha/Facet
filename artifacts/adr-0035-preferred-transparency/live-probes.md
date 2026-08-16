@@ -153,6 +153,49 @@ report.scrimPath = /__scrim__/catcher
 
 ---
 
+## 4b. The relink branch: a whole-target sheet swap re-bases — MEASURED
+
+The branch the design most easily gets wrong. A theme controller relinks every root
+onto a sheet **it** built, carrying that designer's dim and none of the player's
+preference. Driven the way the controller drives it — a second sheet authored at
+`scrimOpacity = 0.8`, materialized through `native_style.ensure` and handed to
+`adapter.relinkThemeSheet`:
+
+```
+own sheet, pref 0.50            swatch styled=0.2250   (own dim 0.45 -> 0.45 x 0.50)
+second sheet's AUTHORED dim   = 0.8
+after relink, pref STILL 0.50   swatch styled=0.4000   (new dim 0.80 -> 0.80 x 0.50)
+  second sheet's rule now     = 0.4
+back to pref 1.00               swatch styled=0.8000   (the new sheet's OWN number, un-drifted)
+```
+
+Two things this settles that nothing else could:
+
+- **The patch follows the linked sheet, not this target's handle.** Had it patched
+  `nativeHandle`, the middle row would read `0.8000` — the new sheet untouched — while
+  a real rule on a sheet nobody is wearing changed.
+- **The base re-bases to the new designer's number, and the last row proves it is not
+  being read back from our own output.** Returning to preference 1 gives exactly
+  `0.8000`, not `0.4000` and not something drifting toward invisible.
+
+### Cleanup note, recorded rather than tidied away
+
+The first attempt at this probe errored on `attempt to modify a readonly table`
+(the shipped styles are frozen) **after** it had mounted, and left `O26SwapHost` and
+`LuauUI_O26S` behind. The successful run's own cleanup then reported them as leftovers
+— correctly, because its "destroy what I mounted" set was computed as *roots that did
+not exist before I started*, and those two did. Both were removed in a follow-up call
+and absence re-verified:
+
+```
+removed: O26SwapHost, LuauUI_O26S, O26SwapHost, LuauUI_O26S
+leftovers: NONE
+PlayerGui: LuauUIStyle, LuauUI_ShowcaseBackdrop, LuauUITheme studio-neutral,
+           LuauUI_ShowcaseChrome, BubbleChat, Chat, Freecam, LuauUI_PreferredTransparency
+```
+
+---
+
 ## 5. The fixture is reachable in the shipped place — MEASURED
 
 Through the showcase's own catalogue, not by workspace attribute:

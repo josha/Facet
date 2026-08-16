@@ -35,6 +35,71 @@ Review the full production surface and its blast radius:
 Report every issue, including uncertain and low-severity ones. A declared missing
 feature is not a defect unless the current API or documentation claims it works.
 
+## Engineering quality and reuse
+
+Review the implementation as a software library, not only as a set of passing
+features. Check responsibility and dependency direction, names and public types,
+state ownership, mutation boundaries, failure handling, cleanup, hot-path cost, dead
+code, test seams, and generated-versus-authored boundaries.
+
+Two or more similar implementation chunks create a reuse finding. This includes
+copied code and separate helpers, controls, adapters, or pipelines that perform the
+same job with small variations. For each finding:
+
+1. identify the shared responsibility, callers, invariants, lifecycle, error behavior,
+   and performance needs;
+2. reuse an existing mechanism when it already owns that responsibility;
+3. otherwise extract one named, typed mechanism at the narrowest stable layer;
+4. migrate every affected caller and delete the superseded paths; and
+5. prove public behavior, identity, cleanup, diagnostics, and performance did not
+   regress.
+
+Consolidate by default. Keep separate implementations only when a shared mechanism
+would merge different semantics, reverse a dependency, add more branching or
+indirection than it removes, obscure a tutorial, or harm a measured hot path. Record
+that concrete reason in the finding ledger. “They may diverge later” is not enough.
+Do not introduce a generic abstraction with only an imagined future caller.
+
+Apply the same review to substantial test, example, and tool infrastructure. Keep a
+small local test setup when sharing it would make the behavior under test harder to
+read. Add focused structural guards for each important consolidated seam so a second
+production path cannot return silently. Do not use a raw duplication percentage or
+line-count target as a substitute for design review.
+
+## Input architecture
+
+Use Roblox's [Input Action System](https://create.roblox.com/docs/input/input-action-system)
+(`InputContext`, `InputAction`, and `InputBinding`) as LuauUI's semantic input and
+command-binding authority. `InputActionService` is not an engine class; use the exact
+Roblox names in code and documentation. Enable `Workspace.PlayerScriptsUseInputActionSystem`
+in every supported project/place where LuauUI owns navigation actions.
+
+Inventory every direct use of `ContextActionService`, `UserInputService`, raw key or
+button events, and parallel action routing in source, examples, tools, and Rascal
+Rally integration. Classify each use as semantic action routing, environment/capability
+observation, raw pointer or keyboard geometry, engine interoperability/diagnosis, or
+test-only injection.
+
+Move semantic action routing, priority, sinking, device bindings, and context lifetime
+to the Input Action System. Do not use `ContextActionService` or
+`UserInputService.InputBegan`/`InputEnded` as a second command path. Recheck all
+existing contention probes and legacy PlayerScripts repairs; prior need is not proof
+that they remain necessary.
+
+Keep a legacy service call only when the current Input Action System cannot provide
+the required fact or mechanism. For every exception, record the missing capability,
+official source or Studio disproof, exact adapter owner, consumers, teardown, and
+removal trigger. Keep it in one named adapter or diagnostic allowlist and expose a
+pure injected fact above that boundary. Examples and game screens cannot call legacy
+input services directly.
+
+Add drift checks that reject new direct legacy action bindings or unlisted service
+access. Prove action contexts enable, prioritize, sink, switch, and destroy correctly;
+all supported keyboard, pointer/touch, and gamepad paths deliver one semantic action;
+text entry and gameplay keep their inputs; and no old and new path fires together.
+Use current official Roblox documentation and visible Studio evidence because this
+platform surface can change.
+
 ## Public guide completeness
 
 Rebuild the documentation inventory from current exports, schemas, registrations,
@@ -139,8 +204,10 @@ every failure caused by unclear wording or navigation.
 
 Fable owns diagnosis and disposition. Reproduce live-observable defects before fixing
 them. Dispatch a fix to Opus only after its cause, interface, test, and completion
-evidence are unambiguous. Keep fixes narrow; do not add parity features, broad
-refactors, or release polish inside the review.
+evidence are unambiguous. Do not add parity features, speculative redesigns, or
+release polish. Evidence-backed reuse consolidation and Input Action System migration
+are authorized even when they update several callers; keep their responsibility and
+public behavior narrow.
 
 Every confirmed blocker/high issue is fixed and rerun. Medium/low findings are fixed
 when safe or recorded with owner, reason, risk, and a later trigger. Requirement or
@@ -149,15 +216,18 @@ public-contract findings cannot be waved through as notes.
 ## Gate
 
 Register `release-candidate-review`. Run focused and full suites, fuzz/fault/soak and
-performance checks, registration/docs/boundary checks, affected prior gates, and
-representative real-adapter Studio scenarios. Give independent architecture,
-reactive-runtime, Roblox-platform, and phase-gate reviewers the raw baseline, ledger,
-diff, and artifacts.
+performance checks, registration/docs/boundary checks, reuse and input-authority
+guards, affected prior gates, Rascal Rally consumer checks, and representative
+real-adapter Studio scenarios. Give independent architecture, reactive-runtime,
+Roblox-platform, and phase-gate reviewers the raw baseline, ledger, diff, and
+artifacts.
 
 The gate passes when there are no unresolved confirmed blocker/high defects, every
 other finding has an explicit disposition, all fixes have regression evidence, the
 categorized guide catalog and exhaustive API reference match the public surface and
 their drift checks pass, the platform-language scan and intentional-failure proof
-pass, fresh readers can use the clear documentation, affected Studio behavior is
-proven, and prior behavior and performance remain intact. Do not publish or package
-a release in this stage.
+pass, every two-or-more similarity finding is consolidated or has a concrete recorded
+reason, Input Action System owns semantic commands with only proved/allowlisted legacy
+service exceptions, fresh readers can use the clear documentation, affected Studio
+behavior is proven, and prior behavior and performance remain intact. Do not publish
+or package a release in this stage.

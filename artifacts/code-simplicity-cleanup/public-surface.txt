@@ -8,6 +8,7 @@ UI : table
   UI.Divider : function
   UI.ErrorBoundary : function
   UI.ForEach : function
+  UI.Foreign : function
   UI.Grid : function
   UI.GridRow : function
   UI.Grip : function
@@ -46,6 +47,7 @@ UI : table
   UI.sensoryFeedback : function
   UI.shadow : function
   UI.shadowData : function
+  UI.sortedEntries : function
   UI.stroke : function
   UI.strokeData : function
   UI.styleGroup : function
@@ -85,12 +87,17 @@ interactionTokens : table
   interactionTokens.promotionPx : function
 motion : table
   motion.classNames : function
+  motion.curveNames : function
   motion.isRegisteredClass : function
+  motion.isRegisteredCurve : function
   motion.newClock : function
   motion.newValueReveal : function
   motion.registerClass : function
+  motion.registerCurve : function
   motion.resetClasses : function
+  motion.resetCurves : function
   motion.resolveClass : function
+  motion.resolveCurve : function
 mount : function
 newActionSystem : function
 newAsyncImage : function
@@ -144,7 +151,9 @@ spatial : table
   spatial.normalize : function
   spatial.of : function
 text : table
+  text.facts : function
   text.fit : function
+  text.lineBox : function
   text.measure : function
   text.size : function
 themes : table

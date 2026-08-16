@@ -3,6 +3,12 @@
 **Date:** 2026-07-26
 **Status:** Proposed gameplay, teaching, and visual-quality plan.
 
+> Step 13.5's [`example-games-and-standalones.md`](example-games-and-standalones.md)
+> supersedes this pass for the word dictionary, crossword-tile rules, match-3 motion,
+> world-surface terminal, shared example manifest, and curated standalone places. This
+> document remains the baseline for the seven tutorial lessons and the
+> `example-quality-pass` evidence.
+
 ## Outcome
 
 Every tutorial example must be understandable and playable in Roblox Studio without
