@@ -33,6 +33,13 @@ local profile = require("../core/profile")
 -- with roomier spacing gets a proportionally roomier dismiss ring for free.
 local themeSnapshot = require("../themes/snapshot")
 local specGuard = require("../spec_guard")
+-- D1, the anchored-surface seam: the PURE placement decision (preferred edge,
+-- safe-area flip, along-edge shift, arrow tail) and the presented surface built
+-- on it. The disclosure plate below is one of the two hand-rolled precedents the
+-- pure solver replaced — it asks `anchorPlacement.solve` now instead of carrying
+-- its own copy of the same four rules.
+local anchorPlacement = require("../layout/anchor_placement")
+local anchoredLib = require("./anchored")
 
 local presenter = {}
 
@@ -835,6 +842,29 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return { x = x, y = y, w = math.max(0, w), h = math.max(0, h) }
 	end
 
+	--[[ ===== ANCHORED SURFACES (D1) ========================================
+		`presentAnchored(panel, opts)` — a surface placed against a SOURCE VIEW'S
+		screen rect instead of a parent corner. It owns none of the presenter's
+		machinery: it synthesizes the Screen/Anchor wrapper and the arrow tail, and
+		delegates straight back to `present`/`presentModal` for the stack, the focus
+		scope, the input context, the layering band and the tap-away catcher.
+		Constructed HERE, below `safeBox`, because that is the fact it reuses —
+		re-deriving the safe area in a second place is exactly the fork this
+		deliverable exists to remove. `handleByPath` is forward-declared above and
+		assigned far below, so it is reached through a thunk. ]]
+	local anchoredSurfaces = anchoredLib.new({
+		core = core,
+		env = env,
+		stack = stack,
+		presenter = self,
+		metricsNow = metricsNow,
+		safeBox = safeBox,
+		handleByPath = function(path: string): any
+			return if handleByPath ~= nil then handleByPath(path) else nil
+		end,
+		presentOptsKeys = PRESENT_OPTS_KEYS,
+	})
+
 	-- the first TRUNCATED, DISCLOSED Text at or under `path`, in document order.
 	-- Engagement names a focusable (or the label itself); the debt belongs to the
 	-- Text, and a control is free to hold exactly one — a row's name cell.
@@ -952,17 +982,25 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if type(srcRect) ~= "table" or type(plateRect) ~= "table" then
 			return
 		end
-		local box = safeBox()
-		local gap = themeSnapshot.resolveNumber(metricsNow(), "xs") or 4
-		local x = math.clamp(srcRect.x, box.x, math.max(box.x, box.x + box.w - plateRect.w))
-		-- below the label by preference; above it when there is no room below,
-		-- which is where a label near the bottom edge always sits
-		local below = srcRect.y + srcRect.h + gap
-		local y = if below + plateRect.h > box.y + box.h then srcRect.y - gap - plateRect.h else below
-		y = math.clamp(y, box.y, math.max(box.y, box.y + box.h - plateRect.h))
-		if plate.ox:get() ~= x or plate.oy:get() ~= y then
-			plate.ox:set(x)
-			plate.oy:set(y)
+		--[[ THROUGH THE SHARED SOLVER (D1). This block WAS the first hand-rolled
+			copy of the anchored-placement rules: prefer below, flip above, clamp
+			into the safe box. Being a copy, it had the flip subtly wrong — it
+			flipped whenever below did not fit, including when above did not fit
+			either, which is the "worse place" `row_actions`' own ruling forbids (a
+			plate both clipped AND on the wrong side of its label). It now asks
+			`anchor_placement.solve`, which encodes both halves of that rule once. ]]
+		local placement = anchorPlacement.solve({
+			source = srcRect,
+			size = { w = plateRect.w, h = plateRect.h },
+			safe = safeBox(),
+			edge = "bottom",
+			-- leading-aligned on the label, which is where a reader's eye already is
+			align = "start",
+			gap = themeSnapshot.resolveNumber(metricsNow(), "xs") or 4,
+		})
+		if plate.ox:get() ~= placement.x or plate.oy:get() ~= placement.y then
+			plate.ox:set(placement.x)
+			plate.oy:set(placement.y)
 			plate.controller.refresh()
 		end
 	end
@@ -3076,6 +3114,25 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return makeHandle(blueprint, opts, "screen")
 	end
 
+	--[[ AN ANCHORED SURFACE (D1). `panel` is a PANEL blueprint — any node, not a
+		`UI.Screen`: the Screen root, the full-viewport anchor layer, the
+		window-space placement and the optional arrow tail are synthesized by
+		`src/present/anchored.luau`, which then delegates to `present`/`presentModal`
+		(`opts.modal = true`) so every `PresentOpts` key, the focus scope, the
+		layering band and the tap-away catcher are the ones every other surface uses.
+		`opts.anchor` names the source (a mounted `path` or a fixed `rect`), the
+		preferred `edge`, the `align`ment along it, the `gap`, the `tail` and the
+		`overflow` policy. See docs/reference/api.md § Anchored surfaces. ]]
+	function self.presentAnchored(panel: any, opts: any)
+		return anchoredSurfaces.present(panel, opts)
+	end
+
+	-- every live anchored surface, its resolved edge, whether it flipped, how far
+	-- it shifted and what became of its tail (schema `luauui-anchored-dump/1`)
+	function self.anchoredSurfaces(): any
+		return anchoredSurfaces.dump()
+	end
+
 	function self.presentModal(blueprint: any, opts: PresentOpts?)
 		specGuard.assertKnownKeys("presenter.presentModal", opts, PRESENT_OPTS_KEYS, "opts")
 		-- the base screen's context stays enabled for non-sunk actions, but
@@ -3146,6 +3203,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			return
 		end
 		table.remove(stack, index)
+		-- an ANCHORED surface stops being anchored the moment it leaves the stack
+		-- (D1): the record and the placement signals it owns die here, not a frame
+		-- later on the next sync
+		anchoredSurfaces.prune()
 		-- REDTEAM FIX (item 3, MAJOR; final-review-findings.md). `displayLayer`
 		-- (the "cross-surface z" band-offset counter above, `makeHandle`'s
 		-- `displayLayer += 100`) never went back down — a long-lived session
@@ -3377,6 +3438,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- silently opted out of a rule added to the original (the first was
 		-- `setFocusPath(current)` in makeHandle). There is now one.
 		self.syncFocusVisuals()
+		-- ...and every ANCHORED surface re-reads its source (D1). AFTER the loop,
+		-- because a surface is anchored to a rect that belongs to a DIFFERENT
+		-- handle, which has only just re-rendered and re-fed its geometry. This is
+		-- the cadence a real scroll already drives — the same one row_actions'
+		-- floating menu re-aims on — so following a moving source asks nothing new
+		-- of any caller and adds no watcher.
+		anchoredSurfaces.sync()
 		-- ...and a disclosure plate is checked against the tree that just
 		-- re-rendered: its source node may be gone, or the re-solve may have made
 		-- room for the label (LTN-4)
@@ -3844,6 +3912,11 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		if disclosurePlate ~= nil then
 			clampDisclosure()
 		end
+		-- ...and an ANCHORED surface keeps its placement for the same reason (D1):
+		-- its own size is a solve output whose text measure can land after mount, so
+		-- a surface placed once at mount would be placed from the placeholder
+		-- height. Same tick, same rule, no second clock.
+		anchoredSurfaces.sync()
 		-- the auto reveal's whole cycle rides this one tick (2026-08-04): an
 		-- idle presenter pays a timer-gated rescan, a live strip one signal write
 		stepReveal(math.max(step :: number, 0))

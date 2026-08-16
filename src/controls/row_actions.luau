@@ -148,6 +148,10 @@ local themeSnapshot = require("../themes/snapshot")
 -- button no longer paints (director device round 2026-08-12).
 local themePackage = require("../themes/package")
 local text_metrics = require("../layout/text_metrics")
+-- the SHARED anchored-placement decision (navigation-and-menus D1). `computeMenuAnchor`
+-- below was one of the two hand-rolled copies of it; the flip rule this file's own
+-- ruling 4 wrote down now lives in one place and three callers ask it.
+local anchorPlacement = require("../layout/anchor_placement")
 local specGuard = require("../spec_guard")
 -- the ActionSpec authoring contract and three leaf helpers, lifted out whole
 -- (2026-08-14): pure functions of their arguments, sharing not one upvalue with
@@ -1870,13 +1874,16 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- pass it (`table.luau` and `virtual_list.luau` both thread `spec.env`
 	-- through); a bare standalone mount without one simply never flips, which is
 	-- exactly the placement it had before this ruling.
-	local function viewportHeightPx(): number?
+	local function viewportRectPx(): any
 		local env = spec.env
 		if env == nil then
 			return nil
 		end
 		local vp = env:get("viewportRect"):get()
-		return if type(vp) == "table" and type(vp.h) == "number" then vp.h else nil
+		if type(vp) ~= "table" or type(vp.h) ~= "number" then
+			return nil
+		end
+		return { x = tonumber(vp.x) or 0, y = tonumber(vp.y) or 0, w = tonumber(vp.w) or 0, h = vp.h }
 	end
 
 	--[[ WHERE THE MENU LANDS, AND WHICH WAY UP (ruling 4, director 2026-08-13:
@@ -1935,14 +1942,45 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 			return 0, 0, "topLeft"
 		end
 		local below = rect.y + rect.h
-		local viewportH = viewportHeightPx()
+		local viewport = viewportRectPx()
 		local menuH = predictedMenuHeight()
-		if viewportH ~= nil and menuH > 0 and below + menuH > viewportH and rect.y - menuH >= 0 then
+		if viewport == nil or menuH <= 0 then
+			-- no window fact (a bare standalone mount) or nothing measured yet: the
+			-- placement this control had before ruling 4, unchanged
+			return rect.x, below, "topLeft"
+		end
+		--[[ THE FLIP IS THE SHARED DECISION NOW (navigation-and-menus D1), not a
+			second copy of it. Same two conditions, same ruling, same numbers — the
+			rules above are the ones `anchor_placement.solve` encodes, and this file
+			was one of the two places they were written by hand.
+
+			TWO INPUTS ARE DELIBERATELY NOT WHAT THE SOLVER WOULD PREFER, because
+			changing either would change this control's shipped behaviour:
+			  * `size.w = 0` — the menu's WIDTH is never learned here (`MenuRows`
+			    goes unconstrained-width by design), so there is no along-edge extent
+			    to shift and `placement.x` is not used. This control flips; it does
+			    not shift. When a width becomes available the zero comes out and the
+			    horizontal answer arrives for free.
+			  * the safe box is the raw VIEWPORT, not `deviceSafeContent`. Ruling 4
+			    was written against the viewport, and tightening it here would make
+			    the menu flip earlier than the ruling that shipped it says. ]]
+		local placement = anchorPlacement.solve({
+			source = rect,
+			size = { w = 0, h = menuH },
+			safe = viewport,
+			edge = "bottom",
+			align = "start",
+			gap = 0,
+			-- ruling 4 again: "a clamp lets the menu cover its own trigger", so a
+			-- menu that fits on neither side stays below and clipped
+			overflow = "keep",
+		})
+		if placement.flipped then
 			-- see `menuOy`'s own comment: a fraction of the anchor's inner height,
 			-- so the solver supplies the height this file must not guess at
 			return rect.x, { scale = -1, offset = rect.y }, "bottomLeft"
 		end
-		return rect.x, below, "topLeft"
+		return rect.x, placement.y, "topLeft"
 	end
 
 	--[[ THE PLACEMENT PROPS BELONG TO THE CHILD, NOT TO THE ANCHOR ITSELF (live

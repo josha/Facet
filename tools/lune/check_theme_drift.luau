@@ -32,6 +32,14 @@ local SCANNED_FILES = {
 	"src/render/layout_node.luau",
 	"src/render/presentation_channel.luau",
 	"src/present/presenter.luau",
+	-- the anchored-surface seam (navigation-and-menus D1) is a PRESENTER GEOMETRY
+	-- DECISION in a file of its own — the gap it stands a surface off its source,
+	-- the tail's size and the corner it keeps clear of are all theme-owned, and
+	-- leaving a new home for them unscanned would open exactly the hole this
+	-- checker exists to close. (`src/layout/anchor_placement.luau` is deliberately
+	-- NOT here: it is pure arithmetic that takes every distance as an argument, so
+	-- it owns no metric to drift.)
+	"src/present/anchored.luau",
 }
 local SCANNED_DIRS = { "src/controls" }
 

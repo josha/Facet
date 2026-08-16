@@ -77,6 +77,11 @@ require("./text_audit.spec")
 -- ...and the presenter-owned STATIC full-value disclosure the `disclose`
 -- declaration buys (LTN-2 chose static over a marquee)
 require("./text_disclosure.spec")
+-- D1, the anchored-surface seam (navigation-and-menus §2 D1): the pure
+-- placement solver (preferred edge, safe-area flip, along-edge shift, arrow
+-- tail + its suppression), `presenter.presentAnchored` on top of it, and the
+-- two hand-rolled precedents it unifies
+require("./anchored_surface.spec")
 -- ...and the AUTO REVEAL (director 2026-08-04, superseding LTN-2 for declared
 -- surfaces): `reveal = "auto"` slides a truncated one-liner's whole value
 -- through its box on the presenter's one tick, under the plan's constraint list

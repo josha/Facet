@@ -2457,6 +2457,13 @@ Methods:
 - `presenter.present(blueprint, opts?) -> handle` — base screen.
 - `presenter.presentModal(blueprint, opts?) -> handle` — focus trap +
   higher-priority sinking input context; Cancel (gamepad B) dismisses.
+- `presenter.presentAnchored(panel, opts) -> handle` — a surface placed against
+  a **source view's screen rect** instead of a parent corner. See **Anchored
+  surfaces** below.
+- `presenter.anchoredSurfaces() -> { schema, count, surfaces, text }` — every
+  live anchored surface with its resolved edge, whether it flipped, how far it
+  shifted along that edge and what became of its tail (schema
+  `luauui-anchored-dump/1`). Deterministic; the shape a bug report needs.
 - `presenter.presentCritical(blueprintFactory, opts) -> handle` — runs the
   factory and presentation under protection; on error presents
   `opts.fallbackScreen(err)` instead (critical-screen fallback). **The fallback
@@ -2823,6 +2830,87 @@ the whole reduced-motion story. At most **one** strip runs across every surface:
 1). `presenter.reveal()` reports the live strip — `{ present, sourcePath, phase,
 travel, distance, text }`, frozen and safe when nothing is up — for inspection
 and tests.
+
+#### Anchored surfaces
+
+`presenter.presentAnchored(panel, opts) -> handle` — a surface positioned
+against a **source view's screen rect** rather than a parent corner. This is what
+a popover, a floating menu, a coach mark or a help plate needs and what
+`UI.Anchor` deliberately does not do: `UI.Anchor` places a child at one of nine
+corners **inside its parent** and never clamps (an off-screen drawer is a legal
+thing to build).
+
+`panel` is a **panel blueprint** — any node, *not* a `UI.Screen`. The Screen
+root, the full-viewport anchor layer, the window-space offsets and the arrow tail
+are synthesized for you; the panel is mounted at `/<id>/Layer/Surface` and the
+tail, when there is one, at `/<id>/Layer/Tail`.
+
+```
+opts = {
+  id?,      -- the surface's root id, default "Anchored"
+  modal?,   -- true routes through presentModal (focus trap); default present()
+  anchor = {
+    source = { path = "/Screen/Row/More" }  -- a MOUNTED node, followed as it moves
+           | { rect = { x, y, w, h } },     -- or a fixed window-space box
+    edge?     = "bottom",  -- "top" | "bottom" | "leading" | "trailing"
+    align?    = "center",  -- "start" | "center" | "end", along that edge
+    gap?      = "s",       -- a theme metric name or a number
+    tail?     = false,     -- true, or { size?, surface?, cornerInset? }
+    overflow? = "clamp",   -- "clamp" | "keep" — see below
+  },
+  -- ...plus every `PresentOpts` key, which all work unchanged
+}
+```
+
+**It reuses, it does not fork.** The stack, the focus scope, the input context,
+the layering band, the tap-away catcher and the dismissal outcome are the
+presenter's own — `presentAnchored` delegates to `present`/`presentModal`, so
+`scrim`, `cancelPolicy`, `outsideTapCancel`, `initialFocus`, `transition`,
+`navigationGroups` and the rest apply exactly as they do to any other surface.
+`presenter.dismiss(handle)` retires it. A **tap-away** is the ordinary
+contribution seam too: `LuauUI.contribution.attach(panel, { outsideDismiss = {
+active, dismiss, consume } })` and the presenter synthesizes its own popup
+catcher for this surface exactly as it does for a PopupButton, `consume = false`
+included — the mode that dismisses without swallowing, so the control the panel
+points at stays operable. `rootPolicy` is the one option it
+constrains: an anchored surface is placed in **window space** (the coordinates
+`controller.screenRectOf` answers in), so anything other than `"edgeToEdge"` is
+refused rather than silently re-based by the safe-area inset. The safe area is
+honoured by the placement itself.
+
+**The placement rules**, in order — all four are
+`src/layout/anchor_placement.luau`'s, a pure function of plain numbers that the
+presenter's disclosure plate and `newRowActions`' floating menu also ask:
+
+1. **Place** on the preferred edge, `gap` px off the source.
+2. **Flip** to the opposite edge when the preferred placement crosses the safe
+   box **and** the opposite one fits entirely. Both halves matter: it never flips
+   into a worse place, so a panel too tall for either side stays where it was
+   asked to go.
+3. **Shift** along the edge until the surface is inside the safe box.
+4. **Tail**: centre it on the *source*, keep it clear of the panel's own rounded
+   corners, and **suppress it** when the shift has carried it off the source —
+   an arrow pointing at nothing is worse than no arrow.
+
+`overflow` decides only what happens when the surface fits on **neither** edge:
+`"clamp"` (default) pulls it back inside the safe box, which is right for a plate
+nobody can read under a notch; `"keep"` leaves it clipped where the preferred
+edge put it, which is right for a menu that must never cover its own trigger.
+
+**A moving source is followed for free.** The placement re-runs on the presenter's
+existing `refresh` and `tick` cadences — the same ones a real scroll and a late
+text measure already drive — so a menu anchored to a row tracks that row frame by
+frame with no watcher, no per-frame consumer call, and no writes at all while
+nothing has moved.
+
+**The tail is a rotated `UI.Box`, not a `UI.Path`.** `UI.Path` materializes as a
+Roblox `Path2D`, which **strokes only** — there is no fill — so a solid wedge
+cannot be drawn with it. A 45°-rotated square declared *before* the panel paints
+behind it (document order becomes z order), so the overlapping half is covered
+and the protruding half is the arrow. It wears the panel's own `surface` role, so
+a theme swap moves both together.
+
+`presenter.anchoredSurfaces()` reports every live one for inspection and tests.
 
 #### Toasts
 
