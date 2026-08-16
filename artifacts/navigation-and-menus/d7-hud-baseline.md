@@ -1,5 +1,23 @@
 # D7 baseline — the HUD losing information, measured live
 
+> **CORRECTION, 2026-08-16, after D7 executed.** One claim below is WRONG and is left in
+> place rather than edited away, because the mistake is instructive. This document asserts
+> that `Round 3 · Capture @(416,-37)` is "painted entirely above the top of the viewport"
+> and calls it a fourth failure class. **It is not.** A LuauUI `ScreenGui` renders with
+> `IgnoreGuiInset = true`, so `AbsolutePosition` is reported **inset-subtracted**: window
+> y 21 reads back as 21 − 58 = −37. The node is on screen.
+>
+> D7 refuted it three ways, two of them from this document's own numbers: the x centres
+> agree exactly at 456.5, and three separate hidden nodes all report y = −58 — the origin
+> proving its own offset. The third was live: `/HudScreen/UrlBarWhen`, sitting at window
+> y 0, reports `(0, −58)`.
+>
+> **The lesson is about the instrument, not the HUD.** I read `AbsolutePosition` as window
+> space and it is not; a negative y here means "near the top", not "off the top". Every
+> other measurement in this file is unaffected — the `Visible = false` readings are direct,
+> and finding 1 (the overflow affordance being unreachable) held up and turned out to be
+> *worse* than stated. See D7's evidence for the regression that pins the inset rule.
+
 Frozen before any D7 edit, per the execution contract §6.1 ("freeze a baseline fixture,
 trace, and capture where an existing behaviour is being preserved or matched"). This is
 the *after* half of the brief's `hud-a/b/c` screenshots: the same failure with numbers on
