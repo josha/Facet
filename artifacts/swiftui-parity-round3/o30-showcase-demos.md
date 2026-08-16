@@ -207,3 +207,23 @@ sweep surface (`canvas_group` at 8 viewports x 4 preferences x 8 packages).
 Rascal Rally: see the commit message for the count; the LuauUI change here is
 `examples/` only — no `src/` file was touched, so the consumer contract is
 unchanged and the game's suite is the regression signal rather than the subject.
+
+## Part 6 — the place a player actually opens
+
+A picker entry that is not in the built place is the same defect one layer out,
+so `examples/places/LuauUI-Showcase.rbxl` is rebuilt here (2,438,743 ->
+2,602,463 bytes). It was built from a **pristine worktree pinned at the commit
+above**, not from the shared working tree, because two other agents had
+uncommitted `src/` work in flight and a place is a binary nobody can review by
+reading: building from HEAD is the only way the artifact and its sources can be
+said to correspond.
+
+Verified by building the same project to XML and reading it rather than trusting
+the build log: `canvas_group` x4, `async-images` x2, `nativeScrollBinderOf` x5
+(the host's three call sites plus its definition and comment), and
+`preferred_transparency` x5 — the other agent's fixture, which is at HEAD too and
+therefore belongs in the place.
+
+The build stamp defect stays open: nothing compares a `.rbxl` to its sources, so
+the next agent to change a demo has no way to be told this file is stale. That is
+O-2's rider and it is not closed here.
