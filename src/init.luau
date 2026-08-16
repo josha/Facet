@@ -182,6 +182,12 @@ local LuauUI = {
 	-- `.contextMenu` — primary activate, right-click, touch long-press, a gamepad
 	-- button and the keyboard context key all open the same list.
 	newMenu = require("@self/controls/menu").build,
+	-- ...and the APP-PUSHED coach mark (D3b): a plate with an arrow tail that the
+	-- app raises from eligibility rules, not a tooltip the player pulls (that is
+	-- `help`, a prop). It never blocks, at most one is ever on screen, and its
+	-- persistence is the CALLER'S — it reads a "has this been seen" Readable and
+	-- reports back once when it should be retired.
+	newCallout = require("@self/controls/callout").build,
 	-- value-control family (swiftui-parity-next investment 4): Stepper and Slider
 	-- are different affordances over ONE shared value model, so bounds, stepping,
 	-- rounding, formatting and semantic value text cannot disagree at the edges.

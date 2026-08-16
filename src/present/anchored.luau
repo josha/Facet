@@ -49,6 +49,8 @@
 
 local anchorPlacement = require("../layout/anchor_placement")
 local blueprintLib = require("../blueprint")
+local mountLib = require("../mount")
+local rendererLib = require("../render/renderer")
 local specGuard = require("../spec_guard")
 local themeSnapshot = require("../themes/snapshot")
 
@@ -107,17 +109,21 @@ export type Anchor = {
 ]]
 function anchored.new(ctx: any)
 	local core = ctx.core
+	local env = ctx.env
+	local adapter = ctx.adapter
 	local stack = ctx.stack
 	local presenter = ctx.presenter
 	local metricsNow = ctx.metricsNow
 	local safeBox = ctx.safeBox
 	local handleByPath = ctx.handleByPath
+	local baseDisplayOrder = ctx.baseDisplayOrder
 
 	local optsKeys: { [string]: boolean } = {}
 	for key in ctx.presentOptsKeys do
 		optsKeys[key] = true
 	end
 	optsKeys.anchor = true
+	optsKeys.chrome = true
 	optsKeys.id = true
 	optsKeys.modal = true
 	table.freeze(optsKeys)
@@ -358,13 +364,65 @@ function anchored.new(ctx: any)
 		end
 		passthrough.rootPolicy = "edgeToEdge"
 
-		local handle = if opts ~= nil and opts.modal == true
-			then presenter.presentModal(screen, passthrough)
-			else presenter.present(screen, passthrough)
+		local chrome = opts ~= nil and opts.chrome == true
+		if chrome and opts ~= nil and opts.modal == true then
+			error(
+				"LuauUI presenter.presentAnchored: `chrome` and `modal` are opposites. A chrome layer takes no "
+					.. "input and pushes no focus scope; a modal exists to trap both.",
+				0
+			)
+		end
+		local handle
+		if chrome then
+			--[[ CHROME MODE (D3a): A LAYER, NOT A SURFACE.
+
+				A presented surface is the right shape for a Menu or a Callout — it
+				pushes a focus scope, creates an input context and joins the stack, and
+				all three are things those constructs need. It is exactly the wrong
+				shape for a HELP PLATE, which must be provably incapable of taking
+				anything: a scope with no focusables of its own is still the TOP scope,
+				so the next arrow press after one appeared had nowhere to go. Measured,
+				before this mode existed.
+
+				So a chrome surface is mounted the way the two shipped chrome layers
+				already are — the full-value disclosure plate and the toast strip both
+				hand-mount their own controller and never enter the stack — and this is
+				the THIRD copy of that, written once. It still gets everything D1
+				actually owns: the same solver, the same tail, the same safe box, the
+				same moving-source cadence. What it gives up is the presenter's stack,
+				scope, context and catcher, which is the entire point.
+
+				`rootPolicy = "edgeToEdge"` for the same reason the delegating path
+				pins it: the offsets are window space. The display order sits just
+				above whichever surface owns the source, so a plate over a modal's
+				control is above THAT modal rather than behind it. ]]
+			local mounted = mountLib.mount(core, screen, { scope = scope:child("mount") })
+			local controller = rendererLib.attach(core, mounted, env, adapter, { rootPolicy = "edgeToEdge" })
+			controller.initialRender()
+			if controller.setDisplayOrder ~= nil then
+				local owner = if anchor.source.path ~= nil then handleByPath(anchor.source.path :: string) else nil
+				local base = if owner ~= nil and type(owner.displayOrder) == "number"
+					then owner.displayOrder
+					else baseDisplayOrder
+				controller.setDisplayOrder(base + 25)
+			end
+			handle = {
+				chrome = true,
+				id = id,
+				blueprint = screen,
+				root = mounted,
+				controller = controller,
+			}
+		else
+			handle = if opts ~= nil and opts.modal == true
+				then presenter.presentModal(screen, passthrough)
+				else presenter.present(screen, passthrough)
+		end
 
 		local record = {
 			id = id,
 			handle = handle,
+			chrome = chrome,
 			scope = scope,
 			anchor = anchor,
 			surfacePath = `/{id}/{LAYER_ID}/{SURFACE_ID}`,
@@ -394,11 +452,31 @@ function anchored.new(ctx: any)
 	local function prune()
 		for i = #live, 1, -1 do
 			local record = live[i]
-			if table.find(stack, record.handle) == nil then
+			-- a CHROME record is not in the stack and never was, so the stack is not
+			-- the question for it: it lives until `dismissChrome` takes it down
+			if not record.chrome and table.find(stack, record.handle) == nil then
 				table.remove(live, i)
 				record.scope:dispose()
 			end
 		end
+	end
+
+	--[[ TAKE A CHROME LAYER DOWN. `presenter.dismiss` cannot: its first act is to
+		remove the handle from the stack, and a chrome handle was never in it. So the
+		presenter routes a chrome handle here instead, and the teardown is the same
+		one the disclosure plate does — controller disposed, scope disposed, record
+		gone on the same call rather than a frame later. ]]
+	local function dismissChrome(handle: any)
+		for i = #live, 1, -1 do
+			local record = live[i]
+			if record.handle == handle then
+				table.remove(live, i)
+				record.handle.controller.dispose()
+				record.scope:dispose()
+				return true
+			end
+		end
+		return false
 	end
 
 	--[[ ONE PASS OVER THE LIVE SURFACES, on cadences that already exist. Called
@@ -466,6 +544,7 @@ function anchored.new(ctx: any)
 		prune = prune,
 		sync = sync,
 		dump = dump,
+		dismissChrome = dismissChrome,
 	}
 end
 

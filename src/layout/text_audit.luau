@@ -5,6 +5,8 @@
 --
 --   overlaps          do painted siblings collide?
 --   clippedEssential  did text truncate with no way back to the full string?
+--   helpRoutes        does anything still REACH a `help` string, and does the
+--                     screen say it anywhere a touch player can read?
 --   hitFloor          did reflow push an interactive box under the target floor?
 --   movingText        is more than one moving text surface running?
 --   focusVisibility   is the focused rect outside the region that clips it?
@@ -63,6 +65,7 @@ local LAYERING_KIND: { [string]: boolean } = { zstack = true, anchor = true }
 
 local OVERLAP_KEYS = specGuard.keySet({ "epsilon", "declaredOverlays" })
 local CLIPPED_KEYS = specGuard.keySet({ "nonEssential" })
+local HELP_KEYS = specGuard.keySet({ "convenience" })
 
 local function sortFindings(out: { Finding })
 	table.sort(out, function(a: Finding, b: Finding): boolean
@@ -296,6 +299,132 @@ function text_audit.clippedEssential(rects: { [string]: any }, opts: any?): { Fi
 				tonumber(facts.naturalLines) or 0,
 				math.floor(tonumber(facts.size) or 0)
 			),
+		})
+	end
+	return finish(out)
+end
+
+--[[ helpRoutes(declarations, rects, opts?) -> { Finding }
+
+	The check `help` owes the round, and the reason it is not a second
+	`clippedEssential`.
+
+	`help` (navigation-and-menus D3a) shows NOTHING on touch, by specification:
+	Apple binds no gesture to it on any platform, and D2 left the one candidate
+	gesture with the full-value disclosure plate. That is only defensible while
+	`help` is never the only route to something a player needs, so this is that
+	claim made mechanical. It asks TWO questions, and keeps them separate on
+	purpose:
+
+	  helpNoRoute    nothing engages this help on ANY input class. Not a
+	                 duplication question and NOT WAIVABLE: a sentence no gesture
+	                 reaches is not "convenience", it is dead weight in the tree.
+	  helpOnlyRoute  the screen says this nowhere else, so a player who never
+	                 hovers — every touch player, and every pad player who does not
+	                 land the ring here — cannot read it.
+
+	WHY THE SPLIT IS THE POINT. `clippedEssential` above accepts the DECLARATION
+	`disclose = true` as proof and stops; it never asks whether the gesture that
+	reaches the plate still exists, which is exactly how D2's long-press decision
+	could have been made invisibly. So here a waiver may answer the authoring
+	question ("this repeats nothing and that is fine") and may NEVER answer the
+	reachability one. The routes are measured, not declared: `hover` is the LIVE
+	pointer class as the renderer wired it, `focus` is whether the ring can land on
+	this node or on something containing it — `presenter.helpDeclarations()`
+	reports both off the mounted tree.
+
+	declarations  { [path] = { text: string, hover: boolean, focus: boolean } }
+	rects         the solve output, read for what the screen actually PAINTS
+	opts.convenience  array of path prefixes, or a predicate (path) -> boolean:
+	                  help the caller declares as a pointer convenience. It
+	                  silences `helpOnlyRoute` and nothing else.
+]]
+function text_audit.helpRoutes(declarations: { [string]: any }, rects: { [string]: any }, opts: any?): { Finding }
+	specGuard.assertKnownKeys("text_audit.helpRoutes", opts, HELP_KEYS, "opts")
+	local options: any = opts or {}
+	local allow = options.convenience
+	local out: { Finding } = {}
+	local roots = hiddenRoots(rects)
+
+	local function waived(path: string): boolean
+		if allow == nil then
+			return false
+		end
+		if type(allow) == "function" then
+			return allow(path) == true
+		end
+		for _, prefix in allow :: { any } do
+			if type(prefix) == "string" and isPathPrefix(prefix, path) then
+				return true
+			end
+		end
+		return false
+	end
+
+	-- WHAT THE SCREEN ACTUALLY SAYS: painted text only. A hidden candidate does
+	-- not say anything (the F-1 class), and neither does a TRUNCATED label — an
+	-- ellipsis is not the sentence, which is the whole finding of the check above.
+	local spoken: { string } = {}
+	for path, entry in rects do
+		local facts = if type(entry) == "table" then entry.textFacts else nil
+		if type(facts) ~= "table" or facts.truncated == true or isHidden(roots, path) then
+			continue
+		end
+		if type(facts.text) == "string" then
+			table.insert(spoken, string.lower(facts.text :: string))
+		end
+	end
+
+	local paths: { string } = {}
+	for path in declarations do
+		table.insert(paths, path)
+	end
+	table.sort(paths)
+
+	for _, path in paths do
+		local decl = declarations[path]
+		if type(decl) ~= "table" or type(decl.text) ~= "string" then
+			continue
+		end
+		if decl.hover ~= true and decl.focus ~= true then
+			table.insert(out, {
+				check = "helpNoRoute",
+				node = path,
+				contract = "a `help` string must be reachable by at least one live input class — the pointer "
+					.. "hover zone or the focus ring. Touch shows nothing by specification",
+				fix = "put the help on the focusable control rather than on a decoration, or accept that this "
+					.. "sentence can never be read and delete it. No opts.convenience waiver applies here: a "
+					.. "declaration cannot answer whether a gesture exists",
+				detail = string.format(
+					"hover %s, focus %s",
+					tostring(decl.hover == true),
+					tostring(decl.focus == true)
+				),
+			})
+			continue
+		end
+		if waived(path) then
+			continue
+		end
+		local wanted = string.lower(decl.text)
+		local echoed = false
+		for _, line in spoken do
+			if string.find(line, wanted, 1, true) ~= nil then
+				echoed = true
+				break
+			end
+		end
+		if echoed then
+			continue
+		end
+		table.insert(out, {
+			check = "helpOnlyRoute",
+			node = path,
+			contract = "`help` shows nothing on touch, so it must never be the only route to something a "
+				.. "player needs: this sentence appears nowhere the screen actually paints",
+			fix = "say it on screen as well (a caption, a secondary label, a Callout), or list it in "
+				.. "opts.convenience if a touch player genuinely loses nothing by never seeing it",
+			detail = string.format("%q is painted by no visible, untruncated text node", decl.text),
 		})
 	end
 	return finish(out)

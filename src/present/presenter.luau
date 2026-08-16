@@ -247,6 +247,11 @@ local focusMap = require("./focus_map")
 local catchersLib = require("./catchers")
 -- the auto-reveal marquee strip — see that module's header for the seam
 local textRevealLib = require("./text_reveal")
+-- D3a: the player-PULLED help plate (hover dwell + focus, nothing on touch), and
+-- D3b: the at-most-one queue the app-PUSHED coach mark presents through. Both are
+-- consumers of the D1 anchored seam and neither mounts a surface of its own.
+local helpPlateLib = require("./help_plate")
+local calloutQueueLib = require("./callout_queue")
 
 -- ALIASED TO THE SAME LOCAL NAMES the 3 500-line `presenter.new` closure below already
 -- calls (2026-08-06). The focus-order/traversal-rank/navigation-group derivations and
@@ -606,6 +611,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	-- handler, and `dismiss` — all sit above it. Reassigned once, never rebound.
 	local syncDisclosureFocus: (path: string?) -> () = function() end
 	local dismissDisclosure: (reason: string) -> () = function() end
+	-- ...and its D3a sibling, forward-declared for the same reason: `help` rides
+	-- the same focus observer, because a second copy of "is this surface actually
+	-- reaching the keyboard" is a copy that will not get the next rule
+	local syncHelpFocus: (path: string?) -> () = function() end
 
 	-- the path an ARMED drag session was last aimed at, so "armed follows focus"
 	-- re-aims on a focus MOVE rather than on every sync (see the block below)
@@ -734,6 +743,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- will not get the next rule added to the original. A surface that is not
 		-- painting a focus ring is not presenting a focus-driven plate either.
 		syncDisclosureFocus(path)
+		-- ...and so is a helped view's own sentence (D3a), from the same call and
+		-- under the same ownership decision
+		syncHelpFocus(path)
 		-- recorded LAST, so the armed-aim seed above reads the PREVIOUS call's focus
 		prevFocusPath = path
 	end
@@ -855,6 +867,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	local anchoredSurfaces = anchoredLib.new({
 		core = core,
 		env = env,
+		-- the render target, for the CHROME mode only: a chrome layer hand-mounts
+		-- its own controller the way the disclosure plate and the toast strip do
+		adapter = adapter,
+		baseDisplayOrder = SURFACE_LAYER.base,
 		stack = stack,
 		presenter = self,
 		metricsNow = metricsNow,
@@ -1094,6 +1110,34 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return disclosurePlate ~= nil and disclosurePlate.sourcePath == sourcePath
 	end
 
+	--[[ THE HELP PLATE (D3a), built here because this is the first point at which
+		every collaborator it reads exists: `handleOwning`, `disclosureTargetIn` (it
+		asks the disclosure walker FIRST, so a truncated value outranks the
+		convenience) and `safeBox`. It owns no surface — it presents through
+		`self.presentAnchored`, which is the D1 seam — and it binds NO gesture: the
+		pointer's hover zone and the focus graph are the only two things that reach
+		it, which is why nothing appears on touch. See that module's header. ]]
+	local helpPlate = helpPlateLib.new({
+		env = env,
+		stack = stack,
+		presenter = self,
+		handleOwning = handleOwning,
+		discloseTargetIn = disclosureTargetIn,
+		metricsNow = metricsNow,
+		safeBox = safeBox,
+	})
+
+	--[[ ...and the CALLOUT QUEUE (D3b), on the same seam and for the same reason.
+		"At most one on screen, a queue not a pile" is `toast_schedule`'s existing
+		job, so this is a driver over it rather than a second scheduler. ]]
+	local calloutQueue = calloutQueueLib.new({
+		presenter = self,
+		stack = stack,
+		-- so a coach mark dies with the surface it points at rather than outliving
+		-- it as an arrow aimed at nothing
+		handleByPath = handleOwning,
+	})
+
 	syncDisclosureFocus = function(path: string?)
 		-- A DIRECT ENGAGEMENT OUTRANKS FOCUS. A pointer dwell or a long press is a
 		-- deliberate ask about ONE label; focus merely happens to be somewhere, and
@@ -1141,6 +1185,32 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		presentDisclosure(owner, targetPath :: string, fullText :: string, "focus")
 	end
 
+	--[[ THE FOCUS ROUTE INTO `help` (D3a), gated exactly as the plate's is above
+		and for the same three reasons — which is also, without a single device
+		branch, why a touch player sees nothing:
+
+		  * A POINTER-DRIVEN FOCUS MOVE IS NOT A FOCUS ENGAGEMENT (DB-3(b)). A tap
+		    sets `focusOrigin = "pointer"`, which clears `focusVisible` — so a
+		    finger moves the ring and raises no plate. That is the whole of the
+		    touch story: the hover zone is never wired without a pointer class, and
+		    the focus route declines a focus the player never navigated to.
+		  * A PASSIVE SURFACE HAS FOCUS IDENTITY LONG BEFORE IT HAS THE KEYBOARD,
+		    so a HUD that has not engaged does not describe itself unprompted.
+		  * `hasHelp` is stamped once at present, so a surface that declared no
+		    help anywhere pays nothing for the feature (the F-11 containment rule). ]]
+	syncHelpFocus = function(path: string?)
+		if graph.focusVisible:get() == false then
+			helpPlate.focus(nil)
+			return
+		end
+		local owner = handleOwning(path)
+		if owner ~= nil and owner.isPassive and owner.responder:get() ~= "engaged" then
+			helpPlate.focus(nil)
+			return
+		end
+		helpPlate.focus(path)
+	end
+
 	--[[ ENGAGEMENT SEAMS (adapter-driven; constitution §2 "a leading underscore
 		means engine-adapter seam"). Pointer hover and touch long-press are engine
 		facts — MouseEnter/MouseLeave and the gesture arbiter's `longPress` — and
@@ -1151,7 +1221,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		`nil` means DISENGAGED (the pointer left everything / the press released).
 		Both are idempotent: a hover that re-reports the same node neither restarts
 		the dwell nor re-mounts the plate. ]]
-	function self._discloseHover(path: string?)
+	local function discloseHoverEngage(path: string?)
 		local owner = handleOwning(path)
 		local targetPath, fullText = disclosureTargetIn(owner, path)
 		if targetPath == nil then
@@ -1178,6 +1248,20 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			text = fullText,
 			remaining = DISCLOSE_DWELL,
 		}
+	end
+
+	--[[ ONE POINTER-ENGAGEMENT SEAM, TWO CONSUMERS (D3a). The renderer wires a
+		hover zone on any node declaring `disclose`, `reveal` or `help`, and hands
+		every one of them here. The full-value plate answers first, because a value
+		the reader cannot see outranks a sentence about what a control does; the
+		help plate answers for everything it left, and stands down on the nodes it
+		did not. Two plates over one control is never the right answer.
+
+		The help plate takes NOTHING from `_discloseLongPress` below: `help` binds
+		no gesture on any input class, exactly as Apple's does not. ]]
+	function self._discloseHover(path: string?)
+		discloseHoverEngage(path)
+		helpPlate.hover(path)
 	end
 
 	function self._discloseLongPress(path: string?)
@@ -1254,6 +1338,23 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			source = disclosurePlate.source,
 			text = disclosurePlate.text,
 		})
+	end
+
+	--[[ THE HELP PLATE'S OWN STATE (D3a, schema `luauui-help-dump/1`): what is
+		showing, which control asked, which engagement raised it, and how many help
+		declarations are live across the whole stack. ]]
+	function self.help(): any
+		return helpPlate.dump()
+	end
+
+	--[[ ...and every live `help` declaration with the routes that actually reach
+		it — `{ [path] = { text, hover, focus } }`. This is the input
+		`text_audit.helpRoutes` is written against, and it is read off the MOUNTED
+		tree and the LIVE interaction classes rather than from a declaration: a
+		pure-touch session reports `hover = false` here, which is exactly the fact
+		that makes "help is never the only route" checkable instead of asserted. ]]
+	function self.helpDeclarations(): any
+		return helpPlate.declarations()
 	end
 
 	-- ═════════════════ THE AUTO REVEAL (marquee) ═════════════════════════════
@@ -1575,6 +1676,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- "what does this say", and a player who has moved on to pressing
 				-- something has stopped asking.
 				dismissDisclosure("tap")
+				-- ...and the help plate with it (D3a): a player who has moved on to
+				-- pressing something has stopped asking what it does
+				helpPlate.dismiss("tap")
 				-- outside-tap policy is owned by the topmost EXCLUSIVE surface: a
 				-- modal (ADR-0013 WP-2) OR an engaged-from-passive surface (ADR-0014).
 				-- A tap whose path is NOT owned by that surface dismisses/resigns it
@@ -1757,7 +1861,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				-- third argument, additive (navigation-and-menus D2): the D1
 				-- anchored seam, for the control whose floating surface belongs
 				-- against a live source RECT rather than a parent corner
-				c.bundle.bindPresent(self.presentModal, self.dismiss, self.presentAnchored)
+				c.bundle.bindPresent(
+					self.presentModal,
+					self.dismiss,
+					self.presentAnchored,
+					self.presentCallout,
+					self.releaseCallout
+				)
 			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the
@@ -2344,9 +2454,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- ...and the reveal's own stamp (2026-08-04), from the same one scan: the
 		-- tick's idle rescan skips a surface that declared no reveal anywhere
 		local hasReveal = false
+		-- ...and `help`'s (D3a), for exactly the same containment reason: a surface
+		-- that declared no help anywhere must not pay a tree walk per focus change
+		local hasHelp = false
 		do
 			local function scan(n: any)
-				if hasDisclose and hasReveal then
+				if hasDisclose and hasReveal and hasHelp then
 					return
 				end
 				if n.props ~= nil then
@@ -2358,6 +2471,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 					if n.props.reveal ~= nil then
 						hasReveal = true
 					end
+					if n.props.help ~= nil then
+						hasHelp = true
+					end
 				end
 				-- a structural region can mount ANYTHING later (the
 				-- late-contributions class), so its presence keeps the walk —
@@ -2365,6 +2481,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				if n.class == "When" or n.class == "ForEach" then
 					hasDisclose = true
 					hasReveal = true
+					hasHelp = true
 					return
 				end
 				for _, child in n.children or {} do
@@ -2379,6 +2496,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			blueprint = blueprint,
 			hasDisclose = hasDisclose,
 			hasReveal = hasReveal,
+			hasHelp = hasHelp,
 			scope = scope,
 			root = root,
 			controller = controller,
@@ -3170,6 +3288,30 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		return anchoredSurfaces.dump()
 	end
 
+	--[[ A CALLOUT'S TURN ON SCREEN (D3b). `spec` is
+		`{ id, build, priority?, key?, onShow?, onHide? }`, and `build()` returns the
+		panel blueprint and its anchor table when this request's turn comes — the
+		queue mounts, the caller builds. Returns the entry id for
+		`releaseCallout(id, reason)`.
+
+		AT MOST ONE IS EVER ON SCREEN, and a second request WAITS rather than
+		stacking beside it. That rule, the priority ordering, the queue cap and the
+		read floor priority may never truncate are all `toast_schedule`'s, which is
+		why this is a driver and not a second scheduler
+		(`src/present/callout_queue.luau`). ]]
+	function self.presentCallout(spec: any): number
+		return calloutQueue.request(spec)
+	end
+
+	function self.releaseCallout(id: number, reason: string?): boolean
+		return calloutQueue.release(id, reason)
+	end
+
+	-- what is on screen and what is waiting (schema `luauui-callout-queue-dump/1`)
+	function self.callouts(): any
+		return calloutQueue.dump()
+	end
+
 	function self.presentModal(blueprint: any, opts: PresentOpts?)
 		specGuard.assertKnownKeys("presenter.presentModal", opts, PRESENT_OPTS_KEYS, "opts")
 		-- the base screen's context stays enabled for non-sunk actions, but
@@ -3235,6 +3377,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	end
 
 	function self.dismiss(handle: any)
+		--[[ A CHROME LAYER IS NOT ON THE STACK (D3a). `presentAnchored{ chrome =
+			true }` hand-mounts its own controller precisely so it can never take a
+			focus scope or an input context, so there is nothing here to remove — its
+			teardown is the anchored module's. One dismissal verb, two shapes. ]]
+		if type(handle) == "table" and handle.chrome == true then
+			anchoredSurfaces.dismissChrome(handle)
+			return
+		end
 		local index = table.find(stack, handle)
 		if index == nil then
 			return
@@ -3307,6 +3457,12 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- ...and so does any disclosure plate this surface owns: the handle is out
 		-- of `stack` above, so the revalidation resolves it (LTN-4)
 		revalidateDisclosure()
+		-- ...and any help plate it raised, on the same call and for the same
+		-- reason — a dismissed presenter may never refresh again (D3a)
+		helpPlate.revalidate()
+		-- ...and a callout whose surface this WAS is released from the queue, so
+		-- the next one in line is promoted instead of the queue stalling (D3b)
+		calloutQueue.prune()
 		-- ...and the reveal strip goes with its owner SYNCHRONOUSLY, exactly as
 		-- the plate does — a dismissed presenter may never tick again, and a
 		-- strip that waited for one would leak its overlay and the held paint
@@ -3486,6 +3642,8 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- re-rendered: its source node may be gone, or the re-solve may have made
 		-- room for the label (LTN-4)
 		revalidateDisclosure()
+		-- ...and a help plate against the same tree, for the same reason (D3a)
+		helpPlate.revalidate()
 	end
 
 	-- ===== withAnimation (docs/plans/swiftui-parity-round2.md §Phase 1) =======
@@ -3944,6 +4102,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				end
 			end
 		end
+		-- ...and the HELP dwell rides the same tick (D3a), guarded the same way: a
+		-- presentation with nothing hovered does no per-frame work at all
+		helpPlate.tick(math.max(step :: number, 0))
 		-- a LIVE plate keeps its clamp (found live 2026-08-04: an async text
 		-- measure grew the plate past the screen edge after the one-shot clamp)
 		if disclosurePlate ~= nil then
@@ -3962,6 +4123,9 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			toastSchedule.update()
 			syncToastLayer()
 		end
+		-- ...and the callout queue's own clock, so a read floor can elapse and a
+		-- more urgent coach mark take its turn (D3b). Costs nothing while empty.
+		calloutQueue.update(math.max(step, 0))
 		-- registered frame work (Step 5): per-frame consumers that are not motion
 		-- values — an autoscrolling list's `stepAutoscroll`, a fixture's per-frame
 		-- probe — ride the SAME tick so "one clock, one driver" stays true. Hooks

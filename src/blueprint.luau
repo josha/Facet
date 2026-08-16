@@ -300,6 +300,10 @@ export type TextSpec = BoxProps & {
 	-- whole value through the box (director 2026-08-04; the plan's rung-4
 	-- constraint list binds). Construction-only, like `disclose` above
 	reveal: string?,
+	-- one sentence about what this view does, shown on POINTER HOVER (after a
+	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
+	-- see blueprint_schema's HELP. Construction-only, like `disclose`
+	help: string?,
 	padding: Bound<Sides>?,
 	role: Bound<string>?,
 	-- "badge" | "chip" only — a Text is not interactive, so it is offered the
@@ -337,6 +341,10 @@ export type ButtonSpec = BoxProps & PointerHandlers & {
 	surface: Bound<string>?,
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
+	-- one sentence about what this view does, shown on POINTER HOVER (after a
+	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
+	-- see blueprint_schema's HELP. Construction-only, like `disclose`
+	help: string?,
 	onActivate: ((path: string, meta: any?) -> ())?,
 }
 
@@ -349,6 +357,10 @@ export type ToggleSpec = BoxProps & {
 	padding: Bound<Sides>?,
 	textSize: Bound<number | TypeRole>?,
 	disclose: boolean?,
+	-- one sentence about what this view does, shown on POINTER HOVER (after a
+	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
+	-- see blueprint_schema's HELP. Construction-only, like `disclose`
+	help: string?,
 	onActivate: ((path: string, meta: any?) -> ())?,
 }
 
@@ -363,6 +375,10 @@ export type TextFieldSpec = BoxProps & {
 	textSize: Bound<number | TypeRole>?,
 	maxLength: Bound<number>?,
 	keyboardType: Bound<string>?,
+	-- one sentence about what this view does, shown on POINTER HOVER (after a
+	-- dwell) and on keyboard/gamepad FOCUS. Nothing on touch, by specification —
+	-- see blueprint_schema's HELP. Construction-only, like `disclose`
+	help: string?,
 	onTextChanged: ((text: string) -> ())?,
 	onFocusGained: ((path: string) -> ())?,
 	onFocusLost: ((reason: string) -> ())?,

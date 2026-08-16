@@ -179,10 +179,16 @@ export type Bundle = {
 	-- the same reason it cannot construct `presentModal` — it has no line to the
 	-- presenter. Same degradation contract as the two beside it: absent (a bare
 	-- mount in a unit test, no presenter) is real and supported.
+	-- `presentCallout(spec)` / `releaseCallout(id, reason?)` are the D3b queue:
+	-- "at most one coach mark on screen, a queue not a pile" is a rule about the
+	-- WHOLE application, so it cannot live inside one control instance. Same
+	-- degradation contract again: absent is real and supported.
 	bindPresent: ((
 		presentModal: (blueprint: any, opts: any?) -> any,
 		dismiss: (handle: any) -> (),
-		presentAnchored: ((panel: any, opts: any?) -> any)?
+		presentAnchored: ((panel: any, opts: any?) -> any)?,
+		presentCallout: ((spec: any) -> number)?,
+		releaseCallout: ((id: number, reason: string?) -> boolean)?
 	) -> ())?,
 	--[[ WHICH MOUNTED SUBTREES OWN A CONTEXT GESTURE (navigation-and-menus D2).
 		Returns the paths whose subtree has claimed the pointer's secondary button

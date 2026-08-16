@@ -1100,6 +1100,43 @@ local REVEAL: PropSpec = p({
 		.. "ellipsis; reduced motion disables travel; the static disclosure plate stays its alternative)",
 })
 
+--[[ HELP (navigation-and-menus D3a; SwiftUI `.help(_:)`, `UIToolTipInteraction`).
+	One sentence about what this view does, PULLED BY THE PLAYER: the pointer
+	hovers it for a moment, or the keyboard/gamepad ring lands on it. Apple's own
+	scope, quoted 2026-08-16: help "configures the view's accessibility hint and
+	its help tag (also called a tooltip)", and the UIKit interaction "makes it
+	possible to show a tooltip WHEN HOVERING A POINTER over a view or control".
+
+	ON TOUCH IT SHOWS NOTHING, AND THAT IS THE SPECIFICATION rather than a gap.
+	Apple binds no gesture to it on any platform, and LuauUI must not either: D2
+	measured the long-press collision and left that gesture with the full-value
+	disclosure plate, which is the only touch route to a truncated label's value.
+	Two constructs fighting for one gesture on the one class where neither has an
+	alternative is the defect this restraint avoids. The consequence is a rule,
+	not a footnote: `help` is NEVER the only route to information a player needs,
+	and `text_audit.helpRoutes` is the check that says so out loud.
+
+	THE APP-PUSHED PLATE IS A DIFFERENT CONSTRUCT. A coach mark that pops itself,
+	carries an arrow tail and appears on every input class is `LuauUI.newCallout`
+	(TipKit's `popoverTip`), not this.
+
+	CONSTRUCTION-ONLY, exactly as `disclose` and `reveal` are: what a control is
+	FOR does not change without a rebuild, and the presenter reads it off the
+	mounted node. Binding a Readable here is an immediate refusal naming the
+	rebuild idiom (§4), never a silently ignored value. ]]
+local HELP: PropSpec = p({
+	types = { "string" },
+	reactive = false,
+	-- deliberately NOT `shared`, exactly as `disclose` is not: it lives on the
+	-- four classes a player engages, so it is documented in each of their own
+	-- api.md entries rather than in the shared box block every class inherits
+	channel = "semantic",
+	doc = "one sentence about what this view does, shown when a POINTER hovers it (after a dwell) or the "
+		.. "keyboard/gamepad ring lands on it. Nothing appears on touch — Apple binds no gesture to help on "
+		.. "any platform, so it must never be the only route to something a player needs "
+		.. "(`text_audit.helpRoutes`). For an app-pushed coach mark with an arrow tail, see `newCallout`",
+})
+
 -- THE FADE GROUP (ADR-0022 Decision 2). Presentation transparency is offered ONLY
 -- through a node that declared this, and the declaration is explicit because it
 -- has a real cost: the adapter materializes the node as a CanvasGroup, which
@@ -1703,6 +1740,7 @@ class("Text", {
 		lineLimit = LINE_LIMIT,
 		disclose = DISCLOSE,
 		reveal = REVEAL,
+		help = HELP,
 		tint = TINT,
 		-- the solver's text measure adds padding to the reserved box, so this is a
 		-- real layout input on a label (it lets UI.padding apply without wrapping)
@@ -1837,6 +1875,7 @@ class("Button", {
 	container = true,
 	structural = false,
 	props = merge(BOX, {
+		help = HELP,
 		role = p({
 			types = { "string" },
 			reactive = true,
@@ -1991,6 +2030,7 @@ class("Toggle", {
 		-- where a compact width truncates it the full value must stay reachable —
 		-- the same disclosure contract a Text carries (Step 8.5 LT-G1/LTN-5)
 		disclose = DISCLOSE,
+		help = HELP,
 		onActivate = p({
 			types = { "function" },
 			reactive = false,
@@ -2005,6 +2045,7 @@ class("TextField", {
 	container = false,
 	structural = false,
 	props = merge(BOX, {
+		help = HELP,
 		text = p({
 			types = { "string" },
 			reactive = true,

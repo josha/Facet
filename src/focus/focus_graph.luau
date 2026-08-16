@@ -602,7 +602,19 @@ function focus_graph.new(core: any)
 		local want = scope.initialFocus
 		if want == "none" then
 			internal._awaitingFirstFocus = true
-			setFocus(nil)
+			--[[ "DO NOT INVENT FOCUS FOR ME" IS NOT "TAKE THE RING OFF EVERYONE"
+				(navigation-and-menus D3). A TRAP still blanks it: a modal covers the
+				screen underneath, the ring must not stay painted on something the
+				player can no longer reach, and `popScope` restores it from the trap
+				stack. A NON-TRAPPING scope covers nothing and takes nothing away —
+				a coach mark, a help plate, a HUD overlay — so blanking would be a
+				surface with no claim on the ring reaching out to un-focus the screen
+				it is annotating. Measured before it was changed: presenting an
+				anchored plate over a focused screen dropped `focused` to nil, and
+				the next arrow press had nowhere to start from. ]]
+			if internal.trap or focused:get() == nil then
+				setFocus(nil)
+			end
 		elseif want ~= nil and want ~= "first" and isFocusable(internal, want) then
 			setFocus(want)
 		else

@@ -1246,10 +1246,10 @@ function renderer.attach(
 			-- one-line label declares disclose the same way a Text does
 			-- ...and a `reveal` node gets the SAME zones: the static plate is the
 			-- auto reveal's declared full-value alternative (director 2026-08-04)
-			if
-				((node.props or {}).disclose == true or (node.props or {}).reveal ~= nil)
-				and adapter.enableDisclosure ~= nil
-			then
+			-- ...and a `help` node (D3a) joins the HOVER half and ONLY that half:
+			-- Apple binds no gesture to help, and the press stayed with the plate
+			local discloses = (node.props or {}).disclose == true or (node.props or {}).reveal ~= nil
+			if (discloses or (node.props or {}).help ~= nil) and adapter.enableDisclosure ~= nil then
 				local hoverCb = opts and (opts :: any).onDiscloseHover
 				local pressCb = opts and (opts :: any).onDiscloseLongPress
 				if hoverCb ~= nil or pressCb ~= nil then
@@ -1261,7 +1261,9 @@ function renderer.attach(
 								hoverCb(if over then path else nil)
 							end
 							else nil,
-						longPress = if pressCb ~= nil and classes.touch == true
+						longPress = if pressCb ~= nil
+								and discloses
+								and classes.touch == true
 							then function(held: boolean)
 								pressCb(if held then path else nil)
 							end
@@ -3225,10 +3227,8 @@ function renderer.attach(
 				local pointer, touch = classes.pointer == true, classes.touch == true
 				if (pointer and not lastPointer) or (touch and not lastTouch) then
 					local function wireWalk(node: any)
-						if
-							((node.props or {}).disclose == true or (node.props or {}).reveal ~= nil)
-							and handles[node.path] ~= nil
-						then
+						local discloses = (node.props or {}).disclose == true or (node.props or {}).reveal ~= nil
+						if (discloses or (node.props or {}).help ~= nil) and handles[node.path] ~= nil then
 							local path = node.path
 							adapter.enableDisclosure(handles[path], {
 								hover = if discloseHoverCb ~= nil and pointer
@@ -3236,7 +3236,10 @@ function renderer.attach(
 										discloseHoverCb(if over then path else nil)
 									end
 									else nil,
-								longPress = if disclosePressCb ~= nil and touch
+								-- the press half is the PLATE's, never help's (D3a)
+								longPress = if disclosePressCb ~= nil
+										and discloses
+										and touch
 									then function(held: boolean)
 										disclosePressCb(if held then path else nil)
 									end
