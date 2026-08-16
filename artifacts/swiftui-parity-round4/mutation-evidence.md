@@ -54,6 +54,40 @@ command. The twentieth (`prior-gates-unregressed`) is discussed at the bottom.
 
 **24 of 24 bite.**
 
+## Second pass — twelve more rows, twelve more mutations
+
+The first pass enumerated what it had left uncovered; the second pass took twelve of
+those items. Same protocol: baseline PASS confirmed for all twelve first, then one
+mutation each, then restore.
+
+| # | row | what was broken | result |
+|---|---|---|---|
+| **M19** | `authored-presentation-composition` | authored rotation MULTIPLIES instead of adding (`presentation.luau`) | **BITES** |
+| **M20** | `cross-surface-overlap` | the `FULLY_FADED` alpha clause deleted in `renderer.paintsNothing` — a faded surface covers again | **BITES** |
+| **M21** | `leaf-opacity-refusal` | the structural-class exclusion deleted, so the five structural classes get the fade refusal | **BITES** |
+| **M22** | `nested-instance-tree-deferred` | `src/` starts constructing a `UIListLayout` — ADR-0032 Decision 6 reversed | **BITES** |
+| **M23** | `core-settle-phase` | the settle pass never restarts after a write (`wrote = true` -> `false`) | **BITES** |
+| **M24** | `virtual-grid-family` | the column-flow transpose collapses to row flow (`gridIsColumn` -> `false`) | **BITES** |
+| **M25** | `variable-item-extents` | the running-offset prefix sum forgets the gap | **BITES** |
+| **M26** | `text-line-box` | DEFECT 1 restored: the line box floors instead of ceiling | **BITES** |
+| **M27** | `measure-memo-key` | the offered height goes back into the memo key — L-37 restored | **BITES** |
+| **M28** | `table-virtualized` | the `virtualized` + `scrolls = false` refusal deleted | **BITES** |
+| **M29** | `hud-composition-collisions` | `holdsLane` stops reaching the composition | **BITES** |
+| **M30** | `table-gutter-and-divider-press` | the scrollbar-inset axis pair transposed (`right`/`bottom` swapped) | **BITES** |
+
+**36 of 36 bite across both passes.**
+
+### M20's first attempt — another bad mutation, not a weak row
+
+First aimed at `surface_overlap.luau`'s `if #covering < 2` precondition, which did NOT
+redden the row: that is the *scan* precondition, not the *cover* rule, and none of the
+row's greps depend on it. Re-aimed at the clause ADR-0028 itself names — the
+`FULLY_FADED` alpha test in `renderer.paintsNothing` — it bites, and it bites on
+exactly the two cases the ADR predicts (`a surface at opacity = 0 covers nothing` and
+`a framework fade to nothing covers nothing`). Third time this battery has caught the
+mutation rather than the row.
+
+
 ## The two mutations that did NOT bite on the first attempt, and what each was
 
 Both are recorded because a mutation battery with no failures in it is usually a
