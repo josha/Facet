@@ -219,6 +219,24 @@ function screen_paint.new(ctx: any)
 			assertBespokePaint("BackgroundTransparency", handle)
 			instance.BackgroundColor3 = color
 			instance.BackgroundTransparency = alpha
+			--[[ ...AND THE FILL ITSELF IS A TAG, because the write above could not
+				take it (director report 2026-08-15, the `canvas-group` demo whose
+				three plates were never painted at all).
+
+				`BackgroundTransparency` is native-sheet-owned and the class-default
+				rule paints an un-surfaced node INVISIBLE. The tint's default alpha is
+				0 — which is `Frame.BackgroundTransparency`'s class default — and the
+				engine decides "explicit" BY VALUE, so that write marks nothing
+				explicit and the rule goes on winning. Measured live on the plate:
+				raw 0 / GetStyled 1; write 0.001 -> GetStyled 0.001; write 0 again ->
+				GetStyled 1 (docs/lessons/a-default-valued-write-never-claims.md).
+
+				The COLOUR still has to be the claim above — a rule cannot carry
+				per-node data — so the two halves of one tint travel different roads
+				on purpose. In bespoke mode `syncTags` returns immediately and the
+				explicit write is the whole story, exactly as before. ]]
+			handle.tintFill = true
+			syncTags(handle)
 		end
 	end
 
@@ -227,6 +245,11 @@ function screen_paint.new(ctx: any)
 	-- operation (see the claims block above), which the reference states.
 	local function releaseTint(handle: any)
 		handle.tint = nil
+		-- the fill tag goes with it, or a node whose tint was cleared keeps a fill
+		-- nothing asked for — the "tag added outside the desired set" defect class,
+		-- inverted (screen_target's syncTags says why the set is diffed at all)
+		handle.tintFill = nil
+		syncTags(handle)
 		if handle.path2d ~= nil then
 			if handle.tintPathRestore ~= nil then
 				handle.path2d.Color3 = handle.tintPathRestore

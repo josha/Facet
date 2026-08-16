@@ -355,9 +355,9 @@ Reaching for the continuous channel to express one is a defect, and the schema
 cannot catch it for you.
 
 **What a tint claims.** Each class hands the adapter exactly one paint channel:
-`Box` → `BackgroundColor3` **and** `BackgroundTransparency` (a tinted Box paints —
-a bare Frame is transparent until something says otherwise, so a colour alone
-would be an invisible fill), `Text` → `TextColor3`, `Image` → `ImageColor3`,
+`Box` → `BackgroundColor3` **and** `BackgroundTransparency` (the pair the
+declared alpha rides; the *default* fill is a tag rule instead — see below),
+`Text` → `TextColor3`, `Image` → `ImageColor3`,
 `Stage` → `ImageColor3` as well (a stage's "picture" is the scene it renders and
 the engine multiplies it through the same pair, so the tint hues the *content*,
 not the plate), `Path` → the `Path2D`'s colour. In native-stylesheet mode those properties are
@@ -371,6 +371,24 @@ ownership back), and a claimed property no longer follows a theme swap. That is
 the price of a continuous channel, and the reason finite states must stay on tags.
 The node's other properties are untouched: its tags stay, so its radius, its
 hairline and its hover/press rules keep working.
+
+**...and the FILL a tinted `Box` needs is a tag, not a claim** (director report
+2026-08-15). A bare `Frame` is transparent until something says otherwise —
+that is the sheet's own `Frame default` rule — so a tinted Box must also become
+*filled*, and for two years it tried to do that by writing
+`BackgroundTransparency = 0`. **The engine decides "explicit" by VALUE, and `0`
+is `Frame.BackgroundTransparency`'s class default**, so that write claimed
+nothing at all: the rule kept ownership and every tinted Box with no `surface`
+and no declared `tint.transparency` painted *nothing*. Measured live —
+raw `0` / `GetStyled` `1`; write `0.001` → `GetStyled` `0.001`; write `0` again →
+`GetStyled` `1` back (`docs/lessons/a-default-valued-write-never-claims.md`). So
+the fill now rides the `luau-tint-fill` tag and one `Tint fill` rule, emitted by
+both sheet builders in the `base` group — **above** the class defaults it exists
+to beat and **below** every surface, value slot and scrim, whose own alphas still
+win. A declared `tint.transparency` is a real value the engine accepts as
+explicit and still rides the claim, so it out-ranks all of it. The colour stays a
+claim, because a rule cannot carry per-node data; the fill is a finite state, and
+finite states stay on tags.
 
 ### `Screen`
 

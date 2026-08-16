@@ -486,6 +486,12 @@ function screen_target.new(opts: Opts?)
 			-- owns the node (engine selection reports GuiState=Hover, m9)
 			pointerLive = handle.nativePointerLive == true and handle.nativeBridgeSelected ~= true,
 			gripFocus = handle.nativeGripFocus == true,
+			-- THE TINTED FILL (director report 2026-08-15). Set by `applyTint`'s
+			-- GuiObject branch only — a Text/Image tint claims a colour the class
+			-- default already paints and must NOT gain a background. It rides the
+			-- desired set like every other classification tag, or the next pass
+			-- would strip the fill and the node would go invisible again.
+			tinted = handle.tintFill == true,
 			divider = handle.nativeDivider == true,
 			buttonRole = handle.nativeButtonRole,
 			-- the skinned-slot tag rides the SAME desired set as every other

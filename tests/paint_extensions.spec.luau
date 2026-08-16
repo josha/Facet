@@ -399,6 +399,27 @@ describe("tint: the native-sheet claim mechanism (source contract)", function()
 		expect(contains(runnerSource, "d.paintClaims = claims")).toBe(true)
 	end)
 
+	--[[ THE FILL A CLAIM COULD NEVER TAKE (director report 2026-08-15).
+		`instance.BackgroundTransparency = alpha` with the default alpha writes 0,
+		which IS `Frame.BackgroundTransparency`'s class default — and the engine
+		decides "explicit" BY VALUE, so that write never claimed anything and the
+		`Frame default` rule went on painting the node invisible. Measured live:
+		raw 0 / GetStyled 1, and a 0.001 write flips GetStyled to 0.001.
+		So the fill rides a TAG, the mechanism `gripFocus` already uses for the
+		identical reason. The colour stays a claim: a rule cannot carry data. ]]
+	it("a tinted fill rides a tag, because the claim on it could never be taken", function()
+		local tint = section(adapterSource, "local function applyTint(handle: any)", 4200)
+		-- the GuiObject branch declares the fill and re-syncs the node's tags
+		expect(contains(tint, "handle.tintFill = true")).toBe(true)
+		expect(contains(tint, "syncTags(handle)")).toBe(true)
+		-- ...and releasing the tint takes the fill back off
+		local release = section(adapterSource, "local function releaseTint(handle: any)", 1200)
+		expect(contains(release, "handle.tintFill = nil")).toBe(true)
+		expect(contains(release, "syncTags(handle)")).toBe(true)
+		-- the classification actually carries it (a flag nothing reads is silence)
+		expect(contains(adapterSource, "tinted = handle.tintFill == true")).toBe(true)
+	end)
+
 	it("the four claimable properties are the sheet-owned ones (that is why they claim)", function()
 		for _, prop in { "BackgroundColor3", "BackgroundTransparency", "TextColor3", "ImageColor3", "ScaleType" } do
 			expect(authority.nativeSheetOwned(prop)).toBe(true)

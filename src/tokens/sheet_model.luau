@@ -53,6 +53,24 @@ sheet_model.TAGS = table.freeze({
 	-- measured with. Distinct from `luau-role-strong`, which is the CONTENT-COLOUR
 	-- emphasis a heading-scale size earns: one names a face, the other a colour.
 	typePrefix = "luau-type-", -- + caption|label|body|heading|title|control|strong|numeral
+	--[[ THE TINTED FILL (director report 2026-08-15, `canvas-group`).
+
+		A `tint` claims `BackgroundColor3` — a colour is per-node DATA and no rule
+		can carry it — but it cannot claim the FILL beside it. The tint's default
+		alpha is 0, which is exactly `Frame.BackgroundTransparency`'s class default,
+		and the engine decides "explicit" BY VALUE: a write equal to the default
+		never marks the property explicit, so the `Frame default` rule kept
+		ownership and every tinted Box with no `surface` painted nothing at all.
+		Measured on the live plate 2026-08-15 — raw 0 / GetStyled 1; write 0.001 ->
+		GetStyled 0.001; write 0 again -> GetStyled 1
+		(docs/lessons/a-default-valued-write-never-claims.md).
+
+		So "this node has a tinted fill" reaches paint as a TAG, which is what
+		`gripFocus` below already does for the identical reason. It is emitted in
+		the `base` group so a surface, a value slot and a scrim all still out-rank
+		it: this is the floor under an otherwise invisible node, never a new
+		authority over one that was already painted. ]]
+	tintFill = "luau-tint-fill",
 })
 
 --[[ THE BACKDROP RULE, named once (ADR-0035). Both sheet builders emit it and the
@@ -189,6 +207,11 @@ export type ClassifyInput = {
 	-- write would permanently defeat the Frame-default rule in native mode, so
 	-- the affordance rides a tag rule instead — theme-aware for free)
 	gripFocus: boolean?,
+	-- this node carries a `tint` whose colour landed on its BACKGROUND (a Box, a
+	-- ZStack, a fade group — never a Text/Image/Path, whose tint claims a colour
+	-- the class default already paints). Drives `luau-tint-fill`: see TAGS above
+	-- for why the fill cannot be an explicit write.
+	tinted: boolean?,
 	-- the decoration slot this node is CURRENTLY skinned with (nil = not
 	-- skinned). Drives `luau-skinned-<slot>`, which the package's suppression
 	-- rules key on so the native plate stops drawing under the art.
@@ -258,6 +281,11 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	end
 	if input.gripFocus == true then
 		tags["luau-grip-focus"] = true
+	end
+	-- the tinted fill (see TAGS): the colour is a claim, the fill is a tag, because
+	-- an explicit write of the class default never takes the property
+	if input.tinted == true then
+		tags[T.tintFill] = true
 	end
 	-- the ERROR state's tag (ADR-0020 R2). Emitted only when a control says so,
 	-- so nothing a package published before this stage renders can carry it.
@@ -804,6 +832,12 @@ function sheet_model.build(opts: BuildOpts): Model
 		{ name = "Image default", selector = "ImageLabel", props = { BackgroundTransparency = num(1) } },
 		{ name = "Field default", selector = "TextBox", props = { BackgroundTransparency = num(1) } },
 		{ name = "Scroll default", selector = "ScrollingFrame", props = { BackgroundTransparency = num(1) } },
+		-- ...and the ONE exception to "invisible until a surface says otherwise":
+		-- a node the author tinted. Directly under the class defaults it beats and
+		-- above every surface, slot and scrim, whose own alphas still win. See
+		-- TAGS.tintFill for why this is a rule and not the explicit write it looks
+		-- like it should be.
+		{ name = "Tint fill", selector = "." .. T.tintFill, props = { BackgroundTransparency = num(0) } },
 		{ name = "Text default", selector = "TextLabel", props = { TextColor3 = "$Content", FontFace = BUILDER_SANS } },
 		{
 			name = "Button text default",
@@ -1861,6 +1895,11 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 			props = { BackgroundTransparency = num(1) },
 		})
 	end
+	-- ...and the tinted fill, in the SAME cascade position the legacy builder gives
+	-- it (see that rule, and TAGS.tintFill). A floor only one builder emits is a
+	-- floor that vanishes the moment a player picks a package — RS-A16-D4's defect,
+	-- one rule over.
+	emit("base", { name = "Tint fill", selector = `.{T.tintFill}`, props = { BackgroundTransparency = num(0) } })
 	emit("base", {
 		name = "Text default",
 		selector = "TextLabel",

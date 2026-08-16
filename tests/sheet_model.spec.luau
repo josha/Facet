@@ -221,6 +221,52 @@ describe("sheet_model.build", function()
 		expect(sel["luau-role-secondary"]).toBe(true)
 	end)
 
+	--[[ THE TINTED FILL IS A TAG, NOT AN EXPLICIT WRITE (director report
+		2026-08-15, `canvas-group`: *"changing the opacity doesn't seem to change
+		anything else"* — the three plates it fades were never painted at all).
+
+		`BackgroundTransparency` is native-sheet-owned and "invisible until a
+		surface says otherwise" is the class-default rule above. The tint channel
+		tried to take the property with an explicit `= 0`, and the engine decides
+		EXPLICIT BY VALUE: a write equal to the class default (`Frame.Background‑
+		Transparency` is 0) never marks the property explicit, so the rule kept
+		ownership and every tinted Box with no `surface` and no declared
+		`transparency` painted nothing. Measured in Studio 2026-08-15 on the live
+		plate: raw 0 / GetStyled 1; write 0.001 -> GetStyled 0.001; write 0 again ->
+		GetStyled 1 (docs/lessons/a-default-valued-write-never-claims.md).
+
+		So the FILL rides a tag rule, exactly as `gripFocus` already does for the
+		same reason — and it sits in the `base` group so a surface, a slot and a
+		scrim all still out-rank it, which is what keeps this a floor rather than a
+		new authority. ]]
+	it("a tint's FILL rides a tag rule, because a default-valued write never claims", function()
+		local model = build()
+		local T = sheet_model.TAGS
+		expect(T.tintFill).toBe("luau-tint-fill")
+		-- the tag, emitted only when a tinted node is one the fill applies to
+		expect(sheet_model.classifyTags({ tinted = true })[T.tintFill]).toBe(true)
+		expect(sheet_model.classifyTags({ tinted = false })[T.tintFill]).toBeNil()
+		expect(sheet_model.classifyTags({})[T.tintFill]).toBeNil()
+		-- ...and the rule that gives it a fill
+		local rule = nil
+		for _, r in model.rules do
+			if r.name == "Tint fill" then
+				rule = r
+			end
+		end
+		expect(rule ~= nil).toBe(true)
+		expect((rule :: any).selector).toBe("." .. T.tintFill)
+		expect((rule :: any).props.BackgroundTransparency.value).toBe(0)
+		-- it carries NO colour: the colour is per-node DATA and stays the claim
+		expect((rule :: any).props.BackgroundColor3).toBeNil()
+		-- ABOVE the class default it exists to beat, BELOW every surface, slot and
+		-- scrim, whose own alphas must still win
+		expect(ruleIndex(model, "Frame default") < ruleIndex(model, "Tint fill")).toBe(true)
+		expect(ruleIndex(model, "Tint fill") < ruleIndex(model, "Base surface")).toBe(true)
+		expect(ruleIndex(model, "Tint fill") < ruleIndex(model, "Control fill")).toBe(true)
+		expect(ruleIndex(model, "Tint fill") < ruleIndex(model, sheet_model.SCRIM_RULE)).toBe(true)
+	end)
+
 	it("builds a single-theme sheet from a custom game style (default-flip path)", function()
 		-- a game passing its own compiled style (NOT Studio Neutral) gets a
 		-- one-theme model whose tokens are that game's values
@@ -495,6 +541,24 @@ describe("buildPackage: a rule NAME is identity, so the vocabulary is shared (C1
 			shared += 1
 		end
 		expect(shared >= 40).toBe(true)
+	end)
+
+	-- the tint fill is a FLOOR, and a floor that only one builder emits is a floor
+	-- that disappears the moment a player picks a theme package (the `Slot — <slot>`
+	-- family's own RS-A16-D4 defect, one rule over)
+	it("emits the tint fill in the same cascade position as the legacy builder", function()
+		local model = sheet_model.buildPackage(definePkg())
+		local index = function(name: string): number
+			for i, r in model.rules do
+				if r.name == name then
+					return i
+				end
+			end
+			error(`rule '{name}' not found`)
+		end
+		expect(index("Frame default") < index("Tint fill")).toBe(true)
+		expect(index("Tint fill") < index("Base surface")).toBe(true)
+		expect(index("Tint fill") < index(sheet_model.SCRIM_RULE)).toBe(true)
 	end)
 
 	it("ONE emitter: the value-slot family is byte-identical in both builders (RS-A16-D4)", function()
