@@ -463,6 +463,10 @@ require("./animation_precedence.spec")
 -- rotation as a second TERM in the presentation channel rather than a second
 -- writer, and withAnimation reaching all three
 require("./authored_presentation.spec")
+-- ADR-0035 / owed row O-26: the player's Background Transparency preference,
+-- honoured by the one paint path that has a see-through background to honour it
+-- with — and the named refusals that keep it from becoming a blanket multiply
+require("./preferred_transparency.spec")
 -- ADR-0028: the CROSS-SURFACE overlap alarm — two independently mounted
 -- surfaces covering each other with neither declaring that it means to
 require("./surface_overlap.spec")

@@ -55,6 +55,64 @@ sheet_model.TAGS = table.freeze({
 	typePrefix = "luau-type-", -- + caption|label|body|heading|title|control|strong|numeral
 })
 
+--[[ THE BACKDROP RULE, named once (ADR-0035). Both sheet builders emit it and the
+	adapter patches it live when the player moves their Background Transparency
+	preference, so the string is a constant rather than three literals. ]]
+sheet_model.SCRIM_RULE = "Scrim backdrop"
+
+--[[ THE PLAYER'S BACKGROUND-TRANSPARENCY PREFERENCE, composed with a theme's own
+	backdrop dim (ADR-0035, owed row O-26).
+
+	`GuiService.PreferredTransparency` is a 0..1 scalar the player moves in
+	Settings; 1 is "paint what the designer said" and 0 is "I want opaque
+	backgrounds". Roblox's own reference page states the recipe — *"Multiplying a
+	UI element's BackgroundTransparency with PreferredTransparency is the
+	recommended approach, such that backgrounds become more opaque as
+	PreferredTransparency approaches 0"* — and a multiply is also the only
+	composition that preserves a theme's RELATIVE intent: a package that dims at
+	0.62 stays darker than one that dims at 0.35 at every setting.
+
+	ONE FUNCTION, TWO WRITERS. The native sheet patches the `Scrim backdrop` rule
+	through this; the bespoke painter writes its scrim fill through this. Same
+	shape as `chrome_slots.DISABLED_CONTENT_OPACITY` and for the same reason — two
+	paint vocabularies that agree today drift apart the moment either is edited
+	alone.
+
+	IDENTITY ON GARBAGE. The env memo already clamps, but this is also called from
+	the adapter with a value that crossed a seam, and a NaN written into
+	`BackgroundTransparency` is a backdrop nobody can see. An unusable preference
+	means "leave the theme's value alone", never "guess". ]]
+function sheet_model.backdropTransparency(base: number, preference: number): number
+	if type(preference) ~= "number" or preference ~= preference then
+		return base
+	end
+	return math.clamp(base * math.clamp(preference, 0, 1), 0, 1)
+end
+
+--[[ WHICH RULE PROPS THE PLAYER'S PREFERENCE IS ALLOWED TO MOVE — the same shape
+	`metricRuleProps` already uses, for the same reason: the value is baked into a
+	rule as a LITERAL (a preference is not a `$Token` any sheet can derive), so a
+	mid-session change has to reach the installed rule through the generator's own
+	`setRuleProperty`.
+
+	IT IS A LIST WITH ONE ENTRY, AND THE LIST IS THE POINT. The audit that
+	commissioned ADR-0035 walked every rule both builders emit and found exactly one
+	`BackgroundTransparency` strictly between 0 and 1 — every other framework
+	background is already opaque (a surface) or already invisible (a class default),
+	and multiplying either is respectively a no-op or a defect that REVEALS hidden
+	plates. `tests/preferred_transparency.spec.luau` re-derives that set from a
+	built sheet and asserts it equals this declaration, so a second translucent
+	background cannot appear on either side without a decision.
+
+	NO BASE HERE, DELIBERATELY. The number the preference composes against is the
+	AUTHORED value of the sheet that is actually linked, which after a theme swap is
+	a different designer's number than any model this constant could carry. The
+	adapter reads it off the live rule once per sheet, before it has written to it
+	(screen_target.applyBackdropPreference). ]]
+sheet_model.PREFERENCE_RULE_PROPS = table.freeze({
+	table.freeze({ rule = sheet_model.SCRIM_RULE, prop = "BackgroundTransparency" }),
+})
+
 -- A theme token is a colour in the Step 2 vocabulary. `buildPackage` also emits
 -- number and sequence tokens (gradient ramps, gradient rotation) — every one of
 -- them a type Roblox accepts as a StyleSheet ATTRIBUTE, which is what makes it
@@ -896,7 +954,7 @@ function sheet_model.build(opts: BuildOpts): Model
 
 	pushAll({
 		{
-			name = "Scrim backdrop",
+			name = sheet_model.SCRIM_RULE,
 			selector = "." .. S .. "scrim",
 			props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(numbers.ScrimTransparency) },
 		},
@@ -1983,7 +2041,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		end, fromMetric)
 	end
 	emit("surfaces", {
-		name = "Scrim backdrop",
+		name = sheet_model.SCRIM_RULE,
 		selector = "." .. S .. "scrim",
 		props = { BackgroundColor3 = "$Surface", BackgroundTransparency = num(baseExtra.scrimOpacity) },
 	})

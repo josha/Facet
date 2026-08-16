@@ -3128,6 +3128,31 @@ function renderer.attach(
 		end))
 	end
 
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+
+		The third accessibility fact to ride this seam, and it rides it for exactly
+		the reason the second one had to: `setReducedMotion` above exists because the
+		fact used to arrive only through a construction-time opt that all four
+		production call sites forgot, so the preference silently did nothing. A
+		preference the framework merely PUBLISHES is a preference no player feels;
+		`effectiveTransparency` had been published and unread for four stages.
+
+		The env memo is the clamp — a garbage or NaN platform reading becomes 1
+		(paint what the theme said) before it ever reaches an adapter, so the seam
+		carries a value already in its legal domain.
+
+		UNLIKE `setReducedMotion`, THIS ONE REPAINTS. Reduced motion changes how the
+		NEXT transition plays; a transparency preference changes what is on screen
+		right now, so an adapter that takes it has to move the backdrop it has
+		already painted, not merely remember the number. ]]
+	if adapter.setPreferredTransparency ~= nil then
+		local effective = env:get("effectiveTransparency")
+		adapter.setPreferredTransparency(effective:get())
+		attachScope:own(core:observe(effective, function(value)
+			adapter.setPreferredTransparency(value)
+		end))
+	end
+
 	function controller.initialRender()
 		structuralSync()
 		solveAndApply()

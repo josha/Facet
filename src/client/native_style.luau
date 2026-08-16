@@ -504,23 +504,10 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 		setTransitionsEnabled = setTransitionsEnabled,
 		-- generator-side single-prop rule update: how a LIVE metric edit reaches
 		-- the rules that baked that metric as a literal (model.metricRuleProps).
-		-- Merge-writes so a designer's OTHER props on the same rule survive.
+		-- THIS handle's own sheet; `native_style.setRuleProperty` below is the same
+		-- verb on any sheet, which is what a whole-target relink needs (ADR-0035).
 		setRuleProperty = function(ruleName: string, prop: string, value: any): boolean
-			local r: StyleRule? = nil
-			for _, child in sheet:GetChildren() do
-				if child:IsA("StyleRule") and child.Name == ruleName then
-					r = child
-				end
-			end
-			if r == nil then
-				return false
-			end
-			local ok = pcall(function()
-				local props = (r :: StyleRule):GetProperties()
-				props[prop] = value;
-				(r :: StyleRule):SetProperties(props :: any)
-			end)
-			return ok
+			return native_style.setRuleProperty(sheet, ruleName, prop, value)
 		end,
 		resolveToken = function(theme: string, name: string): Color3?
 			local ts = themes[theme]
@@ -563,6 +550,55 @@ function native_style.ensure(model: any, opts: EnsureOpts?): Handle
 	setTheme((opts and opts.theme) or model.defaultTheme)
 	setTransitionsEnabled(transitionsOptedIn)
 	return handle
+end
+
+--[[ GENERATOR-SIDE RULE-PROP ACCESS, ON A SHEET RATHER THAN ON A HANDLE.
+
+	`handle.setRuleProperty` above is the same verb bound to the handle's own
+	sheet, and it is enough for the metric-edit path, where the editor and the
+	model are the same object. It is NOT enough for a live PLAYER PREFERENCE
+	(ADR-0035): a theme controller relinks the whole target onto a package sheet it
+	built itself, so the target's own handle points at a sheet nothing is wearing
+	any more, and a patch through it would land on a dead rule and change nothing
+	visible. The preference patches `activeSheetFor()` instead — whichever sheet is
+	linked right now.
+
+	`ruleProperty` is the READ half, and it exists so the composition never reads
+	back its own output: the base a preference composes against is taken from a
+	freshly-installed sheet, once, before anything has written to it (ADR-0029
+	probe L4 is what that rule is defending against). ]]
+function native_style.ruleProperty(sheet: StyleSheet?, ruleName: string, prop: string): any?
+	if sheet == nil then
+		return nil
+	end
+	for _, child in sheet:GetChildren() do
+		if child:IsA("StyleRule") and child.Name == ruleName then
+			local ok, value = pcall(function()
+				return (child :: StyleRule):GetProperties()[prop]
+			end)
+			return if ok then value else nil
+		end
+	end
+	return nil
+end
+
+-- Merge-writes, so a designer's OTHER props on the same rule survive.
+function native_style.setRuleProperty(sheet: StyleSheet?, ruleName: string, prop: string, value: any): boolean
+	if sheet == nil then
+		return false
+	end
+	for _, child in sheet:GetChildren() do
+		if child:IsA("StyleRule") and child.Name == ruleName then
+			return (
+				pcall(function()
+					local props = (child :: StyleRule):GetProperties()
+					props[prop] = value;
+					(child :: StyleRule):SetProperties(props :: any)
+				end)
+			)
+		end
+	end
+	return false
 end
 
 -- One StyleLink per LuauUI root (plan §6: single application point per tree)

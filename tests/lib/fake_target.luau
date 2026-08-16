@@ -1238,6 +1238,21 @@ function fake_target.new(opts: Opts?)
 	function adapter.reducedMotion(): boolean
 		return reducedMotion
 	end
+
+	--[[ THE BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035). Modelled here for the
+		same reason `setReducedMotion` is: the defect this seam exists to prevent is a
+		fact that never ARRIVES, and a fake that took the value from construction
+		instead of from the renderer's push could not see that defect. What the fake
+		does NOT model is the paint — this target has no engine backdrop to repaint,
+		and only a Studio session can show a `BackgroundTransparency` move. ]]
+	local preferredTransparency = 1
+	function adapter.setPreferredTransparency(effective: number)
+		preferredTransparency = effective
+		table.insert(ops, `preferredtransparency={tostring(effective)}`)
+	end
+	function adapter.preferredTransparency(): number
+		return preferredTransparency
+	end
 	-- every adapter-side motion decision since the last read, oldest first.
 	-- Deliberately NOT part of `ops`: `takeOps()` is asserted positionally by
 	-- several specs, and a press must not shift their indices.

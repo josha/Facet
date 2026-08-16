@@ -659,6 +659,17 @@ function screen_target.new(opts: Opts?)
 	-- channel and a `UI.Path`'s stroke role (screen_paint.refreshThemedPaint).
 	-- Forward-declared for the same upvalue reason.
 	local refreshThemedPaint: (() -> ())? = nil
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+		`GuiService.PreferredTransparency`, already clamped to 0..1 by the env memo,
+		pushed here by the renderer at attach and on every change. 1 is the default —
+		paint exactly what the theme declared — so a target that is never pushed
+		behaves as it always has. Declared HERE, above `screen_paint.new`, because
+		that ctx closes over it and a local declared later is not an upvalue. ]]
+	local preferredTransparency = 1
+	local refreshBackdropPaint: (() -> ())? = nil
+	-- assigned below `activeSheetFor`, which it reads; forward-declared for the
+	-- standing upvalue reason (a local declared later is not an upvalue)
+	local applyBackdropPreference: () -> ()
 	function setActiveTheme(package: any?, themeName: string?)
 		local recipe = chrome_slots.focusRecipeOf(package)
 		local theme: any = nil
@@ -795,6 +806,11 @@ function screen_target.new(opts: Opts?)
 		restorePaint = restorePaint,
 		assertBespokePaint = assertBespokePaint,
 		syncTags = syncTags,
+		-- the player's Background Transparency preference (ADR-0035). An accessor
+		-- because the renderer pushes a fresh number mid-session
+		preferredTransparency = function(): number
+			return preferredTransparency
+		end,
 		focusTreatment = function(): any
 			return focusTreatment
 		end,
@@ -827,6 +843,7 @@ function screen_target.new(opts: Opts?)
 	-- is exactly where it was assigned when this code was inline
 	refreshToggleVisuals = paint.refreshToggleVisuals
 	refreshThemedPaint = paint.refreshThemedPaint
+	refreshBackdropPaint = paint.refreshBackdropPaint
 
 	-- §17 Phase 5: keyboardType capability detection. `TextBox.TextInputType` is
 	-- the ONLY member that could summon a numeric/email/password keyboard, but it
@@ -876,6 +893,60 @@ function screen_target.new(opts: Opts?)
 	local function activeSheetFor(): StyleSheet?
 		return installedThemeSheet or legacyThemeSheet()
 	end
+
+	--[[ THE BACKDROP DIM, COMPOSED WITH THE PLAYER'S PREFERENCE (ADR-0035).
+
+		The `Scrim backdrop` rule is the single writer of `.luau-surface-scrim`'s
+		BackgroundTransparency and stays it; this moves the value that one writer
+		writes, through the generator's own patch verb. No authority changed, and
+		`NATIVE_SHEET_OWNED` is untouched.
+
+		IT PATCHES `activeSheetFor()`, NOT THIS TARGET'S OWN HANDLE, and that is the
+		whole reason `native_style.setRuleProperty` grew a sheet-taking form. A theme
+		controller relinks every root onto a package sheet IT built; this target's
+		`nativeHandle` still points at the sheet nobody is wearing, so a patch through
+		the handle would succeed, change a real rule, and be invisible.
+
+		THE BASE IS READ ONCE PER SHEET IDENTITY, before this target has written to
+		it. That is not fussiness: a composition that re-reads its own output
+		multiplies its own tail and converges to invisible in a handful of cycles
+		(ADR-0029 probe L4 measured exactly that failure). A newly linked sheet is
+		freshly generated from its package, so its rule still holds the DESIGNER's
+		number — which is also why the base tracks a package swap for free, without
+		this file having to be told the new package's `scrimOpacity`.
+
+		BESPOKE MODE takes the other branch and repaints the nodes directly, because
+		there is no rule there to move. ]]
+	local backdropBaseSheet: StyleSheet? = nil
+	local backdropBase: { [number]: number } = {}
+	function applyBackdropPreference()
+		if not nativeMode then
+			if refreshBackdropPaint ~= nil then
+				refreshBackdropPaint()
+			end
+			return
+		end
+		local sheet = activeSheetFor()
+		if sheet == nil then
+			return
+		end
+		local fresh = sheet ~= backdropBaseSheet
+		backdropBaseSheet = sheet
+		for i, entry in sheet_model.PREFERENCE_RULE_PROPS do
+			local current = native_style.ruleProperty(sheet, entry.rule, entry.prop)
+			if fresh then
+				backdropBase[i] = if type(current) == "number" then current else nil
+			end
+			local base = backdropBase[i]
+			if type(base) == "number" then
+				local wanted = sheet_model.backdropTransparency(base, preferredTransparency)
+				if current ~= wanted then
+					native_style.setRuleProperty(sheet, entry.rule, entry.prop, wanted)
+				end
+			end
+		end
+	end
+
 	local function trackThemeRoot(gui: Instance)
 		table.insert(themeRoots, gui)
 	end
@@ -901,6 +972,10 @@ function screen_target.new(opts: Opts?)
 			end
 		end
 		themeRoots = live
+		-- a swap installs a sheet built from the NEW package, carrying that
+		-- designer's own dim and none of the player's preference: re-compose it
+		-- here, or a themed session silently reverts to the authored value
+		applyBackdropPreference()
 	end
 
 	local lastRootHandle: any = nil
@@ -1711,6 +1786,40 @@ function screen_target.new(opts: Opts?)
 		itself a motion event. ]]
 	function adapter.setReducedMotion(reduced: boolean)
 		reducedMotionPushed = reduced == true
+	end
+
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+
+		A sibling of the two above and a deliberate DIFFERENCE from both: reduced
+		motion is a flag write because it changes how the NEXT transition plays, and
+		this one repaints because it changes what is on screen right now. A player
+		who opens Settings from inside a modal is looking at the backdrop while they
+		move the slider.
+
+		ONE VALUE, TWO WRITERS, NEITHER OF THEM NEW — which is why no authority moved
+		and `NATIVE_SHEET_OWNED` is untouched:
+
+		  * NATIVE — the `Scrim backdrop` StyleRule is and stays the only writer of
+		    `.luau-surface-scrim`'s BackgroundTransparency. We move the RULE's value
+		    through the generator's own `setRuleProperty`, exactly as a designer's
+		    metric edit already does (`pushMetricRuleProps`). ADR-0029 refused rule
+		    mutation for a per-node FADE — 3 frames of latency and one generated rule
+		    per faded node — and neither objection survives here: a preference moves
+		    at human frequency, and it is per-selector by nature, because every
+		    backdrop in the session should answer it identically.
+		  * BESPOKE — `screen_paint.refreshBackdropPaint`, the same explicit write
+		    that already owned this property in fallback mode.
+
+		The composed number comes from `sheet_model.backdropTransparency` in both
+		cases, so the modes cannot disagree, and it composes from the MODEL's own
+		recorded base rather than from the rule's current value — re-reading what we
+		last wrote is how a composition eats its own tail (ADR-0029 probe L4). ]]
+	function adapter.setPreferredTransparency(effective: number)
+		if type(effective) ~= "number" or effective ~= effective then
+			return
+		end
+		preferredTransparency = math.clamp(effective, 0, 1)
+		applyBackdropPreference()
 	end
 
 	-- ===== decoration-slot control surface (ADR-0019 §5) ==================

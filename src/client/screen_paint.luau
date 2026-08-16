@@ -70,6 +70,12 @@ function screen_paint.new(ctx: any)
 	local handlesByPath = ctx.handlesByPath
 	local toColor3 = ctx.toColor3
 	local isReducedMotion = ctx.isReducedMotion
+	-- the player's Background Transparency preference (ADR-0035). An ACCESSOR,
+	-- not a value, for the same reason `focusTreatment`/`activeTheme` below are:
+	-- the renderer pushes a new number mid-session and a captured value would
+	-- freeze at construction, which is precisely the "published but unread"
+	-- failure this row exists to end
+	local preferredTransparency = ctx.preferredTransparency
 	-- the paint-claim ledger, owned by screen_target
 	local claimPaint = ctx.claimPaint
 	local restorePaint = ctx.restorePaint
@@ -308,6 +314,32 @@ function screen_paint.new(ctx: any)
 				-- LAST, for the standing reason: the tint is the final word on the
 				-- property it claimed.
 				applyTint(handle)
+			end
+		end
+	end
+
+	--[[ THE BACKDROP REPAINT (ADR-0035). A theme commit is not the only thing that
+		can stale an adapter-owned paint: so can a PREFERENCE. When the player moves
+		Background Transparency the modal in front of them is already on screen, so
+		the new number has to reach the backdrop that is painted, not only the next
+		one to be created.
+
+		BESPOKE ONLY, and the early return is load-bearing: in native mode the
+		`Scrim backdrop` rule is the single writer of this property, and an explicit
+		write here would not lose a frame — it would make the rule's value unreadable
+		for good (ADR-0029 Decision 1, measured). The native side moves the RULE
+		instead (`screen_target.setPreferredTransparency`). ]]
+	local function refreshBackdropPaint()
+		if nativeMode then
+			return
+		end
+		for _, handle in handlesByPath do
+			if handle.declaredSurface == "scrim" then
+				local instance = instancesByPath[handle.path]
+				if instance ~= nil and instance:IsA("GuiObject") then
+					instance.BackgroundTransparency =
+						sheet_model.backdropTransparency(style.extra.scrimOpacity, preferredTransparency())
+				end
 			end
 		end
 	end
@@ -680,7 +712,14 @@ function screen_paint.new(ctx: any)
 		elseif surface == "scrim" then
 			-- a scrim is a backdrop, not a control: dimmed fill, no chrome,
 			-- and no hover/pressed feedback even when it is a Button
-			instance.BackgroundTransparency = style.extra.scrimOpacity
+			--
+			-- ...and it is the ONE background in this whole vocabulary that is
+			-- neither 0 nor 1, which is why it is the one that reads the player's
+			-- Background Transparency preference (ADR-0035). The composition is
+			-- shared with the native sheet's own patch of the same value, so the
+			-- two paint modes cannot drift apart about what the player asked for.
+			instance.BackgroundTransparency =
+				sheet_model.backdropTransparency(style.extra.scrimOpacity, preferredTransparency())
 			instance.BackgroundColor3 = toColor3(style.colors.surface)
 			local chrome = instance:FindFirstChild("Hairline")
 			if chrome then
@@ -1087,6 +1126,7 @@ function screen_paint.new(ctx: any)
 		ensureScale = ensureScale,
 		focusColor = focusColor,
 		hairline = hairline,
+		refreshBackdropPaint = refreshBackdropPaint,
 		refreshThemedPaint = refreshThemedPaint,
 		refreshToggleVisuals = refreshToggleVisuals,
 		releaseTint = releaseTint,

@@ -177,6 +177,16 @@ target_contract.OPTIONAL = {
 		mid-session.
 	]]
 	"setReducedMotion", -- (reduced: boolean)
+	--[[ THE PLAYER'S BACKGROUND TRANSPARENCY PREFERENCE (ADR-0035, owed row O-26).
+		WITHOUT IT: a player who set Background Transparency to "opaque" still sees a
+		see-through modal backdrop, because the framework's one partial background is
+		painted by the target and only the target can move it. The value is
+		`effectiveTransparency` — already clamped to 0..1 by the env memo, 1 meaning
+		"paint what the theme declared" — and the renderer pushes it at attach and on
+		every change, so an adapter gets it with zero consumer wiring. It is the ONE
+		optional seam on this list that must REPAINT rather than remember: the
+		backdrop is on screen when the setting moves. ]]
+	"setPreferredTransparency", -- (effective: number)
 	-- THE ENGINE-CONTENT SEAM (UI.Stage, ViewportFrame adoption 2026-08-08). Answers
 	-- a per-node handle for a mounted `Stage`: `setCamera{ position, lookAt, fov? }`,
 	-- `setLighting{ ambient?, lightColor?, lightDirection? }` and `contentRoot()`.
