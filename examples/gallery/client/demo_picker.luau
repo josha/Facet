@@ -129,6 +129,17 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "with_animation",
 	},
+	-- ...and the accessibility preference that had to wait for a paint path
+	-- (ADR-0035). It sits here, beside the motion demo, because the two are the
+	-- same kind of thing: a still screenshot of a backdrop is a dim rectangle, and
+	-- the capability is the DIFFERENCE between two settings.
+	{
+		id = "preferred-transparency",
+		title = "Background transparency",
+		blurb = "The player's opacity setting, answered by the framework's own backdrop",
+		kind = "fixture",
+		module = "preferred_transparency",
+	},
 	-- the fifth fixture, for the same reason as the two above it: a rotating arc
 	-- cannot be shown by a still screenshot, and the determinate ring beside it is
 	-- what makes "one function of one scalar" legible rather than a claim

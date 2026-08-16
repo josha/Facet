@@ -22,6 +22,16 @@ local ORDER = {
 	"async_images",
 	"selection_bridge",
 	"preferred_text",
+	-- ...and its SIBLING GuiService preference (ADR-0035 / owed row O-26): the
+	-- player's BACKGROUND TRANSPARENCY setting, answered by LuauUI's own painting.
+	-- Filed here rather than at the tail because the two are one story — one
+	-- accessibility fact each, both pushed from `roblox_env`, neither driveable
+	-- from a script. The fixture honours nothing by hand: it moves the environment
+	-- fact the adapter publishes and the framework repaints its own backdrop. It
+	-- also puts the REFUSALS on screen, because an authored `opacity` holding still
+	-- beside a backdrop that moves is the only way to see that the preference is
+	-- scoped rather than swept. Also in `demo_picker.DEMOS`.
+	"preferred_transparency",
 	"drag_session",
 	"virtual_list_native",
 	"native_style",

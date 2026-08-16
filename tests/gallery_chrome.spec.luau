@@ -610,8 +610,25 @@ describe("showcase chrome (5): two targets forever, stepping down to icon-only",
 		-- the case CONCERNS 16 did the arithmetic on. The demo chip's label is the
 		-- current demo's title, so the widest catalogue entry is what has to fit.
 		local w = showcase({ w = 320, h = 640 })
-		w.demos.showNext(6) -- "Temperature converter", the longest title
+		--[[ SELECTED BY LENGTH, NOT BY INDEX. This used to be `showNext(6)` with a
+			comment naming the demo it landed on — and a catalogue entry inserted
+			anywhere before that one silently re-aimed it at a shorter title, which is
+			how the case went red on a round that only ADDED a fixture. The thing
+			under test is "the widest catalogue entry has to fit", so derive it. ]]
+		local widest = demo_picker.list()[1]
+		for _, demo in demo_picker.list() do
+			if #demo.title > #widest.title then
+				widest = demo
+			end
+		end
+		for _ = 1, #demo_picker.list() do
+			if w.demos.current() == widest.id then
+				break
+			end
+			w.demos.showNext(1)
+		end
 		w.settle()
+		expect(`landed on the widest title: {w.demos.current()}`).toBe(`landed on the widest title: {widest.id}`)
 		expect(rung(w)).toBe("icons")
 	end)
 
