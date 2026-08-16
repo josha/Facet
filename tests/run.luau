@@ -103,7 +103,12 @@ require("./slice_mutation.spec")
 require("./focus_structural.spec")
 require("./table.spec")
 require("./table_virtualized.spec")
-require("./table_columns.spec")
+-- the header, its resize dividers and the owner-held sort, on the surface a
+-- player reaches them through: the shipped playlist tutorial. Was
+-- `table_columns.spec` against a fixture of its own until 2026-08-16, when the
+-- playlist gained the third `fill` column that makes a resize non-degenerate and
+-- the standalone fixture was retired (navigation-and-menus D8).
+require("./playlist_columns.spec")
 -- the hit-expander overhang lift (2026-08-15): the z rule that makes a sub-floor
 -- control's advertised touch band DELIVERABLE, proved on the table divider that
 -- reported it and on a non-table expander that carried it silently

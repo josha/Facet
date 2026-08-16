@@ -56,7 +56,9 @@
 -- while the header laid its columns across the full frame and every column
 -- boundary drifted by the reserve (director report 2026-08-14). Its check is a
 -- different sentence — "the header's grid IS the body's grid" — and lives in
--- tests/table_columns.spec.luau, "the header's column boundaries are the body's".
+-- tests/playlist_columns.spec.luau, "the header's column boundaries are the body's"
+-- (it was tests/table_columns.spec.luau until 2026-08-16, when the fixture behind
+-- that file was retired into the playlist tutorial).
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect

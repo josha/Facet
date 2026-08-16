@@ -1,7 +1,7 @@
 # A 44px floor under an 8px divider makes a dead zone, not a target
 
 **Measured live in Studio, 2026-08-14** (LuauUI-Showcase, Play mode, the
-`table_columns` fixture, real engine).
+`table_columns` fixture (retired 2026-08-16 into the shipped playlist tutorial; the spec is now `tests/playlist_columns.spec.luau`), real engine).
 
 `src/controls/contract.luau:95-102` gives `Grip` `minHitSize = 44`. The table's
 resize divider (`table.luau`'s `gripFor`) is `width = { type = "fixed", px = "s" }`
@@ -66,7 +66,7 @@ they are reaching for the divider.
    `table.luau`** — `grep tapAt src/controls/table.luau` is empty.
 3. **On a phone there is no route at all.** The divider is 8px against the same
    theme's own 44px touch floor — the floor `controls.table.rowHeight.touch` is
-   itself derived from (`tests/table_columns.spec.luau` pins the measurement:
+   itself derived from (`tests/playlist_columns.spec.luau` pins the measurement:
    `Touch=grip8x28/row36→44`; the ROW grows for touch, the DIVIDER does not).
    Touch has no bumpers, no `,`/`.`, no Tab. **A resizable column is not
    resizable on a phone**, and the only pointer affordance is a `MouseIcon` hint
@@ -82,7 +82,7 @@ drag" cases in `tests/table_input.spec.luau:313,332` prove the handler wiring an
 structurally cannot see any of this.
 
 What a headless run *can* hold is the geometry that produces it, and
-`tests/table_columns.spec.luau`'s `asks for 44x44 centred on an 8x28 grip` pins
+`tests/playlist_columns.spec.luau`'s `asks for 44x44 centred on an 8x28 grip` pins
 exactly that: the 44×44 request, the 26px band, and `grip.z - 1 > column.z`. If
 any of the three moves, the live table above has to be re-measured.
 
@@ -155,7 +155,7 @@ path is the same one — forward the down/up pair rather than the resolved tap.
 
 ### What the geometry pin does now
 
-`tests/table_columns.spec.luau`'s 44x44 / 26px / `grip.z - 1 > column.z` pin is
+`tests/playlist_columns.spec.luau`'s 44x44 / 26px / `grip.z - 1 > column.z` pin is
 **unchanged at the same numbers**: the repair was to what the rect *does*, not to
 where it is. The z relationship in particular is now load-bearing for the opposite
 reason — the expander has to be the topmost thing under a finger aiming at the

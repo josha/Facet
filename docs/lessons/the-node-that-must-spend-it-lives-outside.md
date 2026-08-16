@@ -48,7 +48,7 @@ findings, and a header laid out inside its own box files none.
 
 The class needs a different sentence: **a Table's header column boundaries equal
 its body's**, on whichever axis scrolls. That is the check, and it lives beside
-the fixture in `tests/table_columns.spec.luau`.
+the fixture in `tests/playlist_columns.spec.luau`.
 
 ## The fix
 
@@ -101,7 +101,7 @@ fix, and it was then done as its own change: the renderer now re-drains the prop
 dirties a solve's own consumers published, inside that solve — the same settle
 phase L-31 gave env writes (optimization log **L-34**). `present` returns with
 the grids already together, pinned by *"PRESENT ALONE lands the grids together —
-the gutter costs no frame at all"* in `tests/table_columns.spec.luau`, and the
+the gutter costs no frame at all"* in `tests/playlist_columns.spec.luau`, and the
 general shape by *"a measure→publish cycle whose publication is a PROP settles in
 the same solve"* in `tests/measure_publish_settle.spec.luau`.
 

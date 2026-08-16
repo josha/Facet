@@ -99,12 +99,19 @@ local READOUTS: { { example: string, paths: { string } } } = {
 	},
 	{
 		example = "02_playlist_table",
-		-- the table tutorial: the hint that names the three gestures, the
-		-- primary-action result line, and the restore button
+		-- the table tutorial: the hint that names the gestures AND reports which
+		-- column the keys belong to, the primary-action result line, the live
+		-- per-column width line, and the restore button.
+		--
+		-- `Widths` is here because it is the ONLY thing on the page that can show a
+		-- resize happened — a table whose first column is 218px and one that was
+		-- always 218px are the same screenshot — so a viewport where it is arranged
+		-- to nothing is a viewport where the resize feature is invisible.
 		paths = {
 			"/Playlist/Page/Title",
 			"/Playlist/Page/Hint",
 			"/Playlist/Page/NowPlaying",
+			"/Playlist/Page/Widths",
 			"/Playlist/Page/Tracks",
 			"/Playlist/Page/Restore",
 		},

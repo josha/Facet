@@ -1040,7 +1040,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		`minMax` FLOOR at `controls.table.headerHeight`, so a narrower title box
 		can never add a line. The body's rect is therefore unchanged, so its
 		overflow verdict is unchanged, so the gutter is unchanged. Pinned by the
-		"a second refresh moves nothing" case in tests/table_columns.spec.luau.
+		"a second refresh moves nothing" case in tests/playlist_columns.spec.luau.
 
 		AXIS-CORRECT, NOT WIDTH-SHAPED. Table's body always scrolls Y, so `bottom`
 		is 0 for every table shipping today — but the side comes from the published
@@ -3640,8 +3640,9 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		consumer callback, so a consumer wanting to show, persist or mirror its column
 		widths had nothing to subscribe to and would have had to poll every frame.
 		SwiftUI's own column width is a binding; a Readable is this framework's
-		spelling of one. `examples/gallery/scenarios/table_columns` is the surface
-		that needed it, and `docs/reference/api.md` §Table carries the contract. ]]
+		spelling of one. `examples/gallery/examples/02_playlist_table` is the surface
+		that needed it — it reads this Readable for its live width line — and
+		`docs/reference/api.md` §Table carries the contract. ]]
 	api.columnWidthOverrides = widthOverrides
 
 	-- the unbind a skipped subscription still owes its caller

@@ -12,7 +12,9 @@
 	object only (a `GuiButton` SINKS it), and paint order is one depth-first
 	counter, so a sibling walked LATER always outranks the expander. Where the
 	expander overhangs INTO that sibling it advertises a band it cannot deliver.
-	Measured on `table_columns`: a 44px divider band delivered 26px, and the outer
+	Measured on `table_columns` (a showcase fixture retired 2026-08-16; the same
+	resizable header now ships on the `02_playlist_table` tutorial): a 44px divider
+	band delivered 26px, and the outer
 	18px belonged to the next column's header — a drag there did nothing and a tap
 	there sorted a column the player never touched
 	(artifacts/hit-expander-overhang/corpus-measurement.md).

@@ -346,14 +346,17 @@ local SCENARIOS = {
 	-- WRAPPING four-button row and two status lines) still leaves the list a box at
 	-- every viewport and text preference, rather than a check on the packaging
 	"table_virtualized",
-	-- ...and its headered sibling. A HEADER BAND IS A `minMax` FLOOR
+	-- ...its headered sibling `table_columns` USED TO SIT HERE, and it was swept for
+	-- a real reason: A HEADER BAND IS A `minMax` FLOOR
 	-- (`controls.table.headerHeight`) and it is the exact thing `table_virtualized`
-	-- had to give up to fit — 77 findings, every one of them that band — so a
-	-- fixture whose entire subject is the header has to prove at every viewport and
-	-- every text preference that its own chrome leaves room for one. The floor grows
-	-- with the text preference, which is the case only the swept cross product
-	-- reaches
-	"table_columns",
+	-- had to give up to fit — 77 findings, every one of them that band. That fixture
+	-- was retired on 2026-08-16 (navigation-and-menus D8) when the shipped playlist
+	-- tutorial gained the resizable header it existed to hold. THE HEADER IS STILL
+	-- SWEPT AT EVERY VIEWPORT AND TEXT PREFERENCE — by `tests/example_readouts.spec`,
+	-- which walks the tutorial examples across the same device views and the same
+	-- four text offsets, and by `tests/playlist_columns.spec`, which pins the band's
+	-- own geometry. This sweep's corpus is the SCENARIO registry, and the playlist is
+	-- an example, so the coverage moved rather than being dropped.
 	-- ...and the lazy grid. Its cells are the one thing in this corpus whose COUNT
 	-- across a line is decided by a live signal, so every viewport re-divides the
 	-- same offer into a different column width — and a windowed grid's declared

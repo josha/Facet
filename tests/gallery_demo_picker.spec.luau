@@ -14,9 +14,11 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty-five fixtures", function()
+	it("lists every tutorial example plus the twenty-four fixtures", function()
 		local demos = demo_picker.list()
-		expect(#demos).toBe(32)
+		-- 32 until 2026-08-16: `table-columns` was retired (navigation-and-menus D8)
+		-- when the playlist tutorial gained the resizable header it existed to hold
+		expect(#demos).toBe(31)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -71,12 +73,13 @@ describe("showcase catalogue", function()
 		-- line could report — they differ in which axis the LANES divide and which
 		-- way the keyboard RING walks, and the only way to check either is to look at
 		-- one and then the other. The picker is the only route to that comparison.
-		-- ...and FIFTEEN since the header round (2026-08-14): `table-columns`, the
-		-- other half of `newTable` — a header band with resize dividers, shipped in
-		-- Phase B and never once driven on a real adapter because no showcase surface
-		-- carried one. `table_virtualized` is headerless on purpose (the band is a
-		-- `minMax` floor it could not afford), so this could not be a prop added to a
-		-- fixture that already existed.
+		-- ...`table-columns` was FIFTEEN, added in the header round (2026-08-14) and
+		-- RETIRED 2026-08-16: the other half of `newTable`, a header band with resize
+		-- dividers, shipped in Phase B and never once driven on a real adapter
+		-- because no showcase surface carried one. It needed a fixture of its own
+		-- only because the playlist had two columns and pinning the sole `fill` one
+		-- leaves nothing to absorb the remainder; the playlist has three now, so the
+		-- header, the dividers and the width readout ship on the tutorial (`ex02`).
 		-- ...and SEVENTEEN since `newVirtualGrid` (2026-08-15): `virtual-grid`, the
 		-- lazy grid's own surface. A `LazyVGrid` over five thousand cells and an
 		-- eager grid over five thousand cells paint the same first screen, so the
@@ -108,7 +111,8 @@ describe("showcase catalogue", function()
 		-- player could not select either capability at all. `async_images` already
 		-- existed and only ever ran under a sweep; `canvas_group` is new, because the
 		-- fade group had no fixture whose SUBJECT it was.
-		expect(fixtures).toBe(25)
+		-- 25 until `table-columns` was retired on 2026-08-16 (D8)
+		expect(fixtures).toBe(24)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -561,7 +565,8 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			end
 			expect(w.core:lastError()).toBeNil()
 		end
-		expect(fixtures).toBe(25)
+		-- 25 until `table-columns` was retired on 2026-08-16 (D8)
+		expect(fixtures).toBe(24)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -964,7 +969,7 @@ end)
 	that had just found it by direct scan — that is, by luck.
 
 	Everything the picker already had was asserted about its MODEL: `next()` wraps,
-	`choose()` refuses an unknown id, the catalogue has 32 unique entries. All of it
+	`choose()` refuses an unknown id, the catalogue has 31 unique entries. All of it
 	stayed green through the defect, because none of it ever asked the one question
 	a caller actually asks — *is the demo you named on the screen?*
 
@@ -1000,7 +1005,6 @@ local DEMO_ROOT: { [string]: string } = {
 	["variable-extents"] = "VariableExtents",
 	["measured-extents"] = "MeasuredExtents",
 	["table-virtualized"] = "TableVirtualized",
-	["table-columns"] = "TableColumns",
 	["virtual-grid"] = "VirtualGrid",
 	["virtual-hgrid"] = "VirtualHGrid",
 	["sensory-feedback"] = "SensoryFeedback",
@@ -1095,7 +1099,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		expect(roots).toBe(#demo_picker.list())
 	end)
 
-	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 32", function()
+	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 31", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
 		local picker = sweepPicker(w, function(demo)
 			return hostMountDemo(w, demo)

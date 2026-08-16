@@ -1039,7 +1039,8 @@ end)
 	  · `center` the child centres in the full box and is then displaced by `ml`,
 	            so an asymmetric margin moves it by the wrong amount.
 
-	FOUND LIVE (director, Studio, 2026-08-14, showcase `table_columns` under Pixel
+	FOUND LIVE (director, Studio, 2026-08-14, showcase `table_columns` — retired
+	2026-08-16 into the playlist tutorial — under Pixel
 	Quest and Glossy Touch): "the triangle table header sort indicator appears
 	outside when themed". The Table's sort mark is exactly this shape — a hugging
 	`alignH = "end"` Text carrying `margin = { right = controls.table.sortMarkMargin }`,

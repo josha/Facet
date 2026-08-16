@@ -231,17 +231,12 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "table_virtualized",
 	},
-	-- ...and its sibling, for the reason every fixture here is listed: what it shows
-	-- is a CHANGE. A table whose first column is 218px wide and one whose first
-	-- column was always 218px are the same screenshot, so the committed width of
-	-- every column is on screen and the divider is the only way to move it.
-	{
-		id = "table-columns",
-		title = "Columns you can resize",
-		blurb = "A header with dividers: drag one, or Tab to a heading and press Return",
-		kind = "fixture",
-		module = "table_columns",
-	},
+	-- ...its sibling `table-columns` was RETIRED 2026-08-16 (navigation-and-menus
+	-- D8). It was listed for the reason every fixture here is: what it showed was a
+	-- CHANGE — a table whose first column is 218px wide and one whose first column
+	-- was always 218px are the same screenshot. That argument did not go away; it
+	-- moved onto the playlist tutorial (`ex02` below), which now carries the
+	-- resizable header, the live width readout and the selected-column hint.
 	-- ...and the lazy grid, for the reason every fixture here is listed: a
 	-- `LazyVGrid` over five thousand cells and an eager grid over five thousand
 	-- cells paint the same first screen, so the only place the feature exists is
@@ -373,7 +368,13 @@ demo_picker.DEMOS = {
 	{
 		id = "ex02",
 		title = "Playlist table",
-		blurb = "Sortable, reorderable, filterable table",
+		-- THIS BLURB WAS A LIE UNTIL 2026-08-16, and it was the most public of the
+		-- three stale claims D8 closed: it read "Sortable, reorderable, filterable
+		-- table" and the example had no `sortOrder` at all, so every device pass and
+		-- every human reviewer was told about a capability that was not there. It is
+		-- true now, and it names the resize the retired `table-columns` card used to
+		-- carry.
+		blurb = "Sort, filter, reorder — and drag a divider to resize a column",
 		kind = "example",
 		module = "02_playlist_table",
 	},

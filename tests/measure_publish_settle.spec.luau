@@ -416,8 +416,9 @@ end)
 	header out un-guttered.
 
 	THE CHECK IS THE GENERAL SHAPE, not the Table: any surface whose `onGeometry`
-	publishes a measured number into a layout prop. `tests/table_columns.spec.luau`
-	carries the product case.
+	publishes a measured number into a layout prop. `tests/playlist_columns.spec.luau`
+	carries the product case (it was `tests/table_columns.spec.luau` until 2026-08-16,
+	when that file's fixture was retired into the playlist tutorial).
 
 	NON-VACUITY IS ASSERTED. A `roundTrip = false` arm is built in the same
 	process and asserted to leave the probe at its authored height, so a scene

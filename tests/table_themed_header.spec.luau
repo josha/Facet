@@ -2,7 +2,7 @@
 --[[ THE HEADER BAND, UNDER EVERY SHIPPED PACKAGE — the axis the Table's specs
 	could not test.
 
-	WHY IT EXISTS. `tests/table.spec.luau`, `table_columns.spec.luau` and
+	WHY IT EXISTS. `tests/table.spec.luau`, `playlist_columns.spec.luau` and
 	`paradigm_table.spec.luau` between them assert the header band in detail, and
 	every one of them mounts it under exactly one theme: the built-in snapshot.
 	A corpus uniform along an axis cannot test that axis, so the whole class of
@@ -10,7 +10,7 @@
 	suite by construction — which is how the director found this one in Studio
 	instead:
 
-	  2026-08-14, showcase `table_columns` under Pixel Quest and Glossy Touch:
+	  2026-08-14, showcase `table_columns` (retired 2026-08-16) under Pixel Quest and Glossy Touch:
 	  "the triangle table header sort indicator appears outside when themed".
 
 	The mark is a hugging `alignH = "end"` glyph carrying the theme's own
@@ -75,7 +75,7 @@ local RACERS = {
 	{ id = "bolt", name = "Bunny Bolt", team = "Vale", best = "1:04" },
 }
 
--- the shipped `table_columns` fixture's own shape: two resizable leading columns
+-- the shipped playlist table's own shape: two resizable leading columns
 -- and one that refuses, all three sortable through `value`
 local function columnsFor(resizable: boolean): { any }
 	return {

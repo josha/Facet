@@ -1,6 +1,7 @@
 # A far margin must buy something — aligning in a box you did not grant
 
-**Found:** 2026-08-14, Roblox Studio, showcase `table_columns` under Pixel Quest
+**Found:** 2026-08-14, Roblox Studio, showcase `table_columns` (retired 2026-08-16
+into the playlist tutorial) under Pixel Quest
 and Glossy Touch. Director: *"in columns you can resize in the showcase, the
 triangle table header sort indicator appears outside when themed."*
 

@@ -15,6 +15,21 @@
 --                          DERIVED (memo) rows list: typing filters the table
 --                          reactively per keystroke; surviving rows keep their
 --                          mounted identity; the in-field ✕ clears it
+--   * SORTING, and the composition it forces — `sortOrder` is an owner-held
+--                          Signal the header cycles; the TABLE NEVER SORTS THE
+--                          DATA. So this example owns TWO derivations over ONE
+--                          source array (sort over the source, filter over the
+--                          sorted view) plus a third writer (drag reorder) that
+--                          has to win against a live sort. See THE DERIVATION
+--                          CHAIN below — getting that composition right IS the
+--                          lesson
+--   * RESIZABLE COLUMNS  — Name and Artist carry `resizable`, Rating REFUSES.
+--                          A pointer drags the header divider, a keyboard steps
+--                          it with , and . after Return on a heading, a gamepad
+--                          bumper steps it outright — and all three commit
+--                          through one model, `api.setColumnWidth`. The live
+--                          width readout above the table is read from
+--                          `api.columnWidthOverrides`, never from a copy
 --   * drag & drop        — the Table's built-in row reordering: pick a row up
 --                          past a small drag threshold and a ghost chip plus a
 --                          drop line appear; releasing commits the new order
@@ -36,6 +51,10 @@
 --     keyboard/gamepad too (the field is the first thing focus lands on)
 --   * click a star, or press and DRAG left/right across the stars, to rate
 --     (drag past the left edge to clear); focus + Activate also works
+--   * tap a HEADING to sort by it (tap again to flip); drag the divider between
+--     two headings to resize a column, or focus a heading and press Return then
+--     , / . — the width line above the table is the only thing that can show a
+--     resize happened, because a resize is a change and not a picture
 --   * click rows to select them (multi-select: Cmd/Ctrl-click toggles
 --     additively; on TOUCH, selection lives in edit mode, because a plain tap
 --     plays the track — see THE PRIMARY ACTION below)
@@ -63,16 +82,21 @@
 local example = {}
 example.title = "Playlist Table"
 
--- the playlist data: id, display name, starting rating (the track LENGTH
+-- the playlist data: id, display name, artist, starting rating (the track LENGTH
 -- column was removed 2026-08-13 — see the columns list below for the
--- measurement that removed it; the field stays because Restore reseeds from here)
+-- measurement that removed it; the field stays because Restore reseeds from here).
+--
+-- TWO ARTISTS ARE DELIBERATELY THE SAME. `table.sort` is not stable in Luau, so a
+-- column with duplicate values is exactly where a sort stops being reproducible;
+-- "Nine Volt" twice is what makes the source-index tie-break below observable
+-- rather than theoretical.
 local TRACKS = {
-	{ id = "neon", name = "Neon Straightaway", length = 214, rating = 4 },
-	{ id = "drift", name = "Drift City Nights", length = 187, rating = 3 },
-	{ id = "turbo", name = "Turbo Cascade", length = 243, rating = 5 },
-	{ id = "pit", name = "Pit Lane Shuffle", length = 158, rating = 2 },
-	{ id = "photo", name = "Photo Finish", length = 201, rating = 0 },
-	{ id = "apex", name = "Apex Bloom", length = 176, rating = 3 },
+	{ id = "neon", name = "Neon Straightaway", artist = "Chrome Coyote", length = 214, rating = 4 },
+	{ id = "drift", name = "Drift City Nights", artist = "Nine Volt", length = 187, rating = 3 },
+	{ id = "turbo", name = "Turbo Cascade", artist = "Paper Lantern", length = 243, rating = 5 },
+	{ id = "pit", name = "Pit Lane Shuffle", artist = "Rustbucket", length = 158, rating = 2 },
+	{ id = "photo", name = "Photo Finish", artist = "Bad Weather", length = 201, rating = 0 },
+	{ id = "apex", name = "Apex Bloom", artist = "Nine Volt", length = 176, rating = 3 },
 }
 
 function example.build(LuauUI: any, core: any, deps: any)
@@ -89,8 +113,86 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- are two different verbs, and the whole point of `onPrimaryAction` is that the
 	-- table stops having to overload the first to express the second.
 	local nowPlaying = core:signal(nil :: string?)
+	-- THE SORT BINDING, and the Table never touches the data through it
+	-- (`spec.sortOrder`, SwiftUI's `Table(sortOrder:)`): tapping a sortable heading
+	-- CYCLES this signal — new column → ascending, same column → flip — and that is
+	-- the whole of the control's involvement. Re-sorting is the owner's job, which
+	-- is this file's job, which is why the derivation chain below exists.
+	local sortOrder = core:signal(nil :: { column: string, ascending: boolean }?)
 
-	-- The rows the table actually shows are a MEMO derived from (baseRows,
+	-- Each track's rating is its own signal, created once up front and looked
+	-- up by track id. Star cells bind to these, so rating changes are pure
+	-- paint — no row remount, no list rebuild.
+	local ratings: { [string]: any } = {}
+	for _, track in TRACKS do
+		ratings[track.id] = core:signal(track.rating)
+	end
+
+	--[[ THE DERIVATION CHAIN, and its ORDER is the lesson ─────────────────────────
+
+		Three things change what the table shows and they are NOT the same kind of
+		thing:
+
+		  · `baseRows` is the SOURCE — the stored playlist order. A drag reorder, a
+		    Top swipe and a Remove swipe all write here.
+		  · the SORT is a derivation over the source. It never writes.
+		  · the FILTER is a derivation over the SORTED view. It never writes either.
+
+		SORT FIRST, THEN FILTER, and that is not arbitrary. Filtering first would
+		leave the full ordered list existing nowhere, and two things need it: "move
+		this track to the top" has to name a position among ALL the tracks, and a
+		manual reorder has to be able to BAKE what the player is looking at back into
+		the source (see A MANUAL REORDER WINS below). Sorting a subset gives you
+		neither.
+
+		BOTH MEMOS HAND BACK THE ARRAY THEY WERE GIVEN when they have nothing to do
+		(no sort, empty query). That is deliberate: an identical array means the
+		table's keyed reconcile sees no change at all, so an unsorted, unfiltered
+		playlist costs one comparison per solve rather than a copy. ]]
+	local sortedRows = core:memo(function(use)
+		local all = use(baseRows) :: { any }
+		local order = use(sortOrder)
+		if order == nil then
+			return all
+		end
+		-- THE TIE-BREAK IS THE SOURCE INDEX, and it is not optional: `table.sort` is
+		-- not stable in Luau, so two tracks with the same rating (or the same artist)
+		-- would otherwise land in an order that is legal, different between Luau
+		-- builds, and impossible to write a test against.
+		local index: { [string]: number } = {}
+		for i, track in all do
+			index[track.id] = i
+		end
+		-- READ THE SORT KEY BEFORE SORTING, once per row. The rating key is a SIGNAL,
+		-- so it has to be `use`d for this memo to re-run when a star is tapped — and
+		-- calling `use` inside a comparator would do that O(n log n) times for the
+		-- same answer.
+		local keys: { [string]: any } = {}
+		for _, track in all do
+			if order.column == "rating" then
+				keys[track.id] = use(ratings[track.id])
+			elseif order.column == "artist" then
+				keys[track.id] = track.artist
+			else
+				keys[track.id] = track.name
+			end
+		end
+		local out = table.clone(all)
+		table.sort(out, function(a, b)
+			local av, bv = keys[a.id], keys[b.id]
+			if av == bv then
+				-- ties keep the source order, whichever way the column is pointing
+				return index[a.id] < index[b.id]
+			end
+			if order.ascending then
+				return av < bv
+			end
+			return av > bv
+		end)
+		return out
+	end)
+
+	-- The rows the table actually shows are a MEMO derived from (sortedRows,
 	-- filterText): a case-insensitive substring match on the track name. Using
 	-- `string.find(..., 1, true)` makes it a PLAIN substring test (no Lua
 	-- pattern magic, so a filter like "." matches a literal dot). Because the
@@ -99,7 +201,7 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- rows that dropped out are removed.
 	local filteredRows = core:memo(function(use)
 		local query = string.lower(use(filterText))
-		local all = use(baseRows) :: { any }
+		local all = use(sortedRows) :: { any }
 		if query == "" then
 			return all
 		end
@@ -112,12 +214,26 @@ function example.build(LuauUI: any, core: any, deps: any)
 		return out
 	end)
 
-	-- Each track's rating is its own signal, created once up front and looked
-	-- up by track id. Star cells bind to these, so rating changes are pure
-	-- paint — no row remount, no list rebuild.
-	local ratings: { [string]: any } = {}
-	for _, track in TRACKS do
-		ratings[track.id] = core:signal(track.rating)
+	--[[ A MANUAL REORDER WINS, AND TAKES THE SORT WITH IT (the iTunes rule).
+
+		A drop names a SLOT among the visible rows. While a sort is live, that slot
+		has no meaning against the stored order — write it and the very next solve
+		sorts it away, so the drag would appear to do nothing at all. iTunes answers
+		by dropping the column sort the moment you drag a row, and so do we.
+
+		IT IS A BAKE, NOT A REFUSAL: the order the player is currently looking at
+		becomes the stored order and `sortOrder` goes nil, so the drop's slot means
+		exactly what was on screen when they let go. `sortedRows` is the FULL ordered
+		list — never the filtered one — which is why the chain above sorts first.
+
+		REMOVING a track is not a reorder and deliberately does NOT bake: deleting a
+		row from a sorted list leaves a sorted list. ]]
+	local function bakeManualOrder(): { any }
+		if sortOrder:get() ~= nil then
+			baseRows:set(table.clone(sortedRows:get() :: { any }))
+			sortOrder:set(nil)
+		end
+		return baseRows:get() :: { any }
 	end
 
 	-- THE FILTER FIELD -------------------------------------------------------
@@ -196,9 +312,11 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- a SLOT among the visible rows and the meaning of that slot against the
 	-- hidden ones is genuinely ambiguous, while "put this at the top" names no
 	-- slot at all and reads the same whatever is on screen.
+	-- ...and it BAKES, for the reason `bakeManualOrder` states: a "put this first"
+	-- that a live sort undoes in the same frame is a button that lies.
 	local function moveToTop(id: string)
 		local moved, rest = nil, {}
-		for _, track in baseRows:get() :: { any } do
+		for _, track in bakeManualOrder() do
 			if track.id == id then
 				moved = track
 			else
@@ -212,6 +330,34 @@ function example.build(LuauUI: any, core: any, deps: any)
 		baseRows:set(rest)
 	end
 
+	-- THE DROP'S COMMAND, named rather than inlined so the tests can drive the
+	-- exact function the Table calls. `keys` are the dragged rows in document
+	-- order and `toIndex` is the insertion slot among the rows NOT being dragged.
+	local function reorder(keys: { string }, toIndex: number)
+		if filterText:get() ~= "" then
+			return -- a filter is active: moves are disabled, and the sort stays
+		end
+		local moving, staying = {}, {}
+		local movingSet: { [string]: boolean } = {}
+		for _, key in keys do
+			movingSet[key] = true
+		end
+		for _, track in bakeManualOrder() do
+			table.insert(if movingSet[track.id] then moving else staying, track)
+		end
+		local out = {}
+		for i = 1, toIndex do
+			table.insert(out, staying[i])
+		end
+		for _, track in moving do
+			table.insert(out, track)
+		end
+		for i = toIndex + 1, #staying do
+			table.insert(out, staying[i])
+		end
+		baseRows:set(out)
+	end
+
 	-- THE TABLE --------------------------------------------------------------
 	-- Columns own their content: `value` renders a plain text cell; `cell`
 	-- renders any blueprint — here, the interactive star control. `rows` is the
@@ -219,12 +365,52 @@ function example.build(LuauUI: any, core: any, deps: any)
 	local tbl = LuauUI.newTable(LuauUI, core, {
 		id = "Tracks",
 		columns = {
+			--[[ TWO `fill` COLUMNS THAT RESIZE, AND ONE FIXED ONE THAT REFUSES.
+					This shape is load-bearing and it is not a style choice.
+
+					`resolveDim` (src/controls/table.luau:1140-1144) turns ANY resized
+					column into `{ type = "fixed", px }`. With the two columns this
+					table used to have — a `fill` Name and a fixed Rating — pinning
+					Name made BOTH fixed, so nothing was left to flex and the row
+					under-filled its own region. Measured at 800x600 before the third
+					column landed: pin Name to 200 and the header painted 16..216 and
+					216..360 inside a band running 16..784 — 424px of dead space at the
+					trailing edge, every time anyone dragged a divider.
+
+					A THIRD `fill` column fixes it by construction: pin Name and ARTIST
+					absorbs the slack, so Rating stays welded to the trailing edge.
+					Same run at 800x600 with three: 16..216 / 216..640 / 640..784.
+
+					`minWidth` FLOORS A RESIZE, NOT THE LAYOUT — a fact worth knowing
+					before choosing these numbers. `resolveDim` applies `minWidth` to an
+					OVERRIDE (and to a `percent` band); a plain `fill` column is divided
+					by weight with no floor at all. So 90/72 is the narrowest a PLAYER
+					may drag these to, not the narrowest they are ever drawn. It is
+					explicit because the default is 24px, which is legible for nothing.
+				]]
 			{
 				id = "name",
 				title = "Name",
-				width = { type = "fill", weight = 1 },
+				width = { type = "fill", weight = 3 },
+				minWidth = 90,
+				resizable = true,
+				-- the value can outgrow its cell at the narrowest viewport (see THE
+				-- 320x640 MEASUREMENT below), so it declares itself disclosable: a
+				-- truncated track name stays reachable rather than becoming lost
+				disclose = true,
 				value = function(item)
 					return item.name
+				end,
+			},
+			{
+				id = "artist",
+				title = "Artist",
+				width = { type = "fill", weight = 2 },
+				minWidth = 72,
+				resizable = true,
+				disclose = true,
+				value = function(item)
+					return item.artist
 				end,
 			},
 			-- NO LENGTH COLUMN, AND IT IS THE SWIPE-ACTIONS ROUND THAT REMOVED IT
@@ -251,6 +437,25 @@ function example.build(LuauUI: any, core: any, deps: any)
 			-- diagnostic, and nobody had looked. A track duration is the least
 			-- valuable thing in a row whose subject is the track's NAME, and it
 			-- taught nothing the Name column does not.
+			--
+			-- ...AND A THIRD COLUMN CAME BACK ON 2026-08-16, WHICH IS ONLY
+			-- LEGITIMATE BECAUSE THE MEASUREMENT WAS REPEATED. Resize needs three
+			-- columns to be non-degenerate (see the columns above), so the question
+			-- was whether a `fill` Artist column is a different animal from the
+			-- FIXED 70px Length column that was deleted. It is. Measured at
+			-- 320x640, touch, EDIT MODE, all three shapes in the same session:
+			--
+			--   two columns (what shipped)      name cell 76 / text 60           0 collapse diagnostics
+			--   third FIXED 70px (deleted)      name cell  6 / text  0           3 collapse diagnostics
+			--   third FILL weight 2 (shipped)   name 46/30, artist 30/14         0 collapse diagnostics
+			--
+			-- So the fixed column collapsed the row's SUBJECT to nothing and the
+			-- fill column does not; the price is the ARTIST cell at 14px of text at
+			-- that one viewport in that one mode. That price is paid rather than
+			-- hidden: both text columns carry `disclose = true`, so a truncated
+			-- value is still reachable, and both truncate to ONE line rather than
+			-- wrapping into a row that cannot hold them. The numbers are pinned in
+			-- `tests/playlist_columns.spec.luau` so they cannot drift in silence.
 
 			-- THE RATING COLUMN, AND WHY ITS WIDTH IS A FIXED NUMBER --------------
 			-- FIXED, and it has to be for now. The director's 2026-07-27 note —
@@ -277,7 +482,28 @@ function example.build(LuauUI: any, core: any, deps: any)
 			-- Until then the leftover is at least no longer scattered BETWEEN the
 			-- stars: the strip hugs and centres, so the slack sits either side of a
 			-- run that reads as one rating.
-			{ id = "rating", title = "Rating", width = { type = "fixed", px = 144 }, cell = starCell },
+			--
+			-- ...AND IT IS THE COLUMN THAT REFUSES TO RESIZE, which is the same fact
+			-- said once more: 144 is measured against a star run, so it is not the
+			-- player's to drag. Declaring no `resizable` is the whole mechanism —
+			-- the header grows no divider and `api.adjustTargets` walks resizable
+			-- headings only, so no Adjust key binds while this heading holds focus
+			-- ("binding Adjust on a header that cannot resize would shadow gameplay
+			-- bumpers for nothing"). Both refusals are INVISIBLE, which is why the
+			-- width readout says `locked` for this column rather than a number that
+			-- never changes.
+			--
+			-- `sortable = true` is needed because this column has a `cell` and no
+			-- `value`: a text column is sortable by its value for free, a custom
+			-- cell has to opt in. It sorts by the rating SIGNAL, not by the seed in
+			-- TRACKS, so re-rating a track re-orders the list under you.
+			{
+				id = "rating",
+				title = "Rating",
+				width = { type = "fixed", px = 144 },
+				sortable = true,
+				cell = starCell,
+			},
 		},
 		-- a BLOCK, not a viewport: the page above scrolls it (see `screen` below)
 		scrolls = false,
@@ -307,6 +533,10 @@ function example.build(LuauUI: any, core: any, deps: any)
 		-- pointer package and a chunky touch one.
 		rowGap = "controls.table.rowGap",
 		header = true,
+		-- THE OWNER HOLDS THE SORT AND APPLIES IT. Handing the table this Signal is
+		-- what makes the headings tappable at all; everything the sort then does
+		-- happens in `sortedRows` above, in this file.
+		sortOrder = sortOrder,
 		selection = "multi",
 		-- THE PRIMARY ACTION (parity round 2 §3.4, corrected 2026-08-13). "Open
 		-- this row" — here, play this track. The Table reaches it on all four
@@ -412,30 +642,14 @@ function example.build(LuauUI: any, core: any, deps: any)
 		-- is ambiguous — rather than guess, we refuse the move and leave the
 		-- base order untouched. Clear the filter to rearrange. When unfiltered,
 		-- we apply the splice to the FULL `baseRows`.
-		onReorder = function(keys: { string }, toIndex: number)
-			if filterText:get() ~= "" then
-				return -- a filter is active: moves are disabled
-			end
-			local moving, staying = {}, {}
-			local movingSet: { [string]: boolean } = {}
-			for _, key in keys do
-				movingSet[key] = true
-			end
-			for _, track in baseRows:get() :: { any } do
-				table.insert(if movingSet[track.id] then moving else staying, track)
-			end
-			local out = {}
-			for i = 1, toIndex do
-				table.insert(out, staying[i])
-			end
-			for _, track in moving do
-				table.insert(out, track)
-			end
-			for i = toIndex + 1, #staying do
-				table.insert(out, staying[i])
-			end
-			baseRows:set(out)
-		end,
+		--
+		-- REORDER-UNDER-SORT RULE, and it is the OPPOSITE answer to the same shape
+		-- of question, on purpose: under a filter the drop is ambiguous, so we
+		-- refuse; under a SORT it is perfectly well defined — every row is on
+		-- screen, just in a different order — so we honour the drag and drop the
+		-- SORT instead (`bakeManualOrder` above). Refusing a drag that carries no
+		-- ambiguity would just be a table that ignores you.
+		onReorder = reorder,
 	})
 
 	-- THE SCREEN -------------------------------------------------------------
@@ -458,12 +672,72 @@ function example.build(LuauUI: any, core: any, deps: any)
 	-- play audit, 2026-08-06).
 	local function restore()
 		filterText:set("")
+		sortOrder:set(nil)
 		baseRows:set(table.clone(TRACKS))
 		nowPlaying:set(nil)
 		for _, track in TRACKS do
 			ratings[track.id]:set(track.rating)
 		end
 	end
+
+	--[[ THE TWO READOUTS A SCREENSHOT CANNOT CARRY ────────────────────────────────
+
+		These moved here on 2026-08-16 from a fixture that existed only to hold them
+		(`examples/gallery/scenarios/table_columns.luau`, retired in the same commit),
+		and they are not decoration:
+
+		  · A RESIZE IS A CHANGE, NOT A PICTURE. A table whose first column is 218px
+		    and one whose first column was ALWAYS 218px are the same image. So the
+		    committed width of every column is on screen, live, and it is read from
+		    the control's OWN published state — `api.columnWidthOverrides`, the
+		    Readable the model commits into — never from a copy this file keeps. That
+		    matters most for the POINTER route, which commits inside the control and
+		    fires no consumer callback at all: without this line a divider drag would
+		    be unobservable from outside the table.
+		  · SELECTING A COLUMN PAINTS NOTHING. `api.selectedColumn` is public "so a
+		    consumer can paint the selection" and the control draws no state for it,
+		    so after a device Activate on a heading the stick silently means something
+		    new and the screen does not say so. The hint line below is both the demo
+		    and the honest report of that gap. ]]
+	local COLUMN_LABELS = { { "name", "Name", true }, { "artist", "Artist", true }, { "rating", "Rating", false } }
+
+	local widthsText = core:memo(function(use)
+		local overrides = use(tbl.api.columnWidthOverrides) :: { [string]: number }
+		local parts = {}
+		for _, column in COLUMN_LABELS do
+			local id, label, resizable = column[1] :: string, column[2] :: string, column[3] :: boolean
+			local px = overrides[id]
+			-- the two NON-numeric states, and they are different facts: a resizable
+			-- column nobody has moved yet, and a column that refuses to move at all
+			local shown = if px ~= nil then `{math.floor(px + 0.5)}px` elseif resizable then "auto" else "locked"
+			table.insert(parts, `{label} {shown}`)
+		end
+		return table.concat(parts, " · ")
+	end)
+
+	local hintText = core:memo(function(use)
+		local selected = use(tbl.api.selectedColumn) :: string?
+		if selected == nil then
+			return "Type to filter · tap a heading to sort · drag a divider to resize · swipe a row for its actions"
+		end
+		local label = "Rating"
+		for _, column in COLUMN_LABELS do
+			if column[1] == selected then
+				label = column[2] :: string
+			end
+		end
+		--[[ THE KEYS THIS SENTENCE NAMES ARE THE ONES THAT ACTUALLY WORK, and the
+			difference was measured live in Studio on 2026-08-14 rather than read off
+			the control. `handleGrabNavigate` puts a selected column's resize on ←/→,
+			and on the live showcase ←/→ NEVER ARRIVE: Roblox's own
+			`RbxCameraKeypress` is bound to `KeyCode.Left`/`Right` at
+			ContextActionService priority 2000 and sinks them. Proven by unbinding it
+			in the same session — the identical two presses then stepped the column
+			437px → 469px. `,` / `.` are the Adjust keys the presenter binds
+			dynamically while a resizable header holds focus, and they are not
+			contended. See docs/lessons/the-camera-still-owns-the-arrow-keys.md. ]]
+		return `{label} has the keys: , and . resize it, ↑/↓ sorts`
+	end)
 
 	-- THE PRIMARY ACTION'S ONE VISIBLE CONSEQUENCE. `policy = "none"` text (§15.3):
 	-- it declares no `lineLimit`, so a long track name under a ~1.4x localization
@@ -496,17 +770,34 @@ function example.build(LuauUI: any, core: any, deps: any)
 				children = {
 					UI.Text({ id = "Title", text = "Playlist", textSize = "title" }),
 					filterControl.blueprint,
+					-- the hint is the SELECTION READOUT and the instruction at once,
+					-- because the control paints no state for a selected column and
+					-- the two facts a player needs ("which column has the keys" and
+					-- "what those keys do now") are the same sentence. No `lineLimit`,
+					-- so it wraps under a ~1.4x localization expansion rather than
+					-- clipping.
 					UI.Text({
 						id = "Hint",
-						text = "Type to filter · tap stars to rate · swipe a row either way for its actions",
+						text = hintText,
 						textSize = "label",
 						role = "secondary",
+						disclose = true,
 					}),
 					UI.Text({
 						id = "NowPlaying",
 						text = nowPlayingText,
 						textSize = "label",
 						role = "secondary",
+					}),
+					-- the live width of every column, read from the control's own
+					-- published state: the only thing on this page that can show a
+					-- resize HAPPENED
+					UI.Text({
+						id = "Widths",
+						text = widthsText,
+						textSize = "label",
+						role = "secondary",
+						disclose = true,
 					}),
 					tbl.blueprint,
 					UI.Button({ id = "Restore", label = "Restore the original playlist", onActivate = restore }),
@@ -532,8 +823,15 @@ function example.build(LuauUI: any, core: any, deps: any)
 	return {
 		screen = screen,
 		-- handles the tutorial / tests reach for:
-		rows = filteredRows, -- the DISPLAYED rows (filtered view)
-		baseRows = baseRows, -- the full ordered playlist (reorder writes here)
+		rows = filteredRows, -- the DISPLAYED rows (sorted, then filtered)
+		sortedRows = sortedRows, -- the full playlist in DISPLAY order (sort, no filter)
+		baseRows = baseRows, -- the full STORED order (a reorder writes here)
+		sortOrder = sortOrder, -- the owner-held sort binding the header cycles
+		widths = widthsText, -- the live per-column width sentence
+		hint = hintText, -- the instruction / selected-column readout
+		reorder = reorder, -- the drop command the Table calls on a commit
+		moveToTop = moveToTop, -- the leading swipe action's command
+		removeTrack = removeTrack, -- the trailing swipe action's command
 		filterText = filterText, -- the filter query (the field's value)
 		filterControl = filterControl, -- the filter TextInput control
 		nowPlaying = nowPlaying, -- the primary action's result (nil until a row opens)
@@ -554,8 +852,17 @@ function example.build(LuauUI: any, core: any, deps: any)
 				control.dispose()
 			end
 			nowPlayingText:dispose()
+			-- the two readouts read the TABLE's published state, so they go before
+			-- nothing in particular — but they do have to go, and they are the two
+			-- easiest memos in this file to forget
+			widthsText:dispose()
+			hintText:dispose()
+			-- ...and the derivation chain from the leaf back to its source: the
+			-- filter reads the sort, the sort reads the base order and the ratings
 			filteredRows:dispose()
+			sortedRows:dispose()
 			baseRows:dispose()
+			sortOrder:dispose()
 			filterText:dispose()
 			nowPlaying:dispose()
 			for _, rating in ratings do

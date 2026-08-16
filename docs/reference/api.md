@@ -3982,7 +3982,8 @@ is now `columnWidthOverrides:get()`.) SwiftUI spells the same thing as a binding
 [`TableColumn`](https://developer.apple.com/documentation/swiftui/tablecolumn).
 
 **Two things this reaches on a real device and one it does not**, measured
-2026-08-14 on `LuauUI-Showcase`'s `table_columns` fixture:
+2026-08-14 on `LuauUI-Showcase`'s `table_columns` fixture (retired 2026-08-16;
+the same header now ships on the `02_playlist_table` tutorial):
 
 - the divider drag and the `,` / `.` Adjust keys both work;
 - **Left/Right do not, in a place that has not enabled

@@ -18,13 +18,13 @@
 	THREE CLAUSES, ONE PER CASE BELOW:
 
 	  · it lifts — the divider outranks the NEIGHBOUR column it reaches into
-	    (`table_columns`, the reported defect), and every sub-floor row outranks
+	    (the reported defect, on the resizable playlist header), and every sub-floor row outranks
 	    the row below it (`keyboard_navigation`, a NON-table expander that carried
 	    the same defect silently);
 	  · it stops at the host — a target the host's own painted rect already
 	    overlaps is not "past its host" and is never lifted over. That clause is
 	    what keeps the 8px divider ON TOP of the 28px header cell it sits inside,
-	    and it is pinned by name in `tests/table_columns.spec.luau` ("the resize
+	    and it is pinned by name in `tests/playlist_columns.spec.luau` ("the resize
 	    grip's hit floor lands on top of its own header button");
 	  · it leaves expander-vs-expander alone — two sub-floor controls whose FLOORS
 	    overlap each other, and nothing else, keep their declared order. Without
@@ -40,7 +40,13 @@ local describe, it, expect = t.describe, t.it, t.expect
 local LuauUI = require("../src") :: any
 local UI = require("../src/blueprint")
 local fake_target = require("../tests/lib/fake_target")
-local tableScenario = require("../examples/gallery/scenarios/table_columns") :: any
+--[[ THE TABLE CASE MOVED SURFACES ON 2026-08-16 (navigation-and-menus D8). It used
+	to mount `examples/gallery/scenarios/table_columns`, a fixture whose only job was
+	to hold a resizable header; that fixture was retired when the shipped playlist
+	tutorial gained the third `fill` column that makes a column resize
+	non-degenerate. The rule under test did not change and neither did the geometry —
+	the divider still reaches 18px past its own header cell into the neighbour's. ]]
+local tableExample = require("../examples/gallery/examples/02_playlist_table") :: any
 local keyboardScenario = require("../examples/gallery/scenarios/keyboard_navigation") :: any
 
 type World = { core: any, env: any, adapter: any, pres: any, built: any }
@@ -64,6 +70,27 @@ local function mount(scenario: any, w: number, h: number): World
 		bindResourceTransport = function()
 			return function() end
 		end,
+	})
+	built.handle = pres.present(built.screen, built.present)
+	pres.refresh()
+	return { core = core, env = env, adapter = adapter, pres = pres, built = built }
+end
+
+-- ...and the TUTORIAL's mount, which takes a different shape of argument
+-- (`build(LuauUI, core, deps)`, not `build(ctx)`) because it is an example rather
+-- than a scenario. The gallery client mounts each with its own contract.
+local function mountExample(module: any, w: number, h: number): World
+	local core = LuauUI.newCore()
+	local env = LuauUI.newEnvironment(core)
+	env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
+	local system = LuauUI.newActionSystem(core)
+	local adapter = fake_target.new()
+	local pres = LuauUI.newPresenter(core, env, adapter, system)
+	local built = module.build(LuauUI, core, {
+		env = env,
+		actionSystem = system,
+		presenter = pres,
+		adapter = adapter,
 	})
 	built.handle = pres.present(built.screen, built.present)
 	pres.refresh()
@@ -100,13 +127,13 @@ local function thievesOf(adapter: any, hostPath: string): { string }
 	return out
 end
 
-local TABLE_HEADER = "/TableColumns/TablePane/Entrants/Main/Header"
+local TABLE_HEADER = "/Playlist/Page/Tracks/Main/Header"
 
 describe("hit-expander overhang: the table divider's floor is reachable", function()
 	it("the divider outranks the NEIGHBOUR column its 44px floor reaches into", function()
-		local w = mount(tableScenario, 900, 640)
+		local w = mountExample(tableExample, 900, 640)
 		local grip = w.adapter.node(`{TABLE_HEADER}/Head-name/Grip`)
-		local neighbour = w.adapter.node(`{TABLE_HEADER}/Head-team/Column`)
+		local neighbour = w.adapter.node(`{TABLE_HEADER}/Head-artist/Column`)
 		-- the floor really does reach into the neighbour: without this the case
 		-- below would pass on a table whose columns had drifted apart
 		expect(`reaches:{overlaps(grip.hitRect, neighbour.rect)}`).toBe("reaches:true")
@@ -116,16 +143,16 @@ describe("hit-expander overhang: the table divider's floor is reachable", functi
 		expect(`expander>neighbour:{grip.z - 1 > neighbour.z}`).toBe("expander>neighbour:true")
 		-- ...which is a real reorder of the two header cells, not an accident of
 		-- declaration: `Head-name` is declared FIRST and walked last
-		expect(`lifted:{w.adapter.node(`{TABLE_HEADER}/Head-name`).z > w.adapter.node(`{TABLE_HEADER}/Head-team`).z}`).toBe(
+		expect(`lifted:{w.adapter.node(`{TABLE_HEADER}/Head-name`).z > w.adapter.node(`{TABLE_HEADER}/Head-artist`).z}`).toBe(
 			"lifted:true"
 		)
 		w.built.dispose()
 	end)
 
 	it("nothing is left that can take the band: the whole 44px belongs to the divider", function()
-		local w = mount(tableScenario, 900, 640)
+		local w = mountExample(tableExample, 900, 640)
 		expect(table.concat(thievesOf(w.adapter, `{TABLE_HEADER}/Head-name/Grip`), " ")).toBe("")
-		expect(table.concat(thievesOf(w.adapter, `{TABLE_HEADER}/Head-team/Grip`), " ")).toBe("")
+		expect(table.concat(thievesOf(w.adapter, `{TABLE_HEADER}/Head-artist/Grip`), " ")).toBe("")
 		w.built.dispose()
 	end)
 end)

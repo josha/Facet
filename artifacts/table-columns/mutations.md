@@ -1,5 +1,15 @@
 # `table_columns` — mutation ledger
 
+> **HISTORICAL, 2026-08-14.** The fixture and the spec this ledger names were
+> retired on 2026-08-16 (navigation-and-menus D8): the shipped playlist tutorial
+> gained the third `fill` column that makes a column resize non-degenerate, and
+> every case below moved onto it. The runner is now
+> `lune run tests/run_one playlist_columns`, the fixture is
+> `examples/gallery/examples/02_playlist_table.luau`, and the file paths in the
+> table below are the ones that existed when these mutations were run. The
+> mutations themselves were not re-run against the new surface; this document is
+> kept as the record of what was proved, not as a live procedure.
+
 Every check added by this mission, broken on purpose, watched to redden by NAME,
 and restored. Run with `lune run tests/run_one table_columns` (13 cases).
 

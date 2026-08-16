@@ -496,7 +496,7 @@ describe("Table: SwiftUI-shaped columns (director round 5)", function()
 		expect((head2.x + head2.w) - (title2.x + title2.w)).toBe(8)
 	end)
 
-	-- THE HALF THAT HAD NO COVERAGE, and the one the shipped `table_columns`
+	-- THE HALF THAT HAD NO COVERAGE, and the one the shipped playlist header
 	-- fixture is made of: every column there is LEADING and sortable. A leading
 	-- title fills the cell, so under the old one-sided rule its ellipsis landed
 	-- under the triangle the moment the heading outgrew its column — the 1.4x

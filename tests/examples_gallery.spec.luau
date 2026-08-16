@@ -772,9 +772,17 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		end
 		local first = built.rows:get()[1].id
 		local second = built.rows:get()[2].id
-		-- initial focus = the filter field (prepended nav group), then down into
-		-- the toolbar, then into the rows
+		-- initial focus = the filter field (prepended nav group), then down through
+		-- the HEADER BAND, then the toolbar, then into the rows.
+		--
+		-- THE HEADER IS A STOP SINCE 2026-08-16 (navigation-and-menus D8), and it is
+		-- ONE stop rather than three: the band is a nav group, so Up/Down enters and
+		-- leaves it while Left/Right walks its columns. That is the cost of a table
+		-- whose headings sort and resize, and it is paid on every input class — a
+		-- header a pad cannot reach would be a sort a pad cannot perform.
 		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Filter/Field")
+		press("DPadDown")
+		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-name/Column")
 		press("DPadDown")
 		expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
 		press("DPadDown")
@@ -831,7 +839,8 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		local function hitOf(key: string): string
 			return `/Playlist/Page/Tracks/Main/Body/Rows/[{key}@0]/RowActions-{key}/Content/Row/Hit`
 		end
-		press("DPadDown") -- filter field -> toolbar
+		press("DPadDown") -- filter field -> header band (sortable/resizable since D8)
+		press("DPadDown") -- header -> toolbar
 		press("DPadDown") -- toolbar -> first row
 		press("ButtonA") -- select it (not editing: action falls through to selection)
 		presenter.refresh()
@@ -918,6 +927,18 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			-- ...and now the KEYBOARD, with no pointer anywhere near it
 			presenter.focus.focusOn("/Playlist/Page/Tracks/Main/ToggleWhen/then/Toolbar/EditToggle")
 			presenter.refresh()
+			--[[ THE HEADER BAND SITS BETWEEN THEM SINCE 2026-08-16 (D8): the table's
+				headings sort and resize now, so each is a document-order stop of its
+				own, ahead of the body. Spelled out one press at a time rather than
+				looped, because the ORDER is the claim — Tab is document-order RANK
+				(`97e9d93`) and a walk that reached the tray by some other route would
+				be a different fact. ]]
+			press("Tab")
+			expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-name/Column")
+			press("Tab")
+			expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-artist/Column")
+			press("Tab")
+			expect(presenter.focus.focused:get()).toBe("/Playlist/Page/Tracks/Main/Header/Head-rating/Column")
 			press("Tab")
 			expect(presenter.focus.focused:get()).toBe(remove)
 			expect(adapter.node(remove).focused).toBe(true)

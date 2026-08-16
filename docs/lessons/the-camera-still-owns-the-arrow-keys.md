@@ -1,13 +1,13 @@
 # The camera still owns the arrow keys
 
 **Measured live in Studio, 2026-08-14** (LuauUI-Showcase, Play mode, the
-`table_columns` fixture, real engine).
+`table_columns` fixture (retired 2026-08-16 into the shipped playlist tutorial; the spec is now `tests/playlist_columns.spec.luau`), real engine).
 
 `src/controls/table.luau`'s column model puts a selected column's resize on
 **Left/Right** (`api.handleGrabNavigate`, `:2855-2862`): a device Activate on a
 header selects the column, and while it is selected the stick owns the direction
 keys — Left/Right resizes, Up/Down cycles the sort. `tests/paradigm_table.spec.
-luau:147` and `tests/table_columns.spec.luau` both prove it, green.
+luau:147` and `tests/playlist_columns.spec.luau` both prove it, green.
 
 **On the live showcase it does not happen.** Left and Right never reach LuauUI.
 
