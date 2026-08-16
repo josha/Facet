@@ -24,7 +24,12 @@
 -- regression. Adding an entry is a deliberate act with a name on it.
 --
 --   lune run tools/lune/check_flat_baseline          -- checks; exits 1 on drift
---   lune run tools/lune/check_flat_baseline -- --list  -- prints the allow-list
+--   lune run tools/lune/check_flat_baseline --list     -- prints the allow-list
+--
+-- (`-- --list` was documented here and in the hint below until 2026-08-15 and
+-- has never worked on this toolchain: lune 0.10.4 does not forward the args
+-- after a bare `--`, so `process.args[1]` was nil and the form silently ran the
+-- full check instead of listing. Measured both ways.)
 --
 -- THE BASELINE HAS TWO HALVES, AND ONLY ONE OF THEM IS THE COMPATIBILITY CLAIM
 -- (2026-08-06, example-quality-pass). The stored dump renders EIGHT fixtures:
@@ -834,7 +839,7 @@ if #problems > 0 then
 	for _, entry in problems do
 		print(`  - {entry}`)
 	end
-	print("hint: `lune run tools/lune/check_flat_baseline -- --list` prints every characterized delta and why.")
+	print("hint: `lune run tools/lune/check_flat_baseline --list` prints every characterized delta and why.")
 	process.exit(1)
 end
 print(
