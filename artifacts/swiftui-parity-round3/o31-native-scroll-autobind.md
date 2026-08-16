@@ -112,15 +112,27 @@ Driven as a **parallel real-engine mount** (`require(RS.LuauUI)` + a real
 picker. A bare `screen_target` carries **no stylesheet**, so nothing here is a
 paint claim — every number is geometry or an instance name.
 
-Freshness gated on a marker that DISCRIMINATES: `controls/native_scroll_binding`
-does not exist at HEAD, and `mirror.noticeMount` appears in no committed source.
+Freshness gated on a marker that DISCRIMINATES and on a BYTE MATCH against disk.
+`controls/native_scroll_binding` does not exist in the pre-fix tree at all, so
+`present = true` is impossible against old source; `mirror.noticeMount` appears
+in no committed source either. Studio's `#Source` equals the file on disk to the
+byte for all four:
 
 ```
-native_scroll_binding  present=true  bytes=6783   hasMarker=true
-virtual_grid           present=true  bytes=48159  hasMarker=true
-virtual_list           present=true  bytes=179348 hasMarker=true
-table                  present=true  bytes=190240 hasMarker=true
+                       Studio #Source   on disk   pre-fix (10776d69~1)
+native_scroll_binding  6783             6783      DOES NOT EXIST
+virtual_grid           48159            48159     46714
+virtual_list           179348           179348    —
+table                  190240           190240    —
 ```
+
+**THE GATE CAUGHT A STALE READ, which is why it is worth having.** The FIRST
+probe of this session — before the Play restart — returned
+`native_scroll_binding_exists: false`, `grid_has_noticeMount: false`,
+`grid_bytes: 46714`: the pre-fix source exactly. Nothing was measured on it.
+Rojo syncs to the EDIT datamodel and a Play session is a copy taken at Play
+start, so Play was stopped, Edit was re-checked (all four markers present), and
+Play restarted. Every live number in this file comes from after that check.
 
 **The A/B, in one call.** B is the shipped tree. A is a CLONE of the whole
 `ReplicatedStorage.LuauUI` with ONE line removed from `controls/virtual_grid` —
