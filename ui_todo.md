@@ -318,3 +318,50 @@ trusting any sweep over it.
 >    `{"mounted":false,"current":"row-actions","ok":false}`. The all-demos
 >    acceptance drive is `tests/gallery_demo_picker.spec.luau`, "showcase host:
 >    advancing the picker actually mounts the demo it names".
+
+## OWED (2026-08-15, screen-anchored HUD round 3) — the composition's band is a rectangle
+
+Booked with its measurement, from the round that removed the HUD's chrome-overlap
+residual (`8500aba`). NOT required for that residual — the fix there was that an
+exclusion leaves the ladder's drop currency — but it is the only thing that can
+close the case one column over, so it is written down rather than re-derived.
+
+**What the vocabulary cannot say.** A composition's lane band is a RECTANGLE:
+every lane starts at the same y, so the solver cannot make the band's top edge an
+L. The HUD fixture works around it with a reserve Region at the head of each
+column (`columnReserve`), and that Region is per-COLUMN — all-or-nothing — while
+an app's chrome row is an arbitrary rect. The fixture therefore reserves on
+MAJORITY coverage, which leaves two open ends:
+
+  * a column the chrome covers a SLIVER of reserves nothing, and content in it
+    can still reach back under the chrome. Measured 2026-08-15, headless, with a
+    290px-wide chip row: the centre column's left score pill lands 32x30px inside
+    it. **Live it does not bite today** — the showcase's real chip row ends at
+    x=267 and the centre column's clock starts at x=295, 28px of headroom on a
+    749px landscape phone — so this is a class that is currently clear, not a
+    defect on screen.
+  * `resolution.collisions` cannot see it either way: collisions are region-vs-
+    region, and a lane box that legitimately overlaps somebody else's chrome is
+    not a region painting outside its own box. The fixture's own headline metric
+    ("collisions = 0, that is the whole point") is structurally blind to chrome,
+    which is why the round-3 checks assert painted nodes against the DECLARED
+    rect instead (tests/hud_chrome_rotation.spec.luau).
+
+**The general shape of the fix**, when it is worth a mission: `composition.resolve`
+takes the excluded rects and derives the per-lane top inset itself, so an
+exclusion is geometry rather than a rank-1 Region, and a region landing in one is
+reported in `collisions` like any other overlap. Both halves matter — the inset
+makes the lane's arithmetic honest, the report makes a wrong declaration loud.
+
+## OWED (2026-08-15) — the round buttons' touch expander overhangs the app's chrome by 4px
+
+Measured live, Studio, iPhone 16 Pro landscape 749x380, showcase place, URL bar
+open: the two `LuauUIHitExpander` TextButtons behind the HUD's round buttons sit
+at y 50..94 against a chip row ending at y=54 — **4px of touch band, 40-44px
+wide, inside the app's own chrome**. Nothing is PAINTED there (the discs
+themselves start exactly at the chrome's bottom edge, 0px over) and the expander
+is transparent, so this is an input-priority question, not a layout one: it is
+the same family as `f637548` ("the touch floor is a paint order: lift a host past
+what its expander reaches into") and belongs with that mechanism rather than with
+the composition. Recorded here so the number exists before somebody re-measures
+it.
