@@ -207,6 +207,81 @@ describe("the HUD under a viewport that changes UNDER the mounted tree", functio
 	end)
 end)
 
+--[[ ── THE SECOND ROUND OF THE SAME REPORT ────────────────────────────────────
+	*"the circular controls are still getting cut off in the screen-anchored hud"*
+	— director, 2026-08-15, on a PORTRAIT capture where the whole right-anchored
+	column reads as sliced at the screen edge.
+
+	MEASURED, and the geometry is not what it looks like. Driven live in Studio
+	through a PARALLEL real-engine mount (the demo picker is broken today), iPhone
+	16 Pro portrait: EVERY right-anchored node's `AbsolutePosition.X +
+	AbsoluteSize.X` is 401.0 against a 401px canvas — over by 0.0px, with zero
+	composition collisions and the three lanes at x 0/134/267 w 134. Nothing
+	overflows. The content is flush against the physical edge with NO GUTTER AT
+	ALL, and a rounded control whose rim ends exactly on the boundary reads as one
+	that was cut there.
+
+	AND THAT IS WHY IT LOOKED LIKE OPPOSITE DEFECTS IN THE TWO ORIENTATIONS. The
+	platform's own exclusion is wildly asymmetric on this device:
+
+	  device 874x402   portrait camera 401x777   -> 1px of device beyond the camera
+	                   landscape camera 749x380  -> 125px beyond it (62 per side)
+
+	One layout rule — "anchor to the camera's edge" — therefore puts the same
+	content 1px from the glass in portrait and 62px in from it in landscape. The
+	earlier "pulled inward" report and this "running off the edge" one are the same
+	zero gutter seen through two different letterboxes, which is why the rotation
+	measurement found the tree converging node-for-node all along.
+
+	The fix is a MINIMUM GUTTER from the theme's own space scale, so the safe-area
+	inset and the gutter are a per-edge max rather than a choice. These cases are
+	the check, and they are asserted on the ZONES rather than on the full-width
+	containers (a Screen root, the topbar span row and the URL bar plate all span
+	the box by definition and always did). ]]
+describe("director 2026-08-15 round 2: anchored content never touches the physical edge", function()
+	local ANCHORED = {
+		"Rounds",
+		"Tasks",
+		"Health",
+		"Feed",
+		"Clock",
+		"Rail",
+		"Readout",
+		"Actions",
+		"Weapon",
+	}
+
+	for _, view in { PORTRAIT, LANDSCAPE } do
+		it(`{view.w}x{view.h}: every anchored zone clears BOTH lateral edges by the theme's own step`, function()
+			local w = world(view)
+			local metrics = w.env:get("themeMetrics"):get()
+			local gutter = ((if type(metrics) == "table" then metrics.space else nil) or {}).s
+			expect(type(gutter) == "number" and gutter > 0).toBe(true)
+			for _, id in ANCHORED do
+				local r = rectOf(w, `/HudScreen/Hud/{id}`)
+				if r == nil or r.w <= 0 then
+					continue -- dropped at this viewport; it cannot touch an edge
+				end
+				expect(`{id} left {r.x >= gutter - 0.01}`).toBe(`{id} left true`)
+				expect(`{id} right {r.x + r.w <= view.w - gutter + 0.01}`).toBe(`{id} right true`)
+			end
+		end)
+	end
+
+	it("a REAL safe-area inset still wins when it is bigger than the gutter", function()
+		-- the negative control for the max: a platform that reports 40px of notch
+		-- must not have it reduced to the theme's 8px step
+		local w = world(LANDSCAPE)
+		w.env:batch(function()
+			w.env:set("deviceSafeInsets", { top = 0, bottom = 0, left = 40, right = 40 })
+		end)
+		settle(w)
+		local rail = rectOf(w, "/HudScreen/Hud/Rail")
+		expect(rail ~= nil).toBe(true)
+		expect(rail.x + rail.w <= LANDSCAPE.w - 40 + 0.01).toBe(true)
+	end)
+end)
+
 describe("ADR-0027 + director item 4: the APP's chrome is reserved per column", function()
 	-- the showcase's chip row as the live session measures it: the left ~40% of
 	-- the band's second row, and nothing else
