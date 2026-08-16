@@ -65,6 +65,40 @@
 --     to another named class. Class is otherwise never allowed to differ, which
 --     is how a control being quietly swapped for something else shows up here.
 --
+-- THIS FILE RUNS TWO INSTRUMENTS, AND ONLY ONE OF THEM IS A FROZEN DUMP
+-- (2026-08-15, O-22 — the row had been closed on 2026-08-13 and was re-broken the
+-- next day by an unrelated correct change, which is the question worth answering
+-- once rather than re-pinning every time).
+--
+--   1. THE REPRODUCIBILITY PIN. `CURRENT` — the stored dump — must byte-equal a
+--      fresh regenerate. It carries NO claim about the framework and it has no
+--      allow-list: its only job is that the artifact a reader may CITE is current,
+--      which is what ADR-0032's migration step 1 needs when it names "the flat
+--      baseline is unchanged" as its proof. It is SUPPOSED to go red on every
+--      legitimate change to the render, and its red is a chore ("refresh the
+--      artifact"), not an accusation. It is not a candidate for an invariant,
+--      because "is this file current" has no rule to compare against.
+--
+--   2. THE COMPATIBILITY CLAIM. `BASELINE_3_5` is frozen at 0.6.0 and is NOT
+--      re-pinned — twice declined already, for the reasons above. This is where a
+--      difference means something, and it is here that the dump-versus-rule
+--      question actually bites.
+--
+-- THE ANSWER FOR (2) IS BOTH, PICKED PER FACT, and this file already contained the
+-- rule form before it had a name: `ALLOWED_ADDED_PROPS` compares a PROPERTY
+-- against a RULE ("this key may newly appear, for this reason") rather than
+-- against a stored value, which is why the two seam-level corrections that
+-- preceded this one (`textSize`, `textFont`) each cost one entry instead of
+-- hundreds. A per-path list is right when a decision moves ONE node; a rule is
+-- right when a seam-level correction lands on every node of a kind at once —
+-- and the third such correction, ruling 5's `textWrapped`, is a rule entry for
+-- exactly that reason. The re-pin that keeps getting declined is a THIRD thing:
+-- moving `BASELINE_3_5` itself, which would make every future difference agree
+-- with whatever the tree does. None of that changed here.
+--
+-- What DID change is that a rule with no value was too weak: see the `value`
+-- paragraph on ALLOWED_ADDED_PROPS.
+--
 -- DISAPPEARANCE IS STILL THE ONE THING WITH NO WAIVER AT ALL (outside a declared
 -- RESHAPED_SUBTREES), and it earned that this round: it was the only instrument in
 -- the repo that noticed the tile game's two readouts had left their published
@@ -89,7 +123,35 @@ local GENERATOR = "tools/lune/_theme_baseline"
 -- one: an entry names a FIXTURE and a path prefix, and it exists only when a
 -- product decision outside this stage deliberately moved the flat solve. Any
 -- rect change outside these prefixes is still a regression, everywhere.
-local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string, why: string } } = {
+--
+-- AN ENTRY MAY NAME ONE EXACT `path` INSTEAD OF A `prefix`, and should whenever
+-- the fact it forgives is about one node (2026-08-15, O-22). A prefix waives the
+-- whole subtree under it, which is right when a decision reshapes a block and
+-- wrong when a CONTAINER's own reported size changed and its children did not —
+-- there the prefix would spend the children's rect coverage to buy nothing. The
+-- rack entry below is exactly that shape: seven tiles byte-identical, one
+-- container 5px narrower.
+local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string?, path: string?, why: string } } = {
+	{
+		fixture = "06_tile_game",
+		path = "/TileGame/Page/rack",
+		why = "THE RACK REPORTED A WIDTH IT NEVER DREW, and `02b9df1` (the column-major Grid refactor, "
+			.. "2026-08-15) stopped it: 358 -> 353 at 390x844, and nowhere else. `UI.Grid`'s measure summed the "
+			.. "UNROUNDED lane share while arrange painted the FLOORED one, so a grid offered a width that does "
+			.. "not divide evenly reported up to `lanes - 1` px more than it put on screen. This rack is 7 "
+			.. "uniform lanes in 358px with six 4px gaps: (358 - 24) / 7 = 47.71 each, arranged at 47, so the "
+			.. "last tile's right edge has always been at 353 and the container claimed 358. The 5px is that "
+			.. "over-report to the pixel (at most lanes - 1 = 6). "
+			.. "NOTHING MOVED ON SCREEN, and that is the load-bearing half of this entry rather than a "
+			.. "reassurance: all seven tiles are byte-identical at all three viewports (x = 16/67/118/169/220/"
+			.. "271/322, 47x56 each on the phone), and the desktop and tablet racks are unmoved at 416 because "
+			.. "416 divides evenly into 7 lanes of 56 and there was no remainder to lose. So this is the measure "
+			.. "side coming into agreement with a paint that never changed — the same measure-versus-paint "
+			.. "disagreement this file's 02_playlist_table row-height entry is about, one container class over. "
+			.. "IT IS PINNED AS AN EXACT PATH so the seven tiles under it keep their rect coverage. Recorded "
+			.. "here because `02b9df1`'s own message says `No baseline moved` — it did, by one node, and this "
+			.. "check was the only instrument in the repo that said so.",
+	},
 	{
 		fixture = "02_playlist_table",
 		prefix = "/Playlist/Tracks/Main/Body/Rows/",
@@ -438,7 +500,16 @@ local RESHAPED_SUBTREES: { { fixture: string, prefix: string, why: string } } = 
 -- node. It exists because a seam-level correction lands on hundreds of nodes at
 -- once and a per-path list would then be a wall of identical sentences rather
 -- than a characterization anybody reads.
-local ALLOWED_ADDED_PROPS: { { prop: string, why: string } } = {
+--
+-- AN ENTRY MAY ALSO PIN THE VALUE (`value`), and when it can, it must (2026-08-15,
+-- O-22). Without one this list says only "this key may appear", which is the
+-- weakest sentence a baseline can hold: it forgives the key arriving with ANY
+-- value, forever, on every node. `textSize` and `textFont` genuinely cannot be
+-- pinned — their whole content is that each node resolved to its OWN role — but
+-- `textWrapped` can, and the value IS the invariant there rather than a detail
+-- (see its entry). A pinned entry forgives that one value and fails on any other,
+-- so the rule survives a legitimate new prop without going blind to a wrong one.
+local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, why: string } } = {
 	{
 		prop = "textSize",
 		why = "the class's INTRINSIC typography role now reaches PAINT (director fix round 2026-07-25). It used "
@@ -461,15 +532,42 @@ local ALLOWED_ADDED_PROPS: { { prop: string, why: string } } = {
 			.. "prop below still matches byte for byte. What the value records is WHICH role each node resolved "
 			.. "to, which is new information rather than a new appearance.",
 	},
+	{
+		prop = "textWrapped",
+		value = "false",
+		why = "the WRAP VERDICT reaches paint (`fb76787`, director ruling 5, 2026-08-13) — the third and last "
+			.. "member of the same family as the two entries above: a fact the solver has always known, arriving "
+			.. "at the seam that draws it. `screen_target`'s own TextWrapped rule sees the STRING and not the "
+			.. "box, so it cannot answer \"does this phrase's longest word fit the width this node ended up "
+			.. 'with"; the solver can, publishes it as `textFacts.wraps`, and `applyTextVerdicts` writes it '
+			.. "(src/layout/solver.luau:1184-1205, src/render/renderer.luau:1739-1751). "
+			.. "WHY THE VALUE IS PINNED TO `false` AND WHAT THAT PIN IS FOR. The seam is minimal-write and `nil` "
+			.. 'means "never written", which is the adapter\'s own default (wrap on whitespace) — so a node the '
+			.. "solver rules WRAPPABLE costs zero writes and appears in this dump with no `textWrapped` key at "
+			.. "all. `false` is therefore the only value a fresh node can carry, and a `true` in this dump would "
+			.. "mean the renderer had spent a write restoring the engine default: the zero-write contract broken, "
+			.. "on hundreds of nodes, silently. Pinning the value makes that a failure HERE rather than a "
+			.. "performance regression nobody measures. Measured on the regenerated dump: 312 nodes carry the "
+			.. "key, every one of them `false`, and the wrapping nodes carry nothing — 02_playlist_table's Hint "
+			.. "wraps to two lines on the phone (34px tall) and has no `textWrapped` key, while its one-word "
+			.. "Title beside it does. "
+			.. "NO GEOMETRY MOVES WITH IT: the solver already MEASURED every one of these boxes with the same "
+			.. "verdict, so the write only tells the engine what the box was reserved for. Asserted, not "
+			.. "assumed — the regeneration that added these 312 keys moved exactly ONE rect in the whole flat "
+			.. "render, and that one has its own entry and a different cause (the rack; see ALLOWED_RECT_DRIFT).",
+	},
 }
 
-local function addedPropReason(prop: string): string?
+-- is this key's APPEARANCE characterized, at this value? An entry with no `value`
+-- forgives the key whatever it carries; an entry WITH one forgives that value and
+-- nothing else, so a wrong value stays a failure on the node it landed on.
+local function addedPropAllowed(prop: string, value: string): boolean
 	for _, entry in ALLOWED_ADDED_PROPS do
 		if entry.prop == prop then
-			return entry.why
+			return entry.value == nil or entry.value == value
 		end
 	end
-	return nil
+	return false
 end
 
 -- the prop string with every CHARACTERIZED-ADDITION key the baseline did not
@@ -484,8 +582,11 @@ local function withoutAddedProps(was: string?, now: string?): string?
 	end
 	local kept: { string } = {}
 	for entry in string.gmatch(now, "[^;]+") do
-		local key = string.match(entry, "^([^=]+)=") or entry
-		if had[key] or addedPropReason(key) == nil then
+		local key, value = string.match(entry, "^([^=]+)=(.*)$")
+		if key == nil then
+			key, value = entry, ""
+		end
+		if had[key :: string] or not addedPropAllowed(key :: string, value :: string) then
 			table.insert(kept, entry)
 		end
 	end
@@ -565,10 +666,13 @@ if process.args[1] == "--list" then
 		print(`  new   {entry.path}\n        {entry.why}`)
 	end
 	for _, entry in ALLOWED_ADDED_PROPS do
-		print(`  added prop {entry.prop} (any node)\n        {entry.why}`)
+		local scope = if entry.value ~= nil then `(any node, ONLY as "{entry.value}")` else "(any node, any value)"
+		print(`  added prop {entry.prop} {scope}\n        {entry.why}`)
 	end
 	for _, entry in ALLOWED_RECT_DRIFT do
-		print(`  rect  {entry.fixture} {entry.prefix}\n        {entry.why}`)
+		print(
+			`  rect  {entry.fixture} {entry.path or entry.prefix}{if entry.path ~= nil then " (this node only)" else ""}\n        {entry.why}`
+		)
 	end
 	for _, entry in ALLOWED_Y_SHIFT do
 		print(`  y-shift {entry.fixture} {entry.prefix} (one uniform dy, x/w/h byte-identical)\n        {entry.why}`)
@@ -593,7 +697,26 @@ if not regen.ok then
 	process.exit(1)
 end
 
+-- AN ABSENT INPUT IS A NAMED PROBLEM, NOT A STACK TRACE (2026-08-15). Both of
+-- this check's stored inputs used to be read with a bare `fs.readFile`, so a
+-- missing one died with `No such file or directory` and a Lune stack — which is
+-- what a fresh clone got, every time, because `artifacts/**/*.json` is gitignored.
+-- The exit code was always 1, so no gate ever passed on it; what was lost was the
+-- one sentence that says which file and what to do about it. BASELINE_3_5 is now
+-- tracked (see .gitignore) and CURRENT is still not, deliberately, so this is the
+-- message a clone reads before its first regenerate.
 local problems: { string } = {}
+if not fs.isFile(BASELINE_3_5) then
+	print(`check_flat_baseline: FAIL — the 0.6.0 baseline {BASELINE_3_5} is missing.`)
+	print("This file is NOT regenerable: it is a frozen snapshot of the 0.6.0 tree and the only")
+	print("input to R9's byte-compatibility claim. Restore it from git rather than re-rendering one.")
+	process.exit(1)
+end
+if not fs.isFile(CURRENT) then
+	print(`check_flat_baseline: FAIL — the stored dump {CURRENT} is missing.`)
+	print(`It is gitignored and regenerable: \`lune run {GENERATOR} -- {CURRENT}\`.`)
+	process.exit(1)
+end
 local stored = fs.readFile(CURRENT)
 local fresh = fs.readFile(temp)
 if stored ~= fresh then
@@ -626,7 +749,11 @@ for key, node in now do
 	local viewport = string.match(key, "^[^|]+|([^|]+)|") or ""
 	local rectDriftAllowed = false
 	for _, entry in ALLOWED_RECT_DRIFT do
-		if string.find(key, entry.fixture, 1, true) ~= nil and string.find(node.path, entry.prefix, 1, true) == 1 then
+		-- an entry names ONE node (`path`) or a subtree (`prefix`); see the list's header
+		local scoped = if entry.path ~= nil
+			then node.path == entry.path
+			else string.find(node.path, entry.prefix :: string, 1, true) == 1
+		if string.find(key, entry.fixture, 1, true) ~= nil and scoped then
 			rectDriftAllowed = true
 			break
 		end
