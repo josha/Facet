@@ -2028,7 +2028,7 @@ one flush, which is a design question, not a patch. `tests/perf_lab.spec.luau`
 excludes `coreSafeInsets` from its batching oracle for exactly this reason and
 says so, so the next reader does not mistake the dance for a batching regression.
 
-### L-29 residual 2 — a presented MODAL still costs two solves per geometry change
+### L-29 residual 2 — a presented MODAL still costs two solves per geometry change (CLOSED 2026-08-15; the title is the misdiagnosis, see the end of the entry)
 
 Found by the Rascal Rally consumer rider (`games/RascalRally/code/tests/luauui_resize_solve_contract.spec.luau`,
 game commit `1fb175a`) while proving the coalescing on a production surface.
@@ -2052,6 +2052,38 @@ Next step when picked up: instrument the four `solveAndApply()` call sites in
 `src/render/renderer.luau` with a call-site tag and drive one rotation against a
 presented modal — the same probe technique that found L-29, which took about ten
 minutes and replaced a plausible story with a number.
+
+**CLOSED 2026-08-15, and every attribution above is wrong.** The recipe worked;
+what it found was not a modal. Full write-up, transcripts and mutation evidence:
+`artifacts/swiftui-parity-round3/o20-modal-solve-residual.md` (LuauUI owed row
+O-20).
+
+  * **It was never the presentation path.** `presenter.present` of the same
+    blueprint costs exactly what `presenter.presentModal` costs, and a modal over
+    a plain 12-row tree costs **1**. Nothing in `src/present/` was involved.
+  * **It was never 2 either.** 2 is the FIRST rotation of a freshly presented
+    surface; the steady state was **3** (measured 2, 3, 3, 3 over four
+    rotations). The rider could not see that because it measured one rotation.
+  * **The trigger is a LAYOUT prop bound to a memo over the viewport.** The
+    role-pick modal's two CTA sub-labels bind `width` to
+    `{ type = "fixed", px = … }`, and the memo hands back a fresh table equal BY
+    VALUE to the last one — the identity-not-value republication class L-29's own
+    fix was built around, one layer down (a node prop rather than an env fact).
+  * **The framework charged two extra FULL solves for that one prop write**, and
+    both are fixed in `src/render/renderer.luau`: `feedbackArmed` outlived the
+    flush that set it (THE ARM DOES NOT OUTLIVE ITS FLUSH), and `refresh`
+    re-solved for `measure` dirt a settle-phase solve had already consumed (THE
+    STALE-LAYOUT-DIRT TEST).
+  * **A second, unbooked defect fell out of the first.** The leaked arm also
+    promoted the first bound-value change after ANY geometry change from an
+    incremental solve to a full one — 101 arranged nodes where 8 were needed, on
+    the very fixture `tests/perf_principles.spec` uses to guard incremental
+    layout. It could not see it because `stats().lastArranged` reports the last
+    solve of a frame, not every solve in it.
+
+Shipped: **1, 1, 1, 1** per rotation on the shipped role-pick modal, tier 1
+(headless Lune). A device price for this has NOT been taken; L-30's device tiering
+applies to L-29, not to this closure.
 
 ---
 

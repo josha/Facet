@@ -400,3 +400,199 @@ describe("one geometry change is one solve", function()
 		expect(solves() - before).toBe(1)
 	end)
 end)
+
+--[[ ── O-20 / L-29 RESIDUAL 2: A GEOMETRY CHANGE THAT ALSO MOVES A BOUND
+	LAYOUT PROP IS STILL ONE SOLVE ─────────────────────────────────────────────
+
+	MEASURED, not theorised (2026-08-15, tools/lune/_probe_modal_solves and the
+	game-side probe recorded in artifacts/swiftui-parity-round3/o20-modal-solve
+	-residual.md). The optimization log booked this as "a second solve site on
+	the MODAL PRESENTATION PATH". It is not: `presenter.present` of the same
+	blueprint costs exactly what `presenter.presentModal` costs, and a bare modal
+	over a plain tree costs 1. What costs 3 is a surface that has a LAYOUT prop
+	bound to a memo over the viewport — Rascal Rally's role-pick modal binds
+	`width` on its two CTA sub-labels to `{ type = "fixed", px = … }`.
+
+	THE SHAPE, exactly as it ships. The memo returns a FRESH TABLE that is equal
+	BY VALUE to the last one (`px` did not move), and the core's default equality
+	is identity, so the bound-prop observer fires and pushes `measure` dirt in the
+	same flush as the six geometry facts. That much is the consumer's business —
+	it costs one prop write. What the framework then charged for it was TWO extra
+	FULL solves:
+
+	  1. the settle pass opened with a stale solve-feedback drain. `feedbackArmed`
+	     is set whenever a settle-phase solve finishes with a flush still open —
+	     including when the listeners published NOTHING — and if the core does not
+	     restart the pass, that arm survives into the NEXT flush and fires there
+	     against a mark from the previous one. A drain and a geometry solve in the
+	     same pass are two full solves of the same tree.
+	  2. `controller.refresh()` then solved a THIRD time for `measure` dirt the
+	     settle solve had already consumed: the dirt was pushed BEFORE that solve
+	     ran, the solve was full, and nothing dirtied the tree afterwards — but
+	     `refresh` reads the class off the queue and never asks whether a solve
+	     has happened since.
+
+	WHAT EACH CASE WOULD CATCH:
+
+	  · "…is ONE solve, and stays one" -> both amplifiers, and it drives TWO
+	    rotations because amplifier 1 only appears on the SECOND (the first
+	    geometry change is the one that arms it). A regression to 2 or 3 reddens.
+	  · "…and the prop is still LIVE" -> the dangerous direction. Both fixes are
+	    "skip a solve"; a skip that goes too far leaves the surface painting the
+	    old box. The px is MOVED and the painted rect must move with it. TWO
+	    drivers, and the second is the one that bites: moving the px THROUGH THE
+	    VIEWPORT is answered by the settle-phase solve whichever way `refresh`
+	    decides, so it cannot see an over-eager stale-dirt test at all (measured:
+	    that mutation reddens 108 cases across the suite and NOT this one). Moving
+	    it through a plain signal leaves `refresh` as the only thing that can solve.
+	  · "a solve that a listener really did feed back from still re-solves" ->
+	    the drain this narrowing must not break: with no geometry change pending,
+	    a consumer publishing from `onSolved` still earns its re-solve.
+]]
+describe("a geometry change that also moves a bound layout prop", function()
+	-- the shipped shape: a layout prop bound to a memo over the viewport that
+	-- returns a fresh table of the SAME numbers
+	local function boundWidthHarness(pxFor: (number) -> number)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 1920, h = 1080 })
+		-- the second driver: a plain signal, so the px can move with NO geometry
+		-- change and `refresh` is the only thing that can solve for it
+		local nudge = core:signal(0)
+		local width = core:memo(function(use)
+			local vp = use(env:get("viewportRect")) :: any
+			return { type = "fixed", px = pxFor(vp.w) + (use(nudge) :: number) }
+		end)
+		local system = LuauUI.newActionSystem(core)
+		local pres = LuauUI.newPresenter(core, env, fake_target.new(), system)
+		local handle = pres.present(LuauUI.UI.Screen({
+			id = "S",
+			children = {
+				LuauUI.UI.VStack({
+					id = "Card",
+					children = {
+						LuauUI.UI.Text({ id = "Sub", text = "cause chaos", width = width }),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		return env,
+			pres,
+			handle,
+			function(): number
+				return ((handle.controller.stats() :: any).solves :: number) or 0
+			end,
+			nudge
+	end
+
+	-- exactly roblox_env.pushViewport()'s fact group, batched
+	local function rotate(env: any, w: number, h: number)
+		local compact = w < 600
+		env:batch(function()
+			env:set("viewportRect", { x = 0, y = 0, w = w, h = h })
+			env:set("coreSafeInsets", { top = if compact then 36 else 0, bottom = 0, left = 0, right = 0 })
+			env:set("deviceSafeInsets", {
+				top = if compact then 44 else 0,
+				bottom = if compact then 34 else 0,
+				left = 0,
+				right = 0,
+			})
+			env:set("topbarSafeInsets", { top = if compact then 36 else 0, bottom = 0, left = 0, right = 0 })
+			env:set("topbarInset", { x = 0, y = 0, w = w, h = if compact then 36 else 0 })
+			env:set("displaySize", "Medium")
+		end)
+	end
+
+	it("is ONE solve, and stays one over repeated changes", function()
+		-- value-STABLE on purpose: the memo re-evaluates because the viewport
+		-- moved, and hands back the same 120 in a new table
+		local env, pres, _handle, solves = boundWidthHarness(function()
+			return 120
+		end)
+
+		-- A/A control: the same refresh with nothing changed, before any delta
+		local control = solves()
+		pres.refresh()
+		expect(solves() - control).toBe(0)
+
+		-- FIRST change. This one measured 2 before the fix.
+		local before = solves()
+		rotate(env, 1900, 1000)
+		pres.refresh()
+		expect(solves() - before).toBe(1)
+
+		--[[ SECOND change, and this is the case the Rascal Rally rider could never
+			see: it only ever measured the first rotation of a fresh surface, so the
+			solve the first one ARMS was charged to a rotation nobody looked at.
+			This measured 3. ]]
+		before = solves()
+		rotate(env, 1901, 1001)
+		pres.refresh()
+		expect(solves() - before).toBe(1)
+
+		-- ...and a third, so "one" is the steady state rather than a phase
+		before = solves()
+		rotate(env, 1902, 1002)
+		pres.refresh()
+		expect(solves() - before).toBe(1)
+	end)
+
+	it("...and the prop is still LIVE: a px that really moves moves the rect", function()
+		-- the negative control for both skips. Neither fix may make the surface
+		-- paint a box the solver has not re-derived.
+		local env, pres, handle, _solves, nudge = boundWidthHarness(function(w: number)
+			return if w > 600 then 120 else 44
+		end)
+		local function subWidth(): number
+			return ((handle.controller.rectOf("/S/Card/Sub") :: any) or { w = -1 }).w
+		end
+		expect(subWidth()).toBe(120)
+
+		rotate(env, 500, 900)
+		pres.refresh()
+		expect(subWidth()).toBe(44)
+
+		rotate(env, 1900, 1000)
+		pres.refresh()
+		expect(subWidth()).toBe(120)
+
+		--[[ …and the driver a geometry change cannot rescue. A rotation is answered
+			by the settle-phase solve however `refresh` decides, so everything above
+			this line survives a stale-dirt test that skips EVERYTHING; a px moved
+			through a plain signal, after a full solve has run, leaves `refresh` as
+			the only thing that can put it on screen. ]]
+		nudge:set(30)
+		pres.refresh()
+		expect(subWidth()).toBe(150)
+
+		-- and back, so the case pins a live binding rather than a one-way latch
+		nudge:set(0)
+		pres.refresh()
+		expect(subWidth()).toBe(120)
+	end)
+
+	it("a solve a listener really did feed back from still re-solves", function()
+		-- the drain the narrowing must not break: no geometry change is pending,
+		-- so the arm is the only thing that can earn this solve
+		local env, pres, handle, solves = boundWidthHarness(function()
+			return 120
+		end)
+		local fed = 0
+		local unhook = (handle.controller :: any).onSolved(function()
+			-- publish once, from the solve, exactly as a dock reserving space does
+			if fed == 0 then
+				fed += 1
+				env:set("overscanInsets", { top = 7, bottom = 0, left = 0, right = 0 })
+			end
+		end)
+		local before = solves()
+		env:set("preferredTextOffset", 4)
+		pres.refresh()
+		expect(fed).toBe(1)
+		-- one for the write, one for what the listener published: the drain is
+		-- still there. A 1 here would mean the feedback cycle stopped closing.
+		expect(solves() - before >= 2).toBe(true)
+		unhook()
+	end)
+end)

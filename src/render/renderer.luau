@@ -1835,9 +1835,37 @@ function renderer.attach(
 	local feedbackDepth = 0
 	local solvingFromSettle = false
 	local resolveForFeedback: () -> ()
+	--[[ `root.dirtySeq()` as it stood when the last FULL solve began, or -1 for
+		"no full solve has completed". Every dirty pushed at or below it was already
+		on the tree when that solve read the props, so a full solve has answered it;
+		anything above it is genuinely unsolved. This is what lets `refresh` tell a
+		queue entry a settle-phase solve already consumed from one it has not seen
+		(owed row O-20) — see THE STALE-LAYOUT-DIRT TEST in `refresh`.
+
+		FULL solves only. An incremental solve covered the subtree in
+		`dirtyContains` and nothing else, so it cannot speak for the queue.
+		Committed after the solve body rather than before it, so a solve that
+		throws leaves the mark where it was and `refresh` re-solves.
+
+		THE FULL-SOLVE GUARD IS A RECORDED NULL RESULT, kept deliberately. Deleting
+		`solvedEverything = false` at the reuse branch reddens NOTHING in the suite
+		(mutation M4, 2026-08-15) — and on today's code that is correct rather than
+		a coverage hole: `dirtyContains` is set only inside `refresh`, and that same
+		`refresh` has already drained the queue, so an incremental solve's mark can
+		never be the one a later skip consults. It stays because it is what makes
+		the name of this variable true, and because the day `dirtyContains` outlives
+		one refresh the alternative is a surface that silently stops laying out. ]]
+	local fullSolveSeq = -1
 
 	local function solveAndApply()
 		stats.solves += 1
+		-- read BEFORE the solve: the props of everything dirtied up to here are
+		-- already written (`mount`'s bound-prop observer writes `node.props` and
+		-- THEN pushes), so this solve sees them. Whether it may be COMMITTED is
+		-- decided at the reuse branch below, which is the one place that knows
+		-- whether this turned out to be a full solve or an incremental one.
+		local seqAtSolveStart = root.dirtySeq()
+		local solvedEverything = true
 		local vp = env:get("viewportRect"):get()
 		local insets = env:get("coreSafeInsets"):get()
 		-- deviceSafeContent (native-substrate NS-A1): the notch/rounded-corner
@@ -1929,6 +1957,9 @@ function renderer.attach(
 		lastSolveInputs = { layoutRoot = layoutRoot, viewport = { w = vp.w, h = vp.h }, opts = solveOpts }
 		if incrementalEnabled and lastResult ~= nil and dirtyContains ~= nil then
 			solveOpts.reuse = { previous = lastResult, dirtyContains = dirtyContains }
+			-- this solve covered `dirtyContains` and skipped the rest, so it cannot
+			-- answer for the whole queue (see `fullSolveSeq`)
+			solvedEverything = false
 		end
 		local result = solver.solve(layoutRoot, { w = vp.w, h = vp.h }, solveOpts)
 		if result.work ~= nil and (result.work.skipped or 0) > 0 then
@@ -2309,6 +2340,14 @@ function renderer.attach(
 			function. Notifying from the inner call would feed rects the outer call
 			is about to rewrite, so the guard reports once, from the outermost
 			solve, with the final geometry. ]]
+		--[[ THE LAYOUT FRAME IS CLOSED, so record what it answered for. `math.max`
+			because the text-measurement round above re-enters `solveAndApply`, and
+			an inner solve that ran LATER read a higher sequence than this one —
+			overwriting it with the outer solve's older mark would re-open dirt the
+			inner solve has already answered. ]]
+		if solvedEverything then
+			fullSolveSeq = math.max(fullSolveSeq, seqAtSolveStart)
+		end
 		if not notifyingSolved then
 			notifyingSolved = true
 			-- the tree's dirty sequence BEFORE anyone is told: everything past this
@@ -2773,7 +2812,9 @@ function renderer.attach(
 			restarted for, and this is the first moment that dirt exists on the tree
 			(see THE SOLVE'S OWN FEEDBACK). The arm is one-shot — it is consumed
 			whether or not there turned out to be anything to drain, so a solve
-			nobody fed back from cannot leave this callback watching later flushes. ]]
+			nobody fed back from cannot leave this callback watching later flushes —
+			which was true of the ARM and false of its EFFECT until 2026-08-15; see
+			the disarm callback registered directly below. ]]
 		if feedbackArmed then
 			feedbackArmed = false
 			if initialized and root.dirtySeq() > feedbackMark then
@@ -2798,6 +2839,36 @@ function renderer.attach(
 			end
 		end
 	end))
+	--[[ THE ARM DOES NOT OUTLIVE ITS FLUSH (owed row O-20, measured 2026-08-15).
+
+		THE DEFECT. `feedbackArmed` is set by ANY settle-phase solve that ends with
+		a flush still open, including one whose `onSolved` listeners published
+		nothing at all — the write, when there is one, is still in the core's
+		`writeSet` and cannot be seen from inside the callback that made it, so the
+		arm cannot be conditioned on it at the point it is set. When nothing was
+		published the core has nothing to drain, does not restart the settle pass,
+		and the arm SURVIVES INTO THE NEXT FLUSH — where it fires against a
+		`feedbackMark` read during the previous one and buys a full re-solve of a
+		tree nobody fed anything back to.
+
+		WHY A SECOND CALLBACK IS THE WHOLE FIX. A genuinely earned arm is always
+		consumed inside its own flush: a published write leaves the core's write set
+		non-empty, so the core ends the pass and restarts from the FIRST settle
+		callback, which is the one above. An arm still standing when the pass runs
+		to completion is therefore, by construction, one that was never earned.
+		Registered AFTER the callback above so it runs after it within a pass, and
+		never reached in a pass that breaks early to drain a real write.
+
+		WHAT IT COST WHILE IT LEAKED, both halves measured on the same fixtures:
+		every geometry change after the first opened with a spurious full solve
+		(Rascal Rally's role-pick modal, 3 solves per rotation against 1 today), and
+		the first bound-value change after ANY geometry change was silently promoted
+		from an incremental solve to a full one — `tests/perf_principles.spec` could
+		not see the second, because `stats().lastArranged` reports the LAST solve of
+		a frame rather than every solve in it. ]]
+	attachScope:own(core:settle(function()
+		feedbackArmed = false
+	end))
 
 	local controller = {}
 
@@ -2805,6 +2876,24 @@ function renderer.attach(
 		local dirty = root.takeDirty()
 		local needsSolve = false
 		local needsStructure = false
+		--[[ THE STALE-LAYOUT-DIRT TEST (owed row O-20, measured 2026-08-15).
+			A settle-phase solve does NOT consume the dirty queue — deliberately, so
+			the structural sync, the paint commit and the appear/disappear ordering
+			below stay byte-identical. The cost was that `refresh` read `measure`/
+			`arrange` off the queue and solved AGAIN for dirt that solve had already
+			answered: on Rascal Rally's role-pick modal the two `width` writes its CTA
+			sub-labels publish landed BEFORE the settle solve, that solve was full, and
+			nothing dirtied the tree afterwards — yet the frame paid a second full
+			solve for them every rotation.
+
+			`root.dirtySeq()` is monotonic and survives `takeDirty`, so "has anything
+			dirtied this tree since the last full solve started" is one comparison.
+			Deliberately ALL-OR-NOTHING rather than per-entry: one new dirty makes the
+			whole queue live again, which is the conservative direction and needs no
+			sequence number on the entries. It gates ONLY the layout classes —
+			`structure` still forces a solve, because a structural sync has not run
+			yet and last solve's rects were never materialised. ]]
+		local layoutDirtIsStale = fullSolveSeq >= 0 and root.dirtySeq() <= fullSolveSeq
 		-- paths whose authored `hidden` moved this frame. Collected rather than
 		-- resolved inline because the LIVE value has to be read off the tree, and the
 		-- tree read is worth doing once per path even when a signal fired twice.
@@ -2825,7 +2914,8 @@ function renderer.attach(
 				needsStructure = true
 				needsSolve = true
 			elseif entry.class == "measure" or entry.class == "arrange" then
-				needsSolve = true
+				-- see THE STALE-LAYOUT-DIRT TEST above
+				needsSolve = needsSolve or not layoutDirtIsStale
 			elseif entry.class == "navigation" or entry.class == "semantics" then
 				-- ...AND THE FOCUS MAP CAN CHANGE WITHOUT THE TREE CHANGING. Read off
 				-- the SCHEMA rather than off a hand-kept prop list: `focusable` declares
