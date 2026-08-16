@@ -165,6 +165,9 @@ export type MountOpts = {
 	-- called with the chip row's solved bottom edge after every refresh, so the
 	-- host can reserve exactly what the chips measure instead of a literal
 	onChipsBottom: ((number) -> ())?,
+	-- ...and the chip row's whole solved RECT, so the host can declare it as app
+	-- chrome (`appChromeRects`) instead of only as a bounding-box inset
+	onChipsRect: ((any) -> ())?,
 	-- override the section switch's copy; see settings_panel.MountOpts.copy
 	copy: { [string]: string }?,
 }
@@ -326,12 +329,37 @@ function showcase_chrome.mount(opts: MountOpts): any
 		-- the bar owns the strip it draws in, so it is not inset by it
 		rootPolicy = "edgeToEdge",
 		onGeometry = function(rectOf: (string) -> any)
-			if opts.onChipsBottom == nil then
+			local r = rectOf("/ShowcaseChrome/Dock/Bar/Chips")
+			if type(r) ~= "table" or type(r.y) ~= "number" or type(r.h) ~= "number" then
 				return
 			end
-			local r = rectOf("/ShowcaseChrome/Dock/Bar/Chips")
-			if type(r) == "table" and type(r.y) == "number" and type(r.h) == "number" then
+			if opts.onChipsBottom ~= nil then
 				opts.onChipsBottom(r.y + r.h)
+			end
+			-- ...AND THE WHOLE RECT, not only its bottom edge (director 2026-08-15,
+			-- item 4). A bottom edge is a BOUNDING BOX — it says "the top N pixels of
+			-- this screen are spoken for" about a row that is 300px wide — and a
+			-- surface told only that has no choice but to start below it everywhere.
+			-- The rect is what the app declares through `appChromeRects`, which is
+			-- the same mechanism the PLATFORM's own cluster is declared through.
+			--
+			-- IT IS THE WINNING RUNG'S RECT, NOT THE LADDER'S. `Chips` is a
+			-- `ViewThatFits` with `width = fill`, so ITS rect is the whole screen
+			-- width — measured live 2026-08-15 at 8..741 on a 749px landscape phone
+			-- while the two chips it was drawing ended at 267. Declaring the ladder's
+			-- box would have reserved the middle of the screen for a row that is not
+			-- there, which is the same bounding-box mistake one level down.
+			if opts.onChipsRect ~= nil then
+				local best: any = nil
+				for _, rung in { "Full", "Icons" } do
+					local c = rectOf(`/ShowcaseChrome/Dock/Bar/Chips/{rung}`)
+					if type(c) == "table" and type(c.w) == "number" and c.w > 0 and c.h > 0 then
+						if best == nil or c.w > best.w then
+							best = c
+						end
+					end
+				end
+				opts.onChipsRect(best or r)
 			end
 		end,
 		-- NO surface-level `onActivate`. It is an OVERRIDE (presenter

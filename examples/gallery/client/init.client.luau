@@ -612,6 +612,23 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 				chipsBottom:set(bottom)
 			end
 		end,
+		--[[ ...AND THE SAME ROW, DECLARED AS APP CHROME (director 2026-08-15, item 4).
+			`coreSafeInsets.top` above is a bounding box and stays exactly as it was —
+			every demo still starts below the chips, which is what a demo wants. This
+			publishes the row's real RECT through `appChromeRects`, the env fact
+			`platformChrome` merges alongside the PLATFORM's own cluster, so a surface
+			that means to reserve per column (the screen-anchored HUD does) can sit
+			LEVEL with the chips in the columns they do not cover instead of below them
+			everywhere. Written only on change: it feeds a derived memo. ]]
+		onChipsRect = function(rect: any)
+			local declared = { { x = rect.x, y = rect.y, w = rect.w, h = rect.h } }
+			local live = env:get("appChromeRects"):get()
+			local was = if type(live) == "table" then (live :: any)[1] else nil
+			if type(was) == "table" and was.x == rect.x and was.y == rect.y and was.w == rect.w and was.h == rect.h then
+				return
+			end
+			env:set("appChromeRects", declared)
+		end,
 	})
 
 	-- the strip is up; now mount the demo it advertises

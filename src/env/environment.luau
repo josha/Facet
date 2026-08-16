@@ -45,6 +45,30 @@ local FACT_DEFAULTS: { [string]: any } = {
 		area", which is the desktop/no-notch answer and the pre-adoption
 		behaviour — never "a strip at the window origin". ]]
 	topbarSafeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+	--[[ THE APP'S OWN CHROME, DECLARED THROUGH THE SAME MECHANISM AS THE
+		PLATFORM'S (director 2026-08-15, item 4: *"should we also treat the demo
+		selector and settings menu as part of this control so that the stuff in the
+		middle are more aligned with it instead of below it?"*).
+
+		`platformChrome` already answers "what does the PLATFORM's own chrome
+		occupy, and what is left free" — as a LIST of rects, precisely because the
+		remainder of a band with a strip in it is an L rather than an inset
+		(ADR-0027). An APP with a persistent chrome row of its own — a showcase's
+		demo/settings chips, a game's own always-on top bar — occupies exactly the
+		same kind of space, and until now had no way to say so: the only vocabulary
+		available was inflating `coreSafeInsets.top`, which is a BOUNDING BOX and
+		therefore reserves the full width for a row that is 300px wide. Anything
+		that would have sat level with it is pushed below it instead, which is the
+		defect this fact exists to remove.
+
+		It is a LIST of window-space rects, `{}` by default, and it changes nothing
+		for a consumer that declares none: `platformChrome` merges it into `rects`
+		and takes the free band down to what is genuinely free. It is the app's
+		DECLARATION, never a measurement this module makes — the declarer is the one
+		surface that knows where it drew itself, and it feeds the rect back through
+		the presenter's `onGeometry` seam exactly as the showcase already feeds its
+		chip row's bottom edge. ]]
+	appChromeRects = {},
 	keyboardOcclusionRect = nil,
 	preferredInput = "KeyboardAndMouse", -- Touch | Gamepad | KeyboardAndMouse
 	capabilities = { keyboard = true, mouse = true, touch = false, gamepad = false },
@@ -318,6 +342,50 @@ function environment.new(core: any): Env
 			end
 		end
 
+		--[[ THE APP'S OWN DECLARED CHROME, merged before the free band is reported.
+			Same treatment the platform's cluster gets and for the same reason: a row
+			that occupies part of the band takes that part OUT of the free strip, and
+			the remainder is still a rect. A declared row that does not overlap the
+			band vertically (the showcase's chip strip sits UNDER the platform's own
+			58px row) narrows nothing — it is simply reported as occupied, which is
+			what lets a consumer reserve around it per column. ]]
+		local appRects: { { x: number, y: number, w: number, h: number } } = {}
+		do
+			local declared = use(signals.appChromeRects)
+			if type(declared) == "table" then
+				for _, r in declared :: any do
+					if type(r) ~= "table" then
+						continue
+					end
+					local rx, ry = finite((r :: any).x), finite((r :: any).y)
+					local rw, rh = finite((r :: any).w), finite((r :: any).h)
+					if rx == nil or ry == nil or rw == nil or rh == nil or rw <= 0 or rh <= 0 then
+						continue
+					end
+					local x0, y0 = math.max(0, rx), math.max(0, ry)
+					local x1, y1 = math.min(rx + rw, W), math.min(ry + rh, H)
+					if x1 - x0 <= 0 or y1 - y0 <= 0 then
+						continue
+					end
+					table.insert(appRects, { x = x0, y = y0, w = x1 - x0, h = y1 - y0 })
+					-- and it narrows the free band where the two genuinely overlap
+					if band ~= nil then
+						local b = band :: any
+						if y0 < b.y + b.h and y1 > b.y then
+							if x0 <= b.x and x1 > b.x then
+								local nx = math.min(x1, b.x + b.w)
+								band = if b.x + b.w - nx > 0
+									then { x = nx, y = b.y, w = b.x + b.w - nx, h = b.h }
+									else nil
+							elseif x1 >= b.x + b.w and x0 < b.x + b.w then
+								band = if x0 - b.x > 0 then { x = b.x, y = b.y, w = x0 - b.x, h = b.h } else nil
+							end
+						end
+					end
+				end
+			end
+		end
+
 		-- ...and the chrome is what is LEFT of that band, in reading order
 		local rects: { { x: number, y: number, w: number, h: number } } = {}
 		if bandH > 0 then
@@ -338,6 +406,12 @@ function environment.new(core: any): Env
 					table.insert(rects, { x = 0, y = b.y + b.h, w = W, h = bandH - (b.y + b.h) })
 				end
 			end
+		end
+
+		-- the APP'S OWN DECLARED CHROME joins the platform's in the occupancy list,
+		-- after it, so `rects` reads top-down in the order a viewer meets them
+		for _, r in appRects do
+			table.insert(rects, r)
 		end
 
 		local bandInsets = table.clone(insets)
