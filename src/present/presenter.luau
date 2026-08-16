@@ -1182,6 +1182,18 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 	function self._discloseLongPress(path: string?)
 		local owner = handleOwning(path)
+		--[[ THE MENU OWNS THE LONG PRESS INSIDE ITS OWN TRIGGER, and only there
+			(navigation-and-menus D2). The plate keeps the gesture everywhere else,
+			because it is the ONLY touch route to a truncated label's full value:
+			`UI.Text{ reveal = "auto" }` is opt-in, `UI.Text`-only, at most one per
+			presentation and disabled entirely under reduced motion, and a disclosing
+			`Toggle` label or `Table` cell has no marquee even in principle. Deleting
+			the binding would therefore have been an accessibility regression that
+			`text_audit` structurally cannot see — it checks the DECLARATION, never
+			the reachability. So this is a carve-out, not a removal. ]]
+		if owner ~= nil and owner.contextTriggerOwns ~= nil and owner.contextTriggerOwns(path) then
+			return
+		end
 		local targetPath, fullText = disclosureTargetIn(owner, path)
 		if targetPath == nil then
 			if disclosurePlate ~= nil and disclosurePlate.source == "touch" then
@@ -1742,7 +1754,10 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			-- composite-owned floating surface is exactly the case that comment
 			-- warns about, so only the collision-free primitive is exposed here.
 			if c.bundle.bindPresent ~= nil then
-				c.bundle.bindPresent(self.presentModal, self.dismiss)
+				-- third argument, additive (navigation-and-menus D2): the D1
+				-- anchored seam, for the control whose floating surface belongs
+				-- against a live source RECT rather than a parent corner
+				c.bundle.bindPresent(self.presentModal, self.dismiss, self.presentAnchored)
 			end
 			-- transient-popup outsideDismiss (matrix §B PopupButton): observe each
 			-- active readable so the synthesized catcher is mounted/retired as the
@@ -2627,6 +2642,28 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		-- navigate intercept (gamepad grab mode etc.): opts.onNavigateIntercept
 		-- wins; else chain the contributions' navigateIntercept, first true
 		-- consumes the direction
+		--[[ HAS A CONTROL ON THIS SURFACE CLAIMED THE CONTEXT GESTURE FOR THIS PATH?
+			(navigation-and-menus D2 — the long-press ownership question, settled in
+			code.) `contribution.contextTriggers` explains the whole argument; the
+			short version is that the disclosure plate KEEPS long-press, because it
+			is the only touch route to a truncated label's full value, and a Menu
+			trigger subtree is the one carve-out where the press means the menu. ]]
+		function handle.contextTriggerOwns(path: string?): boolean
+			if path == nil then
+				return false
+			end
+			for _, c in contributions do
+				if c.bundle.contextTriggers ~= nil then
+					for _, root in c.bundle.contextTriggers() do
+						if isPathPrefix(root, path) then
+							return true
+						end
+					end
+				end
+			end
+			return false
+		end
+
 		function handle.navigateIntercept(direction: string): boolean
 			if opts and opts.onNavigateIntercept ~= nil then
 				return opts.onNavigateIntercept(direction) == true

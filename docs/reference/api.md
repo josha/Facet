@@ -5017,6 +5017,98 @@ pres.present(LuauUI.UI.Screen({ id = "S", children = { difficulty.blueprint } })
 	end,
 })
 ```
+
+### `newMenu`
+
+`LuauUI.newMenu(LuauUI, core, spec) -> { blueprint, api, presentation, dump, dispose }`
+— a freestanding **action menu**. Its items are *verbs*, not values: each one runs
+something when it is picked. That is the whole difference from `newPopupButton`,
+whose `value` is a `Signal<string>` a verb list cannot fill. It is what closes
+SwiftUI's `.contextMenu`.
+
+It attaches to **any** blueprint. `spec.trigger` is a node you authored; the
+control returns that same node carrying an input contribution, so nothing is
+wrapped and no layout moves. Opening presents the panel through
+`presenter.presentAnchored`, so the placement, the edge flip, the along-edge
+shift, the safe-area clamp and the follow-a-moving-source behaviour are the
+[anchored surface](#anchored-surfaces)'s, and the focus scope, focus trap, focus
+restore and tap-away catcher are the presenter's own.
+
+Spec: `{ id?, trigger: Blueprint, items: { Item }, triggers: { string }?,
+presentation: ("automatic" | "menu" | "sheet")?, sizeClass: (string | Readable)?,
+interactionClasses: (table | Readable)?, onOpen: (() -> ())?, onClose: (() -> ())? }`.
+
+An **`Item`** is exactly one of three shapes:
+
+| Shape | Fields | What it is |
+|---|---|---|
+| action | `{ id, label, icon?, role?, enabled?, onSelect }` | runs `onSelect` and closes the menu |
+| submenu | `{ id, label, icon?, role?, enabled?, children }` | opens a nested level; draws a trailing chevron |
+| divider | `{ divider = true }` | a rule between two groups; carries nothing else |
+
+Declaring **both** `onSelect` and `children` is an authoring error, not a
+precedence rule, and so is an item with neither. `role` is `"default"` (the
+fallback) or `"destructive"`; `icon` is a semantic icon **name**, never an asset
+id. `enabled` may be a `Readable<boolean>` — and note that **a menu whose every
+item is disabled still opens**, because a trigger that silently does nothing
+cannot be told apart from a dead button.
+
+**Triggers.** `triggers` names which gestures open it, defaulting to all five:
+`"activate"` (tap / Return / ButtonA), `"secondary"` (a pointer right-click),
+`"longPress"` (touch, read off the normalized gesture layer), `"keyboard"` (the
+context key, or Shift+F10) and `"gamepad"` (ButtonY). Dropping `"activate"`
+without declaring both `"keyboard"` and `"gamepad"` is refused: it would leave
+the menu unreachable on two input classes.
+
+**Submenus** nest with no structural cap, matching SwiftUI. Past one level
+`api.diagnostics()` reports the HIG's advice rather than refusing; it also
+reports a group of more than about five items and a destructive item that is not
+last. Under the `menu` presentation each level is its own panel anchored to its
+parent **row** (preferred edge trailing, flipping to leading at the screen edge).
+Under `sheet` — the touch idiom — a submenu **replaces** the sheet's contents and
+grows a Back row instead of floating a second panel over the first. Cancel /
+gamepad B closes **one** level, a tap outside closes **all** of them, and
+Right/Left enter and leave a submenu in document order.
+
+Icons are a **per-group all-or-nothing** lint (HIG: *"provide icons for all menu
+items in a group, or none of them"*); a divider starts a new group. The row
+recipe, the row-height tokens and the presentation rule are shared with
+`newPopupButton` and `newRowActions`' action menu, so a theme that retunes the
+control-size ladder retunes all three.
+
+Returns `{ blueprint, api, presentation, dump, dispose }`, where `api =
+{ open() -> boolean, close(), closeLevel(), toggle(), select(id) -> boolean,
+handleActivate(path, meta?) -> boolean, diagnostics() -> { string },
+isOpen (Signal), openPath (Signal), presentation() }`. `presentation` on the
+control is a **function** returning the resolved idiom. `dump()` returns
+`{ schema, id, open, presentation, openPath, depth, surfaces, triggers, items,
+diagnostics, text }`.
+
+```lua
+local avatarMenu = LuauUI.newMenu(LuauUI, core, {
+	id = "AvatarMenu",
+	trigger = LuauUI.UI.Button({ id = "More", label = "More", shape = "circle", icon = "more" }),
+	items = {
+		{ id = "accessory", label = "Accessory Adjustment", icon = "edit", onSelect = function()
+			openAccessories()
+		end },
+		{
+			id = "layering",
+			label = "Layering",
+			icon = "edit",
+			children = {
+				{ id = "clothing", label = "Clothing Layering", onSelect = function() end },
+				{ id = "makeup", label = "Makeup Layering", onSelect = function() end },
+			},
+		},
+		{ divider = true },
+		{ id = "reset", label = "Reset Avatar", role = "destructive", onSelect = function() end },
+	},
+})
+pres.present(LuauUI.UI.Screen({ id = "S", children = { avatarMenu.blueprint } }), {
+	sinkNavigation = true,
+})
+```
 ### `newStepper`
 
 `LuauUI.newStepper(LuauUI, core, spec) -> { blueprint, model, semanticText, dump, dispose }`

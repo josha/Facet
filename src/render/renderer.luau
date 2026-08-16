@@ -3427,6 +3427,34 @@ function renderer.attach(
 		return attachDetector(path, handlers)
 	end
 
+	-- CONTEXT GESTURES ON A MOUNTED NODE (D2 Menu). The two engine channels a
+	-- context trigger needs and no control can reach: the NORMALIZED touch
+	-- gesture stream (NS-A6, shipped with nothing consuming it as a trigger) and
+	-- the pointer's SECONDARY button. Same nilable contract as
+	-- attachDragDetector — an adapter or engine without either simply never
+	-- fires, and a Menu's other three triggers still open it.
+	function controller.attachContextGestures(path: string, handlers: any): (() -> ())?
+		local handle = handles[path]
+		if handle == nil then
+			return nil
+		end
+		local offs: { () -> () } = {}
+		if handlers.onGesture ~= nil and adapter.setTouchGestureHandlers ~= nil then
+			table.insert(offs, adapter.setTouchGestureHandlers(handle, handlers.onGesture))
+		end
+		if handlers.onSecondary ~= nil and adapter.setSecondaryActivate ~= nil then
+			table.insert(offs, adapter.setSecondaryActivate(handle, handlers.onSecondary))
+		end
+		if #offs == 0 then
+			return nil
+		end
+		return function()
+			for _, off in offs do
+				off()
+			end
+		end
+	end
+
 	-- THE SURFACE'S DRAG REGISTRY (ADR-0022 Decision 5). Every mounted
 	-- `UI.draggable` / `UI.dropTarget` on this surface lives here, and so does
 	-- the one session all four input classes drive. Consumers reach it for the

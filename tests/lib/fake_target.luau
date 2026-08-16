@@ -953,6 +953,26 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
+	-- the pointer's SECONDARY button (D2): the headless mirror stores the sink
+	-- and `driveSecondaryActivate` is what a spec presses. The real adapter
+	-- filters `InputBegan` to `MouseButton2`; there is no input object to fake
+	-- here, so a spec drives the already-filtered outcome — which is why the
+	-- native arbitration stays a physical row (NM-X2).
+	function adapter.setSecondaryActivate(handle: any, fn: () -> ()): () -> ()
+		handle.secondaryActivate = fn
+		return function()
+			handle.secondaryActivate = nil
+		end
+	end
+	function adapter.driveSecondaryActivate(path: string): boolean
+		local node = nodes[path]
+		if node and node.secondaryActivate then
+			node.secondaryActivate()
+			return true
+		end
+		return false
+	end
+
 	-- effective-target floor seam (B-BTN3): the framework asks for an expanded HIT
 	-- area; the real adapter realises it as a transparent expander behind the
 	-- control. `nil` removes it.

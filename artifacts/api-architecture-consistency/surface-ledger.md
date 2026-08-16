@@ -55,6 +55,7 @@ namespaces' members and the blessed client entry points) has a row here; the
 | `newVirtualList` | composite | control-build, flat variant (pre-rule) | F-25 (dump proof), DOC-11, PKT-1 | controls |
 | `newVirtualGrid` | composite | control-build, flat variant (matches its `newVirtualList` sibling deliberately — the two share the `virtual_extents` index and are read against each other) | none (clean) | controls |
 | `newPopupButton` | composite | control-build, `api` variant | F-1 (memo guard), DOC-22, PKT-6, PKT-1 (`presentation`) | controls |
+| `newMenu` | composite | control-build, `api` variant; presents on `presenter.presentAnchored` and shares `menu_recipe` with `newPopupButton` / `newRowActions`. Its `presentation` is a FUNCTION, matching its `newPopupButton` sibling rather than `newPicker`'s Readable | none (clean); PKT-1 inherited (`presentation` shape) | controls |
 | `newStepper` | composite | control-build, value family — the reference implementation | none (clean) | controls |
 | `newSlider` | composite | control-build, value family | PKT-7 (`onInteractionClassLost`), PKT-1 | controls |
 | `newRating` | composite | control-build; one-Grip strip | F-25 (dump/dispose proof), PKT-7 | controls |

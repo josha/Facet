@@ -1138,6 +1138,96 @@ local registry: { Entry } = {
 		inputProofs = false,
 		affordanceProofs = false,
 	},
+	{
+		-- The ONE menu row and the ONE presentation rule (navigation-and-menus D2,
+		-- director call §5). Not a control: it renders no tree of its own and owns
+		-- no state — it is the per-row body `row_actions.buildMenuRows` already
+		-- wrote, plus `popup_button.resolvePresentation` relocated verbatim, in one
+		-- place so the three menus that render action lists cannot drift apart.
+		-- *"Three copies of a menu row is how the icon-first ruling gets silently
+		-- lost."*
+		name = "MenuRecipe",
+		kind = "composite",
+		module = "src/controls/menu_recipe.luau",
+		export = "newMenu",
+		spec = "tests/menu.spec.luau",
+		conformance = "tests/menu.spec.luau",
+		docsAnchor = "newMenu",
+		-- NO DUMP OF ITS OWN: it returns blueprints its three callers mount, and
+		-- every one of them already reports the rows it built through its own
+		-- dump() (`menu.dump().items`, `popup_button.dump().options`,
+		-- `row_actions.dump().menuItems`).
+		dump = false,
+		reason = "returns the row blueprints its three callers mount and the presentation string they resolve; each caller already reports what it built through its own dump(), and a second copy here would be the same rows twice",
+		-- NON-INTERACTIVE, structurally: it attaches no input contribution and
+		-- takes no verb. The rows it returns are ordinary `UI.Button`s whose
+		-- four-input story belongs to whichever control mounted them — proved
+		-- there (Menu, PopupButton and RowActions each cite their own).
+		inputProofs = false,
+		affordanceProofs = false,
+	},
+	{
+		-- The freestanding ACTION menu (navigation-and-menus D2). Items are VERBS,
+		-- not values — which is why it is a control of its own rather than a
+		-- property on PopupButton, whose `value` is a `Signal<string>` a verb list
+		-- cannot fill. Attaches to ANY blueprint, presents on D1's anchored seam,
+		-- and closes `.contextMenu` by consuming the normalized gesture layer that
+		-- shipped with nothing reading it.
+		name = "Menu",
+		kind = "composite",
+		module = "src/controls/menu.luau",
+		export = "newMenu",
+		spec = "tests/menu.spec.luau",
+		conformance = "tests/menu.spec.luau",
+		docsAnchor = "newMenu",
+		dumpFunction = "function dump",
+		inputProofs = {
+			pointer = {
+				"a pointer SECONDARY click on the trigger opens the menu",
+				"activating an item runs its onSelect exactly once and closes the menu",
+			},
+			touch = {
+				"a touch LONG-PRESS on the trigger opens the menu, through the normalized gesture layer",
+			},
+			keyboard = {
+				"the keyboard context chord opens the menu, and Return activates the focused item",
+			},
+			gamepad = {
+				"the gamepad menu button opens it, and ButtonB closes ONE level",
+			},
+		},
+		-- PARADIGM axis. pointer/touch = the trigger opens on a secondary click or
+		-- a long press and a tap outside closes every level; keyboard = the open
+		-- items are ordinary focus-ring Buttons and Left/Right leave and enter a
+		-- submenu in document order; gamepad = ButtonB unwinds one level at a time.
+		-- The SHEET presentation is the touch idiom and it replaces the panel's
+		-- contents rather than stacking a second one — the one place the idioms
+		-- genuinely differ, and it is resolved from space and live input class,
+		-- never a device name.
+		--
+		-- hotSwitch: an open submenu chain IS in-flight state, so this is not the
+		-- `false` PopupButton can claim. A class flip while a submenu is open
+		-- CARRIES the open path and re-presents it in the newly resolved idiom.
+		affordanceProofs = {
+			pointer = {
+				"a pointer SECONDARY click on the trigger opens the menu",
+				"tap-away closes EVERY level, not just the innermost",
+			},
+			touch = {
+				"a touch LONG-PRESS on the trigger opens the menu, through the normalized gesture layer",
+				"under `sheet` a submenu REPLACES the sheet's contents and grows a Back row",
+			},
+			keyboard = {
+				"Right enters the focused submenu and Left leaves it, in document order",
+			},
+			gamepad = {
+				"the gamepad menu button opens it, and ButtonB closes ONE level",
+			},
+			hotSwitch = {
+				"a live class flip while a submenu is open CARRIES the open path into the new presentation",
+			},
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========

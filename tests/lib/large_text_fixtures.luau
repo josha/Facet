@@ -245,6 +245,38 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		--[[ THE OPEN MENU'S PANEL, mounted directly from the recipe every menu
+			renders from (`src/controls/menu_recipe.luau`). The control presents its
+			panel as its OWN surface through `presenter.presentAnchored`, and this
+			sweep mounts and measures ONE screen — so sweeping `newMenu`'s blueprint
+			would sweep the trigger and never a single row.
+
+			The rows are what the preference actually threatens: each declares a
+			FIXED px height off the control-size ladder while its label grows, which
+			is precisely the "painted at a size nobody measured" family this matrix
+			exists to catch (docs/lessons/, the fixed-px-height defect class). Both
+			row forms are here — the leaf and the submenu row with its chevron — plus
+			the divider that separates two icon groups. ]]
+		id = "Menu-panel",
+		class = "Menu",
+		build = function(core)
+			local recipe = require("../../src/controls/menu_recipe")
+			return UI.VStack({
+				id = "Ctl",
+				surface = "raised",
+				gap = recipe.ROW_GAP,
+				width = { type = "fill", weight = 1 },
+				children = {
+					recipe.row(UI, { id = "Item:a", label = PSEUDO, icon = "edit" }),
+					recipe.row(UI, { id = "Item:b", label = GERMAN, icon = "edit" }),
+					recipe.divider(UI, "Div-3"),
+					recipe.row(UI, { id = "Item:c", label = lt.PSEUDO_ACTION, submenu = true }),
+					recipe.row(UI, { id = "Item:d", label = PSEUDO, role = "destructive" }),
+				},
+			})
+		end,
+	},
+	{
 		id = "Rating",
 		class = "Rating",
 		build = function(core)
@@ -816,6 +848,9 @@ local UNSWEEPABLE: { [string]: string } = {
 	SelectionIndicator = "the DECORATION half of Picker's `indicator` property (navigation-and-menus D4): it returns "
 		.. "the layer Picker mounts, so it is swept through the `Picker-indicator` fixture — at every preference, in "
 		.. "both reference themes — rather than twice",
+	MenuRecipe = "the ROW half of every menu (navigation-and-menus D2): it returns the blueprints Menu, PopupButton "
+		.. "and RowActions mount, so it is swept through the `Menu-panel` fixture — which mounts those very rows, "
+		.. "at every preference and in both reference themes — rather than three times",
 	Screen = "the sweep's own root: every fixture is mounted inside a UI.Screen, so the row is exercised by all of them",
 	ValueModel = "stateless value arithmetic — no blueprint, nothing to mount or measure",
 	-- the two halves of src/controls/row_actions.luau that were lifted out on

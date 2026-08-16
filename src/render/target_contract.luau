@@ -105,6 +105,15 @@ target_contract.OPTIONAL = {
 	-- src/input/touch_gestures value objects. Connection-level; firing needs
 	-- real touch (physical row NS-P2).
 	"setTouchGestureHandlers", -- (handle, onGesture) -> disconnect
+	-- the pointer's SECONDARY button (navigation-and-menus D2): the trigger half
+	-- of `.contextMenu` on a mouse. The primary button is already the semantic
+	-- Activate (`setActivateHandler`), and a right-click is a DIFFERENT verb, so
+	-- it needs its own channel rather than a meta flag on the same one. It
+	-- OBSERVES, exactly as the disclosure zones do — the node underneath keeps
+	-- whatever it already did with the primary button. WITHOUT IT: no right-click
+	-- menu; every other Menu trigger (activate, long-press, gamepad, keyboard)
+	-- still opens it, which is why this is optional and not a dependency.
+	"setSecondaryActivate", -- (handle, fn()) -> disconnect
 	-- engine text premeasurement (text-measurement milestone): the renderer
 	-- hands over the WORDS its last solve could not size exactly and takes the
 	-- exact widths one re-solve later. Words, not laid-out strings — the key is

@@ -153,6 +153,9 @@ local text_metrics = require("../layout/text_metrics")
 -- ruling 4 wrote down now lives in one place and three callers ask it.
 local anchorPlacement = require("../layout/anchor_placement")
 local specGuard = require("../spec_guard")
+-- the ONE menu row and the ONE presentation rule, shared with popup_button and
+-- the freestanding newMenu (navigation-and-menus D2)
+local menuRecipe = require("./menu_recipe")
 -- the ActionSpec authoring contract and three leaf helpers, lifted out whole
 -- (2026-08-14): pure functions of their arguments, sharing not one upvalue with
 -- `buildEngine`. See that file's header for why the split happened at all.
@@ -1752,34 +1755,32 @@ local function buildEngine(LuauUI: any, core: any, spec: any, hosted: HostedOpts
 	-- happens to apply on this platform.
 	local MENU_SURFACE_ID = "RowActionsMenu-" .. id
 	local MENU_ROOT_ID = "Menu"
-	local MENU_ROW_HEIGHT = "controlSizes.compact.height" -- same theme
-	local MENU_ROW_GAP = "strokes.hairline" -- ...and the hairline between two rows
-	-- token popup_button.luau's own compact-menu row uses (ADR-0019 §2);
-	-- no new theme surface needed.
+	--[[ THE ROW RECIPE IS SHARED NOW (navigation-and-menus D2, director call §5).
+		Both metric names and the per-row body moved to `src/controls/menu_recipe
+		.luau`, which `popup_button` and the freestanding `newMenu` render from too
+		— *"three copies of a menu row is how the icon-first ruling gets silently
+		lost"*. The ruling itself (a menu row KEEPS its label; icon-first is the
+		TRAY's inversion; deliberately no `prefer`) travelled with it and is
+		restated in that file's header rather than re-derived.
+
+		THE PROPS ARE IDENTICAL, deliberately: two shipped cases pin this tree.
+		`row_actions_input.spec`'s flip prediction is exact only while `MenuRows`
+		stays "a padding-free VStack of fixed-height rows", and its large-text case
+		reads `controller.textAt(<row path>)` for the row's OWN label — both of
+		which a reshaped row would break silently. ]]
+	local MENU_ROW_HEIGHT = menuRecipe.ROW_HEIGHT
+	local MENU_ROW_GAP = menuRecipe.ROW_GAP
 	local function buildMenuRows(): { any }
 		local rows = {}
 		for _, entry in menuItemsOrdered do
 			table.insert(
 				rows,
-				UI.Button({
+				menuRecipe.row(UI, {
 					id = "Action:" .. entry.action.id,
 					label = entry.action.label,
-					-- same reasoning as the tray build above: `icon` alone
-					-- needs `shape = "circle"`, and a menu row keeps its
-					-- label, so the action icon rides `compactLabel`. A
-					-- fill-width menu row rarely runs out of room, so this
-					-- mostly keeps the label — that is the correct default
-					-- for a menu, not a defect.
-					--
-					-- DELIBERATELY NO `prefer` (director ruling, device round
-					-- 2026-08-12): icon-first is the TRAY's inversion. A menu row
-					-- is a list of names — it is where the words live, and it is
-					-- the reading of the tray a player reaches for when a glyph
-					-- is not enough.
-					compactLabel = if entry.action.icon ~= nil then { icon = entry.action.icon } else nil,
-					role = if entry.action.role == "destructive" then "destructive" else "default",
-					width = { type = "fill", weight = 1 },
-					height = { type = "fixed", px = MENU_ROW_HEIGHT },
+					icon = entry.action.icon,
+					role = entry.action.role,
+					height = MENU_ROW_HEIGHT,
 				})
 			)
 		end

@@ -15,6 +15,7 @@
 -- Engine-free; Lune-tested in tests/popup_button.spec.luau.
 
 local contribution = require("../input/contribution")
+local menuRecipe = require("./menu_recipe")
 local specGuard = require("../spec_guard")
 
 -- a node id is interpolated into a Lua PATTERN below, so its magic characters
@@ -27,10 +28,25 @@ end
 
 local popup_button = {}
 
+--[[ AN OPTION IS A VALUE, AND `icon` / `divider` ARE ITS TWO NEW SPELLINGS
+	(navigation-and-menus D2, so `r1`'s icon rows work and both menus render from
+	one row recipe). This stays a VALUE picker — `value` is a `Signal<string>` and
+	picking writes it. A list of VERBS is `LuauUI.newMenu`, which is a different
+	control on purpose: a control that sometimes owns a value Signal and sometimes
+	does not is two controls in one.
+
+	`divider = true` is a rule between two groups. It carries no id, no label and
+	no selection, and it is skipped by every count, every route and the dump —
+	which is what makes it a grouping mark rather than an option that happens to
+	do nothing when you press it. ]]
 export type Option = {
-	id: string,
-	label: string,
+	id: string?,
+	label: string?,
+	icon: string?, -- semantic icon NAME, never an asset id
+	divider: boolean?,
 }
+
+local OPTION_KEYS = specGuard.keySet({ "divider", "icon", "id", "label" })
 
 export type Spec = {
 	id: string?,
@@ -44,38 +60,22 @@ export type Spec = {
 	interactionClasses: any?, -- table | Readable<table>, e.g. env interactionClasses
 }
 
--- THEME METRICS (ADR-0019 §2). The three row heights ARE the three control
--- sizes — compact for the pointer menu, regular for the inline list, large for
--- the touch sheet — so a theme that retunes its control ladder retunes this
--- control's presentations with it. A touch SHEET uses a visually larger row,
--- not just a hit-floored one: on a finger the target should look as big as it
--- is (B-DSP3).
+-- THEME METRICS (ADR-0019 §2). This control's own trigger keeps its own metric;
+-- the three ROW heights are `menu_recipe`'s, because they are the same three
+-- heights the freestanding Menu and the row-action menu use and a theme that
+-- retunes its control ladder must retune all three menus together.
 local TRIGGER_HEIGHT = "controls.popup.triggerHeight"
-local ROW_HEIGHT = "controlSizes.compact.height"
-local SHEET_ROW_HEIGHT = "controlSizes.large.height"
-local INLINE_ROW_HEIGHT = "controlSizes.regular.height"
 
--- Adaptive presentation (acceptance row B-DSP3). The choice comes from the option
--- count, the available SPACE class, and whether touch is a LIVE interaction class
--- — never from a device name. Pure and exported so a caller can predict it.
---
---   menu    the floating panel below the trigger. The desktop/pointer idiom.
---   inline  rows in place under the trigger, no separate panel surface. Good for
---           a couple of options with room to show them.
---   sheet   a bottom-anchored, full-width surface with larger rows. The touch
---           idiom, and the fallback when a compact space cannot hold a long menu.
-function popup_button.resolvePresentation(optionCount: number, sizeClass: string?, touchLive: boolean?): string
-	if touchLive == true then
-		return "sheet"
-	end
-	if sizeClass == "compact" and optionCount > 6 then
-		return "sheet"
-	end
-	if optionCount <= 3 and sizeClass ~= "compact" then
-		return "inline"
-	end
-	return "menu"
-end
+--[[ ADAPTIVE PRESENTATION (acceptance row B-DSP3) — MOVED TO `menu_recipe`,
+	unchanged, and re-exported here so nothing that already calls it moves.
+
+	It was always a pure function of three primitives with no env read, and it was
+	always the rule BOTH menus need: sheet when touch is live or the list is long
+	on a compact screen, floating panel otherwise. Two copies of that would drift,
+	and the drift would only show on the input class nobody tested — so there is
+	one, and this name is an alias for it rather than a second implementation.
+	See `src/controls/menu_recipe.luau` for the rules themselves. ]]
+popup_button.resolvePresentation = menuRecipe.resolvePresentation
 
 local PRESENTATIONS: { [string]: boolean } = { automatic = true, menu = true, inline = true, sheet = true }
 
@@ -110,15 +110,39 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 	end
 
 	-- option ids become `Opt-<id>` path segments; a "/" would corrupt routing
-	-- everywhere downstream — fail at BUILD (ADR-0010), not first render
+	-- everywhere downstream — fail at BUILD (ADR-0010), not first render.
+	-- A DIVIDER is skipped by all of it: no id, no route, no selection.
 	local optionsById: { [string]: Option } = {}
-	for _, option in spec.options do
+	local selectableCount = 0
+	for index, option in spec.options do
+		specGuard.assertKnownKeys("newPopupButton", option, OPTION_KEYS, `spec.options[{index}]`)
+		if option.divider == true then
+			continue
+		end
 		assert(
-			not string.find(option.id, "/", 1, true),
+			type(option.id) == "string" and type(option.label) == "string",
+			`PopupButton '{id}': option {index} needs an id and a label `
+				.. "(or divider = true to draw a rule between two groups)"
+		)
+		assert(
+			not string.find(option.id :: string, "/", 1, true),
 			`PopupButton '{id}': option id '{option.id}' must be path-safe (no "/")`
 		)
-		optionsById[option.id] = option
+		optionsById[option.id :: string] = option
+		selectableCount += 1
 	end
+	--[[ THE HIG'S ICON LINT, at authoring time (D2): "provide icons for all menu
+		items in a group, or none of them". A group is the run between two dividers,
+		which is why this is checkable at all — the author already said where the
+		groups are. A half-iconned group looks fine in the one fixture it was
+		authored in and reads as a rendering bug everywhere else. ]]
+	local mixed = menuRecipe.mixedIconGroup(spec.options)
+	assert(
+		mixed == nil,
+		`PopupButton '{id}': the option group starting at index {tostring(mixed)} mixes options that declare an `
+			.. "icon with options that do not. Give every option in a group an icon, or none of them "
+			.. "(HIG: Menus). A divider = true option starts a new group."
+	)
 
 	-- open/closed is the control's only owned state; selection lives in `value`
 	local open = scope:own(core:signal(false))
@@ -135,8 +159,7 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 	-- per-option "is this the current selection?" memos, owned by the control
 	-- scope so open/close never churns them (options are static)
 	local selectedMemoById: { [string]: any } = {}
-	for _, option in spec.options do
-		local optionId = option.id
+	for optionId in optionsById do
 		selectedMemoById[optionId] = scope:own(core:memo(function(use)
 			return use(spec.value) == optionId
 		end))
@@ -215,26 +238,32 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 		end
 		local classes = readFact(spec.interactionClasses)
 		local touchLive = type(classes) == "table" and (classes :: any).touch == true
-		return popup_button.resolvePresentation(#spec.options, readFact(spec.sizeClass), touchLive)
+		-- the SELECTABLE count, not the array length: a divider is a rule between
+		-- groups, and a menu does not become "long" because it was grouped
+		return menuRecipe.resolvePresentation(selectableCount, readFact(spec.sizeClass), touchLive)
 	end
 	api.presentation = presentationNow
 
 	local function popupPanel(): any
 		local presentation = presentationNow()
-		local rowHeight = if presentation == "sheet"
-			then SHEET_ROW_HEIGHT
-			elseif presentation == "inline" then INLINE_ROW_HEIGHT
-			else ROW_HEIGHT
+		local rowHeight = menuRecipe.rowHeightFor(presentation)
 		local rows = {}
-		for _, option in spec.options do
+		-- EVERY ROW COMES OUT OF THE ONE RECIPE (D2). Same props, same tokens and
+		-- the same icon ruling the row-action menu and the freestanding Menu use —
+		-- three copies of a menu row is how that ruling gets silently lost.
+		for index, option in spec.options do
+			if option.divider == true then
+				table.insert(rows, menuRecipe.divider(UI, `Div-{index}`))
+				continue
+			end
 			table.insert(
 				rows,
-				UI.Button({
+				menuRecipe.row(UI, {
 					id = `Opt-{option.id}`,
 					label = option.label,
-					selected = selectedMemoById[option.id],
-					width = { type = "fill", weight = 1 },
-					height = { type = "fixed", px = rowHeight },
+					icon = option.icon,
+					selected = selectedMemoById[option.id :: string],
+					height = rowHeight,
 				})
 			)
 		end
@@ -271,8 +300,9 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 			-- control role rather than a floating-panel one.
 			surface = if presentation == "inline" then "control" else "raised",
 			padding = if isSheet then "s" else nil,
-			-- the hairline of surface showing between rows
-			gap = "strokes.hairline",
+			-- the hairline of surface showing between rows — the recipe's token, so
+			-- all three menus space their rows identically
+			gap = menuRecipe.ROW_GAP,
 			children = rows,
 		})
 	end
@@ -302,7 +332,13 @@ function popup_button.build(LuauUI: any, core: any, spec: Spec)
 	local function dump()
 		local options = {}
 		for _, option in spec.options do
-			table.insert(options, { id = option.id, label = option.label })
+			-- a divider is reported AS a divider rather than as an option with no
+			-- id: a dump that showed `{}` here would read as a corrupt option
+			if option.divider == true then
+				table.insert(options, { divider = true })
+			else
+				table.insert(options, { id = option.id, label = option.label, icon = option.icon })
+			end
 		end
 		return {
 			schema = "luauui-popup_button-dump/1",

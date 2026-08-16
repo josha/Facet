@@ -169,7 +169,36 @@ export type Bundle = {
 	-- (e.g. row_actions' own action menu) holds a presented handle open —
 	-- consumers of `bindPresent` must expect and accept full modal semantics,
 	-- not a popover-weight exemption.
-	bindPresent: ((presentModal: (blueprint: any, opts: any?) -> any, dismiss: (handle: any) -> ()) -> ())?,
+	-- THIRD ARGUMENT (navigation-and-menus D2), ADDITIVE exactly as
+	-- bindFocusGraph's and bindMotion's second arguments are — every control
+	-- written before it ignores the extra parameter and is unchanged.
+	-- `presentAnchored(panel, opts)` is the D1 seam: a surface placed against a
+	-- SOURCE VIEW'S screen rect rather than a parent corner. A floating menu
+	-- anchored to its trigger, and a submenu anchored to its parent ROW, are
+	-- exactly what it is for, and a control cannot construct one for itself for
+	-- the same reason it cannot construct `presentModal` — it has no line to the
+	-- presenter. Same degradation contract as the two beside it: absent (a bare
+	-- mount in a unit test, no presenter) is real and supported.
+	bindPresent: ((
+		presentModal: (blueprint: any, opts: any?) -> any,
+		dismiss: (handle: any) -> (),
+		presentAnchored: ((panel: any, opts: any?) -> any)?
+	) -> ())?,
+	--[[ WHICH MOUNTED SUBTREES OWN A CONTEXT GESTURE (navigation-and-menus D2).
+		Returns the paths whose subtree has claimed the pointer's secondary button
+		and touch long-press as a MENU trigger.
+
+		It exists to settle one ownership question in code rather than in prose.
+		Touch long-press is claimed today by the full-value disclosure plate
+		(`presenter._discloseLongPress`, the only touch route to a truncated
+		label's full value — `UI.Text{ reveal = "auto" }` is opt-in, `UI.Text`-only,
+		one-at-a-time and absent entirely under reduced motion, and a `Toggle`
+		label or a disclosing `Table` cell has no marquee even in principle). So
+		the plate KEEPS the gesture, and this is the carve-out: inside a subtree
+		that has declared a menu trigger, the long press means the MENU, and the
+		plate yields rather than both firing off one unsunk press. Everywhere
+		else — which is everywhere today — the accessibility route is untouched. ]]
+	contextTriggers: (() -> { string })?,
 	adjustTargets: ((rootNode: any) -> { [string]: boolean })?,
 	handleAdjust: ((path: string, direction: number) -> boolean)?,
 	-- WHICH ARROWS THIS CONTROL CONSUMES (roadmap Step 8). "horizontal" (what every

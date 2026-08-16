@@ -2333,6 +2333,37 @@ function screen_target.new(opts: Opts?)
 		end
 	end
 
+	--[[ THE POINTER'S SECONDARY BUTTON (navigation-and-menus D2) — the mouse half
+		of `.contextMenu`. `InputBegan` on the node's own instance, filtered to
+		`MouseButton2`, which is the one input type the framework's primary-activate
+		path never claims: `setActivateHandler` rides `Activated`, and a
+		`GuiButton`'s `Activated` fires for the PRIMARY button and touch only, so
+		these two channels cannot double-fire on one press.
+
+		IT OBSERVES, IT DOES NOT SINK, exactly as the disclosure zones do
+		(`enableDisclosure` above): a right-click that opens a menu leaves whatever
+		the node already did with the left button entirely alone.
+
+		`gameProcessedEvent` is deliberately NOT consulted — this connection is on
+		the GuiObject itself, so the engine already decided the press landed here.
+		Physical proof is a PENDING_PHYSICAL row (NM-X2): Studio's injected pointer
+		arrives as `Touch`, not `MouseButton2`, so a headless or emulator pass can
+		prove the wiring and never the arbitration. ]]
+	function adapter.setSecondaryActivate(handle: any, fn: () -> ()): () -> ()
+		local instance = handle.instance
+		if not instance:IsA("GuiObject") then
+			return function() end
+		end
+		local connection = instance.InputBegan:Connect(function(input: any)
+			if input.UserInputType == Enum.UserInputType.MouseButton2 then
+				fn()
+			end
+		end)
+		return function()
+			connection:Disconnect()
+		end
+	end
+
 	-- native touch gestures (native-substrate NS-A6; corrections §2): the
 	-- ENGINE recognizes; LuauUI normalizes into stable value objects
 	-- (src/input/touch_gestures) and composes/arbitrates purely. Connection is

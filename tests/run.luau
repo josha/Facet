@@ -507,6 +507,12 @@ require("./reference/wardrobe_spec")
 -- really runs, and the inner-loop runner has to keep announcing itself
 require("./tier.spec")
 require("./selection_indicator.spec")
+-- navigation-and-menus D6: the segmented Picker's upgrades — icons on `Option`,
+-- the vertical rail, and the indicator adopted as the segmented default
+require("./picker_segments.spec")
+-- D2: the freestanding action menu — verbs not values, the shared row recipe,
+-- submenus that nest without a cap, and the five triggers that close `.contextMenu`
+require("./menu.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

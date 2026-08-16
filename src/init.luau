@@ -177,6 +177,11 @@ local LuauUI = {
 	newVirtualGrid = virtualGrid.build,
 
 	newPopupButton = require("@self/controls/popup_button").build,
+	-- ...and its sibling that is NOT a value picker: a menu of VERBS, attachable
+	-- to any blueprint, presented on the D1 anchored seam. It is what closes
+	-- `.contextMenu` — primary activate, right-click, touch long-press, a gamepad
+	-- button and the keyboard context key all open the same list.
+	newMenu = require("@self/controls/menu").build,
 	-- value-control family (swiftui-parity-next investment 4): Stepper and Slider
 	-- are different affordances over ONE shared value model, so bounds, stepping,
 	-- rounding, formatting and semantic value text cannot disagree at the edges.
