@@ -747,7 +747,16 @@ function menu.build(LuauUI: any, core: any, spec: Spec)
 		if isOpen:get() then
 			return false
 		end
-		if rootPath == nil or (presentModalFn == nil and presentAnchoredFn == nil) then
+		--[[ THE FUNCTION THIS IDIOM ACTUALLY NEEDS, not "either of them". `bindPresent`
+			gained `presentAnchored` as a THIRD argument, and the seam's own contract is
+			that a control must work when what it wanted never arrives (a bare mount in
+			a unit test hands over nothing at all). A presenter that predates the third
+			argument would leave `presentAnchoredFn` nil while `presentModalFn` is fine
+			— and a check for "either" would then call nil on the `menu` idiom and
+			crash, which is a worse answer than not opening. ]]
+		local presentation = presentationNow()
+		local needed = if presentation == "sheet" then presentModalFn else presentAnchoredFn
+		if rootPath == nil or needed == nil then
 			return false -- no presenter, or not mounted yet: nothing to present onto
 		end
 		--[[ NO ENABLED-ITEM COUNT HERE, AND THAT IS THE POINT. Apple: "If all of a
@@ -757,7 +766,7 @@ function menu.build(LuauUI: any, core: any, spec: Spec)
 			because the player cannot tell it from a dead button. ]]
 		openPath:set({})
 		isOpen:set(true)
-		presentLevel(0, presentationNow(), {})
+		presentLevel(0, presentation, {})
 		if spec.onOpen ~= nil then
 			pcall(spec.onOpen)
 		end
