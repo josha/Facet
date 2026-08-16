@@ -3189,7 +3189,7 @@ Derived policy (memoized, read-only):
 |---|---|
 | `typographyScale` | the MEASURE-seam text scale: `preferredTextSize` clamped to 0.5–3, times 1.5 on a `Large` display |
 | `typographyPaintScale` | the PAINT-seam scale: the ten-foot factor only (1.5 on `Large`, else 1). The engine applies the player's preference itself, so paint must not multiply it in again |
-| `effectiveTransparency` | `preferredTransparency` clamped to 0–1 |
+| `effectiveTransparency` | `preferredTransparency` clamped to 0–1 — the player's **Background Transparency** setting. The framework paints with it: the one see-through background it owns (the `scrim` surface, which is the modal backdrop and anything a consumer declares `surface = "scrim"`) is composed `themeDim × effectiveTransparency`, in both paint modes. An authored `opacity`, the disabled dim, hairlines and shadows are deliberately untouched — [ADR-0035](../adr/ADR-0035-preferred-transparency.md) |
 | `sizeClass` | `"compact" \| "regular" \| "wide"` from `viewportRect.w`, capped at `regular` on a `Large` display |
 | `motionPolicy` | `"reduced"` when `reducedMotion` is true, else `"full"` |
 | `distanceProfile` | `"ten-foot"` on a `Large` display, else `"near"` |
