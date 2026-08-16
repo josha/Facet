@@ -222,10 +222,33 @@ return {
 			padding = "m",
 			gap = "m",
 			children = {
-				UI.Text({ id = "Title", text = "Billboard lab", textSize = "heading" }),
-				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-				UI.Text({ id = "BillboardState", text = billboardState, textSize = "caption", role = "secondary" }),
-				UI.Spacer({ id = "Gap", height = { type = "fill", weight = 1 } }),
+				--[[ THE READOUTS SCROLL, AND THAT IS WHAT PUSHES THE CONTROLS DOWN
+					(O-21, measured 2026-08-15). This was a `Spacer` on `fill`, which is
+					a lane that gives its pixels back to nobody: on a 640x320 landscape
+					at +4 the three readouts plus a four-button grid ran 64px past the
+					canvas and every one of the four labelled controls — `Mount`,
+					`Deplete`, `Move`, `Teardown`, i.e. the whole surface — was below the
+					fold with no page scroller to reach it. A `fill` ScrollView does the
+					Spacer's job (it takes the leftover, so the control grid still sits
+					on the bottom edge) and its window is a place the readouts can be
+					read from rather than a place they overflow. ]]
+				UI.ScrollView({
+					id = "Readouts",
+					axis = "y",
+					gap = "m",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
+					children = {
+						UI.Text({ id = "Title", text = "Billboard lab", textSize = "heading" }),
+						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
+						UI.Text({
+							id = "BillboardState",
+							text = billboardState,
+							textSize = "caption",
+							role = "secondary",
+						}),
+					},
+				}),
 				UI.Grid({
 					id = "Controls",
 					minColumnWidth = 104,

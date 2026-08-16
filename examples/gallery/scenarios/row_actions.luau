@@ -645,6 +645,15 @@ return {
 			width = { type = "fill", weight = 1 },
 			height = { type = "fill", weight = 1 },
 			children = {
+				--[[ THE HINT STAYS AT EVERY SIZE, AND THAT IS A MEASUREMENT (O-21,
+					2026-08-15). Hiding it behind the same `showHeading` Readable the
+					title uses was written first — on a 640x320 landscape at +14 this
+					sentence wraps to two lines and the hint itself ended 9px below the
+					fold — and then deleted, because with the list's window floor gone
+					(see `onGeometry` below) the pane no longer demands more than it has
+					and the hint is inside the band on its own. Removing the FLOOR
+					reddens `scenario 'row_actions'`; hiding the hint moved nothing. The
+					words a player needs to drive this surface stay on it. ]]
 				UI.Text({
 					id = "VListHint",
 					text = "Swipe a row (real touch/mouse — no scripted step reaches this surface)",
@@ -706,7 +715,21 @@ return {
 						}),
 						UI.Button({
 							id = "ModeVList",
-							label = "VirtualList",
+							--[[ "VList", NOT "VirtualList" (O-21, measured 2026-08-15).
+								`minColumnWidth = "intrinsic"` derives the bar's column width
+								from the WIDEST label, and at +14 that word measured 243px:
+								three of those cannot share a 624px landscape row, so the bar
+								re-columned to two lines and took 134px of the 184px a
+								640x320 canvas has. Everything below inherited the loss — the
+								table's `From` header ended 33px under the fold and the
+								Edit/Done toggle 9px under it.
+								`compactLabel` is NOT the lever here and was tried first: a
+								compact form is spent when a control is SQUEEZED, and a grid
+								cell is handed its natural width rather than squeezed, so the
+								bar measured 243 either way. The label itself is the input
+								the intrinsic column reads. `VList` is the name the rest of
+								this fixture already uses (`VListPane`, `vlist` mode). ]]
+							label = "VList",
 							onActivate = function()
 								mode:set("vlist")
 							end,
@@ -764,9 +787,19 @@ return {
 					end
 					local hint = rectOf(VLIST_PANE .. "/VListHint")
 					local spent = if hint ~= nil and type(hint.h) == "number" then hint.h + VLIST_GAP else 0
-					-- one row is the floor: a one-row list on a 320px-tall landscape
-					-- phone is small, and it is ON SCREEN, which is the whole point
-					local window = math.max(ROW_HEIGHT, math.floor(pane.h - spent))
+					--[[ THE PANE IS THE WINDOW, WITH NO ROW-SIZED FLOOR UNDER IT.
+						This read `math.max(ROW_HEIGHT, …)` — "one row is the floor: a
+						one-row list is small, and it is ON SCREEN, which is the whole
+						point". Measured 2026-08-15 (O-21) the floor is what took it OFF
+						screen: on a 640x320 landscape at +14 the solver hands this pane
+						46px, the floor insisted on 84, and the list painted the missing
+						38 past its own pane and past the canvas — the exact mistake
+						`table_virtualized`'s waiver names ("a list that insists on 72px
+						in a 0px pane paints those 72px over its neighbour"). A list
+						shorter than one row still scrolls to every row it has; a list
+						hanging off the bottom edge does not. 1px, not 0, only so the
+						window is never a nonsense number. ]]
+					local window = math.max(1, math.floor(pane.h - spent))
 					if window ~= vlistWindow:get() then
 						vlistWindow:set(window)
 					end

@@ -26,6 +26,15 @@
 	    band. Opaque is measured, not assumed: a `Hit` Button carries no surface
 	    and no label and covers nothing a player can see, and counting one is how
 	    this probe manufactured its first false positives.
+	    "LATER" IS THE RENDERER'S OWN Z, NOT A PATH SORT (fixed 2026-08-15). This
+	    probe used to take paint order from `adapter.paths()`, whose docstring says
+	    *sorted* — alphabetically, by path. That is not paint order and is not even
+	    correlated with it: `BellZ/BadgeWhen/.../Count` sorts before its sibling
+	    `BellZ/Bell` while the renderer paints the badge ON TOP of the bell, so the
+	    probe reported a notification count "covered by" the button it decorates.
+	    `syncZOrder` walks `(zIndex, declaration order)` depth-first and hands every
+	    node an integer through `adapter.setZOrder`; `node.z` is that integer, and it
+	    is the only thing here entitled to the word "later".
 
 	A finding with none of the three is a bleed — a box, a plate or a decoration
 	painting past its own edge with every character on screen, whole and uncovered.
@@ -185,13 +194,53 @@ local function overlapArea(a: any, b: any): number
 	return x * y
 end
 
+-- WHAT IS ACTUALLY ON GLASS FOR THIS NODE, THIS FRAME: its rect intersected with
+-- every ScrollView ancestor's window, because a scroll host mounts a real clip
+-- host and paints nothing outside it. The occlusion pass needs this and the
+-- reachability pass must NOT use it — "can the player scroll to it" and "is it
+-- drawn right now" are different questions, and conflating them is how a row
+-- clipped away by its own list got reported as covered by a neighbour (measured
+-- 2026-08-15: `/ScrollHost/List/Row10`, whose list box had collapsed).
+local function paintedRect(w: any, path: string, rect: any): any?
+	local x0, y0, x1, y1 = rect.x, rect.y, rect.x + rect.w, rect.y + rect.h
+	local cursor = path
+	while true do
+		local cut = string.find(cursor, "/[^/]*$")
+		if cut == nil or cut == 1 then
+			break
+		end
+		cursor = string.sub(cursor, 1, cut - 1)
+		local n = w.adapter.node(cursor)
+		if n == nil or n.class ~= "ScrollView" then
+			continue
+		end
+		local box = n.windowRect or n.rect
+		if box == nil then
+			continue
+		end
+		x0, y0 = math.max(x0, box.x), math.max(y0, box.y)
+		x1, y1 = math.min(x1, box.x + box.w), math.min(y1, box.y + box.h)
+	end
+	if x1 - x0 <= 1 or y1 - y0 <= 1 then
+		return nil
+	end
+	return { x = x0, y = y0, w = x1 - x0, h = y1 - y0 }
+end
+
 -- A NODE THAT PAINTS NOTHING CANNOT COVER ANYTHING. A `Hit` Button is a
 -- transparent target (`label = ""`, no `surface`) and a ScrollView is a window;
 -- counting either as an occluder manufactures a hidden-text verdict out of a
 -- node the player never sees.
 local function paints(n: any): boolean
 	local props = n.props or {}
-	if props.surface ~= nil then
+	-- ...AND `plain` IS THE SECOND TRANSPARENT CLASS (found 2026-08-15, the same
+	-- shape as the `Hit` Button above). `surface = "plain"` is the caller saying
+	-- NO PLATE: `chrome_slots.classify` returns nil for it before any class rule
+	-- ("AN EXPLICIT `plain` PAINTS NOTHING", chrome_slots.luau:844) and the native
+	-- path clears `nativeSurface` with it, so the node carries a stroke and a
+	-- shape and no fill at all. Counting one is how this probe reported an
+	-- avatar's initial as covered by the hairline RIM drawn around it.
+	if props.surface ~= nil and props.surface ~= "plain" then
 		return true
 	end
 	if n.class == "Image" then
@@ -258,7 +307,7 @@ local function unreadable(w: any, view: any, nodePath: string): { string }
 	local out: { string } = {}
 	-- every painting node, for the occlusion pass
 	local painting: { { path: string, rect: any, class: string, order: number } } = {}
-	for order, path in paths do
+	for _, path in paths do
 		local n = w.adapter.node(path)
 		if n == nil or n.rect == nil or n.visible == false then
 			continue
@@ -277,9 +326,13 @@ local function unreadable(w: any, view: any, nodePath: string): { string }
 			path = path,
 			rect = n.rect,
 			class = n.class,
-			order = order,
+			-- the renderer's own paint order (see the header): a node the z walk
+			-- never reached cannot be shown to be on top of anything, so it sorts
+			-- to the bottom rather than borrowing an alphabetical rank
+			order = n.z or -1,
 			opaque = paints(n),
 			label = (n.props or {}).label,
+			painted = paintedRect(w, path, n.rect),
 		})
 	end
 	-- ...and every node under the finding, whatever its class: a control pushed
@@ -348,7 +401,13 @@ local function unreadable(w: any, view: any, nodePath: string): { string }
 					then
 						continue
 					end
-					if other.opaque and overlapArea(r, other.rect) > 0.25 * (r.w * r.h) then
+					local victim, over = entry.painted, other.painted
+					if
+						victim ~= nil
+						and over ~= nil
+						and other.opaque
+						and overlapArea(victim, over) > 0.25 * (victim.w * victim.h)
+					then
 						table.insert(verdicts, {
 							kind = "TEXT-COVERED",
 							line = `{entry.path} "{(f and f.text) or ""}" — covered by {other.path} [{other.class}]`,
@@ -373,7 +432,13 @@ local function unreadable(w: any, view: any, nodePath: string): { string }
 			then
 				continue
 			end
-			if other.opaque and overlapArea(r, other.rect) > 0.25 * (r.w * r.h) then
+			local victim, over = entry.painted, other.painted
+			if
+				victim ~= nil
+				and over ~= nil
+				and other.opaque
+				and overlapArea(victim, over) > 0.25 * (victim.w * victim.h)
+			then
 				table.insert(verdicts, {
 					kind = "TEXT-COVERED",
 					line = `{entry.path} "{(f and f.text) or ""}" — covered by {other.path}`,

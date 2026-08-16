@@ -230,34 +230,52 @@ return {
 						}),
 					},
 				}),
-				UI.Text({ id = "Title", text = "Toast lab", textSize = "heading" }),
-				UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
-				UI.Grid({
-					id = "Controls",
-					minColumnWidth = 104,
-					gap = "s",
-					rowGap = "s",
+				--[[ THE CHROME SCROLLS, THE STAGE DOES NOT (O-21, measured 2026-08-15).
+					Both lanes were `fill` against a page that was not, so on a 640x320
+					landscape at +10 the heading, the status line and a four-button grid
+					took the whole canvas: the stage collapsed under its own button's
+					44px target floor and `Press me` — the control this fixture exists to
+					prove stays pressable UNDER a toast — sat 5px below the fold with
+					nothing to scroll it back. Splitting the leftover between two fills
+					gives the stage a lane that can always seat one target, and hands the
+					chrome a window it can scroll inside instead of pushing the page. ]]
+				UI.ScrollView({
+					id = "Chrome",
+					axis = "y",
+					gap = "m",
 					width = { type = "fill", weight = 1 },
+					height = { type = "fill", weight = 1 },
 					children = {
-						control("BtnOne", "One", function()
-							show("Notice", "A single transient message")
-						end),
-						control("BtnBurst", "Burst", function()
-							for i = 1, 12 do
-								burstIndex += 1
-								show(`Burst {burstIndex}`, "Queued behind the visible three", {
-									priority = i % 3,
-									duration = 1.2,
-									readFloor = 0.4,
-								})
-							end
-						end),
-						control("BtnPriority", "Priority", function()
-							show("Urgent", "Arrived during another toast's read floor", { priority = 5 })
-						end),
-						control("BtnSupersede", "Supersede", function()
-							show("Subject", "Same subject, replaced in place", { subject = "lap-time" })
-						end),
+						UI.Text({ id = "Title", text = "Toast lab", textSize = "heading" }),
+						UI.Text({ id = "Status", text = statusLine, textSize = "caption", role = "secondary" }),
+						UI.Grid({
+							id = "Controls",
+							minColumnWidth = 104,
+							gap = "s",
+							rowGap = "s",
+							width = { type = "fill", weight = 1 },
+							children = {
+								control("BtnOne", "One", function()
+									show("Notice", "A single transient message")
+								end),
+								control("BtnBurst", "Burst", function()
+									for i = 1, 12 do
+										burstIndex += 1
+										show(`Burst {burstIndex}`, "Queued behind the visible three", {
+											priority = i % 3,
+											duration = 1.2,
+											readFloor = 0.4,
+										})
+									end
+								end),
+								control("BtnPriority", "Priority", function()
+									show("Urgent", "Arrived during another toast's read floor", { priority = 5 })
+								end),
+								control("BtnSupersede", "Supersede", function()
+									show("Subject", "Same subject, replaced in place", { subject = "lap-time" })
+								end),
+							},
+						}),
 					},
 				}),
 			},

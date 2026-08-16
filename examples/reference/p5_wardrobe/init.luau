@@ -413,6 +413,20 @@ function Wardrobe.build(LuauUI: any, core: any, deps: any): any
 				role = "secondary",
 				lineLimit = 1,
 				disclose = true,
+				--[[ THE ONE WEIGHT THIS CARD NEEDS (O-21, measured 2026-08-15).
+					The card's column hugged its widest LABEL, and a label's natural
+					width knows nothing about the Button's own control insets: at +14 the
+					`Col` measured 153px inside a 133px content box, so `Dusk Plaza`
+					truncated against the wrong width, the 20px VERIFIED icon sat past
+					the plate, and the whole card ran off the catalog scroller's window
+					on x — where nothing scrolls it back, because that scroller runs y.
+					A weight on the COLUMN was written first and then deleted: measured,
+					it moves neither the sweep nor the readability probe, because the
+					creator line is what the column was hugging and shrinking it shrinks
+					the column. Removing THIS one reddens `proof 'p5_wardrobe'`.
+					It already discloses, so the ellipsis costs nothing a player cannot
+					open. ]]
+				shrinkWeight = 1,
 			}),
 		}
 		if verifiedLabel ~= nil then

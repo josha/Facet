@@ -137,7 +137,21 @@ return {
 					gap = 8,
 					padding = ROSTER_ROW_PADDING,
 					children = {
-						UI.Text({ id = "Name", text = item.name, textSize = ROSTER_NAME_SIZE }),
+						-- ...AND SO DOES THE NAME (O-21 round 2, 2026-08-15). With only the
+						-- detail carrying a weight the row still ran 14px past its slot
+						-- under Sci-Fi HUD on a 320px phone at +14 — the solver's own
+						-- "every shrinkable child is already at its floor" case, because
+						-- there was exactly one shrinkable child. `Racer 200` is as
+						-- degradable as `Lap 2 · P1` and gets the same treatment: one
+						-- line, a weight, and a `disclose` back to the whole string.
+						UI.Text({
+							id = "Name",
+							text = item.name,
+							textSize = ROSTER_NAME_SIZE,
+							lineLimit = 1,
+							disclose = true,
+							shrinkWeight = 1,
+						}),
 						UI.Spacer({ id = "Gap" }),
 						UI.Text({
 							id = "Detail",
@@ -166,9 +180,30 @@ return {
 			padding = 12,
 			gap = 8,
 			children = {
-				UI.HStack({ id = "Readouts", gap = 6, children = readoutViews }),
+				--[[ ONE READOUT BAND, WRAPPING (O-21, measured 2026-08-15). The eight
+					live numbers and the boost count are the same kind of thing and used
+					to take two lines of the page's own stack regardless: on a 640x320
+					landscape at +10 that second line was 44px of a 176px content box the
+					page did not have, `Body` had already windowed to ZERO, and the
+					pinned action bar went 11px under the fold — so `Boost`, the labelled
+					control this fixture's own injected input fault is ABOUT, was already
+					out of reach with no fault injected at all.
+					Sharing one row costs a landscape viewport nothing (186 + 149 of a
+					616px band) and `wrap = true` keeps a 320px portrait phone at the two
+					lines it always had. It is strictly cheaper under every theme
+					package, which a second pinned line would not have been. ]]
+				UI.HStack({
+					id = "Readouts",
+					gap = 6,
+					wrap = true,
+					width = { type = "fill", weight = 1 },
+					children = (function()
+						local kids: { any } = table.clone(readoutViews)
+						table.insert(kids, UI.Text({ id = "BoostCount", text = boostText, textSize = 16 }))
+						return kids
+					end)(),
+				}),
 				progress.blueprint,
-				UI.Text({ id = "BoostCount", text = boostText, textSize = 16 }),
 				UI.ScrollView({
 					id = "Body",
 					axis = "y",

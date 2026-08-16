@@ -2129,7 +2129,7 @@ end
 -- ---------------------------------------------------------------------------
 describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', function()
 	local module = require("../examples/gallery/scenarios/card_rail") :: any
-	local RAIL = "/CardRail/RailPane/Rail"
+	local RAIL = "/CardRail/Page/RailPane/Rail"
 	local CANVAS = RAIL .. "/Canvas"
 	local ITEM_EXTENT, CARD_GAP, CARDS = 132, 8, 400
 
@@ -2141,7 +2141,7 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 	-- the item's hit node: `pathOf` answers relative to the LIST, so the surface
 	-- prefix is added here rather than hardcoded twice
 	local function hitPath(built: any, key: string): string
-		return "/CardRail/RailPane" .. (built.rail.pathOf(key) :: string) .. "/Hit"
+		return "/CardRail/Page/RailPane" .. (built.rail.pathOf(key) :: string) .. "/Hit"
 	end
 
 	it("mounts under the showcase's own chrome with ZERO solver diagnostics", function()
@@ -2231,7 +2231,7 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 		w.presenter.refresh()
 		-- the player-visible consequence, not just the signal: a pick nobody can
 		-- see on screen is a pick that proves nothing about the fixture
-		local shown = w.adapter.node("/CardRail/Selected").props.text
+		local shown = w.adapter.node("/CardRail/Page/Selected").props.text
 		expect(string.find(shown, "Livery 002", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
@@ -2298,7 +2298,7 @@ describe('examples/gallery fixture: card rail (newVirtualList axis = "x")', func
 				expectUnclipped(
 					`card_rail at {view.w}x{view.h}`,
 					built,
-					{ "/CardRail/Title", "/CardRail/Hint", "/CardRail/Selected" }
+					{ "/CardRail/Page/Title", "/CardRail/Page/Hint", "/CardRail/Page/Selected" }
 				)
 				built.dispose()
 			end

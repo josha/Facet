@@ -88,32 +88,12 @@ theme_ledger.ROWS = {
 		kind = "row-cannot-shrink",
 	},
 	{
-		surface = "sponsor_billboard",
-		variant = "-",
-		node = "/BillboardLab",
-		sig = "content overflows this vstack by Npx on the",
-		px = 181,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
-	},
-	{
 		surface = "authoring",
 		variant = "-",
 		node = "/AuthoringScreen",
 		sig = "content overflows this vstack by Npx on the",
 		px = 169,
 		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
-	},
-	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail",
-		sig = "content overflows this vstack by Npx on the",
-		px = 165,
-		since = 14,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "page-not-scrollable",
 	},
@@ -222,16 +202,6 @@ theme_ledger.ROWS = {
 		node = "/AdaptiveScreen/BodyScroll/Body/Settings/Volume",
 		sig = "content overflows this hstack by Npx on the",
 		px = 138,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/TopBar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 136,
 		since = 0,
 		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
 		kind = "row-cannot-shrink",
@@ -387,16 +357,6 @@ theme_ledger.ROWS = {
 		kind = "wrap-clamp",
 	},
 	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
-		sig = "content overflows this vstack by Npx on the",
-		px = 81,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
-	},
-	{
 		surface = "sponsor_motion",
 		variant = "-",
 		node = "/MotionLab/Main/StageColumn/WashRow/WashLabel",
@@ -465,16 +425,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "theme-inset-yield",
-	},
-	{
-		surface = "sponsor_toast",
-		variant = "-",
-		node = "/ToastLab",
-		sig = "content overflows this vstack by Npx on the",
-		px = 57,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "page-not-scrollable",
 	},
 	{
 		surface = "06_tile_game",
@@ -737,16 +687,6 @@ theme_ledger.ROWS = {
 		kind = "theme-inset-yield",
 	},
 	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
-		sig = "content box collapses to Npx on y: padding N",
-		px = 43,
-		since = 0,
-		packages = "fantasy-ornate,fantasy-parchment,glossy-touch",
-		kind = "collapsed-box",
-	},
-	{
 		surface = "p2_cartwheel",
 		variant = "-",
 		node = "/Cartwheel/Shell/Detail/Lane/Body/then/Host/Sections/CartWhen/then/CartSection/Cart/Page/CardGrid/ChatterSlot/ChatterCard/OpenChatter",
@@ -977,26 +917,6 @@ theme_ledger.ROWS = {
 		kind = "theme-inset-yield",
 	},
 	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 32,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 32,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,pixel-quest,scifi-hud",
-		kind = "row-cannot-shrink",
-	},
-	{
 		surface = "row_actions",
 		variant = "list",
 		node = "/MailActions/ListWhen/then/List/Rows/RowsForEach/[*]/*/Content/Row/DotWhen/then/Dot",
@@ -1139,26 +1059,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "fantasy-ornate,fantasy-parchment,glossy-touch,pixel-quest",
 		kind = "collapsed-box",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta",
-		sig = "content overflows this hstack by Npx on the",
-		px = 29,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,glossy-mobile,glossy-touch,pixel-quest",
-		kind = "row-cannot-shrink",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta",
-		sig = "content overflows this hstack by Npx on the",
-		px = 29,
-		since = 0,
-		packages = "classic-desktop,compact-pointer,fantasy-ornate,glossy-mobile,glossy-touch,pixel-quest",
-		kind = "row-cannot-shrink",
 	},
 	{
 		--[[ THE CASCADE REACHED ITS FLOOR AND THE BOX CROPPED THE REST — which is
@@ -1327,23 +1227,6 @@ theme_ledger.ROWS = {
 		since = 0,
 		packages = "compact-pointer,scifi-hud",
 		kind = "collapsed-box",
-	},
-	{
-		--[[ RE-RECORDED DOWNWARD, 2026-08-15 (O-21). This row read 192px from +0
-			across all eight packages, and the roster row's repair — the detail label
-			shrinks to its floor and DISCLOSES rather than painting past the row —
-			took it to one package, one preference and 6px on the CROSS axis. What is
-			left is scifi-hud's own row rhythm against a 320px phone at +14, with the
-			label already at its floor; the ceiling is now 6, so a regression cannot
-			hide under the old number. ]]
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture/Body/Split/Roster/Canvas/W/[*]/Row/Row",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 6,
-		since = 14,
-		packages = "scifi-hud",
-		kind = "layer-overlap",
 	},
 	{
 		--[[ FOUND BY THE 390x844 VIEWPORT (O-19, 2026-08-15), and it is the mildest

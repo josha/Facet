@@ -266,6 +266,14 @@ return {
 								textSize = "caption",
 								role = "secondary",
 								lineLimit = 2,
+								-- ...AND A WAY BACK OUT OF THE CAP (O-21, 2026-08-15). The
+								-- cap is deliberate and stays: uniform growth per row is what
+								-- keeps `index x height` windowing true. What was missing is
+								-- the other half of §15.3 `policy = "truncate"` — on a
+								-- 359x718 phone at +10 and +14 this line is CUT (measured:
+								-- 101px of box for a 61-character string) and had nothing to
+								-- open it, which is lost copy rather than a declared degrade.
+								disclose = true,
 								width = { type = "fill", weight = 1 },
 							}),
 						},

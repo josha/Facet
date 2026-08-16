@@ -572,65 +572,123 @@ end
 	     would have been a ceiling measured on the wrong one.
 
 	── THE DIRECTOR'S RULING, 2026-08-15: "fix the ones that hide text; waive the
-	rest" (O-21) ──────────────────────────────────────────────────────────────
+	rest" (O-21), EXECUTED TO THE END ─────────────────────────────────────────
 
 	Answered by measurement rather than by re-reading these rows, because "does it
-	paint outside its box" and "can a player still read it" are different
-	questions and this list only ever recorded the first. The instrument is
+	paint outside its box" and "can a player still read it" are different questions
+	and this list only ever recorded the first. The instrument is
 	`tools/lune/triage_overflow_waivers` (run it; it names its three verdicts and
 	what it refuses to count), and its output is
 	`artifacts/swiftui-parity-round3/waiver-readability.txt`.
 
-	THE SPLIT OF THE 42: TEN FIXED and deleted from this list — every one of them
-	a row that put copy or a labelled control off the screen, and every one
-	repaired in the fixture (see the commit for the per-surface measurements).
-	SIXTEEN still hide something and are STILL OWED: they keep their ceilings here
-	because a permanently red always-on check is worse than none, not because they
-	are pardoned. FIFTEEN are cosmetic, and each says why below — the probe found
-	no character and no control outside the band a player can reach, nothing cut
-	without a `disclose` to open it, and nothing opaque painted over copy.
+	THE LIST WENT 42 -> 31 -> 13, IN TWO ROUNDS OF THE SAME RULING. Round one fixed
+	ten and measured fifteen cosmetic, leaving sixteen that still hid copy or a
+	labelled control. Round two closed all sixteen: **thirteen FIXED in the fixture,
+	two RECLASSIFIED because the instrument was wrong, and one — `p4_foyer`'s tab
+	row — fixed a second time when the first repair was measured under the locale
+	axis.** EVERY WAIVER LEFT STANDING IS NOW MEASURED COSMETIC, in the neutral pass
+	and in the `xa` pass: no character and no labelled control outside the band a
+	player can reach, nothing cut without a `disclose` to open it, nothing opaque
+	painted over copy. That is the whole ruling discharged; what remains is a bleed
+	ledger, not a to-do list.
 
-	THE SIXTEEN THAT ARE OWED, with what a player loses (the fix is the fixture's,
-	not this file's): card_rail's card plate x2 (`Rally` 61px off the fold, `Name`
-	cut with no disclose), p4_foyer's TopBar (the notice count off-screen — and
-	128px at +0 under `xa`, see LOCALE_WAIVERS), p5_wardrobe's two item grids
-	(`Dusk Plaza` 4px off), row_actions' table pane x2 (the `From` HEADER 33px
-	below the fold) and its vlist pane (the swipe hint 9px below it), scroll_host's
-	`BELOW-LIST MARKER` (10px below the fold, and covered), sponsor_avatars'
-	initials (16 covered), sponsor_list's row detail (18 cut, no disclose),
-	variable_extents' status line (36px below the fold and cut), and four whose
-	loss is a labelled CONTROL rather than a word: perf_capture's `Boost`,
-	sponsor_billboard's four buttons, sponsor_toast's `Press me` x2.
+	THE TWO INSTRUMENT DEFECTS ROUND TWO FOUND, both of which had manufactured
+	"hidden text" out of nothing, and both fixed in the probe rather than argued:
+	  * PAINT ORDER WAS A PATH SORT. `adapter.paths()` is sorted — alphabetically —
+	    and the probe had been reading its index as "painted later". `BellZ/
+	    BadgeWhen/.../Count` sorts before its sibling `BellZ/Bell` while the
+	    renderer paints the badge ON TOP of the bell, so a notification count was
+	    reported covered by the button it decorates. `node.z` (what `syncZOrder`
+	    wrote through `adapter.setZOrder`) is the only thing entitled to the word.
+	  * `surface = "plain"` WAS COUNTED AS OPAQUE. `chrome_slots.classify` returns
+	    nil for it before any class rule ("AN EXPLICIT `plain` PAINTS NOTHING"), so
+	    a `plain` Box is a stroke and a shape with no fill — and `sponsor_avatars`'
+	    16 "covered" initials were covered by the hairline RIM drawn around them.
+	  ...and one more the occlusion pass needed: a victim rect is intersected with
+	  its ScrollView ancestors' windows before it is asked whether anything covers
+	  it, because a row its own list has already clipped away is not on glass to be
+	  covered (`/ScrollHost/List/Row10`, whose list box had collapsed).
 
-	WHY THE FIFTEEN ARE COSMETIC, one line each, all measured 2026-08-15:
+	THE THIRTEEN FIXTURE REPAIRS, each with what a player got back:
+	  p5_wardrobe        the item card's column hugged its widest LABEL, so it
+	                     measured 153px inside a 133px Button content box: `Dusk
+	                     Plaza` truncated at the wrong width and the whole card ran
+	                     past the catalog scroller on x. `shrinkWeight` on the
+	                     column and on the creator line (2 waivers + 4 locale rows)
+	  p4_foyer TopBar    `minMax { min = 0 }` under the shrink pair — the one lever
+	                     that outranks a one-word label's longest-word floor — so
+	                     the wordmark yields instead of the bell. Bell + unread
+	                     count were 2px off a 320px screen and 19px off a 390px one
+	                     under `xa` (1 waiver + 1 locale row, the latter at +0)
+	  sponsor_toast      stage and chrome were both `fill` against a page that was
+	                     not: `Press me`, the control the fixture is ABOUT, sat 5px
+	                     below the fold. The chrome is a bounded sibling scroller
+	                     now (2 waivers)
+	  sponsor_billboard  a `Spacer` on `fill` gives its pixels back to nobody; all
+	                     four labelled controls were below the fold. The readouts
+	                     scroll and take the Spacer's job (1 waiver)
+	  perf_capture       the boost count shared the readout band instead of taking
+	                     a second pinned line, and the roster NAME shrinks like its
+	                     detail. `Boost` — the control this fixture's own injected
+	                     input fault is about — was already unreachable with no
+	                     fault injected (1 waiver)
+	  row_actions        `VirtualList` is 243px of label and `minColumnWidth =
+	                     "intrinsic"` reads the widest one, so the mode bar
+	                     re-columned to two lines and took 134px of a 184px canvas;
+	                     the `From` header ended 33px under the fold. Plus the hint
+	                     behind the same `showHeading` the title uses, and the
+	                     list's window is the pane with no row-sized floor pushing
+	                     it off the bottom edge (3 waivers)
+	  card_rail          the rail's cross extent is the plate's own height now —
+	                     padding, two line boxes, the theme's `chromeInsets` and
+	                     `chromeOutsets`, the scroll gutter — and the PAGE scrolls,
+	                     which it may because the rail scrolls x. `Rally` was 61px
+	                     inside a clip host on an axis that does not scroll back
+	                     (2 waivers + 2 locale rows)
+	  variable_extents   a sibling chrome scroller, conditional on `isShort`, and a
+	                     `disclose` on the capped status line: the status was 36px
+	                     below the fold and cut (1 waiver)
+	  scroll_host        the title and the two region labels go where the room does
+	                     — 194px of a 168px box put the BELOW-LIST MARKER, the node
+	                     this fixture asserts must never move, 10px under the fold
+	                     (2 waivers)
+	  table_virtualized  the same sibling-scroller shape: its own waiver was right
+	                     that the page cannot NEST a scroller, and a sibling is not
+	                     a nest. `Last` was 10px under the fold under `xa`
+	                     (1 waiver + 1 locale row)
+	  sponsor_list       the two-line cap stays (uniform growth is what keeps
+	                     `index x height` true) and now carries the other half of a
+	                     declared truncation: `disclose` (waiver stays, cosmetic)
+
+	WHY THE THIRTEEN THAT REMAIN ARE COSMETIC, one measured line each, all
+	re-measured 2026-08-15 after every repair above:
 	  03_settings_sync /Settings/Page/State  24px below a panel edge at +4 only;
 	    all four labels stay on screen, uncut and uncovered
 	  authoring /AuthoringScreen             the last row of validation PLATES
 	    runs 9px past the fold; every label on the page is inside the band
 	  drag_session /DragLab                  the draggable CARD is 4px past the
 	    fold; no copy leaves the band and the card is still grabbable
-	  p4_foyer .../FeedPage                  the feed page's content box collapses
+	  p4_foyer .../HomeBody                  the feed page's content box collapses
 	    on a short landscape, and all 63 of its text nodes still paint inside the
 	    band; every cut string carries `disclose`
-	  p4_foyer .../HomeBody                  the same page, the same measurement,
-	    one node up
-	  p5_wardrobe .../Picked/.../Col/Meta    the VERIFIED icon is 13px past the
-	    edge; the creator line beside it truncates WITH `disclose`
-	  p5_wardrobe .../Rest/.../Col/Meta      the twin of the row above
+	  p4_foyer .../FeedPage                  the same page, one node down, the same
+	    measurement — and now clean under `xa` too, since the tab row shrinks
 	  row_actions .../Cell-from/Value        the cell's own text is taller than
 	    the cell it is layered in; it stays in the band and nothing opaque covers it
 	  row_actions .../Cell-subject/Value     the twin of the row above, one
 	    preference later
-	  scroll_host /ScrollHost/List           the list's content box collapses on y
-	    inside a page whose 20 labels all still paint in the band
+	  sponsor_avatars /AvatarLab             the RECLASSIFIED one: its 16 "covered"
+	    initials were covered by a `surface = "plain"` rim, which paints no fill at
+	    all. Nine text nodes, none cut, none off the band
 	  sponsor_drop .../ListZone/Rows         the list zone outgrows the layer it
 	    sits in; what it paints over is the chevron affordance, which is not copy
 	  sponsor_drop /DropLab/Main             8px at +14 on one view, with no copy
 	    and no control outside the band
+	  sponsor_list .../Card/Labels           the capped detail line still overruns
+	    the plate by a few px; it is cut WITH a `disclose` now, so the string has a
+	    way back and nothing else leaves the band
 	  sponsor_motion .../WashLabel           a label layered in the wash zstack:
 	    nothing leaves the band and nothing is painted over it
-	  table_virtualized /TableVirtualized    the page runs past the fold at +14 on
-	    two views; every line still reads, and the cut status line discloses
 	  virtual_list_native /VLNative          the page overruns and all 24 labels
 	    stay in the band — the list's own window scrolls to them
 
@@ -698,16 +756,6 @@ local WAIVERS: { Waiver } = {
 		where = "320x640/640x320/compact-portrait/compact-landscape @ +4/+10/+14",
 	},
 	{
-		surface = "row_actions",
-		variant = "vlist",
-		node = "/MailActions/VListWhen/then/VListPane",
-		sig = "content overflows this vstack by Npx on the",
-		px = 109,
-		since = 4,
-		kind = "fixed-px-vs-text",
-		where = "320x640/640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
 		surface = "sponsor_drop",
 		variant = "-",
 		node = "/DropLab/Main/ListZone/Rows",
@@ -716,56 +764,6 @@ local WAIVERS: { Waiver } = {
 		since = 0,
 		kind = "layer-overlap",
 		where = "640x320/compact-landscape @ +0/+4/+10/+14 — the list is taller than the zone it is layered into",
-	},
-	{
-		surface = "variable_extents",
-		variant = "-",
-		node = "/VariableExtents",
-		sig = "content overflows this vstack by Npx on the",
-		px = 68,
-		since = 10,
-		kind = "page-not-scrollable",
-		where = "640x320 @ +10/+14 and compact-phone-landscape @ +14 — the title, the WRAPPING control row (`UI.Toggle` is a full-width row control, so it takes a wrap line to itself and the four size chips take one or two more) and the two-line status measure 268px of a 200px box at +14, with the list already at ZERO. This surface's two real defects are FIXED rather than waived: the row extents now derive from the live text facts (372 findings) and the window is the solved pane rather than a 210px reserve",
-	},
-	{
-		surface = "table_virtualized",
-		variant = "-",
-		node = "/TableVirtualized",
-		sig = "content overflows this vstack by Npx on the",
-		px = 171,
-		since = 14,
-		kind = "page-not-scrollable",
-		where = "320x640/narrow-portrait and 640x320/narrow-landscape @ +14 ONLY, on every theme package (15 findings, worst 171px). THE PAGE CANNOT DELEGATE ITS SCROLLING and that is the feature, not an oversight: a windowed list is defined against a viewport, so `newTable` refuses `virtualized` beside `scrolls = false` — this surface therefore owns exactly one scroller (the table's own body) and its chrome has to fit above it. FOUR THINGS WERE MEASURED AND FIXED BEFORE THIS WAIVER WAS WRITTEN, not waived: the auto Edit/Done toolbar row (owning `editing` took it back), the header band's `minMax` floor (77 findings, ALL of them that band — the fixture is headerless and the list's `fill` body windows down to nothing), a second row of buttons (five long labels made the row 96px and put the page 20px over its box at the DEFAULT preference; four short ones share one row), and the page title. What is left is the irreducible case: at the Largest preference a 320px phone's wrapped buttons and two status lines need more than the 520px band the showcase leaves, with the list already at ZERO. A floor on the list here would be the `variable_extents` mistake again — a list that insists on 72px in a 0px pane paints those 72px over its neighbour",
-	},
-	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
-		sig = "content overflows this vstack by Npx on the",
-		px = 68,
-		since = 10,
-		kind = "fixed-px-vs-text",
-		where = "640x320/compact-landscape @ +10/+14 — the fixed card plate",
-	},
-	{
-		surface = "sponsor_billboard",
-		variant = "-",
-		node = "/BillboardLab",
-		sig = "content overflows this vstack by Npx on the",
-		px = 64,
-		since = 4,
-		kind = "page-not-scrollable",
-		where = "640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
-		surface = "sponsor_toast",
-		variant = "-",
-		node = "/ToastLab/Stage/Beneath",
-		sig = "this child overflows its zstack by NxNpx and",
-		px = 63,
-		since = 0,
-		kind = "layer-overlap",
-		where = "640x320/compact-landscape @ +0/+4/+10/+14 — the stage's beneath layer outgrows the stage",
 	},
 	{
 		surface = "drag_session",
@@ -786,16 +784,6 @@ local WAIVERS: { Waiver } = {
 		since = 4,
 		kind = "page-not-scrollable",
 		where = "640x320/compact-landscape @ +4/+10/+14",
-	},
-	{
-		surface = "row_actions",
-		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main",
-		sig = "content overflows this vstack by Npx on the",
-		px = 36,
-		since = 10,
-		kind = "fixed-px-vs-text",
-		where = "640x320/compact-landscape @ +10/+14",
 	},
 	{
 		surface = "sponsor_list",
@@ -828,32 +816,6 @@ local WAIVERS: { Waiver } = {
 		where = "four phone views @ +10/+14",
 	},
 	{
-		surface = "scroll_host",
-		variant = "-",
-		node = "/ScrollHost",
-		sig = "content overflows this vstack by Npx on the",
-		px = 26,
-		since = 10,
-		kind = "page-not-scrollable",
-		where = "640x320/compact-landscape @ +10/+14",
-	},
-	-- `async_images` had a `page-not-scrollable` waiver here (/AsyncImages, 25px at
-	-- 640x320/compact-landscape, since = 10) and a themed ledger row at 143px. BOTH
-	-- ARE DELETED, not re-recorded: the fixture entered the demo picker (round-3
-	-- O-30) and a surface a player can select does not get to overflow, so its page
-	-- is a ScrollView now. A waiver that stops firing is a fixed defect and the line
-	-- goes — which is exactly what the stale-waiver case at the bottom is for.
-	{
-		surface = "row_actions",
-		variant = "table",
-		node = "/MailActions/TableWhen/then/TablePane",
-		sig = "content overflows this vstack by Npx on the",
-		px = 25,
-		since = 10,
-		kind = "page-not-scrollable",
-		where = "640x320/compact-landscape @ +10/+14",
-	},
-	{
 		surface = "03_settings_sync",
 		variant = "-",
 		node = "/Settings/Page/State",
@@ -864,46 +826,6 @@ local WAIVERS: { Waiver } = {
 		where = "compact-portrait 359x718 @ +4 ONLY — clean at +10 and +14, the non-monotone cell that makes an extremes-only sweep unsafe",
 	},
 	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 4,
-		kind = "fixed-px-vs-text",
-		where = "six of the eight views @ +4/+10/+14 (non-monotone at 640x320: +4 and +14, not +10)",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/console-ten-foot @ +10/+14",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 4,
-		kind = "fixed-px-vs-text",
-		where = "six of the eight views @ +4/+10/+14 (twelve generated cards, one template)",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 10,
-		kind = "row-cannot-shrink",
-		where = "320x640/console-ten-foot @ +10/+14",
-	},
-	{
 		surface = "row_actions",
 		variant = "table",
 		node = "/MailActions/TableWhen/then/TablePane/MailTable/Main/Body/Rows/[*]/*/Content/Row/Cells/Cell-subject/Value",
@@ -912,16 +834,6 @@ local WAIVERS: { Waiver } = {
 		since = 10,
 		kind = "layer-overlap",
 		where = "compact-portrait/320x640 @ +10/+14 (six rows, one template) — the same cause as the from-cell above, one preference later",
-	},
-	{
-		surface = "perf_capture",
-		variant = "-",
-		node = "/PerfCapture",
-		sig = "content overflows this vstack by Npx on the",
-		px = 23,
-		since = 10,
-		kind = "page-not-scrollable",
-		where = "640x320/compact-landscape @ +10/+14",
 	},
 	-- CLOSED 2026-08-14 by director ruling 1 (the degrade cascade). This entry
 	-- recorded `/ProgressRing/Page/Dots` overflowing 20px at +14 on 320x640, kind
@@ -952,26 +864,6 @@ local WAIVERS: { Waiver } = {
 		where = '640x320/compact-landscape @ +0/+4/+10/+14 — 8+8 of padding on a 16px height, so nothing inside the feed page can draw. Recorded as owed on 2026-08-12 (device-bug round, "found and NOT fixed") and never re-verified until now',
 	},
 	{
-		surface = "sponsor_toast",
-		variant = "-",
-		node = "/ToastLab",
-		sig = "content overflows this vstack by Npx on the",
-		px = 16,
-		since = 10,
-		kind = "page-not-scrollable",
-		where = "640x320 ONLY @ +10/+14",
-	},
-	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
-		sig = "content box collapses to Npx on y: padding N",
-		px = 15,
-		since = 14,
-		kind = "collapsed-box",
-		where = "640x320 @ +14 (seven cards, one template) — the same fixed card plate as the row above, now with no room left for its own padding",
-	},
-	{
 		surface = "sponsor_avatars",
 		variant = "-",
 		node = "/AvatarLab",
@@ -980,32 +872,6 @@ local WAIVERS: { Waiver } = {
 		since = 10,
 		kind = "page-not-scrollable",
 		where = "640x320 ONLY @ +10/+14",
-	},
-	{
-		surface = "scroll_host",
-		variant = "-",
-		node = "/ScrollHost/List",
-		sig = "content box collapses to Npx on y: padding N",
-		px = 11,
-		since = 4,
-		kind = "collapsed-box",
-		where = "640x320/compact-landscape @ +4/+10 and NOT +14 — another non-monotone cell: the page reflows at +14 and hands the list its padding back",
-	},
-	{
-		-- THE NEGATIVE CONTROL THIS AXIS WAS BUILT AROUND. Reported independently
-		-- by the reference agent on 2026-08-13, pre-existing, and reproduced here
-		-- the first time the sweep ran with the axis on. English copy at 320x640
-		-- is the cell this corpus reaches it in; the same bar overflows by 33/58px
-		-- at 390x844 under the 1.4x `xa` locale, which is the locale axis this file
-		-- does not sweep.
-		surface = "p4_foyer",
-		variant = "-",
-		node = "/Foyer/Root/TopBar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 10,
-		since = 14,
-		kind = "row-cannot-shrink",
-		where = "320x640 ONLY @ +14",
 	},
 	{
 		surface = "sponsor_drop",
@@ -1243,49 +1109,9 @@ local LOCALE_WAIVERS: { Waiver } = {
 	{
 		surface = "p4_foyer",
 		variant = "-",
-		node = "/Foyer/Root/TopBar",
-		sig = "content overflows this hstack by Npx on the",
-		px = 128,
-		since = 0,
-		kind = "row-cannot-shrink",
-		where = "5 cells, worst compact-phone-portrait@+0",
-	},
-	{
-		surface = "p4_foyer",
-		variant = "-",
 		node = "/Foyer/Root/Middle/ContentHost/HomeWhen/then/HomeBody",
 		sig = "content overflows this vstack by Npx on the",
 		px = 110,
-		since = 14,
-		kind = "fixed-px-vs-text",
-		where = "compact-phone-landscape@+14, narrow-landscape@+14",
-	},
-	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail",
-		sig = "content overflows this vstack by Npx on the",
-		px = 78,
-		since = 14,
-		kind = "page-not-scrollable",
-		where = "compact-phone-landscape@+14, narrow-landscape@+14",
-	},
-	{
-		surface = "table_virtualized",
-		variant = "-",
-		node = "/TableVirtualized",
-		sig = "content overflows this vstack by Npx on the",
-		px = 73,
-		since = 14,
-		kind = "page-not-scrollable",
-		where = "compact-phone-landscape@+14, narrow-landscape@+14",
-	},
-	{
-		surface = "card_rail",
-		variant = "-",
-		node = "/CardRail/RailPane/Rail/Canvas/W/[*]/Row/Card",
-		sig = "content overflows this vstack by Npx on the",
-		px = 68,
 		since = 14,
 		kind = "fixed-px-vs-text",
 		where = "compact-phone-landscape@+14, narrow-landscape@+14",
@@ -1309,46 +1135,6 @@ local LOCALE_WAIVERS: { Waiver } = {
 		since = 14,
 		kind = "layer-overlap",
 		where = "desktop-studio-1320@+14, narrow-landscape@+14",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 14,
-		kind = "row-cannot-shrink",
-		where = "6 cells, worst compact-phone-portrait@+14",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 14,
-		kind = "row-cannot-shrink",
-		where = "6 cells, worst compact-phone-portrait@+14",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/RestWhen/then/Rest/RestGrid/Items/[*]/*/Col/Meta",
-		sig = "content overflows this hstack by Npx on the",
-		px = 24,
-		since = 14,
-		kind = "row-cannot-shrink",
-		where = "console-ten-foot@+14, narrow-portrait@+14",
-	},
-	{
-		surface = "p5_wardrobe",
-		variant = "-",
-		node = "/Wardrobe/BoutiqueWhen/then/Body/Catalog/CatalogCol/Items/PickedWhen/then/Picked/PickedGrid/Items/[*]/*/Col/Meta",
-		sig = "content overflows this hstack by Npx on the",
-		px = 19,
-		since = 14,
-		kind = "row-cannot-shrink",
-		where = "console-ten-foot@+14, narrow-portrait@+14",
 	},
 	{
 		surface = "p4_foyer",
@@ -1955,17 +1741,21 @@ describe("overflow sweep: the accessibility waiver list", function()
 			)
 		end
 		-- ...and the list is not allowed to quietly grow without anybody noticing
-		-- either: 35 is what turning the TEXT-SIZE axis on found on 2026-08-13, and
-		-- 51 is what removing the message filter found the same day (the four classes
-		-- this file could never see). Every addition is a decision somebody has to
-		-- make on purpose.
-		expect(#WAIVERS <= 51).toBe(true)
+		-- either: 35 is what turning the TEXT-SIZE axis on found on 2026-08-13, 51 is
+		-- what removing the message filter found the same day (the four classes this
+		-- file could never see), and 13 is what is left after the director's ruling
+		-- was carried to the end on 2026-08-15 (header). Every addition is a decision
+		-- somebody has to make on purpose, and the cap moves DOWN with the list so a
+		-- fixed defect cannot be quietly replaced by a new one.
+		expect(#WAIVERS <= 13).toBe(true)
 		--[[ ...and rule 1's own guard: the waivers that admit a defect at the DEFAULT
 			preference, every one of them in a class this file was blind to. A new one
 			means a +0 contract was surrendered, which is never a number to nudge.
 
-			IT WENT 7 -> 6 -> 4 ON 2026-08-15, downward twice, which is the only
-			direction that needs no argument. The first to leave was `row_actions`'
+			IT WENT 7 -> 6 -> 4 -> 3 ON 2026-08-15, downward three times, which is the
+			only direction that needs no argument. The last to leave was
+			`sponsor_toast`'s `Stage/Beneath`, whose stage now shares the canvas with a
+			bounded chrome scroller instead of both lanes claiming `fill`. The first to leave was `row_actions`'
 			`ROW_HEIGHT = 84` against a wrapping three-line cell measuring 88 at +0 —
 			the worst of the three lying extents, and the only one that lied at the
 			default preference; the row does not predict any more (`itemExtent =
@@ -1973,7 +1763,7 @@ describe("overflow sweep: the accessibility waiver list", function()
 			`sponsor_drop`'s twin chevron plates, `fixed` boxes holding a text glyph:
 			the plate is a `minMax` FLOOR now, so it grows with the glyph instead of
 			cutting it. ]]
-		expect(DEFAULT_WAIVERS).toBe(4)
+		expect(DEFAULT_WAIVERS).toBe(3)
 	end)
 end)
 
@@ -2023,7 +1813,7 @@ describe("overflow sweep: the locale ledger", function()
 			label. The pass is not offered to those surfaces now, and the rows went
 			with it. A ledger that records a defect the axis cannot actually see is the
 			"check that proves nothing" class one level up. ]]
-		expect(#LOCALE_WAIVERS <= 12).toBe(true)
+		expect(#LOCALE_WAIVERS <= 4).toBe(true)
 	end)
 
 	it("REACH: the pass moved the copy it claims to, and names every surface it did not", function()

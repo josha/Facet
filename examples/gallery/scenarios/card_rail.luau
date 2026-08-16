@@ -64,6 +64,13 @@ local CARD_COUNT = 400
 -- a rail that shows exactly one card teaches nothing about windowing.
 local ITEM_EXTENT = 132
 local CARD_GAP = 8
+-- THE PLATE'S OWN TERMS, named once because `cardHeight` below sums exactly
+-- these and the blueprint spends exactly these — the row-height lesson's rule
+-- that the arrangement and the extent are ONE decision.
+local CARD_PADDING = 8
+local CARD_ROW_GAP = 2
+local NAME_SIZE = 14
+local BADGE_SIZE = 12
 -- The Screen's own frame, as a NUMBER rather than a spacing token, because the
 -- viewport arithmetic below has to subtract it exactly. A token would be a
 -- theme fact this file cannot read at build time.
@@ -150,8 +157,8 @@ return {
 				return UI.VStack({
 					id = "Card",
 					surface = "raised",
-					padding = 8,
-					gap = 2,
+					padding = CARD_PADDING,
+					gap = CARD_ROW_GAP,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
 					children = {
@@ -162,11 +169,11 @@ return {
 						-- option is to reflow — and a plate that grows a line taller
 						-- than its neighbours is not a rail. Ellipsis is the contract
 						-- here, exactly as it is for the row-actions tray's labels.
-						UI.Text({ id = "Name", text = item.name, textSize = 14, lineLimit = 1 }),
+						UI.Text({ id = "Name", text = item.name, textSize = NAME_SIZE, lineLimit = 1 }),
 						UI.Text({
 							id = "Badge",
 							text = item.badge,
-							textSize = 12,
+							textSize = BADGE_SIZE,
 							role = "secondary",
 							lineLimit = 1,
 						}),
@@ -188,27 +195,104 @@ return {
 			return `{COPY.selectedPrefix}{key}`
 		end))
 
+		--[[ THE CARD'S OWN HEIGHT, DERIVED FROM THE SAME FACTS IT PAINTS WITH
+			(O-21, 2026-08-15) — the `sponsor_list` row-height idiom, applied to the
+			CROSS axis of a horizontal list.
+
+			WHAT IT WAS: `RailPane` took `height = fill`, i.e. "whatever the three
+			labels around it did not take, and it can never demand more". On a
+			640x320 landscape at the largest text preference the three labels took
+			all but 23px, the plate needed 84, and the rail's clip host cut the
+			`Rally` badge 61px below its own window — where nothing scrolls it back,
+			because the axis that scrolls here is x. `fill` is a promise the box will
+			be big enough, and this box was not.
+
+			The plate's height is not a mystery: it is its own padding, one 14pt line,
+			its own 2px gap and one 12pt line, every term read from the live text
+			facts so a text-size preference or a theme face moves the plate and the
+			rail together. Declaring it is what lets the PAGE take the deficit
+			instead — see the scroller below. ]]
+		local cardHeight = scope:own(core:memo(function(use)
+			local facts = LuauUI.text.facts({ env = ctx.env, use = use })
+			local box = CARD_PADDING * 2
+				+ LuauUI.text.lineBox({ facts = facts, size = NAME_SIZE, lines = 1 })
+				+ CARD_ROW_GAP
+				+ LuauUI.text.lineBox({ facts = facts, size = BADGE_SIZE, lines = 1 })
+			--[[ ...PLUS WHAT THE THEME CARVES OUT OF THE PLATE. `surface = "raised"`
+				classifies to the `panel` chrome slot, and a package whose panel art has
+				a border reserves that border off the node's content box before anything
+				inside it is measured (`layout_node.luau`, "a chrome inset is a request,
+				not a right"). Measured 2026-08-15: under Compact Pointer the plate's
+				own top inset was 16px against the authored 8, so a height summed from
+				padding + two line boxes alone came out 12px short on EVERY card at the
+				DEFAULT preference — the theme axis this fixture's first fix was blind
+				to. `hasChromeInsets` is the snapshot's own answer to "is there anything
+				to spend": every slot publishes an entry now, zero included. ]]
+			local metrics: any = facts.metrics
+			local chrome = if type(metrics) == "table"
+					and metrics.hasChromeInsets == true
+					and type(metrics.chromeInsets) == "table"
+				then metrics.chromeInsets.panel
+				else nil
+			local chromeV = if type(chrome) == "table"
+				then (tonumber(chrome.top) or 0) + (tonumber(chrome.bottom) or 0)
+				else 0
+			-- ...and the OUTSET, which is the same fact pointing the other way: art
+			-- that bleeds past the plate is realised as a margin, so the plate itself
+			-- is that much smaller inside the row the list gave it. Fantasy Ornate is
+			-- the one shipped package that declares one (20px off the top), and
+			-- without this term its cards came out 16px short at every preference.
+			local bleed = if type(metrics) == "table" and type(metrics.chromeOutsets) == "table"
+				then metrics.chromeOutsets.panel
+				else nil
+			local bleedV = if type(bleed) == "table"
+				then (tonumber(bleed.top) or 0) + (tonumber(bleed.bottom) or 0)
+				else 0
+			-- ...and the rail's OWN gutter, which on a horizontal scroller comes off
+			-- the bottom: the pane holds the list, the list holds a bar, and a plate
+			-- sized to the pane would be exactly `scrollBarThickness` too tall (8px,
+			-- measured). `RAIL_SLACK` is the same over-reserve this file already
+			-- spends on the width, on the other axis and for the same reason — a
+			-- slightly taller pane is empty space the page scrolls past, a slightly
+			-- shorter one clips the badge.
+			return { type = "fixed", px = math.ceil(box + chromeV + bleedV) + RAIL_SLACK }
+		end))
+
 		local screen = UI.Screen({
 			id = "CardRail",
 			padding = PADDING,
 			gap = 6,
 			children = {
-				UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
-				UI.Text({ id = "Hint", text = COPY.hint, textSize = 12, role = "secondary" }),
-				-- THE RAIL FILLS WHAT IS LEFT. Its own height is the CROSS axis of a
-				-- horizontal list, which fills its container by construction (a
-				-- horizontal list refuses a `width`, because there the width IS the
-				-- scroll axis) — so the box it gets is whatever the three labels
-				-- around it did not take, and it can never demand more.
-				UI.VStack({
-					id = "RailPane",
-					gap = 0,
-					padding = 0,
+				--[[ THE PAGE SCROLLS, AND THE AXIS IS WHY IT MAY (O-21). The rule this
+					fixture family keeps — `variable_extents`, `scroll_host` — is that a
+					page scroller must not nest inside the scroller the surface exists to
+					prove, because a gesture with two owners has none. Here the rail owns
+					x and this page owns y: perpendicular, one owner each, and a thumb
+					that drags down never reaches the rail's own handler. It is the same
+					call `async_images` took when it entered the picker: a surface a
+					player can select does not get to overflow. ]]
+				UI.ScrollView({
+					id = "Page",
+					axis = "y",
+					gap = 6,
 					width = { type = "fill", weight = 1 },
 					height = { type = "fill", weight = 1 },
-					children = { rail.blueprint },
+					children = {
+						UI.Text({ id = "Title", text = COPY.title, textSize = 18 }),
+						UI.Text({ id = "Hint", text = COPY.hint, textSize = 12, role = "secondary" }),
+						-- the rail's cross extent is now the plate's own measured height
+						-- (above) rather than the page's leftover
+						UI.VStack({
+							id = "RailPane",
+							gap = 0,
+							padding = 0,
+							width = { type = "fill", weight = 1 },
+							height = cardHeight,
+							children = { rail.blueprint },
+						}),
+						UI.Text({ id = "Selected", text = selectedLabel, textSize = 13 }),
+					},
 				}),
-				UI.Text({ id = "Selected", text = selectedLabel, textSize = 13 }),
 			},
 		})
 

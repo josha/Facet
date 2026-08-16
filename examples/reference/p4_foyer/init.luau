@@ -528,6 +528,9 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		return UI.VStack({
 			id = "Tab_" .. tabId,
 			gap = "xs",
+			-- both tabs give pixels back at the same rate, so a short row narrows
+			-- them together instead of pushing the last one off the edge (O-21)
+			shrinkWeight = 1,
 			children = {
 				UI.Button({
 					id = "B",
@@ -689,13 +692,23 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		align = "stretch",
 		height = { type = "fill", weight = 1 },
 		children = {
-			-- THE TAB ROW WRAPS (O-21, 2026-08-15): two tab targets at the Largest
-			-- text preference need more than a 320px phone gives them, and the row
-			-- put `Charts` — the tab's own label, on the tab's own target — 27px off
-			-- the right screen edge rather than taking a second line.
+			--[[ THE TAB ROW SHRINKS RATHER THAN WRAPS (O-21 round 2, 2026-08-15).
+				Wrapping was the first repair — two tab targets at the Largest text
+				preference need more than a 320px phone gives them, and the row put
+				`Charts` 27px off the right screen edge rather than taking a second
+				line. Measured under the 1.4x `xa` locale it traded one loss for
+				another: a second line is 63px, `Middle` leaves `HomeBody` about 64px
+				on a 705x338 landscape, and the wrapped `Charts` tab then sat 5px BELOW
+				the fold — the same label lost, off the other edge, and a tab target
+				under the fold cannot even be aimed at.
+				A wrapping stack does not read the shrink pair at all (api.md:
+				"wrapping IS what this stack does with a deficit"), so the two are
+				alternatives rather than a pair. Shrinking keeps both targets on ONE
+				line and on screen at every viewport and every locale; the cost is a
+				truncated tab label at the far end of the cross product, which is a
+				degrade the framework has a name for and an off-screen target is not. ]]
 			UI.HStack({
 				id = "TabRow",
-				wrap = true,
 				gap = "l",
 				padding = { left = "m", right = "m" },
 				children = { tabButton("forYou", "tab.forYou"), tabButton("charts", "tab.charts") },
@@ -991,7 +1004,7 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 		gap = "m",
 		padding = "s",
 		children = {
-			--[[ NO SHRINK PAIR HERE, AND THE MEASUREMENT IS WHY. This row reports
+			--[[ WHY THE SHRINK PAIR BELOW NEEDED A `minMax` UNDER IT. This row reports
 				"content overflows this hstack by 46px on the main axis" on
 				`controller.diagnostics()` at 390x844 with `preferredTextSize` raised to
 				+4 and +14 — the phone, at two of the four shipping text offsets. (The
@@ -1005,10 +1018,39 @@ function Foyer.build(LuauUI: any, core: any, deps: any): any
 				tried: 0)". A text node's shrink floor is ITS LONGEST WORD, and the
 				brand is the single word "Foyer" — which measures 224px at title+4, so
 				there is nothing for a weight to give. The prop was deleted rather than
-				left in place looking like a fix. Recorded as a gap in the round-3
-				adoption ledger: no vocabulary lets a one-word label truncate BELOW its
-				longest word, so a hand-chosen `minMax` cap is still the only lever. ]]
-			UI.Text({ id = "Brand", text = L("app.name"), textSize = "title" }),
+				left in place looking like a fix, and the gap was recorded in the
+				round-3 adoption ledger: no vocabulary lets a one-word label truncate
+				BELOW its longest word, so a hand-chosen `minMax` is the only lever.
+				O-21 took it — see the node below; the pair is back BECAUSE the floor
+				it needed is now declared, which is the part that was missing. ]]
+			UI.Text({
+				id = "Brand",
+				text = L("app.name"),
+				textSize = "title",
+				--[[ THE SHRINK PAIR IS BACK, AND THE BLOCK ABOVE IS WHY IT WORKS NOW
+					(O-21, measured 2026-08-15). That note is from 2026-08-13 and its
+					conclusion — "no vocabulary lets a one-word label truncate BELOW its
+					longest word, so a hand-chosen `minMax` cap is still the only lever" —
+					was true on the day it was written and is not true today: director
+					ruling 1 of 2026-08-14 put an ELLIPSIS rung under the longest-word
+					floor (`src/layout/shrink.luau`, COMPACT -> TRUNCATE -> CLIP), so a
+					single-word wordmark has somewhere to go and a bare `shrinkWeight`
+					reaches it. MEASURED AS THE MINIMAL SET: a `minMax` with a zero floor under
+					this was written first and then deleted, because removing it moves
+					neither the sweep nor the readability probe — the cascade already
+					supplies the floor it was there to declare. Removing the weight
+					itself reddens `proof 'p4_foyer'`.
+					What it buys: without it the bell and its unread count sat 2px off a
+					320px screen in English at +14, and 19px off a 390px one under `xa`. ]]
+				shrinkWeight = 1,
+				-- ...and a cut wordmark is a DECLARED truncation with a way back
+				-- (§15.3 `policy = "truncate"`), never a clipped string. No always-on
+				-- check bites for these two — the probe only reads nodes under a
+				-- finding, and this row files none now — so they are here on the
+				-- standing rule that player copy is never cut without an opener.
+				lineLimit = 1,
+				disclose = true,
+			}),
 			UI.ViewThatFits({
 				id = "SearchSlot",
 				width = { type = "fill", weight = 1 },
