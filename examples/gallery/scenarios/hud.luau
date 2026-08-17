@@ -201,6 +201,20 @@ local COPY = {
 	probeSkipped = "skipped:",
 	probeSizeDiffers = "size differs:",
 	probeWaiting = "waiting for the first solve",
+	--[[ WHY A ROW IS SKIPPED, WHEN THE REASON IS A PLATFORM FACT (director, device,
+		2026-08-17). The plate reported `13 of 14 rows wanted / skipped: Objective`
+		and nothing else, and the reason took a 36 624-state sweep to find: that row
+		lives behind `UI.When{ condition = riding }`, and `riding` is false exactly
+		when `platformChrome.band` is nil — which the engine can do at any moment,
+		because it owns the inset that band is derived from.
+
+		A skipped row with no reason is a number a reader cannot act on. These two
+		lines put the INPUT on the plate beside the verdict, so the next photograph
+		of a wrong screen carries what decided it. ]]
+	probeNotRiding = "NOT RIDING —",
+	probeNoBand = "the platform reports no top band",
+	probeRideOff = "the Topbar strip switch is off",
+	probeBandInput = "coreTop=",
 }
 
 --[[ ── THE URL BAR IS TWO FACTS, AND IT USED TO BE ONE NUMBER (D7.5) ──────────
@@ -1515,6 +1529,19 @@ return {
 			if #skipped > 0 then
 				table.insert(lines, `{COPY.probeSkipped} {table.concat(skipped, " · ")}`)
 			end
+			--[[ ...AND WHY, WHEN THE ANSWER IS A PLATFORM FACT RATHER THAN THE LADDER.
+				`Objective` is behind `UI.When{ condition = riding }`, and `riding` is
+				`ride AND platformChrome.band ~= nil`. A band the engine has not published
+				(or has withdrawn) takes that row out of the denominator with nothing said,
+				and the two states are indistinguishable on a photograph — which is exactly
+				what happened on 2026-08-17. The INPUT goes on the plate beside the
+				verdict. ]]
+			local platformBand = (chromeFact:get() :: any).band
+			if not riding:get() then
+				local why = if ride:get() ~= true then COPY.probeRideOff else COPY.probeNoBand
+				local coreTop = ((env:get("coreSafeInsets"):get() or {}) :: any).top or 0
+				table.insert(lines, `{COPY.probeNotRiding} {why} · {COPY.probeBandInput}{math.floor(coreTop + 0.5)}`)
+			end
 			if not engineRead then
 				table.insert(lines, COPY.probeNoEngine)
 			else
@@ -1540,6 +1567,10 @@ return {
 				lost = lost,
 				unmeasured = unmeasured,
 				skipped = skipped,
+				-- the two platform facts the `skipped` list can turn on, published so a
+				-- scripted driver reads the same reason a reader sees on the plate
+				riding = riding:get(),
+				band = platformBand,
 				mismatched = mismatched,
 				firstPainted = firstPainted,
 				hiddenUnder = hiddenUnder,
@@ -2472,6 +2503,11 @@ return {
 						lost = probeReport.lost,
 						unmeasured = probeReport.unmeasured,
 						skipped = probeReport.skipped,
+						-- ...and WHY a row was skipped, when the answer is a platform fact
+						-- rather than the ladder: `Objective` leaves the denominator exactly
+						-- when the engine publishes no top band (NM-H4a round 2)
+						riding = probeReport.riding,
+						band = probeReport.band,
 						mismatched = probeReport.mismatched,
 						firstPainted = probeReport.firstPainted,
 						hiddenUnder = probeReport.hiddenUnder,

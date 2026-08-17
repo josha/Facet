@@ -751,3 +751,86 @@ describe("hud: the director's sequence with the gallery's other surfaces present
 		expect(#divergences(driven, freshTree)).toBe(0)
 	end)
 end)
+
+--[[ NM-H4a round 2 — THE PLATE MUST SAY WHY A ROW LEFT THE DENOMINATOR.
+
+	The director, on the phone, 2026-08-17: the plate read `13 of 14 rows wanted /
+	skipped: Objective` in landscape, and rotating away and back restored
+	`14 of 14`. A 36 624-state sweep over every viewport, both URL states, seven
+	topbar positions, four text sizes and both strip flags never produced that
+	reading — because every one of those states MOUNTED FRESH with a platform band
+	present.
+
+	The reading is what the model prints when `platformChrome.band` is nil.
+	`Objective` sits behind `UI.When{ condition = riding }` and
+
+	    riding = ride AND platformChrome.band ~= nil
+	    band   = nil whenever coreSafeInsets.top == 0, or the topbar rect is
+	             missing/zero (src/env/environment.luau:305-343)
+
+	so a band the engine has not yet published — or has withdrawn — silently takes
+	that row out of the denominator, and the not-riding rung spends a different top
+	inset for the whole HUD. On a photograph that is indistinguishable from a
+	healthy screen at a smaller size, which is the whole reason the plate now
+	carries the INPUT beside the verdict. ]]
+describe("hud: a row skipped by a PLATFORM fact says so on the plate", function()
+	local function bandless(view: any): any
+		local v = {}
+		for k, value in view do
+			v[k] = value
+		end
+		v.coreSafeInsets = { top = 0, right = 0, bottom = 0, left = 0 }
+		return v
+	end
+
+	it("no platform band takes Objective out of the denominator — the phone's exact reading", function()
+		local w = world(PORTRAIT)
+		local built = mount(w, ctxFor(w))
+		-- the band goes away UNDER the mounted surface, which is what an engine that
+		-- owns the inset can do at any moment
+		w.env:set("viewportRect", LANDSCAPE.viewportRect)
+		w.env:set("coreSafeInsets", { top = 0, right = 0, bottom = 0, left = 0 })
+		w.env:set("deviceSafeInsets", LANDSCAPE.deviceSafeInsets)
+		w.presenter.refresh()
+		local probe = built.report().paintProbe
+		expect(probe.riding).toBe(false)
+		expect(probe.expected).toBe(13)
+		expect(#probe.skipped).toBe(1)
+		expect(probe.skipped[1]).toBe("Objective")
+		-- ...and the plate NAMES the reason, so a photograph carries it
+		expect(string.find(probe.plate, "NOT RIDING", 1, true) ~= nil).toBe(true)
+		expect(string.find(probe.plate, "no top band", 1, true) ~= nil).toBe(true)
+		expect(string.find(probe.plate, "coreTop=0", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("the band coming back restores the row, which is the director's own recovery", function()
+		local w = world(PORTRAIT)
+		local built = mount(w, ctxFor(w))
+		w.env:set("viewportRect", LANDSCAPE.viewportRect)
+		w.env:set("coreSafeInsets", { top = 0, right = 0, bottom = 0, left = 0 })
+		w.presenter.refresh()
+		expect(built.report().paintProbe.expected).toBe(13)
+		w.env:set("coreSafeInsets", LANDSCAPE.coreSafeInsets)
+		w.env:set("topbarInset", LANDSCAPE.topbarInset)
+		w.presenter.refresh()
+		w.presenter.refresh()
+		local probe = built.report().paintProbe
+		expect(probe.riding).toBe(true)
+		expect(probe.expected).toBe(14)
+		expect(#probe.skipped).toBe(0)
+		expect(string.find(probe.plate, "NOT RIDING", 1, true)).toBe(nil)
+		built.dispose()
+	end)
+
+	it("a healthy band never prints the reason line", function()
+		-- the negative control: the line must not be a decoration that is always on
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		local probe = built.report().paintProbe
+		expect(probe.riding).toBe(true)
+		expect(string.find(probe.plate, "NOT RIDING", 1, true)).toBe(nil)
+		expect(bandless(LANDSCAPE).coreSafeInsets.top).toBe(0)
+		built.dispose()
+	end)
+end)
