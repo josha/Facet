@@ -1092,3 +1092,103 @@ describe("hud: the line that says why comes before the line that says which", fu
 		built.dispose()
 	end)
 end)
+
+--[[ NM-H4a round 6 — WHY THE PLATE WAS CUT OFF, which is a question about layout
+	and not about the probe.
+
+	The director, 2026-08-17: *"why isn't luauui handling the overlap in the popup so
+	that it's not cutoff right?"* — and the answer is that LuauUI was handling
+	exactly what it was given. The plate handed it ONE `UI.Text` carrying five lines
+	joined with `\n`: a single opaque box, measured once, with the button placed
+	against that one number. When the engine's own text metrics disagree with the
+	measurement, the block draws taller than its box and the sibling under it is
+	drawn over the overflow. Headless the measurement agrees with itself and the
+	plate is perfect; on a device the ENGINE decides, and three photographs running
+	lost the line that mattered.
+
+	A VStack of one Text per line is what lets the framework do the job: each line
+	measured, wrapped and placed on its own, the column's height the sum of what the
+	lines actually need, and a line that grows pushes the button DOWN. ]]
+describe("hud: the probe plate lays out as lines, not as one opaque block", function()
+	local BODY = "/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody"
+
+	local function boxOf(w: any, path: string): any
+		local n = w.adapter.node(path)
+		return if n ~= nil then n.rect else nil
+	end
+
+	it("each plate line is its own node, so a long one cannot hide the next", function()
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if string.find(path, "^/HudScreen/Hud/") ~= nil then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local plate = built.report().paintProbe.plate
+		local count = #string.split(plate, "\n")
+		expect(count > 2).toBe(true)
+		-- one mounted Text per line of the plate, and none for the lines it does not have
+		local mounted = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^" .. BODY .. "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+				mounted += 1
+			end
+		end
+		expect(mounted).toBe(count)
+		built.dispose()
+	end)
+
+	it("the button is BELOW every line, which is the property that was failing", function()
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if string.find(path, "^/HudScreen/Hud/") ~= nil then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local hold = boxOf(w, BODY .. "/ProbeHold")
+		expect(hold ~= nil).toBe(true)
+		local lowest = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^" .. BODY .. "/ProbeLines/") ~= nil then
+				local r = boxOf(w, path)
+				if r ~= nil then
+					lowest = math.max(lowest, r.y + r.h)
+				end
+			end
+		end
+		expect(lowest > 0).toBe(true)
+		-- no overlap: the button starts at or after the last line ends
+		expect(hold.y >= lowest).toBe(true)
+		-- ...and the plate is tall enough to hold both, rather than clipping one
+		local body = boxOf(w, BODY)
+		expect(body.y + body.h >= hold.y + hold.h).toBe(true)
+		built.dispose()
+	end)
+
+	it("a plate with fewer lines mounts fewer nodes — the slots are not padding", function()
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		local healthy = #string.split(built.report().paintProbe.plate, "\n")
+		local mounted = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^" .. BODY .. "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+				mounted += 1
+			end
+		end
+		expect(mounted).toBe(healthy)
+		expect(healthy < 6).toBe(true)
+		built.dispose()
+	end)
+end)

@@ -1305,6 +1305,38 @@ return {
 		local probeHeld = scope:own(core:signal(false))
 		local probeHead = scope:own(core:signal(COPY.probeTitle))
 		local probeBody = scope:own(core:signal(COPY.probeWaiting))
+		--[[ ONE TEXT NODE PER LINE, AND THAT IS THE ANSWER TO "WHY IS IT CUT OFF"
+			(director, 2026-08-17: *"why isn't luauui handling the overlap in the popup
+			so that it's not cutoff right?"*).
+
+			The plate used to hand the framework ONE `UI.Text` carrying five lines
+			joined with `\n`. That is a single opaque box: the solver measures it once,
+			reserves that height, and everything below it — the button — is placed
+			against that one number. When the engine's own text metrics disagree with
+			the measurement even slightly, the block draws taller than the box it was
+			given, and the sibling under it is drawn over the overflow. Headless the
+			measurement agrees with itself and the plate is perfect; on a device it is
+			the engine that decides, and three photographs in a row lost the line that
+			mattered.
+
+			LuauUI was not failing to lay this out. It was laying out exactly what it
+			was given: one box. A VStack of one Text per line is what lets it do the
+			job — each line is measured, wrapped and placed on its own, the column's
+			height is the sum of what the lines actually need, and a line that grows
+			pushes the button down instead of disappearing under it.
+
+			A FIXED SLOT COUNT rather than a `ForEach`: the plate is a diagnostic that
+			must not churn the tree it is diagnosing, and the line count is bounded by
+			construction (`probeSampleBody` emits at most six). An absent line is a
+			`When` that mounts nothing, so an empty slot costs no height and no node. ]]
+		local PROBE_LINE_SLOTS = 6
+		local probeLine: { any } = {}
+		for i = 1, PROBE_LINE_SLOTS do
+			probeLine[i] = scope:own(core:memo(function(use)
+				local body = use(probeBody) :: string
+				return string.split(body, "\n")[i]
+			end))
+		end
 		-- the switch says which way it goes, because a button labelled with its own
 		-- state reads as a claim about now rather than as an action
 		local probeButtonLabel = scope:own(core:memo(function(use)
@@ -1702,6 +1734,31 @@ return {
 			end
 		end
 
+		--[[ THE SLOTS, BUILT ONCE. A `When` per line: an absent line mounts nothing,
+			so an empty slot costs no node and no height, and the count is bounded by
+			what `probeSampleBody` can emit. ]]
+		local probeLineViews: { any } = {}
+		for i = 1, PROBE_LINE_SLOTS do
+			local readable = probeLine[i]
+			table.insert(
+				probeLineViews,
+				UI.When({
+					id = `ProbeLine{i}`,
+					condition = scope:own(core:memo(function(use)
+						return use(readable) ~= nil
+					end)),
+					thenView = function()
+						return UI.Text({
+							id = "Line",
+							text = readable,
+							textSize = "caption",
+							width = { type = "fill", weight = 1 },
+						})
+					end,
+				})
+			)
+		end
+
 		local function probeScreen(): any
 			return UI.Screen({
 				id = "PaintProbe",
@@ -1735,10 +1792,14 @@ return {
 													textSize = "caption",
 													role = "secondary",
 												}),
-												UI.Text({
+												--[[ ONE TEXT PER LINE (see `probeLine` above). Each line is
+													measured, wrapped and placed on its own, so a line that grows
+													pushes the button DOWN instead of being drawn under it. ]]
+												UI.VStack({
 													id = "ProbeLines",
-													text = probeBody,
-													textSize = "caption",
+													gap = 1,
+													width = { type = "fill", weight = 1 },
+													children = probeLineViews,
 												}),
 												--[[ RELEASE / RE-ARM, and never the capture itself. On the
 													plate's own surface it costs the HUD nothing — this
