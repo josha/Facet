@@ -1303,6 +1303,11 @@ return {
 			captures the state AFTER the press, and a press on this fixture's own screen
 			re-solves the very surface under diagnosis. ]]
 		local probeHeld = scope:own(core:signal(false))
+		--[[ AN UPVALUE AND NOT A FIELD ON `probeReport`, because that table is
+			REPLACED wholesale on every sample — a flag written onto it is gone by the
+			next one, which is how this rule silently did nothing the first time it was
+			written. ]]
+		local probeEverHealthy = false
 		local probeHead = scope:own(core:signal(COPY.probeTitle))
 		local probeBody = scope:own(core:signal(COPY.probeWaiting))
 		--[[ ONE TEXT NODE PER LINE, AND THAT IS THE ANSWER TO "WHY IS IT CUT OFF"
@@ -1329,7 +1334,22 @@ return {
 			must not churn the tree it is diagnosing, and the line count is bounded by
 			construction (`probeSampleBody` emits at most six). An absent line is a
 			`When` that mounts nothing, so an empty slot costs no height and no node. ]]
-		local PROBE_LINE_SLOTS = 6
+		--[[ A PATH'S LAST TWO SEGMENTS, plus whatever suffix the verdict attached
+			(`@dx,dy`, `off screen`). Every node here lives under `/HudScreen/Hud/`, so
+			the head is shared by all of them and the tail is the only part that names
+			one. Spending 208px on the shared prefix is how four photographs arrived
+			truncated at the answer. ]]
+		local function probeTail(path: string): string
+			local body, suffix = string.match(path, "^(%S+)(%s.*)$")
+			local p = body or path
+			local segs = string.split(p, "/")
+			local out = if #segs >= 2 then `…/{segs[#segs - 1]}/{segs[#segs]}` else p
+			return out .. (suffix or "")
+		end
+
+		-- head aside, the plate can emit: wanted, skipped, the NOT PAINTED count, two
+		-- culprits, a culprit overflow, the capped roll-call, and the first painted row
+		local PROBE_LINE_SLOTS = 9
 		local probeLine: { any } = {}
 		for i = 1, PROBE_LINE_SLOTS do
 			probeLine[i] = scope:own(core:memo(function(use)
@@ -1443,6 +1463,7 @@ return {
 			local engineRead = geo ~= nil and answered > 0
 
 			local mismatched: { string } = {}
+			local culprits: { string } = {}
 			--[[ ...AND `Visible` IS NOT "PAINTING", which is the other half the first
 				cut collected and never read. The seam has always answered
 				`AbsoluteSize`; the verdict looked only at the paint bit. A node the
@@ -1602,6 +1623,15 @@ return {
 					if hiddenUnder == nil then
 						hiddenUnder = culprit
 					end
+					--[[ AND EVERY DISTINCT ONE, because that is the whole reason this line
+						exists: six rows lost under ONE node is a different defect from six
+						lost separately, and a plate that names only the first cannot tell
+						them apart (`c4.jpeg`, 2026-08-17 — `hidden under:` named Objective's
+						culprit while Rounds, Feed and Readout were lost somewhere else
+						entirely, and nothing on the plate said so). ]]
+					if culprit ~= nil and table.find(culprits, culprit) == nil then
+						table.insert(culprits, culprit)
+					end
 				end
 			end
 
@@ -1651,8 +1681,18 @@ return {
 						offset the engine is drawing them at — was below the fold. The names
 						say WHICH; this says WHAT HAPPENED, and only one of those can be
 						guessed from the screen itself. ]]
-					if hiddenUnder ~= nil then
-						table.insert(lines, `{COPY.probeHiddenUnder} {hiddenUnder}`)
+					--[[ THE TAIL, NOT THE HEAD. Every path on this surface begins
+						`/HudScreen/Hud/`, which carries no information and ate the column
+						four photographs running — `hidden under: /HudScreen/Hud/Strip/Stri…`
+						truncated exactly where the answer starts. The last two segments are
+						what identify a node to a reader, so those are what the plate spends
+						its width on. ]]
+					for i, one in culprits do
+						if i > 2 then
+							table.insert(lines, `+{#culprits - 2} more`)
+							break
+						end
+						table.insert(lines, `{COPY.probeHiddenUnder} {probeTail(one)}`)
 					end
 					--[[ ...AND THE NAMES ARE CAPPED. Six row names is two wrapped lines that
 						push everything after them off a plate a phone can show, and the
@@ -1686,6 +1726,7 @@ return {
 				band = platformBand,
 				mismatched = mismatched,
 				firstPainted = firstPainted,
+				culprits = culprits,
 				hiddenUnder = hiddenUnder,
 				painting = painting,
 				wanted = wanted,
@@ -1707,6 +1748,26 @@ return {
 			-- state nobody has
 			probeHead:set(head)
 			probeBody:set(plate)
+			--[[ A LOSS IS ONLY A LOSS AGAINST A SCREEN THAT ONCE WORKED (director,
+				device, 2026-08-17: `c3.jpeg`, `11 of 11 NOT PAINTED` latched at solve 3
+				and froze the plate on a portrait frame for the rest of the session).
+
+				At startup the surface has not painted yet: the tree is mounting, the
+				engine has not laid it out, and every watched row is legitimately
+				invisible. That is indistinguishable from the defect by inspection, and
+				it is not the defect — so the probe now needs to have SEEN THE SCREEN
+				HEALTHY once before it is allowed to latch on losing it. With no
+				baseline there is nothing to have lost.
+
+				It still REPORTS, on every sample: the plate says what it sees from the
+				first frame. What it will not do is spend its one capture on a screen
+				that had not been built yet. ]]
+			if #lost == 0 and #unmeasured == 0 and wanted > 0 then
+				probeEverHealthy = true
+			end
+			if #lost > 0 and not probeEverHealthy then
+				return
+			end
 			if #lost > 0 then
 				-- THE LATCH. Recorded first, held second: the plate is already showing
 				-- the failing frame before anything on this screen can move.
@@ -2663,6 +2724,10 @@ return {
 						-- when the engine publishes no top band (NM-H4a round 2)
 						riding = probeReport.riding,
 						band = probeReport.band,
+						-- has this probe ever seen the screen healthy? Until it has, a loss
+						-- is a screen that has not been built yet, and it may not latch
+						everHealthy = probeEverHealthy,
+						culprits = probeReport.culprits,
 						mismatched = probeReport.mismatched,
 						firstPainted = probeReport.firstPainted,
 						hiddenUnder = probeReport.hiddenUnder,

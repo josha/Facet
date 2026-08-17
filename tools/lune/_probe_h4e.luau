@@ -30,7 +30,7 @@ local function chromeAt(facts: any): any
 	for k, v in facts do
 		env:set(k, v)
 	end
-	return (env:get("platformChrome"):get() :: any)
+	return env:get("platformChrome"):get() :: any
 end
 
 local function show(label: string, facts: any)
@@ -40,9 +40,7 @@ local function show(label: string, facts: any)
 		string.format(
 			"%-52s band=%s",
 			label,
-			if band == nil
-				then "NIL"
-				else string.format("%d,%d %dx%d", band.x, band.y, band.w, band.h)
+			if band == nil then "NIL" else string.format("%d,%d %dx%d", band.x, band.y, band.w, band.h)
 		)
 	)
 	return band

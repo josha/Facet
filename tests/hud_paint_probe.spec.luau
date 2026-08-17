@@ -260,6 +260,7 @@ end)
 
 describe("hud: the paint probe fires when the engine disagrees with the framework", function()
 	it("names the unpainted rows, the first painted row after them, and the node they are under", function()
+		local lying = false
 		local w = world(LANDSCAPE)
 		-- THE FORCED DEFECT: one ancestor reports `Visible = false` while the
 		-- framework's own model says the whole subtree paints — which is exactly
@@ -268,12 +269,19 @@ describe("hud: the paint probe fires when the engine disagrees with the framewor
 		local built = mount(
 			w,
 			ctxFor(w, function(path: string): boolean?
-				if path == "/HudScreen/Hud/Tasks" or path == "/HudScreen/Hud/Health" then
+				if lying and (path == "/HudScreen/Hud/Tasks" or path == "/HudScreen/Hud/Health") then
 					return false
 				end
 				return nil
 			end)
 		)
+		--[[ A HEALTHY BASELINE FIRST, because that is what a real screen has and
+			because the probe now refuses to latch without one: at startup every row is
+			legitimately invisible, and a capture spent there is a capture wasted
+			(`c3.jpeg`). ]]
+		built.steps.sampleProbe(built)
+		expect(built.report().paintProbe.everHealthy).toBe(true)
+		lying = true
 		built.steps.sampleProbe(built)
 		local probe = built.report().paintProbe
 
@@ -288,7 +296,7 @@ describe("hud: the paint probe fires when the engine disagrees with the framewor
 	end)
 
 	it("a latched probe stops sampling until it is re-armed", function()
-		local lying = true
+		local lying = false
 		local w = world(LANDSCAPE)
 		local built = mount(
 			w,
@@ -299,6 +307,9 @@ describe("hud: the paint probe fires when the engine disagrees with the framewor
 				return nil
 			end)
 		)
+		-- the healthy baseline the latch now requires (`c3.jpeg`)
+		built.steps.sampleProbe(built)
+		lying = true
 		built.steps.sampleProbe(built)
 		expect(built.report().paintProbe.held).toBe(true)
 		expect(table.concat(built.report().paintProbe.lost, ",")).toBe("Feed")
@@ -1189,6 +1200,119 @@ describe("hud: the probe plate lays out as lines, not as one opaque block", func
 		end
 		expect(mounted).toBe(healthy)
 		expect(healthy < 6).toBe(true)
+		built.dispose()
+	end)
+end)
+
+--[[ NM-H4a round 7 — TWO THINGS THE DEVICE TAUGHT THE INSTRUMENT.
+
+	`c3.jpeg` / `c4.jpeg`, 2026-08-17.
+
+	1. `11 of 11 NOT PAINTED` latched at SOLVE 3 and froze the plate on a portrait
+	   frame for the whole session. At startup the surface has not painted yet —
+	   the tree is mounting and the engine has not laid it out — and every watched
+	   row is legitimately invisible. That is indistinguishable from the defect by
+	   inspection and it is NOT the defect. A probe with no healthy baseline has
+	   nothing to have lost.
+
+	2. `hidden under: /HudScreen/Hud/Strip/Stri…` named ONE culprit — Objective's —
+	   while Rounds, Feed and Readout were lost somewhere else entirely, and the
+	   plate could not say so. Six rows lost under one node is a different defect
+	   from six lost separately; that distinction is the whole reason the line
+	   exists. And the part of the path that identifies a node is its TAIL: every
+	   path here begins `/HudScreen/Hud/`, which spent the column and truncated
+	   exactly where the answer starts. ]]
+describe("hud: a probe with no healthy baseline has nothing to have lost", function()
+	local function allDark(path: string): any
+		if string.find(path, "^/HudScreen/Hud/") ~= nil then
+			return false
+		end
+		return nil
+	end
+
+	it("never latches on a screen it has not yet seen working", function()
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w, allDark))
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost > 0).toBe(true)
+		expect(probe.everHealthy).toBe(false)
+		-- it REPORTS from the first frame; what it will not do is spend its one
+		-- capture on a screen that had not been built yet
+		expect(probe.held).toBe(false)
+		expect(probe.latches).toBe(0)
+		expect(string.find(probe.plate, "NOT PAINTED", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("...and latches the moment a screen that WAS working stops", function()
+		local w = world(LANDSCAPE)
+		local dark = false
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if dark then
+					return allDark(path)
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		local healthy = built.report().paintProbe
+		expect(healthy.everHealthy).toBe(true)
+		expect(healthy.held).toBe(false)
+		dark = true
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(probe.held).toBe(true)
+		expect(probe.latches).toBe(1)
+		built.dispose()
+	end)
+end)
+
+describe("hud: the plate names every distinct culprit, by its tail", function()
+	it("rows lost under DIFFERENT nodes are not reported as one", function()
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if string.find(path, "^/HudScreen/Hud/") ~= nil then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.culprits > 1).toBe(true)
+		-- two are named and the rest are counted, so "one node" and "many nodes" can
+		-- never look the same on a photograph
+		local plate = probe.plate
+		local _, hits = string.gsub(plate, "hidden under:", "")
+		expect(hits).toBe(2)
+		expect(string.find(plate, `+{#probe.culprits - 2} more`, 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a path is shown by its TAIL, because every one of them shares a head", function()
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if string.find(path, "^/HudScreen/Hud/Strip/") ~= nil then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local plate = built.report().paintProbe.plate
+		expect(string.find(plate, "hidden under: …/", 1, true) ~= nil).toBe(true)
+		-- the shared prefix is exactly what used to eat the column
+		expect(string.find(plate, "hidden under: /HudScreen", 1, true)).toBe(nil)
 		built.dispose()
 	end)
 end)
