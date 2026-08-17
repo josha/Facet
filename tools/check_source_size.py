@@ -324,10 +324,15 @@ these two, and the mechanised test is what showed it rather than a re-read.
 
 THE PRESENTATION CHANNEL (`src/client/screen_presentation.luau`, 19,088) declares
 five locals that something outside writes, and only TWO are real:
-`presentationCount` and `subtreeCache`. `presentationTransforms` and `clipHosts`
-are never reassigned, only mutated, so they go back to the host AS THEMSELVES and
-its reads are byte-identical; `path`, `expander` and `live` were the false
-positives this header's fourth row warned about. Its ctx is THREE entries and TWO
+`presentationCount` and `subtreeCache`. `presentationTransforms` and the host
+registry are never reassigned, only mutated, so a table CAN go back to the host
+AS ITSELF and its reads stay byte-identical; `path`, `expander` and `live` were
+the false positives this header's fourth row warned about. (`presentationTransforms`
+still does. The registry stopped: ADR-0032 step 1 renamed it `instanceHosts` and
+made it PRIVATE behind `registerHost`/`unregisterHost`/`hostAt`/`hostFor` — not
+because the extraction demanded it, but because "which paths get registered" is
+the one predicate the nested-tree migration changes, and a shared table has no
+single place to put a policy.) Its ctx is THREE entries and TWO
 callbacks (`handlesByPath`, `refitIconArt`, `ensureScale`), and it needed no
 accessors at all, because nothing in it reads a reassigned host local.
 

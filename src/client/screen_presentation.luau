@@ -1,6 +1,6 @@
 --!strict
 -- ScreenPresentation — THE PRESENTATION CHANNEL (ADR-0022 Decision 2) of the
--- ScreenTarget adapter, plus the REAL-PARENT (clip host) record it composes
+-- ScreenTarget adapter, plus the REAL-PARENT (instance host) record it composes
 -- against, extracted from src/client/screen_target.luau for Studio's
 -- 200_000-character `Source` WRITE cap. Over that cap a module silently stops
 -- live-syncing into an open Studio session, so every live check against it
@@ -35,9 +35,13 @@
 -- `subtreeOf` and `applyPresentationPaint` are NOT exported: `setTransform` is
 -- the only caller either ever had, and it came here with them.
 --
--- THREE EXPORTS EXIST BECAUSE A NUMBER CANNOT BE SHARED BY REFERENCE.
--- `presentationTransforms` and `clipHosts` are tables and go back to the host
--- as themselves, so its reads are unchanged. `presentationCount` (the zero-cost
+-- SOME EXPORTS EXIST BECAUSE A NUMBER CANNOT BE SHARED BY REFERENCE.
+-- `presentationTransforms` is a table and goes back to the host as itself, so
+-- its reads are unchanged. (`instanceHosts` COULD have, and deliberately does
+-- not — ADR-0032 step 1 made the registry private behind
+-- `registerHost`/`unregisterHost`/`hostAt`/`hostFor`, because "which paths get
+-- registered" is the one predicate that whole migration changes and it needs one
+-- place to live.) `presentationCount` (the zero-cost
 -- fast path every rect write consults) and `subtreeCache` are a number and a
 -- rebound table, and the host has three sites that used to write them directly:
 -- `setProp("transform")` is now `setTransform`, `remove`/`destroyRoot`'s
@@ -82,30 +86,90 @@ function screen_presentation.new(ctx: any)
 	local refitIconArt = ctx.refitIconArt
 	local ensureScale = ctx.ensureScale
 
-	-- real clipping (touch-scroll design 2026-07-20): a node whose blueprint
-	-- declares clipChildren=true becomes a CLIP HOST — its descendants parent
-	-- under it (engine hierarchy) with positions relative to the host, so
-	-- ClipsDescendants crops partial overflow (scrolled table rows). Window-
-	-- space rects stay the renderer contract; the subtraction happens here.
-	-- `path` joined the entry for the presentation channel (ADR-0022 Decision 2): an
-	-- offset accumulating down a subtree stops at the nearest REAL PARENT, whose own
-	-- move already carries its children, and this is how a child knows where that is.
-	local clipHosts: { [string]: { instance: Instance, rect: any?, children: { any }, path: string } } = {}
-	local function hostFor(path: string): any
-		local best: any = nil
-		local bestLen = -1
-		for hostPath, entry in clipHosts do
-			if #hostPath > bestLen and string.sub(path, 1, #hostPath + 1) == hostPath .. "/" then
-				best = entry
-				bestLen = #hostPath
-			end
+	--[[ THE INSTANCE-HOST REGISTRY — THE ONE RECORD THAT MAKES A NODE A REAL PARENT.
+		(ADR-0032 Decision 1. Named `clipHosts` until then, after the first of its
+		three triggers.)
+
+		A registered node's descendants parent UNDER it in the engine hierarchy,
+		with positions relative to it; everything else stays flat under the root.
+		Three declarations register one today — a `ScrollView` (by construction),
+		an authored `clipChildren`, and a fade group — and only the first of the
+		three is about clipping, which is why the name moved. `path` is on the
+		entry for the presentation channel (ADR-0022 Decision 2): an offset
+		accumulating down a subtree stops at the nearest REAL PARENT, whose own
+		move already carries its children, and this is how a child knows where
+		that is.
+
+		THE TABLE IS PRIVATE, AND THAT IS THE POINT OF THIS STEP. ADR-0032 is a
+		REGISTRATION POLICY, not a renderer rewrite — "switching to nested is a
+		change to one predicate: which paths get registered". A policy needs one
+		place to live, so the record is born in `registerHost` and dies in
+		`unregisterHost`, and the host reads it through `hostAt`/`hostFor` rather
+		than indexing a shared table at four call sites. The invariant is
+		structural now instead of a convention a fifth call site can miss.
+	]]
+	local instanceHosts: { [string]: { instance: Instance, rect: any?, children: { any }, path: string } } = {}
+
+	-- CREATE-OR-REUSE, and the reuse half is load-bearing: a node may declare
+	-- itself a real parent TWICE — a fade group registers while `create` is still
+	-- choosing its engine class, and an authored `clipChildren` registers again at
+	-- the prop write. Replacing the entry would strand every child already
+	-- re-based against it, so the first registration wins and the second is a
+	-- no-op that hands back the same table.
+	local function registerHost(path: string, instance: Instance, rect: any?): any
+		local existing = instanceHosts[path]
+		if existing ~= nil then
+			return existing
 		end
-		return best
+		local entry = { instance = instance, rect = rect, children = {}, path = path }
+		instanceHosts[path] = entry
+		return entry
+	end
+
+	local function unregisterHost(path: string)
+		instanceHosts[path] = nil
+	end
+
+	-- EXACT: is THIS path a host? (the rect re-base on a host's own move, and
+	-- the park refusal, both ask about the node itself rather than its ancestry)
+	local function hostAt(path: string): any
+		return instanceHosts[path]
+	end
+
+	-- NEAREST REGISTERED ANCESTOR — a longest-path-prefix match, and it walks the
+	-- CANDIDATE's separators rather than scanning the registry.
+	--
+	-- WHY THAT DISTINCTION IS THE WHOLE STEP. The scan it replaces was
+	-- `for hostPath, entry in instanceHosts do` — every registered host examined
+	-- on every `create` and every `adopt`. At the three hosts a flat tree has,
+	-- free. ADR-0032's entire content is "register more hosts", so that loop
+	-- becomes O(nodes x hosts) exactly as the migration proceeds: the cost would
+	-- have arrived with the feature and been blamed on nesting. Walking the
+	-- path's own separators from the deepest inward is bounded by the path's
+	-- LENGTH and is independent of how many hosts exist — the same walk
+	-- `recomputePresentationOffset` already does two functions below, which is
+	-- the honest sign it is this file's idiom rather than a new one.
+	--
+	-- Deepest-first, so the first hit IS the longest prefix and there is nothing
+	-- to compare lengths against. A node is never its own host: the walk only
+	-- reads prefixes that END before a separator.
+	local function hostFor(path: string): any
+		local i = #path
+		while i > 1 do
+			if string.sub(path, i, i) == "/" then
+				local entry = instanceHosts[string.sub(path, 1, i - 1)]
+				if entry ~= nil then
+					return entry
+				end
+			end
+			i -= 1
+		end
+		return nil
 	end
 	-- the effective-target expander (B-BTN3) lives beside its control, so it must be
 	-- re-based from the SAME clip-host origin — and re-based AGAIN whenever that
 	-- origin arrives or moves. RS-A16-D1b (found live 2026-07-26): the renderer pushes
-	-- hit rects BEFORE the commit that writes rects, so on a fresh build a clip host's
+	-- hit rects BEFORE the commit that writes rects, so on a fresh build an instance host's
 	-- rect is not yet current when the expander is first placed, and the renderer's
 	-- own cache (which stores only the WANTED rect) never asks again. Measured after a
 	-- scenario `reset()`: an expander 74px below the button it belongs to. Placing it
@@ -120,7 +184,7 @@ function screen_presentation.new(ctx: any)
 	--
 	-- THE INSTANCE TREE IS FLAT (docs/lessons/screen-target-tree-is-flat.md), and
 	-- that is the load-bearing fact here. Every node parents under the root gui
-	-- unless a REAL PARENT claimed it (a clip host, or the new canvas group), so
+	-- unless a REAL PARENT claimed it (an instance host: a clip host, a scroll host, or a fade group), so
 	-- moving a container's own instance moves nothing but that container — the
 	-- keyboard keep-visible shift on the root node would have moved one transparent
 	-- frame and nothing the player can see. So the offset ACCUMULATES down the
@@ -163,7 +227,7 @@ function screen_presentation.new(ctx: any)
 				oy += own.y or 0
 			end
 			-- ancestors, down to (and excluding) the real parent
-			local stop = if handle.clipHost ~= nil then #handle.clipHost.path else 0
+			local stop = if handle.instanceHost ~= nil then #handle.instanceHost.path else 0
 			local path = handle.path
 			local i = #path
 			while i > 1 do
@@ -201,8 +265,8 @@ function screen_presentation.new(ctx: any)
 			return
 		end
 		local ox, oy = 0, 0
-		if handle.clipHost ~= nil and handle.clipHost.rect ~= nil then
-			ox, oy = handle.clipHost.rect.x, handle.clipHost.rect.y
+		if handle.instanceHost ~= nil and handle.instanceHost.rect ~= nil then
+			ox, oy = handle.instanceHost.rect.x, handle.instanceHost.rect.y
 		end
 		-- the expander is this control's HIT surface, so it travels with the paint:
 		-- a shifted control whose target stayed behind would be a control you can see
@@ -237,8 +301,8 @@ function screen_presentation.new(ctx: any)
 			return
 		end
 		local ox, oy = 0, 0
-		if handle.clipHost ~= nil and handle.clipHost.rect ~= nil then
-			ox, oy = handle.clipHost.rect.x, handle.clipHost.rect.y
+		if handle.instanceHost ~= nil and handle.instanceHost.rect ~= nil then
+			ox, oy = handle.instanceHost.rect.x, handle.instanceHost.rect.y
 		end
 		-- THE PAINTED SIZE (withAnimation size, 2026-08-14): the solved extent plus
 		-- this node's own presentation delta. Zero for every node that is not
@@ -264,7 +328,7 @@ function screen_presentation.new(ctx: any)
 		handle.instance.Size = UDim2.fromOffset(pw, ph)
 		applyHitExpander(handle)
 		if handle.focusRingFloat ~= nil and handle.focusRingFloat.Parent ~= nil then
-			-- the float ring rides the focused rect (it lives in the clip host,
+			-- the float ring rides the focused rect (it lives in the host,
 			-- so a row that re-arranges must carry its ring along)
 			local t = handle.focusRingFloat:FindFirstChild("FocusRing")
 			local thickness = if t ~= nil and t:IsA("UIStroke") then t.Thickness else 2
@@ -384,7 +448,7 @@ function screen_presentation.new(ctx: any)
 			presentationTransforms[path] = nil
 			presentationCount -= 1
 		end
-		clipHosts[path] = nil
+		unregisterHost(path)
 	end
 
 	-- the subtree index is DERIVED from `handlesByPath`, so it dies with any
@@ -396,11 +460,15 @@ function screen_presentation.new(ctx: any)
 	end
 
 	return {
-		-- the two records, BY REFERENCE: the host reads `clipHosts[path]` and
-		-- `presentationTransforms[path]` directly, and writes clip-host entries at
-		-- the two places a node declares itself a real parent
-		clipHosts = clipHosts,
+		-- `presentationTransforms` goes back BY REFERENCE — the host reads
+		-- `presentationTransforms[path]` directly. `instanceHosts` does NOT: it is
+		-- reached only through the four functions below, so the registration
+		-- policy ADR-0032 changes has exactly one place to live (see the
+		-- registry's own header).
 		presentationTransforms = presentationTransforms,
+		registerHost = registerHost,
+		unregisterHost = unregisterHost,
+		hostAt = hostAt,
 		hostFor = hostFor,
 		recomputePresentationOffset = recomputePresentationOffset,
 		applyHitExpander = applyHitExpander,

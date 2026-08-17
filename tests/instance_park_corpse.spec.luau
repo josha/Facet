@@ -84,14 +84,14 @@ describe("instance park corpse: the pool can never hold a destroyed instance", f
 		).toBe(true)
 	end)
 
-	it("the clip-host refusal that makes the ordering hazard real is still in place", function()
-		-- parkEligible refusing clip hosts is WHY a host is always destroyed
+	it("the instance-host refusal that makes the ordering hazard real is still in place", function()
+		-- parkEligible refusing registered hosts is WHY a host is always destroyed
 		-- (never parked) — if this refusal ever moves, the corpse gate's
 		-- reasoning must be revisited, so the dependency is pinned here
 		local fnStart = string.find(source, "local function parkEligible", 1, true)
 		local fnEnd = string.find(source, "local PARKED_PATH", 1, true)
 		local body = string.sub(source, fnStart :: number, fnEnd :: number)
-		expect(string.find(body, "clipHosts[path] ~= nil", 1, true) ~= nil).toBe(true)
+		expect(string.find(body, "hostAt(path) ~= nil", 1, true) ~= nil).toBe(true)
 	end)
 end)
 

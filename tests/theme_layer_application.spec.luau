@@ -1096,7 +1096,7 @@ describe("focus hugs the art, not the padded rect", function()
 		-- clip-hosted nodes ride the FLOAT ring: a topmost-z SIBLING inside the
 		-- clip host (flat tree + Sibling z means nothing else can cover it)
 		expect(string.find(focus, "FocusRingFloat", 1, true) ~= nil).toBe(true)
-		expect(string.find(focus, "handle.clipHost.instance", 1, true) ~= nil).toBe(true)
+		expect(string.find(focus, "handle.instanceHost.instance", 1, true) ~= nil).toBe(true)
 		-- the previous host is cleared before the new one is painted
 		expect(at(focus, "handle.focusVisualHost") < at(focus, "glow.Parent = host")).toBe(true)
 

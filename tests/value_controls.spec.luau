@@ -736,7 +736,7 @@ describe("verifier V11: the hit expander is re-based by its clip host", function
 		local atHelper = string.find(source, "local function applyHitExpander", 1, true)
 		expect(atHelper ~= nil).toBe(true)
 		local helper = string.sub(source, atHelper :: number, (atHelper :: number) + 700)
-		expect(string.find(helper, "handle.clipHost", 1, true) ~= nil).toBe(true)
+		expect(string.find(helper, "handle.instanceHost", 1, true) ~= nil).toBe(true)
 		expect(string.find(helper, "rect.x - ox", 1, true) ~= nil).toBe(true)
 		expect(string.find(helper, "rect.y - oy", 1, true) ~= nil).toBe(true)
 	end)

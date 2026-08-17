@@ -132,6 +132,10 @@ require("./preview.spec")
 require("./render_target_contract.spec")
 -- the per-node presentation channel + the SF-M9 live-adapter fix (ADR-0022 D2)
 require("./presentation_channel.spec")
+-- ...and the REAL-PARENT REGISTRY it composes against (ADR-0032 step 1): one
+-- registration function, a longest-path-prefix lookup, and the cost pin that
+-- decides whether "register more hosts" is affordable at all
+require("./instance_hosts.spec")
 -- the authored paint escapes: tint, scaleMode, UI.stroke, zIndex (ADR-0022 D6)
 require("./paint_extensions.spec")
 -- fractional Anchor offsets: the marker-overlay shape (ADR-0022 D6, SF-P5)

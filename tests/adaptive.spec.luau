@@ -1025,7 +1025,7 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		local atHelper = string.find(source, "local function applyHitExpander", 1, true)
 		expect(atHelper ~= nil).toBe(true)
 		local helperBody = string.sub(source, atHelper :: number, (atHelper :: number) + 700)
-		expect(string.find(helperBody, "handle.clipHost", 1, true) ~= nil).toBe(true)
+		expect(string.find(helperBody, "handle.instanceHost", 1, true) ~= nil).toBe(true)
 		expect(string.find(helperBody, "rect.x - ox", 1, true) ~= nil).toBe(true)
 		expect(string.find(helperBody, "rect.y - oy", 1, true) ~= nil).toBe(true)
 		-- the wanted rect is REMEMBERED on the handle, which is what makes a late

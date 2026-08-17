@@ -1044,8 +1044,14 @@ function screen_target.new(opts: Opts?)
 		refitIconArt = refitIconArt,
 		ensureScale = ensureScale,
 	})
-	local clipHosts = presentation.clipHosts
 	local presentationTransforms = presentation.presentationTransforms
+	-- THE REGISTRATION SEAM (ADR-0032 Decision 1). The registry itself no longer
+	-- comes back as a table: "which paths get registered" is the single predicate
+	-- the nested-tree migration changes, so it is reached through these four and
+	-- nothing else. `registerHost` is create-or-reuse, which is what the
+	-- fade-group-then-`clipChildren` order needs.
+	local registerHost = presentation.registerHost
+	local hostAt = presentation.hostAt
 	local hostFor = presentation.hostFor
 	local recomputePresentationOffset = presentation.recomputePresentationOffset
 	local applyHitExpander = presentation.applyHitExpander
@@ -1199,9 +1205,9 @@ function screen_target.new(opts: Opts?)
 			handle.canvasGroupInstance = instance
 			-- a fade group is a REAL PARENT: its descendants live inside it (which is
 			-- what the buffer needs) and their window-space rects are re-based against
-			-- it by exactly the clip-host machinery, whose entry is the adapter's
+			-- it by exactly the instance-host machinery, whose entry is the adapter's
 			-- general "this node is a real instance parent" record
-			clipHosts[path] = { instance = instance, rect = handle.windowRect, children = {}, path = path }
+			registerHost(path, instance, handle.windowRect)
 			-- NO CLASS-DEFAULT RULE TARGETS CanvasGroup: the sheet's transparency
 			-- defaults select Frame/TextLabel/TextButton/ImageLabel/TextBox/
 			-- ScrollingFrame, so a group would wear the engine's own opaque grey plate.
@@ -1272,7 +1278,7 @@ function screen_target.new(opts: Opts?)
 				`UI.Foreign` does not offer it, so the renderer can never write this
 				property on this class and there is no second writer.
 
-				NOT A CLIP HOST. `clipHosts[path]` means "LuauUI nodes are re-parented
+				NOT AN INSTANCE HOST. A registered host means "LuauUI nodes are re-parented
 				under this instance and re-based against it". A Foreign is a LEAF: no
 				LuauUI node is ever its child, so registering one would add a rect the
 				solver re-places every frame for children that cannot exist.
@@ -1445,7 +1451,7 @@ function screen_target.new(opts: Opts?)
 		-- the engine crops them; everything else stays flat under the root
 		local host = hostFor(path)
 		if host ~= nil then
-			handle.clipHost = host
+			handle.instanceHost = host
 			table.insert(host.children, handle)
 			instance.Parent = host.instance
 		else
@@ -1496,7 +1502,7 @@ function screen_target.new(opts: Opts?)
 		-- else references
 		handlesByPath[handle.path] = handle
 		instancesByPath[handle.path] = handle.instance
-		local host = handle.clipHost
+		local host = handle.instanceHost
 		if host ~= nil then
 			for i, child in host.children do
 				if child == built then
@@ -2038,9 +2044,9 @@ function screen_target.new(opts: Opts?)
 			return
 		end
 		applyRect(handle)
-		-- a clip host that moved re-bases every child (children may have
+		-- an instance host that moved re-bases every child (children may have
 		-- received their rects before the host did)
-		local entry = clipHosts[handle.path]
+		local entry = hostAt(handle.path)
 		if entry ~= nil then
 			entry.rect = rect
 			for _, child in entry.children do
@@ -2797,7 +2803,7 @@ function screen_target.new(opts: Opts?)
 				-- canvas because it lives in it; applyRect re-aims it when the
 				-- row itself moves. Unclipped nodes keep the outward ring.
 				local strokeParent: GuiObject = host
-				if handle.clipHost ~= nil and handle.clipHost.instance ~= nil then
+				if handle.instanceHost ~= nil and handle.instanceHost.instance ~= nil then
 					local float = ringFloat
 					if float == nil then
 						float = Instance.new("Frame")
@@ -2807,12 +2813,12 @@ function screen_target.new(opts: Opts?)
 						if corner ~= nil then
 							corner:Clone().Parent = float
 						end
-						float.Parent = handle.clipHost.instance
+						float.Parent = handle.instanceHost.instance
 						handle.focusRingFloat = float
 					end
 					local f = float :: Frame
 					local rect = handle.windowRect
-					local origin = handle.clipHost.rect
+					local origin = handle.instanceHost.rect
 					if rect ~= nil and origin ~= nil then
 						f.Position = UDim2.fromOffset(rect.x - origin.x + thickness, rect.y - origin.y + thickness)
 						f.Size = UDim2.fromOffset(rect.w - 2 * thickness, rect.h - 2 * thickness)
@@ -2990,12 +2996,10 @@ function screen_target.new(opts: Opts?)
 			if value == true and instance:IsA("GuiObject") then
 				instance.ClipsDescendants = true
 				-- a node may ALREADY be a real parent (a fade group declares itself one
-				-- at creation): reuse that entry rather than replacing it, or the
-				-- children already registered in it would stop being re-based
-				if clipHosts[handle.path] == nil then
-					clipHosts[handle.path] =
-						{ instance = instance, rect = handle.windowRect, children = {}, path = handle.path }
-				end
+				-- at creation): `registerHost` is create-or-REUSE for exactly this
+				-- order, because replacing the entry would strand every child already
+				-- re-based against it
+				registerHost(handle.path, instance, handle.windowRect)
 			end
 		elseif prop == "padding" then
 			if handle.class == "Button" then
@@ -3525,7 +3529,7 @@ function screen_target.new(opts: Opts?)
 			or handle.focusRingFloat ~= nil
 			or handle.focusGlow ~= nil
 			or focusedHandles[handle] ~= nil
-			or clipHosts[path] ~= nil
+			or hostAt(path) ~= nil
 			or presentationTransforms[path] ~= nil
 		then
 			return false
@@ -3558,7 +3562,7 @@ function screen_target.new(opts: Opts?)
 		-- RELEASE CLIP-HOST MEMBERSHIP. The host keeps an array of its children and
 		-- re-bases their window rects against itself; a parked node left in that
 		-- array is a corpse the host goes on re-placing every solve.
-		local host = handle.clipHost
+		local host = handle.instanceHost
 		if host ~= nil then
 			for i, child in host.children do
 				if child == handle then
@@ -3566,7 +3570,7 @@ function screen_target.new(opts: Opts?)
 					break
 				end
 			end
-			handle.clipHost = nil
+			handle.instanceHost = nil
 		end
 		instancesByPath[path] = nil
 		handlesByPath[path] = nil
@@ -3656,7 +3660,7 @@ function screen_target.new(opts: Opts?)
 			return false
 		end
 		if host ~= nil then
-			handle.clipHost = host
+			handle.instanceHost = host
 			table.insert(host.children, handle)
 		end
 		instancesByPath[newPath] = handle.instance
