@@ -1460,6 +1460,54 @@ return {
 					answered += 1
 				end
 			end
+
+			--[[ THE TWO SIDES ARE NOT IN THE SAME COORDINATE SPACE, AND THAT COST TWO
+				DEVICE ROUNDS (director, 2026-08-17: `@0,-58` on every row of a screen
+				that was WORKING).
+
+				`screenRectOf` answers in WINDOW space. The engine seam answers off the
+				live GuiObject, and a LuauUI ScreenGui is `IgnoreGuiInset = true`, so its
+				descendants' `AbsolutePosition` reads back with the GUI inset SUBTRACTED
+				— on that phone, 58px, which is exactly the number the plate printed for
+				every node it accused. Comparing the two directly makes a constant
+				space difference look like a defect on every row at once, and it latched
+				the probe at solve 3 on a healthy screen twice running.
+
+				SO CALIBRATE, DO NOT ASSUME. The offset is whatever the host's seam is
+				doing, and this fixture must not know a number: take the MODAL delta
+				across every measured row and treat that as the space. A node whose own
+				delta matches the surface's is where the solver put it; a node that
+				differs from its own neighbours is misplaced, and THAT is the defect this
+				check was added for. Self-calibrating, so it survives a host that answers
+				in window space (offset zero) and one that does not.
+
+				Refused below three measured rows: a mode over two samples is not a mode,
+				and a check that cannot calibrate must not accuse. ]]
+			local spaceDX, spaceDY = 0, 0
+			local spaceKnown = false
+			if geo ~= nil then
+				local tally: { [string]: number } = {}
+				local counted = 0
+				for path, own in geo do
+					local want = ctrl.screenRectOf(path)
+					if want ~= nil then
+						local key = `{math.floor(own.x - want.x + 0.5)}|{math.floor(own.y - want.y + 0.5)}`
+						tally[key] = (tally[key] or 0) + 1
+						counted += 1
+					end
+				end
+				local bestKey, bestN = nil, 0
+				for key, n in tally do
+					if n > bestN then
+						bestKey, bestN = key, n
+					end
+				end
+				if bestKey ~= nil and counted >= 3 then
+					local sx, sy = string.match(bestKey, "^(-?%d+)|(-?%d+)$")
+					spaceDX, spaceDY = tonumber(sx) or 0, tonumber(sy) or 0
+					spaceKnown = true
+				end
+			end
 			local engineRead = geo ~= nil and answered > 0
 
 			local mismatched: { string } = {}
@@ -1533,8 +1581,8 @@ return {
 					then
 						table.insert(mismatched, path)
 					end
-					local dx, dy = own.x - want.x, own.y - want.y
-					if math.abs(dx) > 2 or math.abs(dy) > 2 then
+					local dx, dy = own.x - want.x - spaceDX, own.y - want.y - spaceDY
+					if spaceKnown and (math.abs(dx) > 2 or math.abs(dy) > 2) then
 						--[[ A DRIFT IS NOT A LOSS UNTIL A SECOND SAMPLE AGREES, and shipping
 							it as one broke this instrument for a whole device pass
 							(`b.jpeg`: latched at solve 2 on a plate that then read a portrait
@@ -1556,7 +1604,8 @@ return {
 					end
 				end
 				local vp = viewportFact:get() :: any
-				if own.x + own.w <= 0 or own.y + own.h <= 0 or own.x >= vp.w or own.y >= vp.h then
+				local wx, wy = own.x - spaceDX, own.y - spaceDY
+				if spaceKnown and (wx + own.w <= 0 or wy + own.h <= 0 or wx >= vp.w or wy >= vp.h) then
 					driftNow[path] = "off screen"
 					if driftHeld[path] ~= nil then
 						return false, `{path} off screen`

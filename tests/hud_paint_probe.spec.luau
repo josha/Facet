@@ -1316,3 +1316,130 @@ describe("hud: the plate names every distinct culprit, by its tail", function()
 		built.dispose()
 	end)
 end)
+
+--[[ NM-H4a round 8 — THE TWO SIDES ARE NOT IN THE SAME COORDINATE SPACE.
+
+	The director, 2026-08-17, on a screen that was WORKING:
+
+	    393x759 s3 HELD
+	    11 of 11 NOT PAINTED
+	    hidden under: …/Objective/Plate @0,-58
+	    hidden under: …/RoundStrip/R1 @0,-58
+
+	Every row accused, every one by the same 58px — which is exactly that phone's
+	topbar inset. `screenRectOf` answers in WINDOW space; the engine seam answers
+	off the live GuiObject, and a LuauUI ScreenGui is `IgnoreGuiInset = true`, so
+	its descendants' `AbsolutePosition` reads back INSET-SUBTRACTED. Comparing the
+	two directly makes a constant space difference look like a defect on every row
+	at once.
+
+	The check now calibrates: the MODAL delta across every measured row IS the
+	space, and only a node that differs from its own neighbours is misplaced. That
+	is also the stronger question — "is this node where the others are" cannot be
+	answered by knowing an inset, and does not need to be. ]]
+describe("hud: a whole-surface coordinate offset is a space, not a defect", function()
+	local RING = "/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Track"
+
+	local function shiftedBy(dx: number, dy: number, only: string?): any
+		return function(w: any)
+			return function(paths: { string }): any
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil then
+						local screenId = string.match(path, "^/([^/]+)")
+						local apply = only == nil or path == only
+						out[path] = {
+							x = node.rect.x + (if apply then dx else 0),
+							y = node.rect.y + (if apply then dy else 0),
+							w = node.rect.w,
+							h = node.rect.h,
+							visible = w.adapter.visibleOf(path) ~= false,
+							enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						}
+					end
+				end
+				return out
+			end
+		end
+	end
+
+	local function mountWith(w: any, geo: any): any
+		return mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = geo(w),
+		})
+	end
+
+	it("EVERY row offset by the same amount is the phone's inset, and accuses nobody", function()
+		-- -58 is the exact number the director's plate printed for every row of a
+		-- screen that was working
+		local w = world(LANDSCAPE)
+		local built = mountWith(w, shiftedBy(0, -58))
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(0)
+		expect(probe.held).toBe(false)
+		built.dispose()
+	end)
+
+	it("...and ONE row differing from its neighbours still is a defect", function()
+		local w = world(LANDSCAPE)
+		-- the whole surface in the engine's space, and one node genuinely misplaced
+		local built = mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = function(paths: { string }): any
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil then
+						local screenId = string.match(path, "^/([^/]+)")
+						local extra = if path == RING then 40 else 0
+						out[path] = {
+							x = node.rect.x + extra,
+							y = node.rect.y - 58,
+							w = node.rect.w,
+							h = node.rect.h,
+							visible = w.adapter.visibleOf(path) ~= false,
+							enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						}
+					end
+				end
+				return out
+			end,
+		})
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(1)
+		expect(probe.lost[1]).toBe("TimerRing")
+		-- the offset is reported RELATIVE to the surface's own space, so it names the
+		-- distance from where its neighbours are rather than from the inset
+		expect(string.find(probe.plate, "@40,0", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a shifted surface is not reported OFF SCREEN either", function()
+		-- the same collapse pointing the other way: window-space bounds applied to
+		-- inset-space coordinates would push a top row off the top
+		local w = world(LANDSCAPE)
+		local built = mountWith(w, shiftedBy(0, -120))
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		expect(#built.report().paintProbe.lost).toBe(0)
+		built.dispose()
+	end)
+end)
