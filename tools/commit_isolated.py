@@ -61,6 +61,8 @@ standing rules forbid.
 WHAT IT REFUSES
 ---------------
   * a named path with no change against HEAD                        -> exit 2
+  * a BINARY path is staged WHOLE (there are no hunks to filter), and a
+    marker filter on one is refused rather than silently ignored
   * a marker that matches no hunk (it will not commit nothing)      -> exit 2
   * HEAD moved between the read and the update-ref (a real race)    -> exit 3
     Re-run it. Your working tree is untouched, so a re-run is free.
@@ -222,6 +224,28 @@ def main():
         diff = git(["diff", f"-U{CONTEXT}", "--binary", old_head, "--", path])
         header, hunks = split_hunks(diff)
         if not hunks:
+            # A BINARY PATH HAS NO HUNKS AND IS NOT UNCHANGED, and conflating the two
+            # refused a real commit. Found 2026-08-17 committing a rebuilt
+            # `examples/places/*.rbxl`: `git diff --stat` reported
+            # `Bin 2433909 -> 2455473 bytes` and 430,205 bytes of binary patch, while
+            # this branch said "no change against HEAD" and exited 2 — because
+            # `split_hunks` looks for `@@` and a binary diff has none.
+            #
+            # There is nothing to FILTER in a binary file: hunk-level isolation is
+            # the whole point of this script and a binary path cannot offer it, so
+            # the honest handling is the one the untracked branch above already
+            # uses — hash the working-tree bytes and stage that blob whole. Naming a
+            # binary path here is therefore the same assertion as naming any whole
+            # file: you have verified the file is yours. A marker filter cannot mean
+            # anything on one, so asking for both is refused rather than silently
+            # ignored.
+            if "GIT binary patch" in diff or "Binary files" in diff:
+                if markers:
+                    die(f"{path} is BINARY and markers cannot select inside one — refusing", 2)
+                blob = git(["hash-object", "-w", path]).strip()
+                git(["update-index", "--add", "--cacheinfo", f"100644,{blob},{path}"], env=env)
+                print(f"  BINARY {path}  (whole file, {len(diff)} bytes of patch)")
+                continue
             die(f"{path} has no change against HEAD — refusing", 2)
         if markers:
             want = markers.split(",")

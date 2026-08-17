@@ -234,6 +234,26 @@ local WORKLOADS = {
 			on the one edit shape where the reuse path has a reason to work. ]]
 		profilePass = "editOffWindowIncremental",
 	},
+	--[[ THE THIRD NAMED LEVER (2026-08-17), same shape as the two above,
+		implemented in `examples/performance/lab/levers.luau` (`levers.HOST_ARMS`).
+		`artifacts/nested-instance-tree/live-probes.md` §4 measured this exact
+		shape in Studio — a 20-row list inside a `ScrollView` with a header above
+		it whose height goes 20 -> 60 — at 241 engine `Position` writes before
+		ADR-0032's ordering fix and 1 after. Nothing pressed it at scale or asked
+		whether the collapse is a FRAME-TIME win; `hosted`/`unhosted` are the same
+		rows with and without the `ScrollView`, and `*Large` sweeps N 5x. SAME
+		RULING AS 2026-08-14/2026-08-15: adding a workload changes no existing
+		workload's steps, so `SCENARIO_VERSION` does not move. ]]
+	{
+		id = "host-move",
+		implementation = "none",
+		question = "Does a container's engine writes collapse when it moves inside a real instance "
+			.. "host, and does that collapse show up as a frame-time difference on the device that "
+			.. "matters? ADR-0032's own standing risk: the engine's C++ descendant walk is unmeasured, "
+			.. "so this may show nothing.",
+		passes = { "hosted", "hostedRepeat", "unhosted", "hostedLarge", "unhostedLarge" },
+		profilePass = "hosted",
+	},
 	{
 		id = "lifecycle-soak",
 		implementation = "luauui",

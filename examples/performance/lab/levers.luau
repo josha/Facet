@@ -146,6 +146,75 @@ local EDIT_ARMS = {
 	"editInWindowIncremental",
 }
 
+--[[ ── LEVER 3's ARMS (2026-08-17) ────────────────────────────────────────────
+
+	`artifacts/nested-instance-tree/live-probes.md` §4 measured this exact shape in
+	Studio with `GetPropertyChangedSignal("Position")` on all 120 descendants of a
+	`ScrollView` plus the ScrollView itself: a 20-row list (6 fixed-height `UI.Box`
+	cells per row) with a header above it whose height goes 20 -> 60 cost **240
+	descendant `Position` changes, 120 of them wrong** before ADR-0032's ordering +
+	deferred-rebase fix, and **1** after — the `ScrollView`'s own write, nothing
+	else, because a hosted child's `Position` is parent-relative and does not need
+	to move when only its host does. ADR-0032 ("What the build found") calls the win
+	real and calls the frame-time question OPEN: *"the engine still recomputes every
+	descendant's `AbsolutePosition` in the nested arm — that work moves from Luau
+	into C++, it does not vanish... A Performance Lab run and a device pass are
+	owed."* These arms are that press.
+
+	HOSTED reproduces the probe's shape inside a `ScrollView` — a clip host BY
+	CONSTRUCTION (ADR-0032 Decision 1's first trigger, no `clipChildren` / `opacity`
+	/ `scale` needed). UNHOSTED is the identical row content with no `ScrollView`
+	above it, so every leaf stays flat under the screen root and the framework must
+	recompute an absolute position for each one. Neither arm alone answers anything:
+	a hosted-only number cannot say whether nesting bought something with nothing to
+	compare it to, which is why `arrangeShapes` and `editLocality` above both carry
+	an explicit control.
+
+	N IS SWEPT rather than held constant, because "does the write count matter on
+	ARM" and "does it matter MORE at scale" are different questions. `Small`
+	(`hosted`/`hostedRepeat`/`unhosted`) reproduces the probe's own 20-row shape for
+	direct comparability with the already-measured 241 -> 1; `Large` is 5x the rows
+	(100, 600 leaves), so an operator can see whether `unhosted`'s per-rep cost
+	climbs with N while `hosted`'s does not — the shape the O(N)-vs-O(1) write claim
+	predicts, IF the engine's own `AbsolutePosition` walk does not dominate it (the
+	open risk above).
+
+	THE ORACLE IS `controller.scrollHostFor`, not the arm's name. A typo that built
+	the `unhosted` tree with a `ScrollView` anyway would report a beautiful number
+	for a control that controls nothing — the "check that proves nothing" class this
+	file already guards against twice (`shapeArm`'s `kind`-chain assert, `editArm`'s
+	`partialSolves` tripwire). `scrollHostFor` is the same seam `src/controls/
+	table.luau` reads to find the `ScrollView` that actually moves a table's rows;
+	read here on a known leaf path, so "hosted" means what it says.
+
+	THE PROVOCATION IS THE HEADER, exactly as the probe measured it: one shared
+	`{ type = "fixed", px = ... }` memo toggled 20/60 every rep, alternating so no
+	rep writes the value it already holds (the `imagesCold` defect class, guarded
+	the same way `shapeArm` guards it). `incrementalLayout = false` for the same
+	reason `shapeArm` fixes it off: the header change moves the list's rect every
+	rep regardless, so the reuse path has nothing to skip here — Lever 2 is where it
+	is the subject.
+
+	TIER DISCIPLINE (standing rule 3), the same shape as `motionFlight`'s: under
+	Lune `telemetry.clock` is a synthetic 1ms-per-call stub, so every `*Ms` field
+	here is real only in Studio and only a device pass is a device claim. Headless,
+	the COUNTS are what mean anything: `scrollHosted` (did the arm build what it
+	declares), `arrangedNodes`/`measuredNodes` (did it provoke a real solve), and
+	`arrangePerRep`/`measurePerRep` (did every rep provoke exactly one — not zero,
+	not a fraction of one). `commitPerRep` is measured rather than asserted at 1:
+	the renderer opens `LuauUI/commit` twice per full solve here (once for the
+	rect write, once for the paint/z-order-sync dirty it provokes alongside it),
+	steadily across every arm — so what actually matters is that the cadence is
+	IDENTICAL hosted and unhosted, which is what makes the comparison fair. ]]
+local HOST_ROWS_SMALL = 20 -- the exact row count the Studio probe measured (§4)
+local HOST_ROWS_LARGE = 100 -- 5x: does the unhosted cost climb with N?
+local HOST_CELLS_PER_ROW = 6 -- the probe's own shape: 20 x 6 = 120 leaves
+local HOST_CELL_W = 24
+local HOST_CELL_H = 10
+local HOST_HEADER_LO = 20
+local HOST_HEADER_HI = 60 -- the probe's own header delta, verbatim
+local HOST_ARMS = { "hosted", "hostedRepeat", "unhosted", "hostedLarge", "unhostedLarge" }
+
 --[[ EXPORTED SO THE DECLARATION AND THE IMPLEMENTATION CAN BE TIED TOGETHER.
 
 	The two workload DECLARATIONS live in `perf_lab.WORKLOADS` — that table is read
@@ -160,6 +229,10 @@ levers.SHAPE_ARMS = SHAPE_ARMS
 levers.EDIT_ARMS = EDIT_ARMS
 levers.SHAPE_LEAVES = SHAPE_LEAVES
 levers.EDIT_ROWS = EDIT_ROWS
+levers.HOST_ARMS = HOST_ARMS
+levers.HOST_ROWS_SMALL = HOST_ROWS_SMALL
+levers.HOST_ROWS_LARGE = HOST_ROWS_LARGE
+levers.HOST_CELLS_PER_ROW = HOST_CELLS_PER_ROW
 
 --[[ install(deps) -> nil
 
@@ -625,6 +698,182 @@ function levers.install(deps: any)
 					.. "is inert on a collection edit exactly as L-27 found it on a resize, and that is a "
 					.. "measurement, not a failure. Lune = regression signal, this lab under Studio = real "
 					.. "engine, device = the only device claim."
+				return arm
+			end)
+		end
+	end
+
+	-- ================================================================
+	-- LEVER 3 — a container move inside a host, per frame: hosted vs unhosted
+	-- ================================================================
+
+	local HOST_SPEC: { [string]: { hosted: boolean, rows: number } } = {
+		hosted = { hosted = true, rows = HOST_ROWS_SMALL },
+		-- the A/A CONTROL: byte-identically `hosted`, run again
+		hostedRepeat = { hosted = true, rows = HOST_ROWS_SMALL },
+		unhosted = { hosted = false, rows = HOST_ROWS_SMALL },
+		hostedLarge = { hosted = true, rows = HOST_ROWS_LARGE },
+		unhostedLarge = { hosted = false, rows = HOST_ROWS_LARGE },
+	}
+
+	local function hostArm(kind: string, hosted: boolean, rowCount: number, payload: string?): any
+		local _, REPS = framesAndReps(payload, 60, 24)
+		local armScope = labScope:child(`host-arm-{kind}`)
+		-- OWNED AND DISPOSED, same discipline as `shapeArm`'s `pad`: the pass loops
+		-- under `Profile 1`, so an un-owned signal per lap is a leak the soak row
+		-- would eventually report as a framework trend.
+		local headerTall = armScope:own(core:signal(true))
+		local headerDim = core:memo(function(use)
+			return { type = "fixed", px = if use(headerTall) then HOST_HEADER_HI else HOST_HEADER_LO }
+		end)
+
+		local function buildRows(): { any }
+			local out = table.create(rowCount)
+			for r = 1, rowCount do
+				local cells = table.create(HOST_CELLS_PER_ROW)
+				for c = 1, HOST_CELLS_PER_ROW do
+					cells[c] = U.Box({
+						id = `C{c}`,
+						width = { type = "fixed", px = HOST_CELL_W },
+						height = { type = "fixed", px = HOST_CELL_H },
+					})
+				end
+				out[r] = U.HStack({
+					id = `R{r}`,
+					gap = 2,
+					width = { type = "fill", weight = 1 },
+					children = cells,
+				})
+			end
+			return out
+		end
+
+		local list = U.VStack({
+			id = "List",
+			gap = 2,
+			width = { type = "fill", weight = 1 },
+			children = buildRows(),
+		})
+		-- HOSTED wraps the SAME list in a `ScrollView` — a clip host BY CONSTRUCTION
+		-- (ADR-0032 Decision 1's first trigger), no `clipChildren` / `opacity` /
+		-- `scale` needed. UNHOSTED presents `list` directly: same rows, same cells,
+		-- no host anywhere above them.
+		local body = if hosted
+			then U.ScrollView({
+				id = "Rows",
+				axis = "y",
+				padding = 0,
+				width = { type = "fill", weight = 1 },
+				height = { type = "fixed", px = math.max(100, viewportH()) },
+				children = { list },
+			})
+			else list
+		local header = U.Box({ id = "Header", width = { type = "fill", weight = 1 }, height = headerDim })
+		local handle =
+			ctx.presenter.present(U.Screen({ id = "HostArm", padding = 0, gap = 0, children = { header, body } }), {
+				recycleInstances = settings.recycle == true,
+				-- OFF for the same reason `shapeArm` fixes it off: the header's height
+				-- moves the list's rect every rep regardless, so there is nothing for
+				-- the reuse path to skip and this arm's question is what a FULL solve
+				-- costs, hosted against unhosted.
+				incrementalLayout = false,
+			})
+
+		local function finish()
+			ctx.presenter.dismiss(handle)
+			armScope:dispose()
+		end
+
+		local ok, result = pcall(function()
+			ctx.presenter.refresh()
+			local totalLeaves = rowCount * HOST_CELLS_PER_ROW
+			local stats0 = if handle.controller ~= nil and handle.controller.stats ~= nil
+				then handle.controller.stats()
+				else nil
+			--[[ THE ARM BUILT THE TREE IT SAYS IT DID, first half: it arranged at
+				least its leaves. Same oracle `shapeArm` uses, same reason. ]]
+			assert(
+				stats0 ~= nil and stats0.lastArranged >= totalLeaves,
+				`[perf lab] host-move arm '{kind}' arranged {tostring(
+					if stats0 == nil then "nil" else stats0.lastArranged
+				)} nodes for {totalLeaves} leaves — the tree is not the one this arm declares`
+			)
+			--[[ THE ARM BUILT THE TREE IT SAYS IT DID, second half, and the one that
+				actually matters here: HOSTED means a real `ScrollView` ancestor, not a
+				label. `controller.scrollHostFor` is the same seam `src/controls/
+				table.luau` reads to find the `ScrollView` that actually moves a
+				table's rows; read here on a known leaf path, so "hosted" means what it
+				says rather than what the arm's name promises. ]]
+			local cellPath = if hosted then "/HostArm/Rows/List/R1/C1" else "/HostArm/List/R1/C1"
+			local scrollHosted = handle.controller ~= nil
+				and handle.controller.scrollHostFor ~= nil
+				and handle.controller.scrollHostFor(cellPath) ~= nil
+			assert(
+				scrollHosted == hosted,
+				`[perf lab] host-move arm '{kind}' declares hosted={tostring(hosted)} but scrollHostFor('{cellPath}') `
+					.. `says {tostring(scrollHosted)} — the tree is not the one this arm declares`
+			)
+
+			local samples = {}
+			local arrangeBefore = scopeCount("arrange")
+			local measureBefore = scopeCount("measure")
+			local commitBefore = scopeCount("commit")
+			for i = 1, REPS do
+				-- alternate so consecutive reps never write the same value: a rep
+				-- that dirties nothing is a rep that measures nothing
+				headerTall:set(i % 2 == 0)
+				local t0 = clock()
+				ctx.presenter.refresh()
+				table.insert(samples, (clock() - t0) * 1000)
+				-- OUTSIDE the timed region and unconditional: rule 3
+				telemetry.step()
+			end
+			local arranges = scopeCount("arrange") - arrangeBefore
+			local measures = scopeCount("measure") - measureBefore
+			local commits = scopeCount("commit") - commitBefore
+			local stats = if handle.controller ~= nil and handle.controller.stats ~= nil
+				then handle.controller.stats()
+				else nil
+			local arranged = if stats ~= nil then stats.lastArranged else 0
+			local solveMs = summarize(samples)
+			return {
+				hostMove = kind,
+				hosted = hosted,
+				rows = rowCount,
+				leaves = totalLeaves,
+				reps = REPS,
+				scrollHosted = scrollHosted,
+				arrangedNodes = arranged,
+				measuredNodes = if stats ~= nil then stats.lastMeasured else 0,
+				arrangePerRep = arranges / REPS,
+				measurePerRep = measures / REPS,
+				commitPerRep = commits / REPS,
+				--[[ THE HEADLINE. The whole set+refresh round trip, same as
+					`shapeArm`'s `usPerArrangedNode` — comparable ARM TO ARM (hosted vs
+					unhosted at matched N), not to a MicroProfiler occurrence. ]]
+				solveMs = solveMs,
+				usPerLeaf = if solveMs.measured and totalLeaves > 0 then solveMs.p50_ms * 1000 / totalLeaves else 0,
+			}
+		end)
+		finish()
+		if not ok then
+			error(result, 0)
+		end
+		return result
+	end
+
+	for _, name in HOST_ARMS do
+		local spec = HOST_SPEC[name]
+		passes[name] = function(payload: string?)
+			return timed(name, function()
+				local arm = hostArm(name, spec.hosted, spec.rows, payload)
+				arm.arm = name
+				arm.note = "One container move per FRAME (the header's height), hosted against unhosted at "
+					.. "matched N — artifacts/nested-instance-tree/live-probes.md §4 measured this exact "
+					.. "shape at 241 engine Position writes becoming 1 in Studio; this is whether that shows "
+					.. "up in a frame. Read `hosted` and `hostedRepeat` FIRST: their difference is the "
+					.. "harness spread. `scrollHosted` is the oracle, not the arm's name. Lune = regression "
+					.. "signal, this lab under Studio = real engine, device = the only device claim."
 				return arm
 			end)
 		end

@@ -462,7 +462,12 @@ describe("perf lab: selectors and workload identity (PL-2/PL-10)", function()
 		-- COLLECTION edit, the opposite case to the resize L-27 measured it inert on).
 		-- Their passes live in `examples/performance/lab/levers.luau`, so this loop is
 		-- also what proves that file's installation reached the declaration.
-		expect(#declared.order).toBe(16)
+		-- SEVENTEEN since `host-move` joined (2026-08-17, the third named lever):
+		-- `artifacts/nested-instance-tree/live-probes.md` §4 measured a container's
+		-- engine writes collapse from 241 to 1 when it moves inside a real instance
+		-- host; nothing pressed that at scale or asked whether it is a frame-time win
+		-- (ADR-0032's own standing risk). Its arms also live in `levers.luau`.
+		expect(#declared.order).toBe(17)
 		for _, w in declared.workloads do
 			for _, passName in w.passes do
 				-- `pass` refuses an unknown name, so an unimplemented pass in a
@@ -1456,7 +1461,7 @@ end)
 
 	Each was a real defect in this lab's history, in a different pass.
 ]]
-describe("perf lab: the two named levers measure what they claim (device capture 6)", function()
+describe("perf lab: the three named levers measure what they claim (device capture 6)", function()
 	it("the declared arms ARE the installed arms — the two files cannot drift apart", function()
 		-- `perf_lab.WORKLOADS` names the passes as strings and `levers.luau` installs
 		-- them, because perf_lab must stay `script`-free and so cannot require it.
@@ -1469,9 +1474,11 @@ describe("perf lab: the two named levers measure what they claim (device capture
 		end
 		expect(table.concat(byId["arrange-shapes"].passes, ",")).toBe(table.concat(leversLib.SHAPE_ARMS, ","))
 		expect(table.concat(byId["edit-locality"].passes, ",")).toBe(table.concat(leversLib.EDIT_ARMS, ","))
+		expect(table.concat(byId["host-move"].passes, ",")).toBe(table.concat(leversLib.HOST_ARMS, ","))
 		-- ...and the default a `Profile 1` press aims at is one of them
 		expect(byId["arrange-shapes"].profilePass).toBe("flat")
 		expect(byId["edit-locality"].profilePass).toBe("editOffWindowIncremental")
+		expect(byId["host-move"].profilePass).toBe("hosted")
 		built.dispose()
 	end)
 
@@ -1657,6 +1664,106 @@ describe("perf lab: the two named levers measure what they claim (device capture
 			expect(lapFrames <= 60).toBe(true)
 			built.dispose()
 		end
+		for _, arm in leversLib.HOST_ARMS do
+			local built = newHarness()
+			local before = (built :: any).framesYielded()
+			built.steps.pass(nil, arm)
+			local lapFrames = (built :: any).framesYielded() - before
+			expect(lapFrames > 0).toBe(true)
+			expect(lapFrames <= 60).toBe(true)
+			built.dispose()
+		end
+	end)
+end)
+
+--[[ THE THIRD NAMED LEVER (2026-08-17): a container move inside a host, per
+	frame. `artifacts/nested-instance-tree/live-probes.md` §4 measured this exact
+	shape in Studio at 241 engine `Position` writes becoming 1; these cases are the
+	same guards `shapeArm`/`editArm` already have, aimed at a workload whose entire
+	claim rests on a structural fact (a real `ScrollView` ancestor) rather than a
+	name — the "check that proves nothing" class would here be five arms that
+	silently build the identical tree and agree with each other beautifully.
+]]
+describe("perf lab: the host-move lever measures a real host, not a label", function()
+	it("hosted arms have a real ScrollView ancestor; unhosted arms do not — the structural oracle", function()
+		local built = newHarness()
+		local out: any = {}
+		for _, arm in leversLib.HOST_ARMS do
+			out[arm] = built.steps.pass(nil, `{arm}=10/4`).detail
+		end
+		-- the declared intent (HOST_SPEC in levers.luau) and the built structure
+		-- must agree, for every arm — not just the two the default dump would show
+		expect(out.hosted.scrollHosted).toBe(true)
+		expect(out.hostedRepeat.scrollHosted).toBe(true)
+		expect(out.unhosted.scrollHosted).toBe(false)
+		expect(out.hostedLarge.scrollHosted).toBe(true)
+		expect(out.unhostedLarge.scrollHosted).toBe(false)
+		-- and `scrollHosted` tracks the arm's own declared `hosted` field, which is
+		-- the invariant a future arm addition has to keep
+		for _, arm in leversLib.HOST_ARMS do
+			expect(`{arm}:{out[arm].scrollHosted}`).toBe(`{arm}:{out[arm].hosted}`)
+		end
+		built.dispose()
+	end)
+
+	it("N IS ACTUALLY SWEPT — Large is five times Small's rows and leaves, not a relabeled copy", function()
+		local built = newHarness()
+		local small = built.steps.pass(nil, "hosted=10/4").detail
+		local large = built.steps.pass(nil, "hostedLarge=10/4").detail
+		expect(small.rows).toBe(leversLib.HOST_ROWS_SMALL)
+		expect(large.rows).toBe(leversLib.HOST_ROWS_LARGE)
+		expect(small.leaves).toBe(leversLib.HOST_ROWS_SMALL * leversLib.HOST_CELLS_PER_ROW)
+		expect(large.leaves).toBe(leversLib.HOST_ROWS_LARGE * leversLib.HOST_CELLS_PER_ROW)
+		expect(large.leaves).toBe(5 * small.leaves)
+		-- every arm arranges at least its own leaves, so none of them silently built
+		-- an empty or truncated tree (the `shapeArm` oracle, reused here)
+		expect(small.arrangedNodes >= small.leaves).toBe(true)
+		expect(large.arrangedNodes >= large.leaves).toBe(true)
+		built.dispose()
+	end)
+
+	it("every rep provokes exactly ONE full solve, and the SAME commit cadence hosted and unhosted", function()
+		-- THE REAL PROFILE MODULE, same discipline as the SHAPE_ARMS case above: the
+		-- harness's default no-op profiler makes every `*PerRep` field read 0.00 for
+		-- a healthy arm, which is exactly what this case exists to catch.
+		local built = newHarness({ profile = profile })
+		profile.resetCounters()
+		profile.setEnabled(true)
+		profile.setHooks(function() end, function() end)
+		local ok, details = pcall(function()
+			local out: any = {}
+			for _, arm in leversLib.HOST_ARMS do
+				out[arm] = built.steps.pass(nil, `{arm}=10/4`).detail
+			end
+			return out
+		end)
+		profile.setHooks(nil, nil)
+		profile.setEnabled(false)
+		profile.resetCounters()
+		if not ok then
+			error(details, 0)
+		end
+		for _, arm in leversLib.HOST_ARMS do
+			local detail = (details :: any)[arm]
+			expect(`{arm}:{detail.arrangePerRep}`).toBe(`{arm}:1`)
+			expect(`{arm}:{detail.measurePerRep}`).toBe(`{arm}:1`)
+		end
+		--[[ `commitPerRep` is NOT asserted at 1, on purpose — measured (not assumed)
+			at a steady 2 for every arm here: the renderer opens `LuauUI/commit` once
+			for the layout-driven rect write and again for the paint/z-order-sync dirty
+			pass it provokes alongside it, a framework fact this workload's header
+			provocation happens to surface (`arrange`/`measure` do not split this way).
+			What the workload's own claim actually rests on is that this cadence is
+			IDENTICAL hosted and unhosted — so an arm-to-arm timing difference on a
+			device is a difference in what a commit WRITES, not in how often it fires,
+			which is what makes `hosted` vs `unhosted` a fair comparison at all. ]]
+		local host = (details :: any).hosted.commitPerRep
+		expect(host > 0).toBe(true)
+		expect((details :: any).hostedRepeat.commitPerRep).toBe(host)
+		expect((details :: any).unhosted.commitPerRep).toBe(host)
+		expect((details :: any).hostedLarge.commitPerRep).toBe(host)
+		expect((details :: any).unhostedLarge.commitPerRep).toBe(host)
+		built.dispose()
 	end)
 end)
 
