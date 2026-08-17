@@ -3251,15 +3251,38 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- expecting to grab a row. The row's own activate is its primary verb and
 	-- keeps the primary stop.
 	--
-	-- The cost, stated rather than hidden: a LEADING affordance is reached by
-	-- continuing RIGHT off the row rather than by pressing Left toward where it
-	-- is painted. Only one edge can be revealed at a time (the open-edge policy),
-	-- so the walk is never ambiguous — but the honest repair is per-row `exit.up`
-	-- /`exit.down` declarations, which would free the group array for edge-side
-	-- groups the way `newVirtualList` uses them (its row group is VERTICAL, so a
-	-- horizontal strip of buttons cannot be spliced into it at all and its hosted
-	-- tray needs a group of its own). That is a navigation-model change for
-	-- every table, not a reachability fix, and it is not taken here.
+	-- ...AND THE ROW IS A CLOSED HORIZONTAL RING (`wrap = true`). A row group is
+	-- one row's worth of stops, so a LEFT or RIGHT press must never change which
+	-- row the ring is on — Up/Down is the only way between rows. Without the wrap
+	-- the group is horizontally OPEN, and an open group answers a press off either
+	-- end with an EXIT: `focus_graph.exitFrom` falls through the group array in the
+	-- direction of travel, which HERE is the neighbouring ROW, and
+	-- `enterGroup` lands a direction-along-axis entry at that group's FAR end
+	-- (leftward travel enters at `#order`). Every row group's far end is an
+	-- affordance, so in edit mode Left off a focused row put the ring on the row
+	-- ABOVE's ⊖ — the wrong row's Delete button, one press from A. Found on a real
+	-- pad by the director on the ex02 playlist, 2026-08-16; reproduced headless in
+	-- `tests/table_input.spec.luau` (R8-5), which names the row it landed on.
+	-- Right leaked the same way (off the ⊖ onto the NEXT row's hit) and merely got
+	-- away with it, because a far-end entry going right is index 1 — the row's own
+	-- primary stop rather than a destructive one.
+	--
+	-- The wrap closes both leaks at once and gives Left the meaning the director
+	-- expects for free: the leading affordance is the group's LAST stop, so Left
+	-- off the primary stop reaches THIS row's ⊖. `wrap` "governs the DIRECTIONAL
+	-- arrows along that group's axis and nothing else" (`focus_graph.FocusScope`),
+	-- so the vertical fall-through between rows — and the focus-skip that walks
+	-- over an all-ineligible row — is untouched. `containment` would have closed
+	-- the vertical axis too and is the wrong instrument.
+	--
+	-- The cost, stated rather than hidden: with only a TRAILING affordance up, the
+	-- wrap sends Left to something painted on the right. It stays inside the row,
+	-- which is the property that matters; the honest repair is per-row `exit.up`
+	-- /`exit.down` declarations freeing the group array for edge-side groups the
+	-- way `newVirtualList` uses them (its row group is VERTICAL, so a horizontal
+	-- strip of buttons cannot be spliced into it at all and its hosted tray needs
+	-- a group of its own). That is a navigation-model change for every table, and
+	-- it is not taken here.
 	function api.buildFocusGroups(rootNode: any): { any }
 		-- capture the mounted root so bindNativeScroll can default the scroll path
 		-- to <root>/Main/Body (the presenter calls this on every present/refresh)
@@ -3373,6 +3396,10 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				name = `row:{entry.key}`,
 				axis = "horizontal",
 				entry = "nearest",
+				-- a row is a CLOSED ring: Left/Right never change rows, and Left off
+				-- the primary stop reaches this row's own leading affordance. See the
+				-- header comment's "CLOSED HORIZONTAL RING".
+				wrap = true,
 				order = entry.order,
 			})
 		end

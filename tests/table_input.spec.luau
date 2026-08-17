@@ -1852,7 +1852,13 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 				rowHeight = 40,
 				env = env,
 				editing = editing,
-				rowActions = function(_item: any): any
+				--[[ THE LOG NAMES THE ROW, and that is not cosmetic (2026-08-16). It
+					used to record the ACTION alone (`"delete"`), so every assertion here
+					could only say "a delete fired" — and a targeting bug that fires the
+					RIGHT action on the WRONG ROW is invisible to that. R8-5 below is
+					exactly that bug, shipped under four green cases. ]]
+				rowActions = function(item: any): any
+					local key = item.id
 					return {
 						leading = if options.leading
 							then {
@@ -1860,7 +1866,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 									id = "flag",
 									label = "Flag",
 									onAction = function()
-										table.insert(fired, "flag")
+										table.insert(fired, `flag:{key}`)
 									end,
 								},
 							}
@@ -1871,7 +1877,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 								role = "destructive",
 								label = "Delete",
 								onAction = function()
-									table.insert(fired, "delete")
+									table.insert(fired, `delete:{key}`)
 								end,
 							},
 						},
@@ -1968,7 +1974,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		expect(w.adapter.node(trayAction("r1", "trailing", "delete")).focused).toBe(true)
 		w.press("ButtonA")
 		w.settle()
-		expect(w.fired).toEqual({ "delete" })
+		expect(w.fired).toEqual({ "delete:r1" })
 	end)
 
 	it("(R8-2) a LEADING tray is reachable too, and the ROW keeps the primary stop", function()
@@ -1988,7 +1994,7 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		expect(w.pres.focus.focused:get()).toBe(trayAction("r2", "leading", "flag"))
 		w.press("ButtonA")
 		w.settle()
-		expect(w.fired).toEqual({ "flag" })
+		expect(w.fired).toEqual({ "flag:r2" })
 	end)
 
 	it("(R8-3) the EDIT-MODE MINUS is a focus stop, and Activate on it deletes", function()
@@ -2009,7 +2015,63 @@ describe("table_input: a revealed tray and the edit minus are reachable by keybo
 		expect(w.pres.focus.focused:get()).toBe(minus("r1"))
 		w.press("ButtonA")
 		w.settle()
-		expect(w.fired).toEqual({ "delete" })
+		expect(w.fired).toEqual({ "delete:r1" })
+	end)
+
+	it("(R8-5) LEFT off a focused row reaches THIS row's minus, never the row above's", function()
+		--[[ THE DIRECTOR'S BUG, on a real pad (2026-08-16): "in playlist table with
+			gamepad, when the table is in edit mode and a row is selected, I'd expect
+			left on the d-pad to select delete for this row. Instead it goes to delete
+			for the prior row."
+
+			The minus is painted in the row's LEADING gutter, so Left is the press
+			that reaches it. It used to be spliced into the row's own horizontal
+			group as its LAST stop, which made Left at index 1 an EXIT — and an
+			uncontained group's exit falls through the group array in the direction
+			of travel, i.e. onto the PREVIOUS row's group, entered at its far end.
+			In edit mode that far end is a Delete button belonging to another row. ]]
+		local w = trayWorld({ editing = true })
+		w.pres.focus.focusOn(wrappedHit("r2"))
+		w.pres.refresh()
+		w.press("DPadLeft")
+		expect(w.pres.focus.focused:get()).toBe(minus("r2"))
+		-- ...and it is THIS row's delete that fires, not the one above's
+		w.press("ButtonA")
+		w.settle()
+		expect(w.fired).toEqual({ "delete:r2" })
+	end)
+
+	it("(R8-6) a horizontal press NEVER changes rows — on the pad and on the keyboard alike", function()
+		--[[ The general law R8-5 is one instance of. An index bug rarely respects
+			one direction, and the director tested one path on one input class, so
+			both are measured here.
+
+			RIGHT leaked exactly the same way and merely got away with it: off the ⊖
+			it fell through to the NEXT row's group, entered at the far end for
+			rightward travel — which is index 1, the row's own hit rather than a
+			destructive button. Same defect, benign landing. ]]
+		local w = trayWorld({ editing = true })
+		local function walk(from: string, key: string): string
+			w.pres.focus.focusOn(from)
+			w.pres.refresh()
+			w.press(key)
+			return w.pres.focus.focused:get()
+		end
+		for _, keys in { { "DPadLeft", "DPadRight" }, { "Left", "Right" } } do
+			local left, right = keys[1], keys[2]
+			-- LEFT off the primary stop: this row's own leading ⊖, on every row
+			expect(walk(wrappedHit("r2"), left)).toBe(minus("r2"))
+			expect(walk(wrappedHit("r3"), left)).toBe(minus("r3"))
+			-- ...including the FIRST row, which showed no symptom before the fix
+			-- only because it had no group above to fall into
+			expect(walk(wrappedHit("r1"), left)).toBe(minus("r1"))
+			-- RIGHT off the far end comes back to the row it belongs to, never r3
+			expect(walk(minus("r2"), right)).toBe(wrappedHit("r2"))
+			-- and the ⊖ returns to the hit from the other side too
+			expect(walk(minus("r2"), left)).toBe(wrappedHit("r2"))
+		end
+		-- the ring is closed, not silent: every landing above is still a real stop
+		expect(w.groupFor("r2").order).toEqual({ wrappedHit("r2"), minus("r2") })
 	end)
 
 	it("(R8-4) a CLOSED row is byte-identical to today: no wrapper path is a focus stop", function()

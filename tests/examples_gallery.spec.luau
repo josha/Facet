@@ -1149,6 +1149,9 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 			presenter = presenter,
 			built = built,
 			handle = handle,
+			-- exposed so a case can hot-switch this surface onto a pad and drive the
+			-- REAL bindings (`deviceKey`) rather than the graph directly
+			system = system,
 		}
 		function world.settle(frames: number?)
 			for _ = 1, frames or 120 do
@@ -1390,6 +1393,58 @@ describe("examples/gallery 02: playlist table (director revision: rating + brows
 		expect(world.adapter.node(trayAction)).toBe(nil)
 		expect(world.core:lastError()).toBeNil()
 		expect(#world.handle.controller.diagnostics()).toBe(0)
+	end)
+
+	--[[ THE DIRECTOR'S GAMEPAD SCENARIO, on the surface he found it on (2026-08-16):
+		"in playlist table with gamepad, when the table is in edit mode and a row is
+		selected, I'd expect left on the d-pad to select delete for this row.
+		Instead it goes to delete for the prior row."
+
+		The unit repro is `table_input.spec.luau` (R8-5/R8-6); this is the SHOWCASE
+		half, and it is not redundant with it — this one presses A at the end and
+		asks which TRACK left the playlist. A targeting bug that focuses the wrong
+		row still focuses a real, lit, correctly-labelled ⊖, so every assertion that
+		stops at "an affordance is focused" agrees with the bug. Only the name of
+		the row it belongs to disagrees. ]]
+	it("GAMEPAD in edit mode: Left selects THIS row's ⊖, and A removes THIS track", function()
+		local world = phoneWorld()
+		-- hot-switch the surface onto a pad: the ⊖ and the Edit toggle are offered
+		-- to touch AND gamepad, so this is the same table the finger case drives
+		world.env:set("capabilities", { keyboard = true, mouse = false, touch = false, gamepad = true })
+		world.env:set("preferredInput", "Gamepad")
+		world.presenter.refresh()
+		local function press(key: string)
+			world.system.deviceKey(key, true)
+			world.system.deviceKey(key, false)
+			world.settle(2)
+		end
+		-- into edit mode with the pad, not with a finger
+		world.presenter.focus.focusOn(TOGGLE)
+		world.presenter.refresh()
+		press("ButtonA")
+		expect(world.built.table_.api.editing:get()).toBe(true)
+
+		-- THE SECOND ROW: the first row cannot show this defect at all, because it
+		-- has no row group above it to fall into
+		local key = world.built.rows:get()[2].id
+		local above = world.built.rows:get()[1].id
+		world.presenter.focus.focusOn(`{rowRoot(key)}/Content/Row/Hit`)
+		world.presenter.refresh()
+		press("DPadLeft")
+		expect(world.presenter.focus.focused:get()).toBe(`{rowRoot(key)}/EditAffordanceWhen/then/EditAffordance`)
+
+		local before = #world.built.baseRows:get()
+		press("ButtonA")
+		world.settle(120)
+		expect(#world.built.baseRows:get()).toBe(before - 1)
+		-- ...and it is THIS track that went, with the one above it untouched
+		local left: { string } = {}
+		for _, row in world.built.baseRows:get() do
+			table.insert(left, row.id)
+		end
+		expect(table.find(left, key)).toBeNil()
+		expect(table.find(left, above) ~= nil).toBe(true)
+		expect(world.core:lastError()).toBeNil()
 	end)
 
 	--[[ EDIT MODE COSTS ROW WIDTH, AND THE SWEEP CANNOT SEE IT ────────────────
