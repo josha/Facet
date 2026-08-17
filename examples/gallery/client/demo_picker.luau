@@ -400,6 +400,20 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "tab_view",
 	},
+	-- ...and the nested-instance-tree showcase (ADR-0032). Every fixture above it
+	-- reaches PUBLIC API; this one reaches an ENGINE FACT nothing else in the
+	-- catalogue demonstrates — a registered host lets the engine compose a
+	-- presentation term for its whole subtree, which a still frame CAN hold (the
+	-- same reason `canvas-group` is here) but which a player has to drive to
+	-- believe, because the resting state of both comparisons is intentionally
+	-- identical.
+	{
+		id = "nested-tree",
+		title = "A container that carries",
+		blurb = "A shared fade doesn't double-darken, and a turning frame carries its marker",
+		kind = "fixture",
+		module = "nested_compositing",
+	},
 	{
 		id = "ex01",
 		title = "Temperature converter",

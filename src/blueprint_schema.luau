@@ -2535,7 +2535,9 @@ local REFUSED_FADE = "A fade in LuauUI is one engine property no style rule owns
 	.. "write from then on), so a control under it would stop dimming when disabled, forever. "
 	.. "The spelling is one wrap: UI.ZStack{ opacity = 0.4, children = { … } }. "
 	.. "`scale` and `rotation` need no wrap and are offered on every rendered class, because each of them "
-	.. "IS one engine property no rule owns (UIScale.Scale, GuiObject.Rotation). See ADR-0029."
+	.. "IS one engine property no rule owns (UIScale.Scale, GuiObject.Rotation) -- and on a CONTAINER they "
+	.. "now reach its contents too, because such a container becomes a real instance parent and the engine "
+	.. "composes both terms for the subtree (ADR-0032 Decision 4). See ADR-0029."
 
 local REFUSED: { [string]: string } = {
 	opacity = REFUSED_FADE,

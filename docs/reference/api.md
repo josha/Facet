@@ -288,8 +288,8 @@ Three groups recur in the column below and are worth naming once:
 | `zIndex` | every rendered class, **and `GridRow`** | paint-order override **within the parent's stacking scope**: siblings paint in `(zIndex or 0, declaration order)` order and a node's whole subtree travels with it. A child is always above its own parent, whatever its `zIndex`, so lifting across surfaces stays structural (`presentModal`'s display order). Read once at mount — a lift is what a node *is* (a drag ghost, a toast), not a state it passes through |
 | `hidden` | every rendered class | `true` keeps the node's **layout box** and stops painting it — and takes its whole subtree out of focus order and off the tap path with it. This is SwiftUI's `hidden()`, and it is the one thing neither of the other two answers gives you: `UI.When` *removes* the node so the siblings close up, and Roblox's own `Visible = false` frees the layout slot inside a `UIListLayout` (LuauUI arranges absolutely and materializes none of those, which is why one prop is enough). Reactive — bind it to a signal to reserve a slot until the value arrives. Reach for `UI.When` instead whenever the space *should* close up |
 | `opacity` | `Box`, `ZStack` | fade this node **and its whole subtree**: `1` is opaque (the default), `0` is invisible while still laid out, focusable and tappable — reach for `hidden` when you want all three gone. This is SwiftUI's `opacity(_:)`. Declaring it **makes the node a fade group** (you never write `canvasGroup = true` beside it), because a fade in this framework is one `CanvasGroup.GroupTransparency` write and that is the one alpha property no style rule owns — a per-node transparency write would permanently defeat the theme's own rules, which is why a leaf like `Text` refuses it. The spelling for a leaf is one wrap: `UI.ZStack { opacity = 0.4, children = { theText } }`, and reaching for it on any other class is a **construction error that says so and spells the wrap out** — `opacity` and `canvasGroup` are refused by name, never silently missing. The refusal is measured rather than argued ([ADR-0029](../adr/ADR-0029-leaf-opacity-refusal.md)): a composition needs a base term, and `GetStyled` — the only way to read the sheet's value — returns **your own write** from the first write onward, so the base stops existing. A leaf fade built anyway on `GetStyledPropertyChangedSignal` multiplies its own output back in on every state change and reaches invisible after four disable/enable cycles. It **multiplies** with any fade the framework is running on the same node (a transition, a toast retiring), exactly as Apple specifies, so an authored `0.5` inside a transition at half-way paints `0.25`. Reactive, and animatable through `presenter.withAnimation` |
-| `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — which is Apple's rule for `scaleEffect` too; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup` |
-| `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable |
+| `scale` | every rendered class | paint-only uniform scale about the node's centre; `1` is unscaled. **It changes nothing the solver sees** — the layout box, the tap target and the focus order are all the unscaled ones — which is Apple's rule for `scaleEffect` too; to change a box, change `width`/`height`. It **multiplies** with any scale the framework is applying (a motion pop, an enter transition). Reactive and animatable. It **survives a press**: a `Button`'s dip shares the engine's single `UIScale` per object, so the dip is relative — it goes down to `resting x pressedScale` and comes back to `resting`, never to an absolute `1`. **Why this is on 21 classes and `opacity` on two** (ADR-0029): a term is offerable where ONE engine property that no style rule owns expresses it for the class's whole painted output. `UIScale.Scale` is that property on every `GuiObject`, and it carries the node's descendants and its rule-created phantom modifiers with it; alpha's only such property is `CanvasGroup.GroupTransparency`, and only `Box`/`ZStack` can BE a `CanvasGroup`. **And unlike `opacity`, that reach costs nothing to switch on** ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4): authoring `scale` (or `rotation`) on a container that actually has children makes that container a real engine parent for them — a plain `Frame`, never a `CanvasGroup`, because `UIScale.Scale` is not the alpha property and needs no buffer. Measured through the real framework: a `UI.ZStack{ scale = 1.5, rotation = 30 }` around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out **120×60 at `AbsoluteRotation = 30`** — exactly 1.5× — while its own `Rotation` stays `0.0` and it grows **no `UIScale` of its own**: the engine composed both terms, no framework code did. Before this, the same container left its contents at `80×40, Rotation = 0` — a rotated plate with its contents sitting bolt upright beside it, which is why this shipped before 1.0 rather than after. A childless container or a rotated leaf earns no parent and no extra instance; declaring the prop is what registers the host, so an ordinary container with neither prop is untouched and stays elidable exactly as before |
+| `rotation` | every rendered class | paint-only rotation in **degrees** about the node's centre; `0` is upright, positive is clockwise. Like `scale` it moves no layout and no hit geometry — a rotated button's tap target is its unrotated box — and it **adds** to any rotation the framework is applying. It is on every rendered class for the same reason `scale` is (above): `GuiObject.Rotation` is one property no generated rule writes. Reactive and animatable. **Reaches a container's children the same way `scale` does** — see the `scale` row above and [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4; the two terms are registered by the same rule and compose together on the same host |
 | `onAppear`, `onDisappear` | every rendered class | view-lifetime hooks, both called with the node's path. `onAppear(path)` runs **once**, on the frame the node is first rendered and **after that frame's layout solve**, so it can read its own rect (`controller.rectOf`) and nothing has reached the screen yet. `onDisappear(path)` runs **once**, **after** the node's render instance has been released — the path is already unmounted, so `rectOf` on it is `nil` — and it also runs for everything still mounted when the surface is torn down, so a cleanup is never silently dropped. The lifetime measured is the *rendered* one: a virtualized row that scrolls out of the window disappears, and a subtree still playing its exit transition has not disappeared yet. Not reactive (a lifetime is not a value that changes), and an error thrown inside a hook is loud rather than swallowed |
 | `textSize` | `Text`, `Button`, `Toggle`, `TextField` | an explicit px number, or a typography role name (`"caption"` \| `"label"` \| `"body"` \| `"heading"` \| `"title"` \| `"control"` \| `"strong"` \| `"numeral"`) resolved from the active theme. A role supplies the **font descriptor and line height** as well as the size, and both travel to the measure seam AND the paint seam — so `"strong"` (emphasis at reading size) and `"numeral"` (a rank or score figure) are how a node asks for **weight**; there is no `weight` prop, because a face that reached only one seam is what `Text.font` was deprecated for. Either form is scaled at both seams |
 | `textAlign` | `Text` | horizontal alignment of the node's own text in its box (`start` \| `center` \| `end`); default `start`. Vertical alignment stays adapter-owned and is always centred, because the headless measurer over-reserves and centring splits that error evenly |
@@ -496,7 +496,12 @@ it as a `CanvasGroup`, it becomes its subtree's real instance parent, and
 `UI.Box{ canvasGroup = true }` (which fades a single plate), and it is what a
 fading `transition` needs — a leaf has no subtree to fade. Not reactive: it
 decides which engine class the node IS, at creation, and it costs a render
-buffer, so declare it only where a group fade is wanted.
+buffer, so declare it only where a group fade is wanted. It is not the only way
+to become a subtree's real instance parent any more: an authored `scale` or
+`rotation` on children this stack actually has does the same thing for those two
+terms, at the cost of a plain `Frame` rather than a buffer — see the `scale`/
+`rotation` rows in the shared-property table above and
+[ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4.
 
 **`opacity`** is the AUTHORED half of the same thing, and declaring it implies
 `canvasGroup` — see the shared-property table above. `UI.ZStack{ opacity = 0.4 }`
@@ -2310,8 +2315,10 @@ Two controller methods are the framework's entire **motion write surface**, on t
 
 `setPresentationOffset(dy)` (the keyboard keep-visible shift the presenter drives)
 is now this channel's first consumer rather than its own special case. **On the
-real client the instance tree is flat** — every node parents under the ScreenGui
-unless a real parent claimed it — so an offset accumulates down the subtree: a node
+real client the instance tree is flat by default** — every node parents under the
+ScreenGui unless a real parent claimed it (a `ScrollView`, `clipChildren`, a fade
+group, or an authored `scale`/`rotation` container — [ADR-0032](../adr/ADR-0032-nested-instance-tree.md))
+— so an offset accumulates down the subtree: a node
 pays its own transform plus every ancestor's, stopping at its real parent, whose
 own move already carries it. That is what makes a transform on the root move the
 whole surface instead of one transparent frame, which is exactly how SF-M9 hid: the
@@ -2321,7 +2328,13 @@ and both adapters declare which props they handle, so
 `tests/render_target_contract.spec.luau` fails if they ever diverge again.
 
 Scale and rotation reach the node's own instance (and whatever is really parented
-under it) — to scale a subtree, put the transform on a `canvasGroup` node.
+under it) — to scale a subtree with this channel, put the transform on a node that
+is already a real parent. A `canvasGroup` still works and is required if you also
+want `setPresentationTransparency` on the same node, but it is no longer the only
+door: a `ScrollView`, a `clipChildren` container, or a container that authored its
+own `scale`/`rotation` blueprint prop on children it has ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)
+Decision 4) is a real parent too, at the cost of a plain `Frame` rather than a
+render buffer.
 
 **Two rect reads, and which one a pointer question takes.** `controller.rectOf(path)`
 answers the **solved** rect — layout space, what the solver wrote, and what a
@@ -2379,9 +2392,14 @@ scopes that own the records, and `refresh` itself.
   channel for one to be diffed from — see `swiftui-parity.md` §6's `opacity(_:)`
   row for the authority decision that has to happen first.
 - **A size delta does NOT reach into the subtree**, and this is the one rule to
-  carry away. A position offset accumulates downward (LuauUI's instance tree is
-  flat, so a container's move carries nothing inside it and every descendant
-  re-adds its ancestors' offsets); a size delta is the node's own and stops
+  carry away. A position offset accumulates downward: LuauUI's instance tree is
+  flat by default, so an ordinary container's move carries nothing inside it and
+  every descendant re-adds its ancestors' offsets, stopping only at the nearest
+  node that is a real engine parent — a `ScrollView`, a `clipChildren` host, a
+  fade group, or (since [ADR-0032](../adr/ADR-0032-nested-instance-tree.md)
+  Decision 4) a container with its own authored `scale`/`rotation`. Every host
+  registered shortens that walk, because that host's own move already carries
+  its children; a size delta is the node's own regardless and stops
   there. A label pinned to the top of a growing card stays exactly where it is
   while the box opens underneath it — it neither drifts nor stretches.
 - **The box's interior relayouts while it travels**, because it is a real engine

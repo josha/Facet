@@ -258,6 +258,15 @@ local ORDER = {
 	-- of the documented escape hatch. The page bar overflows on purpose so the
 	-- selection can be scrolled into view. Also in `demo_picker.DEMOS`.
 	"tab_view",
+	-- ADR-0032 (the nested instance tree): the compositing showcase. A registered
+	-- host lets the engine compose a term for its WHOLE subtree instead of the
+	-- framework computing it per descendant — two plates fading as one group
+	-- rather than doubling their overlap, and a container whose authored
+	-- rotation/scale carries a plate-plus-marker pair as a rigid unit, beside the
+	-- same marker rotated as a bare leaf (no contents to carry, so it detaches
+	-- from its own plate — the pre-ADR-0032 defect, reproduced on purpose as the
+	-- control). Also in `demo_picker.DEMOS`.
+	"nested_compositing",
 }
 
 local scenarios = {}

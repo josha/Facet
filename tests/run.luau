@@ -145,6 +145,10 @@ require("./host_move_write_cost.spec")
 -- DFS-counter-is-Sibling-order equivalence, tapAt-agrees-with-the-counter, and
 -- the two cases step 4 is EXPECTED to turn red
 require("./nested_tree_pins.spec")
+-- ...and the showcase surface for both capabilities (brief item 7): a real
+-- instance host's group opacity beside its rotation/scale carry, registered in
+-- scenarios/init.luau ORDER, demo_picker.DEMOS and this file's own SCENARIOS list
+require("./nested_compositing_scenario.spec")
 -- the authored paint escapes: tint, scaleMode, UI.stroke, zIndex (ADR-0022 D6)
 require("./paint_extensions.spec")
 -- fractional Anchor offsets: the marker-overlay shape (ADR-0022 D6, SF-P5)

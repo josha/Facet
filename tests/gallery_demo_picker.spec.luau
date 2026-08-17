@@ -25,7 +25,11 @@ describe("showcase catalogue", function()
 		-- same omission `async-images` and `canvas-group` closed one round earlier.
 		-- 35 the same day again, when `newLevelPicker` shipped with the fixture that
 		-- reproduces the reference screenshot
-		expect(#demos).toBe(35)
+		-- 36 on 2026-08-16/17 (ADR-0032, the nested-instance-tree round): `nested-tree`,
+		-- the compositing showcase — a registered host's engine-composed group opacity
+		-- beside its rotation/scale carry, the two capabilities the round's own brief
+		-- names as its showcase deliverable
+		expect(#demos).toBe(36)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -122,7 +126,9 @@ describe("showcase catalogue", function()
 		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
 		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
-		expect(fixtures).toBe(28)
+		-- 29 on 2026-08-16/17 (ADR-0032): `nested-tree`, the nested-instance-tree
+		-- compositing showcase
+		expect(fixtures).toBe(29)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -579,7 +585,8 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
 		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
 		-- again with `level-picker`, whose fixture reproduces the reference screenshot
-		expect(fixtures).toBe(28)
+		-- 29 on 2026-08-16/17 (ADR-0032): `nested-tree`
+		expect(fixtures).toBe(29)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1036,6 +1043,8 @@ local DEMO_ROOT: { [string]: string } = {
 	-- D2 and D5, whose constructs shipped before their surfaces did
 	["menu"] = "MenuDemo",
 	["tab-view"] = "TabViewDemo",
+	-- ADR-0032: the nested-instance-tree compositing showcase
+	["nested-tree"] = "NestedCompositing",
 	["ex01"] = "TempConverter",
 	["ex02"] = "Playlist",
 	["ex03"] = "Settings",

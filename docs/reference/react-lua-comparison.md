@@ -235,14 +235,16 @@ writes exactly two engine properties for geometry — `Position` and `Size`, bot
 as `UDim2.fromOffset`, at one call site (`src/client/screen_presentation.luau`).
 Pure pixels; no scale component anywhere.
 
-**The consequence people notice first is that LuauUI's Instance tree is FLAT.**
-A `VStack` inside a `VStack` inside a `ZStack` produces no nested Frames. The
-render-target seam *cannot express hierarchy*: `create(rootHandle, path, class,
-…)` receives the root and a path string and no parent handle
+**The consequence people notice first is that LuauUI's Instance tree is FLAT BY
+DEFAULT.** A `VStack` inside a `VStack` inside a `ZStack` still produces no
+nested Frames unless one of them is registered as a *host* — a real engine
+parent for its own subtree. The render-target seam still *cannot express
+hierarchy as a renderer capability*: `create(rootHandle, path, class, …)`
+receives the root and a path string and no parent handle
 (`src/render/target_contract.luau`, six required methods, none of them a
-`setParent`). Every node parents directly under the one `ScreenGui`. Exactly two
-things create a real engine parent, and both are for the engine's benefit rather
-than the layout's:
+`setParent`). Nesting is not a renderer decision at all — it is a registration
+policy the adapter runs internally
+([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)):
 
 ```
 -- src/client/screen_target.luau
@@ -250,8 +252,30 @@ than the layout's:
 -- the engine crops them; everything else stays flat under the root
 ```
 
-A clip host (a `ScrollView`, or any node declaring `clipChildren`), and an
-opt-in `CanvasGroup` (a fade group, which needs a real buffer). Nothing else.
+That comment names the oldest of the reasons a node registers; the registry
+behind it (`instanceHosts`, renamed in this round from `clipHosts`) now answers
+to a wider rule, and **four** things create a real engine parent today, every
+one of them because the engine can carry something down that node's subtree
+that the framework would otherwise compute per descendant:
+
+- a `ScrollView` (a clip host *by construction*),
+- any node declaring `clipChildren`,
+- an opt-in `CanvasGroup` (`canvasGroup = true` or an authored `opacity`, which
+  needs a real render buffer), and
+- **since 2026-08-16**, a container whose own authored `scale` or `rotation`
+  reaches children it actually has — a plain `Frame`, no buffer, registered
+  only because the engine can compose those two terms for a subtree it can see
+  ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md) Decision 4). Measured
+  through the real framework: a `UI.ZStack{ rotation = 30, scale = 1.5 }`
+  around an 80×40 `UI.Box` re-parents the box inside it, and the box comes out
+  **120×60 at `AbsoluteRotation = 30`** while its own `Rotation` stays `0.0`
+  and it grows no `UIScale` of its own — the engine composed both terms, no
+  framework code did.
+
+Nothing else registers. A `VStack` with children and neither prop still
+produces no Instance of its own if it paints nothing, so elision is untouched —
+which is the whole point of the rule: register only where nesting pays, never
+"every container with children".
 
 **And a container that paints nothing produces no Instance at all.** Six classes
 — `VStack`, `HStack`, `ZStack`, `Grid`, `Anchor`, `Spacer` — are *elidable*: if
@@ -904,7 +928,7 @@ cite source files, which is where they were read from.
 |---|---|---|---|
 | A layout system | **Absent by design.** No layout API in the export table, no layout package, and the element vocabulary is Roblox class names — so layout is `UIListLayout`/`UIGridLayout`/`UIPadding` declared as child elements, exactly as ReactDOM defers to CSS | **Ships.** A headless measure-then-arrange solver producing absolute rects; the renderer writes only `Position` and `Size`, as `UDim2.fromOffset`, at one call site | [RL-08], [RL-34], [RL-15]; `src/layout/solver.luau`, `src/client/screen_presentation.luau` |
 | Engine layout objects materialized | **Ships** — they are the mechanism | **Zero.** Not one `Instance.new("UIListLayout")`, `UIGridLayout` or `UITableLayout` in `src/`. `UIPadding` is created twice, both for a single control's own engine text inset | `src/` (searched); `src/client/screen_target.luau` |
-| Instance-tree shape | **Nested**, mirroring the element tree | **Flat.** The render-target seam takes no parent handle; every node parents under the one `ScreenGui`. Only a clip host or an opt-in `CanvasGroup` creates a real parent | `src/render/target_contract.luau`, `src/client/screen_target.luau` |
+| Instance-tree shape | **Nested**, mirroring the element tree | **Flat by default, with four registered exceptions.** The render-target seam still takes no parent handle — nesting is a registration policy the adapter runs, not a renderer capability. A `ScrollView`, a declared `clipChildren`, a fade group (`canvasGroup`/`opacity`), and — since [ADR-0032](../adr/ADR-0032-nested-instance-tree.md) — a container whose own authored `scale`/`rotation` reaches children it has, each register as a real parent for exactly the subtree the engine can carry for it; everything else still parents under the one `ScreenGui` | `src/render/target_contract.luau`, `src/client/screen_target.luau`, `src/render/instance_boundary.luau` |
 | Containers that cost nothing | **Absent** — a layout container is a `Frame` and cannot be removed | **Ships.** Six elidable classes produce **no Instance at all** when they paint nothing, materialized lazily if ever written to. Measured: 55 of 137 GuiObjects on a five-row surface were completely inert | `src/client/screen_target.luau` |
 | Headless (no-engine) layout testing | **Absent** — layout is the engine's, so there is nothing to test without it | **Ships** — the solver has no engine types; layout is unit-tested in Lune | `src/layout/`, `tests/` |
 | Layout diagnostics | **Absent** | **Ships.** `controller.diagnostics()` reports overflow, unbounded percent, mixed grid children, inert placement props, HUD-zone collisions and cross-surface overlap | `src/render/renderer.luau` |
@@ -1030,16 +1054,20 @@ hands the caller a content root to parent into, with an engine-type-free boundar
 props = {…} }` — costs the three things that make LuauUI what it is, and should
 be refused: it reopens the closed key set (the schema cannot validate props it
 has never heard of), it defeats property authority (the manifest has no entry for
-a class it does not know), and it breaks the flat tree and the measure model (an
-`AutomaticSize` child measures itself, which the solver cannot see).
+a class it does not know), and it breaks the elision and hosting invariants and
+the measure model (an `AutomaticSize` child measures itself, which the solver
+cannot see).
 
 The bounded version costs much less and keeps all three. A leaf class — call it
 `UI.Foreign` — that:
 - takes **no engine props at all**, only the shared box vocabulary the solver
   already owns, so the closed key set is intact;
 - is a **content leaf** to the solver with a declared size, exactly like `UI.Stage`;
-- is **never elidable** and always a real instance parent, so the flat tree's
-  invariants hold;
+- is **never elidable** and always a real instance parent, unconditionally
+  rather than by the registration rule every other class follows
+  ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)), because the caller's
+  foreign content has to land somewhere real whether or not it would otherwise
+  have earned a host;
 - hands the caller a container through a `controller` seam, so the *caller* owns
   the foreign instance's properties and lifetime and property authority is not
   claimed at all — the framework declares one authority (`layout`, for the
@@ -1136,8 +1164,10 @@ a scripted Studio driver — all excellent, all **batch**.
 that mistakes are refused early with a message that names the fix. That covers
 *authoring* mistakes. It does not cover "the layout is not what I expected and I
 cannot see why", which is the daily experience of building UI, and which the
-flat instance tree makes *harder* than in React-Lua — the Roblox Explorer shows
-you a flat pile of Frames with no structure to read.
+still-mostly-flat instance tree makes *harder* than in React-Lua — outside a
+`ScrollView`, a clip host, a fade group, or an authored `scale`/`rotation`
+container ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)), the Roblox
+Explorer shows you a flat pile of Frames with no structure to read.
 
 **What LuauUI already answers differently.** `controller.diagnostics()` is
 genuinely strong and the project has a recorded case of it naming a shipped

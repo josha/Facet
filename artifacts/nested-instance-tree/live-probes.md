@@ -159,3 +159,51 @@ frame-time claim: what is counted here is engine property writes, not millisecon
 the engine's own C++ descendant walk is still unmeasured — ADR-0032's standing risk. A
 device pass with the MicroProfiler is still owed and is the only thing that can turn
 this into a frame number.
+
+## 5. THE SHOWCASE DEMO, DRIVEN LIVE — the capability and its control, side by side
+
+`examples/gallery/scenarios/nested_compositing.luau` mounted through the real
+framework and real adapter, and its `turned` driver set from `false` to `true`.
+Two halves: a container that CARRIES (authored `rotation`/`scale` on a container
+holding a plate and a corner marker) and one that is ALONE (the identical marker
+given the same terms as a bare leaf, beside a static plate — the pre-ADR-0032
+behaviour, reproduced on purpose as the control).
+
+| | at rest | turned (30°, 1.5x) | own `Rotation` | own `UIScale` |
+|---|---|---|---|---|
+| **carried** container | 100x70 | 150x105, AbsRot **30** | 30 | yes |
+| **carried** plate | 70x40 | **105x60, AbsRot 30** | **0** | **no** |
+| **carried** marker | 20x20 | **30x30, AbsRot 30** | **0** | **no** |
+| **alone** marker | 20x20 | 30x30, AbsRot 30 | **30** | **yes** |
+| **alone** plate | 70x40 | **70x40, AbsRot 0.0** | 0 | no |
+
+Read the last two rows together: the alone marker rotates and scales ITSELF, and
+the plate it belongs beside **does not move at all**. That is the defect ADR-0032
+Decision 4 describes — "a container visibly detaching from its own contents" —
+reproduced deliberately, next to the fixed case, on the same surface, driven by the
+same two signals.
+
+And the carried rows are Decision 5 again, in the shape a reader will actually meet
+it: both descendants are at `AbsoluteRotation` 30 and exactly 1.5x their authored
+size, with their own `Rotation` at `0` and no `UIScale` of their own. The engine did
+all of it.
+
+**THE GROUP-OPACITY HALF, structurally**, read off the live tree at the default fade:
+
+    /Opacity/Panels/One/OneGroup          CanvasGroup  GroupTransparency=0.600  children=2
+    /Opacity/Panels/Two/TwoGroups/Back    CanvasGroup  GroupTransparency=0.600  children=0
+    /Opacity/Panels/Two/TwoGroups/Front   CanvasGroup  GroupTransparency=0.600  children=0
+
+One group holding BOTH plates against two groups holding one each, at the same
+transparency — which is the A/B that produces double-darkening on the right and not
+on the left.
+
+**WHAT IS NOT HERE, AND WHY.** A pixel capture. `screen_capture` over the MCP bridge
+returns the 3-D viewport only; a `CoreGui` `ScreenGui` is not in it, so the
+before/after image pair the brief asks for needs a human with a screenshot key. The
+numbers above are the stronger witness for the composition claim in any case — this
+project's own rule is that "a screenshot of a thing you asked to be true" is not a
+witness, and `AbsoluteRotation` read back off the descendant is.
+
+*Probe hygiene: every surface and every clone this session mounted was destroyed and
+`ReplicatedStorage` verified back to its four real folders in the same call.*

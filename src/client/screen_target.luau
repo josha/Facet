@@ -1465,8 +1465,12 @@ function screen_target.new(opts: Opts?)
 			-- still drives the ring via setFocusVisual.
 			instance.Selectable = true
 		end
-		-- clip-host parenting: descendants of a clip host live INSIDE it so
-		-- the engine crops them; everything else stays flat under the root
+		-- INSTANCE-HOST PARENTING: descendants of a registered host live INSIDE it,
+		-- so the engine can carry something down the subtree; everything else stays
+		-- flat under the root, which is still most of the tree. FOUR triggers
+		-- register one, and only the first is about cropping (ADR-0032): a
+		-- ScrollView, an authored `clipChildren`, a fade group, and an authored
+		-- `scale`/`rotation` on a container that has children.
 		local host = hostFor(path)
 		if host ~= nil then
 			handle.instanceHost = host
@@ -1486,7 +1490,7 @@ function screen_target.new(opts: Opts?)
 		-- a frame and jumps
 		recomputePresentationOffset(handle)
 		-- decoration LAST: every classification input (class, surface, the
-		-- clip-host parenting, the control's own slot hint) is settled by now, so
+		-- the instance-host parenting, the control's own slot hint) is settled by now, so
 		-- a node is skinned once rather than built and rebuilt as its setup proceeds
 		handle.decorationHint = decorationHint
 		syncChrome(handle)

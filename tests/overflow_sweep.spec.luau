@@ -448,6 +448,14 @@ local SCENARIOS = {
 	-- nothing, at every viewport, preference and package — beside a bottom band
 	-- and a top band that both have to fit on a 320px-tall landscape
 	"tab_view",
+	-- ADR-0032: the nested-instance-tree compositing showcase. Two comparison
+	-- rows under one page scroller — a slider-driven fade pair and a
+	-- toggle-driven rotate/scale pair, each a fixed-px cluster inside an
+	-- AdaptiveStack that stacks to a column on a narrow phone — plus four
+	-- caption blocks whose longest line grows with every text preference. The
+	-- swept cross product is the direct test of whether that packaging holds at
+	-- every viewport, at every preference, mid-turn as well as at rest
+	"nested_compositing",
 }
 
 local EXAMPLES = {

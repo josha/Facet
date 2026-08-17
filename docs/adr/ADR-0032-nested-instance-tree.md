@@ -1,8 +1,10 @@
 # ADR-0032 — The nested instance tree: the mechanism already exists, and switching is a registration policy
 
 **Date:** 2026-08-15
-**Status:** Accepted — **decision only; this ADR does not build.** The staged plan in
-§Migration is the build brief.
+**Status:** Accepted — decided here; **BUILT by the nested-instance-tree round,
+2026-08-16/17.** This ADR was *decision only; this ADR does not build* — the staged plan
+in §Migration was the build brief, and §What the build found records what happened when
+it was followed, including the three things this ADR got wrong or did not see.
 **Number:** 0032, not 0031. `ADR-0031` is claimed *twice* in live source this week — by
 `UI.Foreign` (`src/render/authority.luau:9`, `src/blueprint_schema.luau:2163`) and by the
 motion-curve vocabulary (`src/motion/curves.luau:2`, `src/init.luau:259`) — while no
@@ -54,6 +56,91 @@ untouched. Nesting is therefore not "mirror the blueprint in Instances". It is *
 more hosts"**, and the correct policy registers a container **only where nesting pays**.
 
 ---
+
+---
+
+## What the build found — added 2026-08-17, after the migration ran
+
+This ADR reasoned from live probes and got the shape right: nesting **is** a
+registration policy, the mechanism **did** already exist, and no render-seam change was
+needed. Steps 1, 2, 4 and 6 landed as written. What follows is what only building it
+could show.
+
+**THE ARRANGE WIN WAS REAL BUT IT WAS NOT WHERE THIS ADR PUT IT.** §The headline prices
+a container move at "123 rect writes and 120 engine `Position` writes" and treats
+nesting as the thing that removes them. Nesting alone removes none of them. Measured in
+Studio on a 120-node list inside a `ScrollView` whose header grew 40px — a shape that
+was already fully nested before this round — the move cost **240 descendant `Position`
+changes, two per node**, and half of them were the WRONG VALUE:
+
+    1. cell -> y=60    the new window rect against the host's OLD origin
+    2. list -> y=60    the host finally moves, and its entry origin updates
+    3. cell -> y=20    corrected, when the host re-bases its own children
+
+The cell ends where it started, because a `GuiObject.Position` is parent-relative — the
+fact this ADR's whole arrange argument rests on. The old path paid 240 writes to arrive
+at no change, and for the moment between (1) and (3) the entire subtree is drawn
+displaced. **That is a rendering defect, not a performance one, and this ADR did not
+see it** because it measured a synthetic engine harness rather than the framework's own
+rect path.
+
+The cause was upstream of nesting entirely: the renderer applied a solve's rects by
+iterating a hash — its own comment called it *"the unordered rect hash"* — so a
+descendant could be placed before its host, and the adapter compensated with an inline
+re-base of every child on the host's `setRect`. Harmless on a flat tree, where every
+Position is absolute. The fix is document order in `src/render/rect_pass.luau` plus
+deferring that re-base to `adapter.settleRects`, and it needs **both** halves: ordering
+alone re-bases against the children's own stale rects, deferring alone still lets the
+first write see a stale origin. **241 engine writes become 1.** A/A control spread 0
+(discrete event counts, both arms run twice, identical).
+
+A third piece was needed in front of them: `applyRect` now caches the pair it last
+wrote and skips an unchanged write. On its own it delivered **nothing** on this
+workload — measured, with the skip patched out as a control, both arms at 240 — because
+the two writes were two different values. It is what makes the corrected path cost
+nothing rather than N.
+
+**A PLAIN `Frame` CARRIES `Rotation` AND `UIScale`, IDENTICALLY TO A `CanvasGroup`.**
+Decision 4's measurement used `canvasGroup = true` because a group was the only way to
+get nesting at the time, which left the cost of the decision open. Measured: child
+80x40 -> **120x60 at `AbsoluteRotation` 30 in both arms**. So Decision 4 costs one
+`Frame`, not an offscreen buffer, and — with Decision 3 having already refuted the
+ordering story — `Frame` nesting and `CanvasGroup` nesting now differ in exactly one
+thing: the buffer, and therefore `GroupTransparency`.
+
+**DECISION 5 IS CONFIRMED LIVE.** In both arms above the descendant's own `Rotation`
+stayed `0` and it grew no `UIScale` while visibly rotating and measurably scaling. An
+engine-composed descendant effect is not a write to the descendant's property, so the
+authority manifest is unchanged — the one question here that could have forced a
+manifest change does not.
+
+**`crops` IS NOT `clipChildren`, AND THE HOST RECORD NEEDED A FOURTH FIELD.** The focus
+ring is re-parented as a float inside a host because a stroke drawn under a clipping
+parent is cut. A `CanvasGroup` cuts it too, despite never setting `ClipsDescendants`,
+because it renders its subtree into a buffer its own size. A plain move-boundary host
+cuts nothing. Without the distinction, every container that merely moves would grow a
+float ring it does not need. Verified live: inside a `ScrollView` the float exists;
+inside a rotated container it does not and the ordinary outward ring is used, matching
+the host-free case exactly.
+
+**`hostFor` WOULD NOT HAVE SCALED.** It scanned the whole registry on every `create`
+and `adopt` — free at three hosts, O(nodes x hosts) exactly as "register more hosts"
+proceeds. The cost would have arrived with the feature and been blamed on nesting. It
+now walks the candidate path's own separators: 20,000 lookups against 4,001 hosts,
+**4.9485 s -> 0.0077 s**.
+
+**STEP 3 WAS NOT TAKEN, AND DID NOT NEED TO BE.** This ADR gates step 3 on the
+recycling conflict and asks for a first move boundary to be chosen against it. The
+ordering fix delivers the arrange win on hosts that **already ship** — every
+`ScrollView` on every list surface — for zero new instances, zero elision cost and no
+argument with the pool. The conflict is therefore still unpriced and still real
+(`parkEligible` still refuses a registered host, and the fake target now models that
+refusal so a headless spec can see it), but nothing in this round had to pay it.
+
+**WHAT IS STILL OWED.** The total-frame claim. Everything above counts engine property
+writes, not milliseconds; the engine's own C++ descendant walk is untouched and
+unmeasured, exactly as §Risks says. A Performance Lab run and a device pass remain the
+only things that can turn this into a frame number.
 
 ## Decision 1 — LuauUI adopts a nested instance tree, and it requires no new mechanism
 

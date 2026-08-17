@@ -179,9 +179,15 @@ each other:
 The consequence a beginner feels first: **LuauUI owns layout and does not use
 `UIListLayout` at all.** It materializes no `UIListLayout`, no `UIGridLayout`, no
 `UITableLayout` anywhere. Every node is positioned by an absolute rectangle the
-solver computed, and the instance tree is deliberately flat — objects are not
-parented to their container unless something (clipping, a fade group) requires
-it.
+solver computed, and the instance tree is flat by default — objects are not
+parented to their container unless a registration rule says the engine can carry
+something down that subtree for free. Four things register: a `ScrollView`, a
+declared `clipChildren`, a fade group (`canvasGroup`/`opacity`), and — since
+[ADR-0032](../adr/ADR-0032-nested-instance-tree.md) — a container whose own
+authored `scale` or `rotation` reaches children it actually has. Nesting is a
+registration policy on top of the same flat render seam, not a second renderer;
+an ordinary `VStack`/`HStack`/`ZStack` with none of those four reasons still
+produces no Instance of its own if it paints nothing.
 
 That is a big thing to take on, and it needs to buy something. What it buys:
 
@@ -595,7 +601,7 @@ that implies in both directions.
 |---|---|---|---|
 | `New "ClassName" { … }` — create **any** Roblox instance, with reactive properties ([FU-07]) | **Partial**, narrower on purpose | Twenty-one declared UI classes, rendered through a written target contract. LuauUI cannot create a `Part`, a `Beam` or a `Sound`. Declarative 3D is an **accepted decision with no implementation**: a sibling scene system on the shared reactive kernel, built when a consumer arrives | [`ADR-0024`](../adr/ADR-0024-declarative-3d.md); `src/render/target_contract.luau` |
 | Reactive property binding | **Covered**, with a stricter rule | Eleven style properties are re-applied on reactive change in a declared order, and binding-authority properties are written by exactly one writer per class per property (§2.3). Fusion binds whatever you pass | `src/render/authority.luau`; `src/render/renderer.luau` (`STYLE_PROP_ORDER`) |
-| `[Children]` — declarative parenting ([FU-14]) | **Covered**, and differently | `children` is an ordinary blueprint field. But LuauUI's **instance tree is deliberately flat**: a node is not parented to its container unless clipping or a fade group requires it, because every node is placed by an absolute solved rect | `src/render/renderer.luau` |
+| `[Children]` — declarative parenting ([FU-14]) | **Covered**, and differently | `children` is an ordinary blueprint field. But LuauUI's **instance tree is flat by default**: a node is not parented to its container unless the container registered as a real engine parent — a `ScrollView`, `clipChildren`, a fade group, or an authored `scale`/`rotation` on children it has ([ADR-0032](../adr/ADR-0032-nested-instance-tree.md)) — because every node is placed by an absolute solved rect regardless, and registering only pays where the engine can carry something down the subtree for it | `src/render/renderer.luau`; `src/render/instance_boundary.luau` |
 | `Hydrate` — bind onto an instance you did not create ([FU-08]) | **Missing** | No public seam. `adapter.adopt` exists but is the internal recycling path, not a hydration API. §5, G-8 has the argument for why this is a *decline* rather than a gap | verified absent by search of `src/` |
 | `Ref` / `Out` — get the instance, or read a property back ([FU-13]) | **Missing** | The public controller surface is `rectOf`, `screenRectOf`, `diagnostics()` and the presentation writes. Nothing returns a `GuiObject`. §5, G-2 | `src/render/renderer.luau`; verified by search |
 | `OnEvent` / `OnChange` — connect to an instance's events ([FU-13]) | **Covered** for UI events, **Missing** as a general seam | Blueprint props (`onPress`, `onPointerDown`, `onScrollWheel`, `onAppear`, `onDisappear`, …) cover the events a UI needs; there is no "connect to any signal on the instance" | `src/blueprint_schema.luau` |
