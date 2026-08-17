@@ -38,6 +38,7 @@ local layout_node = require("./layout_node")
 -- deliverable (its own file for the same 200k reason `layout_node` is)
 local hit_lift = require("./hit_lift")
 local instance_boundary = require("./instance_boundary")
+local rect_pass = require("./rect_pass")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop (ADR-0022 D5): the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
@@ -761,6 +762,17 @@ function renderer.attach(
 		ssTotal = 0,
 		lastSkipped = 0,
 	}
+	-- THE RECT PASS (src/render/rect_pass): one walk in DOCUMENT ORDER, so a host's
+	-- own rect always lands before anything beneath it. Built once per attach, over
+	-- the four by-reference records it writes.
+	local rectPass = rect_pass.new({
+		adapter = adapter,
+		handles = handles,
+		lastRects = lastRects,
+		lastBarInsets = lastBarInsets,
+		stats = stats,
+		rectsEqual = rectsEqual,
+	})
 	local lastDiagnostics: { any } = {}
 	-- the last solve's composition resolutions, by node path (ADR-0023). A solve
 	-- OUTPUT, exposed exactly where the other two live (`diagnostics`,
@@ -2181,20 +2193,13 @@ function renderer.attach(
 			if channel.armed() then
 				channel.installAnimationRecords(result.rects)
 			end
-			for path, entry in result.rects do
-				local handle = handles[path]
-				-- the bar gutter a scroll host spent this solve, carried on the same
-				-- walk the rects are (solver: `out[id].barInset`). Nil on every node
-				-- that is not an overflowing scroll host, which is nearly all of them,
-				-- so this is one nil assignment per node rather than a second walk.
-				lastBarInsets[path] = entry.barInset
-				if handle ~= nil and not rectsEqual(lastRects[path], entry.rect) then
-					authority.assertWrite("common", "size", "layout")
-					adapter.setRect(handle, entry.rect)
-					lastRects[path] = entry.rect
-					stats.rectWrites += 1
-				end
-			end
+			-- ANCESTORS FIRST, AND IT IS LOAD-BEARING, NOT TIDINESS: under a nested
+			-- tree a descendant's engine Position is relative to its HOST, so a
+			-- descendant applied before its host re-bases against an origin that has
+			-- not moved yet. `render/rect_pass` carries the rule, the live
+			-- measurement behind it, and the deferred re-base that goes with it.
+			rectPass.apply(root.node, result.rects)
+
 			-- native scroll regions (native-substrate NS-A2): a scroll node's SOLVED
 			-- content extent (plus its own padding — children arrange inside the
 			-- padded area, so the canvas must include it) maps to the adapter's

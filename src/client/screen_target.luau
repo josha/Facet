@@ -1050,6 +1050,9 @@ function screen_target.new(opts: Opts?)
 	-- the nested-tree migration changes, so it is reached through these four and
 	-- nothing else. `registerHost` is create-or-reuse, which is what the
 	-- fade-group-then-`clipChildren` order needs.
+	-- hosts whose origin moved during the current rect pass, drained by
+	-- `settleRects` (see `adapter.setRect`)
+	local movedHosts: { any } = {}
 	local registerHost = presentation.registerHost
 	local hostAt = presentation.hostAt
 	local hostFor = presentation.hostFor
@@ -2058,16 +2061,44 @@ function screen_target.new(opts: Opts?)
 			handle.pendingRect = rect
 			return
 		end
-		applyRect(handle)
-		-- an instance host that moved re-bases every child (children may have
-		-- received their rects before the host did)
+		-- THE ORIGIN MOVES FIRST, AND THE CHILDREN ARE RE-BASED LAST. This re-based
+		-- every child of a moved host INLINE, to fix a descendant that "may have
+		-- received their rects before the host did" — a real symptom of the
+		-- renderer's old unordered rect hash, corrected at the cost of writing every
+		-- descendant twice (measured: 240 engine Position changes on 120 nodes, and
+		-- one moment per move with the subtree in the wrong place —
+		-- artifacts/nested-instance-tree/live-probes.md §4). The renderer now walks
+		-- in document order and the re-base waits for `settleRects`. BOTH halves are
+		-- needed: ordering alone still re-bases children against their own stale
+		-- rects, and deferring alone still lets the first write see a stale origin.
+		-- It is kept rather than deleted because an incremental re-solve can move a
+		-- host without re-emitting its children, and only this seam can place them.
 		local entry = hostAt(handle.path)
 		if entry ~= nil then
 			entry.rect = rect
+			if entry.settlePending ~= true then
+				entry.settlePending = true
+				table.insert(movedHosts, entry)
+			end
+		end
+		applyRect(handle)
+	end
+
+	-- re-base the children of every host that moved this pass, once every rect has
+	-- landed. Empty on the overwhelming majority of passes (nothing moved a host),
+	-- and the write skip in `applyRect` makes a child that is already in the right
+	-- place free.
+	function adapter.settleRects()
+		if #movedHosts == 0 then
+			return
+		end
+		for _, entry in movedHosts do
+			entry.settlePending = nil
 			for _, child in entry.children do
 				applyRect(child)
 			end
 		end
+		table.clear(movedHosts)
 	end
 
 	-- ===== THE POINTER SEAM (src/client/screen_pointer) ==================

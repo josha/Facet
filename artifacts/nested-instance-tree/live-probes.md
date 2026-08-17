@@ -106,3 +106,56 @@ Five things at once, and every one of them is a decision this round rests on:
 
 *Probe hygiene: the clone was destroyed and its absence verified in the same call;
 the adapter's own `ScreenGui` was torn down with `controller.dispose()`.*
+
+## 4. THE ARRANGE MEASUREMENT — 241 engine Position writes become 1
+
+**Instrument:** `GetPropertyChangedSignal("Position")` on all 120 descendants of a
+`ScrollView`, plus the ScrollView itself. It fires only on a real VALUE change, which
+is what makes it the right instrument here: it cannot be fooled by a redundant write
+and it cannot miss a real move.
+
+**Workload:** a 20-row list (each row 6 fixed-height `UI.Box` cells, 120 leaf nodes)
+inside a `UI.ScrollView`, with a header above it whose height goes `20 -> 60`. That is
+the commonest layout event there is — something above a list grows — and it is the one
+ADR-0032 says incremental layout is "structurally defeated by".
+
+**A/A control, stated before any delta:** the measurement was run twice per arm and
+both arms are exact integers that repeated identically. **Control spread: 0.** This is
+a count of discrete engine events, not a timing, so it has no variance to quote — which
+is precisely why it was chosen over a clock for this claim.
+
+| | descendant `Position` CHANGES | of which a WRONG value | host's own write |
+|---|---|---|---|
+| **before** (ordering defect present) | **240** | **120** | 1 |
+| **after** (document order + deferred re-base) | **0** | **0** | 1 |
+
+**241 -> 1.** And the middle column is the half that is not about performance: before
+the fix, every one of the 120 descendants was written once to a WRONG position and once
+to the right one, so for the moment between them the entire subtree is drawn displaced.
+A frame landing in that window shows it jump. That is now zero as well.
+
+**The sequence, before, recorded on one cell** — this is what the two writes were:
+
+```
+BEFORE: cell.Position = {0,0},{0,20}   list.Position = {0,0},{0,20}
+  1. cell -> {0,0},{0,60}      WRONG: new window rect against the host's OLD origin
+  2. LIST -> {0,0},{0,60}      the host finally moves, and its entry origin updates
+  3. cell -> {0,0},{0,20}      corrected, when the host re-bases its own children
+AFTER:  cell.Position = {0,0},{0,20}   list.Position = {0,0},{0,60}
+```
+
+The cell ends where it started, which is exactly what "a `GuiObject.Position` is
+parent-relative" predicts. The old path paid 240 writes to arrive at no change.
+
+**Why the minimal-write contract alone did not deliver this.** It was landed first and
+measured zero improvement on this workload, which was the finding that led here: the
+two writes were two DIFFERENT values, so there was nothing for a write skip to skip.
+The cause was upstream — the renderer applied a solve's rects by iterating a hash, and
+the adapter compensated with an inline child re-base. Both had to change, and the skip
+is what makes the corrected path cost nothing rather than N.
+
+**Tier: Studio.** This is an engine claim and it is measured on the engine. It is NOT a
+frame-time claim: what is counted here is engine property writes, not milliseconds, and
+the engine's own C++ descendant walk is still unmeasured — ADR-0032's standing risk. A
+device pass with the MicroProfiler is still owed and is the only thing that can turn
+this into a frame number.

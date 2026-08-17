@@ -320,3 +320,115 @@ describe("ADR-0032 D4/D5: the framework writes ONE node, the engine carries the 
 		expect(content.rect.x).toBe(before.x)
 	end)
 end)
+
+describe("ADR-0032: a host's rect lands BEFORE its descendants', or they re-base against a ghost", function()
+	--[[ FOUND LIVE, 2026-08-17, and it is the reason the arrange win was not being
+		delivered. Measured in Studio on a 120-node list inside a `ScrollView` whose
+		container grew 40px: **240 engine `Position` changes across 120 descendants**
+		— two each — with the minimal-write contract already in. `GetPropertyChangedSignal`
+		fires only on a real VALUE change, so these were not redundant writes the
+		skip should have caught. They were two DIFFERENT values:
+
+		    1. cell   -> y = 60     WRONG: its new window rect against the host's OLD origin
+		    2. list   -> y = 60     the host finally moves, and its entry origin updates
+		    3. cell   -> y = 20     corrected, when the host re-bases its own children
+
+		The net change is zero — which is exactly what the parent-relative argument
+		predicts — but the path pays 2N writes to get there and, for one moment,
+		every descendant of a moved container is drawn in the wrong place. A frame
+		landing between 1 and 3 shows the whole subtree jump.
+
+		THE CAUSE IS AN UNORDERED ITERATION, and the renderer's own comment named it
+		before anyone connected it to this: the rect loop ran `for path, entry in
+		result.rects do` over a hash, described two lines above as "the unordered
+		rect hash below". A descendant reached before its host re-bases against an
+		origin that has not moved yet. The adapter compensated by having a host
+		re-base every child on its own `setRect` — which is why the value is
+		eventually right, and why it costs twice.
+
+		SO THIS PINS THE ORDER RATHER THAN THE COUNT, because the count is an engine
+		fact this target cannot see. Document order is ancestors-first by
+		construction, so every host's own rect must be written before any rect
+		beneath it. The count is measured live, in
+		artifacts/nested-instance-tree/live-probes.md.
+	]]
+	local function hostOrderProblems(adapter: any): { string }
+		local seenRectAt: { [string]: number } = {}
+		local i = 0
+		for _, op in adapter.ops() do
+			local path = string.match(op, "^rect (%S+)")
+			if path ~= nil then
+				i += 1
+				if seenRectAt[path] == nil then
+					seenRectAt[path] = i
+				end
+			end
+		end
+		local problems: { string } = {}
+		for path, at in seenRectAt do
+			for other, otherAt in seenRectAt do
+				-- `other` is a strict descendant of `path`
+				if other ~= path and string.sub(other, 1, #path + 1) == path .. "/" then
+					if adapter.isHost(path) and otherAt < at then
+						table.insert(problems, `{other} (op {otherAt}) was placed before its host {path} (op {at})`)
+					end
+				end
+			end
+		end
+		return problems
+	end
+
+	it("on a first render, every host is placed before anything inside it", function()
+		local rows: { any } = {}
+		for i = 1, 6 do
+			table.insert(
+				rows,
+				UI.HStack({
+					id = `R{i}`,
+					children = {
+						UI.Box({ id = "A", surface = "raised" }),
+						UI.Box({ id = "B", surface = "raised" }),
+					},
+				})
+			)
+		end
+		local adapter = render(UI.Screen({
+			id = "S",
+			padding = 0,
+			gap = 0,
+			children = {
+				UI.Box({ id = "Head", surface = "raised" }),
+				UI.ScrollView({ id = "List", children = rows }),
+			},
+		}))
+		local problems = hostOrderProblems(adapter)
+		expect(#problems).toBe(0)
+	end)
+
+	it("...and a NESTED host is placed before its own subtree too", function()
+		local adapter = render(UI.Screen({
+			id = "S",
+			padding = 0,
+			gap = 0,
+			children = {
+				UI.ScrollView({
+					id = "Outer",
+					children = {
+						UI.ZStack({
+							id = "Group",
+							canvasGroup = true,
+							children = {
+								UI.Box({ id = "Deep", surface = "raised" }),
+								UI.Box({ id = "Deeper", surface = "raised" }),
+							},
+						}),
+					},
+				}),
+			},
+		}))
+		-- both hosts, and the deeper one is inside the outer one
+		expect(adapter.isHost("/S/Outer")).toBe(true)
+		expect(adapter.isHost("/S/Outer/Group")).toBe(true)
+		expect(#hostOrderProblems(adapter)).toBe(0)
+	end)
+end)

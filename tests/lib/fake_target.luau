@@ -699,6 +699,14 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
+	-- THE OPERATION LOG, READ-ONLY. Recorded since this target was written and
+	-- never exposed, which meant no spec could assert the ORDER two adapter calls
+	-- arrive in — and order is exactly what decides whether a nested subtree is
+	-- re-based against a current origin or a stale one (ADR-0032).
+	function adapter.ops(): { string }
+		return ops
+	end
+
 	-- THE HOST REGISTRY, READ-ONLY, for the specs that assert who is a real parent
 	-- and what that costs the pool. `hostOf` answers the nearest registered
 	-- ANCESTOR (what a node parents under); `isHost` answers about the path itself.
