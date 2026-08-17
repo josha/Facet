@@ -211,9 +211,11 @@ local COPY = {
 		A skipped row with no reason is a number a reader cannot act on. These two
 		lines put the INPUT on the plate beside the verdict, so the next photograph
 		of a wrong screen carries what decided it. ]]
-	probeNotRiding = "NOT RIDING —",
-	probeNoBand = "the platform reports no top band",
-	probeRideOff = "the Topbar strip switch is off",
+	-- SHORT ENOUGH TO READ ON A PHONE. The plate is a 168px column, so a
+	-- sentence wraps to four lines and the director photographed a cut-off one.
+	probeNotRiding = "NOT RIDING ·",
+	probeNoBand = "no platform band",
+	probeRideOff = "strip switch off",
 	probeBandInput = "coreTop=",
 }
 

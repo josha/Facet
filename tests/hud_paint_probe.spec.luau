@@ -799,7 +799,7 @@ describe("hud: a row skipped by a PLATFORM fact says so on the plate", function(
 		expect(probe.skipped[1]).toBe("Objective")
 		-- ...and the plate NAMES the reason, so a photograph carries it
 		expect(string.find(probe.plate, "NOT RIDING", 1, true) ~= nil).toBe(true)
-		expect(string.find(probe.plate, "no top band", 1, true) ~= nil).toBe(true)
+		expect(string.find(probe.plate, "no platform band", 1, true) ~= nil).toBe(true)
 		expect(string.find(probe.plate, "coreTop=0", 1, true) ~= nil).toBe(true)
 		built.dispose()
 	end)
