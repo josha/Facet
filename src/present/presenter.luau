@@ -834,18 +834,49 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 	local disclosurePlate: any = nil -- { scope, controller, root, owner, sourcePath, source, text }
 	local disclosureDwell: any = nil -- { owner, sourcePath, text, remaining }
 
-	-- the safe box a plate may occupy, in WINDOW space: the viewport less the
-	-- per-edge MAXIMUM of the two inset facts (the `deviceSafeContent` rule). A
-	-- tooltip under a notch or behind the home indicator is unreadable, and this
-	-- surface is decoration rather than content only in its z-order.
+	--[[ the safe box a plate may occupy, in WINDOW space: the viewport less the
+		per-edge MAXIMUM of the two inset facts (the `deviceSafeContent` rule). A
+		tooltip under a notch or behind the home indicator is unreadable, and this
+		surface is decoration rather than content only in its z-order.
+
+		...AND LESS THE THEME'S OWN STEP ON THE THREE EDGES A PLATE MAY TOUCH
+		(device review 2026-08-16, F3). Director, on compact desktop: *"the left
+		pixel seems cutoff."* Measured on the callout fixture at every width from
+		320 to 1232: the coach mark's plate landed at x = 0.0, and the f1 plate's
+		right edge came out EXACTLY equal to the viewport width. Flush is the
+		defect, and it is the defect that no overflow check in this repository can
+		see — every one of them asks `x + w <= viewport`, which a flush rect
+		satisfies. `docs/lessons/device-emulator-truths.md` is why it survived: the
+		engine reports only the 58px CoreGui topbar and NOTHING lateral, so both
+		inset facts are structurally zero on the sides on every device, and a policy
+		that is nothing but `max(core, device)` therefore yields a zero gutter
+		forever.
+
+		THE THIRD TERM IS THE ONE `hud.luau` ALREADY SHIPS FIXTURE-SIDE. Its
+		`screenPadding` memo has computed `max(platform inset, theme space.s)` per
+		edge since the chrome-rotation round, and its own header says the quiet part:
+		`screenPadding` is a fixture-local memo and not a framework API. This is that
+		rule promoted to the one place every plate already reads — anchored surfaces
+		(`anchored.luau`), the disclosure plate and its clamp all take this box — so
+		they are fixed together rather than three times.
+
+		TOP IS DELIBERATELY EXEMPT, matching `hud.luau`'s own `top = 0`. The top
+		edge is the chrome band's, already reserved in full by `coreSafeInsets.top`;
+		adding a decorative step on top of a reserved band pushes every plate down by
+		a gutter nobody asked for and buys nothing — there is no "flush against the
+		top" case, because the topbar inset is never zero. ]]
 	local function safeBox(): { x: number, y: number, w: number, h: number }
 		local vp = env:get("viewportRect"):get()
 		local core_ = env:get("coreSafeInsets"):get()
 		local device = env:get("deviceSafeInsets"):get()
+		-- the theme's own smallest gutter step, never a literal: a package that
+		-- retunes its spacing ladder retunes the screen's margin with it
+		local gutter = themeSnapshot.resolveNumber(metricsNow(), "s") or 0
 		local function edge(name: string): number
 			local a = if type(core_) == "table" then tonumber(core_[name]) or 0 else 0
 			local b = if type(device) == "table" then tonumber(device[name]) or 0 else 0
-			return math.max(a, b)
+			local floor = if name == "top" then 0 else gutter
+			return math.max(a, b, floor)
 		end
 		local x = (if type(vp) == "table" then tonumber(vp.x) or 0 else 0) + edge("left")
 		local y = (if type(vp) == "table" then tonumber(vp.y) or 0 else 0) + edge("top")

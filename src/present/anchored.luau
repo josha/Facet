@@ -49,6 +49,7 @@
 
 local anchorPlacement = require("../layout/anchor_placement")
 local blueprintLib = require("../blueprint")
+local chrome_slots = require("../tokens/chrome_slots")
 local mountLib = require("../mount")
 local rendererLib = require("../render/renderer")
 local specGuard = require("../spec_guard")
@@ -311,22 +312,49 @@ function anchored.new(ctx: any)
 			-- DECLARED FIRST, SO IT PAINTS BEHIND (renderer `syncZOrder`: document
 			-- order becomes increasing z). The half of the wedge that overlaps the
 			-- panel is covered by it; the half that protrudes is the arrow.
+			--[[ A ROTATED NODE TAKES THE PANEL'S FILL AND REFUSES ITS FRAME (device
+				review 2026-08-16, F5). Director, under Fantasy Ornate: the tail painted
+				as *"a long diagonal slab with the package's gold border running down
+				both of its long edges"* — a rotated nine-slice, not a wedge.
+
+				THE RULE THIS ENCODES, and it is general rather than a patch for one
+				package: A ROTATED NODE MUST NOT WEAR A SKIN WHOSE DECORATION IS
+				ORIENTATION-DEPENDENT. A nine-slice frame, a directional gradient and
+				corner ornaments are all wrong at 45°, and every image-driven package
+				ships at least one of them. `surface = "raised"` was chosen so a theme
+				swap moved the wedge with the panel, which is right — but `raised`
+				classifies into the `panel` chrome slot, and `panel` under an ornate
+				package is six layers including a frame and four corner ornaments, not
+				a fill. The flat default materializes no decoration at all, which is
+				exactly why this shipped.
+
+				SO THE SURFACE STAYS AND THE SLOT GOES. `NO_SLOT` is the shipped way to
+				say "this is not a decoration surface" (`chrome_slots.NO_SLOT`, the same
+				declaration the synthesized catchers carry after the twin defect in
+				`popup_catcher_paint.spec` — a node that never said what it was, dressed
+				by a package that had no way to know better). What remains is the NATIVE
+				sheet paint of `.luau-surface-raised`, which every package restyles with
+				its own `surfaceStrong`: the wedge keeps following the theme, in the
+				panel's own colour, and can no longer inherit its geometry. ]]
 			table.insert(
 				children,
-				blueprintLib.Box({
-					id = TAIL_ID,
-					anchor = "topLeft",
-					offsetX = tx,
-					offsetY = ty,
-					width = { type = "fixed", px = tailMetric },
-					height = { type = "fixed", px = tailMetric },
-					rotation = 45,
-					-- the SAME surface role the panel wears, so the wedge is the
-					-- panel's own fill continuing past its edge rather than a second
-					-- colour that a theme swap could desynchronize
-					surface = tailSpec.surface or "raised",
-					hidden = tailHidden,
-				})
+				chrome_slots.attachHint(
+					blueprintLib.Box({
+						id = TAIL_ID,
+						anchor = "topLeft",
+						offsetX = tx,
+						offsetY = ty,
+						width = { type = "fixed", px = tailMetric },
+						height = { type = "fixed", px = tailMetric },
+						rotation = 45,
+						-- the SAME surface role the panel wears, so the wedge is the
+						-- panel's own fill continuing past its edge rather than a second
+						-- colour that a theme swap could desynchronize
+						surface = tailSpec.surface or "raised",
+						hidden = tailHidden,
+					}),
+					{ slot = chrome_slots.NO_SLOT }
+				)
 			)
 		end
 		table.insert(

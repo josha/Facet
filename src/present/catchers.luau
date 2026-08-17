@@ -366,7 +366,39 @@ function catchers.new(ctx: any)
 		})
 		controller.initialRender()
 		if controller.setDisplayOrder ~= nil then
-			controller.setDisplayOrder(owner.displayOrder - 50)
+			--[[ BELOW EVERY LIVE SURFACE, NOT BELOW `owner` (device review
+				2026-08-16, F2). The rule this catcher has always meant is the one both
+				comments above state — *"a click that reached this catcher has already
+				missed every real UI node above it"*, and *"the base screen covers it
+				wherever the base screen paints"*. It was WRITTEN as `owner.displayOrder
+				- 50`, which says that only while `owner` IS the base screen — and for
+				both consumers it was written for it is: `row_actions`' tray and
+				`popup_button`'s panel each publish `outsideDismiss` from a contribution
+				on the base handle, so the two expressions agree exactly and this change
+				moves neither.
+
+				`newCallout` is the first `outsideDismiss` owner that is itself a
+				PRESENTED SURFACE ABOVE the base screen. Its anchored surface sits at
+				base + 100 (`presenter.luau`'s `displayLayer += 100`), so `- 50` put this
+				full-viewport, input-SINKING `Button` at base + 50 — over every control
+				the coach mark is documented never to block. Measured on the gallery
+				fixture: base screen 10100, catcher 10150. On device that makes the whole
+				screen one dismiss target: the next press lands on the catcher instead of
+				the button it was aimed at, retires the plate permanently (`retired` is a
+				one-way latch), and the coach marks "stopped appearing".
+
+				The MINIMUM over the live stack is that same invariant said in a way that
+				stays true when the owner is not the bottom: a catcher is the fallback
+				for a tap that hit NOTHING, so it belongs under everything that could
+				have been hit. ]]
+			local lowest = owner.displayOrder
+			for _, h in stack do
+				local order = h.displayOrder
+				if type(order) == "number" and order < lowest then
+					lowest = order
+				end
+			end
+			controller.setDisplayOrder(lowest - 50)
 		end
 		return {
 			scope = sc,

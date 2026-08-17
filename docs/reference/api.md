@@ -1035,8 +1035,10 @@ no gesture to help on any platform, and neither does LuauUI: touch long-press
 belongs to the full-value disclosure plate, which is the only touch route to a
 truncated label's own value. The consequence is a rule — `help` is never the only
 route to something a player needs — and `text_audit.helpRoutes` is the check that
-enforces it. For an app-pushed plate with an arrow tail that DOES appear on every
-input class, see [`newCallout`](#newcallout).
+enforces it. The plate points at the view it describes with D1's **arrow tail**
+(director, device review 2026-08-16), suppressed when the placement carried the
+plate off its source. For an app-PUSHED plate that DOES appear on every input
+class and retires permanently, see [`newCallout`](#newcallout).
 
 **`reveal`** (`"auto"`, construction-only; director ruling 2026-08-04, superseding
 LTN-2's "no marquee" for surfaces that declare it) makes a truncated **one-line**
@@ -3020,8 +3022,9 @@ enforces it, and it asks two separate questions:
 The plate is **chrome, not a surface**: it takes no focus, adds no focus stop and
 binds no key. A truncated `disclose` label on the same engagement **outranks** it
 — a player who cannot read the label needs the value before the convenience — and
-the two are never on screen together. For an app-pushed plate with an arrow tail
-that appears on **every** input class, see [`newCallout`](#newcallout).
+the two are never on screen together. It carries D1's **arrow tail**, pointing at
+the control the sentence is about. For an app-PUSHED plate that appears on
+**every** input class, see [`newCallout`](#newcallout).
 
 #### Toasts
 
@@ -5251,8 +5254,10 @@ SwiftUI's TipKit `popoverTip(_:arrowEdge:action:)`, not a tooltip.
 **It is not `help`, and the difference is the whole construct.** `help` is a prop,
 is PULLED by the player (a pointer dwell, a focus ring), and shows **nothing** on
 touch. A Callout is PUSHED by the app, appears on **every** input class, and
-carries a tail. Reach for `help` to answer "what does this do"; reach for a
-Callout to say "there is something here you have not found".
+retires permanently. Both plates carry D1's arrow tail — the stem says which
+control the words are about and was never what told the two apart. Reach for
+`help` to answer "what does this do"; reach for a Callout to say "there is
+something here you have not found".
 
 > Apple's warning about the mechanism, and it is the design constraint rather
 > than a footnote — quoted verbatim, on one line, because

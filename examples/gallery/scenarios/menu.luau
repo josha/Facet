@@ -244,8 +244,21 @@ return {
 					activate dispatch tries a leaf's own `props.onActivate` BEFORE any
 					contribution, so a trigger that declares one silently stops opening its
 					own menu. The words matter more than a glyph here anyway — this card
-					is a route, and its name is how a tester knows what to do to it. ]]
-				trigger = UI.Button({ id = `{id}Trigger`, label = label }),
+					is a route, and its name is how a tester knows what to do to it.
+
+					AND IT FILLS THE CARD, which is the half a device found (review
+					2026-08-16, F1): *"I would expect that I could do the action in each
+					thing on the entire row, not just the text."* A Button with no `width`
+					HUGS its label, so this card read as a full-width row and took a press
+					on 58 of its 312 pixels — the 44px floor's own defect family, turned
+					ninety degrees. `newMenu` deliberately never touches its trigger's
+					layout ("the contribution rides it; its layout is untouched"), so the
+					row width is the AUTHOR's to declare and this is where it belongs. ]]
+				trigger = UI.Button({
+					id = `{id}Trigger`,
+					label = label,
+					width = { type = "fill", weight = 1 },
+				}),
 				items = items,
 				triggers = triggers,
 				sizeClass = conditions.sizeClass,

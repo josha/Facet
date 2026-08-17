@@ -39,8 +39,15 @@
 	so a merely-passive plate STILL took the next arrow press away from the control
 	it was describing. Measured, then fixed by giving D1 a chrome mode rather than
 	by hand-rolling a third copy of "mount a layer and place it against a rect".
-	NO ARROW TAIL, deliberately — Apple's help tag has none, and the tail is what
-	tells the app-pushed coach mark (`newCallout`, D3b) apart from this.
+	IT CARRIES D1'S ARROW TAIL (director, device review 2026-08-16: *"should we get
+	some sort of pointer... to indicate which control the tooltip is attached to"*).
+	This module used to record the opposite, on the reasoning that the arrow is
+	what tells the app-pushed coach mark apart from this one. The distinction is
+	real and the arrow never carried it — a callout arrives unbidden on every input
+	class and retires permanently; this appears only while a pointer rests or a
+	ring sits, and leaves when either moves. What the arrow carries is WHICH
+	CONTROL the sentence is about. Through the seam, so the suppression rule comes
+	with it: a plate the clamp carried off its source drops the stem.
 
 	THE VALUE OUTRANKS THE CONVENIENCE. One pointer dwell or one focus move can
 	resolve to two different answers when a helped view also holds a truncated
@@ -203,9 +210,31 @@ function help_plate.new(ctx: any)
 				edge = "bottom",
 				-- leading-aligned on the control, which is where the reader's eye is
 				align = "start",
-				-- NO TAIL: Apple's help tag has none, and the arrow is what tells the
-				-- app-pushed coach mark apart from the player-pulled plate
-				tail = false,
+				--[[ AND IT POINTS AT WHAT IT DESCRIBES (director, device review
+					2026-08-16): *"should we get some sort of pointer like in the original
+					image to indicate which control the tooltip is attached to"* — Win32's
+					titled tooltip and `f1-avatar-editor.jpeg` both have a stem.
+
+					This read `tail = false`, on the reasoning that the arrow is what tells
+					the app-pushed coach mark apart from the player-pulled plate. That
+					distinction is real and the arrow was never what carried it: a callout
+					arrives on its own initiative, on every input class, and retires
+					permanently; a help plate appears only while a pointer rests or a ring
+					sits, on two classes, and leaves the moment either moves. What the
+					arrow carries is WHICH CONTROL the sentence is about, and a
+					`align = "start"` plate under a row of same-sized buttons genuinely
+					leaves that open.
+
+					D1'S TAIL, NOT A SECOND ONE. This is the whole change: the centre, the
+					corner keep-out, the edge flip and — the half that matters — the
+					SUPPRESSION rule all arrive with it. A plate the clamp carried off its
+					source drops its arrow rather than pointing at empty screen.
+
+					DEFAULT ON, with no per-view flag. An opt-in stem would be off in every
+					surface that already declares `help =`, so the finding would stand
+					everywhere it was reported; and "which control is this about" is not a
+					question an author should be able to answer wrong. ]]
+				tail = true,
 			},
 		})
 		presenting = false

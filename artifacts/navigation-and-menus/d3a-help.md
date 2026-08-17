@@ -108,6 +108,14 @@ rather than configured. `chrome` and `modal` are refused together.
 distinguishes the app-pushed coach mark (`newCallout`) from the plate a player
 pulled.
 
+> **SUPERSEDED 2026-08-16 (device review, F4).** The plate now carries D1's arrow
+> tail. The director asked for *"some sort of pointer... to indicate which control
+> the tooltip is attached to"*, and the reasoning above did not survive contact:
+> what tells the two constructs apart is who raises them and whether they retire,
+> not the stem. What the stem carries is which control the sentence is about, and
+> a `align = "start"` plate under a row of same-sized buttons leaves that open.
+> Same seam, so D1's suppression rule came with it.
+
 ## One shipped behaviour changed: `pushScope`
 
 `initialFocus = "none"` meant "do not invent focus for me" (its own comment says

@@ -169,6 +169,41 @@ describe("scenario 'menu': the surface D2 shipped without", function()
 				injection. ]]
 		end
 	end)
+
+	--[[ THE OTHER HALF OF THE 44px FLOOR, AND THE ONE THAT REACHED A DEVICE
+		(device review 2026-08-16, F1). Director, on a phone: *"I would expect that
+		I could do the action in each thing on the entire row, not just the text."*
+
+		The floor work above asks whether a target is tall enough and never asks
+		whether it is WIDE enough, which is how a card that reads as a full-width
+		row shipped with a trigger the width of its own label — 58px of press on a
+		312px row, and 254px of dead band that looks identical to it. Every route
+		case in this file taps by PATH (`adapter.tap(TRIGGER[id])`), and a
+		path-addressed tap lands on the node whatever its rect is, so the entire
+		route suite stayed green over a target four fifths of which was not there.
+
+		The measurement is the DEAD BAND rather than a pinned width, because the
+		card's own padding is a theme token: whatever inset the card gives the
+		trigger on the leading side it must give on the trailing side too, and the
+		trigger owns everything between. Asserted at both a phone and a desktop —
+		a row that hugs its label is narrow at every size, but only the phone makes
+		it a defect a thumb can find. ]]
+	it("every card's trigger fills the card's row — the press is the ROW, not the word", function()
+		for _, view in { PHONE, DESKTOP } do
+			local w = world(view)
+			for _, id in CARDS do
+				local card = w.adapter.node(`/MenuDemo/Page/Cards/Card{id}`).rect
+				local trigger = w.adapter.node(TRIGGER[id]).rect
+				-- the inset the card gave the trigger on its leading side, whatever
+				-- the theme's `s` token happens to be
+				local inset = trigger.x - card.x
+				local dead = (card.x + card.w - inset) - (trigger.x + trigger.w)
+				expect(`{view.w}x{view.h} {id}: {math.floor(dead + 0.5)}px of the row takes no press`).toBe(
+					`{view.w}x{view.h} {id}: 0px of the row takes no press`
+				)
+			end
+		end
+	end)
 end)
 
 describe("scenario 'menu': each route opens ITS OWN card, through the real seam", function()

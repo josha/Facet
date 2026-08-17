@@ -12,9 +12,13 @@
 	    touch gesture that could carry it belongs to the full-value disclosure
 	    plate. So the same words are also printed on this screen, which is exactly
 	    the rule `text_audit.helpRoutes` enforces — help is never the only route.
-	  · `newCallout` — the APP pushes it. It appears from eligibility rules with
-	    an arrow tail, on every input class, and it retires permanently when the
-	    feature is used or the player puts it away.
+	  · `newCallout` — the APP pushes it. It appears from eligibility rules, on
+	    every input class, and it retires permanently when the feature is used or
+	    the player puts it away.
+
+	Both plates carry D1's arrow tail (device review 2026-08-16, F4): the stem
+	says WHICH CONTROL the words are about, and it never was what told the two
+	mechanisms apart — who raises them, and whether they come back, is.
 
 	THE f1 REPRODUCTION is the top-right `+`: the plate hangs BELOW it, its body
 	is SHIFTED LEFT to stay on screen, and its arrow still points UP at the
@@ -52,6 +56,8 @@ local COPY = {
 	show = "Show the coach mark",
 	showSecond = "Ask for a second one",
 	use = "I used the feature",
+	reset = "Start a fresh session",
+	resetNote = "A retired coach mark never comes back — that is the contract, not a bug. The only thing that brings one back is a new session, so this button is what a new session IS: the save file is cleared and a fresh pair of coach marks is built. Without it this screen could be tested exactly once per launch.",
 	pressed = "Presses on the + underneath: ",
 	queueTitle = "The queue",
 	stateTitle = "What the framework reports",
@@ -100,71 +106,147 @@ return {
 			})
 		end
 
-		--[[ THE f1 ANCHOR: a 44px `+` hard against the TOP-RIGHT corner, which is
-			what makes the placement interesting — a centred plate under it would run
-			a hundred pixels off the screen, so the solver shifts the body left and
-			keeps the arrow over the button. It also carries `help`, so the same node
-			demonstrates both mechanisms: hover it and the pulled plate appears; press
-			"Show the coach mark" and the pushed one does. ]]
-		local tip = LuauUI.newCallout(LuauUI, core, {
-			id = "AvatarTip",
-			anchor = UI.Button({
-				id = "Plus",
-				label = COPY.plus,
-				help = COPY.helpPlus,
-				anchor = "topRight",
-				-- NOT a pinned 44px square. The 44 in the reference is a fact about
-				-- the SCREENSHOT and it is asserted where it belongs, in
-				-- `tests/callout.spec.luau`'s f1 case; pinning it here instead means
-				-- a theme whose control chrome wants more room than that has to give
-				-- its own border back, which the overflow sweep files as a finding on
-				-- every viewport. The theme sizes its own controls.
-				onActivate = function()
-					presses:set(presses:get() + 1)
-				end,
-			}),
-			content = plate(COPY.tipTitle, COPY.tipSub),
-			dismissLabel = COPY.dismiss,
-			seen = seen,
-			featureUsed = featureUsed,
-			priority = 1,
-			onRetire = function(reason: string)
-				-- THE WHOLE OF THE FRAMEWORK'S SIDE: one report, once.
-				reported:set(reason)
-				-- ...and the whole of the app's side, which is this line and only
-				-- this line. Delete it and the tip comes back next session.
-				seen:set(true)
-				saved:set(`seen = true (because the framework reported "{reason}")`)
-			end,
-		})
+		--[[ THE SESSION, AND WHY THE TWO COACH MARKS ARE BUILT INSIDE A `ForEach`
+			(device review 2026-08-16, F2). Director: *"the tooltips also showed up
+			the first time I pressed the buttons but then they stopped appearing."*
 
-		-- a SECOND coach mark, so the queue is something a player can see rather
-		-- than a claim in a document: ask for both and only one is ever up.
-		local second = LuauUI.newCallout(LuauUI, core, {
-			id = "ShareTip",
-			anchor = UI.Button({
-				id = "Share",
-				label = COPY.share,
-				help = COPY.helpShare,
-				anchor = "topLeft",
-			}),
-			content = plate(COPY.secondTitle, COPY.secondSub),
-			dismissLabel = COPY.dismiss,
-			priority = 0,
-			onRetire = function() end,
-		})
+			Half of that was a framework defect (the tap-away catcher mounted OVER the
+			screen it points at — fixed in `src/present/catchers.luau`). The other
+			half is this construct working exactly as specified: `retired` is
+			permanent BY CONTRACT, so once a plate has been put away or its feature
+			used, `present()` refuses forever and no signal this fixture owns can
+			argue with it. `api.retired` is a readable, and writing `false` to it
+			would produce a plate that can never be dismissed again — the framework's
+			`reported` latch would swallow the next retire — so the way back is not a
+			flag, it is a NEW ONE.
+
+			Which is the truth this screen should have been teaching all along: what
+			re-arms a once-per-player mechanism is a new session. So the pair lives in
+			a keyed `ForEach` over a single-element session list, the reset bumps the
+			key, and the framework's own machinery does the rest — the old callouts'
+			`itemScope` closes and disposes them, and a fresh pair is constructed
+			reading a save file this fixture has just cleared. A device pass that can
+			only be run once is not a device pass. ]]
+		local generation = scope:own(core:signal(1))
+		local sessions = scope:own(core:memo(function(use)
+			return { { gen = use(generation) } }
+		end))
+		-- the LIVE pair, republished by the row every time the key changes. Every
+		-- reader below goes through `liveTip()` / `liveSecond()` rather than closing
+		-- over one build, which is what makes the readouts follow the reset.
+		local live: { tip: any, second: any } = { tip = nil, second = nil }
+
+		local function sessionRow(_item: any, itemScope: any): any
+			--[[ THE f1 ANCHOR: a 44px `+` hard against the TOP-RIGHT corner, which is
+				what makes the placement interesting — a centred plate under it would run
+				a hundred pixels off the screen, so the solver shifts the body left and
+				keeps the arrow over the button. It also carries `help`, so the same node
+				demonstrates both mechanisms: hover it and the pulled plate appears; press
+				"Show the coach mark" and the pushed one does. ]]
+			local tip = LuauUI.newCallout(LuauUI, core, {
+				id = "AvatarTip",
+				anchor = UI.Button({
+					id = "Plus",
+					label = COPY.plus,
+					help = COPY.helpPlus,
+					anchor = "topRight",
+					-- NOT a pinned 44px square. The 44 in the reference is a fact about
+					-- the SCREENSHOT and it is asserted where it belongs, in
+					-- `tests/callout.spec.luau`'s f1 case; pinning it here instead means
+					-- a theme whose control chrome wants more room than that has to give
+					-- its own border back, which the overflow sweep files as a finding on
+					-- every viewport. The theme sizes its own controls.
+					onActivate = function()
+						presses:set(presses:get() + 1)
+					end,
+				}),
+				content = plate(COPY.tipTitle, COPY.tipSub),
+				dismissLabel = COPY.dismiss,
+				seen = seen,
+				featureUsed = featureUsed,
+				priority = 1,
+				onRetire = function(reason: string)
+					-- THE WHOLE OF THE FRAMEWORK'S SIDE: one report, once.
+					reported:set(reason)
+					-- ...and the whole of the app's side, which is this line and only
+					-- this line. Delete it and the tip comes back next session.
+					seen:set(true)
+					saved:set(`seen = true (because the framework reported "{reason}")`)
+				end,
+			})
+
+			-- a SECOND coach mark, so the queue is something a player can see rather
+			-- than a claim in a document: ask for both and only one is ever up.
+			local second = LuauUI.newCallout(LuauUI, core, {
+				id = "ShareTip",
+				anchor = UI.Button({
+					id = "Share",
+					label = COPY.share,
+					help = COPY.helpShare,
+					anchor = "topLeft",
+				}),
+				content = plate(COPY.secondTitle, COPY.secondSub),
+				dismissLabel = COPY.dismiss,
+				priority = 0,
+				onRetire = function() end,
+			})
+
+			live.tip, live.second = tip, second
+			--[[ THE BRANCH SCOPE CLOSES WITH THE KEY, so the previous session's two
+				controls are disposed by the framework rather than by a bookkeeping list
+				this file would have to keep in step. Guarded on identity: a scope that
+				closes AFTER its successor already published must not blank the live
+				pair. ]]
+			itemScope:own(function()
+				tip.dispose()
+				second.dispose()
+				if live.tip == tip then
+					live.tip, live.second = nil, nil
+				end
+			end)
+
+			return UI.Anchor({
+				id = "Bar",
+				width = { type = "fill", weight = 1 },
+				height = { type = "hug" },
+				children = { second.blueprint, tip.blueprint },
+			})
+		end
 
 		local queueLine = scope:own(core:signal("—"))
 		local stateLine = scope:own(core:signal("—"))
+		--[[ READ THROUGH `live`, NEVER OVER A CAPTURED BUILD. The pair is replaced
+			whenever the session key changes, and this readout is the one thing on the
+			screen that would keep printing the DEAD session's dump if it closed over
+			the first one — which is precisely the shape that made "it stopped
+			appearing" look like nothing was happening at all. ]]
 		local function readState()
 			if presenter == nil then
 				return
 			end
 			local q = presenter.callouts()
 			queueLine:set(q.text)
-			stateLine:set(`{tip.dump().text}\n{second.dump().text}`)
+			local tipNow, secondNow = live.tip, live.second
+			if tipNow == nil or secondNow == nil then
+				-- before the session row has mounted: the controls do not exist yet
+				stateLine:set("—")
+				return
+			end
+			stateLine:set(`{tipNow.dump().text}\n{secondNow.dump().text}`)
 		end
 		readState()
+
+		--[[ THE RESET, AND THE ORDER IS LOAD-BEARING. The save file is cleared
+			BEFORE the key moves, because a callout constructed while `seen` is still
+			true retires at construction and reports nothing — it would come back born
+			dead, which looks exactly like the defect this button exists to end. ]]
+		local function resetSession()
+			seen:set(false)
+			featureUsed:set(false)
+			saved:set(COPY.saveNothing)
+			reported:set("—")
+			generation:set(generation:get() + 1)
+		end
 
 		local function pick(id: string, label: string, onPress: () -> ()): any
 			return UI.Button({
@@ -183,11 +265,15 @@ return {
 			padding = 12,
 			gap = 8,
 			children = {
-				UI.Anchor({
-					id = "Bar",
-					width = { type = "fill", weight = 1 },
-					height = { type = "hug" },
-					children = { second.blueprint, tip.blueprint },
+				-- ONE session at a time, keyed by its number: bumping the key is what
+				-- tears the retired pair down and builds a fresh one (see `sessionRow`)
+				UI.ForEach({
+					id = "Session",
+					items = sessions,
+					key = function(item: any): string
+						return `gen-{item.gen}`
+					end,
+					row = sessionRow,
 				}),
 				UI.ScrollView({
 					id = "Page",
@@ -205,17 +291,24 @@ return {
 							width = { type = "fill", weight = 1 },
 							children = {
 								pick("Show", COPY.show, function()
-									tip.api.present()
+									if live.tip ~= nil then
+										live.tip.api.present()
+									end
 								end),
 								pick("ShowSecond", COPY.showSecond, function()
-									second.api.present()
+									if live.second ~= nil then
+										live.second.api.present()
+									end
 								end),
 								pick("Use", COPY.use, function()
 									featureUsed:set(true)
 								end),
+								-- the button that makes this screen testable more than once
+								pick("Reset", COPY.reset, resetSession),
 							},
 						}),
 						UI.Text({ id = "Presses", text = pressLine, textSize = 12 }),
+						UI.Text({ id = "ResetNote", text = COPY.resetNote, textSize = 12, role = "secondary" }),
 						UI.VStack({
 							id = "Queue",
 							surface = "control",
@@ -273,21 +366,38 @@ return {
 			presses = presses,
 			seen = seen,
 
+			--[[ EVERY STEP GOES THROUGH `live`, so a step run after a reset drives the
+				session that is actually on screen. A step that closed over the first
+				build would keep answering for a disposed control — green, and about
+				nothing. `NO_SESSION` is the honest answer for the one frame before the
+				row has mounted, rather than a crash or a lie. ]]
 			steps = {
 				show = function()
-					tip.api.present()
+					if live.tip ~= nil then
+						live.tip.api.present()
+					end
 					readState()
-					return { state = tip.api.state() }
+					return { state = if live.tip ~= nil then live.tip.api.state() else "no-session" }
 				end,
 				showSecond = function()
-					second.api.present()
+					if live.second ~= nil then
+						live.second.api.present()
+					end
 					readState()
 					return { showing = presenter and presenter.callouts().showing }
 				end,
 				use = function()
 					featureUsed:set(true)
 					readState()
-					return { state = tip.api.state(), saved = saved:get() }
+					return {
+						state = if live.tip ~= nil then live.tip.api.state() else "no-session",
+						saved = saved:get(),
+					}
+				end,
+				reset = function()
+					resetSession()
+					readState()
+					return { generation = generation:get() }
 				end,
 				reread = function()
 					readState()
@@ -296,19 +406,22 @@ return {
 			},
 
 			report = function()
+				local tipNow, secondNow = live.tip, live.second
 				return {
-					tip = tip.dump(),
-					second = second.dump(),
+					tip = if tipNow ~= nil then tipNow.dump() else nil,
+					second = if secondNow ~= nil then secondNow.dump() else nil,
 					queue = if presenter ~= nil then presenter.callouts() else nil,
 					presses = presses:get(),
 					seen = seen:get(),
 					saved = saved:get(),
+					generation = generation:get(),
 				}
 			end,
 
+			--[[ THE CALLOUTS ARE THE BRANCH SCOPE'S NOW, so this disposes only what
+				this function still owns. Disposing them here as well would be a double
+				dispose on every teardown that unmounts the tree first. ]]
 			dispose = function()
-				tip.dispose()
-				second.dispose()
 				scope:dispose()
 			end,
 		}

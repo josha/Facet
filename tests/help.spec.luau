@@ -23,6 +23,11 @@
 	nowhere else, and — the part `clippedEssential` cannot do — refuses to let a
 	declaration waive the question of whether any gesture still reaches it.
 
+	IT CARRIES D1'S ARROW TAIL (device review 2026-08-16, F4). The plate points at
+	the control the sentence is about; the two constructs are told apart by who
+	raises them and whether they retire, never by the stem. Same seam as
+	`newCallout`, so D1's suppression rule came with it and is asserted below.
+
 	AND IT BINDS NO GESTURE. D2 measured the long-press collision and decided the
 	other way from the brief: the disclosure plate KEEPS touch long-press because
 	it is the only touch route to a truncated label's full value. `help` takes
@@ -45,6 +50,8 @@ local fake_target = require("../tests/lib/fake_target")
 local HELP = "Posts this avatar to the Marketplace"
 local PLATE = "/__help__/Layer/Surface/Plate"
 local PLATE_LABEL = "/__help__/Layer/Surface/Plate/Body"
+-- D1's wedge, on the plate's own chrome layer (F4)
+local HELP_TAIL = "/__help__/Layer/Tail"
 local NO_FOCUS = { initialFocus = "none" }
 
 local function makeWorld(classes: any?)
@@ -435,6 +442,118 @@ describe("D3a help: the reachability check, and why it is not clippedEssential",
 		-- focus is still a route on this node — it IS focusable — so the finding
 		-- here is the duplication one, not the no-route one
 		expect(decls["/Editor/Post"].focus).toBe(true)
+	end)
+
+	--[[ D3a + F4 — THE PLATE POINTS AT WHAT IT IS ATTACHED TO (director, device
+		review 2026-08-16): *"should we get some sort of pointer like in the original
+		image to indicate which control the tooltip is attached to"*, referencing
+		Win32's titled tooltip and `f1-avatar-editor.jpeg`'s plate, both of which
+		have a stem.
+
+		WHAT CHANGED, AND WHAT DID NOT. This file used to record "NO ARROW TAIL,
+		deliberately", on the reasoning that the tail is what tells the app-pushed
+		coach mark apart from the player-pulled plate. That distinction survives and
+		was never carried by the arrow: `newCallout` appears on its own initiative on
+		every input class and retires permanently; `help` appears only while a
+		pointer rests or a ring sits, on two classes, and vanishes the moment either
+		moves. Those are the differences a player experiences. What the arrow
+		actually carries is WHICH CONTROL the words are about — a question a
+		leading-aligned plate under a row of similar buttons genuinely leaves open,
+		and the one the director asked.
+
+		THROUGH THE SAME D1 SEAM, NEVER A SECOND TAIL. `anchor.tail` is the one
+		declaration; `anchor_placement.solve` decides the centre, the edge flip and
+		the suppression, and `anchored.luau` paints the one wedge. So the tail
+		arrives with the corner keep-out and the suppression rule already attached,
+		which is the entire reason this is a one-word change rather than a feature.
+
+		DEFAULT ON, NOT OPT-IN. An opt-in stem would be off in every shipped surface
+		that already declares `help =` and the finding would stand everywhere it was
+		reported. There is no per-view `help` tail flag either: "which control is
+		this about" is not a question an author should be able to answer wrong. ]]
+	it("the help plate carries D1's arrow tail, pointing at its source", function()
+		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.present(helpedScreen(HELP), NO_FOCUS)
+		pres._discloseHover("/Editor/Post")
+		pres.tick(0.5)
+		expect(pres.help().present).toBe(true)
+
+		local tail = adapter.node(HELP_TAIL)
+		expect(`the help plate has a tail? {tail ~= nil}`).toBe("the help plate has a tail? true")
+		expect(tail.rotation).toBe(45) -- D1's wedge, not a second shape
+		expect(adapter.visibleOf(HELP_TAIL)).toBe(true)
+
+		--[[ ...AND IT POINTS AT THE CONTROL, which is the whole claim. Read off the
+			source's own mounted rect rather than a pinned number, so the case still
+			means this at any viewport and under any theme's metrics. ]]
+		local source = adapter.node("/Editor/Post").rect
+		local dump = pres.anchoredSurfaces().surfaces[1]
+		expect(dump.tailSuppressed).toBe(false)
+		expect(
+			`tail centre {dump.tailX} within the source's {source.x}..{source.x + source.w}? `
+				.. `{dump.tailX >= source.x and dump.tailX <= source.x + source.w}`
+		).toBe(`tail centre {dump.tailX} within the source's {source.x}..{source.x + source.w}? true`)
+		-- the plate still hangs BELOW the control it describes
+		expect(dump.edge).toBe("bottom")
+	end)
+
+	--[[ D1'S SUPPRESSION RULE IS INHERITED, NOT RE-IMPLEMENTED — and it has to be
+		asserted on THIS construct, because "help got a tail" and "help got a tail
+		that lies" are the same green under a case that only counts the node. A stem
+		pointing at nothing is worse than no stem. Driven with a source pinned in a
+		corner too tight to reach: the placement clamps the plate away, and the
+		arrow must go with it. ]]
+	it("...and the tail is suppressed when the plate cannot stay over its source", function()
+		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.present(
+			UI.Screen({
+				id = "Editor",
+				children = {
+					UI.Anchor({
+						id = "Bar",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							UI.Button({
+								id = "Post",
+								label = "P",
+								help = HELP,
+								anchor = "topRight",
+								width = { type = "fixed", px = 6 },
+								height = { type = "fixed", px = 6 },
+							}),
+						},
+					}),
+				},
+			}),
+			NO_FOCUS
+		)
+		pres._discloseHover("/Editor/Bar/Post")
+		pres.tick(0.5)
+		expect(pres.help().present).toBe(true)
+		expect(pres.anchoredSurfaces().surfaces[1].tailSuppressed).toBe(true)
+		expect(adapter.visibleOf(HELP_TAIL)).toBe(false)
+	end)
+
+	--[[ THE ROTATED NODE STILL REFUSES A PACKAGE'S FRAME (F5). `help` inherits the
+		tail through D1, so it inherits the ruling that came with it — a rotated node
+		takes the panel's FILL and never its orientation-dependent frame. Asserted
+		here as well as on the seam, because "whatever Callout's tail does, help's
+		inherits" is exactly the assumption that ships the same bug twice. ]]
+	it("the help tail wears no chrome slot either", function()
+		local chrome_slots = require("../src/tokens/chrome_slots")
+		local _, _, adapter, _, pres = makeWorld(POINTER)
+		pres.present(helpedScreen(HELP), NO_FOCUS)
+		pres._discloseHover("/Editor/Post")
+		pres.tick(0.5)
+		local node = adapter.node(HELP_TAIL)
+		local hint = node.decorationHint
+		local slot = chrome_slots.classify({
+			class = node.class,
+			surface = node.props.surface,
+			hint = if type(hint) == "table" then hint.slot else nil,
+		})
+		expect(`the help tail classifies into slot {tostring(slot)}`).toBe("the help tail classifies into slot nil")
 	end)
 
 	it("NO NEW DEVICE BRANCH: the new modules name no platform", function()

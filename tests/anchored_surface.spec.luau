@@ -28,6 +28,7 @@ local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
 local anchorPlacement = require("../src/layout/anchor_placement")
+local chrome_slots = require("../src/tokens/chrome_slots")
 local contribution = require("../src/input/contribution")
 local customFactory = require("../src/core/custom")
 local UI = require("../src/blueprint")
@@ -548,6 +549,174 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 		})
 		expect(adapter.visibleOf(TAIL)).toBe(false)
 		expect(pres.anchoredSurfaces().surfaces[1].tailSuppressed).toBe(true)
+	end)
+
+	--[[ A ROTATED NODE MUST NOT WEAR AN ORIENTATION-DEPENDENT SKIN (device review
+		2026-08-16, F5). Director, on the callout demo under Fantasy Ornate: the
+		tail came out as *"a long diagonal slab with the package's gold border
+		running down both of its long edges"* — unmistakably a rotated FRAME rather
+		than a wedge.
+
+		THE MECHANISM, AND WHY THE FLAT DEFAULT HID IT COMPLETELY. The tail is a
+		`Box` turned 45°, and it declared `surface = "raised"` so that "it wears the
+		panel's own role and a theme swap moves both". That reasoning holds exactly
+		as long as a surface is a FILL. `chrome_slots.classify` maps `raised` to the
+		`panel` slot, and under an image-driven package `panel` is not a fill: in
+		`examples/themes/fantasy_ornate.luau` it is a six-layer recipe — a tiled
+		velvet, a fill, a NINE-SLICE FRAME, tiled edge rails and four corner
+		ornaments. Rotate a nine-slice frame 45° and its border rotates with it. With
+		no package installed no decoration instance is ever materialized, so the
+		defect is invisible in the default the whole suite runs in.
+
+		THIS IS `popup_catcher_paint.spec`'s DEFECT, TURNED FORTY-FIVE DEGREES —
+		a synthesized node that never said what it was, dressed by a package that
+		had no way to know better. Same oracle, deliberately: `chrome_slots.classify`
+		is the call `screen_chrome.luau` makes on the live adapter, and a nil answer
+		is "no package will ever draw a frame here". `surface` stays `raised` so the
+		NATIVE sheet fill — `.luau-surface-raised`, which every package restyles
+		with its own `surfaceStrong` — still paints the wedge in the panel's own
+		colour. The panel's fill, never the panel's frame. ]]
+	it("the tail is a WEDGE under every package: no chrome slot on a rotated node", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(200), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = true },
+		})
+		--[[ THE TWO INPUTS THE LIVE ADAPTER CLASSIFIES FROM, and they are read off
+			the node the ADAPTER was handed rather than off the blueprint: the
+			declared `surface`, and the decoration hint the renderer passed to
+			`create`. `chrome_slots.readHint` is the blueprint-side reader and answers
+			nil for an adapter node — using it here would have made this case pass on
+			a hint that never left the tree (`popup_catcher_paint.spec`'s own oracle
+			gets away with it only because its fix is `surface = "plain"`). ]]
+		local function slotOf(path: string): string?
+			local node = adapter.node(path)
+			local hint = node.decorationHint
+			return chrome_slots.classify({
+				class = node.class,
+				surface = node.props.surface,
+				hint = if type(hint) == "table" then hint.slot else nil,
+			})
+		end
+		local tail = adapter.node(TAIL)
+		expect(tail.rotation).toBe(45) -- it really is the rotated node
+		expect(`the tail classifies into slot {tostring(slotOf(TAIL))}`).toBe("the tail classifies into slot nil")
+		--[[ ...and the PANEL still does, which is the half that must not move: the
+			plate is unrotated, so an ornate frame around it is the package working
+			exactly as intended. A fix that quietly stripped both would have made this
+			case green and the screen worse. ]]
+		expect(`the panel classifies into slot {tostring(slotOf(`{SURFACE}/Callout`))}`).toBe(
+			"the panel classifies into slot panel"
+		)
+		-- the wedge is still PAINTED, in the panel's own surface role — suppressing
+		-- the slot must not turn the arrow into nothing
+		expect(adapter.node(TAIL).props.surface).toBe("raised")
+		expect(adapter.visibleOf(TAIL)).toBe(true)
+	end)
+
+	--[[ THE TAIL COSTS THE PLATE NO LAYOUT, which is the OTHER thing the same
+		device report raised: a *"large empty dark band across the top of the
+		plate"*, guessed to be the tail's own box pushing the body down. It is not,
+		and this is the case that says so rather than a paragraph claiming it.
+
+		The tail is a sibling of `Surface` inside an `Anchor`, placed by absolute
+		offsets, so it can move the plate's POSITION and never its interior: asking
+		for a tail lifts the whole surface by the wedge's protrusion (half its
+		diagonal, so the ARROW TIP rather than the panel edge lands `gap` short of
+		the source) and leaves every distance inside the plate identical. Anything
+		still banding the top of an ornate plate is that package's own
+		`contentInsets` — a separate finding, on the recipe rather than on D1. ]]
+	--[[ THE RULE, ENCODED WHERE THE NEXT ONE WILL TRIP OVER IT. The case above
+		proves today's tail; this proves the CLASS, because "a rotated node must not
+		wear an orientation-dependent skin" is worth exactly as much as the next
+		rotated node's compliance with it.
+
+		WHY A SOURCE SWEEP RATHER THAN A THEMED MOUNT SWEEP. `chrome_slots.classify`
+		is a pure function of (class, surface, hint) — it never reads the installed
+		package — so the mounted assertion above already answers for all eight
+		shipped packages at once, and re-running it per package would sweep an axis
+		the answer does not depend on. What the packages actually change is whether
+		a recipe gets MATERIALIZED for a slot, and `fake_target.setThemePackage`
+		declines the decoration surface (it returns false), so no headless target can
+		witness that instance. The fact that IS checkable headlessly is the
+		declaration, and the declaration is what decides the instance.
+
+		One node in `src/` declares a rotation today. The sweep names the count so
+		that adding a second is a decision someone has to make on purpose. ]]
+	it("EVERY rotated node in src declares NO_SLOT — the rule, not just this tail", function()
+		local fs = require("@lune/fs")
+		local files = { "src/present/anchored.luau" }
+		-- the sweep's own premise, checked: if a rotated node appears anywhere else
+		-- in the blueprint-authoring half of `src/`, this list is stale and the case
+		-- says so rather than passing over it
+		local function scan(dir: string, out: { string })
+			for _, entry in fs.readDir(dir) do
+				local path = `{dir}/{entry}`
+				if fs.isDir(path) then
+					scan(path, out)
+				elseif string.sub(entry, -5) == ".luau" then
+					table.insert(out, path)
+				end
+			end
+		end
+		local all: { string } = {}
+		scan("src", all)
+		local rotating: { string } = {}
+		for _, path in all do
+			-- the RENDER/CLIENT halves consume the prop rather than declaring it, and
+			-- the schema/styling modules define it; a blueprint AUTHOR writes the
+			-- literal assignment with a number
+			if
+				string.find(path, "^src/render/") ~= nil
+				or string.find(path, "^src/client/") ~= nil
+				or string.find(path, "^src/tokens/") ~= nil
+				or path == "src/blueprint_schema.luau"
+				or path == "src/input/touch_gestures.luau"
+			then
+				continue
+			end
+			if string.find(fs.readFile(path), "rotation = %d") ~= nil then
+				table.insert(rotating, path)
+			end
+		end
+		table.sort(rotating)
+		expect(`rotated authors: {table.concat(rotating, ",")}`).toBe(`rotated authors: {table.concat(files, ",")}`)
+		for _, path in rotating do
+			local text = fs.readFile(path)
+			expect(`{path} declares NO_SLOT? {string.find(text, "chrome_slots.NO_SLOT", 1, true) ~= nil}`).toBe(
+				`{path} declares NO_SLOT? true`
+			)
+		end
+	end)
+
+	it("asking for a tail moves the plate, and changes NOTHING inside it", function()
+		local function measure(tail: boolean): (any, any)
+			local _, _, adapter, _, pres = makeWorld()
+			pres.present(plusScreen(), { initialFocus = "none" })
+			pres.presentAnchored(calloutPanel(200), {
+				id = "Tip",
+				initialFocus = "none",
+				anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = tail },
+			})
+			return adapter.node(`{SURFACE}/Callout`).rect, adapter.node(`{SURFACE}/Callout/Body`).rect
+		end
+		local withPanel, withBody = measure(true)
+		local withoutPanel, withoutBody = measure(false)
+		-- the plate is the SAME SIZE and its body sits at the same inset
+		expect(`{withPanel.w}x{withPanel.h}`).toBe(`{withoutPanel.w}x{withoutPanel.h}`)
+		-- rounded to the tenth: the offsets differ by a float epsilon the eye and
+		-- the engine both quantize away, and pinning raw doubles would make this a
+		-- test of IEEE arithmetic rather than of layout
+		local function inset(body: any, plate: any): string
+			return string.format("%.1f", body.y - plate.y)
+		end
+		expect(`body inset {inset(withBody, withPanel)}`).toBe(`body inset {inset(withoutBody, withoutPanel)}`)
+		-- ...and the whole surface simply stood off further, by the wedge's own
+		-- protrusion rather than by some band inside it
+		local stood = withPanel.y - withoutPanel.y
+		expect(`the plate stood off by {stood > 0 and stood < withPanel.h}`).toBe("the plate stood off by true")
 	end)
 end)
 

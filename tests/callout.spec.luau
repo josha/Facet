@@ -8,7 +8,9 @@
 	`.help(_:)` is player-pulled, pointer-only and invisible on touch, while
 	TipKit's `popoverTip(_:arrowEdge:action:)` "presents a popover tip on the
 	modified view… WHEN THE TIP BECOMES ELIGIBLE FOR DISPLAY". The app decides,
-	from rules; it appears on every input class; it carries a tail.
+	from rules; it appears on every input class; it retires permanently. (Both
+	plates carry D1's tail since the 2026-08-16 device review — the stem says
+	which control the words are about, and never was the differentiator.)
 
 	Apple's warning ships with it, verbatim: *"Use tips sparingly… Don't use tips
 	to guide people through your app, or for advertising and promotion purposes."*
@@ -475,6 +477,44 @@ describe("D3b Callout: it never blocks", function()
 			beneath it. What retires it is the APP noticing the feature was used —
 			`featureUsed`, below — not the framework guessing from a tap. ]]
 		expect(control.api.state()).toBe("showing")
+	end)
+
+	--[[ THE SAME CLAIM, MEASURED IN Z RATHER THAN DRIVEN (device review
+		2026-08-16, F2). The case above is the strongest thing a path-addressed tap
+		can say, and it is not strong enough: `adapter.tap(path)` looks the node up
+		by name and calls its handler, so it has no hit test and no z-order at all.
+		On a real engine input goes to the TOPMOST object and a `GuiButton` SINKS it
+		(docs/lessons/…, measured 2026-08-13) — so the one fact that decides whether
+		the control underneath is reachable is the one the driven case cannot see.
+
+		The tap-away catcher is a full-viewport `Button`, and it was mounted at
+		`owner.displayOrder - 50`. That is correct for every consumer this catcher
+		was written for, because there `owner` IS the base screen. A coach mark is
+		the first `outsideDismiss` owner that is itself a surface ABOVE the base
+		screen, and `- 50` off a surface at base+100 lands the catcher at base+50 —
+		on top of every control it was supposed to sit under. The whole screen
+		became one dismiss target: the director's next press went to the catcher
+		instead of the button he aimed at, retired the plate permanently, and the
+		coach marks "stopped appearing".
+
+		So the invariant is stated where it can be checked: the catcher is BELOW
+		everything the player can still press, which is every live surface. ]]
+	it("its tap-away catcher sits BELOW the screen it points at, not over it", function()
+		local w = world()
+		local control = build(w, { id = "Callout" })
+		local base = w.pres.present(screenWith(control), { initialFocus = "none" })
+		control.api.present()
+		w.pres.refresh()
+		expect(control.api.state()).toBe("showing")
+
+		local catcher = w.adapter.rootDisplayOrder("__popupcatcher__")
+		expect(`catcher mounted? {catcher ~= nil}`).toBe("catcher mounted? true")
+		local baseOrder = w.adapter.rootDisplayOrder("Editor")
+		expect(`catcher {catcher} vs base screen {baseOrder}: over the screen? {(catcher :: number) > baseOrder}`).toBe(
+			`catcher {catcher} vs base screen {baseOrder}: over the screen? false`
+		)
+		-- ...and below the plate's own surface too, which it always was
+		expect((catcher :: number) < base.displayOrder).toBe(true)
 	end)
 
 	it("a tap in empty space retires it through the presenter's own non-consuming catcher", function()

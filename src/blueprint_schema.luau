@@ -1116,9 +1116,11 @@ local REVEAL: PropSpec = p({
 	not a footnote: `help` is NEVER the only route to information a player needs,
 	and `text_audit.helpRoutes` is the check that says so out loud.
 
-	THE APP-PUSHED PLATE IS A DIFFERENT CONSTRUCT. A coach mark that pops itself,
-	carries an arrow tail and appears on every input class is `LuauUI.newCallout`
-	(TipKit's `popoverTip`), not this.
+	THE APP-PUSHED PLATE IS A DIFFERENT CONSTRUCT. A coach mark that pops ITSELF,
+	from eligibility rules, appears on every input class and retires permanently is
+	`LuauUI.newCallout` (TipKit's `popoverTip`), not this. Both plates point with
+	D1's arrow tail — the stem says which control the words are about, and was
+	never what told the two apart.
 
 	CONSTRUCTION-ONLY, exactly as `disclose` and `reveal` are: what a control is
 	FOR does not change without a rebuild, and the presenter reads it off the
@@ -1134,7 +1136,8 @@ local HELP: PropSpec = p({
 	doc = "one sentence about what this view does, shown when a POINTER hovers it (after a dwell) or the "
 		.. "keyboard/gamepad ring lands on it. Nothing appears on touch — Apple binds no gesture to help on "
 		.. "any platform, so it must never be the only route to something a player needs "
-		.. "(`text_audit.helpRoutes`). For an app-pushed coach mark with an arrow tail, see `newCallout`",
+		.. "(`text_audit.helpRoutes`). The plate points at this view with an arrow tail. For an "
+		.. "app-PUSHED coach mark that appears on every input class, see `newCallout`",
 })
 
 -- THE FADE GROUP (ADR-0022 Decision 2). Presentation transparency is offered ONLY

@@ -13,9 +13,11 @@
 	and shows nothing on touch (`UI.Button{ help = … }`, D3a); TipKit's
 	`popoverTip(_:arrowEdge:action:)` "presents a popover tip on the modified view…
 	WHEN THE TIP BECOMES ELIGIBLE FOR DISPLAY". The app decides, from rules. It
-	appears on every input class. It carries a tail. So they are two constructs,
-	and conflating them is what would have made `help` fight D2's Menu for the one
-	touch gesture neither could otherwise reach.
+	appears on every input class, and it retires permanently. So they are two
+	constructs, and conflating them is what would have made `help` fight D2's Menu
+	for the one touch gesture neither could otherwise reach. (Both carry D1's arrow
+	tail since the 2026-08-16 device review — a stem says which control the words
+	are about, which is a question both plates leave open without one.)
 
 	APPLE'S WARNING SHIPS WITH IT, verbatim, because it is the design constraint
 	and not a footnote: *"Use tips sparingly… Don't use tips to guide people
@@ -288,8 +290,9 @@ function callout.build(LuauUI: any, core: any, spec: Spec)
 				source = { path = anchorPath },
 				edge = spec.edge or "bottom",
 				align = spec.align or "center",
-				-- A COACH MARK POINTS. The tail is what tells it apart from the
-				-- player-pulled help plate, which deliberately has none.
+				-- A COACH MARK POINTS — and so, since the 2026-08-16 device review, does
+				-- the player-pulled help plate. Both stems come from this one seam; what
+				-- tells the two constructs apart is who raises them, never the arrow.
 				tail = spec.tail ~= false,
 			}
 	end

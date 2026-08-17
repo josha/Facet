@@ -536,6 +536,11 @@ require("./help.spec")
 -- D3b: `Callout` — the app-pushed coach mark, its eligibility/invalidation
 -- contract, the caller-owned persistence boundary, and the non-blocking proof
 require("./callout.spec")
+-- ...and the SURFACE those two constructs are shown on, which shipped with no
+-- spec at all and took two of the four findings of the 2026-08-16 device review:
+-- the session reset that makes the device pass repeatable, and the screen gutter
+-- a flush-right plate had been sitting on
+require("./callout_scenario.spec")
 require("./tab_view.spec")
 require("./level_picker.spec")
 local ok = testkit.run()
