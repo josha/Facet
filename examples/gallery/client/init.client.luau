@@ -592,6 +592,10 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 		onChip = function()
 			chrome.request("settings")
 		end,
+		-- stamped by tools/build_places.sh at build time; nil in a Rojo-served
+		-- session, where the source on disk IS the running source and the
+		-- question this answers cannot arise.
+		buildStamp = workspace:GetAttribute("LuauUI_Build"),
 	})
 
 	chrome = showcase_chrome.mount({

@@ -17,6 +17,23 @@ cd "$(dirname "$0")/.."
 export PATH="$HOME/.rokit/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 mkdir -p examples/places
 
+# THE BUILD STAMP. A place file carries no evidence of WHEN it was built, so a
+# stale .rbxl on a phone is indistinguishable from a fresh one — and on
+# 2026-08-16 that cost a real device session: the showcase was tested 5h41m
+# after the commit it was meant to prove, the tester correctly reported "the
+# playlist columns do not resize", and the playlist in that build simply
+# predated the feature. Nothing on screen could have told them.
+#
+# `git describe`-style identity plus the build time, stamped into a Workspace
+# attribute the showcase renders in its settings panel. The dirty flag matters
+# as much as the sha: most builds during a round are made from a working tree
+# that is ahead of HEAD.
+BUILD_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+  BUILD_SHA="$BUILD_SHA+dirty"
+fi
+BUILD_STAMP="$BUILD_SHA $(date '+%Y-%m-%d %H:%M')"
+
 EXAMPLES=(
   "0|LuauUI-SettingsDemo|00_settings_demo"
   "1|LuauUI-Ex01-TemperatureConverter|01_temperature_converter"
@@ -120,7 +137,8 @@ cat >"$project" <<'JSON'
     "Workspace": {
       "$attributes": {
         "LuauUI_Showcase": true,
-        "LuauUI_NativeStyle": true
+        "LuauUI_NativeStyle": true,
+        "LuauUI_Build": "@@BUILD_STAMP@@"
       },
       "$properties": { "FilteringEnabled": true },
       "Baseplate": {
@@ -166,6 +184,9 @@ cat >"$project" <<'JSON'
   }
 }
 JSON
+# The project heredoc above is single-quoted so JSON's $className/$path keys
+# survive the shell; the stamp is therefore substituted, not interpolated.
+sed -i '' "s|@@BUILD_STAMP@@|$BUILD_STAMP|" "$project"
 rojo build "$project" -o "examples/places/LuauUI-Showcase.rbxl"
 rm "$project"
 echo "built examples/places/LuauUI-Showcase.rbxl (LuauUI-Showcase — in-game demo + theme switching)"

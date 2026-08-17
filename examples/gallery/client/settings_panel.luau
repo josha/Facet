@@ -108,6 +108,16 @@ export type MountOpts = {
 	-- PRESENCE (showcase_chrome.luau §2), so the chip asks rather than toggling
 	-- state of its own.
 	onChip: (() -> ())?,
+	-- WHICH BUILD IS THIS. Passed in rather than read here, so this module stays
+	-- engine-free like every other example surface; `init.client.luau` reads the
+	-- Workspace attribute the place builder stamped.
+	--
+	-- It earns its pixels: on 2026-08-16 a device session reported "the playlist
+	-- columns do not resize" against a place built 5h41m before the commit that
+	-- added the resize. The report was correct and the build was stale, and
+	-- nothing on screen could distinguish the two. A tester can now read the
+	-- stamp and compare it against `git log -1 --format=%h`.
+	buildStamp: string?,
 	-- OVERRIDE THE COPY, for the pseudo-localization case only. Every fixture in
 	-- this repo that exports its strings does so for the same reason (`card_rail`,
 	-- `with_animation`): a check that cannot reach the strings cannot claim they
@@ -214,6 +224,27 @@ function settings_panel.mount(opts: MountOpts): any
 	})
 
 	local sections: { any } = { motionSection }
+	if opts.buildStamp ~= nil and opts.buildStamp ~= "" then
+		table.insert(
+			sections,
+			UI.VStack({
+				id = "Build",
+				width = { type = "fill", weight = 1 },
+				gap = "xs",
+				children = {
+					UI.Text({
+						id = "Stamp",
+						text = `build {opts.buildStamp}`,
+						textSize = "caption",
+						role = "secondary",
+						-- WRAPS, never clips: a sha plus a timestamp is long, and this
+						-- is the one line whose whole job is being read exactly.
+						width = { type = "fill", weight = 1 },
+					}),
+				},
+			})
+		)
+	end
 	for _, section in opts.themeSections or {} do
 		table.insert(sections, section)
 	end
