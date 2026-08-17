@@ -45,4 +45,21 @@ return {
 	moduleNames = MODULE_NAMES,
 	lab = lab,
 	runner = script:WaitForChild("runner"),
+	-- THE SHARED RUNNER READS THIS UNCONDITIONALLY, so the lab has to supply it
+	-- even though no lab workload uses `UI.Foreign` (ADR-0034). `runner.luau` is
+	-- GRAFTED into this folder by `examples/performance.project.json` — one runner
+	-- for the gallery and the lab, deliberately, so the test rig cannot end up more
+	-- capable than the surface a player opens — and it requires
+	-- `registry.foreignInstances` at the top of `start`, before it even looks at
+	-- which scenario was asked for.
+	--
+	-- IT WAS MISSING FROM 2026-08-15 (`cad3617`, the UI.Foreign showcase, which
+	-- added that require) UNTIL 2026-08-17, and in that window pressing Play in the
+	-- Performance Lab did nothing at all: `Attempted to call require with invalid
+	-- argument(s)` out of `LuauUIScenarios.runner:217`. Nothing caught it because
+	-- the lab is only opened when somebody takes a capture, and the headless suite
+	-- requires these modules directly rather than through the built place. The
+	-- registry-contract check in `tests/perf_lab.spec.luau` is the guard that would
+	-- have.
+	foreignInstances = script:WaitForChild("foreign_instances"),
 }

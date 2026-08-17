@@ -73,6 +73,9 @@
         "$path": "performance/lab",
         "runner": {
           "$path": "gallery/scenarios/runner.luau"
+        },
+        "foreign_instances": {
+          "$path": "gallery/scenarios/foreign_instances.luau"
         }
       }
     },

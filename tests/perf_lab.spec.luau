@@ -2060,3 +2060,89 @@ describe("perf lab: the motion-flight pass profiles a withAnimation flight", fun
 		built.dispose()
 	end)
 end)
+
+describe("the lab's registry satisfies the SHARED runner's contract", function()
+	--[[ WHY THIS EXISTS, AND WHAT IT COST NOT TO.
+
+		`examples/performance.project.json` GRAFTS the gallery's `runner.luau` into
+		the lab's own `LuauUIScenarios` folder — one runner for both surfaces,
+		deliberately, so the test rig cannot end up more capable than the surface a
+		player opens. That graft makes the lab's `init.luau` and the gallery's
+		`init.luau` two implementations of ONE interface, and nothing checked they
+		agreed.
+
+		On 2026-08-15 (`cad3617`, the UI.Foreign showcase) the runner gained
+		`local foreign_instances = require(registry.foreignInstances)` as the first
+		statement of `start`, before it even looks at which scenario was asked for.
+		The gallery registry exports `foreignInstances`; the lab registry did not.
+		So from that commit until 2026-08-17, pressing Play in the Performance Lab
+		did NOTHING — `Attempted to call require with invalid argument(s)` out of
+		`LuauUIScenarios.runner:217` — and every lab workload was unreachable.
+
+		It survived two days because of exactly where the seam is: this suite
+		requires these modules DIRECTLY and never through the built place, so nothing
+		here ran the runner against the lab's registry; `check_perf_place.py` proves
+		the place BUILDS, which it did, perfectly, every time; and the lab is only
+		ever opened by a human about to spend a MicroProfiler dump. A broken thing
+		nobody opens looks exactly like a working one.
+
+		SO THIS READS THE RUNNER'S SOURCE FOR EVERY `registry.<field>` IT TOUCHES and
+		asserts the lab exports each, rather than pinning the one field that happened
+		to break. A field added to the runner tomorrow fails here on the commit that
+		adds it, which is the only way this class is caught before a person is.
+	]]
+	local fsLib = require("@lune/fs")
+
+	local function fieldsRunnerReads(): { [string]: boolean }
+		local runnerSource = fsLib.readFile("examples/gallery/scenarios/runner.luau")
+		local needed: { [string]: boolean } = {}
+		for field in string.gmatch(runnerSource, "registry%.([A-Za-z_][A-Za-z0-9_]*)") do
+			needed[field] = true
+		end
+		return needed
+	end
+
+	local function missingFrom(path: string): { string }
+		local source = fsLib.readFile(path)
+		local missing: { string } = {}
+		for field in fieldsRunnerReads() do
+			if string.find(source, "\n\t" .. field .. " = ", 1, true) == nil then
+				table.insert(missing, field)
+			end
+		end
+		table.sort(missing)
+		return missing
+	end
+
+	it("the runner asks for something, or every check below is vacuous", function()
+		local n = 0
+		for _ in fieldsRunnerReads() do
+			n += 1
+		end
+		expect(n > 0).toBe(true)
+	end)
+
+	it("every registry field the runner reads is exported by the LAB", function()
+		local missing = missingFrom("examples/performance/lab/init.luau")
+		if #missing > 0 then
+			error(
+				`the shared runner reads registry.{table.concat(missing, ", registry.")} but `
+					.. "examples/performance/lab/init.luau does not export it — pressing Play in "
+					.. "the Performance Lab fails at runner.start before any workload runs",
+				0
+			)
+		end
+	end)
+
+	it("...and by the GALLERY, which is the control", function()
+		expect(#missingFrom("examples/gallery/scenarios/init.luau")).toBe(0)
+	end)
+
+	it("the project MOUNTS what the lab exports, or the child is never there to find", function()
+		-- `script:WaitForChild("foreign_instances")` yields forever on a child that
+		-- was never mounted, so the export is only real if the graft is too.
+		local project = fsLib.readFile("examples/performance.project.json")
+		expect(string.find(project, "gallery/scenarios/runner.luau", 1, true) ~= nil).toBe(true)
+		expect(string.find(project, "gallery/scenarios/foreign_instances.luau", 1, true) ~= nil).toBe(true)
+	end)
+end)
