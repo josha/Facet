@@ -136,6 +136,10 @@ require("./presentation_channel.spec")
 -- registration function, a longest-path-prefix lookup, and the cost pin that
 -- decides whether "register more hosts" is affordable at all
 require("./instance_hosts.spec")
+-- ...and THE WRITE A HOST MAKES UNNECESSARY (ADR-0032, the arrange half): the
+-- live `applyRect` driven for real, counting engine Position/Size writes, with
+-- the A/A and no-host controls that stop "never write anything" from passing
+require("./host_move_write_cost.spec")
 -- ...and the INSTRUMENTS the nested-tree migration is measured against (step 2),
 -- written while the tree is still flat because they are worth nothing after: the
 -- DFS-counter-is-Sibling-order equivalence, tapAt-agrees-with-the-counter, and

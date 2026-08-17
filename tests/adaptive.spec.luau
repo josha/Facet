@@ -1014,17 +1014,20 @@ describe("RS-A16-D1: a hidden ViewThatFits candidate requests no hit geometry", 
 		-- that ONE function places both — which is a claim about the adapter, not
 		-- about a file.
 		local source = adapter_source.live()
-		local atApply = string.find(source, "local function applyRect", 1, true)
-		expect(atApply ~= nil).toBe(true)
-		-- (window widened 900→1500 when applyRect grew the centered-pivot branch,
-		-- director fix round 2026-07-28 — the invariant itself is unchanged)
-		local applyBody = string.sub(source, atApply :: number, (atApply :: number) + 1500)
+		-- READ TO THE NEXT DECLARATION, NOT TO A CHARACTER COUNT. This window was
+		-- a fixed 900, then a fixed 1500 ("widened when applyRect grew the
+		-- centered-pivot branch, director fix round 2026-07-28 — the invariant
+		-- itself is unchanged"), and it ran out a third time when ADR-0032's
+		-- write-skip explanation landed inside `applyRect`. Each widening was
+		-- correct and none of them fixed the instrument: a pin that reddens because
+		-- somebody EXPLAINED the code teaches people to stop explaining it.
+		local applyBody = adapter_source.bodyOf(source, "local function applyRect")
+		expect(applyBody ~= "").toBe(true)
 		expect(string.find(applyBody, "applyHitExpander", 1, true) ~= nil).toBe(true)
-		-- and the placement itself reads the clip-host origin exactly once, in that
-		-- shared helper, rather than being duplicated at the seam
-		local atHelper = string.find(source, "local function applyHitExpander", 1, true)
-		expect(atHelper ~= nil).toBe(true)
-		local helperBody = string.sub(source, atHelper :: number, (atHelper :: number) + 700)
+		-- and the placement itself reads the instance-host origin exactly once, in
+		-- that shared helper, rather than being duplicated at the seam
+		local helperBody = adapter_source.bodyOf(source, "local function applyHitExpander")
+		expect(helperBody ~= "").toBe(true)
 		expect(string.find(helperBody, "handle.instanceHost", 1, true) ~= nil).toBe(true)
 		expect(string.find(helperBody, "rect.x - ox", 1, true) ~= nil).toBe(true)
 		expect(string.find(helperBody, "rect.y - oy", 1, true) ~= nil).toBe(true)

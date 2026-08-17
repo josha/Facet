@@ -51,4 +51,43 @@ function adapter_source.live(): string
 	return table.concat(parts, "\n")
 end
 
+--[[ ONE FUNCTION'S TEXT, WITHOUT GUESSING HOW LONG IT IS.
+
+	The pins that read this adapter as text nearly all say
+	`string.sub(source, at, at + N)` and then look inside. N is a guess about how
+	long a function is, and every comment anyone adds to that function walks the
+	code they were pinning out the far end of the window. That has already
+	happened at least twice: `adaptive.spec`'s RS-A16-D1b window was widened
+	900 -> 1500 in the 2026-07-28 fix round with the note "the invariant itself is
+	unchanged", and it ran out again the moment ADR-0032's write-skip comment
+	landed in `applyRect`. A pin that fails because somebody EXPLAINED the code is
+	a pin that trains people to delete explanations.
+
+	So: take the text from the anchor to the start of the next sibling declaration
+	instead. Every one of these lives one tab inside `screen_target.new`/
+	`screen_presentation.new`, so `\n\tlocal function ` is where the next one
+	begins, and `\n\tfunction ` catches the `adapter.*` members that follow the
+	last local. Falls back to the rest of the file when neither appears, which is
+	still strictly better than a fixed count.
+
+	It is deliberately NOT a Luau parser. A pin wants "the region this rule lives
+	in" and this is the cheapest honest answer to that; anything cleverer would be
+	a second implementation of the language for the benefit of a substring search.
+]]
+function adapter_source.bodyOf(source: string, anchor: string): string
+	local at = string.find(source, anchor, 1, true)
+	if at == nil then
+		return ""
+	end
+	local from = at + #anchor
+	local stop = #source
+	for _, nextDecl in { "\n\tlocal function ", "\n\tfunction " } do
+		local found = string.find(source, nextDecl, from, true)
+		if found ~= nil and found < stop then
+			stop = found
+		end
+	end
+	return string.sub(source, at, stop)
+end
+
 return adapter_source

@@ -309,23 +309,61 @@ function screen_presentation.new(ctx: any)
 		-- mid-flight, which is every node almost all of the time.
 		local pw = rect.w + (handle.presentationSizeW or 0)
 		local ph = rect.h + (handle.presentationSizeH or 0)
+		local px = rect.x - ox + (handle.presentationOffsetX or 0)
+		local py = rect.y - oy + (handle.presentationOffsetY or 0)
 		if handle.motionAnchorCentered then
 			-- a live motion scale re-anchored this instance to its center so the
 			-- UIScale pivots there (director fix round: pops and the drag ghost grew
 			-- down-right from the top-left) — same rect, written as its center.
 			-- Half the PAINTED extent, so the two branches place the same box: a
 			-- growing node extends down-right from its solved origin either way.
-			handle.instance.Position = UDim2.fromOffset(
-				rect.x - ox + (handle.presentationOffsetX or 0) + pw / 2,
-				rect.y - oy + (handle.presentationOffsetY or 0) + ph / 2
-			)
-		else
-			handle.instance.Position = UDim2.fromOffset(
-				rect.x - ox + (handle.presentationOffsetX or 0),
-				rect.y - oy + (handle.presentationOffsetY or 0)
-			)
+			px += pw / 2
+			py += ph / 2
 		end
-		handle.instance.Size = UDim2.fromOffset(pw, ph)
+		--[[ THE WRITE A HOST MAKES UNNECESSARY (ADR-0032, the arrange half).
+
+			A `GuiObject.Position` is PARENT-RELATIVE, and `ox, oy` above is exactly
+			the parent it is relative to. So when a HOST moves, every descendant's
+			`rect` and the host's origin change by the same delta and `px, py` come
+			out identical — measured on a 20-row list: the container moves, 120 of
+			120 absolute positions change, and 0 of 120 change relative to the host.
+			The shipped code wrote all 120 anyway. That is ADR-0032's 120-write bill,
+			and every one of those writes stored the number already there.
+
+			SO THE MECHANISM IS NOT "WRITE LESS", IT IS "KNOW WHAT YOU WROTE". This
+			function already computed the pair; it simply never compared it to the
+			pair it wrote last time. Under a host that moved, the compare matches and
+			the bill collapses to the host's own single write. With no host above the
+			node the compare almost always differs — its absolute position really did
+			change — and it costs two number compares, which is why this is a general
+			rule rather than a nesting special case.
+
+			WHY THE CACHE CANNOT GO STALE. `applyRect` is the ONLY writer of this
+			instance's `Position`/`Size` — checked across the whole adapter; every
+			other `.Position =` in `src/client/` targets a decoration CHILD (a label,
+			a track, a knob, an ornament, the float ring below), and the one
+			`TweenService` animation of a Position drives a toggle's knob, not a
+			node's own instance. THE ENGINE DOES NOT WRITE IT EITHER, and that is not
+			luck: `setDragDetector` attaches its `UIDragDetector` in `CustomOffset`
+			mode precisely so the detector never writes Position — the default
+			`Offset` mode "would fight it, measured in the spike" — so the renderer
+			already holds sole authority over this property and this cache is a
+			record of an authority that was established for other reasons.
+			`park` sets `Parent = nil` and leaves the geometry
+			alone, so a pooled instance's real position still matches its cache when
+			`adopt` re-parents it; the cache lives on the handle, and a handle that
+			loses its instance loses the cache with it. The AnchorPoint flip needs no
+			invalidation of its own because it MOVES `px`/`py` by half the extent,
+			so the compare misses exactly when the anchor changes meaning.
+		]]
+		if handle.lastWriteX ~= px or handle.lastWriteY ~= py then
+			handle.instance.Position = UDim2.fromOffset(px, py)
+			handle.lastWriteX, handle.lastWriteY = px, py
+		end
+		if handle.lastWriteW ~= pw or handle.lastWriteH ~= ph then
+			handle.instance.Size = UDim2.fromOffset(pw, ph)
+			handle.lastWriteW, handle.lastWriteH = pw, ph
+		end
 		applyHitExpander(handle)
 		if handle.focusRingFloat ~= nil and handle.focusRingFloat.Parent ~= nil then
 			-- the float ring rides the focused rect (it lives in the host,
