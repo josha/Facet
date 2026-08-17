@@ -279,3 +279,78 @@ Round 1's parenting defect (`adopt` re-parenting under a module-scope root) was
 real, is proved live, and is fixed — but it was **not this**. Round 2's plate is
 what made round 3 possible: `coreTop=120` is the whole diagnosis, and no
 photograph before it carried an input.
+
+---
+
+# ROUND 4, 2026-08-17 — THE CAUSE, ON THE LIVE ADAPTER. **CONFIRMED FIXED ON DEVICE.**
+
+The director, after this landed: *"fixed!"*
+
+## What finally found it
+
+The whole engine tree, driven against a fresh mount, in a Studio Play session on
+the built showcase — the audit that had never been run because nine rounds of work
+stayed model-side:
+
+```
+driven=86 nodes   fresh=86 nodes   DIVERGENCES=73
+solver diagnostics: driven=0   fresh=0
+```
+
+**Every one of the 73 is `zIndex` alone.** Position, size and visibility are
+identical on all 86. No headless replay could ever have seen it: in the fake target
+`z` is a number in a table; on the engine it decides what covers what.
+
+## The mechanism
+
+`syncZOrder` reserves a slot below any node carrying a hit expander, because the
+adapter paints that expander at `hostZ - 1`. Its own comment had always named the
+hazard: *"a TIE, which the engine breaks by insertion order, i.e. by exactly the
+non-determinism this explicit walk exists to remove."*
+
+It decided by reading `lastHitRects` — **the expanders that exist right now**. On a
+first structural sync that set is empty, because the rects have not been pushed
+yet, so nothing is reserved. Read off the live tree, on a freshly mounted screen:
+
+```
+z=26  /HudScreen/Hud/Rounds/RoundStrip/R1   36x36 @59,62
+z=26  LuauUIHitExpander                     44x44 @97,58    <- R2's
+z=27  /HudScreen/Hud/Rounds/RoundStrip/R2   36x36 @101,62
+z=27  LuauUIHitExpander                     44x44 @139,58   <- R3's
+```
+
+Then any later structural sync — a rotation provides one — finds the rects present,
+reserves, and the entire band moves underneath everything. **That is the "state
+accumulates across the sequence" the brief opened with**, and why a rotation was
+what exposed it while a re-solve (the URL bar) repaired it.
+
+A hit floor is a fact about the CLASS, not about what has been pushed. The
+reservation reads `effectiveHitFloor` now and the band is a pure function of the
+tree from the first sync onward.
+
+Guard: `tests/hit_expander_z_band.spec.luau`, 4 cases. Mutations both directions:
+reverting to `lastHitRects` reddens the first-sync tie; reserving for every node
+reddens the not-padded control.
+
+## Why it took nine rounds
+
+Every instrument in this repository, and every one I added, asked a model-side
+question. `zIndex` is the one property that is *correct in the model* and decides
+the outcome *in the engine* — so the model agreed with itself at every step, which
+is exactly what the whole investigation kept measuring.
+
+Three real defects were fixed on the way and none of them was this one: the
+recycled node re-parented into another surface's ScreenGui (round 1), the platform
+band collapsing on a mixed-viewport inset (round 2, which restored the right-hand
+rail), and the probe's own five separate blind spots. The instrument work was not
+wasted — the round-2 plate is what produced `coreTop=120`, and the round-9 plate is
+what produced the readable landscape capture — but the answer came from **driving
+the real adapter and diffing the whole tree**, which should have been the second
+thing tried, not the tenth.
+
+## One measurement worth keeping
+
+`/HudScreen/Hud` reads `BackgroundTransparency = 0.00` on the instance while
+`GetStyled("BackgroundTransparency")` returns `1`. **When a StyleSheet owns a
+property, the instance property is not the paint verdict.** A probe reading the
+property would have "found" an opaque full-screen frame that is not there.
