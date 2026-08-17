@@ -136,6 +136,11 @@ require("./presentation_channel.spec")
 -- registration function, a longest-path-prefix lookup, and the cost pin that
 -- decides whether "register more hosts" is affordable at all
 require("./instance_hosts.spec")
+-- ...and the INSTRUMENTS the nested-tree migration is measured against (step 2),
+-- written while the tree is still flat because they are worth nothing after: the
+-- DFS-counter-is-Sibling-order equivalence, tapAt-agrees-with-the-counter, and
+-- the two cases step 4 is EXPECTED to turn red
+require("./nested_tree_pins.spec")
 -- the authored paint escapes: tint, scaleMode, UI.stroke, zIndex (ADR-0022 D6)
 require("./paint_extensions.spec")
 -- fractional Anchor offsets: the marker-overlay shape (ADR-0022 D6, SF-P5)
