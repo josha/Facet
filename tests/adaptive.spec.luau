@@ -1778,3 +1778,89 @@ describe("navPlacement: the tab/sidebar policy is shape and input facts, never a
 		expect(c.navPlacement:get()).toBe("topBar")
 	end)
 end)
+
+--[[ NM-H4a — AN EDGE INSET MEASURED AGAINST ANOTHER VIEWPORT.
+
+	The director, on a phone, 2026-08-17 (`a.jpeg`): the `hud` demo in landscape,
+	the right-hand rail's discs gone, and the paint probe reading
+
+	    Paint probe · 734x393 · solve 15
+	    13 of 14 rows wanted
+	    skipped: Objective
+	    NOT RIDING · no platform band · coreTop=120
+
+	`coreTop = 120`, so `bandH = min(120, 393)` passed and it was the INTERSECTION
+	that collapsed. `topbarSafeInsets` is stored as EDGE INSETS, which only mean
+	anything against the viewport they were measured on — the band derivation turns
+	them back into a rect with `W - right` and `H - bottom`. An orientation change
+	updates `Camera.ViewportSize` and `GuiService:GetInsetArea` on DIFFERENT frames,
+	so one `pushViewportFacts` can capture a new viewport beside an inset measured
+	against the old one; `env:batch` makes the write atomic and cannot make the two
+	engine reads agree.
+
+	A topbar-safe area of y 0..58 on an 852-tall portrait window stores
+	`bottom = 794`. Read against 393, `H - bottom = -401`, the band is nil, `riding`
+	goes false, and the HUD moves onto the no-band rung — where it stays, because
+	nothing republishes until the next platform event. Rotating again is what
+	repaired it, which is exactly the recovery the director reported. ]]
+describe("NM-H4a: a topbar-safe inset that cannot describe this viewport is discarded", function()
+	local function chromeWith(facts: any): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		for key, value in facts do
+			env:set(key, value)
+		end
+		return env:get("platformChrome"):get()
+	end
+
+	local LANDSCAPE = {
+		viewportRect = { x = 0, y = 0, w = 734, h = 393 },
+		coreSafeInsets = { top = 120, right = 0, bottom = 0, left = 0 },
+		deviceSafeInsets = { top = 0, right = 59, bottom = 21, left = 59 },
+		topbarInset = { x = 164, y = 0, w = 570, h = 58 },
+	}
+
+	local function withSafe(bottom: number, right: number?): any
+		local facts = {}
+		for k, v in LANDSCAPE do
+			facts[k] = v
+		end
+		facts.topbarSafeInsets = { top = 0, bottom = bottom, left = 164, right = right or 0 }
+		return facts
+	end
+
+	it("the two encodings agreeing is an identity — the healthy platform", function()
+		local band = chromeWith(withSafe(393 - 58)).band
+		expect(band ~= nil).toBe(true)
+		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("164|0|570|58")
+	end)
+
+	it("an inset from the OTHER orientation no longer erases the band", function()
+		-- 852 - 58: the same topbar-safe area, measured while the phone was portrait
+		local band = chromeWith(withSafe(852 - 58)).band
+		expect(band ~= nil).toBe(true)
+		-- it degrades to the other encoding, which is already window-space, rather
+		-- than to nothing
+		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("164|0|570|58")
+	end)
+
+	it("...and a HORIZONTALLY impossible one is discarded on the same rule", function()
+		local band = chromeWith(withSafe(393 - 58, 734)).band
+		expect(band ~= nil).toBe(true)
+		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("164|0|570|58")
+	end)
+
+	it("a TRUTHFUL inset still narrows the band, because the belt is not switched off", function()
+		-- 164 + 300 < 734, so this one can describe the viewport: it is a real
+		-- reservation and the band must still be cut down to it
+		local band = chromeWith(withSafe(393 - 58, 300)).band
+		expect(band ~= nil).toBe(true)
+		expect(`{band.x}|{band.y}|{band.w}|{band.h}`).toBe("164|0|270|58")
+	end)
+
+	it("no topbar rect at all is still NO BAND — the discard is not a manufacture", function()
+		local facts = withSafe(852 - 58)
+		facts.topbarInset = { x = 0, y = 0, w = 0, h = 0 }
+		expect(chromeWith(facts).band).toBe(nil)
+	end)
+end)

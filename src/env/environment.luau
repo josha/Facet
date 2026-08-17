@@ -325,6 +325,34 @@ function environment.new(core: any): Env
 			end
 		end
 
+		--[[ AN INSET MEASURED AGAINST ANOTHER VIEWPORT IS NOT A BELT, IT IS A LIE
+			(NM-H4a, root-caused 2026-08-17 from the director's phone).
+
+			`topbarSafeInsets` is stored as EDGE INSETS, and an edge inset is only
+			meaningful against the viewport it was measured on: the clamps below turn
+			it back into a rect with `W - right` and `H - bottom`. An orientation
+			change updates `Camera.ViewportSize` and `GuiService:GetInsetArea` on
+			DIFFERENT frames, so one `pushViewportFacts` can capture a new viewport
+			beside an inset measured against the old one — `env:batch` makes the write
+			atomic, it cannot make the two engine reads agree.
+
+			Measured: a topbar-safe area of y 0..58 on an 852-tall portrait window
+			stores `bottom = 794`. Read against a 393-tall landscape window,
+			`H - bottom = -401`, the intersection empties, and `band` is nil. The
+			plate on the phone read `NOT RIDING · no platform band · coreTop=120` —
+			the height gate passed and the INTERSECTION was what collapsed.
+
+			The header above says these two encodings are intersected because that is
+			"an identity on a healthy platform and a belt when one of them is missing
+			or LYING". This is the belt actually holding: an inset that cannot
+			describe the current viewport is discarded in favour of the other
+			encoding, which is already window-space (the DV3-1 correction), rather
+			than being intersected with until nothing is left. Nothing republishes
+			until the next platform event, so without this the HUD wears the
+			no-band arrangement until the player rotates again — which is exactly the
+			recovery the director reported. ]]
+		local safeUsable = safeI.top + safeI.bottom < H and safeI.left + safeI.right < W
+		local safeBox = if safeUsable then safeI else { top = 0, bottom = 0, left = 0, right = 0 }
 		-- the platform's own top band: full width, as tall as the CoreUI inset
 		local bandH = math.min(coreI.top, H)
 		local band: { x: number, y: number, w: number, h: number }? = nil
@@ -332,10 +360,10 @@ function environment.new(core: any): Env
 			local bx, by = finite((bar :: any).x), finite((bar :: any).y)
 			local bw, bh = finite((bar :: any).w), finite((bar :: any).h)
 			if bx ~= nil and by ~= nil and bw ~= nil and bh ~= nil and bw > 0 and bh > 0 then
-				local x0 = math.max(bx, safeI.left, 0)
-				local y0 = math.max(by, safeI.top, 0)
-				local x1 = math.min(bx + bw, W - safeI.right, W)
-				local y1 = math.min(by + bh, H - safeI.bottom, bandH)
+				local x0 = math.max(bx, safeBox.left, 0)
+				local y0 = math.max(by, safeBox.top, 0)
+				local x1 = math.min(bx + bw, W - safeBox.right, W)
+				local y1 = math.min(by + bh, H - safeBox.bottom, bandH)
 				if x1 - x0 > 0 and y1 - y0 > 0 then
 					band = { x = x0, y = y0, w = x1 - x0, h = y1 - y0 }
 				end

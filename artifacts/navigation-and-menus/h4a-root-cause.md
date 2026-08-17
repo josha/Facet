@@ -205,3 +205,77 @@ Capture: the `hud` demo at 749x380 with the paint probe reading
 - The `+93px` shift visible between the healthy and failing landscape frames of
   `hud-latch-repro.mp4` is **unexplained by this fix** and is recorded here as an
   open observation rather than folded into the story.
+
+---
+
+# ROUND 3, 2026-08-17 — THE ACTUAL CAUSE, from the plate the instrument now prints
+
+The instrument shipped in round 2 answered it in one photograph (`a.jpeg`):
+
+```
+Paint probe · 734x393 · solve 15
+13 of 14 rows wanted
+skipped: Objective
+NOT RIDING · no platform band · coreTop=120
+```
+
+**`coreTop = 120`, not 0.** So `bandH = min(120, 393)` passed and the height gate
+was never the problem — it was the INTERSECTION that collapsed.
+
+## The mechanism
+
+`topbarSafeInsets` is stored as **edge insets**, and an edge inset only means
+anything against the viewport it was measured on: `platformChrome` turns it back
+into a rect with `W - right` and `H - bottom` (`src/env/environment.luau:305-343`).
+
+An orientation change updates `Camera.ViewportSize` and
+`GuiService:GetInsetArea(TopbarSafeInsets)` on **different frames**, so one
+`pushViewportFacts` can capture a new viewport beside an inset measured against
+the old one. `env:batch` makes the *write* atomic; it cannot make the two engine
+*reads* agree.
+
+Measured, headless, against the phone's own numbers:
+
+```
+landscape 393 tall, safe insets measured AT 393   band=164,0 570x58
+landscape 393 tall, safe insets measured AT 852   band=NIL
+   H - safeI.bottom = 393 - 794 = -401            <- the clamp goes NEGATIVE
+```
+
+`band = nil` → `riding = false` → `Objective` leaves the denominator and the HUD
+moves onto the no-band rung, which spends a different top inset and different
+column reserves. That is the ··· and the hamburger disappearing.
+
+**And nothing republishes until the next platform event** — which is exactly why
+rotating away and back repaired it, and why no scripted resize in Studio ever
+reproduced it: `setEnv` writes a consistent pair, and the emulator updates both
+together.
+
+## The fix
+
+The header above already states the rule: the two encodings are intersected
+because that is *"an identity on a healthy platform and a belt when one of them is
+missing or LYING"*. The belt was turning a lie into a total loss. An inset that
+cannot describe the current viewport — `top + bottom >= H`, or `left + right >= W`
+— is now discarded in favour of the other encoding, which is already window-space
+(the DV3-1 correction), instead of being intersected with until nothing is left.
+
+A **truthful** narrowing still narrows: `right = 300` on a 734 window still cuts
+the band to `270x58`. The belt is not switched off, only stopped from believing an
+impossible number.
+
+## Evidence
+
+| | |
+|---|---|
+| Guard | `tests/adaptive.spec.luau` — 5 cases, including the truthful-narrowing control and "no topbar rect is still NO BAND, the discard is not a manufacture" |
+| Mutations | reverting the discard reddens 2; discarding unconditionally reddens the narrowing control. Both directions bite |
+| Consumer | RascalRally reads `platformChrome.band` directly (`LuauUISponsor/init.luau:1312`); rider added to `luauui_composition_collision_contract.spec.luau` |
+| Suites | LuauUI 6148 / 0 · RascalRally 3345 / 0 |
+
+## What rounds 1 and 2 were
+
+Round 1's parenting defect (`adopt` re-parenting under a module-scope root) was
+real, is proved live, and is fixed — but it was **not this**. Round 2's plate is
+what made round 3 possible: `coreTop=120` is the whole diagnosis, and no
+photograph before it carried an input.
