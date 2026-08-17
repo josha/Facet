@@ -87,6 +87,32 @@ Seeding from HEAD is what makes this safe: `update-index --chmod` on an entry th
 exists changes only the mode, so a concurrent agent's uncommitted work in the same file
 cannot be swept in.
 
+## The same blind spot, second sighting: binary files
+
+`commit_isolated.py` filters **text hunks**. A changed `.rbxl` produces `Binary files differ`
+and no hunks at all, so the script reports:
+
+```
+commit_isolated: examples/places/00_settings_demo.rbxl has no change against HEAD — refusing
+```
+
+for a file `git status` lists as modified. It also rejects a **directory** argument
+(`examples/places/`) for the same reason — it resolves paths, not trees.
+
+So the rule generalises: **`commit_isolated.py` can only commit what it can diff as text.**
+Modes and binaries both fall outside it, and both fail *closed* — it refuses rather than
+committing the wrong thing, which is the right failure direction but means you have to
+notice. The recipe below covers both; for binaries use `--add` (which reads the working-tree
+content of exactly the paths named) instead of `--chmod=+x`:
+
+```sh
+GIT_INDEX_FILE="$IDX" git update-index --add path/to/place.rbxl
+```
+
+Naming the paths explicitly is what keeps it safe in a shared tree: a private index seeded
+from HEAD plus an explicit path list cannot sweep in another agent's work, which is the whole
+reason `commit_isolated.py` exists.
+
 ## The general shape
 
 This is the "green locally, broken on arrival" family. The others in it are all the same
