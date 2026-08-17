@@ -575,6 +575,11 @@ require("./callout_scenario.spec")
 	on-screen paint probe that ships because that sequence still diverges by zero
 	in every instrument this repository has ]]
 require("./hud_paint_probe.spec")
+--[[ NM-H4a: the hit-expander z reservation read `lastHitRects` — the expanders
+	that exist RIGHT NOW — so a first structural sync reserved nothing and every
+	expander landed on the previous node's ZIndex. Measured live on the built
+	showcase: 73 of 86 nodes diverged from a fresh mount on `zIndex` alone. ]]
+require("./hit_expander_z_band.spec")
 require("./tab_view.spec")
 require("./level_picker.spec")
 local ok = testkit.run()

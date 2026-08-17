@@ -2522,6 +2522,7 @@ function renderer.attach(
 			return
 		end
 		local z = 0
+		local zMetrics = currentMetrics()
 		local function walkZ(node: any)
 			-- A HOST WITH A HIT EXPANDER OWNS THE COUNTER BELOW IT TOO. The adapter
 			-- paints the expander at `hostZ - 1`, and without this reservation that
@@ -2532,7 +2533,10 @@ function renderer.attach(
 			-- a leaf sibling would otherwise put its expander level with it, and
 			-- level is not above (measured on `keyboard_navigation`, whose rows are
 			-- leaves: Row1 at z 37 over Row2 at z 36 left the expander at 36).
-			if lastHitRects[node.path] ~= nil then
+			-- THE CLASS, NOT THE CURRENT STATE (NM-H4a, live 2026-08-17): reading
+			-- `lastHitRects` made this band a function of HISTORY. See
+			-- tests/hit_expander_z_band.spec.
+			if effectiveHitFloor(node.class, zMetrics) ~= nil then
 				z += 1
 			end
 			z += 1
