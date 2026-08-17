@@ -444,6 +444,37 @@ function screen_presentation.new(ctx: any)
 		elseif existing ~= nil then
 			existing.Scale = 1
 			if handle.motionScale ~= nil then
+				--[[ BOTH REFERENCES DIE, OR THE NEXT SCALE WRITES TO A CORPSE.
+
+					`screen_paint.ensureScale` records the instance it makes on
+					`handle.uiScale`; the branch above then records the SAME instance on
+					`handle.motionScale`. Two fields, one object, and only one of them
+					used to be cleared here.
+
+					The read at the top of this function is
+					`handle.motionScale or handle.uiScale`, so a surviving `uiScale`
+					means the next non-1 scale finds a DESTROYED instance, concludes one
+					already exists, and writes `Scale` to it. That write SUCCEEDS — a
+					destroyed instance accepts every write except a non-nil Parent, which
+					is the same engine fact `parkEligible`'s corpse gate is built on — so
+					the node silently stops scaling while its rotation, a direct property,
+					keeps working.
+
+					FOUND ON A PHYSICAL DEVICE (director, 2026-08-17): turn the
+					nested-compositing demo on, off, and on again, and the second turn
+					rotates without scaling. Reproduced in Studio through the real
+					presenter — `Carried` at TURN2 read `Abs=100x70 AbsRot=30.0
+					UIScale=none`. It reaches any authored `scale` that is ever animated
+					to 1 and back, which after ADR-0032 D4 includes a container whose
+					whole subtree rides the term.
+
+					Guarded on identity rather than cleared unconditionally: when the
+					scale instance is the PRESS DIP's rather than the motion's, this
+					branch does not destroy it at all (see the `motionScale ~= nil` test
+					it sits under), and clearing `uiScale` there would strand the dip. ]]
+				if handle.uiScale == handle.motionScale then
+					handle.uiScale = nil
+				end
 				handle.motionScale:Destroy()
 				handle.motionScale = nil
 			end

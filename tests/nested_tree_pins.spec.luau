@@ -47,6 +47,8 @@ local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
 local profile = require("../src/core/profile")
+local screen_presentation = require("../src/client/screen_presentation")
+require("./lib/gui_value_shim").install()
 
 -- `tapAt` IS A DRIVE, NOT A QUERY, and it says so by answering `nil` when the
 -- surface has no `onNodeTap` — it resolves the target, dispatches the press, and
@@ -557,5 +559,112 @@ describe("a layout-only frame does not open a commit scope that commits nothing"
 		-- without this case, "never open the second scope" would pass everything
 		expect(controller.stats().propWrites - before > 0).toBe(true)
 		expect(commits).toBe(2)
+	end)
+end)
+
+describe("a scale that went back to 1 must come back — the UIScale corpse", function()
+	--[[ FOUND ON A PHYSICAL DEVICE by the director, 2026-08-17: press Turn on the
+		nested-compositing demo, turn it off, turn it on again, and the scale does
+		not come back. Rotation does, because that is a direct property on the
+		instance; scale does not, because it needs a `UIScale` CHILD.
+
+		REPRODUCED IN STUDIO through the real presenter, and the numbers name it:
+
+		    TURN1  Carried Abs=150x105  UIScale=1.500 x1   Plate 105x60  Marker 30x30
+		    REST2  Carried Abs=100x70   UIScale=none  x0   Plate  70x40  Marker 20x20
+		    TURN2  Carried Abs=100x70   UIScale=none  x0   Plate  70x40  Marker 20x20
+		                   ^^^^^^^^^^^ turned, rotated 30 degrees, and NOT SCALED
+
+		THE ROOT CAUSE IS A CORPSE IN A HANDLE FIELD, the same family as the
+		instance-pool corpse this repo already has a spec for. `screen_paint`'s
+		`ensureScale` records the instance it makes on `handle.uiScale`;
+		`applyPresentationPaint` then records the SAME instance on
+		`handle.motionScale`. Two fields, one object. Going back to scale 1
+		destroys the object and clears `motionScale` — and leaves `uiScale`
+		pointing at the destroyed one.
+
+		The next scale then reads `handle.motionScale or handle.uiScale`, finds the
+		corpse, decides an instance already exists, and writes `Scale = 1.5` to it.
+		A destroyed instance ACCEPTS EVERY WRITE EXCEPT A NON-NIL PARENT — this
+		codebase states that verbatim in `parkEligible`'s corpse gate — so the write
+		succeeds, silently, onto something that is not in the tree.
+
+		WHY IT MATTERS BEYOND THIS DEMO: any authored `scale` that is ever animated
+		to 1 and back is affected, and after ADR-0032 that now includes a container
+		whose whole subtree rides the term. The failure is silent in both
+		directions — nothing errors, and the node simply stops scaling.
+	]]
+	local function harness()
+		local handlesByPath: { [string]: any } = {}
+		local made: { any } = {}
+		-- a stand-in for screen_paint's lazy UIScale, mimicking the real one's TWO
+		-- recording sites: it sets `handle.uiScale`, and the caller sets
+		-- `handle.motionScale` to the same object. That duplication IS the bug's
+		-- shape, so a harness that models only one field would prove nothing.
+		local function ensureScale(_instance: any, handle: any): any
+			local existing = handle.motionScale or handle.uiScale
+			if existing ~= nil then
+				return existing
+			end
+			local obj = { Scale = 1, dead = false }
+			function obj.Destroy(self: any)
+				self.dead = true
+			end
+			handle.uiScale = obj
+			table.insert(made, obj)
+			return obj
+		end
+		local region = screen_presentation.new({
+			handlesByPath = handlesByPath,
+			refitIconArt = function() end,
+			ensureScale = ensureScale,
+		})
+		-- the node's own instance: `applyPresentationPaint` guards on `IsA("GuiObject")`
+		-- and writes `Rotation` / `AnchorPoint`, so the stand-in answers both
+		local instance: any = {
+			Rotation = 0,
+			AnchorPoint = false,
+			IsA = function(_self: any, class: string): boolean
+				return class == "GuiObject"
+			end,
+		}
+		local handle = {
+			path = "/S/Turned",
+			instance = instance,
+			windowRect = { x = 0, y = 0, w = 100, h = 70 },
+		}
+		handlesByPath["/S/Turned"] = handle
+		return region, handle, made
+	end
+
+	it("turn on, off, and on again: the scale is live and carries its value", function()
+		local region, handle, made = harness()
+
+		region.setTransform(handle, { scale = 1.5, rotation = 30 })
+		expect(#made).toBe(1)
+		expect(made[1].Scale).toBeCloseTo(1.5)
+
+		region.setTransform(handle, nil)
+		expect(made[1].dead).toBe(true)
+
+		region.setTransform(handle, { scale = 1.5, rotation = 30 })
+		-- the corpse must not be reused. Either a NEW instance was made, or the old
+		-- one was somehow revived — the only thing that matters is that whatever the
+		-- node is scaling by now is ALIVE and carries the value.
+		local live = handle.motionScale or handle.uiScale
+		expect(live).never().toBeNil()
+		expect((live :: any).dead).toBe(false)
+		expect((live :: any).Scale).toBeCloseTo(1.5)
+	end)
+
+	it("...and the fields do not keep a destroyed instance after the scale clears", function()
+		local region, handle, made = harness()
+		region.setTransform(handle, { scale = 1.5 })
+		region.setTransform(handle, nil)
+		expect(made[1].dead).toBe(true)
+		-- NEITHER field may hold the corpse. This is the assertion the fix is
+		-- actually about; the case above is what a player sees when it is wrong.
+		expect(handle.motionScale).toBeNil()
+		expect(handle.uiScale).toBeNil()
 	end)
 end)
