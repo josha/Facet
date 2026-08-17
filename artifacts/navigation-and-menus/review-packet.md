@@ -10,23 +10,45 @@ which result failed.
 
 ---
 
-## Before you start
+## Step 0 — BUILD THE PLACE, THEN CHECK THE STAMP
+
+**This step exists because skipping it already cost a device session.** On 2026-08-16 the
+showcase was tested against a place built **5h41m before** the commit it was meant to prove.
+The tester reported "the playlist columns do not resize" — correct, and the playlist in that
+build predated the feature. Nothing on screen distinguished a stale place from a fresh one.
 
 ```
 cd GameStudio/ui/LuauUI
-rojo serve examples/showcase.project.json      # then Connect in Studio's Rojo plugin
+tools/build_places.sh            # rebuilds every place from the CURRENT working tree
+git log -1 --format=%h           # the sha you should see on screen
 ```
 
-Open `examples/places/LuauUI-Showcase.rbxl`, press Play, and drive the demo picker. Every
-scenario named below is reachable from it; `workspace.LuauUIShowcaseAPI` (`list`, `current`,
-`showNext`) advances it without a pointer.
+Then publish `examples/places/LuauUI-Showcase.rbxl` and open it on the device.
 
-**Read `mounted`, not `current`.** `current` is what was *asked* for; `mounted` is what is
-actually on screen and is `nil` when the last mount failed. A picker that lies turns a whole
-device pass into a green run against an empty screen (`b377fe9`).
+**On the device: open the settings panel and read the `build` line.** It shows the short
+sha, a `+dirty` flag when the tree was ahead of HEAD, and the build time — e.g.
+`build 3d7c0fc+dirty 2026-08-16 17:01`. **If it does not match the sha above, stop and
+rebuild.** Every row below is measured against the wrong software otherwise, and a wrong
+result here is worse than no result: it sends someone hunting a defect that does not exist.
 
-On-screen build label: `workspace:GetAttribute("LuauUI_Version")` and the scenario title are
-both live in the chrome.
+### The six PENDING_PHYSICAL rows need a real device, not Studio
+
+Publish and open on hardware. Studio's emulator cannot synthesize a real touch or gamepad
+input class (see the table below), so a Studio pass closes none of Part 1.
+
+### For the four PENDING_HUMAN rows, Studio is fine
+
+```
+rojo serve examples/showcase.project.json      # then Connect in Studio's Rojo plugin
+```
+Press Play and drive the demo picker. In a Rojo-served session the source on disk **is** the
+running source, so the staleness question above cannot arise — and the build line is absent,
+which is how you can tell the two apart.
+
+`workspace.LuauUIShowcaseAPI` (`list`, `current`, `showNext`) advances the showcase without a
+pointer. **Read `mounted`, not `current`** — `current` is what was *asked* for; `mounted` is
+what is actually on screen and is `nil` when the last mount failed. A picker that lies turns
+a whole device pass into a green run against an empty screen (`b377fe9`).
 
 ---
 
