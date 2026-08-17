@@ -174,6 +174,23 @@ local COPY = {
 		characters against 100). The fuller sentence lives on the panel the ··· opens,
 		which is the one place on this screen that has room for it. ]]
 	ladder = "Gives way first: fps, feed, tasks, weapon, health, rail, actions, clock, buttons. ··· has the rest.",
+	--[[ THE PAINT PROBE'S OWN WORDS (NM-H4a). Sentences only — the NODE NAMES it
+		lists are identifiers of source nodes, the way a build sha is, and
+		translating them would break the one thing the reader has to type back into
+		a bug report. Everything here is short because it is read on a phone held at
+		arm's length, in whatever orientation the failure appeared in. ]]
+	probeFreeze = "Freeze",
+	probeArm = "Live again",
+	probeTitle = "Paint probe",
+	probeSolve = "solve",
+	probeOf = "of",
+	probePainting = "painting",
+	probeNotPainted = "NOT PAINTED",
+	probeFirstPainted = "first painted:",
+	probeHiddenUnder = "hidden under:",
+	probeHeldTag = "HELD",
+	probeNoEngine = "no engine read — model only",
+	probeWaiting = "waiting for the first solve",
 }
 
 --[[ ── THE URL BAR IS TWO FACTS, AND IT USED TO BE ONE NUMBER (D7.5) ──────────
@@ -243,6 +260,120 @@ local GLASS = 0.28
 -- `UI.When` at the bottom of the Screen). A HUD is what this surface is FOR, so
 -- on a screen shorter than this the explanation yields to the thing it explains.
 local CAPTION_FLOOR = 360
+
+--[[ ══ THE PAINT PROBE'S WATCH LIST (NM-H4a) ══════════════════════════
+	Fourteen rows, IN DOCUMENT ORDER, spanning the boundary the reported failure
+	stops at. The director's photograph (`h.jpeg`, 2026-08-16) shows a contiguous
+	document-order PREFIX of this HUD not painting after a real phone is rotated
+	with the URL bar toggled — objective chip, round strip, tasks, health, feed,
+	`ScoreHome`, the timer's plate — and then everything from the timer's RING
+	onward painting normally. The ring is the fixture's first `Path` node, and
+	that boundary is what `TimerPlate` / `TimerRing` / `TimerText` are here to
+	resolve: three rows inside one pod, on either side of it.
+
+	EACH ROW NAMES SEVERAL PATHS BECAUSE THE LADDER IS ALLOWED TO CHOOSE. `Tasks`
+	is three forms and `Rail` is two, so "is Tasks showing" is "is ANY of its
+	forms showing" — which is also what stops a legitimate step-down from reading
+	as a defect. The row is LOST only when the framework says one of its forms
+	should be painting and the engine says none of them is.
+
+	EVERY PATH IS A NON-ELIDABLE CLASS (Box / Text / Button / Path), never a bare
+	stack, and that is a requirement rather than a preference: an ELIDED container
+	has no Instance at all, so "no Instance" would otherwise mean both "elided and
+	fine" and "gone", which is the one ambiguity this instrument may not have. ]]
+local PROBE_HUD = "/HudScreen/Hud"
+local PROBE_CLOCK = PROBE_HUD .. "/Clock/ClockStack"
+local PROBE_ROWS: { { name: string, paths: { string } } } = {
+	{
+		name = "Objective",
+		paths = {
+			PROBE_HUD .. "/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective/Plate",
+			PROBE_HUD .. "/Strip/StripRow/StripFree/StripChip/then/StripFit/ObjectiveShort/Plate",
+		},
+	},
+	{ name = "Rounds", paths = { PROBE_HUD .. "/Rounds/RoundStrip/R1" } },
+	{
+		name = "Tasks",
+		paths = {
+			PROBE_HUD .. "/Tasks/TasksFull/Plate",
+			PROBE_HUD .. "/Tasks/TasksOne/Plate",
+			PROBE_HUD .. "/Tasks/TasksChip",
+		},
+	},
+	{
+		name = "Health",
+		paths = { PROBE_HUD .. "/Health/HealthPod/Plate", PROBE_HUD .. "/Health/HealthOnly/Plate" },
+	},
+	{ name = "Feed", paths = { PROBE_HUD .. "/Feed/FeedLine" } },
+	{ name = "ScoreHome", paths = { PROBE_CLOCK .. "/ScoreHome/Plate" } },
+	{
+		name = "TimerPlate",
+		paths = { PROBE_CLOCK .. "/TimerPod/Plate", PROBE_HUD .. "/Clock/TimerOnlyPod/Plate" },
+	},
+	-- the fixture's FIRST `Path` node, and the exact node the reported prefix
+	-- stops before. If this one paints while the rows above it do not, the
+	-- photograph and the instrument are describing the same event.
+	{ name = "TimerRing", paths = { PROBE_CLOCK .. "/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Track" } },
+	{
+		name = "TimerText",
+		paths = {
+			PROBE_CLOCK .. "/TimerPod/TimerRow/TimerText",
+			PROBE_HUD .. "/Clock/TimerOnlyPod/TimerOnlyRow/TimerOnlyText",
+		},
+	},
+	{ name = "ScoreAway", paths = { PROBE_CLOCK .. "/ScoreAway/Plate" } },
+	{ name = "Rail", paths = { PROBE_HUD .. "/Rail/RailTall/W1/Plate", PROBE_HUD .. "/Rail/W1c/Plate" } },
+	{ name = "Readout", paths = { PROBE_HUD .. "/Readout/ReadoutText" } },
+	{ name = "Actions", paths = { PROBE_HUD .. "/Actions/ActionsCol/A1", PROBE_HUD .. "/Actions/A1r" } },
+	{ name = "Weapon", paths = { PROBE_HUD .. "/Weapon/WeaponText" } },
+}
+
+-- every strict ancestor of `path`, NEAREST FIRST. Both sides of the probe walk
+-- this: the framework's `hiddenRoots()` answers the hidden ROOT set rather than
+-- an inherited per-node verdict, and the engine has no `AbsoluteVisible`.
+local function probeAncestors(path: string): { string }
+	local out: { string } = {}
+	local p = path
+	while true do
+		local cut = string.find(p, "/[^/]*$")
+		if cut == nil then
+			break
+		end
+		p = string.sub(p, 1, (cut :: number) - 1)
+		if p == "" then
+			break
+		end
+		table.insert(out, p)
+	end
+	return out
+end
+
+-- ...and the deduplicated path set the engine seam is asked for, built ONCE at
+-- module load rather than per sample. Ancestors are in it deliberately: a
+-- visibility walk that stopped part-way leaves an ancestor hidden with its own
+-- descendants still flagged visible, and reading only the leaves would report
+-- that screen as healthy — the exact false negative this instrument exists to
+-- avoid.
+local PROBE_QUERY: { string } = (function(): { string }
+	local seen: { [string]: boolean } = {}
+	local list: { string } = {}
+	local function add(path: string)
+		if seen[path] then
+			return
+		end
+		seen[path] = true
+		table.insert(list, path)
+	end
+	for _, row in PROBE_ROWS do
+		for _, path in row.paths do
+			add(path)
+			for _, up in probeAncestors(path) do
+				add(up)
+			end
+		end
+	end
+	return list
+end)()
 
 return {
 	title = "Screen-anchored HUD (ADR-0025)",
@@ -1085,6 +1216,326 @@ return {
 			})
 			overflowOpen:set(true)
 		end
+
+		--[[ ══ THE PAINT PROBE, ON A SURFACE OF ITS OWN (NM-H4a) ══════════════
+
+			WHAT IT IS FOR. A device-only defect no instrument in this repository can
+			see: on a real phone, opening this demo in portrait, toggling the URL bar on
+			and off, then rotating to landscape leaves a contiguous document-order
+			PREFIX of the HUD not painting, and it never comes back (`h.jpeg`). 288
+			headless replays of that sequence, 144 ordered viewport pairs, 36 live Studio
+			combinations and a Studio device-emulator rotation all diverged by ZERO
+			against a fresh mount. Neither headless nor the emulator performs a true
+			orientation change, and every one of those instruments reads the framework's
+			OWN MODEL — rects, `hiddenRoots`, the composition resolution. If the model is
+			right and the engine write never landed, all of them agree and all of them
+			are wrong. So this probe reads BOTH SIDES and reports the DISAGREEMENT.
+
+			WHY IT IS A SEPARATE SURFACE, and it is the whole design. The failure has
+			the signature of a visibility walk that did not finish — `pushVisible` is one
+			recursive document-order walk per surface, and a prefix that stopped painting
+			with the suffix untouched is what an abandoned walk leaves behind. A readout
+			drawn by that same walk would go out with everything else it was supposed to
+			describe. `presenter.present` gives this plate its own screen, its own render
+			controller, its own solve and its own visibility walk, none of which the
+			HUD's walk can reach; `setDisplayOrder(SURFACE_LAYER.toast + 100)` puts it in
+			a declared band above, which is also what keeps the cross-surface overlap
+			alarm quiet about a pair that is deliberately layered (ADR-0028). The
+			photograph is the corroboration: the showcase chrome, a different surface,
+			painted perfectly while this HUD did not.
+
+			`responder = "passive"` because a debug overlay may never take the Tab ring
+			from the screen it is watching. THE CONSEQUENCE IS WHY THE HOLD SWITCH IS
+			NOT ON THIS PLATE: measured headless, a second base surface's focusables are
+			in NEITHER surface's traversal ring, in either responder mode — so a control
+			here would be reachable by touch and pointer and by nothing else, and this
+			repository's floor is four inputs. The switch is therefore the third driver
+			in `Drivers` below, where it is an ordinary `UI.Toggle` at the target floor.
+
+			AND THE CAPTURE DOES NOT WAIT FOR THE SWITCH. The failure is transient and
+			the next tap may clear it, so the probe LATCHES ITSELF the first frame it
+			sees a disagreement: it records that frame, sets `Hold`, and stops sampling.
+			Pressing `Hold` off re-arms it. That ordering matters — a manual freeze
+			captures the state AFTER the press, and a press on this fixture's own screen
+			re-solves the very surface under diagnosis. ]]
+		local probeHeld = scope:own(core:signal(false))
+		local probeHead = scope:own(core:signal(COPY.probeTitle))
+		local probeBody = scope:own(core:signal(COPY.probeWaiting))
+		-- the switch says which way it goes, because a button labelled with its own
+		-- state reads as a claim about now rather than as an action
+		local probeButtonLabel = scope:own(core:memo(function(use)
+			return if use(probeHeld) then COPY.probeArm else COPY.probeFreeze
+		end))
+		-- THE HANDLE THIS FIXTURE IS PRESENTED ON, which the fixture does not own:
+		-- the HOST presents `screen` and writes `handle` back onto the table returned
+		-- below (`scenarios/runner.luau`, the showcase host, and the sweep all do).
+		-- Forward-declared and read LAZILY for that reason — `row_actions` reaches its
+		-- own controller the same way.
+		local result: any
+		local probeReport: any = {
+			lost = {},
+			firstPainted = nil,
+			hiddenUnder = nil,
+			painting = 0,
+			expected = 0,
+			latches = 0,
+			engine = false,
+			solves = 0,
+			viewport = "",
+		}
+
+		local function probeSample()
+			if probeHeld:get() then
+				return
+			end
+			local handle = if result ~= nil then result.handle else nil
+			local ctrl = if handle ~= nil then handle.controller else nil
+			if ctrl == nil or ctrl.screenRectOf == nil or ctrl.hiddenRoots == nil then
+				return
+			end
+			--[[ THE MODEL SIDE: what the framework BELIEVES it is painting. A node
+				paints when it has a real solved rect and neither it nor any ancestor is
+				a hidden root — `hiddenRoots()` is documented as the ROOT set (the solver
+				marks candidate roots and the renderer carries the verdict down), so the
+				prefix walk here is how a caller consumes it. ]]
+			local hiddenRoots = ctrl.hiddenRoots()
+			local function modelPaints(path: string): boolean
+				local rect = ctrl.screenRectOf(path)
+				if rect == nil or rect.w < 1 or rect.h < 1 then
+					return false
+				end
+				if hiddenRoots[path] == true then
+					return false
+				end
+				for _, up in probeAncestors(path) do
+					if hiddenRoots[up] == true then
+						return false
+					end
+				end
+				return true
+			end
+			--[[ THE ENGINE SIDE, through the host's own seam — the fixture never touches
+				an Instance. Absent on a host that carries no engine (the headless sweep
+				supplies rects only), and the plate SAYS SO rather than silently reporting
+				a model-only reading as a paint verdict.
+
+				OUTERMOST ANCESTOR FIRST, deliberately: when a walk stops part-way the
+				ancestor is the node that was actually hidden and the leaf still says
+				`Visible = true`, so reading the leaf alone would report the screen
+				healthy. The name it returns is the one thing worth typing into a bug
+				report — seven rows all lost UNDER ONE node is a different defect from
+				seven rows each hidden on their own. ]]
+			local geo = if ctx.geometry ~= nil then ctx.geometry(PROBE_QUERY) else nil
+			local function enginePaints(path: string): (boolean, string?)
+				if geo == nil then
+					return true, nil
+				end
+				local own = geo[path]
+				if own == nil then
+					-- every watched leaf is a non-elidable class, so "no Instance" here is
+					-- "not materialised", never "elided and fine"
+					return false, path
+				end
+				local chain = probeAncestors(path)
+				for i = #chain, 1, -1 do
+					local up = geo[chain[i]]
+					if up ~= nil and up.visible == false then
+						return false, chain[i]
+					end
+				end
+				if own.visible == false then
+					return false, path
+				end
+				return true, nil
+			end
+
+			local lost: { string } = {}
+			local firstPainted: string? = nil
+			local hiddenUnder: string? = nil
+			local painting = 0
+			local expected = 0
+			for _, row in PROBE_ROWS do
+				local wanted = false
+				local painted = false
+				local culprit: string? = nil
+				for _, path in row.paths do
+					if modelPaints(path) then
+						wanted = true
+						local ok, where = enginePaints(path)
+						if ok then
+							painted = true
+						elseif culprit == nil then
+							culprit = where
+						end
+					end
+				end
+				if not wanted then
+					-- the ladder's own doing, not a defect: this row has no form the
+					-- framework expects to be on screen at this size. `report().unshown`
+					-- is where that half is already published, verbatim from the solver.
+					continue
+				end
+				expected += 1
+				if painted then
+					painting += 1
+					if #lost > 0 and firstPainted == nil then
+						firstPainted = row.name
+					end
+				else
+					table.insert(lost, row.name)
+					-- ...and the question is "what is the first painted row AFTER the run",
+					-- so a later loss re-opens it
+					firstPainted = nil
+					if hiddenUnder == nil then
+						hiddenUnder = culprit
+					end
+				end
+			end
+
+			local stats = if ctrl.stats ~= nil then ctrl.stats() else nil
+			local vp = viewportFact:get() :: any
+			probeReport = {
+				lost = lost,
+				firstPainted = firstPainted,
+				hiddenUnder = hiddenUnder,
+				painting = painting,
+				expected = expected,
+				latches = probeReport.latches,
+				engine = geo ~= nil,
+				solves = if stats ~= nil then stats.solves else 0,
+				viewport = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`,
+			}
+
+			local lines: { string } = {}
+			if #lost == 0 then
+				table.insert(lines, `{painting} {COPY.probeOf} {expected} {COPY.probePainting}`)
+			else
+				table.insert(lines, `{#lost} {COPY.probeOf} {expected} {COPY.probeNotPainted}`)
+				table.insert(lines, table.concat(lost, " · "))
+				if firstPainted ~= nil then
+					table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
+				end
+				if hiddenUnder ~= nil then
+					table.insert(lines, `{COPY.probeHiddenUnder} {hiddenUnder}`)
+				end
+			end
+			if geo == nil then
+				table.insert(lines, COPY.probeNoEngine)
+			end
+			-- ...and the HEAD carries the hold state, because the switch beside the
+			-- URL-bar toggle is an icon-only circle: a state nobody can read is a
+			-- state nobody has
+			probeHead:set(
+				`{COPY.probeTitle} · {probeReport.viewport} · {COPY.probeSolve} {probeReport.solves}`
+					.. (if #lost > 0 then ` · {COPY.probeHeldTag}` else "")
+			)
+			probeBody:set(table.concat(lines, "\n"))
+			if #lost > 0 then
+				-- THE LATCH. Recorded first, held second: the plate is already showing
+				-- the failing frame before anything on this screen can move.
+				probeReport.latches += 1
+				probeHeld:set(true)
+			end
+		end
+
+		local function probeScreen(): any
+			return UI.Screen({
+				id = "PaintProbe",
+				padding = 8,
+				children = {
+					UI.Anchor({
+						id = "ProbeField",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							-- HARD RIGHT, VERTICALLY CENTRED: the one band that is empty in
+							-- both of the director's captures, portrait and landscape. The
+							-- plate is the fixture's own `glass` recipe, so it themes with
+							-- everything else here rather than inventing a debug skin.
+							UI.HStack({
+								id = "ProbeSlot",
+								anchor = "right",
+								children = {
+									glass(
+										"ProbePlate",
+										"panel",
+										UI.VStack({
+											id = "ProbeBody",
+											padding = 8,
+											gap = 2,
+											width = { type = "fill", weight = 1 },
+											children = {
+												UI.Text({
+													id = "ProbeHead",
+													text = probeHead,
+													textSize = "caption",
+													role = "secondary",
+												}),
+												UI.Text({
+													id = "ProbeLines",
+													text = probeBody,
+													textSize = "caption",
+												}),
+												--[[ RELEASE / RE-ARM, and never the capture itself. On the
+													plate's own surface it costs the HUD nothing — this
+													surface has room the HUD does not — and it is an ordinary
+													`UI.Button`, so the 44px target floor is the framework's
+													to enforce. Touch and pointer reach it; keyboard and
+													gamepad reach the same signal through `steps.holdProbe`
+													and `steps.armProbe` until cross-surface traversal exists. ]]
+												UI.Button({
+													id = "ProbeHold",
+													label = probeButtonLabel,
+													surface = "chip",
+													width = { type = "fill", weight = 1 },
+													onActivate = function()
+														if probeHeld:get() then
+															probeHeld:set(false)
+															probeSample()
+														else
+															probeHeld:set(true)
+														end
+													end,
+												}),
+											},
+										}),
+										-- a plate a thumb can read without covering the screen it is
+										-- describing; the same app-level literal the ··· sink spends
+										{ type = "fixed", px = 168 }
+									),
+								},
+							}),
+						},
+					}),
+				},
+			})
+		end
+
+		local probeHandle: any = nil
+		local function dropProbe()
+			if probeHandle ~= nil and ctx.presenter ~= nil and ctx.presenter.dismiss ~= nil then
+				ctx.presenter.dismiss(probeHandle)
+			end
+			probeHandle = nil
+		end
+		local function raiseProbe()
+			if ctx.presenter == nil or ctx.presenter.present == nil then
+				return
+			end
+			dropProbe()
+			probeHandle = ctx.presenter.present(probeScreen(), {
+				responder = "passive",
+				-- content, not decoration: it must clear a notch and a home indicator in
+				-- both orientations, which is the whole point of reading it on a phone
+				rootPolicy = "deviceSafeContent",
+			})
+			local controller = probeHandle.controller
+			if controller ~= nil and controller.setDisplayOrder ~= nil and ctx.presenter.SURFACE_LAYER ~= nil then
+				controller.setDisplayOrder(ctx.presenter.SURFACE_LAYER.toast + 100)
+			end
+		end
+		raiseProbe()
+
 		-- ---- the HUD -----------------------------------------------------
 		local hud = UI.Composition({
 			id = "Hud",
@@ -1553,6 +2004,31 @@ return {
 					children = {
 						UI.Toggle({ id = "UrlBar", label = COPY.urlBarOn, value = urlBar }),
 						UI.Toggle({ id = "RideStrip", label = COPY.rideOn, value = ride }),
+						--[[ AND THE PAINT PROBE'S HOLD SWITCH IS NOT HERE, WHICH IS A
+							MEASUREMENT AND A REPORTED FRAMEWORK GAP (NM-H4a).
+
+							It belongs here on the four-input rule: a second base surface's
+							focusables are in NEITHER surface's traversal ring (measured
+							headless, in both responder modes — `tests/hud_paint_probe.spec.luau`
+							pins it), so a control on the probe's own plate is reachable by touch
+							and pointer and by nothing else. LuauUI has no cross-surface
+							traversal, and that is the capability this fixture cannot supply for
+							itself.
+
+							IT CANNOT COME HERE EITHER, and that half is measured too. This Screen
+							has UNDER 8px of headroom at 320x640 with `preferredTextOffset = +14`:
+							a third labelled `UI.Toggle` overflowed it by 17-31px under all four
+							ornate packages (the row takes a third line), a 36px circle by 6-8px
+							(a circle is 8px taller than a Toggle's 28px floor and sets its line's
+							height), and a 28px circle is smaller than an ornate package's own
+							control chrome — Pixel Quest spends 16+16 of contentInset on it and
+							the content box collapses to 0px. An instrument that eats the screen
+							it measures is exactly what the comment above this Screen warns about.
+
+							So the plate carries the switch, `steps.holdProbe`/`armProbe` carry the
+							scripted route — and neither is the capture. The probe LATCHES ITSELF
+							on the frame the disagreement appears, so no input class can miss the
+							evidence; what the switch buys is releasing and re-arming it. ]]
 					},
 				}),
 				--[[ THE LADDER, ON THE SCREEN THAT DEMONSTRATES IT. Watching a zone
@@ -1670,14 +2146,27 @@ return {
 			},
 		})
 
-		return {
+		result = {
 			screen = screen,
 			-- EDGE TO EDGE, and the insets come from `platformChrome` above — still
 			-- ONE authority, and the only one that can say "the top band is an L".
 			-- `deviceSafeContent` would spend the whole band and put the topbar row
 			-- out of reach; every other edge is spent identically (pinned in
 			-- tests/adaptive.spec.luau).
-			present = { rootPolicy = "edgeToEdge" },
+			--[[ ...AND THE PAINT PROBE'S SAMPLE CLOCK RIDES THE SAME OPTS (NM-H4a).
+				`onGeometry` is fed once per frame from `refreshBody` AND from this
+				surface's own `onSolved`, and `onSolved` is announced AFTER the
+				visibility walk has run — so a sample always reads the writes the solve
+				just made rather than last frame's. It is the framework's one declarative
+				live-geometry seam, which is why the probe needs no clock of its own and
+				no second RunService connection. Every host passes `present` through, so
+				the sample runs in the runner, in the sweep and in the shipped showcase. ]]
+			present = {
+				rootPolicy = "edgeToEdge",
+				onGeometry = function(_rectOf: (string) -> any)
+					probeSample()
+				end,
+			},
 			steps = {
 				openUrlBar = function()
 					urlBar:set(true)
@@ -1723,6 +2212,22 @@ return {
 				closeOverflow = function()
 					closeOverflow()
 					return { open = overflowOpen:get() }
+				end,
+				--[[ THE PROBE, DRIVEN (NM-H4a). The switch and these two are one signal,
+					so a scripted sweep and a thumb reach the same state — and `probeSample`
+					is exposed because a headless caller has no frame clock to wait for. ]]
+				holdProbe = function()
+					probeHeld:set(true)
+					return { held = true, probe = probeReport }
+				end,
+				armProbe = function()
+					probeHeld:set(false)
+					probeSample()
+					return { held = probeHeld:get(), probe = probeReport }
+				end,
+				sampleProbe = function()
+					probeSample()
+					return { held = probeHeld:get(), probe = probeReport }
 				end,
 			},
 			report = function()
@@ -1774,6 +2279,23 @@ return {
 					-- bar are reading their signals rather than sitting at a constant
 					roundLeft = timerRing.dump().fraction,
 					health = healthBar.dump().fraction,
+					--[[ AND THE PAINT PROBE'S OWN ANSWER (NM-H4a), so a scripted device
+						sweep reads the same disagreement the plate is showing rather than
+						re-deriving it. `held` is the latch; `latches` counts how many times
+						it has fired since this fixture mounted, which is the difference
+						between "it happened once" and "it happens every rotation". ]]
+					paintProbe = {
+						held = probeHeld:get(),
+						lost = probeReport.lost,
+						firstPainted = probeReport.firstPainted,
+						hiddenUnder = probeReport.hiddenUnder,
+						painting = probeReport.painting,
+						expected = probeReport.expected,
+						latches = probeReport.latches,
+						engine = probeReport.engine,
+						solves = probeReport.solves,
+						viewport = probeReport.viewport,
+					},
 				}
 			end,
 			dispose = function()
@@ -1781,6 +2303,8 @@ return {
 				-- before the scope goes: a live anchored panel outliving the screen it
 				-- discloses is the leak class this fixture would otherwise ship
 				closeOverflow()
+				-- ...and so is the probe, for exactly the same reason
+				dropProbe()
 				for _, view in taskBars do
 					view.dispose()
 				end
@@ -1789,5 +2313,6 @@ return {
 				scope:dispose()
 			end,
 		}
+		return result
 	end,
 }

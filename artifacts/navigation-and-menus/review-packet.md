@@ -182,6 +182,41 @@ elide and drop.
 **Judge:** when the tasks and the weapon rail give way, is it *obvious* where they went? The
 gate proves a route exists at every viewport. It cannot prove a player would find it.
 
+### H4a · Reproduce the HUD paint failure and READ IT OFF THE SCREEN — `NM-H4a`
+**Open `Screen-anchored HUD`** (id `hud`) on the phone. A small plate is already on the
+right edge, vertically centred, reading `Paint probe · <viewport> · solve <n>`. That is a
+**separate surface** with its own render controller, so it keeps painting when the HUD does
+not — which is the whole reason it exists.
+
+**Do, exactly, in this order** (the director's own sequence, 2026-08-16):
+1. Portrait. Tap the **···** disc in the top-left round strip, then **Close** the panel.
+2. Rotate to **landscape**. Turn **URL bar** on, then off again.
+3. Rotate to **portrait**. Turn **URL bar** on, then off again.
+4. Rotate to **landscape**. This is where it went wrong.
+
+**Then read the plate and photograph it.** It says one of two things:
+
+- `14 of 14 painting` — nothing diverged. Say so; that is a real result.
+- `7 of 14 NOT PAINTED`, then the **names in document order**, then `first painted: …`,
+  then `hidden under: …`. **Those three lines are the report.** Type them back verbatim —
+  the names are node identifiers, not prose, and `hidden under` is the one that decides
+  whether seven regions were lost under a single node or seven times over.
+
+**The plate freezes itself.** It latches on the frame the disagreement appears and stops
+updating, so you do not have to catch it — by the time you look, it is already holding the
+failing frame. `Freeze` / `Live again` on the plate releases and re-arms it. Do not press
+anything before you have read the plate.
+
+**Why it needs a human at all:** the exact sequence above has been driven 288 times
+headlessly and twice against the real Roblox adapter in live Studio — with the ··· panel
+opened and closed, with per-orientation insets, with the insets arriving a frame after the
+viewport — and diverged from a fresh mount by **zero** every time. Studio cannot perform an
+operating-system orientation change and neither can its emulator. Full record:
+`artifacts/navigation-and-menus/h4a-paint-probe.md`.
+
+**If it says `no engine read — model only`,** the build is wrong: publish a place built by
+`tools/build_places.sh` from the current tree and start again at Step 0.
+
 ---
 
 ### H5 · Do the three `segment` modes read as the same control? — `NM-LP2`

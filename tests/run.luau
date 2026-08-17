@@ -547,6 +547,12 @@ require("./callout.spec")
 -- the session reset that makes the device pass repeatable, and the screen gutter
 -- a flush-right plate had been sitting on
 require("./callout_scenario.spec")
+--[[ NM-H4a: the director's own sequence — the ··· sink opened and CLOSED, then
+	two orientation-plus-URL-bar cycles — replayed against the PAINTED tree rather
+	than the resolution (which 288 replays already proved innocent), plus the
+	on-screen paint probe that ships because that sequence still diverges by zero
+	in every instrument this repository has ]]
+require("./hud_paint_probe.spec")
 require("./tab_view.spec")
 require("./level_picker.spec")
 local ok = testkit.run()

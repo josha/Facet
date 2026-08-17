@@ -387,6 +387,34 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 					local transport = require(ReplicatedStorage.LuauUI.client.roblox_resources) :: any
 					return transport.bind(provider)
 				end,
+				--[[ THE ENGINE'S OWN PAINT BIT, WHICH ONLY THE TEST RIG USED TO CARRY
+					(NM-H4a, 2026-08-16). Byte-identical to `scenarios/runner.luau`'s seam
+					of the same name — solved rects plus `Visible`, for named paths, read
+					on the host side so the fixture stays engine-free.
+
+					It is in the MINIMAL ctx for the reason the `foreign` and `present`
+					comments above record twice over: the fixture a player actually opens
+					runs HERE, and a seam only the runner carries is a seam no device pass
+					can use. The HUD's paint probe is the instrument for a defect reported
+					from a real phone and reproduced by nothing in this repository; without
+					this line it would degrade to the model-only readout on the one host
+					that matters, which is the same failure as having no instrument. ]]
+				geometry = function(paths: { string }): { [string]: any }
+					local out: { [string]: any } = {}
+					for _, path in paths do
+						local inst = (adapter :: any).getInstance and (adapter :: any).getInstance(path)
+						if inst ~= nil and inst:IsA("GuiObject") then
+							out[path] = {
+								x = inst.AbsolutePosition.X,
+								y = inst.AbsolutePosition.Y,
+								w = inst.AbsoluteSize.X,
+								h = inst.AbsoluteSize.Y,
+								visible = inst.Visible,
+							}
+						end
+					end
+					return out
+				end,
 			})
 			--[[ A FIXTURE'S `present` OPTS ARE PART OF THE FIXTURE (C2, 2026-08-12).
 				This dropped the second argument, so every `present` table a fixture

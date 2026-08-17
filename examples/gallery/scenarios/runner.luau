@@ -946,9 +946,32 @@ function Runner.start(deps: { [string]: any })
 				local a = deps.adapter :: any
 				return if a.getInstance ~= nil then a.getInstance(path) else nil
 			end,
-			-- solved geometry for named paths, so a scenario's own report can
-			-- PAIR geometry with the theme identity that produced it instead of
-			-- leaving the reader to join two sections of the dump by hand
+			--[[ solved geometry for named paths, so a scenario's own report can
+				PAIR geometry with the theme identity that produced it instead of
+				leaving the reader to join two sections of the dump by hand.
+
+				`visible` IS THE ENGINE'S OWN PAINT BIT, and it is here because nothing
+				else in this repository can answer "did this node paint" from OUTSIDE
+				the framework's own model (NM-H4a). Rects, `hiddenRoots` and the
+				composition resolution all report what the framework DECIDED; a defect
+				where the decision is right and the write never landed is invisible to
+				every one of them, which is why 288 headless replays of the reported
+				sequence diverged by zero. This is the other side of that seam, and it
+				stays runner-owned exactly like every other engine read here.
+
+				It is the node's OWN flag, never an effective one: Roblox has no
+				`AbsoluteVisible`, and the renderer's visibility walk writes the
+				inherited verdict onto EVERY node individually (`pushVisible`), so the
+				own flag and the effective one agree whenever that walk completed. A
+				caller that has to survive a walk which did NOT complete asks for the
+				ancestor paths too and reads them the same way — which is the whole
+				reason the disagreement is legible instead of invisible.
+
+				A path with no GuiObject is still OMITTED, unchanged. That answer is
+				ambiguous by construction — an ELIDED container (VStack/HStack/ZStack/
+				Grid/Anchor/Spacer with nothing of its own to paint) has no Instance at
+				all, and neither does an unmounted node — so a caller that needs the
+				distinction names non-elidable classes. ]]
 			geometry = function(paths: { string }): { [string]: any }
 				local out: { [string]: any } = {}
 				local a = deps.adapter :: any
@@ -960,6 +983,7 @@ function Runner.start(deps: { [string]: any })
 							y = inst.AbsolutePosition.Y,
 							w = inst.AbsoluteSize.X,
 							h = inst.AbsoluteSize.Y,
+							visible = inst.Visible,
 						}
 					end
 				end
