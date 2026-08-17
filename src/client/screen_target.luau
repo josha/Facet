@@ -1207,7 +1207,7 @@ function screen_target.new(opts: Opts?)
 			-- what the buffer needs) and their window-space rects are re-based against
 			-- it by exactly the instance-host machinery, whose entry is the adapter's
 			-- general "this node is a real instance parent" record
-			registerHost(path, instance, handle.windowRect)
+			registerHost(path, instance, handle.windowRect, true)
 			-- NO CLASS-DEFAULT RULE TARGETS CanvasGroup: the sheet's transparency
 			-- defaults select Frame/TextLabel/TextButton/ImageLabel/TextBox/
 			-- ScrollingFrame, so a group would wear the engine's own opaque grey plate.
@@ -2803,7 +2803,12 @@ function screen_target.new(opts: Opts?)
 				-- canvas because it lives in it; applyRect re-aims it when the
 				-- row itself moves. Unclipped nodes keep the outward ring.
 				local strokeParent: GuiObject = host
-				if handle.instanceHost ~= nil and handle.instanceHost.instance ~= nil then
+				-- ...AND ONLY UNDER A HOST THAT CROPS (ADR-0032). The float exists
+				-- because a ring drawn under a clipping or buffered parent gets cut;
+				-- a plain move-boundary host cuts nothing, so a node inside one keeps
+				-- the ordinary outward ring rather than growing a second instance to
+				-- solve a problem it does not have.
+				if handle.instanceHost ~= nil and handle.instanceHost.crops and handle.instanceHost.instance ~= nil then
 					local float = ringFloat
 					if float == nil then
 						float = Instance.new("Frame")
@@ -2999,7 +3004,7 @@ function screen_target.new(opts: Opts?)
 				-- at creation): `registerHost` is create-or-REUSE for exactly this
 				-- order, because replacing the entry would strand every child already
 				-- re-based against it
-				registerHost(handle.path, instance, handle.windowRect)
+				registerHost(handle.path, instance, handle.windowRect, true)
 			end
 		elseif prop == "padding" then
 			if handle.class == "Button" then

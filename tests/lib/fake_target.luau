@@ -145,6 +145,66 @@ function fake_target.new(opts: Opts?)
 	local nodes: { [string]: any } = {}
 	local ops: { string } = {}
 	local rootCount = 0
+
+	--[[ THE INSTANCE-HOST MIRROR (ADR-0032), AND WHY A TARGET WITH NO INSTANCES
+		HAS ONE AT ALL.
+
+		This adapter's core simplification is that there is no parenting here — a
+		flat map of nodes, and every ancestor's transform counted, so the composed
+		WINDOW POSITION comes out the same as the live adapter's. That stays exactly
+		true and `_composePresentation` is untouched by this.
+
+		What it could NOT mirror is WHICH NODES ARE REAL PARENTS, and that turned
+		out to matter for something that has nothing to do with position: the live
+		`parkEligible` refuses to recycle a registered host, and this target had no
+		field to refuse on. So the single most important interaction in ADR-0032 —
+		"every host registered is one node removed from the recycle pool" — was
+		invisible to every headless recycling spec. A fake that accepts what the
+		real one refuses proves the wrong thing, which is the rule the park mirror
+		below already states about its other three refusals.
+
+		`crops` IS NOT `clipChildren`, AND THE DIFFERENCE IS THE POINT. What the
+		framework actually asks a host is "can something drawn outside a child's own
+		box survive here" — the question the focus ring's float placement turns on.
+		A `ClipsDescendants` host answers no. So does a `CanvasGroup`, which does not
+		set that property at all but renders its subtree into a buffer its own size,
+		which crops just as hard. A plain move-boundary host answers YES, and
+		conflating the three is how a ring that only ever needed to exist inside a
+		scroll canvas would start appearing under every container that merely moves.
+	]]
+	local instanceHosts: { [string]: any } = {}
+	local function registerFakeHost(path: string, crops: boolean): any
+		local existing = instanceHosts[path]
+		if existing ~= nil then
+			-- create-or-REUSE, mirroring `screen_presentation.registerHost`, and
+			-- `crops` accumulates rather than being overwritten: a node can declare
+			-- itself a fade group at creation and then be given `clipChildren`, and
+			-- the second declaration must not un-crop the first.
+			existing.crops = existing.crops or crops
+			return existing
+		end
+		local entry = { path = path, crops = crops, children = {} }
+		instanceHosts[path] = entry
+		return entry
+	end
+	local function unregisterFakeHost(path: string)
+		instanceHosts[path] = nil
+	end
+	-- the nearest registered ANCESTOR, by the same separator walk the live registry
+	-- uses — not a scan, and never the node itself
+	local function hostFor(path: string): any
+		local i = #path
+		while i > 1 do
+			if string.sub(path, i, i) == "/" then
+				local entry = instanceHosts[string.sub(path, 1, i - 1)]
+				if entry ~= nil then
+					return entry
+				end
+			end
+			i -= 1
+		end
+		return nil
+	end
 	local trackThemeRoots = (opts ~= nil and opts.trackThemeRoots == true)
 	local themeRoots: { any } = {}
 	local LEGACY_SHEET = { Name = "LuauUIStyle (legacy)" }
@@ -251,6 +311,14 @@ function fake_target.new(opts: Opts?)
 		}
 		if createOpts ~= nil and createOpts.canvasGroup == true then
 			node.canvasGroupInstance = { className = "CanvasGroup", groupTransparency = 0 }
+			-- a fade group is a REAL PARENT from birth: its subtree renders into the
+			-- group's own buffer, which is exactly why it CROPS
+			registerFakeHost(path, true)
+		end
+		if createOpts ~= nil and (createOpts :: any).instanceHost == true then
+			-- a declared MOVE boundary: a real parent so the engine carries the
+			-- subtree, and a plain one — no buffer, no clip, nothing cropped
+			registerFakeHost(path, false)
 		end
 		if class == "Path" then
 			-- the DEFAULT stroke role's colour, from the live theme: `role` is
@@ -269,6 +337,13 @@ function fake_target.new(opts: Opts?)
 			-- a field rather than on a class name, exactly as the Stage refusal is.
 			node.foreignBox = true
 			node.foreignClips = true
+		end
+		-- ...and where THIS node parents. A node is never its own host, so the
+		-- registration above and this lookup cannot collide.
+		local host = hostFor(path)
+		if host ~= nil then
+			node.instanceHost = host
+			table.insert(host.children, node)
 		end
 		nodes[path] = node
 		table.insert(ops, `create {path} ({class})`)
@@ -378,6 +453,13 @@ function fake_target.new(opts: Opts?)
 		end
 		handle.props[prop] = value
 		table.insert(ops, `prop {handle.path}.{prop}={tostring(value)}`)
+		if prop == "clipChildren" and value == true then
+			-- an authored clip host, registered at the PROP WRITE exactly as the live
+			-- adapter does. The renderer writes this before it recurses into the
+			-- node's children, so a child created afterwards finds the host already
+			-- there — the same ordering the live adapter relies on.
+			registerFakeHost(handle.path, true)
+		end
 		-- A PADDED TEXT LEAF'S `UIPadding`, mirrored (device round 2026-08-12,
 		-- IMG_3691). The live adapter materializes ONE `UIPadding` under a padded
 		-- TextLabel and writes all four sides into it, and materializes NOTHING for
@@ -510,6 +592,10 @@ function fake_target.new(opts: Opts?)
 
 	function adapter.remove(handle: any)
 		handle.alive = false
+		-- the host record dies with the node, mirroring `dropPath`: a stale entry
+		-- keeps re-parenting new nodes into a destroyed instance, which is the one
+		-- way a flat tree can lose a whole subtree silently
+		unregisterFakeHost(handle.path)
 		nodes[handle.path] = nil
 		table.insert(ops, `remove {handle.path}`)
 		adapter._cancelIfCaptured(handle, "removed")
@@ -527,6 +613,16 @@ function fake_target.new(opts: Opts?)
 			return false
 		end
 		if handle.canvasGroupInstance ~= nil or handle.decoration ~= nil then
+			return false
+		end
+		-- A REGISTERED HOST CANNOT BE RECYCLED (ADR-0032 Consequences, mirroring
+		-- `parkEligible`'s `hostAt(path) ~= nil`). Its subtree lives INSIDE it, so
+		-- parking it would take a whole subtree out of the tree behind the
+		-- renderer's back and hand the next adopter somebody else's children. This
+		-- is the migration's sharpest trade — every host registered is one node
+		-- removed from the pool — and until this refusal existed here, no headless
+		-- recycling spec could see it at all.
+		if instanceHosts[handle.path] ~= nil then
 			return false
 		end
 		-- a Stage carrying LIVE CONTENT (the live adapter's WorldModel holds models
@@ -596,6 +692,24 @@ function fake_target.new(opts: Opts?)
 		end
 	end
 
+	-- THE HOST REGISTRY, READ-ONLY, for the specs that assert who is a real parent
+	-- and what that costs the pool. `hostOf` answers the nearest registered
+	-- ANCESTOR (what a node parents under); `isHost` answers about the path itself.
+	function adapter.hostOf(path: string): any
+		local node = nodes[path]
+		return if node ~= nil then node.instanceHost else nil
+	end
+	function adapter.isHost(path: string): boolean
+		return instanceHosts[path] ~= nil
+	end
+	function adapter.hostCount(): number
+		local n = 0
+		for _ in instanceHosts do
+			n += 1
+		end
+		return n
+	end
+
 	function adapter.setZOrder(handle: any, z: number)
 		handle.z = z
 		table.insert(ops, `z {handle.path}={z}`)
@@ -620,6 +734,7 @@ function fake_target.new(opts: Opts?)
 		for path, node in nodes do
 			if node.root == rootHandle then
 				node.alive = false
+				unregisterFakeHost(path)
 				nodes[path] = nil
 				adapter._cancelIfCaptured(node, "destroyed") -- teardown: no keep-alive
 			end

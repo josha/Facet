@@ -110,18 +110,32 @@ function screen_presentation.new(ctx: any)
 	]]
 	local instanceHosts: { [string]: { instance: Instance, rect: any?, children: { any }, path: string } } = {}
 
-	-- CREATE-OR-REUSE, and the reuse half is load-bearing: a node may declare
-	-- itself a real parent TWICE — a fade group registers while `create` is still
-	-- choosing its engine class, and an authored `clipChildren` registers again at
-	-- the prop write. Replacing the entry would strand every child already
-	-- re-based against it, so the first registration wins and the second is a
-	-- no-op that hands back the same table.
-	local function registerHost(path: string, instance: Instance, rect: any?): any
+	--[[ CREATE-OR-REUSE, and both halves are load-bearing.
+
+		REUSE: a node may declare itself a real parent TWICE — a fade group
+		registers while `create` is still choosing its engine class, and an authored
+		`clipChildren` registers again at the prop write. Replacing the entry would
+		strand every child already re-based against it, so the first registration
+		wins and the second hands back the same table.
+
+		`crops` ACCUMULATES rather than being overwritten, and it is not a synonym
+		for `clipChildren`. The question the framework actually asks a host is "can
+		something drawn OUTSIDE a child's own box survive here" — which is what the
+		focus ring's float placement turns on, since a ring is a stroke that extends
+		past the rect it marks. A `ClipsDescendants` host answers no. A `CanvasGroup`
+		answers no as well despite never setting that property, because it renders
+		its subtree into a buffer its own size. A plain move-boundary host — the kind
+		a later step registers so the engine can carry a subtree — answers YES, and
+		it must, or a ring that only ever needed to float inside a scroll canvas
+		would start floating under every container that merely moves.
+	]]
+	local function registerHost(path: string, instance: Instance, rect: any?, crops: boolean): any
 		local existing = instanceHosts[path]
 		if existing ~= nil then
+			existing.crops = existing.crops or crops
 			return existing
 		end
-		local entry = { instance = instance, rect = rect, children = {}, path = path }
+		local entry = { instance = instance, rect = rect, children = {}, path = path, crops = crops }
 		instanceHosts[path] = entry
 		return entry
 	end
@@ -366,7 +380,7 @@ function screen_presentation.new(ctx: any)
 		end
 		applyHitExpander(handle)
 		if handle.focusRingFloat ~= nil and handle.focusRingFloat.Parent ~= nil then
-			-- the float ring rides the focused rect (it lives in the host,
+			-- the float ring rides the focused rect (it lives in the cropping host,
 			-- so a row that re-arranges must carry its ring along)
 			local t = handle.focusRingFloat:FindFirstChild("FocusRing")
 			local thickness = if t ~= nil and t:IsA("UIStroke") then t.Thickness else 2
