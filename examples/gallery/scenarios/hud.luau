@@ -1575,9 +1575,13 @@ return {
 
 			local stats = if ctrl.stats ~= nil then ctrl.stats() else nil
 			local vp = viewportFact:get() :: any
-			local head = `{COPY.probeTitle} · {math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`
-				.. ` · {COPY.probeSolve} {if stats ~= nil then stats.solves else 0}`
-				.. (if #lost > 0 then ` · {COPY.probeHeldTag}` else "")
+			--[[ THE HEAD HAS TO FIT ONE LINE OF THE COLUMN. `Paint probe · 393x759 ·
+				solve 2 · HELD` wrapped to two and pushed the verdict down the plate on
+				three of the director's photographs running. The words are the reader's,
+				the space is not negotiable, so the words go. ]]
+			local head = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`
+				.. ` s{if stats ~= nil then stats.solves else 0}`
+				.. (if #lost > 0 then ` {COPY.probeHeldTag}` else "")
 
 			--[[ THE PLATE. The denominator it actually watched comes FIRST and always,
 				because a count over a shrinking denominator is the defect this readout
@@ -1608,12 +1612,30 @@ return {
 					table.insert(lines, `{painting} {COPY.probeOf} {wanted} {COPY.probePainting}`)
 				else
 					table.insert(lines, `{#lost} {COPY.probeOf} {wanted} {COPY.probeNotPainted}`)
-					table.insert(lines, table.concat(lost, " · "))
-					if firstPainted ~= nil then
-						table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
-					end
+					--[[ THE CULPRIT LINE COMES BEFORE THE NAMES, and that ordering is a
+						device finding rather than taste (`b3.jpeg`, 2026-08-17). The plate
+						read `6 of 14 NOT PAINTED / Objective · Rounds · Tasks · Feed ·…` and
+						the ONE line that says why — the node they are lost under, or the
+						offset the engine is drawing them at — was below the fold. The names
+						say WHICH; this says WHAT HAPPENED, and only one of those can be
+						guessed from the screen itself. ]]
 					if hiddenUnder ~= nil then
 						table.insert(lines, `{COPY.probeHiddenUnder} {hiddenUnder}`)
+					end
+					--[[ ...AND THE NAMES ARE CAPPED. Six row names is two wrapped lines that
+						push everything after them off a plate a phone can show, and the
+						fourth name has never once changed what the reader does next. ]]
+					local shown = if #lost > 4 then 4 else #lost
+					local names: { string } = {}
+					for i = 1, shown do
+						table.insert(names, lost[i])
+					end
+					if #lost > shown then
+						table.insert(names, `+{#lost - shown}`)
+					end
+					table.insert(lines, table.concat(names, " · "))
+					if firstPainted ~= nil then
+						table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
 					end
 				end
 				if #mismatched > 0 then

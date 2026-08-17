@@ -1030,3 +1030,65 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 		built.dispose()
 	end)
 end)
+
+--[[ NM-H4a round 5 — WHAT SURVIVES THE FOLD.
+
+	`b3.jpeg`, 2026-08-17: the plate finally caught the failing landscape frame —
+	`734x393 · solve 23 · HELD / 14 of 14 rows wanted / 6 of 14 NOT PAINTED /
+	Objective · Rounds · Tasks · Feed ·…` — and the one line that says WHY was below
+	the fold. Three photographs in a row have now been cut off at the line that
+	mattered.
+
+	The names say WHICH rows. Only the culprit line says WHAT HAPPENED, and it is
+	the half a reader cannot guess from the screen in front of them. So it goes
+	first, and the names are capped. ]]
+describe("hud: the line that says why comes before the line that says which", function()
+	local RING = "/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Track"
+
+	it("the culprit is above the names, and the names are capped at four", function()
+		local w = world(LANDSCAPE)
+		-- hide every watched leaf under the HUD's own root: six-plus rows lost at
+		-- once, which is the shape the director photographed
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if string.find(path, "^/HudScreen/Hud/") ~= nil and path ~= RING then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost > 4).toBe(true)
+		local plate = probe.plate
+		local whyAt = string.find(plate, "hidden under:", 1, true)
+		local whichAt = string.find(plate, probe.lost[1], 1, true)
+		expect(whyAt ~= nil).toBe(true)
+		expect(whichAt ~= nil).toBe(true)
+		-- the reason is ABOVE the roll-call, so a cut-off photograph still carries it
+		expect((whyAt :: number) < (whichAt :: number)).toBe(true)
+		-- ...and the roll-call is capped rather than allowed to push it off
+		expect(string.find(plate, `+{#probe.lost - 4}`, 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("four or fewer rows are all named — the cap is not a truncation", function()
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if path == RING then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(1)
+		expect(string.find(probe.plate, "+", 1, true)).toBe(nil)
+		expect(string.find(probe.plate, "TimerRing", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+end)
