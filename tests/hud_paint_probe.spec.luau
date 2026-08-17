@@ -1141,6 +1141,11 @@ describe("hud: the probe plate lays out as lines, not as one opaque block", func
 		)
 		built.steps.sampleProbe(built)
 		built.steps.sampleProbe(built)
+		-- OPEN, because the plate is collapsed by default so that it never covers the
+		-- HUD it is describing (round 9). This case is about how the open plate LAYS
+		-- OUT, which is a different property from how much of it is shown.
+		w.adapter.driveActivate("/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody/ProbeHead")
+		w.presenter.refresh()
 		local plate = built.report().paintProbe.plate
 		local count = #string.split(plate, "\n")
 		expect(count > 2).toBe(true)
@@ -1168,6 +1173,8 @@ describe("hud: the probe plate lays out as lines, not as one opaque block", func
 		)
 		built.steps.sampleProbe(built)
 		built.steps.sampleProbe(built)
+		w.adapter.driveActivate("/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody/ProbeHead")
+		w.presenter.refresh()
 		local hold = boxOf(w, BODY .. "/ProbeHold")
 		expect(hold ~= nil).toBe(true)
 		local lowest = 0
@@ -1440,6 +1447,200 @@ describe("hud: a whole-surface coordinate offset is a space, not a defect", func
 		built.steps.sampleProbe(built)
 		built.steps.sampleProbe(built)
 		expect(#built.report().paintProbe.lost).toBe(0)
+		built.dispose()
+	end)
+end)
+
+--[[ NM-H4a round 9 — AN INSTRUMENT THAT HIDES THE SCREEN IT DESCRIBES.
+
+	The director, 2026-08-17: *"this round seems to have regressed as the buttons on
+	the right disappeared"* (`IMG_3759`). They had not. The action rail and the
+	weapon caption were painting perfectly, underneath the plate — which had grown a
+	line at a time until it covered them.
+
+	"The one band that is empty" was true of a three-line plate and stopped being
+	true without anyone re-checking, which is the same stale reasoning the whole
+	round has been about. So the plate collapses to its counts, sits clear of the
+	rail by a measured inset, and is only allowed to cover the screen when the
+	reader opens it. ]]
+describe("hud: the paint probe does not cover the HUD it is describing", function()
+	local function plateOverlaps(w: any): { string }
+		local plate = w.adapter.node("/PaintProbe/ProbeField/ProbeSlot/ProbePlate")
+		local out: { string } = {}
+		if plate == nil or plate.rect == nil then
+			return out
+		end
+		local p = plate.rect
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^/HudScreen/Hud/") == nil then
+				continue
+			end
+			local n = w.adapter.node(path)
+			local r = if n ~= nil then n.rect else nil
+			if r == nil or r.w < 1 or r.h < 1 then
+				continue
+			end
+			local ox = math.min(r.x + r.w, p.x + p.w) - math.max(r.x, p.x)
+			local oy = math.min(r.y + r.h, p.y + p.h) - math.max(r.y, p.y)
+			if ox > 0 and oy > 0 then
+				table.insert(out, path)
+			end
+		end
+		return out
+	end
+
+	for _, view in { { name = "landscape", v = LANDSCAPE }, { name = "portrait", v = PORTRAIT } } do
+		it(`closed, it covers no HUD node at all — {view.name}`, function()
+			local w = world(view.v)
+			local built = mount(w, ctxFor(w))
+			expect(table.concat(plateOverlaps(w), " ; ")).toBe("")
+			-- ...and it is still saying something: a plate that cleared the screen by
+			-- being empty would pass this and be worthless
+			expect(#string.split(built.report().paintProbe.plate, "\n") >= 2).toBe(true)
+			built.dispose()
+		end)
+	end
+
+	it("opened, it shows every line — the cover is a thing the reader asked for", function()
+		local w = world(LANDSCAPE)
+		-- a plate with something to say, or "closed" and "open" are the same plate
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string)
+				if string.find(path, "^/HudScreen/Hud/") ~= nil then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
+		local closed = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+				closed += 1
+			end
+		end
+		w.adapter.driveActivate("/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody/ProbeHead")
+		w.presenter.refresh()
+		local open = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "/ProbeLines/ProbeLine%d+/then/Line$") ~= nil then
+				open += 1
+			end
+		end
+		expect(open > closed).toBe(true)
+		expect(open).toBe(#string.split(built.report().paintProbe.plate, "\n"))
+		built.dispose()
+	end)
+
+	it("the full readout is on `report()` either way, so a driver never has to open it", function()
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		-- the surface decides what it SHOWS; the report is always whole
+		local plate = built.report().paintProbe.plate
+		expect(#string.split(plate, "\n") >= 2).toBe(true)
+		expect(string.find(plate, "rows wanted", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+end)
+
+--[[ NM-H4a round 9b — THE TWO WAYS A PERFECT RECT PAINTS NOTHING.
+
+	`IMG_3759`, 2026-08-17: `14 of 14 rows wanted / 14 of 14 painting` over a screen
+	missing six zones, with every rect, size, `Visible` and `Enabled` correct. The
+	probe had never read the two engine facts that make a node invisible without
+	touching any of those — a `CanvasGroup` ancestor faded to nothing, and an
+	ancestor that CLIPS and does not contain the node.
+
+	Both are answered by the host's seam off the live tree, because the engine is
+	the only thing that knows them. These force each in turn. ]]
+describe("hud: faded and clipped are not painting", function()
+	local RING = "/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Track"
+
+	local function seam(w: any, decorate: (path: string, out: any) -> ()): any
+		return function(paths: { string }): any
+			local out: { [string]: any } = {}
+			for _, path in paths do
+				local node = w.adapter.node(path)
+				if node ~= nil and node.rect ~= nil then
+					local screenId = string.match(path, "^/([^/]+)")
+					local rec = {
+						x = node.rect.x,
+						y = node.rect.y,
+						w = node.rect.w,
+						h = node.rect.h,
+						visible = w.adapter.visibleOf(path) ~= false,
+						enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						groupAlpha = 0,
+					}
+					decorate(path, rec)
+					out[path] = rec
+				end
+			end
+			return out
+		end
+	end
+
+	local function mountSeam(w: any, decorate: (path: string, out: any) -> ()): any
+		return mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = seam(w, decorate),
+		})
+	end
+
+	it("a node under a fade group at nothing is LOST, not painting", function()
+		local w = world(LANDSCAPE)
+		local built = mountSeam(w, function(path: string, rec: any)
+			if path == RING then
+				rec.groupAlpha = 1
+			end
+		end)
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(1)
+		expect(probe.lost[1]).toBe("TimerRing")
+		expect(string.find(probe.plate, "faded", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a node an ancestor CLIPS away is LOST, and the plate names the clipper", function()
+		local w = world(LANDSCAPE)
+		local built = mountSeam(w, function(path: string, rec: any)
+			if path == RING then
+				rec.clippedBy = "TimerRow"
+			end
+		end)
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(1)
+		expect(string.find(probe.plate, "clipped by TimerRow", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a fade group PART WAY is still painting — the threshold is nothing, not something", function()
+		-- the negative control: a group mid-transition is not a defect, and an
+		-- instrument that called it one would fire on every animation
+		local w = world(LANDSCAPE)
+		local built = mountSeam(w, function(path: string, rec: any)
+			rec.groupAlpha = 0.6
+		end)
+		expect(#built.report().paintProbe.lost).toBe(0)
+		built.dispose()
+	end)
+
+	it("a host that answers neither fact still reports honestly", function()
+		-- every other host on this target predates these two fields; absent must mean
+		-- "not measured", never "measured false"
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(0)
+		expect(probe.engine).toBe(true)
 		built.dispose()
 	end)
 end)

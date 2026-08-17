@@ -1309,6 +1309,14 @@ return {
 			written. ]]
 		local probeEverHealthy = false
 		local probeHead = scope:own(core:signal(COPY.probeTitle))
+		--[[ THE PLATE COLLAPSES, because at full height there is nowhere on this HUD it
+			does not cover something (see the note beside `ProbeSlot`). Closed it is the
+			head and the counts — the verdict a reader needs to know something is wrong.
+			Open it is every line, which is a thing the reader asked for. ]]
+		local probeExpanded = scope:own(core:signal(false))
+		local probeHeadLabel = scope:own(core:memo(function(use)
+			return `{use(probeHead)}{if use(probeExpanded) then " -" else " +"}`
+		end))
 		local probeBody = scope:own(core:signal(COPY.probeWaiting))
 		--[[ ONE TEXT NODE PER LINE, AND THAT IS THE ANSWER TO "WHY IS IT CUT OFF"
 			(director, 2026-08-17: *"why isn't luauui handling the overlap in the popup
@@ -1350,9 +1358,18 @@ return {
 		-- head aside, the plate can emit: wanted, skipped, the NOT PAINTED count, two
 		-- culprits, a culprit overflow, the capped roll-call, and the first painted row
 		local PROBE_LINE_SLOTS = 9
+		--[[ CLOSED, THE PLATE KEEPS THE LINES A READER NEEDS TO KNOW SOMETHING IS
+			WRONG: the denominator it watched and the count that failed. `probeBody`
+			always carries every line — `report().paintProbe.plate` is the full readout
+			for a scripted driver either way — and this decides only what the SURFACE
+			shows. ]]
+		local PROBE_CLOSED_LINES = 2
 		local probeLine: { any } = {}
 		for i = 1, PROBE_LINE_SLOTS do
 			probeLine[i] = scope:own(core:memo(function(use)
+				if i > PROBE_CLOSED_LINES and not use(probeExpanded) then
+					return nil
+				end
 				local body = use(probeBody) :: string
 				return string.split(body, "\n")[i]
 			end))
@@ -1547,10 +1564,28 @@ return {
 						if up.visible == false then
 							return false, chain[i]
 						end
+						if up.groupAlpha ~= nil and up.groupAlpha >= 1 - 1e-6 then
+							return false, `{chain[i]} faded`
+						end
+						if up.clippedBy ~= nil then
+							return false, `{chain[i]} clipped by {up.clippedBy}`
+						end
 					end
 				end
 				if own.enabled == false or own.visible == false then
 					return false, path
+				end
+				--[[ THE TWO WAYS A PERFECT RECT PAINTS NOTHING (`IMG_3759`, 2026-08-17:
+					`14 of 14 painting` over a screen missing six zones, every rect, size,
+					`Visible` and `Enabled` correct). A `CanvasGroup` ancestor faded to
+					nothing renders its whole subtree into a buffer drawn at nothing; an
+					ancestor that CLIPS and does not contain this node simply never draws
+					it. Neither touches a single property this probe was reading. ]]
+				if own.groupAlpha ~= nil and own.groupAlpha >= 1 - 1e-6 then
+					return false, `{path} faded`
+				end
+				if own.clippedBy ~= nil then
+					return false, `{path} clipped by {own.clippedBy}`
 				end
 				if own.w < 1 or own.h < 1 then
 					return false, path
@@ -1872,17 +1907,45 @@ return {
 		local function probeScreen(): any
 			return UI.Screen({
 				id = "PaintProbe",
-				padding = 8,
+				--[[ THE RIGHT INSET CLEARS THE HUD'S ACTION RAIL, and it is a MEASURED
+					number rather than a margin of taste. `Actions` is a 56px column of
+					discs pinned to the right edge with the weapon caption under it; a plate
+					anchored hard right sits exactly on top of them, which is how a working
+					rail was reported as a regression (`IMG_3759`, 2026-08-17). 104 = the
+					rail's 56, the caption that overhangs it, and a gap wide enough that the
+					two never touch — measured, not guessed. The plate's own 164px is set
+					with the same measurement in mind: at 176 the pair is clean only at
+					exactly this inset, and a one-pixel margin is a constant waiting to go
+					stale. `tests/hud_paint_probe.spec` holds the property in BOTH
+					orientations rather than the numbers.
+
+					The probe surface is describing THIS HUD, so knowing where this HUD
+					keeps its controls is the fixture's business and not a leak. ]]
+				padding = { top = 8, right = 104, bottom = 8, left = 8 },
 				children = {
 					UI.Anchor({
 						id = "ProbeField",
 						width = { type = "fill", weight = 1 },
 						height = { type = "fill", weight = 1 },
 						children = {
-							-- HARD RIGHT, VERTICALLY CENTRED: the one band that is empty in
-							-- both of the director's captures, portrait and landscape. The
-							-- plate is the fixture's own `glass` recipe, so it themes with
-							-- everything else here rather than inventing a debug skin.
+							--[[ SMALL BY DEFAULT, AND THAT IS THE FIX (director, 2026-08-17:
+							*"this round seems to have regressed as the buttons on the right
+							disappeared"* — `IMG_3759`). They had not. The plate had grown a
+							line at a time until it covered them: the action rail and the
+							weapon caption were painting perfectly, underneath it.
+
+							"The one band that is empty" was true of a THREE-LINE plate and
+							stopped being true without anyone re-checking — the same stale
+							reasoning this whole round has been about. Measured: at eight lines
+							there is nowhere on a 734x393 HUD it does not cover something. Hard
+							right covers the action rail; centred covers the clock.
+
+							So it collapses. The head is a button: closed, the plate is the
+							head and the counts, which is what the band actually has room for;
+							open, it is everything, and covering the screen is then a thing the
+							reader ASKED for rather than a thing the instrument did to them.
+							An instrument that hides the screen it is describing is not an
+							instrument. ]]
 							UI.HStack({
 								id = "ProbeSlot",
 								anchor = "right",
@@ -1896,11 +1959,18 @@ return {
 											gap = 2,
 											width = { type = "fill", weight = 1 },
 											children = {
-												UI.Text({
+												-- COMPACT: the head is the toggle, so it must not cost a control's
+												-- full chrome height on a plate that has to stay out of the way
+												UI.Button({
 													id = "ProbeHead",
-													text = probeHead,
+													label = probeHeadLabel,
+													surface = "plain",
 													textSize = "caption",
-													role = "secondary",
+													padding = 0,
+													width = { type = "fill", weight = 1 },
+													onActivate = function()
+														probeExpanded:set(not probeExpanded:get())
+													end,
 												}),
 												--[[ ONE TEXT PER LINE (see `probeLine` above). Each line is
 													measured, wrapped and placed on its own, so a line that grows
@@ -1941,7 +2011,7 @@ return {
 											under a third of the narrowest landscape window this fixture
 											declares, and the plate sits in the one band that is empty in
 											both of the director's captures. ]]
-										{ type = "fixed", px = 208 }
+										{ type = "fixed", px = 164 }
 									),
 								},
 							}),

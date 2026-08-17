@@ -986,13 +986,40 @@ function Runner.start(deps: { [string]: any })
 					local inst = a.getInstance and a.getInstance(path)
 					if inst ~= nil and inst:IsA("GuiObject") then
 						local layer = inst:FindFirstAncestorWhichIsA("LayerCollector")
+						-- ...and the two ways a perfect rect paints nothing: a `CanvasGroup`
+						-- ancestor faded to nothing, and an ancestor that CLIPS and does not
+						-- contain this node. The shipped host reads the same pair; see the
+						-- long note beside it in `examples/gallery/client/init.client.luau`.
+						local groupAlpha = 0
+						local clippedBy: string? = nil
+						local pos, size = inst.AbsolutePosition, inst.AbsoluteSize
+						local up: Instance? = inst.Parent
+						while up ~= nil and not up:IsA("LayerCollector") do
+							if up:IsA("CanvasGroup") then
+								groupAlpha = math.max(groupAlpha, (up :: any).GroupTransparency)
+							end
+							if up:IsA("GuiObject") and (up :: any).ClipsDescendants then
+								local p, s = (up :: any).AbsolutePosition, (up :: any).AbsoluteSize
+								if
+									pos.X + size.X <= p.X
+									or pos.Y + size.Y <= p.Y
+									or pos.X >= p.X + s.X
+									or pos.Y >= p.Y + s.Y
+								then
+									clippedBy = clippedBy or up.Name
+								end
+							end
+							up = up.Parent
+						end
 						out[path] = {
-							x = inst.AbsolutePosition.X,
-							y = inst.AbsolutePosition.Y,
-							w = inst.AbsoluteSize.X,
-							h = inst.AbsoluteSize.Y,
+							x = pos.X,
+							y = pos.Y,
+							w = size.X,
+							h = size.Y,
 							visible = inst.Visible,
 							enabled = if layer ~= nil then (layer :: any).Enabled else true,
+							groupAlpha = groupAlpha,
+							clippedBy = clippedBy,
 						}
 					end
 				end

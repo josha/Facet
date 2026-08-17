@@ -412,13 +412,50 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 						local inst = (adapter :: any).getInstance and (adapter :: any).getInstance(path)
 						if inst ~= nil and inst:IsA("GuiObject") then
 							local layer = inst:FindFirstAncestorWhichIsA("LayerCollector")
+							--[[ ...AND THE TWO WAYS A PERFECT RECT PAINTS NOTHING (2026-08-17).
+								The plate reported `14 of 14 painting` over a screen missing six
+								zones, with every rect, size, `Visible` and `Enabled` correct. What
+								it had never read is the pair of engine facts that make a node
+								invisible WITHOUT touching any of those:
+
+								  * a `CanvasGroup` ancestor at `GroupTransparency = 1` — the
+								    framework's own fade group, whose subtree renders into a buffer
+								    that is then drawn at nothing;
+								  * an ancestor that CLIPS and does not contain this node — the
+								    node keeps its absolute rect and is simply not drawn.
+
+								Both are read off the live tree here rather than inferred, because
+								the engine is the only thing that knows them. ]]
+							local groupAlpha = 0
+							local clippedBy: string? = nil
+							local pos, size = inst.AbsolutePosition, inst.AbsoluteSize
+							local up: Instance? = inst.Parent
+							while up ~= nil and not up:IsA("LayerCollector") do
+								if up:IsA("CanvasGroup") then
+									groupAlpha = math.max(groupAlpha, (up :: any).GroupTransparency)
+								end
+								if up:IsA("GuiObject") and (up :: any).ClipsDescendants then
+									local p, s = (up :: any).AbsolutePosition, (up :: any).AbsoluteSize
+									if
+										pos.X + size.X <= p.X
+										or pos.Y + size.Y <= p.Y
+										or pos.X >= p.X + s.X
+										or pos.Y >= p.Y + s.Y
+									then
+										clippedBy = clippedBy or up.Name
+									end
+								end
+								up = up.Parent
+							end
 							out[path] = {
-								x = inst.AbsolutePosition.X,
-								y = inst.AbsolutePosition.Y,
-								w = inst.AbsoluteSize.X,
-								h = inst.AbsoluteSize.Y,
+								x = pos.X,
+								y = pos.Y,
+								w = size.X,
+								h = size.Y,
 								visible = inst.Visible,
 								enabled = if layer ~= nil then (layer :: any).Enabled else true,
+								groupAlpha = groupAlpha,
+								clippedBy = clippedBy,
 							}
 						end
 					end

@@ -27,6 +27,14 @@ local LANDSCAPE = {
 	topbarSafeInsets = { top = 0, bottom = 393 - 58, left = 164, right = 0 },
 	topbarInset = { x = 164, y = 0, w = 570, h = 58 },
 }
+local PORTRAIT = {
+	viewportRect = { x = 0, y = 0, w = 393, h = 759 },
+	coreSafeInsets = { top = 58, right = 0, bottom = 0, left = 0 },
+	deviceSafeInsets = { top = 59, right = 0, bottom = 34, left = 0 },
+	topbarSafeInsets = { top = 0, bottom = 759 - 58, left = 164, right = 0 },
+	topbarInset = { x = 164, y = 0, w = 229, h = 58 },
+}
+local VIEW = if (require("@lune/process") :: any).args[2] == "portrait" then PORTRAIT else LANDSCAPE
 
 local RING = "/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Track"
 local built0: any = nil
@@ -34,7 +42,7 @@ local built0: any = nil
 local function world(): any
 	local core = LuauUI.newCore()
 	local env = LuauUI.newEnvironment(core)
-	for k, v in LANDSCAPE do
+	for k, v in VIEW do
 		env:set(k, v)
 	end
 	local system = LuauUI.newActionSystem(core)
@@ -92,9 +100,14 @@ local built = mount(w, function(path: string)
 end)
 built.steps.sampleProbe(built)
 built.steps.sampleProbe(built)
+local EXPANDED = (require("@lune/process") :: any).args[1] == "open"
+if EXPANDED then
+	w.adapter.driveActivate("/PaintProbe/ProbeField/ProbeSlot/ProbePlate/ProbeBody/ProbeHead")
+	w.presenter.refresh()
+end
 
 local probe = built.report().paintProbe
-print(`lost = {#probe.lost}`)
+print(`lost = {#probe.lost}  held = {tostring(probe.held)}  everHealthy = {tostring(probe.everHealthy)}`)
 print("the plate, verbatim:")
 for _, line in string.split(probe.plate, "\n") do
 	print(`   |{line}`)
@@ -146,6 +159,35 @@ print("")
 print(`  plate lines = {textLines}`)
 if lines ~= nil then
 	print(`  ProbeLines box height = {lines.h}px for {textLines - 1} body line(s)`)
+end
+
+--[[ DOES THE PLATE COVER THE SCREEN IT IS DESCRIBING? That is what turned a
+	working right-hand rail into a bug report. Measured against every HUD node
+	rather than eyeballed, in both orientations. ]]
+local plate = box(ROOT)
+if plate ~= nil then
+	local hits: { string } = {}
+	for _, path in w.adapter.paths() do
+		if string.find(path, "^/HudScreen/Hud/") == nil then
+			continue
+		end
+		local r = box(path)
+		if r == nil or r.w < 1 or r.h < 1 then
+			continue
+		end
+		local ox = math.min(r.x + r.w, plate.x + plate.w) - math.max(r.x, plate.x)
+		local oy = math.min(r.y + r.h, plate.y + plate.h) - math.max(r.y, plate.y)
+		if ox > 0 and oy > 0 then
+			table.insert(hits, `{path} ({ox}x{oy})`)
+		end
+	end
+	print("")
+	print(`== plate overlaps {#hits} HUD node(s) ==`)
+	for i, h in hits do
+		if i <= 8 then
+			print(`   {h}`)
+		end
+	end
 end
 
 built.dispose()
