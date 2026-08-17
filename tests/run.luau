@@ -503,6 +503,12 @@ require("./hud_chrome_rotation.spec")
 	and the device-matrix sweep that asserts every region the HUD has stopped
 	showing has a LIVE route at every viewport in both URL-bar states. ]]
 require("./elision_recovery.spec")
+--[[ ...and the two holes that sweep left, both named by the 2026-08-16 device
+	review: D7.6 mounts a FRESH surface per viewport, so nothing asked whether the
+	path BETWEEN viewports is reversible (a one-way ladder passes every row of it);
+	and the recovery route was authored as a hand-written transcription beside the
+	forms it discloses, so it reached a lesser thing than the form it was for. ]]
+require("./adaptation_reversibility.spec")
 require("./reference/glade_spec")
 require("./reference/cartwheel_spec")
 require("./reference/sipworks_spec")

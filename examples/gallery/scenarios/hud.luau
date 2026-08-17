@@ -753,6 +753,119 @@ return {
 			)
 		end
 
+		--[[ ── EVERY ZONE'S RICHEST FORM, BUILT ONCE AND NAMED ────────────────────
+			(director device review 2026-08-16, second finding: *"I'd expect when I
+			press on 'win a round' to see the same contents I see in landscape when it's
+			expanded."*)
+
+			These seven locals ARE the richest form of the seven zones that have content
+			to lose, and they are hoisted for one reason: the recovery panel below mounts
+			THE SAME BLUEPRINT OBJECTS. Before this the panel carried a hand-written
+			transcription beside them — `"Win a round  +50"` as one flat caption where
+			the rich form shows a mark, the task's name, its progress bar and its reward
+			chip — so the route reached a different, lesser thing than the form it was
+			disclosing, and the two copies could drift apart with nothing to notice.
+
+			ONE OBJECT, NOT TWO EQUAL ONES, is what makes drift impossible rather than
+			merely unlikely: there is no second construction to keep in step, and a zone
+			whose rich form gains a row gains it on the route in the same edit. The same
+			blueprint standing at two PATHS is the idiom `TasksOne` already used for
+			`taskBars[1]` — a blueprint is a frozen descriptor and its identity in the
+			tree is its path, so mounting one twice is two nodes, not one shared node.
+
+			The bars are the live `newProgressView` blueprints, so the disclosed bar
+			reads the same signal the HUD's does and cannot show a stale figure. ]]
+		local clockStack = UI.HStack({
+			id = "ClockStack",
+			gap = 6,
+			align = "center",
+			children = {
+				pill("ScoreHome", COPY.scoreHome, "numeral"),
+				glass(
+					"TimerPod",
+					"pill",
+					UI.HStack({
+						id = "TimerRow",
+						gap = 6,
+						align = "center",
+						padding = { top = 4, right = 12, bottom = 4, left = 12 },
+						children = {
+							-- THE RING NEEDS A BOX, for the reason the health bar does one
+							-- zone over: `newProgressView`'s row is `fill` on purpose, so
+							-- inside a HUGGING pod it measures as nothing and the ring inside
+							-- it overflows by exactly its own diameter (measured: "content
+							-- overflows this hstack by 24px"). The box is the THEME's ring
+							-- metric, so a package that draws a 44px ring gets a 44px box and
+							-- this fixture never learns a number.
+							UI.HStack({
+								id = "TimerRingBox",
+								width = { type = "fixed", px = "controls.progress.circularSize" },
+								children = { timerRing.blueprint },
+							}),
+							UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
+						},
+					})
+				),
+				pill("ScoreAway", COPY.scoreAway, "numeral"),
+			},
+		})
+		local healthPod = glass(
+			"HealthPod",
+			"pill",
+			UI.HStack({
+				id = "HealthRow",
+				gap = 8,
+				align = "center",
+				padding = { top = 4, right = 12, bottom = 4, left = 12 },
+				children = {
+					UI.Text({ id = "HealthNum", text = COPY.health, textSize = "numeral" }),
+					--[[ THE BAR NEEDS A BOX, and this pod HUGS.
+						`newProgressView`'s row is `fill` by construction — a bar spans
+						whatever it is given — so inside a hugging pod it measures as
+						nothing and vanishes.
+
+						`sizing = "fill"` on the region was tried first and is wrong here:
+						it makes the zone's own box the pod's, and the bottom-left zone's
+						granted HEIGHT then capped the pod 5px under what its content needs
+						— the sweep reported the pod overflowing its own plate on every
+						compact-phone pass. A fixed 96px box is an app-level decision (a
+						health bar you can read without eating the corner), which is exactly
+						the kind of literal an app is allowed and a framework control is not
+						— and inside a DROPPED region it costs nothing, because the adapter
+						writes `Visible = false` down the whole subtree (proved in
+						tests/hud_composition.spec). ]]
+					UI.HStack({
+						id = "HealthBarBox",
+						width = { type = "fixed", px = 96 },
+						children = { healthBar.blueprint },
+					}),
+				},
+			})
+		)
+		local railTall = UI.VStack({
+			id = "RailTall",
+			gap = 4,
+			align = "end",
+			children = {
+				weaponChip("W1", COPY.weapon1, COPY.ammo1),
+				weaponChip("W2", COPY.weapon2, COPY.ammo2),
+				weaponChip("W3", COPY.weapon3, COPY.ammo3),
+			},
+		})
+		local actionsCol = UI.VStack({
+			id = "ActionsCol",
+			gap = 8,
+			align = "end",
+			children = {
+				roundButton("A1", COPY.action1, "more", "controlSizes.large.height"),
+				roundButton("A2", COPY.action2, "menu", "controlSizes.large.height"),
+				roundButton("A3", COPY.action3, "checkmark", "controlSizes.large.height"),
+			},
+		})
+		local feedLine = UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" })
+		local readoutText = UI.Text({ id = "ReadoutText", text = COPY.readout, textSize = "caption" })
+		local weaponText = UI.Text({ id = "WeaponText", text = COPY.weaponName, textSize = "caption" })
+
 		--[[ ── THE OVERFLOW SINK (D7.3) ─────────────────────────────────────────
 			DROPPING STOPS MEANING DELETING. Every zone that is not showing everything
 			it has is listed here, and the list is the FRAMEWORK's
@@ -775,43 +888,58 @@ return {
 			the one control that recovers everything else was the one control nobody
 			could reach. It now lives in a rank-1 region with ONE form, so there is no
 			losing form for it to sit in and no rank below it to be dropped for. ]]
-		local RECOVERED: { [string]: () -> { string } } = {
+		--[[ ...AND WHAT THE ROUTE REACHES IS THE FORM ITSELF (director round 2,
+			2026-08-16). Each entry is the zone's RICHEST form, by object identity —
+			the same blueprints the HUD mounts, hoisted above. It used to be a table
+			of hand-written strings, and that is the defect this closes: a route that
+			reaches a lesser thing than the form it discloses is a second elision
+			wearing a disclosure's clothes.
+
+			`Health` carries the label the pod does not have room for, because the pod
+			IS a bare figure beside a bar on a HUD where its position says what it is,
+			and on a panel of eight zones it needs a name. That is the one addition;
+			nothing is subtracted anywhere. ]]
+		local RECOVERED: { [string]: () -> { any } } = {
 			Tasks = function()
 				return {
-					COPY.tasksTitle,
-					`{COPY.task1}  {COPY.reward1}`,
-					`{COPY.task2}  {COPY.reward2}`,
-					`{COPY.task3}  {COPY.reward3}`,
+					UI.Text({ id = "RecoveredTasksTitle", text = COPY.tasksTitle, textSize = "label" }),
+					taskRows[1],
+					taskRows[2],
+					taskRows[3],
 				}
 			end,
 			Health = function()
-				return { `{COPY.healthLabel}  {COPY.health}` }
+				return {
+					UI.Text({
+						id = "RecoveredHealthLabel",
+						text = COPY.healthLabel,
+						textSize = "caption",
+						role = "secondary",
+					}),
+					healthPod,
+				}
 			end,
 			-- the SCORES, which is the case no re-rank could have fixed: the Clock is
 			-- in the centre lane and the readout it is compared against is in the
 			-- right one, and rule 3 only ever spends the currency of the lane that
 			-- does not fit
 			Clock = function()
-				return { `{COPY.scoreHome} - {COPY.scoreAway}` }
+				return { clockStack }
 			end,
 			Rail = function()
-				return {
-					`{COPY.weapon1}  {COPY.ammo1}`,
-					`{COPY.weapon2}  {COPY.ammo2}`,
-					`{COPY.weapon3}  {COPY.ammo3}`,
-				}
+				return { railTall }
 			end,
 			Actions = function()
-				return { COPY.action1, COPY.action2, COPY.action3 }
+				return { actionsCol }
 			end,
 			Feed = function()
-				return { COPY.feed }
+				return { feedLine }
 			end,
 			Readout = function()
-				return { COPY.readout }
+				return { readoutText }
 			end,
 			Weapon = function()
-				return { COPY.weaponName }
+				return { weaponText }
 			end,
 		}
 
@@ -877,19 +1005,13 @@ return {
 				if build == nil then
 					continue
 				end
-				for i, line in build() do
-					table.insert(
-						rows,
-						UI.Text({
-							id = `Recovered{entry.id}{i}`,
-							text = line,
-							textSize = "caption",
-							-- NO `lineLimit`: this panel is the last place a string is
-							-- shown, so it wraps at 1.4x rather than cutting. Everything the
-							-- HUD itself truncates reads whole here
-							role = if i == 1 then "content" else "secondary",
-						})
-					)
+				--[[ THE FORM ITSELF, not a description of it. Every child here is a
+					blueprint the HUD mounts too, so the panel cannot show less than the
+					zone it is disclosing and cannot drift from it. The rows are `fill`
+					width and their labels already shrink (O-23 / `lineLimit = 1`), so a
+					240px plate holds them at 1.4x exactly as a HUD lane does. ]]
+				for _, view in build() do
+					table.insert(rows, view)
 				end
 			end
 			table.insert(
@@ -1284,40 +1406,8 @@ return {
 					-- ladder finish.
 					mayDrop = true,
 					children = {
-						glass(
-							"HealthPod",
-							"pill",
-							UI.HStack({
-								id = "HealthRow",
-								gap = 8,
-								align = "center",
-								padding = { top = 4, right = 12, bottom = 4, left = 12 },
-								children = {
-									UI.Text({ id = "HealthNum", text = COPY.health, textSize = "numeral" }),
-									--[[ THE BAR NEEDS A BOX, and this pod HUGS.
-										`newProgressView`'s row is `fill` by construction — a bar
-										spans whatever it is given — so inside a hugging pod it
-										measures as nothing and vanishes.
-
-										`sizing = "fill"` on the region was tried first and is
-										wrong here: it makes the zone's own box the pod's, and the
-										bottom-left zone's granted HEIGHT then capped the pod 5px
-										under what its content needs — the sweep reported the pod
-										overflowing its own plate on every compact-phone pass. A
-										fixed 96px box is an app-level decision (a health bar you
-										can read without eating the corner), which is exactly the
-										kind of literal an app is allowed and a framework control
-										is not — and inside a DROPPED region it costs nothing,
-										because the adapter writes `Visible = false` down the whole
-										subtree (proved in tests/hud_composition.spec). ]]
-									UI.HStack({
-										id = "HealthBarBox",
-										width = { type = "fixed", px = 96 },
-										children = { healthBar.blueprint },
-									}),
-								},
-							})
-						),
+						-- the RICH form, hoisted above and shared with the recovery panel
+						healthPod,
 						-- the bar ALONE is the compact form: the figure is what a player
 						-- reads in a glance and the bar is what they read in a fight, so
 						-- when the pod cannot have both the FIGURE is what survives
@@ -1333,7 +1423,7 @@ return {
 					-- happened in the match, and the fps readout is not
 					rank = 8,
 					mayDrop = true,
-					children = { UI.Text({ id = "FeedLine", text = COPY.feed, textSize = "caption" }) },
+					children = { feedLine },
 				}),
 				-- UPPER CENTRE — the round clock and the two team scores.
 				UI.Region({
@@ -1350,41 +1440,8 @@ return {
 						what "tap for detail" is for. ]]
 					recover = "overflow",
 					children = {
-						UI.HStack({
-							id = "ClockStack",
-							gap = 6,
-							align = "center",
-							children = {
-								pill("ScoreHome", COPY.scoreHome, "numeral"),
-								glass(
-									"TimerPod",
-									"pill",
-									UI.HStack({
-										id = "TimerRow",
-										gap = 6,
-										align = "center",
-										padding = { top = 4, right = 12, bottom = 4, left = 12 },
-										children = {
-											-- THE RING NEEDS A BOX, for the reason the health bar
-											-- does one zone over: `newProgressView`'s row is `fill`
-											-- on purpose, so inside a HUGGING pod it measures as
-											-- nothing and the ring inside it overflows by exactly
-											-- its own diameter (measured: "content overflows this
-											-- hstack by 24px"). The box is the THEME's ring metric,
-											-- so a package that draws a 44px ring gets a 44px box
-											-- and this fixture never learns a number.
-											UI.HStack({
-												id = "TimerRingBox",
-												width = { type = "fixed", px = "controls.progress.circularSize" },
-												children = { timerRing.blueprint },
-											}),
-											UI.Text({ id = "TimerText", text = COPY.timer, textSize = "numeral" }),
-										},
-									})
-								),
-								pill("ScoreAway", COPY.scoreAway, "numeral"),
-							},
-						}),
+						-- the RICH form, hoisted above and shared with the recovery panel
+						clockStack,
 						-- the clock and the ring, WITHOUT the scores: the Studio canary
 						-- is why this exists. With the URL bar open on a 735x413 window
 						-- the centre column has 61px and the full row needs more. What a
@@ -1424,16 +1481,8 @@ return {
 					-- back.
 					mayDrop = true,
 					children = {
-						UI.VStack({
-							id = "RailTall",
-							gap = 4,
-							align = "end",
-							children = {
-								weaponChip("W1", COPY.weapon1, COPY.ammo1),
-								weaponChip("W2", COPY.weapon2, COPY.ammo2),
-								weaponChip("W3", COPY.weapon3, COPY.ammo3),
-							},
-						}),
+						-- the RICH form, hoisted above and shared with the recovery panel
+						railTall,
 						-- the compact form is NARROWER, not merely shorter: a HUD column
 						-- is a third of the screen, so a horizontal compact form is the
 						-- wrong ladder in a column (the sweep found this at 320px)
@@ -1450,7 +1499,7 @@ return {
 						never asked for; it goes first. ]]
 					rank = 9,
 					mayDrop = true,
-					children = { UI.Text({ id = "ReadoutText", text = COPY.readout, textSize = "caption" }) },
+					children = { readoutText },
 				}),
 				-- LOWER RIGHT — the action buttons, two forms (column, then one), at
 				-- the thumb size the theme names.
@@ -1462,16 +1511,8 @@ return {
 					-- actions are what it stops showing
 					recover = "overflow",
 					children = {
-						UI.VStack({
-							id = "ActionsCol",
-							gap = 8,
-							align = "end",
-							children = {
-								roundButton("A1", COPY.action1, "more", "controlSizes.large.height"),
-								roundButton("A2", COPY.action2, "menu", "controlSizes.large.height"),
-								roundButton("A3", COPY.action3, "checkmark", "controlSizes.large.height"),
-							},
-						}),
+						-- the RICH form, hoisted above and shared with the recovery panel
+						actionsCol,
 						roundButton("A1r", COPY.action1, "more", "controlSizes.regular.height"),
 					},
 				}),
@@ -1483,7 +1524,7 @@ return {
 					group = "bottomRight",
 					rank = 6,
 					mayDrop = true,
-					children = { UI.Text({ id = "WeaponText", text = COPY.weaponName, textSize = "caption" }) },
+					children = { weaponText },
 				}),
 			},
 		})
