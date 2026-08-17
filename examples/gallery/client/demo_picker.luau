@@ -376,6 +376,25 @@ demo_picker.DEMOS = {
 		kind = "example",
 		module = "01_temperature_converter",
 	},
+	-- ...and the round's other two constructs, which shipped with spec fixtures
+	-- and nothing a person holding a phone could open (2026-08-16). Both are
+	-- gesture-and-lifecycle features: four of the menu's five triggers cannot be
+	-- synthesized in Studio at all, and a tab eviction and a hidden subtree paint
+	-- the same picture — so the hands-on surface is the only proof there is.
+	{
+		id = "menu",
+		title = "Menus and their five triggers",
+		blurb = "One list of verbs, five ways in — and a submenu that replaces the sheet",
+		kind = "fixture",
+		module = "menu",
+	},
+	{
+		id = "tab-view",
+		title = "Tabs, nested",
+		blurb = "A page's tab bar inside the app's, and every tab counts its own rebuilds",
+		kind = "fixture",
+		module = "tab_view",
+	},
 	{
 		id = "ex02",
 		title = "Playlist table",

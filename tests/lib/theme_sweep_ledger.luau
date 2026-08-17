@@ -1309,6 +1309,34 @@ theme_ledger.ROWS = {
 		packages = "pixel-quest",
 		kind = "collapsed-box",
 	},
+	{
+		--[[ TWO TAB BARS DO NOT FIT ON A 320px-TALL LANDSCAPE AT THE LARGEST TEXT
+			PREFERENCE, and that is a fact about NESTING rather than about this fixture
+			— which is why it is recorded here rather than authored around. `r2`'s shape
+			is a page's top bar inside an app's bar, and each band is a themed control
+			row: under the five heaviest packages at +14 the pair needs 108px and 92px
+			each, and the landscape has one band's worth of room between them.
+
+			MEASURED, NOT ASSUMED, and the fixture already spent what it could: the
+			readouts moved off the screen and into the tabs (four lines of prose above
+			a TabView cost 114 findings), and the page padding came off (which took the
+			scifi-hud row at +0 with it — 2px, the one finding here that fired at the
+			DEFAULT preference). What is left is the two bands themselves.
+
+			The same class as `p3_sipworks` below it: a screen with genuinely no room,
+			not a control that cannot draw. Every tab is still reachable and the page's
+			own body is a scroller; what runs past the box is the band the construct
+			places. A framework answer would be a nested TabView that degrades its own
+			band on a short height, which no version of this control has. ]]
+		surface = "tab_view",
+		variant = "-",
+		node = "/TabViewDemo/Root/App/Content/Tab-pages/then/Page",
+		sig = "content overflows this vstack by Npx on the",
+		px = 42,
+		since = 14,
+		packages = "fantasy-ornate,fantasy-parchment,glossy-mobile,glossy-touch,scifi-hud",
+		kind = "page-not-scrollable",
+	},
 } :: { Row }
 
 return theme_ledger

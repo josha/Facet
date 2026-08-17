@@ -14,13 +14,18 @@ local fs = require("@lune/fs")
 local demo_picker = require("../examples/gallery/client/demo_picker")
 
 describe("showcase catalogue", function()
-	it("lists every tutorial example plus the twenty-five fixtures", function()
+	it("lists every tutorial example plus the twenty-seven fixtures", function()
 		local demos = demo_picker.list()
 		-- 32 until 2026-08-16: `table-columns` was retired (navigation-and-menus D8)
 		-- when the playlist tutorial gained the resizable header it existed to hold,
 		-- and back to 32 the same day when D3 added `callout` — the two plates a
-		-- still frame cannot tell apart
-		expect(#demos).toBe(32)
+		-- still frame cannot tell apart. 34 later that day, when `menu` and
+		-- `tab-view` joined it: D2 and D5 had shipped their constructs with spec
+		-- fixtures and no surface a person holding a phone could open, which is the
+		-- same omission `async-images` and `canvas-group` closed one round earlier.
+		-- 35 the same day again, when `newLevelPicker` shipped with the fixture that
+		-- reproduces the reference screenshot
+		expect(#demos).toBe(35)
 		-- the all-controls fixture leads: it is the one that answers "what does
 		-- this look like on my device"; the row-actions fixture follows it for
 		-- the same feel-first reason (hosted row-actions device pass)
@@ -114,8 +119,10 @@ describe("showcase catalogue", function()
 		-- existed and only ever ran under a sweep; `canvas_group` is new, because the
 		-- fade group had no fixture whose SUBJECT it was.
 		-- 25 until `table-columns` was retired on 2026-08-16 (D8), and 25 again the
-		-- same day when D3 added `callout`
-		expect(fixtures).toBe(25)
+		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
+		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
+		-- again with `level-picker`, whose fixture reproduces the reference screenshot
+		expect(fixtures).toBe(28)
 	end)
 
 	-- A BLURB IS READ IN THE OPEN LIST ON THE NARROWEST PHONE, and the list is
@@ -569,8 +576,10 @@ describe("showcase host: the fixture branch delivers `present` opts", function()
 			expect(w.core:lastError()).toBeNil()
 		end
 		-- 25 until `table-columns` was retired on 2026-08-16 (D8), and 25 again the
-		-- same day when D3 added `callout`
-		expect(fixtures).toBe(25)
+		-- same day when D3 added `callout`; 27 the same day again when D2's `menu`
+		-- and D5's `tab-view` got the surfaces they shipped without; 28 the same day
+		-- again with `level-picker`, whose fixture reproduces the reference screenshot
+		expect(fixtures).toBe(28)
 		-- and at least one of them actually declares opts, or this proves nothing
 		expect(withOpts >= 1).toBe(true)
 	end)
@@ -1020,8 +1029,13 @@ local DEMO_ROOT: { [string]: string } = {
 	["foreign-content"] = "ForeignContent",
 	["async-images"] = "AsyncImages",
 	["canvas-group"] = "CanvasGroup",
+	-- `newLevelPicker` and the stepper that shares its Signal
+	["level-picker"] = "LevelPickerDemo",
 	-- D3: the coach mark and the help tag
 	["callout"] = "CalloutDemo",
+	-- D2 and D5, whose constructs shipped before their surfaces did
+	["menu"] = "MenuDemo",
+	["tab-view"] = "TabViewDemo",
 	["ex01"] = "TempConverter",
 	["ex02"] = "Playlist",
 	["ex03"] = "Settings",
@@ -1105,7 +1119,7 @@ describe("showcase host: advancing the picker actually mounts the demo it names"
 		expect(roots).toBe(#demo_picker.list())
 	end)
 
-	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 32", function()
+	it("one showNext per demo leaves EXACTLY that demo's own screen in the tree, all 34", function()
 		local w = pickerWorld({ x = 0, y = 0, w = 1232, h = 1067 })
 		local picker = sweepPicker(w, function(demo)
 			return hostMountDemo(w, demo)

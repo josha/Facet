@@ -427,6 +427,21 @@ local SCENARIOS = {
 	-- every viewport and preference, beside a page of readouts whose longest line
 	-- is a whole paragraph the surface does not choose the length of
 	"callout",
+	-- navigation-and-menus D2: the five-trigger menu fixture. Five stacked cards
+	-- whose subtitles are whole sentences, a segmented Idiom picker, and six
+	-- readout plates under them — the shape a raised text preference stretches
+	-- hardest, and the only surface in this corpus whose page is entirely prose
+	-- the fixture does not choose the length of. What it deliberately does NOT
+	-- sweep is an OPEN menu: a presented panel is a separate surface with its own
+	-- solver run, and this sweep mounts the screen a player first sees
+	"menu",
+	-- ...and D5's nested tab fixture, which is here for the opposite reason: it
+	-- is the only surface in this corpus with a strip that is MEANT to measure
+	-- wider than the band it sits in (eight page tabs at 320px), so the swept
+	-- assertion is that a deliberate overflow absorbed by a scroll host files
+	-- nothing, at every viewport, preference and package — beside a bottom band
+	-- and a top band that both have to fit on a 320px-tall landscape
+	"tab_view",
 }
 
 local EXAMPLES = {

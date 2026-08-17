@@ -228,6 +228,28 @@ local ORDER = {
 	-- persistence boundary is a fixture readout: what the framework reported, and
 	-- what this app then chose to save. Also in `demo_picker.DEMOS`.
 	"callout",
+	-- ...and the two constructs of the same round that shipped with spec fixtures
+	-- and no surface a person could reach (added 2026-08-16). Both are here for
+	-- the same reason `callout` is: what they do is a set of GESTURES and a set
+	-- of LIFECYCLES, and a still frame holds neither.
+	--
+	-- `menu` (D2) splits the five triggers across five cards, because `newMenu`
+	-- refuses a `triggers` set that drops `activate` without both chords — so the
+	-- smallest set that isolates a gesture is not always one gesture, and the
+	-- split IS that rule on screen. It carries the two-level submenu (the depth
+	-- >= 2 advice is printed rather than swallowed), an Idiom control that writes
+	-- the one live fact the presentation rule reads so panel and sheet are both
+	-- reachable on one machine, and a card whose every item is disabled and which
+	-- still opens. Also in `demo_picker.DEMOS`.
+	"menu",
+	-- `tab_view` (D5) is `r2`: a page's own top bar inside a screen that is
+	-- itself a tab of the app-level bottom bar, with both levels printing the
+	-- placement they resolved and which authority answered. The eviction is a
+	-- per-tab BUILD COUNT — a real disposal and a hidden subtree paint the same
+	-- picture — beside two counters owned by different scopes, which is the whole
+	-- of the documented escape hatch. The page bar overflows on purpose so the
+	-- selection can be scrolled into view. Also in `demo_picker.DEMOS`.
+	"tab_view",
 }
 
 local scenarios = {}

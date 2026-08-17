@@ -519,6 +519,17 @@ require("./picker_segments.spec")
 -- D2: the freestanding action menu — verbs not values, the shared row recipe,
 -- submenus that nest without a cap, and the five triggers that close `.contextMenu`
 require("./menu.spec")
+--[[ ...and the two SHOWCASE SURFACES D2 and D5 shipped WITHOUT. Both constructs
+	landed with spec fixtures only, so the director could load the showcase on a
+	phone and exercise neither — exactly the gap `async-images` and `canvas-group`
+	closed one round earlier. These two prove the fixture a player actually opens:
+	that each of the five menu triggers reaches its own card through the real seam,
+	that both presentation idioms are reachable on one machine, and that the tab
+	eviction is a number on the screen rather than a claim in a document. They sit
+	with D2's spec rather than at the tail because they are one deliverable and
+	belong beside the first construct they exercise. ]]
+require("./menu_scenario.spec")
+require("./tab_view_scenario.spec")
 -- D3a: `help` — pointer hover-dwell and keyboard/gamepad focus, NOTHING on
 -- touch, and a reachability check that no declaration can waive
 require("./help.spec")
