@@ -106,6 +106,104 @@ describe("scenario 'callout': a device pass a tester can run more than once", fu
 		expect(w.core:lastError()).toBeNil()
 	end)
 
+	--[[ THE RESET MUST NOT TAKE THE SCREEN WITH IT (device review 2026-08-16, F2b).
+		Director: *"note that clicking start a fresh session removes the two buttons
+		the tips attach to."*
+
+		The first version of this reset put the whole pair — the coach marks AND the
+		two buttons they point at — inside a keyed `ForEach` and bumped the key. The
+		buttons were not deleted, but their IDENTITY was: every path under the row
+		went from `[gen-1]` to `[gen-2]`, and a coach mark's anchor is a PATH.
+		Measured before the fix, on a fresh build with focus on the left button:
+
+		    BEFORE  help plate placed at 12, 77.3 — under its anchor
+		    AFTER   help plate placed at 0, 0     — 284x55, over the anchor
+
+		A raised plate at the viewport origin covering an 80x46 button at 12,12 is
+		what "the reset removes the buttons" looks like from the couch. The anchors
+		are permanent furniture; only the coach marks are session state, so the
+		session key is gone and the reset re-arms the CONSTRUCTS in place.
+
+		The case is written against the paths, because a path IS the identity here —
+		a check that only counted painted buttons would pass on the defect. ]]
+	local PLUS = "/CalloutDemo/Bar/Plus"
+	local SHARE = "/CalloutDemo/Bar/Share"
+
+	it("the anchors survive a reset with their IDENTITY, not just their number", function()
+		local w = world(PHONE)
+		local plusBefore = w.adapter.node(PLUS)
+		local shareBefore = w.adapter.node(SHARE)
+		expect(`plus:{plusBefore ~= nil} share:{shareBefore ~= nil}`).toBe("plus:true share:true")
+
+		w.built.steps.show(w.built)
+		w.settle()
+		w.built.steps.use(w.built)
+		w.settle()
+		w.built.steps.reset(w.built)
+		w.settle()
+
+		local plusAfter = w.adapter.node(PLUS)
+		local shareAfter = w.adapter.node(SHARE)
+		expect(`plus:{plusAfter ~= nil} share:{shareAfter ~= nil}`).toBe("plus:true share:true")
+		-- the SAME boxes, in the same places: nothing was rebuilt underneath them
+		expect(`{plusAfter.rect.x},{plusAfter.rect.y} {plusAfter.rect.w}x{plusAfter.rect.h}`).toBe(
+			`{plusBefore.rect.x},{plusBefore.rect.y} {plusBefore.rect.w}x{plusBefore.rect.h}`
+		)
+		expect(`{shareAfter.rect.x},{shareAfter.rect.y}`).toBe(`{shareBefore.rect.x},{shareBefore.rect.y}`)
+		-- ...and no path under a session key exists at all, on either side of it
+		for _, path in w.adapter.paths() do
+			expect(`{path} carries a session key: {string.find(path, "gen-", 1, true) ~= nil}`).toBe(
+				`{path} carries a session key: false`
+			)
+		end
+	end)
+
+	it("nothing is left sitting on the anchors afterwards, and the tip shows again", function()
+		local w = world(PHONE)
+		-- put the ring on an anchor, which is what raises the focus-driven help plate
+		-- (the surface that was stranded at the origin by the old reset)
+		w.pres.focus.focusOn(SHARE)
+		w.settle()
+		w.built.steps.show(w.built)
+		w.settle()
+		w.built.steps.use(w.built)
+		w.settle()
+		expect(w.built.report().tip.state).toBe("retired")
+
+		w.built.steps.reset(w.built)
+		w.settle()
+
+		local share = w.adapter.node(SHARE)
+		-- EVERY painted rect that overlaps the anchor and is not the anchor's own
+		-- subtree. Written as an overlap sweep rather than as "the help plate is not
+		-- at 0,0", because the defect is "something is on top of the button" and the
+		-- plate is only the surface that happened to be doing it.
+		local covering: { string } = {}
+		for _, path in w.adapter.paths() do
+			if string.sub(path, 1, #SHARE) ~= SHARE and w.adapter.visibleOf(path) ~= false then
+				local n = w.adapter.node(path)
+				local isSurface = string.find(path, "/Layer/Surface", 1, true) ~= nil
+				if
+					isSurface
+					and n ~= nil
+					and n.rect.w > 0
+					and n.rect.h > 0
+					and n.rect.x < share.rect.x + share.rect.w
+					and n.rect.x + n.rect.w > share.rect.x
+					and n.rect.y < share.rect.y + share.rect.h
+					and n.rect.y + n.rect.h > share.rect.y
+				then
+					table.insert(covering, path)
+				end
+			end
+		end
+		expect(`surfaces sitting on the anchor: {table.concat(covering, ", ")}`).toBe(
+			"surfaces sitting on the anchor: "
+		)
+		-- and the whole point of a reset: it can be run again
+		expect(w.built.steps.show(w.built).state).toBe("showing")
+	end)
+
 	--[[ THE RESET IS A BUTTON A THUMB CAN FIND, not a step only a spec can call.
 		Every other affordance on this screen is an ordinary control with its own
 		callback (the file's own rule), and a reset that only the scenario runner

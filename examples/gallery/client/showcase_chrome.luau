@@ -326,6 +326,27 @@ function showcase_chrome.mount(opts: MountOpts): any
 		-- PASSIVE (ADR-0014): the strip binds nothing gameplay-contended, and it
 		-- never engages — every route into the chrome goes through the panel.
 		responder = "passive",
+		--[[ ...AND ADOPTED AS THE APP'S FRAME (device review 2026-08-16, F1: "the
+			demo list and settings button aren't reachable with the dpad").
+
+			Everything in §2 above stays true — the bar is presented once, before the
+			first demo, and its scope stays buried so Tab and the arrows belong to the
+			demo. What was missing is that "buried" meant UNREACHABLE: every navigation
+			verb reads the top scope alone, so a d-pad pressed against a demo walked
+			that demo's own ring forever and the two chips were reachable by pointer
+			and by ButtonY — a button nothing on the screen names.
+
+			`focusChrome` is the framework capability that closes it (presenter
+			PresentOpts; `FocusScope.chrome`): the strip's focusables are ADOPTED into
+			whatever scope is active, so the demo's own focus map carries them at its
+			`top` edge. Pressing UP off the demo's first row lands on the chips;
+			pressing DOWN leaves them again. The demo still OWNS the scope, still takes
+			entry focus, and a modal still suspends the whole thing.
+
+			It does NOT replace the toggle key. Backquote/ButtonY is the shortcut that
+			opens the panel from anywhere including inside a scrolled list; this is the
+			route a player finds without being told one exists. ]]
+		focusChrome = "top",
 		-- the bar owns the strip it draws in, so it is not inset by it
 		rootPolicy = "edgeToEdge",
 		onGeometry = function(rectOf: (string) -> any)

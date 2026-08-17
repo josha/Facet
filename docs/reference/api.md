@@ -2624,7 +2624,7 @@ Options — the key set is closed, and an unknown one is refused at present time
 `onNavigateIntercept`, `navigationGroups`, `onGeometry`, `keepVisibleOffset`,
 `sinkNavigation`, `responder`, `gameplayGuard`, `rootPolicy`, `outsideTapCancel`,
 `cancelPolicy`, `scrim`, `revealWhenTextExact`, `revealTimeout`, `transition`,
-`traversalWrap`, `keyboardNavigation`, `initialFocus`,
+`traversalWrap`, `keyboardNavigation`, `initialFocus`, `focusChrome`,
 `engineSelectionBridge` (the `presentModal` mirror described above),
 `fallbackScreen` (read by `presentCritical`), and the two performance opts the
 surface hands straight to `renderer.attach`:
@@ -2656,6 +2656,33 @@ default because it matches the ring the arrows have always walked and because a
 modal has nowhere else for Tab to go; set `false` where running off the end should
 read as an end. It governs Tab only — a `NavigationGroup`'s own `wrap` still
 governs the directional arrows along that group's axis.
+
+**`focusChrome`** — `"top" | "bottom" | "leading" | "trailing"`, screens only —
+declares this surface to be the app's persistent **frame** rather than a screen of
+its own, sitting on the named edge. Its focusables are then **adopted** into
+whatever scope is active: one composed focus map, the chrome's own navigation
+groups placed at that edge of the active scope's group array, with `exitFrom`,
+`enterGroup` and `traverse` all reading it as they read any other group.
+
+Without it a second presented surface is in **neither** ring — the top scope owns
+every navigation verb, so a strip presented under a screen is reachable by pointer
+and by nothing else. That is correct for a HUD that appears unasked and wrong for
+chrome, which is why this is opt-in. Adoption is not a takeover: `activeScopeName`
+and **entry focus** still belong to the screen on top (a first Tab or arrow lands
+in the content, never on the frame), and a **modal suspends it** — a trap's ring
+must not leak into a strip the player can no longer reach. Activate on an adopted
+node is dispatched against the chrome's **own** handle, so a passive strip's chips
+still run their own handlers.
+
+One ordering requirement: **present the chrome before the screens that adopt it.**
+A screen decides at present time whether it binds the horizontal arrows at all, so
+a chrome that arrives after a flat screen is reachable from it but not walkable
+along its own axis. Chrome is the app frame — it goes down at boot.
+
+```lua
+presenter.present(strip, { responder = "passive", rootPolicy = "edgeToEdge", focusChrome = "top" })
+presenter.present(screen) -- owns Tab and the arrows; UP off its first row reaches the strip
+```
 
 **`keyboardNavigation`** overrides the presenter default (see `newPresenter`) for
 this one surface: `true` gives a keyboard-driven modal Tab and Space over a
@@ -5277,8 +5304,8 @@ shape. `content` is a **blueprint**, not a string: the reference plate is styled
 and holds more than one line, and a string-only tip could not express it.
 
 `api = { eligible() -> boolean, present() -> boolean, dismiss(reason?),
-invalidate(reason?), state() -> "waiting" | "queued" | "showing" | "retired",
-isShowing: Signal, retired: Signal }`.
+invalidate(reason?), rearm(), state() -> "waiting" | "queued" | "showing" |
+"retired", isShowing: Signal, retired: Signal }`.
 
 **Eligibility** is TipKit's actual contribution, and every rule is a READ of
 something the caller owns: `seen` (show once per player), `sessions` +
@@ -5294,6 +5321,17 @@ never be shown again. Whether anything is written, and where, happens entirely
 outside the framework. A callout declared without `onRetire` is an authoring
 error, because a coach mark nobody can persist is one that comes back every
 session.
+
+**`rearm()` is the caller's word that the session is over** — TipKit's
+`Tips.resetDatastore()`, not a way to argue with a live retirement. Nothing inside
+the construct can un-retire itself and no `present()` can reach past the latch;
+only the app, which owns the record, may say the session it persisted for has
+ended. **Clear the persisted facts first:** `seen` and `featureUsed` are read and
+never written, so a rearm with either still true leaves the callout ineligible. A
+showing or queued plate is released on the way out. Without this a demo of a
+once-per-player mechanism can only re-arm by rebuilding the construct — which
+rebuilds the node it points at, and an anchor is a **path**: anything already
+anchored to the old one is stranded.
 
 **It never blocks.** It is presented, not modalled: no focus trap, no scrim, and
 the tap-away catcher runs in the presenter's **non-consuming** mode, so a tap

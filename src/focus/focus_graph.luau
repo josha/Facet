@@ -112,7 +112,53 @@ export type FocusScope = {
 	-- eligible node — the default and the pre-option behavior), "none" (push with
 	-- no focus at all), or a resolved PATH. See pushScope.
 	initialFocus: string?,
+	--[[ ADOPTED CHROME — "top" | "bottom" | "leading" | "trailing" (F1, device
+		review 2026-08-16). Declares this scope to be the app's persistent FRAME
+		rather than a screen of its own, sitting on the named edge.
+
+		Every navigation verb below reads ONE scope — the top of the stack — so a
+		buried scope's focusables are unreachable by every directional input there
+		is. That is correct for a covered screen and wrong for a strip that is still
+		on the glass: the showcase's demo-picker and settings chips are presented
+		BEFORE the demo (deliberately, so the demo owns Tab and the arrows) and were
+		therefore reachable by pointer and by NOTHING else. A d-pad pressed against
+		the demo walked the demo's own two-item ring forever.
+
+		A chrome scope's groups are ADOPTED into whatever scope is active: one
+		composed map, the chrome's groups placed at the named edge of the active
+		scope's group array, everything downstream the same machinery (`exitFrom`
+		walks the array, `enterGroup` applies each group's entry policy, `traverse`
+		reads the same members the arrows walk — §9's one focus map, two readings).
+
+		It is OPT-IN, and it is not a takeover: `activeScopeName`, entry focus and
+		the scope's own identity all still belong to the screen on top. A scope that
+		does not declare this is in NEITHER ring exactly as before, which is what
+		keeps a HUD that appears unasked from taking the ring off the screen it is
+		annotating. A TRAP on top suspends adoption outright — a modal covers the
+		screen, and its ring must not leak into a strip the player can no longer
+		reach. ]]
+	chrome: string?,
 }
+
+--[[ ONE ORDERING REQUIREMENT, AND IT IS THE ONE APPS ALREADY MEET: present the
+	chrome BEFORE the screens that adopt it. A screen decides at present time
+	whether it binds the horizontal arrows at all (`presenter.luau` NavigateH),
+	because a flat screen that took Left/Right for navigation it does not have
+	would shadow a gameplay binding for nothing — so a chrome that arrives AFTER a
+	flat screen is reachable from it but not walkable along its own axis. Chrome is
+	the app frame: it goes down at boot and outlives every screen, which is exactly
+	the shape the showcase's own strip has. ]]
+
+-- chrome edge -> does it read BEFORE the active scope's own groups? The four
+-- names are two placements: a frame is either ahead of the content in the reading
+-- order or behind it, and top/leading and bottom/trailing are the vertical and
+-- horizontal spellings of that one fact.
+local CHROME_BEFORE: { [string]: boolean } = table.freeze({
+	top = true,
+	leading = true,
+	bottom = false,
+	trailing = false,
+})
 
 -- direction -> axis delta per group axis; nil = orthogonal to the axis
 local AXIS_DELTA: { [string]: { [string]: number } } = {
@@ -383,6 +429,172 @@ function focus_graph.new(core: any)
 		return out
 	end
 
+	--[[ ── ADOPTED CHROME: THE COMPOSED ACTIVE SCOPE ────────────────────────────
+		`top()` is who OWNS navigation; `activeScope()` is what navigation WALKS.
+		They are the same object until a scope below the top declares `chrome`, at
+		which point the walk covers both and the ownership does not move.
+
+		Composed FRESH on every verb rather than folded into the pushed scope,
+		because the presenter re-declares a live scope's order and groups on every
+		refresh (`replaceGroups`, `setOrder`) — a chrome group written into the
+		pushed scope would be wiped by the next one, and the bug would look like
+		"the strip is reachable until the demo re-solves". A verb runs at human
+		rates over a handful of groups, so building it is free.
+
+		A FLAT active scope is CONVERTED to one vertical group, because that is the
+		only way the shared exit machinery can carry a press out of it: a flat
+		ring's `navigate` wraps unconditionally, and a wrapping ring has no edge to
+		fall off. The conversion is contained with two declared exits, so the
+		vertical axis crosses at BOTH ends (the ring still closes — "focus went
+		nowhere" stays impossible) while left/right stay inert on what is, by
+		construction, a purely vertical list. A GROUPED active scope is concatenated
+		untouched: crossing into the chrome is then the same array-order fallthrough
+		that already crosses between its own groups, and inventing a second rule for
+		the last group would be a rule only the chrome could trigger. ]]
+	local function nonEmpty(groups: { any }, fromEnd: boolean): any
+		local first, last, step = 1, #groups, 1
+		if fromEnd then
+			first, last, step = #groups, 1, -1
+		end
+		for i = first, last, step do
+			if #(groups[i].order or {}) > 0 then
+				return groups[i]
+			end
+		end
+		return nil
+	end
+
+	local function chromeBelowTop(): ({ any }, boolean)
+		local out: { any } = {}
+		local before = true
+		for i = 1, #scopes - 1 do
+			local scope = scopes[i]
+			if scope.chrome ~= nil then
+				table.insert(out, scope)
+				before = CHROME_BEFORE[scope.chrome] ~= false
+			end
+		end
+		return out, before
+	end
+
+	-- a scope's navigation groups, with a flat one read as the single vertical
+	-- ring `focusMap` already reports it as
+	local function groupsOf(scope: any, exits: { [string]: string }?): { any }
+		if scope.groups ~= nil then
+			return scope.groups
+		end
+		return {
+			{
+				name = scope.name,
+				axis = "vertical",
+				order = scope.order or {},
+				_focusable = scope._focusable,
+				containment = if exits ~= nil then true else nil,
+				exit = exits,
+			},
+		}
+	end
+
+	local function activeScope(): any
+		local owner = top()
+		if owner == nil or owner.trap then
+			return owner
+		end
+		local chrome, before = chromeBelowTop()
+		if #chrome == 0 then
+			return owner
+		end
+		--[[ A CHROME GROUP IS ENTERED AT ITS NEAR END, ALWAYS. The auto-derived
+			groups a strip produces carry `entry = "nearest"`, which is the ordinal rule
+			that keeps a COLUMN across stacked rows of a grid — and a chrome strip is not
+			a continuation of the content's columns. Left as "nearest", arriving from row
+			7 of a thirteen-row list clamped onto the last chip, which is the same
+			"ordinal nearest mapped row 3 to card 3, and read as random" the director
+			round already ruled on one level down. Cloned rather than written through:
+			these tables belong to the chrome's own scope, which is navigated directly
+			whenever nothing is above it. ]]
+		local chromeGroups: { any } = {}
+		for _, scope in chrome do
+			for _, group in groupsOf(scope, nil) do
+				local copy: any = table.clone(group)
+				copy.entry = "first"
+				table.insert(chromeGroups, copy)
+			end
+		end
+		local near = nonEmpty(chromeGroups, before)
+		local far = nonEmpty(chromeGroups, not before)
+		local exits: { [string]: string }? = nil
+		if near ~= nil and far ~= nil then
+			-- toward the chrome's edge lands on the group NEAREST the content; the
+			-- far end closes the ring on the group furthest from it, which is where
+			-- a wrap past the opposite edge has always put the player
+			exits = if before then { up = near.name, down = far.name } else { down = near.name, up = far.name }
+		end
+		local ownGroups = groupsOf(owner, exits)
+		local groups: { any } = {}
+		local head = if before then chromeGroups else ownGroups
+		local tail = if before then ownGroups else chromeGroups
+		for _, group in head do
+			table.insert(groups, group)
+		end
+		for _, group in tail do
+			table.insert(groups, group)
+		end
+		--[[ THE RANK IS RE-DERIVED, NOT MERGED. `traversalOrder` refuses a rank map
+			that misses a single member ("incomplete: no opinion at all"), so handing it
+			the owner's map over a member set the chrome just grew would have silently
+			dropped the document order Tab has read since `97e9d93`. Renumbering each
+			side by its OWN traversal reading preserves both orders exactly and makes
+			the composition complete by construction. ]]
+		local rank: { [string]: number } = {}
+		local n = 0
+		for _, scope in (if before then chrome else { owner }) do
+			for _, id in traversalOrder(scope, allIds(scope)) do
+				n += 1
+				rank[id] = n
+			end
+		end
+		for _, scope in (if before then { owner } else chrome) do
+			for _, id in traversalOrder(scope, allIds(scope)) do
+				n += 1
+				rank[id] = n
+			end
+		end
+		return {
+			name = owner.name,
+			trap = false,
+			_composed = true,
+			groups = groups,
+			traversalWrap = owner.traversalWrap,
+			traversalRank = rank,
+			_lastFocus = owner._lastFocus,
+			-- ENTRY BELONGS TO THE ACTIVE SCOPE. The chrome is somewhere the player
+			-- navigates TO; a first Tab or a first arrow with nothing focused must
+			-- land in the content, whichever end of the reading order the frame is on.
+			_entryOrder = allIds(owner),
+		}
+	end
+
+	-- is this path a member of a chrome scope that is being adopted right now?
+	-- The presenter asks so it can route a press to the surface that OWNS the
+	-- focused node rather than to the one whose action context saw the key.
+	local function isAdoptedChrome(path: string?): boolean
+		if path == nil or #scopes < 2 then
+			return false
+		end
+		local owner = top()
+		if owner == nil or owner.trap then
+			return false
+		end
+		local chrome = chromeBelowTop()
+		for _, scope in chrome do
+			if indexOf(allIds(scope), path) ~= nil then
+				return true
+			end
+		end
+		return false
+	end
+
 	-- remember the last focused id per group (entry = "restore")
 	local function recordFocus(scope: any, id: string?)
 		if scope == nil or id == nil or scope.groups == nil then
@@ -417,7 +629,9 @@ function focus_graph.new(core: any)
 		if scope == nil then
 			return nil
 		end
-		for _, id in allIds(scope) do
+		-- `_entryOrder` is set only on a COMPOSED scope, where it is the active
+		-- screen's own members: entry never starts on adopted chrome
+		for _, id in (scope._entryOrder or allIds(scope)) do
 			if isFocusable(scope, id) then
 				return id
 			end
@@ -593,6 +807,12 @@ function focus_graph.new(core: any)
 		                is somehow not eligible, entry falls back rather than
 		                leaving focus somewhere the player cannot reach. ]]
 	function self.pushScope(scope: FocusScope)
+		if scope.chrome ~= nil and CHROME_BEFORE[scope.chrome] == nil then
+			error(
+				`LuauUI focus: chrome must be "top", "bottom", "leading" or "trailing" (got {tostring(scope.chrome)}).`,
+				0
+			)
+		end
 		-- the graph's own copy; the caller's tables are never written (F-14 above)
 		local internal = internalScope(scope)
 		if internal.trap then
@@ -711,7 +931,7 @@ function focus_graph.new(core: any)
 
 	-- direction-aware navigation ("up" | "down" | "left" | "right")
 	function self.navigateDirection(direction: string)
-		local scope = top()
+		local scope = activeScope()
 		if scope == nil then
 			return
 		end
@@ -774,7 +994,7 @@ function focus_graph.new(core: any)
 	-- as "focus went nowhere" — director hand-test 2026-07-20). Grouped
 	-- scopes map ±1 onto the active group's axis.
 	function self.navigate(delta: number)
-		local scope = top()
+		local scope = activeScope()
 		if scope == nil then
 			return
 		end
@@ -790,7 +1010,19 @@ function focus_graph.new(core: any)
 				DOWN press rightward. A 2-D group answers all four directions, so there is
 				nothing left to guess and the verb keeps its own reading: down/up. ]]
 			local twoDimensional = group ~= nil and laneCount(group) ~= nil
-			local direction = if axis == "horizontal" and not twoDimensional
+			--[[ ...AND A COMPOSED SCOPE HAS NOTHING LEFT TO GUESS EITHER. The guess is
+				sound only while the horizontal group IS the whole scope — a flat screen
+				upgraded to one row, where "the vertical arrow is the only arrow bound, so
+				point it at the axis that can answer". Adopted chrome breaks that premise:
+				the strip is a horizontal group INSIDE a vertical screen, so mapping the
+				vertical arrow onto it turned a d-pad Down on a chip into a step sideways
+				along the strip, and the player could get onto the chrome and not off it
+				(measured 2026-08-16). A composition's own axis is vertical by
+				construction — the owner reaches this verb only when its scope is flat,
+				and a flat scope is one vertical ring. ]]
+			local direction = if axis == "horizontal"
+					and not twoDimensional
+					and not scope._composed
 				then (if delta >= 0 then "right" else "left")
 				else (if delta >= 0 then "down" else "up")
 			self.navigateDirection(direction)
@@ -847,7 +1079,7 @@ function focus_graph.new(core: any)
 		does not leave a grid row), and Tab's job is precisely to leave. Wrap is the
 		scope's policy (see FocusScope.traversalWrap). ]]
 	function self.traverse(delta: number): boolean
-		local scope = top()
+		local scope = activeScope()
 		if scope == nil then
 			return false
 		end
@@ -1073,7 +1305,7 @@ function focus_graph.new(core: any)
 		Returns nil for an unknown scope name so a caller can tell "no such scope"
 		from "a scope with nothing in it". ]]
 	function self.focusMap(scopeName: string?): any?
-		local scope = if scopeName == nil then top() else nil
+		local scope = if scopeName == nil then activeScope() else nil
 		if scopeName ~= nil then
 			for i = #scopes, 1, -1 do
 				if scopes[i].name == scopeName then
@@ -1132,7 +1364,7 @@ function focus_graph.new(core: any)
 	-- focusable moves keyboard focus there; only paths in the ACTIVE scope
 	-- are accepted (a background screen's node cannot steal focus)
 	function self.focusOn(path: string): boolean
-		local scope = top()
+		local scope = activeScope()
 		if scope == nil or indexOf(allIds(scope), path) == nil then
 			return false
 		end
@@ -1164,7 +1396,27 @@ function focus_graph.new(core: any)
 
 	-- is this node navigable right now? (the predicate, plus the exemption)
 	function self.isFocusable(id: string): boolean
-		return isFocusable(top(), id)
+		return isFocusable(activeScope(), id)
+	end
+
+	-- is the focused path a member of a scope that is ADOPTED as chrome right now?
+	-- Activate is dispatched against a SURFACE, and a surface resolves no node at
+	-- all for a path it does not own — so the presenter asks this to route the
+	-- press to the chrome's own handle instead of dropping it on the floor.
+	function self.isAdoptedChrome(path: string?): boolean
+		return isAdoptedChrome(path)
+	end
+
+	-- does ANY live scope declare itself chrome? The presenter asks at present
+	-- time, to decide whether a screen binds the horizontal arrows at all (see the
+	-- ordering note beside FocusScope.chrome).
+	function self.hasChromeScope(): boolean
+		for _, scope in scopes do
+			if scope.chrome ~= nil then
+				return true
+			end
+		end
+		return false
 	end
 
 	function self.activeScopeName(): string?

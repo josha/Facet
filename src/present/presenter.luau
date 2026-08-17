@@ -208,6 +208,9 @@ local PRESENT_OPTS_KEYS = specGuard.keySet({
 	"onFocusNav",
 	"onGeometry",
 	"initialFocus",
+	-- ADOPTED CHROME (F1): "top" | "bottom" | "leading" | "trailing". See
+	-- FocusScope.chrome, which owns this feature's whole argument.
+	"focusChrome",
 	"onNavigateIntercept",
 	"onReorderNav",
 	"outsideTapCancel",
@@ -1581,6 +1584,13 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 
 			Engaged-open screens and modals are UNCHANGED — they still default to the
 			first focusable, which is every caller that is not passive. ]]
+		-- ADOPTED CHROME (F1) — screens only: a modal traps by construction and a
+		-- toast is not navigable, so neither has an edge to sit on. The edge name
+		-- itself is checked by the graph. See FocusScope.chrome.
+		local focusChrome = if opts ~= nil then opts.focusChrome else nil
+		if focusChrome ~= nil and kind ~= "screen" then
+			error(`LuauUI presenter: focusChrome is a screen option; a {kind} cannot be adopted as chrome.`, 0)
+		end
 		local initialFocus = if opts ~= nil then opts.initialFocus else nil
 		if initialFocus == nil and kind == "screen" and (opts and opts.responder) == "passive" then
 			initialFocus = "none"
@@ -2114,6 +2124,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			graph.pushScope({
 				name = blueprint.id or kind,
 				trap = kind == "modal",
+				chrome = focusChrome,
 				groups = navigationGroups,
 				traversalWrap = traversalWrap,
 				initialFocus = resolveInitialFocus(
@@ -2132,6 +2143,7 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 			graph.pushScope({
 				name = blueprint.id or kind,
 				trap = kind == "modal",
+				chrome = focusChrome,
 				order = order,
 				traversalWrap = traversalWrap,
 				traversalRank = traversalRank(root.node, order, nil),
@@ -2218,7 +2230,14 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 		navigate.bindAxis({ axis = "Thumbstick1", component = "y" })
 		-- grouped screens own the horizontal axis too (verifier F2): Left/
 		-- Right + dpad become real directions instead of Adjust
-		local navigateH = if navigationGroups ~= nil then context.createAction("NavigateH", "Direction1D") else nil
+		-- ...and so does a screen that ADOPTS a chrome strip (F1): the composed scope
+		-- is grouped even when this surface's own derivation is one flat ring, so
+		-- without this the pad could reach the strip and not walk it. Read at present
+		-- time, which is why chrome is presented before the screens that adopt it
+		-- (FocusScope.chrome).
+		local navigateH = if navigationGroups ~= nil or graph.hasChromeScope()
+			then context.createAction("NavigateH", "Direction1D")
+			else nil
 		if navigateH ~= nil then
 			navigateH.bind({ keyCode = "Left", direction = -1 })
 			navigateH.bind({ keyCode = "Right", direction = 1 })
@@ -3186,7 +3205,20 @@ function presenter.new(core: any, env: any, adapter: any, actionSystem: any, opt
 				meta.shift = mods.shift
 				meta.toggle = mods.toggle
 			end
-			dispatchActivate(handle, graph.focused:get(), meta, "action")
+			--[[ THE PRESS GOES TO WHOEVER OWNS THE NODE (F1). Adopted chrome is the one
+				case where focus can stand on another surface: the strip is passive, so the
+				ACTIVE screen's context is what hears ButtonA, and dispatching that against
+				THIS handle resolves `nodeAt` to nil and the press evaporates — exactly how
+				the chrome broke last time (`showcase_chrome.luau` §1). Gated on
+				`isAdoptedChrome`, not on "the path is not mine": two un-sunk base surfaces
+				both bind Activate, and re-routing on absence would make one press one
+				activation PER surface that heard the key. ]]
+			local focused = graph.focused:get()
+			local target = handle
+			if graph.isAdoptedChrome(focused) then
+				target = (handleByPath ~= nil and handleByPath(focused :: string)) or handle
+			end
+			dispatchActivate(target, focused, meta, "action")
 		end)
 		cancel.onPressed(function()
 			-- transient-popup Cancel (matrix §B PopupButton; handleCancel): offer

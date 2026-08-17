@@ -255,6 +255,101 @@ describe("showcase chrome (0): a closed chrome leaves the demo's own input alone
 end)
 
 -- ===========================================================================
+-- (0b) THE DEVICE REVIEW'S OWN FINDING (2026-08-16): "the demo list and
+--      settings button aren't reachable with the dpad".
+--
+--      The four-input block below this one proves every ROUTE INTO the chrome
+--      that the chrome itself declares — a toggle key on the keyboard, ButtonY
+--      on the pad — and every one of them starts by pressing that toggle. Not
+--      one of them asks the question a player asks first, which is "what does
+--      the d-pad do", and the answer was NOTHING: the strip is presented before
+--      the demo so the demo owns the scope, `navigateDirection` reads the top
+--      scope alone, and a flat scope's ring wraps — so a d-pad pressed against
+--      a demo walked that demo's own controls forever (measured trail:
+--      D2,D1,D2,D1,…). The chips were reachable by pointer and by a button
+--      nothing on screen names.
+--
+--      These cases drive the d-pad ONLY, from where a player actually starts.
+-- ===========================================================================
+describe("showcase chrome (0b): the d-pad alone reaches both chips", function()
+	-- every path the ACTIVE scope's focus map carries, which is what navigation
+	-- walks — as opposed to what any surface's props say about itself
+	local function activePaths(w: any): { string }
+		local out: { string } = {}
+		for _, entry in ((w.pres.focus.focusMap() or {}).traversal or {}) do
+			table.insert(out, entry.path)
+		end
+		return out
+	end
+
+	local function contains(list: { string }, want: string): boolean
+		for _, v in list do
+			if v == want then
+				return true
+			end
+		end
+		return false
+	end
+
+	it("the demo's own focus map carries the chips — one map, not two", function()
+		local w = showcase()
+		-- the map still BELONGS to the demo: adoption is reachability, not a takeover
+		expect(w.pres.focus.activeScopeName()).toBe("Demo")
+		local paths = activePaths(w)
+		expect(contains(paths, "/Demo/D1")).toBe(true)
+		expect(contains(paths, "/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")).toBe(true)
+		expect(contains(paths, "/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")).toBe(true)
+	end)
+
+	it("up from the demo lands on the demo-list chip, and right walks to Settings", function()
+		local w = showcase()
+		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+		press(w.system, "DPadUp")
+		expect(w.pres.focus.focused:get()).toBe("/ShowcaseChrome/Dock/Bar/Chips/Full/DemoToggle")
+		press(w.system, "DPadRight")
+		expect(w.pres.focus.focused:get()).toBe("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")
+	end)
+
+	it("...and down goes back to the demo, so the strip is somewhere you can leave", function()
+		local w = showcase()
+		press(w.system, "DPadUp")
+		press(w.system, "DPadDown")
+		expect(isPrefix("/Demo", w.pres.focus.focused:get())).toBe(true)
+	end)
+
+	it("ButtonA on the reached demo chip OPENS THE DEMO LIST — a pad, and nothing else", function()
+		local w = showcase()
+		press(w.system, "DPadUp")
+		press(w.system, "ButtonA")
+		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:demos")
+		-- ...and the list is what the panel is showing, reachable from here on
+		w.settle()
+		expect(isPrefix("/ShowcasePanel", w.pres.focus.focused:get())).toBe(true)
+	end)
+
+	it("ButtonA on the reached settings chip OPENS SETTINGS", function()
+		local w = showcase()
+		press(w.system, "DPadUp")
+		press(w.system, "DPadRight")
+		press(w.system, "ButtonA")
+		expect(`open:{w.chrome.isOpen()} section:{w.chrome.kind:get()}`).toBe("open:true section:settings")
+	end)
+
+	it("the ring PAINTS when the d-pad puts it on a chip (a pad must see where it is)", function()
+		local w = showcase()
+		press(w.system, "DPadUp")
+		expect(w.pres.focus.focusVisible:get()).toBe(true)
+	end)
+
+	it("a tap still moves focus onto a chip, and still does not paint the ring", function()
+		local w = showcase()
+		w.adapter.tap("/ShowcaseChrome/Dock/Bar/Chips/Full/SettingsToggle")
+		w.settle()
+		expect(w.pres.focus.focusVisible:get()).toBe(false)
+	end)
+end)
+
+-- ===========================================================================
 -- (1) KEYBOARD
 -- ===========================================================================
 describe("showcase chrome (1): a keyboard alone can change demo and change theme", function()

@@ -339,6 +339,40 @@ function callout.build(LuauUI: any, core: any, spec: Spec)
 		retire(reason or "invalidated")
 	end
 
+	--[[ A NEW SESSION (device review 2026-08-16, F2). Retirement is permanent
+		WITHIN a session and that is not being weakened here: nothing inside this
+		construct can un-retire itself, no `present()` can argue with the latch, and
+		the app still owns the record. What this adds is the only thing that was
+		missing — the caller's word that the session it persisted for is over.
+
+		WHY IT HAS TO BE THE FRAMEWORK'S. The showcase's own reset had no way to say
+		it, so it re-created the constructs instead, inside a keyed `ForEach` — and
+		re-creating a callout re-creates the node it POINTS AT, whose path is its
+		identity. Measured: after one reset the anchors moved from `[gen-1]/…` to
+		`[gen-2]/…` and the focus-driven help plate, re-presented against a path that
+		did not exist yet, was placed at the viewport origin on top of the button it
+		belonged under. The right shape is a screen whose furniture never moves and
+		coach marks that re-arm in place, which is TipKit's own model
+		(`Tips.resetDatastore()`): the tips reset, the app does not.
+
+		ORDER MATTERS AND IS THE CALLER'S: clear the persisted facts FIRST. `seen`
+		and `featureUsed` are READ, never written, so a rearm with `seen` still true
+		leaves the callout ineligible — honestly, and without a second latch to
+		explain. A showing or queued plate is released on the way, because a fresh
+		session cannot start with the last one still on the glass. ]]
+	function api.rearm()
+		if entryId ~= nil and releaseCalloutFn ~= nil then
+			local id2 = entryId
+			entryId = nil
+			releaseCalloutFn(id2, "rearmed")
+		end
+		entryId = nil
+		reported = false
+		retired:set(false)
+		queued:set(false)
+		isShowing:set(false)
+	end
+
 	function api.state(): string
 		if retired:get() then
 			return "retired"

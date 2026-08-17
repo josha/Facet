@@ -49,6 +49,11 @@ require("./native_scroll_autobind.spec")
 -- Space-as-Activate, focused-value arrow Adjust
 require("./keyboard_navigation.spec")
 require("./traversal_order.spec")
+-- ADOPTED CHROME (device review 2026-08-16, F1): the capability that lets a
+-- directional press leave the active scope for the app's persistent frame — one
+-- composed focus map, opt-in, entry still the active screen's, suspended by a
+-- trap, and the press routed to the surface that owns the node
+require("./focus_chrome.spec")
 require("./path.spec")
 -- UI.Stage (ViewportFrame adoption, 2026-08-08): the engine-content leaf plus
 -- its renderer-mediated content seam (camera/lighting/content root)
