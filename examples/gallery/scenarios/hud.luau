@@ -189,7 +189,17 @@ local COPY = {
 	probeFirstPainted = "first painted:",
 	probeHiddenUnder = "hidden under:",
 	probeHeldTag = "HELD",
-	probeNoEngine = "no engine read — model only",
+	--[[ AND THE THREE THAT REPLACED A FALSE VERDICT (2026-08-16). The plate used
+		to print a paint count it had not measured and quietly shrink its own
+		denominator; the words below are what it says instead. `probeNoEngine`
+		is shouted because it appears in place of the count rather than beside
+		it — a reader who skims and sees a number has been told a fact, and this
+		is the line that has to stop them. ]]
+	probeUnmeasured = "UNMEASURED",
+	probeNoEngine = "ENGINE SIDE UNAVAILABLE — MODEL ONLY",
+	probeRows = "rows wanted",
+	probeSkipped = "skipped:",
+	probeSizeDiffers = "size differs:",
 	probeWaiting = "waiting for the first solve",
 }
 
@@ -272,10 +282,18 @@ local CAPTION_FLOOR = 360
 	resolve: three rows inside one pod, on either side of it.
 
 	EACH ROW NAMES SEVERAL PATHS BECAUSE THE LADDER IS ALLOWED TO CHOOSE. `Tasks`
-	is three forms and `Rail` is two, so "is Tasks showing" is "is ANY of its
-	forms showing" — which is also what stops a legitimate step-down from reading
-	as a defect. The row is LOST only when the framework says one of its forms
-	should be painting and the engine says none of them is.
+	is three forms and `Rail` is two, so only ONE of them is on screen at a time
+	and the other paths have no solved box at all. THE MODEL PICKS, AND THE
+	ENGINE IS THEN HELD TO EVERY PATH THE MODEL PICKED — a row is painting only
+	when every path the framework says should be painting is painting.
+
+	THAT RULE USED TO BE AN `ANY`, and the difference is `Rounds` (2026-08-16).
+	A row of alternate FORMS reads the same either way, because the model wants
+	exactly one of them; a row of SIBLINGS does not. The round strip is three
+	discs that are all on screen at once, and R3 is the ··· sink — the recovery
+	route for everything the ladder has taken away. Under an `any`, R3 could go
+	dark while R1 and R2 painted and the row still reported healthy: partial loss
+	inside the one zone no ladder is permitted to remove, reported as fine.
 
 	EVERY PATH IS A NON-ELIDABLE CLASS (Box / Text / Button / Path), never a bare
 	stack, and that is a requirement rather than a preference: an ELIDED container
@@ -291,7 +309,17 @@ local PROBE_ROWS: { { name: string, paths: { string } } } = {
 			PROBE_HUD .. "/Strip/StripRow/StripFree/StripChip/then/StripFit/ObjectiveShort/Plate",
 		},
 	},
-	{ name = "Rounds", paths = { PROBE_HUD .. "/Rounds/RoundStrip/R1" } },
+	-- ALL THREE DISCS, not just the first: they are siblings rather than forms,
+	-- so each one is a separate claim the engine has to honour, and the third is
+	-- the overflow sink every dropped zone recovers through
+	{
+		name = "Rounds",
+		paths = {
+			PROBE_HUD .. "/Rounds/RoundStrip/R1",
+			PROBE_HUD .. "/Rounds/RoundStrip/R2",
+			PROBE_HUD .. "/Rounds/RoundStrip/R3",
+		},
+	},
 	{
 		name = "Tasks",
 		paths = {
@@ -1274,20 +1302,29 @@ return {
 		local result: any
 		local probeReport: any = {
 			lost = {},
+			unmeasured = {},
+			skipped = {},
+			mismatched = {},
 			firstPainted = nil,
 			hiddenUnder = nil,
 			painting = 0,
+			wanted = 0,
+			declared = #PROBE_ROWS,
 			expected = 0,
 			latches = 0,
+			samples = 0,
 			engine = false,
 			solves = 0,
 			viewport = "",
+			head = COPY.probeTitle,
+			plate = COPY.probeWaiting,
 		}
 
-		local function probeSample()
-			if probeHeld:get() then
-				return
-			end
+		--[[ RE-ENTRANCY, because this now runs from TWO clocks (below) and it writes
+			the signals that paint its own surface. A sample taken inside a sample
+			would read the same frame twice and could recur. ]]
+		local probeSampling = false
+		local function probeSampleBody()
 			local handle = if result ~= nil then result.handle else nil
 			local ctrl = if handle ~= nil then handle.controller else nil
 			if ctrl == nil or ctrl.screenRectOf == nil or ctrl.hiddenRoots == nil then
@@ -1315,9 +1352,23 @@ return {
 				return true
 			end
 			--[[ THE ENGINE SIDE, through the host's own seam — the fixture never touches
-				an Instance. Absent on a host that carries no engine (the headless sweep
-				supplies rects only), and the plate SAYS SO rather than silently reporting
-				a model-only reading as a paint verdict.
+				an Instance.
+
+				IT IS TRI-STATE, AND THE FIRST CUT OF THIS PROBE WAS NOT. With no seam it
+				used to answer `true` for every path: "could not measure" published as
+				"measured yes", which is precisely the collapse
+				docs/lessons/capability-probes-must-be-tri-state.md exists for — and it
+				is what let a plate read `13 of 13 painting` on a phone that was missing
+				six things. There is no engine verdict at all below; there is a verdict
+				for the paths that were READ, and a separate `unmeasured` state for the
+				rows nobody could read. A count is a claim, and this instrument may only
+				make claims it measured.
+
+				A SEAM THAT ANSWERED NOTHING IS NOT A SCREEN WITH NOTHING ON IT. The
+				shipped host reads `adapter.getInstance`; an adapter without it, or a
+				path map that has moved on, returns `{}` — forty paths asked, zero
+				answered. That is the seam failing, and calling forty rows LOST would be
+				the same false verdict pointing the other way.
 
 				OUTERMOST ANCESTOR FIRST, deliberately: when a walk stops part-way the
 				ancestor is the node that was actually hidden and the leaf still says
@@ -1326,10 +1377,31 @@ return {
 				report — seven rows all lost UNDER ONE node is a different defect from
 				seven rows each hidden on their own. ]]
 			local geo = if ctx.geometry ~= nil then ctx.geometry(PROBE_QUERY) else nil
-			local function enginePaints(path: string): (boolean, string?)
-				if geo == nil then
-					return true, nil
+			local answered = 0
+			if geo ~= nil then
+				for _ in geo do
+					answered += 1
 				end
+			end
+			local engineRead = geo ~= nil and answered > 0
+
+			local mismatched: { string } = {}
+			--[[ ...AND `Visible` IS NOT "PAINTING", which is the other half the first
+				cut collected and never read. The seam has always answered
+				`AbsoluteSize`; the verdict looked only at the paint bit. A node the
+				engine is drawing at zero pixels — a parked corpse still in the path
+				map, a node that was never materialised, a box that collapsed — is
+				`Visible = true` and occupies nothing, and that is exactly the "the
+				decision was right and the write never landed" class this whole
+				instrument exists for.
+
+				THE SIZE COMPARISON IS A NOTE AND NEVER A VERDICT. `screenRectOf` and
+				`AbsoluteSize` are two spaces that agree today, and an instrument that
+				cried wolf over a rounding difference would be as useless as one that
+				never fires — so a disagreement is REPORTED, by name, and the row still
+				counts as painting. Zero pixels is the unambiguous half, and that one
+				is a loss. ]]
+			local function enginePaints(path: string): (boolean, string?)
 				local own = geo[path]
 				if own == nil then
 					-- every watched leaf is a non-elidable class, so "no Instance" here is
@@ -1339,43 +1411,79 @@ return {
 				local chain = probeAncestors(path)
 				for i = #chain, 1, -1 do
 					local up = geo[chain[i]]
-					if up ~= nil and up.visible == false then
-						return false, chain[i]
+					if up ~= nil then
+						-- a SURFACE ROOT is `ScreenGui.Enabled`, not `GuiObject.Visible`, and
+						-- every watched path is a GuiObject: without this a whole screen goes
+						-- dark with all fourteen rows still reporting `Visible = true`
+						if up.enabled == false then
+							return false, chain[i]
+						end
+						if up.visible == false then
+							return false, chain[i]
+						end
 					end
 				end
-				if own.visible == false then
+				if own.enabled == false or own.visible == false then
 					return false, path
+				end
+				if own.w < 1 or own.h < 1 then
+					return false, path
+				end
+				local want = ctrl.screenRectOf(path)
+				if
+					want ~= nil
+					and (math.abs(own.w - want.w) > 1 or math.abs(own.h - want.h) > 1)
+					and table.find(mismatched, path) == nil
+				then
+					table.insert(mismatched, path)
 				end
 				return true, nil
 			end
 
 			local lost: { string } = {}
+			local unmeasured: { string } = {}
+			local skipped: { string } = {}
 			local firstPainted: string? = nil
 			local hiddenUnder: string? = nil
 			local painting = 0
-			local expected = 0
+			local wanted = 0
 			for _, row in PROBE_ROWS do
-				local wanted = false
-				local painted = false
-				local culprit: string? = nil
+				local wants: { string } = {}
 				for _, path in row.paths do
 					if modelPaints(path) then
-						wanted = true
-						local ok, where = enginePaints(path)
-						if ok then
-							painted = true
-						elseif culprit == nil then
+						table.insert(wants, path)
+					end
+				end
+				if #wants == 0 then
+					--[[ NOT A DEFECT AND NOT A PASS EITHER. This row has no form the
+						framework expects on screen at this size, so there is nothing here to
+						hold the engine to — but it used to `continue`, which took the row out
+						of the denominator with nothing said. That is how `13 of 13 painting`
+						was printed over fourteen declared rows, and it is the same false
+						negative as an unmeasurable verdict: a row nobody proved is NAMED,
+						never omitted. `report().unshown` is the framework's own half of it. ]]
+					table.insert(skipped, row.name)
+					continue
+				end
+				wanted += 1
+				if not engineRead then
+					table.insert(unmeasured, row.name)
+					continue
+				end
+				--[[ EVERY PATH THE MODEL WANTS, not any of them. Alternate forms read the
+					same either way (the model picks exactly one); siblings do not, and
+					`Rounds` is three of them. ]]
+				local painted = true
+				local culprit: string? = nil
+				for _, path in wants do
+					local ok, where = enginePaints(path)
+					if not ok then
+						painted = false
+						if culprit == nil then
 							culprit = where
 						end
 					end
 				end
-				if not wanted then
-					-- the ladder's own doing, not a defect: this row has no form the
-					-- framework expects to be on screen at this size. `report().unshown`
-					-- is where that half is already published, verbatim from the solver.
-					continue
-				end
-				expected += 1
 				if painted then
 					painting += 1
 					if #lost > 0 and firstPainted == nil then
@@ -1394,48 +1502,86 @@ return {
 
 			local stats = if ctrl.stats ~= nil then ctrl.stats() else nil
 			local vp = viewportFact:get() :: any
+			local head = `{COPY.probeTitle} · {math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`
+				.. ` · {COPY.probeSolve} {if stats ~= nil then stats.solves else 0}`
+				.. (if #lost > 0 then ` · {COPY.probeHeldTag}` else "")
+
+			--[[ THE PLATE. The denominator it actually watched comes FIRST and always,
+				because a count over a shrinking denominator is the defect this readout
+				shipped; and when the engine side could not be read the count is
+				REPLACED, not annotated. A reader who skims and finds a number has been
+				told a fact. ]]
+			local lines: { string } = { `{wanted} {COPY.probeOf} {#PROBE_ROWS} {COPY.probeRows}` }
+			if #skipped > 0 then
+				table.insert(lines, `{COPY.probeSkipped} {table.concat(skipped, " · ")}`)
+			end
+			if not engineRead then
+				table.insert(lines, COPY.probeNoEngine)
+			else
+				if #lost == 0 then
+					table.insert(lines, `{painting} {COPY.probeOf} {wanted} {COPY.probePainting}`)
+				else
+					table.insert(lines, `{#lost} {COPY.probeOf} {wanted} {COPY.probeNotPainted}`)
+					table.insert(lines, table.concat(lost, " · "))
+					if firstPainted ~= nil then
+						table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
+					end
+					if hiddenUnder ~= nil then
+						table.insert(lines, `{COPY.probeHiddenUnder} {hiddenUnder}`)
+					end
+				end
+				if #mismatched > 0 then
+					table.insert(lines, `{COPY.probeSizeDiffers} {mismatched[1]}`)
+				end
+			end
+			local plate = table.concat(lines, "\n")
+
 			probeReport = {
 				lost = lost,
+				unmeasured = unmeasured,
+				skipped = skipped,
+				mismatched = mismatched,
 				firstPainted = firstPainted,
 				hiddenUnder = hiddenUnder,
 				painting = painting,
-				expected = expected,
+				wanted = wanted,
+				declared = #PROBE_ROWS,
+				-- the old name for `wanted`, kept so a driver written against the first
+				-- cut still reads the number it was reading
+				expected = wanted,
 				latches = probeReport.latches,
-				engine = geo ~= nil,
+				samples = probeReport.samples + 1,
+				engine = engineRead,
 				solves = if stats ~= nil then stats.solves else 0,
 				viewport = `{math.floor(vp.w + 0.5)}x{math.floor(vp.h + 0.5)}`,
+				head = head,
+				plate = plate,
 			}
 
-			local lines: { string } = {}
-			if #lost == 0 then
-				table.insert(lines, `{painting} {COPY.probeOf} {expected} {COPY.probePainting}`)
-			else
-				table.insert(lines, `{#lost} {COPY.probeOf} {expected} {COPY.probeNotPainted}`)
-				table.insert(lines, table.concat(lost, " · "))
-				if firstPainted ~= nil then
-					table.insert(lines, `{COPY.probeFirstPainted} {firstPainted}`)
-				end
-				if hiddenUnder ~= nil then
-					table.insert(lines, `{COPY.probeHiddenUnder} {hiddenUnder}`)
-				end
-			end
-			if geo == nil then
-				table.insert(lines, COPY.probeNoEngine)
-			end
 			-- ...and the HEAD carries the hold state, because the switch beside the
 			-- URL-bar toggle is an icon-only circle: a state nobody can read is a
 			-- state nobody has
-			probeHead:set(
-				`{COPY.probeTitle} · {probeReport.viewport} · {COPY.probeSolve} {probeReport.solves}`
-					.. (if #lost > 0 then ` · {COPY.probeHeldTag}` else "")
-			)
-			probeBody:set(table.concat(lines, "\n"))
+			probeHead:set(head)
+			probeBody:set(plate)
 			if #lost > 0 then
 				-- THE LATCH. Recorded first, held second: the plate is already showing
 				-- the failing frame before anything on this screen can move.
+				--
+				-- IT DOES NOT LATCH ON `unmeasured`: a host with no engine seam is in
+				-- that state permanently and for a reason the plate already shouts, so
+				-- freezing there would spend the one capture on a known limitation.
 				probeReport.latches += 1
 				probeHeld:set(true)
 			end
+		end
+
+		local function probeSample()
+			if probeHeld:get() or probeSampling then
+				return
+			end
+			probeSampling = true
+			probeSampleBody()
+			probeSampling = false
 		end
 
 		local function probeScreen(): any
@@ -1535,6 +1681,36 @@ return {
 			end
 		end
 		raiseProbe()
+
+		--[[ THE SECOND CLOCK, AND IT IS PART OF THE HONESTY (2026-08-16).
+			`present.onGeometry` below fires from the HUD's OWN solve — which is the
+			responsive clock, and which is also the thing under diagnosis. A surface
+			that stops solving stops sampling, and the plate then displays its last
+			healthy reading with a solve number nobody can date: a stale verdict, worn
+			as a current one. That is the same false negative as an unmeasured verdict
+			and it is invisible in a photograph.
+
+			So the probe also rides the presenter's frame clock, which belongs to
+			NEITHER surface. Quarter-second, because this walks ~forty paths through
+			the engine seam and the failure it watches for persists — it does not need
+			to be caught within a frame, it needs to be caught at all. `report()`
+			publishes `samples` beside `solves` so a driver can see the two clocks
+			disagree.
+
+			The presenter's tick is absent headlessly (the suite has no frame clock and
+			drives `steps.sampleProbe` instead), so this is the shipped host's half. ]]
+		local unbindProbeTick: (() -> ())? = nil
+		if ctx.presenter ~= nil and ctx.presenter.onTick ~= nil then
+			local since = 0
+			unbindProbeTick = ctx.presenter.onTick(function(dt: number)
+				since += dt
+				if since < 0.25 then
+					return
+				end
+				since = 0
+				probeSample()
+			end)
+		end
 
 		-- ---- the HUD -----------------------------------------------------
 		local hud = UI.Composition({
@@ -2284,17 +2460,32 @@ return {
 						re-deriving it. `held` is the latch; `latches` counts how many times
 						it has fired since this fixture mounted, which is the difference
 						between "it happened once" and "it happens every rotation". ]]
+					--[[ ...AND ALL THREE STATES, plus the rows nobody could hold the engine
+						to. `painting + #lost + #unmeasured` is `wanted`, and
+						`wanted + #skipped` is `declared` — a driver that reads only
+						`painting` can no longer be told a screen is healthy by a
+						denominator that quietly moved. `plate` is the readout VERBATIM, so
+						a scripted device sweep asserts what a thumb is actually reading
+						rather than re-deriving it and agreeing with itself. ]]
 					paintProbe = {
 						held = probeHeld:get(),
 						lost = probeReport.lost,
+						unmeasured = probeReport.unmeasured,
+						skipped = probeReport.skipped,
+						mismatched = probeReport.mismatched,
 						firstPainted = probeReport.firstPainted,
 						hiddenUnder = probeReport.hiddenUnder,
 						painting = probeReport.painting,
+						wanted = probeReport.wanted,
+						declared = probeReport.declared,
 						expected = probeReport.expected,
 						latches = probeReport.latches,
+						samples = probeReport.samples,
 						engine = probeReport.engine,
 						solves = probeReport.solves,
 						viewport = probeReport.viewport,
+						head = probeReport.head,
+						plate = probeReport.plate,
 					},
 				}
 			end,
@@ -2303,7 +2494,13 @@ return {
 				-- before the scope goes: a live anchored panel outliving the screen it
 				-- discloses is the leak class this fixture would otherwise ship
 				closeOverflow()
-				-- ...and so is the probe, for exactly the same reason
+				-- ...and so is the probe, for exactly the same reason — its surface AND
+				-- the frame clock it rides, which is owned by the presenter and would
+				-- otherwise keep sampling a disposed controller
+				if unbindProbeTick ~= nil then
+					unbindProbeTick()
+					unbindProbeTick = nil
+				end
 				dropProbe()
 				for _, view in taskBars do
 					view.dispose()

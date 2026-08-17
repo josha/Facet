@@ -70,24 +70,33 @@ local function world(view: any): any
 end
 
 --[[ THE ENGINE SEAM, HEADLESS. The runner and the shipped showcase host both
-	answer `{ x, y, w, h, visible }` for named paths off the live Instance; the
-	fake target answers the same shape off `visibleOf`, so the fixture takes the
-	SAME branch here that it takes on a phone. Without this the probe would be
-	exercised only on its degraded model-only path — the test rig proving the
-	half that does not ship. ]]
-local function geometryFor(w: any, lie: ((path: string) -> boolean?)?): (paths: { string }) -> any
+	answer `{ x, y, w, h, visible, enabled }` for named paths off the live
+	Instance; the fake target answers the same shape off `visibleOf` and
+	`rootVisibleOf`, so the fixture takes the SAME branch here that it takes on a
+	phone. Without this the probe would be exercised only on its degraded
+	model-only path — the test rig proving the half that does not ship.
+
+	`lie` FORCES A DISAGREEMENT, and it is the only way to test a comparison
+	whose two sides agree by construction headlessly. It may return a boolean
+	(the node's own paint bit) or a rect-shaped table (the engine's own
+	`AbsoluteSize`, which is the half the first cut of this probe collected and
+	never read). ]]
+local function geometryFor(w: any, lie: ((path: string) -> any)?): (paths: { string }) -> any
 	return function(paths: { string }): any
 		local out: { [string]: any } = {}
 		for _, path in paths do
 			local node = w.adapter.node(path)
 			if node ~= nil and node.rect ~= nil then
 				local forced = if lie ~= nil then lie(path) else nil
+				local screenId = string.match(path, "^/([^/]+)")
+				local rootOn = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true
 				out[path] = {
 					x = node.rect.x,
 					y = node.rect.y,
-					w = node.rect.w,
-					h = node.rect.h,
-					visible = if forced ~= nil then forced else w.adapter.visibleOf(path) ~= false,
+					w = if type(forced) == "table" then forced.w else node.rect.w,
+					h = if type(forced) == "table" then forced.h else node.rect.h,
+					visible = if type(forced) == "boolean" then forced else w.adapter.visibleOf(path) ~= false,
+					enabled = rootOn,
 				}
 			end
 		end
@@ -95,7 +104,7 @@ local function geometryFor(w: any, lie: ((path: string) -> boolean?)?): (paths: 
 	end
 end
 
-local function ctxFor(w: any, lie: ((path: string) -> boolean?)?): any
+local function ctxFor(w: any, lie: ((path: string) -> any)?): any
 	return {
 		LuauUI = LuauUI,
 		core = w.core,
@@ -331,6 +340,186 @@ describe("hud: the paint probe fires when the engine disagrees with the framewor
 		local probe = built.report().paintProbe
 		expect(probe.engine).toBe(false)
 		expect(probe.held).toBe(false)
+		built.dispose()
+	end)
+end)
+
+--[[ ══ THE INSTRUMENT'S OWN HONESTY (the 2026-08-16 director round) ═════════════
+
+	THE PLATE SHIPPED A FALSE VERDICT. On the reported phone it read `13 of 13
+	painting` on a screen visibly missing six things, and the director acted on
+	it. Four separate defects in the readout produce that number, and each one is
+	pinned below by a spec that FAILS against the shipped code:
+
+	  1. THE FALLBACK CLAIMED SUCCESS. With no `ctx.geometry` the per-path engine
+	     verdict returned `true` — "could not measure" published as "measured
+	     yes", which is the exact collapse
+	     docs/lessons/capability-probes-must-be-tri-state.md was written about.
+	  2. A ROW WAS PAINTED IF *ANY* PATH PAINTED, so partial loss inside a row
+	     was invisible. The HUD's rows are groups.
+	  3. A ROW THE MODEL DID NOT WANT WAS DROPPED FROM THE DENOMINATOR ENTIRELY.
+	     Measured across 28 viewport x URL-bar states before this change: one row
+	     silently left the count at every landscape size and four did at every
+	     portrait size — and `13 of 13` is precisely what the HEALTHY fixture
+	     prints at the director's own 734x393. The plate on the phone was
+	     indistinguishable from a plate with nothing wrong.
+	  4. THE ENGINE'S RECT WAS COLLECTED AND NEVER READ. The seam answers
+	     `AbsoluteSize`; the verdict looked only at `Visible`. A node the engine
+	     is painting at zero pixels — a parked corpse, an unmaterialised node, a
+	     collapsed box — reported as painting, and that is the whole class of
+	     "the write never landed" the probe exists to catch.
+	  5. ...AND A SURFACE ROOT IS `ScreenGui.Enabled`, NOT `Visible`. Every
+	     watched path is a GuiObject, so a whole surface going dark left all
+	     fourteen rows reporting `Visible = true` with nothing on screen. ]]
+describe("hud: the paint probe never reports a verdict it did not measure", function()
+	it("refuses to print a paint count when the host supplies no engine seam", function()
+		local w = world(LANDSCAPE)
+		local ctx = ctxFor(w)
+		ctx.geometry = nil
+		local built = mount(w, ctx)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+
+		-- the plate SAYS SO, in place of a count, and unmissably
+		expect(string.find(probe.plate, "ENGINE SIDE UNAVAILABLE", 1, true) ~= nil).toBe(true)
+		-- ...and there is no paint verdict anywhere on it
+		expect(string.find(probe.plate, "painting", 1, true)).toBe(nil)
+		expect(string.find(probe.plate, "NOT PAINTED", 1, true)).toBe(nil)
+		expect(probe.painting).toBe(0)
+		expect(#probe.lost).toBe(0)
+		-- every row the model wants is UNMEASURED, which is a third state
+		expect(#probe.unmeasured).toBe(probe.wanted)
+		expect(probe.wanted > 8).toBe(true)
+		expect(probe.engine).toBe(false)
+		built.dispose()
+	end)
+
+	it("an engine seam that answers nothing at all is unavailable, not a healthy screen", function()
+		-- the shipped host reads `adapter.getInstance`; an adapter without it, or
+		-- a path map that has moved on, answers `{}` for every path. A seam that
+		-- returned nothing for a query of forty paths has not measured a screen.
+		local w = world(LANDSCAPE)
+		local ctx = ctxFor(w)
+		ctx.geometry = function(): any
+			return {}
+		end
+		local built = mount(w, ctx)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(probe.engine).toBe(false)
+		expect(string.find(probe.plate, "ENGINE SIDE UNAVAILABLE", 1, true) ~= nil).toBe(true)
+		expect(#probe.unmeasured).toBe(probe.wanted)
+		expect(probe.painting).toBe(0)
+		built.dispose()
+	end)
+
+	it("names every row it skipped and shows the denominator it actually watched", function()
+		--[[ `13 of 13 painting` was never a count of fourteen rows: rows the model
+			did not want left the denominator with nothing said, and the reader had
+			no way to tell a shrunken denominator from a full one. Measured in
+			portrait: `ScoreHome`, `TimerRing` and `ScoreAway` all leave — and
+			`TimerRing` is the fixture's first `Path` node, the exact boundary the
+			reported prefix stops at, so the probe was silently dropping the one row
+			it was built to resolve. A skipped row is UNPROVEN, and it is named. ]]
+		local w = world(PORTRAIT)
+		local built = mount(w, ctxFor(w))
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+
+		expect(probe.declared).toBe(14)
+		expect(probe.wanted + #probe.skipped).toBe(probe.declared)
+		expect(#probe.skipped > 0).toBe(true)
+		-- the plate carries BOTH halves rather than a denominator that quietly moved
+		expect(string.find(probe.plate, `{probe.wanted} of 14 rows`, 1, true) ~= nil).toBe(true)
+		expect(string.find(probe.plate, "skipped:", 1, true) ~= nil).toBe(true)
+		for _, name in probe.skipped do
+			expect(string.find(probe.plate, name, 1, true) ~= nil).toBe(true)
+		end
+		built.dispose()
+	end)
+
+	it("a row the engine paints at ZERO PIXELS is LOST, not painting", function()
+		-- `Visible = true` is not "painting". The seam has always answered
+		-- `AbsoluteSize`; the verdict never looked at it.
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string): any
+				if path == "/HudScreen/Hud/Feed/FeedLine" then
+					return { w = 0, h = 0 }
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(table.concat(probe.lost, ",")).toBe("Feed")
+		expect(probe.hiddenUnder).toBe("/HudScreen/Hud/Feed/FeedLine")
+		expect(string.find(probe.plate, "NOT PAINTED", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a row is painted only when EVERY path the model wants is painting", function()
+		--[[ `Rounds` is the row that makes this testable and the row that needs it:
+			one form, rank 1, `recover = "none"`, and THREE discs that are all on
+			screen at once — R3 is the ··· sink, the recovery route for everything
+			the ladder has taken away. Losing R3 while R1 and R2 paint is a partial
+			loss of the one zone no ladder may touch, and the first cut of this
+			probe called that row `painted`. ]]
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string): any
+				if path == "/HudScreen/Hud/Rounds/RoundStrip/R3" then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(table.concat(probe.lost, ",")).toBe("Rounds")
+		expect(probe.hiddenUnder).toBe("/HudScreen/Hud/Rounds/RoundStrip/R3")
+		-- ...and the other two discs really are painting, so this is a PARTIAL loss
+		-- and not the whole row going dark
+		expect(w.adapter.visibleOf("/HudScreen/Hud/Rounds/RoundStrip/R1")).toBe(true)
+		expect(w.adapter.visibleOf("/HudScreen/Hud/Rounds/RoundStrip/R2")).toBe(true)
+		built.dispose()
+	end)
+
+	it("a surface whose ROOT is disabled loses every row, with the root named", function()
+		-- `ScreenGui.Enabled` is not `GuiObject.Visible`, and every watched path is
+		-- a GuiObject: the whole HUD can go dark with all fourteen rows still
+		-- reporting `Visible = true`. That is "the UI went away and the plate said
+		-- everything was fine", exactly.
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		built.handle.controller.setRootVisible(false)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(probe.wanted)
+		expect(probe.painting).toBe(0)
+		expect(probe.firstPainted).toBe(nil)
+		built.dispose()
+	end)
+
+	it("`13 of 13 painting` cannot be printed while anything is lost or unmeasured", function()
+		-- the plate's whole contract in one case: a count is a claim, and a claim
+		-- may not be made over rows that were not measured
+		local w = world(LANDSCAPE)
+		local built = mount(
+			w,
+			ctxFor(w, function(path: string): any
+				if path == "/HudScreen/Hud/Feed/FeedLine" then
+					return false
+				end
+				return nil
+			end)
+		)
+		built.steps.sampleProbe(built)
+		local probe = built.report().paintProbe
+		expect(#probe.lost > 0).toBe(true)
+		expect(string.find(probe.plate, "painting", 1, true)).toBe(nil)
 		built.dispose()
 	end)
 end)

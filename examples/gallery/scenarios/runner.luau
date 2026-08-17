@@ -972,18 +972,27 @@ function Runner.start(deps: { [string]: any })
 				Grid/Anchor/Spacer with nothing of its own to paint) has no Instance at
 				all, and neither does an unmounted node — so a caller that needs the
 				distinction names non-elidable classes. ]]
+			--[[ ...AND `enabled` IS THE OTHER HALF OF THE SAME ANSWER (2026-08-16). A
+				surface root is hidden with `ScreenGui.Enabled` — a different property on
+				a class no path resolves to — so `Visible` alone reports every node of a
+				dark screen as painting. It rides each node's record rather than an entry
+				of its own so that a caller reading one path still gets the whole
+				verdict; it is the node's nearest `LayerCollector` ancestor, and `true`
+				when there is none. ]]
 			geometry = function(paths: { string }): { [string]: any }
 				local out: { [string]: any } = {}
 				local a = deps.adapter :: any
 				for _, path in paths do
 					local inst = a.getInstance and a.getInstance(path)
 					if inst ~= nil and inst:IsA("GuiObject") then
+						local layer = inst:FindFirstAncestorWhichIsA("LayerCollector")
 						out[path] = {
 							x = inst.AbsolutePosition.X,
 							y = inst.AbsolutePosition.Y,
 							w = inst.AbsoluteSize.X,
 							h = inst.AbsoluteSize.Y,
 							visible = inst.Visible,
+							enabled = if layer ~= nil then (layer :: any).Enabled else true,
 						}
 					end
 				end

@@ -140,6 +140,112 @@ Three mutations were run against the fixture and each was seen to fail: making t
 ignore the engine side (2 red), removing the latch (2 red), and counting ladder-hidden rows
 as lost (2 red).
 
+---
+
+# ADDENDUM, 2026-08-16 — the instrument shipped a false verdict, and this is why
+
+The director drove the sequence on a real phone. The HUD failed. **The plate read
+`13 of 13 painting`** (`fishy.jpeg`, 734x393 landscape, solve 15) while `ScoreHome`,
+the tasks panel, the health pod, the kill feed, the round strip and the ladder caption
+were all absent from the screen. The instrument built to catch this defect reported the
+screen healthy, and the number it printed was acted on.
+
+**Everything in §1 above — "diverged by ZERO" — is now unreliable evidence**, because a
+probe with the defects below is exactly the instrument that reports zero divergence
+against a real failure.
+
+## A. Why `13 of 13` — the mechanism, measured
+
+`13` was never a count of fourteen rows and `13 painting` was never a paint measurement.
+
+**The denominator moved silently.** A row with no model-wanted path hit `continue` and
+left `expected` entirely, so the plate's own denominator shrank with nothing said.
+Measured over 28 viewport x URL-bar states before the fix (`_diag2`, headless, the fake
+target): **one row leaves the count at every landscape size and four leave it at every
+portrait size.** At the director's own 734x393 with a topbar the healthy fixture prints
+`11 of 11 painting`; without one it prints **`13 of 13 painting`** — the exact string on
+the photograph. *The plate on the failing phone was byte-identical to a plate with
+nothing wrong.* There was no number the reader could have distinguished.
+
+The rows that vanish are `ScoreHome`, `ScoreAway` and **`TimerRing`** — and `TimerRing`
+is the fixture's first `Path` node, the exact boundary §2 says the unpainted prefix
+stops at. The probe was silently dropping the one row it was built to resolve.
+
+**And the `13 painting` half is not a paint verdict.** The engine seam has always
+answered `AbsoluteSize`; `enginePaints` read only `Visible`. A node the engine draws at
+zero pixels — a parked corpse still in `instancesByPath`, a node never materialised, a
+collapsed box — is `Visible = true` and occupies nothing, which is precisely the "the
+decision was right and the write never landed" class in §6. Worse: a surface root is
+hidden with **`ScreenGui.Enabled`**, a different property on a class no path resolves to
+(`src/client/screen_target.luau:1752`), so a whole screen can go dark with all fourteen
+rows still reporting `Visible = true`.
+
+## B. The four defects, each confirmed rather than assumed
+
+| # | Defect | Status | Evidence |
+|---|---|---|---|
+| 1 | **The fallback claimed success.** With no `ctx.geometry`, `enginePaints` returned `true` for every path — "could not measure" published as "measured yes" | **CONFIRMED, latent on the phone** | Code. `ctx.geometry` *is* supplied by the shipped showcase host (`examples/gallery/client/init.client.luau:402`) and by the runner, so this was not the phone's mechanism — but a host whose `adapter.getInstance` is absent answers `{}`, forty paths asked and zero returned, which took the same false branch |
+| 2 | **A row was painted if ANY path painted** | **CONFIRMED in code, measured LATENT** | Across the same 28 states, **no row ever has two model-wanted paths**: the rows are alternate forms and the model picks exactly one, so the `any` and the `all` agreed everywhere. It is a real false negative and it was not this one |
+| 3 | **A row the model did not want was dropped from the denominator** | **CONFIRMED, and it is the mechanism** | §A above |
+| 4 | **The engine's rect was collected and never read**, and `ScreenGui.Enabled` was invisible | **CONFIRMED in code** | The seam returns `w`/`h`; the verdict never looked at them |
+
+**`Rounds` is not a model-side bug.** The director's suspicion was that the model was
+calling it "not wanted". Measured: `Rounds` is model-wanted in **28 of 28** states — it
+never once left the denominator. The rows that did are named above.
+
+## C. What the plate says now
+
+Three states per row — `painting`, `LOST`, `UNMEASURED` — and the denominator it actually
+watched, first and always:
+
+```
+Paint probe · 734x393 · solve 15          Paint probe · 852x393 · solve 61 · HELD
+11 of 14 rows wanted                      14 of 14 rows wanted
+skipped: ScoreHome · TimerRing · ScoreAway 7 of 14 NOT PAINTED
+11 of 11 painting                          Objective · Rounds · Tasks · Health · …
+                                           first painted: TimerRing
+                                           hidden under: /HudScreen/Hud
+```
+
+and when the engine side cannot be read, the count is **replaced**, never annotated:
+
+```
+Paint probe · 852x393 · solve 3
+13 of 14 rows wanted
+skipped: Objective
+ENGINE SIDE UNAVAILABLE — MODEL ONLY
+```
+
+`13 of 13 painting` is now unprintable while anything is lost or unmeasured, and a
+skipped row is named rather than omitted.
+
+**A second clock.** `present.onGeometry` fires from the HUD's own solve — the thing under
+diagnosis. A surface that stops solving stops sampling, and the plate then wears its last
+healthy reading as a current one. The probe now also rides `presenter.onTick` at 4Hz,
+which belongs to neither surface, and `report().samples` sits beside `solves` so the two
+clocks can be seen to disagree.
+
+## D. What is guarded, and the mutations
+
+`tests/hud_paint_probe.spec.luau`, seven new cases written **before** the fix and seen to
+fail against the shipped code (7 red / 10 green), then green (17/17):
+
+- the host supplies no engine seam → the plate carries `ENGINE SIDE UNAVAILABLE` and the
+  strings `painting` and `NOT PAINTED` appear nowhere on it;
+- a seam that answers `{}` is unavailable, not a healthy screen;
+- every skipped row is named and `wanted / declared` is on the plate;
+- a row the engine paints at **zero pixels** is LOST;
+- a row is painted only when **every** path the model wants is painting — proved on
+  `Rounds`, whose watch list now names all three discs (they are siblings, not forms, and
+  R3 is the ··· sink every dropped zone recovers through);
+- a surface whose **root** is disabled loses every row;
+- `13 of 13 painting` cannot be printed while anything is lost or unmeasured.
+
+Six mutations were applied one at a time and every one was seen to redden its own case:
+restoring the success-claiming fallback, treating an empty seam answer as a real read,
+restoring the `any`, restoring the silent `continue`, deleting the zero-pixel rule, and
+deleting both `enabled` checks.
+
 ## 6. What this document does NOT claim
 
 - **Nothing here reproduces the defect.** It says precisely where it is not, and hands the

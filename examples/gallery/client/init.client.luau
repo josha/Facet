@@ -399,17 +399,26 @@ if workspace:GetAttribute("LuauUI_Showcase") == true then
 					from a real phone and reproduced by nothing in this repository; without
 					this line it would degrade to the model-only readout on the one host
 					that matters, which is the same failure as having no instrument. ]]
+				--[[ ...AND `enabled` IS THE SURFACE ROOT, the half a GuiObject cannot
+					carry (2026-08-16). A surface is hidden with `ScreenGui.Enabled`, which
+					is a different property on a different class: every path a caller can
+					name resolves to a GuiObject, so a whole screen goes dark with every one
+					of its nodes still reporting `Visible = true`. A probe that reads only
+					the paint bit calls that screen healthy — which is exactly what the
+					HUD's plate did on the reported phone. ]]
 				geometry = function(paths: { string }): { [string]: any }
 					local out: { [string]: any } = {}
 					for _, path in paths do
 						local inst = (adapter :: any).getInstance and (adapter :: any).getInstance(path)
 						if inst ~= nil and inst:IsA("GuiObject") then
+							local layer = inst:FindFirstAncestorWhichIsA("LayerCollector")
 							out[path] = {
 								x = inst.AbsolutePosition.X,
 								y = inst.AbsolutePosition.Y,
 								w = inst.AbsoluteSize.X,
 								h = inst.AbsoluteSize.Y,
 								visible = inst.Visible,
+								enabled = if layer ~= nil then (layer :: any).Enabled else true,
 							}
 						end
 					end
