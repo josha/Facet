@@ -43,7 +43,35 @@ layout diagnostics name the tree: the hosted arms carry
 the unhosted arms carry no such record at all. That independently confirms
 1/2/4 = hosted and 3/5 = unhosted, which is the order the handoff note prescribes.
 
-## 2. The A/A control is MISSING, stated before any delta
+## 2a. THE A/A CONTROL WAS RE-TAKEN, and it is tight — `redone.html`, same day
+
+The director re-dumped arm 1 after the status-line fix. `redone.html` is a **hosted
+N=20** capture (127 / 248 / 247 engine layout records — identical to arms 1 and 2, so
+the same tree by the same test used in §1), and it has timings.
+
+**That is the A/A this page was written without.** Two same-configuration runs of the
+hosted N=20 arm:
+
+| scope | arm 2 | `redone` | A/A spread |
+|---|---:|---:|---:|
+| **`commit`** | 1.9539 ms/occ | 1.9648 | **0.56 %** |
+| `arrange` | 6.0639 | 5.7786 | 4.94 % |
+| `measure` | 3.4906 | 3.2155 | 8.56 % |
+| `present` | 2.0030 | 1.9793 | 1.20 % |
+
+**`commit` — the scope this round's change lives in — repeats to 0.56 %.** That is the
+number every delta below should be read against, and it is far tighter than the 6.7 %
+`react` proxy §2 had to fall back on.
+
+**Consequence: both results in §4 stand, including the small one.** The N=20 result
+(−8.8 %) is **fifteen times** the control spread, not "at the edge" as §2 had to assume;
+the N=100 result (−18.9 %) is thirty times it. Read §2 as the caveat that applied before
+this capture existed, and this section as its answer.
+
+Two runs is a thin A/A and is not a distribution. It is enough to say the instrument
+repeats; it is not enough to put an error bar on a single arm.
+
+## 2. The A/A control was MISSING in the first five dumps — kept for the record
 
 Arm 1 (`hosted`) and arm 2 (`hostedRepeat`) were the A/A pair. Arm 1 produced no
 aggregate, so **there is no measured run-to-run spread on the clock** and no number
@@ -144,7 +172,31 @@ same hosted arm, old code against new. The 241→1 write measurement did exactly
 Studio. Doing it on device needs two builds, and that is the honest next capture — not
 another hosted-vs-unhosted pass.
 
-## 7. Two lab defects found by running it
+## 6a. THESE `commit` NUMBERS WERE TAKEN BEFORE A FIX THAT CHANGES THEM
+
+Reading these captures turned up a defect in the scope itself, and it is recorded here
+because it makes this page's `commit` column non-comparable with any future one.
+
+`LuauUI/commit` names **two** passes on purpose — the adapter commit after a solve, and
+the paint/semantics prop-write pass — because one bar answers "is the framework's output
+cheap relative to its solve" better than eight. The prop pass was guarded on
+`#dirty > 0`, which asks *"is there dirt"*, not *"is there dirt I will act on"*.
+
+**Measured on this very workload: 0.00 prop writes per rep over 24 reps**, because a rep
+changes one LAYOUT prop. So roughly **half of the 2.07 `commit` occurrences per frame in
+every capture on this page were a pass that walked the dirty list and wrote nothing** —
+the annotation overhead the guard's own comment warns about, arriving *through* the
+guard. The loop body only ever writes paint/semantics props, so "no such entry" and
+"this loop is a no-op" are the same statement; the guard now asks the real question.
+
+**What that means for the numbers above.** The −8.8 % / −18.9 % are real — both arms
+carried the same empty pass, so it cancels in the comparison — but they are **diluted**:
+the measured scope was part real work and part no-op, so the true saving on the write
+path is larger than the figure. A capture taken after this fix will show **fewer, larger
+`commit` occurrences**, and its ms/occ will not be comparable with this page's. Compare
+ms/**frame**, not ms/occ, across that boundary.
+
+## 7. Three lab defects found by running it
 
 1. **`hostmove1.html` is a zero-frame aggregate** — the fourth such aiming failure in
    this lab's history (`tableUnified.html`, 2026-08-15, was the third). The handoff note

@@ -46,6 +46,7 @@ local mountLib = require("../src/mount")
 local environment = require("../src/env/environment")
 local rendererLib = require("../src/render/renderer")
 local fake_target = require("./lib/fake_target")
+local profile = require("../src/core/profile")
 
 -- `tapAt` IS A DRIVE, NOT A QUERY, and it says so by answering `nil` when the
 -- surface has no `onNodeTap` — it resolves the target, dispatches the press, and
@@ -430,5 +431,131 @@ describe("ADR-0032: a host's rect lands BEFORE its descendants', or they re-base
 		expect(adapter.isHost("/S/Outer")).toBe(true)
 		expect(adapter.isHost("/S/Outer/Group")).toBe(true)
 		expect(#hostOrderProblems(adapter)).toBe(0)
+	end)
+end)
+
+describe("a layout-only frame does not open a commit scope that commits nothing", function()
+	--[[ FOUND IN THE DEVICE CAPTURES, 2026-08-17, and it is a measurement error as
+		much as a cost.
+
+		`LuauUI/commit` names TWO different passes on purpose — the adapter commit
+		after a solve (rects, visibility, z-order, transforms) and the paint/semantics
+		PROP-WRITE pass — because "is the framework's output cheap relative to its
+		solve" is better answered by one bar than by eight. Fine. But the prop pass
+		was guarded on `#dirty > 0`, which asks "is there dirt", not "is there dirt I
+		will act on".
+
+		MEASURED on the `host-move` workload, whose rep changes exactly one LAYOUT
+		prop (the header's height): **0.00 prop writes per rep over 24 reps**, while
+		`commit` opened 2.07 times per frame in every device capture. Half of every
+		`commit` occurrence was this pass, walking the dirty list and writing nothing
+		— which is precisely the annotation overhead the guard's own comment warns
+		about, arriving THROUGH the guard rather than past it. It also diluted the
+		round's own headline: the −18.9 % measured on `commit` mixes a pass that does
+		the work with one that cannot.
+
+		So the guard now asks the real question. The loop body is only ever
+		paint/semantics writes, so "no paint/semantics entry" and "this loop is a
+		no-op" are the same statement, and skipping it cannot change behaviour.
+	]]
+	local function withRecorder<T>(fn: (log: { string }) -> T): T
+		local log: { string } = {}
+		profile.resetCounters()
+		profile.setEnabled(true)
+		profile.setHooks(function(label: string)
+			table.insert(log, label)
+		end, function() end)
+		local ok, result = pcall(fn, log)
+		profile.setHooks(nil, nil)
+		profile.setEnabled(false)
+		profile.resetCounters()
+		if not ok then
+			error(result, 0)
+		end
+		return result :: T
+	end
+
+	local function countCommits(log: { string }): number
+		local n = 0
+		for _, label in log do
+			if label == "LuauUI/commit" then
+				n += 1
+			end
+		end
+		return n
+	end
+
+	it("a LAYOUT-only change opens commit once, and writes no props", function()
+		local core = customFactory.new()
+		local tall = core:signal(true)
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = {
+					UI.Box({
+						id = "Header",
+						surface = "raised",
+						height = core:memo(function(use)
+							return { type = "fixed", px = if use(tall) then 60 else 20 }
+						end),
+					}),
+					UI.Box({ id = "Body", surface = "raised" }),
+				},
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local before = controller.stats().propWrites
+
+		local commits = withRecorder(function(log)
+			tall:set(false)
+			controller.refresh()
+			return countCommits(log)
+		end)
+
+		-- the frame really did nothing paint-shaped, which is what makes the
+		-- second scope unearned rather than merely cheap
+		expect(controller.stats().propWrites - before).toBe(0)
+		-- ...and the geometry really did change, or this proves nothing at all
+		expect(adapter.node("/S/Body").rect.y).toBe(20)
+		expect(commits).toBe(1)
+	end)
+
+	it("NEGATIVE CONTROL: a PAINT change still opens the prop pass", function()
+		local core = customFactory.new()
+		local label = core:signal("one")
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local root = mountLib.mount(
+			core,
+			UI.Screen({
+				id = "S",
+				padding = 0,
+				gap = 0,
+				children = { UI.Text({ id = "T", text = core:memo(function(use)
+					return use(label)
+				end) }) },
+			})
+		)
+		local adapter = fake_target.new()
+		local controller = rendererLib.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		local before = controller.stats().propWrites
+		local commits = withRecorder(function(log)
+			label:set("two")
+			controller.refresh()
+			return countCommits(log)
+		end)
+		-- without this case, "never open the second scope" would pass everything
+		expect(controller.stats().propWrites - before > 0).toBe(true)
+		expect(commits).toBe(2)
 	end)
 end)

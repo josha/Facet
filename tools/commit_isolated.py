@@ -94,6 +94,7 @@ claim is auditable after the fact rather than merely trusted.
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -239,6 +240,22 @@ def main():
             # file: you have verified the file is yours. A marker filter cannot mean
             # anything on one, so asking for both is refused rather than silently
             # ignored.
+            # A MODE-ONLY CHANGE HAS NO HUNKS EITHER, and it is the same mistake
+            # one step smaller: `chmod +x` on a tracked script produces
+            # `old mode 100644 / new mode 100755` and not a single `@@`. Found
+            # 2026-08-17 on `tools/microprofiler_aggregate.py`, minutes after the
+            # binary case, and it matters here for a recorded reason — this script
+            # lands NEW files at 100644, so an executable tool can pass `test -x`
+            # locally while a fresh clone gets permission denied, and the ONLY way
+            # to correct that afterwards is a mode-only commit.
+            if "old mode " in diff and "new mode " in diff:
+                if markers:
+                    die(f"{path} is a MODE-ONLY change and markers cannot select inside one — refusing", 2)
+                blob = git(["hash-object", "-w", path]).strip()
+                mode = re.search(r"new mode (\d+)", diff).group(1)
+                git(["update-index", "--add", "--cacheinfo", f"{mode},{blob},{path}"], env=env)
+                print(f"  MODE   {path}  ({mode})")
+                continue
             if "GIT binary patch" in diff or "Binary files" in diff:
                 if markers:
                     die(f"{path} is BINARY and markers cannot select inside one — refusing", 2)

@@ -3044,11 +3044,21 @@ function renderer.attach(
 		end
 		-- prop writes for changed nodes (paint/semantics): write ONLY the
 		-- changed prop, once, even when it dirtied several classes
-		if #dirty > 0 then
-			-- MICROPROFILER PHASE `LuauUI/commit`: adapter property writes. Guarded
-			-- on there being any dirt at all, so an idle frame pays a comparison
-			-- rather than a scope — an idle frame with a scope in it is exactly the
-			-- annotation overhead the plan warns about.
+		-- ...AND ON DIRT THIS PASS WILL ACT ON, not merely dirt: the loop below writes
+		-- paint/semantics props and nothing else. A layout-only frame walked it and
+		-- committed nothing, 2.07x per frame in every device capture
+		-- (tests/nested_tree_pins.spec, "a layout-only frame does not open a commit
+		-- scope that commits nothing").
+		local hasPaintDirt = false
+		for _, entry in dirty do
+			if (entry.class == "paint" or entry.class == "semantics") and entry.prop ~= nil then
+				hasPaintDirt = true
+				break
+			end
+		end
+		if hasPaintDirt then
+			-- MICROPROFILER PHASE `LuauUI/commit`: adapter property writes. Guarded so
+			-- an idle frame pays a comparison rather than a scope.
 			profile.span("commit", function()
 				local seen: { [string]: boolean } = {}
 				for _, entry in dirty do
