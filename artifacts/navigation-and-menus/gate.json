@@ -1,7 +1,7 @@
 {
   "checks": [
     {
-      "detail": "check_manifest_integrity: 1464 suite greps, all anchored to the pass marker",
+      "detail": "check_manifest_integrity: 1477 suite greps, all anchored to the pass marker",
       "evidence": "artifacts/navigation-and-menus/sweep-economy.md",
       "name": "d0-one-run-per-sweep",
       "releaseBlocking": false,
@@ -11,7 +11,7 @@
       "state": "PASS"
     },
     {
-      "detail": "suite cache selftest\n  ✓ --fingerprint prints a content hash\n  ✓ fingerprint is stable across calls on an unchanged tree\n  ✓ a new file under tests/ changes the fingerprint\n  ✓ a cache holding the PREVIOUS tree state reports a MISS for the new one\n  ✓ editing a file's CONTENT changes the fingerprint\n  ✓ removing the edit restores the original fingerprint\n  ✓ an absent cache reports MISS (hit-or-run, never trust-the-file)\n  ✓ a transcript with no meta reports MISS\n  ✓ a foreign fingerprint reports MISS\n  ✓ a RED suite (non-zero exit) is refused\n  ✓ a suite with failures is refused\n  ✓ a TRUNCATED transcript (no summary line) is refused\n  ✓ a FAST-TIER transcript is refused\n  ✓ an EMPTY transcript is refused\n  ✓ a transcript mutated on disk after caching is refused\n  ✓ a valid cache is served verbatim and exits 0\nartifacts/suite_cache/1ce034d12a9e5219a9199fbdc32cf6936403f586aa514fd47d2a2a3a35255143.txt\n  ✓ tools/test.sh --ensure-cache leaves a valid cache\n  ✓ a warm call re-runs nothing (transcript untouched, 0s)\n    (warm call: 0s wall — informational; the mtime check above is the claim)\n  ✓ an unchanged tree reports a cache HIT\n  ✓ RascalRally: --fingerprint prints a content hash\n  ✓ RascalRally: a LuauUI-side edit changes the RascalRally fingerprint\n  ✓ RascalRally: LuauUI src/ is a declared fingerprint root\n  ✓ RascalRally: a RED suite is refused\n  ✓ RascalRally: a suite with failures is refused\n  ✓ RascalRally: a TRUNCATED transcript is refused\n  ✓ RascalRally: a valid transcript is served\n    (RascalRally warm call: 0s wall — informational, same reason)\n\nsuite cache selftest: 26 passed, 0 failed",
+      "detail": "suite cache selftest\n  ✓ --fingerprint prints a content hash\n  ✓ fingerprint is stable across calls on an unchanged tree\n  ✓ a new file under tests/ changes the fingerprint\n  ✓ a cache holding the PREVIOUS tree state reports a MISS for the new one\n  ✓ editing a file's CONTENT changes the fingerprint\n  ✓ removing the edit restores the original fingerprint\n  ✓ an absent cache reports MISS (hit-or-run, never trust-the-file)\n  ✓ a transcript with no meta reports MISS\n  ✓ a foreign fingerprint reports MISS\n  ✓ a RED suite (non-zero exit) is refused\n  ✓ a suite with failures is refused\n  ✓ a TRUNCATED transcript (no summary line) is refused\n  ✓ a FAST-TIER transcript is refused\n  ✓ an EMPTY transcript is refused\n  ✓ a transcript mutated on disk after caching is refused\n  ✓ a valid cache is served verbatim and exits 0\nartifacts/suite_cache/c3b05c221ea3babd5e88e7aa6edea792900774ba3f23acfa58fd2a4179511adc.txt\n  ✓ tools/test.sh --ensure-cache leaves a valid cache\n  ✓ a warm call re-runs nothing (transcript untouched, 0s)\n    (warm call: 0s wall — informational; the mtime check above is the claim)\n  ✓ an unchanged tree reports a cache HIT\n  ✓ RascalRally: --fingerprint prints a content hash\n  ✓ RascalRally: a LuauUI-side edit changes the RascalRally fingerprint\n  ✓ RascalRally: LuauUI src/ is a declared fingerprint root\n  ✓ RascalRally: a RED suite is refused\n  ✓ RascalRally: a suite with failures is refused\n  ✓ RascalRally: a TRUNCATED transcript is refused\n  ✓ RascalRally: a valid transcript is served\n    (RascalRally warm call: 0s wall — informational, same reason)\n\nsuite cache selftest: 26 passed, 0 failed",
       "evidence": "artifacts/navigation-and-menus/suite-cache-selftest.md",
       "name": "d0-cache-guards-bite",
       "releaseBlocking": false,
@@ -21,7 +21,7 @@
       "state": "PASS"
     },
     {
-      "detail": "check_manifest_integrity: 1464 suite greps, all anchored to the pass marker; 1464 matched a green transcript (0 negated, not match-checked)",
+      "detail": "check_manifest_integrity: 1477 suite greps, all anchored to the pass marker; 1477 matched a green transcript (0 negated, not match-checked)",
       "evidence": "artifacts/navigation-and-menus/grep-match-check.md",
       "name": "d0-greps-still-match",
       "releaseBlocking": false,
@@ -42,7 +42,7 @@
       "state": "PASS"
     },
     {
-      "detail": "check_registration: PASS (32 controls, 97 exports documented, 226 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)\ncheck_surface_ledger: PASS (every public export and nested member is classified; constitution linked)\ncheck_source_size: PASS — every module in src/ is under the 200,000-char Source-write cap, and KNOWN_OVER is empty. Nothing is waived: a file that reaches the cap fails on the run that crosses it.",
+      "detail": "check_registration: PASS (32 controls, 97 exports documented, 231 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)\ncheck_surface_ledger: PASS (every public export and nested member is classified; constitution linked)\ncheck_source_size: PASS — every module in src/ is under the 200,000-char Source-write cap, and KNOWN_OVER is empty. Nothing is waived: a file that reaches the cap fails on the run that crosses it.",
       "evidence": "artifacts/navigation-and-menus/d2-menu.md",
       "name": "d2-menu",
       "releaseBlocking": false,
@@ -65,7 +65,7 @@
       "state": "PASS"
     },
     {
-      "detail": "check_registration: PASS (32 controls, 97 exports documented, 226 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)\ncheck_surface_ledger: PASS (every public export and nested member is classified; constitution linked)",
+      "detail": "check_registration: PASS (32 controls, 97 exports documented, 231 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)\ncheck_surface_ledger: PASS (every public export and nested member is classified; constitution linked)",
       "evidence": "artifacts/navigation-and-menus/d3b-callout.md",
       "name": "d3b-callout",
       "releaseBlocking": false,
@@ -77,7 +77,7 @@
       "state": "PASS"
     },
     {
-      "detail": "check_registration: PASS (32 controls, 97 exports documented, 226 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)",
+      "detail": "check_registration: PASS (32 controls, 97 exports documented, 231 specs registered, 19 interactive controls prove four-input, 19 prove the paradigm axis)",
       "evidence": "artifacts/navigation-and-menus/d4-sliding-indicator.md",
       "name": "d4-sliding-indicator",
       "releaseBlocking": false,

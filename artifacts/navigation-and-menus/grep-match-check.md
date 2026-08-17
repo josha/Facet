@@ -5,8 +5,8 @@ syntactic property; this is the semantic one. A renamed spec case leaves its gre
 perfectly anchored and matching nothing, which is how two consecutive stages found
 a rename by hand instead of in the commit that caused it.
 
-- suite greps discovered: **1464** (luauui 1363, rascalrally 101)
-- matched a line in a green transcript: **1464**
+- suite greps discovered: **1477** (luauui 1376, rascalrally 101)
+- matched a line in a green transcript: **1477**
 - negated (`grep -v`), not match-checked: **0**
 - matching ZERO lines: **0**
 
