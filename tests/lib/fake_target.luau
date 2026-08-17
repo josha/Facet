@@ -326,7 +326,14 @@ function fake_target.new(opts: Opts?)
 			-- (mirrors screen_target's Path2D creation)
 			node.pathRoleColor = pathRoleColor(nil)
 		end
-		if FAKE_ELIDABLE[class] and decorationHint == nil and (createOpts == nil or createOpts.canvasGroup ~= true) then
+		-- ANY creation option means a real engine object is required, mirroring the
+		-- live guard exactly (ADR-0032 Decision 4). This read
+		-- `createOpts.canvasGroup ~= true` while a group was the only option there
+		-- was, and when a second option arrived the fake happily elided a node it had
+		-- just registered as a real parent — a host with no instance to be one, green
+		-- headless and impossible live. Precisely the divergence this target exists
+		-- to prevent, found by the elision census refusing to show the step's cost.
+		if FAKE_ELIDABLE[class] and decorationHint == nil and createOpts == nil then
 			node.elided = true
 		end
 		if class == "Foreign" then

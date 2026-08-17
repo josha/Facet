@@ -37,6 +37,7 @@ local layout_node = require("./layout_node")
 -- the hit-expander overhang lift: the paint order a touch floor needs to be
 -- deliverable (its own file for the same 200k reason `layout_node` is)
 local hit_lift = require("./hit_lift")
+local instance_boundary = require("./instance_boundary")
 local chrome_slots = require("../tokens/chrome_slots")
 -- public drag/drop (ADR-0022 D5): the declaration channel and the per-surface
 -- registry that turns declarations into one acquisition→session→terminal path
@@ -1032,8 +1033,11 @@ function renderer.attach(
 	-- windowed list rebuilds its cell blueprints on every slide, so a
 	-- content-equal hint is a different table by construction and
 	-- `tostring(hint)` made every hinted node's bucket unreachable (L-28)
-	local function recycleKey(class: string, hint: any, canvasGroup: boolean, propSig: string): string
-		return `{class}\0{chrome_slots.hintKey(hint)}\0{tostring(canvasGroup)}\0{propSig}`
+	-- `createKind` names the ENGINE OBJECT (`render/instance_boundary.kindOf`), not
+	-- merely whether there were creation options: two kinds that produce different
+	-- classes must never share a bucket.
+	local function recycleKey(class: string, hint: any, createKind: string, propSig: string): string
+		return `{class}\0{chrome_slots.hintKey(hint)}\0{createKind}\0{propSig}`
 	end
 	local function drainRecyclePool()
 		if recyclePooled == 0 then
@@ -1084,19 +1088,13 @@ function renderer.attach(
 			-- skinning is the adapter's LAST construction step: a hint delivered
 			-- afterwards would build one decoration and immediately churn it for
 			-- another. Targets that do not skin ignore the argument.
-			-- 5th argument: CREATION-TIME facts the adapter can only honour while it
-			-- is choosing the engine object. `canvasGroup` decides the node's engine
-			-- CLASS (ADR-0022 Decision 2), so it cannot arrive as a later prop write —
-			-- the instance would already exist. Absent for every ordinary node, and
-			-- targets that do not group simply ignore the argument.
-			-- AN AUTHORED `opacity` IS A `canvasGroup` DECLARATION (ADR-0026
-			-- Decision 4): a fade is a GroupTransparency fact, so the node carrying
-			-- one has to BE the group. Creation-time exactly as the explicit prop is,
-			-- and on the same recycle-key input, so a bucket cannot mix the two.
-			local createOpts: any = nil
-			if node.props ~= nil and (node.props.canvasGroup == true or node.props.opacity ~= nil) then
-				createOpts = { canvasGroup = true }
-			end
+			-- 5th argument: the creation-time facts the adapter can only honour while
+			-- it is CHOOSING the engine object, so they cannot arrive as a later prop
+			-- write. WHICH nodes earn one, and of which kind, is ADR-0032 Decision 2's
+			-- boundary predicate and lives in `render/instance_boundary` — the one
+			-- predicate the nested-tree migration changes, and the reason it has a
+			-- module rather than two branches in the busiest function here.
+			local createOpts: any = instance_boundary.createOptsFor(node)
 			local hint = chrome_slots.readHint(node)
 			-- A STAGE IS NEVER A DECORATION SURFACE (reference-app matrix,
 			-- 2026-08-08). An ornate package's whole-art recipe painted its
@@ -1121,7 +1119,7 @@ function renderer.attach(
 			end
 			local adopted: any = nil
 			if recycleEnabled then
-				local key = recycleKey(node.class, hint, createOpts ~= nil, propSignature(node))
+				local key = recycleKey(node.class, hint, instance_boundary.kindOf(createOpts), propSignature(node))
 				local bucket = recyclePool[key]
 				if bucket ~= nil and #bucket > 0 then
 					local candidate = table.remove(bucket)
@@ -1163,7 +1161,8 @@ function renderer.attach(
 				end
 			end
 			if recycleEnabled then
-				recycleKeyOf[node.path] = recycleKey(node.class, hint, createOpts ~= nil, propSignature(node))
+				recycleKeyOf[node.path] =
+					recycleKey(node.class, hint, instance_boundary.kindOf(createOpts), propSignature(node))
 			end
 			-- THE PER-CONTROL SENSORY VERB, published once per handle (see
 			-- target_contract's `setActivationFeedback`). Bounded to the classes

@@ -1114,13 +1114,19 @@ function screen_target.new(opts: Opts?)
 		path: string,
 		class: string,
 		decorationHint: any?,
-		createOpts: { canvasGroup: boolean? }?
+		createOpts: { canvasGroup: boolean?, instanceHost: boolean? }?
 	): any
 		if
 			elideContainers
 			and ELIDABLE_CLASSES[class]
 			and decorationHint == nil
-			and (createOpts == nil or createOpts.canvasGroup ~= true)
+			-- ANY creation option means the node needs a real engine object: a fade
+			-- group needs to BE a CanvasGroup, and a declared instance host needs to
+			-- exist before anything can parent under it (ADR-0032 Decision 4). This
+			-- read `createOpts.canvasGroup ~= true` while a group was the only option
+			-- there was; the elided-host case would have registered a parent with no
+			-- instance to be one.
+			and createOpts == nil
 		then
 			-- the construction arguments ride along so materialisation builds exactly
 			-- what an eager create would have built
@@ -1141,7 +1147,7 @@ function screen_target.new(opts: Opts?)
 		path: string,
 		class: string,
 		decorationHint: any?,
-		createOpts: { canvasGroup: boolean? }?
+		createOpts: { canvasGroup: boolean?, instanceHost: boolean? }?
 	): any
 		local instanceClass = CLASS_TO_INSTANCE[class] or "Frame"
 		-- THE FADE GROUP (ADR-0022 Decision 2). A CanvasGroup renders its subtree
@@ -1218,6 +1224,15 @@ function screen_target.new(opts: Opts?)
 			end
 			assertBespokePaint("BackgroundTransparency", handle)
 			instance.BackgroundTransparency = 1
+		end
+		if createOpts ~= nil and createOpts.instanceHost == true and instance:IsA("GuiObject") then
+			-- A DECLARED MOVE/COMPOSITE BOUNDARY (ADR-0032 Decision 2/4): a real
+			-- instance parent so the engine carries `Rotation` and `UIScale` down the
+			-- subtree, and a PLAIN one — `crops = false`, no `ClipsDescendants`, no
+			-- CanvasGroup buffer. Those three costs are commonly attributed to
+			-- nesting and none of them belongs to it: a move-boundary host is one
+			-- extra Frame and nothing else.
+			registerHost(path, instance, handle.windowRect, false)
 		end
 		if class == "Divider" then
 			-- a Divider MUST paint: an unstyled Frame would be an invisible

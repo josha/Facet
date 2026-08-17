@@ -203,7 +203,7 @@ describe("ADR-0032 Consequences: tapAt and the z counter cannot disagree", funct
 	end)
 end)
 
-describe("ADR-0032 D4/D5: an authored transform reaches ONE node — today", function()
+describe("ADR-0032 D4/D5: the framework writes ONE node, the engine carries the subtree", function()
 	local function scaledContainer()
 		return UI.Screen({
 			id = "S",
@@ -228,26 +228,80 @@ describe("ADR-0032 D4/D5: an authored transform reaches ONE node — today", fun
 		expect(turned.props.transform.rotation).toBeCloseTo(30)
 	end)
 
-	it("PINNED FOR REVERSAL (step 4): its contents do not, and that is the defect", function()
-		--[[ THIS CASE IS EXPECTED TO GO RED WHEN ADR-0032 STEP 4 LANDS, and it is
-			written that way deliberately. Measured live through the real framework:
-			two identical ZStacks at `rotation = 30, scale = 1.5` with identical
-			80x40 children — flat leaves the children 80x40 and `Rotation = 0`;
-			`canvasGroup = true` makes them 120x60 riding the parent's pivot, and NO
-			FRAMEWORK CODE DID THAT, the engine did.
+	it("UPDATED WHEN STEP 4 LANDED: the framework still writes ONE node — the engine carries it", function()
+		--[[ THIS CASE WAS WRITTEN TO BE REVERSED, AND HERE IS THE REVERSAL, WITH ITS
+			REASON, WHICH IS THE ONLY HONEST WAY TO CHANGE A PIN.
 
-			So the flat result is not a missing feature, it is a container visibly
-			detaching from its own contents. When the step that fixes it arrives,
-			this case must be UPDATED with a stated reason rather than quietly
-			deleted — which is the whole point of writing it before the change.
+			It was written in step 2, while the tree was still flat, asserting that a
+			container's `scale`/`rotation` reached ONE node and its contents did not
+			move — measured live as two identical ZStacks at `rotation = 30,
+			scale = 1.5` with identical 80x40 children, where flat left the children
+			80x40 and `Rotation = 0`: a rotated plate with its contents sitting bolt
+			upright beside it. Not a missing feature; a container visibly detaching
+			from its own contents.
+
+			STEP 4 CHANGED THE ENGINE'S ANSWER AND NOT THE FRAMEWORK'S, and that
+			distinction is why half of this case is unchanged. The framework still
+			writes exactly one term on exactly one node — ADR-0026 Decision 7 holds
+			verbatim, and the assertion below is the same one it always was. What
+			changed is that the node is now a real instance parent, so the ENGINE
+			composes both terms for the subtree. ADR-0032 Decision 5: an
+			engine-composed descendant effect is not a second writer, because it is
+			not a write to the descendant's property at all.
+
+			SO WHAT THIS CASE CAN AND CANNOT SEE. It runs against the fake target,
+			which models the framework and not the engine — it has no `Rotation`, no
+			`UIScale`, and no compositor. It can prove the framework's restraint and
+			the DELIVERY MECHANISM (the container is a host, the child parents under
+			it), which is exactly what the case below asserts. It CANNOT prove the
+			engine actually composes; that claim is live-only and is owed a Studio
+			capture. Labelled here rather than implied, because a headless green that
+			reads like an engine claim is how this project has shipped defects before.
 		]]
 		local adapter = render(scaledContainer())
 		local content = adapter.node("/S/Turned/Content")
-		-- no transform of its own: the framework writes one term on one node and
-		-- never accumulates paint down the subtree (ADR-0026 Decision 7)
+		-- unchanged, and still the point: the framework writes one term on one node
+		-- and never accumulates paint down the subtree (ADR-0026 Decision 7)
 		expect(content.props.transform).toBeNil()
-		-- ...so nothing scales its painted box either
+		-- ...and no per-descendant scaling appeared in the framework's own model
 		expect(content.presentedVisualRect).toBeNil()
+	end)
+
+	it("STEP 4: the delivery mechanism — the container became a real parent", function()
+		local adapter = render(scaledContainer())
+		-- THIS is what step 4 actually built. `Rotation` and `UIScale` were always
+		-- written on this node's own instance; the only thing missing was that its
+		-- subtree was not inside it.
+		expect(adapter.isHost("/S/Turned")).toBe(true)
+		expect((adapter.hostOf("/S/Turned/Content") :: any).path).toBe("/S/Turned")
+		-- A PLAIN FRAME, NOT A GROUP. A CanvasGroup would compose the same two terms
+		-- and charge an offscreen render buffer for it, which is a cost the live
+		-- consumer already declines by name. `opacity` still needs the group —
+		-- `GroupTransparency` is the only property that fades a subtree as one —
+		-- so `crops` is what separates them, and a plain host crops nothing.
+		expect((adapter.hostOf("/S/Turned/Content") :: any).crops).toBe(false)
+	end)
+
+	it("STEP 4 IS BOUNDED: a rotated LEAF earns nothing, and neither does an empty container", function()
+		local adapter = render(UI.Screen({
+			id = "S",
+			padding = 0,
+			gap = 0,
+			children = {
+				-- a leaf already rotates correctly: it has no subtree for an engine to
+				-- carry anything down, so a host would cost a pool refusal to deliver
+				-- nothing
+				UI.Box({ id = "Leaf", surface = "raised", rotation = 30 }),
+				-- ...and a container with the prop but nothing in it is the same case
+				UI.ZStack({ id = "Empty", scale = 1.5, children = {} }),
+				-- ...and a container with children but NEITHER prop is untouched,
+				-- which is what makes step 4 additive
+				UI.ZStack({ id = "Ordinary", children = { UI.Box({ id = "Kid", surface = "raised" }) } }),
+			},
+		}))
+		expect(adapter.isHost("/S/Leaf")).toBe(false)
+		expect(adapter.isHost("/S/Empty")).toBe(false)
+		expect(adapter.isHost("/S/Ordinary")).toBe(false)
 	end)
 
 	it("the POSITION half does accumulate, and that is the mechanism nesting replaces", function()
