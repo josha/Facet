@@ -1143,7 +1143,9 @@ function renderer.attach(
 					-- the incoming hint rides along so the adapter can hold its own
 					-- mismatch rule (the bucket key already agrees by construction,
 					-- but the adapter must not depend on its caller's bookkeeping)
-					if adapter.adopt(candidate, node.path, node.class, hint) then
+					-- ...AND SO DOES THIS SURFACE'S ROOT (NM-H4a): an adoption re-parents,
+					-- and only the caller knows which surface it re-parents into.
+					if adapter.adopt(candidate, node.path, node.class, hint, rootHandle) then
 						adopted = candidate
 						-- restore the instance's own property record under its new path,
 						-- so `applyProps` writes only what actually differs

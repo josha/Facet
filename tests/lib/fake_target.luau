@@ -145,6 +145,10 @@ function fake_target.new(opts: Opts?)
 	local nodes: { [string]: any } = {}
 	local ops: { string } = {}
 	local rootCount = 0
+	-- MIRRORS `screen_target`'s module-scope `lastRootHandle`: the root of the last
+	-- `create` on this target, whichever surface asked for it. `adopt` is the only
+	-- reader, because `adopt` is the only entry point that is not told its root.
+	local lastCreatedRoot: any = nil
 
 	--[[ THE INSTANCE-HOST MIRROR (ADR-0032), AND WHY A TARGET WITH NO INSTANCES
 		HAS ONE AT ALL.
@@ -352,6 +356,14 @@ function fake_target.new(opts: Opts?)
 			node.instanceHost = host
 			table.insert(host.children, node)
 		end
+		-- WHICH SURFACE ROOT THIS NODE HANGS UNDER, mirroring the live adapter's
+		-- `if host ~= nil then instance.Parent = host.instance else instance.Parent =
+		-- rootHandle.gui` (screen_target `buildHandle`). Nil means "inside a host
+		-- instead", which is the same answer the live tree gives. A create is handed
+		-- its own root and is always right; `adopt` is not handed one at all, which
+		-- is the whole reason this record exists — see `adapter.adopt`.
+		node.parentRoot = if host ~= nil then nil else rootHandle
+		lastCreatedRoot = rootHandle
 		nodes[path] = node
 		table.insert(ops, `create {path} ({class})`)
 		-- born under a live transform: the first placement already carries the offset
@@ -671,7 +683,7 @@ function fake_target.new(opts: Opts?)
 		return true
 	end
 
-	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any): boolean
+	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any, rootHandle: any): boolean
 		if handle == nil or handle.parked ~= true or handle.class ~= newClass then
 			return false
 		end
@@ -685,6 +697,20 @@ function fake_target.new(opts: Opts?)
 		handle.parked = nil
 		handle.alive = true
 		handle.path = newPath
+		--[[ WHERE AN ADOPTED NODE LANDS, mirroring the live adapter exactly. `park`
+			unparented this instance, so `adopt` has to parent it again: into its
+			instance host if it has one, and otherwise under the root of the surface
+			doing the adopting — which the renderer now passes in (NM-H4a).
+
+			`lastCreatedRoot` is the answer this used to give, and it stays as the
+			fallback for a caller that passes no root — which is also exactly the
+			shipped defect, so reverting the renderer's one extra argument reddens
+			the regression in `instance_recycling.spec` without touching this file.
+			A fake with no parent record at all is how 288 headless replays of this
+			defect saw nothing. ]]
+		handle.parentRoot = if hostFor(newPath) ~= nil
+			then handle.parentRoot
+			else (if rootHandle ~= nil then rootHandle else lastCreatedRoot)
 		nodes[newPath] = handle
 		table.insert(ops, `adopt {newPath} ({newClass})`)
 		adapter._composePresentation(handle)
@@ -1838,6 +1864,16 @@ function fake_target.new(opts: Opts?)
 	end
 	function adapter.node(path: string): any
 		return nodes[path]
+	end
+	--[[ WHICH SURFACE ROOT THIS NODE IS PARENTED UNDER, or nil when it lives
+		inside an instance host instead. The live adapter answers this with
+		`instance.Parent`; nothing headless could ask it before, which is exactly
+		why a node adopted into the WRONG surface's ScreenGui was invisible to
+		every replay of NM-H4a. ]]
+	function adapter.rootIdOf(path: string): string?
+		local node = nodes[path]
+		local root = if node ~= nil then node.parentRoot else nil
+		return if root ~= nil then root.id else nil
 	end
 	-- every live node path, sorted (test-only enumeration)
 	function adapter.paths(): { string }

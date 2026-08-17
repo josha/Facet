@@ -609,3 +609,145 @@ describe("hud: the probe's plate is on a surface the HUD's own walk cannot reach
 		expect(left).toBe(0)
 	end)
 end)
+
+--[[ NM-H4a — THE SEQUENCE ON A TARGET THAT HOSTS THE SURFACES THE PHONE HOSTS.
+
+	The describe above drives the director's sequence against a world holding the
+	HUD and its own probe plate. The phone holds more: the gallery presents its
+	showcase screen ON TOP of the scenario's (`examples/gallery/client/
+	init.client.luau:961` after `:444`), and the ··· sink opens a fourth surface
+	over both.
+
+	That is not decoration. `park`/`adopt` move an instance between identities and
+	`adopt` is never told which ROOT it is adopting for, so `screen_target` used
+	the root of the last `create` anywhere on the adapter. With one surface that
+	is always right. With several it is right by luck, and when the luck runs out
+	a HUD node is re-parented into another surface's ScreenGui — same rect, same
+	ZIndex, `Visible = true`, drawn somewhere else or not at all.
+
+	So this block re-drives the same sequence with a second live surface above the
+	HUD and asserts the thing the first block could not see: every HUD node is
+	parented under the HUD's own root, and the painted tree still matches a fresh
+	mount. ]]
+describe("hud: the director's sequence with the gallery's other surfaces present", function()
+	local function screenAbove(core: any, count: any): any
+		local items = core:memo(function(use: any)
+			local out = {}
+			for i = 1, use(count) do
+				table.insert(out, { id = `c{i}` })
+			end
+			return out
+		end)
+		return LuauUI.UI.Screen({
+			id = "Showcase",
+			children = {
+				LuauUI.UI.VStack({
+					id = "ShowcaseCol",
+					children = {
+						LuauUI.UI.ForEach({
+							id = "ShowcaseItems",
+							items = items,
+							key = function(item: any)
+								return item.id
+							end,
+							row = function(item: any)
+								return LuauUI.UI.Text({ id = "ShowcaseText", text = item.id, textSize = 15 })
+							end,
+						}),
+					},
+				}),
+			},
+		})
+	end
+
+	-- every node whose path says one surface and whose parent says another
+	local function misparented(adapter: any): { string }
+		local out: { string } = {}
+		for _, path in adapter.paths() do
+			local own = string.match(path, "^/([^/]+)")
+			local under = adapter.rootIdOf(path)
+			if under ~= nil and own ~= nil and under ~= own then
+				table.insert(out, `{path} under '{under}'`)
+			end
+		end
+		return out
+	end
+
+	it("no HUD node is left parented under another surface's root", function()
+		local w = world(PORTRAIT)
+		local built = mount(w, ctxFor(w))
+		local count = w.core:signal(0)
+		w.presenter.present(screenAbove(w.core, count), {})
+		w.presenter.refresh()
+
+		--[[ THE OTHER SURFACE CHANGES WHILE THE HUD DOES, which is what a rotation
+			does to a real gallery: both surfaces re-solve in the same frame and the
+			last create on the adapter belongs to whichever ran last. ]]
+		built.steps.openOverflow(built)
+		w.presenter.refresh()
+		built.steps.closeOverflow(built)
+		w.presenter.refresh()
+
+		for cycle = 1, 2 do
+			rotate(w, LANDSCAPE)
+			count:set(cycle * 2)
+			w.presenter.refresh()
+			built.steps.openUrlBar(built)
+			w.presenter.refresh()
+			built.steps.closeUrlBar(built)
+			w.presenter.refresh()
+
+			rotate(w, PORTRAIT)
+			count:set(cycle * 2 + 1)
+			w.presenter.refresh()
+			built.steps.openUrlBar(built)
+			w.presenter.refresh()
+			built.steps.closeUrlBar(built)
+			w.presenter.refresh()
+		end
+		rotate(w, LANDSCAPE)
+
+		-- the sequence has to actually recycle, or this proves nothing
+		expect(built.handle.controller.stats().recycled > 0).toBe(true)
+		expect(table.concat(misparented(w.adapter), " ; ")).toBe("")
+		built.dispose()
+	end)
+
+	it("...and the painted tree still equals a fresh mount's", function()
+		local w = world(PORTRAIT)
+		local built = mount(w, ctxFor(w))
+		local count = w.core:signal(0)
+		w.presenter.present(screenAbove(w.core, count), {})
+		w.presenter.refresh()
+		built.steps.openOverflow(built)
+		w.presenter.refresh()
+		built.steps.closeOverflow(built)
+		w.presenter.refresh()
+		for cycle = 1, 2 do
+			rotate(w, LANDSCAPE)
+			count:set(cycle * 2)
+			w.presenter.refresh()
+			built.steps.openUrlBar(built)
+			w.presenter.refresh()
+			built.steps.closeUrlBar(built)
+			w.presenter.refresh()
+			rotate(w, PORTRAIT)
+			count:set(cycle * 2 + 1)
+			w.presenter.refresh()
+			built.steps.openUrlBar(built)
+			w.presenter.refresh()
+			built.steps.closeUrlBar(built)
+			w.presenter.refresh()
+		end
+		rotate(w, LANDSCAPE)
+		local driven = paintedTree(w)
+		built.dispose()
+
+		local fw = world(LANDSCAPE)
+		local fresh = mount(fw, ctxFor(fw))
+		local freshTree = paintedTree(fw)
+		fresh.dispose()
+
+		expect(#divergences(driven, freshTree)).toBe(0)
+	end)
+end)

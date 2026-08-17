@@ -984,8 +984,6 @@ function screen_target.new(opts: Opts?)
 		applyBackdropPreference()
 	end
 
-	local lastRootHandle: any = nil
-
 	function adapter.createRoot(screenId: string): any
 		if opts and opts.rootFactory then
 			local made = opts.rootFactory(screenId)
@@ -1205,11 +1203,6 @@ function screen_target.new(opts: Opts?)
 			instance.Selectable = false -- selection policy (NS-A11): never selectable by default
 		end
 		local handle = { instance = instance, path = path, class = class }
-		-- the surface a recycled node is re-parented back under. Kept in a module
-		-- local, NOT on the handle: a field there is walked by the subtree index and
-		-- by the presentation channel, and adding one changed a motion's subtree
-		-- count from 3 to 5 before any of the recycling code even ran.
-		lastRootHandle = rootHandle
 		if instance:IsA("CanvasGroup") then
 			handle.canvasGroupInstance = instance
 			-- a fade group is a REAL PARENT: its descendants live inside it (which is
@@ -3656,11 +3649,31 @@ function screen_target.new(opts: Opts?)
 		return true
 	end
 
-	-- ADOPT: give a parked node a new identity. Every property the new node
-	-- declares is written by the renderer immediately afterwards (its per-path
-	-- caches were dropped when the old path died), so only IDENTITY is restored
-	-- here — the paint state is the renderer's job either way.
-	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any): boolean
+	--[[ ADOPT: give a parked node a new identity. Every property the new node
+		declares is written by the renderer immediately afterwards (its per-path
+		caches were dropped when the old path died), so only IDENTITY is restored
+		here — the paint state is the renderer's job either way.
+
+		`rootHandle` IS THE SURFACE THIS ADOPTION BELONGS TO, and it is a parameter
+		because it has to be (NM-H4a, root-caused 2026-08-17 from the director's
+		phone). `park` unparents; `adopt` has to parent again, and until this
+		argument existed the only root in reach was a module-scope local holding
+		whichever root had `create`d LAST — anywhere on the adapter.
+
+		One adapter hosts EVERY surface. The gallery presents its showcase screen
+		on top of a scenario's, the `hud` demo mounts a probe plate on a third, and
+		the ··· sink opens a fourth. So "the last root that created something" was
+		the right answer only by luck of ordering, and when the luck ran out a node
+		was re-parented into another surface's ScreenGui: same rect, same ZIndex,
+		`Visible = true`, and drawn either on the wrong layer or — once that surface
+		was disabled or destroyed — nowhere at all, permanently, because nothing
+		re-parents a node that already exists.
+
+		Every model-side instrument agreed with itself throughout, which is why 288
+		headless replays, 144 viewport pairs and 36 live Studio combinations all
+		diverged by zero: none of them asked what an instance's PARENT was.
+	]]
+	function adapter.adopt(handle: any, newPath: string, newClass: string, hint: any, rootHandle: any): boolean
 		if handle == nil or handle.parked ~= true then
 			return false
 		end
@@ -3705,7 +3718,7 @@ function screen_target.new(opts: Opts?)
 			if host ~= nil then
 				handle.instance.Parent = host.instance
 			else
-				handle.instance.Parent = lastRootHandle.gui
+				handle.instance.Parent = rootHandle.gui
 			end
 		end)
 		if not reparented then

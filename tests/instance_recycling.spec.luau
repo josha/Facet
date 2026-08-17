@@ -301,3 +301,168 @@ describe("instance recycling: a recycled node is indistinguishable from a fresh 
 		w.dispose()
 	end)
 end)
+
+--[[ NM-H4a — WHERE A RECYCLED NODE LANDS WHEN THE TARGET HOSTS MORE THAN ONE
+	SURFACE.
+
+	`park` takes an instance out of the tree and `adopt` puts it back. `adopt` is
+	handed the new path, the new class and the decoration hint — and NOT the root
+	it is adopting for. `screen_target` filled that gap with `lastRootHandle`, a
+	module-scope local holding whichever root the LAST `create` on this adapter
+	belonged to (screen_target.luau :987 / :1212 / :3708).
+
+	One adapter hosts every surface: the gallery presents its own showcase screen
+	on top of the scenario's, the `hud` demo mounts a probe plate on a third, and
+	an overflow sink opens a fourth. So the root of the last create is the right
+	answer only by luck of ordering — and when it is not, a node is re-parented
+	into ANOTHER surface's ScreenGui. It keeps its rect, its ZIndex and
+	`Visible = true`, so every model-side instrument agrees with itself while the
+	node is drawn somewhere else, or nowhere at all once that surface is disabled
+	or destroyed. That is the NM-H4a signature, and the reason 288 headless
+	replays could not see it is that no headless target modelled a parent at all.
+
+	The fixture is deliberately flat — no ScrollView, no clip host — because the
+	`hud` demo's zones are flat, and a node inside an instance host takes the
+	host branch and was never exposed. ]]
+describe("recycling: an adopted node belongs to its OWN surface", function()
+	local function twoSurfaceWorld()
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 360, h = 640 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+
+		local alphaItems = core:signal({ { id = "a1" }, { id = "a2" }, { id = "a3" } })
+		local alpha = pres.present(
+			LuauUI.UI.Screen({
+				id = "Alpha",
+				children = {
+					LuauUI.UI.VStack({
+						id = "Col",
+						children = {
+							LuauUI.UI.ForEach({
+								id = "Rows",
+								items = alphaItems,
+								key = function(item: any)
+									return item.id
+								end,
+								row = function(item: any)
+									return LuauUI.UI.Text({ id = "RowText", text = item.id, textSize = 15 })
+								end,
+							}),
+						},
+					}),
+				},
+			}),
+			{}
+		)
+		pres.refresh()
+
+		-- the second surface, presented ON TOP exactly as the gallery's own
+		-- showcase screen is presented over a scenario's
+		local betaCount = core:signal(0)
+		local betaItems = core:memo(function(use: any)
+			local out = {}
+			for i = 1, use(betaCount) do
+				table.insert(out, { id = `b{i}` })
+			end
+			return out
+		end)
+		pres.present(
+			LuauUI.UI.Screen({
+				id = "Beta",
+				children = {
+					LuauUI.UI.VStack({
+						id = "BetaCol",
+						children = {
+							LuauUI.UI.ForEach({
+								id = "BetaItems",
+								items = betaItems,
+								key = function(item: any)
+									return item.id
+								end,
+								row = function(item: any)
+									return LuauUI.UI.Text({ id = "BetaText", text = item.id, textSize = 15 })
+								end,
+							}),
+						},
+					}),
+				},
+			}),
+			{}
+		)
+		pres.refresh()
+		return {
+			pres = pres,
+			adapter = adapter,
+			alpha = alpha,
+			alphaItems = alphaItems,
+			betaCount = betaCount,
+		}
+	end
+
+	-- every live node, and the surface root it actually hangs under
+	local function misparented(adapter: any): { string }
+		local out: { string } = {}
+		for _, path in adapter.paths() do
+			local own = string.match(path, "^/([^/]+)")
+			local under = adapter.rootIdOf(path)
+			if under ~= nil and own ~= nil and under ~= own then
+				table.insert(out, `{path} under '{under}'`)
+			end
+		end
+		return out
+	end
+
+	it("a node recycled after ANOTHER surface created one is still parented under its own root", function()
+		local w = twoSurfaceWorld()
+		-- 1. kill Alpha's rows, which parks their instances
+		w.alphaItems:set({})
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(table.concat(misparented(w.adapter), " ; ")).toBe("")
+		-- 2. the OTHER surface creates a node, so it owns the last-create record
+		w.betaCount:set(2)
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(table.concat(misparented(w.adapter), " ; ")).toBe("")
+		-- 3. Alpha rebuilds identically shaped rows, which come out of the pool
+		w.alphaItems:set({ { id = "a4" }, { id = "a5" }, { id = "a6" } })
+		w.pres.refresh()
+		w.pres.refresh()
+		-- the adoption actually happened: without this the assertion below would
+		-- pass on a build where recycling never ran
+		expect(w.alpha.controller.stats().recycled > 0).toBe(true)
+		expect(table.concat(misparented(w.adapter), " ; ")).toBe("")
+	end)
+
+	it("the adoption count is not zero, so the assertion above is not vacuous", function()
+		--[[ THE NEGATIVE CONTROL, and it is about the INSTRUMENT rather than the
+			defect. `lastRootHandle` is right whenever there is only one root to be
+			wrong about — which is precisely why every other recycling case in this
+			file stayed green for the whole life of the defect. So this pins that the
+			two-surface fixture really does drive adoptions on host-less nodes, and
+			that they really do outnumber zero. ]]
+		local w = twoSurfaceWorld()
+		w.alphaItems:set({})
+		w.pres.refresh()
+		w.pres.refresh()
+		w.betaCount:set(2)
+		w.pres.refresh()
+		w.pres.refresh()
+		w.alphaItems:set({ { id = "a4" }, { id = "a5" }, { id = "a6" } })
+		w.pres.refresh()
+		w.pres.refresh()
+		expect(w.alpha.controller.stats().recycled >= 3).toBe(true)
+		-- ...and every one of them is a node with no instance host, which is the
+		-- branch that reaches the root at all
+		local hostless = 0
+		for _, path in w.adapter.paths() do
+			if string.find(path, "^/Alpha") ~= nil and w.adapter.rootIdOf(path) ~= nil then
+				hostless += 1
+			end
+		end
+		expect(hostless > 0).toBe(true)
+	end)
+end)
