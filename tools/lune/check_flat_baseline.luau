@@ -254,8 +254,34 @@ local ALLOWED_RECT_DRIFT: { { fixture: string, prefix: string?, path: string?, w
 			.. "diagnostics. The shipped example was already spending the name down to 26px there with no "
 			.. "diagnostic and nobody looking. Narrowing the rating column to 120 was measured as the "
 			.. "alternative and rejected: it silenced the solver and still left 14px of name. Only "
-			.. "`Head-name` moves -- `Head-rating` is byte-identical, because a fill column absorbs leftover "
-			.. "at its own end. The example's own columns list carries the full measurement.",
+			.. "`Head-name` moves -- `Head-rating` was byte-identical AT THE TIME OF THIS ENTRY, because a "
+			.. "fill column absorbs leftover at its own end. IT IS NOT ANY MORE, and the sentence is left "
+			.. "standing with this correction rather than edited away, because it is the reason the entry "
+			.. "below had to be written: see it for `05ae7e3`. The example's own columns list carries the "
+			.. "full measurement.",
+	},
+	{
+		fixture = "02_playlist_table",
+		prefix = "/Playlist/Page/Tracks/Main/Header/Head-rating",
+		why = "THE HEADER SORTS AND RESIZES NOW (`05ae7e3`, navigation-and-menus D8, 2026-08-16), and this "
+			.. "column is the one that SURFACES it -- `Head-name` is covered by the entry above and "
+			.. "`Head-artist` is a new node absorbed by this fixture's `/Playlist/` RESHAPED_SUBTREES "
+			.. "entry, so without this one the same drift is waived twice by accident and reported once. "
+			.. "TWO CAUSES, BOTH MEASURED ON THE REGENERATED DUMP, and they are independent. "
+			.. "(1) THE 50px Y SHIFT is not the header's doing at all: the example gained two readout "
+			.. "lines ABOVE the table -- `/Playlist/Page/NowPlaying` (16,130 608x17) and "
+			.. "`/Playlist/Page/Widths` (16,155 339x17) -- and 17 + 17 with the page gap between them "
+			.. "moves `Tracks` from y=130 to y=180 at every viewport. `/Playlist/Page/Restore` below the "
+			.. "table moves by the same 50 and nothing reflows. "
+			.. "(2) THE 17px NARROWING is the sort affordance being reserved rather than overdrawn: each "
+			.. "header column now carries a `SortMark` and (except the trailing one) a resize `Grip`, and "
+			.. "the title is inset to leave room. Measured on desktop, container width minus title width "
+			.. "is 33px for ALL THREE columns -- name 662/629, artist 442/409, rating 144/111 -- and every "
+			.. "title sits at y=185 in a 28px band that starts at 180. A uniform inset across three "
+			.. "columns of three different widths is a reservation; a broken one-off would not be uniform. "
+			.. "SO THIS IS A STALE BASELINE, NOT A REGRESSION, and it is recorded by an agent who did not "
+			.. "make the change: the geometry above was re-derived from the dump rather than taken on "
+			.. "trust, but the DESIGN intent behind D8 belongs to whoever wrote it.",
 	},
 	{
 		fixture = "02_playlist_table",
@@ -566,6 +592,30 @@ local ALLOWED_ADDED_PROPS: { { prop: string, value: string?, why: string } } = {
 			.. "verdict, so the write only tells the engine what the box was reserved for. Asserted, not "
 			.. "assumed — the regeneration that added these 312 keys moved exactly ONE rect in the whole flat "
 			.. "render, and that one has its own entry and a different cause (the rack; see ALLOWED_RECT_DRIFT).",
+	},
+	{
+		prop = "role",
+		why = "THREE CONTROLS SHARE ONE ROW RECIPE NOW (`1a5eca1`, navigation-and-menus D2, 2026-08-16), and "
+			.. "`src/controls/menu_recipe.luau` writes `role` unconditionally on every row it builds -- "
+			.. '`role = if row.role == "destructive" then "destructive" else "default"`. '
+			.. "`popup_button` never passes one, so its option rows, which used to be a raw `UI.Button` with "
+			.. 'no `role` key at all, now carry `role="default"`. '
+			.. "A KEY, NOT AN APPEARANCE: `default` is the value the paint path already assumed for a row "
+			.. "that declared nothing, so no colour, size or box moves -- every rect, hit rect and other "
+			.. "prop on `Opt-a`/`Opt-b` is byte-identical across the change, at all three viewports. What is "
+			.. "new is that the row now SAYS which role it resolved to, which is the same kind of correction "
+			.. "the `textSize` and `textFont` entries above record: a fact the framework always had, "
+			.. "arriving at the seam that reports it. "
+			.. "NO VALUE PIN, deliberately, unlike `textWrapped`: `destructive` is a legitimate second value "
+			.. "that a menu row can carry, and pinning `default` would fail the first shipped destructive "
+			.. "row for being correct. The zero-write argument that justifies `textWrapped`'s pin does not "
+			.. "apply here -- this key is written by an authoring recipe, not conditionally by a "
+			.. "minimal-write seam. "
+			.. "RECORDED BY AN AGENT WHO DID NOT MAKE THE CHANGE. The consolidation's own commit message "
+			.. "accounts for `row_actions` and the large-text consumer and never mentions `popup_button` or "
+			.. "this checker, so the widening reads as a side effect rather than a decision. It is benign "
+			.. "and it is characterized here so the gate can report the NEXT defect; whether every control "
+			.. "should emit a default role is a question for whoever owns D2.",
 	},
 }
 
