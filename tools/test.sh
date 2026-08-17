@@ -82,7 +82,15 @@ set_entry() {
 # script cannot change a spec's outcome.
 suite_fingerprint() {
 	{
-		find src tests examples vendor -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256
+		# 2>/dev/null on the HASH, not just the find: a sibling agent's temp file
+		# can be listed by `find` and gone by the time shasum opens it
+		# (`shasum: tests/_lpvfy.luau: No such file or directory`, measured
+		# 2026-08-16 with four agents in one tree). That is noisy but SAFE — a
+		# file that vanished mid-walk simply is not hashed, the fingerprint
+		# differs from the settled one, and the cache reports a MISS and re-runs.
+		# It degrades to slow, never to a wrong answer, which is the direction
+		# this has to fail in.
+		find src tests examples vendor -type f -print0 2>/dev/null | LC_ALL=C sort -z | xargs -0 shasum -a 256 2>/dev/null
 		shasum -a 256 run-tests.sh rokit.toml 2>/dev/null
 		lune --version 2>&1
 	} | shasum -a 256 | cut -d' ' -f1
