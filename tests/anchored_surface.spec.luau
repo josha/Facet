@@ -367,6 +367,13 @@ end
 
 local SURFACE = "/Tip/Layer/Surface"
 local TAIL = "/Tip/Layer/Tail"
+local TAIL_SEAM = "/Tip/Layer/TailSeam"
+
+local ROOT_TWO = math.sqrt(2)
+
+local function near(a: number, b: number, eps: number?): boolean
+	return math.abs(a - b) <= (eps or 0.01)
+end
 
 describe("D1 anchored surface: presented against a source view's screen rect", function()
 	it("presentAnchored places the panel against the source path's screen rect", function()
@@ -514,6 +521,210 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 		expect(tail.rotation).toBe(45)
 		expect(adapter.visibleOf(TAIL)).toBe(true)
 		expect(tail.z < adapter.node(SURFACE).z).toBe(true)
+	end)
+
+	--[[ THE WEDGE IS A TRIANGLE, NOT A BLOB (director, 2026-08-17). `surface =
+		"raised"` carries the panel's phantom `::UICorner`, and `radii.panel` (12
+		under Studio Neutral) against a `space.m` = 16px box CLAMPS to half the side
+		— so the "arrow" was a circle and what protruded was a semicircular bump.
+		Pinned as the authored value, because no rect assertion can see a radius. ]]
+	it("the wedge carries a ZERO corner radius, so the panel's rounding cannot reach it", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(200), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = true },
+		})
+		local tail = adapter.node(TAIL)
+		expect(tail).never().toBe(nil)
+		expect(type(tail.props.corners)).toBe("table")
+		expect(tail.props.corners.form).toBe("uniform")
+		expect(tail.props.corners.radius).toBe(0)
+	end)
+
+	--[[ NO LINE ACROSS THE ARROW'S BASE (director, 2026-08-17, from a zoomed device
+		capture: *"can we eliminate the line at the bottom of the triangle?"*). That
+		line is the PANEL'S OWN hairline running through the join, and it is what
+		keeps a correctly-shaped wedge reading as a separate shape. The band paints
+		over it. Three claims, because getting any one wrong reopens the defect: it is
+		ON TOP, it is the RIGHT WIDTH, and it STRADDLES the edge. ]]
+	it("the seam band paints OVER the panel's border, spanning exactly the wedge's base", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(200), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = true },
+		})
+		local tail = adapter.node(TAIL)
+		local seam = adapter.node(TAIL_SEAM)
+		local surface = adapter.node(SURFACE)
+		expect(seam).never().toBe(nil)
+		expect(seam.z > surface.z).toBe(true)
+		-- ...and the wedge is still BEHIND, which is what hides its inner two edges
+		expect(tail.z < surface.z).toBe(true)
+		-- THE RIGHT WIDTH: the rotated square's DIAGONAL, not its side
+		expect(near(seam.rect.w, tail.rect.w * ROOT_TWO)).toBe(true)
+		-- STRADDLING the border: `edge = "bottom"` puts the plate BELOW the source,
+		-- so the shared border is the panel's TOP and the band is centred on it
+		expect(near(seam.rect.y + seam.rect.h / 2, surface.rect.y)).toBe(true)
+		expect(near(seam.rect.x + seam.rect.w / 2, tail.rect.x + tail.rect.w / 2)).toBe(true)
+		-- a band, never a second plate
+		expect(seam.rect.h < seam.rect.w).toBe(true)
+	end)
+
+	--[[ THE BAND CARRIES NO BORDER AND NO CORNER OF ITS OWN. `surface = "base"` is
+		the one native surface with neither phantom modifier, which is exactly what a
+		cover band needs — a rounded end or a hairline here would replace one visible
+		line with two. ]]
+	it("the seam band wears the panel's fill and neither a corner nor a border of its own", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(200), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = true },
+		})
+		local seam = adapter.node(TAIL_SEAM)
+		expect(seam.props.surface).toBe("base")
+		expect(seam.props.corners.radius).toBe(0)
+		expect(seam.props.stroke).toBe(nil)
+		expect(seam.tintSpec.role).toBe("surfaceStrong")
+		expect(seam.tintSpec.blend).toBe(1)
+		expect(seam.tintColor).never().toBe(nil)
+	end)
+
+	--[[ THE GUARD THAT MAKES THE TINT SAFE, and it exists because nothing else in
+		this repo can see the failure. The band RECONSTRUCTS the panel's colour from a
+		tint role; the panel gets its colour from the emitted `.luau-surface-raised`
+		rule. Two authorities over one value. Measured live 2026-08-17: a plain
+		property read on both the plate and the wedge reports rgb(163,162,165) while
+		both PAINT rgb(28,31,40) — `GetStyled` is the only instrument that sees sheet
+		paint — so a package that moved one authority and not the other would ship a
+		mismatched bar across the plate with every headless assertion still green.
+		Swept across every shipped package rather than pinned to the neutral one. ]]
+	it(
+		"SEAM AUTHORITY: the band's tint role and the panel's own rule name the same colour, in every package",
+		function()
+			local sheet_model = require("../src/tokens/sheet_model")
+			local LuauUI = require("../src") :: any
+			local PACKAGES = {
+				"classic_desktop",
+				"compact_pointer",
+				"fantasy_ornate",
+				"fantasy_parchment",
+				"glossy_mobile",
+				"glossy_touch",
+				"pixel_quest",
+				"scifi_hud",
+			}
+			local function sameColour(a: any, b: any): boolean
+				return a ~= nil and b ~= nil and near(a.r, b.r, 1e-9) and near(a.g, b.g, 1e-9) and near(a.b, b.b, 1e-9)
+			end
+			for _, name in PACKAGES do
+				local pkg = (require)(`../examples/themes/{name}`).build(LuauUI.themes)
+				for _, theme in pkg.style.themes do
+					-- what the BAND paints: the tint role resolved through the palette
+					local band = sheet_model.tintColor(theme, { role = "surfaceStrong", blend = 1 }, "Box")
+					-- what the PANEL paints: the token `.luau-surface-raised` declares
+					local panel = sheet_model.paletteColor(theme, "surfaceStrong")
+					expect(`{name}/{tostring(theme.name)}: band matches panel? {sameColour(band, panel)}`).toBe(
+						`{name}/{tostring(theme.name)}: band matches panel? true`
+					)
+				end
+			end
+		end
+	)
+
+	it("a suppressed tail takes its seam band with it", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(360), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", align = "start", tail = true },
+		})
+		expect(adapter.visibleOf(TAIL)).toBe(adapter.visibleOf(TAIL_SEAM))
+	end)
+
+	it("no tail requested means no seam band either", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		pres.presentAnchored(calloutPanel(200), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom" },
+		})
+		expect(adapter.node(TAIL)).toBe(nil)
+		expect(adapter.node(TAIL_SEAM)).toBe(nil)
+	end)
+
+	it("a safe-area flip re-seats the seam band on the plate's other border", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(
+			UI.Screen({
+				id = "Editor",
+				children = {
+					UI.Anchor({
+						id = "Bar",
+						width = { type = "fill", weight = 1 },
+						height = { type = "fill", weight = 1 },
+						children = {
+							UI.Button({
+								id = "Plus",
+								label = "+",
+								anchor = "bottomRight",
+								width = { type = "fixed", px = 44 },
+								height = { type = "fixed", px = 44 },
+							}),
+						},
+					}),
+				},
+			}),
+			{ initialFocus = "none" }
+		)
+		pres.presentAnchored(calloutPanel(200), {
+			id = "Tip",
+			initialFocus = "none",
+			anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "bottom", tail = true },
+		})
+		expect(pres.anchoredSurfaces().surfaces[1].edge).toBe("top")
+		local seam = adapter.node(TAIL_SEAM)
+		local surface = adapter.node(SURFACE)
+		-- the plate is now ABOVE its source, so the shared border is its BOTTOM
+		expect(near(seam.rect.y + seam.rect.h / 2, surface.rect.y + surface.rect.h)).toBe(true)
+		expect(seam.rect.h < seam.rect.w).toBe(true)
+	end)
+
+	it("a side-edge plate turns the seam band through ninety degrees", function()
+		local _, _, adapter, _, pres = makeWorld()
+		pres.present(plusScreen(), { initialFocus = "none" })
+		-- TALL ENOUGH TO HOST THE ARROW: a side tail spends the corner keep-out on
+		-- HEIGHT, and the default 36px plate cannot clear two 12px radii plus the
+		-- wedge, so it would be suppressed
+		pres.presentAnchored(
+			UI.VStack({
+				id = "Callout",
+				surface = "raised",
+				padding = "s",
+				width = { type = "fixed", px = 120 },
+				height = { type = "fixed", px = 140 },
+				children = { UI.Text({ id = "Body", text = PANEL_TEXT, textSize = 16 }) },
+			}),
+			{
+				id = "Tip",
+				initialFocus = "none",
+				anchor = { source = { path = "/Editor/Bar/Plus" }, edge = "leading", tail = true },
+			}
+		)
+		local seam = adapter.node(TAIL_SEAM)
+		local surface = adapter.node(SURFACE)
+		expect(adapter.visibleOf(TAIL)).toBe(true)
+		expect(seam.rect.w < seam.rect.h).toBe(true)
+		expect(near(seam.rect.h, adapter.node(TAIL).rect.h * ROOT_TWO)).toBe(true)
+		-- the plate sits to the LEFT of its source: the shared border is its TRAILING
+		expect(near(seam.rect.x + seam.rect.w / 2, surface.rect.x + surface.rect.w)).toBe(true)
 	end)
 
 	it("the tail is suppressed when the shift carries it off the source", function()

@@ -41,6 +41,52 @@
 	exactly right for a decoration. The alternative, an `UI.Image` nine-slice,
 	would need an uploaded asset per theme fill; this needs none.
 
+	AND THE WEDGE MUST BE SQUARE-CORNERED, WHICH IT WAS NOT (director, 2026-08-17:
+	the stem read as *"a second shape below the main box"*). `surface = "raised"`
+	brings the panel's phantom `::UICorner` with it — `radii.panel` is 12 under
+	Studio Neutral against a `space.m` = 16px box, and the engine CLAMPS a corner
+	radius to half the shorter side. 12 > 8, so the "wedge" was a CIRCLE, and what
+	protruded past the panel was a semicircular bump wearing a hairline arc. The
+	authored `corners = 0` below is what makes it a triangle; an instance property
+	beats a StyleRule, so it overrides the phantom rule without touching the sheet.
+
+	ONE SURFACE ROLE, NEVER A RECONSTRUCTED COLOUR (director, 2026-08-17: *"the
+	triangle shouldn't have its own fill colour distinct from the tooltip… it
+	should all be one colour"*).
+
+	The wedge names `surface = "raised"` — the SAME sheet rule the panel names —
+	so its fill is the panel's fill BY CONSTRUCTION rather than by agreement, and
+	its two PROTRUDING edges carry the theme's hairline through the same phantom
+	`::UIStroke` the panel's own border comes from. One vocabulary, correct under
+	every package, no colour arithmetic anywhere in this file.
+
+	AND THE PANEL'S BORDER MUST NOT CROSS THE ARROW'S BASE (director, 2026-08-17,
+	from a zoomed device capture: *"can we eliminate the line at the bottom of the
+	triangle?"*). It is the panel's own hairline, drawn straight through the join,
+	and it is what keeps a correct wedge reading as a separate shape. `TailSeam` is
+	the answer: a thin square unstroked band in the panel's fill, declared LAST so
+	it paints OVER that border, exactly as wide as the wedge's base and centred on
+	the shared edge.
+
+	THE BAND'S FILL IS A SECOND AUTHORITY, AND IT IS GUARDED RATHER THAN AVOIDED.
+	`surface = "base"` is the one native surface carrying neither a phantom corner
+	nor a phantom stroke — which is exactly what a cover band needs — but its fill
+	is `$Surface`, so the panel's colour has to be re-declared through
+	`tint = { role = "surfaceStrong" }`. That reconstruction resolves through
+	`sheet_model.paletteColor(paletteTheme(), …)` while `.luau-surface-raised`
+	resolves `$SurfaceStrong` through the sheet's own emitted rule. The two agree,
+	and `tests/anchored_surface.spec.luau` PINS them equal across every shipped
+	package, because nothing else can: a live property read reports the UNSTYLED
+	value (both plate and wedge read rgb(163,162,165) while painting rgb(28,31,40)
+	— `GetStyled` is the only instrument that sees sheet paint), so a package that
+	moved one authority and not the other would put a mismatched bar on the plate
+	and every headless assertion in this repo would stay green.
+
+	THE HONEST ALTERNATIVE, if that guard ever becomes a burden: give the panel and
+	the wedge ONE stroked silhouette, so there is no border to cross and no colour
+	to reconstruct. That needs a borderless panel surface the callers can name, and
+	is a bigger change than this one buys.
+
 	THE TAIL EATS ITS OWN GAP. A square of side `s` rotated 45° protrudes
 	`s * sqrt(2) / 2` past its centre, so a tailed surface stands `gap +
 	protrusion` off its source and the arrow's tip lands exactly `gap` short of
@@ -63,6 +109,8 @@ local anchored = {}
 local LAYER_ID = "Layer"
 local SURFACE_ID = "Surface"
 local TAIL_ID = "Tail"
+-- the band that carries the panel's fill ACROSS the wedge's base (header)
+local TAIL_SEAM_ID = "TailSeam"
 
 local DUMP_SCHEMA = "luauui-anchored-dump/1"
 
@@ -74,6 +122,13 @@ local DUMP_SCHEMA = "luauui-anchored-dump/1"
 local DEFAULT_GAP = "s"
 local DEFAULT_TAIL_SIZE = "m"
 local TAIL_CORNER_METRIC = "radii.panel"
+-- the seam band's thickness, read off the theme's own border vocabulary: a
+-- package that thickens its hairlines needs a wider band to cover one.
+-- `ApplyStrokeMode = Border` puts the panel's stroke on the OUTSIDE of its rect,
+-- so the band STRADDLES the edge — twice the thickness, plus one pixel so a
+-- fractional layout position cannot leave a lit sliver.
+local SEAM_METRIC = "strokes.hairline"
+local SEAM_OVERDRAW = 1
 
 local ROOT_TWO = math.sqrt(2)
 
@@ -204,11 +259,42 @@ function anchored.new(ctx: any)
 		if tailPx > 0 then
 			-- the wedge's layout box is `tailPx` square and `rotation` turns it about
 			-- its own centre, so the offsets place that centre on the shared border
-			local tx = (placement.tailX or placement.x) - tailPx / 2
-			local ty = (placement.tailY or placement.y) - tailPx / 2
+			local tailCentreX = placement.tailX or placement.x
+			local tailCentreY = placement.tailY or placement.y
+			local tx = tailCentreX - tailPx / 2
+			local ty = tailCentreY - tailPx / 2
 			moved = moved or record.tx:get() ~= tx or record.ty:get() ~= ty
 			record.tx:set(tx)
 			record.ty:set(ty)
+
+			--[[ THE SEAM BAND (header). Its LENGTH is the wedge's base — a square of
+				side `s` rotated 45 degrees presents a diagonal of `s * sqrt(2)` to the
+				edge it straddles — and its THICKNESS straddles that edge. Which axis is
+				which follows the RESOLVED edge, so a safe-area flip re-orients it in the
+				same pass that moves the wedge. ]]
+			local base = tailPx * ROOT_TWO
+			local band = resolveMetric(SEAM_METRIC, 1) * 2 + SEAM_OVERDRAW
+			local vertical = placement.edge == "top" or placement.edge == "bottom"
+			local seamW = if vertical then base else band
+			local seamH = if vertical then band else base
+			local sx = tailCentreX - seamW / 2
+			local sy = tailCentreY - seamH / 2
+			-- COMPARED BY VALUE, never by table identity: a fresh `{}` every frame
+			-- would redirty the band's measure on a settled surface
+			moved = moved
+				or record.sx:get() ~= sx
+				or record.sy:get() ~= sy
+				or record.sw:get().px ~= seamW
+				or record.sh:get().px ~= seamH
+			record.sx:set(sx)
+			record.sy:set(sy)
+			if record.sw:get().px ~= seamW then
+				record.sw:set({ type = "fixed", px = seamW })
+			end
+			if record.sh:get().px ~= seamH then
+				record.sh:set({ type = "fixed", px = seamH })
+			end
+
 			local hide = placement.tailSuppressed
 			moved = moved or record.tailHidden:get() ~= hide
 			record.tailHidden:set(hide)
@@ -296,6 +382,14 @@ function anchored.new(ctx: any)
 		local oy = scope:own(core:signal(0))
 		local tx = scope:own(core:signal(0))
 		local ty = scope:own(core:signal(0))
+		-- the seam band's window-space box, solved per placement (see `place`). The
+		-- two DIMENSIONS are whole reactive dims rather than reactive numbers: a `px`
+		-- field inside a dim is read ONCE at construction, so publishing a number
+		-- there sizes the band at mount and never again (measured: 0x0 forever).
+		local sx = scope:own(core:signal(0))
+		local sy = scope:own(core:signal(0))
+		local sw = scope:own(core:signal({ type = "fixed", px = 0 }))
+		local sh = scope:own(core:signal({ type = "fixed", px = 0 }))
 		local tailHidden = scope:own(core:signal(true))
 
 		local tailSpec: any = if type(anchor.tail) == "table" then anchor.tail else {}
@@ -339,20 +433,27 @@ function anchored.new(ctx: any)
 			table.insert(
 				children,
 				chrome_slots.attachHint(
-					blueprintLib.Box({
-						id = TAIL_ID,
-						anchor = "topLeft",
-						offsetX = tx,
-						offsetY = ty,
-						width = { type = "fixed", px = tailMetric },
-						height = { type = "fixed", px = tailMetric },
-						rotation = 45,
-						-- the SAME surface role the panel wears, so the wedge is the
-						-- panel's own fill continuing past its edge rather than a second
-						-- colour that a theme swap could desynchronize
-						surface = tailSpec.surface or "raised",
-						hidden = tailHidden,
-					}),
+					blueprintLib.corners(
+						blueprintLib.Box({
+							id = TAIL_ID,
+							anchor = "topLeft",
+							offsetX = tx,
+							offsetY = ty,
+							width = { type = "fixed", px = tailMetric },
+							height = { type = "fixed", px = tailMetric },
+							rotation = 45,
+							-- the SAME surface role the panel wears, so the wedge is the
+							-- panel's own fill continuing past its edge rather than a second
+							-- colour that a theme swap could desynchronize — AND so its two
+							-- protruding edges carry the theme's own hairline (header)
+							surface = tailSpec.surface or "raised",
+							hidden = tailHidden,
+						}),
+						-- A WEDGE, NOT A BLOB. Without this the panel's phantom
+						-- `::UICorner` rounds a 16px box by `radii.panel` = 12, the engine
+						-- clamps that to half the side, and the arrow is a circle (header).
+						0
+					),
 					{ slot = chrome_slots.NO_SLOT }
 				)
 			)
@@ -369,6 +470,43 @@ function anchored.new(ctx: any)
 				children = { panel },
 			})
 		)
+		if wantsTail then
+			--[[ DECLARED LAST, SO IT PAINTS OVER THE PANEL'S BORDER — the mirror of the
+				wedge's "declared first, so it paints behind". This is the seam fix: the
+				panel's hairline stops being drawn across the arrow's base, so the plate
+				and the arrow read as ONE shape (director, 2026-08-17: *"can we eliminate
+				the line at the bottom of the triangle?"*).
+
+				`surface = "base"` is the ONE native surface with neither a phantom corner
+				NOR a phantom stroke, so the band can never round its ends or grow a
+				border; the tint puts it in the panel's own colour. That tint is a SECOND
+				AUTHORITY over a value `.luau-surface-raised` already owns, and the two
+				resolve through different paths — so `sheet_seam_authority.spec.luau` pins
+				them equal across every shipped package. Without that guard this is a
+				defect only a live `GetStyled` could ever see. ]]
+			table.insert(
+				children,
+				chrome_slots.attachHint(
+					blueprintLib.corners(
+						blueprintLib.Box({
+							id = TAIL_SEAM_ID,
+							anchor = "topLeft",
+							offsetX = sx,
+							offsetY = sy,
+							width = sw,
+							height = sh,
+							surface = "base",
+							tint = { role = "surfaceStrong", blend = 1 },
+							-- one suppression rule, not two: a plate the clamp carried off
+							-- its source drops the wedge, and the band goes with it
+							hidden = tailHidden,
+						}),
+						0
+					),
+					{ slot = chrome_slots.NO_SLOT }
+				)
+			)
+		end
 
 		local screen = blueprintLib.Screen({
 			id = id,
@@ -455,6 +593,7 @@ function anchored.new(ctx: any)
 			anchor = anchor,
 			surfacePath = `/{id}/{LAYER_ID}/{SURFACE_ID}`,
 			tailPath = `/{id}/{LAYER_ID}/{TAIL_ID}`,
+			tailSeamPath = `/{id}/{LAYER_ID}/{TAIL_SEAM_ID}`,
 			wantsTail = wantsTail,
 			tailMetric = tailMetric,
 			tailInsetMetric = tailInsetMetric,
@@ -462,6 +601,10 @@ function anchored.new(ctx: any)
 			oy = oy,
 			tx = tx,
 			ty = ty,
+			sx = sx,
+			sy = sy,
+			sw = sw,
+			sh = sh,
 			tailHidden = tailHidden,
 			placed = false,
 			placement = nil,
