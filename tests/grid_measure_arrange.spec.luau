@@ -388,6 +388,182 @@ describe("grid measure/arrange agreement — column flow", function()
 	end)
 end)
 
+--[[ ===== A LINE TAKES THE GRID'S OWN FLOW EXTENT (device report 2026-08-16) ==
+
+	*"three of the five demo rows are blank."* `newLevelPicker`'s default `bar`
+	segment paints a run of tinted `UI.Box` marks in a uniform `UI.Grid`, each
+	declaring `fill` on BOTH axes. Every one of them solved to `12x0` — width from
+	the lane, HEIGHT ZERO — inside a Grid that had itself been arranged 44px tall.
+	The glyph and image segments painted correctly, because their marks have
+	content on that axis and the run's line could be derived from it.
+
+	THE MECHANISM. A grid's FLOW extent (the row height, on a row-major grid) was
+	derived from its cells' CONTENT and from nothing else, so a `fill` cell took
+	`line.flow` — and a line whose every cell fills has no content to derive a
+	line from. The grid's own arranged extent, the number the parent had already
+	imposed on it, never reached the line. Every other container in this library
+	resolves a `fill` against ITS OWN resolved extent, which is what `resolveAxis`
+	means by "fill resolves at arrange"; the grid was the one that resolved it
+	against its content instead. CSS states the same rule for the same shape
+	(`align-content: stretch`: auto rows stretch to fill a DEFINITE container).
+
+	The claim under test is one sentence, and the HStack beside it is the proof
+	that it is a claim about the framework rather than about the grid: THE SAME
+	DECLARATION IN THE SAME BOX PAINTS THE SAME RECTANGLE.
+
+	The report is deliberately NOT part of the claim — `fill` contributes content
+	at measure everywhere else too — so the last case pins that a hug parent still
+	hugs, i.e. that the fix is arrange-only and no reported extent moved.
+]]
+describe("a grid line takes the grid's own flow extent when a cell fills it", function()
+	-- ONE declaration, three parents: a Grid, an HStack, and a Grid whose own
+	-- height is content-sized. Written once so the cases below differ in the
+	-- container and in nothing else.
+	local function fillBox(id: string): any
+		return UI.Box({
+			id = id,
+			width = { type = "fill", weight = 1 },
+			height = { type = "fill", weight = 1 },
+			tint = { role = "accent", blend = 1 },
+		})
+	end
+
+	local function hosted(child: any): any
+		return UI.Screen({
+			id = "S",
+			children = {
+				UI.ZStack({
+					id = "Host",
+					width = { type = "fill", weight = 1 },
+					height = { type = "fixed", px = 60 },
+					children = { child },
+				}),
+			},
+		})
+	end
+
+	it("three fill cells in a 60px-tall grid paint 60px tall, not 0", function()
+		local adapter = render(
+			hosted(UI.Grid({
+				id = "G",
+				columns = 3,
+				itemSizing = "uniform",
+				gap = 4,
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = { fillBox("A"), fillBox("B"), fillBox("C") },
+			})),
+			400,
+			600
+		)
+		-- A ZERO-AREA RECTANGLE IS THE WHOLE BUG, so the assertion is the area and
+		-- not the height: a mark whose only paint is its fill and whose rect has no
+		-- area paints nothing at all, and no property probe can report that
+		-- (docs/lessons/a-default-valued-write-never-claims.md).
+		for _, id in { "A", "B", "C" } do
+			local cell = rectOf(adapter, `/S/Host/G/{id}`)
+			expect(`{id} area: {cell.w * cell.h > 0}`).toBe(`{id} area: true`)
+			expect(`{id} height: {cell.h}`).toBe(`{id} height: 60`)
+			expect(`{id} width: {cell.w}`).toBe(`{id} width: 130`)
+		end
+	end)
+
+	it("...which is exactly what the same declaration does in an HStack", function()
+		local adapter = render(
+			hosted(UI.HStack({
+				id = "H",
+				gap = 4,
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = { fillBox("A"), fillBox("B"), fillBox("C") },
+			})),
+			400,
+			600
+		)
+		for _, id in { "A", "B", "C" } do
+			expect(`{id} height: {rectOf(adapter, `/S/Host/H/{id}`).h}`).toBe(`{id} height: 60`)
+		end
+	end)
+
+	it("a line with no fill cell keeps its content height, and content cells keep theirs", function()
+		local adapter = render(
+			hosted(UI.Grid({
+				id = "G",
+				columns = 2,
+				gap = 4,
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Box({ id = "A", width = { type = "fill", weight = 1 }, height = { type = "fixed", px = 21 } }),
+					UI.Box({ id = "B", width = { type = "fill", weight = 1 }, height = { type = "fixed", px = 12 } }),
+				},
+			})),
+			400,
+			600
+		)
+		-- no cell fills the flow axis: the line stays its content height and the
+		-- grid's spare 39px goes nowhere, exactly as before
+		expect(`A: {rectOf(adapter, "/S/Host/G/A").h}`).toBe("A: 21")
+		expect(`B: {rectOf(adapter, "/S/Host/G/B").h}`).toBe("B: 12")
+	end)
+
+	it("a fill cell beside a content one takes the whole line, and the content one does not grow", function()
+		local adapter = render(
+			hosted(UI.Grid({
+				id = "G",
+				columns = 2,
+				gap = 4,
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = {
+					UI.Box({ id = "A", width = { type = "fill", weight = 1 }, height = { type = "fixed", px = 21 } }),
+					fillBox("B"),
+				},
+			})),
+			400,
+			600
+		)
+		expect(`A: {rectOf(adapter, "/S/Host/G/A").h}`).toBe("A: 21")
+		expect(`B: {rectOf(adapter, "/S/Host/G/B").h}`).toBe("B: 60")
+	end)
+
+	it("the REPORT is unchanged: a content-sized parent still hugs the cells", function()
+		-- the fix is arrange-only, so a grid nobody imposed a height on reports the
+		-- content extent it always reported — a `fill` cell contributes its content
+		-- at measure here exactly as it does under every other container
+		local adapter = render(
+			UI.Screen({
+				id = "S",
+				children = {
+					UI.VStack({
+						id = "Sec",
+						children = {
+							UI.Grid({
+								id = "G",
+								columns = 2,
+								gap = 4,
+								width = { type = "fill", weight = 1 },
+								children = {
+									UI.Box({
+										id = "A",
+										width = { type = "fill", weight = 1 },
+										height = { type = "fixed", px = 21 },
+									}),
+									fillBox("B"),
+								},
+							}),
+						},
+					}),
+				},
+			}),
+			400,
+			600
+		)
+		expect(`grid height: {rectOf(adapter, "/S/Sec/G").h}`).toBe("grid height: 21")
+		expect(`B: {rectOf(adapter, "/S/Sec/G/B").h}`).toBe("B: 21")
+	end)
+end)
+
 --[[ ===== ONE OWNER, NOT ONE CACHE (the 200k split, 2026-08-15) ===============
 
 	Everything above is BEHAVIOURAL and it is the real proof; this block guards the

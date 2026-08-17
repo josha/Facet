@@ -120,6 +120,84 @@ return {
 			end,
 		})
 
+		--[[ ONE PICKER, TWO CONTAINERS — `iconOnly` and the VERTICAL PILL (D6).
+
+			Both shipped with spec consumers only, so a device review had nothing to
+			look at: `iconOnly = true` (every segment wears its semantic icon at every
+			width, f1's top pill) and `axis = "y"` (the vertical RAIL, f1's left rail,
+			which is content-sized with a 44px floor and is NOT the `inline` row list —
+			`src/controls/picker.luau`'s D6 header states the distinction and
+			`dump().verticalPill` reports it).
+
+			THE TWO SHARE ONE SIGNAL, which is the claim worth putting on a screen: the
+			difference between the pill and the rail is the CONTAINER and nothing else,
+			so pressing a glyph in either moves both. The options carry both a `label`
+			and an `icon` because `label` stays the semantic name whatever is drawn —
+			it is what `dump().semanticText` announces and the only thing a non-visual
+			consumer has — and the icons are SEMANTIC NAMES from the framework's own
+			set, so a package that ships art for them paints it and one that declines
+			draws the ASCII-safe glyph.
+
+			`presentation = "segmented"` is DECLARED on both rather than left adaptive:
+			`axis` is inert under the row list, so a strip that was allowed to flip to
+			`inline` on a compact phone would be a rail that is sometimes not a rail —
+			exactly the accepted-and-ignored shape this fixture is here to disprove. ]]
+		local navSection = core:signal("browse")
+		local NAV_OPTIONS = {
+			{ value = "browse", label = "Browse", icon = "menu" },
+			{ value = "compose", label = "Compose", icon = "edit" },
+			{ value = "more", label = "More", icon = "more" },
+		}
+		local navPill = LuauUI.newPicker(LuauUI, core, {
+			id = "NavPill",
+			options = NAV_OPTIONS,
+			selected = navSection,
+			presentation = "segmented",
+			iconOnly = true,
+			env = ctx.env,
+		})
+		local navRail = LuauUI.newPicker(LuauUI, core, {
+			id = "NavRail",
+			options = NAV_OPTIONS,
+			selected = navSection,
+			presentation = "segmented",
+			axis = "y",
+			iconOnly = true,
+			env = ctx.env,
+		})
+		-- the rail's neighbour is the READOUT, for the same reason the level-picker
+		-- fixture prints `semanticText`: an icon-only control says nothing a bug
+		-- report can quote, so the one string it publishes is printed where a human
+		-- can check it names the segment that is actually lit
+		local navReadout = scope:own(core:memo(function(use)
+			return `Selected: {use(navSection)} — the pill and the rail share this one signal.`
+		end))
+		local navShapes = UI.VStack({
+			id = "NavShapes",
+			gap = 6,
+			width = { type = "fill", weight = 1 },
+			children = {
+				UI.Text({ id = "NavHeading", text = "Icon segments, and the vertical rail", textSize = 12 }),
+				navPill.blueprint,
+				UI.HStack({
+					id = "NavRailRow",
+					gap = 8,
+					align = "start",
+					width = { type = "fill", weight = 1 },
+					children = {
+						navRail.blueprint,
+						UI.Text({
+							id = "NavReadout",
+							text = navReadout,
+							textSize = 12,
+							role = "secondary",
+							width = { type = "fill", weight = 1 },
+						}),
+					},
+				}),
+			},
+		})
+
 		-- the ACTION ROW is the ViewThatFits case: side by side when the container
 		-- can hold it, stacked when it cannot. Measured, not guessed.
 		local function actionButton(id: string, label: string, role: string?)
@@ -187,6 +265,8 @@ return {
 				UI.sensoryFeedback(stepper.blueprint, { trigger = volume, event = "adjust" }),
 				slider.blueprint,
 				UI.sensoryFeedback(picker.blueprint, { trigger = quality, event = "select" }),
+				UI.Divider({}),
+				navShapes,
 				UI.Divider({}),
 				disclosure.blueprint,
 			},
@@ -563,6 +643,8 @@ return {
 				stepper.dispose()
 				slider.dispose()
 				picker.dispose()
+				navPill.dispose()
+				navRail.dispose()
 				progressView.dispose()
 				saveLabel.dispose()
 				disclosure.dispose()
@@ -593,6 +675,13 @@ return {
 					quality:set(if quality:get() == "fidelity" then "balanced" else "fidelity")
 					return quality:get()
 				end,
+				-- the D6 pair moves through the ONE signal they share, which is the
+				-- whole claim: a step that drove the pill would prove nothing about
+				-- the rail, and this drives neither control — it drives the value
+				cycleNav = function()
+					navSection:set(if navSection:get() == "browse" then "more" else "browse")
+					return navSection:get()
+				end,
 				-- the STATE SNAPSHOT a live orientation change must preserve (D-2)
 				snapshot = function()
 					return {
@@ -614,6 +703,11 @@ return {
 					stepper = stepper.dump(),
 					slider = slider.dump(),
 					picker = picker.dump(),
+					-- the D6 pair, so a device pass can read the two facts that tell
+					-- the shapes apart rather than judging them by eye: `iconOnly` on
+					-- both, and `verticalPill` TRUE on the rail and false on the pill
+					navPill = navPill.dump(),
+					navRail = navRail.dump(),
 					progress = progressView.dump(),
 					label = saveLabel.dump(),
 					disclosure = disclosure.dump(),

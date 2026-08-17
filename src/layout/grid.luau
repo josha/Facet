@@ -382,6 +382,80 @@ local function gridFlowPlan(deps: Deps, ctx: any, node: any, innerW: number, inn
 	return value
 end
 
+--[[ ===== A LINE TAKES THE GRID'S OWN FLOW EXTENT (device report 2026-08-16) ==
+
+	*"three of the five demo rows are blank."* `newLevelPicker`'s default `bar`
+	segment is a run of tinted `UI.Box` marks in a uniform grid, each declaring
+	`fill` on BOTH axes. Every mark solved to `12x0` — the lane's width, and NO
+	HEIGHT — inside a grid that had itself been arranged 44px tall, so the whole
+	run painted nothing. The glyph and image segments were fine, and that is the
+	tell: their marks have content on the flow axis, so the line had something to
+	be derived FROM.
+
+	THE MECHANISM. The plan above derives a line's flow extent from its cells'
+	CONTENT and from nothing else (`lineFlow = max(uFlow or ownFlow)`), and a
+	`fill` cell then takes that line. A line whose every cell fills has no content
+	anywhere in it, so the line is zero and every cell in it is zero — while the
+	grid's OWN flow extent, the number its parent had already imposed, never
+	reached the line at all. Every other container in this library resolves a
+	`fill` against its own resolved extent, which is exactly what `resolveAxis`
+	means by "fill resolves at arrange"; the grid was the one that resolved it
+	against its content. CSS states the same rule for the same shape:
+	`align-content: stretch` (the default) stretches auto-sized rows to fill a
+	container whose block size is DEFINITE.
+
+	SO THIS IS ARRANGE-ONLY, and that is the load-bearing half. Measure is
+	untouched: a `fill` cell still contributes its CONTENT to the grid's report,
+	exactly as it does under every other parent, so no reported extent moves and
+	no hug parent grows. The spare space this hands out is the space the grid was
+	GIVEN over what it ASKED for — which only exists once somebody has imposed an
+	extent on it, i.e. at arrange. Nothing here writes to the cached plan, for the
+	same reason: measure reads that object.
+
+	EVENLY, ACROSS THE LINES THAT ASKED. A stack splits its leftover by the fill
+	children's `weight`; a LINE has no weight to read, because a line is many
+	children and their weights are declared against the lane axis. An even split
+	with the remainder going to the earliest lines is the only reading that is not
+	a guess, and it is exact in the one-line case every run of marks actually is.
+	A line with no `fill` cell does not grow at all — the same rule a stack
+	applies to a content-sized child sitting beside a `fill` one.
+
+	`docs/lessons/a-fill-of-nothing-is-nothing.md` carries the measurement, the
+	HStack it was compared against, and why seventeen mutations of a DECLARATION
+	could not reach a defect in the other axis of a rect. ]]
+local function gridFlowStretch(deps: Deps, node: any, plan: any, innerFlow: number): { [number]: number }?
+	-- an unbounded offer imposes nothing, so there is no spare space to hand out
+	-- (this is `axisAbsorbs`'s `limit ~= math.huge` condition, one layer down)
+	if innerFlow == math.huge then
+		return nil
+	end
+	local spare = innerFlow - plan.flowTotal
+	if spare <= 0 then
+		return nil
+	end
+	local children = node.children or {}
+	local flowAxis = if plan.isCol then "w" else "h"
+	local asked: { number } = {}
+	for index, line in plan.lines do
+		for j = line.first, line.last do
+			if deps.dim(children[j], flowAxis).type == "fill" then
+				table.insert(asked, index)
+				break
+			end
+		end
+	end
+	if #asked == 0 then
+		return nil
+	end
+	local share = math.floor(spare / #asked)
+	local remainder = spare - share * #asked
+	local grown: { [number]: number } = {}
+	for at, index in asked do
+		grown[index] = plan.lines[index].flow + share + (if at <= remainder then 1 else 0)
+	end
+	return grown
+end
+
 --[[ ===== THE ROW GRID (docs/plans/swiftui-parity-round2.md §2.2) =============
 
 	`UI.Grid` is, and stays, a uniform FLOW grid: children wrap row-major into a
@@ -730,23 +804,34 @@ function grid.arrange(
 	local children = node.children or {}
 	local plan = gridFlowPlan(deps, ctx, node, innerW, innerH, gap)
 	local isCol, laneSize = plan.isCol, plan.laneSize
+	-- the spare flow extent this grid was GIVEN over what it asked for, handed to
+	-- the lines whose cells said `fill` (see gridFlowStretch): arrange-only, and
+	-- nil whenever there is nothing spare or nobody asked
+	local grown = gridFlowStretch(deps, node, plan, if isCol then innerW else innerH)
 	local flowCursor = if isCol then innerX else innerY
-	for _, line in plan.lines do
+	for index, line in plan.lines do
+		local lineFlow = if grown ~= nil then grown[index] or line.flow else line.flow
 		for j = line.first, line.last do
 			local child = children[j]
 			local cell = plan.cells[j]
+			-- a `fill` cell IS its line, at whatever the line ended up being; every
+			-- other cell keeps the extent the plan measured and ALIGNS inside it
+			local cellFlow = if lineFlow ~= line.flow
+					and deps.dim(child, if isCol then "w" else "h").type == "fill"
+				then lineFlow
+				else cell.flow
 			local laneAlign = if isCol then child.alignV else child.alignH
 			local flowAlign = if isCol then child.alignH else child.alignV
 			local lanePos = (j - line.first) * (laneSize + gap) + alignOffset(laneAlign, laneSize, cell.lane)
-			local flowPos = flowCursor + alignOffset(flowAlign, line.flow, cell.flow)
+			local flowPos = flowCursor + alignOffset(flowAlign, lineFlow, cellFlow)
 			place(ctx, child, {
 				x = if isCol then flowPos else innerX + lanePos,
 				y = if isCol then innerY + lanePos else flowPos,
-				w = if isCol then cell.flow else cell.lane,
-				h = if isCol then cell.lane else cell.flow,
+				w = if isCol then cellFlow else cell.lane,
+				h = if isCol then cell.lane else cellFlow,
 			}, out)
 		end
-		flowCursor += line.flow + plan.rowGap
+		flowCursor += lineFlow + plan.rowGap
 	end
 end
 

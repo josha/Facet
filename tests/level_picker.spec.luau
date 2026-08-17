@@ -674,3 +674,183 @@ describe("newRating is a thin preset over newLevelPicker", function()
 		control.dispose()
 	end)
 end)
+
+-- ===========================================================================
+--[[ A MARK MUST PAINT A RECTANGLE SOMEBODY CAN SEE (device report 2026-08-16).
+
+	*"three of the five demo rows are blank."* The showcase's glyph and image rows
+	rendered; every `segment = "bar"` row — the DEFAULT, and the shape the control
+	was asked for — painted nothing at all. The marks were there, the tints were
+	there, the strip reserved its 44px: each bar solved to `12x0`, a rectangle with
+	no area (`src/layout/grid.luau`, "a line takes the grid's own flow extent").
+
+	WHY THE 17 MUTATIONS THIS CONTROL SHIPPED WITH DID NOT CATCH IT. Every one of
+	them asked a question about a DECLARATION — which segment, which tint, which
+	half, which count, which threshold — and the one geometric case it had asserted
+	`first.w > 0` and that the ten bars were equal WIDTH. Nothing ever multiplied
+	the two sides together. A rect with a width is not a rect you can see, which is
+	the same shape as `docs/lessons/a-default-valued-write-never-claims.md`: there,
+	a probe read the tint off a plate that was never painted; here, a probe read the
+	width off a plate that was never given a height. In both, THE INSTRUMENT
+	REPORTED A NUMBER AND THE SCREEN WAS EMPTY.
+
+	SO THE INSTRUMENT HERE IS THE AREA OF THE SOLVED RECT, and it is asked of the
+	whole surface rather than of a path somebody remembered to list: `blankFills`
+	walks every live node and reports each one whose ONLY possible paint is its own
+	fill — a leaf `UI.Box` carrying a `tint`, i.e. a node with no text, no image and
+	no child to be seen through — and whose rect has no area. That predicate is what
+	generalizes: it does not know what a level picker is, so the next control that
+	paints a run of tinted plates is covered by it on the day it ships.
+
+	WHAT IS *NOT* REACHABLE FROM HERE, stated plainly. The other half of the
+	invisible-plate family is the engine's own refusal of a default-valued write,
+	and `GetStyled` is the only instrument that can see it — the fake adapter models
+	the write rather than the engine's refusal of it, so no headless assertion can
+	distinguish a claimed fill from a rejected one. That half is covered by the
+	`luau-tint-fill` TAG (`sheet_model.TAGS`, `tests/sheet_model.spec.luau`) and by
+	a Studio pass. The half a headless suite CAN see is the geometry, and it is the
+	half that was blind here. ]]
+describe("LevelPicker: every mark paints a rectangle with AREA", function()
+	local device_views = require("./lib/device_views")
+	local demo_picker = require("../examples/gallery/client/demo_picker") :: any
+	local scenario = require("../examples/gallery/scenarios/level_picker") :: any
+
+	-- A NODE WHOSE ONLY PAINT IS ITS FILL, AND WHOSE FILL HAS NO AREA. Deliberately
+	-- not "every zero-area node": a spacer, an elided row and a collapsed group are
+	-- all legitimately zero, and a check that fails on them is a check somebody
+	-- waives. A tinted leaf Box has asked for a colour and can show it in exactly
+	-- one place.
+	local function blankFills(adapter: any): { string }
+		local paths = adapter.paths()
+		local hasChild: { [string]: boolean } = {}
+		for _, path in paths do
+			local cut = string.match(path, "^(.*)/[^/]+$")
+			if cut ~= nil and cut ~= "" then
+				hasChild[cut] = true
+			end
+		end
+		local out: { string } = {}
+		for _, path in paths do
+			local node = adapter.node(path)
+			local props = node.props or {}
+			if node.class ~= "Box" or props.tint == nil or hasChild[path] then
+				continue
+			end
+			local rect = node.rect
+			if rect == nil or rect.w * rect.h <= 0 then
+				table.insert(out, `{path} = {if rect then `{rect.w}x{rect.h}` else "no rect"}`)
+			end
+		end
+		return out
+	end
+
+	it("a bar mark standing alone has HEIGHT as well as width", function()
+		local _, adapter = mount()
+		for i = 1, 10 do
+			local rect = adapter.node(markPath(i)).rect
+			expect(`Level{i} area: {rect.w * rect.h > 0}`).toBe(`Level{i} area: true`)
+		end
+		-- the strip declares the 44px effective target and the run fills it, so the
+		-- mark's height IS that floor rather than some fraction of it
+		expect(`mark height: {adapter.node(markPath(1)).rect.h}`).toBe(`mark height: {adapter.node(STRIP).rect.h}`)
+		expect(#blankFills(adapter)).toBe(0)
+	end)
+
+	it("...and in the composition the showcase ships: a strip beside a stepper", function()
+		-- the gallery's row is a `fill` picker in an HStack with `align = "center"`
+		-- next to a content-sized stepper, which is where this was reported. A
+		-- centred cross axis does not stretch its children, so the strip's own
+		-- declared floor is the only thing holding the run open.
+		local core, _, adapter, _, pres = world()
+		local value = core:signal(2)
+		local picker = LuauUI.newLevelPicker(LuauUI, core, { id = "Quality", value = value, count = 10 })
+		local stepper = LuauUI.newStepper(LuauUI, core, { id = "QualityStep", value = value, min = 0, max = 10 })
+		pres.present(UI.Screen({
+			id = "S",
+			children = {
+				UI.VStack({
+					id = "Card",
+					surface = "control",
+					padding = 8,
+					width = { type = "fill", weight = 1 },
+					children = {
+						UI.HStack({
+							id = "Pair",
+							gap = 8,
+							align = "center",
+							width = { type = "fill", weight = 1 },
+							children = { picker.blueprint, stepper.blueprint },
+						}),
+					},
+				}),
+			},
+		}))
+		pres.refresh()
+		for i = 1, 10 do
+			local rect = adapter.node(`/S/Card/Pair/Quality/Levels/Level{i}`).rect
+			expect(`Level{i} area: {rect.w * rect.h > 0}`).toBe(`Level{i} area: true`)
+		end
+		expect(#blankFills(adapter)).toBe(0)
+		picker.dispose()
+		stepper.dispose()
+	end)
+
+	--[[ THE SURFACE THE DIRECTOR ACTUALLY LOOKED AT, at every viewport this
+		framework sweeps. The two cases above are the control in a box this file
+		built; this one mounts the SHIPPED fixture through the SHIPPED chrome
+		reservation, which is the only thing that can claim the screen in the bug
+		report is fixed. It walks the whole tree rather than the five rows by name,
+		so a sixth row added tomorrow is swept without an edit. ]]
+	it("the shipped gallery surface paints every tinted mark, at every swept viewport", function()
+		local showcaseTop = demo_picker.barReservation(device_views.CORE_TOP, nil, 8)
+		for _, view in device_views.VIEWS do
+			local core = customFactory.new()
+			local env = environment.new(core)
+			env:set("viewportRect", { x = 0, y = 0, w = view.w, h = view.h })
+			env:set("coreSafeInsets", { top = showcaseTop, bottom = 0, left = 0, right = 0 })
+			env:set("displaySize", view.displaySize)
+			env:set("preferredInput", view.input)
+			local adapter = fake_target.new()
+			local system = actionsLib.newSystem(core)
+			local pres = presenterLib.new(core, env, adapter, system)
+			local built = scenario.build({
+				LuauUI = LuauUI,
+				core = core,
+				env = env,
+				adapter = adapter,
+				presenter = pres,
+				actionSystem = system,
+				record = function() end,
+				flags = {},
+				geometry = function()
+					return {}
+				end,
+			})
+			pres.present(built.screen, built.present)
+			for _ = 1, 3 do
+				pres.refresh()
+			end
+			expect(`{view.id} blank fills: {table.concat(blankFills(adapter), ", ")}`).toBe(`{view.id} blank fills: `)
+			-- ...and the two bar runs by name, so the case still says something if a
+			-- future fixture stops carrying tinted marks at all
+			for _, row in
+				{
+					{ id = "Balanced", picker = "BalancedBars", count = 10 },
+					{ id = "Fidelity", picker = "FidelityBars", count = 3 },
+				}
+			do
+				for i = 1, row.count do
+					local node = adapter.node(`/LevelPickerDemo/Page/{row.id}/Pair/{row.picker}/Levels/Level{i}`)
+					expect(`{view.id} {row.picker} Level{i} present: {node ~= nil}`).toBe(
+						`{view.id} {row.picker} Level{i} present: true`
+					)
+					local rect = node.rect
+					expect(`{view.id} {row.picker} Level{i} area: {rect.w * rect.h > 0}`).toBe(
+						`{view.id} {row.picker} Level{i} area: true`
+					)
+				end
+			end
+			built.dispose()
+		end
+	end)
+end)

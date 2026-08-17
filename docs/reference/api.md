@@ -933,6 +933,18 @@ them together on the next solve. It is opt-in: nothing changes for a grid that
 does not ask, and `natural` is what every existing layout was authored against.
 Pair it with `minColumnWidth = "intrinsic"` when the cells are labels.
 
+A cell that declares `fill` on the grid's **flow** axis (the height under
+`flow = "row"`, the width under `flow = "column"`) takes its whole line, and the
+line takes the grid's own spare extent on that axis — the space the grid was
+*given* over the space its content *asked for*, split evenly across the lines
+that contain such a cell. So a run of `fill`-on-both-axes marks inside a grid
+that has been handed a height paints at that height, exactly as the same
+declaration does under a stack; a line with no such cell keeps its content
+extent, and nothing here moves what a grid REPORTS (a `fill` cell contributes its
+content at measure, so a content-sized parent still hugs). Without this, a line
+whose every cell fills has no content to be derived from and every cell in it is
+zero-height — a rectangle with a width and no area, which paints nothing at all.
+
 ### `GridRow`
 
 `UI.GridRow{ id?, surface?, shadow?, gradient?, corners?, stroke?, zIndex?, children? }`
