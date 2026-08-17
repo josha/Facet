@@ -113,6 +113,46 @@ local function setView(w: any, view: any, splitFrames: boolean)
 	end
 end
 
+--[[ THE PRESENTATION SHIFT, WHICH IS THE ONE THING NOBODY HAS MEASURED.
+
+	`screenRectOf` = the solved rect + the scroll offset + the PRESENTATION SHIFT.
+	`rectOf` is the solved rect alone. A node carrying a shift is drawn away from
+	where the layout put it — and because the model's own answer includes the same
+	shift, the engine and the model AGREE, so every model-vs-engine check ever
+	written on this fixture reports it healthy. That is exactly what
+	`14 of 14 painting` over a broken screen looks like.
+
+	The brief that opened this round named it as lead 3 and nothing has looked at
+	it since. ]]
+local function auditShift(w: any, built: any, label: string)
+	local ctrl = built.handle.controller
+	local shifted, total = 0, 0
+	local samples: { string } = {}
+	for _, path in w.adapter.paths() do
+		if string.find(path, "^/HudScreen") == nil then
+			continue
+		end
+		local screen = ctrl.screenRectOf(path)
+		local solved = ctrl.rectOf(path)
+		if screen == nil or solved == nil then
+			continue
+		end
+		total += 1
+		local dx, dy = screen.x - solved.x, screen.y - solved.y
+		if math.abs(dx) > 0.5 or math.abs(dy) > 0.5 then
+			shifted += 1
+			if #samples < 8 then
+				table.insert(samples, `{path} shifted {math.floor(dx + 0.5)},{math.floor(dy + 0.5)}`)
+			end
+		end
+	end
+	print(string.format("%-44s %3d nodes, %d carrying a presentation shift", label, total, shifted))
+	for _, s in samples do
+		print(`     {s}`)
+	end
+	return shifted
+end
+
 --[[ THE QUESTION THE PROBE DOES NOT ASK. For every node the surface owns, compare
 	what the SOLVER says its screen rect is against what the ENGINE was actually
 	told. They must be equal; a difference is a write that never landed. ]]
@@ -172,6 +212,7 @@ for _, split in { false, true } do
 	local w = world(PORTRAIT)
 	local built = mount(w)
 	auditRects(w, built, "portrait, mounted")
+	auditShift(w, built, "portrait, mounted")
 
 	built.steps.openOverflow(built)
 	w.presenter.refresh()
@@ -186,9 +227,11 @@ for _, split in { false, true } do
 	built.steps.closeUrlBar(built)
 	w.presenter.refresh()
 	auditRects(w, built, "portrait, after the steps")
+	auditShift(w, built, "portrait, after the steps")
 
 	setView(w, LANDSCAPE, split)
 	auditRects(w, built, "LANDSCAPE — the failing frame")
+	auditShift(w, built, "LANDSCAPE — the failing frame")
 
 	-- the director's own repair: toggle the URL bar in landscape
 	built.steps.openUrlBar(built)
@@ -196,6 +239,7 @@ for _, split in { false, true } do
 	built.steps.closeUrlBar(built)
 	w.presenter.refresh()
 	auditRects(w, built, "...after toggling the URL bar (the repair)")
+	auditShift(w, built, "...after toggling the URL bar (the repair)")
 	built.dispose()
 	print("")
 end

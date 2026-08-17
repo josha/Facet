@@ -190,4 +190,12 @@ if plate ~= nil then
 	end
 end
 
+print("")
+print(`== instance hosts on the HUD surface: {w.adapter.hostCount()} ==`)
+for _, path in w.adapter.paths() do
+	if w.adapter.isHost(path) then
+		print(`   HOST {path}`)
+	end
+end
+
 built.dispose()

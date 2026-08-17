@@ -1644,3 +1644,54 @@ describe("hud: faded and clipped are not painting", function()
 		built.dispose()
 	end)
 end)
+
+--[[ NM-H4a round 10 — THE PLATE ASKS ONE QUESTION AND IT IS NOT THE ONLY ONE.
+
+	`f.jpeg`, 2026-08-17: `14 of 14 rows wanted / 14 of 14 painting` over a screen
+	with its whole left column missing and a dark sliver drawn in the left
+	safe-area gutter where no zone belongs.
+
+	This probe asks whether the ENGINE agrees with the MODEL. It cannot ask whether
+	the model is SANE, and it only ever asks about the fourteen paths it was written
+	with — so a screen whose layout is wrong, consistently, in both halves, reads as
+	perfectly healthy on every line it prints.
+
+	`controller.diagnostics()` is the framework's own answer to that and has been
+	there the whole time (docs/lessons/the-solver-already-told-you.md). It belongs on
+	the plate, above the paint verdict and inside the CLOSED set, because a reader
+	told "14 of 14 painting" and nothing else has been told the wrong thing. ]]
+describe("hud: the solver's own findings reach the plate", function()
+	it("a clean layout says nothing, so the line is not decoration", function()
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		expect(#built.handle.controller.diagnostics()).toBe(0)
+		expect(string.find(built.report().paintProbe.plate, "SOLVER SAYS", 1, true)).toBe(nil)
+		built.dispose()
+	end)
+
+	it("a layout the framework is complaining about reaches the closed plate", function()
+		--[[ The fixture cannot manufacture a real overflow without shipping a broken
+			HUD, so the seam is driven directly: what is pinned is that a finding on the
+			controller REACHES the readout, above the paint lines and inside the two the
+			closed plate shows. ]]
+		local w = world(LANDSCAPE)
+		local built = mount(w, ctxFor(w))
+		local ctrl = built.handle.controller
+		local real = ctrl.diagnostics
+		ctrl.diagnostics = function()
+			return { { node = "/HudScreen/Hud/Tasks/TasksFull", issue = "overflows its lane by 0x41px" } }
+		end
+		built.steps.sampleProbe(built)
+		local plate = built.report().paintProbe.plate
+		ctrl.diagnostics = real
+		expect(string.find(plate, "SOLVER SAYS 1", 1, true) ~= nil).toBe(true)
+		-- named by its tail, like every other path on this plate
+		expect(string.find(plate, "…/Tasks/TasksFull", 1, true) ~= nil).toBe(true)
+		-- ...and ABOVE the paint verdict, because a layout the solver is already
+		-- refusing is not a paint defect and must not be read as one
+		local solverAt = string.find(plate, "SOLVER SAYS", 1, true)
+		local paintAt = string.find(plate, "painting", 1, true) or #plate
+		expect((solverAt :: number) < paintAt).toBe(true)
+		built.dispose()
+	end)
+end)

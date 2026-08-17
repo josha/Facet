@@ -200,6 +200,9 @@ local COPY = {
 	probeRows = "rows wanted",
 	probeSkipped = "skipped:",
 	probeSizeDiffers = "size differs:",
+	-- the solver's own findings, which outrank every paint verdict below them: a
+	-- layout the framework is already complaining about is not a paint defect
+	probeSolver = "SOLVER SAYS",
 	probeWaiting = "waiting for the first solve",
 	--[[ WHY A ROW IS SKIPPED, WHEN THE REASON IS A PLATFORM FACT (director, device,
 		2026-08-17). The plate reported `13 of 14 rows wanted / skipped: Objective`
@@ -1363,7 +1366,9 @@ return {
 			always carries every line — `report().paintProbe.plate` is the full readout
 			for a scripted driver either way — and this decides only what the SURFACE
 			shows. ]]
-		local PROBE_CLOSED_LINES = 2
+		-- head + the denominator + whatever anomaly line follows it. A closed plate
+		-- that showed only counts is what let `14 of 14 painting` be the whole story.
+		local PROBE_CLOSED_LINES = 3
 		local probeLine: { any } = {}
 		for i = 1, PROBE_LINE_SLOTS do
 			probeLine[i] = scope:own(core:memo(function(use)
@@ -1734,7 +1739,28 @@ return {
 				shipped; and when the engine side could not be read the count is
 				REPLACED, not annotated. A reader who skims and finds a number has been
 				told a fact. ]]
+			--[[ THE SOLVER'S OWN COMPLAINT, WHICH THIS PLATE HAS NEVER SHOWN
+				(director, 2026-08-17: `f.jpeg` — `14 of 14 painting` over a broken screen,
+				with a dark sliver drawn in the left safe-area gutter where no zone
+				belongs).
+
+				This probe asks ONE question: does the engine agree with the model. It
+				cannot ask whether the model is SANE, and it only ever asks about the
+				fourteen paths it was written with — so a screen whose layout is wrong,
+				consistently, in both halves, reads as perfectly healthy on every line
+				above.
+
+				`controller.diagnostics()` is the framework's own answer to that, and it
+				has been sitting there the whole time
+				(docs/lessons/the-solver-already-told-you.md). It goes on the plate, in
+				the CLOSED set, because a reader who is told "14 of 14 painting" and
+				nothing else has been told the wrong thing. ]]
+			local findings = if ctrl.diagnostics ~= nil then ctrl.diagnostics() else {}
 			local lines: { string } = { `{wanted} {COPY.probeOf} {#PROBE_ROWS} {COPY.probeRows}` }
+			if #findings > 0 then
+				local first = findings[1]
+				table.insert(lines, `{COPY.probeSolver} {#findings}: {probeTail(tostring(first.node or "?"))}`)
+			end
 			if #skipped > 0 then
 				table.insert(lines, `{COPY.probeSkipped} {table.concat(skipped, " · ")}`)
 			end
