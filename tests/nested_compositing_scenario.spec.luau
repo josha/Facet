@@ -47,8 +47,8 @@ local module = require("../examples/gallery/scenarios/nested_compositing") :: an
 local ROOT = "/NestedCompositing/Page"
 local ONE_GROUP = ROOT .. "/Opacity/Panels/One/OneGroup"
 local TWO_GROUPS = ROOT .. "/Opacity/Panels/Two/TwoGroups"
-local CARRIED = ROOT .. "/Carry/Panels/Carries/Carried"
-local STATIC = ROOT .. "/Carry/Panels/Alone/Static"
+local CARRIED = ROOT .. "/Carry/Panels/Carries/Stage/Carried"
+local STATIC = ROOT .. "/Carry/Panels/Alone/Stage/Static"
 
 -- the showcase's own chrome reservation (init.client.luau's fixture branch
 -- lays every demo out BELOW the picker's chip strip) — same constant and the

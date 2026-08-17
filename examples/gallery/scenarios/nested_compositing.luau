@@ -87,6 +87,37 @@ local FRONT = { id = "Front", w = 64, h = 40, role = "danger" }
 -- would put the marker at a different screen offset on every viewport, which is
 -- not what this fixture is measuring.
 local CLUSTER_W, CLUSTER_H = 100, 70
+--[[ THE SLOT THE TURNED PAIR NEEDS, AND WHY THIS DEMO HAS TO RESERVE IT ITSELF.
+
+	`scale` is PAINT-ONLY by definition — "paint-only uniform scale about the node's
+	centre" — so the solver reserves a node's UNSCALED box and the engine draws the
+	scaled one. That is correct and deliberate: a paint term that moved layout would
+	re-solve the page every frame of an animation. It also means a container that
+	scales overflows its own slot, and the parent has to leave room.
+
+	FOUND ON A DEVICE (director, 2026-08-17): this cluster reserved 100x70 and, at
+	1.5x and 30 degrees, painted a 182x166 footprint into it — over the caption above
+	and past the panel's left edge. The screenshots read as "the first press is
+	broken"; it was the opposite, the press was RIGHT and the box was too small. (The
+	state that looked correct was a separate defect that dropped the scale entirely —
+	`screen_presentation`'s UIScale corpse, fixed the same day.)
+
+	So the footprint is COMPUTED from the same three constants that produce it,
+	rather than pinned as a number somebody has to remember to update: change the
+	scale or the angle and the reservation follows. ]]
+-- ...plus a few pixels of slack. The exact footprint at 1.5x / 30 degrees is
+-- 182.40 x 165.93, and reserving the ceiling of that centres a 165.93 box inside a
+-- 166 one — 0.03px a side, which is one rounding difference away from clipping a
+-- hairline off an edge nobody would think to look at. Slack is cheaper than a
+-- device round.
+local FOOTPRINT_SLACK = 6
+local function turnedFootprint(w: number, h: number, scale: number, deg: number): (number, number)
+	local r = math.rad(deg)
+	local sw, sh = w * scale, h * scale
+	local c, s = math.abs(math.cos(r)), math.abs(math.sin(r))
+	return math.ceil(sw * c + sh * s) + FOOTPRINT_SLACK, math.ceil(sw * s + sh * c) + FOOTPRINT_SLACK
+end
+local STAGE_W, STAGE_H = turnedFootprint(CLUSTER_W, CLUSTER_H, TURN_SCALE, TURN_ROTATION)
 local PLATE_W, PLATE_H = 70, 40
 local MARKER = 20
 
@@ -213,6 +244,8 @@ return {
 				id = id,
 				rotation = pt.rotation,
 				scale = pt.scale,
+				alignH = "center",
+				alignV = "center",
 				width = { type = "fixed", px = CLUSTER_W },
 				height = { type = "fixed", px = CLUSTER_H },
 				children = {
@@ -258,6 +291,19 @@ return {
 				turned:set(not turned:get())
 			end,
 		})
+
+		-- THE RESERVATION, and it must sit OUTSIDE the node that scales — a box that
+		-- scales with its contents reserves nothing. Fill-width so a narrow phone's
+		-- stacked panels give it the whole column; fixed height because the vertical
+		-- overflow is what ran over the caption.
+		local function stage(body: any): any
+			return UI.ZStack({
+				id = "Stage",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fixed", px = STAGE_H },
+				children = { body },
+			})
+		end
 
 		local function panel(id: string, title: string, note: string, body: any): any
 			return UI.VStack({
@@ -341,8 +387,8 @@ return {
 									gap = 8,
 									width = { type = "fill", weight = 1 },
 									children = {
-										panel("Carries", COPY.carriesTitle, COPY.carriesNote, carried),
-										panel("Alone", COPY.aloneTitle, COPY.aloneNote, alone),
+										panel("Carries", COPY.carriesTitle, COPY.carriesNote, stage(carried)),
+										panel("Alone", COPY.aloneTitle, COPY.aloneNote, stage(alone)),
 									},
 								}),
 							},
