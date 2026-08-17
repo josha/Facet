@@ -5,7 +5,7 @@ turns a real check into one that cannot fail, so each guard below is asserted by
 breaking it: the assertions are run against synthetic caches whose transcript is
 red, failing, truncated, empty, fast-tier, or mutated after the fact.
 
-- assertions passed: **28**
+- assertions passed: **26**
 - assertions failed: **0**
 
 Every refusal asserts BOTH a non-zero exit (which reddens FORM A's `&&` chain)
