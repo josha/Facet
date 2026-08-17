@@ -82,12 +82,20 @@ why the lab refuses to run instead of running wrong.
 3. Press **Profile 1**. Watch the status line. It should read:
 
    ```
-   PROFILING host-move/hosted · lap 2 · arrange=24 mount=0 react=NN resource=0 — DUMP NOW: ...
+   PROFILING host-move/hosted · lap 2 · arrange=27 mount=0 react=NN resource=0 — DUMP NOW: ...
    ```
 
-   **`arrange=24` is the number that matters before you spend a dump** — 24
-   reps, one arrange per rep, matching every other lever's default. **If it
-   reads `arrange=0` or `arrange=1`, STOP.** The lap is inert (the scenario
+   (Until 2026-08-17 that line flashed past in milliseconds, because the
+   counter-bearing version was written at the END of a lap and overwritten by a
+   counter-less one at the START of the next. The counters now persist across
+   the lap boundary and only `lap N` changes, so this is readable at a glance.
+   If you are on an older build and it still flashes, that is the bug, not you.)
+
+   **`arrange` IN THE TWENTIES is what matters before you spend a dump.** The
+   lap is 24 reps at one arrange each, and the device read **27** on 2026-08-17
+   — the extra few are the mount and settle solves the lap sits on top of. This
+   note originally said "exactly 24" and that was over-specified; do not stop on
+   27. **If it reads `arrange=0` or `arrange=1`, STOP.** The lap is inert (the scenario
    never cycled, the pass errored before its first rep, or Play was pressed
    before the place finished loading) and the capture would be worthless — the
    same failure mode that produced `asyncImage.html`'s twenty-nine
@@ -180,3 +188,27 @@ is where the numbers above should first be sanity-checked before a device is
 spent. **A physical device is the only device claim.** A Studio number on a
 desktop machine is not evidence about a phone or a console; it only proves
 the workload is capable of being measured.
+
+---
+
+## RESULT — this capture was taken on 2026-08-17
+
+Five dumps, four usable; `hostmove1.html` (arm 1, the A/A partner) came back with a
+**zero-frame aggregate** and no timings, so **there is no A/A control spread** and the
+N=20 numbers sit at the edge of the 6.7 % noise proxy.
+
+**`LuauUI/commit` −18.9 % at 600 leaves (−2.05 ms/frame), −8.8 % at 120.** The scaling
+prediction in this note held: hosted `commit` grows 2.94× over 5× the rows, unhosted
+3.31×.
+
+**The engine's relayout total is UNCHANGED** — the `Resizes = 3` on the Rendering root
+is work re-attributed to the `ScrollView`'s own contexts, not removed. ADR-0032 §Risks
+confirmed: the C++ descendant walk does not go away.
+
+**And the arms carry a confound this note did not anticipate:** `unhosted` drops the
+`ScrollView` entirely, so it is dearer in `commit` but much cheaper in `arrange`, and
+the hosted arm is **more expensive overall** on this workload. Only the `commit` column
+isolates hosting. The capture that would price this round's change properly is the same
+hosted arm, **old build against new** — not another hosted-vs-unhosted pass.
+
+Full analysis: `artifacts/nested-instance-tree/device-capture-2026-08-17.md`.

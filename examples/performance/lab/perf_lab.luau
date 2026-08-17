@@ -4091,7 +4091,27 @@ return {
 			local laps = 0
 			while not profileStopRequested and (maxLaps <= 0 or laps < maxLaps) do
 				laps += 1
-				statusLine:set(`PROFILING {id}/{passName} · lap {laps} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`)
+				--[[ THE COUNTERS SURVIVE THE LAP BOUNDARY, and that is a bug fix
+					(director, 2026-08-17: "the line flashes really quickly to where
+					it's hard to read").
+
+					This used to set a counter-LESS line at the top of every lap and a
+					counter-bearing one at the bottom, so the reading an operator has to
+					check before spending a dump — `arrange=` — was visible only in the
+					gap between one lap ending and the next beginning. On `host-move`
+					that gap is a few milliseconds, because a lap is 24 reps and
+					finishes well under a second. The number was there and unreadable,
+					which for a human-in-the-loop instrument is the same as absent.
+
+					So the last measured lap's counters ride the line until the next
+					lap replaces them. Only `lap N` changes on a healthy run, which is
+					also what makes "the lap counter is climbing" legible at a glance. ]]
+				statusLine:set(
+					if lapWork.measured
+						then `PROFILING {id}/{passName} · lap {laps} · arrange={lapWork.arrange} mount={lapWork.mount} `
+							.. `react={lapWork.react} resource={lapWork.resource} — DUMP NOW: Ctrl/Cmd+F6, then Ctrl+P`
+						else `PROFILING {id}/{passName} · lap {laps} — warming up, no counters yet`
+				)
 				local before = lapCounts()
 				local ok, err = pcall(function()
 					passes[passName]()
