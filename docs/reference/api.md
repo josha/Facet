@@ -7018,6 +7018,21 @@ caching at boot. Pooled effects are parented to `Workspace` by default, *matchin
 the official sample* — the docs state no parenting requirement and this module
 claims none; pass `parent` to override or `parent = false` to parent nothing.
 
+**There is a demo you can feel it in.** The showcase fixture `sensory-feedback`
+carries a `Play haptics on this device` switch — **default off, and the library's
+default does not move**: the demo opting in is a different decision from the
+library opting in, and the panel says so on screen. Flipping it constructs
+`haptics.new({ enabled = true })` and hands it both seams, then reports which of
+three things happened — **Requested** / **This platform says no** / **Could not
+determine** — with `support()` printed verbatim beside the verdict. It says
+*requested*, never *played*, because whether a `HapticEffect` fired is not
+readable from game code. Note that `bind(presenter)` **alone** would play nothing
+on a screen of ordinary buttons: every event a press causes carries
+`reason = "activation"`, which this adapter drops on purpose because the engine
+plays it through the button's own property. `attachButtons` is the seam that
+makes a press felt. Procedure: `artifacts/navigation-and-menus/review-packet.md`
+row P8.
+
 **What is device-owed.** Roblox documents controllers on macOS 15+ as
 unsupported, so this repository's dev machine can only prove "never throws".
 Whether anything is *felt* on a gamepad, whether it is felt on a phone, and

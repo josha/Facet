@@ -908,3 +908,361 @@ describe("the showcase fixture drives the real thing", function()
 		end
 	end)
 end)
+
+-- ===========================================================================
+-- THE DEMO CAN ACTUALLY PLAY THEM, AND SAYS WHICH OF THREE THINGS HAPPENED
+-- (NM-G3, director's physical pass 2026-08-16: "none of the haptics in sensory
+-- feedback work")
+-- ===========================================================================
+--
+-- WHY NOTHING PLAYED, and it was never the engine choice. `src/client/haptics`
+-- already uses `HapticEffect` rather than the superseded `HapticService:SetMotor`
+-- — the fixture simply never constructed it. It subscribed the bus for a LOG and
+-- printed the adapter's published map beside it, captioned "what an opt-in
+-- adapter WOULD play". And a `bind(presenter)` alone would still have played
+-- nothing here: `onEvent` drops every event carrying `reason = "activation"`,
+-- which is every event this surface produces, because a control's press belongs
+-- to the ENGINE through `GuiButton.PressHapticEffect`. So the route that makes a
+-- press felt is `attachButtons(root)`, which needs a real Instance — the one
+-- thing an engine-free fixture had no way to reach.
+--
+-- WHAT IS TESTABLE HERE AND WHAT IS NOT. A headless target cannot fire a motor
+-- and cannot read whether one fired, so nothing below asserts a sensation. What
+-- it asserts is the DECISION and the REPORTED STATE — and above all that the
+-- three answers stay three. docs/lessons/capability-probes-must-be-tri-state.md
+-- is about exactly this instrument shape, and this repository has now shipped a
+-- boolean that published a false platform fact twice; `refused` and
+-- `undetermined` are therefore separate states with separate sentences, and a
+-- mutation that merges them reddens `the three answers stay three`.
+describe("the sensory-feedback demo installs the real adapter and reports a TRI-STATE", function()
+	local scenario = require("../examples/gallery/scenarios/sensory_feedback") :: any
+
+	-- ---- a scripted engine, small enough to read in one screen ------------
+	local function fakeSignal(): any
+		local subs: { (any) -> () } = {}
+		local signal: any = {}
+		function signal:Connect(fn: (any) -> ()): any
+			table.insert(subs, fn)
+			return {
+				Disconnect = function()
+					local i = table.find(subs, fn)
+					if i ~= nil then
+						table.remove(subs, i)
+					end
+				end,
+			}
+		end
+		return signal
+	end
+
+	local function fakeEnums(): any
+		local set: any = {}
+		for _, name in hapticsLib.EFFECT_TYPES do
+			set[name] = `Enum.HapticEffectType.{name}`
+		end
+		return { HapticEffectType = set }
+	end
+
+	local function fakeInputService(pads: { any }): any
+		local uis: any = {
+			GamepadConnected = fakeSignal(),
+			GamepadDisconnected = fakeSignal(),
+			LastInputTypeChanged = fakeSignal(),
+			pads = pads,
+		}
+		function uis:GetConnectedGamepads(): { any }
+			return uis.pads
+		end
+		return uis
+	end
+
+	-- `GetAttribute` IS NOT OPTIONAL ON THIS FAKE, and leaving it off cost a
+	-- debugging round: the adapter reads the renderer's declared-verb attribute
+	-- through `guard`, so a button that cannot answer records a caught error in
+	-- `diagnostics().lastError` — which then overwrote the engine's own
+	-- construction words that the refusal line is supposed to keep. A fake that
+	-- fails where the real class succeeds manufactures its own findings.
+	local function fakeButton(name: string): any
+		local inst: any = { Name = name, PressHapticEffect = nil }
+		function inst:IsA(className: string): boolean
+			return className == "GuiButton"
+		end
+		function inst:GetAttribute(_name: string): any
+			return nil
+		end
+		return inst
+	end
+
+	-- the instances are counted off the instances, never off the adapter's own
+	-- counters (the `pooled = 0` while fifteen sat in Workspace lesson)
+	local function fakeEngine(opts: any): any
+		local made: { any } = {}
+		local rootChildren: { any } = {}
+		for i = 1, (opts.buttons or 3) do
+			table.insert(rootChildren, fakeButton(`B{i}`))
+		end
+		local root: any = { Name = "PlayerGui", DescendantAdded = fakeSignal(), Destroying = fakeSignal() }
+		function root:IsA(): boolean
+			return false
+		end
+		function root:GetDescendants(): { any }
+			return rootChildren
+		end
+		local instanceNew = function(className: string): any
+			if opts.constructionError ~= nil then
+				error(opts.constructionError, 0)
+			end
+			local effect: any = { ClassName = className, Parent = nil, destroyed = false }
+			function effect:Play() end
+			function effect:Stop() end
+			function effect:Destroy()
+				effect.destroyed = true
+				effect.Parent = nil
+			end
+			table.insert(made, effect)
+			return effect
+		end
+		return {
+			root = root,
+			buttons = rootChildren,
+			effects = made,
+			live = function(): number
+				local n = 0
+				for _, e in made do
+					if not e.destroyed then
+						n += 1
+					end
+				end
+				return n
+			end,
+			overrides = {
+				module = hapticsLib,
+				root = root,
+				options = {
+					instanceNew = instanceNew,
+					inputService = fakeInputService(opts.pads or {}),
+					hapticService = {
+						IsVibrationSupported = function(_self: any, _pad: any): any
+							return opts.vibration
+						end,
+					},
+					enums = fakeEnums(),
+					parent = { Name = "Workspace" },
+				},
+			},
+		}
+	end
+
+	local function mountDemo(): (any, any)
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new()
+		local pres = LuauUI.newPresenter(core, env, adapter, system)
+		local built =
+			scenario.build({ LuauUI = LuauUI, core = core, env = env, actionSystem = system, presenter = pres })
+		built.handle = pres.present(built.screen, built.present)
+		for _ = 1, 3 do
+			pres.refresh()
+		end
+		return { adapter = adapter, core = core, pres = pres }, built
+	end
+
+	-- ---- the switch is the demo's decision, and it starts OFF -------------
+	it("DEFAULT OFF: the demo constructs no adapter and claims nothing about the device", function()
+		local w, built = mountDemo()
+		expect(built.playHaptics:get()).toBe(false)
+		expect(built.hapticsAdapter()).toBeNil()
+		expect(built.hapticsState:get()).toBe("off")
+		-- the on-screen line says OFF, and says nothing whatever about the platform
+		local line = built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get()
+		for _, forbidden in { "cannot", "supported", "refus" } do
+			expect(`off line mentions '{forbidden}':{string.find(string.lower(line), forbidden, 1, true) ~= nil}`).toBe(
+				`off line mentions '{forbidden}':false`
+			)
+		end
+		expect(w.core:lastError()).toBeNil()
+		built.dispose()
+	end)
+
+	it("the switch is reachable as a control, and the demo says the LIBRARY is still default-off", function()
+		local w, built = mountDemo()
+		local node = w.adapter.node("/SensoryFeedback/Page/Play/PlayHaptics")
+		expect(node ~= nil).toBe(true)
+		expect(node.class).toBe("Toggle")
+		-- the note is on screen, not only in a comment: the demo opting in is a
+		-- different decision from the library opting in
+		local note = w.adapter.node("/SensoryFeedback/Page/Play/PlayNote")
+		expect(note ~= nil).toBe(true)
+		expect(string.find(string.lower(tostring(note.props.text)), "default", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	-- ---- the three answers -------------------------------------------------
+	it("a connected pad that answers NO is a platform refusal", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = false })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(built.hapticsState:get()).toBe("refused")
+		expect(built.hapticsDetail:get()).toBe(built.hapticsDetail:get())
+		expect(string.find(built.hapticsDetail:get(), "unsupported", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("NO PAD is NOT a refusal — it is could-not-determine, and it says the effects are installed", function()
+		local engine = fakeEngine({ pads = {}, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(built.hapticsState:get()).toBe("undetermined")
+		-- the press effects DID go out, which is why "nothing happened" and "this
+		-- device cannot" are not the same sentence
+		expect(built.hapticsAdapter().diagnostics().decorated > 0).toBe(true)
+		expect(string.find(built.hapticsDetail:get(), "unknown", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a supported pad with press effects out says REQUESTED, never PLAYED", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(built.hapticsState:get()).toBe("requested")
+		local line = string.lower(built.hapticsHeadline:get() .. " " .. built.hapticsDetail:get())
+		expect(`says requested:{string.find(line, "requested", 1, true) ~= nil}`).toBe("says requested:true")
+		expect(`claims played:{string.find(line, "played", 1, true) ~= nil}`).toBe("claims played:false")
+		-- ...and it says who has to close the gap
+		expect(`asks for a human:{string.find(line, "human", 1, true) ~= nil}`).toBe("asks for a human:true")
+		built.dispose()
+	end)
+
+	it("a client that cannot build the class is a refusal, and the engine's own words are KEPT", function()
+		local engine = fakeEngine({
+			pads = { "Gamepad1" },
+			vibration = true,
+			constructionError = 'Unable to create an Instance of type "HapticEffect"',
+		})
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(built.hapticsState:get()).toBe("refused")
+		expect(string.find(built.hapticsDetail:get(), "absent", 1, true) ~= nil).toBe(true)
+		expect(string.find(built.hapticsDetail:get(), "Unable to create", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a refusal for some OTHER reason is `blocked`, and blocked is could-not-tell", function()
+		local engine = fakeEngine({
+			pads = { "Gamepad1" },
+			vibration = true,
+			constructionError = "The current thread cannot create an Instance (lacking capability)",
+		})
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(built.hapticsState:get()).toBe("undetermined")
+		expect(string.find(built.hapticsDetail:get(), "blocked", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("an adapter that could not be LOADED is undetermined, not a platform claim", function()
+		local _, built = mountDemo()
+		built.useScriptedEngine({ moduleError = "LuauUI.client.haptics is not replicated here" })
+		built.playHaptics:set(true)
+		expect(built.hapticsState:get()).toBe("undetermined")
+		expect(string.find(built.hapticsDetail:get(), "not replicated", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	-- THE ANTI-COLLAPSE CASE. This is the one that reddens when somebody merges
+	-- "no" with "could not tell" — a boolean would satisfy every case above it by
+	-- reporting one of the two states for all five inputs.
+	it("the three answers stay THREE: three states, three headlines, no overlap", function()
+		local seen: { [string]: string } = {}
+		local INPUTS = {
+			{ name = "supported pad", facts = { adapterLoaded = true, support = "supported", decorated = 3 } },
+			{ name = "pad says no", facts = { adapterLoaded = true, support = "unsupported", decorated = 0 } },
+			{ name = "no pad at all", facts = { adapterLoaded = true, support = "unknown", decorated = 3 } },
+			{ name = "class absent", facts = { adapterLoaded = true, support = "absent", decorated = 0 } },
+			{ name = "blocked", facts = { adapterLoaded = true, support = "blocked", decorated = 0 } },
+			{ name = "no module", facts = { adapterLoaded = false, moduleError = "no module", decorated = 0 } },
+			{
+				name = "no root",
+				facts = { adapterLoaded = true, support = "unknown", decorated = 0, rootError = "no root" },
+			},
+		}
+		local states: { [string]: boolean } = {}
+		for _, input in INPUTS do
+			local verdict = scenario.classify(input.facts)
+			states[verdict.state] = true
+			local prior = seen[verdict.headline]
+			-- headlines may repeat WITHIN a state (two ways to be refused read the
+			-- same); they may never be shared ACROSS states
+			for otherHeadline, otherState in seen do
+				if otherHeadline == verdict.headline then
+					expect(`{input.name}: '{verdict.headline}' also means {otherState}`).toBe(
+						`{input.name}: '{verdict.headline}' also means {verdict.state}`
+					)
+				end
+			end
+			seen[verdict.headline] = verdict.state
+			expect(`{input.name} detail is empty:{verdict.detail == ""}`).toBe(`{input.name} detail is empty:false`)
+			local _ = prior
+		end
+		expect(
+			`three states reachable:{states.requested == true and states.refused == true and states.undetermined == true}`
+		).toBe("three states reachable:true")
+	end)
+
+	-- ---- the switch is reversible, and it takes its instances with it ------
+	it("switching it off destroys every effect and takes the claim back", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(engine.live() > 0).toBe(true)
+		for _, button in engine.buttons do
+			expect(`{button.Name} carries an effect:{button.PressHapticEffect ~= nil}`).toBe(
+				`{button.Name} carries an effect:true`
+			)
+		end
+		built.playHaptics:set(false)
+		expect(engine.live()).toBe(0)
+		expect(built.hapticsState:get()).toBe("off")
+		expect(built.hapticsAdapter()).toBeNil()
+		for _, button in engine.buttons do
+			expect(`{button.Name} still carries one:{button.PressHapticEffect ~= nil}`).toBe(
+				`{button.Name} still carries one:false`
+			)
+		end
+		built.dispose()
+	end)
+
+	it("disposing the fixture with the switch ON leaves no effect behind", function()
+		local engine = fakeEngine({ pads = { "Gamepad1" }, vibration = true })
+		local _, built = mountDemo()
+		built.useScriptedEngine(engine.overrides)
+		built.playHaptics:set(true)
+		expect(engine.live() > 0).toBe(true)
+		built.dispose()
+		expect(engine.live()).toBe(0)
+	end)
+
+	-- ---- and the SHIPPED default path, with nothing injected ---------------
+	-- The seam's default is what both hosts run, so it is the path that has to be
+	-- exercised rather than described. Under Lune the adapter module really does
+	-- resolve; the UI root really does not (there is no engine), and the demo
+	-- says exactly that instead of reporting a platform verdict it cannot have.
+	it("with NOTHING injected it still installs, and names what it could not reach", function()
+		local w, built = mountDemo()
+		built.playHaptics:set(true)
+		expect(built.hapticsAdapter() ~= nil).toBe(true)
+		expect(built.hapticsState:get()).toBe("undetermined")
+		expect(built.hapticsAdapter().diagnostics().decorated).toBe(0)
+		expect(w.core:lastError()).toBeNil()
+		built.playHaptics:set(false)
+		built.dispose()
+	end)
+end)

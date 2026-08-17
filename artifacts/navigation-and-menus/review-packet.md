@@ -31,12 +31,12 @@ sha, a `+dirty` flag when the tree was ahead of HEAD, and the build time — e.g
 rebuild.** Every row below is measured against the wrong software otherwise, and a wrong
 result here is worse than no result: it sends someone hunting a defect that does not exist.
 
-### The six PENDING_PHYSICAL rows need a real device, not Studio
+### The eight PENDING_PHYSICAL rows need a real device, not Studio
 
 Publish and open on hardware. Studio's emulator cannot synthesize a real touch or gamepad
 input class (see the table below), so a Studio pass closes none of Part 1.
 
-### For the four PENDING_HUMAN rows, Studio is fine
+### For the six PENDING_HUMAN rows, Studio is fine
 
 ```
 rojo serve examples/showcase.project.json      # then Connect in Studio's Rojo plugin
@@ -143,6 +143,52 @@ beside it.
 move together because they **share one Signal** and neither knows about the other.
 **Also:** the `glyph` and `image` rows below exercise the other two `segment` modes. All
 three must be reachable without a second fixture.
+
+### P8 · Do the haptics actually fire, and does the screen say which? — `NM-G3`
+**Open `Sensory feedback`** (id `sensory-feedback`) and scroll to the bottom panel,
+`Feel it on this device`.
+
+**Why this row exists.** You reported on 2026-08-16 that *"none of the haptics in sensory
+feedback work"*, and you were right. The cause was **not** the engine choice — the adapter
+has always used `HapticEffect`, not the superseded `HapticService:SetMotor`. The demo simply
+never constructed it: it printed the adapter's map and captioned it *"what an opt-in adapter
+would play"*. There was nothing to feel because nothing was installed.
+
+**Do:**
+1. Turn **`Play haptics on this device`** on. It constructs the real client adapter
+   (`haptics.new({ enabled = true })`) and hands it the two seams a game hands it —
+   `bind(presenter)` and `attachButtons`. The library itself stays default-off; the panel
+   says so on screen, because the demo opting in is a different decision from the library
+   opting in.
+2. Press **Buy**, **Delete**, **Pick** and the three cascade buttons. `Delete` is a
+   `reject` → `UINotification`; the others are `UIClick`. **`Mute` declares `none` and must
+   feel like nothing** — that is the negative control, and a `Mute` you can feel is a defect.
+3. Read the two lines under the switch. **Every press re-reads the adapter**, so plugging a
+   pad in mid-pass and pressing again updates the verdict without toggling.
+
+**The line says exactly one of three things, and they are three on purpose**
+(`docs/lessons/capability-probes-must-be-tri-state.md` — this repository has now shipped two
+instruments that collapsed "no" with "could not tell"; do not accept a third):
+
+| On screen | What it means | What to record |
+|---|---|---|
+| **Requested** | A pad is connected, it reports vibration support, and *N* buttons are holding a press effect. It does **not** say "played" — whether a motor fired is not readable from game code | **Did you feel it?** This row is the only instrument that can answer |
+| **This platform says no** | A connected pad answered `false`, or this client cannot construct `HapticEffect` at all. The engine's own error text is printed in the line | Feeling nothing is the **expected** result. Type the line back |
+| **Could not determine** | Everything else — and it is not a failure. A phone has no haptics probe on the platform at all, and an absent gamepad answers the same `false` as a motorless one | Type the line back, **and still say whether you felt anything**. The line tells you whether the effects went out; only your hand can say whether they arrived |
+
+**A phone with no controller landing on `Could not determine` is a correct result**, not a
+bug report. What would be a bug is the screen saying "no" when it means "cannot tell".
+
+**Also on screen, under `What no game code can read`:** whether an effect actually fired,
+and the player's own haptics strength (`UserGameSettings.HapticStrength` is
+`RobloxScriptSecurity` on read). The docs also never say which input devices trigger
+`GuiButton.PressHapticEffect`. If you feel nothing on a phone, that combination — not a
+defect in this adapter — is the first suspect.
+
+**Turn the switch off before you leave the demo.** While it is on, every button on the
+client carries its declared press effect, chrome included (that is deliberate: press
+anything and find out whether this hardware does haptics at all). Switching off, or leaving
+the demo, releases every one of them and destroys the effects.
 
 ---
 
