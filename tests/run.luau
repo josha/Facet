@@ -537,6 +537,7 @@ require("./help.spec")
 -- contract, the caller-owned persistence boundary, and the non-blocking proof
 require("./callout.spec")
 require("./tab_view.spec")
+require("./level_picker.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

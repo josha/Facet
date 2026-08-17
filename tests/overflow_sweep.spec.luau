@@ -304,6 +304,12 @@ local SCENARIOS = {
 	-- phone has left.
 	"card_rail",
 	"with_animation",
+	-- ...and the level-picker showcase. Every row on it is a WRAPPING pair — a
+	-- full-width strip beside a stepper that is a compact unit rather than two
+	-- free-floating circles — so the swept cross product is the direct test of
+	-- the one layout decision the fixture makes: side by side where there is
+	-- room, stacked where there is not, on one declaration.
+	"level_picker",
 	-- parity round 3 D2: the circular indicator's showcase surface. Its ring is a
 	-- fixed square from a theme metric — the one shape in the family that cannot
 	-- shrink with its container — so a swept viewport is exactly where a page that

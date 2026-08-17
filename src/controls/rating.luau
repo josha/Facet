@@ -45,9 +45,23 @@
 --
 -- OWNERSHIP: `value` is the CALLER's settable Signal. The control never creates
 -- it, because a rating outlives the row that shows it.
+--
+-- ===== WHERE THE BODY WENT (director ruling 2026-08-16) =====================
+-- Everything above is unchanged and is still this control's constitution — it is
+-- the argument that made a Rating a control, and it is why `newLevelPicker`
+-- exists in the shape it does. What moved is the CODE: a rating turned out to be
+-- one point in a family (a caller-chosen `count`, a segment painted as a glyph,
+-- a bar or an image, and a tint per half), so the body is
+-- `src/controls/level_picker.luau` and this file is the PRESET —
+-- `count = 5`, `segment = "glyph"`, the star pair.
+--
+-- A preset must be the SAME control, not a copy of it, so nothing below
+-- re-implements anything: this file owns its own closed spec (including
+-- `starSize`, which the level picker spells `segmentSize`), its own dump schema,
+-- and the node-ID vocabulary its callers already read (`<id>/Stars/Star{n}`,
+-- `<id>/Strip`). Everything else is `level_picker.compose`.
 
-local controlContract = require("./contract")
-local contribution = require("../input/contribution")
+local level_picker = require("./level_picker")
 local specGuard = require("../spec_guard")
 
 local rating = {}
@@ -122,311 +136,66 @@ local RATING_KEYS = specGuard.keySet({
 
 function rating.build(LuauUI: any, core: any, spec: Spec)
 	specGuard.assertKnownKeys("newRating", spec, RATING_KEYS, "spec")
-	local UI = LuauUI.UI
 	local id = spec.id or "Rating"
-	local scope = core:scope("rating-" .. tostring(id))
-	local value = spec.value
-	-- a read-only Memo has kind "memo" and a :set that asserts, so a bare
-	-- "settable" duck-type check would pass and then blow up on the first tap —
-	-- reject it at BUILD, exactly as Stepper and Slider do
-	if type(value) ~= "table" or (value :: any).kind ~= "signal" then
-		error(
-			`LuauUI newRating('{id}'): \`value\` must be a SETTABLE Signal<number> the caller owns `
-				.. `(the control never creates it, because the value must outlive the control)`,
-			0
-		)
-	end
-	local count = spec.count or 5
-	if type(count) ~= "number" or count < 1 or count % 1 ~= 0 then
-		error(`LuauUI newRating('{id}'): \`count\` must be a whole number >= 1 (got {tostring(spec.count)})`, 0)
-	end
-	local minValue = if spec.allowZero == false then 1 else 0
-	local filled = if spec.glyphs ~= nil then spec.glyphs.filled else rating.FILLED
-	local empty = if spec.glyphs ~= nil then spec.glyphs.empty else rating.EMPTY
-	local readOnly = spec.readOnly == true
-	local starRole = spec.starSize or STAR_SIZE_ROLE
-	if starRole ~= "small" and starRole ~= "medium" and starRole ~= "large" then
-		error(`LuauUI newRating('{id}'): starSize must be small | medium | large (got '{tostring(spec.starSize)}')`, 0)
-	end
-	-- a theme METRIC name, resolved on every solve, so a package that resizes its
-	-- icon ladder resizes the rating with no rebuild
-	local starSize = `iconSizes.{starRole}`
+	local count = if spec.count ~= nil then spec.count else 5
+	level_picker.validate("newRating", id, spec.value, count)
 
-	-- WIDER FOR A FINGER THAN FOR A CURSOR (director, 2026-07-27: "if we're on a
-	-- touch input, part of the paradigm should be slightly wider spacing for touch
-	-- targets vs. what we can do with a pointer").
-	--
-	-- The run is ONE drag target, so the gap is what makes an individual star
-	-- reachable: a fingertip needs more room between marks than a cursor, which
-	-- lands where it is aimed. `iconRunGap` is derived from the package's own
-	-- `iconSizes` (snapshot.luau), so this scales with whatever the theme sized
-	-- its icons at instead of borrowing the page's spacing ladder — Compact
-	-- Pointer's `xs` is 2px against a 12px star, a 17% gap, which is exactly the
-	-- "too tight" the report named.
-	--
-	-- It is a METRIC NAME and `gap` is reactive, so switching input class is a
-	-- RE-SOLVE and never a rebuild: the strip re-spaces under a live hot-switch
-	-- with the value and the scrub state intact.
-	local starGap = if spec.env ~= nil
-		then scope:own(core:memo(function(use)
-			local classes = use(spec.env:get("interactionClasses"))
-			return `iconRunGap.{starRole}.{if classes.touch == true then "touch" else "pointer"}`
-		end))
-		else `iconRunGap.{starRole}.pointer`
+	-- ONE RULE, BOTH ENTRIES: a rating is a level picker, so a `count` too high to
+	-- draw as distinct marks is diagnosed here by exactly the arithmetic that
+	-- diagnoses it there — never a second copy that could drift.
+	local diagnostics: { string } = {}
+	level_picker.diagnoseCount("newRating", id, count, diagnostics)
 
-	-- `readOnly` is a Rating-only refusal ON TOP of the contract's reading of
-	-- `enabled`: a read-only rating still paints and still takes a focus stop, it
-	-- just never changes
-	local function isEnabled(): boolean
-		return not readOnly and controlContract.enabledNow(spec.enabled)
-	end
-
-	-- THE ONE MUTATION SITE: every input class routes here, so "what a rating
-	-- may be" is decided once instead of once per affordance.
-	local function apply(next_: number): boolean
-		if not isEnabled() then
-			return false
-		end
-		local resolved = math.clamp(math.floor(next_ + 0.5), minValue, count)
-		if resolved == value:get() then
-			return false
-		end
-		value:set(resolved)
-		if spec.onChange ~= nil then
-			spec.onChange(resolved)
-		end
-		return true
-	end
-
-	-- pointer set/scrub: one ratio against the strip's own solved rect, so the
-	-- same handler serves a tap and a drag and neither needs a recognizer
-	local scrubFrom: number? = nil
-	local function setFromPoint(path: string, pos: any, rectOf: (string) -> any): boolean
-		local rect = rectOf(path)
-		if rect == nil or rect.w <= 0 then
-			return false
-		end
-		local ratio = (pos.x - rect.x) / rect.w
-		return apply(math.clamp(math.ceil(ratio * count), minValue, count))
-	end
-
-	local glyphs = {}
-	for i = 1, count do
-		local index = i
-		glyphs[i] = UI.Text({
-			id = `Star{index}`,
-			-- ONE MEMO PER GLYPH over the shared value: a rating change repaints
-			-- exactly `count` labels and rebuilds nothing. This is why the stars
-			-- are Texts and not a single rendered string — a string would be one
-			-- node but it would also be one measure, and the strip's width would
-			-- twitch as the glyphs changed.
-			text = scope:own(core:memo(function(use)
-				return if use(value) >= index then filled else empty
-			end)),
-			-- THE GLYPH IS SIZED; THE BOX IS SHARED (director round 12, 2026-07-27:
-			-- "in glossy touch the star spacing is so wide it overflows the row,
-			-- whereas in pixel quest it's leaving extra space on the right").
-			--
-			-- Both complaints are one cause. A fixed box per star makes the strip's
-			-- width a THEME's arithmetic — `count` icons plus gaps — while the cell
-			-- it sits in is the CALLER's fixed number, and the two only agree by
-			-- luck: the same 132px column overran by 12px under Glossy Touch and
-			-- left 28px empty under Pixel Quest.
-			--
-			-- ...AND THE SHARE IS CAPPED AT THE GLYPH (director ruling 2026-07-27,
-			-- superseding round 12's "it FILLS the cell"). An even share fixed the
-			-- strip's outer width and left its INNER spacing to chance: the box
-			-- became the caller's arithmetic while the glyph stayed the theme's, so
-			-- the two diverged by whatever slack the column happened to have.
-			-- Measured in the playlist's 132px rating column, the gap as a fraction
-			-- of the glyph reached 0.67 under Compact Pointer — a 15px star in a
-			-- 25px box, five marks that stopped reading as one rating.
-			--
-			-- `minMax` with a `max` resolves CONTENT (the glyph) clamped to the icon
-			-- metric and then capped at the offer, which is the two behaviours in
-			-- one declaration: room to spare -> the star is glyph-sized and the run
-			-- groups; not enough room -> it shrinks exactly as the share did. The
-			-- strip is centred in its cell (see the root) so the leftover sits on
-			-- both sides rather than being dumped after the last star.
-			textSize = starSize,
-			textAlign = "center",
-			-- `hug` IS THE TWO BEHAVIOURS, AND IT TRACKS THE SCALE (found live
-			-- 2026-08-06 on the console ten-foot matrix row). This was
-			-- `{ type = "minMax", max = starSize }`, capping the box at the icon
-			-- METRIC — an unscaled number — while the glyph beside it is painted at
-			-- `textSize * typographyScale`. At the ten-foot profile's 1.5x every one
-			-- of the playlist's stars reported `textFits = false`: the box was 16 px
-			-- and the star drew at 24. The painted-versus-measured family again, in
-			-- a control whose whole job is a row of glyphs.
-			--
-			-- `hug` is CONTENT WITH THE PARENT'S OFFER AS A CEILING (solver
-			-- `resolveAxis`), which is exactly what the note below asks for: room to
-			-- spare -> the star is glyph-sized and the run groups; not enough room ->
-			-- it shrinks to the share it was offered. The difference is that the
-			-- content it hugs is the SCALED measurement, so the cap can never fall
-			-- below the glyph again.
-			width = { type = "hug" },
-			-- NOT a Button, and therefore not a `control` to any theme: a star is
-			-- a glyph, and the whole point of this control is that a rating wears
-			-- one surface (none) rather than `count` of them.
-		})
-	end
-
-	local root = UI.ZStack({
+	local api, facts = level_picker.compose(LuauUI, core, {
+		constructor = "newRating",
+		-- THE NODE NAMES ARE PART OF THE PRESET, not decoration: `Stars/Star{n}`
+		-- and `Strip` are read by `tests/rating.spec.luau`,
+		-- `tests/traversal_order.spec.luau` and `tests/examples_gallery.spec.luau`
+		-- (through the shipped playlist), so renaming them would be a migration
+		-- for every consumer of a control whose behaviour did not change.
+		names = { run = "Stars", mark = "Star" },
 		id = id,
-		-- the strip takes the box it is given (see the star's own note): `fill`
-		-- here is what lets the shares below be shares OF something. In a
-		-- content-sized parent a `fill` measures as its own content, so a
-		-- standalone rating still hugs its glyphs rather than stretching.
-		width = { type = "fill", weight = 1 },
-		children = {
-			-- A GRID, NOT AN HSTACK, SO THE MARKS SHRINK TOGETHER (found live
-			-- 2026-08-06 at preferredTextSize = Largest on a compact phone).
-			-- An HStack of hug children that cannot all fit clamps in order and
-			-- starves the tail: measured in the playlist's 144px rating column at
-			-- typographyScale 3, `Star5` was handed a ZERO-width box and simply
-			-- vanished, while the first stars kept their full glyph. Five marks of
-			-- which two are missing is not a rating.
-			--
-			-- `UI.Grid` with `columns = count` and `itemSizing = "uniform"` is the
-			-- container built for exactly this: the column pitch is
-			-- `innerWidth / columns`, so every mark is the same width by
-			-- construction and a short offer shrinks all of them evenly instead of
-			-- dropping the last ones. Everything the ruling below asks for is
-			-- unchanged — the run still hugs its glyphs, still groups, still
-			-- centres in whatever column it is given.
-			UI.Grid({
-				id = "Stars",
-				columns = count,
-				itemSizing = "uniform",
-				gap = starGap,
-				-- THE STRIP GROUPS, AND IS CAPPED (director ruling 2026-07-27,
-				-- superseding round 12's "it FILLS the cell"). Round 12 made each
-				-- star an even SHARE of the cell, which fixed the strip's outer
-				-- width and left its inner spacing to chance: the box became the
-				-- caller's arithmetic while the glyph stayed the theme's. Measured
-				-- in the playlist's 132px rating column, the gap as a fraction of
-				-- the glyph ran to 0.67 under Compact Pointer — a 15px star in a
-				-- 25px box, five marks that stopped reading as one rating.
-				--
-				-- `hug` = the run's own width, CAPPED at the cell. It can measure
-				-- its children now that each star is glyph-sized; with the old
-				-- `fill` stars it collapsed to just the gaps, because a `fill` child
-				-- reports no content of its own.
-				width = { type = "hug" },
-				-- CENTRED IN WHATEVER COLUMN IT IS GIVEN (director, 2026-07-27).
-				-- Now that the run hugs its glyphs it no longer reaches both edges
-				-- of a generous cell, so where the slack goes is a visible decision:
-				-- a rating pinned to the leading edge of a wide column reads as
-				-- misaligned with its own header.
-				--
-				-- This works because the ROOT is a ZStack and `alignH` is honoured
-				-- for zstack children (and grid cells) — an HStack ignores it, so
-				-- putting it on this stack to move its own children would have been
-				-- accepted-and-ignored. It is the hug above that gives the ZStack
-				-- something narrower than the cell to centre.
-				alignH = "center",
-				children = glyphs,
-			}),
-			-- THE STRIP IS THE CONTROL. One Grip over the glyphs: one focus stop,
-			-- one 44px effective target, one place pointer input lands. A
-			-- read-only rating drops out of the focus ring entirely rather than
-			-- offering a ring that does nothing.
-			UI.Grip({
-				id = "Strip",
-				focusable = not readOnly,
-				width = { type = "fill", weight = 1 },
-				height = { type = "fill", weight = 1 },
-				onPointerDown = function(path: string, pos: any, rectOf: (string) -> any)
-					scrubFrom = value:get()
-					setFromPoint(path, pos, rectOf)
-				end,
-				onPointerMove = function(path: string, pos: any, rectOf: (string) -> any)
-					setFromPoint(path, pos, rectOf)
-				end,
-				onPointerUp = function()
-					scrubFrom = nil
-				end,
-				onPointerCancel = function()
-					-- CANCEL, not commit (the hotSwitch decision above): put back
-					-- what was there before the scrub started
-					if scrubFrom ~= nil then
-						apply(scrubFrom)
-						scrubFrom = nil
-					end
-				end,
-			}),
-		},
+		value = spec.value,
+		count = count,
+		minValue = if spec.allowZero == false then 1 else 0,
+		segment = "glyph",
+		-- `starSize` is this control's spelling of `segmentSize` and stays exactly
+		-- what it was — same three rungs, same default, same refusal naming the key
+		-- the caller actually wrote.
+		sizeRole = level_picker.sizeRole("newRating", id, "starSize", spec.starSize or STAR_SIZE_ROLE),
+		glyphs = if spec.glyphs ~= nil then spec.glyphs else { filled = rating.FILLED, empty = rating.EMPTY },
+		images = nil,
+		-- A RATING CARRIES NO TINT, and that is a preservation decision rather than
+		-- an omission: a star already says which state it is in, and giving the
+		-- filled half a default colour would repaint every rating this framework
+		-- ships. A caller who wants a coloured run uses `newLevelPicker`.
+		tint = {},
+		-- ...AND NO 44px FLOOR, for the same reason. `newRating` ships today
+		-- without one and its strip sits inside a table row in the shipped playlist
+		-- tutorial; declaring the floor here would grow every rated row of a
+		-- shipped example, which is a product change and not a refactor. Recorded
+		-- as owed rather than smuggled in — `newLevelPicker` declares it from the
+		-- start, so no NEW caller inherits the gap.
+		targetFloor = false,
+		readOnly = spec.readOnly == true,
+		enabled = spec.enabled,
+		env = spec.env,
+		onChange = spec.onChange,
+		diagnostics = diagnostics,
 	})
 
-	local rootPath: string? = nil
-
-	local built = contribution.attach(root, {
-		-- focus-gated Adjust (ADR-0013): the strip is the adjust target, so
-		-- keyboard Comma/Period and gamepad L1/R1 reach the same arithmetic while
-		-- focus sits on this control — and are UNBOUND otherwise. `rootNode` is
-		-- THIS CONTROL's mounted root (see the same note on newStepper): handed
-		-- the screen root, "every Grip below here" claimed the whole screen.
-		adjustTargets = function(rootNode: any): { [string]: boolean }
-			rootPath = rootNode.path
-			local out: { [string]: boolean } = {}
-			if readOnly then
-				return out
-			end
-			local function walk(node: any)
-				if node.class == "Grip" then
-					out[node.path] = true
-				end
-				for _, child in node.children or {} do
-					walk(child)
-				end
-			end
-			walk(rootNode)
-			return out
-		end,
-		-- the strip runs left to right, so Left/Right ARE the rating (roadmap
-		-- Step 8); Up/Down keep navigating away from it.
-		adjustAxis = "horizontal",
-		handleAdjust = function(_path: string, direction: number): boolean
-			return apply(value:get() + direction)
-		end,
-	})
-
-	local api = {}
-	api.blueprint = built
-
-	-- HOT SWITCH (UI-PARADIGM-003), the same seam Slider publishes: the host
-	-- tells the control its pointer class went away, and a live scrub reverts to
-	-- the value the player started from. A half-finished drag must never commit.
-	function api.onInteractionClassLost(class: string)
-		if (class == "pointer" or class == "touch") and scrubFrom ~= nil then
-			apply(scrubFrom)
-			scrubFrom = nil
-		end
-	end
-
-	-- the value IN ITS RANGE, so a ten-foot readout or an assistive layer never
-	-- gets a bare number with no context (the B-VAL1 shape Slider/Stepper share)
-	api.semanticText = scope:own(core:memo(function(use)
-		return `{use(value)} of {count}`
-	end))
-
+	-- THE SCHEMA STAYS `/1`, and that is a claim about the KEYS rather than about
+	-- how much code moved. Every key this dump carried before the generalization
+	-- carries the exact value it carried before — `id`, `value`, `count`, `min`,
+	-- `readOnly`, `enabled`, `semanticText`, `rootPath` — and the two additions
+	-- (`segment`, always `"glyph"` here, and `diagnostics`) are purely additive.
+	-- That is the same rule `newProgressView` followed when `indeterminate`
+	-- landed, and it is the only thing a schema version is for: a consumer reading
+	-- any key it read yesterday reads the same thing today.
 	function api.dump()
-		return {
-			schema = "luauui-rating-dump/1",
-			id = id,
-			value = value:get(),
-			count = count,
-			min = minValue,
-			readOnly = readOnly,
-			enabled = isEnabled(),
-			semanticText = api.semanticText:get(),
-			rootPath = rootPath,
-		}
-	end
-
-	function api.dispose()
-		scope:dispose()
+		local out = facts()
+		out.schema = "luauui-rating-dump/1"
+		return out
 	end
 
 	return api

@@ -358,6 +358,18 @@ demo_picker.DEMOS = {
 		kind = "fixture",
 		module = "canvas_group",
 	},
+	-- ...and the level picker, which a still frame CAN hold — the reference
+	-- screenshot is one — but which nobody can believe from a screenshot: that
+	-- the ± beside the bars is a separate control sharing one Signal is only
+	-- visible when you press it and watch the strip move. All three segment
+	-- modes and both tint halves are on the one surface.
+	{
+		id = "level-picker",
+		title = "Level pickers",
+		blurb = "Ten bars, three blocks, and a stepper that is not part of either",
+		kind = "fixture",
+		module = "level_picker",
+	},
 	-- ...and the two plates a still frame cannot tell apart (D3): one the player
 	-- pulls and one the app pushes. The press counter under the coach mark is the
 	-- non-blocking claim, and the save readout is the persistence boundary — the
@@ -368,13 +380,6 @@ demo_picker.DEMOS = {
 		blurb = "One plate the player pulls, one the app pushes — and the + still counts",
 		kind = "fixture",
 		module = "callout",
-	},
-	{
-		id = "ex01",
-		title = "Temperature converter",
-		blurb = "Text entry: live preview versus committed value",
-		kind = "example",
-		module = "01_temperature_converter",
 	},
 	-- ...and the round's other two constructs, which shipped with spec fixtures
 	-- and nothing a person holding a phone could open (2026-08-16). Both are
@@ -394,6 +399,13 @@ demo_picker.DEMOS = {
 		blurb = "A page's tab bar inside the app's, and every tab counts its own rebuilds",
 		kind = "fixture",
 		module = "tab_view",
+	},
+	{
+		id = "ex01",
+		title = "Temperature converter",
+		blurb = "Text entry: live preview versus committed value",
+		kind = "example",
+		module = "01_temperature_converter",
 	},
 	{
 		id = "ex02",

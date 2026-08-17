@@ -5885,11 +5885,117 @@ from your live interaction-class watcher via `onInteractionClassLost(class)`.
 The root row is `fill`-width by design: a fill-width track inside a content-sized
 parent would resolve to zero and leave nothing to drag along.
 
+### `newLevelPicker`
+
+`LuauUI.newLevelPicker(LuauUI, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
+— a run of `count` **discrete segments** that reads as one value: a graphics
+preset, a difficulty dial, a capacity meter, a rating. Zero is a real state.
+
+```lua
+local quality = core:signal(2)
+local picker = LuauUI.newLevelPicker(LuauUI, core, {
+    id = "Balanced",
+    value = quality,           -- OWNER-held settable Signal<number>
+    count = 10,                -- the maximum; default 5
+    allowZero = true,          -- default; false makes 1 the floor
+    segment = "bar",           -- "bar" (default) | "glyph" | "image"
+    tint = {                   -- both halves optional; omitting one leaves it to the theme
+        filled = { role = "accent", blend = 1 },
+        empty = { role = "control", blend = 1 },
+    },
+    segmentSize = "small",     -- the iconSizes rung a glyph/image segment draws at
+    readOnly = false,          -- true paints it and takes it out of the focus ring
+    enabled = true,
+    env = env,                 -- optional: spaces the run for the live input class
+    onChange = function(v) end,
+})
+```
+
+**Why this is a control and not `count` buttons.** The argument is the one
+`newRating` records below, and it gets stricter as `count` grows: `count` themed
+plates instead of `count` marks, `count` focus stops for one number, and `count`
+activation handlers all writing one signal. A level picker is instead a uniform
+`UI.Grid` of leaves under a **single** `UI.Grip` — one focus stop, one effective
+target, one place pointer input lands — and a value change repaints exactly
+`count` leaves without remounting anything.
+
+**`segment` picks what one level is painted as.**
+
+| `segment` | the leaf | how the run divides its width | needs assets |
+|---|---|---|---|
+| `"bar"` (default) | `UI.Box` | the marks **fill** their uniform columns | no |
+| `"glyph"` | `UI.Text` | the run **hugs** its glyphs and centres | no |
+| `"image"` | `UI.Image` | the run hugs its square marks and centres | yes — `images` is required |
+
+`"bar"` is the default because it is the only one that can draw a level picker
+with nothing but a theme: ten thin bars and three wide blocks are the *same*
+declaration, because the segments divide whatever width they are given.
+
+**`glyphs` and `images` each describe one segment**, so declaring the wrong one
+is a construction error rather than a silent no-op — `glyphs` beside
+`segment = "bar"` is a caller who believes they are looking at glyphs.
+`segment = "image"` with no `images` is refused too: this control never names an
+asset of its own, so there is no default to fall back on.
+
+**`tint` is the continuous-colour channel, one value per half.** Each is an
+ordinary LuauUI tint — `{ role = …, blend = … }` (themable, preferred) or
+`{ direct = "#rrggbb" }` (declared theming-exempt) — and each is independently
+optional: omitting one leaves that half to the theme. It is the analogue of
+SwiftUI's `.symbolRenderingMode(.palette)` with the two-argument
+`.foregroundStyle`, which is how Apple colours a filled and an unfilled symbol
+differently.
+
+A `bar` picker has **defaults** for both halves (`accent` filled, `control`
+empty) because a bar has no other way to say "filled". A `glyph` or `image`
+picker has **none**, because its mark already carries the state — so a `tint`
+there is purely additive and a star never silently changes colour.
+
+**Reach.** Pointer and touch tap anywhere on the strip to set, or press and drag
+to scrub live (dragging off the leading edge clears to zero when `allowZero`).
+Keyboard and gamepad use the focus-gated `Adjust` verb — Comma/Period and L1/R1
+— bound **only** while focus is inside the control. Left/Right adjust while the
+value can move and **go back to navigation at the limit**, so nothing after a
+maxed-out picker is unreachable on a gamepad. The strip declares a 44px
+effective target, which is load-bearing for `bar`: its segments have no content
+height of their own.
+
+**Hot-switch is CANCEL**, like `newSlider` and `newRating`: losing the pointer
+class mid-drag reverts to the pre-scrub value. Drive it from your
+interaction-class watcher via `onInteractionClassLost(class)`.
+
+**The ± buttons are not part of this control.** Compose a `newStepper` beside it
+over the *same* Signal — Apple's own rule for the pair: "A stepper sits next to a
+field that displays its current value, because the stepper itself doesn't display
+a value." Building them in would put two more focus stops inside a control whose
+whole claim is that it has one. `examples/gallery/scenarios/level_picker.luau`
+shows the composition.
+
+**`diagnostics() -> { string }` is a warning channel, never a refusal.** A
+`count` above **11** adds one note saying so, and the control still builds. 11 is
+measured, not chosen: it is the largest run at which every shipped theme package
+still solves each `bar` segment at least as wide as the narrowest mark that
+package draws (`iconSizes.small`), at 320x640 with the run spaced for touch. It
+is a diagnostic because you may have more room than a phone — Apple says the
+same of the shape ("A large value range can make the segments of a discrete
+capacity indicator too small to be useful"), and says it as guidance rather than
+as a limit. The notes also ride `dump().diagnostics`.
+
+`dump()` reports `schema = "luauui-level-picker-dump/1"`, `segment`, `value`,
+`count`, `min`, `readOnly`, `enabled`, `semanticText`, `diagnostics` and
+`rootPath`. `segment` and `semanticText` are the pair that make a bar- or
+image-only control readable to a consumer that cannot see it: one says what is
+being painted, the other says what it means (`"2 of 10"`).
+
 ### `newRating`
 
-`LuauUI.newRating(LuauUI, core, spec) -> { blueprint, semanticText, onInteractionClassLost, dump, dispose }`
+`LuauUI.newRating(LuauUI, core, spec) -> { blueprint, semanticText, diagnostics, onInteractionClassLost, dump, dispose }`
 — a short run of glyphs that reads as **one** value: a star rating, a difficulty
-dial, a five-point score.
+dial, a five-point score. It is a **thin preset over `newLevelPicker`**:
+`count = 5`, `segment = "glyph"`, the star pair, and no tint. Everything below is
+unchanged — including `starSize`, which is this control's spelling of the level
+picker's `segmentSize` — so nothing that calls it needs to change. Reach for
+`newLevelPicker` when you want a different maximum, bars or images instead of
+glyphs, or a colour per half.
 
 ```lua
 local score = core:signal(3)

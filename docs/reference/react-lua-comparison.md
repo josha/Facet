@@ -585,8 +585,8 @@ hundred component libraries. **On Roblox, there is no such ecosystem, so the gap
 is yours to fill.**
 
 **LuauUI is a UI kit with a framework under it.** Its conformance registry holds
-51 rows — 25 composite classes and 26 leaves — and `check_registration` reports
-**16 of 16** interactive controls carrying an automated proof that they work with
+59 rows — 32 composite classes and 27 leaves — and `check_registration` reports
+**19 of 19** interactive controls carrying an automated proof that they work with
 mouse, touch, keyboard *and* gamepad, plus a device-idiom proof. It ships theme packages that
 own typography, metrics, radii and asset chrome; a focus graph with grouped
 scopes and directional navigation; a presenter with modals, toasts, popovers,

@@ -252,6 +252,7 @@ local LuauUI = {
 	-- wrapped row's `coordinator` spec key; Table's own `rowActions` wiring
 	-- (Task 10) does this for its rows automatically.
 	newRowActionsCoordinator = require("@self/controls/row_actions").newCoordinator,
+	newLevelPicker = require("@self/controls/level_picker").build,
 	-- async resources (§10.3): bounded, cancellable, generation-checked
 	newResourceProvider = asyncResources.newProvider,
 

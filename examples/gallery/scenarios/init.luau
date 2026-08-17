@@ -218,6 +218,14 @@ local ORDER = {
 	-- screenshot CAN hold: the same three plates and the same value, faded as one
 	-- picture beside faded one plate at a time. Also in `demo_picker.DEMOS`.
 	"canvas_group",
+	-- ...and `newLevelPicker` (director ruling 2026-08-16): the reference
+	-- screenshot's two bar strips — ten segments with two filled, three with none
+	-- — each beside the `newStepper` that shares its Signal, because the ± that
+	-- looks like part of the control deliberately is not part of it. Plus the
+	-- glyph and image segments and a tint override, so all three paint modes and
+	-- both tint halves are reachable on a device from one fixture. Also in
+	-- `demo_picker.DEMOS`.
+	"level_picker",
 	-- ...and navigation-and-menus D3: the two plates that look alike in a still
 	-- frame and are opposites everywhere else. `help` is PULLED by the player and
 	-- shows nothing on touch (so the same sentences are printed on the screen —

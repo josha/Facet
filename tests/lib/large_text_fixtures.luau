@@ -313,6 +313,23 @@ local FIXTURES: { Fixture } = {
 		end,
 	},
 	{
+		-- THE GLYPH SEGMENT AT THE TOP OF THE RANGE, which is this control's only
+		-- large-text exposure and the reason the fixture is not the default `bar`:
+		-- a bar has no text in it at all, while a glyph is painted at
+		-- `textSize * typographyScale` and TEN of them share one strip. That is
+		-- exactly the shape that starved the rating's tail before the run became a
+		-- uniform Grid, at twice the count.
+		id = "LevelPicker",
+		class = "LevelPicker",
+		build = function(core)
+			return LuauUI.newLevelPicker(
+				LuauUI,
+				core,
+				{ id = "Ctl", value = core:signal(4), count = 10, segment = "glyph" }
+			).blueprint
+		end,
+	},
+	{
 		id = "Picker",
 		class = "Picker",
 		build = function(core)

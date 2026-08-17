@@ -1334,6 +1334,43 @@ local registry: { Entry } = {
 			hotSwitch = false,
 		},
 	},
+	{
+		name = "LevelPicker",
+		kind = "composite",
+		module = "src/controls/level_picker.luau",
+		export = "newLevelPicker",
+		spec = "tests/level_picker.spec.luau",
+		conformance = "tests/level_picker.spec.luau",
+		docsAnchor = "newLevelPicker",
+		dumpFunction = "function api.dump",
+		-- REACHABILITY: pointer/touch land on the ONE Grip that covers the run of
+		-- segments (tap to set, drag to scrub); keyboard and gamepad reach the SAME
+		-- arithmetic through the focus-gated Adjust verb, at ONE focus stop for the
+		-- whole control rather than one per segment — the generalization of the
+		-- Rating row below, held for a caller-chosen `count`.
+		inputProofs = {
+			pointer = { "LevelPicker pointer: tapping a segment sets the level to that segment" },
+			touch = { "LevelPicker touch: a finger drag across the strip scrubs the level live" },
+			keyboard = { "LevelPicker keyboard: Adjust on the focused strip sets the level" },
+			gamepad = { "LevelPicker gamepad: the bumpers Adjust the focused level picker" },
+		},
+		-- PARADIGM: pointer = ONE direct-manipulation target over the whole run, no
+		-- per-segment hit surface at any count; touch = the same gesture against the
+		-- DECLARED 44px floor (load-bearing here, because a bar segment has no
+		-- content height of its own); keyboard = Adjust bound ONLY while focus is
+		-- inside the control, so a screen with a picker never shadows gameplay keys;
+		-- gamepad = the bumpers Adjust, and at the limit the ARROW goes back to
+		-- navigation so nothing after a maxed-out picker is unreachable.
+		-- hotSwitch = TRUE: a scrub IS in-flight state, and the decision is CANCEL —
+		-- losing the pointer class mid-drag reverts to the pre-scrub value.
+		affordanceProofs = {
+			pointer = { "LevelPicker pointer affordance: ONE drag target covers the run, at every count" },
+			touch = { "LevelPicker touch affordance: the strip declares the 44px effective target" },
+			keyboard = { "LevelPicker keyboard affordance: no Adjust key is bound while focus sits outside" },
+			gamepad = { "LevelPicker gamepad affordance: at the limit the arrow goes back to navigation" },
+			hotSwitch = { "LevelPicker hot-switch: losing the pointer mid-scrub CANCELS back, it never commits" },
+		},
+	},
 	-- scaffold: new control rows are appended above this line (anchor — keep)
 
 	-- ===== leaf primitives (src/controls/contract.luau classes) =========
