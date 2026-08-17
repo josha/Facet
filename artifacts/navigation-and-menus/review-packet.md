@@ -96,6 +96,8 @@ a tap** — that refusal is the test, not a bug. The on-screen readout names the
 routes it accepts, the live interaction classes at that instant, and a per-card open count.
 
 ### P3 · Pointer **hover-dwell** shows `help` — `NM-3a.1`, `NM-X2`
+**Open `Coach marks and help`** (id `callout`) — `help` and `Callout` were built together and
+share that fixture.
 **Do:** rest a real pointer over a control carrying `help` and wait.
 **Expect:** the plate appears after ~0.45 s; moving away hides it; **clicking the control
 hides it and does not leave it stranded.**
@@ -122,7 +124,12 @@ contention.
 whether it does.
 
 ### P6 · The Callout's tail and the segmented chip under a real theme — `NM-D1-12`, `NM-6.5`
-**Scenario:** `callout`, then `all-controls` with an ornate theme package installed.
+**Open `Coach marks and help`** (id `callout`) for the tail, then `All controls`
+(id `all-controls`) for the chip.
+**Switch the theme first:** open the chrome panel → **Settings** → pick an ornate package
+(Fantasy Ornate or Glossy Touch are the two that add the most chrome inset, so they are the
+ones that break things). The flat default hides this class of defect — the playlist header
+overflow found in this same review was invisible until a package was installed.
 **Expect:** the 45°-rotated tail reads as part of the plate, not as a separate square; the
 selection chip keeps enough contrast against the ornate chrome to say which segment is
 selected.
@@ -142,25 +149,36 @@ three must be reachable without a second fixture.
 ## Part 2 — PENDING_HUMAN (judgement, not measurement)
 
 ### H1 · The sliding indicator reads as **one object moving** — `NM-4.4`, `NM-X4`
-**Scenario:** `r3`-shaped — any segmented picker; then a `TabView` strip.
+**Open `Tabs, nested`** (id `tab-view`) — it carries **both** skins: the app-level strip is
+`underline`, the page-level strip inside the Pages tab is `pill`. For the segmented-picker
+form of the same mechanism, open `All controls` (id `all-controls`).
 **Do:** tap between segments repeatedly, including interrupting a slide mid-flight.
+Judge the `underline` and the `pill` separately — they are one mechanism and two skins, and
+either can read wrong on its own.
 **Judge:** does the chip read as one thing travelling, or as two things cross-fading? Does an
 interrupted slide feel caught or feel snapped?
 **Then turn reduced motion on** (`LuauUIShowcaseAPI.motion("reduced")`) and repeat: it must
 **snap** with no intermediate frames, and that snap must not feel broken.
 
 ### H2 · A Callout reads as **help**, not as an ad — `NM-X5`
-**Scenario:** `callout`.
+**Open `Coach marks and help`** (id `callout`).
 **Judge:** Apple's own warning is the bar — *"Use tips sparingly… Don't use tips to guide
 people through your app, or for advertising and promotion purposes."* Does the plate feel
 like it is telling you something useful once, or like it is selling you a feature?
 
 ### H3 · Icon-only segments are readable and comfortable — `NM-6.1`, `NM-6.5`
+**Open `All controls`** (id `all-controls`) — the icon-only segmented picker and the vertical
+pill rail live there.
 **Judge:** on the phone, is the icon-only vertical rail comfortable under a thumb at 44 px?
 Does the icon+label → icon-only degrade happen where you would put it, or too early?
 
+*Honest note:* D6 shipped icons and the vertical rail with **spec consumers only** — no
+example used them, which is why this row had nowhere to look on the first pass. The demo
+was added afterwards, for exactly that reason.
+
 ### H4 · The HUD's disclosure route is discoverable — `NM-7.4`
-**Scenario:** `hud`. Turn the URL bar on in portrait so regions elide and drop.
+**Open `Screen-anchored HUD`** (id `hud`). Turn the URL bar on in portrait so regions
+elide and drop.
 **Judge:** when the tasks and the weapon rail give way, is it *obvious* where they went? The
 gate proves a route exists at every viewport. It cannot prove a player would find it.
 
