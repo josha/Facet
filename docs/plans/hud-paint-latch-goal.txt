@@ -1,0 +1,191 @@
+Find and fix the HUD paint latch. It is the last open defect from the
+navigation-and-menus device pass, it has a reliable reproduction on hardware, and
+five investigations have already failed to reproduce it in any instrument here.
+Your job is to succeed where they did not — so read what they ruled out before
+you spend a minute re-ruling it out.
+
+Repo: GameStudio/ui/LuauUI (its own git repo; cd there). Its own CLAUDE.md, the
+root CLAUDE.md and docs/plans/agent-execution-contract.md are binding.
+
+────────────────────────────────────────────────────────────────────────────
+THE DEFECT
+
+The `hud` gallery demo stops painting a large set of its nodes and never
+recovers. It survives further interaction; only a remount clears it.
+
+REPRODUCTION, from the game director on a real phone, and it is reliable:
+
+    portrait
+    → open the ··· overflow sink and press Close        ← THE STEP THAT MATTERS
+    → rotate to landscape
+    → URL bar on, then off
+    → rotate to portrait
+    → URL bar on, then off
+    → rotate to landscape
+    → the HUD is now missing most of itself
+
+Video: docs/plans/reference-media/2026-08-16-roblox-app-navigation/hud-latch-repro.mp4
+  (ffmpeg -i <path> -vf "fps=1,scale=300:-1,tile=6x6" sheet.png, then read the PNG)
+Photos, at the repo root (…/UntitledRacingGame/):
+  h.jpeg     — the failure
+  fishy.jpeg — the failure again, with the paint probe on screen lying about it
+
+Acceptance row: artifacts/navigation-and-menus/acceptance.md → NM-H4a.
+
+TWO PROPERTIES OF THE FAILURE, both measured:
+  • It needs the sink dismissal AND two cycles. It fires on the second, so state
+    ACCUMULATES. A single round trip will not show it.
+  • It is PARTIAL. In fishy.jpeg the clock `2:14`, a score `9`, `Rifle`,
+    `60 FPS · 42 ms` and `Ranger rifle` are still painting while the tasks
+    panel, health `84`, the kill feed, `12` and the ladder caption are gone. So
+    it is NOT a whole-surface disable, and any theory that kills the ScreenGui
+    outright is wrong.
+
+────────────────────────────────────────────────────────────────────────────
+WHAT IS ALREADY EXONERATED — do not re-investigate without new evidence
+
+THE COMPOSITION RESOLVER IS INNOCENT. Measured, not argued:
+  • src/layout/composition.luau holds NO mutable module state; every module
+    table is frozen. `forms` and `dropped` are locals inside solveArrangement.
+  • The resolution cache key is `{innerW}|{innerH}` and the ctx holding it dies
+    with the solve (src/layout/solver.luau:791).
+  • 288 headless replays of the exact sequence over a grid of offers × top
+    reservation × declared chrome: ZERO divergence against a fresh mount,
+    comparing every node's rect, visibility and props.
+  • 144 transitions across every ordered pair of tests/lib/device_views: ZERO.
+  • Live Studio, real Roblox adapter, 36 combinations: ZERO / 100 GuiObjects.
+  • Live Studio with a real device-emulator rotation, sink opened and closed:
+    byte-identical, all 89 nodes.
+  • `Rounds` is rank 1, ONE form, recover = "none", no mayDrop — no ladder is
+    permitted to remove it — and it is model-wanted in 28 of 28 swept states.
+    It is absent in the photograph anyway.
+  • The failure cuts INSIDE one HStack: ScoreHome gone, its sibling ScoreAway
+    painted, where no lane, rank or form boundary falls.
+
+A REVERSIBILITY SWEEP ALREADY EXISTS AND IS GREEN:
+tests/adaptation_reversibility.spec.luau drives one mounted surface A→B→A over
+20 ordered viewport pairs plus the URL-bar episode, asserting the resolution AND
+the painted tree are identical to a fresh mount. It is mutation-proved. It does
+not catch this.
+
+A CLUE THAT TURNED OUT TO BE AN ARTEFACT — DO NOT BUILD ON IT:
+An earlier round reported "the unpainted set stops immediately before the first
+Path node" and inferred a visibility walk ending early. That boundary was the
+PROBE's, not the bug's: the probe was silently dropping ScoreHome, ScoreAway and
+TimerRing, and TimerRing is the first Path node. Discard the inference.
+
+────────────────────────────────────────────────────────────────────────────
+WHERE THE DEFECT MUST THEREFORE LIVE
+
+Everything model-side is exonerated by direct measurement. What remains is the
+ADAPTER AND RENDERER — src/client/screen_target.luau, src/render/renderer.luau,
+src/present/presenter.luau — and specifically whatever a REAL orientation change
+on real hardware does that a scripted viewport resize in Studio does not.
+
+Leads, offered as leads and not conclusions. Measure before choosing:
+  • A surface root's visibility is ScreenGui.Enabled (screen_target.luau:1752) —
+    a different property on a class none of the node paths resolve to. A node
+    can report Visible = true inside a screen that is off.
+  • Instance RECYCLING is on by default. A pooled instance that is reused or not
+    restored across a dismissal + re-solve is the shape that would survive every
+    model-side check ever written, and the sink dismissal is the step that makes
+    this reproduction different from every failed one.
+  • Presentation shift: screenRectOf accumulates presentationShift(path), so a
+    shift left non-zero after dismissal survives a re-solve.
+  • presenter.dismiss's teardown — the displayLayer reset when the stack
+    empties, retireSurface(), retireRevealFor(handle), catcher disposal.
+  • Elision: the round's baseline is 43 %-elided, and an elided container that
+    fails to re-materialise paints nothing while reporting a legal solve.
+
+────────────────────────────────────────────────────────────────────────────
+YOUR INSTRUMENT — it is honest now, and it was not before
+
+examples/gallery/scenarios/hud.luau carries a PAINT PROBE on its own presenter
+surface (separate mount, controller, solve and visibility walk, so the walk that
+stops cannot take the readout with it). Commit 748df2f made it truthful; before
+that it printed "13 of 13 painting" over a broken screen, which is what a HEALTHY
+plate prints at that viewport. Read artifacts/navigation-and-menus/h4a-paint-probe.md.
+
+It now reports three states and cannot collapse them:
+    healthy      11 of 14 rows wanted / skipped: … / 11 of 11 painting
+    lost          1 of 14 NOT PAINTED / <names> / hidden under: <node>
+    unmeasured   ENGINE SIDE UNAVAILABLE — MODEL ONLY
+It compares the model's opinion against the engine's for fourteen rows, latches
+on the frame they first disagree, and runs a second 4 Hz clock so a HUD that
+stops solving cannot freeze it on a stale reading. It is proved to fire: hiding
+one round disc gives `1 of 14 NOT PAINTED / Rounds / hidden under: …/R3`.
+
+`hidden under:` is the line that matters. Seven rows lost under ONE node is a
+different defect from seven lost separately.
+
+────────────────────────────────────────────────────────────────────────────
+METHOD
+
+1. Confirm the tree is clean and every lane has landed before you start:
+     git status --porcelain          (only docs/plans/*.md should be dirty)
+     lune run tools/lune/gate navigation-and-menus
+2. REPRODUCE FIRST. A fix without a reproduction is a guess with a commit
+   message. Follow superpowers:systematic-debugging. Try, in this order:
+     a. headless, with the sink dismissal included and TWO cycles;
+     b. live Studio through the real adapter, same sequence — Studio MCP is
+        available and this is where the adapter actually runs;
+     c. if neither fires, the phone is the only instrument, and the deliverable
+        becomes whatever makes the NEXT device pass conclusive. Say so plainly
+        rather than fixing something you cannot see fail.
+3. Gather evidence at each boundary — solved rect → written props → engine
+   property → painted result — and name the layer that is stale before touching
+   anything.
+4. The regression must drive the FULL sequence including the dismissal and both
+   cycles, and must assert the PAINTED tree. The resolution is already proved
+   innocent; a spec that only checks it will pass against the live defect.
+5. Prove every mutation bites.
+
+Studio: rojo serve examples/showcase.project.json, then Connect in the plugin.
+The place carries a build stamp (settings panel) — tools/build_places.sh, then
+compare it against `git log -1 --format=%h` before trusting anything you see.
+A stale place already cost this project one device session.
+
+────────────────────────────────────────────────────────────────────────────
+VERIFICATION — run verbatim at the end, all green
+
+cd GameStudio/ui/LuauUI
+lune run tests/run                            # expect 6083+ passed / 0 failed
+python3 tools/check_source_size.py
+lune run tools/lune/check_registration_cli
+lune run tools/lune/check_surface_ledger
+lune run tools/lune/check_prop_parity_cli
+lune run tools/lune/check_docs
+lune run tools/lune/check_theme_drift
+lune run tools/lune/check_example_drift_cli
+stylua --check src tests examples
+python3 tools/check_manifest_integrity.py --transcript
+lune run tools/lune/gate navigation-and-menus
+cd ../../../games/RascalRally/code && lune run tests/run   # expect 3340+ / 0
+
+Run the suite through tools/suite_transcript.sh, never ./run-tests.sh directly.
+src/render/renderer.luau has ~1.3 KB against a 200,000-byte cap — if the fix
+lands there, budget for it.
+
+Commit with tools/commit_isolated.py -m <file> <path> …, --dry-run first, marker
+form on shared files. Never git reset / checkout / stash / add -A. That script
+diffs TEXT: it cannot commit .rbxl binaries or a mode change, and it refuses a
+directory — see docs/lessons/a-new-script-commits-without-its-exec-bit.md for
+the private-index recipe. RascalRally IS a git repo and consumes src directly.
+
+Rebuild the places at the end and verify by DESERIALISING the .rbxl (build an
+.rbxlx over the same $path mappings and parse it). Byte-grepping an .rbxl proves
+nothing — it is LZ4-chunked.
+
+────────────────────────────────────────────────────────────────────────────
+REPORT
+
+Lead with whether you reproduced it, and where. Then the root cause as a
+MECHANISM — which layer held what stale value, and why the sink dismissal plus
+two cycles is what exposes it. Then the failing test you wrote first, the
+mutation ledger, why five previous investigations missed it, the suite counts,
+and confirmation the fix is in the rebuilt place.
+
+If you did not reproduce it, say so in the first line. Do not fix anything you
+could not see fail, and do not report a hypothesis as a cause. This defect has
+already produced one confident wrong answer built on an instrument's blind spot;
+a second would be worse than an honest "still open".
