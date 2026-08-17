@@ -207,3 +207,64 @@ witness, and `AbsoluteRotation` read back off the descendant is.
 
 *Probe hygiene: every surface and every clone this session mounted was destroyed and
 `ReplicatedStorage` verified back to its four real folders in the same call.*
+
+## 6. `opacity` DOES composite across the subtree — and `screen_capture` cannot see it
+
+**The question:** `scale`/`rotation` reach a subtree as of this round. Does `opacity`?
+
+**Structurally, measured through the real framework** (clone-and-require, Showcase):
+
+| path | class | `GroupTransparency` | its OWN `BackgroundTransparency` | parent |
+|---|---|---:|---:|---|
+| `Group` (`opacity = 0.5`) | **CanvasGroup** | **0.500** | 1.000 | root |
+| `Group/A` | Frame | — | **0.000** | **`Group`** |
+| `Group/B` | Frame | — | **0.000** | **`Group`** |
+| `Outer` (`opacity = 0.5`) | CanvasGroup | **0.500** | 1.000 | root |
+| `Outer/Inner` (`opacity = 0.5`) | CanvasGroup | **0.500** | 1.000 | **`Outer`** |
+| `Turned` (`rotation` only) | **Frame** | **n/a** | 1.000 | root |
+
+Three facts fall out:
+
+1. **It composites, and that is exactly why the overlap does not double-darken.** Both
+   children are real children of the group with their own transparency at **0.000** —
+   fully opaque. They are composited into the group's buffer first, and the buffer is
+   faded **once**. Fade them individually instead and the overlap is hit twice.
+2. **Nested groups multiply, and the ENGINE does it.** `Outer` 0.5 and `Inner` 0.5 are
+   both written as `0.5` — the framework does not pre-multiply — so the deep child lands
+   at an effective 0.25. Same rule as Decision 4/5: one term on one node, engine composes.
+3. **A plain move-boundary host cannot carry it.** `Turned` is a `Frame` and has no
+   `GroupTransparency` at all. `scale`/`rotation` cost one Frame; `opacity` costs a
+   `CanvasGroup` buffer, and that asymmetry is real rather than conservative.
+   `UI.Text` refuses `opacity` outright, so a subtree fade still needs a `Box`/`ZStack`
+   wrap where `scale`/`rotation` no longer do.
+
+### AND THE INSTRUMENT FINDING, which is worth more than the answer
+
+**`screen_capture` renders GUI in PLAY mode** — §5 of this page said it returns the 3-D
+viewport only, and that was true of **Edit** mode and wrong as a general claim.
+Corrected here rather than edited away, because the correction is the useful part.
+
+**But it ignores `GroupTransparency` entirely, and would have answered this question
+backwards.** A four-column control set, black plates on white:
+
+| column | what | rendered at 0.5 | rendered at 0.9 |
+|---|---|---|---|
+| 1 | plain Frame `BackgroundTransparency` | **grey** | **near-white** |
+| 2 | ONE CanvasGroup, two overlapping plates | **solid black** | **solid black** |
+| 3 | TWO CanvasGroups, one plate each | **solid black** | **solid black** |
+| 4 | CanvasGroup at `GroupTransparency = 0` | solid black | solid black |
+
+Column 1 tracks the property, so the capture path does render transparency. Columns 2
+and 3 are **identical to the fully-opaque control at both values**, while the live
+property reads back `0.50` and `0.90` correctly. The capture composites a CanvasGroup's
+children **without the group's own pass**.
+
+So this tool cannot verify group compositing, and — the dangerous part — it does not
+fail visibly. Taken at face value it says *"group opacity does nothing at all"*, which
+is false. Same class as the earlier finding that a property probe cannot report an empty
+rectangle: an instrument silently blind to the one thing being asked of it. **The pixels
+for double-darkening need a human looking at a real screen.**
+
+*Probe hygiene: the probe was removed, the six Showcase surfaces disabled to clear the
+field were re-enabled and verified, Play was stopped, and the Edit-mode leftovers were
+destroyed — all verified in the same calls.*
