@@ -268,3 +268,247 @@ describe("Table header: the sort mark under every shipped theme package", functi
 		end
 	end)
 end)
+
+--[[ ── THE BODY-SHAPE AXIS (device review 2026-08-16) ────────────────────────
+
+	THE SECOND UNIFORM AXIS IN THE TABLE'S CORPUS, and the file above only closed
+	the first. Every case up to here — and `tests/table.spec.luau`'s "the header
+	tracks the rows, so the columns never come apart", which sweeps the same nine
+	packages — mounts a table in exactly ONE body shape: the default, where the
+	Table's own Body is a scrolling ScrollView AND the outermost clipper on the
+	screen. `spec.scrolls = false` (the shipped `02_playlist_table`'s own idiom,
+	and `row_capabilities`') was never mounted under a package at all, so the one
+	shape a consumer actually ships was the shape nobody themed.
+
+	WHAT THE DEVICE SAW, on the `ex02` playlist under a Glossy package:
+	the header pills stood clear of the rows beneath them and the trailing
+	heading ran past the last column. Measured headless afterwards at every swept
+	viewport and every text preference: the header sat 17px inside its own rows on
+	each side under Fantasy Ornate, Fantasy Parchment, Glossy Mobile and Glossy
+	Touch, and 24px under Sci-Fi HUD — a heading that is not over its column.
+
+	THE MECHANISM, and it is one number spent for a box that does not exist.
+	`chromeBleed` is the glow gutter a CLIPPER owes its content, and
+	`src/render/layout_node.luau` reserves it on the OUTERMOST clipper only. The
+	header is a sibling of the body rather than a node inside it, so it pays that
+	gutter itself — and it paid it unconditionally, on the assumption in its own
+	comment that "the rows live in a ScrollView". A `scrolls = false` block table
+	has no ScrollView and no clip: the body reserved nothing and the header
+	reserved the bleed, so the two halves resolved their `fill` columns against
+	width budgets that differed by 2x the bleed. The number is 0 under every flat
+	package, which is why the defect could only ever be seen through a theme.
+
+	It is the SAME argument `hasAlignedHeader` already makes one gutter over — a
+	block table "has no viewport of its own to grow a bar in" — reached for the
+	bar and missed for the glow.
+
+	WHAT THIS ASSERTS: for all three shapes a Table's body can take, and every
+	shipped package, a header cell and its column's body cell occupy the SAME
+	horizontal span. Not "close" — the same, because a column boundary is the one
+	place in a table where a pixel of drift is visible to the eye. ]]
+describe("Table header: the columns line up with the rows in every body shape", function()
+	local SHAPES = { "block", "viewport", "nested" }
+
+	-- two `fill` columns, so a difference in the available width is DIVIDED
+	-- between them and shows up as drift at every boundary rather than only at
+	-- the trailing edge (the shape `02_playlist_table` ships)
+	local function alignmentColumns(): { any }
+		return {
+			{
+				id = "name",
+				title = "Entrant",
+				width = { type = "fill", weight = 3 },
+				value = function(item: any)
+					return item.name
+				end,
+			},
+			{
+				id = "team",
+				title = "Team",
+				width = { type = "fill", weight = 2 },
+				value = function(item: any)
+					return item.team
+				end,
+			},
+		}
+	end
+
+	type Alignment = { drift: number, detail: string, bleed: number, toolbar: string }
+
+	local function solveShape(packageName: string?, shape: string): Alignment
+		local core = LuauUI.newCore()
+		local env = LuauUI.newEnvironment(core)
+		env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
+		-- a TOUCH session, so the auto Edit/Done toolbar mounts and the band has the
+		-- third sibling the device report caught (`reorderable` below is its route)
+		env:set("preferredInput", "Touch")
+		local system = LuauUI.newActionSystem(core)
+		local adapter = fake_target.new();
+		(adapter :: any).scrollBarThickness = 8
+		local presenter = LuauUI.newPresenter(core, env, adapter, system)
+		local tbl = table_control.build(LuauUI, core, {
+			id = "Entrants",
+			columns = alignmentColumns(),
+			rows = core:signal(RACERS),
+			key = function(item: any)
+				return item.id
+			end,
+			rowHeight = 40,
+			selection = "single",
+			-- a BLOCK delegates its scrolling to the host page; the other two own a
+			-- viewport, and differ only in whether anything above them clips
+			scrolls = if shape == "block" then false else nil,
+			-- the auto Edit/Done route, so the toolbar row is in the band
+			reorderable = true,
+			onReorder = function() end,
+			env = env,
+		})
+		local content: any = tbl.blueprint
+		if shape ~= "viewport" then
+			-- a page that scrolls: the host a block table is built for, and the
+			-- ancestor that makes a viewport table's own body an INNER clipper
+			content = LuauUI.UI.ScrollView({
+				id = "Page",
+				axis = "y",
+				width = { type = "fill", weight = 1 },
+				height = { type = "fill", weight = 1 },
+				children = { content },
+			})
+		end
+		presenter.present(LuauUI.UI.Screen({ id = "S", children = { content } }), {})
+		for _ = 1, 4 do
+			presenter.refresh()
+		end
+		if packageName ~= nil then
+			local pkg = PACKAGES[packageName].build(LuauUI.themes)
+			env:set("themeMetrics", LuauUI.themes.resolve(pkg, nil, {}))
+			for _ = 1, 4 do
+				presenter.refresh()
+			end
+		end
+		local root = if shape == "viewport" then "/S/Entrants" else "/S/Page/Entrants"
+		-- the row's own path is the ForEach key, and `rowActions` is absent here, so
+		-- it is found rather than spelled: one grammar change must not silently turn
+		-- this case into a check that compares nothing
+		local cells: string? = nil
+		for _, path in adapter.paths() do
+			local match = string.match(path, "^(.*/Cells)/Cell%-name$")
+			if match ~= nil then
+				cells = match
+				break
+			end
+		end
+		assert(cells ~= nil, `{shape}: no body cell mounted, so there is nothing to line the header up with`)
+		local drift = 0
+		local detail = ""
+		for _, columnId in { "name", "team" } do
+			local head = adapter.node(`{root}/Main/Header/Head-{columnId}`)
+			local cell = adapter.node(`{cells}/Cell-{columnId}`)
+			assert(
+				head ~= nil and cell ~= nil,
+				`{shape}: column '{columnId}' has no {if head == nil then "header" else "body"} cell`
+			)
+			drift = math.max(
+				drift,
+				math.abs(head.rect.x - cell.rect.x),
+				math.abs((head.rect.x + head.rect.w) - (cell.rect.x + cell.rect.w))
+			)
+			detail ..= string.format(
+				" %s head %.0f..%.0f cell %.0f..%.0f",
+				columnId,
+				head.rect.x,
+				head.rect.x + head.rect.w,
+				cell.rect.x,
+				cell.rect.x + cell.rect.w
+			)
+		end
+		-- ...and the third sibling in the band. The Edit/Done toggle is right-aligned
+		-- in a toolbar ROW (never a floating badge), so its trailing edge is the
+		-- table's trailing content edge — the same one the last column ends on.
+		local toolbar = adapter.node(`{root}/Main/ToggleWhen/then/Toolbar`)
+		local toggle = adapter.node(`{root}/Main/ToggleWhen/then/Toolbar/EditToggle`)
+		local band = adapter.node(`{root}/Main/Header`)
+		local trailing = adapter.node(`{root}/Main/Header/Head-team`)
+		assert(
+			toolbar ~= nil and toggle ~= nil and band ~= nil and trailing ~= nil,
+			`{shape}: the auto Edit toolbar did not mount, so its alignment proves nothing`
+		)
+		local snapshot = env:get("themeMetrics"):get()
+		return {
+			drift = drift,
+			detail = detail,
+			bleed = if type(snapshot.chromeBleed) == "number" then snapshot.chromeBleed else 0,
+			toolbar = string.format(
+				"editRight %.0f trailingColumnRight %.0f clearsHeaderBy %.0f",
+				toggle.rect.x + toggle.rect.w,
+				trailing.rect.x + trailing.rect.w,
+				band.rect.y - (toolbar.rect.y + toolbar.rect.h)
+			),
+		}
+	end
+
+	it("a header cell and its body cell occupy the same span, in every shape and package", function()
+		for _, shape in SHAPES do
+			for _, name in ROWS do
+				local pkg = if name == "studio-neutral" then nil else name
+				local row = solveShape(pkg, shape)
+				expect(`{shape}/{name}: drift 0px —{row.detail}`).toBe(
+					`{shape}/{name}: drift {row.drift}px —{row.detail}`
+				)
+			end
+		end
+	end)
+
+	--[[ THE THIRD SIBLING IN THE BAND, and the review's second sentence: "the Edit
+		button sits ON TOP of the Rating header pill, overlapping it, drawn above and
+		to the right".
+
+		IT WAS NEVER A LAYOUT OVERLAP AND NEVER A Z-ORDER ONE. The toggle is a
+		toolbar ROW inserted at the front of `Main`'s flow (director round 12 already
+		moved it out of an Anchor for exactly this complaint), so it pushes the header
+		down instead of covering it — asserted here as a NON-NEGATIVE clearance, at
+		every package and every shape, so the flow can never quietly become an overlay
+		again.
+
+		WHAT WAS REAL WAS HORIZONTAL, and it is the same defect as the case above:
+		the toolbar spelled no gutters, the header spelled its own, and the rows
+		spelled a third set — three siblings, three budgets. Under the five packages
+		that carve a border or a glow the button hung 17-27px past the trailing
+		heading, over a heading that was itself 17px short of its own rows. One
+		`bandPadding` now feeds all of them, so the button's trailing edge IS the
+		trailing column's. ]]
+	it("the Edit toolbar clears the header band and ends on the trailing column", function()
+		for _, shape in SHAPES do
+			for _, name in ROWS do
+				local pkg = if name == "studio-neutral" then nil else name
+				local row = solveShape(pkg, shape)
+				local editRight, columnRight, clearance =
+					string.match(row.toolbar, "editRight (%-?%d+) trailingColumnRight (%-?%d+) clearsHeaderBy (%-?%d+)")
+				expect(`{shape}/{name}: button ends on the column, clearance {clearance}`).toBe(
+					`{shape}/{name}: button ends {if editRight == columnRight
+						then "on the column"
+						else `{editRight} against a column at {columnRight}`}, clearance {clearance}`
+				)
+				expect(`{shape}/{name}: clears`).toBe(
+					`{shape}/{name}: {if tonumber(clearance) :: number >= 0 then "clears" else "OVERLAPS THE HEADER"}`
+				)
+			end
+		end
+	end)
+
+	--[[ AND THE CORPUS REALLY DOES VARY ALONG THIS AXIS. The case above passes
+		trivially for any package whose `chromeBleed` is 0 — it could pass forever
+		with the defect intact if the reference packages ever went flat, which is the
+		"instrument claiming more coverage than it has" class this whole file exists
+		to close. So the bleed that makes the shapes differ is asserted to be there. ]]
+	it("the swept packages really do declare a glow gutter, or this axis proves nothing", function()
+		local bleeding = 0
+		for _, name in ROWS do
+			local pkg = if name == "studio-neutral" then nil else name
+			if solveShape(pkg, "viewport").bleed > 0 then
+				bleeding += 1
+			end
+		end
+		expect(`{bleeding} of {#ROWS} packages carve a glow gutter`).toBe(`5 of {#ROWS} packages carve a glow gutter`)
+	end)
+end)

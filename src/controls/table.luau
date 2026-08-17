@@ -1054,6 +1054,45 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 	-- table has no viewport of its own to grow a bar in (its HOST's page scrolls,
 	-- and the header rides inside that page with the rows)
 	local hasAlignedHeader = spec.header ~= false and spec.scrolls ~= false
+	--[[ ── THE CLIPPER'S GLOW GUTTER, AND WHO ACTUALLY PAYS IT ────────────────────
+		(device review 2026-08-16, `ex02` under a Glossy package on a phone: the
+		header pills stood clear of the rows beneath them and the trailing heading
+		ran past its own column.)
+
+		THE DEFECT, and it is one number spent for a box that does not exist.
+		`chromeBleed` is how far a package's shadow paints outside the box it belongs
+		to, and it is a CLIPPER's debt: `layout_node` reserves it on a scroll node,
+		and only on the OUTERMOST one ("an inner viewport is already inset by
+		everything above it"). The header is a SIBLING of the body rather than a node
+		inside it, so it has always paid that gutter itself — unconditionally, on the
+		assumption written into its own padding note, "the rows live in a ScrollView".
+
+		A BLOCK TABLE HAS NO SCROLLVIEW. Under `scrolls = false` the body is a plain
+		stack: no ScrollingFrame, no clip, nothing reserved. So the body laid its rows
+		out across the whole frame while the header took `chromeBleed` off each side,
+		the two halves divided DIFFERENT widths between the same `fill` columns, and
+		every boundary came apart — measured on the shipped playlist at every swept
+		viewport and every text preference: 17px a side under Fantasy Ornate, Fantasy
+		Parchment, Glossy Mobile and Glossy Touch, 24px under Sci-Fi HUD, and 0 under
+		the four flat packages, which is why it shipped.
+
+		IT IS THE ARGUMENT `hasAlignedHeader` ALREADY MAKES, ONE GUTTER OVER. That
+		flag says a block table has no viewport of its own to grow a BAR in; the same
+		sentence is true of the glow, because both gutters belong to a viewport and a
+		block table has none. So one condition now names both.
+
+		...AND THE BODY DECLARES IT RATHER THAN INHERITING IT, which is what closes
+		the second half of the same class. `layout_node`'s reserve is `math.max`, not
+		`+` — a container that already insets its content by the bleed owes nothing
+		more — so a body that declares the gutter is byte-identical when it IS the
+		outermost clipper, and NOW ALSO PAYS IT when it is not. Without that, a
+		table whose body scrolls INSIDE a scrolling page drifted exactly as the block
+		table did and in the same direction (measured, same cell: 17/24px), because
+		the outermost-only rule skipped the inner body while the header paid anyway.
+		Both halves of the alignment now read this one boolean, so they cannot
+		disagree about a gutter again — and a package that changes the metric moves
+		them together. ]]
+	local bodyPaysGlowGutter = spec.scrolls ~= false
 
 	local api = {} :: any
 
@@ -2165,25 +2204,36 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		return spec.sortOrder ~= nil and (column.value ~= nil or column.sortable == true)
 	end
 
+	--[[ THE BAND GUTTERS — the horizontal reservation every row of the table's own
+		chrome pays, so that the toolbar, the headings and the cells all sit on ONE
+		content edge. Three terms: the row card's carved border, the viewport's glow
+		bleed, and the body's live scrollbar reserve. The first two are theme metrics
+		resolved per solve; the third is a measurement, so the whole side is a memo
+		(`padding` is reactive + measure-dirty). See THE BODY'S SCROLLBAR GUTTER for
+		why the third term exists and why it is a padding rather than a spacer.
+
+		IT IS SHARED RATHER THAN RE-DERIVED, which is the whole lesson of the two
+		defects above it: every sibling in this band that spells its own gutters is
+		one more place for the budgets to come apart. ]]
+	local bandPadding = scope:own(core:memo(function(use)
+		local gutter = use(bodyBarInset)
+		-- the glow gutter is owed only where the body is a clipper that spends it
+		-- (see THE CLIPPER'S GLOW GUTTER): a block table's body reserves nothing,
+		-- so a header that reserved it would sit inside its own rows
+		local glow: any = if bodyPaysGlowGutter then "chromeBleed" else 0
+		return {
+			left = { ROW_ART.left, glow },
+			right = { ROW_ART.right, glow, gutter.right },
+			-- an X-scrolling body reserves off its BOTTOM; Table's body is
+			-- always Y, so this is 0 today and is written from the published
+			-- side rather than assumed away
+			bottom = gutter.bottom,
+		}
+	end))
+
 	local children = {}
 	if spec.header ~= false then
-		-- the header band's horizontal gutters: the row card's carved border, the
-		-- viewport's glow bleed, and the body's live scrollbar reserve. The first
-		-- two are theme metrics resolved per solve; the third is a measurement, so
-		-- the whole side is a memo (`padding` is reactive + measure-dirty). See THE
-		-- BODY'S SCROLLBAR GUTTER for why the third term exists and why it is a
-		-- padding rather than a spacer.
-		local headerPadding = scope:own(core:memo(function(use)
-			local gutter = use(bodyBarInset)
-			return {
-				left = { ROW_ART.left, "chromeBleed" },
-				right = { ROW_ART.right, "chromeBleed", gutter.right },
-				-- an X-scrolling body reserves off its BOTTOM; Table's body is
-				-- always Y, so this is 0 today and is written from the published
-				-- side rather than assumed away
-				bottom = gutter.bottom,
-			}
-		end))
+		local headerPadding = bandPadding
 		local headerCells = {}
 		for _, column in columns do
 			-- full-contrast title (the secondary tint was unreadable over
@@ -2377,13 +2427,20 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 		-- gutter and the arithmetic can never disagree
 		gap = spec.rowGap or 0,
 	}
-	if spec.scrolls ~= false then
+	if bodyPaysGlowGutter then
 		bodySpec.axis = "y"
 		-- native scroll + clip host (native-substrate NS-A2): the adapter
 		-- mounts a ScrollingFrame; the ENGINE owns the offset (wheel, touch
 		-- pan, momentum), the solver's content sum becomes CanvasSize, and
 		-- partial rows crop. No hand-rolled wheel handler (native §4).
 		bodySpec.clipChildren = true
+		-- ...and the glow gutter this clipper owes its rows, DECLARED rather than
+		-- inherited (see THE CLIPPER'S GLOW GUTTER). `layout_node`'s own reserve is
+		-- a `math.max` floor, so this is byte-identical where the body is the
+		-- outermost clipper and is the whole reservation where it is not — which is
+		-- what keeps the header, which pays the same term under the same condition,
+		-- welded to the rows in both cases.
+		bodySpec.padding = { left = "chromeBleed", right = "chromeBleed" }
 	end
 	local rowsForEach = UI.ForEach({
 		id = "Rows",
@@ -2424,6 +2481,7 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 			gap = if virtualized then nil else bodySpec.gap,
 			axis = bodySpec.axis,
 			clipChildren = bodySpec.clipChildren,
+			padding = bodySpec.padding,
 			children = if not virtualized
 				then { rowsForEach }
 				else {
@@ -2472,6 +2530,20 @@ function table_control.build(LuauUI: any, core: any, spec: Spec)
 				return UI.HStack({
 					id = "Toolbar",
 					width = { type = "fill", weight = 1 },
+					--[[ ...AND IT SITS ON THE SAME CONTENT EDGE AS THE HEADINGS AND THE
+						CELLS (device review 2026-08-16: "the Edit button overlaps the
+						Rating header pill, drawn above and to the right").
+						MEASURED, NOT ASSUMED: the toolbar is a flow row and the band gap
+						below it is +2px at every swept viewport, package and text
+						preference — there is no layout overlap and never was. What the eye
+						read as one was HORIZONTAL: the toolbar spelled no gutters at all,
+						so the trailing button hung 17-27px past the trailing heading under
+						the five packages that carve a border or a glow, over a heading that
+						was itself 17px short (see THE CLIPPER'S GLOW GUTTER). Paying the
+						same `bandPadding` welds the button's trailing edge to the trailing
+						column's. Zero under every flat package, so the shipped look on the
+						default theme does not move. ]]
+					padding = bandPadding,
 					children = {
 						UI.Spacer({}),
 						UI.Button({
