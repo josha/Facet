@@ -834,3 +834,145 @@ describe("hud: a row skipped by a PLATFORM fact says so on the plate", function(
 		built.dispose()
 	end)
 end)
+
+--[[ NM-H4a round 4 — A POSITION IS A VERDICT WHERE A SIZE IS A NOTE.
+
+	The director, 2026-08-17 (`a1.jpeg`): the whole left column of the HUD absent
+	and the plate reading `14 of 14 rows wanted / 14 of 14 painting`. Toggling the
+	URL bar in landscape repaired it.
+
+	`enginePaints` has had the engine's `x`/`y` in hand since the round-2 rewrite
+	and compared only `w`/`h`. So a node drawn at a stale position — which is what a
+	`Position` write that never landed looks like, and `applyRect` is the ONLY
+	writer of that property — reported painting at full size for as long as it
+	stayed wrong. The same hole covers a box pushed off a rotated window.
+
+	These cases force the engine side to lie in POSITION rather than in visibility,
+	which is the only way to test the comparison headlessly. ]]
+describe("hud: a node the engine draws somewhere else is NOT painting", function()
+	local RING = "/HudScreen/Hud/Clock/ClockStack/TimerPod/TimerRow/TimerRingBox/TimerRing/Ring/Track"
+
+	local function shifted(dx: number, dy: number): (path: string) -> any
+		return function(path: string): any
+			if path ~= RING then
+				return nil
+			end
+			local node = nil
+			return { shiftX = dx, shiftY = dy, node = node }
+		end
+	end
+
+	it("a stale POSITION is a loss, and the plate names the offset", function()
+		local w = world(LANDSCAPE)
+		-- the engine seam answers the node's real rect, moved: exactly what a
+		-- Position write that never landed leaves behind
+		local built = mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = function(paths: { string }): any
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil then
+						local screenId = string.match(path, "^/([^/]+)")
+						local drift = if path == RING then 40 else 0
+						out[path] = {
+							x = node.rect.x + drift,
+							y = node.rect.y,
+							w = node.rect.w,
+							h = node.rect.h,
+							visible = w.adapter.visibleOf(path) ~= false,
+							enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						}
+					end
+				end
+				return out
+			end,
+		})
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(1)
+		expect(probe.lost[1]).toBe("TimerRing")
+		-- ...and the offset is on the plate, because "somewhere else" is useless
+		-- without "how far"
+		expect(string.find(probe.plate, "@40,0", 1, true) ~= nil).toBe(true)
+		built.dispose()
+	end)
+
+	it("a node pushed OFF the viewport is a loss on the same rule", function()
+		local w = world(LANDSCAPE)
+		local built = mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = function(paths: { string }): any
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil then
+						local screenId = string.match(path, "^/([^/]+)")
+						local off = if path == RING then 5000 else 0
+						out[path] = {
+							x = node.rect.x + off,
+							y = node.rect.y,
+							w = node.rect.w,
+							h = node.rect.h,
+							visible = w.adapter.visibleOf(path) ~= false,
+							enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						}
+					end
+				end
+				return out
+			end,
+		})
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(1)
+		expect(probe.lost[1]).toBe("TimerRing")
+		built.dispose()
+	end)
+
+	it("a ONE-PIXEL difference is still painting — the threshold is not zero", function()
+		-- the negative control. `screenRectOf` and the engine's own rect are two
+		-- spaces that round against each other; an instrument that cried wolf over
+		-- a pixel would be as useless as one that never fires.
+		local w = world(LANDSCAPE)
+		local built = mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = function(paths: { string }): any
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil then
+						local screenId = string.match(path, "^/([^/]+)")
+						out[path] = {
+							x = node.rect.x + 1,
+							y = node.rect.y - 1,
+							w = node.rect.w,
+							h = node.rect.h,
+							visible = w.adapter.visibleOf(path) ~= false,
+							enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						}
+					end
+				end
+				return out
+			end,
+		})
+		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(0)
+		built.dispose()
+	end)
+end)

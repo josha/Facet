@@ -1446,12 +1446,39 @@ return {
 					return false, path
 				end
 				local want = ctrl.screenRectOf(path)
-				if
-					want ~= nil
-					and (math.abs(own.w - want.w) > 1 or math.abs(own.h - want.h) > 1)
-					and table.find(mismatched, path) == nil
-				then
-					table.insert(mismatched, path)
+				--[[ WHERE, NOT JUST HOW BIG (director, device, 2026-08-17: `a1.jpeg`).
+					The plate read `14 of 14 painting` over a screen missing its whole left
+					column. This function had the engine's `x`/`y` in hand the entire time
+					and compared only `w`/`h` — so a node the engine draws at a STALE
+					POSITION, or off the edge of a rotated window, reported painting at full
+					size for as long as it stayed wrong.
+
+					A POSITION IS A VERDICT WHERE A SIZE IS A NOTE, and the asymmetry is
+					deliberate. `screenRectOf` and `AbsoluteSize` are two spaces that can
+					round against each other by a pixel, which is why a size difference is
+					reported and forgiven. A box sitting somewhere the solver never put it
+					is not rounding: `applyRect` is the only writer of `Position`, so the
+					two can only disagree when a write did not land. The threshold is 2px —
+					above any rounding, below any real move.
+
+					OFF THE VIEWPORT IS THE SAME DEFECT WEARING ITS WORST CASE, and it is
+					checked separately because a node can be exactly where the solver put it
+					while the solver's own box is off-screen. ]]
+				if want ~= nil then
+					if
+						(math.abs(own.w - want.w) > 1 or math.abs(own.h - want.h) > 1)
+						and table.find(mismatched, path) == nil
+					then
+						table.insert(mismatched, path)
+					end
+					local dx, dy = own.x - want.x, own.y - want.y
+					if math.abs(dx) > 2 or math.abs(dy) > 2 then
+						return false, `{path} @{math.floor(dx + 0.5)},{math.floor(dy + 0.5)}`
+					end
+				end
+				local vp = viewportFact:get() :: any
+				if own.x + own.w <= 0 or own.y + own.h <= 0 or own.x >= vp.w or own.y >= vp.h then
+					return false, `{path} off screen`
 				end
 				return true, nil
 			end
