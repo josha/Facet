@@ -1340,7 +1340,16 @@ return {
 			the signals that paint its own surface. A sample taken inside a sample
 			would read the same frame twice and could recur. ]]
 		local probeSampling = false
-		local function probeSampleBody()
+		--[[ THE TWO-SAMPLE RULE FOR POSITION (see `enginePaints`). `driftHeld` is what
+			the LAST CONFIRMING sample saw drifting; `driftNow` is what this one sees. A
+			path in both has stood still through a whole tick of the clock that belongs
+			to neither surface, which no frame of engine lag can do. Only a confirming
+			sample rolls one into the other, so two solves in the same frame cannot
+			promote each other. ]]
+		local driftHeld: { [string]: string } = {}
+		local driftNow: { [string]: string } = {}
+		local function probeSampleBody(confirming: boolean)
+			table.clear(driftNow)
 			local handle = if result ~= nil then result.handle else nil
 			local ctrl = if handle ~= nil then handle.controller else nil
 			if ctrl == nil or ctrl.screenRectOf == nil or ctrl.hiddenRoots == nil then
@@ -1473,12 +1482,33 @@ return {
 					end
 					local dx, dy = own.x - want.x, own.y - want.y
 					if math.abs(dx) > 2 or math.abs(dy) > 2 then
-						return false, `{path} @{math.floor(dx + 0.5)},{math.floor(dy + 0.5)}`
+						--[[ A DRIFT IS NOT A LOSS UNTIL A SECOND SAMPLE AGREES, and shipping
+							it as one broke this instrument for a whole device pass
+							(`b.jpeg`: latched at solve 2 on a plate that then read a portrait
+							viewport forever). `present.onGeometry` fires from the HUD's own
+							SOLVE — before the engine has laid the new positions out — so on the
+							frame of any layout change the engine's rect is legitimately last
+							frame's, and every rotation would latch.
+
+							The confirming clock is `presenter.onTick` at 4Hz, which belongs to
+							neither surface: a quarter second is far longer than the engine
+							needs to catch up, so a drift still standing on the next tick is a
+							write that never landed rather than a frame of lag. Recorded on
+							every sample, promoted only by the tick. ]]
+						driftNow[path] = `{math.floor(dx + 0.5)},{math.floor(dy + 0.5)}`
+						if driftHeld[path] ~= nil then
+							return false, `{path} @{driftNow[path]}`
+						end
+						return true, nil
 					end
 				end
 				local vp = viewportFact:get() :: any
 				if own.x + own.w <= 0 or own.y + own.h <= 0 or own.x >= vp.w or own.y >= vp.h then
-					return false, `{path} off screen`
+					driftNow[path] = "off screen"
+					if driftHeld[path] ~= nil then
+						return false, `{path} off screen`
+					end
+					return true, nil
 				end
 				return true, nil
 			end
@@ -1635,13 +1665,19 @@ return {
 			end
 		end
 
-		local function probeSample()
+		local function probeSample(confirming: boolean?)
 			if probeHeld:get() or probeSampling then
 				return
 			end
 			probeSampling = true
-			probeSampleBody()
+			probeSampleBody(confirming == true)
 			probeSampling = false
+			if confirming == true then
+				table.clear(driftHeld)
+				for path, delta in driftNow do
+					driftHeld[path] = delta
+				end
+			end
 		end
 
 		local function probeScreen(): any
@@ -1705,9 +1741,14 @@ return {
 												}),
 											},
 										}),
-										-- a plate a thumb can read without covering the screen it is
-										-- describing; the same app-level literal the ··· sink spends
-										{ type = "fixed", px = 168 }
+										--[[ a plate a thumb can read without covering the screen it is
+											describing. WIDENED from 168 (director, 2026-08-17): at 168 the
+											skipped list truncated to `ScoreHome · TimerRing…` and the line
+											that names the defect never reached the photograph. 208 is still
+											under a third of the narrowest landscape window this fixture
+											declares, and the plate sits in the one band that is empty in
+											both of the director's captures. ]]
+										{ type = "fixed", px = 208 }
 									),
 								},
 							}),
@@ -1768,7 +1809,7 @@ return {
 					return
 				end
 				since = 0
-				probeSample()
+				probeSample(true)
 			end)
 		end
 
@@ -2462,7 +2503,9 @@ return {
 					return { held = probeHeld:get(), probe = probeReport }
 				end,
 				sampleProbe = function()
-					probeSample()
+					-- the scripted stand-in for the 4Hz tick: a headless caller has no
+					-- frame clock, so its own sample is the confirming one
+					probeSample(true)
 					return { held = probeHeld:get(), probe = probeReport }
 				end,
 			},

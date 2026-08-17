@@ -894,6 +894,14 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 				return out
 			end,
 		})
+		--[[ ONE SAMPLE IS NOT A VERDICT. `onGeometry` fires from the HUD's own solve,
+			before the engine has laid the new positions out, so a single frame of drift
+			is normal. The first confirming sample records it; the second promotes it. ]]
+		expect(#built.report().paintProbe.lost).toBe(0)
+		-- the first confirming sample RECORDS the drift; the second promotes it
+		built.steps.sampleProbe(built)
+		expect(#built.report().paintProbe.lost).toBe(0)
+		built.steps.sampleProbe(built)
 		local probe = built.report().paintProbe
 		expect(#probe.lost).toBe(1)
 		expect(probe.lost[1]).toBe("TimerRing")
@@ -933,6 +941,11 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 				return out
 			end,
 		})
+		expect(#built.report().paintProbe.lost).toBe(0)
+		-- the first confirming sample RECORDS the drift; the second promotes it
+		built.steps.sampleProbe(built)
+		expect(#built.report().paintProbe.lost).toBe(0)
+		built.steps.sampleProbe(built)
 		local probe = built.report().paintProbe
 		expect(#probe.lost).toBe(1)
 		expect(probe.lost[1]).toBe("TimerRing")
@@ -971,7 +984,48 @@ describe("hud: a node the engine draws somewhere else is NOT painting", function
 				return out
 			end,
 		})
+		built.steps.sampleProbe(built)
+		built.steps.sampleProbe(built)
 		local probe = built.report().paintProbe
+		expect(#probe.lost).toBe(0)
+		built.dispose()
+	end)
+
+	it("a drift seen ONCE never latches — the regression that blinded a device pass", function()
+		--[[ Shipped as an immediate verdict, this check latched at solve 2 on the
+			director's phone and froze the plate on a portrait viewport for the rest of
+			the session (`b.jpeg`). A single sample of drift must leave the probe live. ]]
+		local w = world(LANDSCAPE)
+		local built = mount(w, {
+			LuauUI = LuauUI,
+			core = w.core,
+			env = w.env,
+			adapter = w.adapter,
+			presenter = w.presenter,
+			actionSystem = w.system,
+			flags = {},
+			geometry = function(paths: { string }): any
+				local out: { [string]: any } = {}
+				for _, path in paths do
+					local node = w.adapter.node(path)
+					if node ~= nil and node.rect ~= nil then
+						local screenId = string.match(path, "^/([^/]+)")
+						out[path] = {
+							x = node.rect.x + 40,
+							y = node.rect.y,
+							w = node.rect.w,
+							h = node.rect.h,
+							visible = w.adapter.visibleOf(path) ~= false,
+							enabled = if screenId ~= nil then w.adapter.rootVisibleOf(screenId) ~= false else true,
+						}
+					end
+				end
+				return out
+			end,
+		})
+		local probe = built.report().paintProbe
+		expect(probe.held).toBe(false)
+		expect(probe.latches).toBe(0)
 		expect(#probe.lost).toBe(0)
 		built.dispose()
 	end)
