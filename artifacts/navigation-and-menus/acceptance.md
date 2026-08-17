@@ -140,4 +140,6 @@ Statuses: `PASS_AUTOMATED` · `PASS_PHYSICAL` · `PASS_HUMAN` · `FAIL_PRODUCT` 
 | **NM-X2** | Pointer **right-click** and **hover-dwell** on real hardware | A script-fired binding proves the downstream action path only, never native arbitration | PENDING_PHYSICAL |
 | **NM-X3** | Gamepad menu/tab paging with `PreferredInput == Gamepad` | Synthetic gamepad KeyCodes do not prove input classification or Button A contention | PENDING_PHYSICAL |
 | **NM-X4** | The reduced-motion snap and the sliding indicator **feel** right | Frame counts prove the frames stopped, not that the motion reads well | PENDING_HUMAN |
+| **NM-LP1** | The level picker's bars are draggable under a finger, and a drag off the leading edge clears to zero | An 8-segment strip is a small target per segment, and the clear-to-zero edge case only exists at the boundary | PENDING_PHYSICAL |
+| **NM-LP2** | The `bar`, `glyph` and `image` segment modes read as one control, and `bar`'s filled/unfilled contrast survives daylight on a phone | A tinted box has no shape cue the way ★/☆ does, so contrast is doing all the work | PENDING_HUMAN |
 | **NM-X5** | A Callout reads as help rather than as an ad | Apple's own warning — *"Use tips sparingly… Don't use tips to guide people through your app, or for advertising and promotion purposes"* — is a judgement, not an assertion | PENDING_HUMAN |

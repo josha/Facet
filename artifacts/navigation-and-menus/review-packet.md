@@ -70,8 +70,9 @@ A row below cannot be closed by a different, easier row.
 Bring: a touch phone, a pointer machine (real mouse), and a gamepad.
 
 ### P1 · Menu opens on touch **long-press** — `NM-X1`
-**Scenario:** any surface with a `newMenu` trigger.
-**Do:** press and hold a menu trigger for ~0.5 s, then release.
+**Open the `Menus and their five triggers` demo** (id `menu`).
+**Do:** press and hold **card 4** (the one declaring `{activate, longPress}`) for ~0.5 s.
+It opens at `began`, under your finger.
 **Expect:** the menu opens as a **sheet** (touch is live, so presentation resolves to sheet,
 not a floating panel). Releasing without moving does not also fire the trigger's primary
 action.
@@ -80,10 +81,19 @@ full-value plate. D2 deliberately kept that route — Menu claims long-press onl
 own trigger subtree — and this is the one place that split is observable.
 
 ### P2 · Menu opens on pointer **right-click** — `NM-X2`
-**Do:** right-click a menu trigger on a real mouse.
+**Open the `menu` demo.**
+**Do:** right-click **card 3** (`{activate, secondary}`) on a real mouse.
 **Expect:** the menu opens as a **floating panel** anchored to the trigger, not a sheet.
 **Watch for:** the browser/Studio context menu stealing it, and whether a right-click that
 lands on a *child* of the trigger still opens it.
+
+**Why the demo is five cards and not one.** No public API reports *which* trigger opened a
+menu — `onOpen` takes no argument, `dump().triggers` is the DECLARED set, and keyboard and
+gamepad share one `MenuOpen` action, so the control cannot tell them apart internally
+either. The fixture therefore partitions the routes across cards so that **which card
+opened is the answer**. Card 2 accepts only the chords and **deliberately does not open on
+a tap** — that refusal is the test, not a bug. The on-screen readout names the card, the
+routes it accepts, the live interaction classes at that instant, and a per-card open count.
 
 ### P3 · Pointer **hover-dwell** shows `help` — `NM-3a.1`, `NM-X2`
 **Do:** rest a real pointer over a control carrying `help` and wait.
@@ -95,16 +105,17 @@ it feels wrong.
 **nothing** — no plate, no long-press. That is the spec, not a gap.
 
 ### P4 · Gamepad reaches every menu and every tab — `NM-X3`
-**Do:** with a real gamepad (confirm `PreferredInput == Gamepad`), open a menu with the
-bound button, walk it, enter and leave a submenu with the stick/d-pad, and cancel with B.
-Then page a `TabView` with the shoulder buttons.
+**Open the `menu` demo, then `Tabs, nested` (id `tab-view`).**
+**Do:** with a real gamepad (confirm `PreferredInput == Gamepad`), open **card 2** with
+ButtonY, walk it, enter and leave its two-level submenu with the stick/d-pad, and cancel
+with B. Then page the `tab-view` strips with the shoulder buttons.
 **Expect:** B closes **one** submenu level, not all of them. Shoulder paging moves the
 selection and the sliding indicator follows it.
 **Cannot be faked:** synthetic KeyCodes do not prove input classification or Button A
 contention.
 
 ### P5 · The playlist's resize divider under a finger — `NM-8.3`
-**Scenario:** `ex02` (Playlist table).
+**Open the `Playlist table` demo** (id `ex02`).
 **Do:** on the phone, drag the divider between Name and Artist.
 **Expect:** you can actually grab it. The divider paints 8 px against a 44 px touch floor
 (`grip8x28`); the expander is supposed to make it reachable. This is the row that says
@@ -115,6 +126,16 @@ whether it does.
 **Expect:** the 45°-rotated tail reads as part of the plate, not as a separate square; the
 selection chip keeps enough contrast against the ornate chrome to say which segment is
 selected.
+
+### P7 · The level picker's bars under a finger — `NM-LP1`
+**Open the `Level pickers` demo** (id `level-picker`).
+**Do:** drag across the ten-bar row. Then drag off its leading edge. Then press the `−`/`+`
+beside it.
+**Expect:** the value tracks your finger; dragging off the leading edge clears it to **zero**
+(zero is a real state — the three-block row below it starts there); the stepper and the bars
+move together because they **share one Signal** and neither knows about the other.
+**Also:** the `glyph` and `image` rows below exercise the other two `segment` modes. All
+three must be reachable without a second fixture.
 
 ---
 
@@ -142,6 +163,15 @@ Does the icon+label → icon-only degrade happen where you would put it, or too 
 **Scenario:** `hud`. Turn the URL bar on in portrait so regions elide and drop.
 **Judge:** when the tasks and the weapon rail give way, is it *obvious* where they went? The
 gate proves a route exists at every viewport. It cannot prove a player would find it.
+
+---
+
+### H5 · Do the three `segment` modes read as the same control? — `NM-LP2`
+**Open the `level-picker` demo.**
+**Judge:** the bar, glyph and image rows are one control with one argument. Do they read
+that way, or do they read as three different widgets? Is the filled/unfilled contrast strong
+enough on a phone in daylight — particularly for `bar`, which is a tinted box and has no
+shape cue the way ★/☆ does?
 
 ---
 
