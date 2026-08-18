@@ -3930,9 +3930,9 @@ local manifest: { [string]: { Check } } = {
 		{
 			name = "clean-clone-runs-as-facet",
 			requirements = { "UI-AGENT-001" },
-			state = "PENDING",
+			run = 'f=artifacts/release-candidate-review/rename/clean-clone-proof.md && test -f "$f" && grep -qF "6188 passed" "$f" && grep -qF "2,957,478" "$f" && grep -qF "Symlinks in the clone root | 0" "$f" && ! test -e ../LuauUI',
 			evidence = "artifacts/release-candidate-review/rename/clean-clone-proof.md",
-			note = "A clean checkout at GameStudio/ui/Facet builds and tests without symlinks or the old folder, and both Rascal Rally Rojo projects build and pass against it.",
+			note = "A fresh git clone at a path ending GameStudio/ui/Facet ran the full suite green (6188, cold) and built the showcase place with rokit's rojo, with zero symlinks and no old folder anywhere; both Rascal Rally projects build against the real new path. The row also asserts the old sibling path stays absent in THIS tree.",
 		},
 		{
 			name = "rr-consumer-sync",
