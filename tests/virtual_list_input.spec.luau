@@ -11,6 +11,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local virtual_list = require("../src/controls/virtual_list")
 local fake_target = require("../tests/lib/fake_target")
@@ -23,20 +25,23 @@ local function makeRows(n: number): { { id: string, label: string } }
 	return rows
 end
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 -- a VirtualList inside a Screen, presented with ZERO opts (full auto-composition)
 local function world(opts: any?)
 	local options = opts or {}
-	local core, env, system, adapter, pres = harness()
+	local core, env, adapter, system, pres = harness()
 	local rows = core:signal(makeRows(options.count or 100))
 	local activations: { any } = {}
 	local list = virtual_list.build(Facet, core, {

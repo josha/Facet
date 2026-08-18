@@ -26,26 +26,31 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local contribution = require("../src/input/contribution")
 local fake_target = require("../tests/lib/fake_target")
 
 local UI = Facet.UI
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 -- a screen whose ONLY contributing control lives inside a `UI.When`, exactly
 -- like a HUD gated on a role/phase the player does not have yet
 local function gatedWorld()
-	local core, _, system, adapter, pres = harness()
+	local core, _, adapter, system, pres = harness()
 	local open = core:signal(false)
 	local hits: { string } = {}
 	local bound = { controller = 0, actions = 0 }
@@ -170,7 +175,7 @@ describe("DB-3(b): the focus RING answers navigation, never a finger", function(
 	local BTN_A = "/S/A"
 	local BTN_B = "/S/B"
 	local function ringWorld()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local screen = UI.Screen({
 			id = "S",
 			children = {

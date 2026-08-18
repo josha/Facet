@@ -634,6 +634,11 @@ require("./text_distance.spec")
 	construction — the half three of the four shipped bootstraps dropped, which no
 	dump can see because a frozen motion clock looks exactly like a settled one ]]
 require("./client_host.spec")
+--[[ the shared headless world, and the guard that keeps the five-tuple at ONE
+	order: twelve files returned `core, env, system, adapter, pres` and sixteen
+	returned the same five names with positions three and four swapped, which
+	Luau binds without a word ]]
+require("./world_substrate.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)

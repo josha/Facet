@@ -21,17 +21,22 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 local function press(system: any, key: string)
@@ -99,7 +104,7 @@ end
 -- ===========================================================================
 describe("responder (a): a passive HUD leaves avatar input untouched", function()
 	it("Space/ButtonA/Up all reach gameplay and the HUD focus never moves", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
@@ -126,7 +131,7 @@ end)
 -- ===========================================================================
 describe("responder (b): a tap on the HUD's focusable engages it (first responder)", function()
 	it("engaged: Up/Down navigate the HUD and NOT gameplay; Space/ButtonA guarded; Activate works", function()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
@@ -155,7 +160,7 @@ describe("responder (b): a tap on the HUD's focusable engages it (first responde
 	end)
 
 	it("handle.engage() is the explicit public path to first responder", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
@@ -180,7 +185,7 @@ end)
 -- ===========================================================================
 describe("responder (c): resign restores gameplay delivery exactly", function()
 	it("Cancel (ButtonB) resigns an engaged-from-passive HUD; gameplay restored", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })
@@ -200,7 +205,7 @@ describe("responder (c): resign restores gameplay delivery exactly", function()
 	end)
 
 	it("an outside tap resigns an engaged-from-passive HUD; gameplay restored, no clickthrough", function()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local g = gameplay(system, core)
 		local baseHits: { string } = {}
 		local base = Facet.UI.Screen({
@@ -237,7 +242,7 @@ end)
 -- ===========================================================================
 describe("responder (d): a modal over gameplay suppresses avatar input; dismiss restores", function()
 	it("Space/ButtonA/Up are suppressed while the modal is up and restored on dismiss", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local modal = pres.presentModal(Facet.UI.Screen({
 			id = "Sheet",
@@ -268,7 +273,7 @@ end)
 -- ===========================================================================
 describe("responder (e): gameplayGuard=false lets Space reach gameplay while engaged", function()
 	it("Space reaches gameplay; Up is still sunk (nav owns it)", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive", gameplayGuard = false })
@@ -287,7 +292,7 @@ end)
 -- ===========================================================================
 describe("responder (f): present() default (no responder opt) is byte-identical", function()
 	it("nav works immediately AND gameplay ALSO receives (documented UI-only-place semantics)", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts)) -- NO responder opt: today's semantics
@@ -308,7 +313,7 @@ end)
 -- ===========================================================================
 describe("responder (g): engage/resign churn is leak-free and registry-neutral", function()
 	it("50 engage/resign cycles leave a single working context and gameplay intact", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local g = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(hudScreen(acts), { responder = "passive" })

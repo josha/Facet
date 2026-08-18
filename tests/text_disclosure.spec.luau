@@ -15,6 +15,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local customFactory = require("../src/core/custom")
 local UI = require("../src/blueprint")
 local environment = require("../src/env/environment")
@@ -26,14 +28,17 @@ local LONG_NAME = "Bartholomewwwwwwwwwwwwwwwwww" -- one word, far wider than a 1
 local PLATE = "/__disclose__/Layer/Plate"
 local PLATE_LABEL = "/__disclose__/Layer/Plate/Full"
 
+--[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants — the
+	viewport is set before anything can solve, and one presenter per adapter. The
+	tuple order here, `core, env, adapter, system, pres`, is the one
+	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	files used to swap positions three and four with the same five names, so a line
+	copied between two neighbouring specs bound an action system to a variable
+	called `adapter` and said nothing. ]]
 local function makeWorld()
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 390, h = 844 })
-	local adapter = fake_target.new()
-	local system = actionsLib.newSystem(core)
-	local pres = presenterLib.new(core, env, adapter, system)
-	return core, env, adapter, system, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 390, h = 844 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 -- a focusable row whose name cell is a disclosed, truncated label

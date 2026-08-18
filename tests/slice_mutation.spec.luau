@@ -8,16 +8,27 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src")
 local fake_target = require("../tests/lib/fake_target")
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing.
+
+	THE VIEWPORT IS WRITTEN OUT rather than defaulted: this file set NO
+	`viewportRect` at all and rode `environment.luau`'s own default of 1280×720,
+	which is a dependency on a default nobody stated. Stating it changes nothing
+	and makes the next edit to that default safe. ]]
 local function world()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 1280, h = 720 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 describe("slice: UI-driven authoritative mutation", function()
@@ -65,7 +76,7 @@ describe("slice: UI-driven authoritative mutation", function()
 	end
 
 	it("toggle + save + delayed server confirm reconciles cleanly", function()
-		local core, _, system, _, pres = world()
+		local core, _, _, system, pres = world()
 		local s = build(core, pres, system)
 		-- keyboard: activate Music (toggle on), move down, activate Save
 		system.deviceKey("Return", true)
@@ -87,7 +98,7 @@ describe("slice: UI-driven authoritative mutation", function()
 	end)
 
 	it("rejection restores the draft; no permanent pending state", function()
-		local core, _, system, _, pres = world()
+		local core, _, _, system, pres = world()
 		local s = build(core, pres, system)
 		system.deviceKey("Return", true)
 		system.deviceKey("Return", false) -- toggle on

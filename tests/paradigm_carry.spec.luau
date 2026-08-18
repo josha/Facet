@@ -7,6 +7,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local fake_target = require("../tests/lib/fake_target")
 
@@ -15,14 +17,17 @@ local function press(system: any, key: string)
 	system.deviceKey(key, false)
 end
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 local function twoButtonScreen(id: string)
@@ -47,7 +52,7 @@ end
 
 describe("UI-PARADIGM-002: framework CARRY rows (matrix §C)", function()
 	it("focus survives any class flip (ring stays put; every live class can keep driving it)", function()
-		local _, env, system, _, pres = harness()
+		local _, env, _, system, pres = harness()
 		pres.present(twoButtonScreen("S"))
 		pres.refresh()
 		press(system, "Down") -- move focus off the entry focusable
@@ -62,7 +67,7 @@ describe("UI-PARADIGM-002: framework CARRY rows (matrix §C)", function()
 	end)
 
 	it("an exclusive modal survives any class flip (never un-engages; dismissal paths intact)", function()
-		local _, env, system, _, pres = harness()
+		local _, env, _, system, pres = harness()
 		pres.present(twoButtonScreen("Base"))
 		local modalHandle = pres.presentModal(Facet.UI.Screen({
 			id = "M",

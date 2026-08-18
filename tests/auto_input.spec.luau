@@ -10,26 +10,31 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local text_input = require("../src/controls/text_input")
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 -- ===========================================================================
 describe("auto-input: Button props.onActivate fires on every input, no consumer wiring", function()
 	local BTN = "/S/Go"
 	local function buttonWorld()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local hits: { any } = {}
 		local screen = Facet.UI.Screen({
 			id = "S",
@@ -89,7 +94,7 @@ end)
 describe("auto-input: Toggle auto-flips its bound value (contract §10.2)", function()
 	local TOG = "/S/Mute"
 	local function toggleWorld()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local value = core:signal(false)
 		local screen = Facet.UI.Screen({
 			id = "S",
@@ -151,7 +156,7 @@ describe("auto-input: Table + TextInput on one screen, zero present opts", funct
 
 	local function world(opts: any?)
 		local options = opts or {}
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local fieldValue = core:signal("")
 		local ti = text_input.build(Facet, core, {
 			id = "Filter",
@@ -293,7 +298,7 @@ end)
 -- ===========================================================================
 describe("auto-input: per-opt override (consumer opt beats its auto counterpart)", function()
 	it("an explicit opts.onActivate suppresses auto activate dispatch entirely", function()
-		local core, _, _, adapter, pres = harness()
+		local core, _, adapter, _, pres = harness()
 		local propHits = 0
 		local optHits: { any } = {}
 		local screen = Facet.UI.Screen({
@@ -323,7 +328,7 @@ describe("auto-input: per-opt override (consumer opt beats its auto counterpart)
 	it("navigationGroups=false forces the legacy flat ring (auto grouping suppressed)", function()
 		-- a resizable Table's header grip is only reachable through the FLAT ring
 		-- (its buildFocusGroups omits the grip); forcing flat proves the override.
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal({ { id = "a", name = "Alpha" }, { id = "b", name = "Beta" } })
 		local tbl = table_control.build(Facet, core, {
 			id = "Racers",
@@ -364,7 +369,7 @@ end)
 -- ===========================================================================
 describe("auto-input: refresh re-derives auto groups after structural change", function()
 	it("a row added after present becomes reachable through the auto groups", function()
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal({ { id = "a", name = "Alpha" }, { id = "b", name = "Beta" } })
 		local tbl = table_control.build(Facet, core, {
 			id = "Rows",

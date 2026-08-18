@@ -19,18 +19,23 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 local function bigRows(n: number): { any }
@@ -53,7 +58,7 @@ describe("table_input: header-sort via keyboard and gamepad (auto headers group)
 	local LAPS_SORT = "/S/T/Main/Header/Head-laps/Column"
 
 	local function sortWorld()
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local sortOrder = core:signal(nil :: any)
 		local rows = core:signal(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
@@ -174,7 +179,7 @@ end)
 -- =============================================================================
 describe("table_input: body scroll-into-view on keyboard/gamepad focus moves", function()
 	local function scrollWorld()
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal(bigRows(20))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
@@ -272,7 +277,7 @@ end)
 -- =============================================================================
 describe("table_input: touch column-resize through the grip pointer seam", function()
 	local function resizeWorld()
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",
@@ -349,7 +354,7 @@ describe("table_input: device-true gamepad/keyboard row-select and grab-reorder"
 	-- a REAL consumer: applies the post-removal splice so a step MOVES the data
 	local function reorderWorld(opts: any?)
 		local options = opts or {}
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal(bigRows(5))
 		local editing = core:signal(options.editing == true)
 		local reorders: { any } = {}
@@ -523,7 +528,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 
 	-- the example's shape: Screen > ScrollView(Page) > [tall header block, table]
 	local function pageWorld()
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal(bigRows(12))
 		local reorders: { any } = {}
 		local tbl = table_control.build(Facet, core, {
@@ -598,7 +603,7 @@ describe("table_input: reorder drag inside a scrolling PAGE (block table)", func
 	end
 	local function nestedWorld(opts: any?)
 		local options = opts or {}
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		local rows = core:signal(bigRows(14))
 		local tbl = table_control.build(Facet, core, {
 			id = "T",

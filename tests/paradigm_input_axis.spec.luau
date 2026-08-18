@@ -25,6 +25,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local customFactory = require("../src/core/custom")
 local actionsLib = require("../src/input/actions")
 local Facet = require("../src") :: any
@@ -131,19 +133,22 @@ end)
 -- ===========================================================================
 -- Part 1 — presenter wires Thumbstick1 onto Navigate / NavigateH
 -- ===========================================================================
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 describe("input-axis: presenter binds Thumbstick1 for Navigate (vertical, flat ring)", function()
 	it("a Thumbstick1 y push moves focus down like DPadDown, with the latch", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
@@ -166,7 +171,7 @@ end)
 
 describe("input-axis: presenter binds Thumbstick1 for NavigateH (horizontal, grouped)", function()
 	it("a Thumbstick1 x push walks an HStack row like DPadRight", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local screen = Facet.UI.Screen({
 			id = "S",
 			children = {
@@ -221,7 +226,7 @@ end
 
 describe("input-axis: bare-control Adjust auto-wiring (dynamic, focus-gated)", function()
 	local function world(presOpts: any?)
-		local _, _, system, adapter, pres = harness()
+		local _, _, adapter, system, pres = harness()
 		local ctl = fakeAdjustControl("Ctl")
 		local screen = Facet.UI.Screen({ id = "S", children = { ctl.blueprint } })
 		local handle = pres.present(screen, presOpts)

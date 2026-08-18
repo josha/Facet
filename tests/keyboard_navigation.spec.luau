@@ -20,6 +20,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local UI = Facet.UI
 local customFactory = require("../src/core/custom")
@@ -253,18 +255,24 @@ end)
 -- here enables it at the presenter — that IS the shipped usage for a surface meant
 -- to be keyboard-navigable. The opt's own semantics (off by default, per-surface
 -- override, and the sink it implies) are proven in their own describe block below.
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing.
+
+	KEYBOARD NAVIGATION DEFAULTS ON in this file, which is what it is about — the
+	one thing the shared substrate does not decide for it. ]]
 local function harness(presenterOpts: any?)
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 1280, h = 720 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
 	local opts = if presenterOpts ~= nil then table.clone(presenterOpts) else {}
 	if opts.keyboardNavigation == nil then
 		opts.keyboardNavigation = true
 	end
-	local pres = Facet.newPresenter(core, env, adapter, system, opts)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 1280, h = 720 }, presenterOpts = opts })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 local function press(system: any, key: string)
@@ -298,7 +306,7 @@ end
 
 describe("Tab traverses a presented screen with zero consumer wiring (DK-1/DK-16)", function()
 	it("Tab and Shift+Tab move the focus ring through a plain form", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -312,7 +320,7 @@ describe("Tab traverses a presented screen with zero consumer wiring (DK-1/DK-16
 	end)
 
 	it("a traversal move restores the focus RING that a tap put away", function()
-		local _, _, system, adapter, pres = harness()
+		local _, _, adapter, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -360,7 +368,7 @@ end)
 
 describe("Space activates alongside Return, once per press (DK-8)", function()
 	it("Space activates the focused control exactly once", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -371,7 +379,7 @@ describe("Space activates alongside Return, once per press (DK-8)", function()
 	end)
 
 	it("Return still activates, and the two keys do not double-count one press", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -384,7 +392,7 @@ describe("Space activates alongside Return, once per press (DK-8)", function()
 	end)
 
 	it("a disabled control consumes Space and does nothing", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local fired = 0
 		pres.present(UI.Screen({
 			id = "F",
@@ -413,7 +421,7 @@ describe("exactly one Activate per press across the IAS and native-tap paths (DK
 	-- GuiService.SelectedObject: the engine then fires the selected GuiButton's
 	-- own Activated for the same key press IAS delivered as Activate
 	local function bridgedModal(nowFn: () -> number)
-		local _, _, system, adapter, pres = harness({ now = nowFn })
+		local _, _, adapter, system, pres = harness({ now = nowFn })
 		local acts: { [string]: number } = {}
 		pres.presentModal(
 			UI.Screen({
@@ -489,7 +497,7 @@ describe("exactly one Activate per press across the IAS and native-tap paths (DK
 
 	it("a surface with no selection bridge never collapses a tap next to a key press", function()
 		local now = 100
-		local _, _, system, adapter, pres = harness({
+		local _, _, adapter, system, pres = harness({
 			now = function()
 				return now
 			end,
@@ -899,7 +907,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end
 
 	it("a PASSIVE HUD binds no Tab and no Space: gameplay is untouched", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
@@ -915,7 +923,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("engage() binds them and resign() gives them back, with no residue", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
@@ -953,7 +961,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		been presented engaged-open, where `resign()` is a no-op and no outside-tap
 		catcher is ever mounted, so the surface held Tab and Space forever. ]]
 	it("a tap on the UI takes the keyboard, and a tap OUTSIDE gives it back", function()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
@@ -1006,7 +1014,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		The assertion is on the ADAPTER's painted state, not on a signal, because
 		"is a ring drawn" is the whole question. ]]
 	it("a PASSIVE surface paints no focus ring: the ring never claims input it lacks", function()
-		local _, _, _, adapter, pres = harness()
+		local _, _, adapter, _, pres = harness()
 		local acts: { [string]: number } = {}
 		local h = pres.present(formScreen(acts), { responder = "passive" })
 		pres.refresh()
@@ -1036,7 +1044,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("an ordinary (engaged-open) screen still paints its ring exactly as before", function()
-		local _, _, _, adapter, pres = harness()
+		local _, _, adapter, _, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), {})
 		pres.refresh()
@@ -1082,7 +1090,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it('initialFocus = "none" mounts the surface with NO focus', function()
-		local _, _, _, adapter, pres = harness()
+		local _, _, adapter, _, pres = harness()
 		pres.present(formScreen({}), { initialFocus = "none" })
 		pres.refresh()
 		expect(pres.focus.focused:get()).toBeNil()
@@ -1090,7 +1098,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("...and Tab still ENTERS such a scope rather than no-opping", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		pres.present(formScreen({}), { initialFocus = "none" })
 		pres.refresh()
 		press(system, "Tab")
@@ -1166,7 +1174,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		transition the tree stays mounted for the whole animation, so the ring sat
 		on a surface that had already stopped taking input. ]]
 	it("a dismissed surface gives up its focus ring immediately, mid-exit-transition", function()
-		local _, _, _, adapter, pres = harness()
+		local _, _, adapter, _, pres = harness()
 		local screen = UI.Screen({
 			id = "D",
 			children = {
@@ -1203,7 +1211,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		that is the only control that paints its own focus today — if another one
 		ever does, it belongs here too. ]]
 	it("a self-painted focus ring clears when the surface resigns", function()
-		local core, _, _, adapter, pres = harness()
+		local core, _, adapter, _, pres = harness()
 		local slider = Facet.Controls.Slider(core, {
 			id = "Vol",
 			value = core:signal(0.5),
@@ -1258,7 +1266,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		outside the content. This one taps INSIDE the painted region's bbox, which is
 		the case that was broken. ]]
 	it("an engaged HUD resigns on an outside tap even CLOSE to its own content", function()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local counts = gameplay(system, core)
 		local h = pres.present(formScreen({}), { responder = "passive" })
 		pres.refresh()
@@ -1279,7 +1287,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("...while a MODAL keeps its dismissal forgiveness", function()
-		local _, _, _, adapter, pres = harness()
+		local _, _, adapter, _, pres = harness()
 		local modal = pres.presentModal(UI.Screen({
 			id = "M",
 			children = { UI.Button({ id = "ok", label = "OK" }) },
@@ -1299,7 +1307,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 		— the second half of "left/right go to the slider". It is inert today only
 		because a passive context is disabled, which is luck rather than design. ]]
 	it("a resigned surface unbinds the Adjust keys it had claimed", function()
-		local core, _, _, adapter, pres = harness()
+		local core, _, adapter, _, pres = harness()
 		local slider = Facet.Controls.Slider(core, {
 			id = "Vol",
 			value = core:signal(0.5),
@@ -1341,7 +1349,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("keyboard hot-plug adds and removes the bindings with no stuck sink", function()
-		local core, env, system, _, pres = harness()
+		local core, env, _, system, pres = harness()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), { sinkNavigation = true })
@@ -1366,7 +1374,7 @@ describe("keyboard bindings follow capability and responder ownership (DK-13/DK-
 	end)
 
 	it("gameplayGuard = false leaves Space to the game even while engaged", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local counts = gameplay(system, core)
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), { responder = "passive", gameplayGuard = false })
@@ -1484,7 +1492,7 @@ end)
 
 describe("teardown removes every keyboard binding (DK-14)", function()
 	it("a dismissed screen stops eating Tab and Space", function()
-		local core, _, system, _, pres = harness()
+		local core, _, _, system, pres = harness()
 		local ctx = system.createContext({ name = "Char", priority = 1000, sink = false })
 		local menu = ctx.createAction("Menu", "Bool")
 		menu.bind({ keyCode = "Tab" })
@@ -1505,7 +1513,7 @@ end)
 
 describe("a modal traps traversal and restores focus through the presenter (DK-6)", function()
 	it("Tab stays inside the modal and the base screen's focus comes back", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts))
 		pres.refresh()
@@ -1528,7 +1536,7 @@ end)
 
 describe("traversal wrap is declarable per presented surface (DK-3)", function()
 	it("present({ traversalWrap = false }) stops Tab at the last control", function()
-		local _, _, system, _, pres = harness()
+		local _, _, _, system, pres = harness()
 		local acts: { [string]: number } = {}
 		pres.present(formScreen(acts), { traversalWrap = false })
 		pres.refresh()

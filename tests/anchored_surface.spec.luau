@@ -27,6 +27,8 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local anchorPlacement = require("../src/layout/anchor_placement")
 local chrome_slots = require("../src/tokens/chrome_slots")
 local contribution = require("../src/input/contribution")
@@ -321,14 +323,17 @@ end)
 
 local PANEL_TEXT = "Post Avatars to Marketplace"
 
+--[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants — the
+	viewport is set before anything can solve, and one presenter per adapter. The
+	tuple order here, `core, env, adapter, system, pres`, is the one
+	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	files used to swap positions three and four with the same five names, so a line
+	copied between two neighbouring specs bound an action system to a variable
+	called `adapter` and said nothing. ]]
 local function makeWorld(w: number?, h: number?)
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = w or 390, h = h or 844 })
-	local adapter = fake_target.new()
-	local system = actionsLib.newSystem(core)
-	local pres = presenterLib.new(core, env, adapter, system)
-	return core, env, adapter, system, pres
+	local world = worldLib.new({ viewport = { x = 0, y = 0, w = w or 390, h = h or 844 } })
+	return world.core, world.env, world.adapter, world.system, world.pres
 end
 
 -- a screen with one 44px square button pinned to the top-RIGHT corner: the `+`

@@ -9,6 +9,8 @@
 
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
+
+local worldLib = require("./lib/world")
 local serde = require("@lune/serde")
 
 local customFactory = require("../src/core/custom")
@@ -20,15 +22,20 @@ local actionsLib = require("../src/input/actions")
 local picker = require("../src/controls/picker")
 local fake_target = require("../tests/lib/fake_target")
 
+--[[ ONE SUBSTRATE (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants — the
+	viewport is set before anything can solve, and one presenter per adapter. The
+	tuple order here, `core, env, adapter, system, pres`, is the one
+	`Facet.newPresenter` itself takes and is now the only one in the suite: twelve
+	files used to swap positions three and four with the same five names, so a line
+	copied between two neighbouring specs bound an action system to a variable
+	called `adapter` and said nothing. ]]
 local function harness()
-	local core = customFactory.new()
-	local env = environment.new(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 400, h = 600 })
-	env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
-	local adapter = fake_target.new()
-	local system = actionsLib.newSystem(core)
-	local pres = presenterLib.new(core, env, adapter, system)
-	return core, env, adapter, system, pres
+	local w = worldLib.new({
+		viewport = { x = 0, y = 0, w = 400, h = 600 },
+		safeInsets = { top = 0, bottom = 0, left = 0, right = 0 },
+	})
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 describe("B-DSP1: ProgressView is determinate and style-owned", function()

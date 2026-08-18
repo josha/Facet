@@ -16,18 +16,23 @@
 local t = require("./lib/testkit")
 local describe, it, expect = t.describe, t.it, t.expect
 
+local worldLib = require("./lib/world")
+
 local Facet = require("../src") :: any
 local table_control = require("../src/controls/table")
 local fake_target = require("../tests/lib/fake_target")
 
+--[[ ONE SUBSTRATE, ONE ORDER (reuse audit REUSE-88, controller ruling R12).
+	`tests/lib/world.luau` owns the construction and its two invariants; the tuple
+	this file hands its cases is `core, env, adapter, system, pres` — the order
+	`Facet.newPresenter` itself takes, and now the only one in the suite. It used
+	to be `core, env, system, adapter, pres` here and the other spelling sixteen
+	files away, with the same five names on both sides, so a line copied between
+	two neighbouring specs bound an action system to a variable called `adapter`
+	and said nothing. ]]
 local function harness()
-	local core = Facet.newCore()
-	local env = Facet.newEnvironment(core)
-	env:set("viewportRect", { x = 0, y = 0, w = 800, h = 600 })
-	local system = Facet.newActionSystem(core)
-	local adapter = fake_target.new()
-	local pres = Facet.newPresenter(core, env, adapter, system)
-	return core, env, system, adapter, pres
+	local w = worldLib.new({ viewport = { x = 0, y = 0, w = 800, h = 600 } })
+	return w.core, w.env, w.adapter, w.system, w.pres
 end
 
 local function bigRows(n: number): { any }
@@ -48,7 +53,7 @@ describe("paradigm_table: bare-Table column resize via keyboard/gamepad Adjust",
 	local NAME_HEAD = "/S/T/Main/Header/Head-name"
 
 	local function resizeWorld()
-		local core, _, system, adapter, pres = harness()
+		local core, _, adapter, system, pres = harness()
 		local sortOrder = core:signal(nil :: any)
 		local rows = core:signal(bigRows(3))
 		local tbl = table_control.build(Facet, core, {
@@ -261,7 +266,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 	-- build a reorderable table with an explicit capability set + preferredInput.
 	-- editing: nil => control-owned; a signal => owner-held.
 	local function flipWorld(opts: any)
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		env:set("capabilities", opts.capabilities)
 		env:set("preferredInput", opts.preferredInput or "Gamepad")
 		local rows = core:signal(bigRows(opts.n or 4))
@@ -391,7 +396,7 @@ describe("paradigm_table: hot-switch in-flight transitions (§C)", function()
 
 	it("an OWNER-held editing signal is NOT reset by the control on a pure-pointer flip", function()
 		local editing = nil
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		env:set("capabilities", { keyboard = true, mouse = true, touch = true, gamepad = false })
 		env:set("preferredInput", "Touch")
 		local ownerEditing = core:signal(true)
@@ -688,7 +693,7 @@ describe("paradigm_table: the row box adapts, and cells can never outgrow it", f
 	-- one narrow table, solved for real, reporting the row rect and the rect of
 	-- the name cell's own text — the two numbers the defect was about
 	local function solveRow(opts: any): any
-		local core, env, system, adapter, pres = harness()
+		local core, env, adapter, system, pres = harness()
 		env:set("viewportRect", { x = 0, y = 0, w = 393, h = 852 })
 		local touch = opts.touch == true
 		env:set("capabilities", { keyboard = not touch, mouse = not touch, touch = touch, gamepad = false })
