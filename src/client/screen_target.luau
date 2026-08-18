@@ -243,7 +243,7 @@ export type Opts = {
 	-- native-stylesheets stage (ledger NSS-A2, plan §7 Phase 2): OPT-IN native
 	-- paint. When set and the engine has StyleSheets, the adapter stops
 	-- explicit-writing every handed-off style property and instead CLASSIFIES
-	-- nodes (class + luau-* tags, sheet_model.classifyTags) under one
+	-- nodes (class + facet-* tags, sheet_model.classifyTags) under one
 	-- StyleLink per root; the DataModel sheet (seed-once, native_style.ensure)
 	-- owns fills, chrome, text paint, and interaction-state paint. Absent or
 	-- unsupported -> the explicit-write path below runs unchanged (NSS-A10
@@ -510,7 +510,7 @@ function screen_target.new(opts: Opts?)
 			errorState = handle.errorState == true,
 			-- THE LAYERED EDITING YIELD (ADR-0020 R1, rs-m2). One tag on the
 			-- DECORATED NODE; the package's child-combinator rules blank every
-			-- layer. Same reason it lives here: syncTags owns every luau-* tag
+			-- layer. Same reason it lives here: syncTags owns every facet-* tag
 			-- on this instance and diffs the rest away.
 			chromeYield = handle.chromeYield == true,
 			-- THE SWITCH'S VALUE (ADR-0020 R3 cap 10). `on` is neither a GuiState
@@ -538,7 +538,7 @@ function screen_target.new(opts: Opts?)
 			typeRole = handle.typeRole,
 		})
 		for _, tag in CollectionService:GetTags(instance) do
-			if string.sub(tag, 1, 5) == "luau-" and desired[tag] ~= true then
+			if string.sub(tag, 1, 5) == "facet-" and desired[tag] ~= true then
 				CollectionService:RemoveTag(instance, tag)
 			end
 		end
@@ -902,7 +902,7 @@ function screen_target.new(opts: Opts?)
 
 	--[[ THE BACKDROP DIM, COMPOSED WITH THE PLAYER'S PREFERENCE (ADR-0035).
 
-		The `Scrim backdrop` rule is the single writer of `.luau-surface-scrim`'s
+		The `Scrim backdrop` rule is the single writer of `.facet-surface-scrim`'s
 		BackgroundTransparency and stays it; this moves the value that one writer
 		writes, through the generator's own patch verb. No authority changed, and
 		`NATIVE_SHEET_OWNED` is untouched.
@@ -1401,7 +1401,7 @@ function screen_target.new(opts: Opts?)
 			pad.Parent = instance
 			if nativeMode then
 				-- classify: control chrome + interaction states come from the
-				-- sheet (.luau-surface-control, .luau-interactive, :Hover/:Press)
+				-- sheet (.facet-surface-control, .facet-interactive, :Hover/:Press)
 				handle.nativeSurface = "control"
 				handle.nativeInteractive = true
 				syncTags(handle)
@@ -1830,7 +1830,7 @@ function screen_target.new(opts: Opts?)
 		and `NATIVE_SHEET_OWNED` is untouched:
 
 		  * NATIVE — the `Scrim backdrop` StyleRule is and stays the only writer of
-		    `.luau-surface-scrim`'s BackgroundTransparency. We move the RULE's value
+		    `.facet-surface-scrim`'s BackgroundTransparency. We move the RULE's value
 		    through the generator's own `setRuleProperty`, exactly as a designer's
 		    metric edit already does (`pushMetricRuleProps`). ADR-0029 refused rule
 		    mutation for a per-node FADE — 3 frames of latency and one generated rule
@@ -1927,7 +1927,7 @@ function screen_target.new(opts: Opts?)
 	-- `error` is neither — no control publishes one today, so this is the seam a
 	-- control's own error binding lands on (P3's wiring) and the seam the
 	-- verification scenario drives. It flips ONE tag, through the desired set, so
-	-- the package's `.luau-state-error > .<layerTag>` art rules match; a rung-2
+	-- the package's `.facet-state-error > .<layerTag>` art rules match; a rung-2
 	-- override repaints from the same flag.
 	-- Returns whether the state actually changed, so a caller cannot mistake a
 	-- no-op for a flip.
@@ -2632,7 +2632,7 @@ function screen_target.new(opts: Opts?)
 		local instance = handle.instance
 		if nativeMode then
 			-- native (NSS-A4): the pointer-live decision becomes a TAG — hover
-			-- rules are compound-gated on it (.luau-pointer-live:Hover), so the
+			-- rules are compound-gated on it (.facet-pointer-live:Hover), so the
 			-- sheet can only paint hover where the renderer declared a live
 			-- pointer class. No connection is allocated; the engine owns the
 			-- hover state itself (GuiState).
@@ -3292,7 +3292,7 @@ function screen_target.new(opts: Opts?)
 			setPresentationTransform(handle, value)
 		elseif prop == "dragHeld" then
 			-- THE HELD DRAG SOURCE (director round five). Native: the tag rides
-			-- syncTags and the sheet's `.luau-drag-held` rule empties the label
+			-- syncTags and the sheet's `.facet-drag-held` rule empties the label
 			-- (TextTransparency is sheet-owned there — same channel as iconArt).
 			-- Bespoke: the write is ours, so it is direct — with the node's own
 			-- resting transparency restored on release.
@@ -3353,7 +3353,7 @@ function screen_target.new(opts: Opts?)
 			--
 			-- NATIVE MODE MUST NOT WRITE IT. `FontFace` is sheet-owned
 			-- (authority.nativeSheetOwned) and an explicit write permanently defeats the
-			-- rule, so in native mode the role rides a `luau-type-<role>` TAG whose
+			-- rule, so in native mode the role rides a `facet-type-<role>` TAG whose
 			-- generated rule carries the same descriptor.
 			local descriptor = if type(value) == "table" then value else nil
 			if nativeMode then

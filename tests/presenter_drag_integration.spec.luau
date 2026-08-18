@@ -122,7 +122,7 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 	it("the HELD SOURCE is a framework guarantee: dragHeld rides pickup, clears on the RETURN'S ARRIVAL", function()
 		-- director round five: "the slot sits empty until it lands or returns" is
 		-- universal — the registry publishes the held path, the renderer stamps
-		-- `dragHeld` on the node (native: the `.luau-drag-held` sheet rule empties
+		-- `dragHeld` on the node (native: the `.facet-drag-held` sheet rule empties
 		-- the label; bespoke: a direct text write), and NO consumer writes a line.
 		local b = rig()
 		expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBeNil()

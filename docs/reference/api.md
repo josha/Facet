@@ -393,7 +393,7 @@ nothing at all: the rule kept ownership and every tinted Box with no `surface`
 and no declared `tint.transparency` painted *nothing*. Measured live —
 raw `0` / `GetStyled` `1`; write `0.001` → `GetStyled` `0.001`; write `0` again →
 `GetStyled` `1` back (`docs/lessons/a-default-valued-write-never-claims.md`). So
-the fill now rides the `luau-tint-fill` tag and one `Tint fill` rule, emitted by
+the fill now rides the `facet-tint-fill` tag and one `Tint fill` rule, emitted by
 both sheet builders in the `base` group — **above** the class defaults it exists
 to beat and **below** every surface, value slot and scrim, whose own alphas still
 win. A declared `tint.transparency` is a real value the engine accepts as
@@ -889,7 +889,7 @@ takes a px number **or a theme metric name** (`"strokes.hairline"`, `"s"`, any
 dotted snapshot path): it is a theme-owned number, so it accepts the theme's own
 vocabulary, resolved on every solve.
 
-The hairline is **style-owned**: under native styling it carries the `luau-divider`
+The hairline is **style-owned**: under native styling it carries the `facet-divider`
 tag and the sheet's "Divider" rule paints it, so a designer can restyle every
 separator in the place from one rule. On the fallback path the adapter writes the
 hairline colour directly. It is never an unpainted `Frame` — an invisible divider is
@@ -1244,7 +1244,7 @@ floating round "…" action. It is **not reactive**: a shape is what the control
   has a real accessible name. `icon` is circle-only; for an icon *beside* a title,
   put a `Facet.newLabel` in the button's `children`.
 - **Paint costs a flat theme nothing.** The pill radius and the rim are phantom
-  `::UICorner` / `::UIStroke` rules on the `luau-shape-circle` tag (the same radii
+  `::UICorner` / `::UIStroke` rules on the `facet-shape-circle` tag (the same radii
   machinery the slider thumb uses) — no extra instances. The rim carries
   `ApplyStrokeMode = Border`, so it outlines the disc instead of haloing the glyph.
 - **Skinning needs no new slot.** A circle Button classifies to the ordinary
@@ -1937,7 +1937,7 @@ local slot = UI.dropTarget(UI.Box({ id = "Slot", surface = "surface" }), {
 carries a node's payload (pointer drag or the armed paradigm alike), the
 framework stamps that node with the `dragHeld` state: the registry publishes it,
 the renderer writes it, and every theme's sheet empties the node's label through
-the `luau-drag-held` rule ("the slot sits empty until it lands or returns").
+the `facet-drag-held` rule ("the slot sits empty until it lands or returns").
 It clears when the drop **lands** or when the return flight **arrives** — the
 arrival, not the release frame — and the return flight's arrival is itself
 announced on the feedback bus as `arrive` with `context.returned = true`. No
@@ -5084,7 +5084,7 @@ of them are package data:
 | a per-state `asset` map | any asset reference, at BOTH customization rungs | `{ default, hover, pressed, selected, disabled, error }` through one normalizer. `default` required; unstated states fall back to it with tint rules still applying; a per-state `contentInsets` difference on any axis is a compile error. |
 | `barTrack` / `barFill` / `barCap` / `barCenter` | slots | image value displays. `barFill` takes `direction` (`ltr` default, `rtl`, `ttb`, `btt`); its art is drawn at full track size and revealed through an adapter-owned clip window, so a value change costs no adapter write. `barCap` takes `startAsset` / `endAsset` / `size`. |
 | `toggleTrack` / `toggleKnob` / `stepperPlate` | slots | the sliding switch and the stepper's glyph plate. Knob travel stays solver-owned. `stepperPlate` is whole-image by default and falls back to the `control` recipe when a package does not declare it. |
-| `spinner` | slots | one dot of an indeterminate `newProgressView`'s ring. Round by default (a dot, like the slider thumb); carries its own solid native paint so an unskinned spinner still reads, and refuses a gradient for the same reason every other value-control slot does. **It is the one slot that refuses ART**: the travelling pulse is the control's `tint`, which paints the node's own plate — and art suppresses that plate (`.luau-skinned-spinner { BackgroundTransparency = 1 }`, the image-is-the-element rule), so a skinned spinner would be five identical pictures that never move. A `kind = "nineSlice"` / `"layered"` recipe on it is a compile error naming the size metric, the radius and the accent colour that *do* retune it; `kind = "native"` stays legal. |
+| `spinner` | slots | one dot of an indeterminate `newProgressView`'s ring. Round by default (a dot, like the slider thumb); carries its own solid native paint so an unskinned spinner still reads, and refuses a gradient for the same reason every other value-control slot does. **It is the one slot that refuses ART**: the travelling pulse is the control's `tint`, which paints the node's own plate — and art suppresses that plate (`.facet-skinned-spinner { BackgroundTransparency = 1 }`, the image-is-the-element rule), so a skinned spinner would be five identical pictures that never move. A `kind = "nineSlice"` / `"layered"` recipe on it is a compile error naming the size metric, the radius and the accent colour that *do* retune it; `kind = "native"` stays legal. |
 | `icons` | package | semantic name → asset reference (per-state maps legal). Sized from `metrics.iconSizes` through the snapshot, tinted by the asset's `tintRole`. An unknown non-namespaced name is a compile error; a theme with no icon draws the framework's ASCII-safe fallback glyph. |
 | `identity.rendering = "pixel"` + `identity.pixelUnit` | package | `ResampleMode = Pixelated` on every image rule (censused), integer `SliceScale` enforced at compile, and snapshot lengths snapped UP to multiples of the unit. |
 
@@ -5639,7 +5639,7 @@ cannot reach. Measured live on 2026-08-14 (Edit datamodel, showcase place), a
 | the cap shape (round / butt / square ends) | ❌ | the engine has no cap or join property on `Path2D` at all — probed by name, not assumed |
 | art along the arc | ❌ | a `Path2D` is not a `GuiObject`, so no stylesheet rule can select one, and the decoration materializer builds `ImageLabel`s, which cannot follow a partial arc. The nearest legal thing is a plate *behind* the ring, which is the caller's own `UI.Box`, not a theme slot |
 
-**The dots** are ordinary `Box` leaves, so they take the whole `luau-slot-spinner`
+**The dots** are ordinary `Box` leaves, so they take the whole `facet-slot-spinner`
 own-paint ladder — the accent fill, the round corner and the theme's own hairline
 — plus `spinnerDotSize`. What they refuse is art; see the `spinner` row in the
 recipe table above for why.

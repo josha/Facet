@@ -153,9 +153,9 @@ Slot vocabulary (v1, versioned with the schema): `panel`, `control`, `field`,
   vocabulary, extended). Flat themes therefore create **zero** decoration instances.
 - **nineSlice**: the adapter creates exactly one non-interactive `ImageLabel`
   decoration child (`Active=false`, full-bleed, z below content), tags it
-  `luau-chrome-<slot>`; the package's rules own every image property (m2). The recipe
+  `facet-chrome-<slot>`; the package's rules own every image property (m2). The recipe
   declares `contentInsets`, which feed the snapshot and the solver. On asset failure
-  the adapter flips a `luau-chrome-fallback` tag (plus `luau-chrome-mute` on the art
+  the adapter flips a `facet-chrome-fallback` tag (plus `facet-chrome-mute` on the art
   that must not draw over the fill — RS-A16-D5) and the package's declared native
   fallback rules repaint — deterministic, tag-driven, hit geometry untouched.
 

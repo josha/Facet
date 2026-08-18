@@ -158,7 +158,7 @@ describe("sheet_model: object-sourced Content is a COMPILE error, not a silent b
 				rules = {
 					{
 						name = "Editable skin",
-						selector = ".luau-chrome-panel",
+						selector = ".facet-chrome-panel",
 						props = { ImageContent = { kind = "content", source = "object" } },
 					},
 				},

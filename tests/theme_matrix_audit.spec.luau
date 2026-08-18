@@ -453,8 +453,8 @@ local function liveModel(package: any?): any
 end
 
 -- the class tokens a model's selectors really key on. Tokenized, never substring
--- matched: `.luau-chrome-barCap-finish` must not read as covering
--- `luau-chrome-barCap`.
+-- matched: `.facet-chrome-barCap-finish` must not read as covering
+-- `facet-chrome-barCap`.
 local selectedCache: { [string]: { [string]: boolean } } = {}
 local function selectedTags(package: any?): { [string]: boolean }
 	local key = if package == nil then "<studio-neutral>" else package.identity.id
@@ -882,7 +882,7 @@ end
 -- Why a tag may be absent from a sheet, and the exact condition that makes it
 -- reachable again. `nil` = required unconditionally.
 local function reachableWithoutArt(tag: string, package: any?): boolean?
-	-- plain prefix comparison, never a pattern: `luau-skinned-` carries dashes,
+	-- plain prefix comparison, never a pattern: `facet-skinned-` carries dashes,
 	-- and a dash is a Lua pattern quantifier (this silently matched nothing on the
 	-- first attempt and reported every slot as required)
 	local skinnedPrefix = chrome_slots.TAGS.skinnedPrefix
@@ -898,7 +898,7 @@ local function reachableWithoutArt(tag: string, package: any?): boolean?
 	end
 	if tag == chrome_slots.TAGS.stackYield then
 		-- only a LAYERED TextBox yields its whole ladder (a single decoration uses
-		-- the `luau-chrome-editing` tag on the decoration instead)
+		-- the `facet-chrome-editing` tag on the decoration instead)
 		return chrome_slots.layerPlanFor(package, "field") ~= nil
 	end
 	if tag == chrome_slots.TOGGLE_ON_TAG then
@@ -934,11 +934,11 @@ describe("every tag the framework can emit has a rule that applies it (RS-A16-D4
 			expect(set[chrome_slots.slotTagFor(slot)]).toBe(true)
 			expect(set[chrome_slots.skinnedTagFor(slot)]).toBe(true)
 		end
-		expect(set["luau-surface-control"]).toBe(true)
-		expect(set["luau-role-destructive"]).toBe(true)
+		expect(set["facet-surface-control"]).toBe(true)
+		expect(set["facet-role-destructive"]).toBe(true)
 		expect(set[chrome_slots.TAGS.iconArt]).toBe(true)
 		-- `plain` is chrome-less by design and adds no tag of its own
-		expect(set["luau-surface-plain"]).toBeNil()
+		expect(set["facet-surface-plain"]).toBeNil()
 	end)
 
 	for _, sheet in SHEETS do

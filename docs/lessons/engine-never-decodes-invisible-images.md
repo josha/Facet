@@ -65,8 +65,8 @@ re-reads. Scrolling back left the bar's crown flat for the session.
 
 **Rule: never enter a state whose own paint destroys the evidence that would leave
 it.** The fix splits the fill from the hide onto two tags
-(`luau-chrome-fallback` = "this slot draws its declared native treatment", carrying
-the fill; `luau-chrome-mute` = "and this art instance must not draw over it",
+(`facet-chrome-fallback` = "this slot draws its declared native treatment", carrying
+the fill; `facet-chrome-mute` = "and this art instance must not draw over it",
 carrying `ImageTransparency = 1`) and applies the mute to every art instance in the
 slot EXCEPT the condemned asset's own **undecoded** art. Undecoded art draws
 nothing, so sparing it costs no pixels and keeps its `IsLoaded` armed; art the

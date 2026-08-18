@@ -30,8 +30,8 @@ local chrome_slots = {}
 -- decoration child's class is always ImageLabel, so the tag is the only thing
 -- distinguishing a panel skin from a field skin) plus one failure tag.
 chrome_slots.TAGS = table.freeze({
-	slotPrefix = "luau-chrome-", -- + panel|control|field|selection|divider|scrollbar|sliderTrack|sliderThumb|badge
-	fallback = "luau-chrome-fallback",
+	slotPrefix = "facet-chrome-", -- + panel|control|field|selection|divider|scrollbar|sliderTrack|sliderThumb|badge
+	fallback = "facet-chrome-fallback",
 	-- THE MUTE, SPLIT OFF THE FALLBACK (RS-A16-D5, 2026-07-26). `fallback` above
 	-- says "this slot is drawing its declared native treatment"; it carries the
 	-- FILL. This one says "and this particular art instance must not draw over
@@ -47,20 +47,20 @@ chrome_slots.TAGS = table.freeze({
 	-- fallen-back slot EXCEPT the ones whose own asset is the failed one
 	-- (`state.isArtMuted`). Broken art draws nothing, so leaving it enabled costs
 	-- no pixels and buys back the recovery signal.
-	mute = "luau-chrome-mute",
+	mute = "facet-chrome-mute",
 	-- the chrome text lift (TP-M8): the managed label above a text-bearing
-	-- node's decoration; its paint rides `.luau-chrome-text` rules
-	text = "luau-chrome-text",
+	-- node's decoration; its paint rides `.facet-chrome-text` rules
+	text = "facet-chrome-text",
 	-- a TextBox yielding its chrome while the engine caret needs the parent
 	-- layer; rules flatten the decoration while the tag is present
-	editing = "luau-chrome-editing",
+	editing = "facet-chrome-editing",
 	-- THE IMAGE IS THE BUTTON (director review 2026-07-25). The slot tag above
 	-- rides the DECORATION; this one rides its PARENT, and it is what lets the
 	-- package suppress the native plate the art now replaces: background,
 	-- ::UICorner radius and ::UIStroke hairline all go to nothing under a skin.
 	-- Without it a parchment button sat inside a rounded Studio-Neutral slab —
 	-- "there should not be extra button border around it".
-	skinnedPrefix = "luau-skinned-", -- + <slot>, on the DECORATED NODE
+	skinnedPrefix = "facet-skinned-", -- + <slot>, on the DECORATED NODE
 	-- THE SLOT IDENTITY TAG (director follow-up 2026-07-25). `skinnedPrefix`
 	-- above says "art is covering this node"; this one says "this node IS a
 	-- slider thumb", and it is present whether or not the package skins it.
@@ -72,18 +72,18 @@ chrome_slots.TAGS = table.freeze({
 	-- read straight through: "in glossy_shadows, the slider button should be
 	-- solid." A value control's chrome is not a panel and not a button; its
 	-- native paint is ITS OWN.
-	hintPrefix = "luau-slot-", -- + <slot>, on the HINTED NODE
+	hintPrefix = "facet-slot-", -- + <slot>, on the HINTED NODE
 	-- ONE PARENT TAG HIDES THE WHOLE STACK (ADR-0020 R1, probe rs-m2). A layered
 	-- slot's decoration is N siblings, so the single-decoration `editing` tag
 	-- above cannot express "yield" without the adapter touching every layer.
 	-- rs-m2 measured the alternative and it works: one tag on the DECORATED NODE
 	-- plus a child-combinator rule blanks the entire ladder.
-	stackYield = "luau-chrome-yield", -- on the DECORATED NODE
+	stackYield = "facet-chrome-yield", -- on the DECORATED NODE
 	-- THE ERROR STATE (ADR-0020 R2). `default/hover/pressed/selected/disabled`
 	-- all ride an engine GuiState pseudo or a tag the renderer already emits;
 	-- `error` has no engine state at all, so the variant grammar's sixth state
 	-- needs a tag of its own. It rides the DECORATED NODE like `selected` does.
-	stateError = "luau-state-error",
+	stateError = "facet-state-error",
 	-- SEMANTIC ICON ART (ADR-0020 R4). A control that requests an icon draws the
 	-- framework's ASCII glyph as its OWN text, so a theme with no art is legible
 	-- by construction. When the installed package DOES declare art for that
@@ -94,11 +94,11 @@ chrome_slots.TAGS = table.freeze({
 	-- the `:NonInteractable` rules write it), so the suppression cannot be an
 	-- explicit write. It is a TAG the package's own sheet carries a rule for —
 	-- the same channel every other Facet state reaches native selectors by.
-	iconArt = "luau-icon-art", -- on the NODE whose glyph the art replaced
+	iconArt = "facet-icon-art", -- on the NODE whose glyph the art replaced
 	-- THE HELD SOURCE (director round five): the node a live drag session is
 	-- carrying. Every theme's sheet empties its label — "the slot sits empty
 	-- until it lands or returns" is a framework guarantee, not consumer code.
-	dragHeld = "luau-drag-held",
+	dragHeld = "facet-drag-held",
 })
 
 -- The decoration child's fixed identity. Named, so a Studio reader can tell a
@@ -119,11 +119,11 @@ chrome_slots.ICON_Z_INDEX = 20
 -- TWO reasons for the exact spelling. (1) Semantic names carry DOTS
 -- ("chevron.trailing") and namespaced ones carry a COLON, and both are selector
 -- syntax — a raw name after `.` would parse as two classes and silently match
--- nothing. (2) It carries the `luau-chrome-` prefix because that prefix is what
+-- nothing. (2) It carries the `facet-chrome-` prefix because that prefix is what
 -- earns a rule the IMAGE-property allowance in the sheet compiler, and an icon
 -- picture is chrome by any reading: it is theme-owned art on an adapter-managed
 -- instance, exactly like a decoration.
-chrome_slots.ICON_TAG_PREFIX = "luau-chrome-icon-"
+chrome_slots.ICON_TAG_PREFIX = "facet-chrome-icon-"
 
 function chrome_slots.iconTagFor(name: string): string
 	return chrome_slots.ICON_TAG_PREFIX .. (string.gsub(string.gsub(name, "%.", "-"), ":", "--"))
@@ -425,7 +425,7 @@ end
 
 -- the tag a single layer's rules key on: the slot family plus the layer's
 -- position, so a state rule can reach ONE layer of a stack (rs-m2 proved the
--- compound-tag isolation) while `luau-chrome-<slot>` stays the whole-family
+-- compound-tag isolation) while `facet-chrome-<slot>` stays the whole-family
 -- prefix every chrome-scope check already looks for.
 function chrome_slots.layerTagFor(slot: string, index: number): string
 	return `{chrome_slots.TAGS.slotPrefix}{slot}-{index}`
@@ -519,7 +519,7 @@ end
 	  1. the pulse rides `tint`, and a `tint` on a Box claims BackgroundColor3
 	     (sheet_model.TINT_IDENTITY.Box = "surface"; screen_paint.applyTint);
 	  2. once art covers a node, `emitSlotSuppression` writes
-	     `.luau-skinned-spinner { BackgroundTransparency = 1 }` — the image IS the
+	     `.facet-skinned-spinner { BackgroundTransparency = 1 }` — the image IS the
 	     element (ADR-0020 R9), so the plate the tint paints is invisible;
 	  3. the decoration's own ImageColor3 comes from the CHROME TINT LADDER
 	     (rest/hover/pressed), which is per-state and identical across the five
@@ -846,7 +846,7 @@ function chrome_slots.classify(input: SlotInput): string?
 	--
 	-- `surface = "plain"` already meant "no plate" to the NATIVE paint path
 	-- (screen_target's `applySurfaceNative` sets `nativeSurface = nil`, so no
-	-- `.luau-surface-control` tag and no sheet fill). It meant nothing at all
+	-- `.facet-surface-control` tag and no sheet fill). It meant nothing at all
 	-- here, because the fallback below classifies by CLASS — and every Button is
 	-- a control. So a package's `control` recipe was still materialized on a node
 	-- whose author had explicitly asked for no surface, and the two subsystems
@@ -1678,7 +1678,7 @@ end
 --                                      when the package declares fill art
 --
 -- A FLAT bar therefore costs ZERO extra instances: its fill is the solved node
--- itself, painted solid by the `luau-slot-barFill` rules (R9's OWN_PAINT_SLOTS).
+-- itself, painted solid by the `facet-slot-barFill` rules (R9's OWN_PAINT_SLOTS).
 chrome_slots.BAR_WINDOW_NAME = "FacetBarWindow"
 chrome_slots.BAR_FILL_NAME = "FacetBarFill"
 chrome_slots.BAR_CENTER_NAME = "FacetBarCenter"
@@ -1890,7 +1890,7 @@ end
 -- The ON/OFF state is a VALUE, and no engine GuiState reports a value, so it
 -- rides a tag on the interactive node exactly as `togglePalette` rides the same
 -- value in the adapter's colour writes.
-chrome_slots.TOGGLE_ON_TAG = "luau-toggle-on"
+chrome_slots.TOGGLE_ON_TAG = "facet-toggle-on"
 
 -- The two toggle parts are DIRECT CHILDREN of the Toggle button (P3 moved the
 -- knob out of the track for exactly this reason): every per-state rule the

@@ -597,7 +597,7 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 
 	--[[ THE GUARD THAT MAKES THE TINT SAFE, and it exists because nothing else in
 		this repo can see the failure. The band RECONSTRUCTS the panel's colour from a
-		tint role; the panel gets its colour from the emitted `.luau-surface-raised`
+		tint role; the panel gets its colour from the emitted `.facet-surface-raised`
 		rule. Two authorities over one value. Measured live 2026-08-17: a plain
 		property read on both the plate and the wedge reports rgb(163,162,165) while
 		both PAINT rgb(28,31,40) — `GetStyled` is the only instrument that sees sheet
@@ -627,7 +627,7 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 				for _, theme in pkg.style.themes do
 					-- what the BAND paints: the tint role resolved through the palette
 					local band = sheet_model.tintColor(theme, { role = "surfaceStrong", blend = 1 }, "Box")
-					-- what the PANEL paints: the token `.luau-surface-raised` declares
+					-- what the PANEL paints: the token `.facet-surface-raised` declares
 					local panel = sheet_model.paletteColor(theme, "surfaceStrong")
 					expect(`{name}/{tostring(theme.name)}: band matches panel? {sameColour(band, panel)}`).toBe(
 						`{name}/{tostring(theme.name)}: band matches panel? true`
@@ -784,7 +784,7 @@ describe("D1 anchored surface: the arrow tail is a decoration, never a claim", f
 		had no way to know better. Same oracle, deliberately: `chrome_slots.classify`
 		is the call `screen_chrome.luau` makes on the live adapter, and a nil answer
 		is "no package will ever draw a frame here". `surface` stays `raised` so the
-		NATIVE sheet fill — `.luau-surface-raised`, which every package restyles
+		NATIVE sheet fill — `.facet-surface-raised`, which every package restyles
 		with its own `surfaceStrong` — still paints the wedge in the panel's own
 		colour. The panel's fill, never the panel's frame. ]]
 	it("the tail is a WEDGE under every package: no chrome slot on a rotated node", function()

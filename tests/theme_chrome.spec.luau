@@ -63,7 +63,7 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 		local model = sheet_model.buildPackage(pkg)
 		local rule = ruleNamed(model, "Chrome — panel")
 		expect(rule ~= nil).toBe(true)
-		expect(rule.selector).toBe(".luau-chrome-panel")
+		expect(rule.selector).toBe(".facet-chrome-panel")
 		local asset = pkg.assets.parchment_panel
 		expect(rule.props.Image).toBe(asset.contentId)
 		expect(rule.props.ScaleType.kind).toBe("enum")
@@ -91,19 +91,21 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 		-- the state selectors read GuiState from the PARENT through the child
 		-- combinator; the decoration is Active=false and has no state of its own
 		expect(ruleNamed(model, "Chrome — control hover").selector).toBe(
-			".luau-interactive.luau-pointer-live:Hover > .luau-chrome-control"
+			".facet-interactive.facet-pointer-live:Hover > .facet-chrome-control"
 		)
 		expect(ruleNamed(model, "Chrome — control pressed").selector).toBe(
-			".luau-interactive:Press > .luau-chrome-control"
+			".facet-interactive:Press > .facet-chrome-control"
 		)
-		expect(ruleNamed(model, "Chrome — control disabled").selector).toBe(":NonInteractable > .luau-chrome-control")
+		expect(ruleNamed(model, "Chrome — control disabled").selector).toBe(
+			":NonInteractable > .facet-chrome-control"
+		)
 		expect(base.props.Image).toBe(parchment().assets.parchment_button.contentId)
 	end)
 
 	it("the declared native fallback paints the slot when the asset fails", function()
 		local model = sheet_model.buildPackage(parchment())
 		local rule = ruleNamed(model, "Chrome — panel fallback")
-		expect(rule.selector).toBe(".luau-chrome-panel.luau-chrome-fallback")
+		expect(rule.selector).toBe(".facet-chrome-panel.facet-chrome-fallback")
 		-- THE FILL AND THE HIDE ARE TWO RULES ON TWO TAGS (RS-A16-D5). The fill
 		-- lands on every art instance of a fallen-back slot; the hide lands only on
 		-- the ones whose own asset is NOT the failed one, because
@@ -112,7 +114,7 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 		-- its recovery.
 		expect(rule.props.ImageTransparency).toBeNil()
 		local hide = ruleNamed(model, "Chrome — panel fallback hide")
-		expect(hide.selector).toBe(".luau-chrome-panel.luau-chrome-mute")
+		expect(hide.selector).toBe(".facet-chrome-panel.facet-chrome-mute")
 		expect(hide.props.ImageTransparency.value).toBe(1)
 		expect(rule.props.BackgroundColor3).toBe("$SurfaceStrong")
 		expect(rule.props.BackgroundTransparency.value).toBe(0)
@@ -132,7 +134,7 @@ describe("buildPackage: nine-slice chrome rules carry the package's own values",
 			if string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
 				icons += 1
 			else
-				expect(string.find(rule.selector, "luau-chrome-", 1, true) == nil).toBe(true)
+				expect(string.find(rule.selector, "facet-chrome-", 1, true) == nil).toBe(true)
 			end
 		end
 		expect(icons > 0).toBe(true)
@@ -145,7 +147,7 @@ describe("buildPackage: gradients are phantom rules, not decoration children", f
 		local model = sheet_model.buildPackage(pkg)
 		local rule = ruleNamed(model, "Gradient — panel")
 		expect(rule ~= nil).toBe(true)
-		expect(rule.selector).toBe(".luau-surface-raised::UIGradient")
+		expect(rule.selector).toBe(".facet-surface-raised::UIGradient")
 		expect(rule.props.Color).toBe("$GradientPanel")
 		expect(rule.props.Rotation).toBe("$GradientPanelRotation")
 		expect(rule.props.Transparency).toBe("$GradientPanelAlpha")
@@ -212,14 +214,14 @@ describe("buildPackage: the pseudo-selector allowlist", function()
 	it("an author-supplied rule goes through the same gate", function()
 		local ok = pcall(function()
 			sheet_model.buildPackage(classic(), {
-				rules = { { name = "Custom shadow", selector = ".luau-surface-raised::UIShadow", props = {} } },
+				rules = { { name = "Custom shadow", selector = ".facet-surface-raised::UIShadow", props = {} } },
 			})
 		end)
 		expect(ok).toBe(false)
 		-- ...and through the §4 property linter
 		local okProp, errProp = pcall(function()
 			sheet_model.buildPackage(classic(), {
-				rules = { { name = "Themed size", selector = ".luau-surface-raised", props = { Size = "$Nope" } } },
+				rules = { { name = "Themed size", selector = ".facet-surface-raised", props = { Size = "$Nope" } } },
 			})
 		end)
 		expect(okProp).toBe(false)
@@ -302,7 +304,7 @@ describe("a fallback node stays hidden in EVERY state (RS-DIR6-F1)", function()
 		-- on the MUTE tag since RS-A16-D5: a disabled node must not re-reveal art a
 		-- healthy-sibling mute is hiding, and art whose own asset failed is not
 		-- hidden in the first place
-		expect(hide.selector).toBe(".luau-chrome-control.luau-chrome-mute")
+		expect(hide.selector).toBe(".facet-chrome-control.facet-chrome-mute")
 		expect(hide.props.ImageTransparency.value).toBe(1)
 		expect(dim.props.ImageTransparency.value ~= 1).toBe(true)
 	end)
@@ -458,7 +460,7 @@ describe("chrome_slots: the plan and the preload policy", function()
 		expect(chrome_slots.planFor(pkg, "selection")).toBeNil()
 		expect(chrome_slots.planFor(pkg, "divider")).toBeNil()
 		local plan = chrome_slots.planFor(pkg, "field")
-		expect(plan.tag).toBe("luau-chrome-field")
+		expect(plan.tag).toBe("facet-chrome-field")
 		expect(plan.contentId).toBe(pkg.assets.parchment_field.contentId)
 		expect(plan.contentInsets.left).toBe(pkg.chrome.field.contentInsets.left)
 		expect(plan.preload).toBe("lazy")
@@ -911,14 +913,14 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		-- hairline, because every surface rule still applied underneath it.
 		local model = sheet_model.buildPackage(parchment())
 		local plate = ruleNamed(model, "Skinned — control")
-		expect(plate.selector).toBe(".luau-skinned-control")
+		expect(plate.selector).toBe(".facet-skinned-control")
 		expect(plate.props.BackgroundTransparency.value).toBe(1)
 		local corner = ruleNamed(model, "Skinned — control corner")
-		expect(corner.selector).toBe(".luau-skinned-control::UICorner")
+		expect(corner.selector).toBe(".facet-skinned-control::UICorner")
 		expect(corner.props.CornerRadius.offset).toBe(0)
 		expect(corner.props.CornerRadius.scale).toBe(0)
 		local outline = ruleNamed(model, "Skinned — control outline")
-		expect(outline.selector).toBe(".luau-skinned-control::UIStroke")
+		expect(outline.selector).toBe(".facet-skinned-control::UIStroke")
 		expect(outline.props.Thickness.value).toBe(0)
 		expect(outline.props.Transparency.value).toBe(1)
 		-- the stub skins panel/control/field; a NATIVE slot keeps every bit of
@@ -938,13 +940,13 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 		local model = sheet_model.buildPackage(classic())
 		local skinnedSlots: { [string]: boolean } = {}
 		for _, rule in model.rules do
-			local slot = string.match(rule.selector, "^%.luau%-skinned%-([%a]+)")
+			local slot = string.match(rule.selector, "^%.facet%-skinned%-([%a]+)")
 			if slot ~= nil then
 				skinnedSlots[slot] = true
 			end
-			-- and NOTHING but a bare `.luau-skinned-<slot>` selector: no skinned
+			-- and NOTHING but a bare `.facet-skinned-<slot>` selector: no skinned
 			-- rule may ride a decoration/state selector on a flat package
-			if string.find(rule.selector, "luau-skinned-", 1, true) ~= nil then
+			if string.find(rule.selector, "facet-skinned-", 1, true) ~= nil then
 				expect(slot ~= nil).toBe(true)
 			end
 		end
@@ -978,14 +980,14 @@ describe("the image IS the button: a skinned node's native plate is suppressed",
 
 	it("the skinned tag round-trips through classifyTags, so the adapter's diff keeps it", function()
 		-- the tag has to be in the DESIRED set the adapter computes: syncTags
-		-- removes every luau-* tag that is not, so a tag added outside it would
+		-- removes every facet-* tag that is not, so a tag added outside it would
 		-- be stripped on the next classification pass
 		local tags = sheet_model.classifyTags({ surface = "control", interactive = true, skinnedSlot = "control" })
-		expect(tags["luau-skinned-control"]).toBe(true)
-		expect(tags["luau-surface-control"]).toBe(true)
-		expect(chrome_slots.skinnedTagFor("badge")).toBe("luau-skinned-badge")
+		expect(tags["facet-skinned-control"]).toBe(true)
+		expect(tags["facet-surface-control"]).toBe(true)
+		expect(chrome_slots.skinnedTagFor("badge")).toBe("facet-skinned-badge")
 		-- an unskinned node carries none of it
-		expect(sheet_model.classifyTags({ surface = "control", interactive = true })["luau-skinned-control"]).toBeNil()
+		expect(sheet_model.classifyTags({ surface = "control", interactive = true })["facet-skinned-control"]).toBeNil()
 	end)
 
 	it("the interaction tints are the only feedback left, so they are clearly separated", function()
@@ -1042,17 +1044,17 @@ describe("role tints paint the ART, not a slab behind it", function()
 		local cases = {
 			{
 				name = "Chrome role — destructive",
-				selector = ".luau-role-destructive > .luau-chrome-control",
+				selector = ".facet-role-destructive > .facet-chrome-control",
 				token = "$ChromeTintDanger",
 			},
 			{
 				name = "Chrome role — cancel",
-				selector = ".luau-role-cancel > .luau-chrome-control",
+				selector = ".facet-role-cancel > .facet-chrome-control",
 				token = "$ChromeTintCancel",
 			},
 			{
 				name = "Chrome role — accent",
-				selector = ".luau-surface-accent > .luau-chrome-control",
+				selector = ".facet-surface-accent > .facet-chrome-control",
 				token = "$ChromeTintAccent",
 			},
 		}
@@ -1102,12 +1104,12 @@ describe("slider chrome: a rail and a thumb are their own slots", function()
 	it("Fantasy Parchment resolves both, with the rail sliced and the thumb whole", function()
 		local pkg = shipping()
 		local rail = chrome_slots.planFor(pkg, "sliderTrack")
-		expect(rail.tag).toBe("luau-chrome-sliderTrack")
+		expect(rail.tag).toBe("facet-chrome-sliderTrack")
 		expect(rail.contentId).toBe(pkg.assets.parchment_slider_track.contentId)
 		expect(rail.sliced).toBe(true)
 		expect(rail.sliceCenter ~= nil).toBe(true)
 		local thumb = chrome_slots.planFor(pkg, "sliderThumb")
-		expect(thumb.tag).toBe("luau-chrome-sliderThumb")
+		expect(thumb.tag).toBe("facet-chrome-sliderThumb")
 		expect(thumb.contentId).toBe(pkg.assets.parchment_slider_thumb.contentId)
 		-- WHOLE image: slicing a 28px token smears its centre pixel
 		expect(thumb.sliced).toBe(false)
@@ -1148,11 +1150,11 @@ describe("slider chrome: a rail and a thumb are their own slots", function()
 		expect(ruleNamed(model, "Chrome — sliderTrack")).toBeNil()
 		expect(ruleNamed(model, "Chrome — sliderThumb")).toBeNil()
 		-- the suppression rule IS emitted (director round 5) and matches NOTHING
-		-- on a flat screen: the node never earns `luau-skinned-sliderThumb`, so
+		-- on a flat screen: the node never earns `facet-skinned-sliderThumb`, so
 		-- its solid `Slot — sliderThumb` paint is byte-identical to before
 		expect(ruleNamed(model, "Skinned — sliderThumb").props.BackgroundTransparency.value).toBe(1)
-		expect(next(sheet_model.classifyTags({ slotHint = "sliderThumb" }))).toBe("luau-slot-sliderThumb")
-		expect(sheet_model.classifyTags({ slotHint = "sliderThumb" })["luau-skinned-sliderThumb"]).toBeNil()
+		expect(next(sheet_model.classifyTags({ slotHint = "sliderThumb" }))).toBe("facet-slot-sliderThumb")
+		expect(sheet_model.classifyTags({ slotHint = "sliderThumb" })["facet-skinned-sliderThumb"]).toBeNil()
 	end)
 end)
 
@@ -1198,7 +1200,7 @@ end)
 describe("readable badges: the seal, the lift, and the inset the value sits in", function()
 	it("Fantasy Parchment skins the badge as a whole image with a real inset", function()
 		local plan = chrome_slots.planFor(shipping(), "badge")
-		expect(plan.tag).toBe("luau-chrome-badge")
+		expect(plan.tag).toBe("facet-chrome-badge")
 		expect(plan.sliced).toBe(false)
 		expect(plan.contentInsets.top > 0).toBe(true)
 	end)
@@ -1357,7 +1359,7 @@ describe("slot shadows: adapter-owned depth the sheet cannot express", function(
 
 	it("`::UIShadow` is STILL rejected as a rule — the shadow is adapter-owned on purpose", function()
 		expect(function()
-			sheet_model.checkSelector(".luau-surface-raised::UIShadow", "Panel shadow")
+			sheet_model.checkSelector(".facet-surface-raised::UIShadow", "Panel shadow")
 		end).toThrow()
 	end)
 end)
@@ -1581,7 +1583,7 @@ describe("a value control's chrome is SOLID, and its own", function()
 		do
 			local rule = ruleNamed(model, `Slot — {case.slot}`)
 			expect(rule ~= nil).toBe(true)
-			expect(rule.selector).toBe(`.luau-slot-{case.slot}`)
+			expect(rule.selector).toBe(`.facet-slot-{case.slot}`)
 			expect(rule.props.BackgroundColor3).toBe(case.token)
 			-- SOLID. This single number is the whole defect.
 			expect(rule.props.BackgroundTransparency.value).toBe(0)
@@ -1628,7 +1630,7 @@ describe("a value control's chrome is SOLID, and its own", function()
 		local model = sheet_model.buildPackage(glossy)
 		-- ...and NOTHING gradient-shaped selects a value control's chrome
 		for _, rule in model.rules do
-			if string.find(rule.selector, "luau-slot-", 1, true) ~= nil then
+			if string.find(rule.selector, "facet-slot-", 1, true) ~= nil then
 				expect(string.find(rule.selector, "::UIGradient", 1, true)).toBeNil()
 			end
 			if string.find(rule.selector, "UIGradient", 1, true) ~= nil then
@@ -1667,14 +1669,14 @@ describe("a value control's chrome is SOLID, and its own", function()
 		-- its own paint; a node that reached a slot through a public surface (a
 		-- badge, a raised panel) already has that surface's rules
 		local thumb = sheet_model.classifyTags({ slotHint = "sliderThumb" })
-		expect(thumb["luau-slot-sliderThumb"]).toBe(true)
-		expect(sheet_model.classifyTags({ slotHint = "sliderTrack" })["luau-slot-sliderTrack"]).toBe(true)
+		expect(thumb["facet-slot-sliderThumb"]).toBe(true)
+		expect(sheet_model.classifyTags({ slotHint = "sliderTrack" })["facet-slot-sliderTrack"]).toBe(true)
 		expect(next(sheet_model.classifyTags({ slotHint = "badge" }))).toBeNil()
 		expect(next(sheet_model.classifyTags({ slotHint = "panel" }))).toBeNil()
-		expect(chrome_slots.slotTagFor("sliderThumb")).toBe("luau-slot-sliderThumb")
+		expect(chrome_slots.slotTagFor("sliderThumb")).toBe("facet-slot-sliderThumb")
 		-- and it does NOT depend on the package skinning anything: the tag is the
 		-- node's identity, the skinned tag is the art's presence
-		expect(thumb["luau-skinned-sliderThumb"]).toBeNil()
+		expect(thumb["facet-skinned-sliderThumb"]).toBeNil()
 	end)
 
 	it("a skinned thumb still hides its own plate — paint first, then suppress", function()

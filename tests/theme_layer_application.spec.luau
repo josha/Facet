@@ -212,7 +212,7 @@ describe("chrome_slots.layerBoxes: rs-m3's idiom, expressed as numbers", functio
 		expect(boxes[2].corner).toBeNil()
 		expect(boxes[3].corner).toBeNil()
 		expect(boxes[4].corner).toBeNil()
-		expect(chrome_slots.cornerTagFor("panel", 5, "topLeft")).toBe("luau-chrome-panel-5-topLeft")
+		expect(chrome_slots.cornerTagFor("panel", 5, "topLeft")).toBe("facet-chrome-panel-5-topLeft")
 	end)
 
 	it("an edges layer is one rail per DECLARED side, in canonical order", function()
@@ -673,14 +673,14 @@ describe("the decorated node's tags survive the syncTags diff", function()
 
 	it("classifyTags is the ONE builder, and it emits both", function()
 		local yielded = sheet_model.classifyTags({ chromeYield = true })
-		expect(yielded["luau-chrome-yield"]).toBe(true)
+		expect(yielded["facet-chrome-yield"]).toBe(true)
 		local errored = sheet_model.classifyTags({ errorState = true })
-		expect(errored["luau-state-error"]).toBe(true)
+		expect(errored["facet-state-error"]).toBe(true)
 		-- ...and neither appears unless asked for, so nothing a package published
 		-- before this stage renders can carry them
 		local quiet = sheet_model.classifyTags({ surface = "control", interactive = true })
-		expect(quiet["luau-chrome-yield"]).toBeNil()
-		expect(quiet["luau-state-error"]).toBeNil()
+		expect(quiet["facet-chrome-yield"]).toBeNil()
+		expect(quiet["facet-state-error"]).toBeNil()
 	end)
 
 	it("the emitted yield rule is a child combinator off that exact tag", function()
@@ -689,7 +689,7 @@ describe("the decorated node's tags survive the syncTags diff", function()
 		for _, rule in model.rules do
 			if rule.name == "Chrome — field L1 fill editing" then
 				found = true
-				expect(rule.selector).toBe(".luau-chrome-yield > .luau-chrome-field-1")
+				expect(rule.selector).toBe(".facet-chrome-yield > .facet-chrome-field-1")
 			end
 		end
 		expect(found).toBe(true)
@@ -719,8 +719,8 @@ describe("suppression (R9) reaches a layered node through the SAME machinery", f
 	end)
 
 	it("the tag those rules select on is the one the stack branch sets", function()
-		expect(chrome_slots.skinnedTagFor("panel")).toBe("luau-skinned-panel")
-		expect(sheet_model.classifyTags({ skinnedSlot = "panel" })["luau-skinned-panel"]).toBe(true)
+		expect(chrome_slots.skinnedTagFor("panel")).toBe("facet-skinned-panel")
+		expect(sheet_model.classifyTags({ skinnedSlot = "panel" })["facet-skinned-panel"]).toBe(true)
 		local sync = section("function syncChrome(handle: any)", "if plan == nil then")
 		expect(string.find(sync, "handle.chromeSlot = slot\n\t\t\t\tsyncTags(handle)", 1, true) ~= nil).toBe(true)
 	end)

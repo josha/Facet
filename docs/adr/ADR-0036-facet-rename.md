@@ -52,10 +52,24 @@ design spec under `docs/superpowers/`) and in the explicit allowlist carried ins
   The Sponsor selector's exact default (on unless explicitly `false`) and the
   legacy Sponsor rollback are preserved through both names.
 
+### One item on that list moved later
+
+The public theme-authoring tag vocabulary (`luau-*` / `luau-slot-*`) was not on
+the list above at all — an omission, not a decision, and the reason it survived
+is instructive: `BRAND` is `luau[\s._-]?ui`, and there is no "ui" after "luau" in
+`luau-chrome-panel`, so the guard that exists to notice exactly this could not
+see it (ARCH-15/ARCH-16, release-candidate architecture review). The tags renamed
+outright to `facet-*` / `facet-slot-*` in wave R5 — no alias, no dual vocabulary
+— and this ADR's coherence argument is the reason: see
+[`ADR-0038`](ADR-0038-theme-tag-vocabulary.md).
+
 ## Enforcement
 
 `tools/check_brand_drift.py` scans both repos' tracked trees, the current-facing
 studio surfaces, and the serialized object names of every buildable place; its
-`--selftest` proves a planted old-name line, a planted old-name path, and an
-allowlisted pattern outside its allowlisted file each fail the scan. The gate row
-`rename-drift-guard-bites` records the proof.
+`--selftest` proves a planted old-name line, a planted old-name path, a planted
+`luau-*` theme tag, and an allowlisted pattern outside its allowlisted file each
+fail the scan — while `luau-analyze` / `luau-lsp` and the Open Cloud
+`luau-execution-session` scope, which name the LANGUAGE and not the retired
+product, deliberately do not. The gate row `rename-drift-guard-bites` records the
+proof.

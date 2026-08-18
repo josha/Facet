@@ -131,7 +131,7 @@ describe("themes.define: a layered recipe compiles to inspectable layer data", f
 		expect(#stack.layers).toBe(6)
 		for index, layer in stack.layers do
 			expect(layer.index).toBe(index)
-			expect(layer.tag).toBe(`luau-chrome-panel-{index}`)
+			expect(layer.tag).toBe(`facet-chrome-panel-{index}`)
 		end
 		-- the stretching kinds slice; the fixed-size tokens paint whole; tile
 		-- repeats (rs-m1 proved TileSize rule-settable, so this is a real kind)
@@ -696,7 +696,7 @@ describe("buildPackage: a layer stack compiles to one rule-owned paint rule per 
 		local pkg = themes.define(layered(FULL_STACK))
 		local model = sheet_model.buildPackage(pkg)
 		local fill = ruleNamed(model, "Chrome — panel L1 fill")
-		expect(fill.selector).toBe(".luau-chrome-panel-1")
+		expect(fill.selector).toBe(".facet-chrome-panel-1")
 		expect(fill.props.Image).toBe(pkg.assets.plate.contentId)
 		expect(fill.props.ScaleType.item).toBe("Slice")
 		expect(fill.props.SliceCenter.x0).toBe(8)
@@ -719,7 +719,7 @@ describe("buildPackage: a layer stack compiles to one rule-owned paint rule per 
 		-- z-order is array order, and the rules keep it
 		local order: { number } = {}
 		for index, rule in model.rules do
-			if string.find(rule.selector, ".luau-chrome-panel-", 1, true) == 1 then
+			if string.find(rule.selector, ".facet-chrome-panel-", 1, true) == 1 then
 				table.insert(order, index)
 			end
 		end
@@ -731,8 +731,8 @@ describe("buildPackage: a layer stack compiles to one rule-owned paint rule per 
 		local model = sheet_model.buildPackage(themes.define(layered(FULL_STACK)))
 		local shared = ruleNamed(model, "Chrome — panel L5 corners")
 		local override = ruleNamed(model, "Chrome — panel L5 corners topLeft")
-		expect(shared.selector).toBe(".luau-chrome-panel-5")
-		expect(override.selector).toBe(".luau-chrome-panel-5-topLeft")
+		expect(shared.selector).toBe(".facet-chrome-panel-5")
+		expect(override.selector).toBe(".facet-chrome-panel-5-topLeft")
 		expect(override.props.Image).never().toBe(shared.props.Image)
 		-- the override lands LATER in the cascade, which is what makes it win on
 		-- that one instance (measured cascade: priority then insertion order)
@@ -757,7 +757,7 @@ describe("buildPackage: a layer stack compiles to one rule-owned paint rule per 
 	it("tints and fails over per layer, and yields the whole stack for a field caret", function()
 		local model = sheet_model.buildPackage(themes.define(layered(FULL_STACK)))
 		expect(ruleNamed(model, "Chrome — panel L1 fill hover").selector).toBe(
-			".luau-interactive.luau-pointer-live:Hover > .luau-chrome-panel-1"
+			".facet-interactive.facet-pointer-live:Hover > .facet-chrome-panel-1"
 		)
 		expect(ruleNamed(model, "Chrome — panel L3 frame pressed").props.ImageColor3).toBe("$ChromeTintPressed")
 		expect(ruleNamed(model, "Chrome — panel L3 frame disabled").props.ImageTransparency ~= nil).toBe(true)
@@ -770,7 +770,7 @@ describe("buildPackage: a layer stack compiles to one rule-owned paint rule per 
 		expect(ruleNamed(model, "Chrome — panel L1 fill fallback").props.ImageTransparency).toBeNil()
 		expect(ruleNamed(model, "Chrome — panel L3 frame fallback")).toBeNil() -- nothing left to say
 		local hide = ruleNamed(model, "Chrome — panel L3 frame fallback hide")
-		expect(hide.selector).toBe(".luau-chrome-panel-3.luau-chrome-mute")
+		expect(hide.selector).toBe(".facet-chrome-panel-3.facet-chrome-mute")
 		expect(hide.props.ImageTransparency.value).toBe(1)
 		expect(hide.props.BackgroundColor3).toBeNil()
 
@@ -778,7 +778,7 @@ describe("buildPackage: a layer stack compiles to one rule-owned paint rule per 
 		expect(ruleNamed(model, "Chrome — panel L1 fill editing")).toBeNil()
 		local fieldModel = sheet_model.buildPackage(themes.define(layered(FULL_STACK, "field")))
 		local yield = ruleNamed(fieldModel, "Chrome — field L1 fill editing")
-		expect(yield.selector).toBe(".luau-chrome-yield > .luau-chrome-field-1")
+		expect(yield.selector).toBe(".facet-chrome-yield > .facet-chrome-field-1")
 		expect(yield.props.ImageTransparency.value).toBe(1)
 	end)
 
@@ -828,7 +828,7 @@ describe("buildPackage: the layer census makes ornate cost a number", function()
 			if string.find(rule.selector, chrome_slots.ICON_TAG_PREFIX, 1, true) ~= nil then
 				continue
 			end
-			expect(string.find(rule.selector, "luau-chrome-", 1, true)).toBeNil()
+			expect(string.find(rule.selector, "facet-chrome-", 1, true)).toBeNil()
 		end
 	end)
 

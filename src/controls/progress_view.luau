@@ -155,7 +155,7 @@
 -- see-through — the same defect the slider's rail and thumb had, one control
 -- down (the Step 3.5 progress-Bar cosmetic deferral). They now DECLARE their
 -- slots on the blueprint's internal meta channel, exactly as the Slider does, so
--- `barTrack` / `barFill` are their whole paint identity: solid `luau-slot-*`
+-- `barTrack` / `barFill` are their whole paint identity: solid `facet-slot-*`
 -- rules when no package skins them, and a package's own track/fill/cap/centre
 -- art when one does. The spinner's dots declare the one slot this round adds,
 -- `spinner` — same rule, same own-paint guarantee, no new styling system.

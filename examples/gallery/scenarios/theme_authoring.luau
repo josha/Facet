@@ -1277,7 +1277,7 @@ return {
 				end,
 				-- the sixth variant state. No control publishes one yet (P3's
 				-- wiring), so the adapter's seam is driven here — which is what makes
-				-- the `luau-state-error` art rules provably APPLIED.
+				-- the `facet-state-error` art rules provably APPLIED.
 				setError = function(_session, payload: string?)
 					if type(payload) ~= "string" or payload == "" then
 						return { error = "setError needs a node path" }

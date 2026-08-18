@@ -43,7 +43,7 @@ knob-track — ARE real children of the node they decorate, and they position
 relative to it normally. The flatness is about Facet *nodes*, not about the
 managed children the adapter hangs off them. Two consequences worth remembering:
 
-- a child combinator in a StyleSheet rule (`.luau-interactive:Press > .luau-chrome-toggleKnob`)
+- a child combinator in a StyleSheet rule (`.facet-interactive:Press > .facet-chrome-toggleKnob`)
   reaches adapter chrome exactly as written, because that part of the tree is real;
 - the same combinator can NEVER reach one Facet node from another, because they
   are siblings — which is why every node-to-node state rule keys on tags instead.

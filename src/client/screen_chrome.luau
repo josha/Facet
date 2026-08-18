@@ -89,9 +89,9 @@ export type Context = {
 -- `FacetChromeText` TextLabel above the chrome that mirrors the parent's
 -- text (the parent keeps `Text` for semantics/measure; its paint is hidden
 -- under the chrome either way). Paint on the lifted label is sheet-owned in
--- native mode (`.luau-chrome-text` rules + parent-tag child combinators);
+-- native mode (`.facet-chrome-text` rules + parent-tag child combinators);
 -- fallback mode mirrors the parent's explicit paint. A TextBox additionally
--- YIELDS its chrome while editing (`luau-chrome-editing` tag; the engine
+-- YIELDS its chrome while editing (`facet-chrome-editing` tag; the engine
 -- caret is parent-drawn and non-negotiable), the lifted label hiding so the
 -- real text shows exactly once. Flat themes create none of this.
 --
@@ -352,7 +352,7 @@ function screen_chrome.new(ctx: Context)
 	--     resolution (which content id), the snapshot (which `iconSizes` role, so
 	--     a metric package resizes icons) and the package's rendering mode; none
 	--     of them is sheet-owned, and no rule could pick a content id per node.
-	--   * `ImageColor3` is the SHEET's in native mode — one `.luau-icon-<name>`
+	--   * `ImageColor3` is the SHEET's in native mode — one `.facet-icon-<name>`
 	--     rule per tinted icon, emitted beside the package's other image rules —
 	--     so a theme change inside one package re-tints icons with no Luau. The
 	--     fallback path writes the same role from the target's own style, exactly
@@ -593,7 +593,7 @@ function screen_chrome.new(ctx: Context)
 
 	-- the LAYERED editing yield (ADR-0020 R1). A stack has no single decoration
 	-- to tag, so the yield rides the DECORATED NODE and the package's
-	-- child-combinator rules (`.luau-chrome-yield > .luau-chrome-field-N`) blank
+	-- child-combinator rules (`.facet-chrome-yield > .facet-chrome-field-N`) blank
 	-- the whole ladder in one flip. Routed through syncTags so the tag survives
 	-- the desired-set diff — the fix round's lesson, applied at the seam.
 	local setChromeYield: (handle: any, on: boolean) -> ()
@@ -681,11 +681,11 @@ function screen_chrome.new(ctx: Context)
 			end
 			-- placeholder reads secondary, exactly as the parent would paint it;
 			-- a tag flip restyles natively (never an explicit color write here)
-			if CollectionService:HasTag(label, "luau-role-secondary") ~= showingPlaceholder then
+			if CollectionService:HasTag(label, "facet-role-secondary") ~= showingPlaceholder then
 				if showingPlaceholder then
-					CollectionService:AddTag(label, "luau-role-secondary")
+					CollectionService:AddTag(label, "facet-role-secondary")
 				else
-					CollectionService:RemoveTag(label, "luau-role-secondary")
+					CollectionService:RemoveTag(label, "facet-role-secondary")
 				end
 			end
 			label.TextSize = (instance :: any).TextSize
@@ -953,7 +953,7 @@ function screen_chrome.new(ctx: Context)
 				-- reported nothing, and an asset marked failed during a cold start
 				-- stayed failed for the rest of the session. Measured live: every
 				-- `panel`/`control` decoration in the value fixture still carried
-				-- `luau-chrome-fallback` with `IsLoaded = true`, which is how a
+				-- `facet-chrome-fallback` with `IsLoaded = true`, which is how a
 				-- disabled row came to draw its art at 0.4 over the fallback's
 				-- native fill. The grace deadline is the right place to read it:
 				-- by then the rule that sets `Image` has applied, so a true here
@@ -1237,7 +1237,7 @@ function screen_chrome.new(ctx: Context)
 	--
 	-- THEY ARE DIRECT CHILDREN OF THE DECORATED NODE, never wrapped in a
 	-- container: every state rule the package emits is a CHILD COMBINATOR off
-	-- the node (`.luau-state-selected > .luau-chrome-panel-3`), and one
+	-- the node (`.facet-state-selected > .facet-chrome-panel-3`), and one
 	-- intervening Frame would break all of them at once.
 	--
 	-- NOT ONE PAINT PROPERTY IS WRITTEN HERE IN NATIVE MODE. rs-m2's defeat
@@ -1565,7 +1565,7 @@ function screen_chrome.new(ctx: Context)
 	--                                      consequences say.
 	--
 	-- A FLAT bar builds NOTHING here: with no `barFill` recipe the fill node's own
-	-- `luau-slot-barFill` rules paint it solid, which is what a progress bar is
+	-- `facet-slot-barFill` rules paint it solid, which is what a progress bar is
 	-- when no package skins it (R9's OWN_PAINT_SLOTS).
 	--
 	-- NOT ONE PAINT PROPERTY IS WRITTEN IN NATIVE MODE, for rs-m2's reason: a value
@@ -1872,7 +1872,7 @@ function screen_chrome.new(ctx: Context)
 	-- Frame cannot show a picture and an ImageLabel with no Image is a Frame), and
 	-- both are DIRECT CHILDREN of the Toggle button — the knob moved out of the
 	-- track for exactly that reason. Every per-state rule the package emits is a
-	-- child combinator off the interactive node (`:Hover > .luau-chrome-toggleKnob`),
+	-- child combinator off the interactive node (`:Hover > .facet-chrome-toggleKnob`),
 	-- and a knob nested one level deeper could never be reached by one. Its
 	-- absolute travel is unchanged: the track's left edge is `width - 56`, so the
 	-- knob's two stops are `width - 54` and `width - 34` written against the
@@ -1954,7 +1954,7 @@ function screen_chrome.new(ctx: Context)
 				end
 				continue
 			end
-			-- the ART is the element (R9): the same `luau-skinned-<slot>` tag every
+			-- the ART is the element (R9): the same `facet-skinned-<slot>` tag every
 			-- other skinned node carries, so ONE suppression rule set turns off the
 			-- pill fill, its corner and its hairline under the picture
 			if not CollectionService:HasTag(target, slotTag) then
@@ -2187,7 +2187,7 @@ function screen_chrome.new(ctx: Context)
 		-- and never calls syncTags. And when the installed package declares no
 		-- recipe for its slot, `plan` is nil and this function used to RETURN
 		-- below before reaching the only other syncTags call (the one that rides
-		-- decoration creation). Net effect: `luau-slot-sliderThumb` never landed,
+		-- decoration creation). Net effect: `facet-slot-sliderThumb` never landed,
 		-- nothing matched, and the Frame fell to the `Frame default` transparency
 		-- rule — an invisible thumb and rail, with the accent fill floating alone.
 		--
@@ -2289,7 +2289,7 @@ function screen_chrome.new(ctx: Context)
 		if stack ~= nil then
 			if handle.chromeStack == nil then
 				buildChromeStack(handle, slot :: string, stack)
-				-- THE IMAGE IS THE ELEMENT (R9): the same `luau-skinned-<slot>` tag
+				-- THE IMAGE IS THE ELEMENT (R9): the same `facet-skinned-<slot>` tag
 				-- a nine-slice node carries, so one suppression rule set covers both
 				handle.chromeSlot = slot
 				syncTags(handle)

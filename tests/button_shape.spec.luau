@@ -611,8 +611,8 @@ describe("circle Button paint: ONE rule is enough, and that is an invariant, not
 				sheet_model.TAGS.selected,
 				sheet_model.TAGS.interactive,
 				sheet_model.TAGS.pointerLive,
-				"luau-role-destructive",
-				"luau-role-cancel",
+				"facet-role-destructive",
+				"facet-role-cancel",
 			}
 			local function reachesADisc(selector: string): boolean
 				-- a class selector reaches the disc only if EVERY class it names is one
@@ -648,7 +648,7 @@ describe("circle Button paint: ONE rule is enough, and that is an invariant, not
 end)
 
 describe("circle Button paint: the tag reaches the live adapter's desired set", function()
-	it("classifyTags earns luau-shape-circle, and rect earns nothing", function()
+	it("classifyTags earns facet-shape-circle, and rect earns nothing", function()
 		expect(sheet_model.classifyTags({ shape = "circle" })[CIRCLE_TAG]).toBe(true)
 		expect(sheet_model.classifyTags({ shape = "rect" })[CIRCLE_TAG]).toBe(nil)
 		expect(sheet_model.classifyTags({})[CIRCLE_TAG]).toBe(nil)
@@ -666,12 +666,12 @@ describe("circle Button paint: the tag reaches the live adapter's desired set", 
 		expect(tags[CIRCLE_TAG]).toBe(true)
 		expect(tags[sheet_model.TAGS.surfacePrefix .. "accent"]).toBe(true)
 		expect(tags[sheet_model.TAGS.selected]).toBe(true)
-		expect(tags["luau-role-destructive"]).toBe(true)
+		expect(tags["facet-role-destructive"]).toBe(true)
 	end)
 
 	it("the adapter puts the shape in the DESIRED SET, so a later pass cannot square it off", function()
 		-- emission ≠ application (the Step 3.5 defect class). syncTags diffs every
-		-- luau-* tag against classifyTags' answer; a tag added anywhere else would
+		-- facet-* tag against classifyTags' answer; a tag added anywhere else would
 		-- survive exactly until the next classification pass.
 		local sync = string.match(adapterSource, "local function syncTags%(handle: any%)(.-)local desired = nil")
 			or string.match(adapterSource, "local function syncTags%(handle: any%)(.-)\n\tend\n")

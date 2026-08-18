@@ -16,11 +16,11 @@ target capability (`screen_target.new({ nativeStyle = … })`, gallery A/B via
    an opted-in target: surface fills + transparency, corner/hairline chrome (as
    engine-created **phantom modifiers**), text color/font/placeholder,
    scrollbar color, interaction-state paint (`:Hover`/`:Press`/
-   `:NonInteractable`), app-state paint (`.luau-selected`), themes
+   `:NonInteractable`), app-state paint (`.facet-selected`), themes
    (`SetDerives` of whole theme sheets), and declared per-rule transitions.
 2. **The adapter classifies instead of painting**: engine class + CollectionService
-   tags (`luau-surface-*`, `luau-interactive`, `luau-pointer-live`,
-   `luau-selected`, `luau-role-*`), computed by the pure
+   tags (`facet-surface-*`, `facet-interactive`, `facet-pointer-live`,
+   `facet-selected`, `facet-role-*`), computed by the pure
    `sheet_model.classifyTags`; one `StyleLink` per Facet root.
 3. **One authority per property, now runtime-provable.** The 2026-07-19 defeat
    truth holds (an explicit write silently and permanently beats a rule), and
@@ -62,7 +62,7 @@ would defeat every derive (m5/m7).
   application; only writes made while styled defeat rules. Plain reads can
   falsely "confirm" a stomped write — verify with `GetStyled` + visual only
   (`docs/lessons/stylesheet-defeat-order-sensitive.md`). The toggle knob-track
-  chrome therefore rides the `.luau-toggle-chrome` tag rule for opacity, not
+  chrome therefore rides the `.facet-toggle-chrome` tag rule for opacity, not
   explicit writes.
 - `::UICorner`/`::UIStroke` rules **create phantom modifiers**; a real modifier
   child suppresses a phantom corner and is itself un-styleable; a real
@@ -84,7 +84,7 @@ would defeat every derive (m5/m7).
 Layout + text geometry (solver-owned), data bindings, the logical focus ring +
 ten-foot lift (four-paradigm graph + bounds-fit — not expressible natively),
 choreographed/value-driven motion (Toggle knob-track assembly — opacity via
-the `.luau-toggle-chrome` tag rule, value-driven colors as post-styling
+the `.facet-toggle-chrome` tag rule, value-driven colors as post-styling
 writes), pointer
 capture/cursor seams, `UIShadow` materialization (kept behind the existing
 capability probe this stage), `Path2D` stroke color (value-adjacent; candidate
@@ -99,11 +99,11 @@ corrections, all landed and re-verified:
   `assertBespokePaint(prop)` (screen_target), which errors on any write to a
   `authority.nativeSheetOwned` property in native mode — a missed guard is now
   loud, never a silent dual authority. The toggle knob-track assembly's chrome
-  opacity is sheet-owned via `.luau-toggle-chrome` (its earlier "declared
+  opacity is sheet-owned via `.facet-toggle-chrome` (its earlier "declared
   override" writes were pre-parent and got stomped — order-sensitivity truth
   above); its value-driven colors are post-styling writes with no competing rule.
 - **Grip focus fill** moved from an explicit write (which permanently defeated
-  the "Frame default" rule) to the `.luau-grip-focus` tag rule — theme-aware.
+  the "Frame default" rule) to the `.facet-grip-focus` tag rule — theme-aware.
 - **Host policy:** lookup prefers the designer-seeded ReplicatedStorage sheet;
   runtime creation is CLIENT-LOCAL (PlayerGui) — a LocalScript must not
   populate ReplicatedStorage (client-local anyway under FilteringEnabled, and

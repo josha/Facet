@@ -484,7 +484,7 @@ function screen_paint.new(ctx: any)
 	end
 
 	-- THE DISC'S RADIUS, FALLBACK HALF (feature round 2026-07-26). In native mode
-	-- the pill is the sheet's phantom `.luau-shape-circle::UICorner` rule; on the
+	-- the pill is the sheet's phantom `.facet-shape-circle::UICorner` rule; on the
 	-- bespoke path the adapter owns the real UICorner, so the SAME fact has to
 	-- reach it here. One function, so "a circle is UDim(0.5, 0)" is one decision
 	-- across both paint paths rather than two that drift.
@@ -1015,14 +1015,14 @@ function screen_paint.new(ctx: any)
 		-- after styling with no competing rule and stay bespoke in both modes.
 		track.BackgroundTransparency = 0
 		if nativeMode then
-			CollectionService:AddTag(track, "luau-toggle-chrome")
+			CollectionService:AddTag(track, "facet-toggle-chrome")
 		end
 		track.BorderSizePixel = 0
 		corner(track, style.radii.pill, true)
 		hairline(track, true)
 		-- THE KNOB IS A SIBLING OF THE TRACK, not its child (ADR-0020 R3 cap 10).
 		-- Every per-state rule a package emits is a CHILD COMBINATOR off the
-		-- interactive node (`.luau-interactive:Press > .luau-chrome-toggleKnob`),
+		-- interactive node (`.facet-interactive:Press > .facet-chrome-toggleKnob`),
 		-- and a knob one level deeper could not be reached by one — so per-state
 		-- knob art would have been emitted and never applied, which is exactly the
 		-- defect class this stage exists to remove.
@@ -1044,7 +1044,7 @@ function screen_paint.new(ctx: any)
 		knob.BackgroundColor3 = togglePalette().knobOff
 		knob.BackgroundTransparency = 0 -- bespoke path; native rides the tag rule
 		if nativeMode then
-			CollectionService:AddTag(knob, "luau-toggle-chrome")
+			CollectionService:AddTag(knob, "facet-toggle-chrome")
 		end
 		knob.BorderSizePixel = 0
 		corner(knob, style.radii.pill, true)
@@ -1089,9 +1089,9 @@ function screen_paint.new(ctx: any)
 		-- ON/OFF IS A VALUE, AND ART READS IT AS A TAG (ADR-0020 R3 cap 10). No
 		-- engine GuiState reports a value — which is exactly why `togglePalette`
 		-- stayed a bespoke colour write — so the package's `selected` variant rules
-		-- key on `luau-toggle-on`, flipped at the same site and from the same fact
+		-- key on `facet-toggle-on`, flipped at the same site and from the same fact
 		-- the colours are. It goes through syncTags (and therefore through
-		-- classifyTags' desired set) because every `luau-*` tag on this instance is
+		-- classifyTags' desired set) because every `facet-*` tag on this instance is
 		-- diffed away otherwise — the Step 3.5 fix round's exact lesson.
 		syncTags(handle)
 		-- the FALLBACK-mode half: with no sheet there is no rule to swap the

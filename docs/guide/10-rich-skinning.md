@@ -379,7 +379,7 @@ minimum inside the adapter.
 ### Flat bars still pay nothing
 
 A package with no bar recipes builds no instances: the two solved nodes are
-painted solid by the `luau-slot-barTrack` / `luau-slot-barFill` rules, the same
+painted solid by the `facet-slot-barTrack` / `facet-slot-barFill` rules, the same
 own-paint family the slider rail and thumb belong to. And as with the slider, a
 **gradient may never target them** — a wash's alpha would make the value show
 through the glass — so declaring one is a compile error.

@@ -702,7 +702,7 @@ end)
 	and `GetStyled` is the only instrument that can see it — the fake adapter models
 	the write rather than the engine's refusal of it, so no headless assertion can
 	distinguish a claimed fill from a rejected one. That half is covered by the
-	`luau-tint-fill` TAG (`sheet_model.TAGS`, `tests/sheet_model.spec.luau`) and by
+	`facet-tint-fill` TAG (`sheet_model.TAGS`, `tests/sheet_model.spec.luau`) and by
 	a Studio pass. The half a headless suite CAN see is the geometry, and it is the
 	half that was blind here. ]]
 describe("LevelPicker: every mark paints a rectangle with AREA", function()

@@ -239,7 +239,7 @@ describe("the tofu defect, closed at its source", function()
 		expect(shut.props.text).toBe(">")
 		expect(adapter.node("/S/Adv/Header/CaretOpen/then/Caret")).toBeNil()
 		-- ...and the LABEL is a separate node, so the icon's glyph suppression
-		-- (adapter TextTransparency / the `luau-icon-art` tag) cannot reach it
+		-- (adapter TextTransparency / the `facet-icon-art` tag) cannot reach it
 		expect(adapter.node("/S/Adv/Header/Label").props.text).toBe("Advanced")
 		-- expanded: the down chevron, and exactly one caret is mounted at a time
 		expanded:set(true)
@@ -323,13 +323,13 @@ describe("icon paint: the package emits, the adapter applies", function()
 		-- nothing for a rule to own and gets none (an empty rule is a lie)
 		expect(byName["Icon — increment"] ~= nil).toBe(true)
 		expect(byName["Icon — decrement"]).toBeNil()
-		expect(byName["Icon — increment"].selector).toBe(".luau-chrome-icon-increment")
+		expect(byName["Icon — increment"].selector).toBe(".facet-chrome-icon-increment")
 		expect(byName["Icon — increment"].props.ImageColor3).toBe("$Accent")
 	end)
 
 	it("the tag SANITIZES the semantic name, because dots are selector syntax", function()
-		expect(chrome_slots.iconTagFor("chevron.trailing")).toBe("luau-chrome-icon-chevron-trailing")
-		expect(chrome_slots.iconTagFor("gauge:needle.up")).toBe("luau-chrome-icon-gauge--needle-up")
+		expect(chrome_slots.iconTagFor("chevron.trailing")).toBe("facet-chrome-icon-chevron-trailing")
+		expect(chrome_slots.iconTagFor("gauge:needle.up")).toBe("facet-chrome-icon-gauge--needle-up")
 		-- and it carries the chrome prefix, which is what earns the rule the
 		-- image-property allowance in the compiler
 		expect(string.find(chrome_slots.iconTagFor("close"), chrome_slots.TAGS.slotPrefix, 1, true)).toBe(1)
@@ -342,7 +342,7 @@ describe("icon paint: the package emits, the adapter applies", function()
 		for _, rule in model.rules do
 			if rule.name == "Icon — chevron.trailing" then
 				found = true
-				expect(rule.selector).toBe(".luau-chrome-icon-chevron-trailing")
+				expect(rule.selector).toBe(".facet-chrome-icon-chevron-trailing")
 			end
 		end
 		expect(found).toBe(true)
@@ -387,7 +387,7 @@ describe("icon paint: the package emits, the adapter applies", function()
 			for _, rule in built.rules do
 				if rule.name == "Semantic icon replaces the glyph" then
 					found = true
-					expect(rule.selector).toBe(".luau-icon-art")
+					expect(rule.selector).toBe(".facet-icon-art")
 					expect(rule.props.TextTransparency.value).toBe(1)
 				end
 			end

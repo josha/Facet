@@ -295,7 +295,7 @@ describe('modal dismissal: scrim="none" is transparent but still catches', funct
 		local tags = sheet_model.classifyTags({ surface = "plain", interactive = true, pointerLive = true })
 		expect(next(tags)).toBeNil() -- nothing to paint and nothing to hover
 		-- ...against what the old shape produced, which is the defect itself
-		expect(sheet_model.classifyTags({ interactive = true })["luau-interactive"]).toBe(true)
+		expect(sheet_model.classifyTags({ interactive = true })["facet-interactive"]).toBe(true)
 		adapter.tap(pres.topScrimPath(), { x = 500, y = 400 })
 		expect(pres.depth()).toBe(1) -- still catches + dismisses
 	end)

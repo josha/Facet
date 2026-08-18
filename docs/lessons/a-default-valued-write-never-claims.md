@@ -55,7 +55,7 @@ reviewed; the invisible plate is not a thing a measurement of *geometry* can see
 ## The fix, and the rule it generalises to
 
 A property a sheet owns is taken with a **tag**, never with a value the class
-already has. `luau-tint-fill` + one `Tint fill` rule in the `base` group of both
+already has. `facet-tint-fill` + one `Tint fill` rule in the `base` group of both
 sheet builders, so a surface, a value slot and a scrim all still out-rank it —
 the fill is a *floor under an otherwise invisible node*, not a new authority.
 The colour stays a claim, because a rule cannot carry data. That split is not new:

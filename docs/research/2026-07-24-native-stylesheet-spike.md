@@ -50,5 +50,5 @@ throughout. Studio timings are derated proxies — device measurements stay auth
    base sheet holds rules + structural tokens; themes are whole StyleSheets passed to
    `SetDerives`.
 6. **Hover gating stays Facet's**: state rules for hover are compound-gated on the
-   pointer-live tag (`.luau-pointer-live`), so touch paradigms structurally cannot flash
+   pointer-live tag (`.facet-pointer-live`), so touch paradigms structurally cannot flash
    hover regardless of engine `:Hover` semantics on touch.

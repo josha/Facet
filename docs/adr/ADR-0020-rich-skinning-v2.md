@@ -71,7 +71,7 @@ generalizes to one parent tag + a child-combinator rule.
 Back-compat: today's single-asset `kind = "nineSlice"` recipe is unchanged and is exactly
 equivalent to `layers = { { kind = "fill", asset = ... } }`. `kind = "native"` recipes and
 flat themes create ZERO layer instances. The census grows per-layer-kind counts;
-suppression (`luau-skinned-*`, R9) covers layered nodes identically.
+suppression (`facet-skinned-*`, R9) covers layered nodes identically.
 
 ## R2 — Per-state asset variants at both rungs (cap 3)
 
@@ -114,7 +114,7 @@ write — no re-solve, art byte-stable; fill `direction` is declared data
 (`"ltr"` default; `"rtl"`/`"ttb"`/`"btt"` drive which axis+anchor the window uses).
 Caps that must survive all percents are separate `barCap` layers, not fill art. Sliced fills
 reject ImageRect cropping at compile (rs-m4). When flat/unskinned, the bar family owns SOLID
-native paint via the `luau-slot-*` family and value-control gradients stay a compile error
+native paint via the `facet-slot-*` family and value-control gradients stay a compile error
 (the ADR-0019 fix-round discipline extends to bars).
 
 **Stepper**: slot `stepperPlate` (whole image, per-state) behind each glyph; glyphs
@@ -183,7 +183,7 @@ Rung 1 = theme packages (this stage's recipes). Rung 2 = per-view modifier props
 R2 grammar, with shadow/gradient modifiers composing predictably (the view modifier wins on
 that node; theme recipes keep their slot shadows — ADR-0019). **"The view wins" is MEASURED,
 not assumed** (`feasibility/rs-m8-gradient-composition.json`, fix round): on a node a theme
-gradients through a phantom `.luau-surface-raised::UIGradient` rule AND that carries the
+gradients through a phantom `.facet-surface-raised::UIGradient` rule AND that carries the
 adapter's real `FacetGradient` child, `GetStyled` on that child returns the VIEW's sequence,
 the theme's tokens appear nowhere on the node, and the visual A/B against a no-child sibling
 shows the theme gloss on the sibling and only the view's wash on the card. `::UIGradient`
@@ -198,7 +198,7 @@ both directions, and re-themes under two packages. Docs walk all three rungs end
 
 ## R9 — Image-is-the-element posture (cap 1)
 
-The Step 3.5 `luau-skinned-*` suppression machinery extends to EVERY image-bearing slot and
+The Step 3.5 `facet-skinned-*` suppression machinery extends to EVERY image-bearing slot and
 to layered nodes: a skinned recipe may declare its decoration the ONLY paint; generated
 suppression rules zero the native fill/corner/stroke, `GetStyled` is the proof instrument,
 and the census counts suppressions. `OWN_PAINT_SLOTS` (slider rail/thumb, now + bar family)
@@ -209,7 +209,7 @@ keep their solid-paint guarantee. Flat themes remain byte-identical to the 0.6.0
 that is SKINNED suppresses its own solid backing exactly like every other skinned slot —
 the art is the element, and a slab behind it shows through every transparent pixel the art
 has. The `OWN_PAINT_SLOTS` guarantee is therefore the FLAT guarantee: it holds, byte
-unchanged, for a node with no art, because such a node never earns `luau-skinned-<slot>`.
+unchanged, for a node with no art, because such a node never earns `facet-skinned-<slot>`.
 The four suppression sets are PRE-ARMED on every package rather than emitted per declared
 recipe, because a node earns that tag from three routes — a nine-slice recipe, a layer
 stack, and the rung-2 per-view override — and only the first two are package-declared; the
@@ -253,7 +253,7 @@ because a StyleSheet selector has **no negation**: "everything except a fallback
 node" is inexpressible. One extra rule per chrome tag —
 `Chrome — <slot> fallback over states` (per layer:
 `Chrome — <slot> L<n> <kind> fallback over states`), selector
-`.<tag>.luau-chrome-mute` (`.<tag>.luau-chrome-fallback` until RS-A16-D5 split the
+`.<tag>.facet-chrome-mute` (`.<tag>.facet-chrome-fallback` until RS-A16-D5 split the
 hide onto its own tag), carrying `ImageTransparency = 1` **and nothing else** — is
 emitted into the `disabled` group immediately after that tag's disabled rule. The fill and the corner remain the chrome-group rule's; nothing
 contests those. Per-entry emission means one slot's protection can never be

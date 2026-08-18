@@ -34,10 +34,10 @@ local sheet_model = {}
 -- The classification vocabulary shared with the adapter (Phase 2): tags are
 -- the ONLY channel by which Facet states/roles reach native selectors.
 sheet_model.TAGS = table.freeze({
-	surfacePrefix = "luau-surface-", -- + base|raised|control|chip|badge|accent|scrim
-	selected = "luau-selected",
-	interactive = "luau-interactive",
-	pointerLive = "luau-pointer-live",
+	surfacePrefix = "facet-surface-", -- + base|raised|control|chip|badge|accent|scrim
+	selected = "facet-selected",
+	interactive = "facet-interactive",
+	pointerLive = "facet-pointer-live",
 	-- THE SHAPE TAG (feature round 2026-07-26). A SURFACE says what a node is
 	-- made of; a SHAPE says what silhouette it is cut to, and the two are
 	-- independent — a circle button is still a `control` surface and still takes
@@ -45,14 +45,14 @@ sheet_model.TAGS = table.freeze({
 	-- own tag with its own phantom ::UICorner/::UIStroke rules rather than a
 	-- seventh surface, which is what keeps `shape` from having to re-declare a
 	-- fill, a label colour and a hover treatment it does not change.
-	shapePrefix = "luau-shape-", -- + circle (the only non-default shape)
+	shapePrefix = "facet-shape-", -- + circle (the only non-default shape)
 	-- THE TYPOGRAPHY ROLE TAG (F2, 2026-08-02). `FontFace` is sheet-owned in
 	-- native mode, so a node's typography role — which carries the FACE as well as
 	-- the size — cannot reach paint as an explicit write. It reaches it as this
 	-- tag, one generated rule per role, each carrying the descriptor the solver
-	-- measured with. Distinct from `luau-role-strong`, which is the CONTENT-COLOUR
+	-- measured with. Distinct from `facet-role-strong`, which is the CONTENT-COLOUR
 	-- emphasis a heading-scale size earns: one names a face, the other a colour.
-	typePrefix = "luau-type-", -- + caption|label|body|heading|title|control|strong|numeral
+	typePrefix = "facet-type-", -- + caption|label|body|heading|title|control|strong|numeral
 	--[[ THE TINTED FILL (director report 2026-08-15, `canvas-group`).
 
 		A `tint` claims `BackgroundColor3` — a colour is per-node DATA and no rule
@@ -70,7 +70,7 @@ sheet_model.TAGS = table.freeze({
 		the `base` group so a surface, a value slot and a scrim all still out-rank
 		it: this is the floor under an otherwise invisible node, never a new
 		authority over one that was already painted. ]]
-	tintFill = "luau-tint-fill",
+	tintFill = "facet-tint-fill",
 })
 
 --[[ THE BACKDROP RULE, named once (ADR-0035). Both sheet builders emit it and the
@@ -209,15 +209,15 @@ export type ClassifyInput = {
 	gripFocus: boolean?,
 	-- this node carries a `tint` whose colour landed on its BACKGROUND (a Box, a
 	-- ZStack, a fade group — never a Text/Image/Path, whose tint claims a colour
-	-- the class default already paints). Drives `luau-tint-fill`: see TAGS above
+	-- the class default already paints). Drives `facet-tint-fill`: see TAGS above
 	-- for why the fill cannot be an explicit write.
 	tinted: boolean?,
 	-- the decoration slot this node is CURRENTLY skinned with (nil = not
-	-- skinned). Drives `luau-skinned-<slot>`, which the package's suppression
+	-- skinned). Drives `facet-skinned-<slot>`, which the package's suppression
 	-- rules key on so the native plate stops drawing under the art.
 	skinnedSlot: string?,
 	-- the slot this node DECLARED through the internal decoration hint, skinned
-	-- or not. Drives `luau-slot-<slot>`, which is what gives a value control's
+	-- or not. Drives `facet-slot-<slot>`, which is what gives a value control's
 	-- chrome its own native paint instead of borrowing a public surface's.
 	slotHint: string?,
 	-- the sixth variant state (ADR-0020 R2). `default/hover/pressed/selected/
@@ -227,7 +227,7 @@ export type ClassifyInput = {
 	-- ONE PARENT TAG HIDES THE WHOLE STACK (ADR-0020 R1, probe rs-m2). The
 	-- single-decoration editing yield tags the DECORATION, which syncTags never
 	-- touches; a layered node's yield has to ride the DECORATED NODE, and every
-	-- `luau-*` tag on that node is diffed against this desired set. A yield tag
+	-- `facet-*` tag on that node is diffed against this desired set. A yield tag
 	-- added anywhere else would survive exactly until the next classification
 	-- pass — the Step 3.5 fix round's defect class, one slot down.
 	chromeYield: boolean?,
@@ -247,7 +247,7 @@ export type ClassifyInput = {
 	-- empties until the drop lands or the return flight arrives
 	dragHeld: boolean?,
 	-- THE SILHOUETTE (feature round 2026-07-26): "rect" (or nil) is the default
-	-- every Button already had; "circle" earns `luau-shape-circle`, which the
+	-- every Button already had; "circle" earns `facet-shape-circle`, which the
 	-- disc's phantom corner and hairline rules key on.
 	shape: string?,
 	-- THE TYPOGRAPHY ROLE this text node resolved to (F2, 2026-08-02): the name,
@@ -274,13 +274,13 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 		tags[T.selected] = true
 	end
 	if input.roleSecondary == true then
-		tags["luau-role-secondary"] = true
+		tags["facet-role-secondary"] = true
 	end
 	if input.strong == true then
-		tags["luau-role-strong"] = true
+		tags["facet-role-strong"] = true
 	end
 	if input.gripFocus == true then
-		tags["luau-grip-focus"] = true
+		tags["facet-grip-focus"] = true
 	end
 	-- the tinted fill (see TAGS): the colour is a claim, the fill is a tag, because
 	-- an explicit write of the class default never takes the property
@@ -297,8 +297,8 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	if input.chromeYield == true then
 		tags[chrome_slots.TAGS.stackYield] = true
 	end
-	-- the switch's ON state (see toggleOn above). Deliberately NOT `luau-selected`:
-	-- that tag carries the row-selection treatment (`TextButton.luau-selected`
+	-- the switch's ON state (see toggleOn above). Deliberately NOT `facet-selected`:
+	-- that tag carries the row-selection treatment (`TextButton.facet-selected`
 	-- repaints the whole button), and a toggle being on is not a row being chosen.
 	if input.toggleOn == true then
 		tags[chrome_slots.TOGGLE_ON_TAG] = true
@@ -330,14 +330,14 @@ function sheet_model.classifyTags(input: ClassifyInput): { [string]: boolean }
 	-- Divider (A-LV3): the hairline is sheet-painted, so a designer can restyle
 	-- every separator in one rule. Never a bespoke fill in native mode.
 	if input.divider == true then
-		tags["luau-divider"] = true
+		tags["facet-divider"] = true
 	end
 	-- semantic button role (B-BTN2). "default" adds no tag: the class default
 	-- already describes it, and an extra tag would be a rule with nothing to say.
 	if input.buttonRole == "destructive" then
-		tags["luau-role-destructive"] = true
+		tags["facet-role-destructive"] = true
 	elseif input.buttonRole == "cancel" then
-		tags["luau-role-cancel"] = true
+		tags["facet-role-cancel"] = true
 	end
 	-- THE IMAGE IS THE BUTTON: the node carries its skinned-slot tag so the
 	-- package's suppression rules can turn off the plate, the corner and the
@@ -655,7 +655,7 @@ end
 
 -- emitOwnSlotPaint: the three rules that make ONE value slot visible without
 -- art — fill, phantom ::UICorner radius, phantom ::UIStroke hairline — keyed on
--- the slot IDENTITY tag (`luau-slot-<slot>`), which the renderer applies whether
+-- the slot IDENTITY tag (`facet-slot-<slot>`), which the renderer applies whether
 -- or not a package skins the node.
 --
 -- `emit` takes the rule (the caller decides which ordered group it lands in);
@@ -703,7 +703,7 @@ local function emitOwnSlotPaint(
 end
 
 -- emitSlotSuppression: the mirror image — the three rules that STOP the native
--- plate being drawn once art covers the node (`luau-skinned-<slot>`). Shared for
+-- plate being drawn once art covers the node (`facet-skinned-<slot>`). Shared for
 -- the same reason the paint is: the pre-arm the base seed needs and the per-slot
 -- suppression a package's recipes need are the same three rules.
 local function emitSlotSuppression(slot: string, emit: (Rule) -> ())
@@ -851,11 +851,11 @@ function sheet_model.build(opts: BuildOpts): Model
 		},
 		{
 			name = "Divider",
-			selector = ".luau-divider",
+			selector = ".facet-divider",
 			props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(0) },
 		},
-		{ name = "Secondary text", selector = ".luau-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
-		{ name = "Strong text", selector = ".luau-role-strong", props = { TextColor3 = "$ContentStrong" } },
+		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } },
+		{ name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } },
 		-- THE TYPOGRAPHY-ROLE FACES (F2, 2026-08-02). One rule per role that wears
 		-- a face this builder can name. A compiled TOKEN style carries sizes only —
 		-- font descriptors live in a theme PACKAGE (`buildPackage` below emits all
@@ -863,8 +863,8 @@ function sheet_model.build(opts: BuildOpts): Model
 		-- the neutral snapshot derives: the six ladder roles keep the family's
 		-- Regular face (already the class default, so these rules are inert and no
 		-- existing screen moves) and the two weight roles take the derived faces.
-		{ name = "Type — strong", selector = ".luau-type-strong", props = { FontFace = BUILDER_SANS_SEMIBOLD } },
-		{ name = "Type — numeral", selector = ".luau-type-numeral", props = { FontFace = BUILDER_SANS_BOLD } },
+		{ name = "Type — strong", selector = ".facet-type-strong", props = { FontFace = BUILDER_SANS_SEMIBOLD } },
+		{ name = "Type — numeral", selector = ".facet-type-numeral", props = { FontFace = BUILDER_SANS_BOLD } },
 		{ name = "Scroll bar", selector = "ScrollingFrame", props = { ScrollBarImageColor3 = "$ContentSecondary" } },
 		{
 			name = "Base surface",
@@ -948,8 +948,8 @@ function sheet_model.build(opts: BuildOpts): Model
 		},
 		-- THE ACCENT SURFACE'S CORNER (director round 11, found live under
 		-- glossy-mobile). Per-surface rules REPLACE, they do not compose: a chip
-		-- that becomes the primary action drops `.luau-surface-chip` for
-		-- `.luau-surface-accent`, and this rule set carried a fill and a label
+		-- that becomes the primary action drops `.facet-surface-chip` for
+		-- `.facet-surface-accent`, and this rule set carried a fill and a label
 		-- colour and no corner — so the selected button went hard square while
 		-- every sibling stayed a pill at `radii.control = 16`. The bespoke path
 		-- never showed it because `wireInteractiveStates` gives every Button a
@@ -994,7 +994,7 @@ function sheet_model.build(opts: BuildOpts): Model
 		},
 		{
 			name = "Grip focus",
-			selector = ".luau-grip-focus",
+			selector = ".facet-grip-focus",
 			props = { BackgroundColor3 = "$Accent", BackgroundTransparency = num(0) },
 		},
 		-- toggle knob-track chrome (director live find 2026-07-24): the
@@ -1004,7 +1004,7 @@ function sheet_model.build(opts: BuildOpts): Model
 		-- happen after styling and have no competing rule, so they stay bespoke
 		{
 			name = "Toggle chrome",
-			selector = ".luau-toggle-chrome",
+			selector = ".facet-toggle-chrome",
 			props = { BackgroundTransparency = num(0) },
 		},
 		{
@@ -1030,12 +1030,12 @@ function sheet_model.build(opts: BuildOpts): Model
 		-- states still layer on top.
 		{
 			name = "Destructive button",
-			selector = ".luau-role-destructive",
+			selector = ".facet-role-destructive",
 			props = { BackgroundColor3 = "$Danger", TextColor3 = "$OnDanger" },
 		},
 		{
 			name = "Cancel button",
-			selector = ".luau-role-cancel",
+			selector = ".facet-role-cancel",
 			props = { BackgroundColor3 = "$Surface", TextColor3 = "$ContentSecondary" },
 		},
 	})
@@ -1044,7 +1044,7 @@ function sheet_model.build(opts: BuildOpts): Model
 	-- in `buildPackage` (director round 5). The base seed needs it for the same
 	-- reason a flat package does: the RUNG-2 per-view override (a Slider's
 	-- `thumbImage`) skins a node with NO package installed at all, and a node that
-	-- earns `luau-skinned-<slot>` with no rule to match it keeps a solid plate
+	-- earns `facet-skinned-<slot>` with no rule to match it keeps a solid plate
 	-- showing through every transparent pixel of the author's own art.
 	--
 	-- After the paint above (a floor is only lifted by art) and before the
@@ -1083,13 +1083,13 @@ function sheet_model.build(opts: BuildOpts): Model
 		-- neutral and the role visually vanished at the moment of the click.
 		{
 			name = "Destructive — hover",
-			selector = "TextButton.luau-role-destructive." .. T.pointerLive .. ":Hover",
+			selector = "TextButton.facet-role-destructive." .. T.pointerLive .. ":Hover",
 			props = { BackgroundColor3 = "$DangerHover" },
 			transitions = { BackgroundColor3 = "fast" },
 		},
 		{
 			name = "Destructive — pressed",
-			selector = "TextButton.luau-role-destructive:Press",
+			selector = "TextButton.facet-role-destructive:Press",
 			props = { BackgroundColor3 = "$DangerPressed" },
 		},
 		{
@@ -1309,17 +1309,17 @@ function sheet_model.checkContentValue(ruleName: string, prop: string, value: an
 end
 
 -- The slot -> selector map: which nodes a slot's NATIVE paint and gradient
--- apply to. The decoration child carries `.luau-chrome-<slot>`; the slot's
+-- apply to. The decoration child carries `.facet-chrome-<slot>`; the slot's
 -- native treatment lands on the node the renderer already classified, which is
 -- why these reuse the Step 2 surface tags rather than inventing a parallel set.
 local SLOT_SELECTOR: { [string]: string } = {
-	panel = ".luau-surface-raised",
-	control = ".luau-surface-control",
-	field = "TextBox.luau-surface-control",
-	selection = "TextButton.luau-selected",
-	divider = ".luau-divider",
+	panel = ".facet-surface-raised",
+	control = ".facet-surface-control",
+	field = "TextBox.facet-surface-control",
+	selection = "TextButton.facet-selected",
+	divider = ".facet-divider",
 	scrollbar = "ScrollingFrame",
-	badge = ".luau-surface-badge",
+	badge = ".facet-surface-badge",
 	-- sliderTrack / sliderThumb are ABSENT on purpose. SLOT_SELECTOR is the
 	-- gradient target map, and a wash may never reach a value control's chrome
 	-- (chrome_slots.isGradientable) — its alpha is exactly what made the thumb
@@ -1803,7 +1803,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- combinator, exactly as the tint rules do.
 	--
 	-- `error` is the one state with no engine pseudo and no renderer tag today —
-	-- it keys on `luau-state-error`, which `classifyTags` emits when a control
+	-- it keys on `facet-state-error`, which `classifyTags` emits when a control
 	-- publishes it. P3's control wiring is what makes that tag appear; until
 	-- then the rule is emitted and matches nothing, which is visible in the
 	-- census rather than hidden.
@@ -1928,7 +1928,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	})
 	fromMetric("type.control.font", "Field text default", "FontFace", "font")
 	-- THE PER-ROLE FACES (F2, 2026-08-02). A node's typography role reaches native
-	-- paint as `luau-type-<role>`; this is the rule that gives that tag its face,
+	-- paint as `facet-type-<role>`; this is the rule that gives that tag its face,
 	-- from the SAME `type.<role>.font` the solver measured with. Emitted for all
 	-- eight roles, class defaults included, so a role always beats the class rule
 	-- it sits on (a `strong` Text inside a TextButton, a `body` Button label) — and
@@ -2088,22 +2088,22 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- roles
 	emit("roles", {
 		name = "Divider",
-		selector = ".luau-divider",
+		selector = ".facet-divider",
 		props = { BackgroundColor3 = "$Hairline", BackgroundTransparency = num(0) },
 	})
 	emit(
 		"roles",
-		{ name = "Secondary text", selector = ".luau-role-secondary", props = { TextColor3 = "$ContentSecondary" } }
+		{ name = "Secondary text", selector = ".facet-role-secondary", props = { TextColor3 = "$ContentSecondary" } }
 	)
-	emit("roles", { name = "Strong text", selector = ".luau-role-strong", props = { TextColor3 = "$ContentStrong" } })
+	emit("roles", { name = "Strong text", selector = ".facet-role-strong", props = { TextColor3 = "$ContentStrong" } })
 	emit("roles", {
 		name = "Grip focus",
-		selector = ".luau-grip-focus",
+		selector = ".facet-grip-focus",
 		props = { BackgroundColor3 = "$Accent", BackgroundTransparency = num(0) },
 	})
 	emit(
 		"roles",
-		{ name = "Toggle chrome", selector = ".luau-toggle-chrome", props = { BackgroundTransparency = num(0) } }
+		{ name = "Toggle chrome", selector = ".facet-toggle-chrome", props = { BackgroundTransparency = num(0) } }
 	)
 	emit("roles", {
 		name = "Selected row",
@@ -2114,19 +2114,19 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	})
 	emit("roles", {
 		name = "Destructive button",
-		selector = ".luau-role-destructive",
+		selector = ".facet-role-destructive",
 		props = { BackgroundColor3 = "$Danger", TextColor3 = "$OnDanger" },
 	})
 	emit("roles", {
 		name = "Cancel button",
-		selector = ".luau-role-cancel",
+		selector = ".facet-role-cancel",
 		props = { BackgroundColor3 = "$Surface", TextColor3 = "$ContentSecondary" },
 	})
 
 	-- A SKINNED VALUE SLOT SUPPRESSES ITS OWN PAINT TOO (director round 5,
 	-- 2026-07-25). The three `Slot — <slot>` rules above are the ACCESSIBILITY
 	-- floor for a value control nothing else paints — and a floor is for a node
-	-- with no art on it. The moment a node carries `luau-skinned-<slot>` the art
+	-- with no art on it. The moment a node carries `facet-skinned-<slot>` the art
 	-- IS the element (R9), and a solid slab behind it shows through every
 	-- transparent pixel the art has: measured live on the rung-2 slider thumb,
 	-- whose view-supplied picture sat inside a ring of its own `$SurfaceStrong`
@@ -2444,13 +2444,13 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		local suffix = if #controlTags > 1 then ` L{index}` else ""
 		emit("chrome", {
 			name = `Chrome role — destructive{suffix}`,
-			selector = `.luau-role-destructive > .{controlTag}`,
+			selector = `.facet-role-destructive > .{controlTag}`,
 			props = { ImageColor3 = "$ChromeTintDanger" },
 			transitions = { ImageColor3 = "fast" },
 		})
 		emit("chrome", {
 			name = `Chrome role — cancel{suffix}`,
-			selector = `.luau-role-cancel > .{controlTag}`,
+			selector = `.facet-role-cancel > .{controlTag}`,
 			props = { ImageColor3 = "$ChromeTintCancel" },
 			transitions = { ImageColor3 = "fast" },
 		})
@@ -2463,7 +2463,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	end
 	-- the chrome TEXT LIFT (TP-M8, ADR-0019 integration rulings): a text-bearing
 	-- node under nine-slice chrome paints its label on a managed
-	-- `.luau-chrome-text` child ABOVE the decoration (under Sibling z-behavior a
+	-- `.facet-chrome-text` child ABOVE the decoration (under Sibling z-behavior a
 	-- child covers the parent's own engine-drawn text at any ZIndex). The lifted
 	-- label is a TextLabel, so "Text default" already gives it $Content + the
 	-- body font; these rules add the control-role font and the parent-tag
@@ -2521,17 +2521,17 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		})
 		emit("chrome", {
 			name = "Chrome text — destructive",
-			selector = `.luau-role-destructive > .{liftTag}`,
+			selector = `.facet-role-destructive > .{liftTag}`,
 			props = { TextColor3 = "$OnDanger" },
 		})
 		emit("chrome", {
 			name = "Chrome text — cancel",
-			selector = `.luau-role-cancel > .{liftTag}`,
+			selector = `.facet-role-cancel > .{liftTag}`,
 			props = { TextColor3 = "$ContentSecondary" },
 		})
 		emit("chrome", {
 			name = "Chrome text — secondary",
-			selector = `.{liftTag}.luau-role-secondary`,
+			selector = `.{liftTag}.facet-role-secondary`,
 			props = { TextColor3 = "$ContentSecondary" },
 		})
 		-- The two role tags the RENDERER puts on the PARENT (classifyTags:
@@ -2542,12 +2542,12 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		-- skinned heading painted plain $Content.
 		emit("chrome", {
 			name = "Chrome text — strong",
-			selector = `.luau-role-strong > .{liftTag}`,
+			selector = `.facet-role-strong > .{liftTag}`,
 			props = { TextColor3 = "$ContentStrong" },
 		})
 		emit("chrome", {
 			name = "Chrome text — parent secondary",
-			selector = `.luau-role-secondary > .{liftTag}`,
+			selector = `.facet-role-secondary > .{liftTag}`,
 			props = { TextColor3 = "$ContentSecondary" },
 		})
 		emit("chrome", {
@@ -2591,7 +2591,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	-- while the engine draws its caret at the parent layer. Both fire at once on
 	-- a focused skinned field, and the comment above — "the TextBox's own
 	-- sheet-owned fill is what shows while editing" — described a fill that
-	-- `.luau-skinned-field` had already switched off. Nothing painted: bare text
+	-- `.facet-skinned-field` had already switched off. Nothing painted: bare text
 	-- on the page, no field at all, self-healing on blur, which is exactly what
 	-- the device capture shows.
 	--
@@ -2641,7 +2641,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	})
 	emit("hover", {
 		name = "Destructive — hover",
-		selector = `TextButton.luau-role-destructive.{T.pointerLive}:Hover`,
+		selector = `TextButton.facet-role-destructive.{T.pointerLive}:Hover`,
 		props = { BackgroundColor3 = "$DangerHover" },
 		transitions = { BackgroundColor3 = "fast" },
 	})
@@ -2657,7 +2657,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 	})
 	emit("press", {
 		name = "Destructive — pressed",
-		selector = "TextButton.luau-role-destructive:Press",
+		selector = "TextButton.facet-role-destructive:Press",
 		props = { BackgroundColor3 = "$DangerPressed" },
 	})
 	-- Chrome interaction states. The decoration child is Active=false and can
@@ -2739,13 +2739,13 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 		local controlTag = ninePlans.control.tag
 		emit("hover", {
 			name = "Chrome role — destructive hover",
-			selector = `.luau-role-destructive.{T.pointerLive}:Hover > .{controlTag}`,
+			selector = `.facet-role-destructive.{T.pointerLive}:Hover > .{controlTag}`,
 			props = { ImageColor3 = "$ChromeTintDangerHover" },
 			transitions = { ImageColor3 = "fast" },
 		})
 		emit("press", {
 			name = "Chrome role — destructive pressed",
-			selector = `.luau-role-destructive:Press > .{controlTag}`,
+			selector = `.facet-role-destructive:Press > .{controlTag}`,
 			props = { ImageColor3 = "$ChromeTintDangerPressed" },
 		})
 	end
@@ -2871,7 +2871,7 @@ function sheet_model.buildPackage(package: any, opts: BuildPackageOpts?): Model
 				-- is earned by the SELECTOR, never by the group. Author-supplied
 				-- rules ride the chrome group (that is where they must land in the
 				-- cascade), so keying on the group handed every author rule the
-				-- image-chrome allowance — a rule selecting `.luau-surface-raised`
+				-- image-chrome allowance — a rule selecting `.facet-surface-raised`
 				-- could set `Image` and compile clean, on a node that has no
 				-- decoration to carry it. Every rule this compiler emits into the
 				-- chrome group names the slot prefix in its selector, so the

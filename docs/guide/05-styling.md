@@ -239,7 +239,7 @@ local adapter = screen_target.new({ nativeStyle = true })
 
 With the flag on (and the engine capability present), the adapter stops
 explicit-writing every handed-off paint property and instead **classifies**
-each instance — engine class plus `luau-*` CollectionService tags — under one
+each instance — engine class plus `facet-*` CollectionService tags — under one
 `StyleLink` per screen. A generated sheet named **`FacetStyle`** (under
 `ReplicatedStorage` by default) owns:
 

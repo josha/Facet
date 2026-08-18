@@ -254,7 +254,7 @@ closed vocabulary:
   `barTrack`, as `glossy_touch.luau` does).
 - **Instances**: a single-asset recipe materializes at most **one**
   non-interactive `ImageLabel` (`Active = false`, full-bleed, named
-  `FacetChrome`, tagged `luau-chrome-<slot>`) per slotted node; a layered recipe
+  `FacetChrome`, tagged `facet-chrome-<slot>`) per slotted node; a layered recipe
   materializes one per layer INSTANCE, which is not one per declaration — a
   `corners` layer is four and an `edges` layer is one per side. All of them are
   painted entirely by package rules. A recipe may never insert interactive
@@ -276,7 +276,7 @@ closed vocabulary:
   through the glass. `themes.define` rejects the declaration by name.
 - **A value control's chrome paints itself, SOLID.** Slots reached only through
   the internal hint get `Slot — <slot>` / `— corner` / `— outline` rules keyed on
-  `luau-slot-<slot>`, drawing from the same `SLOT_FILL_TOKEN` map the
+  `facet-slot-<slot>`, drawing from the same `SLOT_FILL_TOKEN` map the
   asset-failure fallback uses. Never give such a node a public `surface` to
   "borrow" a fill from — that is precisely how the panel treatment (and its
   gradient's alpha) reached a slider thumb and made it translucent. SOLID is the
@@ -315,7 +315,7 @@ closed vocabulary:
   compile because the engine accepts it and paints nothing.
 - **The native plate is suppressed under a skin.** Every skinned slot emits
   `Skinned — <slot>` / `— corner` / `— outline` rules against the decorated node
-  (tag `luau-skinned-<slot>`, added and removed with the decoration): the art IS
+  (tag `facet-skinned-<slot>`, added and removed with the decoration): the art IS
   the control, so the fill, the radius and the hairline it sits on stop drawing.
   A `native` slot keeps all three. Do not reintroduce a plate in a new surface
   branch — the adapter re-suppresses after `applySurface` for exactly that reason.
@@ -324,7 +324,7 @@ closed vocabulary:
   ZIndex, so a text-bearing skinned node — `TextButton`, `TextBox` **and**
   `TextLabel`, which is what a badge is — gets one managed `FacetChromeText`
   label above the decoration, INSET by the recipe's `contentInsets`, and a
-  `TextBox` yields its chrome while editing (`luau-chrome-editing`) because the
+  `TextBox` yields its chrome while editing (`facet-chrome-editing`) because the
   caret is parent-drawn. Never "fix" this by
   switching a root to `Global` — that changes z-semantics for every surface.
 
@@ -354,8 +354,8 @@ adding an asset:
    nine-slice asset with no `sliceCenter` is an authoring error.
 5. **Loading rides the resource provider.** `preload = "install" | "lazy"`; no
    raw content ID leaves package data by any other route; a failed asset flips
-   `luau-chrome-fallback` exactly once and unflips on recovery. The paired
-   `luau-chrome-mute` carries the HIDE and skips the condemned asset's own
+   `facet-chrome-fallback` exactly once and unflips on recovery. The paired
+   `facet-chrome-mute` carries the HIDE and skips the condemned asset's own
    undecoded art, so a false failure can still recover
    (`docs/lessons/engine-never-decodes-invisible-images.md`).
 

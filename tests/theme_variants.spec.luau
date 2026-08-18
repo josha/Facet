@@ -317,17 +317,17 @@ describe("buildPackage: a state map becomes GuiState-pseudo and tag-family rules
 		local cases = {
 			{
 				name = "Chrome — control hover art",
-				selector = ".luau-interactive.luau-pointer-live:Hover > .luau-chrome-control",
+				selector = ".facet-interactive.facet-pointer-live:Hover > .facet-chrome-control",
 				asset = "plateHot",
 			},
 			{
 				name = "Chrome — control pressed art",
-				selector = ".luau-interactive:Press > .luau-chrome-control",
+				selector = ".facet-interactive:Press > .facet-chrome-control",
 				asset = "plateDown",
 			},
 			{
 				name = "Chrome — control selected art",
-				selector = ".luau-selected > .luau-chrome-control",
+				selector = ".facet-selected > .facet-chrome-control",
 				asset = "plateChosen",
 			},
 		}
@@ -360,7 +360,7 @@ describe("buildPackage: a state map becomes GuiState-pseudo and tag-family rules
 		local pkg = themes.define(withControl({ default = "plate", disabled = "plateDown" }))
 		local model = sheet_model.buildPackage(pkg)
 		expect(ruleNamed(model, "Chrome — control disabled art").selector).toBe(
-			":NonInteractable > .luau-chrome-control"
+			":NonInteractable > .facet-chrome-control"
 		)
 		expect(ruleNamed(model, "Chrome — control disabled").props.ImageTransparency ~= nil).toBe(true)
 	end)
@@ -369,11 +369,11 @@ describe("buildPackage: a state map becomes GuiState-pseudo and tag-family rules
 		local pkg = themes.define(withControl({ default = "plate", error = "plateDown" }))
 		local model = sheet_model.buildPackage(pkg)
 		expect(ruleNamed(model, "Chrome — control error art").selector).toBe(
-			".luau-state-error > .luau-chrome-control"
+			".facet-state-error > .facet-chrome-control"
 		)
 		-- and the tag is one classifyTags emits, so the rule has a way to match
-		expect(sheet_model.classifyTags({ errorState = true })["luau-state-error"]).toBe(true)
-		expect(sheet_model.classifyTags({})["luau-state-error"]).toBeNil()
+		expect(sheet_model.classifyTags({ errorState = true })["facet-state-error"]).toBe(true)
+		expect(sheet_model.classifyTags({})["facet-state-error"]).toBeNil()
 	end)
 
 	it("counts the extra art it costs, and a bare-string package costs nothing", function()

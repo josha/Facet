@@ -74,7 +74,7 @@ local STYLE_PROPS: { [string]: boolean } = {
 	-- change like any other style hint
 	textAlign = true,
 	-- the circle Button (feature round 2026-07-26): the disc's chrome. Native
-	-- mode turns it into the `luau-shape-circle` tag the sheet's phantom
+	-- mode turns it into the `facet-shape-circle` tag the sheet's phantom
 	-- ::UICorner/::UIStroke rules key on; fallback mode re-radiuses the real
 	-- UICorner the adapter already built.
 	shape = true,

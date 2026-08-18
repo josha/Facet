@@ -294,7 +294,7 @@ function layered_test.definition(themes: any): any
 							default = "ornate_button_default",
 							hover = "ornate_button_hover",
 							pressed = "ornate_button_pressed",
-							-- `error` has no engine state: it rides luau-state-error
+							-- `error` has no engine state: it rides facet-state-error
 							error = "ornate_selection_selected",
 						},
 					},

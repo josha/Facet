@@ -142,7 +142,7 @@ describe("sheet_model.build", function()
 			-- readable: starts with an uppercase word, never a raw selector
 			expect(string.match(rule.name, "^%u") ~= nil).toBe(true)
 			expect(string.find(rule.name, "::") == nil).toBe(true)
-			expect(string.find(rule.name, "luau%-") == nil).toBe(true)
+			expect(string.find(rule.name, "facet%-") == nil).toBe(true)
 		end
 		for tokenName in model.themes[1].tokens do
 			expect(string.match(tokenName, "^%u%w*$") ~= nil).toBe(true)
@@ -206,8 +206,8 @@ describe("sheet_model.build", function()
 		expect(count).toBe(0)
 		-- grip focus rides its own tag (native focus visual for Grip slivers)
 		local grip = sheet_model.classifyTags({ gripFocus = true })
-		expect(grip["luau-grip-focus"]).toBe(true)
-		expect(sheet_model.classifyTags({ gripFocus = false })["luau-grip-focus"]).toBe(nil)
+		expect(grip["facet-grip-focus"]).toBe(true)
+		expect(sheet_model.classifyTags({ gripFocus = false })["facet-grip-focus"]).toBe(nil)
 		-- selected + roles
 		local sel = sheet_model.classifyTags({
 			surface = "control",
@@ -217,8 +217,8 @@ describe("sheet_model.build", function()
 			roleSecondary = true,
 		})
 		expect(sel[T.selected]).toBe(true)
-		expect(sel["luau-role-strong"]).toBe(true)
-		expect(sel["luau-role-secondary"]).toBe(true)
+		expect(sel["facet-role-strong"]).toBe(true)
+		expect(sel["facet-role-secondary"]).toBe(true)
 	end)
 
 	--[[ THE TINTED FILL IS A TAG, NOT AN EXPLICIT WRITE (director report
@@ -242,7 +242,7 @@ describe("sheet_model.build", function()
 	it("a tint's FILL rides a tag rule, because a default-valued write never claims", function()
 		local model = build()
 		local T = sheet_model.TAGS
-		expect(T.tintFill).toBe("luau-tint-fill")
+		expect(T.tintFill).toBe("facet-tint-fill")
 		-- the tag, emitted only when a tinted node is one the fill applies to
 		expect(sheet_model.classifyTags({ tinted = true })[T.tintFill]).toBe(true)
 		expect(sheet_model.classifyTags({ tinted = false })[T.tintFill]).toBeNil()
@@ -309,10 +309,10 @@ describe("sheet_model.build", function()
 	end)
 
 	it("exports the frozen tag vocabulary the adapter classifies with", function()
-		expect(sheet_model.TAGS.selected).toBe("luau-selected")
-		expect(sheet_model.TAGS.pointerLive).toBe("luau-pointer-live")
-		expect(sheet_model.TAGS.interactive).toBe("luau-interactive")
-		expect(sheet_model.TAGS.surfacePrefix).toBe("luau-surface-")
+		expect(sheet_model.TAGS.selected).toBe("facet-selected")
+		expect(sheet_model.TAGS.pointerLive).toBe("facet-pointer-live")
+		expect(sheet_model.TAGS.interactive).toBe("facet-interactive")
+		expect(sheet_model.TAGS.surfacePrefix).toBe("facet-surface-")
 		expect(table.isfrozen(sheet_model.TAGS :: any)).toBe(true)
 	end)
 end)
@@ -408,7 +408,7 @@ describe("build: the value-control own-paint family (RS-A16-D4)", function()
 	it("pre-arms the skinned suppression, so a rung-2 override has a rule with NO package", function()
 		-- `planFor(nil, slot, { image = ... })` returns a plan: a Slider's
 		-- `thumbImage` skins a node with nothing installed, so the node earns
-		-- `luau-skinned-<slot>` under the BASE sheet and needs the rule there.
+		-- `facet-skinned-<slot>` under the BASE sheet and needs the rule there.
 		for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 			local plan = chrome_slots.planFor(nil, slot, { image = "rbxassetid://991" })
 			expect(plan ~= nil).toBe(true)
@@ -667,14 +667,14 @@ describe("buildPackage: the chrome text lift paints on every skin that lifts (C1
 		end
 		local strong = byName["Chrome text — strong"]
 		expect(strong ~= nil).toBe(true)
-		expect(strong.selector).toBe(".luau-role-strong > .luau-chrome-text")
+		expect(strong.selector).toBe(".facet-role-strong > .facet-chrome-text")
 		expect(strong.props.TextColor3).toBe("$ContentStrong")
 		local secondary = byName["Chrome text — parent secondary"]
 		expect(secondary ~= nil).toBe(true)
-		expect(secondary.selector).toBe(".luau-role-secondary > .luau-chrome-text")
+		expect(secondary.selector).toBe(".facet-role-secondary > .facet-chrome-text")
 		expect(secondary.props.TextColor3).toBe("$ContentSecondary")
 		-- the label's OWN placeholder tag keeps its rule too
-		expect(byName["Chrome text — secondary"].selector).toBe(".luau-chrome-text.luau-role-secondary")
+		expect(byName["Chrome text — secondary"].selector).toBe(".facet-chrome-text.facet-role-secondary")
 	end)
 
 	it("the editing yield goes FULLY transparent so the caret and text show", function()
@@ -700,7 +700,7 @@ describe("buildPackage: an author rule earns chrome scope by SELECTOR (C20)", fu
 				rules = {
 					{
 						name = "Author — bad",
-						selector = ".luau-surface-raised",
+						selector = ".facet-surface-raised",
 						props = { Image = "rbxassetid://1" },
 					},
 				},
@@ -713,7 +713,7 @@ describe("buildPackage: an author rule earns chrome scope by SELECTOR (C20)", fu
 			rules = {
 				{
 					name = "Author — good",
-					selector = ".luau-chrome-panel",
+					selector = ".facet-chrome-panel",
 					props = { ImageTransparency = { kind = "number", value = 0.5 } },
 				},
 			},
@@ -726,7 +726,7 @@ describe("buildPackage: an author rule earns chrome scope by SELECTOR (C20)", fu
 			rules = {
 				{
 					name = "Author — paint",
-					selector = ".luau-surface-base",
+					selector = ".facet-surface-base",
 					props = { BackgroundColor3 = "$Accent" },
 				},
 			},
@@ -807,7 +807,7 @@ describe("RS-DIR11: the accent surface keeps the corner every other surface has"
 	it("the base seed emits Primary button — corner at radii.control", function()
 		local rule = ruleNamed(build(), "Primary button — corner")
 		expect(rule ~= nil).toBe(true)
-		expect(rule.selector).toBe(".luau-surface-accent::UICorner")
+		expect(rule.selector).toBe(".facet-surface-accent::UICorner")
 		expect(rule.props.CornerRadius.kind).toBe("udim")
 		expect(rule.props.CornerRadius.offset).toBe(default_style.radii.control)
 	end)
@@ -816,7 +816,7 @@ describe("RS-DIR11: the accent surface keeps the corner every other surface has"
 		local model = sheet_model.buildPackage(definePkg())
 		local rule = ruleNamed(model, "Primary button — corner")
 		expect(rule ~= nil).toBe(true)
-		expect(rule.selector).toBe(".luau-surface-accent::UICorner")
+		expect(rule.selector).toBe(".facet-surface-accent::UICorner")
 		local wired = false
 		for _, entry in model.metricRuleProps or {} do
 			if entry.rule == "Primary button — corner" and entry.path == "radii.control" then
@@ -910,7 +910,7 @@ describe("RS-DIR8: a selected surface pairs with a content colour that can be re
 		for i, r in model.rules do
 			if r.name == "Chrome text — selected" then
 				selectedAt = i
-				expect(r.selector).toBe(".luau-selected > .luau-chrome-text")
+				expect(r.selector).toBe(".facet-selected > .facet-chrome-text")
 				expect(r.props.TextColor3).toBe("$OnSelected")
 			elseif r.name == "Chrome text — accent" then
 				accentAt = i

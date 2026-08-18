@@ -87,9 +87,9 @@ local GUIDE_ANCHORS: { Anchor } = {
 	{ term = "checkCoverage", why = "shipping a custom control alongside a theme" },
 	{ term = "sliceCenter", why = "nine-slice geometry is the centrepiece of the chrome step" },
 	{ term = "contentInsets", why = "the solver-visible inset the chrome step declares" },
-	{ term = "luau-chrome-fallback", why = "the asset-failure fallback the chrome step promises" },
+	{ term = "facet-chrome-fallback", why = "the asset-failure fallback the chrome step promises" },
 	{ term = "FacetChromeText", why = "the chrome text lift a Button author must design around" },
-	{ term = "luau-chrome-editing", why = "the TextBox editing yield" },
+	{ term = "facet-chrome-editing", why = "the TextBox editing yield" },
 	{ term = WORKED_EXAMPLE, why = "Fantasy Parchment is THE worked example" },
 	{ term = "provenance.md", why = "the art/import/content-ID story" },
 }
@@ -184,7 +184,7 @@ local API_ANCHORS: { Anchor } = {
 		why = "the diameter is a theme METRIC; without this the reference reads as if the author picks a size",
 	},
 	{
-		term = "luau-shape-circle",
+		term = "facet-shape-circle",
 		why = "the pill and the rim are phantom rules on this tag, which is what makes a flat disc cost no instances",
 	},
 }
@@ -995,14 +995,14 @@ check_docs.OBLIGATIONS = table.freeze({
 	"every public Facet.themes export (read from src/init.luau) is documented in docs/reference/api.md",
 	"docs/guide/09-custom-themes.md still names the shipped surface it teaches (themes.define, neutralPackage, "
 		.. "theme_controller, theme_sync_cli + --check, dumpTokens, chromeCensus, checkCoverage, sliceCenter, "
-		.. "contentInsets, luau-chrome-fallback, FacetChromeText, luau-chrome-editing, the worked example, provenance.md)",
+		.. "contentInsets, facet-chrome-fallback, FacetChromeText, facet-chrome-editing, the worked example, provenance.md)",
 	"docs/extending/new-theme.md still names lintProperty, checkCoverage, the ::UICorner/::UIStroke/::UIGradient "
 		.. "allowlist and inert ::UIShadow, facet-theme/1, provenance.md, the theme_authoring scenario, "
 		.. "check_docs_cli and the acceptance ledger",
 	"docs/reference/api.md documents the client controller (require path, dumpTokens, inspect())",
 	"docs/guide/05-styling.md points at 09-custom-themes.md and explains themeMetrics",
 	'docs/reference/api.md and docs/guide/01-concepts.md still teach the circle Button (shape = "circle", the '
-		.. "controls.button.height diameter metric, the luau-shape-circle paint tag, and that an icon is a MEANING "
+		.. "controls.button.height diameter metric, the facet-shape-circle paint tag, and that an icon is a MEANING "
 		.. 'like "chevron.trailing" rather than an asset id)',
 	"examples/themes/fantasy_parchment.luau exists and still builds through themes.define + neutralPackage",
 	"the five reference/example theme packages exist",

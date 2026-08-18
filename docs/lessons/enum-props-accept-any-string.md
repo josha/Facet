@@ -3,7 +3,7 @@
 Observed 2026-07-24 (Milestone 0, roadmap Step 3). A Studio capture of a brand-new
 fixture showed a three-cell `UI.Grid` that was simply not there. The geometry dump said
 the cells existed at the correct column origins with the correct height. The style dump
-said each one carried the tag `luau-surface-panel` and resolved
+said each one carried the tag `facet-surface-panel` and resolved
 `BackgroundTransparency == 1`.
 
 `"panel"` is not a surface role. The roles are

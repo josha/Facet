@@ -73,7 +73,7 @@
 	nor a phantom stroke — which is exactly what a cover band needs — but its fill
 	is `$Surface`, so the panel's colour has to be re-declared through
 	`tint = { role = "surfaceStrong" }`. That reconstruction resolves through
-	`sheet_model.paletteColor(paletteTheme(), …)` while `.luau-surface-raised`
+	`sheet_model.paletteColor(paletteTheme(), …)` while `.facet-surface-raised`
 	resolves `$SurfaceStrong` through the sheet's own emitted rule. The two agree,
 	and `tests/anchored_surface.spec.luau` PINS them equal across every shipped
 	package, because nothing else can: a live property read reports the UNSTYLED
@@ -427,7 +427,7 @@ function anchored.new(ctx: any)
 				declaration the synthesized catchers carry after the twin defect in
 				`popup_catcher_paint.spec` — a node that never said what it was, dressed
 				by a package that had no way to know better). What remains is the NATIVE
-				sheet paint of `.luau-surface-raised`, which every package restyles with
+				sheet paint of `.facet-surface-raised`, which every package restyles with
 				its own `surfaceStrong`: the wedge keeps following the theme, in the
 				panel's own colour, and can no longer inherit its geometry. ]]
 			table.insert(
@@ -480,7 +480,7 @@ function anchored.new(ctx: any)
 				`surface = "base"` is the ONE native surface with neither a phantom corner
 				NOR a phantom stroke, so the band can never round its ends or grow a
 				border; the tint puts it in the panel's own colour. That tint is a SECOND
-				AUTHORITY over a value `.luau-surface-raised` already owns, and the two
+				AUTHORITY over a value `.facet-surface-raised` already owns, and the two
 				resolve through different paths — so `sheet_seam_authority.spec.luau` pins
 				them equal across every shipped package. Without that guard this is a
 				defect only a live `GetStyled` could ever see. ]]

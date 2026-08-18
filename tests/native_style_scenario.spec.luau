@@ -244,7 +244,7 @@ describe("screen_target: the image IS the button (source contract)", function()
 	end
 
 	it("the skinned-slot tag rides the SAME desired set syncTags diffs against", function()
-		-- syncTags removes every luau-* tag not in the desired set, so a tag added
+		-- syncTags removes every facet-* tag not in the desired set, so a tag added
 		-- anywhere else would be stripped on the next classification pass
 		local tags = section("local function syncTags(handle: any)", "for _, tag in CollectionService:GetTags")
 		expect(string.find(tags, "skinnedSlot = handle.chromeSlot", 1, true) ~= nil).toBe(true)
@@ -460,7 +460,7 @@ describe("screen_target: a value control's own paint (source contract)", functio
 		-- decoration create/destroy. A hinted node has NO surface by design, so
 		-- when the installed package declares no recipe for its slot the function
 		-- returned at `plan == nil` before ever reaching the second one — the
-		-- `luau-slot-*` tag never landed, nothing matched, and the Frame fell to
+		-- `facet-slot-*` tag never landed, nothing matched, and the Frame fell to
 		-- `Frame default` transparency 1. Invisible thumb, invisible rail.
 		--
 		-- It passed under Parchment purely by accident (its recipes create a

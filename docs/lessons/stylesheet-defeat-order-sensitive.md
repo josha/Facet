@@ -24,7 +24,7 @@ Both directions verified live:
 1. Constructing chrome off-tree and writing "override" values before parenting
    DOES NOT override rules. Either write **after** the instance is styled, or —
    the honest native answer — give the instance a **tag rule** that owns the
-   property (the toggle chrome now carries `.luau-toggle-chrome` →
+   property (the toggle chrome now carries `.facet-toggle-chrome` →
    `BackgroundTransparency = 0`).
 2. Plain property reads can claim a write "took" while the screen disagrees.
    **Never verify paint authority with plain reads** — use `GetStyled(prop)`
@@ -35,7 +35,7 @@ Both directions verified live:
 
 ## Addendum (same day): cascade order is NOT serialization-stable — pin it with Priority
 
-The first fix (tag rule `.luau-toggle-chrome`) still lost in the director's
+The first fix (tag rule `.facet-toggle-chrome`) still lost in the director's
 place: the sheet had been MIGRATED in Edit and copied into Play, and
 `GetStyleRules()` came back **scrambled** relative to creation order ("Toggle
 chrome" index 4, "Frame default" index 12 → the default's transparency won the

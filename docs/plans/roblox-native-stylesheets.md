@@ -299,7 +299,7 @@ engine class references for
 | **Instances** | `StyleSheet` holds `StyleRule`s (`GetStyleRules`, `InsertStyleRule(rule, priority?)`, `SetStyleRules`; `StyleRulesChanged`) and can `SetDerives`/`GetDerives` other sheets. `StyleLink.StyleSheet` applies one sheet to a tree; **"Only one StyleSheet can apply to a given tree."** | A single `StyleLink` under each Facet `ScreenGui` is the application point. |
 | **Class selectors** | `rule.Selector = "Frame"` / `"TextButton"` targets by class. | Matches Facet's `CLASS_TO_INSTANCE` map (`Frame`/`TextButton`/`TextLabel`/`ImageLabel`/`TextBox`, `screen_target.luau:26-33`). |
 | **Name selectors** | `#InstanceName` (CSS ID analogue). | Facet already names every instance by its **path** (`instance.Name = path`, `screen_target.luau:474`) — usable but paths are unstable/verbose; class+tag is better. |
-| **Tag selectors** | CollectionService tags, CSS-class analogue. | The clean carrier for Facet **surface roles and app-state pseudo-states** (e.g. tag `luau-surface-raised`, `luau-selected`), and — crucially under R2 — the **trigger for state-driven transitions** (§6.10). |
+| **Tag selectors** | CollectionService tags, CSS-class analogue. | The clean carrier for Facet **surface roles and app-state pseudo-states** (e.g. tag `facet-surface-raised`, `facet-selected`), and — crucially under R2 — the **trigger for state-driven transitions** (§6.10). |
 | **State selectors** | `:Hover`, `:Press` — one of four `Enum.GuiState` values ("similar to CSS pseudo-classes"). | Candidate replacement for `wireInteractiveStates` hover/press *fills*, with free transitions — **but see Q1/Q2**. |
 | **Modifier / pseudo-instance selectors** | `::UICorner`, `::UIStroke` ("pseudo-elements → pseudo-instances"). | Could let a rule own corner radius and hairline stroke. Whether a rule *creates* a missing modifier or only styles an existing one is **open Q2**. |
 | **Combinators / lists / nesting** | child `>`, descendant `>>` (not whitespace), comma lists, SCSS-style nesting with selector merging. | Enables e.g. "text inside a raised surface" rules. |
@@ -421,10 +421,10 @@ opening the Style Editor sees words they already know from the API docs:
   `ControlHover`, `ControlPressed`, `ControlSelected`, `ContentSecondary`,
   `Hairline`. These are exactly the `default_style` colour + `extra` role names
   (`src/tokens/default_style.luau:27-46`), PascalCased.
-- **Classes / tags** name the surface role: tag `luau-surface-raised`,
-  `luau-surface-control`, `luau-surface-scrim`, `luau-surface-accent`, … (one per
+- **Classes / tags** name the surface role: tag `facet-surface-raised`,
+  `facet-surface-control`, `facet-surface-scrim`, `facet-surface-accent`, … (one per
   `applySurface` branch, `screen_target.luau:199-282`), plus state tags
-  `luau-selected`, `luau-focused` for app-state pseudo-states native can't infer.
+  `facet-selected`, `facet-focused` for app-state pseudo-states native can't infer.
 - **Rules** get readable Names in the sheet: `Raised panel`, `Control fill`,
   `Control — hover`, `Control — pressed`, `Scrim backdrop`, `Primary button`,
   `Selected row`. The Style Editor shows these Names, satisfying "human-readable
@@ -473,8 +473,8 @@ unreadable text" (`05-styling.md:26`) survives the move to the DataModel — and
   represent.
 - **Selected** → **tag-driven native rule.** `selected` is a data binding
   (`authority.luau` binding authority; `screen_target.luau:1050-1058`). The adapter
-  adds/removes CollectionService tag `luau-selected`, and a native rule
-  `.luau-selected { BackgroundColor3 = $ControlSelected }` paints it — **and the tag
+  adds/removes CollectionService tag `facet-selected`, and a native rule
+  `.facet-selected { BackgroundColor3 = $ControlSelected }` paints it — **and the tag
   flip triggers the selection transition for free** (§6.10). This keeps the colour
   in the editable sheet while the *state* stays app-driven.
 

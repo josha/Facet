@@ -9,7 +9,7 @@ applied at all* (a slot tag that only landed because some unrelated recipe cause
 a decoration to be created). This is the same defect one level up, on the
 EMISSION side.
 
-`luau-skinned-<slot>` is earned by the **node**, from three independent routes:
+`facet-skinned-<slot>` is earned by the **node**, from three independent routes:
 
 1. the installed package declares a nine-slice recipe for the slot;
 2. the installed package declares a layer stack for the slot;

@@ -251,7 +251,7 @@ theme value.
 A `StyleSheet` can repaint a `Frame`; it cannot turn a `Frame` into an
 `ImageLabel`. So for image-backed skins Facet adds the smallest possible
 substrate: **one non-interactive `ImageLabel` per skinned node**, named
-`FacetChrome`, tagged `luau-chrome-<slot>`, painted entirely by the package's
+`FacetChrome`, tagged `facet-chrome-<slot>`, painted entirely by the package's
 own rules.
 
 The **decoration slots** are a closed list. These nine are the ones this chapter
@@ -474,7 +474,7 @@ press is a full third darker than rest rather than a polite nudge.
 
 For every slot you skin, the package emits three suppression rules against the
 **decorated node** (the button itself, not the decoration child), keyed on a
-`luau-skinned-<slot>` tag the adapter adds and removes with the decoration:
+`facet-skinned-<slot>` tag the adapter adds and removes with the decoration:
 
 | Rule | What it turns off |
 |---|---|
@@ -499,9 +499,9 @@ Three role tints ride the same `ImageColor3` channel the interaction states do:
 
 | Rule | Selector | Token |
 |---|---|---|
-| `Chrome role — destructive` | `.luau-role-destructive > .luau-chrome-control` | `$ChromeTintDanger` |
-| `Chrome role — cancel` | `.luau-role-cancel > .luau-chrome-control` | `$ChromeTintCancel` |
-| `Chrome role — accent` | `.luau-surface-accent > .luau-chrome-control` | `$ChromeTintAccent` |
+| `Chrome role — destructive` | `.facet-role-destructive > .facet-chrome-control` | `$ChromeTintDanger` |
+| `Chrome role — cancel` | `.facet-role-cancel > .facet-chrome-control` | `$ChromeTintCancel` |
+| `Chrome role — accent` | `.facet-surface-accent > .facet-chrome-control` | `$ChromeTintAccent` |
 
 Each token is derived per theme from that theme's own palette, and each is
 lifted toward white before it multiplies — a raw danger colour multiplied into
@@ -524,8 +524,8 @@ package *and* the built-in default with no package installed at all:
 
 | Rule | Selector | Paints |
 |---|---|---|
-| `Slot — sliderThumb` | `.luau-slot-sliderThumb` | `$SurfaceStrong`, **transparency 0** |
-| `Slot — sliderTrack` | `.luau-slot-sliderTrack` | `$Control`, **transparency 0** |
+| `Slot — sliderThumb` | `.facet-slot-sliderThumb` | `$SurfaceStrong`, **transparency 0** |
+| `Slot — sliderTrack` | `.facet-slot-sliderTrack` | `$Control`, **transparency 0** |
 | `Slot — <slot> corner` | `…::UICorner` | a circle for the thumb, your control radius for the rail |
 | `Slot — <slot> outline` | `…::UIStroke` | `$Hairline` at your own stroke weight |
 
@@ -638,7 +638,7 @@ a measurement.
 The decoration child is `Active = false` and can never report an interaction
 state of its own, so every state rule reads the **parent's** state and reaches
 the child through a child combinator
-(`.luau-interactive:Hover > .luau-chrome-control`). All four such selectors are
+(`.facet-interactive:Hover > .facet-chrome-control`). All four such selectors are
 engine-verified (`artifacts/theme-packages-and-skinning/feasibility/m8-render-order-combinators.json`).
 
 ### Two consequences you must design around
@@ -653,7 +653,7 @@ engine-verified (`artifacts/theme-packages-and-skinning/feasibility/m8-render-or
 under Sibling a full-bleed child covers its parent's own engine-drawn text *at
 any ZIndex* — including negative ones. So a text-bearing node with an active
 decoration gets one managed `TextLabel` named `FacetChromeText`, tagged
-`luau-chrome-text`, sitting above the decoration and mirroring the parent's
+`facet-chrome-text`, sitting above the decoration and mirroring the parent's
 text. The parent keeps its `Text` for semantics and measurement; the lifted
 label is what you see.
 
@@ -674,7 +674,7 @@ the value the director could not read.
 
 **2. A TextBox yields its chrome while editing.** The engine draws the caret at
 the parent layer and that is non-negotiable, so while a field is being edited
-the adapter adds `luau-chrome-editing`, the decoration flattens to the native
+the adapter adds `facet-chrome-editing`, the decoration flattens to the native
 fill, and the lifted label hides. Design the field's *native* fallback paint to
 be a usable editing surface, because that is what the player types into.
 
@@ -730,8 +730,8 @@ and the recovery is tag-driven:
    infers it from silence, which it may only do for art the engine was actually
    asked to decode — see
    [`docs/lessons/engine-never-decodes-invisible-images.md`](../lessons/engine-never-decodes-invisible-images.md));
-2. the adapter adds `luau-chrome-fallback` to that slot's art, and
-   `luau-chrome-mute` to every art instance of it EXCEPT the condemned asset's own
+2. the adapter adds `facet-chrome-fallback` to that slot's art, and
+   `facet-chrome-mute` to every art instance of it EXCEPT the condemned asset's own
    undecoded picture;
 3. the package's generated `Chrome — <slot> fallback` rule paints the slot's flat
    fill, corner radius and hairline, and `Chrome — <slot> fallback hide` turns the

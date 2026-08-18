@@ -295,7 +295,7 @@ describe("chrome_slots: the window clip, expressed as numbers", function()
 		expect(chrome_slots.barCapAssetOf(recipe, "start")).toBe("capStart")
 		expect(chrome_slots.barCapAssetOf(recipe, "finish")).toBe("capEnd")
 		expect(chrome_slots.barCapAssetOf({ asset = "capStart" }, "finish")).toBe("capStart")
-		expect(chrome_slots.barCapTagFor("start")).toBe("luau-chrome-barCap-start")
+		expect(chrome_slots.barCapTagFor("start")).toBe("facet-chrome-barCap-start")
 		expect(chrome_slots.barOrnamentSize(recipe).w).toBe(28)
 		expect(chrome_slots.barOrnamentSize({}).w).toBe(0)
 	end)
@@ -580,7 +580,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 	it("the bar's four slots each get their resting art rule", function()
 		local model = sheet_model.buildPackage(built())
 		expect(ruleNamed(model, "Chrome — barTrack").props.Image).toBe("rbxassetid://21")
-		expect(ruleNamed(model, "Chrome — barTrack").selector).toBe(".luau-chrome-barTrack")
+		expect(ruleNamed(model, "Chrome — barTrack").selector).toBe(".facet-chrome-barTrack")
 		expect(ruleNamed(model, "Chrome — barFill").props.Image).toBe("rbxassetid://22")
 		-- the fill SLICES: it is a stretcher, and its texture is what the window
 		-- reveals, so losing the nine-patch is exactly the rs-m4 failure
@@ -597,11 +597,11 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		local startRule = ruleNamed(model, "Chrome — barCap start")
 		local endRule = ruleNamed(model, "Chrome — barCap finish")
 		expect(startRule).toBeNil() -- it IS the recipe's `asset`, so no second rule
-		expect(endRule.selector).toBe(".luau-chrome-barCap-finish")
+		expect(endRule.selector).toBe(".facet-chrome-barCap-finish")
 		expect(endRule.props.Image).toBe("rbxassetid://24")
 	end)
 
-	it("a flat bar keeps SOLID native paint through the luau-slot-* family", function()
+	it("a flat bar keeps SOLID native paint through the facet-slot-* family", function()
 		-- R9's OWN_PAINT_SLOTS: barTrack/barFill are what a progress bar IS when
 		-- unskinned, so they carry the guarantee the slider rail and thumb got
 		local flat = sheet_model.buildPackage(snapshot.neutralPackage())
@@ -615,7 +615,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 
 	it("the image is the element: a skinned bar's own plate is suppressed", function()
 		local model = sheet_model.buildPackage(built())
-		expect(ruleNamed(model, "Skinned — barFill").selector).toBe(".luau-skinned-barFill")
+		expect(ruleNamed(model, "Skinned — barFill").selector).toBe(".facet-skinned-barFill")
 		expect(ruleNamed(model, "Skinned — barFill").props.BackgroundTransparency.value).toBe(1)
 		expect(ruleNamed(model, "Skinned — barTrack").props.BackgroundTransparency.value).toBe(1)
 		expect(ruleNamed(model, "Skinned — toggleTrack").props.BackgroundTransparency.value).toBe(1)
@@ -637,10 +637,10 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 			local model = sheet_model.buildPackage(pkg)
 			for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 				local plate = ruleNamed(model, `Skinned — {slot}`)
-				expect(plate.selector).toBe(`.luau-skinned-{slot}`)
+				expect(plate.selector).toBe(`.facet-skinned-{slot}`)
 				expect(plate.props.BackgroundTransparency.value).toBe(1)
 				local corner = ruleNamed(model, `Skinned — {slot} corner`)
-				expect(corner.selector).toBe(`.luau-skinned-{slot}::UICorner`)
+				expect(corner.selector).toBe(`.facet-skinned-{slot}::UICorner`)
 				expect(corner.props.CornerRadius.offset).toBe(0)
 				expect(corner.props.CornerRadius.scale).toBe(0)
 				local outline = ruleNamed(model, `Skinned — {slot} outline`)
@@ -687,7 +687,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 	it("the RUNG-2 hole: a slot the package never declares still has its rule", function()
 		-- the live defect. `glossy-touch` declares barTrack/barFill and NO slider
 		-- recipe at all, so before this round a view that supplied its own thumb
-		-- image earned `luau-skinned-sliderThumb` and nothing matched it.
+		-- image earned `facet-skinned-sliderThumb` and nothing matched it.
 		local glossy = (require("../examples/themes/glossy_touch") :: any).build(Facet.themes)
 		expect(chrome_slots.planFor(glossy, "sliderThumb")).toBeNil() -- no recipe
 		local override = chrome_slots.planFor(glossy, "sliderThumb", { image = "rbxassetid://991" })
@@ -698,8 +698,8 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		-- ...and the node the adapter builds for it carries BOTH tags, so the
 		-- solid `Slot —` paint and the suppression select the same instance
 		local tags = sheet_model.classifyTags({ slotHint = "sliderThumb", skinnedSlot = "sliderThumb" })
-		expect(tags["luau-slot-sliderThumb"]).toBe(true)
-		expect(tags["luau-skinned-sliderThumb"]).toBe(true)
+		expect(tags["facet-slot-sliderThumb"]).toBe(true)
+		expect(tags["facet-skinned-sliderThumb"]).toBe(true)
 	end)
 
 	it("an UNSKINNED value node is byte-unchanged: solid paint, no skinned tag", function()
@@ -709,8 +709,8 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		for _, slot in chrome_slots.OWN_PAINT_SLOTS do
 			expect(ruleNamed(flat, `Slot — {slot}`).props.BackgroundTransparency.value).toBe(0)
 			local tags = sheet_model.classifyTags({ slotHint = slot })
-			expect(tags[`luau-slot-{slot}`]).toBe(true)
-			expect(tags[`luau-skinned-{slot}`]).toBeNil()
+			expect(tags[`facet-slot-{slot}`]).toBe(true)
+			expect(tags[`facet-skinned-{slot}`]).toBeNil()
 		end
 		-- and a NATIVE gradient still cannot reach any of them: the hazard the
 		-- Step 3.5 ruling was written for is untouched by this refinement
@@ -730,16 +730,18 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 
 	it("a switch's ON art keys on the VALUE tag, never on row selection", function()
 		local model = sheet_model.buildPackage(built())
-		-- `luau-selected` carries the row treatment (`TextButton.luau-selected`
+		-- `facet-selected` carries the row treatment (`TextButton.facet-selected`
 		-- repaints the whole button); a toggle being on is not a row being chosen
 		local on = ruleNamed(model, "Chrome — toggleTrack selected art")
-		expect(on.selector).toBe(".luau-toggle-on > .luau-chrome-toggleTrack")
+		expect(on.selector).toBe(".facet-toggle-on > .facet-chrome-toggleTrack")
 		expect(on.props.Image).toBe("rbxassetid://27")
 		expect(ruleNamed(model, "Chrome — toggleTrack selected").selector).toBe(
-			".luau-toggle-on > .luau-chrome-toggleTrack"
+			".facet-toggle-on > .facet-chrome-toggleTrack"
 		)
 		-- ...while a panel's `selected` still means row selection
-		expect(ruleNamed(model, "Chrome — barTrack selected").selector).toBe(".luau-selected > .luau-chrome-barTrack")
+		expect(ruleNamed(model, "Chrome — barTrack selected").selector).toBe(
+			".facet-selected > .facet-chrome-barTrack"
+		)
 	end)
 
 	it("the knob's per-state art is a CHILD COMBINATOR off the interactive node", function()
@@ -747,10 +749,10 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		-- these rules would be emitted and never match anything
 		local model = sheet_model.buildPackage(built())
 		expect(ruleNamed(model, "Chrome — toggleKnob hover art").selector).toBe(
-			".luau-interactive.luau-pointer-live:Hover > .luau-chrome-toggleKnob"
+			".facet-interactive.facet-pointer-live:Hover > .facet-chrome-toggleKnob"
 		)
 		expect(ruleNamed(model, "Chrome — toggleKnob pressed art").selector).toBe(
-			".luau-interactive:Press > .luau-chrome-toggleKnob"
+			".facet-interactive:Press > .facet-chrome-toggleKnob"
 		)
 	end)
 
@@ -774,7 +776,7 @@ describe("sheet_model.buildPackage: the value displays' rules", function()
 		    dot. That works, ships, and is asserted by the OWN_PAINT_SLOTS cases
 		    above, which include `spinner`.
 		  * its ART. That does not work, and was a trap: the five dots differ ONLY
-		    in the tint the control rewrites each frame, and `luau-skinned-spinner`
+		    in the tint the control rewrites each frame, and `facet-skinned-spinner`
 		    suppresses the very plate that tint paints. A package that declared a
 		    dot image would have shipped a frozen spinner — the exact lie the
 		    control's reduced-motion note forbids — with no diagnostic anywhere.
@@ -970,11 +972,11 @@ describe("chrome_slots.resolveSlot: the stepper plate's fallback", function()
 end)
 
 describe("sheet_model.classifyTags: the switch's value is a tag", function()
-	it("ON emits luau-toggle-on and never the row-selection tag", function()
+	it("ON emits facet-toggle-on and never the row-selection tag", function()
 		local tags = sheet_model.classifyTags({ surface = "control", interactive = true, toggleOn = true })
-		expect(tags["luau-toggle-on"]).toBe(true)
-		expect(tags["luau-selected"]).toBeNil()
-		expect(sheet_model.classifyTags({ surface = "control", interactive = true })["luau-toggle-on"]).toBeNil()
+		expect(tags["facet-toggle-on"]).toBe(true)
+		expect(tags["facet-selected"]).toBeNil()
+		expect(sheet_model.classifyTags({ surface = "control", interactive = true })["facet-toggle-on"]).toBeNil()
 	end)
 end)
 
@@ -1187,7 +1189,7 @@ describe("screen_target: the toggle's art rides the instances that already exist
 		-- changes, so the only recovery path never fired for a decoration built
 		-- after the texture landed — an asset marked failed during a cold start
 		-- stayed failed for the session. Measured live: every panel/control
-		-- decoration in the value fixture carried `luau-chrome-fallback` with
+		-- decoration in the value fixture carried `facet-chrome-fallback` with
 		-- `IsLoaded = true`, and the disabled row then drew its art at 0.4 over
 		-- the fallback's native fill.
 		local watch = section("local function watchChromeAsset", "\n\tend")
@@ -1214,7 +1216,7 @@ describe("screen_target: the toggle's art rides the instances that already exist
 	end)
 
 	it("the ON tag goes through syncTags, so the next pass cannot strip it", function()
-		-- the Step 3.5 defect class, one control down: every luau-* tag on this
+		-- the Step 3.5 defect class, one control down: every facet-* tag on this
 		-- instance is diffed against classifyTags' desired set
 		local apply = section("local function applyToggleValue", "local palette = togglePalette()")
 		expect(has(apply, "syncTags(handle)")).toBe(true)

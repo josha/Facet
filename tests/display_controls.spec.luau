@@ -85,7 +85,7 @@ describe("B-DSP1: ProgressView is determinate and style-owned", function()
 			-- on, and nothing else: no surface treatment leaks in
 			local desired =
 				sheet_model.classifyTags({ surface = node.props.surface, slotHint = node.decorationHint.slot })
-			expect(desired["luau-slot-" .. slot]).toBe(true)
+			expect(desired["facet-slot-" .. slot]).toBe(true)
 			local count = 0
 			for _ in desired do
 				count += 1

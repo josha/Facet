@@ -159,7 +159,7 @@ function drag_registry.new(opts: Opts)
 	-- for the whole of "the slot sits empty until it lands or returns" — set at
 	-- acquisition, cleared when the drop LANDS or the return flight ARRIVES (not
 	-- at the release frame, which is earlier). The renderer binds this to the
-	-- `luau-drag-held` state every theme's sheet empties.
+	-- `facet-drag-held` state every theme's sheet empties.
 	local heldSource = core:signal(nil :: string?)
 
 	-- pre-promotion press (a press that has not travelled far enough to be a drag)
@@ -1142,7 +1142,7 @@ function drag_registry.new(opts: Opts)
 		}
 	end
 
-	-- the held-source Readable (the renderer binds it to the `luau-drag-held`
+	-- the held-source Readable (the renderer binds it to the `facet-drag-held`
 	-- state; any consumer may read it the same way it reads the verdict)
 	registry.heldSource = heldSource
 

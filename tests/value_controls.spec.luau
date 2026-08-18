@@ -973,8 +973,8 @@ describe("Slider: the decoration hint reaches the render target", function()
 		local _, adapter = mountSlider()
 		for _, case in
 			{
-				{ path = "/S/Vol/TrackHost/Groove/Thumb", tag = "luau-slot-sliderThumb" },
-				{ path = "/S/Vol/TrackHost/Groove/Rail", tag = "luau-slot-sliderTrack" },
+				{ path = "/S/Vol/TrackHost/Groove/Thumb", tag = "facet-slot-sliderThumb" },
+				{ path = "/S/Vol/TrackHost/Groove/Rail", tag = "facet-slot-sliderTrack" },
 			}
 		do
 			local node = adapter.node(case.path)

@@ -35,6 +35,36 @@ RR = os.path.join(STUDIO_ROOT, "games", "RascalRally", "code")
 
 BRAND = re.compile(r"luau[\s._-]?ui", re.IGNORECASE)
 
+# THE THEME-AUTHORING TAG VOCABULARY (controller ruling R11, wave R5). The public
+# tags a theme package selects on were still `luau-*` / `luau-slot-*` under a
+# framework named Facet, and `BRAND` structurally CANNOT see them (ARCH-16):
+# there is no "ui" after "luau", so no amount of separator tolerance reaches
+# `luau-chrome-panel`. The tags renamed outright to `facet-*` — no alias, no dual
+# vocabulary, because the repository is pre-public with zero external theme
+# authors and this was the only moment the rename was free.
+#
+# The negative lookahead names the three LUAU-THE-LANGUAGE terms that are not the
+# retired brand at all and never were: the analyser, the language server, and one
+# lesson filename. They are excluded structurally rather than allowlisted by path,
+# because they are legitimate everywhere and an allowlist entry would have to be
+# repeated for every file that ever mentions the toolchain.
+# Every tag is lowercase, so the pattern is CASE-SENSITIVE: "Luau-side",
+# "Luau-authoritative" and "a Luau-call-count win" are prose about the LANGUAGE
+# and appear in a dozen ADRs. The four excluded stems are the Luau toolchain and
+# two lesson filenames about Luau syntax — not the retired brand, and legitimate
+# in any file, which is why they are excluded structurally instead of by path:
+#   lsp                              the Luau language server
+#   analyze                          the Luau analyser binary
+#   execution-session                a Roblox Open Cloud API scope name
+#   interpolated-strings-single-line docs/lessons/… (a Luau string-syntax trap)
+#   require-by-string-init-self      docs/lessons/… (a Luau require trap)
+TAG = re.compile(r"\bluau-(?!lsp\b|analyze\b|execution-session\b"
+                 r"|interpolated-strings-single-line"
+                 r"|require-by-string-init-self)")
+
+# every pattern the old-brand profile matches, in report order
+PROFILE = (BRAND, TAG)
+
 # Frozen-evidence trees: never scanned. Their reason is structural (the plan's
 # immutable-evidence class), not per-file.
 EXCLUDED_TREES = (
@@ -51,6 +81,15 @@ RR_DOC_HISTORY = ("docs/missions/", "docs/playtests/", "docs/DECISIONS.md")
 ALLOWLIST = [
     ("docs/adr/ADR-0036-facet-rename.md", BRAND,
      "the rename ADR is the one document that names both brands",
+     "permanent (ADRs are history)"),
+    ("docs/adr/ADR-0036-facet-rename.md", TAG,
+     "…and it now records that the theme tags moved later, which means quoting them",
+     "permanent (ADRs are history)"),
+    ("docs/adr/ADR-0038-theme-tag-vocabulary.md", TAG,
+     "the tag-rename ADR is the one document that names both tag vocabularies",
+     "permanent (ADRs are history)"),
+    ("docs/adr/ADR-0038-theme-tag-vocabulary.md", BRAND,
+     "it names the retired product once, explaining why BRAND could not see the tags",
      "permanent (ADRs are history)"),
     ("tools/lune/gate_manifest.luau", re.compile(r"artifacts/", re.I),
      "run/note lines that quote files under artifacts/ quote frozen evidence",
@@ -83,6 +122,9 @@ ALLOWLIST = [
      "same frozen-spec citation", "same"),
     ("tools/check_brand_drift.py", BRAND,
      "the guard's own match data", "never (it IS the guard)"),
+    ("tools/check_brand_drift.py", TAG,
+     "the guard's own tag-pattern match data and its planted selftest tag",
+     "never (it IS the guard)"),
     # Rascal Rally repo entries (paths relative to the RR repo, prefixed rr:)
     ("rr:src/client/FacetFlags.luau", BRAND,
      "dual-read fallback: the five pre-rename attribute names ARE the migration",
@@ -121,25 +163,36 @@ def tracked(repo):
     return out.stdout.splitlines()
 
 
-def allow(scope_path, line_text):
+def allow(scope_path, line_text, pattern):
     for path, pat, _reason, _removal in ALLOWLIST:
         if scope_path == path or scope_path.startswith(path.rstrip("/") + "/") \
            or scope_path == path:
-            if pat.search(line_text) or pat is BRAND:
+            # An entry excuses a line when the entry's OWN pattern matches that
+            # line — so a narrow entry (a frozen capture-schema string, a cited
+            # spec filename) keeps its scope whichever profile pattern fired.
+            # The BRAND shortcut is deliberately not extended to the tag half:
+            # "this file may name the old product" is not "this file may keep a
+            # `luau-*` theme tag".
+            if pat.search(line_text) or (pat is BRAND and pattern is BRAND):
                 return True
     return False
 
 
 def scan_file(abs_path, scope_path, hits):
     base = os.path.basename(abs_path)
-    if BRAND.search(base) and not any(
-            scope_path == p or scope_path.startswith(p) for p, *_ in ALLOWLIST):
-        hits.append(f"{scope_path}: PATH carries the old brand")
+    allowed_path = any(scope_path == p or scope_path.startswith(p)
+                       for p, *_ in ALLOWLIST)
+    for pattern in PROFILE:
+        if pattern.search(base) and not allowed_path:
+            hits.append(f"{scope_path}: PATH carries the old brand")
+            break
     try:
         with open(abs_path, encoding="utf-8", errors="replace") as fh:
             for n, line in enumerate(fh, 1):
-                if BRAND.search(line) and not allow(scope_path, line):
-                    hits.append(f"{scope_path}:{n}: {line.strip()[:120]}")
+                for pattern in PROFILE:
+                    if pattern.search(line) and not allow(scope_path, line, pattern):
+                        hits.append(f"{scope_path}:{n}: {line.strip()[:120]}")
+                        break
     except OSError:
         pass
 
@@ -175,7 +228,8 @@ def scan_builds(hits):
             with open(tmp, encoding="utf-8", errors="replace") as fh:
                 for n, line in enumerate(fh, 1):
                     # serialized NAMES only: property lines carrying name attrs
-                    if 'name="Name"' in line and BRAND.search(line):
+                    if 'name="Name"' in line and any(
+                            p.search(line) for p in PROFILE):
                         hits.append(f"{proj} (built XML) line {n}: {line.strip()[:120]}")
         finally:
             os.unlink(tmp)
@@ -214,6 +268,8 @@ def selftest():
     probe_content = os.path.join(REPO, "src", "drift_probe_tmp.luau")
     probe_path = os.path.join(REPO, "tests", "luauui_probe_tmp.luau")
     probe_allow = os.path.join(REPO, "src", "core", "drift_probe_allow.luau")
+    probe_tag = os.path.join(REPO, "src", "tag_probe_tmp.luau")
+    probe_toolchain = os.path.join(REPO, "src", "toolchain_probe_tmp.luau")
     try:
         with open(probe_content, "w") as f:
             f.write("-- planted: LuauUI must be caught here\nreturn {}\n")
@@ -222,19 +278,34 @@ def selftest():
         # an allowlisted PATTERN outside its allowlisted PATH must still fail
         with open(probe_allow, "w") as f:
             f.write("-- planted: the luauui-theme/1 stamp outside its file\n")
+        # the TAG half (R11): `luau-chrome-panel` carries no "ui" at all, so it is
+        # invisible to BRAND and only the tag pattern can see it
+        with open(probe_tag, "w") as f:
+            f.write('local tag = "luau-chrome-panel"\nreturn tag\n')
+        # ...and the three Luau-the-language terms must NOT be caught, or the
+        # guard becomes a thing people route around
+        with open(probe_toolchain, "w") as f:
+            f.write("-- the repo runs no luau-analyze; luau-lsp is not installed\n")
         # planted files are untracked; scan them directly
         hits = []
         scan_file(probe_content, "src/drift_probe_tmp.luau", hits)
         scan_file(probe_path, "tests/luauui_probe_tmp.luau", hits)
         scan_file(probe_allow, "src/core/drift_probe_allow.luau", hits)
+        scan_file(probe_tag, "src/tag_probe_tmp.luau", hits)
+        toolchain_hits = []
+        scan_file(probe_toolchain, "src/toolchain_probe_tmp.luau", toolchain_hits)
         if len([h for h in hits if "drift_probe_tmp" in h]) < 1 \
            or len([h for h in hits if "PATH carries" in h]) < 1 \
-           or len([h for h in hits if "drift_probe_allow" in h]) < 1:
-            print("check_brand_drift: SELFTEST FAIL — a planted violation survived")
-            print("\n".join(hits))
+           or len([h for h in hits if "drift_probe_allow" in h]) < 1 \
+           or len([h for h in hits if "tag_probe_tmp" in h]) < 1 \
+           or toolchain_hits:
+            print("check_brand_drift: SELFTEST FAIL — a planted violation survived, "
+                  "or a Luau-toolchain mention was caught as brand drift")
+            print("\n".join(hits + [f"toolchain: {t}" for t in toolchain_hits]))
             return 1
     finally:
-        for p in (probe_content, probe_path, probe_allow):
+        for p in (probe_content, probe_path, probe_allow, probe_tag,
+                  probe_toolchain):
             if os.path.exists(p):
                 os.unlink(p)
     clean = run_scan(skip_builds=True)
@@ -242,8 +313,10 @@ def selftest():
         print("check_brand_drift: SELFTEST FAIL — restored tree not clean:")
         print("\n".join(clean[:20]))
         return 1
-    print("check_brand_drift: SELFTEST PASS — planted content, planted path, and "
-          "out-of-scope allowlist pattern each caught; restored tree clean")
+    print("check_brand_drift: SELFTEST PASS — planted content, planted path, "
+          "planted `luau-*` theme tag, and out-of-scope allowlist pattern each "
+          "caught; `luau-analyze`/`luau-lsp` deliberately not caught; restored "
+          "tree clean")
     return 0
 
 

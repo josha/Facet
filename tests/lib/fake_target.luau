@@ -69,7 +69,7 @@ local HANDLED_PROPS: { string } = {
 	-- `TextWrapped`, which it can only decide with the drawable width the solve knows
 	"textWrapped",
 	-- the typography role's FACE, beside its size (F2): the live adapter turns
-	-- this descriptor into a FontFace (bespoke) or a `luau-type-<role>` tag
+	-- this descriptor into a FontFace (bespoke) or a `facet-type-<role>` tag
 	-- (native), so it has to be a declared prop here or the parity pin blinds
 	-- the suite to the whole seam — the SF-M9 lesson this list exists for
 	"textFont",

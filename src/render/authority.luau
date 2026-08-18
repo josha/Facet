@@ -62,7 +62,7 @@ local MANIFEST: { [string]: { [string]: Authority } } = {
 		transform = "presentation",
 		-- THE HELD DRAG SOURCE (director round five): registry-driven state the
 		-- renderer writes while a live session carries this node's payload; the
-		-- adapter empties the label via the `luau-drag-held` tag rule (native)
+		-- adapter empties the label via the `facet-drag-held` tag rule (native)
 		-- or a direct text write (bespoke). Never authored — a consumer cannot
 		-- set it, which is what makes the guarantee universal.
 		dragHeld = "presentation",

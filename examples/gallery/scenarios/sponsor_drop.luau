@@ -480,7 +480,7 @@ return {
 						id = id,
 						-- the slot EMPTIES while its card is held — that is the
 						-- framework's `dragHeld` guarantee (registry -> renderer ->
-						-- `luau-drag-held` rule), NOT fixture code: proof by absence
+						-- `facet-drag-held` rule), NOT fixture code: proof by absence
 						label = label,
 						compactLabel = letter,
 						selected = armed,

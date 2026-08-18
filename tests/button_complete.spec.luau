@@ -270,8 +270,8 @@ describe("B-BTN2: semantic roles ride tags and style rules", function()
 
 	it("the classifier maps roles to tags purely", function()
 		local tags = sheetModel.classifyTags({ buttonRole = "destructive" })
-		expect(tags["luau-role-destructive"]).toBe(true)
-		expect(sheetModel.classifyTags({ buttonRole = "cancel" })["luau-role-cancel"]).toBe(true)
+		expect(tags["facet-role-destructive"]).toBe(true)
+		expect(sheetModel.classifyTags({ buttonRole = "cancel" })["facet-role-cancel"]).toBe(true)
 		-- "default" adds no tag: the class default already describes it
 		expect(next(sheetModel.classifyTags({ buttonRole = "default" }))).toBe(nil)
 	end)

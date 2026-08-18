@@ -456,7 +456,7 @@ local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
 		path = "/Vocabulary/Volume/TrackHost/Groove/Rail",
 		why = 'surface=control -> "": the ADR-0019 fix round removed the public `surface` from the slider '
 			.. "rail so a theme's gradient could not make a value control see-through (src/controls/slider.luau: "
-			.. '"NO PUBLIC surface ON EITHER"). Predates this stage; the rail still paints, through luau-slot-*.',
+			.. '"NO PUBLIC surface ON EITHER"). Predates this stage; the rail still paints, through facet-slot-*.',
 	},
 	{
 		path = "/Vocabulary/Volume/TrackHost/Groove/Thumb",
@@ -465,12 +465,12 @@ local ALLOWED_PROP_DRIFT: { { path: string, why: string } } = {
 	{
 		path = "/Vocabulary/Load/Bar",
 		why = 'surface=control -> "": ADR-0020 R3 gave the bar family its OWN native paint through the '
-			.. "`luau-slot-barTrack` rule, exactly as the slider's rail has. Borrowing a public surface would "
+			.. "`facet-slot-barTrack` rule, exactly as the slider's rail has. Borrowing a public surface would "
 			.. "have taken that surface's gradient (and its alpha) with it. SANCTIONED, this stage.",
 	},
 	{
 		path = "/Vocabulary/Load/Bar/Fill",
-		why = 'surface=accent -> "": the same R3 ruling for `luau-slot-barFill`. SANCTIONED, this stage.',
+		why = 'surface=accent -> "": the same R3 ruling for `facet-slot-barFill`. SANCTIONED, this stage.',
 	},
 	{
 		path = "/Vocabulary/Count/Dec",

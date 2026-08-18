@@ -551,7 +551,7 @@ function Runner.start(deps: { [string]: any })
 				end,
 				-- THE SIXTH VARIANT STATE (ADR-0020 R2). No control publishes an
 				-- error state yet (P3's wiring), so the adapter exposes the seam and
-				-- the scenario drives it — which is what lets the `luau-state-error`
+				-- the scenario drives it — which is what lets the `facet-state-error`
 				-- art rules be proven APPLIED rather than merely emitted.
 				setErrorState = function(path: string, on: boolean): boolean
 					local a = deps.adapter :: any

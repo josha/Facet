@@ -134,7 +134,7 @@
 -- (`enum = { "default", "cancel", "destructive" }`, src/blueprint_schema.luau)
 -- that "drives a style tag and its sheet rule" — the exact shipped `danger`/
 -- `onDanger` pair (src/tokens/sheet_model.luau: `buttonRole == "destructive"`
--- -> tag `luau-role-destructive`). An ActionSpec's `role = "destructive"`
+-- -> tag `facet-role-destructive`). An ActionSpec's `role = "destructive"`
 -- maps straight to it; `role = "normal"` (or absent) leaves the Button at its
 -- own default role, which already paints the control/content pair. No new
 -- color token, no bespoke fill — reusing exactly what Task 2's docs promised.

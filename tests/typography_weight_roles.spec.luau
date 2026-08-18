@@ -340,12 +340,12 @@ describe("tokens.compile derives the two sizes", function()
 end)
 
 describe("native paint carries the same face through a tag and a rule", function()
-	it("a node's role becomes a luau-type-<role> tag", function()
+	it("a node's role becomes a facet-type-<role> tag", function()
 		local tags = sheet_model.classifyTags({ typeRole = "numeral" })
-		expect(tags["luau-type-numeral"]).toBe(true)
+		expect(tags["facet-type-numeral"]).toBe(true)
 		-- ...and it is NOT the content-colour emphasis tag, which means something else
-		expect(tags["luau-role-strong"]).toBeNil()
-		expect(sheet_model.classifyTags({})["luau-type-body"]).toBeNil()
+		expect(tags["facet-role-strong"]).toBeNil()
+		expect(sheet_model.classifyTags({})["facet-type-body"]).toBeNil()
 	end)
 
 	it("buildPackage emits one FontFace rule per role, from type.<role>.font", function()
@@ -359,7 +359,7 @@ describe("native paint carries the same face through a tag and a rule", function
 		for _, role in themes.TYPE_ROLES do
 			local rule = byName[`Type — {role}`]
 			expect(`{role} rule: {rule ~= nil}`).toBe(`{role} rule: true`)
-			expect(rule.selector).toBe(`.luau-type-{role}`)
+			expect(rule.selector).toBe(`.facet-type-{role}`)
 			-- THE ONE SOURCE: the rule's face is the snapshot's face for that role,
 			-- which is the face the solver measured with
 			expect(`{role}: {rule.props.FontFace.weight}`).toBe(`{role}: {snap.type[role].font.weight}`)
