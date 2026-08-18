@@ -269,6 +269,32 @@ describe("UI.Foreign: the foreignHost content seam (c)", function()
 		expect(contains(billboardSource, "adapter.foreignHost = nil")).toBe(true)
 	end)
 
+	it("the renderer asserts the `host` authority at the seam, not just the engine adapter (ARCH-25)", function()
+		--[[ "The renderer asserts every write" was true of four of the five
+			authorities. The only `host` assert in the framework lived in
+			`screen_target`'s `adopt` — the ENGINE adapter — so a second render
+			target could grow a foreign seam claiming `Foreign.Parent` with nothing
+			checking, which is precisely what the target contract exists to prevent.
+			The instrument is the manifest: move the claim to another authority and
+			the renderer must refuse to hand out the verb. ]]
+		local authority = require("../src/render/authority")
+		local manifest = authority.manifest()
+		local _, root, _, controller = mountForeign()
+		expect(controller.foreignHost("/S/Foreign") ~= nil).toBe(true)
+
+		local restore = manifest.Foreign.Parent
+		manifest.Foreign.Parent = "style"
+		local ok, err = pcall(controller.foreignHost, "/S/Foreign")
+		manifest.Foreign.Parent = restore
+		expect(ok).toBe(false)
+		expect(contains(tostring(err), "host tried to write Foreign.Parent")).toBe(true)
+
+		-- ...and it is back the moment the manifest is
+		expect(controller.foreignHost("/S/Foreign") ~= nil).toBe(true)
+		controller.dispose()
+		root.dispose()
+	end)
+
 	it("returns nil for an unknown path, a non-Foreign node, and an adapter without the seam", function()
 		local _, root, _, controller = mountForeign()
 		expect(controller.foreignHost("/S/Nope")).toBe(nil)

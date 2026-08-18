@@ -28,6 +28,11 @@ local PARTS = {
 	"src/render/renderer.luau",
 	"src/render/layout_node.luau",
 	"src/render/presentation_channel.luau",
+	-- ...and the prop-channel manifest (2026-08-17): `BINDING_PROPS`,
+	-- `STYLE_PROPS`, `STYLE_PROP_ORDER`, `BINDING_PROP_CLASSES`, `DIRECT_PROPS`
+	-- and `emitsBinding`. Adding it here is what kept `tests/button_shape.spec`'s
+	-- "shape is applied FIRST" pin looking at the list it names.
+	"src/render/prop_channels.luau",
 }
 
 local renderer_source = {}

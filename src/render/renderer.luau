@@ -62,180 +62,23 @@ local renderer = {}
 -- rather than its face.
 local NO_DECORATION_CLASSES: { [string]: boolean } = { Stage = true, Foreign = true }
 
--- prop -> adapter prop authority mapping for dynamic writes
-local BINDING_PROPS: { [string]: boolean } = {
-	text = true,
-	value = true,
-	enabled = true,
-	-- input-sinking containers (modal panels): the engine Active flag. It used
-	-- to be written only at creation by a bespoke branch, so a REACTIVE `active`
-	-- dirtied "semantics" and the refresh loop then dropped it (Milestone 0).
-	active = true,
-	image = true,
-	label = true,
-	selected = true,
-	cursorHint = true,
-	-- TextField (§17 Phase 5): data-driven text-entry props
-	placeholder = true,
-	editing = true,
-	maxLength = true,
-	keyboardType = true,
-	-- Path (native-substrate NS-A7): reactive stroke geometry/config — a bound
-	-- progress arc updates points as a paint-only prop write (never a re-solve)
-	points = true,
-	thickness = true,
-	closed = true,
-	-- THE CONTINUOUS-COLOUR CHANNEL (ADR-0022 Decision 6). Binding rather than
-	-- style because the VALUE is data — a blend along a signal, an identity hue —
-	-- which is exactly what a selector cannot express. It is applied LAST at
-	-- creation (see ensureTree) because it composes over whatever the style props
-	-- settled on.
-	tint = true,
-}
-
--- style-authority hints (§7.3): surface/text roles + the Phase 4 shadow and
--- corner modifier data. These are written at creation AND on every reactive
--- change. Milestone 0 (swiftui-parity-next investment 1) fixed the second
--- half: a bound `surface`/`role` dirtied "paint" and the refresh loop then
--- dropped it because only BINDING_PROPS were re-applied, so a reactive style
--- hint scheduled work the adapter never performed — the same silent-failure
--- class as Text.color.
-local STYLE_PROPS: { [string]: boolean } = {
-	surface = true,
-	role = true,
-	shadow = true,
-	-- the per-view gradient modifier: one bespoke adapter-owned UIGradient,
-	-- applied at creation and re-applied reactively like every other style prop
-	gradient = true,
-	corners = true,
-	-- horizontal text alignment: paint-only, and it must survive a reactive
-	-- change like any other style hint
-	textAlign = true,
-	-- the circle Button (feature round 2026-07-26): the disc's chrome. Native
-	-- mode turns it into the `luau-shape-circle` tag the sheet's phantom
-	-- ::UICorner/::UIStroke rules key on; fallback mode re-radiuses the real
-	-- UICorner the adapter already built.
-	shape = true,
-	-- its semantic icon content: a NAME the adapter resolves through the R4
-	-- machinery, never an asset id
-	icon = true,
-	-- the compact representation this button wears when its full label does not
-	-- fit. The DECLARATION is style (it selects a representation, and in its icon
-	-- form a theme-owned picture); the drawn string still rides the label seam.
-	compactLabel = true,
-	-- the authored border (ADR-0022 Decision 6): normalized UIStroke data, exactly
-	-- the shape and lifecycle `gradient` has — ONE bespoke child, reused
-	stroke = true,
-	-- how an authored picture fills its box. Style for the same reason `shape` is:
-	-- the solved rect does not move, and the single engine write is what makes the
-	-- picture fit the box the solver already sized.
-	scaleMode = true,
-}
-
--- Creation-time application order. This used to be a SECOND hardcoded list
--- inline in ensureTree, so adding a style prop to STYLE_PROPS above wired it for
--- reactive updates but silently never applied it at creation — `textAlign` was
--- set on a node and simply did not paint until something else changed it
--- (director review 2026-07-24). One ordered list, asserted to cover the set, so
--- the two views cannot drift again. Order is fixed rather than table iteration
--- because paint application must be deterministic.
--- `shape` is FIRST: it is the fact every later chrome write consults (the
--- fallback path's `corner()` reads handle.shape), so a shape applied after a
--- surface would leave the surface's square radius on a disc until something
--- else touched it. `icon` is LAST because it paints OVER whatever the chrome
--- above it settled on — and `compactLabel` goes immediately BEFORE it, because
--- when the compact form is an icon it becomes an icon request, which `icon` then
--- carries to the chrome subsystem through the one reconcile entry point.
--- `stroke` sits beside `corners` (both are the node's own border chrome) and
--- `scaleMode` beside `textAlign` (both are leaf paint that no other write reads).
-local STYLE_PROP_ORDER: { string } = {
-	"shape",
-	"surface",
-	"role",
-	"shadow",
-	"gradient",
-	"corners",
-	"stroke",
-	"textAlign",
-	"scaleMode",
-	"compactLabel",
-	"icon",
-}
-do
-	local covered: { [string]: boolean } = {}
-	for _, prop in STYLE_PROP_ORDER do
-		assert(STYLE_PROPS[prop], `STYLE_PROP_ORDER lists '{prop}', which is not a style prop`)
-		covered[prop] = true
-	end
-	for prop in STYLE_PROPS do
-		assert(covered[prop], `style prop '{prop}' is missing from STYLE_PROP_ORDER and would never apply at creation`)
-	end
-end
-renderer.STYLE_PROPS = STYLE_PROPS
-renderer.BINDING_PROPS = BINDING_PROPS
-
--- ONE NAME, TWO PROPERTIES. `thickness` is `Path`'s engine stroke width — a real
--- binding write — and `Divider`'s hairline size, which the SOLVER consumes into
--- the node's own box and no adapter ever sees (see the Divider branch of
--- `toLayoutNode`). The binding dispatch below is keyed on the prop NAME, so a
--- Divider tried to write it too and hit the authority wall: `UI.Divider{
--- thickness = … }` errored at first render for EVERY value, and always had —
--- found while giving both props the metric grammar (BP-F12). The name is
--- therefore restricted to the class that actually emits it; everything else
--- stays loud (an undeclared write is still an assertWrite error).
-local BINDING_PROP_CLASSES: { [string]: { [string]: boolean } } = {
-	thickness = { Path = true },
-}
-
-local function emitsBinding(class: string, prop: string): boolean
-	if not BINDING_PROPS[prop] then
-		return false
-	end
-	local only = BINDING_PROP_CLASSES[prop]
-	return only == nil or only[class] == true
-end
-
--- EVERY PROP NAME THIS MODULE CAN HAND TO `adapter.setProp`, and the seam each
--- one rides. The two channel tables above cover most of them; these are the
--- writes that go out through their own seam instead, so the set is complete.
---
--- WHY THIS EXISTS (found defect SF-M9, 2026-07-27 audit). `FakeTarget.setProp`
--- recorded any prop generically, so a headless suite proved a channel the LIVE
--- adapter had no branch for: the keyboard keep-visible transform was written,
--- recorded, asserted green — and never landed on a device for as long as the
--- feature had shipped. A declared set turns "both adapters implement the same
--- props" into a conformance test (tests/render_target_contract.spec.luau) instead
--- of a thing nobody can see. Add a new setProp write site, add it here.
-local DIRECT_PROPS: { [string]: string } = {
-	clipChildren = "ensureTree's clip-host declaration (layout authority)",
-	textSize = "applyTextScale — the scaled-text paint seam",
-	textFont = "applyTextScale — the typography role's FACE, beside its size (F2)",
-	-- THE WRAP RULE'S PAINT HALF (director ruling 5, 2026-08-13). The solver is the
-	-- only seam that knows the drawable width, so it decides whether wrapping can
-	-- succeed and publishes the verdict; this carries it to the adapter, which
-	-- otherwise sees the string and not the box.
-	textWrapped = "applyTextVerdicts — the wrap-rule paint seam (layout authority)",
-	padding = "applyPadding — the Button and padded-Text text-inset paint seam",
-	transform = "controller.setPresentationTransform / setPresentationOffset (presentation authority)",
-	transparency = "controller.setPresentationTransparency (presentation authority)",
-}
-do
-	local emitted: { [string]: boolean } = {}
-	for prop in BINDING_PROPS do
-		emitted[prop] = true
-	end
-	for prop in STYLE_PROPS do
-		emitted[prop] = true
-	end
-	for prop in DIRECT_PROPS do
-		emitted[prop] = true
-	end
-	-- the registry-driven held-source state (director round five): renderer-owned,
-	-- never authored — declared here so the adapter parity pin holds
-	emitted.dragHeld = true
-	renderer.EMITTED_PROPS = table.freeze(emitted)
-	renderer.DIRECT_PROPS = table.freeze(table.clone(DIRECT_PROPS))
-end
+-- THE PROP CHANNEL MANIFEST MOVED (2026-08-17, the 200k `Source` write-cap
+-- pressure again). `BINDING_PROPS`, `STYLE_PROPS`, `STYLE_PROP_ORDER`,
+-- `BINDING_PROP_CLASSES`, `emitsBinding` and `DIRECT_PROPS` — module-level data
+-- plus one pure predicate over it, reading no `attach` upvalue at all — now live
+-- in `render/prop_channels.luau`, with the two load-time completeness assertions
+-- that guard them. Rebound to locals of their original names, so no call site in
+-- this file moved, and re-exported below because every consumer already reads
+-- them off `renderer`.
+local prop_channels = require("./prop_channels")
+local BINDING_PROPS = prop_channels.BINDING_PROPS
+local STYLE_PROPS = prop_channels.STYLE_PROPS
+local emitsBinding = prop_channels.emitsBinding
+local STYLE_PROP_ORDER = prop_channels.STYLE_PROP_ORDER
+renderer.STYLE_PROPS = prop_channels.STYLE_PROPS
+renderer.BINDING_PROPS = prop_channels.BINDING_PROPS
+renderer.EMITTED_PROPS = prop_channels.EMITTED_PROPS
+renderer.DIRECT_PROPS = prop_channels.DIRECT_PROPS
 
 -- THE MEASURE SEAM MOVED (2026-08-14, the 200k `Source` write-cap split).
 -- `toLayoutNode` — the mounted-node -> `solver.Node` translation — plus the
@@ -688,20 +531,33 @@ function renderer.attach(
 			-- publishes which path a live session is carrying; the adapter's
 			-- `dragHeld` state empties that node's label through the same tag+rule
 			-- channel `selected` paints by. Framework guarantee — no consumer code.
+			--[[ THROUGH THE MANIFEST, LIKE EVERY OTHER RENDERER WRITE (ARCH-3).
+				These two were the only `adapter.setProp` calls in this file that
+				skipped `authority.assertWrite`, which is the single sentence
+				constitution §11 makes about the renderer ("asserts every write").
+				`dragHeld` has always been declared (`common`, presentation
+				authority) — the assert was simply never made, so the one property
+				whose whole point is that a consumer cannot author it was the one
+				property nothing checked. `findNode` is an O(N) walk and this
+				observer fires only when a drag session picks a source up or puts
+				it down, which is a gesture boundary, not a frame. ]]
+			local function setDragHeld(dragPath: string, held: boolean)
+				local handle = handles[dragPath]
+				if handle == nil then
+					return
+				end
+				local node = findNode(dragPath)
+				authority.assertWrite(if node ~= nil then node.class else "common", "dragHeld", "presentation")
+				adapter.setProp(handle, "dragHeld", held, "presentation")
+			end
 			local heldPath: string? = nil
 			attachScope:own(core:observe(dragRegistryInstance.heldSource, function(path: string?)
 				if heldPath ~= nil and heldPath ~= path then
-					local was = handles[heldPath]
-					if was ~= nil then
-						adapter.setProp(was, "dragHeld", false, "presentation")
-					end
+					setDragHeld(heldPath, false)
 				end
 				heldPath = path
 				if path ~= nil then
-					local handle = handles[path]
-					if handle ~= nil then
-						adapter.setProp(handle, "dragHeld", true, "presentation")
-					end
+					setDragHeld(path, true)
 				end
 			end))
 		end
@@ -789,6 +645,8 @@ function renderer.attach(
 	-- comes back (measured OR refused) is recorded in text_metrics and can
 	-- never be requested again, so this set is the only loop guard needed.
 	local textInFlight: { [string]: boolean } = {}
+	-- the live premeasurement deliveries this surface has outstanding (PLAT-12)
+	local textMeasureCancels: { () -> () } = {}
 	local disposed = false
 	-- paths whose subtree the solver hid this pass (losing ViewThatFits candidates)
 	-- THE STRUCTURE EPOCH (2026-08-05). Monotonic; bumped by exactly the two things
@@ -2324,7 +2182,7 @@ function renderer.attach(
 					-- yet trust — the Roblox one does, while the engine's boot window
 					-- is still open — passes false, and the words stay in flight so a
 					-- surface waiting for exact text keeps waiting.
-					adapter.measureTextWidths(batch, function(results: { any }, final: boolean?)
+					local cancelMeasure = adapter.measureTextWidths(batch, function(results: { any }, final: boolean?)
 						local learned = false
 						for _, entry in results do
 							if type(entry) ~= "table" then
@@ -2373,6 +2231,12 @@ function renderer.attach(
 							solveAndApply()
 						end
 					end)
+					-- PLAT-12: a boot-window batch answers TWICE, up to ~12 s apart.
+					-- `disposed` already gates the re-solve; this stops the delivery
+					-- itself, so a torn-down surface is not called back at all.
+					if type(cancelMeasure) == "function" then
+						table.insert(textMeasureCancels, cancelMeasure)
+					end
 				end
 			end
 			-- A REFLOW MOVES THE DROP TARGETS (ADR-0022 D5). Every rect the live
@@ -3966,6 +3830,19 @@ function renderer.attach(
 		if handle == nil then
 			return nil
 		end
+		--[[ THE `host` AUTHORITY IS ASSERTED HERE TOO (ARCH-25). "The renderer
+			asserts every write" was true of four of the five authorities: the only
+			`host` assert in the framework lived in the ENGINE ADAPTER
+			(`screen_target`'s `adopt`), so a second render target — the whole point
+			of the target contract — could grow a foreign seam that claimed
+			`Foreign.Parent` with nothing checking. This is the renderer's own gate
+			on the same claim, made where the seam is HANDED OUT rather than where
+			one adapter happens to use it: past this line the caller holds the verb
+			that parents somebody else's instance into a Facet box, and the manifest
+			has said the framework may. The adapter keeps its own assert — two gates
+			on one claim is the intent (nothing else may write it), not a
+			duplication. ]]
+		authority.assertWrite("Foreign", "Parent", "host")
 		return adapter.foreignHost(handle)
 	end
 
@@ -4157,6 +4034,10 @@ function renderer.attach(
 		-- an async engine call): mark the controller dead so a late answer
 		-- neither re-solves nor writes into destroyed handles
 		disposed = true
+		for _, cancel in textMeasureCancels do
+			cancel()
+		end
+		table.clear(textMeasureCancels)
 		-- ...and a disposed surface is no longer a surface: it leaves the
 		-- cross-surface registry before anything else, so a teardown that throws
 		-- later cannot leave a ghost overlapping the screen (ADR-0028)

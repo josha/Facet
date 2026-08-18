@@ -42,15 +42,33 @@ local renderer = require("../../src/render/renderer")
 local checker = {}
 
 local SRC_BLUEPRINT = "src/blueprint.luau"
--- THE RENDERER AS ONE TEXT. The views below ask "does the renderer read
--- `props.<name>`?" and "what does its BINDING_PROP_CLASSES allowlist say?" — both
--- are questions about the renderer MODULE FAMILY, and the measure seam (which is
--- where nearly every layout prop is read) left for `render/layout_node.luau` in
--- the 200k `Source` write-cap split. Reading only the first file would have made
--- 38 layout props look unread. ADD A PART WHENEVER MORE OF THE RENDERER MOVES OUT.
-local SRC_RENDERER_PARTS =
-	{ "src/render/renderer.luau", "src/render/layout_node.luau", "src/render/presentation_channel.luau" }
-local SRC_RENDERER = SRC_RENDERER_PARTS[1]
+--[[ THE RENDERER AS ONE TEXT, AND THE LIST IS NOW ENUMERATED (ARCH-20, 2026-08-17).
+
+	The views below ask "does the renderer read `props.<name>`?" and "what does its
+	BINDING_PROP_CLASSES allowlist say?" — both are questions about the renderer
+	MODULE FAMILY rather than one file, because the 200k `Source` write-cap splits
+	keep moving pieces of it out (the measure seam to `layout_node`, the
+	presentation channel, the prop-channel manifest…).
+
+	It used to be a HAND LIST of three, and by 2026-08-17 `src/render/` held
+	fifteen modules: `rect_pass`, `stage_content`, `hit_lift`, `foreign_content`
+	and the rest were unscanned, so a prop read only there looked unread and a
+	table moved there vanished from view 7 — which is exactly what happened the
+	next time a split landed. The directory IS the list now; a new split is
+	covered the moment it exists, and nothing has to remember to add a row. ]]
+local SRC_RENDERER_DIR = "src/render"
+local function renderModules(): { string }
+	local out: { string } = {}
+	for _, entry in fs.readDir(SRC_RENDERER_DIR) do
+		if string.sub(entry, -5) == ".luau" then
+			table.insert(out, `{SRC_RENDERER_DIR}/{entry}`)
+		end
+	end
+	table.sort(out)
+	assert(#out > 0, `check_prop_parity: no modules found under {SRC_RENDERER_DIR}`)
+	return out
+end
+local SRC_RENDERER = SRC_RENDERER_DIR
 -- THE SOLVER AS ONE TEXT, for the same reason and by the same rule: the layout
 -- channel asks "does the solver read `node.<name>`/`child.<name>`?", and the
 -- 200k `Source` write-cap split moved three blocks of it out — the placement-prop
@@ -286,7 +304,7 @@ function checker.check(opts: Options?)
 
 	local blueprintSource = fs.readFile(SRC_BLUEPRINT)
 	local rendererParts: { string } = {}
-	for _, path in SRC_RENDERER_PARTS do
+	for _, path in renderModules() do
 		table.insert(rendererParts, fs.readFile(path))
 	end
 	-- joined by a newline so no two files' lines ever merge into one

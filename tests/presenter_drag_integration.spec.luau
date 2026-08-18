@@ -148,6 +148,36 @@ describe("presenter drag integration: the auto-wired collaborators", function()
 		expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(false)
 	end)
 
+	it("the dragHeld write goes through the authority assert like every other (ARCH-3)", function()
+		--[[ The two `setProp(..., "dragHeld", ...)` calls were the only writes in
+			`renderer.luau` that skipped `authority.assertWrite` — the one sentence
+			constitution §11 makes about the renderer. The instrument is the manifest
+			itself: move `dragHeld` to another authority and the write must be
+			REFUSED (quarantined by the observer that made it, so the diagnostic is
+			`core:lastError`) rather than landing anyway. This is the existing
+			authority-parity idiom — `authority.manifest()` hands back the live table
+			on purpose, so a checker can read it. ]]
+		local authority = require("../src/render/authority")
+		local manifest = authority.manifest()
+		local restore = manifest.common.dragHeld
+		manifest.common.dragHeld = "style"
+		local ok = pcall(function()
+			local b = rig()
+			b.registry.arm("/S/Board/Card")
+			expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBeNil()
+			expect(string.find(tostring(b.core:lastError()), "presentation tried to write", 1, true) ~= nil).toBe(true)
+			expect(string.find(tostring(b.core:lastError()), "dragHeld", 1, true) ~= nil).toBe(true)
+		end)
+		manifest.common.dragHeld = restore
+		expect(ok).toBe(true)
+
+		-- ...and with the manifest as it ships, the same pickup writes
+		local b = rig()
+		b.registry.arm("/S/Board/Card")
+		expect(b.adapter.node("/S/Board/Card").props.dragHeld).toBe(true)
+		expect(b.core:lastError()).toBeNil()
+	end)
+
 	it("the ghost layer mounts on pickup and is GONE after the flight (registry-neutral)", function()
 		local b = rig()
 		b.registry.arm("/S/Board/Card")
