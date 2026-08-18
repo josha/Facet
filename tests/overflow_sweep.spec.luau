@@ -2353,6 +2353,71 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 		return out
 	end
 
+	--[[ WHAT A ZONE THAT GAVE WAY OWES (DIR wave contract 3). Three guarantees, and
+		each of them is a thing the director photographed the absence of:
+
+		  1. NO REGION IS GRANTED LESS THAN ITS FLOOR. A floor is content-expressed
+		     ("one line", "one target") and resolved against the LIVE package, so a
+		     box under it is a box the theme's own type ladder cannot be drawn in.
+		     This is the O-25 shape stated as an invariant rather than as a fix.
+		  2. NO DROPPED OR ELIDED SUBTREE STILL PAINTS LIVE TEXT. A dropped region
+		     keeps its mount and its subtree keeps solved rects, so "gone from the
+		     ladder" and "gone from the screen" are two different facts — and the
+		     `"Tasks 1/3"` in a 48x0 box is what it looks like when they disagree.
+		  3. EVERY UNSHOWN REGION CARRIES A ROUTE. D7.1's whole contract: adaptation
+		     may change how much of something is shown and what it costs to reach it,
+		     never whether it can be reached at all. ]]
+	local function giveWayViolations(w: any): { string }
+		local out: { string } = {}
+		local dump = w.built.handle.controller.compositionAt("/HudScreen/Hud")
+		if dump == nil then
+			return out
+		end
+		for _, r in dump.regions do
+			if r.mounted and not r.dropped and r.rect ~= nil and type(r.floor) == "number" and r.floor > 0 then
+				if r.rect.h + 0.5 < r.floor then
+					table.insert(
+						out,
+						string.format("%s: granted %.0fpx against its own %.0fpx floor", r.id, r.rect.h, r.floor)
+					)
+				end
+			end
+			if r.dropped or r.elided then
+				for _, path in w.adapter.paths() do
+					if string.find(path, r.id .. "/", 1, true) ~= 1 then
+						continue
+					end
+					if w.adapter.visibleOf(path) == false then
+						continue
+					end
+					local node = w.adapter.node(path)
+					if node ~= nil and type(node.text) == "string" and node.text ~= "" then
+						table.insert(
+							out,
+							string.format(
+								"%s: %s is %s but still paints '%s'",
+								path,
+								r.id,
+								if r.dropped then "dropped" else "elided",
+								node.text
+							)
+						)
+					end
+				end
+			end
+		end
+		for _, unshown in dump.unshown or {} do
+			if type(unshown.route) ~= "string" or unshown.route == "" then
+				table.insert(
+					out,
+					string.format("%s: %s with no route back to it", unshown.id, tostring(unshown.reason))
+				)
+			end
+		end
+		table.sort(out)
+		return out
+	end
+
 	--[[ THE PAINTED-FITS ORACLE (see the header). Reruns the solve's own text
 		measure from the facts it published, and reports the three ways a box can be
 		one a player cannot read out of. ]]
@@ -2454,6 +2519,9 @@ describe("overflow sweep: the HUD under the showcase's OWN chrome", function()
 								end
 							end
 							for _, hit in paintedTextViolations(w) do
+								table.insert(problems, `  {hit}{suffix}`)
+							end
+							for _, hit in giveWayViolations(w) do
 								table.insert(problems, `  {hit}{suffix}`)
 							end
 							--[[ ...AND THE SOLVER'S OWN FINDINGS, on the axis it was never

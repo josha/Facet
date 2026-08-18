@@ -323,12 +323,33 @@ describe("LT-6 order: a ViewThatFits CTA band steps down before anything is cut"
 
 	it("LT6-LADDERNEG the ladder rule FIRES on a band that cuts a label with a candidate still in hand", function()
 		--[[ THE NEGATIVE CONTROL. A rule that has never been seen to fail is not
-			evidence. A ViewThatFits candidate "fits" when ITS OWN measured box fits
-			the offer — a child with an authored px width inside it fits by
-			construction and cuts its label instead, so the richest candidate wins
-			while an action label becomes an ellipsis. That is exactly the ordering
-			defect LT6-LADDER exists to catch, built on purpose. ]]
+			evidence, so the defect LT6-LADDER exists to catch is built here on purpose.
+
+			IT HAD TO BE REBUILT ON 2026-08-18 (DIR wave contract 7), and WHY is the
+			interesting part. It used to be an UNBROKEN word in a 60px box: no wrap can
+			save it, the engine ellipsizes, and the row still measured as fitting the
+			phone — so the richest candidate won while an action label became an
+			ellipsis. **The solver no longer permits that shape.** `chosenCandidate`
+			counts the CLAMPED cut its own measure reports and hands the band to a
+			later candidate that is honest and costs no more room, so the ordering
+			defect cannot be built out of a line the box cannot hold. (Which is the
+			whole of contract 7: the objective chip in the shipped HUD was that shape.)
+
+			WHAT IS STILL BUILDABLE, and why it is still a defect worth a rule: an
+			author's own `lineLimit`. A phrase whose longest WORD fits the box WRAPS,
+			and the cap then throws the second line away — the box could hold the
+			string, the declaration said not to. The solver treats that as the
+			instruction it is and leaves the ladder alone, so the ROW still wins with a
+			cut label and `ladderViolation` still has something to find. That is the
+			one cut this rule is now the only guard on, which makes the control more
+			load-bearing than it was, not less. ]]
 		local w = lt.world({ viewport = lt.PHONE_PORTRAIT, theme = lt.THEMES[1], offset = lt.LARGEST })
+		-- a phrase of SHORT words in a box wide enough for EVERY ONE OF THEM at the
+		-- Largest preference: the string therefore wraps rather than clamping, and
+		-- only the author's own cap cuts it. (60px was the old box, and at +14 it is
+		-- narrower than the word "three" — which is a clamp, the shape the solver now
+		-- refuses, and the case would fail for the opposite reason.)
+		local PHRASE = "one two three four five six"
 		w.present(UI.Screen({
 			id = "S",
 			children = {
@@ -339,19 +360,32 @@ describe("LT-6 order: a ViewThatFits CTA band steps down before anything is cut"
 							id = "Row",
 							gap = 8,
 							children = {
-								-- an UNBROKEN word in a 60px box: no wrap can save it, so
-								-- the engine ellipsizes — while the ROW still measures as
-								-- fitting the phone, so the richest candidate wins
-								UI.Button({ id = "RowSave", label = NAME, width = { type = "fixed", px = 60 } }),
+								UI.Text({
+									id = "RowSave",
+									text = PHRASE,
+									lineLimit = 1,
+									width = { type = "fixed", px = 140 },
+								}),
 							},
 						}),
-						UI.VStack({ id = "Col", children = { UI.Button({ id = "ColSave", label = NAME }) } }),
+						UI.VStack({
+							id = "Col",
+							children = { UI.Text({ id = "ColSave", text = PHRASE }) },
+						}),
 					},
 				}),
 			},
 		}))
 		expect(chosenCandidate(w, "/S/Cta", { "Row", "Col" })).toBe(1)
 		expect(w.controller.textAt("/S/Cta/Row/RowSave").truncated).toBe(true)
+		--[[ ...AND IT REALLY IS THE AUTHOR'S CAP RATHER THAN A CLAMP, or this case
+			has quietly gone back to building the shape the solver now refuses and
+			would fail for the opposite reason. `naturalLines > lines` is the cap
+			biting; a clamp leaves them equal. ]]
+		local facts = w.controller.textAt("/S/Cta/Row/RowSave")
+		expect(`the cut is the lineLimit, not a clamp: {(facts.naturalLines or 1) > (facts.lines or 1)}`).toBe(
+			"the cut is the lineLimit, not a clamp: true"
+		)
 		local violation = ladderViolation(w, "negative-control", { "Row", "Col" })
 		expect(violation).never().toBeNil()
 		expect(string.find(violation :: string, "reflow was available", 1, true) ~= nil).toBe(true)

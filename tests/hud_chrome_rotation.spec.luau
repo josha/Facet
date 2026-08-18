@@ -1154,6 +1154,59 @@ describe("DIR-2: the beside-chrome band gives way at the measured collision shap
 		)
 	end)
 
+	--[[ ── DIR-7: THE OBJECTIVE CHIP SWAPS INSTEAD OF SPILLING ──────────────────
+		(same device round; `dir-reproductions.md` DIR-2 addendum: *"under
+		fantasy-ornate the styled 'Round 3 · Capture' measures 70px and its plate
+		solved 72px at landscape (1px slack; the narrower device portrait plate
+		spills)"*.)
+
+		THE STATED CAUSE IS REFUTED and the measurement is in the report: the chip's
+		width swap does NOT measure with neutral metrics — `textFacts.font`, `.size`
+		and `.lineHeight` come from `textTypography`, which reads the active
+		snapshot on every measure. The real cause is one level out, in
+		`chosenCandidate`: a candidate's measured width is CLAMPED to the offer, so a
+		rung holding a single line could never report more than the offer and the
+		first candidate always won. The chip drew "Round 3 · Capt…" instead of taking
+		the "R3" rung it declares for exactly this.
+
+		THIS CASE IS THE SHIPPED PIN. The framework rule is driven directly in
+		tests/adaptive.spec.luau (DIR-7 + its control); this asserts the thing the
+		director actually looked at, at the viewport and package he looked at it
+		under, at every text preference — because a rule that is right in a fixture
+		and wrong on the screen is the defect wearing the fix's clothes. ]]
+	it("DIR-7: the objective chip fits its styled text or swaps to the short rung — never spills", function()
+		for _, offset in { 0, 4, 10, 14 } do
+			local w = world(PHONE, DEVICE_CHIPS)
+			w.env:set("themeMetrics", ORNATE)
+			w.env:set("preferredTextOffset", offset)
+			settle(w)
+			settle(w)
+			local full =
+				"/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/Objective/ObjectiveRow/ObjectiveT"
+			local short =
+				"/HudScreen/Hud/Strip/StripRow/StripFree/StripChip/then/StripFit/ObjectiveShort/ObjectiveShortRow/ObjectiveShortT"
+			local shown = if w.adapter.visibleOf(full) ~= false then full else short
+			expect(`+{offset}: a rung is on screen: {shown ~= nil}`).toBe(`+{offset}: a rung is on screen: true`)
+			local facts = w.built.handle.controller.textAt(shown)
+			expect(`+{offset}: the chip has facts: {facts ~= nil}`).toBe(`+{offset}: the chip has facts: true`)
+			--[[ THE WHOLE CONTRACT IN ONE LINE: whichever rung the ladder took, the
+				string it is drawing is not cut. "Fits its styled text OR swaps" is
+				exactly "the chosen rung reports `truncated = false`". ]]
+			expect(`+{offset}: the chip's chosen rung is uncut: {facts.truncated}`).toBe(
+				`+{offset}: the chip's chosen rung is uncut: false`
+			)
+			--[[ ...AND IT REALLY DID HAVE TO CHOOSE at least once, or this case passes
+				on a screen where the full rung always fitted and proves nothing about
+				the swap. At the raised preferences under ornate the short rung is the
+				one on screen. ]]
+			if offset == 14 then
+				expect(`+14: the SHORT rung is the one showing: {shown == short}`).toBe(
+					"+14: the SHORT rung is the one showing: true"
+				)
+			end
+		end
+	end)
+
 	--[[ THE CONTROL, and it is a control on the RULE rather than on the presence of
 		chrome. Declaring NOTHING is not the comparison to make: with nothing
 		declared every column falls back to the whole `coreSafeInsets.top` bounding

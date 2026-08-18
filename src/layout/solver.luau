@@ -376,6 +376,16 @@ type Ctx = {
 	-- would like — SwiftUI's ideal size — and it is part of `scopeKey`, because the
 	-- same node at the same offer answers differently under it.
 	fitProbe: boolean,
+	--[[ HOW MANY TEXT NODES THE CURRENT PROBE HAS SEEN CUT (DIR wave contract 7).
+		A candidate whose label only "fits" because the engine will ellipsize it does
+		not fit, and the WIDTH cannot say so: both cutting paths report a width no
+		bigger than the offer (a single line is clamped to it; a wrapped one is
+		capped by `lineLimit` after wrapping INTO it). The truncation verdict is the
+		only signal that distinguishes "this fits" from "this was made to fit", and
+		`recordTextFacts` already computes it on every measure — so the probe counts
+		it instead of re-deriving a second, disagreeing rule. Monotonic within a
+		solve; `chosenCandidate` reads the DELTA across one candidate. ]]
+	fitCuts: number,
 	-- the active ThemeSnapshot (ADR-0019 §2). The ONE place the measure path
 	-- learns a typography role's size, font and line height, so a theme swap is
 	-- a re-solve with new numbers rather than a rebuild.
@@ -508,6 +518,21 @@ local function recordTextFacts(
 )
 	ctx.textStates[node.id] = m.state
 	local truncated = m.truncated or clampedWidth
+	--[[ ...AND THE PROBE COUNTS THE CLAMPED CUT ONLY (DIR wave contract 7). See
+		`Ctx.fitCuts`: this is the only place a cut is known and `chosenCandidate` is
+		the only reader.
+
+		`clampedWidth` and `m.truncated` are two different events and only one of
+		them is a candidate failing to fit. `clampedWidth` is THE BOX BEING TOO
+		SMALL FOR ONE LINE — nobody asked for that, and it is the objective chip's
+		defect exactly. `m.truncated` is the author's own `lineLimit` biting, which
+		is an instruction the candidate is FOLLOWING; refusing a candidate for
+		obeying its own declaration was measured on the shipped corpus and it moves
+		`adaptive_controls` and `theme_authoring` onto rungs 24-138px taller than
+		their page, i.e. it trades a cut label for an overflowing screen. ]]
+	if clampedWidth and ctx.fitProbe then
+		ctx.fitCuts += 1
+	end
 	local policy: string
 	if not truncated then
 		policy = if node.lineLimit ~= nil then "cap" else "wrap"
@@ -768,13 +793,95 @@ local function chosenCandidate(ctx: Ctx, node: Node, availW: number, availH: num
 	local wasProbing = ctx.fitProbe
 	setFitProbe(ctx, true)
 	local chosen = #children -- the last candidate is the declared fallback
+	-- the first candidate that fits but only because its label was CUT, and how
+	-- tall it is: see the note in the loop
+	local cutIndex: number? = nil
+	local cutHeight = 0
 	for i = 1, #children - 1 do
+		local cutsBefore = ctx.fitCuts
 		local w, h = measure(ctx, children[i], availW, availH)
 		local fitsW = availW == math.huge or w <= availW
 		local fitsH = availH == math.huge or h <= availH
+		--[[ ...AND IT MAY NOT HAVE BEEN CUT TO GET THERE (DIR wave contract 7,
+			2026-08-18; director device round 2026-08-17).
+
+			THE WIDTH TEST ALONE CAN NEVER SAY NO ABOUT TEXT. Both of the solver's
+			cutting paths report a width no bigger than the offer — a single line is
+			CLAMPED to it (`min(measured, availW)`, so `truncated` stays honest for
+			`clippedEssential`), and a wrapping one is capped by `lineLimit` AFTER
+			wrapping into it. So a rung holding a label always passed `w <= availW`,
+			the first candidate always won, and every `ViewThatFits` over text has
+			been picking its richest rung and letting the engine ellipsize it.
+			Measured on the shipped HUD under fantasy-ornate at the Larger and
+			Largest preferences: the topbar objective chip drew "Round 3 · Capt…"
+			rather than swapping to the "R3" rung it declares for exactly this.
+
+			THE VERDICT IS THE TEST, and it is the verdict the solve already
+			computes: `recordTextFacts` decides `truncated` on every measure, and the
+			probe counts it (`ctx.fitCuts`). Re-deriving a second "would this be cut"
+			rule here is how the two seams end up disagreeing — the defect class this
+			file has fixed four times.
+
+			WRAPPING IS STILL FITTING. A candidate whose label reflows onto two lines
+			inside the offer is cut nowhere and still wins; only a candidate the
+			engine would ellipsize is refused. That is the narrow reading of
+			SwiftUI's ideal-size rule, and the one that leaves a prose candidate
+			exactly where it was.
+
+			THE LAST CANDIDATE IS EXEMPT BY CONSTRUCTION: it is never probed (the
+			loop stops one short of it), because rule 8's fallback has to resolve
+			even when nothing fits. A screen degrades; it never blanks. ]]
+		local uncut = ctx.fitCuts == cutsBefore
 		if fitsW and fitsH then
-			chosen = i
-			break
+			if uncut then
+				--[[ ...AND IT MAY NOT COST MORE ROOM THAN THE CUT ONE DID (DIR wave
+					contract 7, and the half that is a MEASUREMENT rather than a
+					principle).
+
+					Refusing a cut candidate outright was run through the whole suite
+					first: `adaptive_controls` and `theme_authoring` moved from a
+					three-button ROW onto the three-button COLUMN their ladder declares
+					below it, and their page then overflowed by 24-138px at 640x320 at
+					the Largest preference under seven packages. That is trading a cut
+					label for a screen painting outside its own box — the same defect
+					one level out, and a worse one.
+
+					So a cut candidate is not refused, it is UNDERCUT: a later candidate
+					wins only if it is honest AND costs no more room than the cut one
+					did. The objective chip's "R3" rung is shorter than the cut
+					"Round 3 · Capture" rung, so it wins; a stacked action column is
+					taller than the row it would replace, so the row keeps its place and
+					the ladder is exactly where it was. ]]
+				if cutIndex == nil or h <= cutHeight + 0.01 then
+					chosen = i
+					break
+				end
+				-- an honest candidate that costs MORE than the cut one: the cut one
+				-- was the better screen, and it is what this ladder has always chosen
+				chosen = cutIndex :: number
+				break
+			end
+			if cutIndex == nil then
+				cutIndex = i
+				cutHeight = h
+			end
+		end
+	end
+	if chosen == #children and cutIndex ~= nil then
+		--[[ THE FALLBACK IS NEVER PROBED — rule 8 promises it resolves whatever it
+			measures — so when a cut candidate is in hand it has to be measured HERE to
+			know whether it undercuts one. It usually does, and that is the objective
+			chip: "R3" is the last rung and it is shorter than the clamped
+			"Round 3 · Capture" above it.
+
+			If it costs MORE room, the cut candidate stands, which is byte-for-byte
+			what this ladder did before contract 7 — a cut label is a worse screen than
+			a full one and a better screen than one that does not fit. ]]
+		local w, h = measure(ctx, children[#children], availW, availH)
+		local fitsW = availW == math.huge or w <= availW
+		local fitsH = availH == math.huge or h <= availH
+		if not (fitsW and fitsH and h <= cutHeight + 0.01) then
+			chosen = cutIndex :: number
 		end
 	end
 	setFitProbe(ctx, wasProbing)
@@ -1862,6 +1969,23 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 			-- A/A control); packed, the same arm runs -1.3%.
 			local packedW = hit[1]
 			if packedW ~= nil then
+				--[[ ...AND THE CUT COUNT RIDES THE ENTRY (DIR wave contract 7).
+					`ctx.fitCuts` is what `chosenCandidate` reads to refuse a candidate
+					that only fits because its label was ellipsized. It is incremented in
+					`recordTextFacts`, which a cache hit never calls — and a candidate is
+					a WHOLE SUBTREE whose root is usually not a text node, so the packed
+					early return above short-circuits every text inside it.
+
+					Measured on the shipped HUD at the Largest preference: the first
+					probe of the objective chip counted its cut and refused the rung, the
+					second probe of the SAME box hit this line and counted nothing, and
+					the rung came back — so the chip swapped at Larger and reverted at
+					Largest. A verdict that is only true the first time is not a verdict.
+					`hit[3]` is nil on every measure that cut nothing, which is all but a
+					handful, so the packed form stays two slots wide in the common case. ]]
+				if hit[3] ~= nil then
+					ctx.fitCuts += hit[3]
+				end
 				return packedW, hit[2]
 			end
 			-- REPLAY THE PUBLISHED VERDICTS, DO NOT MERELY RETURN THE SIZE.
@@ -1895,23 +2019,31 @@ measure = function(ctx: Ctx, node: Node, maxW: number, maxH: number): (number, n
 			-- arrange branch reads the leftover instead, this does not become the same
 			-- bug a second time.
 			ctx.compositions[node.id] = hit.composition
+			-- ...and the cut count, for the reason the packed branch above records
+			if hit.cuts ~= nil then
+				ctx.fitCuts += hit.cuts
+			end
 			return hit.w, hit.h
 		end
 	else
 		perNode = {}
 		ctx.measureCache[node] = perNode
 	end
+	-- the cut count this measure produces is part of what it publishes (contract 7)
+	local cutsBefore = ctx.fitCuts
 	local mw, mh = measureUncached(ctx, node, maxW, maxH)
+	local cuts = ctx.fitCuts - cutsBefore
 	-- ...and the matching write of the packed form, for the kinds that cannot publish
 	local kind = node.kind
 	if kind ~= "text" and kind ~= "composition" then
-		perNode[cacheKey] = { mw, mh }
+		perNode[cacheKey] = if cuts > 0 then { mw, mh, cuts } else { mw, mh }
 		return mw, mh
 	end
 	-- captured AFTER the call, so the entry holds what this measure published
 	perNode[cacheKey] = {
 		w = mw,
 		h = mh,
+		cuts = if cuts > 0 then cuts else nil,
 		textState = ctx.textStates[node.id],
 		compact = ctx.compact[node.id],
 		textFacts = ctx.textFacts[node.id],
@@ -3500,6 +3632,7 @@ function solver.solve(
 		regionForm = {},
 		hiddenDepth = 0,
 		fitProbe = false,
+		fitCuts = 0,
 		-- THE OUTERMOST CONTAINER IS THE SURFACE ROOT (§2.5): the content rect, i.e.
 		-- the viewport minus whatever safe insets this root policy honours. A tree
 		-- with no ScrollView in it therefore still has a container, and it is the one

@@ -17,6 +17,7 @@ local environment = require("../src/env/environment")
 local renderer = require("../src/render/renderer")
 local adaptive = require("../src/layout/adaptive")
 local fake_target = require("../tests/lib/fake_target")
+local text_metrics = require("../src/layout/text_metrics")
 local adapter_source = require("./lib/adapter_source")
 
 local function fill(weight: number?)
@@ -705,6 +706,96 @@ describe("A-AL1: ViewThatFits", function()
 			return UI.ViewThatFits({ id = "Fits" })
 		end)
 		expect(ok).toBe(false)
+	end)
+
+	--[[ ── A CANDIDATE THAT ONLY "FITS" BECAUSE ITS LABEL WAS CUT DOES NOT FIT ────
+		(DIR wave contract 7, 2026-08-18; director device round 2026-08-17 —
+		`artifacts/release-candidate-review/rename/dir-reproductions.md`: the topbar
+		objective chip's width swap *"measures with neutral metrics"*, and under
+		fantasy-ornate the styled "Round 3 · Capture" spilled its plate instead of
+		swapping to "R3".)
+
+		THE MECHANISM, and it is one line away from the fix that caused it. A
+		single-line text node clamps its reported width to the box it will occupy —
+		`min(measured, availW)` — which landed on 2026-08-13 so that `truncated`
+		would be honest about a `fixed(150)` Button whose line wants 340px. Correct
+		there, and fatal HERE: `chosenCandidate` asks each candidate to measure at
+		the offer and takes the first one whose width is `<= availW`. With the clamp
+		in the way a candidate holding a single-line label can NEVER report more than
+		the offer, so **the first candidate always fits** and every ViewThatFits over
+		text has been picking its richest rung and letting the engine ellipsize it.
+
+		`fitProbe` is the seam that already exists for exactly this question — it is
+		on while a candidate is being judged, and its own comment says the candidate
+		is "judged at the size it would like, SwiftUI's ideal size". The clamp was the
+		one measure-side reduction it did not suppress.
+
+		THE VERDICTS ARE UNTOUCHED: `recordTextFacts` still runs before the return, so
+		`truncated` is still computed against the real box and `clippedEssential` is
+		as sharp as it was. Only the SIZE the probe is answered with moves. ]]
+	--[[ THE SHAPE THIS CASE HAS TO DRIVE, and it is not the obvious one. A phrase
+		whose longest WORD still fits the offer does not clamp — it WRAPS, and the
+		`lineLimit` then caps it, which is the author's own instruction being followed
+		rather than the box being too small (see `chosenCandidate`). The defect is the
+		CLAMPED cut: a line the box cannot hold at all. So the offer here is narrower
+		than the longest word in the label, which is what forces the single-line
+		measure and the clamp with it. ]]
+	local function chipFits(viewportW: number): any
+		local core = customFactory.new()
+		local env = environment.new(core)
+		env:set("viewportRect", { x = 0, y = 0, w = viewportW, h = 200 })
+		env:set("coreSafeInsets", { top = 0, bottom = 0, left = 0, right = 0 })
+		local bp = UI.Screen({
+			id = "S",
+			children = {
+				UI.ViewThatFits({
+					id = "Fits",
+					children = {
+						-- ONE UNBROKEN WORD, so no wrap can save it: the box either holds
+						-- the line or clamps it, which is the shape the rule is about
+						UI.Text({ id = "Long", text = "Reconfiguration" }),
+						UI.Text({ id = "Short", text = "R3" }),
+					},
+				}),
+			},
+		})
+		local root = mountLib.mount(core, bp)
+		local adapter = fake_target.new()
+		local controller = renderer.attach(core, root, env, adapter, { rootPolicy = "edgeToEdge" })
+		controller.initialRender()
+		return adapter
+	end
+
+	it("DIR-7: a candidate whose single-line label would be CUT does not count as fitting", function()
+		local adapter = chipFits(40)
+		local long = adapter.node("/S/Fits/Long")
+		local short = adapter.node("/S/Fits/Short")
+		expect(`both candidates are mounted: {long ~= nil and short ~= nil}`).toBe("both candidates are mounted: true")
+		--[[ THE PREMISE: the long label really does want more than the offer. Without
+			this the case passes on a viewport where both candidates fit and proves
+			nothing at all — and the number comes from the same measurer the solve
+			uses, so it cannot drift from what the solve believes. ]]
+		local wants = text_metrics.minWidth("Reconfiguration", "BuilderSans#Regular#Normal", 14)
+		expect(`the long label wants {wants}px against a 40px offer: {wants > 40}`).toBe(
+			`the long label wants {wants}px against a 40px offer: true`
+		)
+		-- ...so the SHORT rung is the one on screen, and the long one is hidden
+		expect(`the short rung won: {adapter.visibleOf("/S/Fits/Short") ~= false}`).toBe("the short rung won: true")
+		expect(`the long rung is hidden: {adapter.visibleOf("/S/Fits/Long") == false}`).toBe(
+			"the long rung is hidden: true"
+		)
+	end)
+
+	--[[ THE CONTROL FOR THE CASE ABOVE: a candidate that genuinely fits still wins,
+		so the fix did not simply teach ViewThatFits to always take its fallback. ]]
+	it("DIR-7 control: a candidate that really does fit is still the one chosen", function()
+		local adapter = chipFits(600)
+		expect(`the long rung won on a wide screen: {adapter.visibleOf("/S/Fits/Long") ~= false}`).toBe(
+			"the long rung won on a wide screen: true"
+		)
+		expect(`...and it is not truncated: {adapter.node("/S/Fits/Long").rect.w > 40}`).toBe(
+			"...and it is not truncated: true"
+		)
 	end)
 end)
 
