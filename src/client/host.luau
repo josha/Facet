@@ -1,0 +1,223 @@
+--!strict
+--[[ THE CLIENT HOST — one blessed way to stand a Facet surface up on Roblox and
+	drive it (reuse audit REUSE-109/115; ARCH boundary list; api.md §Client entry
+	points).
+
+	WHAT WAS WRONG. Standing up a surface takes six steps in a fixed order — a
+	core, an environment, the environment BOUND to the engine, a render target, an
+	input system, a presenter — and then one per-frame drive. There was no
+	framework entry that did it, so every consumer wrote its own: four in the
+	shipped game, three in this repository's examples, one in the getting-started
+	guide. THREE OF THE FOUR GAME BOOTSTRAPS DROVE ONLY `refresh()`. `refresh`
+	re-solves whatever the frame dirtied; `tick` advances the MOTION CLOCK that
+	every transition, toast schedule, spring and timer rides. So on those surfaces
+	a toast never expired, a transition never completed and a spring never
+	settled — and nothing said so, because a frozen clock and a settled one look
+	identical in a dump.
+
+	The root cause was framework-side and is the reason this module exists rather
+	than a round of fixes: `docs/guide/03-getting-started.md` TAUGHT
+	`RunService.Heartbeat:Connect(function() presenter.refresh() end)` and never
+	mentioned `tick` at all. Fixing four call sites would have left the next
+	author copying the same lesson out of the same page.
+
+	PreRender, NOT Heartbeat — `src/client/motion_driver.luau` states the rule:
+	Heartbeat runs AFTER render, so everything the tick drives arrives a frame
+	late. The one surface that had it right (RascalRally's `FacetSponsor`) is the
+	idiom this module encodes, comment for comment.
+
+	YOUR PER-FRAME WORK GOES ON `presenter.onTick`, NOT ON A SECOND CONNECTION.
+	`presenter.onTick` already calls itself "the one sanctioned frame source
+	outside the motion clock itself — a second RunService connection in a consumer
+	is the bug class this prevents", and the audit counted thirteen game modules
+	across three different RunService signals for what is conceptually one UI
+	frame (REUSE-115). Hooks run after the motion step, so they read this frame's
+	settled values, and they are quarantined: a throwing hook cannot starve its
+	siblings or escape into the render thread.
+
+	NOTHING ENGINE-ONLY IS REQUIRED AT MODULE SCOPE, deliberately — the
+	`roblox_env.bind` / `text_premeasure.textService` idiom. `screen_target` and
+	`roblox_input` resolve inside `new`, so this module can be REQUIRED and driven
+	headlessly with the seams below; that is what lets the frame contract this
+	whole module exists to fix have a test at all.
+]]
+
+local specGuard = require("../spec_guard")
+local customCore = require("../core/custom")
+local environment = require("../env/environment")
+local presenterLib = require("../present/presenter")
+
+local host = {}
+
+export type Opts = {
+	-- ===== render target (forwarded to `screen_target.new`) ================
+	-- opt in to the Roblox StyleSheet paint path; nil = the library default
+	nativeStyle: boolean?,
+	style: any?,
+	-- the PlayerGui to parent roots under; nil = the local player's own
+	-- (Studio Edit-mode previews pass an explicit host, which has no LocalPlayer)
+	parent: Instance?,
+	autoLocalize: boolean?,
+	themePackage: any?,
+	--[[ WHERE THIS SURFACE SITS AGAINST THE GAME'S OWN `ScreenGui`s (REUSE-122).
+		Facet roots were created with `DisplayOrder` unset — which is 0, and the
+		audit found seventeen hand-made game `ScreenGui`s carrying scattered
+		numbers between 90 and 100, so every native surface floated above every
+		Facet surface by default and nobody had decided that. Stating it here is
+		how a consumer LAYERS instead of discovering. ]]
+	displayOrder: number?,
+
+	-- ===== presenter =======================================================
+	--[[ the presenter's wall clock. The toast schedule's dwell and the renderer's
+		one-activation-per-press guard both ride it, so a headless spec injects one
+		to put two real presses either side of the echo window. ]]
+	now: (() -> number)?,
+
+	-- ===== seams (headless, Edit mode, or a consumer that owns a piece) =====
+	newCore: (() -> any)?,
+	bindEnv: ((env: any) -> () -> ())?,
+	newAdapter: (() -> any)?,
+	newInputSystem: ((core: any) -> any)?,
+	--[[ the frame source. Takes the per-frame function and returns its
+		disconnect. Absent = `RunService.PreRender`, which is the answer for every
+		shipped consumer; a spec passes one so it can step frames by hand. ]]
+	connectFrame: ((fn: (dt: number) -> ()) -> () -> ())?,
+}
+
+export type Host = {
+	core: any,
+	env: any,
+	adapter: any,
+	inputSystem: any,
+	presenter: any,
+	dispose: () -> (),
+}
+
+local OPTS_KEYS = specGuard.keySet({
+	"nativeStyle",
+	"style",
+	"parent",
+	"autoLocalize",
+	"themePackage",
+	"displayOrder",
+	"now",
+	"newCore",
+	"bindEnv",
+	"newAdapter",
+	"newInputSystem",
+	"connectFrame",
+})
+
+--[[ The engine collaborators, resolved HERE rather than at module scope, so
+	requiring this file stays legal off-engine (see the header). Each is behind
+	its own seam above, so a headless caller never reaches any of them. ]]
+local function engineAdapter(opts: Opts): any
+	local screen_target = require("./screen_target") :: any
+	return screen_target.new({
+		nativeStyle = opts.nativeStyle,
+		style = opts.style,
+		parent = opts.parent,
+		autoLocalize = opts.autoLocalize,
+		themePackage = opts.themePackage,
+		displayOrder = opts.displayOrder,
+	})
+end
+
+local function engineInputSystem(core: any): any
+	local roblox_input = require("./roblox_input") :: any
+	return roblox_input.newSystem(core)
+end
+
+local function engineBindEnv(env: any): () -> ()
+	local roblox_env = require("./roblox_env") :: any
+	return roblox_env.bind(env)
+end
+
+local function engineConnectFrame(fn: (dt: number) -> ()): () -> ()
+	local RunService = game:GetService("RunService")
+	local conn = RunService.PreRender:Connect(fn)
+	return function()
+		conn:Disconnect()
+	end
+end
+
+--[[ Stand up a Facet client surface, bound and driven.
+
+	Returns the six pieces a consumer needs plus `dispose`. Present your
+	blueprints on `presenter`; register per-frame work with `presenter.onTick`.
+
+	CONSTRUCTION IS ALL-OR-NOTHING. A failure halfway through must not leave a
+	bound environment or a live root behind — a half-built host is exactly the
+	state whose teardown nobody writes — so every step that has already succeeded
+	is undone before the error is re-raised.
+]]
+function host.new(opts: Opts?): Host
+	specGuard.assertKnownKeys("client.host.new", opts, OPTS_KEYS, "opts")
+	local o: Opts = opts or {}
+
+	local core = (if o.newCore then o.newCore() else customCore.new()) :: any
+	local env = environment.new(core)
+
+	-- undo stack, innermost last: whatever succeeded is what gets torn down
+	local undo: { () -> () } = {}
+	local function unwind()
+		for i = #undo, 1, -1 do
+			pcall(undo[i])
+		end
+		table.clear(undo)
+	end
+
+	local built: any = nil
+	local ok, err = pcall(function()
+		local unbindEnv = if o.bindEnv then o.bindEnv(env) else engineBindEnv(env)
+		table.insert(undo, unbindEnv)
+
+		local adapter = if o.newAdapter then o.newAdapter() else engineAdapter(o)
+		local inputSystem = if o.newInputSystem then o.newInputSystem(core) else engineInputSystem(core)
+		local presenter = presenterLib.new(core, env, adapter, inputSystem, { now = o.now })
+
+		--[[ THE FRAME, AND BOTH HALVES OF IT. `tick(dt)` first: it steps the
+			motion clock and then runs the registered `onTick` hooks, so a hook reads
+			this frame's settled values. `refresh()` last: it re-solves whatever this
+			frame dirtied, including whatever the hooks just wrote, and is a no-op
+			when nothing is dirty. Reversing them costs every hook a frame of
+			latency, which is the same defect as driving `refresh` alone, one frame
+			smaller. ]]
+		local disposed = false
+		local disconnect = (if o.connectFrame then o.connectFrame else engineConnectFrame)(function(dt: number)
+			if disposed then
+				return
+			end
+			presenter.tick(dt)
+			presenter.refresh()
+		end)
+		table.insert(undo, disconnect)
+
+		built = {
+			core = core,
+			env = env,
+			adapter = adapter,
+			inputSystem = inputSystem,
+			presenter = presenter,
+			--[[ IDEMPOTENT, AND THE FRAME GOES FIRST. A frame that lands between the
+				unbind and the disconnect would drive a presenter whose environment has
+				stopped answering, which is the one ordering that turns a clean teardown
+				into a mid-frame error. Everything the CONSUMER presented is the
+				consumer's to dismiss — this disposes only what the host built. ]]
+			dispose = function()
+				if disposed then
+					return
+				end
+				disposed = true
+				unwind()
+			end,
+		}
+	end)
+	if not ok then
+		unwind()
+		error(err, 0)
+	end
+	return built :: Host
+end
+
+return host

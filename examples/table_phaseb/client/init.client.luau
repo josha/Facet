@@ -9,20 +9,18 @@ if not game:IsLoaded() then
 end
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet")) :: any
-local screen_target = require(ReplicatedStorage.Facet.client.screen_target) :: any
-local roblox_env = require(ReplicatedStorage.Facet.client.roblox_env) :: any
-local roblox_input = require(ReplicatedStorage.Facet.client.roblox_input) :: any
+--[[ THE BLESSED BOOTSTRAP (REUSE-109, 0.10.0). This file used to hand-roll the
+	six steps and then drive `pres.refresh()` alone on `Heartbeat` — so its motion
+	clock never advanced and every transition, toast and spring on this demo was
+	frozen, which is exactly the defect the audit found in three shipped game
+	surfaces. The host is one call and drives both halves on PreRender. ]]
+local host = require(ReplicatedStorage.Facet.client.host) :: any
 
 local UI = Facet.UI
-local core = Facet.newCore()
-local env = Facet.newEnvironment(core)
-local unbindEnv = roblox_env.bind(env)
-local adapter = screen_target.new()
-local system = roblox_input.newSystem(core)
-local pres = Facet.newPresenter(core, env, adapter, system)
+local h = host.new()
+local core, env, pres = h.core, h.env, h.presenter
 
 local rows = core:signal({
 	{ id = "razz", name = "Razz Raccoon", laps = 3 },
@@ -143,8 +141,11 @@ pres.present(screen, {
 	end,
 })
 
-local heartbeat = RunService.Heartbeat:Connect(function()
-	pres.refresh()
+--[[ THE PER-FRAME PROBE RIDES THE PRESENTER'S OWN CLOCK. `onTick` is the
+	sanctioned frame source for consumer work — it runs inside the host's single
+	PreRender, after the motion step and before the refresh, so these attributes
+	report this frame's settled values rather than the previous frame's. ]]
+local unsubscribeProbe = pres.onTick(function()
 	local order = {}
 	for _, item in rows:get() do
 		table.insert(order, item.id)
@@ -167,4 +168,4 @@ end)
 workspace:SetAttribute("Facet_TB_Ready", true)
 print(`[Facet TablePhaseB] running {Facet.VERSION}`)
 
-local _keep = { unbindEnv, heartbeat, tbl }
+local _keep = { h, unsubscribeProbe, tbl }

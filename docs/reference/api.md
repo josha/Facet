@@ -7012,21 +7012,69 @@ for the physical gate a support claim would have to pass first.
 
 ## Client entry points
 
-Everything above hangs off the `Facet` table. These eleven modules do not: they
+Everything above hangs off the `Facet` table. These twelve modules do not: they
 are the code that touches Roblox `Instance`s, real input and real device facts,
 so exporting them would put engine requires in the shared/server graph. A client
 script requires each **directly**:
 
 ```lua
-local screen_target = require(ReplicatedStorage.Facet.client.screen_target)
+local host = require(ReplicatedStorage.Facet.client.host)
 ```
 
-**This list is the contract** (ADR-0011, constitution §12). These eleven are
+**This list is the contract** (ADR-0011, constitution §12). These twelve are
 public surface with the same compatibility promise as anything above; everything
 else under `src/` is library-internal, and a consumer requiring one of those is
 outside the boundary rule. `tools/lune/check_boundary.luau` holds the same list
 in code and is the authority — this section and the constitution are reconciled
 to it, never the other way round.
+
+**Start with `client.host`.** It composes four of the others into the one
+bootstrap and drives the frame correctly; reach for `screen_target`,
+`roblox_env` and `roblox_input` individually only when you are building
+something the host does not shape.
+
+#### `client.host`
+
+`host.new(opts?) -> { core, env, adapter, inputSystem, presenter, dispose }` —
+**the bootstrap.** Builds a core, an environment BOUND to the engine, a
+`screen_target` adapter, a `roblox_input` system and a presenter, then connects
+**one** `RunService.PreRender` that calls `presenter.tick(dt)` and then
+`presenter.refresh()`.
+
+```lua
+local host = require(ReplicatedStorage.Facet.client.host)
+
+local h = host.new({ displayOrder = 100 })
+h.presenter.present(myScreen)
+-- per-frame work of your own goes here, never on a second connection:
+h.presenter.onTick(function(dt) end)
+-- ...and when the surface goes away:
+h.dispose()
+```
+
+**Why both halves of the frame.** `refresh()` re-solves whatever the frame
+dirtied; `tick(dt)` advances the MOTION CLOCK that every transition, toast
+schedule, spring and timer rides. A `refresh`-only drive leaves that clock
+frozen — a toast never expires, a transition never completes — and nothing says
+so, because a frozen clock and a settled one look identical in a dump. `PreRender`
+and not `Heartbeat`: Heartbeat runs *after* render, so everything the tick drives
+arrives a frame late.
+
+**Your per-frame work goes on `presenter.onTick`**, which returns its own
+unsubscribe. A second `RunService` connection in a consumer is the bug class the
+single frame source exists to prevent.
+
+| Opt | Meaning |
+|---|---|
+| `nativeStyle`, `style`, `parent`, `autoLocalize`, `themePackage`, `displayOrder` | forwarded verbatim to `screen_target.new` |
+| `now` | the presenter's wall clock (`() -> number`), for a spec that needs two presses either side of the echo window |
+| `newCore`, `bindEnv`, `newAdapter`, `newInputSystem`, `connectFrame` | seams. Each replaces one construction step, so a headless spec or an Edit-mode preview can drive the same host. `connectFrame` takes the per-frame function and returns its disconnect |
+
+`dispose()` is idempotent: it takes back the frame connection **first**, then
+unbinds the environment — a frame landing between the two would drive a presenter
+whose environment has stopped answering. It disposes only what the host built;
+whatever you presented is yours to `dismiss`. A construction that throws part-way
+unwinds everything that had already succeeded before re-raising.
 
 #### `client.screen_target`
 
@@ -7045,6 +7093,7 @@ releases the tree.
 | `forceDragFallback` | make `setDragDetector` answer nil so the raw pointer-capture path runs instead |
 | `nativeStyle` | opt into native StyleSheet paint: `true` for the built-in Dark/Light model, or `{ model?, handle?, host?, theme?, transitions? }`. Absent or unsupported keeps the explicit-write path |
 | `themePackage` | the installed `ThemePackage` whose chrome recipes decide decoration slots; the theme controller swaps it at runtime |
+| `displayOrder` | the `DisplayOrder` every root this target creates gets — where the whole target sits against the game's own `ScreenGui`s. Absent means 0 (the engine's default), which is why a game's hand-made surfaces float above Facet's unless someone says otherwise. The presenter still layers its own surfaces above one another from this floor |
 
 #### `client.billboard_target`
 

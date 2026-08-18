@@ -100,6 +100,13 @@ walk("src")
 -- violation whether or not it currently works. Pinned in api.md's client
 -- entry-point section and in ADR-0011 — this is the same list, mechanically.
 local BLESSED_CLIENT_MODULES: { [string]: boolean } = {
+	--[[ BLESSED 0.10.0 (REUSE-109), and the first entry a consumer should reach
+		for: `host.new` composes `roblox_env` + `screen_target` + `roblox_input` +
+		the presenter into the one bootstrap, and drives BOTH halves of the frame.
+		There was no framework host, so all eight known bootstraps were hand-rolled
+		and three of the four shipped ones drove `refresh()` without `tick(dt)` —
+		a frozen motion clock that no dump can distinguish from a settled one. ]]
+	host = true,
 	screen_target = true,
 	roblox_env = true,
 	roblox_input = true,

@@ -258,6 +258,19 @@ export type Opts = {
 	-- zero instances, so this is free to leave unset. The theme controller
 	-- swaps it at runtime through `adapter.setThemePackage`.
 	themePackage: any?,
+	--[[ WHERE THIS TARGET'S ROOTS SIT AGAINST THE GAME'S OWN `ScreenGui`s
+		(reuse audit REUSE-122). Every root this target creates gets this
+		`DisplayOrder`; the presenter still layers its OWN surfaces above one
+		another with `adapter.setRootDisplayOrder`, so this is the FLOOR the whole
+		target stands on, not a per-surface number.
+
+		WHY IT HAS TO BE STATEABLE. Roots were created with `DisplayOrder` unset,
+		which is 0, and the audit counted seventeen hand-made game `ScreenGui`s
+		carrying scattered magic numbers between 90 and 100 — so every native game
+		surface floated above every Facet surface by default, and no one had
+		decided that; it was discovered. Absent still means 0, so nothing moves
+		unless a consumer says where it wants to be. ]]
+	displayOrder: number?,
 }
 
 function screen_target.new(opts: Opts?)
@@ -265,6 +278,9 @@ function screen_target.new(opts: Opts?)
 	-- default TRUE: Roblox's own default, and the director's ruling is that this
 	-- experience localizes. `false` is an explicit opt-out for one that does not.
 	local autoLocalize: boolean = not (opts ~= nil and opts.autoLocalize == false)
+	-- REUSE-122: absent stays 0 (the engine's own default), so no existing
+	-- consumer's layering moves
+	local baseDisplayOrder: number? = opts and opts.displayOrder
 	--[[ THE LIVE REDUCED-MOTION FACT (C1, 2026-08-12). Every bespoke tween in this
 		file asks `isReducedMotion()`; what changed is where the answer comes from.
 
@@ -1002,6 +1018,11 @@ function screen_target.new(opts: Opts?)
 		gui.ResetOnSpawn = false
 		gui.IgnoreGuiInset = true
 		gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+		-- the target's floor against the game's own ScreenGuis (REUSE-122); the
+		-- presenter still stacks its surfaces above one another from here
+		if baseDisplayOrder ~= nil then
+			gui.DisplayOrder = baseDisplayOrder
+		end
 		if nativeMode then
 			-- one StyleLink per Facet root (plan §6): the single application point
 			local sheet = activeSheetFor()

@@ -196,21 +196,17 @@ runs headless under Lune and mounted under Rojo with no changes.
 
 ```lua
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Facet = require(ReplicatedStorage:WaitForChild("Facet"))
 
--- the client-only adapters are NOT on the Facet table; require them directly
-local screen_target = require(ReplicatedStorage.Facet.client.screen_target)
-local roblox_env    = require(ReplicatedStorage.Facet.client.roblox_env)
-local roblox_input  = require(ReplicatedStorage.Facet.client.roblox_input)
+-- the client-only modules are NOT on the Facet table; require them directly
+local host = require(ReplicatedStorage.Facet.client.host)
 
-local core   = Facet.newCore()
-local env    = Facet.newEnvironment(core)
-local unbind = roblox_env.bind(env)          -- pushes real screen size / input type into env
-local adapter = screen_target.new()          -- renders under PlayerGui with real Instances
-local system  = roblox_input.newSystem(core) -- maps actions onto the engine input system
-local presenter = Facet.newPresenter(core, env, adapter, system)
+-- ONE call stands the whole thing up: a core, an environment BOUND to the
+-- engine, a render target under PlayerGui, an input system, a presenter — and
+-- one PreRender connection driving both halves of the frame.
+local h = host.new()
+local core, presenter = h.core, h.presenter
 
 local count = core:signal(0)
 local label = core:memo(function(use) return `Clicked {use(count)} times` end)
@@ -232,41 +228,44 @@ local screen = Facet.UI.Screen({
 
 presenter.present(screen)
 
--- ONE frame source, and it drives BOTH halves.
---   tick(dt) advances the presenter's motion clock — every transition, every
---            toast schedule, every spring and timer riding it.
---   refresh() pushes the dirty changes of this frame to the screen (a no-op
---            when nothing is dirty).
--- PreRender rather than Heartbeat: Heartbeat runs AFTER render, which adds a
--- frame of latency to everything the tick drives.
-RunService.PreRender:Connect(function(dt)
-    presenter.tick(dt)
-    presenter.refresh()
-end)
+-- ...and when this surface goes away, `h.dispose()` takes back the frame
+-- connection and unbinds the environment.
 ```
 
 The three differences from the headless version are the only differences that
 ever matter between test and production:
 
-1. **The client-only requires.** `screen_target`, `roblox_env`, and
-   `roblox_input` come from `src/client/*`, *not* from the `Facet` table. Keeping
+1. **The client-only require.** `host` comes from `src/client/*`, *not* from the
+   `Facet` table, and neither do the four modules it composes (`screen_target`,
+   `roblox_env`, `roblox_input`, and the render target's collaborators). Keeping
    them off the public table is what lets server and shared code `require` the
    main library safely — none of the engine-touching code is pulled in unless a
-   client explicitly asks for it.
-2. **`roblox_env.bind(env)`** connects the environment's fact keys to real engine
-   values and keeps them live (it returns an unbind function to disconnect
-   later). In the headless test the environment just used its defaults.
-3. **The per-frame `tick(dt)` + `refresh()`.** As explained in
-   [chapter 2](02-architecture.md), changes accumulate in a dirty queue and are
+   client explicitly asks for it. You can still build the pieces by hand (see
+   [api.md §Client entry points](../reference/api.md#client-entry-points)); the
+   host is what those steps compose to, in the order they have to happen.
+2. **The environment is BOUND.** `host.new` calls `roblox_env.bind(env)` for
+   you, which connects the environment's fact keys to real engine values and
+   keeps them live. In the headless test the environment just used its defaults.
+3. **The per-frame `tick(dt)` + `refresh()`, which the host owns.** As explained
+   in [chapter 2](02-architecture.md), changes accumulate in a dirty queue and are
    applied when `refresh()` runs. **`tick(dt)` is the other half and it is not
    optional**: it is what advances the presenter's motion clock, so transitions,
    toast expiry and every spring or timer on that clock only move on frames you
    tick. A surface that drives `refresh` alone paints correctly and never
    animates — and nothing reports it, because a frozen clock and a settled one
-   look identical. (This guide taught `refresh` alone until 2026-08-17, and three
-   shipped surfaces in Rascal Rally had frozen motion because of it.) In a test
-   you call both manually — `presenter.tick(1/60)` to advance time,
-   `presenter.refresh()` after changing state — then inspect the result.
+   look identical. (This guide taught a hand-rolled `refresh`-only loop until
+   2026-08-17, and three shipped surfaces in Rascal Rally had frozen motion
+   because of it. The host exists so the lesson cannot be copied out of this page
+   again.) In a test you call both manually — `presenter.tick(1/60)` to advance
+   time, `presenter.refresh()` after changing state — then inspect the result.
+
+**Per-frame work of your own** — polling a model, stepping a game clock — goes on
+`presenter.onTick(fn)`, which returns its own unsubscribe. It runs on the same
+frame, after the motion step, so it reads this frame's settled values and
+whatever it writes is solved before the frame ends. A second `RunService`
+connection is the thing to avoid: the audit that produced the host found thirteen
+game modules driving three different signals for what is conceptually one UI
+frame.
 
 ## 3.5 Where does *semantic* state come from?
 

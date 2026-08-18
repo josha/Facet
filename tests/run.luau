@@ -629,6 +629,11 @@ require("./leaf_helpers.spec")
 	(case-sensitive <= 2; case-folded, length-scaled) disagreed and nobody had
 	ever decided that, so both are pinned rather than merged ]]
 require("./text_distance.spec")
+--[[ the client host's frame contract: one PreRender, `tick(dt)` then
+	`refresh()`, consumer work on `presenter.onTick`, and an all-or-nothing
+	construction — the half three of the four shipped bootstraps dropped, which no
+	dump can see because a frozen motion clock looks exactly like a settled one ]]
+require("./client_host.spec")
 local ok = testkit.run()
 if not ok then
 	process.exit(1)
